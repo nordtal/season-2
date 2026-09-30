@@ -1,6 +1,10 @@
 package eu.nordtal.s2.database.payment;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.Actor;
+import eu.nordtal.s2.database.Jdbis;
+import eu.nordtal.s2.database.inbox.BankRequest;
+import eu.nordtal.s2.database.inbox.Inbox;
 import java.security.SecureRandom;
 import java.sql.SQLException;
 import java.util.HexFormat;
@@ -9,6 +13,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 
@@ -33,11 +38,14 @@ public final class PaymentRequests {
 
     private final Jdbi jdbi;
     private final PaymentRequestDao dao;
+    private final Inbox<BankRequest> bank;
     private final SecureRandom random = new SecureRandom();
 
-    public PaymentRequests(final Jdbi jdbi) {
-        this.jdbi = jdbi;
+    /** Borrows the pool it is given and owns nothing; the process that built it closes it. */
+    public PaymentRequests(final DataSource dataSource) {
+        this.jdbi = Jdbis.over(dataSource);
         this.dao = jdbi.onDemand(PaymentRequestDao.class);
+        this.bank = Inbox.over(dataSource, BankRequest.TABLE);
     }
 
     public Optional<PaymentRequest> openOf(final DiscordId discordId) {
@@ -80,16 +88,6 @@ public final class PaymentRequests {
 
     public boolean alreadyBooked(final long bunqPaymentId) {
         return dao.booked(bunqPaymentId).isPresent();
-    }
-
-    /** Returns open requests waiting for a bunq.me tab, oldest ask first: steward-worker's queue. */
-    public List<PaymentRequest> tabsToCreate() {
-        return dao.tabsToCreate();
-    }
-
-    /** Returns requests whose bunq tab is to be gone and is not yet: steward-worker's other queue. */
-    public List<PaymentRequest> tabsToCancel() {
-        return dao.tabsToCancel();
     }
 
     /** Returns requests steward-worker has attributed money to and nobody has booked: the bot's queue. */
@@ -210,16 +208,21 @@ public final class PaymentRequests {
     }
 
     /**
-     * Asks steward-worker for a bunq.me tab, clearing any previous failure, so this is also the retry.
+     * Asks the bank's inbox for a bunq.me tab, clearing any previous refusal, so this is also the retry.
      *
+     * @param by who asked: the payer, pressing the button
      * @return {@code false} when the request was closed or already has one
      */
-    public boolean requestTab(final UUID id) {
-        return dao.requestTab(id) == 1;
+    public boolean requestTab(final UUID id, final Actor by) {
+        if (dao.clearFailure(id) == 0) {
+            return false;
+        }
+        bank.submit(new BankRequest.OpenTab(id), by);
+        return true;
     }
 
     /**
-     * Records that bunq refused to make the tab, and takes the request out of the queue.
+     * Records that bunq refused to make the tab.
      *
      * @param reason what bunq said, shown to the user instead of a link
      * @return {@code true} when the failure was recorded
@@ -229,30 +232,19 @@ public final class PaymentRequests {
     }
 
     /**
-     * Asks steward-worker to cancel the request's bunq tab; closing the row is the caller's own write.
-     *
-     * @return {@code false} when it had already been asked for
-     */
-    public boolean requestCancel(final UUID id) {
-        return dao.requestCancel(id) == 1;
-    }
-
-    /**
-     * Closes a request and asks for its bunq tab to go away, in one transaction.
-     * The cancel is asked for unconditionally, tab or no tab.
+     * Closes a request and asks the bank's inbox for its tab to go away, tab or no tab.
+     * The ask comes first: a request left open with its tab cancelled expires; a closed one with a live tab is paid.
      *
      * @param status anything but {@code PAID}
+     * @param by     who closed it: the payer, or Steward for an expiry
      * @return {@code false} when something else already closed it; the cancel was still asked for
      */
-    public boolean closeAndRequestCancel(final UUID id, final PaymentRequestStatus status) {
+    public boolean closeAndRequestCancel(final UUID id, final PaymentRequestStatus status, final Actor by) {
         if (status == PaymentRequestStatus.PAID) {
             throw new IllegalArgumentException("use settle() to mark a request paid");
         }
-        return jdbi.inTransaction(handle -> {
-            final PaymentRequestDao attached = handle.attach(PaymentRequestDao.class);
-            attached.requestCancel(id);
-            return attached.close(id, status.name()) == 1;
-        });
+        bank.submit(new BankRequest.CancelTab(id), by);
+        return dao.close(id, status.name()) == 1;
     }
 
     /**

@@ -89,6 +89,13 @@ class DatabaseRoleIntegrationTest {
                 mayNot(
                         DatabaseRole.PROXY,
                         "INSERT INTO smp_inbox (kind, payload, actor_kind) VALUES ('COMMAND', '{}', 'HOST')"),
+                may(
+                        DatabaseRole.DISCORD_BOT,
+                        "INSERT INTO bank_inbox (kind, payload, actor_kind) VALUES ('CANCEL_TAB', '{}', 'HOST')"),
+                mayNot(DatabaseRole.DISCORD_BOT, "UPDATE bank_inbox SET status = 'DONE' WHERE false"),
+                mayNot(
+                        DatabaseRole.STEWARD_UI,
+                        "INSERT INTO bank_inbox (kind, payload, actor_kind) VALUES ('CANCEL_TAB', '{}', 'HOST')"),
                 mayNot(DatabaseRole.DISCORD_BOT, "SELECT count(*) FROM steward_session")));
         for (final DatabaseRole role : LOGINS) {
             cases.add(may(role, "INSERT INTO audit_log (action) VALUES ('X')"));

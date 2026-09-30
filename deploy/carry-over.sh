@@ -11,8 +11,9 @@
 #
 # Carried: access, links, the admin tree, playtime, the season, smp and Hunger Games data, the audit
 # log, Steward's security keys and push subscriptions, the bot's posted messages, the payment
-# gateway and its watermark, holds and added plugins. Dropped: run and request history, metrics, sessions, link
-# codes and who is online, which a fresh installation rebuilds or never needs.
+# gateway and its watermark, holds and added plugins, and a tab still to be made or cancelled as a request in the
+# bank's inbox. Dropped: run and request history, metrics, sessions, link codes and who is online, which a fresh
+# installation rebuilds or never needs.
 set -eu
 
 if [ "$#" -ne 2 ]; then
@@ -36,7 +37,8 @@ psql_on() {
 TABLES='discord_user|discord_id, locale, member_state, donor, updated, admin, discord_username, discord_username_updated, discord_display_name, discord_display_name_updated, discord_avatar_url, discord_avatar_url_updated, admin_granted_by, admin_granted_at, pack_exempt_by, pack_exempt_at|
 account_link|discord_id, mc_uuid, linked, mc_name, mc_name_updated|
 admin_grant|id, discord_id, granted_by, granted|
-payment_request|id, reference, discord_id, days, amount_cents, donation_cents, status, bunq_tab_id, share_url, bunq_payment_id, created, expires, settled, tab_requested, tab_failed, cancel_requested, tab_cancelled, matched_cents, matched_by|
+payment_request|id, reference, discord_id, days, amount_cents, donation_cents, status, bunq_tab_id, share_url, bunq_payment_id, created, expires, settled, tab_failed, tab_cancelled, matched_cents, matched_by|
+bank_inbox|kind, payload, actor_kind|SELECT $$OPEN_TAB$$, jsonb_build_object($$payment$$, id), $$HOST$$ FROM payment_request WHERE status = $$OPEN$$ AND tab_requested IS NOT NULL AND bunq_tab_id IS NULL AND cancel_requested IS NULL UNION ALL SELECT $$CANCEL_TAB$$, jsonb_build_object($$payment$$, id), $$HOST$$ FROM payment_request WHERE cancel_requested IS NOT NULL AND bunq_tab_id IS NOT NULL AND tab_cancelled IS NULL
 access_grant|id, discord_id, valid_from, valid_until, source, payment_request_id, revoked, created|
 payment_notice|bunq_payment_id, reason, detail, reported, posted|
 expiry_notice|discord_id, valid_until, kind, sent|

@@ -33,9 +33,7 @@ public final class PaymentRequestMapper implements RowMapper<PaymentRequest> {
                 Objects.requireNonNull(instant(rs, "created"), "created"),
                 Objects.requireNonNull(instant(rs, "expires"), "expires"),
                 instant(rs, "settled"),
-                instant(rs, "tab_requested"),
                 rs.getString("tab_failed"),
-                instant(rs, "cancel_requested"),
                 instant(rs, "tab_cancelled"),
                 nullableInt(rs, "matched_cents"),
                 match(rs, "matched_by"));

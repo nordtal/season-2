@@ -1,6 +1,7 @@
 package eu.nordtal.s2.discordbot.access.payment;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.payment.PaymentRequest;
 import eu.nordtal.s2.database.payment.PaymentRequestStatus;
 import eu.nordtal.s2.database.payment.PaymentRequests;
@@ -53,9 +54,7 @@ public final class Purchases {
                         open.created(),
                         open.expires(),
                         null,
-                        open.tabRequested(),
                         open.tabFailed(),
-                        open.cancelRequested(),
                         open.tabCancelled(),
                         open.matchedCents(),
                         open.matchedBy());
@@ -72,7 +71,7 @@ public final class Purchases {
     }
 
     /**
-     * Asks steward-worker for the bunq.me tab and returns once the row is written; asking again is the retry.
+     * Asks the bank's inbox for the bunq.me tab and returns once the request is written; asking again is the retry.
      *
      * @param request the open request
      * @return {@code true} when a tab is now wanted; {@code false} when the request is closed or already has one
@@ -81,7 +80,7 @@ public final class Purchases {
         if (request.tab().isPresent()) {
             return false;
         }
-        return requests.requestTab(request.id());
+        return requests.requestTab(request.id(), Actor.person(request.discordId()));
     }
 
     /**
@@ -91,7 +90,7 @@ public final class Purchases {
      * @param status  {@code SUPERSEDED}, {@code EXPIRED} or {@code CANCELLED}
      */
     public void close(final PaymentRequest request, final PaymentRequestStatus status) {
-        if (requests.closeAndRequestCancel(request.id(), status)) {
+        if (requests.closeAndRequestCancel(request.id(), status, Actor.person(request.discordId()))) {
             log.info("Request {} is now {}", request.reference(), status);
         }
     }

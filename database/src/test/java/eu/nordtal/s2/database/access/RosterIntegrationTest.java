@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.id.DiscordId;
-import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.payment.PaymentRequest;
 import eu.nordtal.s2.database.payment.PaymentRequestStatus;
@@ -54,7 +53,7 @@ class RosterIntegrationTest {
         execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, audit_log, "
                 + "player_playtime, discord_user CASCADE");
         directory = AccessReader.using(dataSource, Clock.systemUTC());
-        payments = new PaymentRequests(Jdbis.over(dataSource));
+        payments = new PaymentRequests(dataSource);
     }
 
     @Test

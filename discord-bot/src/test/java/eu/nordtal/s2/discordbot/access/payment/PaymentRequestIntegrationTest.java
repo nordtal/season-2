@@ -12,11 +12,15 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AccessGrant;
 import eu.nordtal.s2.database.access.AccessSource;
+import eu.nordtal.s2.database.inbox.BankRequest;
+import eu.nordtal.s2.database.inbox.Inbox;
+import eu.nordtal.s2.database.inbox.Request;
 import eu.nordtal.s2.database.payment.PaymentMatch;
 import eu.nordtal.s2.database.payment.PaymentNotice;
 import eu.nordtal.s2.database.payment.PaymentRequest;
@@ -73,10 +77,11 @@ class PaymentRequestIntegrationTest {
     void clean() {
         assumeTrue(database != null);
         database.jdbi()
-                .useHandle(handle ->
-                        handle.execute("TRUNCATE access_grant, payment_request, expiry_notice, payment_notice, "
-                                + "account_link, link_code, audit_log, discord_user, payment_gateway CASCADE"));
-        requests = new PaymentRequests(database.jdbi());
+                .useHandle(
+                        handle -> handle.execute(
+                                "TRUNCATE access_grant, payment_request, expiry_notice, payment_notice, "
+                                        + "account_link, link_code, audit_log, discord_user, payment_gateway, bank_inbox CASCADE"));
+        requests = new PaymentRequests(database.dataSource());
         access = AccessDirectory.using(database.dataSource(), Clock.systemUTC());
     }
 
@@ -254,82 +259,67 @@ class PaymentRequestIntegrationTest {
                         "30 days on top of 30 days"));
     }
 
-    @Test
-    void aRequestThatWantsATabTurnsUpInTheWorkersQueueAndOnlyThen() {
-        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
-        assertTrue(requests.tabsToCreate().isEmpty(), "choosing a tier is not asking for a payment link");
+    /** The bank's inbox, as the worker would read it. */
+    private Inbox<BankRequest> bank() {
+        return Inbox.over(database.dataSource(), BankRequest.TABLE);
+    }
 
-        assertTrue(requests.requestTab(request.id()));
-
-        assertAll(
-                () -> assertEquals(List.of(request.reference()), references(requests.tabsToCreate())),
-                () -> assertNotNull(requests.tabsToCreate().getFirst().tabRequested()),
-                () -> assertNull(requests.tabsToCreate().getFirst().tabFailed()));
+    /** Every request waiting in the bank's inbox, oldest first. */
+    private List<BankRequest> asked() {
+        return bank().recent(BankRequest.OpenTab.class, 50).stream()
+                .map(Request::payload)
+                .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new))
+                .reversed();
     }
 
     @Test
-    void theQueueEmptiesTheMomentTheTabExists() {
+    void aRequestThatWantsATabIsAskedOfTheBankAndOnlyThen() {
         final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
-        requests.requestTab(request.id());
-        assertEquals(1, requests.tabsToCreate().size(), "queued");
+        assertTrue(asked().isEmpty(), "choosing a tier is not asking for a payment link");
 
+        assertTrue(requests.requestTab(request.id(), Actor.person(DiscordId.of(USER))));
+
+        assertEquals(List.of(new BankRequest.OpenTab(request.id())), asked());
+        final Request<BankRequest> ask = bank().claim().orElseThrow();
+        assertEquals(Actor.person(DiscordId.of(USER)), ask.actor(), "the payer asked, not the system");
+    }
+
+    @Test
+    void aRequestWithATabIsNotAskedForAnother() {
+        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
         assertTrue(requests.attachTab(request.id(), 4242L, "https://bunq.me/x"));
 
-        // Otherwise the worker makes a second tab on its next pass.
-        assertTrue(requests.tabsToCreate().isEmpty(), "a request with a tab is not waiting for one");
-        assertFalse(requests.requestTab(request.id()), "and asking again changes nothing");
+        // Otherwise the worker makes a second tab.
+        assertFalse(requests.requestTab(request.id(), Actor.person(DiscordId.of(USER))), "asking changes nothing");
+        assertTrue(asked().isEmpty());
     }
 
     @Test
-    void aRefusedTabLeavesTheQueueSaysWhyAndCanBeAskedForAgain() {
+    void aRefusedTabSaysWhyAndAskingAgainClearsTheReason() {
         final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
-        requests.requestTab(request.id());
+        requests.requestTab(request.id(), Actor.person(DiscordId.of(USER)));
 
         assertTrue(requests.failTab(request.id(), "bunq: MonetaryAccount not found"));
 
         final PaymentRequest failed = requests.openOf(DiscordId.of(USER)).orElseThrow();
         assertAll(
-                () -> assertTrue(
-                        requests.tabsToCreate().isEmpty(),
-                        "a failure retried on every pass is a failure repeated forever"),
-                () -> assertNull(failed.tabRequested()),
                 () -> assertEquals(
                         "bunq: MonetaryAccount not found", failed.tabFailed(), "'der Link kommt gleich' needs an exit"),
-                () -> assertTrue(requests.requestTab(request.id())),
+                () -> assertTrue(requests.requestTab(request.id(), Actor.person(DiscordId.of(USER)))),
                 () -> assertNull(
                         requests.openOf(DiscordId.of(USER)).orElseThrow().tabFailed(),
                         "asking again clears the old reason rather than showing it next to a pending ask"));
     }
 
     @Test
-    void aRequestAlreadyAskedToBeCancelledIsNeverGivenATab() {
+    void aTabIsRecordedCancelledOnceAndOnlyWhenThereIsOne() {
         final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
-        requests.requestTab(request.id());
-        assertTrue(requests.requestCancel(request.id()));
-
-        // Otherwise the window before the status is written produces a tab only to cancel.
-        assertTrue(requests.tabsToCreate().isEmpty());
-    }
-
-    @Test
-    void aCancelIsQueuedOnceAndLeavesTheQueueWhenTheTabIsGone() {
-        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
+        assertFalse(requests.recordCancelled(request.id()), "there is no tab to have cancelled");
         requests.attachTab(request.id(), 4242L, "https://bunq.me/x");
-        assertTrue(requests.tabsToCancel().isEmpty());
-
-        assertTrue(requests.requestCancel(request.id()));
-        assertFalse(requests.requestCancel(request.id()), "asking twice does not move the timestamp");
-        assertTrue(requests.close(request.id(), PaymentRequestStatus.CANCELLED));
-
-        assertEquals(
-                List.of(request.reference()),
-                references(requests.tabsToCancel()),
-                "closing the row is not cancelling the tab at bunq");
 
         assertTrue(requests.recordCancelled(request.id()));
-        assertTrue(
-                requests.tabsToCancel().isEmpty(),
-                "without an exit the worker cancels the same tab on every pass, forever");
+        assertFalse(requests.recordCancelled(request.id()), "without an exit the worker cancels it forever");
+        assertNotNull(requests.byId(request.id()).orElseThrow().tabCancelled());
     }
 
     @Test
@@ -500,20 +490,21 @@ class PaymentRequestIntegrationTest {
     }
 
     @Test
-    void closingARequestAndAskingForItsTabToGoAwayIsOneTransaction() {
+    void closingARequestAsksTheBankForItsTabToGoAway() {
         final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
         requests.attachTab(request.id(), 4242L, "https://bunq.me/x");
 
-        assertTrue(requests.closeAndRequestCancel(request.id(), PaymentRequestStatus.EXPIRED));
+        assertTrue(requests.closeAndRequestCancel(request.id(), PaymentRequestStatus.EXPIRED, Actor.STEWARD));
 
-        final PaymentRequest closed = requests.byId(request.id()).orElseThrow();
-        assertAll(
-                () -> assertEquals(PaymentRequestStatus.EXPIRED, closed.status()),
-                () -> assertNotNull(
-                        closed.cancelRequested(),
-                        "a closed row whose bunq.me URL still works is a link somebody can pay,"
-                                + " and that payment lands on a reference nothing books"),
-                () -> assertEquals(List.of(request.reference()), references(requests.tabsToCancel())));
+        assertEquals(
+                PaymentRequestStatus.EXPIRED,
+                requests.byId(request.id()).orElseThrow().status());
+        // A closed row whose bunq.me URL still works is a link somebody can pay, onto a reference nothing books.
+        assertEquals(
+                List.of(new BankRequest.CancelTab(request.id())),
+                bank().recent(BankRequest.CancelTab.class, 10).stream()
+                        .map(Request::payload)
+                        .toList());
     }
 
     @Test
@@ -523,7 +514,7 @@ class PaymentRequestIntegrationTest {
         // PAID means something has to be granted, never a row closed with nothing.
         assertThrows(
                 IllegalArgumentException.class,
-                () -> requests.closeAndRequestCancel(request.id(), PaymentRequestStatus.PAID));
+                () -> requests.closeAndRequestCancel(request.id(), PaymentRequestStatus.PAID, Actor.STEWARD));
         assertEquals(
                 PaymentRequestStatus.OPEN,
                 requests.byId(request.id()).orElseThrow().status());

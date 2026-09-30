@@ -2,7 +2,10 @@ package eu.nordtal.s2.proxy.gate;
 
 import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
 
+import eu.nordtal.s2.common.language.Languages;
+import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
+import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.proxy.config.GateSpec;
 import eu.nordtal.s2.proxy.launch.LaunchCountdown;
@@ -26,13 +29,8 @@ public final class GateMessages {
 
     /** The unlinked screen: English first, German underneath, since the account has no locale yet. */
     Component notLinked(final String code, final @Nullable Instant launch, final @Nullable Instant now) {
-        Component result = MessageRenderer.of(messages)
-                .format(Locale.ENGLISH, MESSAGES.gate().notLinked(code))
-                .appendNewline()
-                .append(MessageRenderer.of(messages)
-                        .format(Locale.GERMAN, MESSAGES.gate().notLinked(code))
-                        .color(NamedTextColor.GRAY)
-                        .decorate(TextDecoration.ITALIC));
+        Component result =
+                inEveryLanguage(MessageRenderer.of(messages), MESSAGES.gate().notLinked(code));
         if (hasInvite()) {
             result = result.appendNewline()
                     .appendNewline()
@@ -152,5 +150,17 @@ public final class GateMessages {
 
     private boolean hasInvite() {
         return config.discordInviteUrl() != null && !config.discordInviteUrl().isBlank();
+    }
+
+    /** Renders a line in the fallback language with every other network language underneath, grey and italic. */
+    static Component inEveryLanguage(final MessageRenderer renderer, final MessageRef message) {
+        Component result = renderer.format(Locales.DEFAULT, message);
+        for (final Locale other : Languages.NETWORK.others()) {
+            result = result.appendNewline()
+                    .append(renderer.format(other, message)
+                            .color(NamedTextColor.GRAY)
+                            .decorate(TextDecoration.ITALIC));
+        }
+        return result;
     }
 }

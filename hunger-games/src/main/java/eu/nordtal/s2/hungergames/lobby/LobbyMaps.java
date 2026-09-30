@@ -1,5 +1,6 @@
 package eu.nordtal.s2.hungergames.lobby;
 
+import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
@@ -38,7 +39,7 @@ public final class LobbyMaps {
 
     /** Loads {@code lobby/map-<lang>.png} for every bundle language and mounts its slices at the configured origin. */
     public void render(final World world) {
-        for (final String language : java.util.List.of("en", "de")) {
+        for (final String language : Languages.NETWORK.tags()) {
             renderLanguage(world, language);
         }
     }

@@ -3,6 +3,7 @@ package eu.nordtal.s2.smp.announce;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.commands.announce.AnnounceCommands;
 import eu.nordtal.s2.commands.remote.RequestArguments;
+import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.database.command.CommandRequests;
 import eu.nordtal.s2.database.command.NewCommandRequest;
@@ -27,8 +28,8 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
  */
 public final class Announcer {
 
-    /** The languages a line is rendered in: this module's two bundles. */
-    public static final List<String> LANGUAGES = List.of("de", "en");
+    /** The languages a line is rendered in. */
+    public static final List<String> LANGUAGES = Languages.NETWORK.tags();
 
     /** How long a row waits for the bot before it is abandoned: a restart, not an outage. */
     public static final Duration KEEP = Duration.ofHours(1);

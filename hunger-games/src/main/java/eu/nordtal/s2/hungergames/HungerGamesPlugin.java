@@ -8,6 +8,7 @@ import eu.nordtal.s2.commands.hungergames.HungerGamesCommands;
 import eu.nordtal.s2.commands.hungergames.HungerGamesEffects;
 import eu.nordtal.s2.commands.remote.Outbox;
 import eu.nordtal.s2.common.health.Readiness;
+import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.database.access.AdminOperators;
 import eu.nordtal.s2.database.access.FullServerAdmission;
@@ -47,7 +48,6 @@ import eu.nordtal.s2.papercommon.command.PaperCommandInbox;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import java.time.Instant;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
@@ -165,8 +165,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
                         getClass().getClassLoader(),
                         java.util.List.of("messages/paper-common", "messages/commands", "messages/hunger-games"),
                         getDataFolder().toPath().resolve("messages"),
-                        Locale.ENGLISH,
-                        Locale.GERMAN)
+                        Languages.NETWORK.locales())
                 .within(MessageEnvironment.of(getName()));
         messages.unknownOverrideKeys()
                 .forEach(key -> getLogger()

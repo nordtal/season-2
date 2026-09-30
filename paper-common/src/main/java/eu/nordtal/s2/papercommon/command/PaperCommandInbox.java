@@ -4,6 +4,7 @@ import eu.nordtal.s2.commands.CommandEffects;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.remote.CommandInbox;
+import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.command.CommandRequests;
 import eu.nordtal.s2.database.notify.Channels;
@@ -67,8 +68,7 @@ public final class PaperCommandInbox {
                         plugin.getClass().getClassLoader(),
                         "messages/commands",
                         plugin.getDataFolder().toPath().resolve("messages"),
-                        java.util.Locale.ENGLISH,
-                        java.util.Locale.GERMAN)
+                        Languages.NETWORK.locales())
                 .within(MessageEnvironment.of(plugin.getName()));
     }
 

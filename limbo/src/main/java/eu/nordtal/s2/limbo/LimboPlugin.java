@@ -8,6 +8,7 @@ import eu.nordtal.s2.commands.limbo.LimboCommands;
 import eu.nordtal.s2.commands.limbo.LimboEffects;
 import eu.nordtal.s2.commands.remote.Outbox;
 import eu.nordtal.s2.common.health.Readiness;
+import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AdminOperators;
 import eu.nordtal.s2.database.access.FullServerAdmission;
@@ -33,7 +34,6 @@ import eu.nordtal.s2.papercommon.access.AdminWatch;
 import eu.nordtal.s2.papercommon.access.BukkitOps;
 import eu.nordtal.s2.papercommon.command.CommandFilter;
 import eu.nordtal.s2.papercommon.command.PaperCommandInbox;
-import java.util.Locale;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
@@ -132,8 +132,7 @@ public final class LimboPlugin extends JavaPlugin {
                         getClass().getClassLoader(),
                         java.util.List.of("messages/commands", "messages/limbo"),
                         getDataFolder().toPath().resolve("messages"),
-                        Locale.ENGLISH,
-                        Locale.GERMAN)
+                        Languages.NETWORK.locales())
                 .within(MessageEnvironment.of(getName()));
         messages.unknownOverrideKeys()
                 .forEach(key -> getLogger()

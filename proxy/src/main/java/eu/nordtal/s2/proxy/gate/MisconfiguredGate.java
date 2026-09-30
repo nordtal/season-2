@@ -13,8 +13,6 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.slf4j.Logger;
 
@@ -35,13 +33,8 @@ public final class MisconfiguredGate {
     public MisconfiguredGate(final Logger logger, final Messages messages) {
         this.logger = Objects.requireNonNull(logger, "logger");
         Objects.requireNonNull(messages, "messages");
-        this.screen = MessageRenderer.of(messages)
-                .format(Locale.ENGLISH, MESSAGES.gate().misconfigured())
-                .appendNewline()
-                .append(MessageRenderer.of(messages)
-                        .format(Locale.GERMAN, MESSAGES.gate().misconfigured())
-                        .color(NamedTextColor.GRAY)
-                        .decorate(TextDecoration.ITALIC));
+        this.screen = GateMessages.inEveryLanguage(
+                MessageRenderer.of(messages), MESSAGES.gate().misconfigured());
         // English only: a ping carries no player to take a language from.
         this.motd = MiniMessage.miniMessage()
                 .deserialize(messages.format(Locale.ENGLISH, MESSAGES.motd().misconfigured()));

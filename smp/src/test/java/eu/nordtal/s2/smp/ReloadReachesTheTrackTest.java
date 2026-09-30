@@ -39,6 +39,20 @@ class ReloadReachesTheTrackTest {
     }
 
     @Test
+    void bothReadsOfTheTrackCheckItsNames() throws IOException {
+        final String source = read(PLUGIN);
+        for (final String reader : List.of("private void loadMilestoneTrack(", "private void reloadMilestoneTrack(")) {
+            final int from = source.indexOf(reader);
+            assertTrue(from > 0, reader + " moved; point this test at it");
+            final String body = source.substring(from, source.indexOf("\n    }\n", from));
+            assertTrue(
+                    body.contains("TrackNames.validate("),
+                    reader + " takes a track without asking the server whether its items, statistics,"
+                            + " entities and advancements exist, so a misspelt one is never counted");
+        }
+    }
+
+    @Test
     void theReloadReachesTheMessages() throws IOException {
         // steward-worker sends `smp reload` and reports it applied; without these two lines that report is empty.
         final String source = (read(PLUGIN) + "\n" + read(START));

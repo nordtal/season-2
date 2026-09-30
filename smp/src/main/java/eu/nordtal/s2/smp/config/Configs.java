@@ -51,7 +51,7 @@ public final class Configs {
     }
 
     /**
-     * Loads the track, validating only its structure; registry names are bound at enable, stored progress elsewhere.
+     * Loads the track, validating only its structure; its names and stored progress are checked where it is taken.
      */
     public static ConfigHandle<MilestonesSpec> milestones(final Path dataFolder, final Logger logger)
             throws ConfigException {

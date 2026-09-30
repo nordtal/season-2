@@ -9,7 +9,7 @@ import java.util.Set;
 /**
  * Whether a milestone file is internally coherent, before it is compared to the database.
  *
- * Names of items, statistics and advancements are bound at enable, and pot arithmetic is not checked.
+ * Names of items, statistics and advancements are {@link TrackNames}' to check, and pot arithmetic is not checked.
  */
 public final class TrackShape {
 

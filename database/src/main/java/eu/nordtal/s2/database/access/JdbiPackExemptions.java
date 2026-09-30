@@ -1,10 +1,10 @@
 package eu.nordtal.s2.database.access;
 
+import eu.nordtal.s2.database.Jdbis;
 import java.util.Objects;
 import javax.sql.DataSource;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
 
 /** The only implementation of {@link PackExemptions}. */
 final class JdbiPackExemptions implements PackExemptions {
@@ -12,8 +12,7 @@ final class JdbiPackExemptions implements PackExemptions {
     private final Jdbi jdbi;
 
     JdbiPackExemptions(final DataSource dataSource) {
-        this.jdbi =
-                Jdbi.create(Objects.requireNonNull(dataSource, "dataSource")).installPlugin(new PostgresPlugin());
+        this.jdbi = Jdbis.over(Objects.requireNonNull(dataSource, "dataSource"));
     }
 
     @Override

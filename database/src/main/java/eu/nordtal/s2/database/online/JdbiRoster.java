@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.online;
 
+import eu.nordtal.s2.database.Jdbis;
 import java.time.InstantSource;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -11,9 +12,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import javax.sql.DataSource;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /** The only implementation of {@link OnlineRoster}; it borrows the pool it is given and owns nothing. */
 final class JdbiRoster implements OnlineRoster {
@@ -24,10 +22,7 @@ final class JdbiRoster implements OnlineRoster {
     JdbiRoster(final DataSource dataSource, final InstantSource clock) {
         Objects.requireNonNull(dataSource, "dataSource");
         this.clock = Objects.requireNonNull(clock, "clock");
-        this.dao = Jdbi.create(dataSource)
-                .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin())
-                .onDemand(OnlineRosterDao.class);
+        this.dao = Jdbis.over(dataSource).onDemand(OnlineRosterDao.class);
     }
 
     @Override

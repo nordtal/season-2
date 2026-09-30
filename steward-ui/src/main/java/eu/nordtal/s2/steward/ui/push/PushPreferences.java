@@ -1,14 +1,12 @@
 package eu.nordtal.s2.steward.ui.push;
 
+import eu.nordtal.s2.database.Jdbis;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import javax.sql.DataSource;
-import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.mapper.reflect.ColumnName;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -22,10 +20,7 @@ public final class PushPreferences {
 
     public PushPreferences(final DataSource dataSource) {
         Objects.requireNonNull(dataSource, "dataSource");
-        this.dao = Jdbi.create(dataSource)
-                .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin())
-                .onDemand(PushPreferenceDao.class);
+        this.dao = Jdbis.over(dataSource).onDemand(PushPreferenceDao.class);
     }
 
     /** One account's effective answer for every type, defaults where it has never chosen. */

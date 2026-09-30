@@ -3,15 +3,13 @@ package eu.nordtal.s2.database.phase;
 import static eu.nordtal.s2.database.DatabaseMessages.MESSAGES;
 
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.messages.Refused;
 import java.time.Instant;
 import java.time.InstantSource;
 import java.util.Objects;
 import java.util.Optional;
 import javax.sql.DataSource;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.jspecify.annotations.Nullable;
 
 /** The only implementation of {@link PhaseDirectory}; it borrows the pool it is given and owns nothing. */
@@ -23,10 +21,7 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
     JdbiPhaseDirectory(final DataSource dataSource, final InstantSource clock) {
         Objects.requireNonNull(dataSource, "dataSource");
         this.clock = Objects.requireNonNull(clock, "clock");
-        this.dao = Jdbi.create(dataSource)
-                .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin())
-                .onDemand(PhaseDao.class);
+        this.dao = Jdbis.over(dataSource).onDemand(PhaseDao.class);
     }
 
     @Override

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.metric;
 
+import eu.nordtal.s2.database.Jdbis;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -7,9 +8,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import javax.sql.DataSource;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /** The only implementation of {@link MetricDirectory}; it borrows its pool and owns nothing. */
 final class JdbiMetrics implements MetricDirectory {
@@ -18,10 +16,7 @@ final class JdbiMetrics implements MetricDirectory {
 
     JdbiMetrics(final DataSource dataSource) {
         Objects.requireNonNull(dataSource, "dataSource");
-        this.dao = Jdbi.create(dataSource)
-                .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin())
-                .onDemand(MetricDao.class);
+        this.dao = Jdbis.over(dataSource).onDemand(MetricDao.class);
     }
 
     @Override

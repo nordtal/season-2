@@ -1,10 +1,8 @@
 package eu.nordtal.s2.proxy.playtime;
 
+import eu.nordtal.s2.database.Jdbis;
 import java.util.Objects;
 import javax.sql.DataSource;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /** Where accumulated online time goes; an interface so {@link PlaytimeWriter} tests need no database. */
 public interface PlaytimeStore {
@@ -12,10 +10,7 @@ public interface PlaytimeStore {
     /** A store over the proxy's own pool; it owns nothing and there is nothing to close. */
     static PlaytimeStore using(final DataSource dataSource) {
         Objects.requireNonNull(dataSource, "dataSource");
-        final PlaytimeDao dao = Jdbi.create(dataSource)
-                .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin())
-                .onDemand(PlaytimeDao.class);
+        final PlaytimeDao dao = Jdbis.over(dataSource).onDemand(PlaytimeDao.class);
         return dao::add;
     }
 

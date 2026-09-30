@@ -11,6 +11,7 @@ import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.common.time.NetworkTime;
+import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AdminOperators;
 import eu.nordtal.s2.database.access.FullServerAdmission;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
@@ -58,8 +59,6 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.jspecify.annotations.Nullable;
 
 /** The hunger games start event of season 2. */
@@ -162,7 +161,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
         colours = ToneColours.parse(Configs.declared(coloursHandle.get()), getLogger()::warning);
 
         pool = HungerGamesPool.open(databaseHandle.get());
-        final Jdbi jdbi = Jdbi.create(pool).installPlugin(new SqlObjectPlugin()).installPlugin(new PostgresPlugin());
+        final Jdbi jdbi = Jdbis.over(pool);
         dao = jdbi.onDemand(HungerGamesDao.class);
 
         // Three roots, most general first; later roots win, so this module's keys beat both others.

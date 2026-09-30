@@ -1,12 +1,10 @@
 package eu.nordtal.s2.database.command;
 
+import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.audit.AuditLine;
 import java.util.Objects;
 import java.util.Optional;
 import javax.sql.DataSource;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /** {@link CommandRequests} over JDBI. */
 final class JdbiCommandRequests implements CommandRequests {
@@ -14,10 +12,7 @@ final class JdbiCommandRequests implements CommandRequests {
     private final CommandRequestDao dao;
 
     private JdbiCommandRequests(final DataSource dataSource) {
-        this.dao = Jdbi.create(dataSource)
-                .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin())
-                .onDemand(CommandRequestDao.class);
+        this.dao = Jdbis.over(dataSource).onDemand(CommandRequestDao.class);
     }
 
     static CommandRequests borrowing(final DataSource dataSource) {

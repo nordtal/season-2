@@ -1,14 +1,12 @@
 package eu.nordtal.s2.proxy.update;
 
+import eu.nordtal.s2.database.Jdbis;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import javax.sql.DataSource;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /** Where a proxy swap keeps each player's backend and the standby's head count, outside memory. */
 public interface SwapStore {
@@ -19,10 +17,7 @@ public interface SwapStore {
     /** Returns a store over the proxy's own pool; it owns nothing and there is nothing to close. */
     static SwapStore using(final DataSource dataSource) {
         Objects.requireNonNull(dataSource, "dataSource");
-        final SwapDao dao = Jdbi.create(dataSource)
-                .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin())
-                .onDemand(SwapDao.class);
+        final SwapDao dao = Jdbis.over(dataSource).onDemand(SwapDao.class);
         return new SwapStore() {
 
             @Override

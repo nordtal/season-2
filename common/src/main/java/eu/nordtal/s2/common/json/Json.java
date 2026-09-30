@@ -4,16 +4,32 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
+import com.google.gson.TypeAdapter;
 import com.google.gson.reflect.TypeToken;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
+import com.google.gson.stream.JsonWriter;
+import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.common.id.PlayerId;
+import java.io.IOException;
 import java.io.Reader;
+import java.util.UUID;
+import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The one JSON codec: records, lists, maps and plain values to text and back.
- * On Gson, which Paper and Velocity ship, so it is never shaded; a {@code null} component is left out.
+ * On Gson, which Paper and Velocity ship, so it is never shaded; a {@code null} component is left out, and an id is
+ * written as its text.
  */
 public final class Json {
 
-    private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
+    private static final Gson GSON = new GsonBuilder()
+            .disableHtmlEscaping()
+            .registerTypeAdapter(DiscordId.class, new TextAdapter<>(DiscordId::value, DiscordId::of))
+            .registerTypeAdapter(
+                    PlayerId.class, new TextAdapter<>(PlayerId::toString, text -> PlayerId.of(UUID.fromString(text))))
+            .create();
 
     private Json() {}
 
@@ -49,5 +65,35 @@ public final class Json {
     /** Returns the codec itself, for a web framework's mapper, which takes a Gson. */
     public static Gson gson() {
         return GSON;
+    }
+
+    /** Writes a value type as the one string it wraps, and reads it back. */
+    private static final class TextAdapter<T> extends TypeAdapter<T> {
+
+        private final Function<T, String> write;
+        private final Function<String, T> read;
+
+        TextAdapter(final Function<T, String> write, final Function<String, T> read) {
+            this.write = write;
+            this.read = read;
+        }
+
+        @Override
+        public void write(final JsonWriter out, final @Nullable T value) throws IOException {
+            if (value == null) {
+                out.nullValue();
+            } else {
+                out.value(write.apply(value));
+            }
+        }
+
+        @Override
+        public @Nullable T read(final JsonReader in) throws IOException {
+            if (in.peek() == JsonToken.NULL) {
+                in.nextNull();
+                return null;
+            }
+            return read.apply(in.nextString());
+        }
     }
 }

@@ -1,13 +1,11 @@
 package eu.nordtal.s2.database.access;
 
+import eu.nordtal.s2.database.Jdbis;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import javax.sql.DataSource;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 /** The only implementation of {@link AccessRequests}; it borrows its pool and owns nothing. */
 final class JdbiAccessRequests implements AccessRequests {
@@ -16,10 +14,7 @@ final class JdbiAccessRequests implements AccessRequests {
 
     JdbiAccessRequests(final DataSource dataSource) {
         Objects.requireNonNull(dataSource, "dataSource");
-        this.dao = Jdbi.create(dataSource)
-                .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin())
-                .onDemand(AccessRequestDao.class);
+        this.dao = Jdbis.over(dataSource).onDemand(AccessRequestDao.class);
     }
 
     @Override

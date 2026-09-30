@@ -142,10 +142,7 @@ public final class ObjectiveEngine {
             return 0L;
         }
         if (ObjectiveProgress.advance(amount.get() - 1L, before.target(), 1L).completes()) {
-            finishObjective(
-                    activeKey.get(),
-                    new ObjectiveRow(before.id(), before.key(), amount.get(), before.target(), false),
-                    completedBy);
+            finishObjective(activeKey.get(), before.withAmount(amount.get()), completedBy);
         }
         return 1L;
     }
@@ -172,7 +169,7 @@ public final class ObjectiveEngine {
         dao.addContribution(objective.id(), discordId, advance.credited());
 
         if (advance.completes()) {
-            finishObjective(milestoneKey, objective, completedBy);
+            finishObjective(milestoneKey, objective.withAmount(advance.amount()), completedBy);
         }
         return advance.credited();
     }

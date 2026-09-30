@@ -490,7 +490,7 @@ public final class StewardUi {
     }
 
     private void registerAccessRoutes(final JavalinConfig cfg) {
-        // Each of these is one access_request row the bot carries out; see AccessApi.
+        // Each of these is one request in the bot's inbox, which the bot carries out; see AccessApi.
         cfg.routes.post("/api/access/grant", access::grant, Gate.KEY_FRESH);
         cfg.routes.post("/api/access/revoke", access::revoke, Gate.KEY_FRESH);
         cfg.routes.post("/api/access/unlink", access::unlink, Gate.KEY_FRESH);

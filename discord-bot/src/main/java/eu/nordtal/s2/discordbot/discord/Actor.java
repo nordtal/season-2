@@ -19,7 +19,7 @@ public record Actor(
         Objects.requireNonNull(mention, "mention");
     }
 
-    /** Returns whoever an {@code access_request} row names, with no Minecraft account. */
+    /** Returns whoever a request in the bot's inbox names, with no Minecraft account. */
     public static Actor asked(final eu.nordtal.s2.database.Actor asker) {
         return switch (asker.kind()) {
             case PERSON -> new Actor(asker.id(), "<@" + asker.id() + ">", null);

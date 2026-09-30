@@ -9,6 +9,8 @@ import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AdminTree;
+import eu.nordtal.s2.database.inbox.BotRequest;
+import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.network.SnapshotDirectory;
 import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.SignalHub;
@@ -31,9 +33,9 @@ import eu.nordtal.s2.discordbot.config.Configs;
 import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.discordbot.config.DatabaseSpec;
 import eu.nordtal.s2.discordbot.config.Languages;
-import eu.nordtal.s2.discordbot.discord.AccessInbox;
 import eu.nordtal.s2.discordbot.discord.AdminRole;
 import eu.nordtal.s2.discordbot.discord.BotAccessEffects;
+import eu.nordtal.s2.discordbot.discord.BotInbox;
 import eu.nordtal.s2.discordbot.discord.GuildState;
 import eu.nordtal.s2.discordbot.discord.UpdateFeed;
 import eu.nordtal.s2.discordbot.hungergames.RegisterFlow;
@@ -182,10 +184,7 @@ public class AccessBot implements AutoCloseable {
                 updateFeed,
                 wiring.processor(),
                 wiring.purchaseFlow(),
-                new AccessInbox(
-                        eu.nordtal.s2.database.access.AccessRequests.on(database.dataSource()),
-                        wiring.inboxEffects(),
-                        log),
+                openInbox(new BotInbox(wiring.inboxEffects())),
                 wiring.adminRole());
 
         // Last on purpose: a marker on disk means the constructor finished.
@@ -381,6 +380,19 @@ public class AccessBot implements AutoCloseable {
     }
 
     /**
+     * Opens the bot's inbox, failing whatever a previous run left claimed, and returns one pass over it.
+     * Only one bot runs, so a row still running at its start was abandoned by the one before.
+     */
+    private Runnable openInbox(final BotInbox handler) {
+        final Inbox<BotRequest> inbox = Inbox.over(database.dataSource(), BotRequest.TABLE);
+        final int orphans = inbox.settleOrphans(java.util.Map.of("error", "the bot restarted while carrying this out"));
+        if (orphans > 0) {
+            log.warn("{} request(s) the bot had claimed before it restarted were failed", orphans);
+        }
+        return () -> inbox.drain(handler);
+    }
+
+    /**
      * Opens the bot's one signal hub; every refresh hands its work to {@code worker}.
      *
      * Each runs on connect, on every signal and on the hub's reconciliation, which is what replaced the polls.
@@ -390,7 +402,7 @@ public class AccessBot implements AutoCloseable {
             final UpdateFeed updateFeed,
             final PaymentProcessor processor,
             final PurchaseFlow purchaseFlow,
-            final AccessInbox accessInbox,
+            final Runnable drainInbox,
             final AdminRole adminRole) {
         final SignalHub hub = SignalHub.open(
                 databaseConfig.jdbcUrl(),
@@ -405,7 +417,7 @@ public class AccessBot implements AutoCloseable {
                 Channel.PAYMENT,
                 "waiting payment links",
                 () -> worker.execute(guarded("payment links", purchaseFlow::fillIn)));
-        hub.on(Channel.ACCESS, "access requests", () -> worker.execute(guarded("access inbox", accessInbox::drain)));
+        hub.on(Channel.BOT, "the bot inbox", () -> worker.execute(guarded("the bot inbox", drainInbox)));
         hub.on(Channel.ADMIN, "admin role", () -> worker.execute(guarded("admin role", adminRole::reconcile)));
         hub.on(Channel.UPDATE, "the update feed", () -> updateFeed.submit(worker));
         hub.start();

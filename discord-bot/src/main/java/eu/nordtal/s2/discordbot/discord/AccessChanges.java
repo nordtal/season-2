@@ -7,7 +7,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * The five access changes as the bot carries them out, for a caller with only an {@link Actor}.
  *
- * It is what {@link AccessInbox} dispatches to, so the inbox is testable without JDA.
+ * It is what {@link BotInbox} dispatches to, so the inbox is testable without JDA.
  */
 public interface AccessChanges {
 

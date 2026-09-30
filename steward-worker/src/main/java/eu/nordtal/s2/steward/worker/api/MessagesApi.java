@@ -7,10 +7,11 @@ import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.common.time.Backoff;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.Actor;
-import eu.nordtal.s2.database.access.AccessRequest;
-import eu.nordtal.s2.database.access.AccessRequestKind;
-import eu.nordtal.s2.database.access.AccessRequestStatus;
-import eu.nordtal.s2.database.access.AccessRequests;
+import eu.nordtal.s2.database.inbox.BotRequest;
+import eu.nordtal.s2.database.inbox.Inbox;
+import eu.nordtal.s2.database.inbox.InboxStatus;
+import eu.nordtal.s2.database.inbox.Request;
+import eu.nordtal.s2.database.inbox.Schedule;
 import eu.nordtal.s2.steward.worker.configfile.MessageArg;
 import eu.nordtal.s2.steward.worker.configfile.MessageBundle;
 import eu.nordtal.s2.steward.worker.configfile.MessageBundleLocation;
@@ -38,7 +39,7 @@ public final class MessagesApi {
 
     private static final Logger log = LoggerFactory.getLogger(MessagesApi.class);
 
-    /** The one bundle whose reload goes through the access inbox, since the bot has no console. */
+    /** The one bundle whose reload goes through the bot's inbox, since the bot has no console. */
     private static final String RELOADABLE_SERVICE = "discord-bot";
 
     /**
@@ -57,20 +58,20 @@ public final class MessagesApi {
 
     private final Path configsRoot;
     private final @Nullable Path volumesRoot;
-    private final @Nullable AccessRequests inbox;
+    private final @Nullable Inbox<BotRequest> inbox;
     private final ConfigApi.ConsoleLine console;
 
     /**
      * Builds the API.
      *
-     * @param inbox the access inbox the bot listens on, or {@code null} without a database, which makes {@link #reload}
+     * @param inbox the bot's inbox, or {@code null} without a database, which makes {@link #reload}
      *     ask for a restart
      * @param console the Minecraft services' consoles, which a saved bundle's reload goes through
      */
     public MessagesApi(
             final Path configsRoot,
             final @Nullable Path volumesRoot,
-            final @Nullable AccessRequests inbox,
+            final @Nullable Inbox<BotRequest> inbox,
             final ConfigApi.ConsoleLine console,
             final Waiting waiting) {
         this.waiting = waiting;
@@ -157,30 +158,27 @@ public final class MessagesApi {
             answer.put("unknown", List.of());
             return answer;
         }
-        final AccessRequests requests = inbox;
+        final Inbox<BotRequest> requests = inbox;
         if (requests == null) {
             return outcome(
                     "RESTART_REQUIRED",
                     "Nothing was sent: this deployment has no database" + " to ask the bot through.",
                     List.of());
         }
-        final AccessRequest asked = requests.submit(
-                new AccessRequests.NewAccessRequest(
-                        AccessRequestKind.RELOAD_MESSAGES,
-                        identityOf(location),
-                        null,
-                        // Steward itself: this process does not know which browser asked and must not invent one.
-                        Actor.STEWARD),
-                ANSWER_WITHIN);
-        final AccessRequest settled = waitFor(requests, asked.id());
-        if (settled == null || settled.status() == AccessRequestStatus.EXPIRED) {
+        final Request<BotRequest> asked = requests.submit(
+                new BotRequest.ReloadMessages(identityOf(location)),
+                // Steward itself: this process does not know which browser asked and must not invent one.
+                Actor.STEWARD,
+                Schedule.within(ANSWER_WITHIN));
+        final Request<BotRequest> settled = waitFor(requests, asked.id());
+        if (settled == null || settled.status() == InboxStatus.EXPIRED) {
             return outcome(
                     "NO_ANSWER",
                     "The bot did not answer, so the text that was saved takes" + " effect the next time it starts.",
                     List.of());
         }
-        if (settled.status() != AccessRequestStatus.DONE) {
-            log.warn("{} was saved but the bot could not re-read it: {}", identityOf(location), settled.result());
+        if (settled.status() != InboxStatus.DONE) {
+            log.warn("{} was saved but the bot could not re-read it: {}", identityOf(location), settled.outcome());
             return outcome(
                     "NO_ANSWER",
                     "The bot could not re-read its messages, so the running"
@@ -188,7 +186,7 @@ public final class MessagesApi {
                             + " starts.",
                     List.of());
         }
-        final List<String> unknown = unknownIn(settled.result());
+        final List<String> unknown = unknownIn(settled.outcome());
         return outcome(
                 "APPLIED",
                 unknown.isEmpty()
@@ -211,9 +209,9 @@ public final class MessagesApi {
      * @return the row once it is no longer pending, or {@code null} after {@link #ANSWER_WITHIN}, which means the bot
      *     is not running
      */
-    private @Nullable AccessRequest waitFor(final AccessRequests requests, final long id) {
+    private @Nullable Request<BotRequest> waitFor(final Inbox<BotRequest> requests, final long id) {
         return waiting.until(
-                        () -> requests.outcome(id).filter(row -> row.status().settled()),
+                        () -> requests.find(id).filter(row -> row.status().settled()),
                         ANSWER_WITHIN.plusSeconds(1),
                         Backoff.fixed(LOOK_EVERY))
                 .orElse(null);

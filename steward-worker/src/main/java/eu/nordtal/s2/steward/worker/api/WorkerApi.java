@@ -1,8 +1,9 @@
 package eu.nordtal.s2.steward.worker.api;
 
 import eu.nordtal.s2.common.time.Waiting;
-import eu.nordtal.s2.database.access.AccessRequests;
 import eu.nordtal.s2.database.audit.AuditDirectory;
+import eu.nordtal.s2.database.inbox.BotRequest;
+import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.update.ServiceHold;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.steward.worker.backup.NightlyClock;
@@ -313,7 +314,7 @@ public final class WorkerApi implements AutoCloseable {
     /**
      * Adds the bot's inbox.
      *
-     * @param accessInbox the bot's request inbox, or {@code null} without a database, when a bot bundle save asks for a
+     * @param botInbox the bot's inbox, or {@code null} without a database, when a bot bundle save asks for a
      *     restart
      */
     public WorkerApi(
@@ -332,7 +333,7 @@ public final class WorkerApi implements AutoCloseable {
             final @Nullable ServicesApi online,
             final @Nullable Supplier<UpdatePlan> resolve,
             final @Nullable PluginsApi managedPlugins,
-            final @Nullable AccessRequests accessInbox,
+            final @Nullable Inbox<BotRequest> botInbox,
             final Clock clock) {
         this(
                 docker,
@@ -350,7 +351,7 @@ public final class WorkerApi implements AutoCloseable {
                 online,
                 resolve,
                 managedPlugins,
-                accessInbox,
+                botInbox,
                 () -> {},
                 clock);
     }
@@ -378,7 +379,7 @@ public final class WorkerApi implements AutoCloseable {
             final @Nullable ServicesApi online,
             final @Nullable Supplier<UpdatePlan> resolve,
             final @Nullable PluginsApi managedPlugins,
-            final @Nullable AccessRequests accessInbox,
+            final @Nullable Inbox<BotRequest> botInbox,
             final Runnable reReadOwn,
             final Clock clock) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
@@ -393,7 +394,7 @@ public final class WorkerApi implements AutoCloseable {
         // Here, not in steward-ui: every file it touches is 0600 root:root, and steward-ui is not root.
         this.configs = new ConfigApi(configs, console::send, java.util.Map.of(ConfigApi.OWN_CONFIG, reReadOwn));
         // Not a config file, so it has its own API.
-        this.messages = new MessagesApi(configs, volumesRoot, accessInbox, console::send, Waiting.on(clock));
+        this.messages = new MessagesApi(configs, volumesRoot, botInbox, console::send, Waiting.on(clock));
         // One query over two tables, not a frontend-side merge.
         this.actions = new ActionsApi(updates, audit);
         // Its own virtual thread per refresh, so a du never waits behind a registry call.

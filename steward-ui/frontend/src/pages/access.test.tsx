@@ -147,7 +147,7 @@ function backend(
       return json(answer.status, answer.body)
     }
     if (url.startsWith("/api/access/") && !url.startsWith("/api/access/requests/")) {
-      // Every write is an access_request row the bot carries out: 202 and an id to poll.
+      // Every write is a request in the bot's inbox, which the bot carries out: 202 and an id to poll.
       const kind = url.split("/").pop()!.toUpperCase()
       const id = `a-${kind.toLowerCase()}`
       asked.set(id, kind)
@@ -601,7 +601,7 @@ describe("AccessPage - the actions of a row depend on that row", () => {
   })
 })
 
-/** Every access change is an `access_request` row, since only the bot applies the role and tells the person. */
+/** Every access change is a request in the bot's inbox, since only the bot applies the role and tells the person. */
 describe("AccessPage - access changes are asked of the bot", () => {
   it("refuses a grant longer than 365 days before it is sent", async () => {
     const fetched = backend()

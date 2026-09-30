@@ -68,10 +68,11 @@ class DatabaseRoleIntegrationTest {
                         "INSERT INTO service_plugin (service, artifact, project_id, file_prefix, title)"
                                 + " VALUES ('a', 'b', 'c', 'd', 'e')"),
                 may(DatabaseRole.DISCORD_BOT, "SELECT count(*) FROM flyway_schema_history"),
-                may(DatabaseRole.DISCORD_BOT, "UPDATE access_request SET status = 'DONE' WHERE false"),
+                may(DatabaseRole.DISCORD_BOT, "UPDATE bot_inbox SET status = 'DONE' WHERE false"),
                 mayNot(
                         DatabaseRole.DISCORD_BOT,
-                        "INSERT INTO access_request (kind, subject, actor_kind, expires) VALUES ('GRANT', '1', 'HOST', now())"),
+                        "INSERT INTO bot_inbox (kind, payload, actor_kind) VALUES ('REVOKE', '{}', 'HOST')"),
+                mayNot(DatabaseRole.STEWARD_UI, "UPDATE bot_inbox SET status = 'DONE' WHERE false"),
                 mayNot(DatabaseRole.DISCORD_BOT, "SELECT count(*) FROM steward_session")));
         for (final DatabaseRole role : LOGINS) {
             cases.add(may(role, "INSERT INTO audit_log (action) VALUES ('X')"));

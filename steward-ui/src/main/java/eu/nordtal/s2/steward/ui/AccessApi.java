@@ -5,14 +5,15 @@ import com.google.gson.JsonSyntaxException;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.Actor;
-import eu.nordtal.s2.database.access.AccessRequest;
-import eu.nordtal.s2.database.access.AccessRequestKind;
-import eu.nordtal.s2.database.access.AccessRequests.NewAccessRequest;
+import eu.nordtal.s2.database.inbox.BotRequest;
+import eu.nordtal.s2.database.inbox.Request;
+import eu.nordtal.s2.database.inbox.Schedule;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.data.Data;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import io.javalin.http.NotFoundResponse;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -22,7 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Grants, revocations, play time, settling and unlinking, each written as an {@code access_request} row for the bot.
+ * Grants, revocations, play time, settling and unlinking, each written into the bot's inbox.
  *
  * Only the bot can carry out all parts of a grant, and it journals what it carries out.
  */
@@ -32,6 +33,9 @@ final class AccessApi {
 
     /** The longest access one grant may give, in days; a longer period is two grants. */
     static final int MOST_DAYS = 365;
+
+    /** How long a request waits for the bot before it is given up on. */
+    static final Duration PATIENCE = Duration.ofMinutes(2);
 
     /** The ceiling on a play time somebody may type: ten years of wall clock. */
     static final long MOST_PLAYTIME_SECONDS = 10L * 365 * 24 * 3600;
@@ -57,17 +61,17 @@ final class AccessApi {
             throw new BadRequestResponse(
                     "A grant is between 1 and " + MOST_DAYS + " days. A longer period is two grants.");
         }
-        submit(ctx, AccessRequestKind.GRANT, discordId.value(), (long) ask.days);
+        submit(ctx, new BotRequest.Grant(discordId, ask.days));
     }
 
     /** {@code POST /api/access/revoke} with {@code {discordId}}. */
     void revoke(final Context ctx) {
-        submit(ctx, AccessRequestKind.REVOKE, discordId(bodyOf(ctx)).value(), null);
+        submit(ctx, new BotRequest.Revoke(discordId(bodyOf(ctx))));
     }
 
     /** {@code POST /api/access/unlink} with {@code {discordId}}. */
     void unlink(final Context ctx) {
-        submit(ctx, AccessRequestKind.UNLINK, discordId(bodyOf(ctx)).value(), null);
+        submit(ctx, new BotRequest.Unlink(discordId(bodyOf(ctx))));
     }
 
     /** {@code POST /api/access/settle} with {@code {reference}}, a payment reference. */
@@ -76,7 +80,7 @@ final class AccessApi {
         if (ask.reference == null || ask.reference.isBlank()) {
             throw new BadRequestResponse("reference is the payment to settle");
         }
-        submit(ctx, AccessRequestKind.SETTLE, ask.reference.trim(), null);
+        submit(ctx, new BotRequest.Settle(ask.reference.trim()));
     }
 
     /** {@code POST /api/people/{id}/playtime} with {@code {seconds}}, the new total. */
@@ -88,7 +92,7 @@ final class AccessApi {
         if (ask.seconds > MOST_PLAYTIME_SECONDS) {
             throw new BadRequestResponse("seconds is at most " + MOST_PLAYTIME_SECONDS);
         }
-        submit(ctx, AccessRequestKind.SET_PLAYTIME, ctx.pathParam("id"), ask.seconds);
+        submit(ctx, new BotRequest.SetPlaytime(discordId(ctx.pathParam("id")), ask.seconds));
     }
 
     /** {@code GET /api/access/requests/{id}}: what became of it. */
@@ -99,30 +103,27 @@ final class AccessApi {
         } catch (final NumberFormatException e) {
             throw new BadRequestResponse(ctx.pathParam("id") + " is not a request id.");
         }
-        final AccessRequest row = data().accessRequests()
-                .outcome(id)
-                .orElseThrow(() -> new NotFoundResponse("There is no request " + id + "."));
+        final Request<BotRequest> row =
+                data().bot().find(id).orElseThrow(() -> new NotFoundResponse("There is no request " + id + "."));
 
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("id", String.valueOf(row.id()));
-        answer.put("kind", row.kind().name());
+        answer.put("kind", row.kind());
         answer.put("status", row.status().name());
-        if (row.result() != null) answer.put("result", parsed(row.result()));
+        final String outcome = row.outcome();
+        if (outcome != null) answer.put("result", parsed(outcome));
         ctx.json(answer);
     }
 
-    private void submit(
-            final Context ctx, final AccessRequestKind kind, final String subject, final @Nullable Long argument) {
+    private void submit(final Context ctx, final BotRequest request) {
         final DiscordAuth.Account who = accounts.apply(ctx);
-        final NewAccessRequest request = argument == null
-                ? NewAccessRequest.of(kind, subject, Actor.person(DiscordId.of(who.id())))
-                : NewAccessRequest.of(kind, subject, argument, Actor.person(DiscordId.of(who.id())));
-        final AccessRequest written = data().accessRequests().submit(request);
-        log.info("{} asked the bot for {} {}{}", who.name(), kind, subject, argument == null ? "" : " " + argument);
+        final Request<BotRequest> written =
+                data().bot().submit(request, Actor.person(DiscordId.of(who.id())), Schedule.within(PATIENCE));
+        log.info("{} asked the bot for {}", who.name(), request);
 
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("id", String.valueOf(written.id()));
-        answer.put("kind", kind.name());
+        answer.put("kind", written.kind());
         answer.put("status", written.status().name());
         ctx.status(202).json(answer);
     }
@@ -152,7 +153,15 @@ final class AccessApi {
         if (ask.discordId == null || ask.discordId.isBlank()) {
             throw new BadRequestResponse("discordId is whose access this is");
         }
-        return DiscordId.of(ask.discordId.trim());
+        return discordId(ask.discordId);
+    }
+
+    private static DiscordId discordId(final String id) {
+        try {
+            return DiscordId.of(id.trim());
+        } catch (final IllegalArgumentException notAnId) {
+            throw new BadRequestResponse(id + " is not a Discord id.");
+        }
     }
 
     private static final class Body {

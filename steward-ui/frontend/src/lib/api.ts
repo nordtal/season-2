@@ -758,7 +758,7 @@ export type ConfigChangeValue = string | string[] | { [key: string]: ConfigChang
 export type ConfigChanges = Record<string, ConfigChangeValue>
 
 /**
- * One `access_request` row, as `GET /api/access/requests/{id}` answers it.
+ * One request in the bot's inbox, as `GET /api/access/requests/{id}` answers it.
  *
  * `result` is a flat object of strings the bot writes, with `error` when it failed.
  */

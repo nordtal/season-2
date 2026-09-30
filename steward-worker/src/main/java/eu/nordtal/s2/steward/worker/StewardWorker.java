@@ -477,7 +477,8 @@ public final class StewardWorker {
                                 eu.nordtal.s2.steward.worker.plan.Topology.CORE_PROTECT, config.coreProtectProject()),
                         CLOCK),
                 // The bot's inbox: saving a message asks it to re-read the file.
-                eu.nordtal.s2.database.access.AccessRequests.on(database.dataSource()),
+                eu.nordtal.s2.database.inbox.Inbox.over(
+                        database.dataSource(), eu.nordtal.s2.database.inbox.BotRequest.TABLE),
                 // A save of this worker's own steward.yml re-arms the clocks.
                 () -> {
                     try {

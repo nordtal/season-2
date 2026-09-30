@@ -174,11 +174,12 @@ public class AccessBot implements AutoCloseable {
                 new UpdateFeed(updates, UpdateFeed.Board.of(wiring.admin()), core.messages(), clock);
         updateFeed.start();
 
-        schedule(accessConfig, wiring.roles(), status, updateFeed);
+        schedule(accessConfig, wiring.roles(), status);
 
         // Started last: it refreshes immediately on connect and touches JDA.
         final SignalHub hub = listen(
                 databaseConfig,
+                updateFeed,
                 wiring.processor(),
                 wiring.purchaseFlow(),
                 new AccessInbox(
@@ -357,11 +358,7 @@ public class AccessBot implements AutoCloseable {
     }
 
     /** Starts the recurring timers, each guarded because the scheduler silently cancels a task that throws. */
-    private void schedule(
-            final AccessSpec config,
-            final AccessRoles roles,
-            final StatusChannels status,
-            final UpdateFeed updateFeed) {
+    private void schedule(final AccessSpec config, final AccessRoles roles, final StatusChannels status) {
         final int reconcile = config.roleReconcileIntervalMinutes();
         repeat(guarded("role reconcile", roles::reconcile), reconcile, reconcile, TimeUnit.MINUTES);
 
@@ -381,13 +378,6 @@ public class AccessBot implements AutoCloseable {
         } else {
             log.info("No language has a status-channel; the sidebar status is off");
         }
-
-        // The one tick that reads the database every pass, so it runs on worker.
-        repeat(
-                guarded("update feed", () -> updateFeed.submit(worker)),
-                UpdateFeed.INTERVAL.toSeconds(),
-                UpdateFeed.INTERVAL.toSeconds(),
-                TimeUnit.SECONDS);
     }
 
     /**
@@ -397,6 +387,7 @@ public class AccessBot implements AutoCloseable {
      */
     private SignalHub listen(
             final DatabaseSpec databaseConfig,
+            final UpdateFeed updateFeed,
             final PaymentProcessor processor,
             final PurchaseFlow purchaseFlow,
             final AccessInbox accessInbox,
@@ -416,6 +407,7 @@ public class AccessBot implements AutoCloseable {
                 () -> worker.execute(guarded("payment links", purchaseFlow::fillIn)));
         hub.on(Channel.ACCESS, "access requests", () -> worker.execute(guarded("access inbox", accessInbox::drain)));
         hub.on(Channel.ADMIN, "admin role", () -> worker.execute(guarded("admin role", adminRole::reconcile)));
+        hub.on(Channel.UPDATE, "the update feed", () -> updateFeed.submit(worker));
         hub.start();
         return hub;
     }

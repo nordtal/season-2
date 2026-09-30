@@ -61,11 +61,14 @@ interface UpdateDao {
                 ORDER BY scheduled_for, id
                 LIMIT 1
                 FOR UPDATE SKIP LOCKED
+            ),
+            claimed AS (
+                UPDATE update_request
+                SET status = 'RUNNING', started = now()
+                WHERE id IN (SELECT id FROM claimable)
+                RETURNING *
             )
-            UPDATE update_request
-            SET status = 'RUNNING', started = now()
-            WHERE id IN (SELECT id FROM claimable)
-            RETURNING *
+            SELECT claimed.*, pg_notify('nordtal_update', '') AS notified FROM claimed
             """)
     Optional<UpdateRequest> claimNext();
 
@@ -76,18 +79,25 @@ interface UpdateDao {
      * @return the finished row, or empty when it was not {@code RUNNING} any more
      */
     @SqlQuery("""
-            UPDATE update_request
-            SET status = :status, finished = now(), result = :result
-            WHERE id = :id AND status = 'RUNNING'
-            RETURNING *
+            WITH finished AS (
+                UPDATE update_request
+                SET status = :status, finished = now(), result = :result
+                WHERE id = :id AND status = 'RUNNING'
+                RETURNING *
+            )
+            SELECT finished.*, pg_notify('nordtal_update', '') AS notified FROM finished
             """)
     Optional<UpdateRequest> finish(@Bind("id") long id, @Bind("status") String status, @Bind("result") String result);
 
     /** Rewrites a running request's report and leaves its status alone, so a late write cannot undo a cancel. */
-    @SqlUpdate("""
-            UPDATE update_request
-            SET result = :result
-            WHERE id = :id AND status = 'RUNNING'
+    @SqlQuery("""
+            WITH updated AS (
+                UPDATE update_request
+                SET result = :result
+                WHERE id = :id AND status = 'RUNNING'
+                RETURNING id
+            )
+            SELECT count(*) FROM (SELECT pg_notify('nordtal_update', '') FROM updated) AS notified
             """)
     int progress(@Bind("id") long id, @Bind("result") String result);
 
@@ -96,10 +106,14 @@ interface UpdateDao {
      *
      * A row settled meanwhile stays settled. {@code scheduled_for} stays in the past, so no countdown shows.
      */
-    @SqlUpdate("""
-            UPDATE update_request
-            SET status = 'PENDING', started = NULL, result = :result
-            WHERE id = :id AND status = 'RUNNING'
+    @SqlQuery("""
+            WITH handed AS (
+                UPDATE update_request
+                SET status = 'PENDING', started = NULL, result = :result
+                WHERE id = :id AND status = 'RUNNING'
+                RETURNING id
+            )
+            SELECT count(*) FROM (SELECT pg_notify('nordtal_update', '') FROM handed) AS notified
             """)
     int handOver(@Bind("id") long id, @Bind("result") String result);
 
@@ -173,10 +187,13 @@ interface UpdateDao {
      * @return the id when the run may go ahead, empty when it was cancelled
      */
     @SqlQuery("""
-            UPDATE update_request
-            SET countdown_end = now()
-            WHERE id = :id AND status = 'RUNNING'
-            RETURNING id
+            WITH committed AS (
+                UPDATE update_request
+                SET countdown_end = now()
+                WHERE id = :id AND status = 'RUNNING'
+                RETURNING id
+            )
+            SELECT committed.id, pg_notify('nordtal_update', '') AS notified FROM committed
             """)
     Optional<Long> commitCountdown(@Bind("id") long id);
 
@@ -226,11 +243,14 @@ interface UpdateDao {
                 ORDER BY coalesce(countdown_end, scheduled_for), id
                 LIMIT 1
                 FOR UPDATE SKIP LOCKED
+            ),
+            cancelled AS (
+                UPDATE update_request
+                SET status = 'CANCELLED', finished = now(), result = :reason
+                WHERE id IN (SELECT id FROM cancellable)
+                RETURNING *
             )
-            UPDATE update_request
-            SET status = 'CANCELLED', finished = now(), result = :reason
-            WHERE id IN (SELECT id FROM cancellable)
-            RETURNING *
+            SELECT cancelled.*, pg_notify('nordtal_update', '') AS notified FROM cancelled
             """)
     Optional<UpdateRequest> cancelCountdown(@Bind("reason") String reason);
 
@@ -243,10 +263,14 @@ interface UpdateDao {
      *
      * @return how many there were
      */
-    @SqlUpdate("""
-            UPDATE update_request
-            SET status = 'FAILED', finished = now(), result = :result
-            WHERE status = 'RUNNING'
+    @SqlQuery("""
+            WITH failed AS (
+                UPDATE update_request
+                SET status = 'FAILED', finished = now(), result = :result
+                WHERE status = 'RUNNING'
+                RETURNING id
+            )
+            SELECT count(*) FROM (SELECT pg_notify('nordtal_update', '') FROM failed) AS notified
             """)
     int failOrphans(@Bind("result") String result);
 

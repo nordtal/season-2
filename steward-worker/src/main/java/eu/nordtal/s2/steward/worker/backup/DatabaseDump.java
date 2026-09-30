@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.worker.backup;
 
+import eu.nordtal.s2.database.DatabaseRole;
 import eu.nordtal.s2.steward.worker.docker.Docker;
 import eu.nordtal.s2.steward.worker.docker.DockerException;
 import java.time.Clock;
@@ -111,7 +112,8 @@ public final class DatabaseDump {
         final Docker.ExecResult dumped = run(
                 containerId,
                 "pg_dump --format=custom --compress=9 --file=" + quote(partialPath)
-                        + " -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"");
+                        // The backup role reads everything and changes nothing; the socket needs no password.
+                        + " -U " + DatabaseRole.BACKUP.roleName() + " -d \"$POSTGRES_DB\"");
         if (!dumped.ok()) {
             remove(containerId, partialPath);
             return SnapshotResult.failed(

@@ -70,6 +70,12 @@ REQUIRED=(
     POSTGRES_DB
     POSTGRES_USER
     POSTGRES_PASSWORD
+    POSTGRES_DISCORD_BOT_PASSWORD
+    POSTGRES_PROXY_PASSWORD
+    POSTGRES_LIMBO_PASSWORD
+    POSTGRES_HUNGER_GAMES_PASSWORD
+    POSTGRES_SMP_PASSWORD
+    POSTGRES_STEWARD_UI_PASSWORD
     VELOCITY_FORWARDING_SECRET
     EULA
     NORDTAL_BOT_TOKEN
@@ -314,6 +320,12 @@ declare -A QUESTION_HINT=(
 # an existing database.
 GENERATED=(
     POSTGRES_PASSWORD
+    POSTGRES_DISCORD_BOT_PASSWORD
+    POSTGRES_PROXY_PASSWORD
+    POSTGRES_LIMBO_PASSWORD
+    POSTGRES_HUNGER_GAMES_PASSWORD
+    POSTGRES_SMP_PASSWORD
+    POSTGRES_STEWARD_UI_PASSWORD
     VELOCITY_FORWARDING_SECRET
     STEWARD_API_TOKEN
     STEWARD_DEPLOYER_TOKEN
@@ -1101,10 +1113,9 @@ fi
 
 # 4 · generated secrets
 # Postgres reads POSTGRES_PASSWORD only on an empty data directory; an adopted host is asked.
-command -v openssl >/dev/null 2>&1 || die "no openssl on this host, and four secrets have to come
-       from somewhere. Install it, or put POSTGRES_PASSWORD, VELOCITY_FORWARDING_SECRET,
-       STEWARD_API_TOKEN and STEWARD_DEPLOYER_TOKEN into $ENV_FILE yourself - and not the same
-       value twice."
+command -v openssl >/dev/null 2>&1 || die "no openssl on this host, and the generated secrets have to
+       come from somewhere. Install it, or put every one GENERATED lists into $ENV_FILE yourself -
+       and not the same value twice."
 
 if [[ -z "$(env_value "$ENV_FILE" POSTGRES_PASSWORD)" ]] && $ADOPTING && ! $CHECK_ONLY; then
     ask_for POSTGRES_PASSWORD secret - \
@@ -1116,6 +1127,14 @@ else
     set_secret POSTGRES_PASSWORD 24
 fi
 
+# Each service's own database role; steward-worker sets these on the roles at every start, so a new
+# one only needs a restart, unlike POSTGRES_PASSWORD.
+set_secret POSTGRES_DISCORD_BOT_PASSWORD 24
+set_secret POSTGRES_PROXY_PASSWORD 24
+set_secret POSTGRES_LIMBO_PASSWORD 24
+set_secret POSTGRES_HUNGER_GAMES_PASSWORD 24
+set_secret POSTGRES_SMP_PASSWORD 24
+set_secret POSTGRES_STEWARD_UI_PASSWORD 24
 set_secret VELOCITY_FORWARDING_SECRET 24
 set_secret STEWARD_API_TOKEN
 set_secret STEWARD_DEPLOYER_TOKEN

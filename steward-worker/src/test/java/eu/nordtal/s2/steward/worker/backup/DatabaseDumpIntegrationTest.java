@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.database.DatabaseRole;
 import eu.nordtal.s2.steward.worker.docker.Docker;
 import eu.nordtal.s2.steward.worker.docker.DockerSocket;
 import java.time.Clock;
@@ -36,6 +37,16 @@ class DatabaseDumpIntegrationTest {
                 .findFirst()
                 .orElse(null);
         assumeTrue(postgres != null, "no postgres container here - skipping");
+        // The dump logs in as the backup role, which a stack installed before the roles existed does not have.
+        final Docker.ExecResult role = docker.exec(
+                postgres,
+                List.of(
+                        "sh",
+                        "-c",
+                        "psql -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\" -Atc \"SELECT 1 FROM pg_roles WHERE rolname = '"
+                                + DatabaseRole.BACKUP.roleName() + "'\""),
+                null);
+        assumeTrue(role.output().strip().equals("1"), "the postgres here has no backup role yet - skipping");
         // Root-owned and 0755, what a fresh docker volume looks like; handing it to `postgres` would hide the bug here.
         docker.exec(
                 postgres,

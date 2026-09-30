@@ -40,7 +40,7 @@ public enum DatabaseRole {
     /** The shared read models; every role above is a member, and nobody logs in as it. */
     READ(Login.NONE),
 
-    /** {@code pg_dump} and the restore, through the postgres container's own socket, so without a password. */
+    /** {@code pg_dump}, through the postgres container's own socket, so without a password. */
     BACKUP(Login.SOCKET);
 
     /** The prefix of every role name outside a test. */
@@ -123,7 +123,7 @@ public enum DatabaseRole {
     private String alter() {
         return switch (login) {
             case PASSWORD -> "SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', ?, ?)";
-            case SOCKET -> "SELECT format('ALTER ROLE %I LOGIN CREATEDB PASSWORD NULL', ?)";
+            case SOCKET -> "SELECT format('ALTER ROLE %I LOGIN PASSWORD NULL', ?)";
             case NONE -> "SELECT format('ALTER ROLE %I NOLOGIN', ?)";
         };
     }

@@ -747,5 +747,5 @@ GRANT USAGE ON SEQUENCE update_request_id_seq TO ${role_steward_ui};
 GRANT SELECT, INSERT ON access_request TO ${role_steward_ui};
 GRANT USAGE ON SEQUENCE access_request_id_seq TO ${role_steward_ui};
 
--- pg_dump reads everything; the restore writes into a database of its own.
+-- pg_dump reads everything and writes nothing.
 GRANT pg_read_all_data TO ${role_backup};

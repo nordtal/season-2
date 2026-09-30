@@ -248,6 +248,24 @@ class TopologyDeploymentTest {
     }
 
     @Test
+    void everyServiceLogsInAsItsOwnRoleAndTheMigratorCarriesEveryRolesPassword() throws IOException {
+        // A username that is not the role's name logs in as nobody; a password the worker lacks creates no role.
+        final String compose = Files.readString(findUpwards("compose.yml"), StandardCharsets.UTF_8);
+        for (final eu.nordtal.s2.database.DatabaseRole role : eu.nordtal.s2.database.DatabaseRole.values()) {
+            if (!role.hasPassword()) {
+                continue;
+            }
+            assertTrue(
+                    compose.contains("DATABASE_USERNAME: " + role.roleName() + "\n"),
+                    "no service in compose.yml logs in as " + role.roleName());
+            assertTrue(
+                    compose.contains(eu.nordtal.s2.steward.worker.schema.Schema.passwordVariable(role) + ": "),
+                    "steward-worker is not handed "
+                            + eu.nordtal.s2.steward.worker.schema.Schema.passwordVariable(role));
+        }
+    }
+
+    @Test
     void theLocalEnvFileAnswersEveryVariableComposeYmlRequires() throws IOException {
         // One unanswered `${X:?}` stops every service; comments are stripped since compose never interpolates them.
         final String compose = Files.readString(findUpwards("compose.yml"), StandardCharsets.UTF_8)

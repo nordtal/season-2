@@ -18,7 +18,7 @@ class ReportTest {
     /** {@code UpdateCommand.DESCRIPTION_BUDGET}. Not imported: :steward-worker must not depend on the bot. */
     private static final int DESCRIPTION_BUDGET = 4000;
 
-    /** What HttpException actually builds for a rate-limited GitHub, body trimmed at 300. */
+    /** What SourceHttp actually builds for a rate-limited GitHub, body trimmed at 300. */
     private static final String GITHUB_403 =
             "HTTP 403 from https://api.github.com/repos/nordtal/season-2/releases/latest"
                     + " - rate limited. GitHub allows 60 unauthenticated requests per hour per IP;"

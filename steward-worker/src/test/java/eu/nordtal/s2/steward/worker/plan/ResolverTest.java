@@ -7,10 +7,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.Platform;
+import eu.nordtal.s2.common.http.HttpFailure;
 import eu.nordtal.s2.steward.worker.config.BackupSpec;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import eu.nordtal.s2.steward.worker.http.FakeHttp;
-import eu.nordtal.s2.steward.worker.http.HttpException;
 import eu.nordtal.s2.steward.worker.source.GitHubReleases;
 import eu.nordtal.s2.steward.worker.source.Modrinth;
 import eu.nordtal.s2.steward.worker.source.PaperFill;
@@ -215,7 +215,7 @@ class ResolverTest {
         // Same artefact, the other reason for no file: asserted from both sides of the new status.
         http.failing(
                 "/project/Lu3KuzdV/version",
-                new HttpException(URI.create("https://api.modrinth.com/v2/project/Lu3KuzdV/version"), 503, "down"));
+                new HttpFailure(URI.create("https://api.modrinth.com/v2/project/Lu3KuzdV/version"), 503, "down"));
 
         final UpdatePlan plan = resolve();
         final Change change = changeFor(plan, "smp", "coreprotect");
@@ -306,7 +306,7 @@ class ResolverTest {
         installCurrentEverything();
         http.failing(
                 "/repos/nordtal/season-2/",
-                new HttpException(
+                new HttpFailure(
                         URI.create("https://api.github.com/repos/nordtal/season-2/releases/latest"), 404, "Not Found"));
 
         final UpdatePlan plan = resolve();
@@ -506,7 +506,7 @@ class ResolverTest {
         replace("smp", "plugins/packetevents-spigot-2.13.0.jar", "plugins/packetevents-spigot-2.12.0.jar");
         http.failing(
                 "/project/Lu3KuzdV/version",
-                new HttpException(URI.create("https://api.modrinth.com/v2/project/Lu3KuzdV/version"), 503, "down"));
+                new HttpFailure(URI.create("https://api.modrinth.com/v2/project/Lu3KuzdV/version"), 503, "down"));
 
         final eu.nordtal.s2.database.update.UpdateReport report = PlanReport.of(resolve());
 
@@ -525,7 +525,7 @@ class ResolverTest {
         replace("smp", "plugins/packetevents-spigot-2.13.0.jar", "plugins/packetevents-spigot-2.12.0.jar");
         http.failing(
                 "/projects/paper/versions/26.2/builds",
-                new HttpException(
+                new HttpFailure(
                         URI.create("https://fill.papermc.io/v3/projects/paper/versions/26.2/builds"), 503, "down"));
 
         final eu.nordtal.s2.database.update.UpdateReport report = PlanReport.of(resolve());

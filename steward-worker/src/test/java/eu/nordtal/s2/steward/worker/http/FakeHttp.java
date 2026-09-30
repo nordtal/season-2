@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.worker.http;
 
+import eu.nordtal.s2.common.http.HttpFailure;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -61,7 +62,7 @@ public final class FakeHttp implements Http {
         if (best != null) {
             return routes.get(best);
         }
-        throw new HttpException(uri, 404, "no fixture is routed for this URL");
+        throw new HttpFailure(uri, 404, "no fixture is routed for this URL");
     }
 
     public static String read(final String fixture) {

@@ -3,13 +3,13 @@ package eu.nordtal.s2.steward.ui.discord;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import eu.nordtal.s2.common.http.Reply;
+import eu.nordtal.s2.common.http.WebClient;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.steward.ui.config.UiSpec;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -37,7 +37,7 @@ public final class DiscordDirectory {
 
     private final UiSpec.DiscordSpec config;
     private final String api;
-    private final HttpClient http;
+    private final WebClient web;
 
     private @Nullable Cached roles;
     private @Nullable Cached channels;
@@ -48,7 +48,8 @@ public final class DiscordDirectory {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.config = config;
         this.api = api;
-        this.http = HttpClient.newBuilder().connectTimeout(CONNECT).build();
+        // "Bot <token>", not "Bearer": a bot token is not an OAuth access token.
+        this.web = WebClient.create(CONNECT, ANSWER).header("Authorization", "Bot " + config.botToken());
     }
 
     /** Why this cannot answer, or {@code null} when it can. */
@@ -114,35 +115,27 @@ public final class DiscordDirectory {
     }
 
     private JsonArray fetch(final String path) {
-        final HttpResponse<String> response;
+        final Reply response;
         try {
-            response = http.send(
-                    HttpRequest.newBuilder(URI.create(api + path))
-                            // "Bot <token>", not "Bearer": a bot token is not an OAuth access token.
-                            .header("Authorization", "Bot " + config.botToken())
-                            .timeout(ANSWER)
-                            .GET()
-                            .build(),
-                    HttpResponse.BodyHandlers.ofString());
+            response = web.get(URI.create(api + path));
+        } catch (final InterruptedIOException exception) {
+            throw new DirectoryException(503, "interrupted while talking to Discord");
         } catch (final IOException exception) {
             throw new DirectoryException(502, "Discord could not be reached: " + exception.getMessage());
-        } catch (final InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new DirectoryException(503, "interrupted while talking to Discord");
         }
-        if (response.statusCode() != 200) {
+        if (response.status() != 200) {
             // The body is not passed on, since an error is the one place a token could leak.
-            log.warn("Discord answered {} for {}", response.statusCode(), path);
+            log.warn("Discord answered {} for {}", response.status(), path);
             throw new DirectoryException(
                     502,
-                    switch (response.statusCode()) {
+                    switch (response.status()) {
                         case 401 -> "Discord refused the bot token. Check discord.bot-token.";
                         case 403 -> "The bot is in the guild but may not read it.";
                         case 404 ->
                             "Discord does not know that guild. Check discord.guild-id, and "
                                     + "that the bot has been invited to it.";
                         case 429 -> "Discord is rate limiting this. Try again in a moment.";
-                        default -> "Discord answered " + response.statusCode() + ".";
+                        default -> "Discord answered " + response.status() + ".";
                     });
         }
         return Json.decode(response.body(), JsonArray.class);

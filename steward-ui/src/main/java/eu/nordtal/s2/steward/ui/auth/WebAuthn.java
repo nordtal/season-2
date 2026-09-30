@@ -24,6 +24,7 @@ import com.yubico.webauthn.data.UserIdentity;
 import com.yubico.webauthn.data.UserVerificationRequirement;
 import com.yubico.webauthn.exception.AssertionFailedException;
 import com.yubico.webauthn.exception.RegistrationFailedException;
+import eu.nordtal.s2.common.id.DiscordId;
 import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
@@ -82,7 +83,7 @@ public final class WebAuthn {
     }
 
     /** Starts a registration, answered as one request to park and one to hand the browser. */
-    public Ceremony startRegistration(final String discordId, final String displayName) {
+    public Ceremony startRegistration(final DiscordId discordId, final String displayName) {
         final PublicKeyCredentialCreationOptions request =
                 relyingParty.startRegistration(StartRegistrationOptions.builder()
                         .user(UserIdentity.builder()
@@ -121,7 +122,7 @@ public final class WebAuthn {
      * @throws Refused with a sentence safe to show: a replayed challenge, a known key, a bad signature or origin
      */
     public Registered finishRegistration(
-            final String parked, final String answer, final String label, final String discordId) throws Refused {
+            final String parked, final String answer, final String label, final DiscordId discordId) throws Refused {
         final PublicKeyCredentialCreationOptions request;
         final PublicKeyCredential<AuthenticatorAttestationResponse, ClientRegistrationExtensionOutputs> response;
         try {
@@ -140,7 +141,7 @@ public final class WebAuthn {
 
         // Checked against the parked request so a session that changed hands cannot attach a key.
         final String intended = Credentials.accountOf(request.getUser().getId()).orElse("");
-        if (!intended.equals(discordId)) {
+        if (!intended.equals(discordId.value())) {
             throw new Refused("that registration was started for a different account", null);
         }
 
@@ -174,7 +175,7 @@ public final class WebAuthn {
      *
      * @throws Refused when the account has no key, which the caller turns into the setup page
      */
-    public Ceremony startAssertion(final String discordId) throws Refused {
+    public Ceremony startAssertion(final DiscordId discordId) throws Refused {
         if (credentials.of(discordId).isEmpty()) {
             // An empty allowCredentials would make the browser offer every passkey it holds.
             throw new Refused("that account has no security key to be asked for", null);
@@ -204,7 +205,7 @@ public final class WebAuthn {
      * @return the key that answered
      * @throws Refused with a sentence safe to show: a replayed challenge, another's key, a bad signature or origin
      */
-    public Held finishAssertion(final String parked, final String answer, final String discordId) throws Refused {
+    public Held finishAssertion(final String parked, final String answer, final DiscordId discordId) throws Refused {
         final AssertionRequest request;
         final PublicKeyCredential<AuthenticatorAssertionResponse, ClientAssertionExtensionOutputs> response;
         try {
@@ -223,7 +224,7 @@ public final class WebAuthn {
 
         final String intended =
                 request.getUserHandle().flatMap(Credentials::accountOf).orElse("");
-        if (!intended.equals(discordId)) {
+        if (!intended.equals(discordId.value())) {
             throw new Refused("that sign-in was started for a different account", null);
         }
 

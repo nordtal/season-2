@@ -2,6 +2,7 @@ package eu.nordtal.s2.hungergames.game;
 
 import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
@@ -132,6 +133,7 @@ public final class Ceremony {
                 .filter(member -> member.id().equals(memberId))
                 .map(HgMember::discordId)
                 .findFirst()
-                .orElse(memberId.toString()));
+                .orElse(DiscordId.of(memberId.toString()))
+                .value());
     }
 }

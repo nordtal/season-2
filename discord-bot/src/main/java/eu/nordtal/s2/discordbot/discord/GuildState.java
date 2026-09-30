@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.access.MemberState;
@@ -58,7 +59,7 @@ public final class GuildState extends ListenerAdapter {
         if (!ours(event.getGuild()) || event.getMember().getUser().isBot()) {
             return;
         }
-        access.setMemberState(event.getMember().getId(), MemberState.MEMBER);
+        access.setMemberState(DiscordId.of(event.getMember().getId()), MemberState.MEMBER);
         mirrorLocale(event.getMember());
         mirrorProfile(event.getMember());
     }
@@ -69,13 +70,13 @@ public final class GuildState extends ListenerAdapter {
             return;
         }
         // A ban also produces a remove; GuildBanEvent then overwrites this with BANNED.
-        access.setMemberState(event.getUser().getId(), MemberState.LEFT);
+        access.setMemberState(DiscordId.of(event.getUser().getId()), MemberState.LEFT);
         // Somebody not in the guild is not an admin, nor is anybody they granted.
-        dropAdmin(event.getUser().getId());
+        dropAdmin(DiscordId.of(event.getUser().getId()));
         // Nor a guild nickname or avatar, both scoped to the guild they left.
-        access.clearGuildProfile(event.getUser().getId());
+        access.clearGuildProfile(DiscordId.of(event.getUser().getId()));
         // Safe here, unlike in reconcile(): Discord named this one user directly.
-        if (access.unlink(event.getUser().getId())) {
+        if (access.unlink(DiscordId.of(event.getUser().getId()))) {
             log.info(
                     "{} left the guild; their Minecraft account link was removed",
                     event.getUser().getId());
@@ -87,9 +88,9 @@ public final class GuildState extends ListenerAdapter {
         if (!ours(event.getGuild())) {
             return;
         }
-        access.setMemberState(event.getUser().getId(), MemberState.BANNED);
-        dropAdmin(event.getUser().getId());
-        access.clearGuildProfile(event.getUser().getId());
+        access.setMemberState(DiscordId.of(event.getUser().getId()), MemberState.BANNED);
+        dropAdmin(DiscordId.of(event.getUser().getId()));
+        access.clearGuildProfile(DiscordId.of(event.getUser().getId()));
     }
 
     @Override
@@ -98,7 +99,7 @@ public final class GuildState extends ListenerAdapter {
             return;
         }
         // Unbanning does not put anybody back in the guild, so LEFT, not MEMBER.
-        access.setMemberState(event.getUser().getId(), MemberState.LEFT);
+        access.setMemberState(DiscordId.of(event.getUser().getId()), MemberState.LEFT);
     }
 
     @Override
@@ -172,7 +173,7 @@ public final class GuildState extends ListenerAdapter {
             if (member.getUser().isBot()) {
                 continue;
             }
-            access.setMemberState(member.getId(), MemberState.MEMBER);
+            access.setMemberState(DiscordId.of(member.getId()), MemberState.MEMBER);
             mirrorLocale(member);
             mirrorProfile(member);
             seen.add(member.getId());
@@ -183,9 +184,9 @@ public final class GuildState extends ListenerAdapter {
     private boolean sweepBanList(final Guild guild, final Set<String> seen) {
         try {
             guild.retrieveBanList().stream().forEach(ban -> {
-                access.setMemberState(ban.getUser().getId(), MemberState.BANNED);
-                dropAdmin(ban.getUser().getId());
-                access.clearGuildProfile(ban.getUser().getId());
+                access.setMemberState(DiscordId.of(ban.getUser().getId()), MemberState.BANNED);
+                dropAdmin(DiscordId.of(ban.getUser().getId()));
+                access.clearGuildProfile(DiscordId.of(ban.getUser().getId()));
                 seen.add(ban.getUser().getId());
             });
             return true;
@@ -198,8 +199,9 @@ public final class GuildState extends ListenerAdapter {
     private Removal dropStaleAccounts(final Set<String> seen, final boolean mayUnlink) {
         int left = 0;
         int unlinked = 0;
-        for (final String discordId : dao.allUsers()) {
-            if (!seen.contains(discordId)) {
+        for (final DiscordId discordId :
+                dao.allUsers().stream().map(DiscordId::of).toList()) {
+            if (!seen.contains(discordId.value())) {
                 access.setMemberState(discordId, MemberState.LEFT);
                 access.clearGuildProfile(discordId);
                 left++;
@@ -238,11 +240,11 @@ public final class GuildState extends ListenerAdapter {
     private void mirrorLocale(final Member member) {
         languages
                 .resolve(member.getRoles().stream().map(Role::getId).toList())
-                .ifPresent(language -> access.setLocale(member.getId(), language.locale()));
+                .ifPresent(language -> access.setLocale(DiscordId.of(member.getId()), language.locale()));
     }
 
     /** Drops an admin who left or was banned, with everybody they granted. */
-    private void dropAdmin(final String discordId) {
+    private void dropAdmin(final DiscordId discordId) {
         final java.util.Set<String> dropped = admins.dropWithBranch(discordId);
         if (!dropped.isEmpty()) {
             log.info(
@@ -256,6 +258,9 @@ public final class GuildState extends ListenerAdapter {
     /** Writes the username, effective nickname and effective avatar just observed. */
     private void mirrorProfile(final Member member) {
         access.setDiscordProfile(
-                member.getId(), member.getUser().getName(), member.getEffectiveName(), member.getEffectiveAvatarUrl());
+                DiscordId.of(member.getId()),
+                member.getUser().getName(),
+                member.getEffectiveName(),
+                member.getEffectiveAvatarUrl());
     }
 }

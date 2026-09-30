@@ -3,6 +3,7 @@ package eu.nordtal.s2.commands.remote;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.command.CommandRequest;
 import java.time.Instant;
 import java.util.Optional;
@@ -25,7 +26,7 @@ class AdminCheckTest {
     private final CommandInbox.AdminCheck check =
             CommandInbox.AdminCheck.of(() -> Set.of(ADMIN_DISCORD), () -> Set.of(ADMIN_MC));
 
-    private static CommandRequest request(final String source, final String discordId, final UUID minecraftId) {
+    private static CommandRequest request(final String source, final DiscordId discordId, final UUID minecraftId) {
         return new CommandRequest(
                 1L,
                 "smp reload",
@@ -46,8 +47,8 @@ class AdminCheckTest {
 
     @Test
     void aDiscordIdDecidesWhenThereIsOne() {
-        assertTrue(check.isAdmin(request("DISCORD", ADMIN_DISCORD, null)));
-        assertFalse(check.isAdmin(request("DISCORD", OTHER_DISCORD, null)));
+        assertTrue(check.isAdmin(request("DISCORD", DiscordId.of(ADMIN_DISCORD), null)));
+        assertFalse(check.isAdmin(request("DISCORD", DiscordId.of(OTHER_DISCORD), null)));
     }
 
     @Test
@@ -66,8 +67,8 @@ class AdminCheckTest {
     @Test
     void theDiscordIdWinsWhenBothArePresentAndIsNotSoftenedByTheOther() {
         // An admin's Minecraft account must not rescue a Discord id that is no longer an admin's.
-        assertFalse(check.isAdmin(request("GAME", OTHER_DISCORD, ADMIN_MC)));
-        assertTrue(check.isAdmin(request("GAME", ADMIN_DISCORD, OTHER_MC)));
+        assertFalse(check.isAdmin(request("GAME", DiscordId.of(OTHER_DISCORD), ADMIN_MC)));
+        assertTrue(check.isAdmin(request("GAME", DiscordId.of(ADMIN_DISCORD), OTHER_MC)));
     }
 
     @Test
@@ -76,10 +77,10 @@ class AdminCheckTest {
                 new java.util.concurrent.atomic.AtomicReference<>(Set.of(ADMIN_DISCORD));
         final CommandInbox.AdminCheck live = CommandInbox.AdminCheck.of(held::get, java.util.Set::of);
 
-        assertTrue(live.isAdmin(request("DISCORD", ADMIN_DISCORD, null)));
+        assertTrue(live.isAdmin(request("DISCORD", DiscordId.of(ADMIN_DISCORD), null)));
         held.set(Set.of());
         assertFalse(
-                live.isAdmin(request("DISCORD", ADMIN_DISCORD, null)),
+                live.isAdmin(request("DISCORD", DiscordId.of(ADMIN_DISCORD), null)),
                 "the admin set is captured once, so a revocation would not reach a waiting row");
     }
 }

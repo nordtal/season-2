@@ -1,5 +1,6 @@
 package eu.nordtal.s2.commands;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.time.NetworkTime;
 import java.time.Clock;
 import java.time.Duration;
@@ -89,7 +90,10 @@ public final class Confirmations {
 
     /** Whoever this is, as one string: the Minecraft account first, else the name. */
     private static String identityOf(final NordtalUser user) {
-        return user.minecraftUuid().map(UUID::toString).or(user::discordId).orElseGet(() -> "console:" + user.name());
+        return user.minecraftUuid()
+                .map(UUID::toString)
+                .or(() -> user.discordId().map(DiscordId::value))
+                .orElseGet(() -> "console:" + user.name());
     }
 
     /** Drops what has timed out, on every call rather than on a timer. */

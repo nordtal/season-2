@@ -105,7 +105,7 @@ public final class HungerGamesCommand {
                 player,
                 locales.of(player.getUniqueId()),
                 false,
-                java.util.Optional::<String>empty,
+                java.util.Optional::<eu.nordtal.s2.common.id.DiscordId>empty,
                 messages,
                 sounds::play,
                 colours);

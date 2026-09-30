@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.payment;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.security.SecureRandom;
 import java.sql.SQLException;
 import java.util.HexFormat;
@@ -39,7 +40,7 @@ public final class PaymentRequests {
         this.dao = jdbi.onDemand(PaymentRequestDao.class);
     }
 
-    public Optional<PaymentRequest> openOf(final String discordId) {
+    public Optional<PaymentRequest> openOf(final DiscordId discordId) {
         return dao.findOpenByUser(discordId);
     }
 
@@ -52,7 +53,7 @@ public final class PaymentRequests {
         return dao.findById(id);
     }
 
-    public List<PaymentRequest> recentOf(final String discordId, final int limit) {
+    public List<PaymentRequest> recentOf(final DiscordId discordId, final int limit) {
         return dao.findByUser(discordId, limit);
     }
 
@@ -113,7 +114,7 @@ public final class PaymentRequests {
      * @return the row that was written
      */
     public PaymentRequest open(
-            final String discordId,
+            final DiscordId discordId,
             final int days,
             final int amountCents,
             final int donationCents,

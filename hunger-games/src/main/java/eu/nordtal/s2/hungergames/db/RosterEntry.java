@@ -1,5 +1,6 @@
 package eu.nordtal.s2.hungergames.db;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
@@ -14,7 +15,7 @@ public record RosterEntry(
         String teamName,
         @Nullable Integer teamColourRgb,
         @Nullable String teamColourNamed,
-        String discordId,
+        DiscordId discordId,
         MemberState memberState,
         boolean ready,
         @Nullable UUID mcUuid,

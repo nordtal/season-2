@@ -3,6 +3,7 @@ package eu.nordtal.s2.hungergames.game;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.db.MemberState;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
@@ -27,14 +28,14 @@ class CeremonyTest {
             UUID.fromString("11111111-1111-1111-1111-111111111111"),
             TEAM,
             GAME,
-            "594510749410525200",
+            DiscordId.of("594510749410525200"),
             MemberState.OWNER,
             true);
     private static final HgMember OLE = new HgMember(
             UUID.fromString("22222222-2222-2222-2222-222222222222"),
             TEAM,
             GAME,
-            "301234567890123456",
+            DiscordId.of("301234567890123456"),
             MemberState.ACCEPTED,
             true);
 
@@ -66,7 +67,7 @@ class CeremonyTest {
 
     private static void assertNoIdentifier(final String text) {
         for (final HgMember member : List.of(IDA, OLE)) {
-            assertFalse(text.contains(member.discordId()), "a Discord ID reached the chat: " + text);
+            assertFalse(text.contains(member.discordId().value()), "a Discord ID reached the chat: " + text);
             assertFalse(text.contains(member.id().toString()), "a member UUID reached the chat: " + text);
         }
     }

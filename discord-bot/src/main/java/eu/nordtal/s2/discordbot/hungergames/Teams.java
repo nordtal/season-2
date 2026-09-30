@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot.hungergames;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.language.Locales;
 import java.sql.SQLException;
 import java.util.Locale;
@@ -49,7 +50,7 @@ public final class Teams {
      * @param discordId the registering Discord account
      * @param name the team name, 3 to 15 characters, unique within the open game
      */
-    public RegistrationResult register(final String discordId, final String name) {
+    public RegistrationResult register(final DiscordId discordId, final String name) {
         final String trimmed = name == null ? "" : name.strip();
         if (trimmed.length() < NAME_MIN_LENGTH || trimmed.length() > NAME_MAX_LENGTH) {
             return RegistrationResult.invalidName();
@@ -98,14 +99,14 @@ public final class Teams {
         }
 
         final UUID gameId = openGame();
-        final Optional<UUID> ownerMemberId = dao.activeMembershipId(gameId, ownerDiscordId);
+        final Optional<UUID> ownerMemberId = dao.activeMembershipId(gameId, DiscordId.of(ownerDiscordId));
         if (ownerMemberId.isEmpty()
                 || !"OWNER".equals(dao.stateOfMember(ownerMemberId.get()).orElse(""))) {
             return InviteResult.notOwner();
         }
         final UUID teamId = dao.teamIdOfMember(ownerMemberId.get()).orElseThrow();
 
-        if (dao.activeMembershipId(gameId, partnerDiscordId).isPresent()) {
+        if (dao.activeMembershipId(gameId, DiscordId.of(partnerDiscordId)).isPresent()) {
             return InviteResult.targetUnavailable();
         }
         if (dao.settledMemberCount(teamId) >= 2) {
@@ -121,7 +122,7 @@ public final class Teams {
                                 + "ON CONFLICT (discord_id) DO NOTHING")
                         .bind("id", partnerDiscordId)
                         .execute();
-                return handle.attach(HungerGamesDao.class).insertInvite(teamId, gameId, partnerDiscordId);
+                return handle.attach(HungerGamesDao.class).insertInvite(teamId, gameId, DiscordId.of(partnerDiscordId));
             });
             return InviteResult.invited(memberId, teamId, dao.teamName(teamId).orElseThrow());
         } catch (final UnableToExecuteStatementException exception) {
@@ -139,7 +140,7 @@ public final class Teams {
      * @param respondingDiscordId only this account's own invite can be answered with it
      */
     public AnswerResult accept(final UUID memberId, final String respondingDiscordId) {
-        if (dao.accept(memberId, respondingDiscordId) != 1) {
+        if (dao.accept(memberId, DiscordId.of(respondingDiscordId)) != 1) {
             return AnswerResult.notPending();
         }
         final UUID teamId = dao.teamIdOfMember(memberId).orElseThrow();
@@ -148,7 +149,7 @@ public final class Teams {
 
     /** Declines an invite, with the same rules as {@link #accept(UUID, String)}. */
     public AnswerResult decline(final UUID memberId, final String respondingDiscordId) {
-        if (dao.decline(memberId, respondingDiscordId) != 1) {
+        if (dao.decline(memberId, DiscordId.of(respondingDiscordId)) != 1) {
             return AnswerResult.notPending();
         }
         final UUID teamId = dao.teamIdOfMember(memberId).orElseThrow();
@@ -156,7 +157,7 @@ public final class Teams {
     }
 
     /** Returns the account's language, English when nothing is known yet. */
-    public Locale localeOf(final String discordId) {
+    public Locale localeOf(final DiscordId discordId) {
         return Locales.parse(dao.localeOf(discordId).orElse(null));
     }
 

@@ -7,6 +7,7 @@ import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.commands.remote.RequestArguments;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.command.CommandOutcome;
 import eu.nordtal.s2.database.command.NewCommandRequest;
@@ -70,7 +71,7 @@ final class CommandApi {
                                 arguments,
                                 "WEB",
                                 requestedBy,
-                                Optional.of(who.id()),
+                                Optional.of(DiscordId.of(who.id())),
                                 // The target re-reads what it needs from the Discord id.
                                 Optional.empty(),
                                 "de",

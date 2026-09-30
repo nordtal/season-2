@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
+import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.Jdbis;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
@@ -49,6 +51,7 @@ class TeamsIntegrationTest {
 
         database = Database.create(
                 DatabaseConfig.of(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword()));
+        database.jdbi().installPlugin(Jdbis.ids());
         database.migrate();
     }
 
@@ -84,32 +87,32 @@ class TeamsIntegrationTest {
 
     @Test
     void registeringCreatesATeamWithItsOwnerAsAFullMember() {
-        final RegistrationResult result = teams.register(OWNER, "Foxes");
+        final RegistrationResult result = teams.register(DiscordId.of(OWNER), "Foxes");
 
         assertEquals(RegistrationResult.Status.REGISTERED, result.status());
     }
 
     @Test
     void aSecondRegistrationByTheSameAccountIsRefusedPreCheckAndConstraintAlike() {
-        teams.register(OWNER, "Foxes");
+        teams.register(DiscordId.of(OWNER), "Foxes");
 
         assertEquals(
                 RegistrationResult.Status.ALREADY_REGISTERED,
-                teams.register(OWNER, "Wolves").status());
+                teams.register(DiscordId.of(OWNER), "Wolves").status());
     }
 
     @Test
     void aTeamNameIsTakenCaseInsensitivelyWithinTheSameGame() {
-        teams.register(OWNER, "Foxes");
+        teams.register(DiscordId.of(OWNER), "Foxes");
 
         assertEquals(
                 RegistrationResult.Status.NAME_TAKEN,
-                teams.register(OTHER, "foxes").status());
+                teams.register(DiscordId.of(OTHER), "foxes").status());
     }
 
     @Test
     void inviteThenAcceptCompletesTheTeam() {
-        teams.register(OWNER, "Foxes");
+        teams.register(DiscordId.of(OWNER), "Foxes");
 
         final InviteResult invited = teams.invite(OWNER, PARTNER);
         assertEquals(InviteResult.Status.INVITED, invited.status());
@@ -126,7 +129,7 @@ class TeamsIntegrationTest {
 
     @Test
     void decliningFreesTheTeamUpForADifferentInvite() {
-        teams.register(OWNER, "Foxes");
+        teams.register(DiscordId.of(OWNER), "Foxes");
         final UUID firstInvite = teams.invite(OWNER, PARTNER).memberId();
 
         final AnswerResult declined = teams.decline(firstInvite, PARTNER);
@@ -138,7 +141,7 @@ class TeamsIntegrationTest {
 
     @Test
     void onlyTheInvitedAccountCanAnswerItsOwnInvite() {
-        teams.register(OWNER, "Foxes");
+        teams.register(DiscordId.of(OWNER), "Foxes");
         final UUID memberId = teams.invite(OWNER, PARTNER).memberId();
 
         assertEquals(
@@ -147,7 +150,7 @@ class TeamsIntegrationTest {
 
     @Test
     void aSecondInviteWhileOneIsPendingIsRefused() {
-        teams.register(OWNER, "Foxes");
+        teams.register(DiscordId.of(OWNER), "Foxes");
         teams.invite(OWNER, PARTNER);
 
         assertEquals(
@@ -156,8 +159,8 @@ class TeamsIntegrationTest {
 
     @Test
     void invitingSomebodyWhoIsAlreadyRegisteredElsewhereIsRefused() {
-        teams.register(OWNER, "Foxes");
-        teams.register(PARTNER, "Wolves");
+        teams.register(DiscordId.of(OWNER), "Foxes");
+        teams.register(DiscordId.of(PARTNER), "Wolves");
 
         assertEquals(
                 InviteResult.Status.TARGET_UNAVAILABLE,
@@ -166,7 +169,7 @@ class TeamsIntegrationTest {
 
     @Test
     void aNonOwnerMemberCannotInvite() {
-        teams.register(OWNER, "Foxes");
+        teams.register(DiscordId.of(OWNER), "Foxes");
         teams.accept(teams.invite(OWNER, PARTNER).memberId(), PARTNER);
 
         assertEquals(InviteResult.Status.NOT_OWNER, teams.invite(PARTNER, OTHER).status());
@@ -199,6 +202,6 @@ class TeamsIntegrationTest {
                                 .execute());
         assertEquals(
                 RegistrationResult.Status.REGISTERED,
-                teams.register(OWNER, "Foxes").status());
+                teams.register(DiscordId.of(OWNER), "Foxes").status());
     }
 }

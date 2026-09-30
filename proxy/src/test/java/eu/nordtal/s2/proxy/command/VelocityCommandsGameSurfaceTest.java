@@ -14,6 +14,7 @@ import eu.nordtal.s2.commands.network.NetworkEffects;
 import eu.nordtal.s2.commands.smp.SmpCommands;
 import eu.nordtal.s2.commands.smp.SmpEffects;
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessState;
 import eu.nordtal.s2.database.access.MemberState;
 import eu.nordtal.s2.messagerendering.ToneColours;
@@ -73,7 +74,7 @@ class VelocityCommandsGameSurfaceTest {
                 ADMIN,
                 new AccessState(
                         ADMIN,
-                        "300000000000000042",
+                        DiscordId.of("300000000000000042"),
                         MemberState.MEMBER,
                         true,
                         null,

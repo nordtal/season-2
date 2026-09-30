@@ -1,5 +1,6 @@
 package eu.nordtal.s2.commands;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Tone;
 import java.util.List;
@@ -19,7 +20,7 @@ public final class FakeUser implements NordtalUser {
     public final List<Reply> replies = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     private final Origin origin;
-    private final String discordId;
+    private final DiscordId discordId;
     private final UUID mcUuid;
 
     /**
@@ -33,18 +34,21 @@ public final class FakeUser implements NordtalUser {
         }
     }
 
-    private FakeUser(final Origin origin, final String discordId, final UUID mcUuid) {
+    private FakeUser(final Origin origin, final DiscordId discordId, final UUID mcUuid) {
         this.origin = origin;
         this.discordId = discordId;
         this.mcUuid = mcUuid;
     }
 
     public static FakeUser inGame() {
-        return new FakeUser(Origin.GAME, "100000000000000001", UUID.fromString("11111111-2222-3333-4444-555555555555"));
+        return new FakeUser(
+                Origin.GAME,
+                DiscordId.of("100000000000000001"),
+                UUID.fromString("11111111-2222-3333-4444-555555555555"));
     }
 
     public static FakeUser inDiscord() {
-        return new FakeUser(Origin.DISCORD, "100000000000000002", null);
+        return new FakeUser(Origin.DISCORD, DiscordId.of("100000000000000002"), null);
     }
 
     public static FakeUser console() {
@@ -64,7 +68,7 @@ public final class FakeUser implements NordtalUser {
     }
 
     @Override
-    public Optional<String> discordId() {
+    public Optional<DiscordId> discordId() {
         return Optional.ofNullable(discordId);
     }
 

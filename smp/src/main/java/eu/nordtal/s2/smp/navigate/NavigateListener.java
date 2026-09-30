@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.navigate;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.player.Identities;
@@ -62,7 +63,7 @@ public final class NavigateListener implements Listener {
     public void onDeath(final PlayerDeathEvent event) {
         final Player player = event.getEntity();
         final Location at = Objects.requireNonNull(player.getLocation());
-        final String discordId = identities.discordIdOf(player.getUniqueId()).orElse(null);
+        final DiscordId discordId = identities.discordIdOf(player.getUniqueId()).orElse(null);
         if (discordId == null) {
             return;
         }

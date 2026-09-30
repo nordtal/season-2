@@ -5,15 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.Jdbis;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Optional;
 import org.flywaydb.core.Flyway;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -79,15 +78,12 @@ class HeadStartIntegrationTest {
         execute("TRUNCATE TABLE hg_game, smp_player, smp_aura_event, discord_user CASCADE");
         execute("INSERT INTO discord_user (discord_id) VALUES ('" + WINNER + "'), ('" + SOMEBODY_ELSE + "')");
 
-        dao = Jdbi.create(dataSource)
-                .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin())
-                .onDemand(SmpDao.class);
+        dao = Jdbis.over(dataSource).onDemand(SmpDao.class);
     }
 
     @Test
     void anUndecidedGameYieldsNobody() {
-        game("RUNNING", WINNER, "2026-09-01", true);
+        game("RUNNING", DiscordId.of(WINNER), "2026-09-01", true);
 
         assertEquals(
                 Optional.empty(),
@@ -98,7 +94,7 @@ class HeadStartIntegrationTest {
     @Test
     void aDecidedGameWithNoWinnerYieldsNobody() {
         // A tiebreak with no winner and every participant dead both write DECIDED with winner_member_id null.
-        game("DECIDED", WINNER, "2026-09-01", false);
+        game("DECIDED", DiscordId.of(WINNER), "2026-09-01", false);
 
         assertEquals(
                 Optional.empty(),
@@ -108,15 +104,15 @@ class HeadStartIntegrationTest {
 
     @Test
     void theWinnerIsResolvedToADiscordId() {
-        game("DECIDED", WINNER, "2026-09-01", true);
+        game("DECIDED", DiscordId.of(WINNER), "2026-09-01", true);
 
         assertEquals(Optional.of(WINNER), dao.startEventWinner());
     }
 
     @Test
     void theEarliestDecidedGameWins() {
-        game("DECIDED", WINNER, "2026-09-01", true);
-        game("DECIDED", SOMEBODY_ELSE, "2026-11-20", true);
+        game("DECIDED", DiscordId.of(WINNER), "2026-09-01", true);
+        game("DECIDED", DiscordId.of(SOMEBODY_ELSE), "2026-11-20", true);
 
         // Ordering it the other way would pay whoever won most recently, months after the real payout, unrecoverably.
         assertEquals(
@@ -130,25 +126,25 @@ class HeadStartIntegrationTest {
         // The winner has played no SMP, so no aura row exists yet; an UPDATE-only claim would silently say "no".
         assertEquals(0, playerRows(), "the winner starts with no row at all");
 
-        assertTrue(dao.grantHeadStart(WINNER, AURA, REASON));
+        assertTrue(dao.grantHeadStart(DiscordId.of(WINNER), AURA, REASON));
 
         assertEquals(1, playerRows());
-        assertTrue(granted(WINNER));
-        assertEquals(AURA, aura(WINNER));
-        assertEquals(1, auraEvents(WINNER), "and the balance can be explained");
+        assertTrue(granted(DiscordId.of(WINNER)));
+        assertEquals(AURA, aura(DiscordId.of(WINNER)));
+        assertEquals(1, auraEvents(DiscordId.of(WINNER)), "and the balance can be explained");
     }
 
     @Test
     void theClaimIsTakenExactlyOnce() {
-        assertTrue(dao.grantHeadStart(WINNER, AURA, REASON));
+        assertTrue(dao.grantHeadStart(DiscordId.of(WINNER), AURA, REASON));
 
         assertFalse(
-                dao.grantHeadStart(WINNER, AURA, REASON),
+                dao.grantHeadStart(DiscordId.of(WINNER), AURA, REASON),
                 "the flag is the gate: a row already carrying true matches nothing in the ON"
                         + " CONFLICT ... WHERE, so the statement affects no rows");
 
-        assertEquals(AURA, aura(WINNER), "and above all it must not have been booked twice");
-        assertEquals(1, auraEvents(WINNER));
+        assertEquals(AURA, aura(DiscordId.of(WINNER)), "and above all it must not have been booked twice");
+        assertEquals(1, auraEvents(DiscordId.of(WINNER)));
     }
 
     @Test
@@ -156,24 +152,24 @@ class HeadStartIntegrationTest {
         // Reachable normally: the winner joins before DECIDED, earns aura for an advancement, then the flag is set.
         execute("INSERT INTO smp_player (discord_id, aura) VALUES ('" + WINNER + "', 20)");
 
-        assertTrue(dao.grantHeadStart(WINNER, AURA, REASON));
+        assertTrue(dao.grantHeadStart(DiscordId.of(WINNER), AURA, REASON));
 
-        assertEquals(20 + AURA, aura(WINNER));
-        assertTrue(granted(WINNER));
+        assertEquals(20 + AURA, aura(DiscordId.of(WINNER)));
+        assertTrue(granted(DiscordId.of(WINNER)));
     }
 
     @Test
     void zeroAuraIsAConfiguredValueAndNotAnAccident() {
         // hg-winner-aura may be set to 0 and keep only the items, but it must still claim, or items repeat every join.
-        assertTrue(dao.grantHeadStart(WINNER, 0, REASON));
+        assertTrue(dao.grantHeadStart(DiscordId.of(WINNER), 0, REASON));
 
-        assertTrue(granted(WINNER));
-        assertEquals(0, auraEvents(WINNER), "an event saying +0 explains nothing and is noise");
-        assertFalse(dao.grantHeadStart(WINNER, 0, REASON), "and it is still taken exactly once");
+        assertTrue(granted(DiscordId.of(WINNER)));
+        assertEquals(0, auraEvents(DiscordId.of(WINNER)), "an event saying +0 explains nothing and is noise");
+        assertFalse(dao.grantHeadStart(DiscordId.of(WINNER), 0, REASON), "and it is still taken exactly once");
     }
 
     /** One game with one team and one member, optionally decided in that member's favour. */
-    private void game(final String state, final String discordId, final String created, final boolean withWinner) {
+    private void game(final String state, final DiscordId discordId, final String created, final boolean withWinner) {
         final String gameId =
                 query("INSERT INTO hg_game (state, created) VALUES ('" + state + "', '" + created + "') RETURNING id");
         final String teamId =
@@ -186,7 +182,7 @@ class HeadStartIntegrationTest {
     }
 
     /** Read as a boolean, because {@code Boolean.parseBoolean("t")} is false for PostgreSQL's text form. */
-    private boolean granted(final String discordId) {
+    private boolean granted(final DiscordId discordId) {
         try (Connection connection = dataSource.getConnection();
                 Statement statement = connection.createStatement();
                 ResultSet rows = statement.executeQuery("SELECT hg_winner_reward_granted FROM"
@@ -197,11 +193,11 @@ class HeadStartIntegrationTest {
         }
     }
 
-    private int aura(final String discordId) {
+    private int aura(final DiscordId discordId) {
         return Integer.parseInt(query("SELECT aura FROM smp_player WHERE discord_id = '" + discordId + "'"));
     }
 
-    private int auraEvents(final String discordId) {
+    private int auraEvents(final DiscordId discordId) {
         return Integer.parseInt(query("SELECT count(*) FROM smp_aura_event WHERE discord_id = '" + discordId
                 + "' AND reason = '" + REASON + "'"));
     }

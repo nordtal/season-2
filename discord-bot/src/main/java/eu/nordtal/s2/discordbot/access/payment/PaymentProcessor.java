@@ -2,6 +2,7 @@ package eu.nordtal.s2.discordbot.access.payment;
 
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AccessGrant;
 import eu.nordtal.s2.database.access.AccessSource;
@@ -154,7 +155,7 @@ public final class PaymentProcessor {
         admin.record(
                 "SETTLE",
                 null,
-                request.discordId(),
+                request.discordId().value(),
                 null,
                 "reference=" + request.reference() + " payment=" + paymentId
                         + " matched=" + request.matchedBy()
@@ -171,7 +172,7 @@ public final class PaymentProcessor {
     }
 
     /** Thanks a donation in public, in the channel of the donor's language; a plain purchase stays private. */
-    private void announceDonation(final String discordId, final int donationCents, final Locale locale) {
+    private void announceDonation(final DiscordId discordId, final int donationCents, final Locale locale) {
         // An unconfigured language tag lands in the fallback channel.
         final String channelId = languages.forLocale(locale).contributionChannelId();
         // No contribution channel means no public thank-you; the donation is still booked.

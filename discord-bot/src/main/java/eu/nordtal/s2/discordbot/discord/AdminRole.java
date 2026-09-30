@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
@@ -51,19 +52,19 @@ public final class AdminRole {
         alerted.remove("role");
 
         final Set<String> shouldHave = new HashSet<>();
-        admins.admins().forEach(admin -> shouldHave.add(admin.discordId()));
+        admins.admins().forEach(admin -> shouldHave.add(admin.discordId().value()));
 
         for (final Member member : guild.getMembersWithRoles(role)) {
             if (!shouldHave.remove(member.getId())) {
                 guild.removeRoleFromMember(member, role)
                         .queue(
-                                ok -> succeeded(member.getId(), "took the admin role from"),
-                                failure -> failed(member.getId(), "take the admin role from", failure));
+                                ok -> succeeded(DiscordId.of(member.getId()), "took the admin role from"),
+                                failure -> failed(DiscordId.of(member.getId()), "take the admin role from", failure));
             }
         }
 
-        for (final String discordId : shouldHave) {
-            final Member member = guild.getMemberById(discordId);
+        for (final DiscordId discordId : shouldHave.stream().map(DiscordId::of).toList()) {
+            final Member member = guild.getMemberById(discordId.value());
             if (member == null) {
                 // Not in the member cache: leaving drops the admin anyway.
                 continue;
@@ -75,13 +76,13 @@ public final class AdminRole {
         }
     }
 
-    private void succeeded(final String discordId, final String what) {
-        alerted.remove(discordId);
+    private void succeeded(final DiscordId discordId, final String what) {
+        alerted.remove(discordId.value());
         log.info("Admin role: {} {}", what, discordId);
     }
 
-    private void failed(final String discordId, final String what, final Throwable failure) {
-        if (alerted.add(discordId)) {
+    private void failed(final DiscordId discordId, final String what, final Throwable failure) {
+        if (alerted.add(discordId.value())) {
             adminLog.alert("⚠️ Admin role not changed", "<@" + discordId + "> " + what + ": " + failure.getMessage());
         } else {
             log.debug("Could still not {} {}: {}", what, discordId, failure.getMessage());

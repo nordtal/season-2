@@ -2,6 +2,7 @@ package eu.nordtal.s2.proxy.command;
 
 import com.velocitypowered.api.proxy.Player;
 import eu.nordtal.s2.commands.NordtalUser;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messagerendering.Tones;
@@ -40,7 +41,7 @@ public final class VelocityUser implements NordtalUser {
     }
 
     @Override
-    public Optional<String> discordId() {
+    public Optional<DiscordId> discordId() {
         return roster.of(player.getUniqueId()).map(LoginRoster.Session::discordId);
     }
 

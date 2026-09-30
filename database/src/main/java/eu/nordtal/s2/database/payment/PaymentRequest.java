@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.payment;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -26,7 +27,7 @@ import org.jspecify.annotations.Nullable;
 public record PaymentRequest(
         UUID id,
         String reference,
-        String discordId,
+        DiscordId discordId,
         int days,
         int amountCents,
         int donationCents,

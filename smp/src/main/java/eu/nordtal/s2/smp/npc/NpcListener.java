@@ -2,6 +2,7 @@ package eu.nordtal.s2.smp.npc;
 
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
@@ -173,7 +174,7 @@ public final class NpcListener implements Listener {
     /** The one moment items change hands, applying what {@link HandIn} decided and crediting it. */
     private void confirm(final Player player, final HandInGui gui) {
         final Locale locale = locales.of(player.getUniqueId());
-        final Optional<String> discordId = identities.discordIdOf(player.getUniqueId());
+        final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
         if (discordId.isEmpty()) {
             player.sendMessage(MessageRenderer.of(messages)
                     .format(locale, MESSAGES.smp().error().noAccountLink()));

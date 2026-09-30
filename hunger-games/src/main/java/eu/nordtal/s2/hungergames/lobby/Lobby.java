@@ -2,6 +2,7 @@ package eu.nordtal.s2.hungergames.lobby;
 
 import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.db.RosterEntry;
@@ -100,7 +101,7 @@ public final class Lobby {
      *
      * @return whether a membership was found and updated
      */
-    public boolean markReady(final UUID gameId, final String discordId) {
+    public boolean markReady(final UUID gameId, final DiscordId discordId) {
         return dao.setReady(gameId, discordId, true) > 0;
     }
 

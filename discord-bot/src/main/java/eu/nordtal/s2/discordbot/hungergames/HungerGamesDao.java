@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot.hungergames;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.util.Optional;
 import java.util.UUID;
 import org.jdbi.v3.sqlobject.customizer.Bind;
@@ -14,7 +15,7 @@ import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 interface HungerGamesDao {
 
     @SqlUpdate("INSERT INTO discord_user (discord_id) VALUES (:discordId) ON CONFLICT (discord_id) DO NOTHING")
-    void ensureDiscordUser(@Bind("discordId") String discordId);
+    void ensureDiscordUser(@Bind("discordId") DiscordId discordId);
 
     /** The one game that is not DECIDED, if any. */
     @SqlQuery("SELECT id FROM hg_game WHERE state <> 'DECIDED' LIMIT 1")
@@ -31,7 +32,7 @@ interface HungerGamesDao {
             SELECT id FROM hg_member
             WHERE game_id = :gameId AND discord_id = :discordId AND state IN ('OWNER', 'INVITED', 'ACCEPTED')
             """)
-    Optional<UUID> activeMembershipId(@Bind("gameId") UUID gameId, @Bind("discordId") String discordId);
+    Optional<UUID> activeMembershipId(@Bind("gameId") UUID gameId, @Bind("discordId") DiscordId discordId);
 
     @SqlQuery("INSERT INTO hg_team (game_id, name) VALUES (:gameId, :name) RETURNING id")
     UUID insertTeam(@Bind("gameId") UUID gameId, @Bind("name") String name);
@@ -40,7 +41,7 @@ interface HungerGamesDao {
             INSERT INTO hg_member (team_id, game_id, discord_id, state)
             VALUES (:teamId, :gameId, :discordId, 'OWNER')
             """)
-    void insertOwner(@Bind("teamId") UUID teamId, @Bind("gameId") UUID gameId, @Bind("discordId") String discordId);
+    void insertOwner(@Bind("teamId") UUID teamId, @Bind("gameId") UUID gameId, @Bind("discordId") DiscordId discordId);
 
     @SqlQuery("SELECT team_id FROM hg_member WHERE id = :memberId")
     Optional<UUID> teamIdOfMember(@Bind("memberId") UUID memberId);
@@ -52,7 +53,7 @@ interface HungerGamesDao {
     Optional<String> stateOfMember(@Bind("memberId") UUID memberId);
 
     @SqlQuery("SELECT discord_id FROM hg_member WHERE id = :memberId")
-    Optional<String> discordIdOfMember(@Bind("memberId") UUID memberId);
+    Optional<DiscordId> discordIdOfMember(@Bind("memberId") UUID memberId);
 
     @SqlQuery("SELECT name FROM hg_team WHERE id = :teamId")
     Optional<String> teamName(@Bind("teamId") UUID teamId);
@@ -76,22 +77,22 @@ interface HungerGamesDao {
             VALUES (:teamId, :gameId, :discordId, 'INVITED')
             RETURNING id
             """)
-    UUID insertInvite(@Bind("teamId") UUID teamId, @Bind("gameId") UUID gameId, @Bind("discordId") String discordId);
+    UUID insertInvite(@Bind("teamId") UUID teamId, @Bind("gameId") UUID gameId, @Bind("discordId") DiscordId discordId);
 
     // discord_id is in the WHERE: only the invited account may answer its own invite.
     @SqlUpdate("""
             UPDATE hg_member SET state = 'ACCEPTED'
             WHERE id = :memberId AND discord_id = :discordId AND state = 'INVITED'
             """)
-    int accept(@Bind("memberId") UUID memberId, @Bind("discordId") String discordId);
+    int accept(@Bind("memberId") UUID memberId, @Bind("discordId") DiscordId discordId);
 
     @SqlUpdate("""
             UPDATE hg_member SET state = 'DECLINED'
             WHERE id = :memberId AND discord_id = :discordId AND state = 'INVITED'
             """)
-    int decline(@Bind("memberId") UUID memberId, @Bind("discordId") String discordId);
+    int decline(@Bind("memberId") UUID memberId, @Bind("discordId") DiscordId discordId);
 
     /** Read directly, since the Discord half has no Minecraft UUID for {@code PlayerLocales}. */
     @SqlQuery("SELECT locale FROM discord_user WHERE discord_id = :discordId")
-    Optional<String> localeOf(@Bind("discordId") String discordId);
+    Optional<String> localeOf(@Bind("discordId") DiscordId discordId);
 }

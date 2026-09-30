@@ -2,6 +2,7 @@ package eu.nordtal.s2.smp.duel;
 
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
@@ -228,8 +229,8 @@ public final class Duels {
 
         // Read now, while both fighters are online.
         final Map<UUID, String> discordIds = new HashMap<>();
-        identities.discordIdOf(first.getUniqueId()).ifPresent(id -> discordIds.put(first.getUniqueId(), id));
-        identities.discordIdOf(second.getUniqueId()).ifPresent(id -> discordIds.put(second.getUniqueId(), id));
+        identities.discordIdOf(first.getUniqueId()).ifPresent(id -> discordIds.put(first.getUniqueId(), id.value()));
+        identities.discordIdOf(second.getUniqueId()).ifPresent(id -> discordIds.put(second.getUniqueId(), id.value()));
 
         final ActiveDuel duel = new ActiveDuel(
                 first.getUniqueId(), second.getUniqueId(), type, slot.get(), saved, discordIds, clock.millis());
@@ -425,10 +426,10 @@ public final class Duels {
         final String type = duel.type().name();
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            dao.addAura(winner, stake, AuraReason.DUEL_WIN.stored(), type);
-            dao.addAura(loser, -stake, AuraReason.DUEL_LOSS.stored(), type);
-            dao.auraOf(winner).ifPresent(value -> identities.recordAura(winnerId, value));
-            dao.auraOf(loser).ifPresent(value -> identities.recordAura(loserId, value));
+            dao.addAura(DiscordId.of(winner), stake, AuraReason.DUEL_WIN.stored(), type);
+            dao.addAura(DiscordId.of(loser), -stake, AuraReason.DUEL_LOSS.stored(), type);
+            dao.auraOf(DiscordId.of(winner)).ifPresent(value -> identities.recordAura(winnerId, value));
+            dao.auraOf(DiscordId.of(loser)).ifPresent(value -> identities.recordAura(loserId, value));
         });
     }
 

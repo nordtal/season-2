@@ -2,6 +2,7 @@ package eu.nordtal.s2.smp.grave;
 
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
@@ -74,7 +75,7 @@ public final class GraveListener implements Listener {
             return;
         }
 
-        final Optional<String> discordId = identities.discordIdOf(player.getUniqueId());
+        final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
         final Location at = java.util.Objects.requireNonNull(player.getLocation());
         final List<ItemStack> drops = List.copyOf(event.getDrops());
         final int experience = event.getDroppedExp();
@@ -90,12 +91,13 @@ public final class GraveListener implements Listener {
         }
 
         if (!drops.isEmpty() || experience > 0) {
-            graves.create(discordId.get(), player.getUniqueId(), at, drops.toArray(new ItemStack[0]), experience);
+            graves.create(
+                    discordId.get().value(), player.getUniqueId(), at, drops.toArray(new ItemStack[0]), experience);
         }
         applyPenalty(player, discordId.get(), event);
     }
 
-    private void applyPenalty(final Player player, final String discordId, final PlayerDeathEvent event) {
+    private void applyPenalty(final Player player, final DiscordId discordId, final PlayerDeathEvent event) {
         final String cause = event.getDamageSource() == null
                 ? null
                 : event.getDamageSource().getDamageType().key().value();

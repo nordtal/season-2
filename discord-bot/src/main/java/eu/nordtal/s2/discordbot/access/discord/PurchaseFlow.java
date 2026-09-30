@@ -2,6 +2,7 @@ package eu.nordtal.s2.discordbot.access.discord;
 
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.payment.Money;
 import eu.nordtal.s2.database.payment.PaymentRequest;
 import eu.nordtal.s2.database.payment.PaymentRequestStatus;
@@ -92,7 +93,7 @@ public final class PurchaseFlow extends ListenerAdapter {
         if (!id.startsWith("access:")) {
             return;
         }
-        final Locale locale = roles.localeOf(event.getUser().getId());
+        final Locale locale = roles.localeOf(DiscordId.of(event.getUser().getId()));
 
         switch (id) {
             case Ids.BUY, Ids.CHANGE -> chooseDays(event, locale);
@@ -107,7 +108,7 @@ public final class PurchaseFlow extends ListenerAdapter {
         if (!Ids.DAYS_SELECT.equals(event.getComponentId())) {
             return;
         }
-        final Locale locale = roles.localeOf(event.getUser().getId());
+        final Locale locale = roles.localeOf(DiscordId.of(event.getUser().getId()));
         final int days = Integer.parseInt(event.getValues().getFirst());
 
         final Optional<Tier> tier = tiers.byDays(days);
@@ -118,14 +119,15 @@ public final class PurchaseFlow extends ListenerAdapter {
         }
 
         // The row, not the button, decides whether the donation stays on across a tier change.
-        final boolean donation = requests.openOf(event.getUser().getId())
+        final boolean donation = requests.openOf(DiscordId.of(event.getUser().getId()))
                 .map(PaymentRequest::donationRequested)
                 .orElse(false);
 
         event.deferEdit().queue();
         executor.execute(() -> {
             try {
-                final PaymentRequest request = purchases.select(event.getUser().getId(), tier.get(), donation);
+                final PaymentRequest request =
+                        purchases.select(DiscordId.of(event.getUser().getId()), tier.get(), donation);
                 showSummary(event, locale, request);
             } catch (final RuntimeException exception) {
                 fail(event, locale, "selecting " + days + " days", exception);
@@ -159,7 +161,8 @@ public final class PurchaseFlow extends ListenerAdapter {
     }
 
     private void toggleDonation(final ButtonInteractionEvent event, final Locale locale) {
-        final Optional<PaymentRequest> open = requests.openOf(event.getUser().getId());
+        final Optional<PaymentRequest> open =
+                requests.openOf(DiscordId.of(event.getUser().getId()));
         if (open.isEmpty() || open.get().tab().isPresent()) {
             reply(event, messages.format(locale, MESSAGES.purchase().gone()));
             return;
@@ -178,7 +181,8 @@ public final class PurchaseFlow extends ListenerAdapter {
                 showSummary(
                         event,
                         locale,
-                        purchases.select(event.getUser().getId(), tier.get(), !request.donationRequested()));
+                        purchases.select(
+                                DiscordId.of(event.getUser().getId()), tier.get(), !request.donationRequested()));
             } catch (final RuntimeException exception) {
                 fail(event, locale, "toggling the donation", exception);
             }
@@ -186,7 +190,8 @@ public final class PurchaseFlow extends ListenerAdapter {
     }
 
     private void confirm(final ButtonInteractionEvent event, final Locale locale) {
-        final Optional<PaymentRequest> open = requests.openOf(event.getUser().getId());
+        final Optional<PaymentRequest> open =
+                requests.openOf(DiscordId.of(event.getUser().getId()));
         if (open.isEmpty()) {
             reply(event, messages.format(locale, MESSAGES.purchase().gone()));
             return;

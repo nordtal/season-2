@@ -2,6 +2,7 @@ package eu.nordtal.s2.discordbot.hungergames;
 
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.discordbot.AccessMessages;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
@@ -65,7 +66,7 @@ public final class RegisterFlow extends ListenerAdapter {
     }
 
     private void openRegisterModal(final ButtonInteractionEvent event) {
-        final Locale locale = teams.localeOf(event.getUser().getId());
+        final Locale locale = teams.localeOf(DiscordId.of(event.getUser().getId()));
 
         final TextInput nameInput = TextInput.create(Ids.REGISTER_NAME_INPUT, TextInputStyle.SHORT)
                 .setPlaceholder(
@@ -87,7 +88,7 @@ public final class RegisterFlow extends ListenerAdapter {
         if (!Ids.REGISTER_MODAL.equals(event.getModalId())) {
             return;
         }
-        final Locale locale = teams.localeOf(event.getUser().getId());
+        final Locale locale = teams.localeOf(DiscordId.of(event.getUser().getId()));
         final String typed = event.getValue(Ids.REGISTER_NAME_INPUT) == null
                 ? ""
                 : event.getValue(Ids.REGISTER_NAME_INPUT).getAsString();
@@ -107,7 +108,8 @@ public final class RegisterFlow extends ListenerAdapter {
     }
 
     private void register(final ModalInteractionEvent event, final Locale locale, final String name) {
-        final RegistrationResult result = teams.register(event.getUser().getId(), name);
+        final RegistrationResult result =
+                teams.register(DiscordId.of(event.getUser().getId()), name);
 
         switch (result.status()) {
             case REGISTERED ->
@@ -137,7 +139,7 @@ public final class RegisterFlow extends ListenerAdapter {
     }
 
     private void openInvitePicker(final ButtonInteractionEvent event) {
-        final Locale locale = teams.localeOf(event.getUser().getId());
+        final Locale locale = teams.localeOf(DiscordId.of(event.getUser().getId()));
         final EntitySelectMenu picker = EntitySelectMenu.create(Ids.INVITE_SELECT, EntitySelectMenu.SelectTarget.USER)
                 .setPlaceholder(
                         messages.format(locale, MESSAGES.register().invite().pickerPlaceholder()))
@@ -153,7 +155,7 @@ public final class RegisterFlow extends ListenerAdapter {
         if (!Ids.INVITE_SELECT.equals(event.getComponentId())) {
             return;
         }
-        final Locale locale = teams.localeOf(event.getUser().getId());
+        final Locale locale = teams.localeOf(DiscordId.of(event.getUser().getId()));
         final List<User> selected = event.getMentions().getUsers();
         if (selected.isEmpty()) {
             return;
@@ -223,7 +225,7 @@ public final class RegisterFlow extends ListenerAdapter {
     }
 
     private void dmInvite(final User partner, final UUID memberId, final String teamName) {
-        final Locale locale = teams.localeOf(partner.getId());
+        final Locale locale = teams.localeOf(DiscordId.of(partner.getId()));
         final String text = messages.format(locale, MESSAGES.register().invite().dm(new TeamContext(teamName)));
         final List<ActionRow> components = List.of(ActionRow.of(
                 Button.success(
@@ -251,7 +253,7 @@ public final class RegisterFlow extends ListenerAdapter {
     }
 
     private void answerInvite(final ButtonInteractionEvent event, final UUID memberId, final boolean accept) {
-        final Locale locale = teams.localeOf(event.getUser().getId());
+        final Locale locale = teams.localeOf(DiscordId.of(event.getUser().getId()));
         event.deferEdit().queue();
         executor.execute(() -> {
             try {
@@ -292,7 +294,7 @@ public final class RegisterFlow extends ListenerAdapter {
                 .queue();
 
         teams.ownerOf(teamId).ifPresent(ownerId -> {
-            final Locale ownerLocale = teams.localeOf(ownerId);
+            final Locale ownerLocale = teams.localeOf(DiscordId.of(ownerId));
             final DiscordMemberContext player =
                     new DiscordMemberContext(event.getUser().getAsMention());
             final TeamContext team = new TeamContext(teamName);

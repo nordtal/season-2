@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
+import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AdminTree;
 import java.time.Clock;
@@ -51,6 +53,7 @@ class AdminFlagIntegrationTest {
 
         database = Database.create(
                 DatabaseConfig.of(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword()));
+        database.jdbi().installPlugin(Jdbis.ids());
         database.migrate();
     }
 
@@ -78,45 +81,45 @@ class AdminFlagIntegrationTest {
 
     @Test
     void anAccountTheBotHasNeverWrittenAboutHasNoFlagAtAll() {
-        assertEquals(Optional.empty(), dao.isAdmin(STRANGER));
-        assertFalse(AdminFlagDao.admits(dao.isAdmin(STRANGER)), "and therefore may not switch the phase");
+        assertEquals(Optional.empty(), dao.isAdmin(DiscordId.of(STRANGER)));
+        assertFalse(AdminFlagDao.admits(dao.isAdmin(DiscordId.of(STRANGER))), "and therefore may not switch the phase");
     }
 
     @Test
     void aUserTheBotKnowsButHasNeverMadeAnAdminIsNotOne() {
         // The column is NOT NULL DEFAULT false, so a row written by any other path answers false.
-        access.ensureUser(USER);
+        access.ensureUser(DiscordId.of(USER));
 
-        assertEquals(Optional.of(false), dao.isAdmin(USER));
-        assertFalse(AdminFlagDao.admits(dao.isAdmin(USER)));
+        assertEquals(Optional.of(false), dao.isAdmin(DiscordId.of(USER)));
+        assertFalse(AdminFlagDao.admits(dao.isAdmin(DiscordId.of(USER))));
     }
 
     @Test
     void theRootsRowIsCreatedByTheClaimWhenNothingElseWroteIt() {
         // An admin who never bought or linked anything still has to be able to act as an admin.
-        tree.claimRootIfNobody(USER);
+        tree.claimRootIfNobody(DiscordId.of(USER));
 
-        assertEquals(Optional.of(true), dao.isAdmin(USER));
-        assertTrue(AdminFlagDao.admits(dao.isAdmin(USER)));
+        assertEquals(Optional.of(true), dao.isAdmin(DiscordId.of(USER)));
+        assertTrue(AdminFlagDao.admits(dao.isAdmin(DiscordId.of(USER))));
     }
 
     @Test
     void leavingTheGuildClearsTheFlag() {
-        tree.claimRootIfNobody(USER);
-        tree.dropWithBranch(USER);
+        tree.claimRootIfNobody(DiscordId.of(USER));
+        tree.dropWithBranch(DiscordId.of(USER));
 
-        assertEquals(Optional.of(false), dao.isAdmin(USER));
+        assertEquals(Optional.of(false), dao.isAdmin(DiscordId.of(USER)));
         assertFalse(
-                AdminFlagDao.admits(dao.isAdmin(USER)),
+                AdminFlagDao.admits(dao.isAdmin(DiscordId.of(USER))),
                 "a stale true is what would let an ex-admin switch the season phase");
     }
 
     @Test
     void theFlagIsPerAccountAndDoesNotLeakToAnybodyElse() {
-        tree.claimRootIfNobody(USER);
-        access.ensureUser(STRANGER);
+        tree.claimRootIfNobody(DiscordId.of(USER));
+        access.ensureUser(DiscordId.of(STRANGER));
 
-        assertTrue(AdminFlagDao.admits(dao.isAdmin(USER)));
-        assertFalse(AdminFlagDao.admits(dao.isAdmin(STRANGER)));
+        assertTrue(AdminFlagDao.admits(dao.isAdmin(DiscordId.of(USER))));
+        assertFalse(AdminFlagDao.admits(dao.isAdmin(DiscordId.of(STRANGER))));
     }
 }

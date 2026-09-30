@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.hungergames.db.MemberState;
 import eu.nordtal.s2.hungergames.db.RosterEntry;
 import java.util.List;
@@ -17,14 +18,14 @@ class DemotionTest {
     private static final UUID TEAM_C = UUID.fromString("33333333-0000-0000-0000-000000000000");
 
     private static RosterEntry entry(
-            final UUID teamId, final String teamName, final String discordId, final UUID mcUuid) {
+            final UUID teamId, final String teamName, final DiscordId discordId, final UUID mcUuid) {
         return new RosterEntry(
                 UUID.randomUUID(), teamId, teamName, null, null, discordId, MemberState.ACCEPTED, false, mcUuid, null);
     }
 
     @Test
     void aSoloTeamIsNeverDemoted() {
-        final RosterEntry solo = entry(TEAM_A, "Foxes", "1", UUID.randomUUID());
+        final RosterEntry solo = entry(TEAM_A, "Foxes", DiscordId.of("1"), UUID.randomUUID());
         final List<Participant> resolved = Demotion.resolve(List.of(solo));
 
         assertEquals(1, resolved.size());
@@ -33,8 +34,8 @@ class DemotionTest {
 
     @Test
     void aFullDuoWithBothLinkedIsNeverDemoted() {
-        final RosterEntry owner = entry(TEAM_B, "Wolves", "1", UUID.randomUUID());
-        final RosterEntry partner = entry(TEAM_B, "Wolves", "2", UUID.randomUUID());
+        final RosterEntry owner = entry(TEAM_B, "Wolves", DiscordId.of("1"), UUID.randomUUID());
+        final RosterEntry partner = entry(TEAM_B, "Wolves", DiscordId.of("2"), UUID.randomUUID());
         final List<Participant> resolved = Demotion.resolve(List.of(owner, partner));
 
         assertEquals(2, resolved.size());
@@ -43,20 +44,20 @@ class DemotionTest {
 
     @Test
     void aDuoWhosePartnerNeverLinkedIsDemotedToSolo() {
-        final RosterEntry owner = entry(TEAM_C, "Bears", "1", UUID.randomUUID());
-        final RosterEntry unlinkedPartner = entry(TEAM_C, "Bears", "2", null);
+        final RosterEntry owner = entry(TEAM_C, "Bears", DiscordId.of("1"), UUID.randomUUID());
+        final RosterEntry unlinkedPartner = entry(TEAM_C, "Bears", DiscordId.of("2"), null);
         final List<Participant> resolved = Demotion.resolve(List.of(owner, unlinkedPartner));
 
         assertEquals(1, resolved.size());
         assertTrue(resolved.get(0).demotedToSolo());
-        assertEquals("1", resolved.get(0).discordId());
+        assertEquals(DiscordId.of("1"), resolved.get(0).discordId());
     }
 
     @Test
     void effectiveTeamCountCountsDistinctTeamsNotPlayers() {
-        final RosterEntry owner = entry(TEAM_B, "Wolves", "1", UUID.randomUUID());
-        final RosterEntry partner = entry(TEAM_B, "Wolves", "2", UUID.randomUUID());
-        final RosterEntry solo = entry(TEAM_A, "Foxes", "3", UUID.randomUUID());
+        final RosterEntry owner = entry(TEAM_B, "Wolves", DiscordId.of("1"), UUID.randomUUID());
+        final RosterEntry partner = entry(TEAM_B, "Wolves", DiscordId.of("2"), UUID.randomUUID());
+        final RosterEntry solo = entry(TEAM_A, "Foxes", DiscordId.of("3"), UUID.randomUUID());
 
         final List<Participant> resolved = Demotion.resolve(List.of(owner, partner, solo));
         assertEquals(2, Demotion.effectiveTeamCount(resolved));
@@ -65,7 +66,7 @@ class DemotionTest {
 
     @Test
     void aMemberWhoNeverLinkedAtAllProducesNoParticipant() {
-        final RosterEntry neverLinked = entry(TEAM_A, "Foxes", "1", null);
+        final RosterEntry neverLinked = entry(TEAM_A, "Foxes", DiscordId.of("1"), null);
         assertTrue(Demotion.resolve(List.of(neverLinked)).isEmpty());
     }
 }

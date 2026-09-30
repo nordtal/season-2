@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessState;
 import eu.nordtal.s2.database.access.MemberState;
 import java.time.Duration;
@@ -209,7 +210,17 @@ class GateOutcomeTest {
     @Test
     void aNullPhaseIsTreatedAsMaintenanceRatherThanCrashingTheLoginPath() {
         final AccessState state = new AccessState(
-                PLAYER, DISCORD_ID, MemberState.MEMBER, true, null, false, false, false, Locale.ENGLISH, null, null);
+                PLAYER,
+                DiscordId.of(DISCORD_ID),
+                MemberState.MEMBER,
+                true,
+                null,
+                false,
+                false,
+                false,
+                Locale.ENGLISH,
+                null,
+                null);
 
         assertEquals(SeasonPhase.MAINTENANCE, state.phase());
         // The guess is MAINTENANCE, where everybody waits in limbo.
@@ -244,7 +255,7 @@ class GateOutcomeTest {
         // A period bought before opening waits rather than running; accessActive() would ask them to buy.
         final AccessState boughtButNotRunning = new AccessState(
                 PLAYER,
-                DISCORD_ID,
+                DiscordId.of(DISCORD_ID),
                 MemberState.MEMBER,
                 false,
                 Instant.now().plus(Duration.ofDays(30)),
@@ -285,7 +296,7 @@ class GateOutcomeTest {
             final SeasonPhase phase, final MemberState membership, final boolean accessActive, final boolean admin) {
         return new AccessState(
                 PLAYER,
-                DISCORD_ID,
+                DiscordId.of(DISCORD_ID),
                 membership,
                 accessActive,
                 accessActive ? Instant.now().plus(Duration.ofDays(1)) : null,

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessState;
 import eu.nordtal.s2.database.access.MemberState;
 import java.util.Locale;
@@ -43,7 +44,7 @@ class LoginRosterTest {
 
         assertTrue(roster.isAdmin(PLAYER));
         assertEquals(
-                DISCORD_ID,
+                DiscordId.of(DISCORD_ID),
                 roster.of(PLAYER).orElseThrow().discordId(),
                 "the actor written into audit_log by /phase set");
         assertEquals(Locale.GERMAN, roster.localeOf(PLAYER));
@@ -82,7 +83,7 @@ class LoginRosterTest {
                 PLAYER,
                 new AccessState(
                         PLAYER,
-                        DISCORD_ID,
+                        DiscordId.of(DISCORD_ID),
                         MemberState.MEMBER,
                         true,
                         null,
@@ -104,7 +105,17 @@ class LoginRosterTest {
 
     private static AccessState state(final boolean admin, final Locale locale) {
         return new AccessState(
-                PLAYER, DISCORD_ID, MemberState.MEMBER, true, null, false, admin, false, locale, SeasonPhase.SMP, null);
+                PLAYER,
+                DiscordId.of(DISCORD_ID),
+                MemberState.MEMBER,
+                true,
+                null,
+                false,
+                admin,
+                false,
+                locale,
+                SeasonPhase.SMP,
+                null);
     }
 
     // revocation reaches a live session
@@ -133,7 +144,7 @@ class LoginRosterTest {
                 roster.localeOf(PLAYER),
                 "language is not this refresh's business - it changes on a rhythm nobody needs told"
                         + " about in seconds, and the next login reads it again anyway");
-        assertEquals(DISCORD_ID, roster.of(PLAYER).orElseThrow().discordId());
+        assertEquals(DiscordId.of(DISCORD_ID), roster.of(PLAYER).orElseThrow().discordId());
     }
 
     @Test

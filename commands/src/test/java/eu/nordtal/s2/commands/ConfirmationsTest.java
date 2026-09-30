@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -150,8 +151,8 @@ class ConfirmationsTest {
     private record StubUser(UUID mcUuid, String discord, String name) implements NordtalUser {
 
         @Override
-        public Optional<String> discordId() {
-            return Optional.ofNullable(discord);
+        public Optional<DiscordId> discordId() {
+            return Optional.ofNullable(discord).map(DiscordId::of);
         }
 
         @Override

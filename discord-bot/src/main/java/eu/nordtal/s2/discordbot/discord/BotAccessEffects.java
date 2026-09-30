@@ -2,6 +2,7 @@ package eu.nordtal.s2.discordbot.discord;
 
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AccessGrant;
 import eu.nordtal.s2.database.access.AccessSource;
@@ -57,7 +58,7 @@ public final class BotAccessEffects implements AccessChanges {
 
     /** Grants access: the row, the role, the direct message and the admin channel line. */
     @Override
-    public Instant grant(final String discordId, final int days, final Actor by) {
+    public Instant grant(final DiscordId discordId, final int days, final Actor by) {
         final AccessGrant granted = access.grantAccess(discordId, days, AccessSource.ADMIN, null);
         seasonStart.warnIfUnanchored(discordId, granted);
         roles.applyAccessRole(discordId, true);
@@ -69,7 +70,7 @@ public final class BotAccessEffects implements AccessChanges {
                                 .grantedSection()
                                 .admin(String.valueOf(days), AccessRoles.timestamp(granted.validUntil()))));
 
-        admin.record("GRANT_ACCESS", by.filed(), discordId, by.minecraftUuid(), days + " days");
+        admin.record("GRANT_ACCESS", by.filed(), discordId.value(), by.minecraftUuid(), days + " days");
         admin.note(
                 "🎟️ Access granted",
                 by.mention() + " → <@" + discordId + "> " + days + " days, until "
@@ -79,7 +80,7 @@ public final class BotAccessEffects implements AccessChanges {
 
     /** Returns how many grants were revoked, zero included. */
     @Override
-    public int revoke(final String discordId, final Actor by) {
+    public int revoke(final DiscordId discordId, final Actor by) {
         final int revoked = access.revokeAccess(discordId);
         roles.applyAccessRole(discordId, false);
         if (revoked > 0) {
@@ -88,20 +89,20 @@ public final class BotAccessEffects implements AccessChanges {
                     messages.format(roles.localeOf(discordId), MESSAGES.dm().revoked()));
         }
 
-        admin.record("REVOKE_ACCESS", by.filed(), discordId, by.minecraftUuid(), revoked + " grant(s)");
+        admin.record("REVOKE_ACCESS", by.filed(), discordId.value(), by.minecraftUuid(), revoked + " grant(s)");
         admin.note("🚫 Access revoked", by.mention() + " → <@" + discordId + ">, " + revoked + " grants");
         return revoked;
     }
 
     /** Returns whether there was a link to break. */
     @Override
-    public boolean unlink(final String discordId, final Actor by) {
+    public boolean unlink(final DiscordId discordId, final Actor by) {
         // Read before the unlink: afterwards only the audit entry keeps the UUID.
         final Optional<UUID> linked = access.linkedMinecraftAccount(discordId);
         if (!access.unlink(discordId)) {
             return false;
         }
-        admin.record("UNLINK", by.filed(), discordId, linked.orElse(null), "by an admin, not self-service");
+        admin.record("UNLINK", by.filed(), discordId.value(), linked.orElse(null), "by an admin, not self-service");
         admin.note(
                 "✂️ Unlinked",
                 by.mention() + " → <@" + discordId + "> `"
@@ -140,7 +141,7 @@ public final class BotAccessEffects implements AccessChanges {
         admin.record(
                 "SETTLE",
                 by.filed(),
-                found.discordId(),
+                found.discordId().value(),
                 by.minecraftUuid(),
                 "manual, reference=" + reference + " days=" + found.days());
         admin.note(
@@ -159,10 +160,10 @@ public final class BotAccessEffects implements AccessChanges {
      * @param seconds the new total, which is what the column holds
      */
     @Override
-    public void setPlaytime(final String discordId, final long seconds, final Actor by) {
+    public void setPlaytime(final DiscordId discordId, final long seconds, final Actor by) {
         access.setPlaytimeSeconds(discordId, seconds);
         // Days, hours and minutes, the unit Steward uses.
-        admin.record("SET_PLAYTIME", by.filed(), discordId, by.minecraftUuid(), PlaytimeWording.of(seconds));
+        admin.record("SET_PLAYTIME", by.filed(), discordId.value(), by.minecraftUuid(), PlaytimeWording.of(seconds));
         admin.note("⏱️ Play time set", by.mention() + " → <@" + discordId + "> " + PlaytimeWording.of(seconds));
     }
 

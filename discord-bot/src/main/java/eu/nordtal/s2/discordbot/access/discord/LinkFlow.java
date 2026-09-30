@@ -2,6 +2,7 @@ package eu.nordtal.s2.discordbot.access.discord;
 
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.LinkRedemption;
 import eu.nordtal.s2.discordbot.AdminLog;
@@ -68,7 +69,7 @@ public final class LinkFlow extends ListenerAdapter {
         if (!Ids.LINK.equals(event.getComponentId())) {
             return;
         }
-        final Locale locale = roles.localeOf(event.getUser().getId());
+        final Locale locale = roles.localeOf(DiscordId.of(event.getUser().getId()));
 
         final TextInput codeInput = TextInput.create(Ids.LINK_CODE_INPUT, TextInputStyle.SHORT)
                 .setPlaceholder(messages.format(locale, MESSAGES.link().modal().codePlaceholder()))
@@ -89,7 +90,7 @@ public final class LinkFlow extends ListenerAdapter {
         if (!Ids.LINK_MODAL.equals(event.getModalId())) {
             return;
         }
-        final Locale locale = roles.localeOf(event.getUser().getId());
+        final Locale locale = roles.localeOf(DiscordId.of(event.getUser().getId()));
         final String typed = event.getValue(Ids.LINK_CODE_INPUT) == null
                 ? ""
                 : event.getValue(Ids.LINK_CODE_INPUT).getAsString();
@@ -111,7 +112,7 @@ public final class LinkFlow extends ListenerAdapter {
     }
 
     private void redeem(final ModalInteractionEvent event, final Locale locale, final String code) {
-        final String discordId = event.getUser().getId();
+        final DiscordId discordId = DiscordId.of(event.getUser().getId());
 
         // Taken before the database is touched, and atomically: two workers cannot share the last attempt.
         final int remaining = limit.acquire(discordId);
@@ -132,7 +133,7 @@ public final class LinkFlow extends ListenerAdapter {
                     // LINKED guarantees mcUuid, per LinkRedemption's contract.
                     final UUID linked = Objects.requireNonNull(result.mcUuid());
                     limit.clear(discordId);
-                    admin.record("LINK", null, discordId, linked, "redeemed a link code");
+                    admin.record("LINK", null, discordId.value(), linked, "redeemed a link code");
                     admin.note("🔗 Linked", event.getUser().getAsMention() + " → `" + linked + "`");
                     event.getHook()
                             .editOriginal(
@@ -172,7 +173,7 @@ public final class LinkFlow extends ListenerAdapter {
         if (!"unlink".equals(event.getFullCommandName())) {
             return;
         }
-        final String discordId = event.getUser().getId();
+        final DiscordId discordId = DiscordId.of(event.getUser().getId());
         final Locale locale = roles.localeOf(discordId);
 
         event.deferReply(true).queue();
@@ -185,7 +186,12 @@ public final class LinkFlow extends ListenerAdapter {
                 return;
             }
 
-            admin.record("UNLINK", discordId, discordId, mcUuid.orElse(null), "self-service, no waiting period");
+            admin.record(
+                    "UNLINK",
+                    discordId.value(),
+                    discordId.value(),
+                    mcUuid.orElse(null),
+                    "self-service, no waiting period");
             admin.note(
                     "✂️ Unlinked",
                     event.getUser().getAsMention() + " `"

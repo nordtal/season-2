@@ -1,5 +1,6 @@
 package eu.nordtal.s2.proxy.playtime;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.Jdbis;
 import java.util.Objects;
 import javax.sql.DataSource;
@@ -19,5 +20,5 @@ public interface PlaytimeStore {
      *
      * @param seconds how many seconds to add, always positive
      */
-    void add(String discordId, long seconds);
+    void add(DiscordId discordId, long seconds);
 }

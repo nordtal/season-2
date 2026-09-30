@@ -7,6 +7,7 @@ import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.limbo.LimboCommands;
 import eu.nordtal.s2.commands.limbo.LimboEffects;
 import eu.nordtal.s2.commands.remote.Outbox;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
@@ -33,7 +34,7 @@ public final class LimboCommand {
             final Messages messages,
             final PlayerLocales locales,
             final Predicate<UUID> isAdmin,
-            final java.util.function.Function<UUID, Optional<String>> discordIdOf,
+            final java.util.function.Function<UUID, Optional<DiscordId>> discordIdOf,
             final Outbox outbox,
             final LimboEffects effects,
             final java.util.function.Supplier<ToneColours> colours) {

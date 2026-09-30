@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.access;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.time.Duration;
 import java.time.InstantSource;
 import java.util.Locale;
@@ -20,19 +21,19 @@ public interface AccessDirectory extends AccessReader {
     }
 
     /** Ensures {@code discord_user} has a row for this account; every other write has a foreign key onto it. */
-    void ensureUser(String discordId);
+    void ensureUser(DiscordId discordId);
 
     /** Records guild membership as the bot just observed it. */
-    void setMemberState(String discordId, MemberState memberState);
+    void setMemberState(DiscordId discordId, MemberState memberState);
 
     /**
      * Stores the language mirrored from the Discord onboarding role.
      * Only the language is kept, so {@code de-AT} and {@code de-DE} are one value.
      */
-    void setLocale(String discordId, Locale locale);
+    void setLocale(DiscordId discordId, Locale locale);
 
     /** Sets the permanent donor flag; the bot only ever sets it to {@code true}. */
-    void setDonor(String discordId, boolean donor);
+    void setDonor(DiscordId discordId, boolean donor);
 
     /**
      * Sets this account's total play time to exactly {@code seconds}, creating the row if it is missing.
@@ -40,7 +41,7 @@ public interface AccessDirectory extends AccessReader {
      *
      * @param seconds never negative; the column's CHECK refuses it
      */
-    void setPlaytimeSeconds(String discordId, long seconds);
+    void setPlaytimeSeconds(DiscordId discordId, long seconds);
 
     /**
      * Writes the global username and the guild nickname and avatar at once.
@@ -48,20 +49,20 @@ public interface AccessDirectory extends AccessReader {
      * @param displayName the guild nickname, {@code null} when the member has not set one
      * @param avatarUrl   the guild avatar, {@code null} when the member has none
      */
-    void setDiscordProfile(String discordId, String username, String displayName, String avatarUrl);
+    void setDiscordProfile(DiscordId discordId, String username, String displayName, String avatarUrl);
 
     /** Clears the guild nickname and avatar of an account that left or was banned, keeping the username. */
-    void clearGuildProfile(String discordId);
+    void clearGuildProfile(DiscordId discordId);
 
     /**
      * Writes the 1:1 link between a Discord and a Minecraft account.
      *
      * @return {@code false} when either side was already linked, including a losing concurrent attempt
      */
-    boolean link(String discordId, UUID mcUuid);
+    boolean link(DiscordId discordId, UUID mcUuid);
 
     /** Removes the link of this Discord account and returns whether one existed. */
-    boolean unlink(String discordId);
+    boolean unlink(DiscordId discordId);
 
     /**
      * Writes the Minecraft name last seen at login, keyed by the account.
@@ -78,14 +79,14 @@ public interface AccessDirectory extends AccessReader {
      * @return the grant that was written, with the window PostgreSQL computed
      * @throws IllegalArgumentException if {@code days} is not positive
      */
-    AccessGrant grantAccess(String discordId, int days, AccessSource source, @Nullable UUID paymentRequestId);
+    AccessGrant grantAccess(DiscordId discordId, int days, AccessSource source, @Nullable UUID paymentRequestId);
 
     /**
      * Revokes every non-revoked grant of this user that has not yet run out.
      *
      * @return how many grants were revoked
      */
-    int revokeAccess(String discordId);
+    int revokeAccess(DiscordId discordId);
 
     /**
      * Issues a link code for a Minecraft account, or returns the one already live.
@@ -100,5 +101,5 @@ public interface AccessDirectory extends AccessReader {
      *
      * The code is kept on any failure, so a wrong click does not burn a retry. Never throws for an invalid code.
      */
-    LinkRedemption redeemLinkCode(String discordId, String code);
+    LinkRedemption redeemLinkCode(DiscordId discordId, String code);
 }

@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward.ui;
 
 import com.google.gson.JsonElement;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.audit.AuditDirectory;
@@ -33,7 +34,7 @@ final class AdminApi {
 
     /** {@code POST /api/admins/grant} with {@code {discordId}}. */
     void grant(final Context ctx) {
-        final String target = discordId(ctx);
+        final String target = discordId(ctx).value();
         final DiscordAuth.Account who = accounts.apply(ctx);
         final AdminTree.Grant outcome = tree.grant(who.id(), target);
         switch (outcome) {
@@ -58,7 +59,7 @@ final class AdminApi {
 
     /** {@code POST /api/admins/revoke} with {@code {discordId}}; takes everybody below them too. */
     void revoke(final Context ctx) {
-        final String target = discordId(ctx);
+        final String target = discordId(ctx).value();
         final DiscordAuth.Account who = accounts.apply(ctx);
         final AdminTree.Revocation revocation = tree.revoke(who.id(), target);
         switch (revocation.outcome()) {
@@ -84,7 +85,7 @@ final class AdminApi {
         }
     }
 
-    private static String discordId(final Context ctx) {
+    private static DiscordId discordId(final Context ctx) {
         final JsonElement value;
         try {
             final JsonElement body = Json.tree(ctx.body());
@@ -97,6 +98,6 @@ final class AdminApi {
                 || !value.getAsString().trim().matches("\\d{1,32}")) {
             throw new BadRequestResponse("discordId is whose admin this is");
         }
-        return value.getAsString().trim();
+        return DiscordId.of(value.getAsString().trim());
     }
 }

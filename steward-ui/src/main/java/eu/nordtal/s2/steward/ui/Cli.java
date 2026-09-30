@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward.ui;
 
 import eu.nordtal.jcore.config.exception.ConfigException;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.steward.ui.auth.Credentials;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
@@ -101,9 +102,9 @@ final class Cli {
                     + " its next sign-in starts at the setup page.");
             return 2;
         }
-        final String discordId = args[1].trim();
+        final DiscordId discordId = DiscordId.of(args[1].trim());
         // Anything but digits would run a DELETE matching nothing.
-        if (!discordId.chars().allMatch(Character::isDigit)) {
+        if (!discordId.value().chars().allMatch(Character::isDigit)) {
             System.err.println("`" + discordId + "` is not a Discord id - those are digits only."
                     + " Take it from the journal or from the account list.");
             return 2;
@@ -123,7 +124,7 @@ final class Cli {
                     .record(
                             "FORGET_FACTORS",
                             "host",
-                            discordId,
+                            discordId.value(),
                             null,
                             keys + " security key(s) and " + signedOut + " session(s) of " + discordId
                                     + " were cleared from the host");

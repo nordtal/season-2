@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.AccessSchema;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -86,32 +87,34 @@ class AdminTreeIntegrationTest {
 
     @Test
     void theFirstToClaimAnEmptyTreeIsItsRootAndNobodyAfterThem() {
-        assertTrue(tree.claimRootIfNobody(ROOT));
-        assertFalse(tree.claimRootIfNobody(A), "a second claim would be a second root");
+        assertTrue(tree.claimRootIfNobody(DiscordId.of(ROOT)));
+        assertFalse(tree.claimRootIfNobody(DiscordId.of(A)), "a second claim would be a second root");
 
-        assertTrue(tree.isAdmin(ROOT));
-        assertFalse(tree.isAdmin(A));
+        assertTrue(tree.isAdmin(DiscordId.of(ROOT)));
+        assertFalse(tree.isAdmin(DiscordId.of(A)));
         assertEquals(
-                List.of(new AdminTree.Admin(ROOT, null, tree.admins().getFirst().grantedAt())), tree.admins());
+                List.of(new AdminTree.Admin(
+                        DiscordId.of(ROOT), null, tree.admins().getFirst().grantedAt())),
+                tree.admins());
     }
 
     @Test
     void theClaimCreatesTheRowWhenTheBotHasNotWrittenOneYet() {
-        assertTrue(tree.claimRootIfNobody("500000000000000077"));
-        assertTrue(tree.isAdmin("500000000000000077"));
+        assertTrue(tree.claimRootIfNobody(DiscordId.of("500000000000000077")));
+        assertTrue(tree.isAdmin(DiscordId.of("500000000000000077")));
     }
 
     @Test
     void onceTheRootIsGoneWithNobodyUnderThemTheNextSignInClaimsAgain() {
-        tree.claimRootIfNobody(ROOT);
-        tree.dropWithBranch(ROOT);
+        tree.claimRootIfNobody(DiscordId.of(ROOT));
+        tree.dropWithBranch(DiscordId.of(ROOT));
 
-        assertTrue(tree.claimRootIfNobody(A));
+        assertTrue(tree.claimRootIfNobody(DiscordId.of(A)));
     }
 
     @Test
     void aGrantRecordsWhoGrantedAndOnlyAnAdminMayGrant() {
-        tree.claimRootIfNobody(ROOT);
+        tree.claimRootIfNobody(DiscordId.of(ROOT));
 
         assertEquals(AdminTree.Grant.ACTOR_NOT_ADMIN, tree.grant(A, B));
         assertEquals(AdminTree.Grant.GRANTED, tree.grant(ROOT, A));
@@ -121,7 +124,7 @@ class AdminTreeIntegrationTest {
         final List<AdminTree.Admin> admins = tree.admins();
         assertEquals(
                 List.of(ROOT, A, A1),
-                admins.stream().map(AdminTree.Admin::discordId).toList());
+                admins.stream().map(admin -> admin.discordId().value()).toList());
         assertNull(admins.get(0).grantedBy());
         assertEquals(ROOT, admins.get(1).grantedBy());
         assertEquals(A, admins.get(2).grantedBy());
@@ -129,7 +132,7 @@ class AdminTreeIntegrationTest {
 
     @Test
     void nobodyWhoIsNotInTheGuildCanBeMadeAnAdmin() {
-        tree.claimRootIfNobody(ROOT);
+        tree.claimRootIfNobody(DiscordId.of(ROOT));
         execute("UPDATE discord_user SET member_state = 'LEFT' WHERE discord_id = '" + A + "'");
         execute("UPDATE discord_user SET member_state = 'BANNED' WHERE discord_id = '" + B + "'");
 
@@ -144,7 +147,7 @@ class AdminTreeIntegrationTest {
 
     @Test
     void threeGrantsAnHourAcrossAllAdminsTogetherAndTheFourthIsRefusedAtOnce() {
-        tree.claimRootIfNobody(ROOT);
+        tree.claimRootIfNobody(DiscordId.of(ROOT));
         assertEquals(AdminTree.Grant.GRANTED, tree.grant(ROOT, A));
         assertEquals(AdminTree.Grant.GRANTED, tree.grant(A, A1));
         assertEquals(AdminTree.Grant.GRANTED, tree.grant(ROOT, B));
@@ -153,7 +156,7 @@ class AdminTreeIntegrationTest {
                 AdminTree.Grant.RATE_LIMITED,
                 tree.grant(A1, A1X),
                 "the limit is global - A1 has granted nobody and is still refused");
-        assertFalse(tree.isAdmin(A1X));
+        assertFalse(tree.isAdmin(DiscordId.of(A1X)));
 
         // A revoked grant still counted: revoking and re-granting is not a way round the limit.
         tree.revoke(ROOT, B);
@@ -211,9 +214,9 @@ class AdminTreeIntegrationTest {
     void leavingTheGuildDropsTheBranchWhoeverIsAboveIt() {
         buildTree();
 
-        assertEquals(Set.of(A1, A1X), tree.dropWithBranch(A1));
+        assertEquals(Set.of(A1, A1X), tree.dropWithBranch(DiscordId.of(A1)));
         assertEquals(Set.of(ROOT, A, B), admins());
-        assertEquals(Set.of(), tree.dropWithBranch(OUTSIDER), "a non-admin leaving changes nothing");
+        assertEquals(Set.of(), tree.dropWithBranch(DiscordId.of(OUTSIDER)), "a non-admin leaving changes nothing");
     }
 
     @Test
@@ -243,7 +246,7 @@ class AdminTreeIntegrationTest {
 
     @Test
     void aGrantNotifiesToo() throws Exception {
-        tree.claimRootIfNobody(ROOT);
+        tree.claimRootIfNobody(DiscordId.of(ROOT));
 
         try (Connection listening = dataSource.getConnection()) {
             try (Statement statement = listening.createStatement()) {
@@ -272,7 +275,7 @@ class AdminTreeIntegrationTest {
 
     @Test
     void thereIsOneRootAtMostEvenWrittenByHand() {
-        tree.claimRootIfNobody(ROOT);
+        tree.claimRootIfNobody(DiscordId.of(ROOT));
 
         assertThrows(
                 SQLException.class,
@@ -282,7 +285,7 @@ class AdminTreeIntegrationTest {
 
     /** ROOT above A and B; A above A1; A1 above A1X. Four grants, so the limit is lifted between. */
     private void buildTree() {
-        tree.claimRootIfNobody(ROOT);
+        tree.claimRootIfNobody(DiscordId.of(ROOT));
         assertEquals(AdminTree.Grant.GRANTED, tree.grant(ROOT, A));
         assertEquals(AdminTree.Grant.GRANTED, tree.grant(ROOT, B));
         assertEquals(AdminTree.Grant.GRANTED, tree.grant(A, A1));
@@ -291,7 +294,8 @@ class AdminTreeIntegrationTest {
     }
 
     private Set<String> admins() {
-        return Set.copyOf(tree.admins().stream().map(AdminTree.Admin::discordId).toList());
+        return Set.copyOf(
+                tree.admins().stream().map(admin -> admin.discordId().value()).toList());
     }
 
     private static void execute(final String sql) {

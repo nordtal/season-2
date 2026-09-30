@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.access;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.database.Jdbis;
 import java.sql.SQLException;
@@ -40,12 +41,12 @@ final class JdbiAccessDirectory implements AccessDirectory {
     }
 
     @Override
-    public Optional<UUID> linkedMinecraftAccount(final String discordId) {
+    public Optional<UUID> linkedMinecraftAccount(final DiscordId discordId) {
         return dao.minecraftAccountOf(Objects.requireNonNull(discordId, "discordId"));
     }
 
     @Override
-    public Optional<String> linkedDiscordAccount(final UUID mcUuid) {
+    public Optional<DiscordId> linkedDiscordAccount(final UUID mcUuid) {
         return dao.discordAccountOf(Objects.requireNonNull(mcUuid, "mcUuid"));
     }
 
@@ -69,25 +70,25 @@ final class JdbiAccessDirectory implements AccessDirectory {
     }
 
     @Override
-    public boolean isDonor(final String discordId) {
+    public boolean isDonor(final DiscordId discordId) {
         Objects.requireNonNull(discordId, "discordId");
         return dao.donor(discordId).orElse(Boolean.FALSE);
     }
 
     @Override
-    public DiscordProfile discordProfile(final String discordId) {
+    public DiscordProfile discordProfile(final DiscordId discordId) {
         Objects.requireNonNull(discordId, "discordId");
         return dao.discordProfile(discordId).orElse(DiscordProfile.EMPTY);
     }
 
     @Override
-    public MinecraftProfile minecraftProfile(final String discordId) {
+    public MinecraftProfile minecraftProfile(final DiscordId discordId) {
         Objects.requireNonNull(discordId, "discordId");
         return dao.minecraftProfile(discordId).orElse(MinecraftProfile.EMPTY);
     }
 
     @Override
-    public List<AccessGrant> grantsOf(final String discordId) {
+    public List<AccessGrant> grantsOf(final DiscordId discordId) {
         return dao.grantsOf(Objects.requireNonNull(discordId, "discordId"));
     }
 
@@ -98,35 +99,35 @@ final class JdbiAccessDirectory implements AccessDirectory {
     }
 
     @Override
-    public java.util.Optional<Person> personOf(final String discordId) {
+    public java.util.Optional<Person> personOf(final DiscordId discordId) {
         return people.personOf(Objects.requireNonNull(discordId, "discordId"));
     }
 
     @Override
-    public void ensureUser(final String discordId) {
+    public void ensureUser(final DiscordId discordId) {
         dao.ensureUser(Objects.requireNonNull(discordId, "discordId"));
     }
 
     @Override
-    public void setMemberState(final String discordId, final MemberState memberState) {
+    public void setMemberState(final DiscordId discordId, final MemberState memberState) {
         Objects.requireNonNull(discordId, "discordId");
         Objects.requireNonNull(memberState, "memberState");
         dao.setMemberState(discordId, memberState.name());
     }
 
     @Override
-    public void setLocale(final String discordId, final Locale locale) {
+    public void setLocale(final DiscordId discordId, final Locale locale) {
         Objects.requireNonNull(discordId, "discordId");
         dao.setLocale(discordId, Locales.tag(locale));
     }
 
     @Override
-    public void setDonor(final String discordId, final boolean donor) {
+    public void setDonor(final DiscordId discordId, final boolean donor) {
         dao.setDonor(Objects.requireNonNull(discordId, "discordId"), donor);
     }
 
     @Override
-    public void setPlaytimeSeconds(final String discordId, final long seconds) {
+    public void setPlaytimeSeconds(final DiscordId discordId, final long seconds) {
         if (seconds < 0) {
             throw new IllegalArgumentException("play time is never negative, not " + seconds);
         }
@@ -135,17 +136,17 @@ final class JdbiAccessDirectory implements AccessDirectory {
 
     @Override
     public void setDiscordProfile(
-            final String discordId, final String username, final String displayName, final String avatarUrl) {
+            final DiscordId discordId, final String username, final String displayName, final String avatarUrl) {
         dao.setDiscordProfile(Objects.requireNonNull(discordId, "discordId"), username, displayName, avatarUrl);
     }
 
     @Override
-    public void clearGuildProfile(final String discordId) {
+    public void clearGuildProfile(final DiscordId discordId) {
         dao.clearGuildProfile(Objects.requireNonNull(discordId, "discordId"));
     }
 
     @Override
-    public boolean link(final String discordId, final UUID mcUuid) {
+    public boolean link(final DiscordId discordId, final UUID mcUuid) {
         Objects.requireNonNull(discordId, "discordId");
         Objects.requireNonNull(mcUuid, "mcUuid");
 
@@ -158,7 +159,7 @@ final class JdbiAccessDirectory implements AccessDirectory {
     }
 
     @Override
-    public boolean unlink(final String discordId) {
+    public boolean unlink(final DiscordId discordId) {
         return dao.unlink(Objects.requireNonNull(discordId, "discordId")) > 0;
     }
 
@@ -170,7 +171,10 @@ final class JdbiAccessDirectory implements AccessDirectory {
 
     @Override
     public AccessGrant grantAccess(
-            final String discordId, final int days, final AccessSource source, final @Nullable UUID paymentRequestId) {
+            final DiscordId discordId,
+            final int days,
+            final AccessSource source,
+            final @Nullable UUID paymentRequestId) {
         Objects.requireNonNull(discordId, "discordId");
         Objects.requireNonNull(source, "source");
         if (days <= 0) {
@@ -185,7 +189,7 @@ final class JdbiAccessDirectory implements AccessDirectory {
     }
 
     @Override
-    public int revokeAccess(final String discordId) {
+    public int revokeAccess(final DiscordId discordId) {
         return dao.revokeAccess(Objects.requireNonNull(discordId, "discordId"));
     }
 
@@ -222,7 +226,7 @@ final class JdbiAccessDirectory implements AccessDirectory {
     }
 
     @Override
-    public LinkRedemption redeemLinkCode(final String discordId, final String code) {
+    public LinkRedemption redeemLinkCode(final DiscordId discordId, final String code) {
         Objects.requireNonNull(discordId, "discordId");
         Objects.requireNonNull(code, "code");
 
@@ -260,7 +264,7 @@ final class JdbiAccessDirectory implements AccessDirectory {
     }
 
     @Override
-    public java.util.Optional<OpenPayment> openPayment(final String discordId) {
+    public java.util.Optional<OpenPayment> openPayment(final DiscordId discordId) {
         return dao.openPayment(discordId);
     }
 }

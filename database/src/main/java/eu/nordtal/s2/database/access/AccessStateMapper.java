@@ -1,12 +1,14 @@
 package eu.nordtal.s2.database.access;
 
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.language.Locales;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.UUID;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Maps the single row the login query returns, where every column but {@code mc_uuid} may be null.
@@ -17,7 +19,7 @@ public final class AccessStateMapper implements RowMapper<AccessState> {
 
     @Override
     public AccessState map(final ResultSet rs, final StatementContext ctx) throws SQLException {
-        final String discordId = rs.getString("discord_id");
+        final @Nullable DiscordId discordId = DiscordId.ofNullable(rs.getString("discord_id"));
         return new AccessState(
                 rs.getObject("mc_uuid", UUID.class),
                 discordId,

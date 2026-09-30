@@ -1,6 +1,7 @@
 package eu.nordtal.s2.database.access;
 
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.id.DiscordId;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Optional;
@@ -24,7 +25,7 @@ import org.jspecify.annotations.Nullable;
  */
 public record AccessState(
         UUID minecraftAccount,
-        @Nullable String discordId,
+        @Nullable DiscordId discordId,
         @Nullable MemberState memberState,
         boolean accessActive,
         @Nullable Instant accessValidUntil,
@@ -58,7 +59,7 @@ public record AccessState(
     }
 
     /** Returns the linked Discord account, if any. */
-    public Optional<String> discordAccount() {
+    public Optional<DiscordId> discordAccount() {
         return Optional.ofNullable(discordId);
     }
 

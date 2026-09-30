@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.db;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.smp.milestone.StoredProgress;
 import java.util.List;
 import java.util.Optional;
@@ -20,13 +21,13 @@ import org.jspecify.annotations.Nullable;
 public interface SmpDao {
 
     @SqlQuery("SELECT discord_id FROM account_link WHERE mc_uuid = :mcUuid")
-    Optional<String> discordIdOf(@Bind("mcUuid") UUID mcUuid);
+    Optional<DiscordId> discordIdOf(@Bind("mcUuid") UUID mcUuid);
 
     @SqlQuery("SELECT mc_uuid FROM account_link WHERE discord_id = :discordId")
-    Optional<UUID> mcUuidOf(@Bind("discordId") String discordId);
+    Optional<UUID> mcUuidOf(@Bind("discordId") DiscordId discordId);
 
     @SqlQuery("SELECT locale FROM discord_user WHERE discord_id = :discordId")
-    Optional<String> localeOf(@Bind("discordId") String discordId);
+    Optional<String> localeOf(@Bind("discordId") DiscordId discordId);
 
     /**
      * Everything the player composition is drawn from, in one round trip.
@@ -137,7 +138,7 @@ public interface SmpDao {
                     updated = now()
             """)
     void addContribution(
-            @Bind("objectiveId") UUID objectiveId, @Bind("discordId") String discordId, @Bind("amount") long amount);
+            @Bind("objectiveId") UUID objectiveId, @Bind("discordId") DiscordId discordId, @Bind("amount") long amount);
 
     @SqlQuery("""
             SELECT discord_id AS discordId, amount AS amount
@@ -163,7 +164,7 @@ public interface SmpDao {
             """)
     @RegisterConstructorMapper(OwnContributionRow.class)
     List<OwnContributionRow> ownContributions(
-            @Bind("milestoneKey") String milestoneKey, @Bind("discordId") String discordId);
+            @Bind("milestoneKey") String milestoneKey, @Bind("discordId") DiscordId discordId);
 
     /**
      * Marks an objective finished, once.
@@ -216,7 +217,7 @@ public interface SmpDao {
 
     /** Books an aura change and its audit row together, the balance and the reason for it. */
     @Transaction
-    default void addAura(final String discordId, final int delta, final String reason, final @Nullable String ref) {
+    default void addAura(final DiscordId discordId, final int delta, final String reason, final @Nullable String ref) {
         bumpAura(discordId, delta);
         recordAuraEvent(discordId, delta, reason, ref);
     }
@@ -227,14 +228,14 @@ public interface SmpDao {
             ON CONFLICT (discord_id) DO UPDATE
                 SET aura = smp_player.aura + excluded.aura, updated = now()
             """)
-    void bumpAura(@Bind("discordId") String discordId, @Bind("delta") int delta);
+    void bumpAura(@Bind("discordId") DiscordId discordId, @Bind("delta") int delta);
 
     @SqlUpdate("""
             INSERT INTO smp_aura_event (discord_id, delta, reason, ref)
             VALUES (:discordId, :delta, :reason, :ref)
             """)
     void recordAuraEvent(
-            @Bind("discordId") String discordId,
+            @Bind("discordId") DiscordId discordId,
             @Bind("delta") int delta,
             @Bind("reason") String reason,
             @Bind("ref") @Nullable String ref);
@@ -295,7 +296,7 @@ public interface SmpDao {
                     updated          = now()
             """)
     void rememberDeath(
-            @Bind("discordId") String discordId,
+            @Bind("discordId") DiscordId discordId,
             @Bind("world") String world,
             @Bind("x") int x,
             @Bind("y") int y,
@@ -307,7 +308,7 @@ public interface SmpDao {
             WHERE discord_id = :discordId AND last_death_world IS NOT NULL
             """)
     @RegisterConstructorMapper(PlaceRow.class)
-    Optional<PlaceRow> lastDeathOf(@Bind("discordId") String discordId);
+    Optional<PlaceRow> lastDeathOf(@Bind("discordId") DiscordId discordId);
 
     /**
      * The highest aura, most first.
@@ -326,7 +327,7 @@ public interface SmpDao {
     List<AuraRow> topAura(@Bind("limit") int limit);
 
     @SqlQuery("SELECT aura FROM smp_player WHERE discord_id = :discordId")
-    Optional<Integer> auraOf(@Bind("discordId") String discordId);
+    Optional<Integer> auraOf(@Bind("discordId") DiscordId discordId);
 
     /**
      * The Discord id of the player who won the start event, if one has been decided.
@@ -349,7 +350,7 @@ public interface SmpDao {
      * @return whether this call is the one that granted it
      */
     @Transaction
-    default boolean grantHeadStart(final String discordId, final int aura, final String reason) {
+    default boolean grantHeadStart(final DiscordId discordId, final int aura, final String reason) {
         if (claimHeadStart(discordId) == 0) {
             return false;
         }
@@ -366,14 +367,14 @@ public interface SmpDao {
                 SET hg_winner_reward_granted = true, updated = now()
                 WHERE NOT smp_player.hg_winner_reward_granted
             """)
-    int claimHeadStart(@Bind("discordId") String discordId);
+    int claimHeadStart(@Bind("discordId") DiscordId discordId);
 
     /**
      * Takes this player's one welcome, claimed before anything is shown so racing sessions cannot both win.
      *
      * @return whether this call is the one that took it
      */
-    default boolean claimWelcome(final String discordId) {
+    default boolean claimWelcome(final DiscordId discordId) {
         return claimWelcomeRow(discordId) > 0;
     }
 
@@ -384,7 +385,7 @@ public interface SmpDao {
                 SET welcome_shown = true, updated = now()
                 WHERE NOT smp_player.welcome_shown
             """)
-    int claimWelcomeRow(@Bind("discordId") String discordId);
+    int claimWelcomeRow(@Bind("discordId") DiscordId discordId);
 
     @SqlUpdate("""
             INSERT INTO smp_grave (owner_id, world, x, y, z, contents, experience)
@@ -460,7 +461,7 @@ public interface SmpDao {
             WHERE discord_id = :discordId
             """)
     @RegisterConstructorMapper(Spins.class)
-    Optional<Spins> spinsOf(@Bind("discordId") String discordId);
+    Optional<Spins> spinsOf(@Bind("discordId") DiscordId discordId);
 
     /**
      * Takes today's free spin, once.
@@ -475,7 +476,7 @@ public interface SmpDao {
                 WHERE smp_spin.last_free IS DISTINCT FROM :today
             RETURNING discord_id
             """)
-    Optional<String> takeFreeSpin(@Bind("discordId") String discordId, @Bind("today") java.time.LocalDate today);
+    Optional<String> takeFreeSpin(@Bind("discordId") DiscordId discordId, @Bind("today") java.time.LocalDate today);
 
     /** Spends one earned spin, and only if there is one to spend. */
     @SqlQuery("""
@@ -484,7 +485,7 @@ public interface SmpDao {
             WHERE discord_id = :discordId AND used < granted
             RETURNING discord_id
             """)
-    Optional<String> takeEarnedSpin(@Bind("discordId") String discordId);
+    Optional<String> takeEarnedSpin(@Bind("discordId") DiscordId discordId);
 
     /**
      * Puts back a free spin that was taken and paid out nothing.
@@ -497,7 +498,7 @@ public interface SmpDao {
             WHERE discord_id = :discordId AND last_free = :today
             """)
     void restoreFreeSpin(
-            @Bind("discordId") String discordId,
+            @Bind("discordId") DiscordId discordId,
             @Bind("previous") java.time.@Nullable LocalDate previous,
             @Bind("today") java.time.LocalDate today);
 
@@ -507,7 +508,7 @@ public interface SmpDao {
      * Not idempotent: a second call hands back a second spin, so each call site runs at most once per spin.
      */
     @SqlUpdate("UPDATE smp_spin SET used = used - 1 WHERE discord_id = :discordId AND used > 0")
-    void restoreEarnedSpin(@Bind("discordId") String discordId);
+    void restoreEarnedSpin(@Bind("discordId") DiscordId discordId);
 
     @SqlUpdate("""
             INSERT INTO smp_spin (discord_id, granted)
@@ -515,5 +516,5 @@ public interface SmpDao {
             ON CONFLICT (discord_id) DO UPDATE
                 SET granted = smp_spin.granted + excluded.granted
             """)
-    void grantSpins(@Bind("discordId") String discordId, @Bind("count") int count);
+    void grantSpins(@Bind("discordId") DiscordId discordId, @Bind("count") int count);
 }

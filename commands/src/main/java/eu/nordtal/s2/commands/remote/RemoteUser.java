@@ -1,6 +1,7 @@
 package eu.nordtal.s2.commands.remote;
 
 import eu.nordtal.s2.commands.NordtalUser;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.database.command.CommandRequest;
 import eu.nordtal.s2.messages.MessageRef;
@@ -33,7 +34,7 @@ public final class RemoteUser implements NordtalUser {
     }
 
     @Override
-    public Optional<String> discordId() {
+    public Optional<DiscordId> discordId() {
         return request.discordId();
     }
 

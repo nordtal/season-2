@@ -1,6 +1,7 @@
 package eu.nordtal.s2.commands.smp;
 
 import eu.nordtal.s2.commands.CommandEffects;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.OpenPayment;
 import java.time.Instant;
 import java.util.Optional;
@@ -23,7 +24,7 @@ public interface SmpEffects extends CommandEffects {
      *                     one
      */
     record Access(
-            @Nullable String discordId,
+            @Nullable DiscordId discordId,
             boolean accessActive,
             @Nullable Instant validUntil) {}
 
@@ -50,18 +51,18 @@ public interface SmpEffects extends CommandEffects {
     Optional<String> nameOf(UUID player);
 
     /** Returns the Discord account linked to a Minecraft one, empty when the link is missing. */
-    Optional<String> discordIdOf(UUID player);
+    Optional<DiscordId> discordIdOf(UUID player);
 
     /**
      * Changes somebody's aura and records who did it.
      *
      * @param by a name for the audit trail
      */
-    void changeAura(UUID player, String discordId, int delta, String by);
+    void changeAura(UUID player, DiscordId discordId, int delta, String by);
 
     /** Returns whether this account is linked and has access running, empty when nothing is known. */
     Optional<Access> access(UUID player);
 
     /** Returns the purchase somebody has started and not finished, if there is one. */
-    Optional<OpenPayment> openPayment(String discordId);
+    Optional<OpenPayment> openPayment(DiscordId discordId);
 }

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -49,20 +50,20 @@ class RedemptionLimitTest {
 
     @Test
     void anAccountThatHasNeverGuessedIsAllowed() {
-        assertTrue(new RedemptionLimit(5, new Movable()).acquire(SOMEBODY) >= 0);
+        assertTrue(new RedemptionLimit(5, new Movable()).acquire(DiscordId.of(SOMEBODY)) >= 0);
     }
 
     @Test
     void theCapIsReachedExactlyOnTheConfiguredNumberOfFailures() {
         final RedemptionLimit limit = new RedemptionLimit(5, new Movable());
 
-        assertEquals(4, limit.acquire(SOMEBODY));
-        assertEquals(3, limit.acquire(SOMEBODY));
-        assertEquals(2, limit.acquire(SOMEBODY));
-        assertEquals(1, limit.acquire(SOMEBODY));
-        assertEquals(0, limit.acquire(SOMEBODY), "the fifth is allowed and is the last one");
+        assertEquals(4, limit.acquire(DiscordId.of(SOMEBODY)));
+        assertEquals(3, limit.acquire(DiscordId.of(SOMEBODY)));
+        assertEquals(2, limit.acquire(DiscordId.of(SOMEBODY)));
+        assertEquals(1, limit.acquire(DiscordId.of(SOMEBODY)));
+        assertEquals(0, limit.acquire(DiscordId.of(SOMEBODY)), "the fifth is allowed and is the last one");
 
-        assertEquals(-1, limit.acquire(SOMEBODY));
+        assertEquals(-1, limit.acquire(DiscordId.of(SOMEBODY)));
     }
 
     @Test
@@ -70,12 +71,12 @@ class RedemptionLimitTest {
         // Right code, a linked account or a throwing database: none is evidence of guessing.
         final RedemptionLimit limit = new RedemptionLimit(2, new Movable());
 
-        limit.acquire(SOMEBODY);
-        limit.release(SOMEBODY);
-        limit.acquire(SOMEBODY);
-        limit.release(SOMEBODY);
+        limit.acquire(DiscordId.of(SOMEBODY));
+        limit.release(DiscordId.of(SOMEBODY));
+        limit.acquire(DiscordId.of(SOMEBODY));
+        limit.release(DiscordId.of(SOMEBODY));
 
-        assertEquals(1, limit.acquire(SOMEBODY), "two released attempts left the account untouched");
+        assertEquals(1, limit.acquire(DiscordId.of(SOMEBODY)), "two released attempts left the account untouched");
     }
 
     @Test
@@ -83,9 +84,9 @@ class RedemptionLimitTest {
         // After a successful redemption clear() already emptied the account, and finally still runs.
         final RedemptionLimit limit = new RedemptionLimit(1, new Movable());
 
-        limit.release(SOMEBODY);
+        limit.release(DiscordId.of(SOMEBODY));
 
-        assertEquals(0, limit.acquire(SOMEBODY));
+        assertEquals(0, limit.acquire(DiscordId.of(SOMEBODY)));
     }
 
     @Test
@@ -107,7 +108,7 @@ class RedemptionLimitTest {
                         Thread.currentThread().interrupt();
                         return;
                     }
-                    if (limit.acquire(SOMEBODY) >= 0) {
+                    if (limit.acquire(DiscordId.of(SOMEBODY)) >= 0) {
                         admitted.incrementAndGet();
                     }
                 });
@@ -127,37 +128,37 @@ class RedemptionLimitTest {
         final Movable clock = new Movable();
         final RedemptionLimit limit = new RedemptionLimit(2, clock);
 
-        limit.acquire(SOMEBODY);
+        limit.acquire(DiscordId.of(SOMEBODY));
         clock.advance(Duration.ofMinutes(30));
-        limit.acquire(SOMEBODY);
-        assertEquals(-1, limit.acquire(SOMEBODY));
+        limit.acquire(DiscordId.of(SOMEBODY));
+        assertEquals(-1, limit.acquire(DiscordId.of(SOMEBODY)));
 
         clock.advance(Duration.ofMinutes(30).plusSeconds(1));
 
-        assertEquals(0, limit.acquire(SOMEBODY));
-        assertEquals(-1, limit.acquire(SOMEBODY));
+        assertEquals(0, limit.acquire(DiscordId.of(SOMEBODY)));
+        assertEquals(-1, limit.acquire(DiscordId.of(SOMEBODY)));
     }
 
     @Test
     void oneAccountsFailuresDoNotTouchAnother() {
         final RedemptionLimit limit = new RedemptionLimit(1, new Movable());
 
-        limit.acquire(SOMEBODY);
+        limit.acquire(DiscordId.of(SOMEBODY));
 
-        assertEquals(-1, limit.acquire(SOMEBODY));
-        assertEquals(0, limit.acquire(SOMEBODY_ELSE));
+        assertEquals(-1, limit.acquire(DiscordId.of(SOMEBODY)));
+        assertEquals(0, limit.acquire(DiscordId.of(SOMEBODY_ELSE)));
     }
 
     @Test
     void redeemingARealCodeForgetsTheStrikes() {
         final RedemptionLimit limit = new RedemptionLimit(2, new Movable());
-        limit.acquire(SOMEBODY);
-        limit.acquire(SOMEBODY);
-        assertEquals(-1, limit.acquire(SOMEBODY));
+        limit.acquire(DiscordId.of(SOMEBODY));
+        limit.acquire(DiscordId.of(SOMEBODY));
+        assertEquals(-1, limit.acquire(DiscordId.of(SOMEBODY)));
 
-        limit.clear(SOMEBODY);
+        limit.clear(DiscordId.of(SOMEBODY));
 
-        assertEquals(1, limit.acquire(SOMEBODY));
+        assertEquals(1, limit.acquire(DiscordId.of(SOMEBODY)));
     }
 
     @Test

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.commands;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.feedback.Feedback;
@@ -28,7 +29,7 @@ public interface NordtalUser {
     }
 
     /** Returns their Discord id, if this surface knows one. */
-    Optional<String> discordId();
+    Optional<DiscordId> discordId();
 
     /** Returns their Minecraft UUID, if this surface knows one. */
     Optional<UUID> minecraftUuid();

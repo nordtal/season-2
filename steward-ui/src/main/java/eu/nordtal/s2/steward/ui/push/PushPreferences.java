@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.ui.push;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.Jdbis;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -24,7 +25,7 @@ public final class PushPreferences {
     }
 
     /** One account's effective answer for every type, defaults where it has never chosen. */
-    public Map<AlertType, Boolean> of(final String discordId) {
+    public Map<AlertType, Boolean> of(final DiscordId discordId) {
         return effective(dao.forAccount(discordId));
     }
 
@@ -36,7 +37,7 @@ public final class PushPreferences {
             if (type == null) {
                 continue;
             }
-            chosen.computeIfAbsent(row.discordId(), ignored -> new EnumMap<>(AlertType.class))
+            chosen.computeIfAbsent(row.discordId().value(), ignored -> new EnumMap<>(AlertType.class))
                     .put(type, row.enabled());
         }
         return chosen;
@@ -51,7 +52,7 @@ public final class PushPreferences {
     }
 
     /** Sets one switch, for the account it belongs to. */
-    public void set(final String discordId, final AlertType type, final boolean enabled) {
+    public void set(final DiscordId discordId, final AlertType type, final boolean enabled) {
         dao.set(discordId, type.key(), enabled);
     }
 
@@ -72,7 +73,7 @@ public final class PushPreferences {
 
     /** One row of {@code steward_push_preference}. */
     public record Row(
-            @ColumnName("discord_id") String discordId,
+            @ColumnName("discord_id") DiscordId discordId,
             @ColumnName("alert_type") String alertType,
             boolean enabled) {}
 }

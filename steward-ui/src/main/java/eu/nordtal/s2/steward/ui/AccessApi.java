@@ -2,6 +2,7 @@ package eu.nordtal.s2.steward.ui;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonSyntaxException;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.access.AccessRequest;
 import eu.nordtal.s2.database.access.AccessRequestKind;
@@ -51,22 +52,22 @@ final class AccessApi {
     /** {@code POST /api/access/grant} with {@code {discordId, days}}. */
     void grant(final Context ctx) {
         final Body ask = bodyOf(ctx);
-        final String discordId = discordId(ask);
+        final DiscordId discordId = discordId(ask);
         if (ask.days == null || ask.days <= 0 || ask.days > MOST_DAYS) {
             throw new BadRequestResponse(
                     "A grant is between 1 and " + MOST_DAYS + " days. A longer period is two grants.");
         }
-        submit(ctx, AccessRequestKind.GRANT, discordId, (long) ask.days);
+        submit(ctx, AccessRequestKind.GRANT, discordId.value(), (long) ask.days);
     }
 
     /** {@code POST /api/access/revoke} with {@code {discordId}}. */
     void revoke(final Context ctx) {
-        submit(ctx, AccessRequestKind.REVOKE, discordId(bodyOf(ctx)), null);
+        submit(ctx, AccessRequestKind.REVOKE, discordId(bodyOf(ctx)).value(), null);
     }
 
     /** {@code POST /api/access/unlink} with {@code {discordId}}. */
     void unlink(final Context ctx) {
-        submit(ctx, AccessRequestKind.UNLINK, discordId(bodyOf(ctx)), null);
+        submit(ctx, AccessRequestKind.UNLINK, discordId(bodyOf(ctx)).value(), null);
     }
 
     /** {@code POST /api/access/settle} with {@code {reference}}, a payment reference. */
@@ -147,11 +148,11 @@ final class AccessApi {
         return body;
     }
 
-    private static String discordId(final Body ask) {
+    private static DiscordId discordId(final Body ask) {
         if (ask.discordId == null || ask.discordId.isBlank()) {
             throw new BadRequestResponse("discordId is whose access this is");
         }
-        return ask.discordId.trim();
+        return DiscordId.of(ask.discordId.trim());
     }
 
     private static final class Body {

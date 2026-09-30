@@ -3,6 +3,7 @@ package eu.nordtal.s2.steward.ui.data;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.sql.SQLException;
 import java.util.Map;
 import org.flywaydb.core.Flyway;
@@ -50,7 +51,7 @@ class ExampleValuesTest {
 
     @Test
     void everyTypeHasAFallback() {
-        final Map<String, Map<String, String>> examples = new ExampleValues(dataSource).of("1", "Ada");
+        final Map<String, Map<String, String>> examples = new ExampleValues(dataSource).of(DiscordId.of("1"), "Ada");
 
         assertEquals(Map.of("name", "Steve"), examples.get("player"));
         assertEquals(Map.of("name", "@Ada"), examples.get("discord-member"));
@@ -67,13 +68,13 @@ class ExampleValuesTest {
                 + " ('9', '00000000-0000-0000-0000-000000000009', 'Other'),"
                 + " ('1', '00000000-0000-0000-0000-000000000001', 'Ally')");
 
-        final Map<String, Map<String, String>> examples = new ExampleValues(dataSource).of("1", "Ada");
+        final Map<String, Map<String, String>> examples = new ExampleValues(dataSource).of(DiscordId.of("1"), "Ada");
         assertEquals(Map.of("name", "Ally"), examples.get("player"));
         assertEquals(Map.of("name", "@Ally H"), examples.get("discord-member"));
 
         assertEquals(
                 Map.of("name", "Other"),
-                new ExampleValues(dataSource).of("5", "Ada").get("player"),
+                new ExampleValues(dataSource).of(DiscordId.of("5"), "Ada").get("player"),
                 "an admin without a link gets a real player rather than the fallback");
     }
 
@@ -84,7 +85,7 @@ class ExampleValuesTest {
         sql("INSERT INTO hg_team (id, game_id, name) VALUES ('00000000-0000-0000-0000-00000000000b',"
                 + " '00000000-0000-0000-0000-00000000000a', 'Eisbären')");
 
-        final Map<String, Map<String, String>> examples = new ExampleValues(dataSource).of("1", "Ada");
+        final Map<String, Map<String, String>> examples = new ExampleValues(dataSource).of(DiscordId.of("1"), "Ada");
         assertEquals(Map.of("name", "Eisbären"), examples.get("team"));
         assertEquals(Map.of("name", "nether"), examples.get("milestone"));
     }

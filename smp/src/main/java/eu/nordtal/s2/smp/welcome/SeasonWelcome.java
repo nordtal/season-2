@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.welcome;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.smp.config.FirstJoinSpawnSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;
@@ -63,7 +64,7 @@ public final class SeasonWelcome {
     public void onLanguageReady(final Player player) {
         final UUID uuid = player.getUniqueId();
         // Identities is filled at pre-login by JoinGate, so this is a map read.
-        final Optional<String> discordId = identities.discordIdOf(uuid);
+        final Optional<DiscordId> discordId = identities.discordIdOf(uuid);
         if (discordId.isEmpty()) {
             return;
         }
@@ -78,7 +79,7 @@ public final class SeasonWelcome {
     }
 
     /** The main-thread half, by UUID because the player may have reconnected since the claim. */
-    private void show(final UUID uuid, final String name, final String discordId) {
+    private void show(final UUID uuid, final String name, final DiscordId discordId) {
         final Player player = Bukkit.getPlayer(uuid);
         if (player == null) {
             // The one path that loses the moment with the flag already taken.

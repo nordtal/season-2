@@ -1,5 +1,6 @@
 package eu.nordtal.s2.hungergames.db;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -52,7 +53,7 @@ public interface HungerGamesDao {
     List<HgMember> activeMembersOf(@Bind("gameId") UUID gameId);
 
     @SqlUpdate("UPDATE hg_member SET ready = :ready WHERE game_id = :gameId AND discord_id = :discordId")
-    int setReady(@Bind("gameId") UUID gameId, @Bind("discordId") String discordId, @Bind("ready") boolean ready);
+    int setReady(@Bind("gameId") UUID gameId, @Bind("discordId") DiscordId discordId, @Bind("ready") boolean ready);
 
     /** Every active ({@code OWNER} or {@code ACCEPTED}) membership of one game, joined to its Minecraft account. */
     @SqlQuery("""
@@ -79,13 +80,13 @@ public interface HungerGamesDao {
     Optional<RosterEntry> rosterEntryByMcUuid(@Bind("gameId") UUID gameId, @Bind("mcUuid") UUID mcUuid);
 
     @SqlQuery("SELECT mc_uuid FROM account_link WHERE discord_id = :discordId")
-    Optional<UUID> mcUuidOf(@Bind("discordId") String discordId);
+    Optional<UUID> mcUuidOf(@Bind("discordId") DiscordId discordId);
 
     @SqlQuery("SELECT discord_id FROM account_link WHERE mc_uuid = :mcUuid")
-    Optional<String> discordIdOf(@Bind("mcUuid") UUID mcUuid);
+    Optional<DiscordId> discordIdOf(@Bind("mcUuid") UUID mcUuid);
 
     @SqlQuery("SELECT locale FROM discord_user WHERE discord_id = :discordId")
-    Optional<String> localeOf(@Bind("discordId") String discordId);
+    Optional<String> localeOf(@Bind("discordId") DiscordId discordId);
 
     /** Whether the account behind this Minecraft UUID holds the admin flag, {@code discord_user.admin}. */
     @SqlQuery("""

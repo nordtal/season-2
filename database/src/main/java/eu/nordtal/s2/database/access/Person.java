@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.access;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.time.Instant;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -20,7 +21,7 @@ import org.jspecify.annotations.Nullable;
  * @param packExemptAt    when that happened, {@code null} unless it did
  */
 public record Person(
-        String discordId,
+        DiscordId discordId,
         String memberState,
         boolean donor,
         boolean admin,

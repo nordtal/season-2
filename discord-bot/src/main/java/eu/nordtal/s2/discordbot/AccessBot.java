@@ -6,6 +6,7 @@ import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.common.time.Waiting;
+import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.network.SnapshotDirectory;
@@ -132,6 +133,7 @@ public class AccessBot implements AutoCloseable {
         final AccessSpec accessConfig = Configs.access().get();
 
         this.database = Database.create(toDatabaseConfig(databaseConfig));
+        this.database.jdbi().installPlugin(Jdbis.ids());
 
         boolean started = false;
         try {

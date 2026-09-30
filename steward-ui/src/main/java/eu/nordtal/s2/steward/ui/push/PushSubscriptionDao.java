@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.ui.push;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.util.List;
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
@@ -23,7 +24,7 @@ interface PushSubscriptionDao {
             """)
     void add(
             @Bind("endpoint") String endpoint,
-            @Bind("discordId") String discordId,
+            @Bind("discordId") DiscordId discordId,
             @Bind("p256dh") String p256dh,
             @Bind("auth") String auth,
             @Bind("device") @Nullable String device);
@@ -42,7 +43,7 @@ interface PushSubscriptionDao {
             WHERE discord_id = :discordId
             ORDER BY created_at
             """)
-    List<PushSubscriptions.Subscription> forAccount(@Bind("discordId") String discordId);
+    List<PushSubscriptions.Subscription> forAccount(@Bind("discordId") DiscordId discordId);
 
     /** One subscription of one account, by endpoint; the account is checked since an endpoint is not a secret. */
     @SqlQuery("""
@@ -50,13 +51,13 @@ interface PushSubscriptionDao {
             FROM steward_push_subscription
             WHERE endpoint = :endpoint AND discord_id = :discordId
             """)
-    PushSubscriptions.Subscription find(@Bind("endpoint") String endpoint, @Bind("discordId") String discordId);
+    PushSubscriptions.Subscription find(@Bind("endpoint") String endpoint, @Bind("discordId") DiscordId discordId);
 
     /**
      * Removes one subscription of one account and answers the row count; the account is checked, as in {@link #find}.
      */
     @SqlUpdate("DELETE FROM steward_push_subscription WHERE endpoint = :endpoint AND discord_id = :discordId")
-    int remove(@Bind("endpoint") String endpoint, @Bind("discordId") String discordId);
+    int remove(@Bind("endpoint") String endpoint, @Bind("discordId") DiscordId discordId);
 
     /** Removes one subscription whose push service reported it gone, and answers the row count. */
     @SqlUpdate("DELETE FROM steward_push_subscription WHERE endpoint = :endpoint")

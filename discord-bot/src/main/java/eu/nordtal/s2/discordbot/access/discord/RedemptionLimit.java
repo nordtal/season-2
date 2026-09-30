@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot.access.discord;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -40,29 +41,29 @@ public final class RedemptionLimit {
      * @param discordId the account submitting a code
      * @return attempts left after this one, or {@code -1} when none was left and the code must not be looked at
      */
-    public synchronized int acquire(final String discordId) {
+    public synchronized int acquire(final DiscordId discordId) {
         final Deque<Instant> recent = recent(discordId);
         if (recent.size() >= maxFailures) {
             return -1;
         }
         recent.addLast(clock.instant());
-        failures.put(discordId, recent);
+        failures.put(discordId.value(), recent);
         return maxFailures - recent.size();
     }
 
     /**
-     * Gives back the most recent attempt {@link #acquire(String)} took, because it was not a wrong guess.
+     * Gives back the most recent attempt {@link #acquire(DiscordId)} took, because it was not a wrong guess.
      *
      * @param discordId the account
      */
-    public synchronized void release(final String discordId) {
-        final Deque<Instant> recorded = failures.get(discordId);
+    public synchronized void release(final DiscordId discordId) {
+        final Deque<Instant> recorded = failures.get(discordId.value());
         if (recorded == null) {
             return;
         }
         recorded.pollLast();
         if (recorded.isEmpty()) {
-            failures.remove(discordId);
+            failures.remove(discordId.value());
         }
     }
 
@@ -71,13 +72,13 @@ public final class RedemptionLimit {
      *
      * @param discordId the account
      */
-    public synchronized void clear(final String discordId) {
-        failures.remove(discordId);
+    public synchronized void clear(final DiscordId discordId) {
+        failures.remove(discordId.value());
     }
 
     /** Returns the account's failures inside the window, dropping older ones and an entry left empty. */
-    private Deque<Instant> recent(final String discordId) {
-        final Deque<Instant> recorded = failures.get(discordId);
+    private Deque<Instant> recent(final DiscordId discordId) {
+        final Deque<Instant> recorded = failures.get(discordId.value());
         if (recorded == null) {
             return new ArrayDeque<>();
         }
@@ -86,7 +87,7 @@ public final class RedemptionLimit {
             recorded.removeFirst();
         }
         if (recorded.isEmpty()) {
-            failures.remove(discordId);
+            failures.remove(discordId.value());
         }
         return recorded;
     }

@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.AccessSchema;
 import eu.nordtal.s2.messages.Refused;
 import java.sql.Connection;
@@ -255,7 +256,7 @@ class PhaseDirectoryIntegrationTest {
 
     /** A track somebody has played: waiting done, departure active with progress and a contribution. */
     private static void playedTrack() {
-        user(ADMIN_ID);
+        user(DiscordId.of(ADMIN_ID));
         execute("INSERT INTO smp_milestone (key, state, unlocked) VALUES ('waiting', 'UNLOCKED', now()),"
                 + " ('departure', 'ACTIVE', NULL)");
         execute("INSERT INTO smp_objective (milestone_key, key, type, amount, target, completed)"
@@ -378,35 +379,35 @@ class PhaseDirectoryIntegrationTest {
     @Test
     void settingTheDateForTheFirstTimeMovesAccessThatWasSoldWithoutOne() {
         // Sold before the season had a date, so the period started at now().
-        user("400000000000000001");
-        grant("400000000000000001", "now()", "now() + make_interval(hours => 720)");
+        user(DiscordId.of("400000000000000001"));
+        grant(DiscordId.of("400000000000000001"), "now()", "now() + make_interval(hours => 720)");
         final Instant opening = Instant.now().plus(Duration.ofDays(20));
 
         final DateChange change = phases.setSmpStart(opening, ADMIN_ID);
 
         assertEquals(1, change.grants());
         assertEquals(1, change.accounts());
-        assertWithinSeconds(opening, validFrom("400000000000000001"), 2);
-        assertWithinSeconds(opening.plus(Duration.ofDays(30)), validUntil("400000000000000001"), 2);
+        assertWithinSeconds(opening, validFrom(DiscordId.of("400000000000000001")), 2);
+        assertWithinSeconds(opening.plus(Duration.ofDays(30)), validUntil(DiscordId.of("400000000000000001")), 2);
     }
 
     @Test
     void stackedPurchasesStayStackedRatherThanCollapsingOntoTheDate() {
         // Two chained purchases; moving the anchor must move the pair, not stack both on the opening day.
-        user("400000000000000002");
-        grant("400000000000000002", "now()", "now() + make_interval(hours => 720)");
+        user(DiscordId.of("400000000000000002"));
+        grant(DiscordId.of("400000000000000002"), "now()", "now() + make_interval(hours => 720)");
         // Anchored on the first period's end, not a second now(), as the append rule chains on max(valid_until).
         final String endOfTheFirst =
                 "(SELECT max(valid_until) FROM access_grant" + " WHERE discord_id = '400000000000000002')";
-        grant("400000000000000002", endOfTheFirst, endOfTheFirst + " + make_interval(hours => 720)");
+        grant(DiscordId.of("400000000000000002"), endOfTheFirst, endOfTheFirst + " + make_interval(hours => 720)");
         final Instant opening = Instant.now().plus(Duration.ofDays(20));
 
         final DateChange change = phases.setSmpStart(opening, ADMIN_ID);
 
         assertEquals(2, change.grants());
         assertEquals(1, change.accounts(), "one person, two periods");
-        assertWithinSeconds(opening, earliestFrom("400000000000000002"), 2);
-        assertWithinSeconds(opening.plus(Duration.ofDays(60)), latestUntil("400000000000000002"), 2);
+        assertWithinSeconds(opening, earliestFrom(DiscordId.of("400000000000000002")), 2);
+        assertWithinSeconds(opening.plus(Duration.ofDays(60)), latestUntil(DiscordId.of("400000000000000002")), 2);
         // Every period but the earliest must start where the previous one ends.
         assertEquals(
                 0,
@@ -422,30 +423,33 @@ class PhaseDirectoryIntegrationTest {
     @Test
     void twoPeopleWhoBoughtOnDifferentDaysBothStartWhenTheSmpOpens() {
         // A single table-wide delta would leave the later buyer starting after the opening.
-        user("400000000000000003");
-        user("400000000000000004");
-        grant("400000000000000003", "now() - make_interval(hours => 120)", "now() + make_interval(hours => 600)");
-        grant("400000000000000004", "now()", "now() + make_interval(hours => 720)");
+        user(DiscordId.of("400000000000000003"));
+        user(DiscordId.of("400000000000000004"));
+        grant(
+                DiscordId.of("400000000000000003"),
+                "now() - make_interval(hours => 120)",
+                "now() + make_interval(hours => 600)");
+        grant(DiscordId.of("400000000000000004"), "now()", "now() + make_interval(hours => 720)");
         final Instant opening = Instant.now().plus(Duration.ofDays(20));
 
         final DateChange change = phases.setSmpStart(opening, ADMIN_ID);
 
         assertEquals(2, change.grants());
         assertEquals(2, change.accounts());
-        assertWithinSeconds(opening, validFrom("400000000000000003"), 2);
-        assertWithinSeconds(opening, validFrom("400000000000000004"), 2);
+        assertWithinSeconds(opening, validFrom(DiscordId.of("400000000000000003")), 2);
+        assertWithinSeconds(opening, validFrom(DiscordId.of("400000000000000004")), 2);
         // Each keeps the length they paid for, which is not the same for the two of them.
-        assertWithinSeconds(opening.plus(Duration.ofDays(30)), validUntil("400000000000000003"), 2);
-        assertWithinSeconds(opening.plus(Duration.ofDays(30)), validUntil("400000000000000004"), 2);
+        assertWithinSeconds(opening.plus(Duration.ofDays(30)), validUntil(DiscordId.of("400000000000000003")), 2);
+        assertWithinSeconds(opening.plus(Duration.ofDays(30)), validUntil(DiscordId.of("400000000000000004")), 2);
     }
 
     @Test
     void movingAnAnnouncedDateShiftsEverythingAnchoredToItByTheSameAmount() {
         final Instant first = Instant.now().plus(Duration.ofDays(10));
         phases.setSmpStart(first, ADMIN_ID);
-        user("400000000000000005");
+        user(DiscordId.of("400000000000000005"));
         grant(
-                "400000000000000005",
+                DiscordId.of("400000000000000005"),
                 "(SELECT smp_start FROM season_phase WHERE id)",
                 "(SELECT smp_start FROM season_phase WHERE id) + make_interval(hours => 720)");
 
@@ -453,45 +457,45 @@ class PhaseDirectoryIntegrationTest {
         final DateChange change = phases.setSmpStart(moved, ADMIN_ID);
 
         assertEquals(1, change.grants());
-        assertWithinSeconds(moved, validFrom("400000000000000005"), 2);
-        assertWithinSeconds(moved.plus(Duration.ofDays(30)), validUntil("400000000000000005"), 2);
+        assertWithinSeconds(moved, validFrom(DiscordId.of("400000000000000005")), 2);
+        assertWithinSeconds(moved.plus(Duration.ofDays(30)), validUntil(DiscordId.of("400000000000000005")), 2);
     }
 
     @Test
     void aRevokedGrantIsLeftWhereItIs() {
-        user("400000000000000006");
-        grant("400000000000000006", "now()", "now() + make_interval(hours => 720)");
+        user(DiscordId.of("400000000000000006"));
+        grant(DiscordId.of("400000000000000006"), "now()", "now() + make_interval(hours => 720)");
         execute("UPDATE access_grant SET revoked = now() WHERE discord_id = '400000000000000006'");
-        final Instant before = validFrom("400000000000000006");
+        final Instant before = validFrom(DiscordId.of("400000000000000006"));
 
         final DateChange change = phases.setSmpStart(Instant.now().plus(Duration.ofDays(20)), ADMIN_ID);
 
         assertEquals(0, change.grants(), "a revoked grant does not count and must not move");
-        assertWithinSeconds(before, validFrom("400000000000000006"), 1);
+        assertWithinSeconds(before, validFrom(DiscordId.of("400000000000000006")), 1);
     }
 
     @Test
     void clearingTheDateMovesNothing() {
         phases.setSmpStart(Instant.now().plus(Duration.ofDays(10)), ADMIN_ID);
-        user("400000000000000007");
+        user(DiscordId.of("400000000000000007"));
         grant(
-                "400000000000000007",
+                DiscordId.of("400000000000000007"),
                 "(SELECT smp_start FROM season_phase WHERE id)",
                 "(SELECT smp_start FROM season_phase WHERE id) + make_interval(hours => 720)");
-        final Instant before = validFrom("400000000000000007");
+        final Instant before = validFrom(DiscordId.of("400000000000000007"));
 
         final DateChange change = phases.setSmpStart(null, ADMIN_ID);
 
         assertNull(change.current());
         assertEquals(0, change.grants(), "there is no date left to anchor them to");
-        assertWithinSeconds(before, validFrom("400000000000000007"), 1);
+        assertWithinSeconds(before, validFrom(DiscordId.of("400000000000000007")), 1);
     }
 
     @Test
     void writingTheSameDateTwiceMovesNothingTheSecondTime() {
         final Instant opening = Instant.now().plus(Duration.ofDays(20));
-        user("400000000000000008");
-        grant("400000000000000008", "now()", "now() + make_interval(hours => 720)");
+        user(DiscordId.of("400000000000000008"));
+        grant(DiscordId.of("400000000000000008"), "now()", "now() + make_interval(hours => 720)");
         assertEquals(1, phases.setSmpStart(opening, ADMIN_ID).grants());
 
         final DateChange again = phases.setSmpStart(opening, ADMIN_ID);
@@ -509,29 +513,29 @@ class PhaseDirectoryIntegrationTest {
         assertTrue(phases.smpStart().isEmpty());
     }
 
-    private static void user(final String discordId) {
+    private static void user(final DiscordId discordId) {
         execute("INSERT INTO discord_user (discord_id) VALUES ('" + discordId + "')" + " ON CONFLICT DO NOTHING");
     }
 
     /** {@code from} and {@code until} are SQL expressions, so a test can anchor on the row itself. */
-    private static void grant(final String discordId, final String from, final String until) {
+    private static void grant(final DiscordId discordId, final String from, final String until) {
         execute("INSERT INTO access_grant (discord_id, valid_from, valid_until, source)" + " VALUES ('" + discordId
                 + "', " + from + ", " + until + ", 'ADMIN')");
     }
 
-    private static Instant validFrom(final String discordId) {
+    private static Instant validFrom(final DiscordId discordId) {
         return earliestFrom(discordId);
     }
 
-    private static Instant validUntil(final String discordId) {
+    private static Instant validUntil(final DiscordId discordId) {
         return latestUntil(discordId);
     }
 
-    private static Instant earliestFrom(final String discordId) {
+    private static Instant earliestFrom(final DiscordId discordId) {
         return instant("SELECT min(valid_from) FROM access_grant WHERE discord_id = '" + discordId + "'");
     }
 
-    private static Instant latestUntil(final String discordId) {
+    private static Instant latestUntil(final DiscordId discordId) {
         return instant("SELECT max(valid_until) FROM access_grant WHERE discord_id = '" + discordId + "'");
     }
 

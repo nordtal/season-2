@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.ui;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.steward.ui.data.Data;
 import io.javalin.http.Context;
 import java.util.Objects;
@@ -23,7 +24,7 @@ final class RosterRoutes {
     }
 
     void grants(final Context ctx) {
-        ctx.json(data().access().grantsOf(ctx.pathParam("id")));
+        ctx.json(data().access().grantsOf(DiscordId.of(ctx.pathParam("id"))));
     }
 
     void payments(final Context ctx) {

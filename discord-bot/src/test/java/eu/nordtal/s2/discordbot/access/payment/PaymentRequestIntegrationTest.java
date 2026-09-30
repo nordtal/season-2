@@ -11,6 +11,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
+import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AccessGrant;
 import eu.nordtal.s2.database.access.AccessSource;
@@ -66,6 +68,7 @@ class PaymentRequestIntegrationTest {
 
         database = Database.create(
                 DatabaseConfig.of(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword()));
+        database.jdbi().installPlugin(Jdbis.ids());
         database.migrate();
     }
 
@@ -115,51 +118,54 @@ class PaymentRequestIntegrationTest {
 
     @Test
     void aSecondOpenRequestForTheSamePersonIsRefusedByTheDatabase() {
-        requests.open(USER, 30, 300, 0, TTL_HOURS);
+        requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
 
         // A partial unique index, not a Java check two threads could both pass.
-        assertThrows(UnableToExecuteStatementException.class, () -> requests.open(USER, 60, 500, 0, TTL_HOURS));
+        assertThrows(
+                UnableToExecuteStatementException.class,
+                () -> requests.open(DiscordId.of(USER), 60, 500, 0, TTL_HOURS));
     }
 
     @Test
     void closingTheOldRequestIsWhatMakesANewOnePossible() {
-        final PaymentRequest first = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest first = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
         assertTrue(requests.close(first.id(), PaymentRequestStatus.SUPERSEDED));
 
-        final PaymentRequest second = requests.open(USER, 60, 500, 0, TTL_HOURS);
+        final PaymentRequest second = requests.open(DiscordId.of(USER), 60, 500, 0, TTL_HOURS);
 
         assertAll(
                 () -> assertEquals(60, second.days()),
                 () -> assertEquals(
-                        Optional.of(second.id()), requests.openOf(USER).map(PaymentRequest::id)),
+                        Optional.of(second.id()),
+                        requests.openOf(DiscordId.of(USER)).map(PaymentRequest::id)),
                 () -> assertFalse(first.reference().equals(second.reference()), "each request gets its own reference"));
     }
 
     @Test
     void twoPeopleCanEachHaveAnOpenRequest() {
-        requests.open(USER, 30, 300, 0, TTL_HOURS);
-        requests.open(OTHER, 30, 300, 0, TTL_HOURS);
+        requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
+        requests.open(DiscordId.of(OTHER), 30, 300, 0, TTL_HOURS);
 
         assertAll(
-                () -> assertTrue(requests.openOf(USER).isPresent()),
-                () -> assertTrue(requests.openOf(OTHER).isPresent()),
+                () -> assertTrue(requests.openOf(DiscordId.of(USER)).isPresent()),
+                () -> assertTrue(requests.openOf(DiscordId.of(OTHER)).isPresent()),
                 () -> assertEquals(2, requests.allOpen().size()));
     }
 
     @Test
     void theReferenceMatchesThePatternTheFallbackMatcherScansFor() {
-        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
         assertTrue(
                 PaymentRequests.REFERENCE_PATTERN.matcher(request.reference()).matches(), request.reference());
     }
 
     @Test
     void anUnconfirmedRequestIsEditedInPlaceRatherThanReplaced() {
-        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
 
         assertTrue(requests.reselect(request.id(), 60, 1000, 500));
 
-        final PaymentRequest reloaded = requests.openOf(USER).orElseThrow();
+        final PaymentRequest reloaded = requests.openOf(DiscordId.of(USER)).orElseThrow();
         assertAll(
                 () -> assertEquals(
                         request.reference(),
@@ -172,7 +178,7 @@ class PaymentRequestIntegrationTest {
 
     @Test
     void onceATabExistsTheRequestCanNoLongerBeEdited() {
-        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
         assertTrue(requests.attachTab(request.id(), 4242L, "https://bunq.me/x"));
 
         assertFalse(requests.reselect(request.id(), 60, 500, 0));
@@ -180,7 +186,7 @@ class PaymentRequestIntegrationTest {
 
     @Test
     void aRequestPastItsTtlTurnsUpInTheExpirySweep() {
-        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
         assertTrue(requests.dueForExpiry().isEmpty(), "not due yet");
 
         database.jdbi()
@@ -196,11 +202,11 @@ class PaymentRequestIntegrationTest {
 
     @Test
     void oneBunqPaymentCanOnlyEverBeBookedOnce() {
-        final PaymentRequest first = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest first = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
         assertTrue(requests.settle(first.id(), 777L));
         requests.close(first.id(), PaymentRequestStatus.CANCELLED); // no-op: it is PAID
 
-        final PaymentRequest second = requests.open(OTHER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest second = requests.open(DiscordId.of(OTHER), 30, 300, 0, TTL_HOURS);
 
         assertFalse(requests.settle(second.id(), 777L));
         assertTrue(requests.alreadyBooked(777L));
@@ -208,7 +214,7 @@ class PaymentRequestIntegrationTest {
 
     @Test
     void settlingTwiceBooksOnce() {
-        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
 
         assertAll(
                 () -> assertTrue(requests.settle(request.id(), 888L)),
@@ -217,11 +223,11 @@ class PaymentRequestIntegrationTest {
 
     @Test
     void aManualSettlementBooksWithoutABunqPaymentId() {
-        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
 
         assertTrue(requests.settleManually(request.id()));
 
-        final PaymentRequest reloaded = requests.recentOf(USER, 1).getFirst();
+        final PaymentRequest reloaded = requests.recentOf(DiscordId.of(USER), 1).getFirst();
         assertAll(
                 () -> assertEquals(PaymentRequestStatus.PAID, reloaded.status()),
                 () -> assertNotNull(reloaded.settled()),
@@ -233,23 +239,25 @@ class PaymentRequestIntegrationTest {
 
     @Test
     void oneRequestCanOnlyEverProduceOneGrant() {
-        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
         requests.settle(request.id(), 999L);
 
-        access.grantAccess(USER, 30, AccessSource.PURCHASE, request.id());
+        access.grantAccess(DiscordId.of(USER), 30, AccessSource.PURCHASE, request.id());
 
         // Two code paths settling once each still cannot double-grant.
-        assertThrows(RuntimeException.class, () -> access.grantAccess(USER, 30, AccessSource.PURCHASE, request.id()));
+        assertThrows(
+                RuntimeException.class,
+                () -> access.grantAccess(DiscordId.of(USER), 30, AccessSource.PURCHASE, request.id()));
     }
 
     @Test
     void aDowngradedPaymentGrantsTheDaysItCoveredAppendedToRunningAccess() {
         // Ordered 90 days, paid for 30; the grant is appended, not restarted.
-        final AccessGrant first = access.grantAccess(USER, 30, AccessSource.ADMIN, null);
+        final AccessGrant first = access.grantAccess(DiscordId.of(USER), 30, AccessSource.ADMIN, null);
 
-        final PaymentRequest request = requests.open(USER, 90, 700, 0, TTL_HOURS);
+        final PaymentRequest request = requests.open(DiscordId.of(USER), 90, 700, 0, TTL_HOURS);
         requests.settle(request.id(), 1234L);
-        final AccessGrant second = access.grantAccess(USER, 30, AccessSource.PURCHASE, request.id());
+        final AccessGrant second = access.grantAccess(DiscordId.of(USER), 30, AccessSource.PURCHASE, request.id());
 
         assertAll(
                 () -> assertEquals(first.validUntil(), second.validFrom(), "renewing early never loses paid time"),
@@ -261,7 +269,7 @@ class PaymentRequestIntegrationTest {
 
     @Test
     void aRequestThatWantsATabTurnsUpInTheWorkersQueueAndOnlyThen() {
-        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
         assertTrue(requests.tabsToCreate().isEmpty(), "choosing a tier is not asking for a payment link");
 
         assertTrue(requests.requestTab(request.id()));
@@ -274,7 +282,7 @@ class PaymentRequestIntegrationTest {
 
     @Test
     void theQueueEmptiesTheMomentTheTabExists() {
-        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
         requests.requestTab(request.id());
         assertEquals(1, requests.tabsToCreate().size(), "queued");
 
@@ -287,12 +295,12 @@ class PaymentRequestIntegrationTest {
 
     @Test
     void aRefusedTabLeavesTheQueueSaysWhyAndCanBeAskedForAgain() {
-        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
         requests.requestTab(request.id());
 
         assertTrue(requests.failTab(request.id(), "bunq: MonetaryAccount not found"));
 
-        final PaymentRequest failed = requests.openOf(USER).orElseThrow();
+        final PaymentRequest failed = requests.openOf(DiscordId.of(USER)).orElseThrow();
         assertAll(
                 () -> assertTrue(
                         requests.tabsToCreate().isEmpty(),
@@ -302,13 +310,13 @@ class PaymentRequestIntegrationTest {
                         "bunq: MonetaryAccount not found", failed.tabFailed(), "'der Link kommt gleich' needs an exit"),
                 () -> assertTrue(requests.requestTab(request.id())),
                 () -> assertNull(
-                        requests.openOf(USER).orElseThrow().tabFailed(),
+                        requests.openOf(DiscordId.of(USER)).orElseThrow().tabFailed(),
                         "asking again clears the old reason rather than showing it next to a pending ask"));
     }
 
     @Test
     void aRequestAlreadyAskedToBeCancelledIsNeverGivenATab() {
-        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
         requests.requestTab(request.id());
         assertTrue(requests.requestCancel(request.id()));
 
@@ -318,7 +326,7 @@ class PaymentRequestIntegrationTest {
 
     @Test
     void aCancelIsQueuedOnceAndLeavesTheQueueWhenTheTabIsGone() {
-        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
         requests.attachTab(request.id(), 4242L, "https://bunq.me/x");
         assertTrue(requests.tabsToCancel().isEmpty());
 
@@ -339,12 +347,12 @@ class PaymentRequestIntegrationTest {
 
     @Test
     void aMatchIsWrittenOntoARowThatIsStillOpenSoTheSettledIffPaidCheckHolds() {
-        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
         requests.attachTab(request.id(), 4242L, "https://bunq.me/x");
 
         assertTrue(requests.recordMatch(request.id(), 4711L, 300, PaymentMatch.TAB));
 
-        final PaymentRequest matched = requests.openOf(USER).orElseThrow();
+        final PaymentRequest matched = requests.openOf(DiscordId.of(USER)).orElseThrow();
         assertAll(
                 () -> assertEquals(
                         PaymentRequestStatus.OPEN, matched.status(), "the worker finds the money; the bot books it"),
@@ -358,10 +366,10 @@ class PaymentRequestIntegrationTest {
 
     @Test
     void oneBunqPaymentCannotBeAttributedToTwoRequests() {
-        final PaymentRequest first = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest first = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
         assertTrue(requests.recordMatch(first.id(), 4711L, 300, PaymentMatch.TAB));
 
-        final PaymentRequest second = requests.open(OTHER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest second = requests.open(DiscordId.of(OTHER), 30, 300, 0, TTL_HOURS);
 
         // recordMatch passes the unique violation on rather than hiding it.
         final UnableToExecuteStatementException failure = assertThrows(
@@ -463,7 +471,7 @@ class PaymentRequestIntegrationTest {
 
     @Test
     void matchedMoneyWaitsInAQueueOfItsOwnUntilItIsBooked() {
-        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
         requests.attachTab(request.id(), 4242L, "https://bunq.me/x");
         assertTrue(requests.matchedAwaitingBooking().isEmpty(), "an open request with a tab is not money");
 
@@ -485,7 +493,7 @@ class PaymentRequestIntegrationTest {
 
     @Test
     void aManualSettlementNeverEntersTheBookingQueue() {
-        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
 
         assertTrue(requests.settleManually(request.id()));
 
@@ -506,7 +514,7 @@ class PaymentRequestIntegrationTest {
 
     @Test
     void closingARequestAndAskingForItsTabToGoAwayIsOneTransaction() {
-        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
         requests.attachTab(request.id(), 4242L, "https://bunq.me/x");
 
         assertTrue(requests.closeAndRequestCancel(request.id(), PaymentRequestStatus.EXPIRED));
@@ -523,7 +531,7 @@ class PaymentRequestIntegrationTest {
 
     @Test
     void closeAndRequestCancelRefusesToBeUsedAsASettlement() {
-        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
 
         // PAID means something has to be granted, never a row closed with nothing.
         assertThrows(
@@ -536,7 +544,7 @@ class PaymentRequestIntegrationTest {
 
     @Test
     void byIdAnswersTheOneRowTheWaitingPurchaseMessageIsAbout() {
-        final PaymentRequest request = requests.open(USER, 30, 300, 0, TTL_HOURS);
+        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
 
         assertEquals(
                 request.reference(), requests.byId(request.id()).orElseThrow().reference());

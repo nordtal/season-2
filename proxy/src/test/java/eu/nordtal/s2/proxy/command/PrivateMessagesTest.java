@@ -10,6 +10,7 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessState;
 import eu.nordtal.s2.database.access.MemberState;
 import eu.nordtal.s2.messagerendering.ToneColours;
@@ -219,7 +220,7 @@ class PrivateMessagesTest {
     private static AccessState session(final UUID mcUuid, final Locale locale, final boolean admin) {
         return new AccessState(
                 mcUuid,
-                "1",
+                DiscordId.of("1"),
                 MemberState.MEMBER,
                 true,
                 Instant.now().plus(Duration.ofDays(1)),

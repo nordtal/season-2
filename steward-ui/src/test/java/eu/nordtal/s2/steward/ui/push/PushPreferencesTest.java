@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.sql.SQLException;
 import java.util.Map;
 import org.flywaydb.core.Flyway;
@@ -60,7 +61,7 @@ class PushPreferencesTest {
 
     @Test
     void anAccountWithNoRowsGetsTheDefaults() {
-        final Map<AlertType, Boolean> mine = preferences.of("42");
+        final Map<AlertType, Boolean> mine = preferences.of(DiscordId.of("42"));
 
         // Everything but drift is on.
         assertEquals(
@@ -80,27 +81,30 @@ class PushPreferencesTest {
 
     @Test
     void aSwitchIsScopedToTheAccount() {
-        preferences.set("42", AlertType.DRIFT, true);
-        preferences.set("42", AlertType.SERVICE, false);
+        preferences.set(DiscordId.of("42"), AlertType.DRIFT, true);
+        preferences.set(DiscordId.of("42"), AlertType.SERVICE, false);
 
-        assertTrue(preferences.of("42").get(AlertType.DRIFT));
-        assertFalse(preferences.of("42").get(AlertType.SERVICE));
-        assertFalse(preferences.of("43").get(AlertType.DRIFT), "one account's choice leaked into another's");
-        assertTrue(preferences.of("43").get(AlertType.SERVICE), "one account's choice leaked into another's");
+        assertTrue(preferences.of(DiscordId.of("42")).get(AlertType.DRIFT));
+        assertFalse(preferences.of(DiscordId.of("42")).get(AlertType.SERVICE));
+        assertFalse(
+                preferences.of(DiscordId.of("43")).get(AlertType.DRIFT), "one account's choice leaked into another's");
+        assertTrue(
+                preferences.of(DiscordId.of("43")).get(AlertType.SERVICE),
+                "one account's choice leaked into another's");
     }
 
     @Test
     void settingTwiceIsOneRow() {
-        preferences.set("42", AlertType.DISK, false);
-        preferences.set("42", AlertType.DISK, true);
+        preferences.set(DiscordId.of("42"), AlertType.DISK, false);
+        preferences.set(DiscordId.of("42"), AlertType.DISK, true);
 
         assertEquals(1, preferences.all().get("42").size(), "the same switch set twice produced two rows");
-        assertTrue(preferences.of("42").get(AlertType.DISK));
+        assertTrue(preferences.of(DiscordId.of("42")).get(AlertType.DISK));
     }
 
     @Test
     void choosingTheDefaultIsStillAChoice() {
-        preferences.set("42", AlertType.SERVICE, true);
+        preferences.set(DiscordId.of("42"), AlertType.SERVICE, true);
 
         assertEquals(
                 Map.of(AlertType.SERVICE, true),
@@ -117,7 +121,7 @@ class PushPreferencesTest {
         }
 
         // A poll that threw on a row a later release left behind would stop pushing anything at all.
-        assertEquals(5, preferences.of("42").size());
+        assertEquals(5, preferences.of(DiscordId.of("42")).size());
         assertTrue(
                 preferences.all().get("42") == null
                         || preferences.all().get("42").isEmpty(),

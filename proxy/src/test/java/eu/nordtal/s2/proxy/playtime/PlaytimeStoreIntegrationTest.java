@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -81,31 +82,31 @@ class PlaytimeStoreIntegrationTest {
 
     @Test
     void theFirstFlushOfASeasonCreatesTheRow() {
-        store.add(DISCORD_ID, 90);
+        store.add(DiscordId.of(DISCORD_ID), 90);
 
-        assertEquals(90, seconds(DISCORD_ID));
+        assertEquals(90, seconds(DiscordId.of(DISCORD_ID)));
         assertEquals(1, count("SELECT count(*) FROM player_playtime"));
     }
 
     @Test
     void everyFlushAddsRatherThanReplaces() {
-        store.add(DISCORD_ID, 60);
-        store.add(DISCORD_ID, 60);
-        store.add(DISCORD_ID, 15);
+        store.add(DiscordId.of(DISCORD_ID), 60);
+        store.add(DiscordId.of(DISCORD_ID), 60);
+        store.add(DiscordId.of(DISCORD_ID), 15);
 
         assertEquals(
                 135,
-                seconds(DISCORD_ID),
+                seconds(DiscordId.of(DISCORD_ID)),
                 "the proxy sends slices, never totals - a writer that replaced would lose a session "
                         + "every time two of them overlapped");
     }
 
     @Test
     void theUpdatedStampMovesWithEveryFlush() {
-        store.add(DISCORD_ID, 10);
+        store.add(DiscordId.of(DISCORD_ID), 10);
         final String first = single("SELECT updated FROM player_playtime WHERE discord_id = '" + DISCORD_ID + "'");
 
-        store.add(DISCORD_ID, 10);
+        store.add(DiscordId.of(DISCORD_ID), 10);
         final String second = single("SELECT updated FROM player_playtime WHERE discord_id = '" + DISCORD_ID + "'");
 
         assertTrue(second.compareTo(first) >= 0, first + " -> " + second);
@@ -121,7 +122,7 @@ class PlaytimeStoreIntegrationTest {
             for (int index = 0; index < writers; index++) {
                 final var _ = pool.submit(() -> {
                     go.await();
-                    store.add(DISCORD_ID, 30);
+                    store.add(DiscordId.of(DISCORD_ID), 30);
                     return null;
                 });
             }
@@ -132,18 +133,18 @@ class PlaytimeStoreIntegrationTest {
             pool.shutdownNow();
         }
 
-        assertEquals(writers * 30L, seconds(DISCORD_ID));
+        assertEquals(writers * 30L, seconds(DiscordId.of(DISCORD_ID)));
     }
 
     @Test
     void aDiscordAccountTheDatabaseHasNeverSeenIsRefusedByTheForeignKey() {
         // A play-time row for a user that does not exist is refused.
-        assertThrows(RuntimeException.class, () -> store.add("999999999999999999", 60));
+        assertThrows(RuntimeException.class, () -> store.add(DiscordId.of("999999999999999999"), 60));
     }
 
     @Test
     void deletingTheUserTakesTheirPlayTimeWithIt() {
-        store.add(DISCORD_ID, 120);
+        store.add(DiscordId.of(DISCORD_ID), 120);
 
         execute("DELETE FROM discord_user WHERE discord_id = '" + DISCORD_ID + "'");
 
@@ -155,7 +156,7 @@ class PlaytimeStoreIntegrationTest {
 
     // helpers
 
-    private static long seconds(final String discordId) {
+    private static long seconds(final DiscordId discordId) {
         return count("SELECT seconds FROM player_playtime WHERE discord_id = '" + discordId + "'");
     }
 

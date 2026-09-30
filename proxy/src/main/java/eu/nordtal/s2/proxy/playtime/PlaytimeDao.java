@@ -1,5 +1,6 @@
 package eu.nordtal.s2.proxy.playtime;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
@@ -19,5 +20,5 @@ interface PlaytimeDao {
                 SET seconds = player_playtime.seconds + EXCLUDED.seconds,
                     updated = now()
             """)
-    int add(@Bind("discordId") String discordId, @Bind("seconds") long seconds);
+    int add(@Bind("discordId") DiscordId discordId, @Bind("seconds") long seconds);
 }

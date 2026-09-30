@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.AccessSchema;
 import eu.nordtal.s2.database.audit.AuditLine;
 import java.sql.Connection;
@@ -96,7 +97,7 @@ class CommandRequestJournalIntegrationTest {
                 "aufbruch",
                 "WEB",
                 "Till (300000000000000042)",
-                Optional.of(DISCORD_ID),
+                Optional.of(DiscordId.of(DISCORD_ID)),
                 Optional.of(REQUEST_MC),
                 "de",
                 Instant.now().plusSeconds(120));
@@ -137,7 +138,7 @@ class CommandRequestJournalIntegrationTest {
                         "-25",
                         "WEB",
                         "Till",
-                        Optional.of(DISCORD_ID),
+                        Optional.of(DiscordId.of(DISCORD_ID)),
                         Optional.empty(),
                         "de",
                         Instant.now().plusSeconds(120)),
@@ -210,7 +211,7 @@ class CommandRequestJournalIntegrationTest {
                             "",
                             "WEB",
                             "Till",
-                            Optional.of(DISCORD_ID),
+                            Optional.of(DiscordId.of(DISCORD_ID)),
                             Optional.empty(),
                             "de",
                             Instant.now().plusSeconds(120)),
@@ -261,14 +262,14 @@ class CommandRequestJournalIntegrationTest {
         // V18's CHECK and NewCommandRequest's list must agree; SYSTEM is deliberately not a source.
         for (final String source : List.of("DISCORD", "GAME", "CONSOLE", "WEB")) {
             final boolean needsAnId = "DISCORD".equals(source) || "WEB".equals(source);
-            insertRaw(source, needsAnId ? DISCORD_ID : null);
+            insertRaw(source, needsAnId ? DiscordId.of(DISCORD_ID) : null);
         }
         assertEquals(4, countOf("SELECT count(*) FROM command_request"));
 
         for (final String refused : List.of("SYSTEM", "web", "Discord", "API", "")) {
             final SQLException failure = assertThrows(
                     SQLException.class,
-                    () -> insertRaw(refused, DISCORD_ID),
+                    () -> insertRaw(refused, DiscordId.of(DISCORD_ID)),
                     refused + " reached the table - the CHECK does not pin the four");
             assertTrue(
                     failure.getMessage().contains("command_request_source_check"),
@@ -282,7 +283,7 @@ class CommandRequestJournalIntegrationTest {
                             "",
                             refused,
                             "till",
-                            Optional.of(DISCORD_ID),
+                            Optional.of(DiscordId.of(DISCORD_ID)),
                             Optional.empty(),
                             "de",
                             Instant.now().plusSeconds(30)),
@@ -326,7 +327,7 @@ class CommandRequestJournalIntegrationTest {
         return null;
     }
 
-    private void insertRaw(final String source, final String discordId) throws SQLException {
+    private void insertRaw(final String source, final DiscordId discordId) throws SQLException {
         try (Connection connection = dataSource.getConnection();
                 PreparedStatement statement = connection.prepareStatement("""
                      INSERT INTO command_request
@@ -334,7 +335,7 @@ class CommandRequestJournalIntegrationTest {
                      VALUES ('SMP', 'smp reload', ?, 'till', ?, now() + '30 seconds')
                      """)) {
             statement.setString(1, source);
-            statement.setString(2, discordId);
+            statement.setString(2, discordId == null ? null : discordId.value());
             statement.executeUpdate();
         }
     }

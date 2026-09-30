@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.access;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -20,7 +21,7 @@ public final class AccessGrantMapper implements RowMapper<AccessGrant> {
     public AccessGrant map(final ResultSet rs, final StatementContext ctx) throws SQLException {
         return new AccessGrant(
                 rs.getObject("id", UUID.class),
-                rs.getString("discord_id"),
+                DiscordId.of(rs.getString("discord_id")),
                 Objects.requireNonNull(instant(rs, "valid_from"), "valid_from"),
                 Objects.requireNonNull(instant(rs, "valid_until"), "valid_until"),
                 AccessSource.valueOf(rs.getString("source")),

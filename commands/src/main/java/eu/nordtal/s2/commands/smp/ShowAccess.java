@@ -6,6 +6,7 @@ import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.OpenPayment;
 import eu.nordtal.s2.database.phase.SeasonDates;
 import eu.nordtal.s2.messages.Tone;
@@ -71,7 +72,8 @@ public final class ShowAccess implements NordtalCommand<SmpEffects> {
                         .access()
                         .linked(
                                 new PlayerContext(name),
-                                new DiscordMemberContext(Objects.requireNonNull(state.discordId()))),
+                                new DiscordMemberContext(Objects.requireNonNull(state.discordId())
+                                        .value())),
                 Tone.NEUTRAL);
 
         if (state.accessActive() && state.validUntil() != null) {
@@ -84,7 +86,7 @@ public final class ShowAccess implements NordtalCommand<SmpEffects> {
     }
 
     private static void replyPayment(
-            final NordtalUser user, final SmpEffects effects, final String name, final String discordId) {
+            final NordtalUser user, final SmpEffects effects, final String name, final DiscordId discordId) {
         final Optional<OpenPayment> pending;
         try {
             pending = effects.openPayment(discordId);

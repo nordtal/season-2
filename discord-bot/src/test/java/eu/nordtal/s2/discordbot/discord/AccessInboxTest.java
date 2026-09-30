@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessRequest;
 import eu.nordtal.s2.database.access.AccessRequestKind;
 import eu.nordtal.s2.database.access.AccessRequestSource;
@@ -28,19 +29,19 @@ class AccessInboxTest {
     private final AccessChanges effects = new AccessChanges() {
 
         @Override
-        public Instant grant(final String discordId, final int days, final Actor by) {
+        public Instant grant(final DiscordId discordId, final int days, final Actor by) {
             carriedOut.add("grant " + discordId + " " + days + " by " + by.filed());
             return Instant.parse("2026-10-20T00:00:00Z");
         }
 
         @Override
-        public int revoke(final String discordId, final Actor by) {
+        public int revoke(final DiscordId discordId, final Actor by) {
             carriedOut.add("revoke " + discordId + " by " + by.filed());
             return 2;
         }
 
         @Override
-        public boolean unlink(final String discordId, final Actor by) {
+        public boolean unlink(final DiscordId discordId, final Actor by) {
             carriedOut.add("unlink " + discordId + " by " + by.filed());
             return true;
         }
@@ -53,7 +54,7 @@ class AccessInboxTest {
         }
 
         @Override
-        public void setPlaytime(final String discordId, final long seconds, final Actor by) {
+        public void setPlaytime(final DiscordId discordId, final long seconds, final Actor by) {
             carriedOut.add("playtime " + discordId + " " + seconds + " by " + by.filed());
         }
 
@@ -210,17 +211,17 @@ class AccessInboxTest {
     private static final class ThrowingOnGrant implements AccessChanges {
 
         @Override
-        public Instant grant(final String discordId, final int days, final Actor by) {
+        public Instant grant(final DiscordId discordId, final int days, final Actor by) {
             throw new IllegalStateException("the guild said no");
         }
 
         @Override
-        public int revoke(final String discordId, final Actor by) {
+        public int revoke(final DiscordId discordId, final Actor by) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public boolean unlink(final String discordId, final Actor by) {
+        public boolean unlink(final DiscordId discordId, final Actor by) {
             throw new UnsupportedOperationException();
         }
 
@@ -230,7 +231,7 @@ class AccessInboxTest {
         }
 
         @Override
-        public void setPlaytime(final String discordId, final long seconds, final Actor by) {
+        public void setPlaytime(final DiscordId discordId, final long seconds, final Actor by) {
             throw new UnsupportedOperationException();
         }
 

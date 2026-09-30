@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessState;
 import eu.nordtal.s2.database.access.MemberState;
 import eu.nordtal.s2.proxy.MutableClock;
@@ -46,7 +47,7 @@ class PlaytimeWriterTest {
 
     @Test
     void disconnectingWritesTheWholeSession() {
-        join(PLAYER, DISCORD_ID);
+        join(PLAYER, DiscordId.of(DISCORD_ID));
         clock.advance(Duration.ofMinutes(45));
 
         writer.flush(PLAYER);
@@ -57,7 +58,7 @@ class PlaytimeWriterTest {
     @Test
     void aPeriodicFlushWritesOnlyWhatHasHappenedSinceTheLastOne() {
         // The write is an addition, so each flush must carry the slice and not the running total.
-        join(PLAYER, DISCORD_ID);
+        join(PLAYER, DiscordId.of(DISCORD_ID));
 
         clock.advance(Duration.ofSeconds(60));
         writer.flushAll();
@@ -74,8 +75,8 @@ class PlaytimeWriterTest {
 
     @Test
     void everyConnectedPlayerIsFlushedByOnePass() {
-        join(PLAYER, DISCORD_ID);
-        join(OTHER, OTHER_DISCORD_ID);
+        join(PLAYER, DiscordId.of(DISCORD_ID));
+        join(OTHER, DiscordId.of(OTHER_DISCORD_ID));
         clock.advance(Duration.ofSeconds(30));
 
         assertEquals(2, writer.flushAll());
@@ -87,7 +88,7 @@ class PlaytimeWriterTest {
     @Test
     void subSecondRemaindersSurviveAFlushInsteadOfBeingThrownAway() {
         // Flushing every 60s at 60.4s intervals would otherwise lose 0.4s each time.
-        join(PLAYER, DISCORD_ID);
+        join(PLAYER, DiscordId.of(DISCORD_ID));
 
         clock.advance(Duration.ofMillis(60_400));
         writer.flushAll();
@@ -104,7 +105,7 @@ class PlaytimeWriterTest {
 
     @Test
     void nothingIsWrittenForASessionShorterThanASecond() {
-        join(PLAYER, DISCORD_ID);
+        join(PLAYER, DiscordId.of(DISCORD_ID));
         clock.advance(Duration.ofMillis(400));
 
         assertFalse(writer.flush(PLAYER));
@@ -113,7 +114,7 @@ class PlaytimeWriterTest {
 
     @Test
     void aFailedFlushKeepsTheTimeOwedRatherThanDroppingIt() {
-        join(PLAYER, DISCORD_ID);
+        join(PLAYER, DiscordId.of(DISCORD_ID));
         clock.advance(Duration.ofSeconds(60));
 
         store.failing = true;
@@ -133,7 +134,7 @@ class PlaytimeWriterTest {
 
     @Test
     void aDisconnectedPlayerIsNoLongerCounted() {
-        join(PLAYER, DISCORD_ID);
+        join(PLAYER, DiscordId.of(DISCORD_ID));
         clock.advance(Duration.ofSeconds(30));
         writer.flush(PLAYER);
         forget(PLAYER);
@@ -156,12 +157,12 @@ class PlaytimeWriterTest {
 
     @Test
     void aReconnectStartsAFreshSessionAndTheTwoAddUpInTheDatabase() {
-        join(PLAYER, DISCORD_ID);
+        join(PLAYER, DiscordId.of(DISCORD_ID));
         clock.advance(Duration.ofSeconds(90));
         forget(PLAYER);
 
         clock.advance(Duration.ofHours(2));
-        join(PLAYER, DISCORD_ID);
+        join(PLAYER, DiscordId.of(DISCORD_ID));
         clock.advance(Duration.ofSeconds(10));
         writer.flushAll();
 
@@ -174,7 +175,7 @@ class PlaytimeWriterTest {
 
     // helpers
 
-    private void join(final UUID mcUuid, final String discordId) {
+    private void join(final UUID mcUuid, final DiscordId discordId) {
         roster.remember(
                 mcUuid,
                 new AccessState(
@@ -203,7 +204,7 @@ class PlaytimeWriterTest {
     @Test
     void oneSessionIsNeverCountedTwice() throws Exception {
         // flushAll runs on the scheduler and disconnect on the event thread; unsynchronised, both could count twice.
-        join(PLAYER, DISCORD_ID);
+        join(PLAYER, DiscordId.of(DISCORD_ID));
         clock.advance(Duration.ofMinutes(10));
 
         final long expected = Duration.ofMinutes(10).toSeconds();
@@ -249,7 +250,7 @@ class PlaytimeWriterTest {
         private Duration slowBy = Duration.ZERO;
 
         @Override
-        public void add(final String discordId, final long seconds) {
+        public void add(final DiscordId discordId, final long seconds) {
             if (failing) {
                 throw new IllegalStateException("the database is unreachable");
             }

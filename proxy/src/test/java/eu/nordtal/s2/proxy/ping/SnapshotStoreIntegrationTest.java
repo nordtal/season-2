@@ -3,6 +3,7 @@ package eu.nordtal.s2.proxy.ping;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.network.NetworkSnapshot;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
@@ -109,7 +110,7 @@ class SnapshotStoreIntegrationTest {
         execute("UPDATE hg_game SET state = 'RUNNING'");
 
         // Alpha's owner dies. Alpha is still in, because its second member is alive.
-        kill("100000000000000001");
+        kill(DiscordId.of("100000000000000001"));
         store.refresh();
 
         assertEquals(1, store.current().hgEliminated());
@@ -118,7 +119,7 @@ class SnapshotStoreIntegrationTest {
                 2, store.current().hgTeamsAlive(), "a team is still in while ANY of its full members has no DEATH row");
 
         // Alpha's second member dies too. Now the team is out.
-        kill("100000000000000002");
+        kill(DiscordId.of("100000000000000002"));
         store.refresh();
 
         assertEquals(2, store.current().hgEliminated());
@@ -201,7 +202,7 @@ class SnapshotStoreIntegrationTest {
     void aDeathAgainstSomebodyWhoNeverJoinedATeamIsNotAnElimination() {
         // eliminated is counted over the participants' set, else a non-playing DEATH row exceeds it.
         seedGame();
-        kill("100000000000000003"); // the INVITED row on Alpha
+        kill(DiscordId.of("100000000000000003")); // the INVITED row on Alpha
         store.refresh();
 
         assertEquals(
@@ -275,7 +276,7 @@ class SnapshotStoreIntegrationTest {
     }
 
     /** Writes the DEATH row an elimination produces, all this query sees of one. */
-    private void kill(final String discordId) {
+    private void kill(final DiscordId discordId) {
         execute("""
                 INSERT INTO hg_event (game_id, type, victim_id)
                 SELECT game_id, 'DEATH', id FROM hg_member WHERE discord_id = '%s'

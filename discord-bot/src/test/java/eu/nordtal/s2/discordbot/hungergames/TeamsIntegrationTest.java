@@ -9,6 +9,7 @@ import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.Jdbis;
+import eu.nordtal.s2.database.TestDatabase;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
@@ -16,8 +17,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * {@link Teams} against a real PostgreSQL and the real migrations, whose constraints are the rules under test.
@@ -32,25 +31,16 @@ class TeamsIntegrationTest {
     private static final String OTHER = "200000000000000003";
     private static final String UNREGISTERED = "200000000000000004";
 
-    private static PostgreSQLContainer<?> postgres;
+    private static TestDatabase postgres;
     private static Database database;
 
     private Teams teams;
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(
-                DockerClientFactory.instance().isDockerAvailable(),
-                "No Docker daemon reachable - skipping the PostgreSQL-backed tests");
+        postgres = TestDatabase.fresh();
 
-        postgres = new PostgreSQLContainer<>("postgres:17-alpine")
-                .withDatabaseName("hungergames")
-                .withUsername("hungergames")
-                .withPassword("hungergames");
-        postgres.start();
-
-        database = Database.create(
-                DatabaseConfig.of(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword()));
+        database = Database.create(DatabaseConfig.of(postgres.jdbcUrl(), postgres.username(), postgres.password()));
         database.jdbi().installPlugin(Jdbis.ids());
         database.migrate();
     }
@@ -59,9 +49,6 @@ class TeamsIntegrationTest {
     static void stopDatabase() {
         if (database != null) {
             database.close();
-        }
-        if (postgres != null) {
-            postgres.stop();
         }
     }
 

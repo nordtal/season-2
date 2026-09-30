@@ -39,7 +39,7 @@ class RosterApiTest extends StewardUiTestSupport {
 
         // A WEB row carries a Discord id; a CONSOLE row never does.
         try (var connection = java.sql.DriverManager.getConnection(
-                        postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+                        postgres.jdbcUrl(), postgres.username(), postgres.password());
                 var statement =
                         connection.prepareStatement("SELECT source, discord_id, requested_by, command, arguments"
                                 + " FROM command_request WHERE id = ?")) {
@@ -203,7 +203,7 @@ class RosterApiTest extends StewardUiTestSupport {
 
     private static long commandRequestCount() throws Exception {
         try (var connection = java.sql.DriverManager.getConnection(
-                        postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+                        postgres.jdbcUrl(), postgres.username(), postgres.password());
                 var statement = connection.createStatement();
                 var rows = statement.executeQuery("SELECT count(*) FROM command_request")) {
             assertTrue(rows.next());

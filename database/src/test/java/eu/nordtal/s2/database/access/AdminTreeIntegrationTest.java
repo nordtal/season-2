@@ -6,26 +6,22 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import eu.nordtal.s2.common.id.DiscordId;
-import eu.nordtal.s2.database.AccessSchema;
+import eu.nordtal.s2.database.TestDatabase;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import org.junit.jupiter.api.AfterAll;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.postgresql.PGConnection;
 import org.postgresql.PGNotification;
-import org.postgresql.ds.PGSimpleDataSource;
-import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * Tests the admin tree against a real PostgreSQL: bootstrap, revocation rights, branches, limits.
@@ -41,39 +37,13 @@ class AdminTreeIntegrationTest {
     private static final String A1 = "500000000000000004";
     private static final String A1X = "500000000000000005";
     private static final String OUTSIDER = "500000000000000009";
-
-    private static PostgreSQLContainer<?> postgres;
-    private static PGSimpleDataSource dataSource;
+    private static DataSource dataSource;
 
     private AdminTree tree;
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(
-                DockerClientFactory.instance().isDockerAvailable(),
-                "No Docker daemon reachable - skipping the PostgreSQL-backed admin tree tests");
-
-        postgres = new PostgreSQLContainer<>("postgres:17-alpine")
-                .withDatabaseName("access")
-                .withUsername("access")
-                .withPassword("access");
-        postgres.start();
-
-        dataSource = new PGSimpleDataSource();
-        dataSource.setUrl(postgres.getJdbcUrl());
-        dataSource.setUser(postgres.getUsername());
-        dataSource.setPassword(postgres.getPassword());
-
-        AccessSchema.migrate(dataSource);
-    }
-
-    @AfterAll
-    static void stopDatabase() {
-        if (postgres != null) {
-            postgres.stop();
-            postgres = null;
-        }
-        dataSource = null;
+        dataSource = TestDatabase.fresh().dataSource();
     }
 
     @BeforeEach

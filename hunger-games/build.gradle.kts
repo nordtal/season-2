@@ -46,10 +46,8 @@ dependencies {
     // HungerGamesDao installs JDBI's PostgresPlugin, which jcore only declares at runtime scope.
     implementation(libs.jdbi.postgres)
 
-    // KillCountsIntegrationTest runs killCounts on the real migrations: count(*) is bigint, which no fake catches.
-    testImplementation(libs.flyway.core)
-    testImplementation(libs.flyway.postgresql)
-    testImplementation(libs.testcontainers.postgresql)
+    // KillCountsIntegrationTest runs killCounts on the real schema: count(*) is bigint, which no fake catches.
+    testImplementation(testFixtures(project(":database")))
 
     // jcore puts the driver on the runtime classpath only; a test builds a PGSimpleDataSource by hand.
     testImplementation(libs.postgresql.driver)

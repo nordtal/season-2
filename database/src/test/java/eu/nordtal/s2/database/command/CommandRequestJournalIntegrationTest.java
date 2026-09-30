@@ -5,10 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import eu.nordtal.s2.common.id.DiscordId;
-import eu.nordtal.s2.database.AccessSchema;
+import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.audit.AuditLine;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -20,17 +19,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import javax.sql.DataSource;
 import org.jdbi.v3.core.JdbiException;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.postgresql.PGConnection;
 import org.postgresql.PGNotification;
-import org.postgresql.ds.PGSimpleDataSource;
-import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * Tests that a command request and its journal line are written as one statement or not at all.
@@ -45,38 +41,13 @@ class CommandRequestJournalIntegrationTest {
     /** The account on the <em>request</em>. It must never be mistaken for the journal line's. */
     private static final UUID REQUEST_MC = UUID.fromString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
 
-    private static PostgreSQLContainer<?> postgres;
-    private static PGSimpleDataSource dataSource;
+    private static DataSource dataSource;
 
     private CommandRequests requests;
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(
-                DockerClientFactory.instance().isDockerAvailable(),
-                "No Docker daemon reachable - skipping the journalled submit tests");
-
-        postgres = new PostgreSQLContainer<>("postgres:17-alpine")
-                .withDatabaseName("access")
-                .withUsername("access")
-                .withPassword("access");
-        postgres.start();
-
-        dataSource = new PGSimpleDataSource();
-        dataSource.setUrl(postgres.getJdbcUrl());
-        dataSource.setUser(postgres.getUsername());
-        dataSource.setPassword(postgres.getPassword());
-
-        AccessSchema.migrate(dataSource);
-    }
-
-    @AfterAll
-    static void stopDatabase() {
-        if (postgres != null) {
-            postgres.stop();
-            postgres = null;
-        }
-        dataSource = null;
+        dataSource = TestDatabase.fresh().dataSource();
     }
 
     @BeforeEach

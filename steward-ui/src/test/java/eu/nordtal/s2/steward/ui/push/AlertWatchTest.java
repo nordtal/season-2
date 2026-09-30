@@ -2,29 +2,24 @@ package eu.nordtal.s2.steward.ui.push;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.TestDatabase;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import org.flywaydb.core.Flyway;
-import org.junit.jupiter.api.AfterAll;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.postgresql.ds.PGSimpleDataSource;
-import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.PostgreSQLContainer;
 
 /** {@link AlertWatch}, with the worker and the push protocol replaced by a fake this test drives. */
 class AlertWatchTest {
 
-    private static PostgreSQLContainer<?> postgres;
-    private static PGSimpleDataSource dataSource;
+    private static DataSource dataSource;
 
     private PushSubscriptions subscriptions;
     private PushPreferences preferences;
@@ -37,25 +32,7 @@ class AlertWatchTest {
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(), "no docker daemon - skipping");
-        postgres = new PostgreSQLContainer<>("postgres:17-alpine");
-        postgres.start();
-        Flyway.configure(AlertWatchTest.class.getClassLoader())
-                .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
-                .locations("classpath:db/migration")
-                .load()
-                .migrate();
-        dataSource = new PGSimpleDataSource();
-        dataSource.setUrl(postgres.getJdbcUrl());
-        dataSource.setUser(postgres.getUsername());
-        dataSource.setPassword(postgres.getPassword());
-    }
-
-    @AfterAll
-    static void stopDatabase() {
-        if (postgres != null) {
-            postgres.stop();
-        }
+        dataSource = TestDatabase.fresh().dataSource();
     }
 
     @BeforeEach

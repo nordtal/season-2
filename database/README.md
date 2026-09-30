@@ -12,5 +12,6 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
   English for Steward and the logs.
 - **Time** comes from the caller: every directory that decides by the clock takes an `InstantSource`.
 
-The test fixtures publish `AccessSchema`, which migrates a test database; every module's database
-tests use it.
+The test fixtures publish `TestDatabase`, the one way a test reaches PostgreSQL: one container per
+test JVM, migrated once, and a new database cloned from it for every `fresh()` (or an unmigrated one
+from `empty()`). Its image is compose.yml's default, which `TestDatabaseImageTest` holds.

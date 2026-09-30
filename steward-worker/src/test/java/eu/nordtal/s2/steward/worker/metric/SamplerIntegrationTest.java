@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import eu.nordtal.jcore.persistence.sql.Database;
+import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.metric.MetricDirectory;
 import eu.nordtal.s2.steward.worker.config.DatabaseSpec;
 import eu.nordtal.s2.steward.worker.docker.Docker;
@@ -19,8 +20,6 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * The sampler, end to end: the real daemon on one side, a throwaway PostgreSQL on the other.
@@ -31,30 +30,28 @@ class SamplerIntegrationTest {
 
     private static final String PROJECT = "nordtal-s2";
 
-    private static PostgreSQLContainer<?> postgres;
+    private static TestDatabase postgres;
     private static Database database;
 
     @BeforeAll
     static void startDatabase() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(), "no docker daemon - skipping");
-        postgres = new PostgreSQLContainer<>("postgres:17-alpine");
-        postgres.start();
+        postgres = TestDatabase.empty();
 
         // The worker's own migration path, not a hand-rolled Flyway call, as a migration arrives in production.
         database = Schema.open(new DatabaseSpec() {
             @Override
             public String jdbcUrl() {
-                return postgres.getJdbcUrl();
+                return postgres.jdbcUrl();
             }
 
             @Override
             public String username() {
-                return postgres.getUsername();
+                return postgres.username();
             }
 
             @Override
             public String password() {
-                return postgres.getPassword();
+                return postgres.password();
             }
         });
         Schema.migrate(database);
@@ -64,9 +61,6 @@ class SamplerIntegrationTest {
     static void stopDatabase() {
         if (database != null) {
             database.close();
-        }
-        if (postgres != null) {
-            postgres.stop();
         }
     }
 

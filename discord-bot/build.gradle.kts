@@ -46,7 +46,7 @@ dependencies {
     testAnnotationProcessor(libs.lombok)
 
     // A real PostgreSQL, for gen_random_uuid(), the partial unique index and numeric rounding.
-    testImplementation(libs.testcontainers.postgresql)
+    testImplementation(testFixtures(project(":database")))
     testRuntimeOnly(libs.postgresql.driver)
 }
 

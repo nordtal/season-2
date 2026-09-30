@@ -1,47 +1,24 @@
 package eu.nordtal.s2.steward.ui.data;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.TestDatabase;
 import java.sql.SQLException;
 import java.util.Map;
-import org.flywaydb.core.Flyway;
-import org.junit.jupiter.api.AfterAll;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.postgresql.ds.PGSimpleDataSource;
-import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.PostgreSQLContainer;
 
 /** The values an editor fills placeholders with: the admin's own rows, others', then a fixed value per type. */
 class ExampleValuesTest {
 
-    private static PostgreSQLContainer<?> postgres;
-    private static PGSimpleDataSource dataSource;
+    private static DataSource dataSource;
 
     @BeforeAll
     static void start() {
-        assumeTrue(DockerClientFactory.instance().isDockerAvailable(), "no docker daemon - skipping");
-        postgres = new PostgreSQLContainer<>("postgres:17-alpine");
-        postgres.start();
-        Flyway.configure(ExampleValuesTest.class.getClassLoader())
-                .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
-                .locations("classpath:db/migration")
-                .load()
-                .migrate();
-        dataSource = new PGSimpleDataSource();
-        dataSource.setUrl(postgres.getJdbcUrl());
-        dataSource.setUser(postgres.getUsername());
-        dataSource.setPassword(postgres.getPassword());
-    }
-
-    @AfterAll
-    static void stop() {
-        if (postgres != null) {
-            postgres.stop();
-        }
+        dataSource = TestDatabase.fresh().dataSource();
     }
 
     @BeforeEach

@@ -5,7 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.TestDatabase;
-import eu.nordtal.s2.database.command.CommandRequests;
+import eu.nordtal.s2.database.inbox.BotRequest;
+import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.smp.announce.Announcer;
 import eu.nordtal.s2.smp.config.SmpSpec;
@@ -20,7 +21,6 @@ import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.time.Clock;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -110,11 +110,7 @@ class ObjectivePayoutIntegrationTest {
         final Messages messages =
                 Messages.load(ObjectivePayoutIntegrationTest.class.getClassLoader(), "messages/smp", Locale.ENGLISH);
         final Announcer announcer = new Announcer(
-                CommandRequests.borrowing(dataSource),
-                messages,
-                Runnable::run,
-                (message, failure) -> {},
-                Clock.systemUTC());
+                Inbox.over(dataSource, BotRequest.TABLE), messages, Runnable::run, (message, failure) -> {});
         engine = new ObjectiveEngine(
                 fake(Plugin.class, Map.of("getLogger", LOGGER)),
                 jdbi.onDemand(SmpDao.class),

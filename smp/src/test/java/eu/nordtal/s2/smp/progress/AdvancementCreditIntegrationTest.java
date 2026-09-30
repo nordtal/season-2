@@ -5,7 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.TestDatabase;
-import eu.nordtal.s2.database.command.CommandRequests;
+import eu.nordtal.s2.database.inbox.BotRequest;
+import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.smp.announce.Announcer;
 import eu.nordtal.s2.smp.db.SmpDao;
@@ -17,7 +18,6 @@ import eu.nordtal.s2.smp.milestone.Unlock;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -78,11 +78,7 @@ class AdvancementCreditIntegrationTest {
         final Messages messages =
                 Messages.load(AdvancementCreditIntegrationTest.class.getClassLoader(), "messages/smp", Locale.ENGLISH);
         final Announcer announcer = new Announcer(
-                CommandRequests.borrowing(dataSource),
-                messages,
-                Runnable::run,
-                (message, failure) -> {},
-                Clock.systemUTC());
+                Inbox.over(dataSource, BotRequest.TABLE), messages, Runnable::run, (message, failure) -> {});
         engine = new ObjectiveEngine(
                 null, dao, () -> track, null, null, null, messages, null, null, null, null, announcer);
 

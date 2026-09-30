@@ -70,7 +70,10 @@ class BotInboxTest {
         }
     };
 
-    private final BotInbox subject = new BotInbox(effects);
+    private final BotInbox subject = new BotInbox(effects, (tag, text) -> {
+        carriedOut.add("announce " + tag + " " + text);
+        return !tag.equals("fr");
+    });
 
     private static Request<BotRequest> row(final BotRequest payload, final eu.nordtal.s2.database.Actor actor) {
         return new Request<>(
@@ -132,6 +135,18 @@ class BotInboxTest {
         reloadSucceeds = false;
         // The inbox fails a request whose handler throws: reporting it as done is how a saved change does nothing.
         assertThrows(IllegalStateException.class, () -> answer(new BotRequest.ReloadMessages("access")));
+    }
+
+    @Test
+    void anAnnouncementPostsEveryLanguageAndSaysWhichWentOut() {
+        final java.util.Map<String, String> texts = new java.util.LinkedHashMap<>();
+        texts.put("de", "Hallo");
+        texts.put("fr", "Bonjour");
+
+        final String answer = answer(new BotRequest.Announce(texts));
+
+        assertEquals(List.of("announce de Hallo", "announce fr Bonjour"), carriedOut);
+        assertEquals("{\"de\":\"POSTED\",\"fr\":\"NOT_POSTED\"}", answer);
     }
 
     @Test

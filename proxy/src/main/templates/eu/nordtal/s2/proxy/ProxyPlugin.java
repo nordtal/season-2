@@ -48,11 +48,8 @@ import eu.nordtal.s2.proxy.pack.PackMessages;
 import eu.nordtal.s2.proxy.pack.PackOffer;
 import eu.nordtal.s2.proxy.pack.PackStation;
 import eu.nordtal.s2.proxy.pack.WaitingBook;
-import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.network.NetworkCommands;
 import eu.nordtal.s2.commands.network.NetworkEffects;
-import eu.nordtal.s2.commands.remote.CommandInbox;
-import eu.nordtal.s2.database.command.CommandRequests;
 import eu.nordtal.s2.database.command.AllowlistDirectory;
 import eu.nordtal.s2.database.command.CommandAllowlist;
 import eu.nordtal.s2.proxy.command.CommandGate;
@@ -121,8 +118,6 @@ public final class ProxyPlugin {
     private volatile RestartWatch restartWatch;
     private volatile Evacuation evacuation;
 
-    /** Commands another process asked this one to run; built after the listener that refers to it. */
-    private volatile CommandInbox commandInbox;
     /** {@code :commands}' bundle as the inbox renders it, a second view of the same files. */
     private Messages sharedMessages;
     private PlaytimeWriter playtime;
@@ -281,12 +276,6 @@ public final class ProxyPlugin {
                 databaseConfig.password(), databaseConfig.queryTimeoutSeconds(), "proxy-signals", logger);
         signals.on(Channel.PHASE, "the season phase", phaseWatch::refresh);
         signals.on(Channel.ADMIN, "the admin roster", refreshAdmins);
-        signals.on(Channel.COMMAND, "the command inbox", () -> {
-            final CommandInbox inbox = commandInbox;
-            if (inbox != null) {
-                inbox.drain();
-            }
-        });
         // Latency here would drop the 30 second beat.
         signals.on(Channel.UPDATE, "the restart countdown", () -> {
             final RestartWatch watch = restartWatch;
@@ -466,18 +455,6 @@ public final class ProxyPlugin {
         registered.addAll(infoTexts.commands());
         registered.forEach(command -> commands.register(
                 commands.metaBuilder(command).plugin(this).build(), command));
-
-        // The proxy's own inbox: /network reload arrives as a request row.
-        commandInbox = new CommandInbox(Target.PROXY,
-                CommandRequests.borrowing(pool),
-                // :commands' bundle alone; the layered one allows MiniMessage an admin would read literally.
-                sharedMessages,
-                eu.nordtal.s2.commands.remote.CommandInbox.AdminCheck.of(
-                        access::admins, access::adminMinecraftAccounts),
-                (message, failure) -> logger.warn(message, failure));
-        NetworkCommands.all().forEach(command -> commandInbox.register(command,
-                // Inline: the inbox settles a request row when the command returns, before any scheduled effect.
-                new ProxyNetworkEffects(Runnable::run, messages, sharedMessages, logger)));
 
         logger.info("Access login gate is up in phase {} (query timeout {}s, fallback cache window "
                         + "{}m, expiry check every {}s, play time flushed every "

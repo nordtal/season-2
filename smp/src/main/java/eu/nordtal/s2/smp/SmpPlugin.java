@@ -119,7 +119,7 @@ public final class SmpPlugin extends JavaPlugin {
     SmpDao dao;
     Jdbi jdbi;
     Messages messages;
-    eu.nordtal.s2.database.command.CommandRequests requests;
+    eu.nordtal.s2.commands.remote.CommandRequests requests;
     eu.nordtal.s2.smp.announce.Announcer announcer;
     /** What the last {@code /smp reload} refused the file for, or empty when it took it. */
     private volatile List<String> trackProblems = List.of();

@@ -45,7 +45,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Builds the Brigadier tree of every {@link Declaration}, once, for all three Paper plugins.
  *
- * A command for another process becomes a {@code command_request} row; {@link Target#PROXY} is never registered.
+ * A command for another process becomes a request in its inbox; {@link Target#PROXY} is never registered.
  */
 public final class PaperCommands {
 

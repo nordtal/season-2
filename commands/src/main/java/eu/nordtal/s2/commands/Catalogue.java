@@ -21,8 +21,7 @@ public final class Catalogue {
                         SmpCommands.declarations(),
                         HungerGamesCommands.declarations(),
                         LimboCommands.declarations(),
-                        NetworkCommands.declarations(),
-                        eu.nordtal.s2.commands.announce.AnnounceCommands.declarations())
+                        NetworkCommands.declarations())
                 .flatMap(List::stream)
                 .toList();
     }

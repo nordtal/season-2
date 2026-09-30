@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { ConfigDocument, ConfigEntry, ParsedConfigDocument } from "@/lib/api"
 import { announcementTargets } from "@/lib/announcement-targets"
-import { AnnouncementsPage, senderName } from "@/pages/announcements"
+import { AnnouncementsPage } from "@/pages/announcements"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { asButton, asTextArea } from "@/lib/test-elements"
 
@@ -77,8 +77,8 @@ const RECENT = {
       id: "9",
       language: "de",
       text: "The second language, lately.",
-      source: "WEB",
-      requestedBy: "Some Admin (123456)",
+      actorKind: "PERSON",
+      actorId: "123456",
       requested: new Date().toISOString(),
       status: "DONE",
       result: "Posted.",
@@ -87,8 +87,8 @@ const RECENT = {
       id: "8",
       language: "en",
       text: "The end is open.",
-      source: "CONSOLE",
-      requestedBy: "smp",
+      actorKind: "STEWARD",
+      actorId: "",
       requested: new Date().toISOString(),
       status: "EXPIRED",
     },
@@ -188,8 +188,8 @@ describe("AnnouncementsPage", () => {
     draw(<AnnouncementsPage />)
 
     expect(await screen.findByText("The second language, lately.")).toBeTruthy()
-    expect(screen.getByText("Some Admin")).toBeTruthy()
-    expect(screen.getByText("smp")).toBeTruthy()
+    // A line a server sent by itself is nobody's: Steward, as every actor-less request shows.
+    expect(screen.getByText("Steward")).toBeTruthy()
     expect(screen.getByText("expired")).toBeTruthy()
   })
 })
@@ -216,12 +216,5 @@ describe("announcementTargets", () => {
       ],
       overridden: false,
     })
-  })
-})
-
-describe("senderName", () => {
-  it("drops the Discord id a web row carries", () => {
-    expect(senderName("Some Admin (123456)")).toBe("Some Admin")
-    expect(senderName("smp")).toBe("smp")
   })
 })

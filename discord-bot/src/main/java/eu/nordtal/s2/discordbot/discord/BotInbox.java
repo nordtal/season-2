@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BiPredicate;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -17,9 +18,14 @@ import org.jspecify.annotations.Nullable;
 public final class BotInbox implements Inbox.Handler<BotRequest> {
 
     private final AccessChanges effects;
+    private final BiPredicate<String, String> announce;
 
-    public BotInbox(final AccessChanges effects) {
+    /**
+     * @param announce posts a text into one language's announcement channel and answers whether it went out
+     */
+    public BotInbox(final AccessChanges effects, final BiPredicate<String, String> announce) {
         this.effects = Objects.requireNonNull(effects, "effects");
+        this.announce = Objects.requireNonNull(announce, "announce");
     }
 
     @Override
@@ -58,7 +64,18 @@ public final class BotInbox implements Inbox.Handler<BotRequest> {
                 // Names the override keys no bundle declares, which would otherwise do nothing silently.
                 yield done("unknown", String.join(",", effects.unknownOverrideKeys()));
             }
+            case BotRequest.Announce announcement -> Outcome.done(post(announcement));
         };
+    }
+
+    /** Posts every language's text and answers, per language, whether it went out; a missing channel is no fault. */
+    private Map<String, String> post(final BotRequest.Announce announcement) {
+        final Map<String, String> posted = new LinkedHashMap<>();
+        announcement
+                .texts()
+                .forEach((tag, text) -> posted.put(
+                        tag, announce.test(tag, text) ? BotRequest.Announce.POSTED : BotRequest.Announce.NOT_POSTED));
+        return posted;
     }
 
     /** Returns a done outcome whose answer is the flat object {@code key, value, key, value}. */

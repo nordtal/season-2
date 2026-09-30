@@ -57,7 +57,7 @@ class AnnouncementsTest {
             new Languages.Language("en", "", "", "", "", "", "111"),
             new Languages.Language("de", "", "", "", "", "", "222")));
 
-    private final Announcements subject = new Announcements(channels, languages, Runnable::run, log);
+    private final Announcements subject = new Announcements(channels, languages, log);
 
     @Test
     void everyPostedLineIsLoggedAtInfoWithItsLanguageAndChannel() {

@@ -2,10 +2,10 @@ package eu.nordtal.s2.steward.ui.data;
 
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
+import eu.nordtal.s2.commands.remote.CommandRequests;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.audit.AuditDirectory;
-import eu.nordtal.s2.database.command.CommandRequests;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.metric.MetricDirectory;
@@ -47,7 +47,7 @@ public final class Data implements AutoCloseable {
         this.audit = AuditDirectory.using(database.dataSource());
         // Borrowing, not owning: closing the pool below is the only close there is.
         this.access = AccessDirectory.using(database.dataSource(), clock);
-        this.commands = CommandRequests.borrowing(database.dataSource());
+        this.commands = CommandRequests.over(database.dataSource(), clock);
         this.bot = Inbox.over(database.dataSource(), BotRequest.TABLE);
     }
 
@@ -81,7 +81,7 @@ public final class Data implements AutoCloseable {
         return access;
     }
 
-    /** The command transport, the same table {@code /access grant} in Discord travels on. */
+    /** The servers' inboxes, as the web actions ask them to run a command of the catalogue. */
     public CommandRequests commands() {
         return commands;
     }

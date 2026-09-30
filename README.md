@@ -112,7 +112,7 @@ the table below are compiled into the jars above.
 ## How the pieces fit
 
 - **Commands** are declared once in `:commands` and appear on every surface that can carry them.
-  An effect owned by another process travels as a `command_request` row. Player commands also need
+  An effect owned by another process travels as a request in that process's inbox. Player commands also need
   the allowlist in `network.yml`.
 - **Phases** are `PRE_EVENT`, `START_EVENT`, `SMP` and `MAINTENANCE`, one database row every process
   re-reads through its signal hub.

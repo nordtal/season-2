@@ -3,85 +3,32 @@ package eu.nordtal.s2.smp.announce;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.commands.announce.AnnounceCommands;
-import eu.nordtal.s2.commands.remote.RequestArguments;
-import eu.nordtal.s2.database.audit.AuditLine;
-import eu.nordtal.s2.database.command.CommandOutcome;
-import eu.nordtal.s2.database.command.CommandRequests;
-import eu.nordtal.s2.database.command.NewCommandRequest;
+import eu.nordtal.s2.database.Actor;
+import eu.nordtal.s2.database.TestDatabase;
+import eu.nordtal.s2.database.inbox.BotRequest;
+import eu.nordtal.s2.database.inbox.Inbox;
+import eu.nordtal.s2.database.inbox.Request;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.smp.SmpMessages;
-import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/**
- * One row per language, in the shape the bot's inbox decodes, rendered from the real bundle.
- *
- * The encoding is asserted by decoding it with {@code RequestArguments#decode}, as the bot does.
- */
+/** One request in the bot's inbox per announcement, with every language's text rendered from the real bundle. */
 class AnnouncerTest {
 
     private static final Messages MESSAGES =
             Messages.load(AnnouncerTest.class.getClassLoader(), "messages/smp", Locale.GERMAN, Locale.ENGLISH);
 
-    private static final class Rows implements CommandRequests {
-        final List<NewCommandRequest> submitted = new ArrayList<>();
-        RuntimeException refuse;
-
-        @Override
-        public long submit(final NewCommandRequest request) {
-            if (refuse != null) {
-                throw refuse;
-            }
-            submitted.add(request);
-            return submitted.size();
-        }
-
-        /** Not this surface's: announcements write no journal line, so this fake refuses rather than dropping one. */
-        @Override
-        public long submit(final NewCommandRequest request, final AuditLine journal) {
-            throw new UnsupportedOperationException(
-                    "the SMP never writes a journal line with a" + " request; only steward-ui does");
-        }
-
-        @Override
-        public Optional<eu.nordtal.s2.database.command.CommandRequest> claim(final String target) {
-            return Optional.empty();
-        }
-
-        @Override
-        public void finish(final long id, final boolean ok, final String result) {}
-
-        @Override
-        public boolean expire(final long id) {
-            return false;
-        }
-
-        @Override
-        public Optional<CommandOutcome> outcome(final long id) {
-            return Optional.empty();
-        }
-
-        @Override
-        public int deleteSettledOlderThan(final int days) {
-            return 0;
-        }
-
-        @Override
-        public void close() {}
-    }
-
     @Test
-    void oneRowPerLanguage() {
-        final Rows rows = new Rows();
+    void oneRequestCarriesEveryLanguage() {
+        final Inbox<BotRequest> bot = Inbox.over(TestDatabase.fresh().dataSource(), BotRequest.TABLE);
         final List<String> warnings = new ArrayList<>();
-        final Announcer announcer = new Announcer(
-                rows, MESSAGES, Runnable::run, (message, failure) -> warnings.add(message), Clock.systemUTC());
+        final Announcer announcer =
+                new Announcer(bot, MESSAGES, Runnable::run, (message, failure) -> warnings.add(message));
 
         announcer.announce(locale -> SmpMessages.MESSAGES
                 .smp()
@@ -90,32 +37,24 @@ class AnnouncerTest {
                 .border(new MilestoneContext(locale.getLanguage().equals("de") ? "Aufbruch" : "Departure")));
 
         assertEquals(List.of(), warnings);
-        assertEquals(Announcer.LANGUAGES.size(), rows.submitted.size());
-        for (final NewCommandRequest row : rows.submitted) {
-            assertEquals("BOT", row.target());
-            assertEquals("announce", row.command());
-            assertEquals("CONSOLE", row.source(), "a server has no Discord or Minecraft identity");
-            assertEquals(Announcer.SENDER, row.requestedBy());
-            assertTrue(row.discordId().isEmpty() && row.minecraftId().isEmpty());
-            // The bot decodes what the SMP encoded: same declaration, same codec, no JSON.
-            final var values = RequestArguments.decode(AnnounceCommands.ANNOUNCE, row.arguments());
-            assertEquals(row.locale(), values.string("language"));
-            assertEquals(
-                    row.locale().equals("de")
-                            ? "Aufbruch ist geschafft - die Grenze wächst."
-                            : "Departure is complete - the border grows.",
-                    values.string("text"));
-        }
+        final List<Request<BotRequest>> sent = bot.recent(BotRequest.Announce.class, 10);
+        assertEquals(1, sent.size());
+        // Nobody asked: a server has no Discord identity, and the network announces its own progress.
+        assertEquals(Actor.STEWARD, sent.getFirst().actor());
+        assertEquals(
+                new BotRequest.Announce(Map.of(
+                        "de", "Aufbruch ist geschafft - die Grenze wächst.",
+                        "en", "Departure is complete - the border grows.")),
+                sent.getFirst().payload());
+        assertTrue(sent.getFirst().expires() != null, "a request nobody claims within the hour is dropped");
     }
 
     @Test
-    void aRefusedRowIsAWarning() {
-        final Rows rows = new Rows();
-        rows.refuse = new IllegalStateException("pool exhausted");
+    void aRefusedWriteIsAWarning() {
+        final Inbox<BotRequest> refusing = Inbox.over(TestDatabase.empty().dataSource(), BotRequest.TABLE);
         final List<String> warnings = new ArrayList<>();
-        new Announcer(rows, MESSAGES, Runnable::run, (message, failure) -> warnings.add(message), Clock.systemUTC())
+        new Announcer(refusing, MESSAGES, Runnable::run, (message, failure) -> warnings.add(message))
                 .announce(SmpMessages.MESSAGES.smp().announce().milestone(new MilestoneContext("Departure")));
-        assertEquals(Announcer.LANGUAGES.size(), warnings.size());
-        assertTrue(warnings.getFirst().contains("smp.announce.milestone"));
+        assertEquals(1, warnings.size());
     }
 }

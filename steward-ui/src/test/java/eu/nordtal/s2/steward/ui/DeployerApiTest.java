@@ -87,13 +87,13 @@ class DeployerApiTest extends StewardUiTestSupport {
 
     private void assertCommandAndRecreateAreJournalledByFullName(
             final HttpClient browser, final String snowflake, final String longName) throws Exception {
-        // 1. A command: the row and its journal line are one statement, so an overflow loses the command.
+        // 1. An announcement: the request and its journal line are one transaction, so an overflow loses both.
         final HttpResponse<String> asked = post(
                 browser,
                 "/api/announcements",
                 "{\"texts\": {\"en\": \"The end opens tonight.\", \"de\": \"Heute Abend.\"}}");
         assertEquals(202, asked.statusCode(), asked.body());
-        journalledBy(snowflake, "COMMAND", longName);
+        journalledBy(snowflake, "ANNOUNCE", longName);
 
         // 2. A recreate. Journalled before the call, so an overflow stops the recreate from being asked.
         assertEquals(202, post(browser, "/api/deployer/recreate/smp", "").statusCode());

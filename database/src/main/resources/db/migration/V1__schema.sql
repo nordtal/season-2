@@ -523,7 +523,7 @@ CREATE TABLE bot_inbox
     id            bigserial   PRIMARY KEY,
     kind          varchar(32) NOT NULL
         CONSTRAINT bot_inbox_kind_check
-            CHECK (kind IN ('GRANT', 'REVOKE', 'SETTLE', 'UNLINK', 'SET_PLAYTIME', 'RELOAD_MESSAGES')),
+            CHECK (kind IN ('GRANT', 'REVOKE', 'SETTLE', 'UNLINK', 'SET_PLAYTIME', 'RELOAD_MESSAGES', 'ANNOUNCE')),
     payload       jsonb       NOT NULL,
     status        varchar(16) NOT NULL DEFAULT 'PENDING'
         CONSTRAINT bot_inbox_status_check
@@ -540,39 +540,80 @@ CREATE TABLE bot_inbox
     CONSTRAINT bot_inbox_actor_id_iff_person CHECK ((actor_kind = 'PERSON') = (actor_id IS NOT NULL)),
     CONSTRAINT bot_inbox_finished_iff_settled CHECK ((status IN ('PENDING', 'RUNNING')) = (finished IS NULL))
 );
-COMMENT ON TABLE bot_inbox IS 'Owned by discord-bot, which claims and carries out every row. steward-ui and steward-worker ask.';
+COMMENT ON TABLE bot_inbox IS 'Owned by discord-bot, which claims and carries out every row. steward-ui asks for access changes and announcements, steward-worker for a reload of the messages, smp for its announcements.';
 CREATE INDEX bot_inbox_pending ON bot_inbox (scheduled_for, id) WHERE status = 'PENDING';
 
-CREATE TABLE command_request
+CREATE TABLE smp_inbox
 (
-    id           bigserial PRIMARY KEY,
-    target       varchar(16) NOT NULL
-        CONSTRAINT command_request_target_check CHECK (target IN ('SMP', 'HUNGER_GAMES', 'LIMBO', 'PROXY', 'BOT')),
-    command      varchar(64) NOT NULL,
-    arguments    text        NOT NULL DEFAULT '',
-    status       varchar(16) NOT NULL DEFAULT 'PENDING'
-        CONSTRAINT command_request_status_check CHECK (status IN ('PENDING', 'RUNNING', 'DONE', 'FAILED', 'EXPIRED')),
-    source       varchar(16) NOT NULL
-        CONSTRAINT command_request_source_check CHECK (source IN ('DISCORD', 'GAME', 'CONSOLE', 'WEB')),
-    requested_by varchar(64) NOT NULL,
-    discord_id   varchar(32),
-    mc_uuid      uuid,
-    locale       varchar(16) NOT NULL DEFAULT 'en',
-    requested    timestamptz NOT NULL DEFAULT now(),
-    expires      timestamptz NOT NULL,
-    started      timestamptz,
-    finished     timestamptz,
-    result       text,
-    CONSTRAINT command_request_console_is_anonymous CHECK (source <> 'CONSOLE' OR (discord_id IS NULL AND mc_uuid IS NULL)),
-    CONSTRAINT command_request_discord_knows_who CHECK (source <> 'DISCORD' OR discord_id IS NOT NULL),
-    CONSTRAINT command_request_web_knows_who CHECK (source <> 'WEB' OR discord_id IS NOT NULL),
-    CONSTRAINT command_request_expired_never_started CHECK (status <> 'EXPIRED' OR started IS NULL),
-    CONSTRAINT command_request_finished_after_started CHECK (started IS NULL OR finished IS NULL OR finished >= started),
-    CONSTRAINT command_request_finished_iff_settled CHECK ((status IN ('DONE', 'FAILED', 'EXPIRED')) = (finished IS NOT NULL)),
-    CONSTRAINT command_request_running_has_started CHECK (status <> 'RUNNING' OR started IS NOT NULL)
+    id            bigserial   PRIMARY KEY,
+    kind          varchar(32) NOT NULL
+        CONSTRAINT smp_inbox_kind_check CHECK (kind IN ('COMMAND')),
+    payload       jsonb       NOT NULL,
+    status        varchar(16) NOT NULL DEFAULT 'PENDING'
+        CONSTRAINT smp_inbox_status_check
+            CHECK (status IN ('PENDING', 'RUNNING', 'DONE', 'REFUSED', 'FAILED', 'EXPIRED', 'CANCELLED')),
+    actor_kind    varchar(16) NOT NULL
+        CONSTRAINT smp_inbox_actor_kind_check CHECK (actor_kind IN ('PERSON', 'STEWARD', 'HOST')),
+    actor_id      varchar(32),
+    requested     timestamptz NOT NULL DEFAULT now(),
+    scheduled_for timestamptz NOT NULL DEFAULT now(),
+    expires       timestamptz,
+    started       timestamptz,
+    finished      timestamptz,
+    outcome       jsonb,
+    CONSTRAINT smp_inbox_actor_id_iff_person CHECK ((actor_kind = 'PERSON') = (actor_id IS NOT NULL)),
+    CONSTRAINT smp_inbox_finished_iff_settled CHECK ((status IN ('PENDING', 'RUNNING')) = (finished IS NULL))
 );
-COMMENT ON TABLE command_request IS 'Owned by the service named in target, which claims its own rows. steward-ui, smp and the command outbox ask; steward-worker deletes old rows.';
-CREATE INDEX command_request_pending ON command_request (target, id) WHERE status = 'PENDING';
+COMMENT ON TABLE smp_inbox IS 'Owned by smp, which claims and carries out every row. steward-ui and the other Paper servers'' consoles ask.';
+CREATE INDEX smp_inbox_pending ON smp_inbox (scheduled_for, id) WHERE status = 'PENDING';
+
+CREATE TABLE hunger_games_inbox
+(
+    id            bigserial   PRIMARY KEY,
+    kind          varchar(32) NOT NULL
+        CONSTRAINT hunger_games_inbox_kind_check CHECK (kind IN ('COMMAND')),
+    payload       jsonb       NOT NULL,
+    status        varchar(16) NOT NULL DEFAULT 'PENDING'
+        CONSTRAINT hunger_games_inbox_status_check
+            CHECK (status IN ('PENDING', 'RUNNING', 'DONE', 'REFUSED', 'FAILED', 'EXPIRED', 'CANCELLED')),
+    actor_kind    varchar(16) NOT NULL
+        CONSTRAINT hunger_games_inbox_actor_kind_check CHECK (actor_kind IN ('PERSON', 'STEWARD', 'HOST')),
+    actor_id      varchar(32),
+    requested     timestamptz NOT NULL DEFAULT now(),
+    scheduled_for timestamptz NOT NULL DEFAULT now(),
+    expires       timestamptz,
+    started       timestamptz,
+    finished      timestamptz,
+    outcome       jsonb,
+    CONSTRAINT hunger_games_inbox_actor_id_iff_person CHECK ((actor_kind = 'PERSON') = (actor_id IS NOT NULL)),
+    CONSTRAINT hunger_games_inbox_finished_iff_settled CHECK ((status IN ('PENDING', 'RUNNING')) = (finished IS NULL))
+);
+COMMENT ON TABLE hunger_games_inbox IS 'Owned by hunger-games, which claims and carries out every row. steward-ui and the other Paper servers'' consoles ask.';
+CREATE INDEX hunger_games_inbox_pending ON hunger_games_inbox (scheduled_for, id) WHERE status = 'PENDING';
+
+CREATE TABLE limbo_inbox
+(
+    id            bigserial   PRIMARY KEY,
+    kind          varchar(32) NOT NULL
+        CONSTRAINT limbo_inbox_kind_check CHECK (kind IN ('COMMAND')),
+    payload       jsonb       NOT NULL,
+    status        varchar(16) NOT NULL DEFAULT 'PENDING'
+        CONSTRAINT limbo_inbox_status_check
+            CHECK (status IN ('PENDING', 'RUNNING', 'DONE', 'REFUSED', 'FAILED', 'EXPIRED', 'CANCELLED')),
+    actor_kind    varchar(16) NOT NULL
+        CONSTRAINT limbo_inbox_actor_kind_check CHECK (actor_kind IN ('PERSON', 'STEWARD', 'HOST')),
+    actor_id      varchar(32),
+    requested     timestamptz NOT NULL DEFAULT now(),
+    scheduled_for timestamptz NOT NULL DEFAULT now(),
+    expires       timestamptz,
+    started       timestamptz,
+    finished      timestamptz,
+    outcome       jsonb,
+    CONSTRAINT limbo_inbox_actor_id_iff_person CHECK ((actor_kind = 'PERSON') = (actor_id IS NOT NULL)),
+    CONSTRAINT limbo_inbox_finished_iff_settled CHECK ((status IN ('PENDING', 'RUNNING')) = (finished IS NULL))
+);
+COMMENT ON TABLE limbo_inbox IS 'Owned by limbo, which claims and carries out every row. The other Paper servers'' consoles ask.';
+CREATE INDEX limbo_inbox_pending ON limbo_inbox (scheduled_for, id) WHERE status = 'PENDING';
 
 
 -- Journal and Discord messages
@@ -687,12 +728,17 @@ GRANT ${role_read} TO ${role_discord_bot}, ${role_proxy}, ${role_limbo}, ${role_
 GRANT SELECT ON discord_user, account_link, access_grant, payment_request, season_phase, player_playtime,
     network_setting, online_count, online_player TO ${role_read};
 
--- The command catalogue, until one inbox per consumer replaces it: every service asks, claims its own
--- rows and journals what it asked for.
-GRANT SELECT, INSERT, UPDATE ON command_request
-    TO ${role_discord_bot}, ${role_proxy}, ${role_limbo}, ${role_hunger_games}, ${role_smp}, ${role_steward_ui};
-GRANT USAGE ON SEQUENCE command_request_id_seq
-    TO ${role_discord_bot}, ${role_proxy}, ${role_limbo}, ${role_hunger_games}, ${role_smp}, ${role_steward_ui};
+-- The command catalogue, as long as it exists: a Paper server's console reaches the other two, and
+-- steward-ui's actions reach the SMP and the Hunger Games; every server claims only its own inbox.
+GRANT SELECT, INSERT ON smp_inbox, hunger_games_inbox, limbo_inbox
+    TO ${role_limbo}, ${role_hunger_games}, ${role_smp};
+GRANT USAGE ON SEQUENCE smp_inbox_id_seq, hunger_games_inbox_id_seq, limbo_inbox_id_seq
+    TO ${role_limbo}, ${role_hunger_games}, ${role_smp};
+GRANT SELECT, INSERT ON smp_inbox, hunger_games_inbox TO ${role_steward_ui};
+GRANT USAGE ON SEQUENCE smp_inbox_id_seq, hunger_games_inbox_id_seq TO ${role_steward_ui};
+GRANT UPDATE ON smp_inbox TO ${role_smp};
+GRANT UPDATE ON hunger_games_inbox TO ${role_hunger_games};
+GRANT UPDATE ON limbo_inbox TO ${role_limbo};
 -- The journal is appended to and never changed.
 GRANT INSERT ON audit_log
     TO ${role_discord_bot}, ${role_proxy}, ${role_limbo}, ${role_hunger_games}, ${role_smp}, ${role_steward_ui};
@@ -737,6 +783,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON hg_game, hg_event TO ${role_hunger_games
 GRANT SELECT, UPDATE ON hg_team, hg_member TO ${role_hunger_games};
 
 -- smp
+-- Its milestones and objectives are announced in Discord.
+GRANT SELECT, INSERT ON bot_inbox TO ${role_smp};
+GRANT USAGE ON SEQUENCE bot_inbox_id_seq TO ${role_smp};
 GRANT SELECT, INSERT, UPDATE, DELETE ON smp_player, smp_aura_event, smp_milestone, smp_objective, smp_contribution,
     smp_grave, smp_poi, smp_spin TO ${role_smp};
 GRANT SELECT ON hg_game, hg_member TO ${role_smp};

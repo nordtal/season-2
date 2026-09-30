@@ -4,9 +4,9 @@ import eu.nordtal.s2.commands.CommandEffects;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.remote.CommandInbox;
+import eu.nordtal.s2.commands.remote.CommandRequests;
 import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.database.access.AccessReader;
-import eu.nordtal.s2.database.command.CommandRequests;
 import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.messages.Messages;
@@ -26,7 +26,7 @@ public final class PaperCommandInbox {
 
     /**
      * @param here     which process this is
-     * @param requests the shared table
+     * @param requests the servers' inboxes
      * @param access   re-reads the admin flag after a row is claimed, since it can change while a request waits
      */
     public PaperCommandInbox(
@@ -88,7 +88,7 @@ public final class PaperCommandInbox {
 
     /** Drains on every signal of {@code signals}, off the main thread, since commands ask for it themselves. */
     public void listen(final SignalHub signals, final Plugin plugin) {
-        signals.on(Channel.COMMAND, "the command inbox", inbox::drain);
+        signals.on(Channel.SERVER, "the command inbox", inbox::drain);
         plugin.getLogger()
                 .info("the command inbox is listening for " + inbox.size() + " command(s) from other processes");
     }

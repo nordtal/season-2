@@ -405,7 +405,7 @@ export function useHungerGamesRound() {
   })
 }
 
-/** One action on the smp or hunger-games page, as a `command_request` row; the answer is its id. */
+/** One action on the smp or hunger-games page, as a request in that server's inbox; the answer names it. */
 export function useGameAction() {
   const client = useQueryClient()
   return useMutation({

@@ -184,7 +184,7 @@ public class AccessBot implements AutoCloseable {
                 updateFeed,
                 wiring.processor(),
                 wiring.purchaseFlow(),
-                openInbox(new BotInbox(wiring.inboxEffects())),
+                openInbox(new BotInbox(wiring.inboxEffects(), wiring.announcements()::post)),
                 wiring.adminRole());
 
         // Last on purpose: a marker on disk means the constructor finished.
@@ -309,7 +309,7 @@ public class AccessBot implements AutoCloseable {
         final BotAccessEffects inboxEffects = new BotAccessEffects(
                 access, roles, core.requests(), admin, seasonStart, core.messages(), core.sharedMessages(), log);
         final eu.nordtal.s2.discordbot.announce.Announcements announcements =
-                wireCommandInbox(jda, core.sharedMessages(), core.languages());
+                new eu.nordtal.s2.discordbot.announce.Announcements(jda, core.languages(), log);
 
         final List<CommandData> commands = new ArrayList<>();
         // Only a player's own self-service is registered natively.
@@ -318,29 +318,6 @@ public class AccessBot implements AutoCloseable {
 
         return new DiscordWiring(
                 admin, roles, processor, purchaseFlow, adminRole, guildState, inboxEffects, announcements);
-    }
-
-    private eu.nordtal.s2.discordbot.announce.Announcements wireCommandInbox(
-            final JDA jda, final Messages sharedMessages, final Languages languages) {
-        // `announce <language> <text>` rows from the servers, posted verbatim.
-        final eu.nordtal.s2.database.command.CommandRequests commandRequests =
-                eu.nordtal.s2.database.command.CommandRequests.borrowing(database.dataSource());
-
-        // Inline effects, because the inbox settles the row when the command returns.
-        final eu.nordtal.s2.commands.remote.CommandInbox inbox = new eu.nordtal.s2.commands.remote.CommandInbox(
-                eu.nordtal.s2.commands.Target.BOT,
-                commandRequests,
-                sharedMessages,
-                eu.nordtal.s2.commands.remote.CommandInbox.AdminCheck.of(
-                        access::admins, access::adminMinecraftAccounts),
-                (message, failure) -> log.warn(message, failure));
-        final eu.nordtal.s2.discordbot.announce.Announcements announcements =
-                new eu.nordtal.s2.discordbot.announce.Announcements(jda, languages, Runnable::run, log);
-        eu.nordtal.s2.commands.announce.AnnounceCommands.all()
-                .forEach(command -> inbox.register(command, announcements));
-        // A drain blocks on JDA REST and the database, so it runs on worker, not on the timer thread.
-        repeat(() -> worker.execute(inbox::drain), 5, 5, java.util.concurrent.TimeUnit.SECONDS);
-        return announcements;
     }
 
     private void publishAndReconcile(

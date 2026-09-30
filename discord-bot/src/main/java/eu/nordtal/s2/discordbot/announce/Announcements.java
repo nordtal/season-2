@@ -1,11 +1,9 @@
 package eu.nordtal.s2.discordbot.announce;
 
-import eu.nordtal.s2.commands.announce.AnnounceEffects;
 import eu.nordtal.s2.discordbot.config.Languages;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import net.dv8tion.jda.api.JDA;
@@ -13,39 +11,31 @@ import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import org.slf4j.Logger;
 
 /**
- * Posts {@code announce <language> <text>} lines into that language's announcement channel.
- *
- * The text arrives finished; the command inbox calls it inline, and the bot's status tick through {@link #postAll}.
+ * Posts finished lines into one language's announcement channel.
+ * The bot's inbox calls it for an announcement request, and the bot's status tick through {@link #postAll}.
  */
-public final class Announcements implements AnnounceEffects {
+public final class Announcements {
 
     private final Channels channels;
     private final Languages languages;
-    private final Executor executor;
     private final Logger log;
 
-    public Announcements(final JDA jda, final Languages languages, final Executor executor, final Logger log) {
-        this(Channels.of(jda), languages, executor, log);
+    public Announcements(final JDA jda, final Languages languages, final Logger log) {
+        this(Channels.of(jda), languages, log);
     }
 
-    Announcements(final Channels channels, final Languages languages, final Executor executor, final Logger log) {
+    Announcements(final Channels channels, final Languages languages, final Logger log) {
         this.channels = Objects.requireNonNull(channels, "channels");
         this.languages = Objects.requireNonNull(languages, "languages");
-        this.executor = Objects.requireNonNull(executor, "executor");
         this.log = Objects.requireNonNull(log, "log");
     }
 
-    @Override
-    public void async(final Runnable work) {
-        executor.execute(work);
-    }
-
-    @Override
-    public void warn(final String what, final Throwable cause) {
-        log.warn(what, cause);
-    }
-
-    @Override
+    /**
+     * Posts a line into one language's announcement channel and waits until Discord took it.
+     *
+     * @param languageTag the language, as in {@code access.yml#languages[].tag}
+     * @return whether it was posted; {@code false} when that language has no channel or Discord refused
+     */
     public boolean post(final String languageTag, final String text) {
         final Optional<Languages.Language> language = languages.byTag(languageTag);
         if (language.isEmpty() || !language.get().hasAnnouncementChannel()) {

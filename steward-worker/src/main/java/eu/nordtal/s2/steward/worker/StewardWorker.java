@@ -9,6 +9,7 @@ import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.InboxTable;
 import eu.nordtal.s2.database.inbox.Inboxes;
+import eu.nordtal.s2.database.inbox.WorkerRequest;
 import eu.nordtal.s2.database.metric.MetricDirectory;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.online.OnlineDirectory;
@@ -292,12 +293,14 @@ public final class StewardWorker {
     }
 
     /**
-     * Deletes the settled requests of every inbox older than {@link #REQUEST_RETENTION}.
-     *
-     * Once at startup, not on a timer, since {@code serve} is not a scheduler.
+     * Deletes the settled requests of every inbox but the worker's own older than {@link #REQUEST_RETENTION}.
+     * The runs are kept: they are the history Steward shows. Once at startup, since {@code serve} is not a scheduler.
      */
     private static void clearOldRequests(final Database database) {
         for (final InboxTable<?> table : Inboxes.ALL) {
+            if (table == WorkerRequest.TABLE) {
+                continue;
+            }
             try {
                 final int gone = Inbox.over(database.dataSource(), table).purge(REQUEST_RETENTION);
                 if (gone > 0) {

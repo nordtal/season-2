@@ -1,6 +1,6 @@
 package eu.nordtal.s2.discordbot.discord;
 
-import eu.nordtal.s2.common.access.AdminTree;
+import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import java.util.HashSet;

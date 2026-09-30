@@ -1,0 +1,26 @@
+package eu.nordtal.s2.messages.spec;
+
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+/**
+ * Marks the interface that describes one message bundle, {@code messages/<bundle>/}.
+ * A method returning {@link eu.nordtal.s2.messages.MessageRef} is a key, one returning an interface a section,
+ * and a context parameter a role.
+ */
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+public @interface MessageSpec {
+    /** The bundle directory under {@code messages/}, e.g. {@code smp}. */
+    String value();
+
+    /** How the bundle's texts are written, unless {@link Format} says otherwise below. */
+    TextFormat format() default TextFormat.MINIMESSAGE;
+
+    /** Where the bundle's texts are shown, unless {@link Shown} says otherwise below. */
+    Display shown() default Display.CHAT;
+}

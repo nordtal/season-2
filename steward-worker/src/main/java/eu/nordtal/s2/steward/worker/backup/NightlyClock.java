@@ -1,9 +1,9 @@
 package eu.nordtal.s2.steward.worker.backup;
 
-import eu.nordtal.s2.common.update.RunRefused;
-import eu.nordtal.s2.common.update.UpdateDirectory;
-import eu.nordtal.s2.common.update.UpdateKind;
-import eu.nordtal.s2.common.update.UpdateSource;
+import eu.nordtal.s2.database.update.RunRefused;
+import eu.nordtal.s2.database.update.UpdateDirectory;
+import eu.nordtal.s2.database.update.UpdateKind;
+import eu.nordtal.s2.database.update.UpdateSource;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalTime;

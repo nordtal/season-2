@@ -1,8 +1,8 @@
 package eu.nordtal.s2.discordbot.access.payment;
 
-import eu.nordtal.s2.common.payment.PaymentRequest;
-import eu.nordtal.s2.common.payment.PaymentRequestStatus;
-import eu.nordtal.s2.common.payment.PaymentRequests;
+import eu.nordtal.s2.database.payment.PaymentRequest;
+import eu.nordtal.s2.database.payment.PaymentRequestStatus;
+import eu.nordtal.s2.database.payment.PaymentRequests;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;

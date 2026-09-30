@@ -4,11 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.access.AccessRequest;
-import eu.nordtal.s2.common.access.AccessRequestKind;
-import eu.nordtal.s2.common.access.AccessRequestSource;
-import eu.nordtal.s2.common.access.AccessRequestStatus;
-import eu.nordtal.s2.common.access.AccessRequests;
+import eu.nordtal.s2.database.access.AccessRequest;
+import eu.nordtal.s2.database.access.AccessRequestKind;
+import eu.nordtal.s2.database.access.AccessRequestSource;
+import eu.nordtal.s2.database.access.AccessRequestStatus;
+import eu.nordtal.s2.database.access.AccessRequests;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;

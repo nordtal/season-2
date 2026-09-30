@@ -2,12 +2,12 @@ package eu.nordtal.s2.proxy.command;
 
 import com.velocitypowered.api.proxy.Player;
 import eu.nordtal.s2.commands.NordtalUser;
-import eu.nordtal.s2.common.message.MessageRef;
-import eu.nordtal.s2.common.message.MessageRenderer;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.Tone;
-import eu.nordtal.s2.common.message.ToneColours;
-import eu.nordtal.s2.common.message.Tones;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
+import eu.nordtal.s2.messagerendering.ToneColours;
+import eu.nordtal.s2.messagerendering.Tones;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
 import java.util.Locale;
 import java.util.Optional;

@@ -8,7 +8,7 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code colours.yml}: the five {@link eu.nordtal.s2.common.message.Tone} colours a reply is painted with.
+ * {@code colours.yml}: the five {@link eu.nordtal.s2.messages.Tone} colours a reply is painted with.
  *
  * The same values as {@code smp}'s. Read once at enable, since {@code /limbo reload} only reloads the bundles.
  */

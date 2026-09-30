@@ -2,8 +2,8 @@ package eu.nordtal.s2.smp.grave;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import eu.nordtal.s2.common.message.MessageRenderer;
-import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
+import eu.nordtal.s2.messages.Messages;
 import java.util.Locale;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;

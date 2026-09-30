@@ -4,7 +4,7 @@ import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.config.EnvOverrideFile;
-import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.messages.Tone;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.EnumMap;

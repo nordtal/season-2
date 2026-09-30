@@ -8,10 +8,10 @@ import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.Values;
-import eu.nordtal.s2.common.command.CommandRequest;
-import eu.nordtal.s2.common.command.CommandRequests;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.database.command.CommandRequest;
+import eu.nordtal.s2.database.command.CommandRequests;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.Tone;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -256,7 +256,7 @@ public final class CommandInbox {
     }
 
     private java.util.Locale localeOf(final CommandRequest request) {
-        return eu.nordtal.s2.common.message.Locales.parse(request.locale());
+        return eu.nordtal.s2.common.language.Locales.parse(request.locale());
     }
 
     private static String key(final Declaration declaration) {

@@ -1,9 +1,9 @@
 package eu.nordtal.s2.commands;
 
-import eu.nordtal.s2.common.message.MessageRef;
-import eu.nordtal.s2.common.message.context.TeamContext;
-import eu.nordtal.s2.common.message.spec.Arg;
-import eu.nordtal.s2.common.message.spec.Name;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.context.TeamContext;
+import eu.nordtal.s2.messages.spec.Arg;
+import eu.nordtal.s2.messages.spec.Name;
 
 /** Hunger Games: readiness, starting a game, and the admin reload. */
 @Name("Hunger Games")

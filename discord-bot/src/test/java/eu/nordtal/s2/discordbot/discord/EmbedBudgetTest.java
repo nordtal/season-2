@@ -3,12 +3,12 @@ package eu.nordtal.s2.discordbot.discord;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.update.UpdateKind;
-import eu.nordtal.s2.common.update.UpdateReport;
-import eu.nordtal.s2.common.update.UpdateRequest;
-import eu.nordtal.s2.common.update.UpdateSource;
-import eu.nordtal.s2.common.update.UpdateStatus;
+import eu.nordtal.s2.database.update.UpdateKind;
+import eu.nordtal.s2.database.update.UpdateReport;
+import eu.nordtal.s2.database.update.UpdateRequest;
+import eu.nordtal.s2.database.update.UpdateSource;
+import eu.nordtal.s2.database.update.UpdateStatus;
+import eu.nordtal.s2.messages.Messages;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;

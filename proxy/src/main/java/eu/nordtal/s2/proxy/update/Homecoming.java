@@ -3,9 +3,9 @@ package eu.nordtal.s2.proxy.update;
 import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
 
 import com.velocitypowered.api.proxy.Player;
-import eu.nordtal.s2.common.message.MessageRef;
-import eu.nordtal.s2.common.message.MessageRenderer;
-import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.proxy.PhaseServers;
 import eu.nordtal.s2.proxy.ProxyMessages;
 import eu.nordtal.s2.proxy.gate.LoginRoster;

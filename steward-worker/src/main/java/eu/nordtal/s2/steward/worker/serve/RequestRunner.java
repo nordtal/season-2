@@ -1,7 +1,7 @@
 package eu.nordtal.s2.steward.worker.serve;
 
-import eu.nordtal.s2.common.update.UpdateReport;
-import eu.nordtal.s2.common.update.UpdateRequest;
+import eu.nordtal.s2.database.update.UpdateReport;
+import eu.nordtal.s2.database.update.UpdateRequest;
 import java.util.function.Consumer;
 
 /** Carries out one claimed request, an interface so {@link UpdateServer}'s loop can be tested without a network. */

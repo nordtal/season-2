@@ -1,6 +1,6 @@
 package eu.nordtal.s2.steward.ui.data;
 
-import eu.nordtal.s2.common.message.context.SeasonContext;
+import eu.nordtal.s2.messages.context.SeasonContext;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;

@@ -3,7 +3,7 @@ package eu.nordtal.s2.steward.worker.bunq;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.notify.Channels;
+import eu.nordtal.s2.database.notify.Channels;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;

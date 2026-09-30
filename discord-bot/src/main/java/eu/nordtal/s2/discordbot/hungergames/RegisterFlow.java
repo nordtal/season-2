@@ -2,11 +2,11 @@ package eu.nordtal.s2.discordbot.hungergames;
 
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
-import eu.nordtal.s2.common.message.MessageRef;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.context.DiscordMemberContext;
-import eu.nordtal.s2.common.message.context.TeamContext;
 import eu.nordtal.s2.discordbot.AccessMessages;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.context.DiscordMemberContext;
+import eu.nordtal.s2.messages.context.TeamContext;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;

@@ -3,7 +3,7 @@ package eu.nordtal.s2.steward.worker.plan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.update.UpdateReport;
+import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.steward.worker.source.RemoteFile;
 import java.net.URI;
 import java.time.Instant;

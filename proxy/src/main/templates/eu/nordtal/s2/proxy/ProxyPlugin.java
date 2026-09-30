@@ -13,14 +13,14 @@ import com.zaxxer.hikari.HikariDataSource;
 
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.access.AccessDirectory;
+import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.common.health.Readiness;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.ToneColours;
-import eu.nordtal.s2.common.online.OnlineDirectory;
-import eu.nordtal.s2.common.online.OnlineRoster;
-import eu.nordtal.s2.common.phase.PhaseDirectory;
-import eu.nordtal.s2.common.update.UpdateDirectory;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messagerendering.ToneColours;
+import eu.nordtal.s2.database.online.OnlineDirectory;
+import eu.nordtal.s2.database.online.OnlineRoster;
+import eu.nordtal.s2.database.phase.PhaseDirectory;
+import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.proxy.config.ColoursSpec;
 import eu.nordtal.s2.proxy.config.Configs;
 import eu.nordtal.s2.proxy.config.DatabaseSpec;
@@ -46,17 +46,17 @@ import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.network.NetworkCommands;
 import eu.nordtal.s2.commands.network.NetworkEffects;
 import eu.nordtal.s2.commands.remote.CommandInbox;
-import eu.nordtal.s2.common.command.CommandRequests;
-import eu.nordtal.s2.common.command.AllowlistDirectory;
-import eu.nordtal.s2.common.command.CommandAllowlist;
+import eu.nordtal.s2.database.command.CommandRequests;
+import eu.nordtal.s2.database.command.AllowlistDirectory;
+import eu.nordtal.s2.database.command.CommandAllowlist;
 import eu.nordtal.s2.proxy.command.CommandGate;
 import eu.nordtal.s2.proxy.command.InfoTexts;
 import eu.nordtal.s2.proxy.command.PrivateMessages;
 import eu.nordtal.s2.proxy.command.ProxyNetworkEffects;
 import eu.nordtal.s2.proxy.command.VelocityCommands;
-import eu.nordtal.s2.common.notify.Channels;
-import eu.nordtal.s2.common.notify.NotificationListener;
-import eu.nordtal.s2.common.notify.PostgresNotifications;
+import eu.nordtal.s2.database.notify.Channels;
+import eu.nordtal.s2.database.notify.NotificationListener;
+import eu.nordtal.s2.database.notify.PostgresNotifications;
 import eu.nordtal.s2.proxy.phase.PhaseWatch;
 import eu.nordtal.s2.proxy.online.OnlineWriter;
 import eu.nordtal.s2.proxy.ping.NetworkPing;
@@ -128,7 +128,7 @@ public final class ProxyPlugin {
     @Subscribe
     public void onProxyInitialize(final ProxyInitializeEvent event) {
         // {server.name} in every message.
-        eu.nordtal.s2.common.message.context.Contexts.server("proxy");
+        eu.nordtal.s2.messages.context.Contexts.server("proxy");
         logger.info("proxy enabled, {} backends registered", proxy.getAllServers().size());
 
         try {
@@ -276,7 +276,7 @@ public final class ProxyPlugin {
                 .schedule();
 
         if (gateConfig.phaseListenEnabled()) {
-            // One connection, every refresh on every signal; see eu.nordtal.s2.common.notify.
+            // One connection, every refresh on every signal; see eu.nordtal.s2.database.notify.
             this.phaseListener = new NotificationListener(
                     PostgresNotifications.connector(databaseConfig.jdbcUrl(),
                             databaseConfig.username(), databaseConfig.password(),

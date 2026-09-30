@@ -1,9 +1,9 @@
 package eu.nordtal.s2.steward.worker.api;
 
-import eu.nordtal.s2.common.online.OnlineCount;
-import eu.nordtal.s2.common.online.OnlineDirectory;
-import eu.nordtal.s2.common.online.OnlinePlayer;
-import eu.nordtal.s2.common.online.OnlineRoster;
+import eu.nordtal.s2.database.online.OnlineCount;
+import eu.nordtal.s2.database.online.OnlineDirectory;
+import eu.nordtal.s2.database.online.OnlinePlayer;
+import eu.nordtal.s2.database.online.OnlineRoster;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;

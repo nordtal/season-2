@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.s2.commands.hungergames.HungerGamesCommands;
 import eu.nordtal.s2.commands.hungergames.HungerGamesEffects;
 import eu.nordtal.s2.commands.hungergames.StartGame;
-import eu.nordtal.s2.common.message.MessageRef;
+import eu.nordtal.s2.messages.MessageRef;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;

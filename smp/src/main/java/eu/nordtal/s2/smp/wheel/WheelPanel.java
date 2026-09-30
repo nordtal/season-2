@@ -1,10 +1,10 @@
 package eu.nordtal.s2.smp.wheel;
 
-import eu.nordtal.s2.common.Glyphs;
-import eu.nordtal.s2.common.menu.MenuFont;
-import eu.nordtal.s2.common.menu.MenuPalette;
-import eu.nordtal.s2.common.menu.MenuTitle;
-import eu.nordtal.s2.common.menu.SlotGeometry;
+import eu.nordtal.s2.packrendering.Glyphs;
+import eu.nordtal.s2.smp.menu.MenuFont;
+import eu.nordtal.s2.smp.menu.MenuPalette;
+import eu.nordtal.s2.smp.menu.MenuTitle;
+import eu.nordtal.s2.smp.menu.SlotGeometry;
 import java.util.List;
 import net.kyori.adventure.text.Component;
 

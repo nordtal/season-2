@@ -2,7 +2,7 @@ package eu.nordtal.s2.smp.milestone;
 
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
-import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.messages.Messages;
 import java.util.Locale;
 
 /**

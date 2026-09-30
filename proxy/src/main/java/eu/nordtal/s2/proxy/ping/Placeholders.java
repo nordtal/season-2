@@ -3,8 +3,8 @@ package eu.nordtal.s2.proxy.ping;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.message.MessageRenderer;
-import eu.nordtal.s2.common.network.NetworkSnapshot;
+import eu.nordtal.s2.database.network.NetworkSnapshot;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 

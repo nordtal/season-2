@@ -1,0 +1,18 @@
+package eu.nordtal.s2.database.update;
+
+import java.time.Instant;
+import org.jspecify.annotations.Nullable;
+
+/**
+ * One service that was deliberately stopped and must stay stopped, unlike one that fell over.
+ *
+ * @param service   the compose service name, as {@code update_request.scope} carries it
+ * @param since     when the hold was written, on the database's clock
+ * @param heldBy    who asked for it, as in {@code update_request.requested_by}, or {@code null}
+ * @param requestId the DOWN run that put it there, or {@code null} once that row was deleted
+ */
+public record ServiceHold(
+        String service,
+        Instant since,
+        @Nullable String heldBy,
+        @Nullable Long requestId) {}

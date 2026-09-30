@@ -3,11 +3,11 @@ package eu.nordtal.s2.steward.worker.api;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.audit.AuditEntry;
-import eu.nordtal.s2.common.update.UpdateKind;
-import eu.nordtal.s2.common.update.UpdateRequest;
-import eu.nordtal.s2.common.update.UpdateSource;
-import eu.nordtal.s2.common.update.UpdateStatus;
+import eu.nordtal.s2.database.audit.AuditEntry;
+import eu.nordtal.s2.database.update.UpdateKind;
+import eu.nordtal.s2.database.update.UpdateRequest;
+import eu.nordtal.s2.database.update.UpdateSource;
+import eu.nordtal.s2.database.update.UpdateStatus;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;

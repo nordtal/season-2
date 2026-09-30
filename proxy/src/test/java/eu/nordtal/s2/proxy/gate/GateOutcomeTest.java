@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.access.AccessState;
-import eu.nordtal.s2.common.access.MemberState;
+import eu.nordtal.s2.database.access.AccessState;
+import eu.nordtal.s2.database.access.MemberState;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;

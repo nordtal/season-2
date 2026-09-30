@@ -1,6 +1,6 @@
 package eu.nordtal.s2.commands;
 
-import eu.nordtal.s2.common.message.MessageRef;
+import eu.nordtal.s2.messages.MessageRef;
 
 /** Which process runs a command's effect; a command asked for elsewhere travels there as a row. */
 public enum Target {

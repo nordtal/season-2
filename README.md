@@ -74,8 +74,8 @@ flowchart TB
     style steward fill:#e08c341a,stroke:#e08c34,stroke-width:1px
 ```
 
-Italic names are Gradle modules; every other box is a container in `compose.yml`. `:common`,
-`:commands`, `:paper-common` and `:resource-pack` are libraries compiled into the jars above.
+Italic names are Gradle modules; every other box is a container in `compose.yml`. The libraries in
+the table below are compiled into the jars above.
 
 - A standby instance of a service is its name plus `-standby` and runs the same jar and config.
 - The Steward services sit on their own Docker network; the Minecraft servers do not, so no plugin
@@ -86,20 +86,25 @@ Italic names are Gradle modules; every other box is a container in `compose.yml`
 
 ## Modules
 
-| module             | platform        | what it owns                                                                                                                                     |
-| ------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `proxy`            | Velocity        | The login gate, the season phase, and which backend a player belongs on.                                                                         |
-| `limbo`            | Paper           | The waiting room: applying and enforcing the resource pack before a player goes anywhere.                                                        |
-| `hunger-games`     | Paper           | The start event: registration, teams, border, loot, HUD, winning.                                                                                |
-| `smp`              | Paper           | The SMP: Nordtal, the farm world, the Nether and the End, milestones, aura, prestige, duels, graves.                                             |
-| `discord-bot`      | JVM app         | Sells access periods, books bunq payments, mirrors admins.                                                                                       |
-| `steward-worker`   | JVM app         | Resolves platform and plugin versions, migrates the schema, swaps jars, stops and starts the servers around a run, and takes the nightly backup. |
-| `steward-ui`       | JVM app + React | The web interface: state, logs, configuration, seasons, access, payments, the journal. No Docker socket, ever.                                   |
-| `steward-deployer` | JVM app         | The only service allowed to create a container. Carries `compose.yml` inside its own image.                                                      |
-| `common`           | library         | Access API, message system, glyph constants, the phase enum, the `LISTEN`/`NOTIFY` loop, the migration SQL.                                      |
-| `paper-common`     | library         | What the three Paper plugins share and Velocity cannot use.                                                                                      |
-| `commands`         | library         | Every command in the network, declared once.                                                                                                     |
-| `resource-pack`    | assets          | The pack, its fonts, and the zip + SHA-1 a release ships.                                                                                        |
+| module              | platform        | what it owns                                                                                                                                     |
+| ------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `proxy`             | Velocity        | The login gate, the season phase, and which backend a player belongs on.                                                                         |
+| `limbo`             | Paper           | The waiting room: applying and enforcing the resource pack before a player goes anywhere.                                                        |
+| `hunger-games`      | Paper           | The start event: registration, teams, border, loot, HUD, winning.                                                                                |
+| `smp`               | Paper           | The SMP: Nordtal, the farm world, the Nether and the End, milestones, aura, prestige, duels, graves.                                             |
+| `discord-bot`       | JVM app         | Sells access periods, books bunq payments, mirrors admins.                                                                                       |
+| `steward-worker`    | JVM app         | Resolves platform and plugin versions, migrates the schema, swaps jars, stops and starts the servers around a run, and takes the nightly backup. |
+| `steward-ui`        | JVM app + React | The web interface: state, logs, configuration, seasons, access, payments, the journal. No Docker socket, ever.                                   |
+| `steward-deployer`  | JVM app         | The only service allowed to create a container. Carries `compose.yml` inside its own image.                                                      |
+| `common`            | library         | The shared kernel: platform constants, the phase enum, languages, readiness. No database, no Adventure, no pack.                                 |
+| `database`          | library         | Access, phase, online, audit, the request inboxes, the `LISTEN`/`NOTIFY` loop and the migration SQL.                                             |
+| `messages`          | library         | The message system without Adventure: bundles, specs, contexts. The bot and Steward stop here.                                                   |
+| `message-rendering` | library         | Messages as Adventure components, for Paper and Velocity code.                                                                                   |
+| `pack-rendering`    | library         | Glyph constants, the `<glyph:name>` tag, boss bar and tab list rendering from the resource pack.                                                 |
+| `limbo-protocol`    | library         | The wire protocol between the proxy and limbo.                                                                                                   |
+| `paper-common`      | library         | What the three Paper plugins share and Velocity cannot use.                                                                                      |
+| `commands`          | library         | Every command in the network, declared once.                                                                                                     |
+| `resource-pack`     | assets          | The pack, its fonts, and the zip + SHA-1 a release ships.                                                                                        |
 
 `DisplayTags` also runs on this network and ships from
 [nordtal/papermc-display-tags](https://github.com/nordtal/papermc-display-tags).

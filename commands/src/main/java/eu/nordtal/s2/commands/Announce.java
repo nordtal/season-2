@@ -1,8 +1,8 @@
 package eu.nordtal.s2.commands;
 
-import eu.nordtal.s2.common.message.MessageRef;
-import eu.nordtal.s2.common.message.spec.Arg;
-import eu.nordtal.s2.common.message.spec.Name;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.spec.Arg;
+import eu.nordtal.s2.messages.spec.Name;
 
 /** What {@code /announce} says back once it has posted, or explains why it did not. */
 @Name("Announce")

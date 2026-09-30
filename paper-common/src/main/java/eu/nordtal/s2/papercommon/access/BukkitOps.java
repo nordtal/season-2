@@ -1,6 +1,6 @@
 package eu.nordtal.s2.papercommon.access;
 
-import eu.nordtal.s2.common.access.AdminOperators;
+import eu.nordtal.s2.database.access.AdminOperators;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;

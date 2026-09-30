@@ -1,17 +1,17 @@
 package eu.nordtal.s2.discordbot;
 
-import eu.nordtal.s2.common.message.MessageRef;
-import eu.nordtal.s2.common.message.context.DiscordMemberContext;
-import eu.nordtal.s2.common.message.context.TeamContext;
-import eu.nordtal.s2.common.message.spec.Arg;
-import eu.nordtal.s2.common.message.spec.Display;
-import eu.nordtal.s2.common.message.spec.Format;
-import eu.nordtal.s2.common.message.spec.Key;
-import eu.nordtal.s2.common.message.spec.MessageSpec;
-import eu.nordtal.s2.common.message.spec.MessageSpecs;
-import eu.nordtal.s2.common.message.spec.Name;
-import eu.nordtal.s2.common.message.spec.Shown;
-import eu.nordtal.s2.common.message.spec.TextFormat;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.context.DiscordMemberContext;
+import eu.nordtal.s2.messages.context.TeamContext;
+import eu.nordtal.s2.messages.spec.Arg;
+import eu.nordtal.s2.messages.spec.Display;
+import eu.nordtal.s2.messages.spec.Format;
+import eu.nordtal.s2.messages.spec.Key;
+import eu.nordtal.s2.messages.spec.MessageSpec;
+import eu.nordtal.s2.messages.spec.MessageSpecs;
+import eu.nordtal.s2.messages.spec.Name;
+import eu.nordtal.s2.messages.spec.Shown;
+import eu.nordtal.s2.messages.spec.TextFormat;
 
 /** Every message of the access bundle, one method per key. */
 @MessageSpec("access")

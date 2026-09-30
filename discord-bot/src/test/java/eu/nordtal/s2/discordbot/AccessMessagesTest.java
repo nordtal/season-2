@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.message.spec.MessageSpecCheck;
+import eu.nordtal.s2.messages.spec.MessageSpecCheck;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;

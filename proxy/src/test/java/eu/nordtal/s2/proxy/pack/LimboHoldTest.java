@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.limbo.WaitReason;
+import eu.nordtal.s2.limboprotocol.WaitReason;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 

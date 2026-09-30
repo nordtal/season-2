@@ -2,14 +2,14 @@ package eu.nordtal.s2.hungergames.listener;
 
 import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
-import eu.nordtal.s2.common.access.AdminOperators;
-import eu.nordtal.s2.common.access.FullServerAdmission;
-import eu.nordtal.s2.common.hud.TabList;
-import eu.nordtal.s2.common.message.MessageRenderer;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.database.access.AdminOperators;
+import eu.nordtal.s2.database.access.FullServerAdmission;
 import eu.nordtal.s2.hungergames.GameState;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.PlayerLocales;
+import eu.nordtal.s2.packrendering.hud.TabList;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
 import java.util.Objects;
 import org.bukkit.Bukkit;

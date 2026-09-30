@@ -21,12 +21,12 @@ public final class Runs {
 
     /** Compares what every source calls newest with what is in the volumes, writing nothing. */
     public static UpdatePlan resolve(final StewardSpec config) {
-        return resolve(config, eu.nordtal.s2.common.plugin.PluginDirectory.NONE);
+        return resolve(config, eu.nordtal.s2.steward.worker.plugin.PluginDirectory.NONE);
     }
 
     /** The same, with the plugins an admin added merged in, which every caller with a database uses. */
     public static UpdatePlan resolve(
-            final StewardSpec config, final eu.nordtal.s2.common.plugin.PluginDirectory plugins) {
+            final StewardSpec config, final eu.nordtal.s2.steward.worker.plugin.PluginDirectory plugins) {
         final Http http = new JdkHttp(Duration.ofSeconds(config.httpTimeoutSeconds()), config.githubToken());
         return new Resolver(
                         config,

@@ -1,0 +1,79 @@
+package eu.nordtal.s2.database.phase;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.time.Instant;
+import org.junit.jupiter.api.Test;
+
+/** Tests the date format both {@code /phase} commands share, whose offset is derived from the date. */
+class SeasonDatesTest {
+
+    @Test
+    void aSummerDateIsTwoHoursAheadOfUtc() {
+        // Before the last Sunday of October, so Berlin is still on CEST.
+        assertEquals(
+                Instant.parse("2026-10-01T16:00:00Z"),
+                SeasonDates.parse("2026-10-01 18:00").orElseThrow());
+    }
+
+    @Test
+    void aWinterDateIsOneHourAheadOfUtc() {
+        // Same wall-clock time five weeks later, one hour further from UTC.
+        assertEquals(
+                Instant.parse("2026-11-15T17:00:00Z"),
+                SeasonDates.parse("2026-11-15 18:00").orElseThrow());
+    }
+
+    @Test
+    void theIsoStyleSeparatorIsAccepted() {
+        assertEquals(SeasonDates.parse("2026-10-01 18:00"), SeasonDates.parse("2026-10-01T18:00"));
+    }
+
+    @Test
+    void surroundingWhitespaceIsIgnored() {
+        assertEquals(SeasonDates.parse("2026-10-01 18:00"), SeasonDates.parse("  2026-10-01 18:00  "));
+    }
+
+    @Test
+    void anythingThatIsNotThePatternIsRefused() {
+        // Every one of these is a plausible thing to type, and none of them may be guessed at.
+        assertTrue(SeasonDates.parse(null).isEmpty());
+        assertTrue(SeasonDates.parse("").isEmpty());
+        assertTrue(SeasonDates.parse("   ").isEmpty());
+        assertTrue(SeasonDates.parse("tomorrow").isEmpty());
+        assertTrue(SeasonDates.parse("01.10.2026 18:00").isEmpty(), "German order is not the pattern");
+        assertTrue(SeasonDates.parse("2026-10-01").isEmpty(), "a date needs a time");
+        assertTrue(SeasonDates.parse("2026-10-01 18:00:00").isEmpty(), "seconds are not in the pattern");
+        assertTrue(SeasonDates.parse("2026-13-01 18:00").isEmpty(), "there is no thirteenth month");
+        assertTrue(SeasonDates.parse("2026-02-30 18:00").isEmpty(), "February has no thirtieth");
+    }
+
+    @Test
+    void clearIsRecognisedHoweverItIsTyped() {
+        assertTrue(SeasonDates.isClear("clear"));
+        assertTrue(SeasonDates.isClear("CLEAR"));
+        assertTrue(SeasonDates.isClear("  Clear "));
+        assertFalse(SeasonDates.isClear(null));
+        assertFalse(SeasonDates.isClear("cleared"));
+        assertFalse(SeasonDates.isClear("2026-10-01 18:00"));
+    }
+
+    @Test
+    void noDateIsShownAsWordsRatherThanAsNothing() {
+        assertEquals("not set", SeasonDates.format(null));
+    }
+
+    @Test
+    void aDateIsShownBackInTheZoneItWasTypedIn() {
+        final String shown =
+                SeasonDates.format(SeasonDates.parse("2026-10-01 18:00").orElseThrow());
+
+        assertTrue(
+                shown.startsWith("2026-10-01 18:00"),
+                "the wall-clock time that was typed has to come back, was: " + shown);
+        // The offset rather than a zone abbreviation, which would need locale knowledge.
+        assertTrue(shown.endsWith("GMT+02:00"), "the offset has to be named, was: " + shown);
+    }
+}

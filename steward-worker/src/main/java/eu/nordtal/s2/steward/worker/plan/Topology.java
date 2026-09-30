@@ -210,7 +210,7 @@ public final class Topology {
      * @return the same four services, in the same order, each carrying its own extra plugins
      */
     public static List<Service> servicesWith(
-            final java.util.Collection<eu.nordtal.s2.common.plugin.ManagedPlugin> added) {
+            final java.util.Collection<eu.nordtal.s2.steward.worker.plugin.ManagedPlugin> added) {
         if (added.isEmpty()) {
             return SERVICES;
         }
@@ -218,7 +218,7 @@ public final class Topology {
         for (final Service service : SERVICES) {
             final List<String> plugins = new java.util.ArrayList<>(service.plugins());
             final List<String> optional = new java.util.ArrayList<>(service.optional());
-            for (final eu.nordtal.s2.common.plugin.ManagedPlugin plugin : added) {
+            for (final eu.nordtal.s2.steward.worker.plugin.ManagedPlugin plugin : added) {
                 if (!plugin.service().equals(service.name())) {
                     continue;
                 }

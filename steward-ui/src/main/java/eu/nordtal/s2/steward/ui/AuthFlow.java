@@ -1,6 +1,6 @@
 package eu.nordtal.s2.steward.ui;
 
-import eu.nordtal.s2.common.access.AdminTree;
+import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.auth.Sessions;
 import eu.nordtal.s2.steward.ui.config.UiSpec;

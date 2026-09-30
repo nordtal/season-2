@@ -2,7 +2,7 @@ package eu.nordtal.s2.proxy.gate;
 
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
-import eu.nordtal.s2.common.access.AccessState;
+import eu.nordtal.s2.database.access.AccessState;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;

@@ -8,7 +8,7 @@ import eu.nordtal.jcore.config.spec.Specs;
 import eu.nordtal.s2.commands.Catalogue;
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.Surface;
-import eu.nordtal.s2.common.command.CommandAllowlist;
+import eu.nordtal.s2.database.command.CommandAllowlist;
 import eu.nordtal.s2.proxy.config.NetworkSpec;
 import java.util.ArrayList;
 import java.util.List;

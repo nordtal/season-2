@@ -1,6 +1,6 @@
 package eu.nordtal.s2.proxy.update;
 
-import eu.nordtal.s2.common.update.UpdateKind;
+import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.proxy.online.OnlineCounts;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;

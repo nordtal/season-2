@@ -1,0 +1,176 @@
+package eu.nordtal.s2.database.notify;
+
+import java.sql.SQLException;
+import java.time.Duration;
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+
+/**
+ * A thread on a dedicated {@code LISTEN} connection that re-reads on every signal and every reconnect.
+ *
+ * The caller's poll is the guarantee. Every refresh runs on every signal, and a throwing refresh is logged.
+ */
+public final class NotificationListener implements AutoCloseable {
+
+    /**
+     * One thing to re-read on every signal.
+     *
+     * @param what a name for the log line when it fails, such as "the season phase"
+     * @param task the re-read itself; must be safe to run repeatedly and from this thread
+     */
+    public record Refresh(String what, Runnable task) {
+
+        public Refresh {
+            Objects.requireNonNull(what, "what");
+            Objects.requireNonNull(task, "task");
+        }
+    }
+
+    /** How long to wait before reconnecting after a failure; not configurable, since the poll runs anyway. */
+    private static final Duration RECONNECT_BACKOFF = Duration.ofSeconds(5);
+
+    private final Notifications.Connector connector;
+    private final String threadName;
+    private final List<Refresh> refreshes;
+    private final Logger logger;
+    private final Duration waitTimeout;
+    private final Duration reconnectBackoff;
+
+    private final AtomicReference<Notifications> current = new AtomicReference<>();
+    private volatile boolean running = true;
+    private volatile @Nullable Thread thread;
+
+    /**
+     * Creates a listener; nothing runs until {@link #start()}.
+     *
+     * @param threadName  the daemon thread's name, naming the process and the job
+     * @param refreshes   what to re-read on every connect and every notification, in order
+     * @param waitTimeout how long one wait blocks; pass the poll interval, since each timeout costs a liveness check
+     */
+    public NotificationListener(
+            final Notifications.Connector connector,
+            final String threadName,
+            final List<Refresh> refreshes,
+            final Logger logger,
+            final Duration waitTimeout) {
+        this(connector, threadName, refreshes, logger, waitTimeout, RECONNECT_BACKOFF);
+    }
+
+    NotificationListener(
+            final Notifications.Connector connector,
+            final String threadName,
+            final List<Refresh> refreshes,
+            final Logger logger,
+            final Duration waitTimeout,
+            final Duration reconnectBackoff) {
+        this.connector = Objects.requireNonNull(connector, "connector");
+        this.threadName = Objects.requireNonNull(threadName, "threadName");
+        this.refreshes = List.copyOf(Objects.requireNonNull(refreshes, "refreshes"));
+        this.logger = Objects.requireNonNull(logger, "logger");
+        this.waitTimeout = Objects.requireNonNull(waitTimeout, "waitTimeout");
+        this.reconnectBackoff = Objects.requireNonNull(reconnectBackoff, "reconnectBackoff");
+        if (this.refreshes.isEmpty()) {
+            throw new IllegalArgumentException("a listener with nothing to refresh would wake up and do nothing");
+        }
+    }
+
+    /** Starts the listener on its own daemon thread. Calling this twice is a programming error. */
+    public void start() {
+        if (thread != null) {
+            throw new IllegalStateException("This listener has already been started");
+        }
+        final Thread listenerThread = new Thread(this::run, threadName);
+        listenerThread.setDaemon(true);
+        this.thread = listenerThread;
+        listenerThread.start();
+    }
+
+    /** Runs the connect, re-read and wait loop. */
+    void run() {
+        while (running) {
+            try (Notifications notifications = connector.listen()) {
+                current.set(notifications);
+                logger.info("{} is listening", threadName);
+
+                // Re-read before waiting: a change made while disconnected is never announced again.
+                refreshAll();
+
+                while (running) {
+                    if (notifications.awaitNotification(waitTimeout)) {
+                        refreshAll();
+                    }
+                }
+            } catch (final SQLException exception) {
+                if (!running) {
+                    break;
+                }
+                logger.warn(
+                        "{} lost its connection; retrying in {}s. The {}s poll is unaffected and"
+                                + " remains the actual guarantee.",
+                        threadName,
+                        reconnectBackoff.toSeconds(),
+                        waitTimeout.toSeconds(),
+                        exception);
+                if (!sleepBeforeRetry()) {
+                    break;
+                }
+            } catch (final RuntimeException exception) {
+                if (!running) {
+                    break;
+                }
+                logger.error(
+                        "{} failed unexpectedly; retrying in {}s", threadName, reconnectBackoff.toSeconds(), exception);
+                if (!sleepBeforeRetry()) {
+                    break;
+                }
+            } finally {
+                current.set(null);
+            }
+        }
+        logger.info("{} has stopped", threadName);
+    }
+
+    private void refreshAll() {
+        for (final Refresh refresh : refreshes) {
+            try {
+                refresh.task().run();
+            } catch (final RuntimeException failure) {
+                logger.warn(
+                        "Could not refresh {}; the listener carries on and will try again on the"
+                                + " next notification.",
+                        refresh.what(),
+                        failure);
+            }
+        }
+    }
+
+    /** Returns {@code false} when the wait was interrupted, which means stop. */
+    private boolean sleepBeforeRetry() {
+        try {
+            Thread.sleep(reconnectBackoff);
+            return running;
+        } catch (final InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
+    /** Stops the loop and closes the connection under the blocking wait, so shutdown is immediate. */
+    @Override
+    public void close() {
+        running = false;
+
+        final Notifications open = current.getAndSet(null);
+        if (open != null) {
+            open.close();
+        }
+
+        final Thread listenerThread = this.thread;
+        if (listenerThread != null) {
+            listenerThread.interrupt();
+        }
+    }
+}

@@ -35,7 +35,6 @@ repositories {
 }
 
 dependencies {
-    implementation(project(":paper-common"))
     // jcore brings the config system and the database stack; Flyway is excluded, since this plugin never migrates.
     implementation(libs.jcore) {
         exclude(group = "org.flywaydb")

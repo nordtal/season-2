@@ -1,9 +1,9 @@
 package eu.nordtal.s2.smp.command;
 
 import eu.nordtal.s2.commands.smp.SmpEffects;
-import eu.nordtal.s2.common.access.AccessDirectory;
-import eu.nordtal.s2.common.access.AccessState;
-import eu.nordtal.s2.common.access.OpenPayment;
+import eu.nordtal.s2.database.access.AccessDirectory;
+import eu.nordtal.s2.database.access.AccessState;
+import eu.nordtal.s2.database.access.OpenPayment;
 import eu.nordtal.s2.smp.aura.AuraReason;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.db.SmpDao;

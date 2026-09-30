@@ -1,7 +1,7 @@
 package eu.nordtal.s2.steward.worker.metric;
 
-import eu.nordtal.s2.common.metric.MetricDirectory;
-import eu.nordtal.s2.common.metric.MetricSample;
+import eu.nordtal.s2.database.metric.MetricDirectory;
+import eu.nordtal.s2.database.metric.MetricSample;
 import eu.nordtal.s2.steward.worker.docker.Docker;
 import eu.nordtal.s2.steward.worker.docker.DockerException;
 import eu.nordtal.s2.steward.worker.host.HostMetrics;

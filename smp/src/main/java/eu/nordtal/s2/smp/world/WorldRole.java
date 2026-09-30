@@ -1,6 +1,6 @@
 package eu.nordtal.s2.smp.world;
 
-import eu.nordtal.s2.common.Glyphs;
+import eu.nordtal.s2.packrendering.Glyphs;
 
 /** Which of the SMP's three worlds a world is, and what each one is allowed to do. */
 public enum WorldRole {

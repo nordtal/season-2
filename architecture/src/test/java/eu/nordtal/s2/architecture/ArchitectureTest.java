@@ -41,24 +41,79 @@ class ArchitectureTest {
                 .check(classes);
     }
 
-    // Adventure is on the list because both platforms provide it, so :common only compiles against it.
     @Test
-    void commonDependsOnlyOnTheDatabaseStack() {
+    void theKernelDependsOnTheJdkAlone() {
+        onlyOn("eu.nordtal.s2.common..", "java..", "org.jspecify..", "eu.nordtal.s2.common..");
+        onlyOn("eu.nordtal.s2.limboprotocol..", "java..", "org.jspecify..", "eu.nordtal.s2.limboprotocol..");
+    }
+
+    @Test
+    void theDatabaseModuleDependsOnlyOnTheDatabaseStack() {
+        onlyOn(
+                "eu.nordtal.s2.database..",
+                "java..",
+                "javax.sql..",
+                "org.jdbi..",
+                "com.zaxxer.hikari..",
+                "org.slf4j..",
+                "org.postgresql..",
+                "org.jspecify..",
+                "eu.nordtal.s2.common..",
+                "eu.nordtal.s2.database..");
+    }
+
+    @Test
+    void theMessageCoreHasNoAdventure() {
+        onlyOn(
+                "eu.nordtal.s2.messages..",
+                "java..",
+                "org.slf4j..",
+                "org.jspecify..",
+                "eu.nordtal.s2.common..",
+                "eu.nordtal.s2.messages..");
+    }
+
+    // Adventure is allowed here because both platforms provide it, so these modules only compile against it.
+    @Test
+    void theRenderersDependOnlyOnMessagesAndAdventure() {
+        onlyOn(
+                "eu.nordtal.s2.messagerendering..",
+                "java..",
+                "org.jspecify..",
+                "net.kyori.adventure..",
+                "eu.nordtal.s2.common..",
+                "eu.nordtal.s2.messages..",
+                "eu.nordtal.s2.messagerendering..");
+        onlyOn(
+                "eu.nordtal.s2.packrendering..",
+                "java..",
+                "org.jspecify..",
+                "net.kyori.adventure..",
+                "eu.nordtal.s2.common..",
+                "eu.nordtal.s2.messages..",
+                "eu.nordtal.s2.messagerendering..",
+                "eu.nordtal.s2.packrendering..");
+    }
+
+    @Test
+    void neitherTheBotNorStewardRendersForMinecraft() {
+        noClasses()
+                .that()
+                .resideInAnyPackage("eu.nordtal.s2.discordbot..", "eu.nordtal.s2.steward..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "net.kyori.adventure..", "eu.nordtal.s2.messagerendering..", "eu.nordtal.s2.packrendering..")
+                .check(classes);
+    }
+
+    private static void onlyOn(final String module, final String... allowed) {
         classes()
                 .that()
-                .resideInAPackage("eu.nordtal.s2.common..")
+                .resideInAPackage(module)
                 .should()
                 .onlyDependOnClassesThat()
-                .resideInAnyPackage(
-                        "java..",
-                        "javax.sql..",
-                        "org.jdbi..",
-                        "com.zaxxer.hikari..",
-                        "org.slf4j..",
-                        "org.postgresql..",
-                        "org.jspecify..",
-                        "net.kyori.adventure..",
-                        "eu.nordtal.s2.common..")
+                .resideInAnyPackage(allowed)
                 .check(classes);
     }
 
@@ -72,7 +127,7 @@ class ArchitectureTest {
                         "eu.nordtal.s2.smp..",
                         "eu.nordtal.s2.papercommon..")
                 .should()
-                .callMethod("eu.nordtal.s2.common.message.PlayerLocales", "join", "java.util.UUID")
+                .callMethod("eu.nordtal.s2.messages.PlayerLocales", "join", "java.util.UUID")
                 .check(classes);
     }
 

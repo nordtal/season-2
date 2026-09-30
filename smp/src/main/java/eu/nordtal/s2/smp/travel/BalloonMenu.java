@@ -1,6 +1,6 @@
 package eu.nordtal.s2.smp.travel;
 
-import eu.nordtal.s2.common.menu.SlotGeometry;
+import eu.nordtal.s2.smp.menu.SlotGeometry;
 import eu.nordtal.s2.smp.milestone.Unlock;
 import eu.nordtal.s2.smp.world.WorldRole;
 import java.util.ArrayList;

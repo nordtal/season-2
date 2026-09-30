@@ -1,12 +1,12 @@
 package eu.nordtal.s2.steward.worker.api;
 
-import eu.nordtal.s2.common.audit.AuditDirectory;
-import eu.nordtal.s2.common.audit.AuditEntry;
-import eu.nordtal.s2.common.update.UpdateDirectory;
-import eu.nordtal.s2.common.update.UpdateKind;
-import eu.nordtal.s2.common.update.UpdateRequest;
-import eu.nordtal.s2.common.update.UpdateSource;
-import eu.nordtal.s2.common.update.UpdateStatus;
+import eu.nordtal.s2.database.audit.AuditDirectory;
+import eu.nordtal.s2.database.audit.AuditEntry;
+import eu.nordtal.s2.database.update.UpdateDirectory;
+import eu.nordtal.s2.database.update.UpdateKind;
+import eu.nordtal.s2.database.update.UpdateRequest;
+import eu.nordtal.s2.database.update.UpdateSource;
+import eu.nordtal.s2.database.update.UpdateStatus;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;

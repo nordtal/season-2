@@ -1,7 +1,7 @@
 package eu.nordtal.s2.limbo.command;
 
 import eu.nordtal.s2.commands.limbo.LimboEffects;
-import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.messages.Messages;
 import java.util.concurrent.Executor;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;

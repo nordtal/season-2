@@ -1,8 +1,8 @@
 package eu.nordtal.s2.limbo.net;
 
-import eu.nordtal.s2.common.limbo.LimboProtocol;
-import eu.nordtal.s2.common.limbo.WaitReason;
 import eu.nordtal.s2.limbo.waiting.WaitingRoom;
+import eu.nordtal.s2.limboprotocol.LimboProtocol;
+import eu.nordtal.s2.limboprotocol.WaitReason;
 import java.util.Objects;
 import java.util.Optional;
 import org.bukkit.entity.Player;

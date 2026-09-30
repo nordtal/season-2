@@ -1,6 +1,6 @@
 package eu.nordtal.s2.proxy.pack;
 
-import eu.nordtal.s2.common.limbo.WaitReason;
+import eu.nordtal.s2.limboprotocol.WaitReason;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 

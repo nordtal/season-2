@@ -1,6 +1,6 @@
 package eu.nordtal.s2.steward.worker.plan;
 
-import eu.nordtal.s2.common.update.UpdateReport;
+import eu.nordtal.s2.database.update.UpdateReport;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;

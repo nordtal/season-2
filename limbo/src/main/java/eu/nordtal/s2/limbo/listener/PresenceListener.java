@@ -1,15 +1,15 @@
 package eu.nordtal.s2.limbo.listener;
 
-import eu.nordtal.s2.common.access.AdminOperators;
-import eu.nordtal.s2.common.access.FullServerAdmission;
-import eu.nordtal.s2.common.hud.TabList;
-import eu.nordtal.s2.common.message.MessageRenderer;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.database.access.AdminOperators;
+import eu.nordtal.s2.database.access.FullServerAdmission;
 import eu.nordtal.s2.limbo.LimboMessages;
 import eu.nordtal.s2.limbo.net.LimboChannel;
 import eu.nordtal.s2.limbo.waiting.WaitingRoom;
 import eu.nordtal.s2.limbo.world.WaitingWorld;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.PlayerLocales;
+import eu.nordtal.s2.packrendering.hud.TabList;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import io.papermc.paper.event.player.AsyncPlayerSpawnLocationEvent;
 import java.util.Objects;

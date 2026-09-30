@@ -1,8 +1,8 @@
 package eu.nordtal.s2.steward.worker.bunq;
 
-import eu.nordtal.s2.common.notify.Channels;
-import eu.nordtal.s2.common.notify.NotificationListener;
-import eu.nordtal.s2.common.notify.Notifications;
+import eu.nordtal.s2.database.notify.Channels;
+import eu.nordtal.s2.database.notify.NotificationListener;
+import eu.nordtal.s2.database.notify.Notifications;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Executors;

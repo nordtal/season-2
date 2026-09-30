@@ -1,7 +1,7 @@
 package eu.nordtal.s2.proxy.phase;
 
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.phase.PhaseDirectory;
+import eu.nordtal.s2.database.phase.PhaseDirectory;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;

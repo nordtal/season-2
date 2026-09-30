@@ -33,7 +33,7 @@ public final class Resolver {
     private final Modrinth modrinth;
     private final PaperFill fill;
     private final Clock clock;
-    private final eu.nordtal.s2.common.plugin.PluginDirectory plugins;
+    private final eu.nordtal.s2.steward.worker.plugin.PluginDirectory plugins;
 
     public Resolver(
             final StewardSpec config,
@@ -41,7 +41,7 @@ public final class Resolver {
             final Modrinth modrinth,
             final PaperFill fill,
             final Clock clock) {
-        this(config, github, modrinth, fill, clock, eu.nordtal.s2.common.plugin.PluginDirectory.NONE);
+        this(config, github, modrinth, fill, clock, eu.nordtal.s2.steward.worker.plugin.PluginDirectory.NONE);
     }
 
     /**
@@ -55,7 +55,7 @@ public final class Resolver {
             final Modrinth modrinth,
             final PaperFill fill,
             final Clock clock,
-            final eu.nordtal.s2.common.plugin.PluginDirectory plugins) {
+            final eu.nordtal.s2.steward.worker.plugin.PluginDirectory plugins) {
         this.config = config;
         this.github = github;
         this.modrinth = modrinth;
@@ -106,7 +106,7 @@ public final class Resolver {
     }
 
     /** The rows of {@code service_plugin}, or none when the database cannot be read. */
-    private List<eu.nordtal.s2.common.plugin.ManagedPlugin> readAdded() {
+    private List<eu.nordtal.s2.steward.worker.plugin.ManagedPlugin> readAdded() {
         try {
             return plugins.all();
         } catch (final RuntimeException failed) {
@@ -122,7 +122,7 @@ public final class Resolver {
             final Map<String, RemoteFile> newest,
             final Map<String, String> failures,
             final Map<String, String> unsupported) {
-        final List<eu.nordtal.s2.common.plugin.ManagedPlugin> added = readAdded();
+        final List<eu.nordtal.s2.steward.worker.plugin.ManagedPlugin> added = readAdded();
         final List<Topology.Service> services = Topology.servicesWith(added);
         resolveAdded(newest, failures, unsupported, added, services);
         return services;
@@ -169,10 +169,10 @@ public final class Resolver {
             final Map<String, RemoteFile> newest,
             final Map<String, String> failures,
             final Map<String, String> unsupported,
-            final List<eu.nordtal.s2.common.plugin.ManagedPlugin> added,
+            final List<eu.nordtal.s2.steward.worker.plugin.ManagedPlugin> added,
             final List<Topology.Service> services) {
         for (final Topology.Service service : services) {
-            for (final eu.nordtal.s2.common.plugin.ManagedPlugin plugin : added) {
+            for (final eu.nordtal.s2.steward.worker.plugin.ManagedPlugin plugin : added) {
                 if (!plugin.service().equals(service.name())) {
                     continue;
                 }

@@ -4,9 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import eu.nordtal.s2.commands.Command;
 import eu.nordtal.s2.commands.CommandMessages;
-import eu.nordtal.s2.common.feedback.Feedback;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.Tone;
+import eu.nordtal.s2.messages.feedback.Feedback;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;

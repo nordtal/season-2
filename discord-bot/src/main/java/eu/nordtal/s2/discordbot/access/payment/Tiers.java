@@ -1,6 +1,6 @@
 package eu.nordtal.s2.discordbot.access.payment;
 
-import eu.nordtal.s2.common.payment.PaymentRequest;
+import eu.nordtal.s2.database.payment.PaymentRequest;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import java.util.Comparator;
 import java.util.List;

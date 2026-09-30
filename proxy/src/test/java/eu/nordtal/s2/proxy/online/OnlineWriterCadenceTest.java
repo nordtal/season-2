@@ -3,7 +3,7 @@ package eu.nordtal.s2.proxy.online;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.online.OnlineDirectory;
+import eu.nordtal.s2.database.online.OnlineDirectory;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 

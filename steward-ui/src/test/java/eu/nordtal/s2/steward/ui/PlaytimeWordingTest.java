@@ -3,7 +3,7 @@ package eu.nordtal.s2.steward.ui;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.access.PlaytimeWording;
+import eu.nordtal.s2.database.access.PlaytimeWording;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;

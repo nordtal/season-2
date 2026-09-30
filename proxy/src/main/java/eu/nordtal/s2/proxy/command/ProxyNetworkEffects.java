@@ -2,7 +2,7 @@ package eu.nordtal.s2.proxy.command;
 
 import com.velocitypowered.api.proxy.ProxyServer;
 import eu.nordtal.s2.commands.network.NetworkEffects;
-import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.messages.Messages;
 import java.util.concurrent.Executor;
 import org.slf4j.Logger;
 

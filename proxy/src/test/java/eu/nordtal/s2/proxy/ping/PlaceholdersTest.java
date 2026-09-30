@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.network.NetworkSnapshot;
+import eu.nordtal.s2.database.network.NetworkSnapshot;
 import java.lang.reflect.Proxy;
 import java.util.Collections;
 import java.util.Map;

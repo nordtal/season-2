@@ -1,8 +1,8 @@
 package eu.nordtal.s2.smp.player;
 
 import eu.nordtal.displaytags.api.events.NameTagCreateEvent;
-import eu.nordtal.s2.common.access.AdminOperators;
-import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.database.access.AdminOperators;
+import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
 import java.util.function.Consumer;
 import org.bukkit.Bukkit;

@@ -2,8 +2,8 @@ package eu.nordtal.s2.steward.ui;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
-import eu.nordtal.s2.common.access.AdminTree;
-import eu.nordtal.s2.common.audit.AuditDirectory;
+import eu.nordtal.s2.database.access.AdminTree;
+import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;

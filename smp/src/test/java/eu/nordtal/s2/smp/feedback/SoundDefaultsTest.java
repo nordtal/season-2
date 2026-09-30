@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.jcore.config.ConfigHandle;
-import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.smp.config.Configs;
 import eu.nordtal.s2.smp.config.SoundsSpec;
 import java.nio.file.Files;

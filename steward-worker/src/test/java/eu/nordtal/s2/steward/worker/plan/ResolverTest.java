@@ -189,16 +189,17 @@ class ResolverTest {
         assertFalse(plan.hasWork(), Report.render(plan));
         assertFalse(plan.hasMissing(), Report.render(plan));
 
-        final eu.nordtal.s2.common.update.UpdateReport report = PlanReport.of(plan);
+        final eu.nordtal.s2.database.update.UpdateReport report = PlanReport.of(plan);
         assertFalse(report.isWork(), report.render());
         assertEquals(
-                eu.nordtal.s2.common.update.UpdateReport.State.UNCHANGED,
+                eu.nordtal.s2.database.update.UpdateReport.State.UNCHANGED,
                 report.line("smp").state(),
                 report.render());
         assertTrue(
                 report.line("smp").changes().stream()
                         .anyMatch(entry -> entry.artefact().equals("coreprotect")
-                                && entry.state() == eu.nordtal.s2.common.update.UpdateReport.Change.State.UNSUPPORTED),
+                                && entry.state()
+                                        == eu.nordtal.s2.database.update.UpdateReport.Change.State.UNSUPPORTED),
                 "the artefact has to stay NAMED while it waits - one dropped from the report is one"
                         + " somebody has to remember: " + report.render());
 
@@ -386,7 +387,7 @@ class ResolverTest {
         assertEquals(Change.Status.NOT_IN_RELEASE, pack.status(), Report.render(plan));
         assertEquals(PACK_SHA1, pack.installed());
         assertFalse(pack.status().isFailure(), Report.render(plan));
-        final eu.nordtal.s2.common.update.UpdateReport report = PlanReport.of(plan);
+        final eu.nordtal.s2.database.update.UpdateReport report = PlanReport.of(plan);
         assertTrue(
                 report.notes().stream().anyMatch(note -> note.contains(PACK_SHA1 + " stays")),
                 "the missing pack is a note in the report: " + report.render());
@@ -473,9 +474,9 @@ class ResolverTest {
         assertEquals(
                 Change.Status.OUTDATED, changeFor(plan, "smp", "packetevents").status());
 
-        final eu.nordtal.s2.common.update.UpdateReport report = PlanReport.of(plan);
+        final eu.nordtal.s2.database.update.UpdateReport report = PlanReport.of(plan);
         assertEquals(
-                eu.nordtal.s2.common.update.UpdateReport.State.PLANNED,
+                eu.nordtal.s2.database.update.UpdateReport.State.PLANNED,
                 report.line("smp").state(),
                 report.render());
         assertTrue(
@@ -490,11 +491,11 @@ class ResolverTest {
                 "/repos/nordtal/season-2/releases",
                 FakeHttp.read("github-season-v0.1.0.json").replace("smp-0.1.0.jar", "steward-worker-0.1.0.jar"));
 
-        final eu.nordtal.s2.common.update.UpdateReport report = PlanReport.of(resolve());
+        final eu.nordtal.s2.database.update.UpdateReport report = PlanReport.of(resolve());
 
         assertFalse(report.line("smp").isMoving(), report.render());
         assertEquals(
-                eu.nordtal.s2.common.update.UpdateReport.State.UNCHANGED,
+                eu.nordtal.s2.database.update.UpdateReport.State.UNCHANGED,
                 report.line("smp").state(),
                 report.render());
     }
@@ -507,11 +508,11 @@ class ResolverTest {
                 "/project/Lu3KuzdV/version",
                 new HttpException(URI.create("https://api.modrinth.com/v2/project/Lu3KuzdV/version"), 503, "down"));
 
-        final eu.nordtal.s2.common.update.UpdateReport report = PlanReport.of(resolve());
+        final eu.nordtal.s2.database.update.UpdateReport report = PlanReport.of(resolve());
 
         // Applier skips the whole SMP over the outage; the line stays FAILED and says what it held back.
         assertEquals(
-                eu.nordtal.s2.common.update.UpdateReport.State.FAILED,
+                eu.nordtal.s2.database.update.UpdateReport.State.FAILED,
                 report.line("smp").state(),
                 report.render());
         assertFalse(report.line("smp").isMoving(), report.render());
@@ -527,7 +528,7 @@ class ResolverTest {
                 new HttpException(
                         URI.create("https://fill.papermc.io/v3/projects/paper/versions/26.2/builds"), 503, "down"));
 
-        final eu.nordtal.s2.common.update.UpdateReport report = PlanReport.of(resolve());
+        final eu.nordtal.s2.database.update.UpdateReport report = PlanReport.of(resolve());
 
         // The applier installs plugins beside a paper row it could not check, so the line must say it moves.
         assertTrue(report.line("smp").isMoving(), report.render());

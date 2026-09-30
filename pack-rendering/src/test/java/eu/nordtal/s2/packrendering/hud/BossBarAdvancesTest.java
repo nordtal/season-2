@@ -1,0 +1,91 @@
+package eu.nordtal.s2.packrendering.hud;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.s2.common.RepositoryRoot;
+import eu.nordtal.s2.packrendering.Glyphs;
+import eu.nordtal.s2.packrendering.PackAdvances;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
+
+/** Derives the advance table from the pack independently of the build and holds the shipped one to it. */
+class BossBarAdvancesTest {
+
+    private static final String FONT = RepositoryRoot.packAssets() + "/nordtal/font/bossbar.json";
+
+    @Test
+    void theShippedTableIsWhatThePackSaysToday() {
+        final Map<Integer, Integer> pack = PackAdvances.of(FONT);
+        final Map<Integer, Integer> shipped = BossBarAdvances.table();
+
+        final List<String> differences = new ArrayList<>();
+        pack.forEach((codePoint, advance) -> {
+            final Integer have = shipped.get(codePoint);
+            if (have == null) {
+                differences.add(
+                        "U+%X advances %d in the pack and is missing from the resource".formatted(codePoint, advance));
+            } else if (!have.equals(advance)) {
+                differences.add(
+                        "U+%X advances %d in the pack and %d in the resource".formatted(codePoint, advance, have));
+            }
+        });
+        shipped.keySet().stream()
+                .filter(codePoint -> !pack.containsKey(codePoint))
+                .forEach(codePoint ->
+                        differences.add("U+%X is in the resource and not in the font".formatted(codePoint)));
+
+        assertEquals(
+                List.of(),
+                differences,
+                "the generated bossbar-advances.properties disagrees with the client's rule applied"
+                        + " to the pack - GlyphAdvances in build-logic and PackAdvances here have drifted");
+    }
+
+    @Test
+    void everyGlyphAHudLineComposesWithHasAKnownAdvance() {
+        for (final String glyph : List.of(
+                Glyphs.BOSSBAR_BG_START,
+                Glyphs.BOSSBAR_BG_END,
+                Glyphs.BOSSBAR_BG_1,
+                Glyphs.BOSSBAR_BG_128,
+                Glyphs.BOSSBAR_SPACE_MINUS_1,
+                Glyphs.BOSSBAR_SPACE_PLUS_3,
+                Glyphs.BOSSBAR_ICON_DIM_OVERWORLD,
+                Glyphs.BOSSBAR_ARROW_090_0)) {
+            assertTrue(
+                    BossBarAdvances.covers(glyph.codePointAt(0)),
+                    "U+%X has no advance, so a pill around it is sized as if it were a missing glyph"
+                            .formatted(glyph.codePointAt(0)));
+        }
+        assertEquals(
+                3,
+                BossBarAdvances.advance(' '),
+                "the space provider's +3 has to win over the ascii sheet's empty cell - the first"
+                        + " provider to declare a code point is the one the client uses");
+    }
+
+    @Test
+    void aCharacterTheFontLacksIsSizedAsTheMissingGlyphBox() {
+        assertEquals(
+                BossBarAdvances.MISSING,
+                BossBarAdvances.advance(0x1F600),
+                "the client draws an undeclared code point as a five-pixel box advancing six; a"
+                        + " pill around one has to be that wide, or the box pokes out of it");
+        assertEquals(BossBarAdvances.MISSING, BossBarAdvances.width(new String(Character.toChars(0x1F600))));
+    }
+
+    @Test
+    void aCapsAndSegmentsAdvanceExactlyTheirDrawnWidthPlusOne() {
+        assertEquals(BossBarWidth.CAP + 1, BossBarAdvances.advance(Glyphs.BOSSBAR_BG_START.codePointAt(0)));
+        assertEquals(BossBarWidth.CAP + 1, BossBarAdvances.advance(Glyphs.BOSSBAR_BG_END.codePointAt(0)));
+        assertEquals(
+                129,
+                BossBarAdvances.advance(Glyphs.BOSSBAR_BG_128.codePointAt(0)),
+                "a 128px segment advances 129: that trailing pixel is why BossBarWidth steps back"
+                        + " after every tile, and why the old bar had a seam at every boundary");
+        assertEquals(-1, BossBarAdvances.advance(Glyphs.BOSSBAR_SPACE_MINUS_1.codePointAt(0)));
+    }
+}

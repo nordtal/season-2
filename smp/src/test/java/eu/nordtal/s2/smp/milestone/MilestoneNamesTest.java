@@ -4,8 +4,8 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.spec.MessageSchema;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.spec.MessageSchema;
 import eu.nordtal.s2.smp.SmpMessages;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;

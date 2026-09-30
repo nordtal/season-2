@@ -4,8 +4,8 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.displaytags.api.DisplayTagsPlugin;
 import eu.nordtal.displaytags.api.nametag.PlayerNameTag;
-import eu.nordtal.s2.common.hud.TabList;
-import eu.nordtal.s2.common.message.MessageRenderer;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
+import eu.nordtal.s2.packrendering.hud.TabList;
 import java.util.List;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;

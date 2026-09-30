@@ -10,7 +10,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.ServerConnection;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.limbo.LimboProtocol;
+import eu.nordtal.s2.limboprotocol.LimboProtocol;
 import eu.nordtal.s2.proxy.config.PackSpec;
 import eu.nordtal.s2.proxy.gate.BackendHealth;
 import eu.nordtal.s2.proxy.gate.LoginRoster;

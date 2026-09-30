@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.access.AccessState;
-import eu.nordtal.s2.common.access.MemberState;
+import eu.nordtal.s2.database.access.AccessState;
+import eu.nordtal.s2.database.access.MemberState;
 import eu.nordtal.s2.proxy.MutableClock;
 import java.time.Duration;
 import java.time.Instant;

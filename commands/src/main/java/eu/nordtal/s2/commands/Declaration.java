@@ -81,8 +81,8 @@ public record Declaration(
     }
 
     /** Returns {@link #describeKey()} as a message. */
-    public eu.nordtal.s2.common.message.MessageRef describe() {
-        return eu.nordtal.s2.common.message.MessageRef.of(describeKey());
+    public eu.nordtal.s2.messages.MessageRef describe() {
+        return eu.nordtal.s2.messages.MessageRef.of(describeKey());
     }
 
     private static String name(final List<String> path) {

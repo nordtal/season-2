@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.limbo.WaitReason;
-import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.limboprotocol.WaitReason;
+import eu.nordtal.s2.messages.Messages;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
 

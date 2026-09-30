@@ -1,12 +1,12 @@
 package eu.nordtal.s2.papercommon.access;
 
-import eu.nordtal.s2.common.access.AccessDirectory;
-import eu.nordtal.s2.common.access.AdminOperators;
-import eu.nordtal.s2.common.access.FullServerAdmission;
-import eu.nordtal.s2.common.notify.Channels;
-import eu.nordtal.s2.common.notify.NotificationListener;
-import eu.nordtal.s2.common.notify.Notifications;
-import eu.nordtal.s2.common.notify.PostgresNotifications;
+import eu.nordtal.s2.database.access.AccessDirectory;
+import eu.nordtal.s2.database.access.AdminOperators;
+import eu.nordtal.s2.database.access.FullServerAdmission;
+import eu.nordtal.s2.database.notify.Channels;
+import eu.nordtal.s2.database.notify.NotificationListener;
+import eu.nordtal.s2.database.notify.Notifications;
+import eu.nordtal.s2.database.notify.PostgresNotifications;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;

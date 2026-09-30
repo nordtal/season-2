@@ -1,7 +1,7 @@
 package eu.nordtal.s2.steward.worker.serve;
 
-import eu.nordtal.s2.common.update.UpdateDirectory;
-import eu.nordtal.s2.common.update.UpdateRequest;
+import eu.nordtal.s2.database.update.UpdateDirectory;
+import eu.nordtal.s2.database.update.UpdateRequest;
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Duration;
@@ -109,7 +109,7 @@ public final class UpdateServer implements AutoCloseable {
             final Outcome outcome = runner.run(request, report -> {
                 // A progress write must never decide the run, or a stopped service would stay stopped.
                 try {
-                    if (!directory.progress(request.id(), eu.nordtal.s2.common.update.UpdateReports.toJson(report))) {
+                    if (!directory.progress(request.id(), eu.nordtal.s2.database.update.UpdateReports.toJson(report))) {
                         // No longer RUNNING, cancelled or settled elsewhere; the run carries on regardless.
                         log.warn(
                                 "Request {} is no longer RUNNING, so its progress was not"

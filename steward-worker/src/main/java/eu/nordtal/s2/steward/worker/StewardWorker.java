@@ -3,12 +3,12 @@ package eu.nordtal.s2.steward.worker;
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.persistence.sql.Database;
-import eu.nordtal.s2.common.audit.AuditDirectory;
-import eu.nordtal.s2.common.command.CommandRequests;
-import eu.nordtal.s2.common.metric.MetricDirectory;
-import eu.nordtal.s2.common.online.OnlineDirectory;
-import eu.nordtal.s2.common.online.OnlineRoster;
-import eu.nordtal.s2.common.update.UpdateDirectory;
+import eu.nordtal.s2.database.audit.AuditDirectory;
+import eu.nordtal.s2.database.command.CommandRequests;
+import eu.nordtal.s2.database.metric.MetricDirectory;
+import eu.nordtal.s2.database.online.OnlineDirectory;
+import eu.nordtal.s2.database.online.OnlineRoster;
+import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.steward.worker.api.WorkerApi;
 import eu.nordtal.s2.steward.worker.apply.ApplyResult;
 import eu.nordtal.s2.steward.worker.backup.Backups;
@@ -123,9 +123,9 @@ public final class StewardWorker {
         final DatabaseSpec databaseConfig = databaseConfig(configDirectory);
         final Database opened = databaseConfig == null ? null : DatabaseWaiting.openDatabase(databaseConfig);
         try {
-            final eu.nordtal.s2.common.plugin.PluginDirectory plugins = opened == null
-                    ? eu.nordtal.s2.common.plugin.PluginDirectory.NONE
-                    : eu.nordtal.s2.common.plugin.PluginDirectory.using(opened.dataSource());
+            final eu.nordtal.s2.steward.worker.plugin.PluginDirectory plugins = opened == null
+                    ? eu.nordtal.s2.steward.worker.plugin.PluginDirectory.NONE
+                    : eu.nordtal.s2.steward.worker.plugin.PluginDirectory.using(opened.dataSource());
             if (opened == null) {
                 log.warn("No database, so any plugin added from the interface is missing from this"
                         + " report. Everything the topology names is in it.");
@@ -182,7 +182,7 @@ public final class StewardWorker {
     /** Resolves what is missing, prints it, migrates and installs it under the bootstrap lock. */
     private static int bootstrapUnderLock(final StewardSpec config, final Database database) {
         final UpdatePlan resolved =
-                Runs.resolve(config, eu.nordtal.s2.common.plugin.PluginDirectory.using(database.dataSource()));
+                Runs.resolve(config, eu.nordtal.s2.steward.worker.plugin.PluginDirectory.using(database.dataSource()));
         final UpdatePlan plan = resolved.onlyMissing();
         System.out.println(Report.render(resolved));
         // Even when not empty, so a report naming only the install does not read as a failure.
@@ -371,8 +371,8 @@ public final class StewardWorker {
         // Shared between the server that settles rows and the runner that commits their countdown.
         final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
         // Admin-added plugins, shared by the runner's resolve and the API.
-        final eu.nordtal.s2.common.plugin.PluginDirectory addedPlugins =
-                eu.nordtal.s2.common.plugin.PluginDirectory.using(database.dataSource());
+        final eu.nordtal.s2.steward.worker.plugin.PluginDirectory addedPlugins =
+                eu.nordtal.s2.steward.worker.plugin.PluginDirectory.using(database.dataSource());
         // Read-only, for the actions feed.
         final AuditDirectory audit = AuditDirectory.using(database.dataSource());
 
@@ -425,7 +425,7 @@ public final class StewardWorker {
             final Database database,
             final UpdateDirectory updates,
             final AuditDirectory audit,
-            final eu.nordtal.s2.common.plugin.PluginDirectory addedPlugins,
+            final eu.nordtal.s2.steward.worker.plugin.PluginDirectory addedPlugins,
             final ConfigHandle<StewardSpec> handle,
             final Schedules schedules) {
         return new WorkerApi(
@@ -464,7 +464,7 @@ public final class StewardWorker {
                                 eu.nordtal.s2.steward.worker.plan.Topology.VOICE_CHAT_PROXY, config.voiceChatProject(),
                                 eu.nordtal.s2.steward.worker.plan.Topology.CORE_PROTECT, config.coreProtectProject())),
                 // The bot's inbox: saving a message asks it to re-read the file.
-                eu.nordtal.s2.common.access.AccessRequests.on(database.dataSource()),
+                eu.nordtal.s2.database.access.AccessRequests.on(database.dataSource()),
                 // A save of this worker's own steward.yml re-arms the clocks.
                 () -> {
                     try {
@@ -484,7 +484,7 @@ public final class StewardWorker {
             final ContainerOps containers,
             final Backups backups,
             final UpdateDirectory updates,
-            final eu.nordtal.s2.common.plugin.PluginDirectory addedPlugins) {
+            final eu.nordtal.s2.steward.worker.plugin.PluginDirectory addedPlugins) {
         // The only evidence bunq works, since both variables are optional.
         try (PaymentLoop paymentLoop = PaymentsStartup.start(config, databaseConfig, database)) {
             try (UpdateServer server = new UpdateServer(
@@ -533,7 +533,8 @@ public final class StewardWorker {
     private static void bootstrapAtStartupUnderLock(final StewardSpec config, final Database database) {
         final UpdatePlan missing;
         try {
-            missing = Runs.resolve(config, eu.nordtal.s2.common.plugin.PluginDirectory.using(database.dataSource()))
+            missing = Runs.resolve(
+                            config, eu.nordtal.s2.steward.worker.plugin.PluginDirectory.using(database.dataSource()))
                     .onlyMissing();
         } catch (final RuntimeException failure) {
             log.error(

@@ -3,7 +3,7 @@ package eu.nordtal.s2.steward.worker.backup;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.update.UpdateDirectory;
+import eu.nordtal.s2.database.update.UpdateDirectory;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -167,11 +167,11 @@ class NightlyClockTest {
 
     /** Every submit is refused, as the directory refuses one while another run is open. */
     private static UpdateDirectory busy() {
-        final eu.nordtal.s2.common.update.UpdateRequest open = new eu.nordtal.s2.common.update.UpdateRequest(
+        final eu.nordtal.s2.database.update.UpdateRequest open = new eu.nordtal.s2.database.update.UpdateRequest(
                 9L,
-                eu.nordtal.s2.common.update.UpdateKind.UPDATE,
-                eu.nordtal.s2.common.update.UpdateStatus.RUNNING,
-                eu.nordtal.s2.common.update.UpdateSource.DISCORD,
+                eu.nordtal.s2.database.update.UpdateKind.UPDATE,
+                eu.nordtal.s2.database.update.UpdateStatus.RUNNING,
+                eu.nordtal.s2.database.update.UpdateSource.DISCORD,
                 "a",
                 java.time.Instant.now(),
                 java.time.Instant.now(),
@@ -183,7 +183,7 @@ class NightlyClockTest {
                 new Class<?>[] {UpdateDirectory.class},
                 (proxy, method, args) -> {
                     if (method.getName().equals("submit")) {
-                        throw eu.nordtal.s2.common.update.RunRefused.runOpen(open);
+                        throw eu.nordtal.s2.database.update.RunRefused.runOpen(open);
                     }
                     throw new AssertionError("the clock asked the database: " + method.getName());
                 });
@@ -208,11 +208,11 @@ class NightlyClockTest {
                 (proxy, method, args) -> {
                     if (method.getName().equals("submit")) {
                         submitted.add(args);
-                        return new eu.nordtal.s2.common.update.UpdateRequest(
+                        return new eu.nordtal.s2.database.update.UpdateRequest(
                                 12L,
-                                (eu.nordtal.s2.common.update.UpdateKind) args[0],
-                                eu.nordtal.s2.common.update.UpdateStatus.PENDING,
-                                (eu.nordtal.s2.common.update.UpdateSource) args[1],
+                                (eu.nordtal.s2.database.update.UpdateKind) args[0],
+                                eu.nordtal.s2.database.update.UpdateStatus.PENDING,
+                                (eu.nordtal.s2.database.update.UpdateSource) args[1],
                                 (String) args[2],
                                 java.time.Instant.now(),
                                 java.time.Instant.now(),
@@ -230,7 +230,7 @@ class NightlyClockTest {
         final Duration next = clock.fire(sunday, sunday);
 
         assertEquals(1, submitted.size());
-        assertEquals(eu.nordtal.s2.common.update.UpdateKind.UPDATE, submitted.get(0)[0]);
+        assertEquals(eu.nordtal.s2.database.update.UpdateKind.UPDATE, submitted.get(0)[0]);
         assertTrue(
                 ((String) submitted.get(0)[2]).startsWith("steward-worker"),
                 "the interface reads a steward-worker row as the clock: "

@@ -5,6 +5,11 @@ plugins {
 val checkedModules =
     listOf(
         ":common",
+        ":database",
+        ":messages",
+        ":message-rendering",
+        ":pack-rendering",
+        ":limbo-protocol",
         ":commands",
         ":paper-common",
         ":limbo",

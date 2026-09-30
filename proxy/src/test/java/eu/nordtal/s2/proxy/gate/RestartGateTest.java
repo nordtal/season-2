@@ -5,9 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.access.AccessState;
-import eu.nordtal.s2.common.access.MemberState;
-import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.database.access.AccessState;
+import eu.nordtal.s2.database.access.MemberState;
+import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.proxy.config.GateSpec;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;

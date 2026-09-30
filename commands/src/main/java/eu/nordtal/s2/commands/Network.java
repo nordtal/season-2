@@ -1,7 +1,7 @@
 package eu.nordtal.s2.commands;
 
-import eu.nordtal.s2.common.message.MessageRef;
-import eu.nordtal.s2.common.message.spec.Name;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.spec.Name;
 
 /** The network's own admin reload. */
 @Name("Network")

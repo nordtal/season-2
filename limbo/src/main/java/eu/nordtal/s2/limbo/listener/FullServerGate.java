@@ -1,7 +1,7 @@
 package eu.nordtal.s2.limbo.listener;
 
-import eu.nordtal.s2.common.access.AccessDirectory;
-import eu.nordtal.s2.common.access.FullServerAdmission;
+import eu.nordtal.s2.database.access.AccessDirectory;
+import eu.nordtal.s2.database.access.FullServerAdmission;
 import io.papermc.paper.event.player.PlayerServerFullCheckEvent;
 import java.util.Objects;
 import java.util.UUID;

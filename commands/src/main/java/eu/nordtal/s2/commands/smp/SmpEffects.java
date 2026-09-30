@@ -1,7 +1,7 @@
 package eu.nordtal.s2.commands.smp;
 
 import eu.nordtal.s2.commands.CommandEffects;
-import eu.nordtal.s2.common.access.OpenPayment;
+import eu.nordtal.s2.database.access.OpenPayment;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;

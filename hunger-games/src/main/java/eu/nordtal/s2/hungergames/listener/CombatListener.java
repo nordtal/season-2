@@ -2,8 +2,6 @@ package eu.nordtal.s2.hungergames.listener;
 
 import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
-import eu.nordtal.s2.common.Glyphs;
-import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.hungergames.GameState;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.hungergames.border.BorderController;
@@ -14,6 +12,8 @@ import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.hungergames.game.Ceremony;
 import eu.nordtal.s2.hungergames.game.WinTracker;
 import eu.nordtal.s2.hungergames.player.ArenaComposition;
+import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.packrendering.Glyphs;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
 import java.time.Instant;
 import java.util.HashMap;

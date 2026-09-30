@@ -5,8 +5,8 @@ import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.ConfigValidator;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.config.EnvOverrideFile;
-import eu.nordtal.s2.common.hud.BoardFrame;
-import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.messages.Tone;
+import eu.nordtal.s2.smp.board.BoardFrame;
 import eu.nordtal.s2.smp.prestige.Prestige;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -81,7 +81,7 @@ public final class Configs {
     }
 
     /**
-     * {@code ColoursSpec}'s five accessors, as the map {@link eu.nordtal.s2.common.message.ToneColours} parses.
+     * {@code ColoursSpec}'s five accessors, as the map {@link eu.nordtal.s2.messagerendering.ToneColours} parses.
      *
      * An exhaustive {@code switch}, so a sixth {@link Tone} does not compile until its colour is named.
      */

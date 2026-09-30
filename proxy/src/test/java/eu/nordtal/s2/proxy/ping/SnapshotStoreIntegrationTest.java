@@ -3,7 +3,7 @@ package eu.nordtal.s2.proxy.ping;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-import eu.nordtal.s2.common.network.NetworkSnapshot;
+import eu.nordtal.s2.database.network.NetworkSnapshot;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.sql.Connection;

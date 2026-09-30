@@ -30,9 +30,9 @@ class StartupFailuresTest {
                 "nothing slows the restart loop down. Retrying a login Discord has already refused"
                         + " every eight seconds is what its rate limiter is for.");
         assertTrue(
-                main.contains("Thread.currentThread().interrupt()"),
-                "the back-off has to stay interruptible: a container that ignores SIGTERM for a"
-                        + " minute is a worse problem than the one being solved");
+                main.contains("Waiting.on("),
+                "the back-off has to go through Waiting, which stays interruptible: a container that"
+                        + " ignores SIGTERM for a minute is a worse problem than the one being solved");
     }
 
     /** The directory holding {@code settings.gradle.kts}, not the nearest file by name. */

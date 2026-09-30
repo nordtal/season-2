@@ -5,6 +5,7 @@ import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.time.NetworkTime;
+import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.network.SnapshotDirectory;
@@ -549,11 +550,7 @@ public class AccessBot implements AutoCloseable {
                 "Waiting {}s before exiting, so this container does not retry a login Discord has"
                         + " already refused every few seconds.",
                 FATAL_BACKOFF.toSeconds());
-        try {
-            Thread.sleep(FATAL_BACKOFF.toMillis());
-        } catch (final InterruptedException stopped) {
-            Thread.currentThread().interrupt();
-        }
+        final var _ = Waiting.on(NetworkTime.clock()).sleep(FATAL_BACKOFF);
         System.exit(1);
     }
 }

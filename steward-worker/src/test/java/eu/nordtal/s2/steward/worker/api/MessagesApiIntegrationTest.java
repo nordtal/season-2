@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.access.AccessRequest;
 import eu.nordtal.s2.database.access.AccessRequestKind;
 import eu.nordtal.s2.database.access.AccessRequestSource;
@@ -23,6 +24,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -57,12 +59,17 @@ class MessagesApiIntegrationTest {
 
     @BeforeEach
     void start() {
-        final MessagesApi messages = new MessagesApi(configs, volumes, inbox, (service, command) -> {
-            if (consoleDown) {
-                throw new DockerException("no running container for " + service);
-            }
-            console.add(service + ": " + command);
-        });
+        final MessagesApi messages = new MessagesApi(
+                configs,
+                volumes,
+                inbox,
+                (service, command) -> {
+                    if (consoleDown) {
+                        throw new DockerException("no running container for " + service);
+                    }
+                    console.add(service + ": " + command);
+                },
+                Waiting.on(Clock.systemUTC()));
         app = Javalin.create(config -> {
                     config.jsonMapper(new JavalinGson(new Gson(), true));
                     config.routes.get("/api/messages", messages::list);

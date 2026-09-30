@@ -4,6 +4,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
+import eu.nordtal.s2.common.time.Backoff;
+import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.access.AccessRequest;
 import eu.nordtal.s2.database.access.AccessRequestKind;
 import eu.nordtal.s2.database.access.AccessRequestSource;
@@ -51,6 +53,8 @@ public final class MessagesApi {
 
     private static final Pattern COMMA = Pattern.compile(",");
 
+    private final Waiting waiting;
+
     /**
      * Who the row is filed under.
      *
@@ -63,12 +67,6 @@ public final class MessagesApi {
     private final @Nullable AccessRequests inbox;
     private final ConfigApi.ConsoleLine console;
 
-    public MessagesApi(final Path configsRoot, final @Nullable Path volumesRoot) {
-        this(configsRoot, volumesRoot, null, (service, command) -> {
-            throw new IllegalArgumentException(service + " has no console here");
-        });
-    }
-
     /**
      * Builds the API.
      *
@@ -80,7 +78,9 @@ public final class MessagesApi {
             final Path configsRoot,
             final @Nullable Path volumesRoot,
             final @Nullable AccessRequests inbox,
-            final ConfigApi.ConsoleLine console) {
+            final ConfigApi.ConsoleLine console,
+            final Waiting waiting) {
+        this.waiting = waiting;
         this.configsRoot = configsRoot;
         this.volumesRoot = volumesRoot;
         this.inbox = inbox;
@@ -219,20 +219,11 @@ public final class MessagesApi {
      *     is not running
      */
     private @Nullable AccessRequest waitFor(final AccessRequests requests, final long id) {
-        final long giveUpAt = System.nanoTime() + ANSWER_WITHIN.plusSeconds(1).toNanos();
-        while (System.nanoTime() < giveUpAt) {
-            final AccessRequest row = requests.outcome(id).orElse(null);
-            if (row != null && row.status().settled()) {
-                return row;
-            }
-            try {
-                Thread.sleep(LOOK_EVERY.toMillis());
-            } catch (final InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                return null;
-            }
-        }
-        return null;
+        return waiting.until(
+                        () -> requests.outcome(id).filter(row -> row.status().settled()),
+                        ANSWER_WITHIN.plusSeconds(1),
+                        Backoff.fixed(LOOK_EVERY))
+                .orElse(null);
     }
 
     /**

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.worker.api;
 
+import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.access.AccessRequests;
 import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.database.update.ServiceHold;
@@ -392,7 +393,7 @@ public final class WorkerApi implements AutoCloseable {
         // Here, not in steward-ui: every file it touches is 0600 root:root, and steward-ui is not root.
         this.configs = new ConfigApi(configs, console::send, java.util.Map.of(ConfigApi.OWN_CONFIG, reReadOwn));
         // Not a config file, so it has its own API.
-        this.messages = new MessagesApi(configs, volumesRoot, accessInbox, console::send);
+        this.messages = new MessagesApi(configs, volumesRoot, accessInbox, console::send, Waiting.on(clock));
         // One query over two tables, not a frontend-side merge.
         this.actions = new ActionsApi(updates, audit);
         // Its own virtual thread per refresh, so a du never waits behind a registry call.

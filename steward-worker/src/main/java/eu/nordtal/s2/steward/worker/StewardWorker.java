@@ -125,7 +125,8 @@ public final class StewardWorker {
         }
         // The one caller that may run with no database, so its absence is said out loud.
         final DatabaseSpec databaseConfig = databaseConfig(configDirectory);
-        final Database opened = databaseConfig == null ? null : DatabaseWaiting.openDatabase(databaseConfig);
+        final Database opened =
+                databaseConfig == null ? null : DatabaseWaiting.openDatabase(databaseConfig, Waiting.on(CLOCK));
         try {
             final eu.nordtal.s2.steward.worker.plugin.PluginDirectory plugins = opened == null
                     ? eu.nordtal.s2.steward.worker.plugin.PluginDirectory.NONE
@@ -156,7 +157,7 @@ public final class StewardWorker {
             return 1;
         }
 
-        final Database opened = DatabaseWaiting.openDatabase(databaseConfig);
+        final Database opened = DatabaseWaiting.openDatabase(databaseConfig, Waiting.on(CLOCK));
         if (opened == null) {
             return 1;
         }
@@ -229,7 +230,7 @@ public final class StewardWorker {
         }
         final StewardSpec config = handle.get();
 
-        final Database opened = DatabaseWaiting.openDatabase(databaseConfig);
+        final Database opened = DatabaseWaiting.openDatabase(databaseConfig, Waiting.on(CLOCK));
         if (opened == null) {
             return 1;
         }
@@ -247,7 +248,7 @@ public final class StewardWorker {
         // First: settleOrphans closes every RUNNING row, which is only right while one worker claims them.
         final Optional<ServeLock> serveLock;
         try {
-            serveLock = ServeLock.acquire(database.dataSource());
+            serveLock = ServeLock.acquire(database.dataSource(), Waiting.on(CLOCK));
         } catch (final java.sql.SQLException failure) {
             log.error(
                     "Could not reach the database to take the serve lock, so this container"
@@ -662,7 +663,7 @@ public final class StewardWorker {
             return false;
         }
         // The pool first, so "not up yet" does not look like a failed migration.
-        final Database opened = DatabaseWaiting.openDatabase(database);
+        final Database opened = DatabaseWaiting.openDatabase(database, Waiting.on(CLOCK));
         if (opened == null) {
             return false;
         }

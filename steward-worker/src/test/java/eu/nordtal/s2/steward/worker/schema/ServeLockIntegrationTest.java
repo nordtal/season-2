@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.time.Waiting;
 import java.sql.SQLException;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.Optional;
 import javax.sql.DataSource;
@@ -54,8 +56,9 @@ class ServeLockIntegrationTest {
 
     @Test
     void aSecondServeIsRefusedWhileTheFirstOneHoldsTheLock() throws SQLException {
-        try (ServeLock first = ServeLock.acquire(dataSource, IMPATIENT).orElseThrow()) {
-            final Optional<ServeLock> second = ServeLock.acquire(dataSource, IMPATIENT);
+        try (ServeLock first = ServeLock.acquire(dataSource, IMPATIENT, Waiting.on(Clock.systemUTC()))
+                .orElseThrow()) {
+            final Optional<ServeLock> second = ServeLock.acquire(dataSource, IMPATIENT, Waiting.on(Clock.systemUTC()));
             assertFalse(
                     second.isPresent(),
                     "a second serve loop took the lock. Both would then settle each other's"
@@ -66,17 +69,19 @@ class ServeLockIntegrationTest {
 
     @Test
     void theLockIsFreeAgainOnceTheFirstOneLetsGoARedeployHasToHandOver() throws SQLException {
-        final ServeLock first = ServeLock.acquire(dataSource, IMPATIENT).orElseThrow();
+        final ServeLock first = ServeLock.acquire(dataSource, IMPATIENT, Waiting.on(Clock.systemUTC()))
+                .orElseThrow();
         first.close();
 
-        final Optional<ServeLock> next = ServeLock.acquire(dataSource, IMPATIENT);
+        final Optional<ServeLock> next = ServeLock.acquire(dataSource, IMPATIENT, Waiting.on(Clock.systemUTC()));
         assertTrue(next.isPresent(), "the replacement container could not take the freed lock");
         next.get().close();
     }
 
     @Test
     void itWaitsForAPredecessorRatherThanFailingTheInstantOneIsStillShuttingDown() throws Exception {
-        final ServeLock leaving = ServeLock.acquire(dataSource, IMPATIENT).orElseThrow();
+        final ServeLock leaving = ServeLock.acquire(dataSource, IMPATIENT, Waiting.on(Clock.systemUTC()))
+                .orElseThrow();
         // The redeploy case: the replacement starts while the old container is still shutting down gracefully.
         final Thread shutdown = new Thread(() -> {
             try {
@@ -88,7 +93,8 @@ class ServeLockIntegrationTest {
         });
         shutdown.start();
 
-        final Optional<ServeLock> replacement = ServeLock.acquire(dataSource, Duration.ofSeconds(10));
+        final Optional<ServeLock> replacement =
+                ServeLock.acquire(dataSource, Duration.ofSeconds(10), Waiting.on(Clock.systemUTC()));
         shutdown.join();
         assertTrue(replacement.isPresent(), "the replacement gave up while its predecessor was still letting go");
         replacement.get().close();
@@ -97,7 +103,8 @@ class ServeLockIntegrationTest {
     @Test
     void theServeLockAndTheRunLockAreDifferentLocksSoServeCanStillBootstrap() throws SQLException {
         // serve holds this lock for its whole life, then bootstraps under RunLock; one key would self-deadlock.
-        try (ServeLock serving = ServeLock.acquire(dataSource, IMPATIENT).orElseThrow();
+        try (ServeLock serving = ServeLock.acquire(dataSource, IMPATIENT, Waiting.on(Clock.systemUTC()))
+                        .orElseThrow();
                 RunLock installing = RunLock.tryAcquire(dataSource).orElseThrow()) {
             assertTrue(serving != null && installing != null, "both held at once");
         }

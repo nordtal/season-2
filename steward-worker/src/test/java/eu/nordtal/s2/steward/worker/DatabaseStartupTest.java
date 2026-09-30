@@ -5,7 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.jcore.persistence.sql.Database;
+import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.steward.worker.config.DatabaseSpec;
+import java.time.Clock;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
 
@@ -36,7 +38,8 @@ class DatabaseStartupTest {
         final long before = System.nanoTime();
         final Database opened = assertTimeoutPreemptively(
                 Duration.ofSeconds(30),
-                () -> DatabaseWaiting.openDatabase(UNREACHABLE, Duration.ofSeconds(3), Duration.ofMillis(200)),
+                () -> DatabaseWaiting.openDatabase(
+                        UNREACHABLE, Duration.ofSeconds(3), Duration.ofMillis(200), Waiting.on(Clock.systemUTC())),
                 "waiting for the database must end at the window, not hang the bootstrap");
         final Duration waited = Duration.ofNanos(System.nanoTime() - before);
 
@@ -53,7 +56,8 @@ class DatabaseStartupTest {
     void aDatabaseThatIsStillNotThereReturnsNullInsteadOfThrowing() {
         final Database opened = assertTimeoutPreemptively(
                 Duration.ofSeconds(30),
-                () -> DatabaseWaiting.openDatabase(UNREACHABLE, Duration.ZERO, Duration.ofMillis(200)),
+                () -> DatabaseWaiting.openDatabase(
+                        UNREACHABLE, Duration.ZERO, Duration.ofMillis(200), Waiting.on(Clock.systemUTC())),
                 "opening an unreachable database should fail fast, not hang the bootstrap");
 
         assertNull(

@@ -45,7 +45,9 @@ A deploy pulls and never builds. The five images (`minecraft`, `steward-worker`,
    generates the secrets, waits until `STEWARD_HOST` resolves to this host so Caddy's certificate
    request succeeds, renews `steward-deployer` and brings the stack up. A second run asks only for
    what is missing. On a host with an existing `postgres-data` it asks for `POSTGRES_PASSWORD`
-   instead of generating one, since Postgres reads it only on an empty data directory.
+   instead of generating one, since Postgres reads it only on an empty data directory. Each service
+   logs in as a database role of its own, `POSTGRES_<SERVICE>_PASSWORD`; steward-worker creates the
+   roles and sets those passwords at every start, so a new one needs only a restart.
 
 4. **Upload the hand-built worlds**; see [Getting a world into a volume](#getting-a-world-into-a-volume).
 5. **Join with a real client.** Nothing on the host proves the login path works.

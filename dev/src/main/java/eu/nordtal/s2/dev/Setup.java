@@ -21,6 +21,12 @@ final class Setup {
     /** The secrets generated rather than asked, with how many random bytes each gets. */
     private static final List<Secret> SECRETS = List.of(
             new Secret("POSTGRES_PASSWORD", 24),
+            new Secret("POSTGRES_DISCORD_BOT_PASSWORD", 24),
+            new Secret("POSTGRES_PROXY_PASSWORD", 24),
+            new Secret("POSTGRES_LIMBO_PASSWORD", 24),
+            new Secret("POSTGRES_HUNGER_GAMES_PASSWORD", 24),
+            new Secret("POSTGRES_SMP_PASSWORD", 24),
+            new Secret("POSTGRES_STEWARD_UI_PASSWORD", 24),
             new Secret("VELOCITY_FORWARDING_SECRET", 24),
             new Secret("STEWARD_API_TOKEN", 32),
             new Secret("STEWARD_DEPLOYER_TOKEN", 32));

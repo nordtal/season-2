@@ -62,12 +62,20 @@ x-minecraft: &minecraft
       max-size: "10m"
       max-file: "5"
 
-# The connection every client shares, each under its own variable prefix. NORDTAL_DATABASE_* points
-# the stack at an external PostgreSQL; POSTGRES_* configures the bundled one.
+# The database every client connects to, each under its own variable prefix. NORDTAL_DATABASE_* points
+# the stack at an external PostgreSQL; POSTGRES_* configures the bundled one. steward-worker logs in as
+# the owner, migrates, and first creates every other service's role with the password given here; each
+# service logs in as its own role, whose name is fixed (DatabaseRole in :database).
 x-database:
   url: &db-url ${NORDTAL_DATABASE_JDBC_URL:-jdbc:postgresql://postgres:5432/${POSTGRES_DB:-nordtal}}
   username: &db-username ${NORDTAL_DATABASE_USERNAME:-${POSTGRES_USER:-nordtal}}
   password: &db-password ${NORDTAL_DATABASE_PASSWORD:-${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD or NORDTAL_DATABASE_PASSWORD in .env}}
+  discord-bot-password: &db-discord-bot-password ${POSTGRES_DISCORD_BOT_PASSWORD:?set POSTGRES_DISCORD_BOT_PASSWORD in .env}
+  proxy-password: &db-proxy-password ${POSTGRES_PROXY_PASSWORD:?set POSTGRES_PROXY_PASSWORD in .env}
+  limbo-password: &db-limbo-password ${POSTGRES_LIMBO_PASSWORD:?set POSTGRES_LIMBO_PASSWORD in .env}
+  hunger-games-password: &db-hunger-games-password ${POSTGRES_HUNGER_GAMES_PASSWORD:?set POSTGRES_HUNGER_GAMES_PASSWORD in .env}
+  smp-password: &db-smp-password ${POSTGRES_SMP_PASSWORD:?set POSTGRES_SMP_PASSWORD in .env}
+  steward-ui-password: &db-steward-ui-password ${POSTGRES_STEWARD_UI_PASSWORD:?set POSTGRES_STEWARD_UI_PASSWORD in .env}
 
 services:
   postgres:
@@ -128,8 +136,8 @@ services:
 
       # database.yml
       NORDTAL_DATABASE_JDBC_URL: *db-url
-      NORDTAL_DATABASE_USERNAME: *db-username
-      NORDTAL_DATABASE_PASSWORD: *db-password
+      NORDTAL_DATABASE_USERNAME: nordtal_discord_bot
+      NORDTAL_DATABASE_PASSWORD: *db-discord-bot-password
 
       # bot.yml
       NORDTAL_BOT_TOKEN: ${NORDTAL_BOT_TOKEN:?set NORDTAL_BOT_TOKEN in .env}
@@ -189,8 +197,8 @@ services:
       VELOCITY_HAPROXY: ${VELOCITY_HAPROXY:-true}
       # The pack url and sha1 live in pack.yml, never here: an override would hide the worker's writes.
       NORDTAL_PROXY_DATABASE_JDBC_URL: *db-url
-      NORDTAL_PROXY_DATABASE_USERNAME: *db-username
-      NORDTAL_PROXY_DATABASE_PASSWORD: *db-password
+      NORDTAL_PROXY_DATABASE_USERNAME: nordtal_proxy
+      NORDTAL_PROXY_DATABASE_PASSWORD: *db-proxy-password
     # No published ports: caddy forwards 25565 to whichever proxy answers.
     volumes:
       - ${PROXY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy}:/data
@@ -235,8 +243,8 @@ services:
       # Makes this a Velocity backend; Paper reads the secret from here.
       PAPER_VELOCITY_SECRET: ${VELOCITY_FORWARDING_SECRET:?set VELOCITY_FORWARDING_SECRET in .env - generate one with `openssl rand -hex 24`}
       NORDTAL_LIMBO_DATABASE_JDBC_URL: *db-url
-      NORDTAL_LIMBO_DATABASE_USERNAME: *db-username
-      NORDTAL_LIMBO_DATABASE_PASSWORD: *db-password
+      NORDTAL_LIMBO_DATABASE_USERNAME: nordtal_limbo
+      NORDTAL_LIMBO_DATABASE_PASSWORD: *db-limbo-password
     volumes:
       - ${LIMBO_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo}:/data
       # plugins/ apart from the rest, as for the proxy.
@@ -271,8 +279,8 @@ services:
       # Makes this a Velocity backend; Paper reads the secret from here.
       PAPER_VELOCITY_SECRET: ${VELOCITY_FORWARDING_SECRET:?set VELOCITY_FORWARDING_SECRET in .env - generate one with `openssl rand -hex 24`}
       NORDTAL_HUNGER_GAMES_DATABASE_JDBC_URL: *db-url
-      NORDTAL_HUNGER_GAMES_DATABASE_USERNAME: *db-username
-      NORDTAL_HUNGER_GAMES_DATABASE_PASSWORD: *db-password
+      NORDTAL_HUNGER_GAMES_DATABASE_USERNAME: nordtal_hunger_games
+      NORDTAL_HUNGER_GAMES_DATABASE_PASSWORD: *db-hunger-games-password
     volumes:
       - ${HUNGER_GAMES_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games}:/data
       # plugins/ apart from the rest, as for the proxy.
@@ -301,8 +309,8 @@ services:
       # Makes this a Velocity backend; Paper reads the secret from here.
       PAPER_VELOCITY_SECRET: ${VELOCITY_FORWARDING_SECRET:?set VELOCITY_FORWARDING_SECRET in .env - generate one with `openssl rand -hex 24`}
       NORDTAL_SMP_DATABASE_JDBC_URL: *db-url
-      NORDTAL_SMP_DATABASE_USERNAME: *db-username
-      NORDTAL_SMP_DATABASE_PASSWORD: *db-password
+      NORDTAL_SMP_DATABASE_USERNAME: nordtal_smp
+      NORDTAL_SMP_DATABASE_PASSWORD: *db-smp-password
     volumes:
       - ${SMP_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp}:/data
       # plugins/ apart from the rest, as for the proxy.
@@ -337,6 +345,13 @@ services:
       NORDTAL_STEWARD_DATABASE_JDBC_URL: *db-url
       NORDTAL_STEWARD_DATABASE_USERNAME: *db-username
       NORDTAL_STEWARD_DATABASE_PASSWORD: *db-password
+      # The passwords of the roles it creates before migrating.
+      NORDTAL_STEWARD_DATABASE_DISCORD_BOT_PASSWORD: *db-discord-bot-password
+      NORDTAL_STEWARD_DATABASE_PROXY_PASSWORD: *db-proxy-password
+      NORDTAL_STEWARD_DATABASE_LIMBO_PASSWORD: *db-limbo-password
+      NORDTAL_STEWARD_DATABASE_HUNGER_GAMES_PASSWORD: *db-hunger-games-password
+      NORDTAL_STEWARD_DATABASE_SMP_PASSWORD: *db-smp-password
+      NORDTAL_STEWARD_DATABASE_STEWARD_UI_PASSWORD: *db-steward-ui-password
 
       # steward.yml; steward-worker always follows each repository's latest GitHub release.
       NORDTAL_STEWARD_SEASON_REPO: ${SEASON_REPO:-}
@@ -414,8 +429,8 @@ services:
 
       # database.yml
       NORDTAL_STEWARD_UI_DATABASE_JDBC_URL: *db-url
-      NORDTAL_STEWARD_UI_DATABASE_USERNAME: *db-username
-      NORDTAL_STEWARD_UI_DATABASE_PASSWORD: *db-password
+      NORDTAL_STEWARD_UI_DATABASE_USERNAME: nordtal_steward_ui
+      NORDTAL_STEWARD_UI_DATABASE_PASSWORD: *db-steward-ui-password
 
       # steward-ui.yml; the address is also the Discord redirect URI and the WebAuthn origin.
       NORDTAL_STEWARD_UI_PUBLIC_URL: ${STEWARD_UI_PUBLIC_URL:-https://${STEWARD_HOST:?set STEWARD_HOST in .env - the name this interface answers on, e.g. steward.dev.nordtal.eu}}

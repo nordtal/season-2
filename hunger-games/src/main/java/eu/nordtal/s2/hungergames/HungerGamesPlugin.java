@@ -39,6 +39,7 @@ import eu.nordtal.s2.hungergames.player.ArenaComposition;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
+import eu.nordtal.s2.messages.context.MessageEnvironment;
 import eu.nordtal.s2.papercommon.access.AdminWatch;
 import eu.nordtal.s2.papercommon.access.BukkitOps;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
@@ -117,7 +118,6 @@ public final class HungerGamesPlugin extends JavaPlugin {
         // Must be first: loads the class every disable step below goes through, while the jar still exists.
         eu.nordtal.s2.common.health.Shutdown.warmUp();
         // {server.name} in every message: the plugin's name is the service's.
-        eu.nordtal.s2.messages.context.Contexts.server(getName());
         try {
             start();
         } catch (final Refusal refusal) {
@@ -162,11 +162,12 @@ public final class HungerGamesPlugin extends JavaPlugin {
 
         // Three roots, most general first; later roots win, so this module's keys beat both others.
         messages = Messages.load(
-                getClass().getClassLoader(),
-                java.util.List.of("messages/paper-common", "messages/commands", "messages/hunger-games"),
-                getDataFolder().toPath().resolve("messages"),
-                Locale.ENGLISH,
-                Locale.GERMAN);
+                        getClass().getClassLoader(),
+                        java.util.List.of("messages/paper-common", "messages/commands", "messages/hunger-games"),
+                        getDataFolder().toPath().resolve("messages"),
+                        Locale.ENGLISH,
+                        Locale.GERMAN)
+                .within(MessageEnvironment.of(getName()));
         messages.unknownOverrideKeys()
                 .forEach(key -> getLogger()
                         .warning("the message override names " + key + ", which no bundle declares - it is stored"

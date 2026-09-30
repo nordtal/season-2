@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.context.Contexts;
+import eu.nordtal.s2.messages.context.MessageEnvironment;
 import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.messages.context.TeamContext;
 import eu.nordtal.s2.messages.spec.Arg;
@@ -65,9 +65,16 @@ class MessageContextsTest {
 
     @Test
     void serverAndSeasonAreInEveryMessage() {
-        Contexts.server("smp");
         assertEquals(
                 "Season 2 on smp: 40%",
+                messages.within(MessageEnvironment.of("smp"))
+                        .format(Locale.ENGLISH, fight.bar().progress(40)));
+    }
+
+    @Test
+    void withoutAnEnvironmentTheGlobalRolesStayAsWritten() {
+        assertEquals(
+                "Season {season.number} on {server.name}: 40%",
                 messages.format(Locale.ENGLISH, fight.bar().progress(40)));
     }
 

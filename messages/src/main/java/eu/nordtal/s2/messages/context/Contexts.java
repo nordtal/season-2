@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Turns message contexts into placeholders, and holds the global {@code server} and {@code season}. */
+/** Turns message contexts into placeholders, and names the global roles {@code server} and {@code season}. */
 public final class Contexts {
 
     /** The roles every message has, with their types, in the order the Steward UI lists them. */
@@ -17,17 +17,9 @@ public final class Contexts {
     /** The order of {@link #GLOBALS}, which {@code Map.of} does not keep. */
     public static final List<String> GLOBAL_ROLES = List.of("server", "season");
 
-    private static final Map<String, MessageContext> GLOBAL_VALUES =
-            new ConcurrentHashMap<>(Map.of("season", SeasonContext.CURRENT));
-
     private static final Map<Class<?>, RecordComponent[]> COMPONENTS = new ConcurrentHashMap<>();
 
     private Contexts() {}
-
-    /** Sets which service this process is, for {@code {server.name}}; until then the placeholder stays as written. */
-    public static void server(final String service) {
-        GLOBAL_VALUES.put("server", new ServiceContext(service));
-    }
 
     /** Returns whether {@code type} is a context record. */
     public static boolean isContext(final Class<?> type) {
@@ -61,9 +53,9 @@ public final class Contexts {
 
     /**
      * Returns {@code values} with each context replaced by one {@code role.property} entry per component.
-     * The global roles are added where the message did not name them.
+     * The environment's global roles are added where the message did not name them.
      */
-    public static Map<String, Object> flatten(final Map<String, ?> values) {
+    public static Map<String, Object> flatten(final Map<String, ?> values, final MessageEnvironment environment) {
         final Map<String, Object> flat = new LinkedHashMap<>();
         values.forEach((role, value) -> {
             if (value instanceof final MessageContext context) {
@@ -72,7 +64,7 @@ public final class Contexts {
                 flat.put(role, value);
             }
         });
-        GLOBAL_VALUES.forEach((role, context) -> {
+        environment.globals().forEach((role, context) -> {
             if (!values.containsKey(role)) {
                 expand(flat, role, context);
             }

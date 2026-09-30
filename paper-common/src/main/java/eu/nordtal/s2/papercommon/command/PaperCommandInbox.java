@@ -9,6 +9,7 @@ import eu.nordtal.s2.database.command.CommandRequests;
 import eu.nordtal.s2.database.notify.Channels;
 import eu.nordtal.s2.database.notify.NotificationListener;
 import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.context.MessageEnvironment;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
@@ -63,11 +64,12 @@ public final class PaperCommandInbox {
      */
     public static Messages sharedBundle(final Plugin plugin) {
         return Messages.load(
-                plugin.getClass().getClassLoader(),
-                "messages/commands",
-                plugin.getDataFolder().toPath().resolve("messages"),
-                java.util.Locale.ENGLISH,
-                java.util.Locale.GERMAN);
+                        plugin.getClass().getClassLoader(),
+                        "messages/commands",
+                        plugin.getDataFolder().toPath().resolve("messages"),
+                        java.util.Locale.ENGLISH,
+                        java.util.Locale.GERMAN)
+                .within(MessageEnvironment.of(plugin.getName()));
     }
 
     /**

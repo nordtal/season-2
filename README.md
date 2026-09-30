@@ -103,7 +103,7 @@ the table below are compiled into the jars above.
 | `pack-rendering`    | library         | Glyph constants, the `<glyph:name>` tag, boss bar and tab list rendering from the resource pack.                                                 |
 | `limbo-protocol`    | library         | The wire protocol between the proxy and limbo.                                                                                                   |
 | `paper-common`      | library         | What the three Paper plugins share and Velocity cannot use.                                                                                      |
-| `commands`          | library         | Every command in the network, declared once.                                                                                                     |
+| `settings`          | library         | Where every process's settings come from, and the database and colour settings they share.                                                       |
 | `resource-pack`     | assets          | The pack, its fonts, and the zip + SHA-1 a release ships.                                                                                        |
 
 `DisplayTags` also runs on this network and ships from
@@ -111,8 +111,8 @@ the table below are compiled into the jars above.
 
 ## How the pieces fit
 
-- **Commands** are declared once in `:commands` and appear on every surface that can carry them.
-  An effect owned by another process travels as a request in that process's inbox. Player commands also need
+- **Commands** are native Brigadier per plugin. An admin command is typed on that server's console; what Steward
+  asks for is a typed request in that server's inbox, answered by the same action. Player commands also need
   the allowlist in `network.yml`.
 - **Phases** are `PRE_EVENT`, `START_EVENT`, `SMP` and `MAINTENANCE`, one database row every process
   re-reads through its signal hub.

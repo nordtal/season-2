@@ -31,8 +31,8 @@ repositories {
 }
 
 dependencies {
-    // :commands carries the declarations, decisions and message keys; this module is the adapter.
-    implementation(project(":commands"))
+    // The access reader, the inbox and the signal hub.
+    implementation(project(":database"))
 
     // The admin tag and the flags in private messages are pack glyphs.
     implementation(project(":pack-rendering"))

@@ -1,5 +1,10 @@
 package eu.nordtal.s2.papercommon.plugin;
 
+import static eu.nordtal.s2.papercommon.PaperCommonMessages.MESSAGES;
+
+import com.mojang.brigadier.Command;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
 import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.health.Shutdown;
@@ -10,13 +15,20 @@ import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AdminOperators;
 import eu.nordtal.s2.database.command.AllowlistDirectory;
+import eu.nordtal.s2.database.inbox.Inbox;
+import eu.nordtal.s2.database.inbox.InboxTable;
+import eu.nordtal.s2.database.inbox.Outcome;
 import eu.nordtal.s2.database.notify.SignalHub;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
+import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
+import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.context.MessageEnvironment;
 import eu.nordtal.s2.papercommon.access.AdminWatch;
 import eu.nordtal.s2.papercommon.access.BukkitOps;
+import eu.nordtal.s2.papercommon.command.Answer;
 import eu.nordtal.s2.papercommon.command.CommandFilter;
 import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.papercommon.player.Identities;
@@ -30,10 +42,20 @@ import eu.nordtal.s2.settings.FileSettings;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.Settings;
 import eu.nordtal.s2.settings.SettingsException;
+import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.logging.Level;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -71,6 +93,17 @@ public abstract class NordtalPlugin extends JavaPlugin {
 
     /** Returns this plugin's message bundle roots, most general first, loaded above {@code paper-common}'s. */
     protected abstract List<String> bundles();
+
+    /** Returns the root of this plugin's commands, {@code smp} for {@code /smp}. */
+    protected abstract String commandRoot();
+
+    /** Returns whether players reach anything under the command root; otherwise only the console sees it. */
+    protected boolean playersUseCommandRoot() {
+        return false;
+    }
+
+    /** Adds this plugin's subcommands to its root, below the {@code reload} the base adds. */
+    protected void commands(final LiteralArgumentBuilder<CommandSourceStack> root) {}
 
     /** Loads this plugin's own settings and refuses what must hold before the database opens, worlds say. */
     protected abstract void prepare();
@@ -154,15 +187,9 @@ public abstract class NordtalPlugin extends JavaPlugin {
                 logger());
         commandFilter = filterCommands(adminWatch);
 
-        final DatabaseSpec login = database.get();
-        final SignalHub signals = SignalHub.open(
-                login.jdbcUrl(),
-                login.username(),
-                login.password(),
-                login.queryTimeoutSeconds(),
-                getName() + "-signals",
-                logger());
+        final SignalHub signals = openHub();
         hub = signals;
+        registerCommands();
         enable();
         adminWatch.listen(signals);
         commandFilter.listen(signals);
@@ -176,8 +203,31 @@ public abstract class NordtalPlugin extends JavaPlugin {
         getLogger().info(getName() + " enabled");
     }
 
+    /** Opens this process's one signal hub on the database settings; nothing listens until it starts. */
+    private SignalHub openHub() {
+        final DatabaseSpec login = database.get();
+        return SignalHub.open(
+                login.jdbcUrl(),
+                login.username(),
+                login.password(),
+                login.queryTimeoutSeconds(),
+                getName() + "-signals",
+                logger());
+    }
+
+    /** Registers this plugin's command root with {@code reload}, and whatever {@link #commands} adds below it. */
+    private void registerCommands() {
+        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
+            final LiteralArgumentBuilder<CommandSourceStack> root =
+                    Commands.literal(commandRoot()).requires(source -> playersUseCommandRoot() || isConsole(source));
+            root.then(console("reload").executes(context -> run(context, this::reloadAnswer)));
+            commands(root);
+            event.registrar().register(root.build());
+        });
+    }
+
     private Messages loadMessages() {
-        final List<String> roots = new ArrayList<>(List.of("messages/paper-common"));
+        final List<String> roots = new ArrayList<>(List.of("messages/database", "messages/paper-common"));
         roots.addAll(bundles());
         final Messages loaded = Messages.load(
                         getClass().getClassLoader(),
@@ -247,6 +297,92 @@ public abstract class NordtalPlugin extends JavaPlugin {
         problems.addAll(reloadOwn());
         problems.forEach(problem -> getLogger().severe("not reloaded, the running values stay: " + problem));
         return List.copyOf(problems);
+    }
+
+    /** Returns the answer to a reload: that everything was re-read, or what was not. */
+    public final Answer reloadAnswer() {
+        final List<String> problems = reload();
+        return problems.isEmpty()
+                ? Answer.done(MESSAGES.admin().reloaded())
+                : Answer.failed(MESSAGES.admin().notReloaded(String.join("; ", problems)));
+    }
+
+    /**
+     * Answers this plugin's inbox on the hub; call it from {@link #enable()}.
+     *
+     * The action runs on the hub's thread, never the main one, and a request left running by a crash is failed.
+     */
+    protected final <P> void answer(final InboxTable<P> table, final Function<P, Answer> action) {
+        final Inbox<P> inbox = Inbox.over(pool, table);
+        final int orphans = inbox.settleOrphans(Map.of("error", getName() + " restarted while it ran this"));
+        if (orphans > 0) {
+            getLogger().warning(orphans + " request(s) in " + table + " were left running by the last start");
+        }
+        inbox.listen(hub(), request -> outcome(safely(() -> action.apply(request.payload()))));
+    }
+
+    /** Returns a subcommand only the console reaches. */
+    protected static LiteralArgumentBuilder<CommandSourceStack> console(final String literal) {
+        return Commands.literal(literal).requires(NordtalPlugin::isConsole);
+    }
+
+    /** Returns whether a command was typed on the console. */
+    protected static boolean isConsole(final CommandSourceStack source) {
+        return source.getSender() instanceof ConsoleCommandSender;
+    }
+
+    /** Runs an admin action off the main thread and tells whoever typed it what came of it. */
+    protected final int run(final CommandContext<CommandSourceStack> context, final Supplier<Answer> action) {
+        final CommandSender sender = context.getSource().getSender();
+        getServer().getScheduler().runTaskAsynchronously(this, () -> tell(sender, safely(action)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /** Asks whoever typed an irreversible action to type it again with {@code confirm}. */
+    protected final int confirmFirst(final CommandContext<CommandSourceStack> context) {
+        tell(
+                context.getSource().getSender(),
+                Answer.refused(new eu.nordtal.s2.messages.Refusal(
+                        Confirmation.NEEDED, MESSAGES.admin().confirm("/" + context.getInput()))));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /** Tells the console or a player an answer, in English with its tone. */
+    protected final void tell(final CommandSender sender, final Answer answer) {
+        final PaperUser user = PaperUser.console(this, sender, messages, this::colours);
+        switch (answer) {
+            case Answer.Done done -> user.reply(done.message(), Tone.GOOD);
+            case Answer.Refused refused -> user.reply(refused.refusal().message(), Tone.WARN);
+            case Answer.Failed failed -> user.reply(failed.message(), Tone.BAD);
+        }
+    }
+
+    /** Returns what an answer becomes in an inbox: English plain text, or the refusal itself. */
+    protected final Outcome outcome(final Answer answer) {
+        return switch (answer) {
+            case Answer.Done done -> Outcome.done(english(done.message()));
+            case Answer.Refused refused -> Outcome.refused(refused.refusal());
+            case Answer.Failed failed -> Outcome.failed(english(failed.message()));
+        };
+    }
+
+    private Answer safely(final Supplier<Answer> action) {
+        try {
+            return action.get();
+        } catch (final RuntimeException failure) {
+            getLogger().log(Level.WARNING, "an admin action failed", failure);
+            return Answer.failed(MESSAGES.admin().failed());
+        }
+    }
+
+    private String english(final MessageRef message) {
+        return PlainTextComponentSerializer.plainText()
+                .serialize(MessageRenderer.of(messages).format(Locale.ENGLISH, message));
+    }
+
+    /** Why the console was asked to type an action again. */
+    private enum Confirmation implements eu.nordtal.s2.messages.RefusalReason {
+        NEEDED
     }
 
     /**

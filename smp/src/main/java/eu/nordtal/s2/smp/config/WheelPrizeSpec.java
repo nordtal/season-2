@@ -7,7 +7,7 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
-/** One prize, or one item of the winner's head start. */
+/** One item with an amount: a prize of the wheel, or a piece of a duel loadout. */
 @ConfigSpec
 public interface WheelPrizeSpec {
 
@@ -32,7 +32,7 @@ public interface WheelPrizeSpec {
     @Order(3)
     @Name("Weight")
     @Key("weight")
-    @Comment("Relative weight. Ignored for the winner's head start, which is not drawn.")
+    @Comment("Relative weight on the wheel. A duel loadout, which is not drawn, ignores it.")
     @NoExplanationNeeded
     default int weight() {
         return 1;

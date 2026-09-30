@@ -17,8 +17,8 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 dependencies {
-    // `api`, since the Paper adapters here have NordtalUser on their signatures.
-    api(project(":commands"))
+    // `api`, since the plugin base hands its inbox and its access reader to the plugins built on it.
+    api(project(":database"))
     // `api`, since the plugin base hands its settings and its pool to the plugins built on it.
     api(project(":settings"))
 

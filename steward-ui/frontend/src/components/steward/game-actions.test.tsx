@@ -16,7 +16,7 @@ function json(status: number, body: unknown): Response {
   })
 }
 
-type Row = { status: string; result?: string }
+type Row = { status: string; result?: string; reason?: string }
 
 function backend({
   row = { status: "DONE", result: "Objective closed." },
@@ -91,8 +91,26 @@ describe("HungerGamesActions", () => {
     await waitFor(() => expect(within(dialog).queryByRole("button", { name: "Start anyway" })).toBeNull())
   })
 
+  it("offers no second step for a refusal a confirmation cannot overrule", async () => {
+    const sent = backend({
+      row: { status: "REFUSED", reason: "WRONG_PHASE", result: "A game only starts during the start event." },
+    })
+    draw(<HungerGamesActions />)
+
+    await screen.findByText("4 registered")
+    fireEvent.click(screen.getByRole("button", { name: "Start round" }))
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Start" }))
+
+    await within(dialog).findByText("A game only starts during the start event.")
+    expect(within(dialog).queryByRole("button", { name: "Start anyway" })).toBeNull()
+    expect(sent).toEqual([{ url: "/api/hunger-games/start", body: {} }])
+  })
+
   it("offers the second step only after the server answered and the round is still open", async () => {
-    const sent = backend({ row: { status: "DONE", result: "Only 4 of the recommended 8." } })
+    const sent = backend({
+      row: { status: "REFUSED", reason: "BELOW_SOFT_MINIMUM", result: "Only 4 of the recommended 8." },
+    })
     draw(<HungerGamesActions />)
 
     await screen.findByText("4 registered")

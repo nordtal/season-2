@@ -1,6 +1,6 @@
 package eu.nordtal.s2.proxy.command;
 
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
 
 import com.mojang.brigadier.tree.CommandNode;
 import com.velocitypowered.api.event.Subscribe;

@@ -314,12 +314,12 @@ describe("summarise - image drift", () => {
   it("says out loud that the comparison did not happen, and repeats the registry's excuse", () => {
     const { level, triggers } = summarise({
       ...healthy(),
-      table: table([service()], { reached: false, message: "504 vom Proxy" }),
+      table: table([service()], { reached: false, message: "504 from the proxy" }),
     })
 
     expect(level).toBe("warn")
     expect(triggers[0].text).toContain("were not compared")
-    expect(triggers[0].text).toContain("504 vom Proxy")
+    expect(triggers[0].text).toContain("504 from the proxy")
     expect(triggers[0].subject).toBe("registry")
   })
 
@@ -860,10 +860,10 @@ describe("summarise - with no thresholds, the checks that need no number", () =>
   it("still says the registry was not reached", () => {
     const { triggers } = summarise({
       ...blind(),
-      table: table([service()], { reached: false, message: "504 vom Proxy" }),
+      table: table([service()], { reached: false, message: "504 from the proxy" }),
     })
 
-    expect(triggers[0].text).toContain("504 vom Proxy")
+    expect(triggers[0].text).toContain("504 from the proxy")
   })
 
   it("still calls an answered, empty service list yellow", () => {

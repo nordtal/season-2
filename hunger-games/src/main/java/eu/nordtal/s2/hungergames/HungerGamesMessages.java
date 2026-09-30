@@ -28,6 +28,27 @@ public interface HungerGamesMessages {
 
         Start start();
 
+        Admin admin();
+
+        @Name("Admin")
+        interface Admin {
+
+            @Name("Started")
+            MessageRef started(@Arg("count") Object count);
+
+            @Name("Ready status header")
+            MessageRef readyHeader();
+
+            @Name("Ready status line")
+            MessageRef readyLine(@Arg("team") TeamContext team, @Arg("status") Object status);
+
+            @Name("Ready")
+            MessageRef ready();
+
+            @Name("Not ready")
+            MessageRef notReady();
+        }
+
         @Name("Start")
         interface Start {
 

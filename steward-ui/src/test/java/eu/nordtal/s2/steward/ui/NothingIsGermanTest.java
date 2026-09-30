@@ -40,7 +40,7 @@ class NothingIsGermanTest {
             "deploy/README.md",
             "compose.yml");
 
-    private static final String BUNDLE = "commands/src/main/resources/messages/commands/";
+    private static final String BUNDLE = "discord-bot/src/main/resources/messages/access/";
     private static final String RULES = "steward-ui/language-rules.json";
 
     /** The files whose subject is German, exempted by file name and no wider, since Steward edits the bot's bundles. */
@@ -91,8 +91,8 @@ class NothingIsGermanTest {
     @Test
     void stemsAndNotOnlyWholeWords() {
         final Set<String> german = forbidden();
-        assertTrue(isGerman("Befehle", german), "inflection: the bundle only says Befehl");
-        assertTrue(isGerman("Konfiguration", german), "compounding: the bundle only says Konfigurationsdateien");
+        assertTrue(isGerman("Befehle", german), "inflection: the list only says Befehl");
+        assertTrue(isGerman("Konfiguration", german), "compounding: the list only says Konfigurationsdateien");
         assertTrue(isGerman("Sperre", german), "Sperre is in language-rules.json by hand");
 
         // `started` and `stopped` extend the German `starte` and `stoppe` by an English `d`, not a listed tail.

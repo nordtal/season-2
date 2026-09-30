@@ -22,7 +22,7 @@ const SEASON = {
   smpStart: "2026-10-08T18:00:00Z",
 }
 
-/** The page's own routes; it has no command card, so no catalogue either. */
+/** The page's own routes and nothing else. */
 function backend(over: { phase?: () => { status: number; body: unknown } } = {}) {
   return vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
     if (url === "/api/season/phase" && init?.method === "POST") {

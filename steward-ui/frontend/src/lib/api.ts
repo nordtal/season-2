@@ -777,8 +777,10 @@ export type AccessRequestRun = {
 export type CommandRun = {
   id: string
   name?: string
-  status: "PENDING" | "RUNNING" | "DONE" | "FAILED" | "EXPIRED"
+  status: "PENDING" | "RUNNING" | "DONE" | "REFUSED" | "FAILED" | "EXPIRED"
   result?: string
+  /** Why a server refused, when it did. */
+  reason?: string
 }
 
 /** `GET /api/smp/track`: the whole track as the database holds it. */
@@ -937,7 +939,7 @@ export type MessageChanges = {
 /**
  * What became of asking the affected service to pick up a saved change.
  *
- * `APPLIED` and `NO_ANSWER` both sent a command; `RESTART_REQUIRED` sent nothing.
+ * `APPLIED` and `NO_ANSWER` both asked the service; `RESTART_REQUIRED` asked nothing.
  */
 export type ConfigReloadOutcome = {
   status: "APPLIED" | "NO_ANSWER" | "RESTART_REQUIRED"

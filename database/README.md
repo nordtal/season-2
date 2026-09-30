@@ -21,6 +21,9 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
   kind carries a command line; `scheduled_for` lets any request wait for its time. The answer is an `Outcome`: done,
   refused with a `Refusal`, or failed, and a handler that throws fails its request, never retried. An asker needs
   no write to see its request expire: a pending row past its patience reads as expired. `Inboxes` lists every table.
+- **The servers' inboxes** take a few typed kinds each: `Reload` (one record every server takes), the SMP's track
+  actions and the Hunger Games start. A server answers one the same way its console answers the same action, and a
+  refusal of one is a `ServerRefusal` worded in this module's bundle, so Steward can say it without the server's.
 - **Time** comes from the caller: every directory that decides by the clock takes an `InstantSource`.
 - **Who asked** for a request is an `Actor`: a person by Discord id, Steward on its own, or the host's
   installer, stored as `actor_kind` and `actor_id` in every request table and never as a name to parse.

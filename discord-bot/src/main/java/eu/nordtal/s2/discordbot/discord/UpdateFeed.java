@@ -1,6 +1,6 @@
 package eu.nordtal.s2.discordbot.discord;
 
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.database.Actor;

@@ -7,8 +7,6 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
-import eu.nordtal.s2.commands.CommandMessages;
-import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
@@ -17,6 +15,7 @@ import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.PaperCommonMessages;
 import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.db.PoiRow;
@@ -127,25 +126,25 @@ public final class NavigateCommand {
 
     /** Answers {@code /poi} typed alone, with the adapter's own help keys, since this tree is built by hand. */
     private int poiHelp(final CommandContext<CommandSourceStack> context) {
-        final NordtalUser user = user(context);
-        user.reply(CommandMessages.MESSAGES.command().help().header("/poi"), Tone.NEUTRAL);
+        final PaperUser user = user(context);
+        user.reply(PaperCommonMessages.MESSAGES.command().help().header("/poi"), Tone.NEUTRAL);
         for (final Sub sub : Sub.values()) {
             user.reply(
-                    CommandMessages.MESSAGES.command().help().line(sub.usage(), user.phrase(sub.describe())),
+                    PaperCommonMessages.MESSAGES.command().help().line(sub.usage(), user.phrase(sub.describe())),
                     Tone.MUTED);
         }
         return Command.SINGLE_SUCCESS;
     }
 
     private int usage(final CommandContext<CommandSourceStack> context, final Sub sub) {
-        final NordtalUser user = user(context);
-        user.reply(CommandMessages.MESSAGES.command().help().usage(sub.usage()), Feedback.REFUSED, Tone.NEUTRAL);
-        user.reply(CommandMessages.MESSAGES.command().help().what(user.phrase(sub.describe())), Tone.MUTED);
+        final PaperUser user = user(context);
+        user.reply(PaperCommonMessages.MESSAGES.command().help().usage(sub.usage()), Feedback.REFUSED, Tone.NEUTRAL);
+        user.reply(PaperCommonMessages.MESSAGES.command().help().what(user.phrase(sub.describe())), Tone.MUTED);
         return Command.SINGLE_SUCCESS;
     }
 
     /** Returns whoever typed it, with the admin flag from the cache, since this runs on the main thread. */
-    private NordtalUser user(final CommandContext<CommandSourceStack> context) {
+    private PaperUser user(final CommandContext<CommandSourceStack> context) {
         final Player player = (Player) context.getSource().getSender();
         return PaperUser.of(
                 plugin,

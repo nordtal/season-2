@@ -18,6 +18,51 @@ public interface PaperCommonMessages {
 
     Login login();
 
+    CommandMessages command();
+
+    @Name("Command")
+    interface CommandMessages {
+
+        @Name("Unknown")
+        MessageRef unknown();
+
+        Help help();
+
+        @Name("Help")
+        interface Help {
+
+            @Name("Header")
+            MessageRef header(@Arg("command") Object command);
+
+            @Name("Line")
+            MessageRef line(@Arg("usage") Object usage, @Arg("what") Object what);
+
+            @Name("Usage")
+            MessageRef usage(@Arg("usage") Object usage);
+
+            @Name("What")
+            MessageRef what(@Arg("what") Object what);
+        }
+    }
+
+    Admin admin();
+
+    @Name("Admin")
+    interface Admin {
+
+        @Name("Reloaded")
+        MessageRef reloaded();
+
+        @Name("Not reloaded")
+        MessageRef notReloaded(@Arg("problems") Object problems);
+
+        @Name("Confirm")
+        MessageRef confirm(@Arg("command") Object command);
+
+        @Name("Failed")
+        MessageRef failed();
+    }
+
     @Name("Login")
     interface Login {
 

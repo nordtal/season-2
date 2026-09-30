@@ -27,7 +27,7 @@ class EmbedBudgetTest {
     private static final int LIMIT = 6000;
 
     private final Messages messages =
-            Messages.load(EmbedBudgetTest.class.getClassLoader(), "messages/commands", Locale.ENGLISH, Locale.GERMAN);
+            Messages.load(EmbedBudgetTest.class.getClassLoader(), "messages/access", Locale.ENGLISH, Locale.GERMAN);
 
     @Test
     void longNotesAndMoreServicesThanFitStillBuildInsideTheLimit() {

@@ -1,6 +1,6 @@
 package eu.nordtal.s2.discordbot.status;
 
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.database.network.NetworkSnapshot;

@@ -14,7 +14,7 @@ public enum Channel {
     /** An admin flag in {@code discord_user} was written; payload the Discord id. The proxy, bot and Paper listen. */
     ADMIN("nordtal_admin"),
 
-    /** A request in a Minecraft server's inbox was written or moved on. The three Paper servers listen. */
+    /** A request in a Minecraft server's inbox was written or moved on. The Paper servers and the proxy listen. */
     SERVER("nordtal_server"),
 
     /** A run was asked for, moved on or settled. steward-worker, the proxy and the bot's update feed listen. */

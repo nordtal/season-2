@@ -1,6 +1,6 @@
 package eu.nordtal.s2.proxy.command;
 
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -12,7 +12,6 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
-import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messages.MessageRef;
@@ -219,8 +218,9 @@ public final class PrivateMessages {
         if (context.getSource() instanceof Player player) {
             return player;
         }
-        new ConsoleUser(messages, context.getSource())
-                .reply(MESSAGES.command().notFromConsole(), Feedback.REFUSED, Tone.BAD);
+        context.getSource()
+                .sendMessage(MessageRenderer.of(messages)
+                        .format(Locale.ENGLISH, MESSAGES.command().notFromConsole()));
         return null;
     }
 
@@ -230,9 +230,13 @@ public final class PrivateMessages {
      * {@code PrivateMessagesTest} checks the hand-written usage against each tree.
      */
     private int usage(final CommandContext<CommandSource> context, final String usage, final MessageRef describe) {
-        final NordtalUser who = context.getSource() instanceof Player player
-                ? user(player)
-                : new ConsoleUser(messages, context.getSource());
+        if (!(context.getSource() instanceof Player player)) {
+            context.getSource()
+                    .sendMessage(MessageRenderer.of(messages)
+                            .format(Locale.ENGLISH, MESSAGES.command().help().usage(usage)));
+            return Command.SINGLE_SUCCESS;
+        }
+        final VelocityUser who = user(player);
         who.reply(MESSAGES.command().help().usage(usage), Feedback.REFUSED, Tone.NEUTRAL);
         who.reply(MESSAGES.command().help().what(who.phrase(describe)), Tone.MUTED);
         return Command.SINGLE_SUCCESS;

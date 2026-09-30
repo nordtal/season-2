@@ -185,7 +185,8 @@ abstract class StewardUiFixture {
 
                     // The real ConfigApi, not a stand-in, against a real directory of real files.
                     final eu.nordtal.s2.steward.worker.api.ConfigApi configApi =
-                            new eu.nordtal.s2.steward.worker.api.ConfigApi(configRoot, (service, command) -> {});
+                            new eu.nordtal.s2.steward.worker.api.ConfigApi(
+                                    configRoot, service -> java.util.Optional.empty());
                     cfg.routes.get("/api/config", configApi::list);
                     cfg.routes.get("/api/config/<file>", configApi::one);
                     cfg.routes.put("/api/config/<file>", configApi::save);

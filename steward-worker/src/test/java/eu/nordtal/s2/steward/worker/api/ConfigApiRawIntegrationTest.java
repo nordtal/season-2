@@ -33,7 +33,7 @@ class ConfigApiRawIntegrationTest {
 
     @BeforeEach
     void start() {
-        final ConfigApi api = new ConfigApi(configs, (service, command) -> {});
+        final ConfigApi api = new ConfigApi(configs, service -> java.util.Optional.empty());
         app = Javalin.create(config -> {
                     config.jsonMapper(new JavalinGson(new Gson(), true));
                     config.routes.get("/api/config", api::list);

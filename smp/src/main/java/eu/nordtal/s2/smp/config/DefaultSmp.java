@@ -94,9 +94,6 @@ final class DefaultSmp {
             award("minecraft:end/kill_dragon", 10),
             award("minecraft:nether/netherite_armor", 10));
 
-    /** The winner's head start: the thing nobody has on day one, plus gear that is spent once used. */
-    static final List<WheelPrizeSpec> HG_WINNER_ITEMS = List.of(item("ELYTRA", 1, 1), item("NETHERITE_INGOT", 1, 1));
-
     /** The wheel's pool; the common band is about 70 % of spins, uncommon 26 %, rare one in twenty-five. */
     static final List<WheelPrizeSpec> WHEEL_PRIZES = List.of(
             // Common: useful, never decisive. Total weight 700.

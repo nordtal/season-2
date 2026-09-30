@@ -1,48 +1,19 @@
 package eu.nordtal.s2.proxy.command;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.jcore.config.spec.Specs;
-import eu.nordtal.s2.commands.Catalogue;
-import eu.nordtal.s2.commands.Declaration;
-import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.database.command.CommandAllowlist;
 import eu.nordtal.s2.proxy.config.NetworkSpec;
-import java.util.ArrayList;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * What the shipped allowlist lets through, held against the catalogue of player commands.
- *
- * Only one direction is asserted: the list also names Paper-only trees that are no {@link Declaration}.
- */
+/** What the shipped allowlist lets through. */
 class CommandGateTest {
 
     /** The list exactly as a fresh {@code network.yml} writes it. */
     private static final CommandAllowlist SHIPPED =
             CommandAllowlist.parse(Specs.createDefault(NetworkSpec.class).commandAllowlist());
-
-    @Test
-    void theCatalogueAndTheListAgree() {
-        final List<String> unreachable = new ArrayList<>();
-        for (final Declaration declaration : Catalogue.all()) {
-            if (declaration.adminOnly() || !declaration.surfaces().contains(Surface.GAME)) {
-                continue;
-            }
-            if (!SHIPPED.allows(declaration.name())) {
-                unreachable.add(declaration.name());
-            }
-        }
-        assertEquals(
-                List.of(),
-                unreachable,
-                "a command declared for players is not on the allowlist, so every player who types"
-                        + " it is told it does not exist - and being told that is what makes nobody"
-                        + " report it");
-    }
 
     @Test
     void adminCommandsAreNotOnIt() {

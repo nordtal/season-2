@@ -391,46 +391,6 @@ public interface SmpDao {
     Optional<Integer> auraOf(@Bind("discordId") DiscordId discordId);
 
     /**
-     * The Discord id of the player who won the start event, if one has been decided.
-     *
-     * The earliest decided game, so a later practice game cannot move a reward already paid.
-     */
-    @SqlQuery("""
-            SELECT member.discord_id
-            FROM hg_game game
-                     JOIN hg_member member ON member.id = game.winner_member_id
-            WHERE game.state = 'DECIDED'
-            ORDER BY game.created
-            LIMIT 1
-            """)
-    Optional<String> startEventWinner();
-
-    /**
-     * Claims the winner's head start and books its aura in one transaction, or answers that it is already gone.
-     *
-     * @return whether this call is the one that granted it
-     */
-    @Transaction
-    default boolean grantHeadStart(final DiscordId discordId, final int aura, final String reason) {
-        if (claimHeadStart(discordId) == 0) {
-            return false;
-        }
-        if (aura != 0) {
-            addAura(discordId, aura, reason, null);
-        }
-        return true;
-    }
-
-    @SqlUpdate("""
-            INSERT INTO smp_player (discord_id, hg_winner_reward_granted)
-            VALUES (:discordId, true)
-            ON CONFLICT (discord_id) DO UPDATE
-                SET hg_winner_reward_granted = true, updated = now()
-                WHERE NOT smp_player.hg_winner_reward_granted
-            """)
-    int claimHeadStart(@Bind("discordId") DiscordId discordId);
-
-    /**
      * Takes this player's one welcome, claimed before anything is shown so racing sessions cannot both win.
      *
      * @return whether this call is the one that took it

@@ -58,12 +58,10 @@ include("pack-rendering")
 // The wire protocol between the proxy and limbo.
 include("limbo-protocol")
 
-// Every command in the network, declared once; platform-free like `:common`.
-include("commands")
-
 // Shared code that needs a Paper type, shaded into the three Paper plugins.
 include("paper-common")
 
+// Where every process's settings come from, and the database and colour settings they share.
 include("settings")
 
 // The architecture rules of CONVENTIONS.md, checked across every module's classes.

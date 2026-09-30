@@ -1,6 +1,6 @@
 package eu.nordtal.s2.papercommon.command;
 
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+import static eu.nordtal.s2.papercommon.PaperCommonMessages.MESSAGES;
 
 import eu.nordtal.s2.database.command.AllowlistDirectory;
 import eu.nordtal.s2.database.command.CommandAllowlist;

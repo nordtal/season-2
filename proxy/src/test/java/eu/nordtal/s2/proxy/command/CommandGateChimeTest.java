@@ -26,7 +26,7 @@ class CommandGateChimeTest {
 
     private static final UUID SOMEBODY = UUID.fromString("00000000-0000-4000-8000-000000000004");
 
-    private final Messages messages = Messages.load(getClass().getClassLoader(), "messages/commands", Locales.DEFAULT);
+    private final Messages messages = Messages.load(getClass().getClassLoader(), "messages/proxy", Locales.DEFAULT);
 
     private static final class SpyChime implements CommandGate.Chime {
 

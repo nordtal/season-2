@@ -17,9 +17,6 @@ repositories {
 }
 
 dependencies {
-    // The adapter for every command this process shares with another.
-    implementation(project(":commands"))
-
     // The only jcore consumer here: the commented-YAML config and the JDBI persistence layer.
     implementation(libs.jcore)
 

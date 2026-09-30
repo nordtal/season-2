@@ -5,7 +5,6 @@ plugins {
 
 // Every message bundle and every module source the bundle and wiring tests read as text.
 repositoryRootTestInputs {
-    readsTree("commands/src/main")
     readsTree("discord-bot/src/main/resources/messages")
     readsTree("hunger-games/src/main")
     readsTree("limbo/src/main")

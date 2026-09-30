@@ -1,6 +1,6 @@
 package eu.nordtal.s2.proxy.command;
 
-import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
+import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
@@ -10,11 +10,10 @@ import com.velocitypowered.api.proxy.Player;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.Tone;
-import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.proxy.ProxyMessages;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -55,8 +54,9 @@ public final class InfoTexts {
     private int print(final CommandContext<CommandSource> context, final Function<Object, MessageRef> text) {
         if (!(context.getSource() instanceof Player player)) {
             // GAME and not CONSOLE: a clickable link is not what an operator wants from a console.
-            new ConsoleUser(messages, context.getSource())
-                    .reply(MESSAGES.command().notFromConsole(), Feedback.REFUSED, Tone.BAD);
+            context.getSource()
+                    .sendMessage(MessageRenderer.of(messages)
+                            .format(Locale.ENGLISH, MESSAGES.command().notFromConsole()));
             return Command.SINGLE_SUCCESS;
         }
         player.sendMessage(

@@ -14,7 +14,6 @@ import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.Outcome;
 import eu.nordtal.s2.database.inbox.Request;
-import eu.nordtal.s2.steward.worker.docker.DockerException;
 import io.javalin.Javalin;
 import io.javalin.json.JavalinGson;
 import java.io.IOException;
@@ -63,7 +62,7 @@ class MessagesApiIntegrationTest {
     private volatile @Nullable Function<Request<BotRequest>, Outcome> bot;
 
     private @Nullable ScheduledExecutorService botThread;
-    /** Every console line sent, as {@code service: command}; {@link #consoleDown} makes it throw. */
+    /** Every service asked for a reload; {@link #consoleDown} makes it not answer. */
     private final List<String> console = new ArrayList<>();
 
     private boolean consoleDown;
@@ -95,11 +94,11 @@ class MessagesApiIntegrationTest {
                 configs,
                 volumes,
                 inbox,
-                (service, command) -> {
-                    if (consoleDown) {
-                        throw new DockerException("no running container for " + service);
-                    }
-                    console.add(service + ": " + command);
+                service -> {
+                    console.add(service);
+                    return consoleDown
+                            ? java.util.Optional.empty()
+                            : java.util.Optional.of(new ConfigApi.Reloaded(true, "reloaded"));
                 },
                 Waiting.on(Clock.systemUTC()));
         app = Javalin.create(config -> {
@@ -300,8 +299,8 @@ class MessagesApiIntegrationTest {
 
         final JsonObject reload = saved.getAsJsonObject("reload");
         assertEquals("APPLIED", reload.get("status").getAsString(), saved.toString());
-        assertEquals(List.of("smp: smp reload"), console);
-        assertTrue(asked.isEmpty(), "no row belongs on the inbox for a service with a console");
+        assertEquals(List.of("smp"), console);
+        assertTrue(asked.isEmpty(), "no row belongs on the bot's inbox for a server's bundle");
     }
 
     @Test

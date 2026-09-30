@@ -27,8 +27,12 @@ import org.junit.jupiter.api.Test;
  */
 class OneRefusalLineTest {
 
-    /** The one key. It lives in {@code :commands}' bundle, so both surfaces already share it. */
+    /** The one key, in paper-common's bundle and in the proxy's, which share no bundle. */
     private static final String KEY = "command.unknown";
+
+    /** The two bundles carrying it, each missing its language and extension. */
+    private static final List<String> BUNDLES = List.of(
+            "paper-common/src/main/resources/messages/paper-common/", "proxy/src/main/resources/messages/proxy/");
 
     /** The two classes that answer a command somebody may not, or cannot, run. */
     private static final List<String> REFUSERS = List.of(
@@ -65,16 +69,25 @@ class OneRefusalLineTest {
                         + " incomplete command', in the server's language, with a red caret");
     }
 
-    /** Reads the bundle off the file, since {@code :commands} is on no classpath a test here can load. */
+    /** Reads both bundles off the file, since neither module is on a classpath a test here can load. */
     @Test
-    void theOneKeyExistsInBothLanguagesOfTheSharedBundle() {
+    void theOneKeySaysTheSameInPaperAndInTheProxy() throws java.io.IOException {
         for (final String language : List.of("en", "de")) {
-            final Path bundle =
-                    RepositoryRoot.resolve("commands/src/main/resources/messages/commands/" + language + ".properties");
-            assertTrue(
-                    read(bundle).contains("\n" + KEY + "="),
-                    KEY + " is missing from " + language + ", so the refusal reaches a player as the"
-                            + " key itself - which does tell them something, in the worst way");
+            final java.util.Set<String> sentences = new TreeSet<>();
+            for (final String bundle : BUNDLES) {
+                final java.util.Properties read = new java.util.Properties();
+                try (java.io.Reader in = java.nio.file.Files.newBufferedReader(
+                        RepositoryRoot.resolve(bundle + language + ".properties"))) {
+                    read.load(in);
+                }
+                final String sentence = read.getProperty(KEY);
+                assertTrue(
+                        sentence != null,
+                        KEY + " is missing from " + bundle + language + ", so the refusal reaches a player as the"
+                                + " key itself - which does tell them something, in the worst way");
+                sentences.add(sentence);
+            }
+            assertEquals(1, sentences.size(), "the proxy and Paper word " + KEY + " differently: " + sentences);
         }
     }
 

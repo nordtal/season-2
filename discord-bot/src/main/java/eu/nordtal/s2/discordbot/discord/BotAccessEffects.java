@@ -28,14 +28,12 @@ public final class BotAccessEffects implements AccessChanges {
     private final AdminLog admin;
     private final SeasonStart seasonStart;
     private final Messages messages;
-    private final Messages shared;
     private final org.slf4j.Logger log;
 
     /**
      * Creates the effects over both views of the same bundle files.
      *
      * @param messages this bot's layered bundle
-     * @param shared {@code :commands}' bundle as the command inbox renders it, reloaded together with {@code messages}
      */
     public BotAccessEffects(
             final AccessDirectory access,
@@ -44,7 +42,6 @@ public final class BotAccessEffects implements AccessChanges {
             final AdminLog admin,
             final SeasonStart seasonStart,
             final Messages messages,
-            final Messages shared,
             final org.slf4j.Logger log) {
         this.access = access;
         this.roles = roles;
@@ -52,7 +49,6 @@ public final class BotAccessEffects implements AccessChanges {
         this.admin = admin;
         this.seasonStart = seasonStart;
         this.messages = messages;
-        this.shared = shared;
         this.log = log;
     }
 
@@ -171,7 +167,6 @@ public final class BotAccessEffects implements AccessChanges {
     public boolean reloadMessages() {
         try {
             messages.reload();
-            shared.reload();
             return true;
         } catch (final RuntimeException failure) {
             log.error("the messages could not be reloaded, the running ones are unchanged", failure);

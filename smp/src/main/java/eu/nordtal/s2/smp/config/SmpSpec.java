@@ -331,27 +331,6 @@ public interface SmpSpec {
         return DefaultSmp.ADVANCEMENT_AWARDS;
     }
 
-    @Order(35)
-    @Name("Hunger Games winner aura")
-    @Key("hg-winner-aura")
-    @Comment({
-        "The head start the start event's winner carries into the season, paid on their FIRST",
-        "JOIN and never again. Small enough that a week of real contribution overtakes it."
-    })
-    @Explain("The head start paid once on the hunger games winner's first join.")
-    default int hgWinnerAura() {
-        return 150;
-    }
-
-    @Order(36)
-    @Name("Hunger Games winner items")
-    @Key("hg-winner-items")
-    @Comment({"One or two special items for the winner: Bukkit material names with an amount."})
-    @Explain("One or two special items for the hunger games winner.")
-    default List<WheelPrizeSpec> hgWinnerItems() {
-        return DefaultSmp.HG_WINNER_ITEMS;
-    }
-
     @Order(37)
     @Name("Wheel extra spin chances (percent)")
     @Key("wheel-extra-spin-percents")

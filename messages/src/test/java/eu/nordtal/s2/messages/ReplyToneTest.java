@@ -24,9 +24,8 @@ import org.junit.jupiter.api.Test;
  */
 class ReplyToneTest {
 
-    /** Every source tree that can send a reply through {@code NordtalUser}. */
+    /** Every source tree that can send a reply through a user. */
     private static final List<String> SOURCE_ROOTS = List.of(
-            "commands/src/main/java",
             "paper-common/src/main/java",
             "proxy/src/main/java",
             "hunger-games/src/main/java",
@@ -35,8 +34,10 @@ class ReplyToneTest {
 
     /** The files that may send a reply without naming a tone, where naming one would be wrong. */
     private static final Map<String, String> ALLOWED = Map.of(
-            "commands/src/main/java/eu/nordtal/s2/commands/NordtalUser.java",
-            "the default overloads, which are what every other call site is measured against");
+            "proxy/src/main/java/eu/nordtal/s2/proxy/command/VelocityUser.java",
+            "the overload without a tone, which is what every other call site is measured against",
+            "paper-common/src/main/java/eu/nordtal/s2/papercommon/command/PaperUser.java",
+            "the overloads without a tone, which are what every other call site is measured against");
 
     /** {@code .reply(} and everything up to its closing bracket. */
     private static final Pattern CALL = Pattern.compile("\\.reply\\s*\\(");

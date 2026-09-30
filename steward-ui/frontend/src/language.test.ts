@@ -13,7 +13,7 @@ import { assert, describe, expect, it } from "vitest"
 const here = path.dirname(fileURLToPath(import.meta.url))
 const frontend = path.resolve(here, "..")
 const repository = path.resolve(frontend, "../..")
-const bundle = path.join(repository, "commands/src/main/resources/messages/commands")
+const bundle = path.join(repository, "discord-bot/src/main/resources/messages/access")
 
 type Rules = {
   alsoEnglish: string[]
@@ -144,8 +144,8 @@ describe("nothing in Steward is German", () => {
 
   it("knows a German word by its stem, not only by the form the bot happens to use", () => {
     /** Inflection, compounding and shape, the three ways a derived list is extended. */
-    expect(isGerman("Befehle", GERMAN), "inflection: the bundle only says Befehl").toBe(true)
-    expect(isGerman("Konfiguration", GERMAN), "compounding: the bundle only says Konfigurationsdateien").toBe(true)
+    expect(isGerman("Befehle", GERMAN), "inflection: the list only says Befehl").toBe(true)
+    expect(isGerman("Konfiguration", GERMAN), "compounding: the list only says Konfigurationsdateien").toBe(true)
     /** No stem or ending derives it, so it is in the rules file by hand. */
     expect(isGerman("Sperre", GERMAN), "Sperre is in the rules file by hand").toBe(true)
 

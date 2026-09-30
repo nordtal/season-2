@@ -327,7 +327,6 @@ CREATE TABLE smp_player
     last_death_x             integer,
     last_death_y             integer,
     last_death_z             integer,
-    hg_winner_reward_granted boolean     NOT NULL DEFAULT false,
     created                  timestamptz NOT NULL DEFAULT now(),
     updated                  timestamptz NOT NULL DEFAULT now(),
     welcome_shown            boolean     NOT NULL DEFAULT false
@@ -565,7 +564,7 @@ CREATE TABLE smp_inbox
 (
     id            bigserial   PRIMARY KEY,
     kind          varchar(32) NOT NULL
-        CONSTRAINT smp_inbox_kind_check CHECK (kind IN ('COMMAND')),
+        CONSTRAINT smp_inbox_kind_check CHECK (kind IN ('RELOAD', 'COMPLETE_OBJECTIVE', 'UNLOCK_MILESTONE')),
     payload       jsonb       NOT NULL,
     status        varchar(16) NOT NULL DEFAULT 'PENDING'
         CONSTRAINT smp_inbox_status_check
@@ -582,14 +581,14 @@ CREATE TABLE smp_inbox
     CONSTRAINT smp_inbox_actor_id_iff_person CHECK ((actor_kind = 'PERSON') = (actor_id IS NOT NULL)),
     CONSTRAINT smp_inbox_finished_iff_settled CHECK ((status IN ('PENDING', 'RUNNING')) = (finished IS NULL))
 );
-COMMENT ON TABLE smp_inbox IS 'Owned by smp, which claims and carries out every row. steward-ui and the other Paper servers'' consoles ask.';
+COMMENT ON TABLE smp_inbox IS 'Owned by smp, which claims and carries out every row. steward-ui asks for the track actions, steward-worker for a reload.';
 CREATE INDEX smp_inbox_pending ON smp_inbox (scheduled_for, id) WHERE status = 'PENDING';
 
 CREATE TABLE hunger_games_inbox
 (
     id            bigserial   PRIMARY KEY,
     kind          varchar(32) NOT NULL
-        CONSTRAINT hunger_games_inbox_kind_check CHECK (kind IN ('COMMAND')),
+        CONSTRAINT hunger_games_inbox_kind_check CHECK (kind IN ('RELOAD', 'START_GAME')),
     payload       jsonb       NOT NULL,
     status        varchar(16) NOT NULL DEFAULT 'PENDING'
         CONSTRAINT hunger_games_inbox_status_check
@@ -606,14 +605,14 @@ CREATE TABLE hunger_games_inbox
     CONSTRAINT hunger_games_inbox_actor_id_iff_person CHECK ((actor_kind = 'PERSON') = (actor_id IS NOT NULL)),
     CONSTRAINT hunger_games_inbox_finished_iff_settled CHECK ((status IN ('PENDING', 'RUNNING')) = (finished IS NULL))
 );
-COMMENT ON TABLE hunger_games_inbox IS 'Owned by hunger-games, which claims and carries out every row. steward-ui and the other Paper servers'' consoles ask.';
+COMMENT ON TABLE hunger_games_inbox IS 'Owned by hunger-games, which claims and carries out every row. steward-ui asks for the start, steward-worker for a reload.';
 CREATE INDEX hunger_games_inbox_pending ON hunger_games_inbox (scheduled_for, id) WHERE status = 'PENDING';
 
 CREATE TABLE limbo_inbox
 (
     id            bigserial   PRIMARY KEY,
     kind          varchar(32) NOT NULL
-        CONSTRAINT limbo_inbox_kind_check CHECK (kind IN ('COMMAND')),
+        CONSTRAINT limbo_inbox_kind_check CHECK (kind IN ('RELOAD')),
     payload       jsonb       NOT NULL,
     status        varchar(16) NOT NULL DEFAULT 'PENDING'
         CONSTRAINT limbo_inbox_status_check
@@ -630,8 +629,32 @@ CREATE TABLE limbo_inbox
     CONSTRAINT limbo_inbox_actor_id_iff_person CHECK ((actor_kind = 'PERSON') = (actor_id IS NOT NULL)),
     CONSTRAINT limbo_inbox_finished_iff_settled CHECK ((status IN ('PENDING', 'RUNNING')) = (finished IS NULL))
 );
-COMMENT ON TABLE limbo_inbox IS 'Owned by limbo, which claims and carries out every row. The other Paper servers'' consoles ask.';
+COMMENT ON TABLE limbo_inbox IS 'Owned by limbo, which claims and carries out every row. steward-worker asks for a reload.';
 CREATE INDEX limbo_inbox_pending ON limbo_inbox (scheduled_for, id) WHERE status = 'PENDING';
+
+CREATE TABLE proxy_inbox
+(
+    id            bigserial   PRIMARY KEY,
+    kind          varchar(32) NOT NULL
+        CONSTRAINT proxy_inbox_kind_check CHECK (kind IN ('RELOAD')),
+    payload       jsonb       NOT NULL,
+    status        varchar(16) NOT NULL DEFAULT 'PENDING'
+        CONSTRAINT proxy_inbox_status_check
+            CHECK (status IN ('PENDING', 'RUNNING', 'DONE', 'REFUSED', 'FAILED', 'EXPIRED', 'CANCELLED')),
+    actor_kind    varchar(16) NOT NULL
+        CONSTRAINT proxy_inbox_actor_kind_check CHECK (actor_kind IN ('PERSON', 'STEWARD', 'HOST')),
+    actor_id      varchar(32),
+    requested     timestamptz NOT NULL DEFAULT now(),
+    scheduled_for timestamptz NOT NULL DEFAULT now(),
+    expires       timestamptz,
+    started       timestamptz,
+    finished      timestamptz,
+    outcome       jsonb,
+    CONSTRAINT proxy_inbox_actor_id_iff_person CHECK ((actor_kind = 'PERSON') = (actor_id IS NOT NULL)),
+    CONSTRAINT proxy_inbox_finished_iff_settled CHECK ((status IN ('PENDING', 'RUNNING')) = (finished IS NULL))
+);
+COMMENT ON TABLE proxy_inbox IS 'Owned by the proxy, which claims and carries out every row. steward-worker asks for a reload.';
+CREATE INDEX proxy_inbox_pending ON proxy_inbox (scheduled_for, id) WHERE status = 'PENDING';
 
 CREATE TABLE bank_inbox
 (
@@ -770,17 +793,14 @@ GRANT ${role_read} TO ${role_discord_bot}, ${role_proxy}, ${role_limbo}, ${role_
 GRANT SELECT ON discord_user, account_link, access_grant, payment_request, season_phase, player_playtime,
     network_setting, online_count, online_player TO ${role_read};
 
--- The command catalogue, as long as it exists: a Paper server's console reaches the other two, and
--- steward-ui's actions reach the SMP and the Hunger Games; every server claims only its own inbox.
-GRANT SELECT, INSERT ON smp_inbox, hunger_games_inbox, limbo_inbox
-    TO ${role_limbo}, ${role_hunger_games}, ${role_smp};
-GRANT USAGE ON SEQUENCE smp_inbox_id_seq, hunger_games_inbox_id_seq, limbo_inbox_id_seq
-    TO ${role_limbo}, ${role_hunger_games}, ${role_smp};
+-- Every server claims and settles its own inbox; steward-ui's actions reach the SMP and the Hunger
+-- Games, and steward-worker, the owner, asks every server for a reload.
+GRANT SELECT, UPDATE ON smp_inbox TO ${role_smp};
+GRANT SELECT, UPDATE ON hunger_games_inbox TO ${role_hunger_games};
+GRANT SELECT, UPDATE ON limbo_inbox TO ${role_limbo};
+GRANT SELECT, UPDATE ON proxy_inbox TO ${role_proxy};
 GRANT SELECT, INSERT ON smp_inbox, hunger_games_inbox TO ${role_steward_ui};
 GRANT USAGE ON SEQUENCE smp_inbox_id_seq, hunger_games_inbox_id_seq TO ${role_steward_ui};
-GRANT UPDATE ON smp_inbox TO ${role_smp};
-GRANT UPDATE ON hunger_games_inbox TO ${role_hunger_games};
-GRANT UPDATE ON limbo_inbox TO ${role_limbo};
 -- The journal is appended to and never changed.
 GRANT INSERT ON audit_log
     TO ${role_discord_bot}, ${role_proxy}, ${role_limbo}, ${role_hunger_games}, ${role_smp}, ${role_steward_ui};
@@ -830,7 +850,6 @@ GRANT SELECT, INSERT ON bot_inbox TO ${role_smp};
 GRANT USAGE ON SEQUENCE bot_inbox_id_seq TO ${role_smp};
 GRANT SELECT, INSERT, UPDATE, DELETE ON smp_player, smp_aura_event, smp_milestone, smp_objective, smp_contribution,
     smp_grave, smp_poi, smp_spin, smp_reset TO ${role_smp};
-GRANT SELECT ON hg_game, hg_member TO ${role_smp};
 
 -- steward-ui
 GRANT SELECT, INSERT, UPDATE, DELETE ON admin_grant, steward_session, steward_credential, steward_push_subscription,

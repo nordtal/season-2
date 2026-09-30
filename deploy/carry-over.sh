@@ -11,7 +11,7 @@
 #
 # Carried: access, links, the admin tree, playtime, the season, smp and Hunger Games data, the audit
 # log, Steward's security keys and push subscriptions, the bot's posted messages, the payment
-# watermark, holds and added plugins. Dropped: run and request history, metrics, sessions, link
+# gateway and its watermark, holds and added plugins. Dropped: run and request history, metrics, sessions, link
 # codes and who is online, which a fresh installation rebuilds or never needs.
 set -eu
 
@@ -29,8 +29,10 @@ psql_on() {
     psql -X -q -v ON_ERROR_STOP=1 -U "$USER_NAME" -d "$database" "$@"
 }
 
-# One line per carried table, in foreign key order: the table, its columns, and optionally the
-# select list read from the old database when a column is not carried as it is.
+# One line per carried table, in foreign key order: the table, its columns, and optionally what is
+# read from the old database: a select list over the table of the same name, or a whole query when
+# the rows come from elsewhere. The counts compare the new table with what that read returns. A literal
+# is dollar-quoted, since this list is one single-quoted string.
 TABLES='discord_user|discord_id, locale, member_state, donor, updated, admin, discord_username, discord_username_updated, discord_display_name, discord_display_name_updated, discord_avatar_url, discord_avatar_url_updated, admin_granted_by, admin_granted_at, pack_exempt_by, pack_exempt_at|
 account_link|discord_id, mc_uuid, linked, mc_name, mc_name_updated|
 admin_grant|id, discord_id, granted_by, granted|
@@ -38,7 +40,7 @@ payment_request|id, reference, discord_id, days, amount_cents, donation_cents, s
 access_grant|id, discord_id, valid_from, valid_until, source, payment_request_id, revoked, created|
 payment_notice|bunq_payment_id, reason, detail, reported, posted|
 expiry_notice|discord_id, valid_until, kind, sent|
-bot_setting|key, value, created|
+payment_gateway|id, state, watermark|SELECT true, (SELECT value FROM bot_setting WHERE key = $$payment.gateway$$ AND value IN ($$ON$$, $$OFF$$)), (SELECT value::timestamptz FROM bot_setting WHERE key = $$payment.watermark$$) WHERE EXISTS (SELECT 1 FROM bot_setting WHERE key IN ($$payment.gateway$$, $$payment.watermark$$))
 season_phase|id, phase, updated, launch, smp_start|
 player_playtime|discord_id, seconds, updated|
 hg_game|id, state, started, ended, created, winner_member_id|id, state, started, ended, created, NULL
@@ -53,7 +55,7 @@ smp_contribution|objective_id, discord_id, amount, updated|
 smp_grave|id, owner_id, world, x, y, z, contents, experience, created, looted, looted_by|
 smp_poi|id, name, world, x, y, z, created_by, created|
 smp_spin|discord_id, granted, used, last_free|
-service_hold|service, since, held_by, request_id|service, since, held_by, NULL
+service_hold|service, since, actor_kind, actor_id, request_id|service, since, CASE WHEN held_by ~ $re$\(\d{17,20}\)\s*$$re$ THEN $$PERSON$$ WHEN held_by IS NULL OR held_by LIKE $$steward-worker%$$ THEN $$STEWARD$$ ELSE $$HOST$$ END, substring(held_by FROM $re$\((\d{17,20})\)\s*$$re$), NULL
 service_plugin|service, artifact, project_id, file_prefix, title, icon_url, page_url, added, added_by|
 audit_log|id, occurred, action, actor, subject, mc_uuid, detail|
 managed_message|kind, channel_id, message_id, updated|
@@ -71,10 +73,18 @@ trap 'rm -f "$STREAM"' EXIT
     echo 'DELETE FROM season_phase;'
 } >"$STREAM"
 
-echo "$TABLES" | while IFS='|' read -r table columns select; do
-    [ -n "$select" ] || select="$columns"
+# What a line reads from the old database.
+old_query() {
+    case "$3" in
+        SELECT\ *) printf '%s' "$3" ;;
+        '') printf 'SELECT %s FROM %s' "$2" "$1" ;;
+        *) printf 'SELECT %s FROM %s' "$3" "$1" ;;
+    esac
+}
+
+printf '%s\n' "$TABLES" | while IFS='|' read -r table columns select; do
     echo "COPY $table ($columns) FROM stdin;" >>"$STREAM"
-    psql_on "$OLD" -c "COPY (SELECT $select FROM $table) TO STDOUT" >>"$STREAM"
+    psql_on "$OLD" -c "COPY ($(old_query "$table" "$columns" "$select")) TO STDOUT" >>"$STREAM"
     printf '%s\n' '\.' >>"$STREAM"
 done
 
@@ -90,9 +100,9 @@ psql_on "$NEW" -f "$STREAM" >/dev/null
 
 printf '%-28s %10s %10s\n' table old new
 failed=0
-echo "$TABLES" | {
+printf '%s\n' "$TABLES" | {
     while IFS='|' read -r table columns select; do
-        old_count="$(psql_on "$OLD" -At -c "SELECT count(*) FROM $table")"
+        old_count="$(psql_on "$OLD" -At -c "SELECT count(*) FROM ($(old_query "$table" "$columns" "$select")) AS carried")"
         new_count="$(psql_on "$NEW" -At -c "SELECT count(*) FROM $table")"
         printf '%-28s %10s %10s\n' "$table" "$old_count" "$new_count"
         [ "$old_count" = "$new_count" ] || failed=1

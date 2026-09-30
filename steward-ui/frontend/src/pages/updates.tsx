@@ -33,7 +33,7 @@ import { DayPicker, chosenDays, entryAt, useConfigDraft, useWorkerConfig } from 
 /**
  * The updates page: a header, three numbers and the lists, built like Backups.
  *
- * `update.at`, empty by default, schedules the same `update_request` row the button writes.
+ * `update.at`, empty by default, schedules the same request the button writes.
  */
 export function UpdatesPage() {
   const refresh = useRefreshAvailable()
@@ -256,7 +256,7 @@ function Available() {
   )
 }
 
-/** Every row of `update_request` that is not a backup's and not a single service's Down or Start. */
+/** Every row of the worker's inbox that is not a backup's and not a single service's Down or Start. */
 export function updateRuns(runs: Run[] | undefined): Run[] {
   return (runs ?? []).filter((run) => run.kind === "UPDATE" || run.kind === "RESTART")
 }

@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * {@code GET /api/actions}: the newest runs from {@code update_request} and lines from {@code audit_log}, merged.
+ * {@code GET /api/actions}: the newest runs from the worker's inbox and lines from {@code audit_log}, merged.
  *
  * The audit half is one search per displayed action, since {@code HELD_KEY} rows would crowd out the rest.
  */

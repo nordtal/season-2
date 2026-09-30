@@ -16,7 +16,7 @@
 #   ./nordtal.sh --address IP          this host's public address, for a host behind NAT
 #   ./nordtal.sh --no-self-update      run this file as it is, without asking GitHub for a newer one
 #
-# `update` only writes an `update_request` row and waits for the worker's report:
+# `update` only writes a row into the worker's inbox and waits for the worker's report:
 #
 #   ./nordtal.sh update                the whole network: install what is new, restart what needs it
 #   ./nordtal.sh update --restart      restart everything, install nothing
@@ -582,13 +582,13 @@ set_secret() {
 # An update run requested from the host, which works while the stack itself is broken.
 # These are decisions only; `cmd_update` below the seam reaches for Docker.
 
-# The kinds `update_request.kind` accepts.
+# The kinds `worker_inbox.kind` accepts.
 UPDATE_KINDS=(UPDATE RESTART BACKUP DOWN START)
 
 # How long the command waits; the run itself carries on after it gives up.
 UPDATE_TIMEOUT_DEFAULT=1800
 
-# The database's `update_request_scope_check`, so a bad scope is refused here.
+# The service names `worker_inbox_services_check` accepts, joined by commas, so a bad scope is refused here.
 update_scope_ok() {
     [[ "$1" =~ ^[a-z0-9-]+(,[a-z0-9-]+)*$ ]]
 }
@@ -637,16 +637,16 @@ parse_update_args() {
     fi
 }
 
-# Inserts the row and notifies in one statement, as `UpdateDao#submit` does.
-# Concatenation is safe because every value passed a shape check that admits no quote.
+# Inserts the row and notifies in one statement, as the worker's inbox does. The database refuses a
+# second open run by itself. Concatenation is safe because every value passed a shape check that admits no quote.
 update_insert_sql() {
     local kind="$1" scope="$2" minutes="$3"
-    local scope_sql="NULL"
-    [[ -n "$scope" ]] && scope_sql="'$scope'"
+    local services_sql="'[]'::jsonb"
+    [[ -n "$scope" ]] && services_sql="to_jsonb(string_to_array('$scope', ','))"
     cat <<SQL
 WITH inserted AS (
-    INSERT INTO update_request (kind, actor_kind, scheduled_for, scope)
-    VALUES ('$kind', 'HOST', now() + make_interval(mins => $minutes), $scope_sql)
+    INSERT INTO worker_inbox (kind, payload, actor_kind, scheduled_for)
+    VALUES ('$kind', jsonb_build_object('services', $services_sql), 'HOST', now() + make_interval(mins => $minutes))
     RETURNING id
 ), notified AS (
     SELECT pg_notify('nordtal_update', '') FROM inserted
@@ -657,7 +657,7 @@ SQL
 
 # One line: the status, a tab and the report, empty rather than NULL.
 update_status_sql() {
-    printf "SELECT status, coalesce(result, '') FROM update_request WHERE id = %s;\n" "$1"
+    printf "SELECT status, coalesce(outcome #>> '{}', '') FROM worker_inbox WHERE id = %s;\n" "$1"
 }
 
 # Whether a status means the worker is finished with this row, one way or another.
@@ -737,7 +737,7 @@ update_wait() {
             said="$status"
         fi
         if [[ -z "$status" ]]; then
-            die "request $id is no longer in update_request. Somebody deleted the row."
+            die "request $id is no longer in worker_inbox. Somebody deleted the row."
         fi
         if update_is_over "$status"; then
             # jq if it is there, the raw JSON line if not.

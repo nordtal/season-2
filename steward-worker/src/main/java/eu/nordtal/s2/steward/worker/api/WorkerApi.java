@@ -42,7 +42,7 @@ import org.slf4j.LoggerFactory;
 /**
  * What steward-ui may ask this container, which owns the docker socket the interface never gets.
  *
- * Stopping and starting are not here; they are rows in {@code update_request}. A token is required.
+ * Stopping and starting are not here; they are rows in the worker's inbox. A token is required.
  */
 public final class WorkerApi implements AutoCloseable {
 
@@ -156,7 +156,7 @@ public final class WorkerApi implements AutoCloseable {
      *
      * @param volumesRoot where the four Minecraft volumes are mounted, used only to find a standalone module's bundle
      *     jar; {@code null} skips it
-     * @param updates {@code update_request}, sharing one directory with the run loop
+     * @param updates the worker's inbox, sharing one directory with the run loop
      * @param audit {@code audit_log}, for {@link ActionsApi}
      */
     public WorkerApi(

@@ -317,7 +317,7 @@ services:
       - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/data/plugins
 
   # steward-worker owns the schema and every jar version. `serve` is not a scheduler: it acts only on
-  # rows in update_request. One-shot commands: `report`, `migrate` and `bootstrap` (fills empty volumes).
+  # rows in worker_inbox. One-shot commands: `report`, `migrate` and `bootstrap` (fills empty volumes).
   steward-worker:
     build:
       # The Dockerfile globs build/libs for the jar, so there are no build args.

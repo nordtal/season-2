@@ -153,8 +153,8 @@ docker compose run --rm steward-worker report      # what would change, changes 
 docker compose run --rm steward-worker bootstrap   # migrate, then fill empty slots only
 ```
 
-Each request is a row in `update_request`; the report is written to its `result` column. Update,
-restart, backup and bootstrap share one advisory lock, and a second request is refused.
+Each request is a row in `worker_inbox`, the worker's inbox; the report is written to its `outcome` column.
+One run is open at a time: the database refuses a second request while one is pending or running.
 
 A run downloads everything into a staging directory first, stops the affected servers, migrates,
 moves the jars, recreates any container whose image the registry has moved past, and starts exactly

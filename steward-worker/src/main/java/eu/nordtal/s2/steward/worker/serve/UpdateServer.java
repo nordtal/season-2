@@ -12,7 +12,7 @@ import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * {@code steward-worker serve}: the loop that turns {@code update_request} rows into runs; nothing runs without one.
+ * {@code steward-worker serve}: the loop that turns the rows of the worker's inbox into runs; nothing runs without one.
  *
  * It drains on its own thread whenever the process's {@link SignalHub} rings its doorbell, and when a row falls due.
  */

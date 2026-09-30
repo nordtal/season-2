@@ -371,7 +371,7 @@ export type ReportLine = {
   detail?: string
 }
 
-/** `update_request.result`, parsed by the backend; mirrors UpdateReport in :common. */
+/** A run's report, parsed by the backend; mirrors UpdateReport in :common. */
 export type Report = {
   /** `UpdateReport.Phase`, from RESOLVING to CANCELLED. */
   stage: string

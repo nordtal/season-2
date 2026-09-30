@@ -45,7 +45,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 /**
  * The vocabulary of a run, shared by Updates, Backups and a service's own page.
  *
- * A run is a row in `update_request`, never a call to a container; the worker claims it.
+ * A run is a row in the worker's inbox, never a call to a container; the worker claims it.
  */
 
 /** The stages in `UpdateReport.Stage` order, without the four endings, shown in full for every kind. */

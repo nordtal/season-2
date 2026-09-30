@@ -35,7 +35,7 @@ class UpdateHandoverIntegrationTest {
 
     @BeforeEach
     void freshInbox() {
-        execute("TRUNCATE TABLE service_hold, update_request RESTART IDENTITY");
+        execute("TRUNCATE TABLE service_hold, worker_inbox RESTART IDENTITY");
         updates = UpdateDirectory.using(dataSource);
     }
 
@@ -56,7 +56,9 @@ class UpdateHandoverIntegrationTest {
 
         final UpdateRequest again = updates.claimNext().orElseThrow();
         assertEquals(run.id(), again.id());
-        assertEquals("{\"stage\":\"RESOLVING\"}", again.result());
+        assertEquals(
+                eu.nordtal.s2.common.json.Json.tree("{\"stage\":\"RESOLVING\"}"),
+                eu.nordtal.s2.common.json.Json.tree(java.util.Objects.requireNonNull(again.result())));
     }
 
     @Test

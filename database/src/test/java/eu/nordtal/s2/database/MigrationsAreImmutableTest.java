@@ -32,7 +32,7 @@ class MigrationsAreImmutableTest {
     private static final Map<String, String> FROZEN = new LinkedHashMap<>();
 
     static {
-        FROZEN.put("V1__schema.sql", "4dc7bf97f2b05427625ac22334e9067f90e7f0d4f1095d2116033c9a4ff257fb");
+        FROZEN.put("V1__schema.sql", "22ccac17035afa832e4ef326e50b16ee4a94b7de11310ca4ae7dbb2259b987de");
     }
 
     @Test

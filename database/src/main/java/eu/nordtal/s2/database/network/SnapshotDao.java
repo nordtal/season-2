@@ -17,7 +17,7 @@ interface SnapshotDao {
                                           WHERE game.state <> 'DECIDED'))                    AS hg_teams,
 
                    -- "On the team" is OWNER or ACCEPTED; an INVITED row is an unanswered question
-                   -- and not a participant (V5__hunger_games.sql).
+                   -- and not a participant (V1__schema.sql).
                    (SELECT count(*) FROM hg_member member
                     WHERE member.game_id = (SELECT game.id FROM hg_game game
                                             WHERE game.state <> 'DECIDED')

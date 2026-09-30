@@ -2,7 +2,7 @@ package eu.nordtal.s2.database.access;
 
 /**
  * What an {@link AccessRequest} asks the bot to do.
- * {@code V32__access_request.sql} holds the same five in a {@code CHECK} constraint.
+ * {@code V1__schema.sql} holds the same five in a {@code CHECK} constraint.
  */
 public enum AccessRequestKind {
 

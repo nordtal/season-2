@@ -22,13 +22,13 @@ import org.junit.jupiter.api.Test;
  */
 class TargetSchemaTest {
 
-    private static final String MIGRATION = "db/migration/V11__command_request.sql";
+    private static final String MIGRATION = "db/migration/V1__schema.sql";
 
     private static String sql() throws IOException {
         try (InputStream stream = TargetSchemaTest.class.getClassLoader().getResourceAsStream(MIGRATION)) {
             assertNotNull(
                     stream,
-                    MIGRATION + " is not on the classpath - :common's resources are"
+                    MIGRATION + " is not on the classpath - :database's resources are"
                             + " what put it there, so either the migration moved or the dependency did");
             return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
         }

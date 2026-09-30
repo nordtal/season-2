@@ -8,12 +8,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import eu.nordtal.s2.database.AccessSchema;
+import eu.nordtal.s2.database.payment.PaymentRequest;
+import eu.nordtal.s2.database.payment.PaymentRequestStatus;
+import eu.nordtal.s2.database.payment.PaymentRequests;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.postgres.PostgresPlugin;
+import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,12 +30,12 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * Exercises {@link RosterDirectory} against a real PostgreSQL running the real migrations.
+ * Exercises the roster reads of {@link AccessReader} and {@link PaymentRequests} against the real migrations.
  *
  * The joins and the aggregate on the database clock have no in-JVM stand-in; tests skip without Docker.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class RosterDirectoryIntegrationTest {
+class RosterIntegrationTest {
 
     private static final String ALICE = "100000000000000001";
     private static final String BOB = "100000000000000002";
@@ -40,7 +46,8 @@ class RosterDirectoryIntegrationTest {
     private static PostgreSQLContainer<?> postgres;
     private static PGSimpleDataSource dataSource;
 
-    private RosterDirectory directory;
+    private AccessReader directory;
+    private PaymentRequests payments;
 
     @BeforeAll
     static void startDatabase() {
@@ -76,7 +83,9 @@ class RosterDirectoryIntegrationTest {
         // TRUNCATE ... CASCADE keeps the migration applied once per class while every test starts empty.
         execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, audit_log, "
                 + "player_playtime, discord_user CASCADE");
-        directory = RosterDirectory.using(dataSource);
+        directory = AccessReader.using(dataSource);
+        payments = new PaymentRequests(
+                Jdbi.create(dataSource).installPlugin(new SqlObjectPlugin()).installPlugin(new PostgresPlugin()));
     }
 
     @Test
@@ -318,18 +327,18 @@ class RosterDirectoryIntegrationTest {
                         now() - interval '1 days', now() + interval '1 days')
                 """.formatted(BOB));
 
-        final List<Payment> payments = directory.payments(10);
+        final List<PaymentRequest> recent = payments.recent(10);
 
         assertEquals(
                 List.of("NT-BBBBBB", "NT-AAAAAA"),
-                payments.stream().map(Payment::reference).toList());
+                recent.stream().map(PaymentRequest::reference).toList());
 
-        final Payment open = payments.getFirst();
+        final PaymentRequest open = recent.getFirst();
         assertEquals(BOB, open.discordId());
         assertEquals(60, open.days());
         assertEquals(900, open.amountCents());
         assertEquals(0, open.donationCents());
-        assertEquals("OPEN", open.status());
+        assertEquals(PaymentRequestStatus.OPEN, open.status());
         assertNull(open.bunqTabId(), "no tab asked for yet - and 0 is a tab id, so null must be null");
         assertNull(open.shareUrl());
         assertNull(open.settled());
@@ -337,9 +346,9 @@ class RosterDirectoryIntegrationTest {
         assertNotNull(open.created());
         assertNotNull(open.expires());
 
-        final Payment paid = payments.get(1);
+        final PaymentRequest paid = recent.get(1);
         assertEquals(ALICE, paid.discordId());
-        assertEquals("PAID", paid.status());
+        assertEquals(PaymentRequestStatus.PAID, paid.status());
         assertEquals(150, paid.donationCents());
         assertEquals(4242L, paid.bunqTabId());
         assertEquals("https://bunq.me/x", paid.shareUrl());
@@ -358,8 +367,8 @@ class RosterDirectoryIntegrationTest {
 
         assertEquals(
                 List.of("NT-000003", "NT-000002"),
-                directory.payments(2).stream().map(Payment::reference).toList());
-        assertEquals(1, directory.payments(0).size());
+                payments.recent(2).stream().map(PaymentRequest::reference).toList());
+        assertEquals(1, payments.recent(0).size());
     }
 
     @Test
@@ -370,13 +379,13 @@ class RosterDirectoryIntegrationTest {
         grant(ALICE, "-1 hours", "+47 hours", true);
         grant(BOB, "-1 hours", "+47 hours", false);
 
-        final List<Grant> grants = directory.grantsOf(ALICE);
+        final List<AccessGrant> grants = directory.grantsOf(ALICE);
 
         assertEquals(2, grants.size(), "Bob's grant is not Alice's");
         assertTrue(grants.getFirst().validFrom().isAfter(grants.get(1).validFrom()), "newest first");
         assertNotNull(grants.getFirst().revoked(), "the revoked one is the newest here");
         assertNull(grants.get(1).revoked());
-        assertEquals("PURCHASE", grants.getFirst().source());
+        assertEquals(AccessSource.PURCHASE, grants.getFirst().source());
         assertEquals(ALICE, grants.getFirst().discordId());
         assertNotNull(grants.getFirst().id());
         assertNotNull(grants.getFirst().created());

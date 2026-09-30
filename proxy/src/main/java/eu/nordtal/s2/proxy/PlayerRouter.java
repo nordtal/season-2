@@ -7,7 +7,7 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.database.access.AccessDirectory;
+import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AccessState;
 import eu.nordtal.s2.proxy.gate.BackendHealth;
 import eu.nordtal.s2.proxy.gate.FallbackCache;
@@ -40,7 +40,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
     private final Object plugin;
     private final ProxyServer proxy;
     private final Logger logger;
-    private final AccessDirectory access;
+    private final AccessReader access;
     private final PhaseRouting routing;
     private final PhaseWatch phases;
     private final LoginRoster roster;
@@ -62,7 +62,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
             final Object plugin,
             final ProxyServer proxy,
             final Logger logger,
-            final AccessDirectory access,
+            final AccessReader access,
             final PhaseRouting routing,
             final PhaseWatch phases,
             final LoginRoster roster,

@@ -6,7 +6,7 @@ import eu.nordtal.s2.commands.remote.Outbox;
 import eu.nordtal.s2.commands.smp.SmpCommands;
 import eu.nordtal.s2.commands.smp.SmpEffects;
 import eu.nordtal.s2.common.language.Locales;
-import eu.nordtal.s2.database.access.AccessDirectory;
+import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AdminOperators;
 import eu.nordtal.s2.database.access.FullServerAdmission;
 import eu.nordtal.s2.database.command.AllowlistDirectory;
@@ -217,7 +217,7 @@ final class SmpStart {
             final PlayerSurfaces surfaces) {
         return new AdminWatch(
                 plugin,
-                AccessDirectory.using(plugin.pool),
+                AccessReader.using(plugin.pool),
                 operators,
                 admission,
                 admins -> {
@@ -391,7 +391,7 @@ final class SmpStart {
             PaperCommandInbox inbox) {}
 
     static CommandLayer wireCommandLayer(final SmpPlugin plugin) {
-        final AccessDirectory access = AccessDirectory.using(plugin.pool);
+        final AccessReader access = AccessReader.using(plugin.pool);
         final BukkitSmpEffects chatEffects = new BukkitSmpEffects(
                 plugin,
                 BukkitSmpEffects.async(plugin),

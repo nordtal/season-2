@@ -4,7 +4,7 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.s2.limbo.config.DatabaseSpec;
 
-/** Builds this plugin's own HikariCP pool rather than {@code AccessDirectory.open}'s small fixed one. */
+/** Builds this plugin's own HikariCP pool, which every database reader here borrows. */
 public final class LimboPool {
 
     private LimboPool() {}

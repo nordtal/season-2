@@ -257,13 +257,13 @@ public final class HungerGamesPlugin extends JavaPlugin {
         // Without this the admin flag is read once per session and a revoked admin keeps operator until they leave.
         adminWatch = new AdminWatch(
                 this,
-                eu.nordtal.s2.database.access.AccessDirectory.using(pool),
+                eu.nordtal.s2.database.access.AccessReader.using(pool),
                 hooks.operators(),
                 hooks.admission(),
                 admins -> {},
                 getLogger0());
-        final eu.nordtal.s2.database.access.AccessDirectory access =
-                eu.nordtal.s2.database.access.AccessDirectory.using(pool);
+        final eu.nordtal.s2.database.access.AccessReader access =
+                eu.nordtal.s2.database.access.AccessReader.using(pool);
         final java.util.function.BooleanSupplier reloadSounds = this::reloadSounds;
         chatEffects = new BukkitHungerGamesEffects(
                 this,

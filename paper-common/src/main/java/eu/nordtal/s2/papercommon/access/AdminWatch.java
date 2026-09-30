@@ -1,6 +1,6 @@
 package eu.nordtal.s2.papercommon.access;
 
-import eu.nordtal.s2.database.access.AccessDirectory;
+import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AdminOperators;
 import eu.nordtal.s2.database.access.FullServerAdmission;
 import eu.nordtal.s2.database.notify.Channels;
@@ -29,7 +29,7 @@ import org.slf4j.Logger;
 public final class AdminWatch implements AutoCloseable {
 
     private final Plugin plugin;
-    private final AccessDirectory access;
+    private final AccessReader access;
     private final AdminOperators operators;
     private final FullServerAdmission admission;
     private final Consumer<Set<UUID>> also;
@@ -53,7 +53,7 @@ public final class AdminWatch implements AutoCloseable {
      */
     public AdminWatch(
             final Plugin plugin,
-            final AccessDirectory access,
+            final AccessReader access,
             final AdminOperators operators,
             final FullServerAdmission admission,
             final Consumer<Set<UUID>> also,

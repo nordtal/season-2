@@ -576,7 +576,6 @@ public final class ProxyPlugin {
             phaseListener.close();
             phaseListener = null;
         }
-        // access.close() never owns the pool; this proxy built it with AccessPool and closes it.
         if (pool != null) {
             pool.close();
             pool = null;

@@ -4,10 +4,10 @@ import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AccessRequests;
-import eu.nordtal.s2.database.access.RosterDirectory;
 import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.database.command.CommandRequests;
 import eu.nordtal.s2.database.metric.MetricDirectory;
+import eu.nordtal.s2.database.payment.PaymentRequests;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.steward.ui.config.DatabaseSpec;
@@ -23,7 +23,7 @@ public final class Data implements AutoCloseable {
     private final UpdateDirectory updates;
     private final MetricDirectory metrics;
     private final PhaseDirectory phase;
-    private final RosterDirectory roster;
+    private final PaymentRequests payments;
     private final AuditDirectory audit;
     private final AccessDirectory access;
     private final CommandRequests commands;
@@ -39,7 +39,7 @@ public final class Data implements AutoCloseable {
         this.updates = UpdateDirectory.using(database.dataSource());
         this.metrics = MetricDirectory.using(database.dataSource());
         this.phase = PhaseDirectory.using(database.dataSource());
-        this.roster = RosterDirectory.using(database.dataSource());
+        this.payments = new PaymentRequests(database.jdbi());
         this.audit = AuditDirectory.using(database.dataSource());
         // Borrowing, not owning: closing the pool below is the only close there is.
         this.access = AccessDirectory.using(database.dataSource());
@@ -64,8 +64,8 @@ public final class Data implements AutoCloseable {
         return phase;
     }
 
-    public RosterDirectory roster() {
-        return roster;
+    public PaymentRequests payments() {
+        return payments;
     }
 
     public AuditDirectory audit() {

@@ -1,7 +1,7 @@
 package eu.nordtal.s2.smp.command;
 
 import eu.nordtal.s2.commands.smp.SmpEffects;
-import eu.nordtal.s2.database.access.AccessDirectory;
+import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AccessState;
 import eu.nordtal.s2.database.access.OpenPayment;
 import eu.nordtal.s2.smp.aura.AuraReason;
@@ -30,7 +30,7 @@ public final class BukkitSmpEffects implements SmpEffects {
     private final SmpDao dao;
     private final ObjectiveEngine engine;
     private final Identities identities;
-    private final AccessDirectory access;
+    private final AccessReader access;
     private final java.util.function.Supplier<java.util.List<String>> reload;
 
     public BukkitSmpEffects(
@@ -39,7 +39,7 @@ public final class BukkitSmpEffects implements SmpEffects {
             final SmpDao dao,
             final ObjectiveEngine engine,
             final Identities identities,
-            final AccessDirectory access,
+            final AccessReader access,
             final java.util.function.Supplier<java.util.List<String>> reload) {
         this.plugin = plugin;
         this.executor = executor;

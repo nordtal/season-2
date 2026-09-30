@@ -6,12 +6,8 @@ import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 
-/**
- * The read-only SQL surface of the roster; {@link RosterDirectory} is the API.
- *
- * Writing access belongs to {@code AccessDirectory} alone.
- */
-interface RosterDao {
+/** The roster's people, one row each with link, access and profile; {@link AccessReader} is the API. */
+interface PersonDao {
 
     /** The columns and joins of a {@link Person}, shared so the two queries below cannot drift. */
     String PERSON_SELECTION = """
@@ -70,36 +66,4 @@ interface RosterDao {
             """)
     @RegisterRowMapper(PersonMapper.class)
     Optional<Person> personOf(@Bind("discordId") String discordId);
-
-    /** Returns every payment request, newest first, with {@code id} breaking ties for a stable page. */
-    @SqlQuery("""
-            SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
-                   bunq_tab_id, share_url, created, expires, settled
-            FROM payment_request
-            ORDER BY created DESC, id DESC
-            LIMIT :limit
-            """)
-    @RegisterRowMapper(PaymentMapper.class)
-    List<Payment> payments(@Bind("limit") int limit);
-
-    /** Returns the payment requests still {@code OPEN}, oldest first and without a limit. */
-    @SqlQuery("""
-            SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
-                   bunq_tab_id, share_url, created, expires, settled
-            FROM payment_request
-            WHERE status = 'OPEN'
-            ORDER BY created, id
-            """)
-    @RegisterRowMapper(PaymentMapper.class)
-    List<Payment> openPayments();
-
-    /** Returns every grant of one person, newest window first, with {@code created} breaking ties. */
-    @SqlQuery("""
-            SELECT id, discord_id, valid_from, valid_until, source, payment_request_id, revoked, created
-            FROM access_grant
-            WHERE discord_id = :discordId
-            ORDER BY valid_from DESC, created DESC
-            """)
-    @RegisterRowMapper(GrantMapper.class)
-    List<Grant> grantsOf(@Bind("discordId") String discordId);
 }

@@ -4,7 +4,7 @@ import eu.nordtal.s2.commands.CommandEffects;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.remote.CommandInbox;
-import eu.nordtal.s2.database.access.AccessDirectory;
+import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.command.CommandRequests;
 import eu.nordtal.s2.database.notify.Channels;
 import eu.nordtal.s2.database.notify.NotificationListener;
@@ -34,7 +34,7 @@ public final class PaperCommandInbox {
      * @param access   re-reads the admin flag after a row is claimed, since it can change while a request waits
      */
     public PaperCommandInbox(
-            final Plugin plugin, final Target here, final CommandRequests requests, final AccessDirectory access) {
+            final Plugin plugin, final Target here, final CommandRequests requests, final AccessReader access) {
         this(plugin, here, requests, access, sharedBundle(plugin));
     }
 
@@ -43,7 +43,7 @@ public final class PaperCommandInbox {
             final Plugin plugin,
             final Target here,
             final CommandRequests requests,
-            final AccessDirectory access,
+            final AccessReader access,
             final Messages shared) {
         Objects.requireNonNull(plugin, "plugin");
         Objects.requireNonNull(access, "access");

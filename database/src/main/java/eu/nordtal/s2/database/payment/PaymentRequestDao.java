@@ -87,6 +87,18 @@ interface PaymentRequestDao {
             """)
     List<PaymentRequest> openWithTab();
 
+    /** Returns the newest requests of every status, with {@code id} breaking ties for a stable page. */
+    @SqlQuery("""
+            SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
+                   bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
+                   tab_requested, tab_failed, cancel_requested, tab_cancelled,
+                   matched_cents, matched_by
+            FROM payment_request
+            ORDER BY created DESC, id DESC
+            LIMIT :limit
+            """)
+    List<PaymentRequest> recent(@Bind("limit") int limit);
+
     /** Returns every open request, whether or not it got as far as a tab. */
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,

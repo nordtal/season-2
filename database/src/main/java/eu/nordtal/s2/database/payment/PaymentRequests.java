@@ -61,6 +61,12 @@ public final class PaymentRequests {
         return dao.openWithTab();
     }
 
+    /** Returns the newest requests of every status, for Steward's payment list. */
+    public List<PaymentRequest> recent(final int limit) {
+        // At least one row, since LIMIT 0 would look like an empty table.
+        return dao.recent(Math.max(1, limit));
+    }
+
     /** Returns every open request, for {@code /settle}'s autocompletion. */
     public List<PaymentRequest> allOpen() {
         return dao.allOpen();

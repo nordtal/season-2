@@ -492,7 +492,6 @@ public class AccessBot implements AutoCloseable {
         try {
             jda.shutdown();
         } finally {
-            access.close();
             database.close();
         }
     }

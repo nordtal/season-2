@@ -1,5 +1,7 @@
 package eu.nordtal.s2.proxy;
 
+import eu.nordtal.s2.common.language.Languages;
+
 import eu.nordtal.s2.messages.context.MessageEnvironment;
 
 import com.google.inject.Inject;
@@ -139,7 +141,7 @@ public final class ProxyPlugin {
             // Inside the try since Messages.load can throw on a read-only volume; two roots, this module's keys win.
             final Messages messages = Messages.load(getClass().getClassLoader(),
                     List.of("messages/commands", "messages/proxy"),
-                    dataDirectory.resolve("messages"), Locale.ENGLISH, Locale.GERMAN).within(ENVIRONMENT);
+                    dataDirectory.resolve("messages"), Languages.NETWORK.locales()).within(ENVIRONMENT);
             messages.unknownOverrideKeys().forEach(key -> logger.warn(
                     "the message override names {}, which no bundle declares - it is stored and"
                             + " never used; check the spelling", key));
@@ -160,7 +162,7 @@ public final class ProxyPlugin {
                        final ColoursSpec coloursConfig, final Messages messages) {
         // :commands' bundle alone, for the inbox: its own keys allow MiniMessage, unlike the layered root.
         this.sharedMessages = Messages.load(getClass().getClassLoader(), "messages/commands",
-                dataDirectory.resolve("messages"), Locale.ENGLISH, Locale.GERMAN).within(ENVIRONMENT);
+                dataDirectory.resolve("messages"), Languages.NETWORK.locales()).within(ENVIRONMENT);
         this.pool = AccessPool.open(databaseConfig);
         this.access = AccessDirectory.using(pool);
 
@@ -545,7 +547,7 @@ public final class ProxyPlugin {
         // Its own bundle, from the classpath with NO override directory: that layer is one thing that can break.
         try {
             final Messages messages = Messages.load(getClass().getClassLoader(),
-                    "messages/proxy", Locale.ENGLISH, Locale.GERMAN).within(ENVIRONMENT);
+                    "messages/proxy", Languages.NETWORK.locales()).within(ENVIRONMENT);
             proxy.getEventManager().register(this, new MisconfiguredGate(logger, messages));
         } catch (final RuntimeException broken) {
             // The packaged bundle is inside the jar; reaching here means it is damaged, so the proxy shuts down.

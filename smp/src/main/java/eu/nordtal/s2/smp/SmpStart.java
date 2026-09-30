@@ -5,6 +5,7 @@ import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.remote.Outbox;
 import eu.nordtal.s2.commands.smp.SmpCommands;
 import eu.nordtal.s2.commands.smp.SmpEffects;
+import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AdminOperators;
@@ -92,8 +93,7 @@ final class SmpStart {
                         plugin.getClass().getClassLoader(),
                         java.util.List.of("messages/paper-common", "messages/commands", "messages/smp"),
                         plugin.getDataFolder().toPath().resolve("messages"),
-                        java.util.Locale.ENGLISH,
-                        java.util.Locale.GERMAN)
+                        Languages.NETWORK.locales())
                 .within(MessageEnvironment.of(plugin.getName()));
         final PlayerLocales locales = new PlayerLocales(mcUuid -> dao.discordIdOf(mcUuid)
                 .map(id -> Locales.parse(dao.localeOf(id).orElse(null)))

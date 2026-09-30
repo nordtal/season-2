@@ -7,7 +7,6 @@ import eu.nordtal.s2.database.payment.Watermark;
 import eu.nordtal.s2.steward.worker.bunq.BunqGateway;
 import eu.nordtal.s2.steward.worker.bunq.PaymentLoop;
 import eu.nordtal.s2.steward.worker.bunq.Payments;
-import eu.nordtal.s2.steward.worker.config.DatabaseSpec;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import java.time.Clock;
 import java.time.Duration;
@@ -26,8 +25,7 @@ final class PaymentsStartup {
      *
      * @return the running loop, or {@code null} when there is no bunq to poll
      */
-    static @Nullable PaymentLoop start(
-            final StewardSpec config, final DatabaseSpec databaseConfig, final Database database, final Clock clock) {
+    static @Nullable PaymentLoop start(final StewardSpec config, final Database database, final Clock clock) {
         final BunqGateway bunq = new BunqGateway(config.bunq());
         final Duration poll = Duration.ofSeconds(config.bunq().pollIntervalSeconds());
 
@@ -57,13 +55,6 @@ final class PaymentsStartup {
                         new PaymentRequests(database.jdbi()),
                         watermark,
                         config.bunq().recentPaymentCount()),
-                eu.nordtal.s2.database.notify.PostgresNotifications.connector(
-                        databaseConfig.jdbcUrl(),
-                        databaseConfig.username(),
-                        databaseConfig.password(),
-                        databaseConfig.queryTimeoutSeconds(),
-                        "steward-worker-payment-listener",
-                        java.util.List.of(PaymentLoop.channel())),
                 poll);
     }
 }

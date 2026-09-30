@@ -149,7 +149,6 @@ public final class Configs {
     private static void validateScalars(final HungerGamesSpec config) {
         requirePositive("countdown-seconds", config.countdownSeconds());
         // Zero or negative would not disable the watcher, it would poll once per second.
-        requirePositive("admin-poll-interval-seconds", config.adminPollIntervalSeconds());
         if (config.softMinimumParticipants() < HungerGamesSpec.HARD_MINIMUM_PARTICIPANTS) {
             throw new IllegalArgumentException(
                     "soft-minimum-participants must be at least " + HungerGamesSpec.HARD_MINIMUM_PARTICIPANTS

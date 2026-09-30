@@ -67,7 +67,6 @@ class ConfigsTest {
             channels:
               admin: '24'
             payment:
-              poll-interval-seconds: 30
               request-ttl-hours: 24
             expiry-reminder-lead-days: 3
             role-reconcile-interval-minutes: 10
@@ -440,10 +439,10 @@ class ConfigsTest {
         // These belong to steward-worker's bunq block, not this one.
         Files.writeString(directory.resolve("access.yml"), access().replace("""
                         payment:
-                          poll-interval-seconds: 30
+                          request-ttl-hours: 24
                         """, """
                         payment:
-                          poll-interval-seconds: 30
+                          request-ttl-hours: 24
                           watermark: '2026-09-01T00:00:00Z'
                           recent-payment-count: 50
                         """));

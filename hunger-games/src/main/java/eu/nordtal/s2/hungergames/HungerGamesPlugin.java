@@ -14,6 +14,7 @@ import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AdminOperators;
 import eu.nordtal.s2.database.access.FullServerAdmission;
+import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.hungergames.border.BorderController;
 import eu.nordtal.s2.hungergames.command.BukkitHungerGamesEffects;
@@ -82,6 +83,9 @@ public final class HungerGamesPlugin extends JavaPlugin {
     private HikariDataSource pool;
     private AdminWatch adminWatch;
 
+    /** The plugin's one {@code LISTEN} connection. */
+    private @Nullable SignalHub signals;
+
     /** What a non-admin may type here, and what their client is told exists. */
     private eu.nordtal.s2.papercommon.command.CommandFilter commandFilter;
 
@@ -138,7 +142,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
         wireGameSystems(config, world);
         final AdminHooks hooks = wireListeners();
         final PaperCommandInbox inbox = wireAdminWatchAndCommands(config, world, hooks);
-        wireCommandFilterAndAdminWatch(config, inbox);
+        wireCommandFilterAndSignals(inbox);
         startHeartbeat();
         getLogger().info("hunger-games enabled");
     }
@@ -310,17 +314,15 @@ public final class HungerGamesPlugin extends JavaPlugin {
                 reloadSounds,
                 this::reloadMessages);
         HungerGamesCommands.all().forEach(command -> inbox.register(command, inboxEffects));
-        inbox.start(this);
 
         registerCommands();
         return inbox;
     }
 
-    /** Builds the command allowlist filter and starts both it and the admin watch polling/listening. */
-    private void wireCommandFilterAndAdminWatch(final HungerGamesSpec config, final PaperCommandInbox inbox) {
+    /** Builds the command allowlist filter and puts it, the admin watch and the inbox on the plugin's signal hub. */
+    private void wireCommandFilterAndSignals(final PaperCommandInbox inbox) {
         // The proxy enforces the allowlist; this only tells a client what exists. Fails open with no list yet.
         commandFilter = new eu.nordtal.s2.papercommon.command.CommandFilter(
-                this,
                 eu.nordtal.s2.papercommon.command.CommandFilter.Source.of(
                         eu.nordtal.s2.database.command.AllowlistDirectory.using(pool)),
                 adminWatch::isAdmin,
@@ -330,21 +332,20 @@ public final class HungerGamesPlugin extends JavaPlugin {
                 () -> colours,
                 sounds::play);
         getServer().getPluginManager().registerEvents(commandFilter, this);
-        commandFilter.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()));
 
-        adminWatch.start(
-                java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()),
-                config.adminListenEnabled()
-                        ? new AdminWatch.DatabaseConnection(
-                                databaseHandle.get().jdbcUrl(),
-                                databaseHandle.get().username(),
-                                databaseHandle.get().password(),
-                                databaseHandle.get().queryTimeoutSeconds())
-                        : null,
-                java.util.stream.Stream.concat(inbox.refreshes().stream(), commandFilter.refreshes().stream())
-                        .toList(),
-                java.util.stream.Stream.concat(inbox.channels().stream(), commandFilter.channels().stream())
-                        .toList());
+        // One LISTEN connection for the whole plugin; every refresh runs on its connect, signals and reconciliation.
+        final SignalHub hub = SignalHub.open(
+                databaseHandle.get().jdbcUrl(),
+                databaseHandle.get().username(),
+                databaseHandle.get().password(),
+                databaseHandle.get().queryTimeoutSeconds(),
+                getName() + "-signals",
+                getLogger0());
+        adminWatch.listen(hub);
+        commandFilter.listen(hub);
+        inbox.listen(hub, this);
+        hub.start();
+        signals = hub;
     }
 
     /** Starts the readiness marker ({@link Readiness}) last, re-queued by the main thread so a freeze goes stale. */
@@ -375,6 +376,9 @@ public final class HungerGamesPlugin extends JavaPlugin {
         // Before the pool: the listener is on its own connection, but a refresh in flight reads through the pool.
         if (adminWatch != null) {
             quietly("adminWatch.close", adminWatch::close);
+        }
+        if (signals != null) {
+            quietly("signals.close", signals::close);
         }
         if (commandWaiter != null) {
             // Before the pool: a wait in flight reads the request row through it.

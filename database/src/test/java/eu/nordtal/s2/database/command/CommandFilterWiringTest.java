@@ -25,7 +25,7 @@ class CommandFilterWiringTest {
     private static final String PROXY = "proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java";
 
     @Test
-    void everyBackendBuildsTheFilterRegistersItAsAListenerAndStartsItsPoll() throws IOException {
+    void everyBackendBuildsTheFilterRegistersItAsAListenerAndPutsItOnTheHub() throws IOException {
         for (final String relative : PAPER_PLUGINS) {
             final String text = read(relative);
 
@@ -39,16 +39,9 @@ class CommandFilterWiringTest {
                     relative + " builds a CommandFilter and never registers it as a listener, which"
                             + " is the same as not having one and looks like having one.");
             assertTrue(
-                    text.contains("commandFilter.start("),
-                    relative + " never starts the filter's poll. The poll is the guarantee - without"
-                            + " it the list only ever arrives on a notification, and a notification"
-                            + " missed while this server was starting is one nothing asks for"
-                            + " again.");
-            assertTrue(
-                    text.contains("commandFilter.refreshes()") && text.contains("commandFilter.channels()"),
-                    relative + " does not put the allowlist channel on the admin watcher's LISTEN"
-                            + " connection, so an edit takes a whole poll interval to arrive here"
-                            + " while it is instant on the proxy.");
+                    text.contains("commandFilter.listen("),
+                    relative + " never puts the filter on the plugin's signal hub, so the list is read"
+                            + " neither at start nor on an edit.");
         }
     }
 

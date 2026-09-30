@@ -47,7 +47,6 @@ public final class Configs {
             requirePositive("fallback-cache-window-minutes", config.fallbackCacheWindowMinutes());
             requirePositive("expiry-check-interval-seconds", config.expiryCheckIntervalSeconds());
             requirePositive("expiry-warning-lead-minutes", config.expiryWarningLeadMinutes());
-            requirePositive("phase-poll-interval-seconds", config.phasePollIntervalSeconds());
             requirePositive("playtime-flush-interval-seconds", config.playtimeFlushIntervalSeconds());
             requirePositive("limbo-sweep-interval-seconds", config.limboSweepIntervalSeconds());
             // Whether the name matches a server velocity.toml registers is checked later, in PhaseRouting.

@@ -81,33 +81,6 @@ public interface GateSpec {
         return 5;
     }
 
-    @Order(6)
-    @Name("Phase poll interval (seconds)")
-    @Key("phase-poll-interval-seconds")
-    @Comment({
-        "How often the season_phase row is re-read. THIRTY SECONDS IS THE DECIDED VALUE;",
-        "this key exists for an emergency change. This poll, not the LISTEN below, is the",
-        "guarantee. A login reads the phase itself and does not wait for it."
-    })
-    @Explain(
-            "Thirty seconds is the decided value, for an emergency change rather than routine tuning; this poll, not the LISTEN switch below, is the actual guarantee.")
-    default int phasePollIntervalSeconds() {
-        return 30;
-    }
-
-    @Order(7)
-    @Name("Listen for phase changes")
-    @Key("phase-listen-enabled")
-    @Comment({
-        "Whether to also hold a dedicated LISTEN connection on 'nordtal_phase', outside the pool,",
-        "so a phase switch feels instant. Turning it off only costs latency."
-    })
-    @Explain(
-            "Makes a phase switch feel instant instead of waiting for the next poll; the poll above is the actual guarantee, so turning this off is safe.")
-    default boolean phaseListenEnabled() {
-        return true;
-    }
-
     @Order(8)
     @Name("Playtime flush interval (seconds)")
     @Key("playtime-flush-interval-seconds")

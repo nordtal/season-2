@@ -1,7 +1,7 @@
 # database
 
 Everything that reads or writes PostgreSQL: access and links, the season phase, who is online,
-the audit log, payments, update runs, the request inboxes, the `LISTEN`/`NOTIFY` loop and the
+the audit log, payments, update runs, the request inboxes, the signal hub and the
 migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the driver are
 `compileOnly`, so a consumer brings the runtime it already has; this module never migrates.
 
@@ -10,6 +10,11 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
 - **A refused write** throws `Refused` with a typed reason (`UpdateRefusal`, `SeasonDateRefusal`)
   and a message from this module's own bundle, `messages/database`. `DatabaseText` renders it in
   English for Steward and the logs.
+- **Signals**: a process opens one `SignalHub`, the only `LISTEN` connection it holds, and registers a
+  refresh per `Channel`. Every refresh runs on connect, on every signal and once a minute, whatever the
+  channel, so a lost notification costs a minute and a reconnect re-reads in full; this is the only polling
+  left for database state. Work that takes long rings a `Doorbell` for its own thread. `Channel` names who
+  emits and who listens on each.
 - **Time** comes from the caller: every directory that decides by the clock takes an `InstantSource`.
 - **Who asked** for a request is an `Actor`: a person by Discord id, Steward on its own, or the host's
   installer, stored as `actor_kind` and `actor_id` in every request table and never as a name to parse.

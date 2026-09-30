@@ -79,28 +79,4 @@ public interface LimboSpec {
     default boolean blindness() {
         return true;
     }
-
-    @Order(5)
-    @Name("Admin poll interval (seconds)")
-    @Key("admin-poll-interval-seconds")
-    @Comment({
-        "How often this server re-reads who is an admin (discord_user.admin), in seconds.",
-        "THIS POLL IS THE GUARANTEE a revoked admin loses operator, not the LISTEN below."
-    })
-    @Explain("How often admin status is re-read; this poll, not the LISTEN switch below, is the guarantee.")
-    default int adminPollIntervalSeconds() {
-        return 30;
-    }
-
-    @Order(6)
-    @Name("Listen for admin changes")
-    @Key("admin-listen-enabled")
-    @Comment({
-        "Whether to also open a dedicated LISTEN nordtal_admin connection, outside the pool.",
-        "It only makes a revocation feel instant; turning it off costs latency and nothing else."
-    })
-    @Explain("Makes a revocation feel instant instead of waiting for the next poll; off only costs latency.")
-    default boolean adminListenEnabled() {
-        return true;
-    }
 }

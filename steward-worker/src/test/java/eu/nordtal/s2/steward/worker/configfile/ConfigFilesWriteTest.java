@@ -73,11 +73,11 @@ class ConfigFilesWriteTest {
         ConfigLoader.builder(file, StewardSpec.class).load();
         final String before = Files.readString(file);
 
-        ConfigFiles.write(file, Map.of("poll-interval-seconds", ConfigChange.of("90")));
+        ConfigFiles.write(file, Map.of("download-timeout-seconds", ConfigChange.of("900")));
 
         // Anchored to the start of a line: a bare replace would rewrite any comment that quotes the same text too.
         assertEquals(
-                before.replace("\npoll-interval-seconds: 15\n", "\npoll-interval-seconds: 90\n"),
+                before.replace("\ndownload-timeout-seconds: 600\n", "\ndownload-timeout-seconds: 900\n"),
                 Files.readString(file));
     }
 

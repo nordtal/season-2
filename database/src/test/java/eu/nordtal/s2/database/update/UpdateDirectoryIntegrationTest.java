@@ -140,7 +140,7 @@ class UpdateDirectoryIntegrationTest {
         // The notification rides in the writing statement, so it is emitted only for a committed row.
         try (Connection listener = dataSource.getConnection()) {
             try (Statement statement = listener.createStatement()) {
-                statement.execute("LISTEN " + UpdateDirectory.CHANNEL);
+                statement.execute("LISTEN " + eu.nordtal.s2.database.notify.Channel.UPDATE.sqlName());
             }
 
             updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
@@ -149,7 +149,7 @@ class UpdateDirectoryIntegrationTest {
                     listener.unwrap(PGConnection.class).getNotifications(5000);
             assertNotNull(received, "the LISTEN connection was told about the insert");
             assertEquals(1, received.length);
-            assertEquals(UpdateDirectory.CHANNEL, received[0].getName());
+            assertEquals(eu.nordtal.s2.database.notify.Channel.UPDATE.sqlName(), received[0].getName());
             assertEquals("", received[0].getParameter(), "no payload, on purpose - a listener must re-read the table");
         }
     }
@@ -166,7 +166,7 @@ class UpdateDirectoryIntegrationTest {
 
         try (Connection listener = dataSource.getConnection()) {
             try (Statement statement = listener.createStatement()) {
-                statement.execute("LISTEN " + UpdateDirectory.CHANNEL);
+                statement.execute("LISTEN " + eu.nordtal.s2.database.notify.Channel.UPDATE.sqlName());
             }
 
             assertTrue(updates.startCountdown(submitted.id(), Duration.ofSeconds(30), List.of("smp"))
@@ -181,7 +181,7 @@ class UpdateDirectoryIntegrationTest {
                             + " which time fewer than thirty seconds are left and the chat line for 30 is"
                             + " silently dropped (Countdown#beats requires millisLeft >= 30_000)");
             assertEquals(1, received.length);
-            assertEquals(UpdateDirectory.CHANNEL, received[0].getName());
+            assertEquals(eu.nordtal.s2.database.notify.Channel.UPDATE.sqlName(), received[0].getName());
             assertEquals("", received[0].getParameter());
         }
     }

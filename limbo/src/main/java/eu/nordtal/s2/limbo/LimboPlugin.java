@@ -14,6 +14,7 @@ import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AdminOperators;
 import eu.nordtal.s2.database.access.FullServerAdmission;
 import eu.nordtal.s2.database.command.AllowlistDirectory;
+import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.limbo.command.BukkitLimboEffects;
 import eu.nordtal.s2.limbo.command.LimboCommand;
 import eu.nordtal.s2.limbo.config.ColoursSpec;
@@ -37,6 +38,7 @@ import eu.nordtal.s2.papercommon.command.CommandFilter;
 import eu.nordtal.s2.papercommon.command.PaperCommandInbox;
 import java.time.Clock;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The season 2 waiting room: every login lands here first and leaves when the proxy says so.
@@ -60,6 +62,9 @@ public final class LimboPlugin extends JavaPlugin {
     private HikariDataSource pool;
     private AccessReader access;
     private AdminWatch adminWatch;
+
+    /** The plugin's one {@code LISTEN} connection. */
+    private @Nullable SignalHub signals;
 
     /** What a non-admin may type here, and what their client is told exists. */
     private CommandFilter commandFilter;
@@ -99,7 +104,7 @@ public final class LimboPlugin extends JavaPlugin {
         final Messages messages = loadMessages();
 
         wirePresence(config, world, messages, locales);
-        wireCommands(config, messages, locales);
+        wireCommands(messages, locales);
 
         startHeartbeat();
         getLogger()
@@ -172,7 +177,7 @@ public final class LimboPlugin extends JavaPlugin {
     }
 
     /** The command layer: the outbox to other processes, the inbox from them, and the client-side filter. */
-    private void wireCommands(final LimboSpec config, final Messages messages, final PlayerLocales locales) {
+    private void wireCommands(final Messages messages, final PlayerLocales locales) {
         // Built here rather than inside the inbox so that /limbo reload can move it.
         final Messages shared = PaperCommandInbox.sharedBundle(this);
         final LimboEffects chatEffects = new BukkitLimboEffects(this, BukkitLimboEffects.async(this), messages, shared);
@@ -180,7 +185,6 @@ public final class LimboPlugin extends JavaPlugin {
 
         // CommandFilter fails open until a list is published; this only tells the client what exists.
         commandFilter = new CommandFilter(
-                this,
                 CommandFilter.Source.of(AllowlistDirectory.using(pool)),
                 adminWatch::isAdmin,
                 locales,
@@ -188,21 +192,20 @@ public final class LimboPlugin extends JavaPlugin {
                 slf4j(),
                 () -> colours);
         getServer().getPluginManager().registerEvents(commandFilter, this);
-        commandFilter.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()));
 
-        adminWatch.start(
-                java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()),
-                config.adminListenEnabled()
-                        ? new AdminWatch.DatabaseConnection(
-                                databaseHandle.get().jdbcUrl(),
-                                databaseHandle.get().username(),
-                                databaseHandle.get().password(),
-                                databaseHandle.get().queryTimeoutSeconds())
-                        : null,
-                java.util.stream.Stream.concat(wiring.inbox().refreshes().stream(), commandFilter.refreshes().stream())
-                        .toList(),
-                java.util.stream.Stream.concat(wiring.inbox().channels().stream(), commandFilter.channels().stream())
-                        .toList());
+        // One LISTEN connection for the whole plugin; every refresh runs on its connect, signals and reconciliation.
+        final SignalHub hub = SignalHub.open(
+                databaseHandle.get().jdbcUrl(),
+                databaseHandle.get().username(),
+                databaseHandle.get().password(),
+                databaseHandle.get().queryTimeoutSeconds(),
+                getName() + "-signals",
+                slf4j());
+        adminWatch.listen(hub);
+        commandFilter.listen(hub);
+        wiring.inbox().listen(hub, this);
+        hub.start();
+        signals = hub;
 
         getLifecycleManager()
                 .registerEventHandler(
@@ -242,7 +245,6 @@ public final class LimboPlugin extends JavaPlugin {
         LimboCommands.all()
                 .forEach(command ->
                         inbox.register(command, new BukkitLimboEffects(this, Runnable::run, messages, shared)));
-        inbox.start(this);
         return new CommandWiring(inbox, outbox);
     }
 
@@ -272,6 +274,9 @@ public final class LimboPlugin extends JavaPlugin {
         // Before the pool: the listener thread has its own connection, but a refresh in flight reads through the pool.
         if (adminWatch != null) {
             quietly("adminWatch.close", adminWatch::close);
+        }
+        if (signals != null) {
+            quietly("signals.close", signals::close);
         }
         if (commandWaiter != null) {
             // Before the pool: a wait in flight reads the request row through it.

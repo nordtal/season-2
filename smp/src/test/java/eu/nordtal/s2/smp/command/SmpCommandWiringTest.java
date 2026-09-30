@@ -30,8 +30,8 @@ class SmpCommandWiringTest {
                 "the inbox is built and no command is registered on it, so every /smp typed in"
                         + " Discord would time out as though this server were down");
         assertTrue(
-                source.contains("inbox.start(plugin)"),
-                "the inbox is built and filled and never started - it would claim nothing");
+                source.contains("inbox.listen(signals, plugin)"),
+                "the inbox is built and filled and never put on the signal hub, so it would claim nothing");
     }
 
     @Test
@@ -51,15 +51,16 @@ class SmpCommandWiringTest {
     }
 
     @Test
-    void oneConnectionCarriesBothChannels() {
-        // NotificationListener shares refreshes across channels without checking which woke it, so sharing is cheaper.
+    void theInboxAndTheAdminWatchShareThePluginsOneHub() {
         final String source = readOrFail();
-        final int start = source.indexOf("adminWatch.start(");
-        assertTrue(start > 0, "this plugin no longer starts the admin watch at all");
+        assertEquals(
+                1,
+                source.split("SignalHub.open\\(", -1).length - 1,
+                "this plugin opens a number of hubs that is not one");
         assertTrue(
-                source.indexOf("inbox.refreshes()", start) > 0 && source.indexOf("inbox.channels()", start) > 0,
-                "the command inbox is not on the admin watch's listener, so this plugin opens two"
-                        + " dedicated LISTEN connections where one would do");
+                source.contains("plugin.adminWatch.listen(signals)")
+                        && source.contains("inbox.listen(signals, plugin)"),
+                "the command inbox and the admin watch are not on the same hub");
     }
 
     @Test

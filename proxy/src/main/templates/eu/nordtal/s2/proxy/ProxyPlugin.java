@@ -60,9 +60,8 @@ import eu.nordtal.s2.proxy.command.InfoTexts;
 import eu.nordtal.s2.proxy.command.PrivateMessages;
 import eu.nordtal.s2.proxy.command.ProxyNetworkEffects;
 import eu.nordtal.s2.proxy.command.VelocityCommands;
-import eu.nordtal.s2.database.notify.Channels;
-import eu.nordtal.s2.database.notify.NotificationListener;
-import eu.nordtal.s2.database.notify.PostgresNotifications;
+import eu.nordtal.s2.database.notify.Channel;
+import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.proxy.phase.PhaseWatch;
 import eu.nordtal.s2.proxy.online.OnlineWriter;
 import eu.nordtal.s2.proxy.ping.NetworkPing;
@@ -116,9 +115,9 @@ public final class ProxyPlugin {
 
     private HikariDataSource pool;
     private AccessDirectory access;
-    private NotificationListener phaseListener;
+    private SignalHub signals;
 
-    /** Assigned after the listener starts, which may already call it; volatile, and the poll covers the gap. */
+    /** Built before the signal hub starts; volatile, since the hub's thread reads them. */
     private volatile RestartWatch restartWatch;
     private volatile Evacuation evacuation;
 
@@ -264,7 +263,6 @@ public final class ProxyPlugin {
         // Read once, before the first player arrives, so the MAINTENANCE fallback runs as briefly as possible.
         phaseWatch.refresh();
 
-        final Duration pollInterval = Duration.ofSeconds(gateConfig.phasePollIntervalSeconds());
 
         // The admin roster rides the phase's signals; rerouteAll runs only on a change.
         final Runnable refreshAdmins = () -> {
@@ -278,55 +276,30 @@ public final class ProxyPlugin {
             }
         };
 
-        proxy.getScheduler().buildTask(this, () -> {
-                    phaseWatch.refresh();
-                    refreshAdmins.run();
-                })
-                .delay(pollInterval)
-                .repeat(pollInterval)
-                .schedule();
-
-        if (gateConfig.phaseListenEnabled()) {
-            // One connection, every refresh on every signal; see eu.nordtal.s2.database.notify.
-            this.phaseListener = new NotificationListener(
-                    PostgresNotifications.connector(databaseConfig.jdbcUrl(),
-                            databaseConfig.username(), databaseConfig.password(),
-                            databaseConfig.queryTimeoutSeconds(),
-                            "proxy-notification-listener",
-                            java.util.List.of(Channels.PHASE, Channels.ADMIN, Channels.COMMAND,
-                                    Channels.UPDATE)),
-                    "proxy-phase-listener",
-                    java.util.List.of(
-                            new NotificationListener.Refresh("the season phase", phaseWatch::refresh),
-                            new NotificationListener.Refresh("the admin roster", refreshAdmins),
-                            new NotificationListener.Refresh("the command inbox", () -> {
-                                // Null until the command layer is built further down; the poll covers that window.
-                                final CommandInbox inbox = commandInbox;
-                                if (inbox != null) {
-                                    inbox.drain();
-                                }
-                            }),
-                            // Latency here would drop the 30 second beat; null until built, like the inbox.
-                            new NotificationListener.Refresh("the restart countdown", () -> {
-                                final RestartWatch watch = restartWatch;
-                                if (watch != null) {
-                                    watch.check();
-                                }
-                            }),
-                            // The evacuation rides the same signal.
-                            new NotificationListener.Refresh("the update evacuation", () -> {
-                                final Evacuation moving = evacuation;
-                                if (moving != null) {
-                                    moving.check();
-                                }
-                            })),
-                    logger, pollInterval);
-            phaseListener.start();
-        } else {
-            logger.info("The {} and {} LISTEN connection is disabled; the {}s poll is the only path "
-                    + "a phase switch or an admin change travels",
-                    Channels.PHASE, Channels.ADMIN, pollInterval.toSeconds());
-        }
+        // One LISTEN connection for the whole proxy, started last; every refresh runs on connect and every signal.
+        this.signals = SignalHub.open(databaseConfig.jdbcUrl(), databaseConfig.username(),
+                databaseConfig.password(), databaseConfig.queryTimeoutSeconds(), "proxy-signals", logger);
+        signals.on(Channel.PHASE, "the season phase", phaseWatch::refresh);
+        signals.on(Channel.ADMIN, "the admin roster", refreshAdmins);
+        signals.on(Channel.COMMAND, "the command inbox", () -> {
+            final CommandInbox inbox = commandInbox;
+            if (inbox != null) {
+                inbox.drain();
+            }
+        });
+        // Latency here would drop the 30 second beat.
+        signals.on(Channel.UPDATE, "the restart countdown", () -> {
+            final RestartWatch watch = restartWatch;
+            if (watch != null) {
+                watch.check();
+            }
+        });
+        signals.on(Channel.UPDATE, "the update evacuation", () -> {
+            final Evacuation moving = evacuation;
+            if (moving != null) {
+                moving.check();
+            }
+        });
 
         // the gate
 
@@ -505,17 +478,13 @@ public final class ProxyPlugin {
         NetworkCommands.all().forEach(command -> commandInbox.register(command,
                 // Inline: the inbox settles a request row when the command returns, before any scheduled effect.
                 new ProxyNetworkEffects(Runnable::run, messages, sharedMessages, logger)));
-        proxy.getScheduler().buildTask(this, commandInbox::drain)
-                .delay(java.time.Duration.ofSeconds(5))
-                .repeat(java.time.Duration.ofSeconds(5))
-                .schedule();
 
         logger.info("Access login gate is up in phase {} (query timeout {}s, fallback cache window "
-                        + "{}m, expiry check every {}s, phase poll every {}s, play time flushed every "
+                        + "{}m, expiry check every {}s, play time flushed every "
                         + "{}s, waiting room '{}' swept every {}s)",
                 phaseWatch.lastKnown(), databaseConfig.queryTimeoutSeconds(),
                 gateConfig.fallbackCacheWindowMinutes(), gateConfig.expiryCheckIntervalSeconds(),
-                pollInterval.toSeconds(), flushInterval.toSeconds(), phaseServers.limbo(),
+                flushInterval.toSeconds(), phaseServers.limbo(),
                 sweepInterval.toSeconds());
         logger.info("The network takes {} players, the browser is told so, and every Paper backend "
                         + "is set to the same number. MOTD refreshed every {}s.",
@@ -527,6 +496,7 @@ public final class ProxyPlugin {
                             clock.instant()));
         }
 
+        signals.start();
         startHeartbeat();
     }
 
@@ -583,9 +553,9 @@ public final class ProxyPlugin {
             heartbeat.cancel();
             heartbeat = null;
         }
-        if (phaseListener != null) {
-            phaseListener.close();
-            phaseListener = null;
+        if (signals != null) {
+            signals.close();
+            signals = null;
         }
         if (pool != null) {
             pool.close();

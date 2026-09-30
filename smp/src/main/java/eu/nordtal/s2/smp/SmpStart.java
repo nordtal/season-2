@@ -13,6 +13,7 @@ import eu.nordtal.s2.database.access.AdminOperators;
 import eu.nordtal.s2.database.access.FullServerAdmission;
 import eu.nordtal.s2.database.command.AllowlistDirectory;
 import eu.nordtal.s2.database.command.CommandRequests;
+import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
@@ -447,7 +448,6 @@ final class SmpStart {
         final SmpEffects inboxEffects = new BukkitSmpEffects(
                 plugin, Runnable::run, plugin.dao, plugin.engine, plugin.identities, access, plugin::reloadTrack);
         SmpCommands.all().forEach(command -> inbox.register(command, inboxEffects));
-        inbox.start(plugin);
         return new CommandLayer(chatEffects, commandWaiter, outbox, sharedMessages, inbox);
     }
 
@@ -455,7 +455,6 @@ final class SmpStart {
             final SmpPlugin plugin, final SmpSpec config, final DatabaseSpec database, final PaperCommandInbox inbox) {
         // Fails open until an allowlist is published.
         final CommandFilter commandFilter = new CommandFilter(
-                plugin,
                 CommandFilter.Source.of(AllowlistDirectory.using(plugin.pool)),
                 plugin.adminWatch::isAdmin,
                 plugin.locales,
@@ -464,21 +463,20 @@ final class SmpStart {
                 () -> plugin.colours,
                 plugin.sounds::play);
         plugin.getServer().getPluginManager().registerEvents(commandFilter, plugin);
-        commandFilter.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()));
 
-        plugin.adminWatch.start(
-                java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()),
-                config.adminListenEnabled()
-                        ? new AdminWatch.DatabaseConnection(
-                                database.jdbcUrl(),
-                                database.username(),
-                                database.password(),
-                                database.queryTimeoutSeconds())
-                        : null,
-                java.util.stream.Stream.concat(inbox.refreshes().stream(), commandFilter.refreshes().stream())
-                        .toList(),
-                java.util.stream.Stream.concat(inbox.channels().stream(), commandFilter.channels().stream())
-                        .toList());
+        // One LISTEN connection for the whole plugin; every refresh runs on its connect, signals and reconciliation.
+        final SignalHub signals = SignalHub.open(
+                database.jdbcUrl(),
+                database.username(),
+                database.password(),
+                database.queryTimeoutSeconds(),
+                plugin.getName() + "-signals",
+                plugin.logger());
+        plugin.adminWatch.listen(signals);
+        commandFilter.listen(signals);
+        inbox.listen(signals, plugin);
+        signals.start();
+        plugin.signals = signals;
         return commandFilter;
     }
 }

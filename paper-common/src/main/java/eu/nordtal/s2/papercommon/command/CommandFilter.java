@@ -4,8 +4,8 @@ import static eu.nordtal.s2.commands.CommandMessages.MESSAGES;
 
 import eu.nordtal.s2.database.command.AllowlistDirectory;
 import eu.nordtal.s2.database.command.CommandAllowlist;
-import eu.nordtal.s2.database.notify.Channels;
-import eu.nordtal.s2.database.notify.NotificationListener;
+import eu.nordtal.s2.database.notify.Channel;
+import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messagerendering.Tones;
@@ -13,20 +13,16 @@ import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.feedback.Feedback;
-import java.time.Duration;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Predicate;
-import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.command.UnknownCommandEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerCommandSendEvent;
-import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
@@ -51,7 +47,6 @@ public final class CommandFilter implements Listener {
         }
     }
 
-    private final Plugin plugin;
     private final Source source;
     private final Predicate<UUID> admin;
     private final PlayerLocales locales;
@@ -63,19 +58,18 @@ public final class CommandFilter implements Listener {
     /** The list as of the last successful read, or {@code null} while none has arrived. */
     private volatile @Nullable CommandAllowlist active;
 
-    /** So that "nothing has been published" warns once, not once per poll. */
+    /** So that "nothing has been published" warns once, not once per refresh. */
     private volatile boolean warnedAboutMissingList;
 
     /** Creates one without a {@link PaperUser.Chime}, so the refusal plays no sound. */
     public CommandFilter(
-            final Plugin plugin,
             final Source source,
             final Predicate<UUID> admin,
             final PlayerLocales locales,
             final Messages messages,
             final Logger logger,
             final java.util.function.Supplier<ToneColours> colours) {
-        this(plugin, source, admin, locales, messages, logger, colours, PaperUser.Chime.silent());
+        this(source, admin, locales, messages, logger, colours, PaperUser.Chime.silent());
     }
 
     /**
@@ -83,7 +77,6 @@ public final class CommandFilter implements Listener {
      * @param chime   how the refusal sounds; {@link PaperUser.Chime#silent()} for a module with no sounds
      */
     public CommandFilter(
-            final Plugin plugin,
             final Source source,
             final Predicate<UUID> admin,
             final PlayerLocales locales,
@@ -91,7 +84,6 @@ public final class CommandFilter implements Listener {
             final Logger logger,
             final java.util.function.Supplier<ToneColours> colours,
             final PaperUser.Chime chime) {
-        this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.source = Objects.requireNonNull(source, "source");
         this.admin = Objects.requireNonNull(admin, "admin");
         this.locales = Objects.requireNonNull(locales, "locales");
@@ -101,20 +93,9 @@ public final class CommandFilter implements Listener {
         this.chime = Objects.requireNonNull(chime, "chime");
     }
 
-    /** Starts the poll that is the guarantee, async and first on the next tick. */
-    public void start(final Duration pollInterval) {
-        final long ticks = Math.max(20L, pollInterval.toSeconds() * 20L);
-        Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, this::refresh, 1L, ticks);
-    }
-
-    /** Returns the refreshes to hand to {@code AdminWatch#start}, so the instant path shares its connection. */
-    public List<NotificationListener.Refresh> refreshes() {
-        return List.of(new NotificationListener.Refresh("the command allowlist", this::refresh));
-    }
-
-    /** Returns the channels to hand to {@code AdminWatch#start} alongside {@link #refreshes()}. */
-    public List<String> channels() {
-        return List.of(Channels.ALLOWLIST);
+    /** Re-reads the list on every signal of {@code signals}; the hub's connect is the first read. */
+    public void listen(final SignalHub signals) {
+        signals.on(Channel.ALLOWLIST, "the command allowlist", this::refresh);
     }
 
     /**

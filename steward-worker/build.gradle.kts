@@ -67,7 +67,7 @@ dependencies {
     // The patched BunqRequestBuilder extends okhttp3.Request.Builder, which the SDK ships at runtime scope only.
     implementation(libs.okhttp)
 
-    // PostgresNotifications unwraps PGConnection for LISTEN and NOTIFY.
+    // :database takes the driver compileOnly; the pool and the signal hub need it at runtime.
     implementation(libs.postgresql.driver)
 
     // Shaded in, and with it the migration SQL.

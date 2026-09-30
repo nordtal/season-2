@@ -40,15 +40,18 @@ class AdminWatchWiringTest {
                             + " session: an admin revoked in Discord keeps operator on this server"
                             + " until they choose to disconnect.");
             assertTrue(
-                    text.contains("adminWatch.start("),
-                    relative + " builds an AdminWatch and never starts it, which is the same as not"
-                            + " having one and looks like having one.");
+                    text.contains("adminWatch.listen("),
+                    relative + " builds an AdminWatch and never puts it on the signal hub, which is the"
+                            + " same as not having one and looks like having one.");
             // Either the bare call or the method reference inside Shutdown#quietly.
             assertTrue(
                     text.contains("adminWatch.close()") || text.contains("adminWatch::close"),
-                    relative + " never closes its AdminWatch. The listener owns a database connection"
-                            + " outside the pool and a thread parked on it; a disable that leaves"
-                            + " both running leaks one of each per reload.");
+                    relative + " never closes its AdminWatch, so a refresh in flight can outlive the pool.");
+            assertTrue(
+                    text.contains("signals::close"),
+                    relative + " never closes its signal hub. The hub owns a database connection outside"
+                            + " the pool and a thread parked on it; a disable that leaves both running leaks"
+                            + " one of each per reload.");
         }
     }
 

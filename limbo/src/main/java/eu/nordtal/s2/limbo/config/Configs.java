@@ -27,7 +27,6 @@ public final class Configs {
             requireText("world-name", config.worldName());
             requirePositive("title-refresh-seconds", config.titleRefreshSeconds());
             // AdminWatch floors the timer at one second, so zero or negative would become a query per second.
-            requirePositive("admin-poll-interval-seconds", config.adminPollIntervalSeconds());
             if (config.spawnY() < -60 || config.spawnY() > 300) {
                 // The world is empty, but a value outside the build limits still refuses to keep a player there.
                 throw new IllegalArgumentException(

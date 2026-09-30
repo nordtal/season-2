@@ -143,18 +143,6 @@ public interface StewardSpec {
         return 600;
     }
 
-    @Order(11)
-    @Name("Poll interval (seconds)")
-    @Key("poll-interval-seconds")
-    @Comment({
-        "How often `steward-worker serve` looks in update_request for work. This poll is the",
-        "guarantee; LISTEN only makes a request feel instant. The wait shortens when a countdown ends sooner."
-    })
-    @Explain("This poll, not LISTEN/NOTIFY, is the guarantee an update starts. Short because an admin is watching.")
-    default int pollIntervalSeconds() {
-        return 15;
-    }
-
     @Order(12)
     @Name("Bootstrap")
     @Key("bootstrap")

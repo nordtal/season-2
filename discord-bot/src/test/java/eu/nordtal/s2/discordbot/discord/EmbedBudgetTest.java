@@ -3,10 +3,10 @@ package eu.nordtal.s2.discordbot.discord;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateRequest;
-import eu.nordtal.s2.database.update.UpdateSource;
 import eu.nordtal.s2.database.update.UpdateStatus;
 import eu.nordtal.s2.messages.Messages;
 import java.time.Instant;
@@ -136,16 +136,17 @@ class EmbedBudgetTest {
         return report;
     }
 
-    /** {@code requested_by} is varchar(32); 64 is twice the worst a row can hold. */
+    /** The longest asker a row can carry: a person, whose Discord id has at most twenty digits. */
     private static UpdateRequest longAsker() {
         return new UpdateRequest(
                 1L,
                 UpdateKind.UPDATE,
                 UpdateStatus.RUNNING,
-                UpdateSource.GAME,
-                "T".repeat(64),
+                Actor.person(eu.nordtal.s2.common.id.DiscordId.of("9".repeat(20))),
                 Instant.now(),
                 Instant.now(),
+                null,
+                List.of(),
                 Instant.now(),
                 null,
                 null);
@@ -156,10 +157,11 @@ class EmbedBudgetTest {
                 1L,
                 UpdateKind.UPDATE,
                 UpdateStatus.RUNNING,
-                UpdateSource.DISCORD,
-                "1",
+                Actor.HOST,
                 Instant.now(),
                 Instant.now(),
+                null,
+                List.of(),
                 Instant.now(),
                 null,
                 null);

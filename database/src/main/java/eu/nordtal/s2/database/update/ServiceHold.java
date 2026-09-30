@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.update;
 
+import eu.nordtal.s2.database.Actor;
 import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 
@@ -8,11 +9,11 @@ import org.jspecify.annotations.Nullable;
  *
  * @param service   the compose service name, as {@code update_request.scope} carries it
  * @param since     when the hold was written, on the database's clock
- * @param heldBy    who asked for it, as in {@code update_request.requested_by}, or {@code null}
+ * @param heldBy    who asked for the DOWN run that put it there
  * @param requestId the DOWN run that put it there, or {@code null} once that row was deleted
  */
 public record ServiceHold(
         String service,
         Instant since,
-        @Nullable String heldBy,
+        Actor heldBy,
         @Nullable Long requestId) {}

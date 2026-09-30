@@ -1,10 +1,10 @@
 package eu.nordtal.s2.steward.worker.backup;
 
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.DatabaseText;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateRefusal;
-import eu.nordtal.s2.database.update.UpdateSource;
 import eu.nordtal.s2.messages.Refused;
 import java.time.Clock;
 import java.time.DayOfWeek;
@@ -36,27 +36,18 @@ public final class NightlyClock implements AutoCloseable {
 
     private static final DateTimeFormatter HH_MM = DateTimeFormatter.ofPattern("HH:mm");
 
-    /** Who the row says asked; {@code CONSOLE} is this host on a timer. */
-    private static final UpdateSource SOURCE = UpdateSource.CONSOLE;
-
-    /**
-     * What a clock asks for.
-     *
-     * Both {@code requestedBy} values begin with {@code steward-worker}, which the interface reads as "the clock".
-     */
+    /** What a clock asks for, always as {@link Actor#STEWARD}: nobody pressed anything. */
     public enum Job {
-        BACKUP(UpdateKind.BACKUP, "backup", "steward-worker (nightly)", "the nightly backup"),
-        UPDATE(UpdateKind.UPDATE, "update", "steward-worker (schedule)", "the scheduled update");
+        BACKUP(UpdateKind.BACKUP, "backup", "the nightly backup"),
+        UPDATE(UpdateKind.UPDATE, "update", "the scheduled update");
 
         private final UpdateKind kind;
         private final String key;
-        private final String requestedBy;
         private final String noun;
 
-        Job(final UpdateKind kind, final String key, final String requestedBy, final String noun) {
+        Job(final UpdateKind kind, final String key, final String noun) {
             this.kind = kind;
             this.key = key;
-            this.requestedBy = requestedBy;
             this.noun = noun;
         }
     }
@@ -292,9 +283,8 @@ public final class NightlyClock implements AutoCloseable {
      */
     Duration fire(final ZonedDateTime due, final ZonedDateTime now) {
         try {
-            final long id = directory
-                    .submit(job.kind, SOURCE, job.requestedBy, Duration.ZERO)
-                    .id();
+            final long id =
+                    directory.submit(job.kind, Actor.STEWARD, Duration.ZERO).id();
             log.info("asked for {} as request {}", job.noun, id);
         } catch (final Refused refused) {
             if (refused.reason() == UpdateRefusal.RUN_OPEN && now.plus(RETRY).isBefore(due.plus(PATIENCE))) {

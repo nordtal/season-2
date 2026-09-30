@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.update;
 
+import eu.nordtal.s2.database.Actor;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
@@ -17,7 +18,7 @@ public final class ServiceHoldMapper implements RowMapper<ServiceHold> {
         return new ServiceHold(
                 rs.getString("service"),
                 rs.getObject("since", OffsetDateTime.class).toInstant(),
-                rs.getString("held_by"),
+                Actor.of(rs.getString("actor_kind"), rs.getString("actor_id")),
                 request);
     }
 }

@@ -581,14 +581,6 @@ update_scope_ok() {
     [[ "$1" =~ ^[a-z0-9-]+(,[a-z0-9-]+)*$ ]]
 }
 
-# Who asked, for `requested_by`: 64 characters, with anything outside the allowed set replaced.
-update_requester() {
-    local who host
-    who="${SUDO_USER:-${USER:-$(id -un 2>/dev/null || echo unknown)}}"
-    host="$(hostname -s 2>/dev/null || echo unknown)"
-    printf '%s' "${who}@${host}" | tr -c 'A-Za-z0-9._@-' '-' | cut -c1-64
-}
-
 # Reads the flags of `./nordtal.sh update` into the UPDATE_ variables; dies on anything unknown.
 parse_update_args() {
     UPDATE_KIND=UPDATE
@@ -636,14 +628,13 @@ parse_update_args() {
 # Inserts the row and notifies in one statement, as `UpdateDao#submit` does.
 # Concatenation is safe because every value passed a shape check that admits no quote.
 update_insert_sql() {
-    local kind="$1" scope="$2" minutes="$3" requester="$4"
+    local kind="$1" scope="$2" minutes="$3"
     local scope_sql="NULL"
     [[ -n "$scope" ]] && scope_sql="'$scope'"
     cat <<SQL
 WITH inserted AS (
-    INSERT INTO update_request (kind, source, requested_by, not_before, scope)
-    VALUES ('$kind', 'CONSOLE', '$requester',
-            now() + make_interval(mins => $minutes), $scope_sql)
+    INSERT INTO update_request (kind, actor_kind, scheduled_for, scope)
+    VALUES ('$kind', 'HOST', now() + make_interval(mins => $minutes), $scope_sql)
     RETURNING id
 ), notified AS (
     SELECT pg_notify('nordtal_update', '') FROM inserted
@@ -702,7 +693,7 @@ cmd_update() {
        \`docker compose -p $project ps\` says what is up."
 
     local id
-    id="$(update_insert_sql "$UPDATE_KIND" "$UPDATE_SCOPE" "$UPDATE_DELAY" "$(update_requester)" \
+    id="$(update_insert_sql "$UPDATE_KIND" "$UPDATE_SCOPE" "$UPDATE_DELAY" \
         | update_psql "$container" "$user" "$database" | sed -n '1p' | tr -d '[:space:]')"
     [[ "$id" =~ ^[0-9]+$ ]] || die "the database did not answer with a request id (got: '$id')"
 

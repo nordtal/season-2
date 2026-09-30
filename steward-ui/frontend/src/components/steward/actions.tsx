@@ -104,11 +104,7 @@ export function ActionRow({
           </>
         )}
         <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-          {!action ? (
-            <SkeletonText className="w-32 text-xs" />
-          ) : (
-            <Actor system={action.system} discordId={action.actorDiscordId} label={action.actorLabel || "console"} />
-          )}
+          {!action ? <SkeletonText className="w-32 text-xs" /> : <Actor kind={action.actorKind} id={action.actorId} />}
           {action ? (
             <>
               <span>authored</span>

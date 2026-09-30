@@ -4,7 +4,7 @@ import { Link } from "@tanstack/react-router"
 import { SERVICES } from "@/app/navigation"
 import { PersonIdentity } from "@/components/steward/identity"
 import { Skeleton, SkeletonText } from "@/components/steward/query-state"
-import type { Person } from "@/lib/api"
+import type { ActorKind, Person } from "@/lib/api"
 import { useAvatarBaseUrl, usePeople } from "@/lib/queries"
 
 export type EntityKind = "discord" | "minecraft" | "service"
@@ -118,23 +118,9 @@ export function Entity({ id, kind, system, interactive, className }: EntityProps
   )
 }
 
-/**
- * Who asked for a run or authored an action, from the fields the backend splits `requested_by` into.
- *
- * A label with no id behind it resolves to nothing and says so.
- */
-export function Actor({
-  system,
-  discordId,
-  label,
-  className,
-}: {
-  system: boolean
-  discordId: string
-  label: string
-  className?: string
-}) {
-  if (system) return <Entity system className={className} />
-  if (discordId) return <Entity id={discordId} kind="discord" className={className} />
-  return <Entity id={label} className={className} />
+/** Who asked for a run or authored an action: a person by their Discord id, Steward itself, or the host. */
+export function Actor({ kind, id, className }: { kind: ActorKind; id: string; className?: string }) {
+  if (kind === "PERSON" && id) return <Entity id={id} kind="discord" className={className} />
+  if (kind === "HOST") return <Entity id="host" className={className} />
+  return <Entity system className={className} />
 }

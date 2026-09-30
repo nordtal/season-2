@@ -1,9 +1,9 @@
 package eu.nordtal.s2.steward.worker.serve;
 
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateRequest;
-import eu.nordtal.s2.database.update.UpdateSource;
 import eu.nordtal.s2.database.update.UpdateStatus;
 import java.time.Duration;
 import java.time.Instant;
@@ -33,18 +33,42 @@ final class FakeDirectory implements UpdateDirectory {
         return List.copyOf(finished);
     }
 
+    /** A copy of {@code row} with what a statement changes, and everything it leaves alone kept. */
+    private static UpdateRequest copy(
+            final UpdateRequest row,
+            final UpdateStatus status,
+            final Instant countdownEnd,
+            final List<String> moving,
+            final Instant started,
+            final Instant finished,
+            final String result) {
+        return new UpdateRequest(
+                row.id(),
+                row.kind(),
+                status,
+                row.actor(),
+                row.requested(),
+                row.scheduledFor(),
+                countdownEnd,
+                moving,
+                started,
+                finished,
+                result);
+    }
+
     @Override
     public UpdateRequest submit(
-            final UpdateKind kind, final UpdateSource source, final String requestedBy, final Duration delay) {
+            final UpdateKind kind, final Actor actor, final Duration delay, final List<String> services) {
         final long id = nextId++;
         final UpdateRequest request = new UpdateRequest(
                 id,
                 kind,
                 UpdateStatus.PENDING,
-                source,
-                requestedBy,
+                actor,
                 now,
                 now.plus(delay == null ? Duration.ZERO : delay),
+                null,
+                List.of(),
                 null,
                 null,
                 null);
@@ -61,24 +85,15 @@ final class FakeDirectory implements UpdateDirectory {
     public Optional<UpdateRequest> claimNext() {
         return rows.values().stream()
                 .filter(row -> row.status() == UpdateStatus.PENDING)
-                .filter(row -> !row.notBefore().isAfter(now))
+                .filter(row -> !row.scheduledFor().isAfter(now))
                 .min((left, right) -> {
-                    final int byTime = left.notBefore().compareTo(right.notBefore());
+                    final int byTime = left.scheduledFor().compareTo(right.scheduledFor());
                     return byTime != 0 ? byTime : Long.compare(left.id(), right.id());
                 })
                 .map(row -> {
-                    final UpdateRequest claimed = new UpdateRequest(
-                            row.id(),
-                            row.kind(),
-                            UpdateStatus.RUNNING,
-                            row.source(),
-                            row.requestedBy(),
-                            row.requested(),
-                            row.notBefore(),
-                            now,
-                            null,
-                            // Kept, as the real claim keeps it: a handed-over run is recognised by its report.
-                            row.result());
+                    // The report is kept, as the real claim keeps it: a handed-over run is recognised by it.
+                    final UpdateRequest claimed =
+                            copy(row, UpdateStatus.RUNNING, row.countdownEnd(), row.moving(), now, null, row.result());
                     rows.put(row.id(), claimed);
                     return claimed;
                 });
@@ -90,17 +105,7 @@ final class FakeDirectory implements UpdateDirectory {
         if (row == null || row.status() != UpdateStatus.RUNNING) {
             return Optional.empty();
         }
-        final UpdateRequest done = new UpdateRequest(
-                row.id(),
-                row.kind(),
-                status,
-                row.source(),
-                row.requestedBy(),
-                row.requested(),
-                row.notBefore(),
-                row.started(),
-                now,
-                result);
+        final UpdateRequest done = copy(row, status, row.countdownEnd(), row.moving(), row.started(), now, result);
         rows.put(id, done);
         finished.add(done);
         return Optional.of(done);
@@ -112,19 +117,7 @@ final class FakeDirectory implements UpdateDirectory {
         if (row == null || row.status() != UpdateStatus.RUNNING) {
             return false;
         }
-        rows.put(
-                id,
-                new UpdateRequest(
-                        row.id(),
-                        row.kind(),
-                        UpdateStatus.PENDING,
-                        row.source(),
-                        row.requestedBy(),
-                        row.requested(),
-                        row.notBefore(),
-                        null,
-                        null,
-                        result));
+        rows.put(id, copy(row, UpdateStatus.PENDING, row.countdownEnd(), row.moving(), null, null, result));
         return true;
     }
 
@@ -164,22 +157,14 @@ final class FakeDirectory implements UpdateDirectory {
     }
 
     @Override
-    public Optional<UpdateRequest> startCountdown(final long id, final java.time.Duration seconds) {
+    public Optional<UpdateRequest> startCountdown(
+            final long id, final java.time.Duration seconds, final java.util.Collection<String> moving) {
         final UpdateRequest row = rows.get(id);
         if (row == null || row.status() != UpdateStatus.RUNNING) {
             return Optional.empty();
         }
-        final UpdateRequest counting = new UpdateRequest(
-                row.id(),
-                row.kind(),
-                row.status(),
-                row.source(),
-                row.requestedBy(),
-                row.requested(),
-                now.plus(seconds),
-                row.started(),
-                row.finished(),
-                row.result());
+        final UpdateRequest counting = copy(
+                row, row.status(), now.plus(seconds), List.copyOf(moving), row.started(), row.finished(), row.result());
         rows.put(id, counting);
         return Optional.of(counting);
     }
@@ -190,19 +175,7 @@ final class FakeDirectory implements UpdateDirectory {
         if (row == null || row.status() != UpdateStatus.RUNNING) {
             return false;
         }
-        rows.put(
-                id,
-                new UpdateRequest(
-                        row.id(),
-                        row.kind(),
-                        row.status(),
-                        row.source(),
-                        row.requestedBy(),
-                        row.requested(),
-                        now,
-                        row.started(),
-                        row.finished(),
-                        row.result()));
+        rows.put(id, copy(row, row.status(), now, row.moving(), row.started(), row.finished(), row.result()));
         return true;
     }
 
@@ -211,24 +184,15 @@ final class FakeDirectory implements UpdateDirectory {
         return rows.values().stream()
                 .filter(row -> row.status() == UpdateStatus.PENDING || row.status() == UpdateStatus.RUNNING)
                 .filter(row -> row.kind() == UpdateKind.RESTART || row.kind() == UpdateKind.UPDATE)
-                .filter(row -> row.notBefore().isAfter(now))
+                .filter(row -> row.due().isAfter(now))
                 .findFirst();
     }
 
     @Override
     public Optional<UpdateRequest> cancelCountdown(final String reason) {
         return countingDown().map(row -> {
-            final UpdateRequest cancelled = new UpdateRequest(
-                    row.id(),
-                    row.kind(),
-                    UpdateStatus.CANCELLED,
-                    row.source(),
-                    row.requestedBy(),
-                    row.requested(),
-                    row.notBefore(),
-                    null,
-                    now,
-                    reason);
+            final UpdateRequest cancelled =
+                    copy(row, UpdateStatus.CANCELLED, row.countdownEnd(), row.moving(), null, now, reason);
             rows.put(row.id(), cancelled);
             return cancelled;
         });
@@ -238,7 +202,7 @@ final class FakeDirectory implements UpdateDirectory {
     public Optional<Instant> nextDue() {
         return rows.values().stream()
                 .filter(row -> row.status() == UpdateStatus.PENDING)
-                .map(UpdateRequest::notBefore)
+                .map(UpdateRequest::scheduledFor)
                 .min(Instant::compareTo);
     }
 
@@ -252,17 +216,7 @@ final class FakeDirectory implements UpdateDirectory {
             // Every kind, a RESTART included, since a redeploy takes the worker down mid-call.
             rows.put(
                     row.id(),
-                    new UpdateRequest(
-                            row.id(),
-                            row.kind(),
-                            UpdateStatus.FAILED,
-                            row.source(),
-                            row.requestedBy(),
-                            row.requested(),
-                            row.notBefore(),
-                            row.started(),
-                            now,
-                            failed));
+                    copy(row, UpdateStatus.FAILED, row.countdownEnd(), row.moving(), row.started(), now, failed));
             settled++;
         }
         return settled;

@@ -9,20 +9,19 @@ function row(over: Partial<Run> = {}): Run {
     scope: [],
     kind: "RESTART",
     status: "PENDING",
-    source: "CONSOLE",
-    requestedBy: "hmtill",
-    actorDiscordId: "",
-    actorLabel: "hmtill",
-    system: false,
+    actorKind: "HOST",
+    actorId: "",
     requested: "2026-09-20T20:00:00Z",
-    notBefore: "2026-09-20T20:01:00Z",
+    scheduledFor: "2026-09-20T20:01:00Z",
+    countdownEnd: "2026-09-20T20:01:00Z",
+    moving: [],
     started: "",
     finished: "",
     ...over,
   }
 }
 
-/** A copy of `UpdateDirectory#cancelCountdown`: PENDING or RUNNING, a counting kind, and `not_before > now()`. */
+/** A copy of `UpdateDirectory#cancelCountdown`: a counting kind, PENDING before its schedule or RUNNING before its end. */
 describe("cancellable - the window the backend would still take a row back in", () => {
   const now = new Date("2026-09-20T20:00:30Z")
 
@@ -32,18 +31,18 @@ describe("cancellable - the window the backend would still take a row back in", 
   })
 
   it("says yes to the row entered for tonight, hours before anything happens", () => {
-    expect(cancellable(row({ notBefore: "2026-09-21T04:00:00Z" }), now)).toBe(true)
+    expect(cancellable(row({ scheduledFor: "2026-09-21T04:00:00Z" }), now)).toBe(true)
   })
 
   it("says no once the moment has arrived, which is the run that is actually stopping things", () => {
-    /** Both rows are RUNNING and differ only in `not_before`, so a status alone would put a Cancel on both. */
-    expect(cancellable(row({ status: "RUNNING", notBefore: "2026-09-20T20:00:00Z" }), now)).toBe(false)
-    expect(cancellable(row({ notBefore: "2026-09-20T20:00:30Z" }), now)).toBe(false)
+    /** A RUNNING row counts to its countdown's end, a PENDING one to its schedule; either past is too late. */
+    expect(cancellable(row({ status: "RUNNING", countdownEnd: "2026-09-20T20:00:00Z" }), now)).toBe(false)
+    expect(cancellable(row({ scheduledFor: "2026-09-20T20:00:30Z" }), now)).toBe(false)
   })
 
   it("says no to a run that is over, whatever its moment was", () => {
     for (const status of ["DONE", "FAILED", "CANCELLED"]) {
-      expect(cancellable(row({ status, notBefore: "2026-09-21T04:00:00Z" }), now)).toBe(false)
+      expect(cancellable(row({ status, scheduledFor: "2026-09-21T04:00:00Z" }), now)).toBe(false)
     }
   })
 
@@ -58,8 +57,9 @@ describe("cancellable - the window the backend would still take a row back in", 
   })
 
   it("says no to a row with no moment at all rather than throwing", () => {
-    /** `not_before` is NOT NULL, but an unparseable date must still read as not cancellable, never as NaN > now. */
-    expect(cancellable(row({ notBefore: "" }), now)).toBe(false)
-    expect(cancellable(row({ notBefore: "not a time" }), now)).toBe(false)
+    /** A running row resolves before it counts down, and an unparseable date is never NaN > now either. */
+    expect(cancellable(row({ status: "RUNNING", countdownEnd: "null" }), now)).toBe(false)
+    expect(cancellable(row({ scheduledFor: "" }), now)).toBe(false)
+    expect(cancellable(row({ scheduledFor: "not a time" }), now)).toBe(false)
   })
 })

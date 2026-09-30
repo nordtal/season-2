@@ -1,11 +1,11 @@
 package eu.nordtal.s2.steward.worker.api;
 
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.database.audit.AuditEntry;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateRequest;
-import eu.nordtal.s2.database.update.UpdateSource;
 import eu.nordtal.s2.database.update.UpdateStatus;
 import java.time.Duration;
 import java.time.Instant;
@@ -44,7 +44,7 @@ final class FakeDirectories {
 
         @Override
         public UpdateRequest submit(
-                final UpdateKind kind, final UpdateSource source, final String requestedBy, final Duration delay) {
+                final UpdateKind kind, final Actor actor, final Duration delay, final List<String> services) {
             throw new UnsupportedOperationException("not exercised by this fake");
         }
 
@@ -95,7 +95,8 @@ final class FakeDirectories {
         }
 
         @Override
-        public Optional<UpdateRequest> startCountdown(final long id, final Duration length) {
+        public Optional<UpdateRequest> startCountdown(
+                final long id, final Duration length, final java.util.Collection<String> moving) {
             throw new UnsupportedOperationException("not exercised by this fake");
         }
 

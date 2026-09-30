@@ -118,7 +118,6 @@ final class ServiceRows {
         if (hold != null) {
             final Map<String, Object> about = new LinkedHashMap<>();
             about.put("since", hold.since().toString());
-            about.put("by", hold.heldBy());
             row.put("hold", about);
         }
         if (container.isRunning()) {

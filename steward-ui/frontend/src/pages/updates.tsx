@@ -348,11 +348,7 @@ function Runs() {
                     )}
                   </TableCell>
                   <TableCell data-label="Initiated by" className="text-muted-foreground">
-                    {run ? (
-                      <Actor system={run.system} discordId={run.actorDiscordId} label={run.actorLabel || run.source} />
-                    ) : (
-                      <SkeletonText width="medium" />
-                    )}
+                    {run ? <Actor kind={run.actorKind} id={run.actorId} /> : <SkeletonText width="medium" />}
                   </TableCell>
                 </TableRow>
               ))}

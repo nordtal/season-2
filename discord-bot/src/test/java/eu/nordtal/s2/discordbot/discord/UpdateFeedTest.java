@@ -4,12 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
-import eu.nordtal.s2.database.update.UpdateSource;
 import eu.nordtal.s2.database.update.UpdateStatus;
 import eu.nordtal.s2.messages.Messages;
 import java.time.Clock;
@@ -111,7 +111,7 @@ class UpdateFeedTest {
 
         @Override
         public UpdateRequest submit(
-                final UpdateKind kind, final UpdateSource source, final String requestedBy, final Duration delay) {
+                final UpdateKind kind, final Actor actor, final Duration delay, final List<String> services) {
             throw new UnsupportedOperationException();
         }
 
@@ -131,7 +131,8 @@ class UpdateFeedTest {
         }
 
         @Override
-        public Optional<UpdateRequest> startCountdown(final long id, final Duration seconds) {
+        public Optional<UpdateRequest> startCountdown(
+                final long id, final Duration seconds, final java.util.Collection<String> moving) {
             throw new UnsupportedOperationException();
         }
 
@@ -173,7 +174,7 @@ class UpdateFeedTest {
         final List<Runnable> queued = new ArrayList<>();
         final java.util.concurrent.Executor busy = queued::add;
 
-        rows.put(row(1, UpdateSource.GAME, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
+        rows.put(row(1, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
 
         feed.submit(busy);
         feed.submit(busy);
@@ -195,7 +196,7 @@ class UpdateFeedTest {
         assertThrows(java.util.concurrent.RejectedExecutionException.class, () -> feed.submit(shuttingDown));
 
         // Without the release in the catch, one rejection would silence the feed for good.
-        rows.put(row(1, UpdateSource.GAME, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
+        rows.put(row(1, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
         final List<Runnable> queued = new ArrayList<>();
         feed.submit(queued::add);
         assertEquals(1, queued.size(), "the flag stayed taken after a rejected submission");
@@ -203,11 +204,11 @@ class UpdateFeedTest {
 
     @Test
     void aRunThatFailsMentionsTheAdminRoleOneThatSucceedsDoesNot() {
-        rows.put(row(1, UpdateSource.GAME, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
+        rows.put(row(1, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
         feed.tick();
         assertTrue(board.alerted.isEmpty(), "a run still going is not news for the admin role");
 
-        rows.put(row(1, UpdateSource.GAME, UpdateStatus.FAILED, reportAt(UpdateReport.Stage.STOPPING), NOW));
+        rows.put(row(1, UpdateStatus.FAILED, reportAt(UpdateReport.Stage.STOPPING), NOW));
         feed.tick();
         assertEquals(
                 1,
@@ -228,7 +229,7 @@ class UpdateFeedTest {
 
     @Test
     void aCancelledRunSaysNothingSomebodyTypedThatAndAlreadyKnows() {
-        rows.put(row(2, UpdateSource.GAME, UpdateStatus.CANCELLED, reportAt(UpdateReport.Stage.RESOLVING), NOW));
+        rows.put(row(2, UpdateStatus.CANCELLED, reportAt(UpdateReport.Stage.RESOLVING), NOW));
         feed.tick();
 
         assertEquals(1, board.posted.size(), "a cancelled run is still worth a line in the channel");
@@ -240,7 +241,7 @@ class UpdateFeedTest {
 
     @Test
     void aRunThatWasAlreadyFailedWhenFirstSeenIsAnnouncedToo() {
-        rows.put(row(3, UpdateSource.CONSOLE, UpdateStatus.FAILED, reportAt(UpdateReport.Stage.STOPPING), NOW));
+        rows.put(row(3, UpdateStatus.FAILED, reportAt(UpdateReport.Stage.STOPPING), NOW));
         feed.tick();
 
         assertEquals(
@@ -250,13 +251,11 @@ class UpdateFeedTest {
                         + " run nobody watched - it went wrong while the bot was restarting");
     }
 
+    private static final Actor TILL = Actor.person(eu.nordtal.s2.common.id.DiscordId.of("594510749410525200"));
+
     private static UpdateRequest row(
-            final long id,
-            final UpdateSource source,
-            final UpdateStatus status,
-            final String result,
-            final Instant finished) {
-        return new UpdateRequest(id, UpdateKind.UPDATE, status, source, "Till", NOW, NOW, NOW, finished, result);
+            final long id, final UpdateStatus status, final String result, final Instant finished) {
+        return new UpdateRequest(id, UpdateKind.UPDATE, status, TILL, NOW, NOW, null, List.of(), NOW, finished, result);
     }
 
     private static String reportAt(final UpdateReport.Stage stage) {
@@ -265,22 +264,21 @@ class UpdateFeedTest {
 
     @Test
     void aRunStartedInGameIsPostedAndEditedAsItMoves() {
-        rows.put(row(1L, UpdateSource.GAME, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.RESOLVING), null));
+        rows.put(row(1L, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.RESOLVING), null));
         feed.tick();
 
         assertEquals(1, board.posted.size());
         final java.util.Map<String, String> context = new java.util.HashMap<>();
         board.posted.getFirst().embed().getFields().forEach(f -> context.put(f.getName(), f.getValue()));
-        assertEquals("Till", context.get("By"), "who asked is a field of its own");
-        assertEquals("game", context.get("From"));
+        assertEquals("<@594510749410525200>", context.get("By"), "who asked is a field of its own, as a mention");
 
-        rows.put(row(1L, UpdateSource.GAME, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
+        rows.put(row(1L, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING), null));
         feed.tick();
         assertEquals(1, board.posted.size(), "the same run, not a second message");
         assertEquals(1, board.edited.size());
         assertEquals("msg-1", board.edited.getFirst().messageId());
 
-        rows.put(row(1L, UpdateSource.GAME, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE), NOW));
+        rows.put(row(1L, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE), NOW));
         feed.tick();
         assertEquals(2, board.edited.size(), "and the last edit is the answer");
 
@@ -290,7 +288,7 @@ class UpdateFeedTest {
 
     @Test
     void anUnchangedReportIsNotReSentBecauseDiscordRateLimitsEdits() {
-        rows.put(row(1L, UpdateSource.CONSOLE, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.INSTALLING), null));
+        rows.put(row(1L, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.INSTALLING), null));
         feed.tick();
         feed.tick();
         feed.tick();
@@ -306,12 +304,7 @@ class UpdateFeedTest {
     @Test
     void aRestartBeginsAtTheNewestRowSoASeasonOfHistoryIsNotRePosted() {
         for (long id = 1; id <= 40; id++) {
-            rows.put(row(
-                    id,
-                    UpdateSource.GAME,
-                    UpdateStatus.DONE,
-                    reportAt(UpdateReport.Stage.DONE),
-                    NOW.minus(Duration.ofDays(3))));
+            rows.put(row(id, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE), NOW.minus(Duration.ofDays(3))));
         }
         feed.start();
         feed.tick();
@@ -322,18 +315,8 @@ class UpdateFeedTest {
     @Test
     void aRunThatEndedWhileTheBotWasDownIsPostedOnceAsAResult() {
         // A row below max(id) is one the feed would never look at again.
-        rows.put(row(
-                1L,
-                UpdateSource.GAME,
-                UpdateStatus.FAILED,
-                reportAt(UpdateReport.Stage.FAILED),
-                NOW.minus(Duration.ofMinutes(4))));
-        rows.put(row(
-                2L,
-                UpdateSource.GAME,
-                UpdateStatus.DONE,
-                reportAt(UpdateReport.Stage.DONE),
-                NOW.minus(Duration.ofHours(9))));
+        rows.put(row(1L, UpdateStatus.FAILED, reportAt(UpdateReport.Stage.FAILED), NOW.minus(Duration.ofMinutes(4))));
+        rows.put(row(2L, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE), NOW.minus(Duration.ofHours(9))));
         feed.start();
 
         assertEquals(1, board.posted.size(), "and nothing older than the catch-up window");
@@ -344,10 +327,10 @@ class UpdateFeedTest {
     @Test
     void aPostDiscordNeverAcknowledgedIsNotEditedAgainstAMessageIdThatIsNotThere() {
         board.acknowledge = false;
-        rows.put(row(1L, UpdateSource.GAME, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.RESOLVING), null));
+        rows.put(row(1L, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.RESOLVING), null));
         feed.tick();
 
-        rows.put(row(1L, UpdateSource.GAME, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE), NOW));
+        rows.put(row(1L, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE), NOW));
         feed.tick();
 
         assertEquals(
@@ -359,7 +342,7 @@ class UpdateFeedTest {
 
     @Test
     void aRunAlreadyFinishedWhenTheFeedFirstSeesItIsPostedOnceAndNotFollowed() {
-        rows.put(row(1L, UpdateSource.CONSOLE, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE), NOW));
+        rows.put(row(1L, UpdateStatus.DONE, reportAt(UpdateReport.Stage.DONE), NOW));
         feed.tick();
         feed.tick();
 
@@ -368,26 +351,13 @@ class UpdateFeedTest {
     }
 
     @Test
-    void aStewardAskerIsAMentionAndNotANameWithAnId() {
-        rows.put(new UpdateRequest(
-                1L,
-                UpdateKind.UPDATE,
-                UpdateStatus.FAILED,
-                UpdateSource.CONSOLE,
-                "hm.till (594510749410525200)",
-                NOW,
-                NOW,
-                NOW,
-                NOW,
-                reportAt(UpdateReport.Stage.FAILED)));
-        feed.tick();
+    void theAskerIsAMentionForAPersonAndAWordForStewardAndTheHost() {
+        final java.util.function.Function<Actor, String> asker = actor -> UpdateFeed.asker(new UpdateRequest(
+                1L, UpdateKind.UPDATE, UpdateStatus.FAILED, actor, NOW, NOW, null, List.of(), NOW, NOW, null));
 
-        final java.util.Map<String, String> context = new java.util.HashMap<>();
-        board.posted.getFirst().embed().getFields().forEach(f -> context.put(f.getName(), f.getValue()));
-        assertEquals(
-                "<@594510749410525200>", context.get("By"), "Discord renders a mention; a name with an id is noise");
-        assertTrue(board.alerted.getFirst().contains("<@594510749410525200>"), board.alerted.getFirst());
-        assertTrue(!board.alerted.getFirst().contains("594510749410525200)"), board.alerted.getFirst());
+        assertEquals("<@594510749410525200>", asker.apply(TILL), "Discord renders a mention for a person");
+        assertEquals("Steward", asker.apply(Actor.STEWARD));
+        assertEquals("host", asker.apply(Actor.HOST));
     }
 
     @Test
@@ -402,8 +372,8 @@ class UpdateFeedTest {
                 UpdateReport.Stage.FAILED,
                 List.of(new UpdateReport.ServiceLine("smp", UpdateReport.State.FAILED, List.of(), null)),
                 List.of());
-        rows.put(row(1L, UpdateSource.GAME, UpdateStatus.DONE, UpdateReports.toJson(done), NOW));
-        rows.put(row(2L, UpdateSource.GAME, UpdateStatus.FAILED, UpdateReports.toJson(failed), NOW));
+        rows.put(row(1L, UpdateStatus.DONE, UpdateReports.toJson(done), NOW));
+        rows.put(row(2L, UpdateStatus.FAILED, UpdateReports.toJson(failed), NOW));
         feed.tick();
 
         final MessageEmbed good = board.posted.get(0).embed();

@@ -120,12 +120,9 @@ class WorkerProxyTest extends StewardUiTestSupport {
         final JsonObject row = GSON.fromJson(asked.body(), JsonObject.class);
         assertEquals("BACKUP", row.get("kind").getAsString());
         assertEquals("PENDING", row.get("status").getAsString());
-        // Who asked is written down.
-        assertTrue(row.get("requestedBy").getAsString().contains("Ally"), row.toString());
-        // The same actor fields the unified actions feed carries, read out of the same string.
-        assertEquals("Ally (1)", row.get("actorLabel").getAsString(), row.toString());
-        assertEquals("", row.get("actorDiscordId").getAsString(), row.toString());
-        assertFalse(row.get("system").getAsBoolean(), row.toString());
+        // Who asked is written down, as the person's Discord id.
+        assertEquals("PERSON", row.get("actorKind").getAsString(), row.toString());
+        assertEquals("1", row.get("actorId").getAsString(), row.toString());
 
         // It is in the list the interface draws its runs from.
         final JsonArray recent = GSON.fromJson(get("/api/updates").body(), JsonArray.class);
@@ -229,16 +226,16 @@ class WorkerProxyTest extends StewardUiTestSupport {
 
             try (var connection = data.dataSource().getConnection();
                     var statement = connection.prepareStatement("select kind, subject, argument,"
-                            + " source, requested_by from access_request where id = ?")) {
+                            + " actor_kind, actor_id from access_request where id = ?")) {
                 statement.setLong(1, id);
                 try (var row = statement.executeQuery()) {
                     assertTrue(row.next(), ask[0] + " wrote no access_request row");
                     assertEquals(ask[2], row.getString("kind"));
                     assertEquals(ask[3], row.getString("subject"));
                     assertEquals(ask[4], row.getString("argument"));
-                    assertEquals("STEWARD", row.getString("source"));
+                    assertEquals("PERSON", row.getString("actor_kind"));
                     // The admin's Discord id, which is what the bot re-reads and journals.
-                    assertEquals("1", row.getString("requested_by"));
+                    assertEquals("1", row.getString("actor_id"));
                 }
             }
 

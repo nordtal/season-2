@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.access;
 
+import eu.nordtal.s2.database.Actor;
 import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 
@@ -8,7 +9,7 @@ import org.jspecify.annotations.Nullable;
  *
  * @param subject     a Discord id, or a payment reference for {@link AccessRequestKind#SETTLE}
  * @param argument    days for a grant, seconds for a play time, {@code null} for the rest
- * @param requestedBy the asker's Discord id, or {@code null} for a request nobody signed
+ * @param actor       who asked
  * @param expires     when to stop waiting; the bot refuses to claim a row past this
  * @param started     when the bot claimed it, {@code null} while {@link AccessRequestStatus#PENDING}
  * @param finished    when it reached a terminal state, {@code null} until then
@@ -20,8 +21,7 @@ public record AccessRequest(
         AccessRequestStatus status,
         String subject,
         @Nullable String argument,
-        AccessRequestSource source,
-        @Nullable String requestedBy,
+        Actor actor,
         Instant requested,
         Instant expires,
         @Nullable Instant started,

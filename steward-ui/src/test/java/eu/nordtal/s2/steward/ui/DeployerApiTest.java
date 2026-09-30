@@ -114,7 +114,7 @@ class DeployerApiTest extends StewardUiTestSupport {
         assertEquals(
                 2,
                 count("select count(*) from access_request where subject ="
-                        + " '555000000000000001' and requested_by = '" + snowflake + "'"));
+                        + " '555000000000000001' and actor_kind = 'PERSON' and actor_id = '" + snowflake + "'"));
         try (var connection = data.dataSource().getConnection();
                 var statement = connection.createStatement()) {
             statement.execute("delete from access_request where subject = '555000000000000001'");

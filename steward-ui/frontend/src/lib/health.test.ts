@@ -164,13 +164,13 @@ describe("summarise - a service somebody put down on purpose", () => {
           service: "smp",
           state: "exited",
           status: "Exited (0) 5 minutes ago",
-          hold: { since: SINCE, by: "hmtill" },
+          hold: { since: SINCE },
         }),
         service({
           service: "hunger-games",
           state: "exited",
           status: "Exited (0) 5 minutes ago",
-          hold: { since: SINCE, by: null },
+          hold: { since: SINCE },
         }),
       ]),
     })
@@ -188,7 +188,7 @@ describe("summarise - a service somebody put down on purpose", () => {
           service: "smp",
           state: "running",
           health: "unhealthy",
-          hold: { since: SINCE, by: "hmtill" },
+          hold: { since: SINCE },
         }),
       ]),
     })
@@ -206,7 +206,7 @@ describe("summarise - a service somebody put down on purpose", () => {
           service: "smp",
           state: "exited",
           status: "Exited (0) 5 minutes ago",
-          hold: { since: SINCE, by: "hmtill" },
+          hold: { since: SINCE },
         }),
         service({ service: "proxy", state: "exited", status: "Exited (1) 1 minute ago" }),
       ]),

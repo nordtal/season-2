@@ -8,9 +8,9 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.common.time.Waiting;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.access.AccessRequest;
 import eu.nordtal.s2.database.access.AccessRequestKind;
-import eu.nordtal.s2.database.access.AccessRequestSource;
 import eu.nordtal.s2.database.access.AccessRequestStatus;
 import eu.nordtal.s2.database.access.AccessRequests;
 import eu.nordtal.s2.steward.worker.docker.DockerException;
@@ -202,7 +202,7 @@ class MessagesApiIntegrationTest {
         assertEquals("APPLIED", quiet.get("status").getAsString(), quiet.toString());
         assertTrue(quiet.getAsJsonArray("unknown").isEmpty(), quiet.toString());
         assertEquals(AccessRequestKind.RELOAD_MESSAGES, inbox.asked.get(0).kind());
-        assertEquals(AccessRequestSource.STEWARD, inbox.asked.get(0).source());
+        assertEquals(Actor.STEWARD, inbox.asked.get(0).actor());
 
         inbox.answer = request -> settled(request, AccessRequestStatus.DONE, "{\"unknown\":\"dm.grantd,dm.revokd\"}");
         final JsonObject typos = saveBot();
@@ -316,8 +316,7 @@ class MessagesApiIntegrationTest {
                 status,
                 request.subject(),
                 request.argument(),
-                request.source(),
-                request.requestedBy(),
+                request.actor(),
                 request.requested(),
                 request.expires(),
                 Instant.now(),
@@ -351,8 +350,7 @@ class MessagesApiIntegrationTest {
                     AccessRequestStatus.PENDING,
                     request.subject(),
                     request.argument(),
-                    request.source(),
-                    request.requestedBy(),
+                    request.actor(),
                     Instant.now(),
                     Instant.now().plus(patience),
                     null,

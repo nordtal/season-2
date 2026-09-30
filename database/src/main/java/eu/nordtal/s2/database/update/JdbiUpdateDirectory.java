@@ -2,6 +2,7 @@ package eu.nordtal.s2.database.update;
 
 import static eu.nordtal.s2.database.DatabaseMessages.MESSAGES;
 
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.messages.Refused;
 import java.time.Duration;
@@ -68,33 +69,18 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     @Override
     public UpdateRequest submit(
             final UpdateKind kind,
-            final UpdateSource source,
-            final @Nullable String requestedBy,
-            final @Nullable Duration delay) {
-        Objects.requireNonNull(kind, "kind");
-        Objects.requireNonNull(source, "source");
-        // Clamped rather than rejected: a delay computed from two disagreeing clocks means now.
-        final long seconds = delay == null ? 0L : Math.max(0L, delay.toSeconds());
-        return guarded(kind, null, locked -> locked.submit(kind.name(), source.name(), requestedBy, seconds));
-    }
-
-    @Override
-    public UpdateRequest submit(
-            final UpdateKind kind,
-            final UpdateSource source,
-            final @Nullable String requestedBy,
+            final Actor actor,
             final @Nullable Duration delay,
             final java.util.@Nullable List<String> services) {
         Objects.requireNonNull(kind, "kind");
-        Objects.requireNonNull(source, "source");
+        Objects.requireNonNull(actor, "actor");
+        // Clamped rather than rejected: a delay computed from two disagreeing clocks means now.
         final long seconds = delay == null ? 0L : Math.max(0L, delay.toSeconds());
         final String scope = scopeText(services);
         return guarded(
                 kind,
                 services,
-                locked -> scope == null
-                        ? locked.submit(kind.name(), source.name(), requestedBy, seconds)
-                        : locked.submitScoped(kind.name(), source.name(), requestedBy, seconds, scope));
+                locked -> locked.submit(kind.name(), actor.kind().name(), actor.id(), seconds, scope));
     }
 
     @Override
@@ -108,8 +94,8 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
-    public void hold(final String service, final @Nullable String heldBy, final @Nullable Long requestId) {
-        dao.hold(service, heldBy, requestId);
+    public void hold(final String service, final Actor heldBy, final @Nullable Long requestId) {
+        dao.hold(service, heldBy.kind().name(), heldBy.id(), requestId);
     }
 
     @Override
@@ -209,9 +195,10 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
-    public Optional<UpdateRequest> startCountdown(final long id, final Duration length) {
+    public Optional<UpdateRequest> startCountdown(
+            final long id, final Duration length, final java.util.Collection<String> moving) {
         Objects.requireNonNull(length, "length");
-        return dao.startCountdown(id, Math.max(0L, length.toSeconds()));
+        return dao.startCountdown(id, Math.max(0L, length.toSeconds()), moving.toArray(String[]::new));
     }
 
     @Override

@@ -3,11 +3,11 @@ package eu.nordtal.s2.proxy.update;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
-import eu.nordtal.s2.database.update.UpdateSource;
 import eu.nordtal.s2.database.update.UpdateStatus;
 import java.time.Duration;
 import java.time.Instant;
@@ -21,27 +21,20 @@ class EvacuationTest {
 
     private static final Instant NOW = Instant.parse("2026-09-09T18:00:00Z");
 
-    /** A row with a report naming those services as moving, due in {@code in}. */
+    /** A row whose countdown started with those services as moving and ends in {@code in}. */
     private static UpdateRequest request(final UpdateStatus status, final Duration in, final String... moving) {
-        UpdateReport report = UpdateReport.at(UpdateReport.Stage.COUNTDOWN);
-        for (final String service : moving) {
-            report = report.with(new UpdateReport.ServiceLine(
-                    service,
-                    UpdateReport.State.PLANNED,
-                    List.of(new UpdateReport.Change("smp", "0.8.0", "0.8.1")),
-                    null));
-        }
         return new UpdateRequest(
                 1L,
                 UpdateKind.UPDATE,
                 status,
-                UpdateSource.DISCORD,
-                "till",
-                NOW,
+                Actor.HOST,
+                NOW.minusSeconds(60),
+                NOW.minusSeconds(60),
                 NOW.plus(in),
+                List.of(moving),
+                NOW.minusSeconds(60),
                 null,
-                null,
-                UpdateReports.toJson(report));
+                null);
     }
 
     @Test
@@ -68,49 +61,28 @@ class EvacuationTest {
     }
 
     @Test
-    void onlyTheMovingServices() {
-        // A line with no MOVING change does not take a server down.
-        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.COUNTDOWN)
-                .with(new UpdateReport.ServiceLine(
-                        "smp",
-                        UpdateReport.State.PLANNED,
-                        List.of(new UpdateReport.Change("smp", "0.8.0", "0.8.1")),
-                        null))
+    void theRowsMovingServicesAreTheEvacuationWhateverTheReportSays() {
+        // The worker decides what moves when its countdown starts; the proxy never reads the report.
+        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.STOPPING)
                 .with(new UpdateReport.ServiceLine(
                         "hunger-games",
-                        UpdateReport.State.UNCHANGED,
-                        List.of(UpdateReport.Change.unsupported("coreprotect")),
+                        UpdateReport.State.PLANNED,
+                        List.of(new UpdateReport.Change("smp", "0.8.0", "0.8.1")),
                         null));
         final UpdateRequest row = new UpdateRequest(
                 2L,
                 UpdateKind.UPDATE,
                 UpdateStatus.RUNNING,
-                UpdateSource.GAME,
-                "till",
+                Actor.HOST,
+                NOW,
                 NOW,
                 NOW.minusSeconds(5),
-                null,
+                List.of("smp"),
+                NOW,
                 null,
                 UpdateReports.toJson(report));
 
         assertEquals(Set.of("smp"), Evacuation.imminent(Optional.of(row)));
-    }
-
-    @Test
-    void anUnreadableReportMovesNobody() {
-        // A row older than the report codec is plain text, and the safe guess is no services.
-        final UpdateRequest row = new UpdateRequest(
-                3L,
-                UpdateKind.UPDATE,
-                UpdateStatus.RUNNING,
-                UpdateSource.CONSOLE,
-                null,
-                NOW,
-                NOW.minusSeconds(5),
-                null,
-                null,
-                "Restart triggered.");
-        assertEquals(Set.of(), Evacuation.imminent(Optional.of(row)));
     }
 
     @Test
@@ -121,7 +93,7 @@ class EvacuationTest {
     // a service somebody is holding down
 
     private static eu.nordtal.s2.database.update.ServiceHold heldDown(final String service) {
-        return new eu.nordtal.s2.database.update.ServiceHold(service, NOW, "till (1)", 7L);
+        return new eu.nordtal.s2.database.update.ServiceHold(service, NOW, Actor.HOST, 7L);
     }
 
     @Test

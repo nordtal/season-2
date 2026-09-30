@@ -6,9 +6,9 @@ import com.google.gson.JsonSyntaxException;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.common.time.Backoff;
 import eu.nordtal.s2.common.time.Waiting;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.access.AccessRequest;
 import eu.nordtal.s2.database.access.AccessRequestKind;
-import eu.nordtal.s2.database.access.AccessRequestSource;
 import eu.nordtal.s2.database.access.AccessRequestStatus;
 import eu.nordtal.s2.database.access.AccessRequests;
 import eu.nordtal.s2.steward.worker.configfile.MessageArg;
@@ -54,13 +54,6 @@ public final class MessagesApi {
     private static final Pattern COMMA = Pattern.compile(",");
 
     private final Waiting waiting;
-
-    /**
-     * Who the row is filed under.
-     *
-     * A fixed name, since this process does not know which browser asked and must not invent a person.
-     */
-    private static final String ASKED_BY = "steward-ui";
 
     private final Path configsRoot;
     private final @Nullable Path volumesRoot;
@@ -176,8 +169,8 @@ public final class MessagesApi {
                         AccessRequestKind.RELOAD_MESSAGES,
                         identityOf(location),
                         null,
-                        AccessRequestSource.STEWARD,
-                        ASKED_BY),
+                        // Steward itself: this process does not know which browser asked and must not invent one.
+                        Actor.STEWARD),
                 ANSWER_WITHIN);
         final AccessRequest settled = waitFor(requests, asked.id());
         if (settled == null || settled.status() == AccessRequestStatus.EXPIRED) {

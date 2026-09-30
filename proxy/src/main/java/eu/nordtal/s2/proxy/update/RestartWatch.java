@@ -31,7 +31,7 @@ import org.slf4j.Logger;
 /**
  * Tells every player on the network that it is about to go down, and how long they have.
  *
- * Counts towards the row's {@code not_before}; the poll only catches withdrawals, the notification makes it prompt.
+ * Counts towards the row's {@link UpdateRequest#due()}; the poll catches withdrawals, the notification makes it prompt.
  */
 public final class RestartWatch {
 
@@ -139,12 +139,11 @@ public final class RestartWatch {
             shape = shapeOf(request);
             saidVoice = false;
             logger.info(
-                    "Telling {} player(s) about the {} asked for by {} ({}): {} beat(s) over"
+                    "Telling {} player(s) about the {} asked for by {}: {} beat(s) over"
                             + " {} - {} on {}, waiting room {}, standby proxy {}",
                     proxy.getPlayerCount(),
                     request.kind(),
-                    request.requestedBy(),
-                    request.source(),
+                    request.actor(),
                     beats.size(),
                     request.untilDue(clock.instant()),
                     shape.occasion(),
@@ -157,23 +156,9 @@ public final class RestartWatch {
         });
     }
 
-    /**
-     * What this run is, from the report, {@link Evacuation#roomFor} and {@code ProxySwap}'s probe.
-     *
-     * Never throws; an unreadable report gives no services, and the countdown is still spoken.
-     */
+    /** What this run is, from the services it stops, {@link Evacuation#roomFor} and {@code ProxySwap}'s probe. */
     private RunShape shapeOf(final UpdateRequest request) {
-        final Set<String> moving;
-        try {
-            moving = Evacuation.backends(request);
-        } catch (final RuntimeException failure) {
-            logger.warn(
-                    "Could not read the plan of request {}; the countdown will be spoken"
-                            + " without naming what it is for",
-                    request.id(),
-                    failure);
-            return RunShape.of(request.kind(), Set.of(), true, false);
-        }
+        final Set<String> moving = Evacuation.backends(request);
         final boolean room = Evacuation.roomFor(
                         moving,
                         servers.limbo(),

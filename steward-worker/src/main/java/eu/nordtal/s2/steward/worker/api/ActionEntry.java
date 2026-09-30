@@ -1,5 +1,7 @@
 package eu.nordtal.s2.steward.worker.api;
 
+import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.audit.AuditEntry;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateReport;
@@ -7,8 +9,6 @@ import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateStatus;
 import java.time.Instant;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * One row of the actions feed: a run from {@code update_request} or a line from {@code audit_log}.
@@ -16,15 +16,9 @@ import java.util.regex.Pattern;
  * @param kind the {@link UpdateKind} name for a run, or the free-text {@code audit_log.action} for a journal line
  * @param occurred when this happened, by the database's clock
  * @param extent the outcome or its extent, such as "3/3 successful"; never empty
- * @param actorDiscordId the Discord id to resolve through the roster, or {@code ""} (never null) when there is none
- * @param actorLabel plain text to show when there is an actor but no id, {@code ""} (never null) otherwise
- * @param system whether Steward itself is credited, such as the nightly backup clock or an orphan settle
+ * @param actor who asked for the run or did the journalled thing
  */
-public record ActionEntry(
-        String kind, Instant occurred, String extent, String actorDiscordId, String actorLabel, boolean system) {
-
-    /** A trailing snowflake on a free-text requester, as in {@code "name (id)"}. */
-    private static final Pattern TRAILING_SNOWFLAKE = Pattern.compile("^.*\\((\\d{17,20})\\)\\s*$");
+public record ActionEntry(String kind, Instant occurred, String extent, Actor actor) {
 
     /**
      * This entry in the shape the browser reads, with {@code occurred} as ISO-8601 text.
@@ -36,47 +30,37 @@ public record ActionEntry(
         row.put("kind", kind);
         row.put("occurred", occurred.toString());
         row.put("extent", extent);
-        row.put("actorDiscordId", actorDiscordId);
-        row.put("actorLabel", actorLabel);
-        row.put("system", system);
+        row.put("actorKind", actor.kind().name());
+        row.put("actorId", java.util.Objects.requireNonNullElse(actor.id(), ""));
         return row;
     }
 
     /**
-     * A run from {@code update_request}; a trailing {@code (snowflake)} in the requester becomes the actor id.
+     * A run from {@code update_request}.
      *
      * @param run the row, however it finished
      * @return the entry that describes it
      */
     static ActionEntry of(final UpdateRequest run) {
         final Instant occurred = run.finished() != null ? run.finished() : run.requested();
-        final String requestedBy = run.requestedBy();
-        final boolean system = requestedBy == null || requestedBy.startsWith("steward-worker");
-        String actorDiscordId = "";
-        String actorLabel = "";
-        if (requestedBy != null && !system) {
-            final Matcher match = TRAILING_SNOWFLAKE.matcher(requestedBy);
-            if (match.matches()) {
-                actorDiscordId = match.group(1);
-            } else {
-                actorLabel = requestedBy;
-            }
-        }
-        return new ActionEntry(run.kind().name(), occurred, extentOf(run), actorDiscordId, actorLabel, system);
+        return new ActionEntry(run.kind().name(), occurred, extentOf(run), run.actor());
     }
 
     /**
-     * A line from {@code audit_log}, whose {@code actor} is already a clean Discord id or {@code null}.
+     * A line from {@code audit_log}, whose {@code actor} is a Discord id or {@code null} for Steward itself.
      *
      * @param entry the journal line
      * @return the entry that describes it
      */
     static ActionEntry of(final AuditEntry entry) {
         final String actor = entry.actor();
-        final boolean system = actor == null;
         final String detail = entry.detail();
         final String extent = detail == null || detail.isBlank() ? entry.action() : detail;
-        return new ActionEntry(entry.action(), entry.occurred(), extent, actor == null ? "" : actor, "", system);
+        return new ActionEntry(
+                entry.action(),
+                entry.occurred(),
+                extent,
+                actor == null ? Actor.STEWARD : Actor.person(DiscordId.of(actor)));
     }
 
     /**

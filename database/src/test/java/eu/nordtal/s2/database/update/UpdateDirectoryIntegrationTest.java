@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.DatabaseText;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.messages.Refused;
@@ -50,15 +52,14 @@ class UpdateDirectoryIntegrationTest {
     }
 
     /** Writes a row straight into the table, past the one-run rule that {@code submit} enforces. */
-    private UpdateRequest queued(
-            final UpdateKind kind, final UpdateSource source, final String by, final Duration delay) {
+    private UpdateRequest queued(final UpdateKind kind, final Actor actor, final Duration delay) {
         try (Connection connection = dataSource.getConnection();
                 java.sql.PreparedStatement insert = connection.prepareStatement(
-                        "INSERT INTO update_request (kind, source, requested_by, not_before) "
+                        "INSERT INTO update_request (kind, actor_kind, actor_id, scheduled_for) "
                                 + "VALUES (?, ?, ?, now() + make_interval(secs => ?)) RETURNING id")) {
             insert.setString(1, kind.name());
-            insert.setString(2, source.name());
-            insert.setString(3, by);
+            insert.setString(2, actor.kind().name());
+            insert.setString(3, actor.id());
             insert.setDouble(4, (double) Math.max(0, delay.toSeconds()));
             try (java.sql.ResultSet row = insert.executeQuery()) {
                 row.next();
@@ -72,12 +73,13 @@ class UpdateDirectoryIntegrationTest {
     @Test
     void aSubmittedRequestComesBackAsItWasWritten() {
         final UpdateRequest request =
-                updates.submit(UpdateKind.START, UpdateSource.DISCORD, "300000000000000001", Duration.ZERO);
+                updates.submit(UpdateKind.START, Actor.person(DiscordId.of("300000000000000001")), Duration.ZERO);
 
         assertEquals(UpdateKind.START, request.kind());
         assertEquals(UpdateStatus.PENDING, request.status());
-        assertEquals(UpdateSource.DISCORD, request.source());
-        assertEquals("300000000000000001", request.requestedBy());
+        assertEquals(Actor.person(DiscordId.of("300000000000000001")), request.actor());
+        assertNull(request.countdownEnd(), "nothing counts down before the worker has a plan");
+        assertEquals(List.of(), request.moving());
         assertNotNull(request.requested());
         assertNull(request.started(), "nothing has claimed it");
         assertNull(request.finished());
@@ -92,8 +94,8 @@ class UpdateDirectoryIntegrationTest {
     @Test
     void aPageSizeOfZeroIsStillAPageAndSaysSoInTheInterfaceAsWell() {
         // A limit of zero is clamped, like the journal's, so the two lists cannot drift apart.
-        queued(UpdateKind.START, UpdateSource.DISCORD, "a", Duration.ZERO);
-        final UpdateRequest newest = queued(UpdateKind.BACKUP, UpdateSource.CONSOLE, "b", Duration.ZERO);
+        queued(UpdateKind.START, Actor.HOST, Duration.ZERO);
+        final UpdateRequest newest = queued(UpdateKind.BACKUP, Actor.HOST, Duration.ZERO);
 
         assertEquals(List.of(newest.id()), ids(updates.recent(0)));
         assertEquals(List.of(newest.id()), ids(updates.recent(-5)));
@@ -108,7 +110,7 @@ class UpdateDirectoryIntegrationTest {
     void everyKindTheCodeCanNameIsAKindTheCheckAccepts() {
         // Every enum value must pass the kind CHECK.
         for (final UpdateKind kind : UpdateKind.values()) {
-            final UpdateRequest written = queued(kind, UpdateSource.CONSOLE, null, Duration.ZERO);
+            final UpdateRequest written = queued(kind, Actor.HOST, Duration.ZERO);
             assertEquals(kind, written.kind(), kind + " did not survive the round trip");
         }
     }
@@ -116,22 +118,21 @@ class UpdateDirectoryIntegrationTest {
     @Test
     void aDelayIsExactlyThatManySecondsOnTheDatabaseClock() {
         // make_interval(secs => N) is real seconds, so the answer does not depend on the JVM's time zone.
-        final UpdateRequest request =
-                updates.submit(UpdateKind.RESTART, UpdateSource.GAME, "Till", Duration.ofSeconds(60));
+        final UpdateRequest request = updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ofSeconds(60));
 
         final long gap =
-                request.notBefore().getEpochSecond() - request.requested().getEpochSecond();
-        assertEquals(60L, gap, "not_before is requested + 60s exactly");
+                request.scheduledFor().getEpochSecond() - request.requested().getEpochSecond();
+        assertEquals(60L, gap, "scheduled_for is requested + 60s exactly");
     }
 
     @Test
     void aNegativeDelayIsTreatedAsNow() {
         // A delay computed from two disagreeing clocks becomes "now", not an exception on the restart path.
-        final UpdateRequest request =
-                updates.submit(UpdateKind.RESTART, UpdateSource.DISCORD, null, Duration.ofSeconds(-30));
+        final UpdateRequest request = updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ofSeconds(-30));
 
-        assertEquals(request.requested().getEpochSecond(), request.notBefore().getEpochSecond());
-        assertNull(request.requestedBy(), "the console has no name and that is allowed");
+        assertEquals(
+                request.requested().getEpochSecond(), request.scheduledFor().getEpochSecond());
+        assertEquals(Actor.HOST, request.actor(), "the host has no Discord id and that is allowed");
     }
 
     @Test
@@ -142,7 +143,7 @@ class UpdateDirectoryIntegrationTest {
                 statement.execute("LISTEN " + UpdateDirectory.CHANNEL);
             }
 
-            updates.submit(UpdateKind.UPDATE, UpdateSource.CONSOLE, null, Duration.ZERO);
+            updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
 
             final PGNotification[] received =
                     listener.unwrap(PGConnection.class).getNotifications(5000);
@@ -160,7 +161,7 @@ class UpdateDirectoryIntegrationTest {
      */
     @Test
     void startingTheCountdownAnnouncesItselfOnTheChannel() throws Exception {
-        final UpdateRequest submitted = updates.submit(UpdateKind.BACKUP, UpdateSource.CONSOLE, null, Duration.ZERO);
+        final UpdateRequest submitted = updates.submit(UpdateKind.BACKUP, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
 
         try (Connection listener = dataSource.getConnection()) {
@@ -168,7 +169,7 @@ class UpdateDirectoryIntegrationTest {
                 statement.execute("LISTEN " + UpdateDirectory.CHANNEL);
             }
 
-            assertTrue(updates.startCountdown(submitted.id(), Duration.ofSeconds(30))
+            assertTrue(updates.startCountdown(submitted.id(), Duration.ofSeconds(30), List.of("smp"))
                     .isPresent());
 
             final PGNotification[] received =
@@ -187,12 +188,10 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void aSecondRunIsRefusedWhileTheFirstIsPendingAndTheRefusalNamesIt() {
-        final UpdateRequest first =
-                updates.submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "a", Duration.ZERO, List.of("smp"));
+        final UpdateRequest first = updates.submit(UpdateKind.DOWN, Actor.HOST, Duration.ZERO, List.of("smp"));
 
         final Refused refused = assertThrows(
-                Refused.class,
-                () -> updates.submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "a", Duration.ZERO, List.of("smp")));
+                Refused.class, () -> updates.submit(UpdateKind.DOWN, Actor.HOST, Duration.ZERO, List.of("smp")));
 
         assertEquals(UpdateRefusal.RUN_OPEN, refused.reason());
         assertEquals(first.id(), refused.refusal().message().args().get("id"));
@@ -204,28 +203,30 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void aRunningRunRefusesEverySourceWhateverItAsksFor() {
-        updates.submit(UpdateKind.UPDATE, UpdateSource.CONSOLE, "a", Duration.ZERO);
+        updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
 
-        for (final UpdateSource source : UpdateSource.values()) {
+        for (final Actor actor : List.of(Actor.HOST, Actor.STEWARD, Actor.person(DiscordId.of("300000000000000002")))) {
             assertThrows(
-                    Refused.class, () -> updates.submit(UpdateKind.START, source, "b", Duration.ZERO), source.name());
+                    Refused.class,
+                    () -> updates.submit(UpdateKind.START, actor, Duration.ZERO),
+                    actor.kind().name());
         }
     }
 
     @Test
     void aFinishedRunNoLongerRefusesTheNext() {
-        final UpdateRequest first = updates.submit(UpdateKind.UPDATE, UpdateSource.CONSOLE, "a", Duration.ZERO);
+        final UpdateRequest first = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
         updates.finish(first.id(), UpdateStatus.DONE, "{}");
 
-        assertNotNull(updates.submit(UpdateKind.UPDATE, UpdateSource.CONSOLE, "a", Duration.ZERO));
+        assertNotNull(updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO));
     }
 
     @Test
     void theOpenRunIsNamedWhileItWaitsWhileItRunsAndNotOnceItIsFinished() {
         assertTrue(updates.open().isEmpty());
-        final UpdateRequest run = updates.submit(UpdateKind.UPDATE, UpdateSource.CONSOLE, "a", Duration.ZERO);
+        final UpdateRequest run = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
         assertEquals(run.id(), updates.open().orElseThrow().id());
         assertTrue(updates.claimNext().isPresent());
         assertEquals(UpdateStatus.RUNNING, updates.open().orElseThrow().status());
@@ -235,21 +236,20 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void takingDownAServiceThatIsAlreadyHeldIsRefusedEvenWithNoRunOpen() {
-        final UpdateRequest down =
-                updates.submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "a", Duration.ZERO, List.of("smp"));
+        final UpdateRequest down = updates.submit(UpdateKind.DOWN, Actor.HOST, Duration.ZERO, List.of("smp"));
         assertTrue(updates.claimNext().isPresent());
-        updates.hold("smp", "a", down.id());
+        updates.hold("smp", Actor.HOST, down.id());
         updates.finish(down.id(), UpdateStatus.DONE, "{}");
 
         final Refused refused = assertThrows(
                 Refused.class,
-                () -> updates.submit(UpdateKind.DOWN, UpdateSource.GAME, "b", Duration.ZERO, List.of("limbo", "smp")));
+                () -> updates.submit(UpdateKind.DOWN, Actor.HOST, Duration.ZERO, List.of("limbo", "smp")));
         assertEquals(UpdateRefusal.ALREADY_HELD, refused.reason());
         assertEquals(
                 "Already down: smp.", DatabaseText.english(refused.refusal().message()));
 
         assertNotNull(
-                updates.submit(UpdateKind.DOWN, UpdateSource.GAME, "b", Duration.ZERO, List.of("limbo")),
+                updates.submit(UpdateKind.DOWN, Actor.HOST, Duration.ZERO, List.of("limbo")),
                 "a service that is not held can still be taken down");
     }
 
@@ -259,8 +259,7 @@ class UpdateDirectoryIntegrationTest {
         final java.util.concurrent.Callable<Boolean> press = () -> {
             together.await();
             try {
-                UpdateDirectory.using(dataSource)
-                        .submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "a", Duration.ZERO, List.of("smp"));
+                UpdateDirectory.using(dataSource).submit(UpdateKind.DOWN, Actor.HOST, Duration.ZERO, List.of("smp"));
                 return true;
             } catch (final Refused refused) {
                 return false;
@@ -279,8 +278,8 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void claimingTakesTheOldestDueRequestAndMarksItRunning() {
-        final UpdateRequest first = queued(UpdateKind.START, UpdateSource.DISCORD, "a", Duration.ZERO);
-        final UpdateRequest second = queued(UpdateKind.UPDATE, UpdateSource.DISCORD, "b", Duration.ZERO);
+        final UpdateRequest first = queued(UpdateKind.START, Actor.HOST, Duration.ZERO);
+        final UpdateRequest second = queued(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
 
         final UpdateRequest claimed = updates.claimNext().orElseThrow();
         assertEquals(first.id(), claimed.id(), "oldest first");
@@ -294,7 +293,7 @@ class UpdateDirectoryIntegrationTest {
     @Test
     void aRequestThatIsNotDueYetIsNotClaimed() {
         // The row is not claimable for a minute: the minute the proxy counts down and a cancel fits into.
-        updates.submit(UpdateKind.RESTART, UpdateSource.GAME, "Till", Duration.ofSeconds(60));
+        updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ofSeconds(60));
 
         assertTrue(updates.claimNext().isEmpty(), "not before its time");
         assertTrue(updates.countingDown().isPresent(), "but it is visible to whoever announces it");
@@ -303,22 +302,22 @@ class UpdateDirectoryIntegrationTest {
     @Test
     void aDueRequestIsClaimedEvenWhenAnEarlierUndueOneExists() {
         // The restart is written first and due last; a claim ordered only by id would starve the rest.
-        queued(UpdateKind.RESTART, UpdateSource.GAME, "Till", Duration.ofSeconds(60));
-        final UpdateRequest report = queued(UpdateKind.START, UpdateSource.DISCORD, "a", Duration.ZERO);
+        queued(UpdateKind.RESTART, Actor.HOST, Duration.ofSeconds(60));
+        final UpdateRequest report = queued(UpdateKind.START, Actor.HOST, Duration.ZERO);
 
         assertEquals(report.id(), updates.claimNext().orElseThrow().id());
     }
 
     @Test
     void twoWorkersNeverClaimTheSameRow() throws Exception {
-        updates.submit(UpdateKind.START, UpdateSource.DISCORD, "a", Duration.ZERO);
+        updates.submit(UpdateKind.START, Actor.HOST, Duration.ZERO);
 
         // Hold the row in an open transaction, the way a second worker that claimed it would.
         try (Connection holder = dataSource.getConnection()) {
             holder.setAutoCommit(false);
             try (Statement statement = holder.createStatement()) {
                 statement.execute("SELECT id FROM update_request WHERE status = 'PENDING' "
-                        + "ORDER BY not_before, id LIMIT 1 FOR UPDATE");
+                        + "ORDER BY scheduled_for, id LIMIT 1 FOR UPDATE");
             }
 
             // SKIP LOCKED: this finds nothing else and does not block; a block would hang the test.
@@ -332,7 +331,7 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void finishingWritesTheReportIntoTheSameRow() {
-        final UpdateRequest submitted = updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
+        final UpdateRequest submitted = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
 
         final UpdateRequest finished = updates.finish(submitted.id(), UpdateStatus.DONE, "smp  0.1.0 -> 0.2.0")
@@ -346,7 +345,7 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void onlyARunningRequestCanBeFinished() {
-        final UpdateRequest submitted = updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
+        final UpdateRequest submitted = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
 
         assertTrue(
                 updates.finish(submitted.id(), UpdateStatus.DONE, "x").isEmpty(),
@@ -361,7 +360,7 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void aClaimedRequestCannotBeFinishedAsCancelled() {
-        final UpdateRequest submitted = updates.submit(UpdateKind.RESTART, UpdateSource.DISCORD, "a", Duration.ZERO);
+        final UpdateRequest submitted = updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
 
         // CANCELLED is a person withdrawing a run, so a worker cannot report its own work as one.
@@ -375,7 +374,7 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void aCountdownCanBeStoppedWhileItIsStillRunning() {
-        updates.submit(UpdateKind.RESTART, UpdateSource.GAME, "Till", Duration.ofSeconds(60));
+        updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ofSeconds(60));
 
         final UpdateRequest cancelled =
                 updates.cancelCountdown("Till changed their mind").orElseThrow();
@@ -389,19 +388,25 @@ class UpdateDirectoryIntegrationTest {
     @Test
     void theCountdownStewardWorkerStartsIsTheOneTheProxyShowsAndTheButtonStops() {
         // Claimed first, counted down after, so a run that finds nothing new never warns anybody.
-        final UpdateRequest submitted = updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
+        final UpdateRequest submitted = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
         assertTrue(updates.countingDown().isEmpty(), "a request nobody has resolved yet is not counting down");
 
         assertTrue(updates.claimNext().isPresent());
         assertTrue(updates.countingDown().isEmpty(), "and neither is one that has only been claimed");
 
-        final UpdateRequest counting =
-                updates.startCountdown(submitted.id(), Duration.ofSeconds(30)).orElseThrow();
+        final UpdateRequest counting = updates.startCountdown(submitted.id(), Duration.ofSeconds(30), List.of("smp"))
+                .orElseThrow();
         assertEquals(
                 UpdateStatus.RUNNING,
                 counting.status(),
                 "a counting-down row is RUNNING, which is why the partial index had to widen");
         assertEquals(submitted.id(), updates.countingDown().orElseThrow().id());
+        assertEquals(
+                30L,
+                counting.countdownEnd().getEpochSecond() - counting.started().getEpochSecond(),
+                "the proxy counts towards countdown_end, 30 s after the claim");
+        assertEquals(counting.requested(), counting.scheduledFor(), "the schedule itself never moves");
+        assertEquals(List.of("smp"), counting.moving());
 
         assertEquals(
                 submitted.id(), updates.cancelCountdown("stop").orElseThrow().id());
@@ -412,6 +417,23 @@ class UpdateDirectoryIntegrationTest {
         assertEquals("stop", updates.find(submitted.id()).orElseThrow().result());
     }
 
+    @Test
+    void aCountdownThatRunsOutLeavesTheRunningRowWithTheServicesItStops() {
+        final UpdateRequest submitted = updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ZERO);
+        assertTrue(updates.claimNext().isPresent());
+        assertTrue(updates.running().isPresent(), "resolving is running, and moves nobody yet");
+        assertEquals(List.of(), updates.running().orElseThrow().moving());
+
+        updates.startCountdown(submitted.id(), Duration.ofSeconds(30), List.of("smp", "limbo"));
+        assertTrue(updates.running().isEmpty(), "a countdown can still be cancelled, so nobody is moved");
+
+        assertTrue(updates.commitCountdown(submitted.id()));
+        final UpdateRequest running = updates.running().orElseThrow();
+        assertEquals(List.of("smp", "limbo"), running.moving());
+        assertNotNull(running.countdownEnd());
+        assertTrue(updates.countingDown().isEmpty(), "a countdown that ran out is not counting down");
+    }
+
     /** Checks that every kind that stops servers counts down, asking {@link UpdateKind#stopsServers()} for the list. */
     @Test
     void everythingThatStopsServersCountsDown() {
@@ -420,9 +442,9 @@ class UpdateDirectoryIntegrationTest {
                 continue;
             }
             execute(FRESH_INBOX);
-            final UpdateRequest submitted = updates.submit(kind, UpdateSource.GAME, "Till", Duration.ZERO);
+            final UpdateRequest submitted = updates.submit(kind, Actor.HOST, Duration.ZERO);
             assertTrue(updates.claimNext().isPresent());
-            assertTrue(updates.startCountdown(submitted.id(), Duration.ofSeconds(30))
+            assertTrue(updates.startCountdown(submitted.id(), Duration.ofSeconds(30), List.of("smp"))
                     .isPresent());
 
             assertEquals(
@@ -444,9 +466,9 @@ class UpdateDirectoryIntegrationTest {
                 continue;
             }
             execute(FRESH_INBOX);
-            final UpdateRequest submitted = updates.submit(kind, UpdateSource.GAME, "Till", Duration.ZERO);
+            final UpdateRequest submitted = updates.submit(kind, Actor.HOST, Duration.ZERO);
             assertTrue(updates.claimNext().isPresent());
-            assertTrue(updates.startCountdown(submitted.id(), Duration.ofSeconds(30))
+            assertTrue(updates.startCountdown(submitted.id(), Duration.ofSeconds(30), List.of("smp"))
                     .isPresent());
 
             assertEquals(
@@ -466,21 +488,21 @@ class UpdateDirectoryIntegrationTest {
     /** Checks that a kind that stops nothing never makes players hear a countdown. */
     @Test
     void aKindThatStopsNothingIsNotAnnounced() {
-        final UpdateRequest submitted = updates.submit(UpdateKind.START, UpdateSource.GAME, "Till", Duration.ZERO);
+        final UpdateRequest submitted = updates.submit(UpdateKind.START, Actor.HOST, Duration.ZERO);
         assertFalse(UpdateKind.START.stopsServers(), "the premise of this test");
         assertTrue(updates.claimNext().isPresent());
-        assertTrue(
-                updates.startCountdown(submitted.id(), Duration.ofSeconds(30)).isPresent());
+        assertTrue(updates.startCountdown(submitted.id(), Duration.ofSeconds(30), List.of("smp"))
+                .isPresent());
 
         assertTrue(updates.countingDown().isEmpty(), "a report moves nothing, so counting down to it would be a lie");
     }
 
     @Test
     void committingTheCountdownTakesItOutOfTheSetTheCancelCanReach() {
-        final UpdateRequest submitted = updates.submit(UpdateKind.UPDATE, UpdateSource.GAME, "Till", Duration.ZERO);
+        final UpdateRequest submitted = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
-        assertTrue(
-                updates.startCountdown(submitted.id(), Duration.ofSeconds(30)).isPresent());
+        assertTrue(updates.startCountdown(submitted.id(), Duration.ofSeconds(30), List.of("smp"))
+                .isPresent());
 
         assertTrue(updates.commitCountdown(submitted.id()), "the run holds the right to proceed");
         assertTrue(updates.countingDown().isEmpty(), "nothing is counting down any more");
@@ -493,12 +515,11 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void aCountdownCannotBeStartedOnARequestSomebodyHasAlreadyWithdrawn() {
-        final UpdateRequest submitted =
-                updates.submit(UpdateKind.RESTART, UpdateSource.GAME, "Till", Duration.ofSeconds(60));
+        final UpdateRequest submitted = updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ofSeconds(60));
         assertTrue(updates.cancelCountdown("changed my mind").isPresent());
 
-        assertTrue(
-                updates.startCountdown(submitted.id(), Duration.ofSeconds(30)).isEmpty());
+        assertTrue(updates.startCountdown(submitted.id(), Duration.ofSeconds(30), List.of("smp"))
+                .isEmpty());
         assertEquals(
                 UpdateStatus.CANCELLED,
                 updates.find(submitted.id()).orElseThrow().status());
@@ -507,7 +528,7 @@ class UpdateDirectoryIntegrationTest {
     @Test
     void cancellingAfterTheRunBeganAnswersEmptyRatherThanLying() {
         // A claimed row with no countdown answers "too late", not "cancelled".
-        updates.submit(UpdateKind.RESTART, UpdateSource.DISCORD, "a", Duration.ZERO);
+        updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
 
         assertTrue(updates.cancelCountdown("too late").isEmpty());
@@ -516,7 +537,7 @@ class UpdateDirectoryIntegrationTest {
     @Test
     void aReportIsNotCancelledByTheRestartCancel() {
         // A report has no countdown, so "stop the countdown" cannot withdraw it.
-        final UpdateRequest report = updates.submit(UpdateKind.START, UpdateSource.DISCORD, "a", Duration.ZERO);
+        final UpdateRequest report = updates.submit(UpdateKind.START, Actor.HOST, Duration.ZERO);
 
         assertTrue(updates.cancelCountdown("nope").isEmpty());
         assertEquals(
@@ -526,8 +547,7 @@ class UpdateDirectoryIntegrationTest {
     @Test
     void anUpdateIsCountedDownAndCanBeStopped() {
         // An UPDATE stops servers and counts down like a RESTART, so both must be found and cancellable.
-        final UpdateRequest update =
-                updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ofSeconds(30));
+        final UpdateRequest update = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ofSeconds(30));
 
         assertEquals(
                 update.id(),
@@ -540,8 +560,8 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void theEarlierOfTwoRestartsIsTheOneShownAndTheOneCancelled() {
-        final UpdateRequest soon = queued(UpdateKind.RESTART, UpdateSource.GAME, "a", Duration.ofSeconds(60));
-        queued(UpdateKind.RESTART, UpdateSource.DISCORD, "b", Duration.ofMinutes(10));
+        final UpdateRequest soon = queued(UpdateKind.RESTART, Actor.HOST, Duration.ofSeconds(60));
+        queued(UpdateKind.RESTART, Actor.HOST, Duration.ofMinutes(10));
 
         assertEquals(soon.id(), updates.countingDown().orElseThrow().id());
         assertEquals(soon.id(), updates.cancelCountdown("stop").orElseThrow().id());
@@ -550,8 +570,8 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void theFeedReadsForwardFromTheLastIdItDrewAndNoFurtherBack() {
-        final UpdateRequest first = queued(UpdateKind.START, UpdateSource.GAME, "a", Duration.ZERO);
-        final UpdateRequest second = queued(UpdateKind.UPDATE, UpdateSource.CONSOLE, null, Duration.ZERO);
+        final UpdateRequest first = queued(UpdateKind.START, Actor.HOST, Duration.ZERO);
+        final UpdateRequest second = queued(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
 
         assertEquals(
                 List.of(first.id(), second.id()),
@@ -581,11 +601,11 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void aRunThatFinishedWhileTheBotWasDownIsInsideTheCatchUpWindow() {
-        final UpdateRequest done = updates.submit(UpdateKind.UPDATE, UpdateSource.GAME, "a", Duration.ZERO);
+        final UpdateRequest done = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
         assertTrue(updates.finish(done.id(), UpdateStatus.DONE, "{}").isPresent());
 
-        final UpdateRequest open = updates.submit(UpdateKind.START, UpdateSource.GAME, "b", Duration.ZERO);
+        final UpdateRequest open = updates.submit(UpdateKind.START, Actor.HOST, Duration.ZERO);
 
         assertEquals(
                 List.of(done.id()),
@@ -603,7 +623,7 @@ class UpdateDirectoryIntegrationTest {
     @Test
     void anOrphanedRestartIsAFailureLikeEveryOtherKindSince20260908() {
         // A restart never stops the worker, so an orphaned one means the worker died, as for every kind.
-        final UpdateRequest restart = updates.submit(UpdateKind.RESTART, UpdateSource.DISCORD, "a", Duration.ZERO);
+        final UpdateRequest restart = updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
 
         assertEquals(1, updates.settleOrphans("Killed mid-run"));
@@ -618,7 +638,7 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void anOrphanedUpdateIsAFailureAndSaysSo() {
-        final UpdateRequest apply = updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
+        final UpdateRequest apply = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
 
         assertEquals(1, updates.settleOrphans("Killed mid-run"));
@@ -630,7 +650,7 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void settlingOrphansLeavesPendingWorkAlone() {
-        final UpdateRequest waiting = updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
+        final UpdateRequest waiting = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
 
         assertEquals(0, updates.settleOrphans("failed"));
         assertEquals(
@@ -641,15 +661,15 @@ class UpdateDirectoryIntegrationTest {
     void nextDueIsTheEarliestPendingRowAndNothingElse() {
         assertTrue(updates.nextDue().isEmpty(), "an empty inbox has nothing to wake up for");
 
-        final UpdateRequest restart = queued(UpdateKind.RESTART, UpdateSource.GAME, "a", Duration.ofSeconds(60));
-        assertEquals(restart.notBefore(), updates.nextDue().orElseThrow());
+        final UpdateRequest restart = queued(UpdateKind.RESTART, Actor.HOST, Duration.ofSeconds(60));
+        assertEquals(restart.scheduledFor(), updates.nextDue().orElseThrow());
 
-        final UpdateRequest now = queued(UpdateKind.START, UpdateSource.DISCORD, "b", Duration.ZERO);
-        assertEquals(now.notBefore(), updates.nextDue().orElseThrow(), "the sooner of the two");
+        final UpdateRequest now = queued(UpdateKind.START, Actor.HOST, Duration.ZERO);
+        assertEquals(now.scheduledFor(), updates.nextDue().orElseThrow(), "the sooner of the two");
 
         assertTrue(updates.claimNext().isPresent());
         assertEquals(
-                restart.notBefore(),
+                restart.scheduledFor(),
                 updates.nextDue().orElseThrow(),
                 "a claimed row is not pending any more, so the restart is next again");
     }
@@ -661,10 +681,11 @@ class UpdateDirectoryIntegrationTest {
                 1L,
                 UpdateKind.RESTART,
                 UpdateStatus.PENDING,
-                UpdateSource.GAME,
-                "Till",
+                Actor.HOST,
                 notBefore.minusSeconds(60),
                 notBefore,
+                null,
+                List.of(),
                 null,
                 null,
                 null);
@@ -682,21 +703,26 @@ class UpdateDirectoryIntegrationTest {
     void theCheckConstraintsRefuseValuesNoBuildCanRead() {
         final SQLException kind = assertThrows(
                 SQLException.class,
-                () -> executeChecked("INSERT INTO update_request (kind, source) VALUES ('REPORT', 'DISCORD')"));
+                () -> executeChecked("INSERT INTO update_request (kind, actor_kind) VALUES ('REPORT', 'HOST')"));
         assertTrue(kind.getMessage().contains("update_request_kind_check"), kind.getMessage());
 
         final SQLException status = assertThrows(
                 SQLException.class,
                 () -> executeChecked(
-                        "INSERT INTO update_request (kind, source, status) VALUES ('UPDATE', 'DISCORD', 'MAYBE')"));
+                        "INSERT INTO update_request (kind, actor_kind, status) VALUES ('UPDATE', 'HOST', 'MAYBE')"));
         assertTrue(status.getMessage().contains("update_request_status_check"), status.getMessage());
 
-        final SQLException source = assertThrows(
+        final SQLException actor = assertThrows(
                 SQLException.class,
-                () -> executeChecked("INSERT INTO update_request (kind, source) VALUES ('UPDATE', 'CRON')"));
-        assertTrue(source.getMessage().contains("update_request_source_check"), source.getMessage());
+                () -> executeChecked("INSERT INTO update_request (kind, actor_kind) VALUES ('UPDATE', 'DISCORD')"));
+        assertTrue(actor.getMessage().contains("update_request_actor_kind_check"), actor.getMessage());
 
-        assertFalse(updates.claimNext().isPresent(), "none of the three got in");
+        final SQLException unnamed = assertThrows(
+                SQLException.class,
+                () -> executeChecked("INSERT INTO update_request (kind, actor_kind) VALUES ('UPDATE', 'PERSON')"));
+        assertTrue(unnamed.getMessage().contains("update_request_actor_id_iff_person"), unnamed.getMessage());
+
+        assertFalse(updates.claimNext().isPresent(), "none of the four got in");
     }
 
     @Test

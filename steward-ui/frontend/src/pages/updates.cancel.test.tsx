@@ -32,15 +32,14 @@ function run(over: Partial<Run> = {}): Run {
     id: 79,
     kind: "RESTART",
     status: "PENDING",
-    source: "CONSOLE",
-    requestedBy: "hmtill",
+    actorKind: "HOST",
+    actorId: "",
     scope: [],
-    actorDiscordId: "",
-    actorLabel: "hmtill",
-    system: false,
     requested: new Date().toISOString(),
     // A minute ahead: the countdown the worker has not picked up yet.
-    notBefore: new Date(Date.now() + 60_000).toISOString(),
+    scheduledFor: new Date(Date.now() + 60_000).toISOString(),
+    countdownEnd: "null",
+    moving: [],
     started: "",
     finished: "",
     ...over,
@@ -129,7 +128,7 @@ describe("the Cancel is on the row, and only while there is something to cancel"
 
   it("is there for the row entered for tonight", async () => {
     const tonight = new Date(Date.now() + 6 * 3600_000).toISOString()
-    vi.stubGlobal("fetch", backend([run({ notBefore: tonight })]))
+    vi.stubGlobal("fetch", backend([run({ scheduledFor: tonight })]))
     draw()
 
     await screen.findByText("#79")
@@ -137,8 +136,11 @@ describe("the Cancel is on the row, and only while there is something to cancel"
   })
 
   it("is gone once the run is actually under way", async () => {
-    /** Past `notBefore` the worker holds the lock and would answer "too late", so there is nothing to press. */
-    vi.stubGlobal("fetch", backend([run({ status: "RUNNING", notBefore: new Date(Date.now() - 1000).toISOString() })]))
+    /** Past `countdownEnd` the worker holds the lock and would answer "too late", so there is nothing to press. */
+    vi.stubGlobal(
+      "fetch",
+      backend([run({ status: "RUNNING", countdownEnd: new Date(Date.now() - 1000).toISOString() })]),
+    )
     draw()
 
     await screen.findByText("#79")
@@ -149,8 +151,8 @@ describe("the Cancel is on the row, and only while there is something to cancel"
     vi.stubGlobal(
       "fetch",
       backend([
-        run({ id: 78, status: "DONE", notBefore: new Date(Date.now() - 3600_000).toISOString() }),
-        run({ id: 77, status: "FAILED", notBefore: new Date(Date.now() - 7200_000).toISOString() }),
+        run({ id: 78, status: "DONE", scheduledFor: new Date(Date.now() - 3600_000).toISOString() }),
+        run({ id: 77, status: "FAILED", scheduledFor: new Date(Date.now() - 7200_000).toISOString() }),
         run({ id: 76, status: "CANCELLED" }),
       ]),
     )

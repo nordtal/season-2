@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.TestDatabase;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -41,7 +42,7 @@ class UpdateHandoverIntegrationTest {
     @Test
     void aHandedOverRunIsClaimedAgainWithItsReportAndStaysOpenInBetween() {
         // The new worker must find the run and its note.
-        final UpdateRequest run = updates.submit(UpdateKind.UPDATE, UpdateSource.CONSOLE, "a", Duration.ZERO);
+        final UpdateRequest run = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
 
         assertTrue(updates.handOver(run.id(), "{\"stage\":\"RESOLVING\"}"));
@@ -61,7 +62,7 @@ class UpdateHandoverIntegrationTest {
     @Test
     void onlyARunningRunCanBeHandedOver() {
         // A run settled meanwhile, say by settleOrphans, must not return to PENDING.
-        final UpdateRequest run = updates.submit(UpdateKind.UPDATE, UpdateSource.CONSOLE, "a", Duration.ZERO);
+        final UpdateRequest run = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
         updates.finish(run.id(), UpdateStatus.FAILED, "{}");
 

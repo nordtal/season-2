@@ -99,12 +99,7 @@ public final class UpdateServer implements AutoCloseable {
         Optional<UpdateRequest> claimed = directory.claimNext();
         while (running && claimed.isPresent()) {
             final UpdateRequest request = claimed.get();
-            log.info(
-                    "Running request {}: {} asked for by {} from {}",
-                    request.id(),
-                    request.kind(),
-                    request.requestedBy(),
-                    request.source());
+            log.info("Running request {}: {} asked for by {}", request.id(), request.kind(), request.actor());
 
             // The row is the progress bar: every stage the run reaches redraws the Discord embed and chat line.
             final Outcome outcome = runner.run(request, report -> {

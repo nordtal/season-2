@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.access;
 
+import eu.nordtal.s2.database.Actor;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
@@ -20,26 +21,17 @@ public interface AccessRequests {
             AccessRequestKind kind,
             String subject,
             @Nullable String argument,
-            AccessRequestSource source,
-            String requestedBy) {
+            Actor actor) {
 
-        /** The three kinds that need no argument. */
-        public static NewAccessRequest of(
-                final AccessRequestKind kind,
-                final String subject,
-                final AccessRequestSource source,
-                final String requestedBy) {
-            return new NewAccessRequest(kind, subject, null, source, requestedBy);
+        /** The kinds that need no argument. */
+        public static NewAccessRequest of(final AccessRequestKind kind, final String subject, final Actor actor) {
+            return new NewAccessRequest(kind, subject, null, actor);
         }
 
         /** The two that do: days for a grant, seconds for a play time. */
         public static NewAccessRequest of(
-                final AccessRequestKind kind,
-                final String subject,
-                final long argument,
-                final AccessRequestSource source,
-                final String requestedBy) {
-            return new NewAccessRequest(kind, subject, String.valueOf(argument), source, requestedBy);
+                final AccessRequestKind kind, final String subject, final long argument, final Actor actor) {
+            return new NewAccessRequest(kind, subject, String.valueOf(argument), actor);
         }
     }
 

@@ -14,7 +14,7 @@ import org.jspecify.annotations.Nullable;
  * @param iconUrl    the thumbnail on Modrinth's CDN, or {@code null}
  * @param pageUrl    the project's page, or {@code null}
  * @param added      when the row was written, on the database's clock
- * @param addedBy    who asked for it, as in {@code update_request.requested_by}, or {@code null}
+ * @param addedBy    who asked for it, as the interface named them, or {@code null}
  */
 public record ManagedPlugin(
         String service,

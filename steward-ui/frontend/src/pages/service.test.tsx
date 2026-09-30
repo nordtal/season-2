@@ -88,7 +88,7 @@ describe("ServiceHead - a service somebody is holding down", () => {
         service={service({
           state: "exited",
           status: "Exited (143) 4 minutes ago",
-          hold: { since: "2026-09-19T10:00:00Z", by: "ally (1)" },
+          hold: { since: "2026-09-19T10:00:00Z" },
         })}
       />,
     )

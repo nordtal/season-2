@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.access;
 
+import eu.nordtal.s2.database.Actor;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -20,8 +21,7 @@ public final class AccessRequestMapper implements RowMapper<AccessRequest> {
                 AccessRequestStatus.valueOf(rs.getString("status")),
                 rs.getString("subject"),
                 rs.getString("argument"),
-                AccessRequestSource.valueOf(rs.getString("source")),
-                rs.getString("requested_by"),
+                Actor.of(rs.getString("actor_kind"), rs.getString("actor_id")),
                 Objects.requireNonNull(instant(rs.getTimestamp("requested")), "requested"),
                 Objects.requireNonNull(instant(rs.getTimestamp("expires")), "expires"),
                 instant(rs.getTimestamp("started")),

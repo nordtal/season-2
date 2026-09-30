@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessRequest;
 import eu.nordtal.s2.database.access.AccessRequestKind;
-import eu.nordtal.s2.database.access.AccessRequestSource;
 import eu.nordtal.s2.database.access.AccessRequestStatus;
 import eu.nordtal.s2.database.access.AccessRequests;
 import java.time.Duration;
@@ -89,8 +88,9 @@ class AccessInboxTest {
                 AccessRequestStatus.RUNNING,
                 subject,
                 argument,
-                AccessRequestSource.STEWARD,
-                requestedBy,
+                requestedBy == null
+                        ? eu.nordtal.s2.database.Actor.STEWARD
+                        : eu.nordtal.s2.database.Actor.person(DiscordId.of(requestedBy)),
                 Instant.now(),
                 Instant.now().plusSeconds(120),
                 Instant.now(),
@@ -193,12 +193,13 @@ class AccessInboxTest {
     }
 
     @Test
-    void aRowNobodySignedIsStillFiledUnderSomething() {
+    void aRowStewardAskedForIsFiledAsTheSystem() {
         inbox.waiting.add(row(1, AccessRequestKind.REVOKE, "400000000000000002", null, null));
 
         subject.drain();
 
-        assertEquals(List.of("revoke 400000000000000002 by unsigned"), carriedOut);
+        // The audit's own reading of no actor: the system, never a made-up name in the id column.
+        assertEquals(List.of("revoke 400000000000000002 by null"), carriedOut);
     }
 
     @Test

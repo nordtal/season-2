@@ -90,7 +90,7 @@ final class HoldSequence {
 
         final UpdateRun.Stopped stopped = run.stop(planned, runtime);
         for (final String service : stopped.services()) {
-            runner.directory.hold(service, request.requestedBy(), request.id());
+            runner.directory.hold(service, request.actor(), request.id());
         }
 
         UpdateReport report = stopped.report();

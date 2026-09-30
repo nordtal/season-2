@@ -4,9 +4,10 @@ import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AccessDirectory;
-import eu.nordtal.s2.database.access.AccessRequests;
 import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.database.command.CommandRequests;
+import eu.nordtal.s2.database.inbox.BotRequest;
+import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.metric.MetricDirectory;
 import eu.nordtal.s2.database.payment.PaymentRequests;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
@@ -29,7 +30,7 @@ public final class Data implements AutoCloseable {
     private final AuditDirectory audit;
     private final AccessDirectory access;
     private final CommandRequests commands;
-    private final AccessRequests accessRequests;
+    private final Inbox<BotRequest> bot;
 
     public Data(final DatabaseSpec config, final Clock clock) {
         this.database = Database.create(DatabaseConfig.builder(config.jdbcUrl())
@@ -47,7 +48,7 @@ public final class Data implements AutoCloseable {
         // Borrowing, not owning: closing the pool below is the only close there is.
         this.access = AccessDirectory.using(database.dataSource(), clock);
         this.commands = CommandRequests.borrowing(database.dataSource());
-        this.accessRequests = AccessRequests.on(database.dataSource());
+        this.bot = Inbox.over(database.dataSource(), BotRequest.TABLE);
     }
 
     /** The pool itself, for {@code steward_session}, the one table this service owns rather than borrows. */
@@ -85,8 +86,9 @@ public final class Data implements AutoCloseable {
         return commands;
     }
 
-    public AccessRequests accessRequests() {
-        return accessRequests;
+    /** The bot's inbox, through which every access change is asked for. */
+    public Inbox<BotRequest> bot() {
+        return bot;
     }
 
     @Override

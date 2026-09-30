@@ -511,29 +511,37 @@ CREATE INDEX metric_sample_raw_by_age ON metric_sample (at) WHERE resolution = '
 
 
 -- Requests between processes
+--
+-- An inbox table has one consumer, which claims its rows, and these columns, which database.inbox reads and
+-- writes for every one of them. kind names a record of the consumer's payload type and payload is that record
+-- as JSON; outcome is the consumer's answer. scheduled_for is when the consumer may claim a row and never
+-- moves; expires is when an unclaimed row stops waiting, NULL for never, and a reader sees a pending row past
+-- it as EXPIRED before the consumer writes so.
 
-CREATE TABLE access_request
+CREATE TABLE bot_inbox
 (
-    id           bigserial PRIMARY KEY,
-    kind         varchar(16) NOT NULL
-        CONSTRAINT access_request_kind_check
+    id            bigserial   PRIMARY KEY,
+    kind          varchar(32) NOT NULL
+        CONSTRAINT bot_inbox_kind_check
             CHECK (kind IN ('GRANT', 'REVOKE', 'SETTLE', 'UNLINK', 'SET_PLAYTIME', 'RELOAD_MESSAGES')),
-    status       varchar(16) NOT NULL DEFAULT 'PENDING'
-        CONSTRAINT access_request_status_check CHECK (status IN ('PENDING', 'RUNNING', 'DONE', 'FAILED', 'EXPIRED')),
-    subject      varchar(64) NOT NULL,
-    argument     varchar(64),
-    actor_kind   varchar(16) NOT NULL
-        CONSTRAINT access_request_actor_kind_check CHECK (actor_kind IN ('PERSON', 'STEWARD', 'HOST')),
-    actor_id     varchar(32),
-    requested    timestamptz NOT NULL DEFAULT now(),
-    expires      timestamptz NOT NULL,
-    started      timestamptz,
-    finished     timestamptz,
-    result       text,
-    CONSTRAINT access_request_actor_id_iff_person CHECK ((actor_kind = 'PERSON') = (actor_id IS NOT NULL))
+    payload       jsonb       NOT NULL,
+    status        varchar(16) NOT NULL DEFAULT 'PENDING'
+        CONSTRAINT bot_inbox_status_check
+            CHECK (status IN ('PENDING', 'RUNNING', 'DONE', 'REFUSED', 'FAILED', 'EXPIRED', 'CANCELLED')),
+    actor_kind    varchar(16) NOT NULL
+        CONSTRAINT bot_inbox_actor_kind_check CHECK (actor_kind IN ('PERSON', 'STEWARD', 'HOST')),
+    actor_id      varchar(32),
+    requested     timestamptz NOT NULL DEFAULT now(),
+    scheduled_for timestamptz NOT NULL DEFAULT now(),
+    expires       timestamptz,
+    started       timestamptz,
+    finished      timestamptz,
+    outcome       jsonb,
+    CONSTRAINT bot_inbox_actor_id_iff_person CHECK ((actor_kind = 'PERSON') = (actor_id IS NOT NULL)),
+    CONSTRAINT bot_inbox_finished_iff_settled CHECK ((status IN ('PENDING', 'RUNNING')) = (finished IS NULL))
 );
-COMMENT ON TABLE access_request IS 'Owned by discord-bot, which claims and carries out every row. steward-ui and steward-worker ask.';
-CREATE INDEX access_request_pending ON access_request (id) WHERE status = 'PENDING';
+COMMENT ON TABLE bot_inbox IS 'Owned by discord-bot, which claims and carries out every row. steward-ui and steward-worker ask.';
+CREATE INDEX bot_inbox_pending ON bot_inbox (scheduled_for, id) WHERE status = 'PENDING';
 
 CREATE TABLE command_request
 (
@@ -707,7 +715,7 @@ GRANT SELECT ON payment_gateway, update_request, service_hold TO ${role_discord_
 GRANT INSERT ON hg_game TO ${role_discord_bot};
 GRANT INSERT, UPDATE ON player_playtime TO ${role_discord_bot};
 -- The one consumer of its inbox.
-GRANT SELECT, UPDATE, DELETE ON access_request TO ${role_discord_bot};
+GRANT SELECT, UPDATE, DELETE ON bot_inbox TO ${role_discord_bot};
 -- It validates the schema before it starts, which reads the migrator's history.
 DO $$
 BEGIN
@@ -744,8 +752,8 @@ GRANT SELECT ON audit_log, payment_notice, metric_sample, service_hold, hg_game,
 -- It asks for runs and stops a countdown, and asks the bot for access changes.
 GRANT SELECT, INSERT, UPDATE ON update_request TO ${role_steward_ui};
 GRANT USAGE ON SEQUENCE update_request_id_seq TO ${role_steward_ui};
-GRANT SELECT, INSERT ON access_request TO ${role_steward_ui};
-GRANT USAGE ON SEQUENCE access_request_id_seq TO ${role_steward_ui};
+GRANT SELECT, INSERT ON bot_inbox TO ${role_steward_ui};
+GRANT USAGE ON SEQUENCE bot_inbox_id_seq TO ${role_steward_ui};
 
 -- pg_dump reads everything and writes nothing.
 GRANT pg_read_all_data TO ${role_backup};

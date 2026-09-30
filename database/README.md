@@ -1,7 +1,7 @@
 # database
 
 Everything that reads or writes PostgreSQL: access and links, the season phase, who is online,
-the audit log, payments, update runs, the request inboxes, the signal hub and the
+the audit log, payments, update runs, the inboxes, the signal hub and the
 migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the driver are
 `compileOnly`, so a consumer brings the runtime it already has; this module never migrates.
 
@@ -15,6 +15,12 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
   channel, so a lost notification costs a minute and a reconnect re-reads in full; this is the only polling
   left for database state. Work that takes long rings a `Doorbell` for its own thread. `Channel` names who
   emits and who listens on each.
+- **Inboxes**: a request from one process to another is a row in its consumer's inbox table, and `Inbox` is the one
+  implementation over every such table: submit, claim with `SKIP LOCKED`, progress, settle, expire, cancel, each
+  announced on the table's channel. A kind is a record of the consumer's sealed payload type, stored as JSON, so no
+  kind carries a command line; `scheduled_for` lets any request wait for its time. The answer is an `Outcome`: done,
+  refused with a `Refusal`, or failed, and a handler that throws fails its request, never retried. An asker needs
+  no write to see its request expire: a pending row past its patience reads as expired. `Inboxes` lists every table.
 - **Time** comes from the caller: every directory that decides by the clock takes an `InstantSource`.
 - **Who asked** for a request is an `Actor`: a person by Discord id, Steward on its own, or the host's
   installer, stored as `actor_kind` and `actor_id` in every request table and never as a name to parse.

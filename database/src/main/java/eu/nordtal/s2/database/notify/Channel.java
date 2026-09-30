@@ -26,8 +26,8 @@ public enum Channel {
     /** A {@code payment_request} row was written. steward-worker and discord-bot listen. */
     PAYMENT("nordtal_payment"),
 
-    /** An access change was asked for. discord-bot listens. */
-    ACCESS("nordtal_access"),
+    /** A request in the bot's inbox was written or moved on. discord-bot listens. */
+    BOT("nordtal_bot"),
 
     /** The SMP track, its progress or the aura board moved. smp emits and its surfaces listen. */
     SMP("nordtal_smp");

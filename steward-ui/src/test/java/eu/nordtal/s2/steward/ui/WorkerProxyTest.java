@@ -192,7 +192,7 @@ class WorkerProxyTest extends StewardUiTestSupport {
     }
 
     /**
-     * A grant from here is an {@code access_request} row the bot carries out, answered 202 with its id.
+     * A grant from here is a row in the bot's inbox, which the bot carries out, answered 202 with its id.
      *
      * Only the bot sets the role, messages the member and journals, so this side writes no journal line.
      */
@@ -204,18 +204,26 @@ class WorkerProxyTest extends StewardUiTestSupport {
                 "/api/access/grant",
                 "{\"discordId\":\"700000000000000007\",\"days\":30}",
                 "GRANT",
-                "700000000000000007",
-                "30"
+                "{\"person\":\"700000000000000007\",\"days\":30}"
             },
-            {"/api/access/revoke", "{\"discordId\":\"700000000000000007\"}", "REVOKE", "700000000000000007", null},
-            {"/api/access/unlink", "{\"discordId\":\"700000000000000007\"}", "UNLINK", "700000000000000007", null},
-            {"/api/access/settle", "{\"reference\":\"AB12CD\"}", "SETTLE", "AB12CD", null},
+            {
+                "/api/access/revoke",
+                "{\"discordId\":\"700000000000000007\"}",
+                "REVOKE",
+                "{\"person\":\"700000000000000007\"}"
+            },
+            {
+                "/api/access/unlink",
+                "{\"discordId\":\"700000000000000007\"}",
+                "UNLINK",
+                "{\"person\":\"700000000000000007\"}"
+            },
+            {"/api/access/settle", "{\"reference\":\"AB12CD\"}", "SETTLE", "{\"reference\":\"AB12CD\"}"},
             {
                 "/api/people/700000000000000007/playtime",
                 "{\"seconds\":3600}",
                 "SET_PLAYTIME",
-                "700000000000000007",
-                "3600"
+                "{\"person\":\"700000000000000007\",\"seconds\":3600}"
             },
         };
         for (final String[] ask : asks) {
@@ -224,20 +232,7 @@ class WorkerProxyTest extends StewardUiTestSupport {
             final JsonObject answer = GSON.fromJson(asked.body(), JsonObject.class);
             final long id = answer.get("id").getAsLong();
 
-            try (var connection = data.dataSource().getConnection();
-                    var statement = connection.prepareStatement("select kind, subject, argument,"
-                            + " actor_kind, actor_id from access_request where id = ?")) {
-                statement.setLong(1, id);
-                try (var row = statement.executeQuery()) {
-                    assertTrue(row.next(), ask[0] + " wrote no access_request row");
-                    assertEquals(ask[2], row.getString("kind"));
-                    assertEquals(ask[3], row.getString("subject"));
-                    assertEquals(ask[4], row.getString("argument"));
-                    assertEquals("PERSON", row.getString("actor_kind"));
-                    // The admin's Discord id, which is what the bot re-reads and journals.
-                    assertEquals("1", row.getString("actor_id"));
-                }
-            }
+            assertAsked(id, ask);
 
             final JsonObject polled =
                     GSON.fromJson(get("/api/access/requests/" + id).body(), JsonObject.class);
@@ -251,7 +246,25 @@ class WorkerProxyTest extends StewardUiTestSupport {
 
         try (var connection = data.dataSource().getConnection();
                 var statement = connection.createStatement()) {
-            statement.execute("delete from access_request where subject in" + " ('700000000000000007', 'AB12CD')");
+            statement.execute("delete from bot_inbox");
+        }
+    }
+
+    /** Holds the row one access change wrote: its kind, its payload and the admin who asked. */
+    private void assertAsked(final long id, final String[] ask) throws Exception {
+        try (var connection = data.dataSource().getConnection();
+                var statement = connection.prepareStatement("select kind, payload = cast(? AS jsonb) AS asked,"
+                        + " payload, actor_kind, actor_id from bot_inbox where id = ?")) {
+            statement.setString(1, ask[3]);
+            statement.setLong(2, id);
+            try (var row = statement.executeQuery()) {
+                assertTrue(row.next(), ask[0] + " wrote no row into the bot's inbox");
+                assertEquals(ask[2], row.getString("kind"));
+                assertTrue(row.getBoolean("asked"), ask[0] + " asked for " + row.getString("payload"));
+                assertEquals("PERSON", row.getString("actor_kind"));
+                // The admin's Discord id, which is what the bot re-reads and journals.
+                assertEquals("1", row.getString("actor_id"));
+            }
         }
     }
 
@@ -263,11 +276,10 @@ class WorkerProxyTest extends StewardUiTestSupport {
                         JsonObject.class)
                 .get("id")
                 .getAsLong();
-        // Standing in for the bot: claim everything waiting, then answer this one.
-        while (data.accessRequests().claim().isPresent()) {
-            // drained
-        }
-        data.accessRequests().finish(id, true, "{\"revoked\":\"2\"}");
+        // Standing in for the bot: claim everything waiting, and answer this one.
+        data.bot()
+                .drain(request -> eu.nordtal.s2.database.inbox.Outcome.done(
+                        request.id() == id ? java.util.Map.of("revoked", "2") : null));
 
         final JsonObject polled =
                 GSON.fromJson(get("/api/access/requests/" + id).body(), JsonObject.class);
@@ -277,7 +289,7 @@ class WorkerProxyTest extends StewardUiTestSupport {
         assertEquals(404, get("/api/access/requests/999999999").statusCode());
         try (var connection = data.dataSource().getConnection();
                 var statement = connection.createStatement()) {
-            statement.execute("delete from access_request where subject = '700000000000000008'");
+            statement.execute("delete from bot_inbox");
         }
     }
 }

@@ -9,10 +9,11 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.Actor;
-import eu.nordtal.s2.database.access.AccessRequest;
-import eu.nordtal.s2.database.access.AccessRequestKind;
-import eu.nordtal.s2.database.access.AccessRequestStatus;
-import eu.nordtal.s2.database.access.AccessRequests;
+import eu.nordtal.s2.database.TestDatabase;
+import eu.nordtal.s2.database.inbox.BotRequest;
+import eu.nordtal.s2.database.inbox.Inbox;
+import eu.nordtal.s2.database.inbox.Outcome;
+import eu.nordtal.s2.database.inbox.Request;
 import eu.nordtal.s2.steward.worker.docker.DockerException;
 import io.javalin.Javalin;
 import io.javalin.json.JavalinGson;
@@ -25,13 +26,15 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,14 +54,42 @@ class MessagesApiIntegrationTest {
     private Javalin app;
     private HttpClient http;
     private int port;
-    private final Inbox inbox = new Inbox();
+    private static Inbox<BotRequest> inbox;
+
+    /** Every request the bot was asked, in order. */
+    private final List<Request<BotRequest>> asked = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    /** What the bot answers, or {@code null} for a bot that is not running. */
+    private volatile @Nullable Function<Request<BotRequest>, Outcome> bot;
+
+    private @Nullable ScheduledExecutorService botThread;
     /** Every console line sent, as {@code service: command}; {@link #consoleDown} makes it throw. */
     private final List<String> console = new ArrayList<>();
 
     private boolean consoleDown;
 
+    @org.junit.jupiter.api.BeforeAll
+    static void database() {
+        inbox = Inbox.over(TestDatabase.fresh().dataSource(), BotRequest.TABLE);
+    }
+
     @BeforeEach
     void start() {
+        // A bot that claims every few milliseconds; the requests are settled as the test decided.
+        botThread = Executors.newSingleThreadScheduledExecutor();
+        final var _ = botThread.scheduleWithFixedDelay(
+                () -> {
+                    final var answer = bot;
+                    if (answer != null) {
+                        inbox.drain(request -> {
+                            asked.add(request);
+                            return answer.apply(request);
+                        });
+                    }
+                },
+                0,
+                20,
+                TimeUnit.MILLISECONDS);
         final MessagesApi messages = new MessagesApi(
                 configs,
                 volumes,
@@ -85,6 +116,9 @@ class MessagesApiIntegrationTest {
     void stop() {
         if (app != null) {
             app.stop();
+        }
+        if (botThread != null) {
+            botThread.shutdownNow();
         }
     }
 
@@ -196,15 +230,15 @@ class MessagesApiIntegrationTest {
     @Test
     void theBotsBundleIsReReadOnDemandAndUnknownKeysComeBackNamed() throws Exception {
         botBundle();
-        inbox.answer = request -> settled(request, AccessRequestStatus.DONE, "{\"unknown\":\"\"}");
+        bot = request -> Outcome.done(java.util.Map.of("unknown", ""));
 
         final JsonObject quiet = saveBot();
         assertEquals("APPLIED", quiet.get("status").getAsString(), quiet.toString());
         assertTrue(quiet.getAsJsonArray("unknown").isEmpty(), quiet.toString());
-        assertEquals(AccessRequestKind.RELOAD_MESSAGES, inbox.asked.get(0).kind());
-        assertEquals(Actor.STEWARD, inbox.asked.get(0).actor());
+        assertEquals(new BotRequest.ReloadMessages("discord-bot"), asked.get(0).payload());
+        assertEquals(Actor.STEWARD, asked.get(0).actor());
 
-        inbox.answer = request -> settled(request, AccessRequestStatus.DONE, "{\"unknown\":\"dm.grantd,dm.revokd\"}");
+        bot = request -> Outcome.done(java.util.Map.of("unknown", "dm.grantd,dm.revokd"));
         final JsonObject typos = saveBot();
         assertEquals("APPLIED", typos.get("status").getAsString(), typos.toString());
         assertTrue(typos.get("message").getAsString().contains("dm.grantd"), typos.toString());
@@ -218,8 +252,7 @@ class MessagesApiIntegrationTest {
     @Test
     void aBotThatDidNotReReadIsSaidSoNotReportedAsApplied() throws Exception {
         botBundle();
-        inbox.answer = request ->
-                settled(request, AccessRequestStatus.FAILED, "{\"error\":\"de.properties is not readable\"}");
+        bot = request -> Outcome.failed(java.util.Map.of("error", "de.properties is not readable"));
 
         final JsonObject answer = saveBot();
         assertEquals("NO_ANSWER", answer.get("status").getAsString(), answer.toString());
@@ -238,9 +271,9 @@ class MessagesApiIntegrationTest {
         // The default: the row is written and nobody ever claims it.
         final JsonObject answer = saveBot();
         assertEquals("NO_ANSWER", answer.get("status").getAsString(), answer.toString());
-        assertEquals(
-                1,
-                inbox.asked.size(),
+        assertTrue(
+                inbox.recent(BotRequest.ReloadMessages.class, 1).stream()
+                        .anyMatch(row -> row.status() == eu.nordtal.s2.database.inbox.InboxStatus.EXPIRED),
                 "the row is still written - a bot that comes back"
                         + " inside its patience carries it out, which is the point of a row over a call");
     }
@@ -267,7 +300,7 @@ class MessagesApiIntegrationTest {
         final JsonObject reload = saved.getAsJsonObject("reload");
         assertEquals("APPLIED", reload.get("status").getAsString(), saved.toString());
         assertEquals(List.of("smp: smp reload"), console);
-        assertTrue(inbox.asked.isEmpty(), "no row belongs on the inbox for a service with a console");
+        assertTrue(asked.isEmpty(), "no row belongs on the inbox for a service with a console");
     }
 
     @Test
@@ -306,91 +339,6 @@ class MessagesApiIntegrationTest {
                 configs.resolve("discord-bot/discord-bot-0.9.3.jar"),
                 java.util.Map.of("messages/access/en.properties", "dm.granted=You are in\n"));
         Files.createDirectories(configs.resolve("discord-bot/messages"));
-    }
-
-    private static AccessRequest settled(
-            final AccessRequest request, final AccessRequestStatus status, final String result) {
-        return new AccessRequest(
-                request.id(),
-                request.kind(),
-                status,
-                request.subject(),
-                request.argument(),
-                request.actor(),
-                request.requested(),
-                request.expires(),
-                Instant.now(),
-                Instant.now(),
-                result);
-    }
-
-    /**
-     * An inbox nobody polls, answering whatever the test decided the bot would have done.
-     *
-     * A fake, because the SQL is held against PostgreSQL by {@code AccessRequestsIntegrationTest} in {@code :common}.
-     */
-    private static final class Inbox implements AccessRequests {
-
-        private final List<AccessRequest> asked = new ArrayList<>();
-        private final List<AccessRequest> rows = new ArrayList<>();
-
-        /** What the bot would have written back, or {@code null} for a bot that is not running. */
-        private java.util.function.UnaryOperator<AccessRequest> answer = request -> null;
-
-        @Override
-        public AccessRequest submit(final NewAccessRequest request) {
-            return submit(request, PATIENCE);
-        }
-
-        @Override
-        public AccessRequest submit(final NewAccessRequest request, final Duration patience) {
-            final AccessRequest row = new AccessRequest(
-                    asked.size() + 1L,
-                    request.kind(),
-                    AccessRequestStatus.PENDING,
-                    request.subject(),
-                    request.argument(),
-                    request.actor(),
-                    Instant.now(),
-                    Instant.now().plus(patience),
-                    null,
-                    null,
-                    null);
-            asked.add(row);
-            final AccessRequest carriedOut = answer.apply(row);
-            rows.add(carriedOut == null ? row : carriedOut);
-            return row;
-        }
-
-        @Override
-        public Optional<AccessRequest> outcome(final long id) {
-            return rows.stream().filter(row -> row.id() == id).findFirst();
-        }
-
-        @Override
-        public Optional<AccessRequest> claim() {
-            return Optional.empty();
-        }
-
-        @Override
-        public void finish(final long id, final boolean ok, final String result) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public List<AccessRequest> pending() {
-            return List.of();
-        }
-
-        @Override
-        public int expireDue() {
-            return 0;
-        }
-
-        @Override
-        public int purge(final Duration age) {
-            return 0;
-        }
     }
 
     private static JsonObject entry(final JsonObject bundle, final String key) {

@@ -9,6 +9,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import eu.nordtal.s2.database.AccessSchema;
+import eu.nordtal.s2.database.DatabaseText;
+import eu.nordtal.s2.messages.Refused;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -218,12 +220,15 @@ class UpdateDirectoryIntegrationTest {
         final UpdateRequest first =
                 updates.submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "a", Duration.ZERO, List.of("smp"));
 
-        final RunRefused refused = assertThrows(
-                RunRefused.class,
+        final Refused refused = assertThrows(
+                Refused.class,
                 () -> updates.submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "a", Duration.ZERO, List.of("smp")));
 
-        assertEquals(RunRefused.Reason.RUN_OPEN, refused.reason());
-        assertEquals(first.id(), refused.open().id());
+        assertEquals(UpdateRefusal.RUN_OPEN, refused.reason());
+        assertEquals(first.id(), refused.refusal().message().args().get("id"));
+        assertEquals(
+                "Run #" + first.id() + " is still pending (DOWN).",
+                DatabaseText.english(refused.refusal().message()));
         assertEquals(1, updates.recent(10).size(), "nothing was written for the second press");
     }
 
@@ -234,9 +239,7 @@ class UpdateDirectoryIntegrationTest {
 
         for (final UpdateSource source : UpdateSource.values()) {
             assertThrows(
-                    RunRefused.class,
-                    () -> updates.submit(UpdateKind.REPORT, source, "b", Duration.ZERO),
-                    source.name());
+                    Refused.class, () -> updates.submit(UpdateKind.REPORT, source, "b", Duration.ZERO), source.name());
         }
     }
 
@@ -268,11 +271,12 @@ class UpdateDirectoryIntegrationTest {
         updates.hold("smp", "a", down.id());
         updates.finish(down.id(), UpdateStatus.DONE, "{}");
 
-        final RunRefused refused = assertThrows(
-                RunRefused.class,
+        final Refused refused = assertThrows(
+                Refused.class,
                 () -> updates.submit(UpdateKind.DOWN, UpdateSource.GAME, "b", Duration.ZERO, List.of("limbo", "smp")));
-        assertEquals(RunRefused.Reason.ALREADY_HELD, refused.reason());
-        assertEquals(List.of("smp"), refused.services());
+        assertEquals(UpdateRefusal.ALREADY_HELD, refused.reason());
+        assertEquals(
+                "Already down: smp.", DatabaseText.english(refused.refusal().message()));
 
         assertNotNull(
                 updates.submit(UpdateKind.DOWN, UpdateSource.GAME, "b", Duration.ZERO, List.of("limbo")),
@@ -288,7 +292,7 @@ class UpdateDirectoryIntegrationTest {
                 UpdateDirectory.using(dataSource)
                         .submit(UpdateKind.DOWN, UpdateSource.CONSOLE, "a", Duration.ZERO, List.of("smp"));
                 return true;
-            } catch (final RunRefused refused) {
+            } catch (final Refused refused) {
                 return false;
             }
         };

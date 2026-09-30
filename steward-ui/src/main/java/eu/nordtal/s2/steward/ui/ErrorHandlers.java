@@ -1,5 +1,7 @@
 package eu.nordtal.s2.steward.ui;
 
+import eu.nordtal.s2.database.DatabaseText;
+import eu.nordtal.s2.messages.Refused;
 import eu.nordtal.s2.steward.ui.internal.InternalClient;
 import io.javalin.config.JavalinConfig;
 import java.util.Map;
@@ -25,6 +27,16 @@ final class ErrorHandlers {
                 (required, ctx) -> ctx.status(403)
                         .json(Map.of(
                                 "error", required.getMessage(), "code", "SECOND_FACTOR_REQUIRED", "retryable", true)));
+
+        // A refused write is an answer: 409 with the reason to branch on and the sentence to show.
+        cfg.routes.exception(
+                Refused.class,
+                (refused, ctx) -> ctx.status(409)
+                        .json(Map.of(
+                                "error",
+                                DatabaseText.english(refused.refusal().message()),
+                                "code",
+                                refused.reason().name())));
 
         cfg.routes.exception(InternalClient.Failure.class, (failure, ctx) -> {
             log.warn("{} did not answer: {}", failure.where(), failure.getMessage());

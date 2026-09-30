@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.database.AccessSchema;
+import eu.nordtal.s2.messages.Refused;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -357,7 +358,7 @@ class PhaseDirectoryIntegrationTest {
     void aDateInThePastIsRefusedAndWritesNothing() {
         final Instant past = Instant.now().minus(Duration.ofHours(1));
 
-        assertThrows(SeasonDateRefused.class, () -> phases.setLaunch(past, ADMIN_ID));
+        assertThrows(Refused.class, () -> phases.setLaunch(past, ADMIN_ID));
 
         assertTrue(phases.launch().isEmpty());
         assertEquals(0, count("SELECT count(*) FROM audit_log"), "a refusal writes no audit entry");
@@ -368,12 +369,10 @@ class PhaseDirectoryIntegrationTest {
         phases.setLaunch(Instant.now().plus(Duration.ofDays(10)), ADMIN_ID);
 
         // The SMP cannot start running before the network it runs on is open.
-        assertThrows(
-                SeasonDateRefused.class, () -> phases.setSmpStart(Instant.now().plus(Duration.ofDays(3)), ADMIN_ID));
+        assertThrows(Refused.class, () -> phases.setSmpStart(Instant.now().plus(Duration.ofDays(3)), ADMIN_ID));
         // And the opening cannot be moved past a start that is already announced.
         phases.setSmpStart(Instant.now().plus(Duration.ofDays(17)), ADMIN_ID);
-        assertThrows(
-                SeasonDateRefused.class, () -> phases.setLaunch(Instant.now().plus(Duration.ofDays(20)), ADMIN_ID));
+        assertThrows(Refused.class, () -> phases.setLaunch(Instant.now().plus(Duration.ofDays(20)), ADMIN_ID));
     }
 
     @Test
@@ -505,8 +504,7 @@ class PhaseDirectoryIntegrationTest {
     void onceTheSeasonIsRunningTheDateIsRefused() {
         phases.switchPhase(SeasonPhase.SMP, ADMIN_ID, "test");
 
-        assertThrows(
-                SeasonDateRefused.class, () -> phases.setSmpStart(Instant.now().plus(Duration.ofDays(5)), ADMIN_ID));
+        assertThrows(Refused.class, () -> phases.setSmpStart(Instant.now().plus(Duration.ofDays(5)), ADMIN_ID));
 
         assertTrue(phases.smpStart().isEmpty());
     }

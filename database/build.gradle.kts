@@ -1,5 +1,6 @@
 plugins {
     id("nordtal.java-base")
+    id("nordtal.message-spec")
     id("java-library")
     // AccessSchema, for every module whose tests need the migrated schema.
     id("java-test-fixtures")
@@ -20,6 +21,8 @@ repositoryRootTestInputs {
 
 dependencies {
     api(project(":common"))
+    // The refusals a write answers with are messages of this module's own bundle.
+    api(project(":messages"))
 
     // The kernel's JSON codec runs on Gson, which every consumer has at runtime and none shades.
     compileOnly(libs.gson)
@@ -44,11 +47,13 @@ dependencies {
     testFixturesImplementation(libs.flyway.postgresql)
 
     testImplementation(testFixtures(project(":common")))
-    // AccessProfileIntegrationTest reads a player's language through PlayerLocales, as the plugins do.
-    testImplementation(project(":messages"))
     testImplementation(libs.bundles.access.persistence)
     testImplementation(libs.testcontainers.postgresql)
     // Compile scope: the integration tests build a PGSimpleDataSource by hand.
     testImplementation(libs.postgresql.driver)
     testRuntimeOnly(libs.logback.classic)
+}
+
+messageSpec {
+    specClass.set("eu.nordtal.s2.database.DatabaseMessages")
 }

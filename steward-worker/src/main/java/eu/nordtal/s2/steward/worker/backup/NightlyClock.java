@@ -1,9 +1,11 @@
 package eu.nordtal.s2.steward.worker.backup;
 
-import eu.nordtal.s2.database.update.RunRefused;
+import eu.nordtal.s2.database.DatabaseText;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateKind;
+import eu.nordtal.s2.database.update.UpdateRefusal;
 import eu.nordtal.s2.database.update.UpdateSource;
+import eu.nordtal.s2.messages.Refused;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.Duration;
@@ -294,17 +296,19 @@ public final class NightlyClock implements AutoCloseable {
                     .submit(job.kind, SOURCE, job.requestedBy, Duration.ZERO)
                     .id();
             log.info("asked for {} as request {}", job.noun, id);
-        } catch (final RunRefused refused) {
-            if (refused.reason() == RunRefused.Reason.RUN_OPEN
-                    && now.plus(RETRY).isBefore(due.plus(PATIENCE))) {
+        } catch (final Refused refused) {
+            if (refused.reason() == UpdateRefusal.RUN_OPEN && now.plus(RETRY).isBefore(due.plus(PATIENCE))) {
                 log.info(
-                        "{} waits: {}. Asking again in {} minutes.", job.noun, refused.getMessage(), RETRY.toMinutes());
+                        "{} waits: {} Asking again in {} minutes.",
+                        job.noun,
+                        DatabaseText.english(refused.refusal().message()),
+                        RETRY.toMinutes());
                 return RETRY;
             }
             log.warn(
-                    "{} was not asked for this time - {}. The next scheduled day is tried again.",
+                    "{} was not asked for this time: {} The next scheduled day is tried again.",
                     job.noun,
-                    refused.getMessage());
+                    DatabaseText.english(refused.refusal().message()));
         } catch (RuntimeException e) {
             log.warn(
                     "{} could not be asked for this time. The clock carries on; the next"

@@ -188,7 +188,11 @@ class NightlyClockTest {
                 new Class<?>[] {UpdateDirectory.class},
                 (proxy, method, args) -> {
                     if (method.getName().equals("submit")) {
-                        throw eu.nordtal.s2.database.update.RunRefused.runOpen(open);
+                        throw new eu.nordtal.s2.messages.Refused(
+                                eu.nordtal.s2.database.update.UpdateRefusal.RUN_OPEN,
+                                eu.nordtal.s2.database.DatabaseMessages.MESSAGES
+                                        .update()
+                                        .runOpen(open.id(), open.kind(), "pending"));
                     }
                     throw new AssertionError("the clock asked the database: " + method.getName());
                 });

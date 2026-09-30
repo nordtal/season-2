@@ -18,6 +18,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -79,7 +80,7 @@ public final class AdvancementListener implements Listener {
         }
 
         final Integer award = awards.get(key);
-        final String objectiveKey = key;
+        final NamespacedKey advancement = event.getAdvancement().getKey();
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             if (award != null && award > 0) {
@@ -93,8 +94,7 @@ public final class AdvancementListener implements Listener {
                     }
                 });
             }
-            // An ADVANCEMENT objective is keyed by the advancement it wants.
-            engine.credit(discordId.get(), objectiveKey, 1L, player.getUniqueId());
+            engine.creditAdvancement(discordId.get(), advancement, player.getUniqueId());
         });
     }
 }

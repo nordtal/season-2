@@ -36,6 +36,7 @@ import java.util.Optional;
 import java.util.UUID;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
@@ -111,7 +112,38 @@ public final class ObjectiveEngine {
         if (activeKey.isEmpty()) {
             return 0L;
         }
-        final Optional<ObjectiveRow> row = dao.objective(activeKey.get(), objectiveKey);
+        return creditUnder(activeKey.get(), discordId, objectiveKey, delta, completedBy);
+    }
+
+    /**
+     * Credits one player to the active milestone's gate when it names this advancement; blocking, so call it async.
+     *
+     * @param discordId who earned it
+     * @param advancement the advancement earned
+     * @param completedBy the player who earned it; only changes the finishing sound
+     * @return 1, or 0 when the active milestone's gate names another advancement
+     */
+    public long creditAdvancement(
+            final DiscordId discordId, final NamespacedKey advancement, final @Nullable UUID completedBy) {
+        final Optional<String> activeKey = dao.activeMilestoneKey();
+        if (activeKey.isEmpty()) {
+            return 0L;
+        }
+        final Optional<Objective> gate =
+                track.get().milestone(activeKey.get()).flatMap(milestone -> milestone.gateFor(advancement));
+        if (gate.isEmpty()) {
+            return 0L;
+        }
+        return creditUnder(activeKey.get(), discordId, gate.get().key(), 1L, completedBy);
+    }
+
+    private long creditUnder(
+            final String milestoneKey,
+            final DiscordId discordId,
+            final String objectiveKey,
+            final long delta,
+            final @Nullable UUID completedBy) {
+        final Optional<ObjectiveRow> row = dao.objective(milestoneKey, objectiveKey);
         if (row.isEmpty() || row.get().completed()) {
             return 0L;
         }
@@ -127,7 +159,7 @@ public final class ObjectiveEngine {
         dao.addContribution(objective.id(), discordId, advance.credited());
 
         if (advance.completes()) {
-            finishObjective(activeKey.get(), objective, completedBy);
+            finishObjective(milestoneKey, objective, completedBy);
         }
         return advance.credited();
     }

@@ -1,0 +1,16 @@
+# database
+
+Everything that reads or writes PostgreSQL: access and links, the season phase, who is online,
+the audit log, payments, update runs, the request inboxes, the `LISTEN`/`NOTIFY` loop and the
+migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the driver are
+`compileOnly`, so a consumer brings the runtime it already has; this module never migrates.
+
+- **Access** is read through `AccessReader` and written through `AccessDirectory`, which extends it.
+  The plugins and the proxy's router only read.
+- **A refused write** throws `Refused` with a typed reason (`UpdateRefusal`, `SeasonDateRefusal`)
+  and a message from this module's own bundle, `messages/database`. `DatabaseText` renders it in
+  English for Steward and the logs.
+- **Time** comes from the caller: every directory that decides by the clock takes an `InstantSource`.
+
+The test fixtures publish `AccessSchema`, which migrates a test database; every module's database
+tests use it.

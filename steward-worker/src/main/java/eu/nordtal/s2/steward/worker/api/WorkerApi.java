@@ -18,6 +18,7 @@ import eu.nordtal.s2.steward.worker.plan.UpdatePlan;
 import io.javalin.Javalin;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -141,9 +142,12 @@ public final class WorkerApi implements AutoCloseable {
             final Path configs,
             final UpdateDirectory updates,
             final AuditDirectory audit,
-            final Nightly nightly) {
-        this(docker, ops, console, host, project, backups, token, configs, null, updates, audit, nightly);
+            final Nightly nightly,
+            final Clock clock) {
+        this(docker, ops, console, host, project, backups, token, configs, null, updates, audit, nightly, clock);
     }
+
+    private final Clock clock;
 
     /**
      * Builds the API without player counts.
@@ -165,8 +169,23 @@ public final class WorkerApi implements AutoCloseable {
             final @Nullable Path volumesRoot,
             final UpdateDirectory updates,
             final AuditDirectory audit,
-            final Nightly nightly) {
-        this(docker, ops, console, host, project, backups, token, configs, volumesRoot, updates, audit, nightly, null);
+            final Nightly nightly,
+            final Clock clock) {
+        this(
+                docker,
+                ops,
+                console,
+                host,
+                project,
+                backups,
+                token,
+                configs,
+                volumesRoot,
+                updates,
+                audit,
+                nightly,
+                null,
+                clock);
     }
 
     /**
@@ -187,7 +206,8 @@ public final class WorkerApi implements AutoCloseable {
             final UpdateDirectory updates,
             final AuditDirectory audit,
             final Nightly nightly,
-            final @Nullable ServicesApi online) {
+            final @Nullable ServicesApi online,
+            final Clock clock) {
         this(
                 docker,
                 ops,
@@ -202,7 +222,8 @@ public final class WorkerApi implements AutoCloseable {
                 audit,
                 nightly,
                 online,
-                null);
+                null,
+                clock);
     }
 
     /**
@@ -224,7 +245,8 @@ public final class WorkerApi implements AutoCloseable {
             final AuditDirectory audit,
             final Nightly nightly,
             final @Nullable ServicesApi online,
-            final @Nullable Supplier<UpdatePlan> resolve) {
+            final @Nullable Supplier<UpdatePlan> resolve,
+            final Clock clock) {
         this(
                 docker,
                 ops,
@@ -241,7 +263,8 @@ public final class WorkerApi implements AutoCloseable {
                 online,
                 resolve,
                 null,
-                null);
+                null,
+                clock);
     }
 
     /**
@@ -264,7 +287,8 @@ public final class WorkerApi implements AutoCloseable {
             final Nightly nightly,
             final @Nullable ServicesApi online,
             final @Nullable Supplier<UpdatePlan> resolve,
-            final @Nullable PluginsApi managedPlugins) {
+            final @Nullable PluginsApi managedPlugins,
+            final Clock clock) {
         this(
                 docker,
                 ops,
@@ -281,7 +305,8 @@ public final class WorkerApi implements AutoCloseable {
                 online,
                 resolve,
                 managedPlugins,
-                null);
+                null,
+                clock);
     }
 
     /**
@@ -306,7 +331,8 @@ public final class WorkerApi implements AutoCloseable {
             final @Nullable ServicesApi online,
             final @Nullable Supplier<UpdatePlan> resolve,
             final @Nullable PluginsApi managedPlugins,
-            final @Nullable AccessRequests accessInbox) {
+            final @Nullable AccessRequests accessInbox,
+            final Clock clock) {
         this(
                 docker,
                 ops,
@@ -324,7 +350,8 @@ public final class WorkerApi implements AutoCloseable {
                 resolve,
                 managedPlugins,
                 accessInbox,
-                () -> {});
+                () -> {},
+                clock);
     }
 
     /**
@@ -351,7 +378,9 @@ public final class WorkerApi implements AutoCloseable {
             final @Nullable Supplier<UpdatePlan> resolve,
             final @Nullable PluginsApi managedPlugins,
             final @Nullable AccessRequests accessInbox,
-            final Runnable reReadOwn) {
+            final Runnable reReadOwn,
+            final Clock clock) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.managedPlugins = managedPlugins;
         this.docker = docker;
         this.console = console;
@@ -370,16 +399,19 @@ public final class WorkerApi implements AutoCloseable {
         this.disk = new DiskUsage(
                 volumesRoot, runnable -> Thread.ofVirtual().name("disk-usage").start(runnable));
         this.archive = new LogArchive(volumesRoot);
-        this.logFollows = new LogFollows(docker, archive);
+        this.logFollows = new LogFollows(docker, archive, clock);
         this.serviceRows = new ServiceRows(docker, project, updates, online);
         // Here rather than at the field, because it reads `ops`, which is a constructor argument.
-        this.drift =
-                new Refreshed<>(() -> new Drift(ops.images(), Instant.now()), DRIFT_TTL, driftRefresh, Instant::now);
+        this.drift = new Refreshed<>(
+                () -> new Drift(ops.images(), clock.instant()), DRIFT_TTL, driftRefresh, clock::instant);
         // The same background thread as drift: both are slow calls nobody asked for.
         this.available = resolve == null
                 ? null
                 : new Refreshed<>(
-                        () -> new Available(resolve.get(), Instant.now()), AVAILABLE_TTL, driftRefresh, Instant::now);
+                        () -> new Available(resolve.get(), clock.instant()),
+                        AVAILABLE_TTL,
+                        driftRefresh,
+                        clock::instant);
     }
 
     public void start(final int port) {
@@ -458,12 +490,17 @@ public final class WorkerApi implements AutoCloseable {
                                             name,
                                             key -> new Refreshed<>(
                                                     () -> Archives.capacity(
-                                                            docker, project, archive, key, LOG_CAPACITY_MAX),
+                                                            docker,
+                                                            project,
+                                                            archive,
+                                                            key,
+                                                            LOG_CAPACITY_MAX,
+                                                            clock.instant()),
                                                     LOG_CAPACITY_TTL,
                                                     runnable -> Thread.ofVirtual()
                                                             .name("log-capacity")
                                                             .start(runnable),
-                                                    Instant::now))
+                                                    clock::instant))
                                     .get());
                     return row;
                 });
@@ -479,7 +516,11 @@ public final class WorkerApi implements AutoCloseable {
         answer.put("zone", nightly.zone().getId());
         answer.put(
                 "nextBackupAt",
-                NightlyClock.next(nightly.at(), nightly.days(), nightly.zone(), ZonedDateTime.now(nightly.zone()))
+                NightlyClock.next(
+                                nightly.at(),
+                                nightly.days(),
+                                nightly.zone(),
+                                ZonedDateTime.now(clock.withZone(nightly.zone())))
                         .map(next -> next.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
                         .orElse(null));
         // The optional update clock, read the same way; a blank update.at is no schedule.
@@ -494,7 +535,7 @@ public final class WorkerApi implements AutoCloseable {
                                         nightly.updateAt(),
                                         nightly.updateDays(),
                                         nightly.zone(),
-                                        ZonedDateTime.now(nightly.zone()))
+                                        ZonedDateTime.now(clock.withZone(nightly.zone())))
                                 .map(next -> next.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
                                 .orElse(null));
         return answer;
@@ -590,7 +631,7 @@ public final class WorkerApi implements AutoCloseable {
      */
     Map<String, Object> alertLevel() {
         final AlertLevel.Reading reading =
-                AlertLevel.of(serviceTable(), Archives.list(backups), hostNumbers(), Instant.now());
+                AlertLevel.of(serviceTable(), Archives.list(backups), hostNumbers(), clock.instant());
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("level", reading.level().name().toLowerCase(java.util.Locale.ROOT));
         answer.put("subject", reading.subject());

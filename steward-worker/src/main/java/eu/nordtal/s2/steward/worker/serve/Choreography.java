@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.worker.serve;
 
+import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.steward.worker.ops.ContainerOps;
 import eu.nordtal.s2.steward.worker.ops.RedeployResult;
 import eu.nordtal.s2.steward.worker.ops.RuntimeResult;
@@ -43,12 +44,12 @@ final class Choreography {
 
     private final ContainerOps containers;
     private final Occupancy occupancy;
-    private final UpdateRun.Waiting clock;
+    private final Waiting clock;
 
     /** What this run has started and not yet stopped, so {@link #close} can be called twice. */
     private final Set<String> standing = new LinkedHashSet<>();
 
-    Choreography(final ContainerOps containers, final Occupancy occupancy, final UpdateRun.Waiting clock) {
+    Choreography(final ContainerOps containers, final Occupancy occupancy, final Waiting clock) {
         this.containers = containers;
         this.occupancy = occupancy;
         this.clock = clock;

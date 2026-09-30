@@ -10,6 +10,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -42,7 +43,10 @@ public final class DiscordDirectory {
     private @Nullable Cached roles;
     private @Nullable Cached channels;
 
-    public DiscordDirectory(final UiSpec.DiscordSpec config, final String api) {
+    private final Clock clock;
+
+    public DiscordDirectory(final UiSpec.DiscordSpec config, final String api, final Clock clock) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.config = config;
         this.api = api;
         this.http = HttpClient.newBuilder().connectTimeout(CONNECT).build();
@@ -82,7 +86,7 @@ public final class DiscordDirectory {
                     null));
         }
         fetched.sort(Comparator.comparingInt(Entry::position).reversed());
-        roles = new Cached(List.copyOf(fetched), Instant.now());
+        roles = new Cached(List.copyOf(fetched), clock.instant());
         return roles.entries();
     }
 
@@ -102,12 +106,12 @@ public final class DiscordDirectory {
                     channel.has("type") ? channel.get("type").getAsInt() : null));
         }
         fetched.sort(Comparator.comparingInt(Entry::position));
-        channels = new Cached(List.copyOf(fetched), Instant.now());
+        channels = new Cached(List.copyOf(fetched), clock.instant());
         return channels.entries();
     }
 
     private boolean fresh(final @Nullable Cached cached) {
-        return cached != null && Duration.between(cached.at(), Instant.now()).compareTo(TTL) < 0;
+        return cached != null && Duration.between(cached.at(), clock.instant()).compareTo(TTL) < 0;
     }
 
     private JsonArray fetch(final String path) {

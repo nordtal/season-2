@@ -12,6 +12,7 @@ import eu.nordtal.s2.proxy.config.GateSpec;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
@@ -34,7 +35,7 @@ class RestartGateTest {
 
     private final Messages messages = Messages.load("messages/proxy", Locale.ENGLISH, Locale.GERMAN);
     private final GateMessages gateMessages = new GateMessages(messages, defaults());
-    private final FallbackCache locales = new FallbackCache(Duration.ofMinutes(15));
+    private final FallbackCache locales = new FallbackCache(Duration.ofMinutes(15), Clock.systemUTC());
 
     @Test
     void bothLanguagesAreThere() {

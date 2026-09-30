@@ -155,7 +155,7 @@ final class HoldSequence {
                 runner.directory.release(service);
             }
             final UpdateReport started = run.start(new UpdateRun.Stopped(planned, services, runtime));
-            final UpdateReport verified = run.verify(started, services, UpdateRun.Waiting.real());
+            final UpdateReport verified = run.verify(started, services, runner.waiting);
             final UpdateReport finished =
                     Runner.settle(verified, List.of(), "it was started again", false, Runner.Doubt.IS_ONLY_SAID);
             return finished.stage() == UpdateReport.Stage.FAILED

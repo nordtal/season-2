@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.online;
 
+import java.time.InstantSource;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -15,9 +16,11 @@ import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 final class JdbiOnline implements OnlineDirectory {
 
     private final OnlineDao dao;
+    private final InstantSource clock;
 
-    JdbiOnline(final DataSource dataSource) {
+    JdbiOnline(final DataSource dataSource, final InstantSource clock) {
         Objects.requireNonNull(dataSource, "dataSource");
+        this.clock = Objects.requireNonNull(clock, "clock");
         this.dao = Jdbi.create(dataSource)
                 .installPlugin(new SqlObjectPlugin())
                 .installPlugin(new PostgresPlugin())
@@ -33,7 +36,7 @@ final class JdbiOnline implements OnlineDirectory {
         }
 
         final List<OnlineDao.BoundCount> rows = new ArrayList<>(counts.size());
-        final var now = java.time.Instant.now().atOffset(ZoneOffset.UTC);
+        final var now = clock.instant().atOffset(ZoneOffset.UTC);
         for (final Map.Entry<String, Integer> entry : counts.entrySet()) {
             final String subject = Objects.requireNonNull(entry.getKey(), "subject");
             final Integer players = Objects.requireNonNull(entry.getValue(), "players");

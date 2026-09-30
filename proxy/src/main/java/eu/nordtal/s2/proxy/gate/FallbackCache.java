@@ -21,11 +21,7 @@ public final class FallbackCache {
     private final Clock clock;
     private final ConcurrentHashMap<UUID, Entry> entries = new ConcurrentHashMap<>();
 
-    public FallbackCache(final Duration window) {
-        this(window, Clock.systemUTC());
-    }
-
-    FallbackCache(final Duration window, final Clock clock) {
+    public FallbackCache(final Duration window, final Clock clock) {
         if (window == null || window.isZero() || window.isNegative()) {
             throw new IllegalArgumentException("window must be positive, got: " + window);
         }

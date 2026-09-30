@@ -2,6 +2,7 @@ package eu.nordtal.s2.database.phase;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import java.time.Instant;
+import java.time.InstantSource;
 import java.util.Objects;
 import java.util.Optional;
 import javax.sql.DataSource;
@@ -14,9 +15,11 @@ import org.jspecify.annotations.Nullable;
 final class JdbiPhaseDirectory implements PhaseDirectory {
 
     private final PhaseDao dao;
+    private final InstantSource clock;
 
-    JdbiPhaseDirectory(final DataSource dataSource) {
+    JdbiPhaseDirectory(final DataSource dataSource, final InstantSource clock) {
         Objects.requireNonNull(dataSource, "dataSource");
+        this.clock = Objects.requireNonNull(clock, "clock");
         this.dao = Jdbi.create(dataSource)
                 .installPlugin(new SqlObjectPlugin())
                 .installPlugin(new PostgresPlugin())
@@ -85,8 +88,8 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
     }
 
     /** Clearing a date is always allowed; only a date that is set can be in the past. */
-    private static void refusePast(final @Nullable Instant at, final String what) {
-        if (at != null && at.isBefore(Instant.now())) {
+    private void refusePast(final @Nullable Instant at, final String what) {
+        if (at != null && at.isBefore(clock.instant())) {
             throw new SeasonDateRefused(what + ". " + SeasonDates.format(at)
                     + " has already happened - use `" + SeasonDates.CLEAR
                     + "` if you meant to take the date away instead.");

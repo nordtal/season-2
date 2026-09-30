@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.net.http.HttpClient;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
@@ -396,22 +397,24 @@ abstract class StewardUiFixture {
                 .locations("classpath:db/migration")
                 .load()
                 .migrate();
-        data = new Data(new DatabaseSpec() {
-            @Override
-            public String jdbcUrl() {
-                return postgres.getJdbcUrl();
-            }
+        data = new Data(
+                new DatabaseSpec() {
+                    @Override
+                    public String jdbcUrl() {
+                        return postgres.getJdbcUrl();
+                    }
 
-            @Override
-            public String username() {
-                return postgres.getUsername();
-            }
+                    @Override
+                    public String username() {
+                        return postgres.getUsername();
+                    }
 
-            @Override
-            public String password() {
-                return postgres.getPassword();
-            }
-        });
+                    @Override
+                    public String password() {
+                        return postgres.getPassword();
+                    }
+                },
+                Clock.systemUTC());
     }
 
     private static void startUi() throws Exception {
@@ -429,7 +432,8 @@ abstract class StewardUiFixture {
                         config.deployer().baseUrl(),
                         config.deployer().token(),
                         Duration.ofSeconds(5)),
-                data);
+                data,
+                Clock.systemUTC());
         ui.start(UI_PORT);
     }
 

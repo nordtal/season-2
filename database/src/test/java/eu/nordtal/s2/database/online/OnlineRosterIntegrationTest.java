@@ -11,6 +11,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -68,7 +69,7 @@ class OnlineRosterIntegrationTest {
     @BeforeEach
     void freshTable() {
         execute("TRUNCATE TABLE online_player");
-        roster = OnlineRoster.using(dataSource);
+        roster = OnlineRoster.using(dataSource, Clock.systemUTC());
     }
 
     @Test

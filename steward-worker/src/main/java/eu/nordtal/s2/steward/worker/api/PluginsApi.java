@@ -17,6 +17,7 @@ import io.javalin.http.NotFoundResponse;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -51,6 +52,8 @@ public final class PluginsApi {
     private final JarIdentity identity;
     private final Map<String, String> fixedProjects;
 
+    private final Clock clock;
+
     /**
      * Builds the API with no fixed Modrinth plugins.
      *
@@ -62,8 +65,9 @@ public final class PluginsApi {
             final PluginDirectory plugins,
             final Modrinth modrinth,
             final @Nullable Path volumesRoot,
-            final String gameVersion) {
-        this(plugins, modrinth, volumesRoot, gameVersion, Map.of());
+            final String gameVersion,
+            final Clock clock) {
+        this(plugins, modrinth, volumesRoot, gameVersion, Map.of(), clock);
     }
 
     /**
@@ -76,13 +80,15 @@ public final class PluginsApi {
             final Modrinth modrinth,
             final @Nullable Path volumesRoot,
             final String gameVersion,
-            final Map<String, String> fixedProjects) {
+            final Map<String, String> fixedProjects,
+            final Clock clock) {
+        this.clock = Objects.requireNonNull(clock, "clock");
         this.fixedProjects = Map.copyOf(fixedProjects);
         this.plugins = Objects.requireNonNull(plugins, "plugins");
         this.modrinth = Objects.requireNonNull(modrinth, "modrinth");
         this.volumesRoot = volumesRoot;
         this.gameVersion = Objects.requireNonNull(gameVersion, "gameVersion");
-        this.identity = new JarIdentity(modrinth);
+        this.identity = new JarIdentity(modrinth, clock::instant);
     }
 
     /** {@code GET /api/services/{name}/plugins} */
@@ -360,7 +366,7 @@ public final class PluginsApi {
                 icon(ask.iconUrl),
                 // Built here, never from the body: a request may only choose the Modrinth project.
                 "https://modrinth.com/plugin/" + addition.slug(),
-                java.time.Instant.now(),
+                clock.instant(),
                 by));
 
         log.info(

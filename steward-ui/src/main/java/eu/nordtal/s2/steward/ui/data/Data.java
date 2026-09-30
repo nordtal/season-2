@@ -11,6 +11,7 @@ import eu.nordtal.s2.database.payment.PaymentRequests;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.steward.ui.config.DatabaseSpec;
+import java.time.Clock;
 import java.time.Duration;
 
 /** The database, opened once and read through the directories {@code :common} owns; it never migrates. */
@@ -29,7 +30,7 @@ public final class Data implements AutoCloseable {
     private final CommandRequests commands;
     private final AccessRequests accessRequests;
 
-    public Data(final DatabaseSpec config) {
+    public Data(final DatabaseSpec config, final Clock clock) {
         this.database = Database.create(DatabaseConfig.builder(config.jdbcUrl())
                 .username(config.username())
                 .password(config.password())
@@ -38,11 +39,11 @@ public final class Data implements AutoCloseable {
                 .build());
         this.updates = UpdateDirectory.using(database.dataSource());
         this.metrics = MetricDirectory.using(database.dataSource());
-        this.phase = PhaseDirectory.using(database.dataSource());
+        this.phase = PhaseDirectory.using(database.dataSource(), clock);
         this.payments = new PaymentRequests(database.jdbi());
         this.audit = AuditDirectory.using(database.dataSource());
         // Borrowing, not owning: closing the pool below is the only close there is.
-        this.access = AccessDirectory.using(database.dataSource());
+        this.access = AccessDirectory.using(database.dataSource(), clock);
         this.commands = CommandRequests.borrowing(database.dataSource());
         this.accessRequests = AccessRequests.on(database.dataSource());
     }

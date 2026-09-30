@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
@@ -35,7 +36,10 @@ public final class Readiness {
     /** Whether the last refresh failed, so a failure is logged once and again after a recovery. */
     private final AtomicBoolean complained = new AtomicBoolean();
 
-    public Readiness(final Path marker, final Consumer<String> complaints) {
+    private final Clock clock;
+
+    public Readiness(final Path marker, final Clock clock, final Consumer<String> complaints) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.marker = marker;
         this.complaints = complaints;
     }
@@ -45,8 +49,8 @@ public final class Readiness {
      *
      * @param complaints where a failed refresh is reported, such as a logger's warn method
      */
-    public static Readiness onDefaultPath(final Consumer<String> complaints) {
-        return new Readiness(MARKER, complaints);
+    public static Readiness onDefaultPath(final Clock clock, final Consumer<String> complaints) {
+        return new Readiness(MARKER, clock, complaints);
     }
 
     /** Returns where this instance writes. */
@@ -66,7 +70,7 @@ public final class Readiness {
             if (parent != null) {
                 Files.createDirectories(parent);
             }
-            Files.writeString(marker, Instant.now() + System.lineSeparator(), StandardCharsets.UTF_8);
+            Files.writeString(marker, clock.instant() + System.lineSeparator(), StandardCharsets.UTF_8);
             complained.set(false);
             return true;
         } catch (final IOException | RuntimeException failure) {

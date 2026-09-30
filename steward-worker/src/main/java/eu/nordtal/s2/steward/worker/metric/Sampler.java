@@ -7,6 +7,7 @@ import eu.nordtal.s2.steward.worker.docker.DockerException;
 import eu.nordtal.s2.steward.worker.host.HostMetrics;
 import eu.nordtal.s2.steward.worker.host.HostSnapshot;
 import java.io.IOException;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -53,7 +54,15 @@ public final class Sampler implements AutoCloseable {
     });
     private final ExecutorService perContainer = Executors.newVirtualThreadPerTaskExecutor();
 
-    public Sampler(final Docker docker, final HostMetrics host, final MetricDirectory metrics, final String project) {
+    private final Clock wall;
+
+    public Sampler(
+            final Docker docker,
+            final HostMetrics host,
+            final MetricDirectory metrics,
+            final String project,
+            final Clock clock) {
+        this.wall = java.util.Objects.requireNonNull(clock, "clock");
         this.docker = docker;
         this.host = host;
         this.metrics = metrics;
@@ -71,7 +80,7 @@ public final class Sampler implements AutoCloseable {
 
     private void tickQuietly() {
         try {
-            final int written = tick(Instant.now());
+            final int written = tick(wall.instant());
             log.debug("wrote {} metric samples", written);
         } catch (RuntimeException e) {
             log.warn("a round of metric sampling failed; the next one will try again", e);
@@ -167,7 +176,7 @@ public final class Sampler implements AutoCloseable {
 
     private void compactQuietly() {
         try {
-            final Instant boundary = Instant.now().minus(RAW_RETENTION);
+            final Instant boundary = wall.instant().minus(RAW_RETENTION);
             final int written = metrics.compact(boundary);
             final int forgotten = metrics.forget(boundary);
             if (written > 0 || forgotten > 0) {

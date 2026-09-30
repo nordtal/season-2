@@ -11,6 +11,7 @@ import eu.nordtal.s2.database.update.UpdateStatus;
 import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.Card;
 import eu.nordtal.s2.messages.Messages;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -84,7 +85,10 @@ public final class UpdateFeed {
     /** Whether a pass is running; see {@link #submit} for why this is a flag and not a lock. */
     private final java.util.concurrent.atomic.AtomicBoolean ticking = new java.util.concurrent.atomic.AtomicBoolean();
 
-    public UpdateFeed(final UpdateDirectory updates, final Board board, final Messages messages) {
+    private final Clock clock;
+
+    public UpdateFeed(final UpdateDirectory updates, final Board board, final Messages messages, final Clock clock) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.updates = Objects.requireNonNull(updates, "updates");
         this.board = Objects.requireNonNull(board, "board");
         this.messages = Objects.requireNonNull(messages, "messages");
@@ -226,15 +230,16 @@ public final class UpdateFeed {
     private MessageEmbed embed(final UpdateRequest request) {
         final UpdateReport report =
                 UpdateReports.parse(request.result()).orElseGet(() -> UpdateReport.at(UpdateReport.Stage.RESOLVING));
-        return fields(report, request, messages, Locales.DEFAULT, true);
+        return fields(report, request, messages, Locales.DEFAULT, true, clock.instant());
     }
 
     static MessageEmbed fields(
             final UpdateReport report,
             final UpdateRequest request,
             final Messages messages,
-            final java.util.Locale locale) {
-        return fields(report, request, messages, locale, false);
+            final java.util.Locale locale,
+            final Instant now) {
+        return fields(report, request, messages, locale, false, now);
     }
 
     /**
@@ -247,10 +252,11 @@ public final class UpdateFeed {
             final UpdateRequest request,
             final Messages messages,
             final java.util.Locale locale,
-            final boolean context) {
+            final boolean context,
+            final Instant now) {
         final Card card = Card.of(glance(report.stage()) + " "
                         + messages.format(locale, MESSAGES.update().stage(report.stage())))
-                .timestamp(request.finished() == null ? Instant.now() : request.finished());
+                .timestamp(request.finished() == null ? now : request.finished());
         final java.util.function.IntFunction<String> more = count ->
                 Card.italic(messages.format(locale, MESSAGES.update().embed().more(count)));
 

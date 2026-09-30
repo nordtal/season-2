@@ -14,6 +14,7 @@ import eu.nordtal.s2.messages.PlayerLocales;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
@@ -76,7 +77,7 @@ class AccessProfileIntegrationTest {
     void freshDirectory() {
         execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, audit_log, "
                 + "player_playtime, admin_grant, discord_user CASCADE");
-        directory = AccessDirectory.using(dataSource);
+        directory = AccessDirectory.using(dataSource, Clock.systemUTC());
     }
 
     @Test

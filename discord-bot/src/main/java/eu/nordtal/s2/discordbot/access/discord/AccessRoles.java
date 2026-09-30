@@ -10,6 +10,7 @@ import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.discordbot.config.Languages;
 import eu.nordtal.s2.messages.Messages;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -46,13 +47,17 @@ public final class AccessRoles {
     private final AdminLog admin;
     private final ReconcileDao dao;
 
+    private final Clock clock;
+
     public AccessRoles(
             final JDA jda,
             final AccessSpec config,
             final AccessDirectory access,
             final Messages messages,
             final AdminLog admin,
-            final Jdbi jdbi) {
+            final Jdbi jdbi,
+            final Clock clock) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.jda = jda;
         this.config = config;
         this.access = access;
@@ -63,13 +68,13 @@ public final class AccessRoles {
 
     /** Returns whether a non-revoked grant covers this instant. */
     public boolean hasActiveAccess(final String discordId) {
-        final Instant now = Instant.now();
+        final Instant now = clock.instant();
         return access.grantsOf(discordId).stream().anyMatch(grant -> grant.coversAt(now));
     }
 
     /** Returns when the current run of access ends, if there is one. */
     public Optional<Instant> validUntil(final String discordId) {
-        final Instant now = Instant.now();
+        final Instant now = clock.instant();
         return access.grantsOf(discordId).stream()
                 .filter(grant -> grant.revoked() == null && grant.validUntil().isAfter(now))
                 .map(AccessGrant::validUntil)

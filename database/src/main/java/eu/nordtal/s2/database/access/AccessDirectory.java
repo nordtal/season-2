@@ -1,6 +1,7 @@
 package eu.nordtal.s2.database.access;
 
 import java.time.Duration;
+import java.time.InstantSource;
 import java.util.Locale;
 import java.util.UUID;
 import javax.sql.DataSource;
@@ -14,8 +15,8 @@ import org.jspecify.annotations.Nullable;
 public interface AccessDirectory extends AccessReader {
 
     /** Uses a connection pool the caller owns. */
-    static AccessDirectory using(final DataSource dataSource) {
-        return JdbiAccessDirectory.borrowing(dataSource);
+    static AccessDirectory using(final DataSource dataSource, final InstantSource clock) {
+        return JdbiAccessDirectory.borrowing(dataSource, clock);
     }
 
     /** Ensures {@code discord_user} has a row for this account; every other write has a foreign key onto it. */

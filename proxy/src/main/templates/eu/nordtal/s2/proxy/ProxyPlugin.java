@@ -1,5 +1,7 @@
 package eu.nordtal.s2.proxy;
 
+import eu.nordtal.s2.common.time.NetworkTime;
+
 import eu.nordtal.s2.common.language.Languages;
 
 import eu.nordtal.s2.messages.context.MessageEnvironment;
@@ -105,6 +107,9 @@ public final class ProxyPlugin {
     /** The process every message of this proxy renders for. */
     private static final MessageEnvironment ENVIRONMENT = MessageEnvironment.of("proxy");
 
+    /** The one clock of this process. */
+    private final Clock clock = NetworkTime.clock();
+
     private final ProxyServer proxy;
     private final Logger logger;
     private final Path dataDirectory;
@@ -164,14 +169,14 @@ public final class ProxyPlugin {
         this.sharedMessages = Messages.load(getClass().getClassLoader(), "messages/commands",
                 dataDirectory.resolve("messages"), Languages.NETWORK.locales()).within(ENVIRONMENT);
         this.pool = AccessPool.open(databaseConfig);
-        this.access = AccessDirectory.using(pool);
+        this.access = AccessDirectory.using(pool, clock);
 
         // The five reply colours, read once here; see ColoursSpec.
         final ToneColours colours = ToneColours.parse(Configs.declared(coloursConfig), logger::warn);
 
-        final PhaseDirectory phases = PhaseDirectory.using(pool);
+        final PhaseDirectory phases = PhaseDirectory.using(pool, clock);
         final GateMessages gateMessages = new GateMessages(messages, gateConfig);
-        final FallbackCache fallback = new FallbackCache(Duration.ofMinutes(gateConfig.fallbackCacheWindowMinutes()));
+        final FallbackCache fallback = new FallbackCache(Duration.ofMinutes(gateConfig.fallbackCacheWindowMinutes()), clock);
         final LoginRoster roster = new LoginRoster();
 
         // One PhaseServers for the whole plugin, not one per caller.
@@ -190,12 +195,12 @@ public final class ProxyPlugin {
         // Read once, before Velocity binds its listener, so no login can race it; the statement empties the table.
         ParkedSeats parked;
         try {
-            parked = new ParkedSeats(swaps.takeAllSeats(), Clock.systemUTC().instant());
+            parked = new ParkedSeats(swaps.takeAllSeats(), clock.instant());
         } catch (final RuntimeException failure) {
             // Not fatal: a seat only changes where an admin lands.
             logger.warn("Could not read where players were standing before the last proxy swap; "
                     + "everybody will be routed by the season phase", failure);
-            parked = new ParkedSeats(java.util.List.of(), Clock.systemUTC().instant());
+            parked = new ParkedSeats(java.util.List.of(), clock.instant());
         }
         final ParkedSeats parkedSeats = parked;
         if (parkedSeats.size() > 0) {
@@ -227,9 +232,9 @@ public final class ProxyPlugin {
 
         final WaitingBook book = new WaitingBook(offer != null,
                 Duration.ofSeconds(packConfig.applyTimeoutSeconds()),
-                Duration.ofSeconds(gateConfig.limboReadyGraceSeconds()), role, Clock.systemUTC());
+                Duration.ofSeconds(gateConfig.limboReadyGraceSeconds()), role, clock);
         // One breaker per backend: BackendKick and the pack station trip it, PlayerRouter clears it on reconnect.
-        final BackendHealth backendHealth = new BackendHealth(Clock.systemUTC());
+        final BackendHealth backendHealth = new BackendHealth(clock);
         final PackStation packs = new PackStation(proxy, logger, routing, phaseWatch, roster,
                 packMessages, packConfig, offer, book, backendHealth);
         packs.registerChannel();
@@ -244,7 +249,7 @@ public final class ProxyPlugin {
 
         final PlayerRouter router = new PlayerRouter(this, proxy, logger, access, routing, phaseWatch,
                 roster, fallback, gateMessages, packs, intents, backendHealth,
-                parkedSeats, homecoming);
+                parkedSeats, homecoming, clock);
         routerRef.set(router);
         packs.onRelease(router::releaseFromLimbo);
         proxy.getEventManager().register(this, router);
@@ -326,9 +331,9 @@ public final class ProxyPlugin {
         // the gate
 
         final LoginGate loginGate = new LoginGate(logger, proxy, access, fallback, roster, gateMessages,
-                gateConfig, networkConfig, Clock.systemUTC());
+                gateConfig, networkConfig, clock);
         final ExpiryWatch expiryWatch = new ExpiryWatch(proxy, logger, access, fallback, gateMessages,
-                Duration.ofMinutes(gateConfig.expiryWarningLeadMinutes()));
+                Duration.ofMinutes(gateConfig.expiryWarningLeadMinutes()), clock);
 
         proxy.getEventManager().register(this, loginGate);
         proxy.getEventManager().register(this, roster);
@@ -351,12 +356,12 @@ public final class ProxyPlugin {
                 .repeat(snapshotInterval)
                 .schedule();
         proxy.getEventManager().register(this, new NetworkPing(proxy, logger, networkConfig, phaseWatch,
-                snapshots, messages, Clock.systemUTC(),
+                snapshots, messages, clock,
                 eu.nordtal.s2.proxy.ping.ServerIcon.load(dataDirectory, logger)));
 
         // This proxy knows every connection, so it writes the counts and who is connected.
         final OnlineWriter onlineWriter = new OnlineWriter(proxy, phaseServers,
-                OnlineDirectory.using(pool), OnlineRoster.using(pool), role, logger);
+                OnlineDirectory.using(pool, clock), OnlineRoster.using(pool, clock), role, logger, clock);
         onlineWriter.write();
         proxy.getScheduler().buildTask(this, onlineWriter::tick)
                 .delay(OnlineWriter.TICK)
@@ -365,7 +370,7 @@ public final class ProxyPlugin {
 
         // play time
 
-        this.playtime = new PlaytimeWriter(PlaytimeStore.using(pool), roster, logger);
+        this.playtime = new PlaytimeWriter(PlaytimeStore.using(pool), roster, logger, clock);
         proxy.getEventManager().register(this, playtime);
 
         final Duration flushInterval = Duration.ofSeconds(gateConfig.playtimeFlushIntervalSeconds());
@@ -376,7 +381,7 @@ public final class ProxyPlugin {
 
         // Only the proxy sees every player, so it gives the warning, counting towards the row's instant.
         this.restartWatch = new RestartWatch(this, proxy, logger,
-                UpdateDirectory.using(pool), roster, messages, phaseServers, Clock.systemUTC());
+                UpdateDirectory.using(pool), roster, messages, phaseServers, clock);
         proxy.getScheduler().buildTask(this, this.restartWatch::check)
                 .delay(RestartWatch.INTERVAL)
                 .repeat(RestartWatch.INTERVAL)
@@ -398,7 +403,7 @@ public final class ProxyPlugin {
 
         // Parks the network when this proxy itself stops; `role` decides which half acts.
         final ProxySwap swap = new ProxySwap(proxy, logger, UpdateDirectory.using(pool), swaps,
-                role, standbyAddress, Clock.systemUTC());
+                role, standbyAddress, clock);
         // Second at zero: backends first, then the network, the order a player travels.
         this.restartWatch.whenZeroReached(() -> {
             this.evacuation.check();
@@ -417,7 +422,7 @@ public final class ProxyPlugin {
                         gateMessages, fallback));
 
         final StandbyReturn standbyReturn = new StandbyReturn(this, proxy, logger, swaps, role,
-                publicAddress, Clock.systemUTC(), homecoming);
+                publicAddress, clock, homecoming);
         proxy.getScheduler().buildTask(this, standbyReturn::check)
                 .delay(StandbyReturn.INTERVAL)
                 .repeat(StandbyReturn.INTERVAL)
@@ -519,7 +524,7 @@ public final class ProxyPlugin {
             logger.info("The network has not opened yet: only admins get in, everybody else is shown "
                             + "the countdown ({}).",
                     LaunchCountdown.render(messages, Locale.ENGLISH, phaseWatch.launch().orElse(null),
-                            Clock.systemUTC().instant()));
+                            clock.instant()));
         }
 
         startHeartbeat();
@@ -531,7 +536,7 @@ public final class ProxyPlugin {
      * {@link #failClosed} never calls it, so a proxy refusing every login never reports ready.
      */
     private void startHeartbeat() {
-        final Readiness readiness = Readiness.onDefaultPath(logger::warn);
+        final Readiness readiness = Readiness.onDefaultPath(clock, logger::warn);
         heartbeat = proxy.getScheduler().buildTask(this, readiness::refresh)
                 .delay(Duration.ZERO)
                 .repeat(Readiness.BEAT)

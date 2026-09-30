@@ -3,6 +3,7 @@ package eu.nordtal.s2.steward.worker.docker;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.steward.worker.ops.ContainerOps;
 import eu.nordtal.s2.steward.worker.ops.ImageResult;
 import eu.nordtal.s2.steward.worker.ops.RedeployResult;
@@ -37,15 +38,6 @@ public final class DeployerRecreate implements ContainerOps {
     private final Waiting waiting;
 
     public DeployerRecreate(
-            final ContainerOps delegate,
-            final String baseUrl,
-            final String token,
-            final Duration requestTimeout,
-            final Duration patience) {
-        this(delegate, baseUrl, token, requestTimeout, patience, Waiting.real());
-    }
-
-    DeployerRecreate(
             final ContainerOps delegate,
             final String baseUrl,
             final String token,
@@ -243,34 +235,5 @@ public final class DeployerRecreate implements ContainerOps {
                 + " will not send its token there in clear. It is https, or plain http to a"
                 + " compose service name on the internal network - which is what the default"
                 + " http://steward-deployer:8081 is.");
-    }
-
-    /** How "now" and "wait a bit" are told, so a test can drive the poll loop without sleeping. */
-    interface Waiting {
-
-        Instant now();
-
-        /** Returns false when interrupted, which ends the wait rather than swallowing it. */
-        boolean sleep(Duration duration);
-
-        static Waiting real() {
-            return new Waiting() {
-                @Override
-                public Instant now() {
-                    return Instant.now();
-                }
-
-                @Override
-                public boolean sleep(final Duration duration) {
-                    try {
-                        Thread.sleep(duration.toMillis());
-                        return true;
-                    } catch (final InterruptedException interrupted) {
-                        Thread.currentThread().interrupt();
-                        return false;
-                    }
-                }
-            };
-        }
     }
 }

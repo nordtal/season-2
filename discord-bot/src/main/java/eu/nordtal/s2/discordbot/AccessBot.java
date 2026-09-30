@@ -4,6 +4,7 @@ import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.common.health.Readiness;
+import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.network.SnapshotDirectory;
@@ -64,6 +65,9 @@ import net.dv8tion.jda.api.utils.MemberCachePolicy;
  */
 @Slf4j
 public class AccessBot implements AutoCloseable {
+
+    /** The one clock of this process. */
+    private final Clock clock = NetworkTime.clock();
 
     /** Classpath root of the message bundles, one {@code <tag>.properties} per language. */
     private static final String MESSAGE_ROOT = "messages/access";
@@ -134,8 +138,8 @@ public class AccessBot implements AutoCloseable {
             SchemaCheck.validate(database.dataSource());
 
             // Borrows the bot's pool; closing a borrowed pool is a no-op.
-            this.access = AccessDirectory.using(database.dataSource());
-            final PhaseDirectory phases = PhaseDirectory.using(database.dataSource());
+            this.access = AccessDirectory.using(database.dataSource(), clock);
+            final PhaseDirectory phases = PhaseDirectory.using(database.dataSource(), clock);
             // steward-worker's inbox: the bot writes requests and reads answers, never updating them.
             final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
 
@@ -174,11 +178,12 @@ public class AccessBot implements AutoCloseable {
                 core.messages(),
                 phases,
                 SnapshotDirectory.using(database.dataSource()),
-                Clock.systemUTC(),
+                clock,
                 wiring.announcements());
 
         // start() reads the table once so the feed begins at the last run.
-        final UpdateFeed updateFeed = new UpdateFeed(updates, UpdateFeed.Board.of(wiring.admin()), core.messages());
+        final UpdateFeed updateFeed =
+                new UpdateFeed(updates, UpdateFeed.Board.of(wiring.admin()), core.messages(), clock);
         updateFeed.start();
 
         schedule(accessConfig, wiring.processor(), wiring.purchaseFlow(), wiring.roles(), status, updateFeed);
@@ -196,7 +201,7 @@ public class AccessBot implements AutoCloseable {
                 wiring.adminRole());
 
         // Last on purpose: a marker on disk means the constructor finished.
-        final Readiness readiness = Readiness.onDefaultPath(log::warn);
+        final Readiness readiness = Readiness.onDefaultPath(clock, log::warn);
         repeat(guarded("readiness marker", readiness::refresh), 0, Readiness.BEAT.toSeconds(), TimeUnit.SECONDS);
 
         return new Listeners(payment, access);
@@ -253,7 +258,8 @@ public class AccessBot implements AutoCloseable {
         final AdminLog admin = new AdminLog(jda, accessConfig, database.jdbi());
         // A period sold while season_phase.smp_start is NULL starts now rather than at the SMP opening.
         final SeasonStart seasonStart = new SeasonStart(phases, admin);
-        final AccessRoles roles = new AccessRoles(jda, accessConfig, access, core.messages(), admin, database.jdbi());
+        final AccessRoles roles =
+                new AccessRoles(jda, accessConfig, access, core.messages(), admin, database.jdbi(), clock);
         final PaymentProcessor processor = new PaymentProcessor(
                 core.languages(),
                 core.requests(),
@@ -273,7 +279,7 @@ public class AccessBot implements AutoCloseable {
 
         // Held because the payment seam finishes messages waiting for a link.
         final PurchaseFlow purchaseFlow = new PurchaseFlow(
-                core.tiers(), core.purchases(), core.requests(), core.messages(), roles, admin, worker);
+                core.tiers(), core.purchases(), core.requests(), core.messages(), roles, admin, worker, clock);
 
         return finishWiring(
                 jda,
@@ -309,7 +315,7 @@ public class AccessBot implements AutoCloseable {
                         roles,
                         core.messages(),
                         admin,
-                        new RedemptionLimit(accessConfig.linkCodeAttemptsPerHour(), Clock.systemUTC()),
+                        new RedemptionLimit(accessConfig.linkCodeAttemptsPerHour(), clock),
                         worker),
                 new RegisterFlow(jda, teams, core.messages(), worker));
 

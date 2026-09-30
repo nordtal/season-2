@@ -15,8 +15,8 @@ import eu.nordtal.s2.steward.ui.data.Data;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import io.javalin.http.NotFoundResponse;
+import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -38,7 +38,10 @@ final class CommandApi {
 
     private final Function<Context, DiscordAuth.Account> accounts;
 
-    CommandApi(final @Nullable Data data, final Function<Context, DiscordAuth.Account> accounts) {
+    private final Clock clock;
+
+    CommandApi(final @Nullable Data data, final Function<Context, DiscordAuth.Account> accounts, final Clock clock) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.data = data;
         this.accounts = accounts;
     }
@@ -71,7 +74,7 @@ final class CommandApi {
                                 // The target re-reads what it needs from the Discord id.
                                 Optional.empty(),
                                 "de",
-                                Instant.now().plus(PATIENCE)),
+                                clock.instant().plus(PATIENCE)),
                         new AuditLine(
                                 "COMMAND",
                                 who.id(),

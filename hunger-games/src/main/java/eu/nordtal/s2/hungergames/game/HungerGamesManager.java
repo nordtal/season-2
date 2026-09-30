@@ -17,6 +17,7 @@ import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.context.TeamContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -53,6 +54,8 @@ public final class HungerGamesManager {
     /** Whether players are frozen for the countdown, which {@code FreezeListener} consults. */
     private volatile boolean frozen;
 
+    private final Clock clock;
+
     public HungerGamesManager(
             final Plugin plugin,
             final HungerGamesDao dao,
@@ -62,7 +65,9 @@ public final class HungerGamesManager {
             final PlayerBodies bodies,
             final GameState state,
             final BorderController border,
-            final HungerGamesSounds sounds) {
+            final HungerGamesSounds sounds,
+            final Clock clock) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.plugin = plugin;
         this.dao = dao;
         this.config = config;
@@ -105,7 +110,7 @@ public final class HungerGamesManager {
                 BorderMath.deathStep(config.borderStartDiameter(), config.borderEndDiameter(), participants.size());
 
         plugin.getServer().getScheduler().runTask(plugin, () -> {
-            state.reset(gameId, participants.size(), step);
+            state.reset(gameId, participants.size(), step, clock.instant());
             dao.startGame(gameId, "COUNTDOWN");
 
             final Location centre = world.getSpawnLocation();
@@ -242,7 +247,7 @@ public final class HungerGamesManager {
         state.release();
         border.begin(gameId, state);
 
-        final Instant protectedUntil = Instant.now().plusSeconds(config.pvpProtectionSeconds());
+        final Instant protectedUntil = clock.instant().plusSeconds(config.pvpProtectionSeconds());
         for (final Participant participant : participants) {
             state.protect(participant.mcUuid(), protectedUntil);
             final Player online = plugin.getServer().getPlayer(participant.mcUuid());

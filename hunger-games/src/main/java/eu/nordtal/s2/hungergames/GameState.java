@@ -39,7 +39,7 @@ public final class GameState {
         return gameId;
     }
 
-    public void reset(final UUID newGameId, final int newEffectiveParticipants, final double step) {
+    public void reset(final UUID newGameId, final int newEffectiveParticipants, final double step, final Instant now) {
         this.gameId = newGameId;
         this.running = false;
         this.effectiveParticipants = newEffectiveParticipants;
@@ -48,7 +48,7 @@ public final class GameState {
         this.shrinkTarget = 0;
         this.shrinkEndsAt = null;
         this.passiveShrink = false;
-        this.lastDeathAt = Instant.now();
+        this.lastDeathAt = now;
         this.protectedUntil.clear();
     }
 

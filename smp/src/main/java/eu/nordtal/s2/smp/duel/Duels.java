@@ -17,6 +17,7 @@ import eu.nordtal.s2.smp.feedback.WorldEffects;
 import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.world.WorldRole;
 import eu.nordtal.s2.smp.world.Worlds;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -88,6 +89,8 @@ public final class Duels {
 
     private final Map<Integer, List<Location>> placed = new HashMap<>();
 
+    private final Clock clock;
+
     public Duels(
             final Plugin plugin,
             final SmpDao dao,
@@ -97,7 +100,9 @@ public final class Duels {
             final Messages messages,
             final PlayerLocales locales,
             final SmpSounds sounds,
-            final WorldEffects effects) {
+            final WorldEffects effects,
+            final Clock clock) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.plugin = plugin;
         this.dao = dao;
         this.config = config;
@@ -227,13 +232,7 @@ public final class Duels {
         identities.discordIdOf(second.getUniqueId()).ifPresent(id -> discordIds.put(second.getUniqueId(), id));
 
         final ActiveDuel duel = new ActiveDuel(
-                first.getUniqueId(),
-                second.getUniqueId(),
-                type,
-                slot.get(),
-                saved,
-                discordIds,
-                System.currentTimeMillis());
+                first.getUniqueId(), second.getUniqueId(), type, slot.get(), saved, discordIds, clock.millis());
         byPlayer.put(first.getUniqueId(), duel);
         byPlayer.put(second.getUniqueId(), duel);
 

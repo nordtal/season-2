@@ -13,6 +13,7 @@ import eu.nordtal.s2.database.AccessSchema;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -82,7 +83,7 @@ class AccessDirectoryIntegrationTest {
         phase(SeasonPhase.SMP);
         // smp_start is cleared explicitly, or a test that sets it anchors every test after it.
         execute("UPDATE season_phase SET smp_start = NULL WHERE id");
-        directory = AccessDirectory.using(dataSource);
+        directory = AccessDirectory.using(dataSource, Clock.systemUTC());
     }
 
     /** Puts the season_phase singleton into one phase for the duration of a test. */

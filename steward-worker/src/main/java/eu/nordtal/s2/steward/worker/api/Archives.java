@@ -11,6 +11,7 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -79,7 +80,12 @@ final class Archives {
 
     /** Lines the console can offer: Docker's, then the archive's, up to the highest step. */
     static int capacity(
-            final Docker docker, final String project, final LogArchive archive, final String service, final int max) {
+            final Docker docker,
+            final String project,
+            final LogArchive archive,
+            final String service,
+            final int max,
+            final Instant now) {
         final String containerId = containerOf(docker, project, service).orElse(null);
         if (containerId == null) {
             return 0;
@@ -90,7 +96,7 @@ final class Archives {
             return max;
         }
         return lines.size()
-                + archive.before(service, LogFollows.oldest(lines), max - lines.size())
+                + archive.before(service, LogFollows.oldest(lines, now), max - lines.size())
                         .lineCount();
     }
 

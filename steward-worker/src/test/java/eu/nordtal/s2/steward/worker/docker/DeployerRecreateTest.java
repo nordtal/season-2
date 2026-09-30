@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sun.net.httpserver.HttpServer;
+import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.steward.worker.ops.ContainerOps;
 import eu.nordtal.s2.steward.worker.ops.ImageResult;
 import eu.nordtal.s2.steward.worker.ops.RedeployResult;
@@ -14,6 +15,7 @@ import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -50,7 +52,7 @@ class DeployerRecreateTest {
                 "a-secret",
                 Duration.ofSeconds(5),
                 patience,
-                DeployerRecreate.Waiting.real());
+                Waiting.on(Clock.systemUTC()));
     }
 
     // The happy path: accepted, then DONE
@@ -203,7 +205,7 @@ class DeployerRecreateTest {
                 "a-secret",
                 Duration.ofSeconds(1),
                 Duration.ofSeconds(5),
-                DeployerRecreate.Waiting.real());
+                Waiting.on(Clock.systemUTC()));
 
         final RedeployResult result = client.deploy("smp");
 
@@ -234,7 +236,7 @@ class DeployerRecreateTest {
                 "a-secret",
                 Duration.ofSeconds(5),
                 Duration.ofSeconds(5),
-                new DeployerRecreate.Waiting() {
+                new Waiting() {
                     @Override
                     public Instant now() {
                         // First call (recreate()) sets t0; every poll() after is ten seconds past its patience.

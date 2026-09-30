@@ -1,6 +1,7 @@
 package eu.nordtal.s2.database.online;
 
 import java.time.Duration;
+import java.time.InstantSource;
 import java.util.Map;
 import javax.sql.DataSource;
 
@@ -14,8 +15,8 @@ public interface OnlineDirectory {
     Duration WRITE_INTERVAL = Duration.ofSeconds(10);
 
     /** Returns a directory over a pool the caller owns; there is nothing to close. */
-    static OnlineDirectory using(final DataSource dataSource) {
-        return new JdbiOnline(dataSource);
+    static OnlineDirectory using(final DataSource dataSource, final InstantSource clock) {
+        return new JdbiOnline(dataSource, clock);
     }
 
     /**

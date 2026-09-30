@@ -2,7 +2,7 @@ package eu.nordtal.s2.steward.worker.backup;
 
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
-import java.time.ZoneId;
+import java.time.Clock;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -19,14 +19,14 @@ public final class Schedules implements AutoCloseable {
 
     private final UpdateDirectory directory;
     private final StewardSpec config;
-    private final ZoneId zone;
+    private final Clock wall;
     private @Nullable NightlyClock backup;
     private @Nullable NightlyClock update;
 
-    public Schedules(final UpdateDirectory directory, final StewardSpec config, final ZoneId zone) {
+    public Schedules(final UpdateDirectory directory, final StewardSpec config, final Clock wall) {
         this.directory = directory;
         this.config = config;
-        this.zone = zone;
+        this.wall = wall;
         this.backup = null;
         this.update = null;
     }
@@ -39,7 +39,7 @@ public final class Schedules implements AutoCloseable {
                 NightlyClock.Job.BACKUP,
                 config.backup().at(),
                 config.backup().days(),
-                zone));
+                wall));
         if (backup == null) {
             log.info("backup.at is empty, so there is no nightly backup. Nothing else is affected.");
         }
@@ -48,7 +48,7 @@ public final class Schedules implements AutoCloseable {
                 NightlyClock.Job.UPDATE,
                 config.update().at(),
                 config.update().days(),
-                zone));
+                wall));
         if (update == null) {
             log.info("update.at is empty, so nothing updates on a schedule. An admin can still"
                     + " ask for an update at any time.");

@@ -20,6 +20,7 @@ import eu.nordtal.s2.database.payment.PaymentRequest;
 import eu.nordtal.s2.database.payment.PaymentRequestStatus;
 import eu.nordtal.s2.database.payment.PaymentRequests;
 import eu.nordtal.s2.database.payment.Watermark;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -86,7 +87,7 @@ class PaymentRequestIntegrationTest {
                         handle.execute("TRUNCATE access_grant, payment_request, expiry_notice, payment_notice, "
                                 + "account_link, link_code, audit_log, discord_user, bot_setting CASCADE"));
         requests = new PaymentRequests(database.jdbi());
-        access = AccessDirectory.using(database.dataSource());
+        access = AccessDirectory.using(database.dataSource(), Clock.systemUTC());
     }
 
     @Test
@@ -378,11 +379,11 @@ class PaymentRequestIntegrationTest {
     @Test
     void theFirstStartStampsTheWatermarkAndNoLaterStartMovesIt() throws Exception {
         final Instant before = Instant.now();
-        final Instant first = Watermark.resolve(database.jdbi(), "");
+        final Instant first = Watermark.resolve(database.jdbi(), "", Instant.now());
 
         // Long enough that a second "now" would be a different instant.
         Thread.sleep(50);
-        final Instant second = Watermark.resolve(database.jdbi(), "");
+        final Instant second = Watermark.resolve(database.jdbi(), "", Instant.now());
 
         assertAll(
                 () -> assertFalse(first.isBefore(before.minusSeconds(1))),
@@ -396,18 +397,18 @@ class PaymentRequestIntegrationTest {
 
     @Test
     void anOverrideWinsButDoesNotReplaceTheStoredValue() {
-        final Instant stored = Watermark.resolve(database.jdbi(), "");
+        final Instant stored = Watermark.resolve(database.jdbi(), "", Instant.now());
 
-        final Instant overridden = Watermark.resolve(database.jdbi(), "2020-01-01T00:00:00Z");
+        final Instant overridden = Watermark.resolve(database.jdbi(), "2020-01-01T00:00:00Z", Instant.now());
         assertEquals(Instant.parse("2020-01-01T00:00:00Z"), overridden);
 
         // Emptying the override falls back to the first-start instant, not the restart.
-        assertEquals(stored, Watermark.resolve(database.jdbi(), ""));
+        assertEquals(stored, Watermark.resolve(database.jdbi(), "", Instant.now()));
     }
 
     @Test
     void theWatermarkExistsBeforeTheFirstPollEvenWhenAnOverrideIsSet() {
-        Watermark.resolve(database.jdbi(), "2020-01-01T00:00:00Z");
+        Watermark.resolve(database.jdbi(), "2020-01-01T00:00:00Z", Instant.now());
 
         assertTrue(Watermark.storedAt(database.jdbi()).isPresent());
     }

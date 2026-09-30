@@ -48,16 +48,6 @@ public final class OnlineWriter {
             final OnlineDirectory online,
             final OnlineRoster roster,
             final ProxyRole role,
-            final Logger logger) {
-        this(proxy, servers, online, roster, role, logger, Clock.systemUTC());
-    }
-
-    public OnlineWriter(
-            final ProxyServer proxy,
-            final PhaseServers servers,
-            final OnlineDirectory online,
-            final OnlineRoster roster,
-            final ProxyRole role,
             final Logger logger,
             final Clock clock) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");

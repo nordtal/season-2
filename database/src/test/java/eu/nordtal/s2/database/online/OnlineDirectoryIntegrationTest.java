@@ -11,6 +11,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Map;
 import org.junit.jupiter.api.AfterAll;
@@ -63,7 +64,7 @@ class OnlineDirectoryIntegrationTest {
     @BeforeEach
     void freshTable() {
         execute("TRUNCATE TABLE online_count");
-        online = OnlineDirectory.using(dataSource);
+        online = OnlineDirectory.using(dataSource, Clock.systemUTC());
     }
 
     @Test

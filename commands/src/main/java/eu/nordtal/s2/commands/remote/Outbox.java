@@ -11,6 +11,7 @@ import eu.nordtal.s2.database.command.CommandRequests;
 import eu.nordtal.s2.database.command.NewCommandRequest;
 import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
@@ -40,12 +41,14 @@ public final class Outbox {
     private final Duration timeout;
     private final Duration poll;
     private final BiConsumer<String, Throwable> warn;
+    private final Clock clock;
 
     public Outbox(
             final CommandRequests requests,
             final ScheduledExecutorService scheduler,
-            final BiConsumer<String, Throwable> warn) {
-        this(requests, scheduler, TIMEOUT, POLL, warn);
+            final BiConsumer<String, Throwable> warn,
+            final Clock clock) {
+        this(requests, scheduler, TIMEOUT, POLL, warn, clock);
     }
 
     /** Takes the timings, so a test can run the whole wait in milliseconds. */
@@ -54,7 +57,9 @@ public final class Outbox {
             final ScheduledExecutorService scheduler,
             final Duration timeout,
             final Duration poll,
-            final BiConsumer<String, Throwable> warn) {
+            final BiConsumer<String, Throwable> warn,
+            final Clock clock) {
+        this.clock = Objects.requireNonNull(clock, "clock");
         this.requests = Objects.requireNonNull(requests, "requests");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.timeout = Objects.requireNonNull(timeout, "timeout");
@@ -94,7 +99,7 @@ public final class Outbox {
                         user.origin() == NordtalUser.Origin.CONSOLE ? Optional.empty() : user.discordId(),
                         user.origin() == NordtalUser.Origin.CONSOLE ? Optional.empty() : user.minecraftUuid(),
                         Locales.tag(user.locale()),
-                        Instant.now().plus(timeout)));
+                        clock.instant().plus(timeout)));
             } catch (final RuntimeException failure) {
                 warn.accept("could not send " + declaration.name(), failure);
                 user.reply(MESSAGES.command().remote().failed(), Feedback.REFUSED, Tone.BAD);
@@ -106,7 +111,7 @@ public final class Outbox {
                             .remote()
                             .sent(user.phrase(declaration.target().message())),
                     Tone.MUTED);
-            await(id, declaration, user, Instant.now().plus(timeout));
+            await(id, declaration, user, clock.instant().plus(timeout));
         });
     }
 
@@ -136,7 +141,7 @@ public final class Outbox {
                         return;
                     }
 
-                    if (Instant.now().isBefore(deadline)) {
+                    if (clock.instant().isBefore(deadline)) {
                         await(id, declaration, user, deadline);
                         return;
                     }

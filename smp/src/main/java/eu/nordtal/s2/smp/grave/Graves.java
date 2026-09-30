@@ -2,7 +2,7 @@ package eu.nordtal.s2.smp.grave;
 
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
-import eu.nordtal.s2.database.phase.SeasonDates;
+import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
@@ -14,8 +14,8 @@ import eu.nordtal.s2.smp.db.GraveRow;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.feedback.WorldEffects;
+import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -79,6 +79,8 @@ public final class Graves implements InventoryHolder {
      */
     private final Map<UUID, Inventory> shown = new HashMap<>();
 
+    private final Clock clock;
+
     public Graves(
             final Plugin plugin,
             final SmpDao dao,
@@ -87,7 +89,9 @@ public final class Graves implements InventoryHolder {
             final PlayerLocales locales,
             final SmpSounds sounds,
             final WorldEffects effects,
-            final SmpSpec config) {
+            final SmpSpec config,
+            final Clock clock) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.plugin = plugin;
         this.dao = dao;
         this.identities = identities;
@@ -268,7 +272,7 @@ public final class Graves implements InventoryHolder {
         });
         entities.add(hologram);
         holograms.put(row.id(), hologram);
-        nextHologramUpdate.put(row.id(), System.currentTimeMillis() + refreshInterval(timeLeft));
+        nextHologramUpdate.put(row.id(), clock.millis() + refreshInterval(timeLeft));
     }
 
     /** How long until {@code row} decays, floored at zero. Zero when decay itself is off. */
@@ -277,7 +281,8 @@ public final class Graves implements InventoryHolder {
         if (hours <= 0) {
             return Duration.ZERO;
         }
-        final Duration timeLeft = Duration.between(Instant.now(), row.created().plus(Duration.ofHours(hours)));
+        final Duration timeLeft =
+                Duration.between(clock.instant(), row.created().plus(Duration.ofHours(hours)));
         return timeLeft.isNegative() ? Duration.ZERO : timeLeft;
     }
 
@@ -307,7 +312,7 @@ public final class Graves implements InventoryHolder {
         if (holograms.isEmpty()) {
             return;
         }
-        final long now = System.currentTimeMillis();
+        final long now = clock.millis();
         for (final Map.Entry<UUID, TextDisplay> entry : holograms.entrySet()) {
             final UUID graveId = entry.getKey();
             final Long dueAt = nextHologramUpdate.get(graveId);
@@ -434,7 +439,7 @@ public final class Graves implements InventoryHolder {
         return window;
     }
 
-    /** How the grave head's lore prints the death date, in {@link SeasonDates#ZONE} rather than the JVM default. */
+    /** How the grave head's lore prints the death date, in {@link NetworkTime#ZONE} rather than the JVM default. */
     private static final DateTimeFormatter GRAVE_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     /**
@@ -457,7 +462,7 @@ public final class Graves implements InventoryHolder {
                                     ? MESSAGES.smp().grave().ownerUnknown()
                                     : MESSAGES.smp().grave().owner(new PlayerContext(name)))
                     .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-            final String date = GRAVE_DATE.format(row.created().atZone(SeasonDates.ZONE));
+            final String date = GRAVE_DATE.format(row.created().atZone(NetworkTime.ZONE));
             meta.lore(List.of(renderer.format(locale, MESSAGES.smp().grave().diedAt(date, row.x(), row.y(), row.z()))
                     .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)));
         });

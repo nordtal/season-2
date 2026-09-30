@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.database.update.UpdateDirectory;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -17,7 +18,7 @@ class NightlyClockTest {
     private static final ZoneId BERLIN = ZoneId.of("Europe/Berlin");
 
     private NightlyClock at(final String time) {
-        final Optional<NightlyClock> clock = NightlyClock.from(noDirectory(), time, BERLIN);
+        final Optional<NightlyClock> clock = NightlyClock.from(noDirectory(), time, Clock.system(BERLIN));
         assertTrue(clock.isPresent(), time + " should have been accepted");
         return clock.get();
     }
@@ -64,10 +65,12 @@ class NightlyClockTest {
 
     @Test
     void anUnreadableTimeIsRefusedAndDoesNotQuietlyBecomeMidnight() {
-        assertTrue(NightlyClock.from(noDirectory(), "quarter to five", BERLIN).isEmpty());
-        assertTrue(NightlyClock.from(noDirectory(), "25:00", BERLIN).isEmpty());
-        assertTrue(NightlyClock.from(noDirectory(), "", BERLIN).isEmpty(), "empty means off");
-        assertTrue(NightlyClock.from(noDirectory(), null, BERLIN).isEmpty());
+        assertTrue(NightlyClock.from(noDirectory(), "quarter to five", Clock.system(BERLIN))
+                .isEmpty());
+        assertTrue(
+                NightlyClock.from(noDirectory(), "25:00", Clock.system(BERLIN)).isEmpty());
+        assertTrue(NightlyClock.from(noDirectory(), "", Clock.system(BERLIN)).isEmpty(), "empty means off");
+        assertTrue(NightlyClock.from(noDirectory(), null, Clock.system(BERLIN)).isEmpty());
     }
 
     @Test
@@ -127,7 +130,8 @@ class NightlyClockTest {
                 NightlyClock.next("04:45", List.of(), BERLIN, sundayNight).isEmpty(),
                 "a schedule with no day in it cannot fire, and saying so is better than quietly"
                         + " running every night because the list looked unset");
-        assertTrue(NightlyClock.from(noDirectory(), "04:45", List.of(), BERLIN).isEmpty());
+        assertTrue(NightlyClock.from(noDirectory(), "04:45", List.of(), Clock.system(BERLIN))
+                .isEmpty());
     }
 
     @Test
@@ -153,7 +157,8 @@ class NightlyClockTest {
     @Test
     void aBackupRefusedBecauseAnotherRunIsOpenIsAskedForAgainNotLost() {
         final ZonedDateTime due = ZonedDateTime.of(2026, 9, 13, 4, 45, 0, 0, BERLIN);
-        final NightlyClock clock = NightlyClock.from(busy(), "04:45", BERLIN).orElseThrow();
+        final NightlyClock clock =
+                NightlyClock.from(busy(), "04:45", Clock.system(BERLIN)).orElseThrow();
 
         assertEquals(NightlyClock.RETRY, clock.fire(due, due), "another run is open: ask again soon");
         assertEquals(NightlyClock.RETRY, clock.fire(due, due.plusMinutes(90)));
@@ -223,7 +228,7 @@ class NightlyClockTest {
                     throw new AssertionError("the clock asked the database: " + method.getName());
                 });
         final NightlyClock clock = NightlyClock.from(
-                        recording, NightlyClock.Job.UPDATE, "03:30", List.of("SUN"), BERLIN)
+                        recording, NightlyClock.Job.UPDATE, "03:30", List.of("SUN"), Clock.system(BERLIN))
                 .orElseThrow();
         final ZonedDateTime sunday = ZonedDateTime.of(2026, 9, 27, 3, 30, 0, 0, BERLIN);
 
@@ -240,7 +245,8 @@ class NightlyClockTest {
 
     @Test
     void anEmptyUpdateAtIsNoUpdateClockAtAllWhichIsTheDefault() {
-        assertTrue(NightlyClock.from(noDirectory(), NightlyClock.Job.UPDATE, "", List.of("MONDAY"), BERLIN)
-                .isEmpty());
+        assertTrue(
+                NightlyClock.from(noDirectory(), NightlyClock.Job.UPDATE, "", List.of("MONDAY"), Clock.system(BERLIN))
+                        .isEmpty());
     }
 }

@@ -15,6 +15,7 @@ import eu.nordtal.s2.hungergames.player.ArenaComposition;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.packrendering.Glyphs;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -61,6 +62,8 @@ public final class CombatListener implements Listener {
 
     private final ArenaComposition composition;
 
+    private final Clock clock;
+
     public CombatListener(
             final Plugin plugin,
             final HungerGamesDao dao,
@@ -71,7 +74,9 @@ public final class CombatListener implements Listener {
             final HungerGamesSounds sounds,
             final SystemLines systemLines,
             final ArenaComposition composition,
-            final Consumer<Ceremony.Decision> onGameDecided) {
+            final Consumer<Ceremony.Decision> onGameDecided,
+            final Clock clock) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.plugin = plugin;
         this.dao = dao;
         this.state = state;
@@ -96,7 +101,7 @@ public final class CombatListener implements Listener {
             return;
         }
 
-        final Instant now = Instant.now();
+        final Instant now = clock.instant();
         if (state.isProtected(victimUuid, now) || (attackerUuid != null && state.isProtected(attackerUuid, now))) {
             event.setCancelled(true);
         }

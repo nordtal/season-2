@@ -13,6 +13,7 @@ import eu.nordtal.s2.packrendering.Glyphs;
 import eu.nordtal.s2.packrendering.hud.Bearing;
 import eu.nordtal.s2.packrendering.hud.BossBarLine;
 import eu.nordtal.s2.packrendering.hud.BossBarLine.Pill;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
@@ -59,6 +60,8 @@ public final class HudRenderer {
     /** Read on every redraw, like {@link #wins}. */
     private final LootRefill loot;
 
+    private final Clock clock;
+
     public HudRenderer(
             final Plugin plugin,
             final World world,
@@ -68,7 +71,9 @@ public final class HudRenderer {
             final BorderController border,
             final GameState state,
             final WinTracker wins,
-            final LootRefill loot) {
+            final LootRefill loot,
+            final Clock clock) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.plugin = plugin;
         this.world = world;
         this.config = config;
@@ -161,7 +166,7 @@ public final class HudRenderer {
             return messages.format(locale, MESSAGES.hg().hud().lootNone());
         }
         final long secondsLeft =
-                Math.max(0, Duration.between(Instant.now(), nextRefillAt).toSeconds());
+                Math.max(0, Duration.between(clock.instant(), nextRefillAt).toSeconds());
         return messages.format(locale, MESSAGES.hg().hud().loot(formatDuration(secondsLeft)));
     }
 
@@ -172,7 +177,8 @@ public final class HudRenderer {
         final long secondsLeft = state.shrinkEndsAt() == null
                 ? 0
                 : Math.max(
-                        0, Duration.between(Instant.now(), state.shrinkEndsAt()).toSeconds());
+                        0,
+                        Duration.between(clock.instant(), state.shrinkEndsAt()).toSeconds());
         final double distance = Math.max(0, (border.currentSize() - state.shrinkTarget()) / 2.0);
         return messages.format(
                 locale,

@@ -4,6 +4,7 @@ import eu.nordtal.s2.database.update.RunRefused;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateSource;
+import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalTime;
@@ -63,6 +64,7 @@ public final class NightlyClock implements AutoCloseable {
     private final LocalTime at;
     private final Set<DayOfWeek> days;
     private final ZoneId zone;
+    private final Clock wall;
     private final ScheduledExecutorService clock;
 
     private NightlyClock(
@@ -70,7 +72,7 @@ public final class NightlyClock implements AutoCloseable {
             final Job job,
             final LocalTime at,
             final Set<DayOfWeek> days,
-            final ZoneId zone) {
+            final Clock wall) {
         this.directory = directory;
         this.job = job;
         this.clock = Executors.newSingleThreadScheduledExecutor(runnable -> {
@@ -80,7 +82,8 @@ public final class NightlyClock implements AutoCloseable {
         });
         this.at = at;
         this.days = days;
-        this.zone = zone;
+        this.wall = wall;
+        this.zone = wall.getZone();
     }
 
     /**
@@ -90,8 +93,8 @@ public final class NightlyClock implements AutoCloseable {
      * @return empty when switched off or unreadable, and unreadable is logged
      */
     public static Optional<NightlyClock> from(
-            final UpdateDirectory directory, final @Nullable String at, final ZoneId zone) {
-        return from(directory, at, null, zone);
+            final UpdateDirectory directory, final @Nullable String at, final Clock wall) {
+        return from(directory, at, null, wall);
     }
 
     /**
@@ -104,8 +107,8 @@ public final class NightlyClock implements AutoCloseable {
             final UpdateDirectory directory,
             final @Nullable String at,
             final @Nullable List<String> days,
-            final ZoneId zone) {
-        return from(directory, Job.BACKUP, at, days, zone);
+            final Clock wall) {
+        return from(directory, Job.BACKUP, at, days, wall);
     }
 
     /**
@@ -118,7 +121,7 @@ public final class NightlyClock implements AutoCloseable {
             final Job job,
             final @Nullable String at,
             final @Nullable List<String> days,
-            final ZoneId zone) {
+            final Clock wall) {
         if (at == null || at.isBlank()) {
             return Optional.empty();
         }
@@ -134,7 +137,7 @@ public final class NightlyClock implements AutoCloseable {
                     job.noun);
             return Optional.empty();
         }
-        return Optional.of(new NightlyClock(directory, job, parsed, weekdays, zone));
+        return Optional.of(new NightlyClock(directory, job, parsed, weekdays, wall));
     }
 
     /**
@@ -242,7 +245,7 @@ public final class NightlyClock implements AutoCloseable {
     }
 
     public void start() {
-        final Duration until = untilNext(ZonedDateTime.now(zone));
+        final Duration until = untilNext(ZonedDateTime.now(wall));
         log.info(
                 "{} is asked for at {} {} on {} - next in {}h{}m",
                 job.noun,
@@ -263,7 +266,7 @@ public final class NightlyClock implements AutoCloseable {
         final long seconds = Math.max(1, Math.ceilDiv(until.toNanos(), 1_000_000_000L));
         final var _ = clock.schedule(
                 () -> {
-                    final ZonedDateTime now = ZonedDateTime.now(zone);
+                    final ZonedDateTime now = ZonedDateTime.now(wall);
                     final ZonedDateTime tonight = due == null ? now : due;
                     // Re-arms whether the request succeeded or not.
                     final Duration next = fire(tonight, now);

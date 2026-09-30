@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.worker.api;
 
+import eu.nordtal.s2.common.time.NetworkTime;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -58,7 +59,7 @@ final class LogArchive {
     private final Supplier<Instant> clock;
 
     LogArchive(final @Nullable Path volumesRoot) {
-        this(volumesRoot, Instant::now);
+        this(volumesRoot, NetworkTime.clock()::instant);
     }
 
     LogArchive(final @Nullable Path volumesRoot, final Supplier<Instant> clock) {

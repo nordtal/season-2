@@ -3,6 +3,8 @@ package eu.nordtal.s2.steward.worker;
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.persistence.sql.Database;
+import eu.nordtal.s2.common.time.NetworkTime;
+import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.database.command.CommandRequests;
 import eu.nordtal.s2.database.metric.MetricDirectory;
@@ -42,7 +44,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
-import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -56,6 +57,9 @@ import org.slf4j.LoggerFactory;
  */
 @Slf4j
 public final class StewardWorker {
+
+    /** The one clock of this process. */
+    private static final Clock CLOCK = NetworkTime.clock();
 
     /** How long a settled {@code command_request} row is kept. */
     private static final int COMMAND_REQUEST_RETENTION_DAYS = 30;
@@ -326,7 +330,8 @@ public final class StewardWorker {
                 docker,
                 new HostMetrics(),
                 MetricDirectory.using(database.dataSource()),
-                config.docker().project())) {
+                config.docker().project(),
+                CLOCK)) {
             if (!config.docker().metrics()) {
                 log.info("Metric sampling is off in steward.yml, so the start page will have no curves.");
             } else if (docker.isReachable()) {
@@ -355,7 +360,8 @@ public final class StewardWorker {
                 config.deployer().url(),
                 config.deployer().token(),
                 Duration.ofSeconds(config.httpTimeoutSeconds()),
-                Duration.ofSeconds(config.deployer().timeoutSeconds()));
+                Duration.ofSeconds(config.deployer().timeoutSeconds()),
+                Waiting.on(CLOCK));
     }
 
     private static int serveWithSampler(
@@ -377,7 +383,7 @@ public final class StewardWorker {
         final AuditDirectory audit = AuditDirectory.using(database.dataSource());
 
         // What steward-ui reads this container through, started after the marker so its failure cannot spread.
-        try (Schedules schedules = new Schedules(updates, config, ZoneId.systemDefault());
+        try (Schedules schedules = new Schedules(updates, config, CLOCK);
                 WorkerApi api = buildApi(
                         config, docker, dockerOps, database, updates, audit, addedPlugins, handle, schedules)) {
             if (config.api().token().isBlank()) {
@@ -405,7 +411,7 @@ public final class StewardWorker {
                 new TarSnapshots(
                         Path.of(config.backup().sourcesRoot()),
                         Path.of(config.backup().outputRoot()),
-                        Clock.systemUTC(),
+                        CLOCK,
                         Duration.ofMinutes(Math.max(1, config.backup().patienceMinutes()))),
                 databaseService == null || databaseService.isBlank()
                         ? null
@@ -414,7 +420,7 @@ public final class StewardWorker {
                                 config.docker().project(),
                                 databaseService,
                                 config.backup().outputRoot(),
-                                Clock.systemUTC()));
+                                CLOCK));
     }
 
     /** Builds the internal API steward-ui reads through. */
@@ -445,10 +451,12 @@ public final class StewardWorker {
                         config.backup().days(),
                         config.update().at(),
                         config.update().days(),
-                        ZoneId.systemDefault()),
+                        NetworkTime.ZONE),
                 // The player counts proxy writes, and the player list next to them.
                 new eu.nordtal.s2.steward.worker.api.ServicesApi(
-                        OnlineDirectory.using(database.dataSource()), OnlineRoster.using(database.dataSource())),
+                        OnlineDirectory.using(database.dataSource(), CLOCK),
+                        OnlineRoster.using(database.dataSource(), CLOCK),
+                        CLOCK),
                 // The same resolve a run starts with, so the page can ask what is newest without a run.
                 () -> Runs.resolve(config, addedPlugins),
                 // Its own Modrinth client, living as long as the API.
@@ -462,7 +470,8 @@ public final class StewardWorker {
                                 eu.nordtal.s2.steward.worker.plan.Topology.PACKETEVENTS, config.packetEventsProject(),
                                 eu.nordtal.s2.steward.worker.plan.Topology.VOICE_CHAT, config.voiceChatProject(),
                                 eu.nordtal.s2.steward.worker.plan.Topology.VOICE_CHAT_PROXY, config.voiceChatProject(),
-                                eu.nordtal.s2.steward.worker.plan.Topology.CORE_PROTECT, config.coreProtectProject())),
+                                eu.nordtal.s2.steward.worker.plan.Topology.CORE_PROTECT, config.coreProtectProject()),
+                        CLOCK),
                 // The bot's inbox: saving a message asks it to re-read the file.
                 eu.nordtal.s2.database.access.AccessRequests.on(database.dataSource()),
                 // A save of this worker's own steward.yml re-arms the clocks.
@@ -473,7 +482,8 @@ public final class StewardWorker {
                         throw new IllegalStateException(broken.getMessage(), broken);
                     }
                     schedules.arm();
-                });
+                },
+                CLOCK);
     }
 
     /** The request loop, and the only container that calls bunq and stops and starts services. */
@@ -486,13 +496,13 @@ public final class StewardWorker {
             final UpdateDirectory updates,
             final eu.nordtal.s2.steward.worker.plugin.PluginDirectory addedPlugins) {
         // The only evidence bunq works, since both variables are optional.
-        try (PaymentLoop paymentLoop = PaymentsStartup.start(config, databaseConfig, database)) {
+        try (PaymentLoop paymentLoop = PaymentsStartup.start(config, databaseConfig, database, CLOCK)) {
             try (UpdateServer server = new UpdateServer(
                     updates,
-                    new Runner(config, database, containers, backups, updates, addedPlugins),
+                    new Runner(config, database, containers, backups, updates, Waiting.on(CLOCK), addedPlugins),
                     PostgresNotifications.connector(databaseConfig),
                     Duration.ofSeconds(config.pollIntervalSeconds()),
-                    Clock.systemUTC())) {
+                    CLOCK)) {
                 // SIGTERM is how a redeploy asks; without this the container is killed after the grace period.
                 Runtime.getRuntime().addShutdownHook(new Thread(server::close, "steward-worker-shutdown"));
                 server.serve();

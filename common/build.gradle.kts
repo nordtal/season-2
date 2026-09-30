@@ -20,6 +20,7 @@ repositoryRootTestInputs {
     reads("deploy/minecraft/entrypoint.sh")
 
     reads("gradle/libs.versions.toml")
+    reads("compose.yml")
 
     readsTree("smp/src/main")
     readsTree("limbo/src/main")

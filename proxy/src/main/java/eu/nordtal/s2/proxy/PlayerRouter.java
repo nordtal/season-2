@@ -19,6 +19,7 @@ import eu.nordtal.s2.proxy.routing.PhaseRouting;
 import eu.nordtal.s2.proxy.routing.RouteDecision;
 import eu.nordtal.s2.proxy.routing.RouteIntents;
 import eu.nordtal.s2.proxy.update.ParkedSeats;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Locale;
@@ -58,6 +59,8 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
     /** Tells a player a run moved out of the way before they return. */
     private final eu.nordtal.s2.proxy.update.Homecoming homecoming;
 
+    private final Clock clock;
+
     public PlayerRouter(
             final Object plugin,
             final ProxyServer proxy,
@@ -72,7 +75,9 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
             final RouteIntents intents,
             final BackendHealth health,
             final ParkedSeats seats,
-            final eu.nordtal.s2.proxy.update.Homecoming homecoming) {
+            final eu.nordtal.s2.proxy.update.Homecoming homecoming,
+            final Clock clock) {
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
@@ -265,7 +270,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
                         state.locale());
             default -> {
                 logger.info("Disconnecting {} on the phase change: {}", player.getUsername(), decision.action());
-                player.disconnect(reasonFor(decision, state.locale(), state.launch(), Instant.now()));
+                player.disconnect(reasonFor(decision, state.locale(), state.launch(), clock.instant()));
                 yield true;
             }
         };

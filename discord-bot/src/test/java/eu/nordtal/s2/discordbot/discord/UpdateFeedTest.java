@@ -12,6 +12,7 @@ import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateSource;
 import eu.nordtal.s2.database.update.UpdateStatus;
 import eu.nordtal.s2.messages.Messages;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -164,7 +165,7 @@ class UpdateFeedTest {
     private final Board board = new Board();
     private final Messages messages =
             Messages.load(UpdateFeedTest.class.getClassLoader(), "messages/commands", Locale.ENGLISH, Locale.GERMAN);
-    private final UpdateFeed feed = new UpdateFeed(rows, board, messages);
+    private final UpdateFeed feed = new UpdateFeed(rows, board, messages, Clock.systemUTC());
 
     @Test
     void aPassIsAdmittedBeforeTheHandOverSoABusyPoolQueuesOneAndNotThirty() {

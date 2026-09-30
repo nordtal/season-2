@@ -5,6 +5,7 @@ import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.commands.remote.Outbox;
 import eu.nordtal.s2.common.health.Readiness;
+import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.database.access.AdminOperators;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messages.Messages;
@@ -48,6 +49,7 @@ import eu.nordtal.s2.smp.travel.BalloonDisplay;
 import eu.nordtal.s2.smp.world.Datapacks;
 import eu.nordtal.s2.smp.world.Worlds;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import java.time.Clock;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ScheduledExecutorService;
@@ -92,6 +94,10 @@ public final class SmpPlugin extends JavaPlugin {
     volatile Prestige prestige;
 
     HikariDataSource pool;
+
+    /** The one clock of this process. */
+    final Clock clock = NetworkTime.clock();
+
     AdminWatch adminWatch;
 
     /** What a non-admin may type here, and what their client is told exists. */
@@ -300,7 +306,7 @@ public final class SmpPlugin extends JavaPlugin {
      * Async, because an async repeating task is re-queued by the main-thread tick and so goes stale on a freeze.
      */
     void startHeartbeat() {
-        final Readiness readiness = Readiness.onDefaultPath(getLogger()::warning);
+        final Readiness readiness = Readiness.onDefaultPath(clock, getLogger()::warning);
         final long ticks = Readiness.BEAT.toSeconds() * 20L;
         heartbeat = getServer().getScheduler().runTaskTimerAsynchronously(this, readiness::refresh, 0L, ticks);
     }

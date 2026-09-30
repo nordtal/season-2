@@ -9,6 +9,7 @@ import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.database.access.AccessState;
 import eu.nordtal.s2.database.access.MemberState;
 import eu.nordtal.s2.proxy.MutableClock;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
@@ -116,8 +117,9 @@ class FallbackCacheTest {
 
     @Test
     void aNonPositiveWindowIsRejectedAtConstruction() {
-        assertThrows(IllegalArgumentException.class, () -> new FallbackCache(Duration.ZERO));
-        assertThrows(IllegalArgumentException.class, () -> new FallbackCache(Duration.ofMinutes(-1)));
+        assertThrows(IllegalArgumentException.class, () -> new FallbackCache(Duration.ZERO, Clock.systemUTC()));
+        assertThrows(
+                IllegalArgumentException.class, () -> new FallbackCache(Duration.ofMinutes(-1), Clock.systemUTC()));
     }
 
     // helpers

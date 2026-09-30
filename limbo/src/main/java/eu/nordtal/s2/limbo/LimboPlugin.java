@@ -223,7 +223,7 @@ public final class LimboPlugin extends JavaPlugin {
                                 .forEach(node -> event.registrar().register(node)));
     }
 
-    /** The command inbox and its matching outbox, built together since both share one {@code requests} table. */
+    /** The command inbox and its matching outbox, built together since both go through the servers' inboxes. */
     private record CommandWiring(PaperCommandInbox inbox, Outbox outbox) {}
 
     private CommandWiring wireCommandInbox(final Messages messages, final Messages shared) {
@@ -232,8 +232,8 @@ public final class LimboPlugin extends JavaPlugin {
             thread.setDaemon(true);
             return thread;
         });
-        final eu.nordtal.s2.database.command.CommandRequests requests =
-                eu.nordtal.s2.database.command.CommandRequests.borrowing(pool);
+        final eu.nordtal.s2.commands.remote.CommandRequests requests =
+                eu.nordtal.s2.commands.remote.CommandRequests.over(pool, clock);
         final Outbox outbox = new Outbox(
                 requests,
                 commandWaiter,

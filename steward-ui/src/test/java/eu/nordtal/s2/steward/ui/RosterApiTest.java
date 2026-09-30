@@ -10,7 +10,7 @@ import java.net.http.HttpResponse;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** The game actions and announcements, and the command rows they become. */
+/** The game actions and announcements, and the requests they become. */
 class RosterApiTest extends StewardUiTestSupport {
 
     @Test
@@ -30,29 +30,46 @@ class RosterApiTest extends StewardUiTestSupport {
         }
 
         assertEquals(202, asked.statusCode(), asked.body());
-        final long id = Long.parseLong(
-                GSON.fromJson(asked.body(), JsonObject.class).get("id").getAsString());
+        final String id =
+                GSON.fromJson(asked.body(), JsonObject.class).get("id").getAsString();
 
         // Reading the row back through the endpoint the browser polls proves the round trip.
         final JsonObject outcome = GSON.fromJson(get("/api/commands/" + id).body(), JsonObject.class);
         assertEquals("PENDING", outcome.get("status").getAsString());
 
-        // A WEB row carries a Discord id; a CONSOLE row never does.
+        // A web request is a person's, by Discord id; a console's never is.
+        final java.util.Map<String, String> row = row(id);
+        assertEquals("WEB", row.get("source"));
+        assertEquals("1", row.get("discordId"));
+        assertEquals("PERSON", row.get("actor_kind"));
+        assertTrue(row.get("requestedBy").contains("Ally"), row.get("requestedBy"));
+        assertEquals("smp milestone unlock", row.get("path"));
+        assertEquals("r-open", row.get("arguments"));
+    }
+
+    /** Returns the request a web action wrote, named as the browser was told, with its payload's fields. */
+    private static java.util.Map<String, String> row(final String id) throws Exception {
+        final String[] name = id.split(":", -1);
+        final java.util.Map<String, String> row = new java.util.HashMap<>();
         try (var connection = java.sql.DriverManager.getConnection(
                         postgres.jdbcUrl(), postgres.username(), postgres.password());
-                var statement =
-                        connection.prepareStatement("SELECT source, discord_id, requested_by, command, arguments"
-                                + " FROM command_request WHERE id = ?")) {
-            statement.setLong(1, id);
+                var statement = connection.prepareStatement("SELECT kind, actor_kind, payload ->> 'source' AS source,"
+                        + " payload ->> 'discordId' AS discord, payload ->> 'requestedBy' AS asker,"
+                        + " payload ->> 'path' AS path, payload ->> 'arguments' AS arguments"
+                        + " FROM " + name[0] + "_inbox WHERE id = ?")) {
+            statement.setLong(1, Long.parseLong(name[1]));
             try (var rows = statement.executeQuery()) {
-                assertTrue(rows.next(), "the row is not there");
-                assertEquals("WEB", rows.getString("source"));
-                assertEquals("1", rows.getString("discord_id"));
-                assertTrue(rows.getString("requested_by").contains("Ally"), rows.getString("requested_by"));
-                assertEquals("smp milestone unlock", rows.getString("command"));
-                assertEquals("r-open", rows.getString("arguments"));
+                assertTrue(rows.next(), "the row is not there: " + id);
+                row.put("kind", rows.getString("kind"));
+                row.put("actor_kind", rows.getString("actor_kind"));
+                row.put("source", rows.getString("source"));
+                row.put("discordId", rows.getString("discord"));
+                row.put("requestedBy", rows.getString("asker"));
+                row.put("path", rows.getString("path"));
+                row.put("arguments", rows.getString("arguments"));
             }
         }
+        return row;
     }
 
     /**
@@ -115,10 +132,10 @@ class RosterApiTest extends StewardUiTestSupport {
         }
     }
 
-    /** One form, one row per language, and nothing written while any language is missing its text. */
+    /** One form, one request with every language, and nothing written while any language is missing its text. */
     @Test
-    void anAnnouncementIsOneRowPerLanguage() throws Exception {
-        final long before = count("SELECT count(*) FROM command_request WHERE command = 'announce'");
+    void anAnnouncementIsOneRequestWithEveryLanguage() throws Exception {
+        final long before = count("SELECT count(*) FROM bot_inbox WHERE kind = 'ANNOUNCE'");
         assertEquals(400, post("/api/announcements", "{\"texts\":{}}").statusCode());
         assertEquals(
                 400,
@@ -133,7 +150,7 @@ class RosterApiTest extends StewardUiTestSupport {
                         .statusCode());
         assertEquals(
                 before,
-                count("SELECT count(*) FROM command_request WHERE command = 'announce'"),
+                count("SELECT count(*) FROM bot_inbox WHERE kind = 'ANNOUNCE'"),
                 "a refused announcement wrote a row");
 
         final HttpResponse<String> sent = post(
@@ -142,28 +159,22 @@ class RosterApiTest extends StewardUiTestSupport {
         assertEquals(202, sent.statusCode(), sent.body());
         final JsonObject ids = GSON.fromJson(sent.body(), JsonObject.class).getAsJsonObject("ids");
         assertEquals(2, ids.size(), sent.body());
+        assertEquals(before + 1, count("SELECT count(*) FROM bot_inbox WHERE kind = 'ANNOUNCE'"));
         for (final String tag : List.of("en", "de")) {
-            try (var connection = data.dataSource().getConnection();
-                    var statement = connection.prepareStatement(
-                            "SELECT target, command, arguments, source FROM command_request WHERE id = ?")) {
-                statement.setLong(1, Long.parseLong(ids.get(tag).getAsString()));
-                try (var rows = statement.executeQuery()) {
-                    assertTrue(rows.next(), "no row for " + tag);
-                    assertEquals("BOT", rows.getString("target"));
-                    assertEquals("announce", rows.getString("command"));
-                    assertTrue(rows.getString("arguments").startsWith(tag + " "), rows.getString("arguments"));
-                    assertEquals("WEB", rows.getString("source"));
-                }
-            }
+            final JsonObject line = GSON.fromJson(
+                    get("/api/commands/" + ids.get(tag).getAsString()).body(), JsonObject.class);
+            assertEquals("PENDING", line.get("status").getAsString(), line.toString());
         }
 
         final JsonArray recent = GSON.fromJson(get("/api/announcements").body(), JsonObject.class)
                 .getAsJsonArray("recent");
-        final JsonObject newest = recent.get(0).getAsJsonObject();
-        assertEquals("de", newest.get("language").getAsString(), recent.toString());
-        assertEquals("The second language, tonight.", newest.get("text").getAsString());
-        assertEquals("PENDING", newest.get("status").getAsString());
-        assertEquals("en", recent.get(1).getAsJsonObject().get("language").getAsString());
+        final java.util.Map<String, JsonObject> byLanguage = new java.util.HashMap<>();
+        recent.forEach(
+                line -> byLanguage.put(line.getAsJsonObject().get("language").getAsString(), line.getAsJsonObject()));
+        assertEquals(java.util.Set.of("en", "de"), byLanguage.keySet(), recent.toString());
+        assertEquals("The end opens tonight.", byLanguage.get("en").get("text").getAsString());
+        assertEquals("PENDING", byLanguage.get("en").get("status").getAsString());
+        assertEquals("PERSON", byLanguage.get("en").get("actorKind").getAsString());
     }
 
     private static void assertRow(
@@ -172,18 +183,13 @@ class RosterApiTest extends StewardUiTestSupport {
         assertEquals(202, asked.statusCode(), asked.body());
         final JsonObject answer = GSON.fromJson(asked.body(), JsonObject.class);
         assertFalse(answer.has("name"), "the browser was told a command name: " + answer);
-        try (var connection = data.dataSource().getConnection();
-                var statement = connection.prepareStatement(
-                        "SELECT target, command, arguments, source FROM command_request WHERE id = ?")) {
-            statement.setLong(1, Long.parseLong(answer.get("id").getAsString()));
-            try (var rows = statement.executeQuery()) {
-                assertTrue(rows.next(), "the row was not written");
-                assertEquals(target, rows.getString("target"));
-                assertEquals(command, rows.getString("command"));
-                assertEquals(arguments, rows.getString("arguments"));
-                assertEquals("WEB", rows.getString("source"));
-            }
-        }
+        final String id = answer.get("id").getAsString();
+        assertTrue(id.startsWith(target.toLowerCase(java.util.Locale.ROOT) + ":"), id);
+        final java.util.Map<String, String> row = row(id);
+        assertEquals("COMMAND", row.get("kind"));
+        assertEquals(command, row.get("path"));
+        assertEquals(arguments, row.get("arguments"));
+        assertEquals("WEB", row.get("source"));
     }
 
     @Test
@@ -198,14 +204,14 @@ class RosterApiTest extends StewardUiTestSupport {
         assertEquals(400, asObject.statusCode(), asObject.body());
 
         // Neither of them is a row: a 400 that had already written the request would be the same bug.
-        assertEquals(before, commandRequestCount(), "a refused command was written into command_request anyway");
+        assertEquals(before, commandRequestCount(), "a refused command was written into the inbox anyway");
     }
 
     private static long commandRequestCount() throws Exception {
         try (var connection = java.sql.DriverManager.getConnection(
                         postgres.jdbcUrl(), postgres.username(), postgres.password());
                 var statement = connection.createStatement();
-                var rows = statement.executeQuery("SELECT count(*) FROM command_request")) {
+                var rows = statement.executeQuery("SELECT count(*) FROM smp_inbox")) {
             assertTrue(rows.next());
             return rows.getLong(1);
         }

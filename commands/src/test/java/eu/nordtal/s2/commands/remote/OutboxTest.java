@@ -11,8 +11,6 @@ import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.id.DiscordId;
-import eu.nordtal.s2.database.command.CommandOutcome;
-import eu.nordtal.s2.database.command.NewCommandRequest;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;

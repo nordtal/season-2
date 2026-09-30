@@ -79,11 +79,12 @@ class MessagesApiIntegrationTest {
         botThread = Executors.newSingleThreadScheduledExecutor();
         final var _ = botThread.scheduleWithFixedDelay(
                 () -> {
-                    final var answer = bot;
-                    if (answer != null) {
+                    if (bot != null) {
+                        // The answer is read per request, so a test that changes it is never answered by the old one.
                         inbox.drain(request -> {
                             asked.add(request);
-                            return answer.apply(request);
+                            final var answer = bot;
+                            return answer == null ? Outcome.failed(null) : answer.apply(request);
                         });
                     }
                 },

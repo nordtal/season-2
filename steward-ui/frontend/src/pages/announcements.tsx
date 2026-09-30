@@ -11,6 +11,7 @@ import {
 import { relative } from "@/lib/format"
 import { languageName } from "@/lib/language-names"
 import { useAnnouncements, useCommandRun, useConfig, useGuildChannels, useSendAnnouncement } from "@/lib/queries"
+import { Actor } from "@/components/steward/entity"
 import { RequestOutcome } from "@/components/steward/game-actions"
 import { PageHeader } from "@/components/steward/page-header"
 import { Failure, QueryState, SkeletonText } from "@/components/steward/query-state"
@@ -36,7 +37,7 @@ const MAX_LENGTH = 2000
 /**
  * Announcements: one text per language, each posted by the bot into that language's channel.
  *
- * Nothing is sent until every language has its text. The list shares the `announce` row with the SMP's milestones.
+ * Nothing is sent until every language has its text. The list shares the bot's inbox with the SMP's milestones.
  */
 export function AnnouncementsPage() {
   return (
@@ -232,9 +233,7 @@ function RecentLine({ line }: { line: Announcement }) {
     <li className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0">
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <Badge variant="secondary">{line.language}</Badge>
-        <span className="min-w-0 truncate">
-          {line.source === "WEB" ? senderName(line.requestedBy) : line.requestedBy}
-        </span>
+        <Actor kind={line.actorKind} id={line.actorId} className="min-w-0" />
         <span className="tabular-nums">{relative(line.requested)}</span>
         {line.status !== "DONE" ? (
           <Badge variant="outline" className={failed ? "text-destructive" : undefined}>
@@ -246,9 +245,4 @@ function RecentLine({ line }: { line: Announcement }) {
       {line.result ? <p className="text-xs text-muted-foreground">{line.result}</p> : null}
     </li>
   )
-}
-
-/** `requested_by` of a web row is "name (discord id)"; the name is what a person reads. */
-export function senderName(requestedBy: string): string {
-  return requestedBy.replace(/\s*\(\d+\)$/, "")
 }

@@ -1,4 +1,4 @@
-package eu.nordtal.s2.database.command;
+package eu.nordtal.s2.commands.remote;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import java.time.Instant;
@@ -63,6 +63,6 @@ public record NewCommandRequest(
         }
     }
 
-    /** The sources {@code command_request_source_check} allows; {@code SYSTEM} travels as {@code CONSOLE}. */
+    /** The sources a travelling command comes from; {@code SYSTEM} travels as {@code CONSOLE}. */
     private static final java.util.Set<String> SOURCES = java.util.Set.of("DISCORD", "GAME", "CONSOLE", "WEB");
 }

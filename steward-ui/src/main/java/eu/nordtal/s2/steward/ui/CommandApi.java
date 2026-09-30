@@ -5,12 +5,15 @@ import com.google.gson.JsonObject;
 import eu.nordtal.s2.commands.Argument;
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.Surface;
+import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.Values;
+import eu.nordtal.s2.commands.remote.CommandOutcome;
+import eu.nordtal.s2.commands.remote.NewCommandRequest;
 import eu.nordtal.s2.commands.remote.RequestArguments;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.audit.AuditLine;
-import eu.nordtal.s2.database.command.CommandOutcome;
-import eu.nordtal.s2.database.command.NewCommandRequest;
+import eu.nordtal.s2.database.inbox.BotRequest;
+import eu.nordtal.s2.database.inbox.Request;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.data.Data;
 import io.javalin.http.BadRequestResponse;
@@ -27,7 +30,10 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** The admin commands that also exist in the game, asked for from a browser through {@code command_request} rows. */
+/**
+ * The admin commands that also exist in the game, asked for from a browser as requests in the servers' inboxes.
+ * A request is named to the browser as {@code <target>:<id>}, or {@code announce:<id>:<language>} for one line.
+ */
 final class CommandApi {
 
     private static final Logger log = LoggerFactory.getLogger(CommandApi.class);
@@ -51,8 +57,8 @@ final class CommandApi {
         return Objects.requireNonNull(data, "no database - this route is not available without one");
     }
 
-    /** Writes one row for {@code declaration} and its journal line, and returns the row's id. */
-    long submit(final Context ctx, final Declaration declaration, final @Nullable JsonObject sent) {
+    /** Writes one request for {@code declaration} and its journal line, and returns the name the browser polls. */
+    String submit(final Context ctx, final Declaration declaration, final @Nullable JsonObject sent) {
         if (!declaration.surfaces().contains(Surface.WEB)) {
             throw new BadRequestResponse(declaration.name() + " is not released to the interface.");
         }
@@ -85,26 +91,41 @@ final class CommandApi {
                                         + (arguments.isBlank() ? "" : ": " + arguments)));
 
         log.info("{} asked for {} {}", who.name(), declaration.name(), arguments);
-        return id;
+        return declaration.target().name().toLowerCase(java.util.Locale.ROOT) + ":" + id;
     }
 
-    /** {@code GET /api/commands/{id}}: what became of it. */
+    /** {@code GET /api/commands/{id}}: what became of it, the id being what {@link #submit} answered. */
     void outcome(final Context ctx) {
-        final long id;
-        try {
-            id = Long.parseLong(ctx.pathParam("id"));
-        } catch (final NumberFormatException e) {
-            throw new BadRequestResponse(ctx.pathParam("id") + " is not a request id.");
-        }
-        final CommandOutcome outcome = data().commands()
-                .outcome(id)
-                .orElseThrow(() -> new NotFoundResponse("There is no request " + id + "."));
-
+        final String[] name = ctx.pathParam("id").split(":", -1);
         final Map<String, Object> answer = new LinkedHashMap<>();
-        answer.put("id", String.valueOf(id));
-        answer.put("status", outcome.status().name());
-        outcome.result().ifPresent(result -> answer.put("result", result));
+        answer.put("id", ctx.pathParam("id"));
+        try {
+            if (name.length == 3 && name[0].equals("announce")) {
+                announced(Long.parseLong(name[1]), name[2], answer);
+            } else if (name.length == 2) {
+                final long id = Long.parseLong(name[1]);
+                final CommandOutcome outcome = data().commands()
+                        .outcome(Target.valueOf(name[0].toUpperCase(java.util.Locale.ROOT)), id)
+                        .orElseThrow(() -> new NotFoundResponse("There is no request " + ctx.pathParam("id") + "."));
+                answer.put("status", outcome.status().name());
+                outcome.result().ifPresent(result -> answer.put("result", result));
+            } else {
+                throw new BadRequestResponse(ctx.pathParam("id") + " is not a request.");
+            }
+        } catch (final IllegalArgumentException malformed) {
+            throw new BadRequestResponse(ctx.pathParam("id") + " is not a request.");
+        }
         ctx.json(answer);
+    }
+
+    /** One language's line of an announcement: the request's status, and whether that language's text went out. */
+    private void announced(final long id, final String language, final Map<String, Object> answer) {
+        final Request<BotRequest> row = data().bot()
+                .find(id)
+                .filter(found -> found.payload() instanceof BotRequest.Announce)
+                .orElseThrow(() -> new NotFoundResponse("There is no announcement " + id + "."));
+        answer.put("status", Announcements.status(row.status()));
+        Announcements.result(row, language).ifPresent(result -> answer.put("result", result));
     }
 
     /** The arguments as the row carries them, through {@link Values} and {@link RequestArguments#encode}. */

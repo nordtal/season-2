@@ -6,7 +6,9 @@ import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.audit.AuditDirectory;
-import eu.nordtal.s2.database.command.CommandRequests;
+import eu.nordtal.s2.database.inbox.Inbox;
+import eu.nordtal.s2.database.inbox.InboxTable;
+import eu.nordtal.s2.database.inbox.Inboxes;
 import eu.nordtal.s2.database.metric.MetricDirectory;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.online.OnlineDirectory;
@@ -62,8 +64,8 @@ public final class StewardWorker {
     /** The one clock of this process. */
     private static final Clock CLOCK = NetworkTime.clock();
 
-    /** How long a settled {@code command_request} row is kept. */
-    private static final int COMMAND_REQUEST_RETENTION_DAYS = 30;
+    /** How long a settled request is kept in its inbox. */
+    private static final java.time.Duration REQUEST_RETENTION = java.time.Duration.ofDays(30);
 
     private static final String DEFAULT_CONFIG_DIR = "config";
 
@@ -277,7 +279,7 @@ public final class StewardWorker {
                         failure);
                 return 1;
             }
-            clearOldCommandRequests(database);
+            clearOldRequests(database);
 
             // Fill empty volumes before the marker; a failure here does not stop it.
             if (config.bootstrap()) {
@@ -290,22 +292,21 @@ public final class StewardWorker {
     }
 
     /**
-     * Deletes settled {@code command_request} rows older than {@link #COMMAND_REQUEST_RETENTION_DAYS}.
+     * Deletes the settled requests of every inbox older than {@link #REQUEST_RETENTION}.
      *
      * Once at startup, not on a timer, since {@code serve} is not a scheduler.
      */
-    private static void clearOldCommandRequests(final Database database) {
-        try (CommandRequests requests = CommandRequests.borrowing(database.dataSource())) {
-            final int gone = requests.deleteSettledOlderThan(COMMAND_REQUEST_RETENTION_DAYS);
-            if (gone > 0) {
-                log.info(
-                        "Removed {} settled command requests older than {} days.",
-                        gone,
-                        COMMAND_REQUEST_RETENTION_DAYS);
+    private static void clearOldRequests(final Database database) {
+        for (final InboxTable<?> table : Inboxes.ALL) {
+            try {
+                final int gone = Inbox.over(database.dataSource(), table).purge(REQUEST_RETENTION);
+                if (gone > 0) {
+                    log.info("Removed {} settled requests from {} older than {}.", gone, table, REQUEST_RETENTION);
+                }
+            } catch (final RuntimeException failure) {
+                // Not fatal: every other service waits for this container.
+                log.warn("Could not clear out old requests from {}; they stay where they are.", table, failure);
             }
-        } catch (final RuntimeException failure) {
-            // Not fatal: every other service waits for this container.
-            log.warn("Could not clear out old command requests; they stay where they are.", failure);
         }
     }
 

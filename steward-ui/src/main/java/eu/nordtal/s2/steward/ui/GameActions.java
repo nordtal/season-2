@@ -18,7 +18,7 @@ import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The SMP's and the hunger games' admin actions, each one row written through {@link CommandApi#submit}.
+ * The SMP's and the hunger games' admin actions, each one request written through {@link CommandApi#submit}.
  *
  * The track is read from {@code smp_milestone} and {@code smp_objective}, as the running server holds it.
  */
@@ -145,9 +145,9 @@ final class GameActions {
         answer(ctx, commands.submit(ctx, HungerGamesCommands.START, confirm ? arguments("confirm", "confirm") : null));
     }
 
-    private static void answer(final Context ctx, final long id) {
+    private static void answer(final Context ctx, final String id) {
         final Map<String, Object> answer = new LinkedHashMap<>();
-        answer.put("id", String.valueOf(id));
+        answer.put("id", id);
         answer.put("status", "PENDING");
         ctx.status(202).json(answer);
     }

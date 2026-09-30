@@ -3,7 +3,6 @@ package eu.nordtal.s2.commands.remote;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.language.Locales;
-import eu.nordtal.s2.database.command.CommandRequest;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
 import java.util.ArrayList;
@@ -16,7 +15,7 @@ import java.util.UUID;
 /**
  * Whoever asked, as seen from the process that runs their command for them.
  *
- * Replies are rendered here in the row's language and collected into {@code command_request.result}; sound is dropped.
+ * Replies are rendered here in the row's language and collected into the request's outcome; sound is dropped.
  */
 public final class RemoteUser implements NordtalUser {
 

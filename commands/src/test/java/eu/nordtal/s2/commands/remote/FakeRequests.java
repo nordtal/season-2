@@ -1,10 +1,7 @@
 package eu.nordtal.s2.commands.remote;
 
+import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.database.audit.AuditLine;
-import eu.nordtal.s2.database.command.CommandOutcome;
-import eu.nordtal.s2.database.command.CommandRequest;
-import eu.nordtal.s2.database.command.CommandRequests;
-import eu.nordtal.s2.database.command.NewCommandRequest;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -15,7 +12,7 @@ import java.util.Optional;
 /**
  * The request table, in a map.
  *
- * It enforces the same transitions as the SQL, which {@code CommandRequestIntegrationTest} in {@code :common} holds.
+ * It enforces the same transitions as the inbox, which {@code InboxIntegrationTest} in {@code :database} holds.
  */
 final class FakeRequests implements CommandRequests {
 
@@ -58,12 +55,12 @@ final class FakeRequests implements CommandRequests {
     }
 
     @Override
-    public Optional<CommandRequest> claim(final String target) {
+    public Optional<CommandRequest> claim(final Target target) {
         throwIfAsked();
         for (final Map.Entry<Long, Row> entry : rows.entrySet()) {
             final Row row = entry.getValue();
             if (row.status() != CommandOutcome.Status.PENDING
-                    || !row.request().target().equals(target)
+                    || !row.request().target().equals(target.name())
                     || !row.request().expires().isAfter(Instant.now())) {
                 continue;
             }
@@ -84,7 +81,7 @@ final class FakeRequests implements CommandRequests {
     }
 
     @Override
-    public void finish(final long id, final boolean ok, final String result) {
+    public void finish(final Target target, final long id, final boolean ok, final String result) {
         throwIfAsked();
         final Row row = rows.get(id);
         if (row == null || row.status() != CommandOutcome.Status.RUNNING) {
@@ -94,7 +91,7 @@ final class FakeRequests implements CommandRequests {
     }
 
     @Override
-    public boolean expire(final long id) {
+    public boolean expire(final Target target, final long id) {
         throwIfAsked();
         final Row row = rows.get(id);
         if (row == null || row.status() != CommandOutcome.Status.PENDING) {
@@ -105,20 +102,11 @@ final class FakeRequests implements CommandRequests {
     }
 
     @Override
-    public Optional<CommandOutcome> outcome(final long id) {
+    public Optional<CommandOutcome> outcome(final Target target, final long id) {
         throwIfAsked();
         return Optional.ofNullable(rows.get(id))
                 .map(row -> new CommandOutcome(row.status(), Optional.ofNullable(row.result())));
     }
-
-    @Override
-    public int deleteSettledOlderThan(final int days) {
-        // Retention is steward-worker's, not this module's. Nothing in :commands calls it.
-        throw new UnsupportedOperationException("not part of what the inbox or the outbox does");
-    }
-
-    @Override
-    public void close() {}
 
     /** The status of a row, for an assertion. */
     CommandOutcome.Status statusOf(final long id) {

@@ -151,7 +151,7 @@ public final class StewardUi {
         this.guild = new DiscordApi(new DiscordDirectory(config.discord(), DiscordAuth.DISCORD_API, clock));
         this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow(), clock);
         this.games = new GameActions(data == null ? null : data.dataSource(), commands);
-        this.announcements = new Announcements(data == null ? null : data.dataSource(), commands);
+        this.announcements = new Announcements(data, ctx -> account(ctx).orElseThrow());
         this.access = new AccessApi(data, ctx -> account(ctx).orElseThrow());
         this.roster = new RosterRoutes(data);
         this.settings = new Settings(config);
@@ -449,7 +449,7 @@ public final class StewardUi {
     }
 
     private void registerCommandAndGameRoutes(final JavalinConfig cfg) {
-        // A row in command_request, not a connection to a server: the interface holds none.
+        // A request in a server's inbox, not a connection to a server: the interface holds none.
         cfg.routes.get("/api/commands/{id}", commands::outcome, Gate.KEY_HELD);
 
         // The same rows as above, asked for by what they act on rather than by command name.

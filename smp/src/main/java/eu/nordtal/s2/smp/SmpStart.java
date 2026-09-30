@@ -2,6 +2,7 @@ package eu.nordtal.s2.smp;
 
 import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.s2.commands.Target;
+import eu.nordtal.s2.commands.remote.CommandRequests;
 import eu.nordtal.s2.commands.remote.Outbox;
 import eu.nordtal.s2.commands.smp.SmpCommands;
 import eu.nordtal.s2.commands.smp.SmpEffects;
@@ -12,7 +13,8 @@ import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AdminOperators;
 import eu.nordtal.s2.database.access.FullServerAdmission;
 import eu.nordtal.s2.database.command.AllowlistDirectory;
-import eu.nordtal.s2.database.command.CommandRequests;
+import eu.nordtal.s2.database.inbox.BotRequest;
+import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
@@ -110,14 +112,13 @@ final class SmpStart {
                 new SmpHud(plugin, plugin.worlds, plugin.season, plugin.navigation, plugin.messages, plugin.locales);
         hud.start();
 
-        // Discord announcements: one {@code command_request} row per language, fire and forget.
-        final CommandRequests requests = CommandRequests.borrowing(plugin.pool);
+        // Discord announcements: one request in the bot's inbox with every language, fire and forget.
+        final CommandRequests requests = CommandRequests.over(plugin.pool, plugin.clock);
         final Announcer announcer = new Announcer(
-                requests,
+                Inbox.over(plugin.pool, BotRequest.TABLE),
                 plugin.messages,
                 BukkitSmpEffects.async(plugin),
-                (message, failure) -> plugin.getLogger().log(java.util.logging.Level.WARNING, message, failure),
-                plugin.clock);
+                (message, failure) -> plugin.getLogger().log(java.util.logging.Level.WARNING, message, failure));
         return new HudAndAnnouncer(hud, requests, announcer);
     }
 

@@ -695,9 +695,9 @@ export type Announcement = {
   id: string
   language: string
   text: string
-  /** `CONSOLE` for a line a server wrote by itself, `WEB` for one written here. */
-  source: string
-  requestedBy: string
+  /** A person for a line written here, `STEWARD` for one a server sent by itself. */
+  actorKind: ActorKind
+  actorId: string
   requested: string
   status: CommandRun["status"]
   result?: string

@@ -2,6 +2,9 @@ package eu.nordtal.s2.database.inbox;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.notify.Channel;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 
 /** What the bot can be asked to do, since only it holds a Discord session; each record is one kind. */
@@ -61,6 +64,27 @@ public sealed interface BotRequest {
 
         public ReloadMessages {
             Objects.requireNonNull(bundle, "bundle");
+        }
+    }
+
+    /**
+     * Posts one text per language into that language's announcement channel; a language without one is skipped.
+     *
+     * @param texts language tag to the finished plain text
+     */
+    record Announce(Map<String, String> texts) implements BotRequest {
+
+        /** The bot's answer for a language whose text went out; the answer maps each language to this or the next. */
+        public static final String POSTED = "POSTED";
+
+        /** The bot's answer for a language without a channel it can write to. */
+        public static final String NOT_POSTED = "NOT_POSTED";
+
+        public Announce {
+            texts = Collections.unmodifiableMap(new LinkedHashMap<>(Objects.requireNonNull(texts, "texts")));
+            if (texts.isEmpty()) {
+                throw new IllegalArgumentException("an announcement carries at least one language");
+            }
         }
     }
 }

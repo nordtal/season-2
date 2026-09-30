@@ -8,8 +8,6 @@ import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.Values;
-import eu.nordtal.s2.database.command.CommandRequest;
-import eu.nordtal.s2.database.command.CommandRequests;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.Tone;
 import java.util.HashMap;
@@ -63,7 +61,7 @@ public final class CommandInbox {
 
     private record Entry(Declaration declaration, BiConsumer<NordtalUser, Values> run) {}
 
-    private final String target;
+    private final Target target;
     private final CommandRequests requests;
     private final Messages messages;
     private final AdminCheck adminCheck;
@@ -77,7 +75,7 @@ public final class CommandInbox {
             final Messages messages,
             final AdminCheck adminCheck,
             final BiConsumer<String, Throwable> warn) {
-        this.target = Objects.requireNonNull(target, "target").name();
+        this.target = Objects.requireNonNull(target, "target");
         this.requests = Objects.requireNonNull(requests, "requests");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.adminCheck = Objects.requireNonNull(adminCheck, "adminCheck");
@@ -96,7 +94,7 @@ public final class CommandInbox {
 
         requireInline(command, effects);
         final Declaration declaration = command.declaration();
-        if (!declaration.target().name().equals(target)) {
+        if (declaration.target() != target) {
             throw new IllegalArgumentException(declaration.name() + " is run by " + declaration.target()
                     + " and was registered on the " + target + " inbox");
         }
@@ -248,7 +246,7 @@ public final class CommandInbox {
 
     private void settle(final CommandRequest request, final boolean ok, final String result) {
         try {
-            requests.finish(request.id(), ok, result);
+            requests.finish(target, request.id(), ok, result);
         } catch (final RuntimeException failure) {
             // Nothing left to do with it. The row stays RUNNING and the asker's wait runs out.
             warn.accept("could not settle command request " + request.id(), failure);

@@ -290,8 +290,8 @@ public final class HungerGamesPlugin extends JavaPlugin {
             thread.setDaemon(true);
             return thread;
         });
-        final eu.nordtal.s2.database.command.CommandRequests requests =
-                eu.nordtal.s2.database.command.CommandRequests.borrowing(pool);
+        final eu.nordtal.s2.commands.remote.CommandRequests requests =
+                eu.nordtal.s2.commands.remote.CommandRequests.over(pool, clock);
         outbox = new Outbox(
                 requests,
                 commandWaiter,

@@ -6,9 +6,6 @@ import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.language.Locales;
-import eu.nordtal.s2.database.command.CommandOutcome;
-import eu.nordtal.s2.database.command.CommandRequests;
-import eu.nordtal.s2.database.command.NewCommandRequest;
 import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import java.time.Clock;
@@ -121,7 +118,7 @@ public final class Outbox {
                 () -> {
                     final Optional<CommandOutcome> outcome;
                     try {
-                        outcome = requests.outcome(id);
+                        outcome = requests.outcome(declaration.target(), id);
                     } catch (final RuntimeException failure) {
                         warn.accept("could not read the outcome of " + declaration.name(), failure);
                         user.reply(MESSAGES.command().remote().failed(), Feedback.REFUSED, Tone.BAD);
@@ -148,7 +145,7 @@ public final class Outbox {
 
                     final boolean gaveUp;
                     try {
-                        gaveUp = requests.expire(id);
+                        gaveUp = requests.expire(declaration.target(), id);
                     } catch (final RuntimeException failure) {
                         warn.accept("could not expire " + declaration.name(), failure);
                         user.reply(MESSAGES.command().remote().failed(), Feedback.REFUSED, Tone.BAD);

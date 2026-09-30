@@ -84,9 +84,6 @@ public interface Command {
     @Name("Command help")
     interface DescribeMessages {
 
-        @Name("Announce")
-        MessageRef announce();
-
         Smp smp();
 
         @Name("SMP")

@@ -1,4 +1,4 @@
-package eu.nordtal.s2.database.command;
+package eu.nordtal.s2.commands.remote;
 
 import java.util.Optional;
 

@@ -61,9 +61,7 @@ class AdminCommandsAreConsoleAndWebOnlyTest {
     }
 
     /** Admin declarations that never carried {@link Surface#CONSOLE}, so lacking it takes nothing away. */
-    private static final Set<String> NEVER_HAD_CONSOLE = Set.of(
-            // AnnounceCommands.ANNOUNCE is never typed by a human: the SMP writes it at a milestone.
-            "/announce");
+    private static final Set<String> NEVER_HAD_CONSOLE = Set.of();
 
     @Test
     void consoleIsNeverTakenAway() {

@@ -89,7 +89,7 @@ public record Declaration(
         return "/" + String.join(" ", path);
     }
 
-    /** Returns whether this command travels through {@code command_request} when asked from that process. */
+    /** Returns whether this command travels to its target's inbox when asked from that process. */
     public boolean isRemoteOn(final Target host) {
         Objects.requireNonNull(host, "host");
         return target != host;

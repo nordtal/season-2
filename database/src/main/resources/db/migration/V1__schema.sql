@@ -432,35 +432,43 @@ COMMENT ON TABLE smp_spin IS 'Owned by smp: the wheel spins each player has and 
 
 -- Runs and services
 
-CREATE TABLE update_request
+-- The worker's inbox, whose rows are runs: an inbox table (see "Requests between processes") with the
+-- columns the proxy's countdown reads.
+CREATE TABLE worker_inbox
 (
-    id           bigserial PRIMARY KEY,
-    kind         varchar(16) NOT NULL
-        CONSTRAINT update_request_kind_check
-            CHECK (kind IN ('UPDATE', 'RESTART', 'BACKUP', 'DOWN', 'START')),
+    id            bigserial   PRIMARY KEY,
+    kind          varchar(32) NOT NULL
+        CONSTRAINT worker_inbox_kind_check CHECK (kind IN ('UPDATE', 'RESTART', 'BACKUP', 'DOWN', 'START')),
+    -- The compose services the run is for; an empty list is the whole network.
+    payload       jsonb       NOT NULL
+        CONSTRAINT worker_inbox_services_check
+            CHECK (jsonb_typeof(payload -> 'services') = 'array'
+                   AND NOT jsonb_path_exists(payload, '$.services[*] ? (!(@ like_regex "^[a-z0-9-]+$"))')),
     status        varchar(16) NOT NULL DEFAULT 'PENDING'
-        CONSTRAINT update_request_status_check CHECK (status IN ('PENDING', 'RUNNING', 'DONE', 'FAILED', 'CANCELLED')),
+        CONSTRAINT worker_inbox_status_check
+            CHECK (status IN ('PENDING', 'RUNNING', 'DONE', 'REFUSED', 'FAILED', 'EXPIRED', 'CANCELLED')),
     actor_kind    varchar(16) NOT NULL
-        CONSTRAINT update_request_actor_kind_check CHECK (actor_kind IN ('PERSON', 'STEWARD', 'HOST')),
+        CONSTRAINT worker_inbox_actor_kind_check CHECK (actor_kind IN ('PERSON', 'STEWARD', 'HOST')),
     actor_id      varchar(32),
     requested     timestamptz NOT NULL DEFAULT now(),
-    -- When the worker may claim it: now() when asked, later for a run asked for ahead of time. Never moves.
     scheduled_for timestamptz NOT NULL DEFAULT now(),
+    expires       timestamptz,
+    started       timestamptz,
+    finished      timestamptz,
+    -- The run's report, rewritten as the run moves through its stages.
+    outcome       jsonb,
     -- When the servers go down: set when the worker's plan has work and the countdown starts, set to now()
     -- when it runs out, NULL for a run that never counted down. The proxy counts towards it.
     countdown_end timestamptz,
     -- The compose services this run stops, written with countdown_end; the proxy evacuates them.
     moving        text[]      NOT NULL DEFAULT '{}',
-    started       timestamptz,
-    finished      timestamptz,
-    -- The run's report as JSON, rewritten as the run moves through its stages.
-    result        text,
-    -- Comma-separated compose services the run is for; NULL is the whole network.
-    scope         text CONSTRAINT update_request_scope_check CHECK (scope IS NULL OR scope ~ '^[a-z0-9-]+(,[a-z0-9-]+)*$'),
-    CONSTRAINT update_request_actor_id_iff_person CHECK ((actor_kind = 'PERSON') = (actor_id IS NOT NULL))
+    CONSTRAINT worker_inbox_actor_id_iff_person CHECK ((actor_kind = 'PERSON') = (actor_id IS NOT NULL)),
+    CONSTRAINT worker_inbox_finished_iff_settled CHECK ((status IN ('PENDING', 'RUNNING')) = (finished IS NULL))
 );
-COMMENT ON TABLE update_request IS 'Owned by steward-worker, which claims and runs every row. steward-ui, the worker''s own schedule and the host installer ask for runs; steward-ui cancels them.';
-CREATE INDEX update_request_pending ON update_request (scheduled_for, id) WHERE status IN ('PENDING', 'RUNNING');
+COMMENT ON TABLE worker_inbox IS 'Owned by steward-worker, which claims and runs every row. steward-ui, the worker''s own schedule and the host installer ask for runs; steward-ui cancels them.';
+CREATE INDEX worker_inbox_pending ON worker_inbox (scheduled_for, id) WHERE status = 'PENDING';
+-- One run at a time: a second request while one is open is refused by the database itself.
+CREATE UNIQUE INDEX worker_inbox_one_open ON worker_inbox ((true)) WHERE status IN ('PENDING', 'RUNNING');
 
 CREATE TABLE service_hold
 (
@@ -470,7 +478,7 @@ CREATE TABLE service_hold
     actor_kind varchar(16) NOT NULL
         CONSTRAINT service_hold_actor_kind_check CHECK (actor_kind IN ('PERSON', 'STEWARD', 'HOST')),
     actor_id   varchar(32),
-    request_id bigint CONSTRAINT service_hold_request_id_fkey REFERENCES update_request (id) ON DELETE SET NULL,
+    request_id bigint CONSTRAINT service_hold_request_id_fkey REFERENCES worker_inbox (id) ON DELETE SET NULL,
     CONSTRAINT service_hold_actor_id_iff_person CHECK ((actor_kind = 'PERSON') = (actor_id IS NOT NULL))
 );
 COMMENT ON TABLE service_hold IS 'Owned by steward-worker: a service deliberately stopped, which stays stopped until someone starts it. No row is the ordinary case.';
@@ -757,7 +765,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON discord_user, account_link, payment_requ
     hg_team, hg_member, managed_message TO ${role_discord_bot};
 GRANT SELECT, DELETE ON link_code TO ${role_discord_bot};
 GRANT SELECT, UPDATE ON payment_notice TO ${role_discord_bot};
-GRANT SELECT ON payment_gateway, update_request, service_hold TO ${role_discord_bot};
+GRANT SELECT ON payment_gateway, worker_inbox, service_hold TO ${role_discord_bot};
 GRANT INSERT ON hg_game TO ${role_discord_bot};
 GRANT INSERT, UPDATE ON player_playtime TO ${role_discord_bot};
 -- The one consumer of its inbox.
@@ -776,7 +784,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON link_code, network_setting, online_count
     proxy_standby_state, proxy_swap_seat TO ${role_proxy};
 GRANT INSERT, UPDATE ON player_playtime TO ${role_proxy};
 GRANT UPDATE (mc_name, mc_name_updated) ON account_link TO ${role_proxy};
-GRANT SELECT ON update_request, service_hold, smp_milestone, smp_objective TO ${role_proxy};
+GRANT SELECT ON worker_inbox, service_hold, smp_milestone, smp_objective TO ${role_proxy};
 
 -- hunger-games
 GRANT SELECT, INSERT, UPDATE, DELETE ON hg_game, hg_event TO ${role_hunger_games};
@@ -799,8 +807,8 @@ GRANT INSERT, UPDATE ON discord_user TO ${role_steward_ui};
 GRANT SELECT ON audit_log, payment_notice, metric_sample, service_hold, hg_game, hg_team, hg_member
     TO ${role_steward_ui};
 -- It asks for runs and stops a countdown, and asks the bot for access changes.
-GRANT SELECT, INSERT, UPDATE ON update_request TO ${role_steward_ui};
-GRANT USAGE ON SEQUENCE update_request_id_seq TO ${role_steward_ui};
+GRANT SELECT, INSERT, UPDATE ON worker_inbox TO ${role_steward_ui};
+GRANT USAGE ON SEQUENCE worker_inbox_id_seq TO ${role_steward_ui};
 GRANT SELECT, INSERT ON bot_inbox TO ${role_steward_ui};
 GRANT USAGE ON SEQUENCE bot_inbox_id_seq TO ${role_steward_ui};
 

@@ -42,8 +42,8 @@ class UpdateDirectoryIntegrationTest {
         dataSource = TestDatabase.fresh().dataSource();
     }
 
-    /** Both tables, since {@code service_hold} references {@code update_request}; {@code CASCADE} would take more. */
-    private static final String FRESH_INBOX = "TRUNCATE TABLE service_hold, update_request RESTART IDENTITY";
+    /** Both tables, since {@code service_hold} references {@code worker_inbox}; {@code CASCADE} would take more. */
+    private static final String FRESH_INBOX = "TRUNCATE TABLE service_hold, worker_inbox RESTART IDENTITY";
 
     @BeforeEach
     void freshInbox() {
@@ -51,12 +51,15 @@ class UpdateDirectoryIntegrationTest {
         updates = UpdateDirectory.using(dataSource);
     }
 
-    /** Writes a row straight into the table, past the one-run rule that {@code submit} enforces. */
+    /** Writes a row straight into the table, past the held-service check, withdrawing whatever run was open. */
     private UpdateRequest queued(final UpdateKind kind, final Actor actor, final Duration delay) {
         try (Connection connection = dataSource.getConnection();
+                Statement close = connection.createStatement();
                 java.sql.PreparedStatement insert = connection.prepareStatement(
-                        "INSERT INTO update_request (kind, actor_kind, actor_id, scheduled_for) "
-                                + "VALUES (?, ?, ?, now() + make_interval(secs => ?)) RETURNING id")) {
+                        "INSERT INTO worker_inbox (kind, payload, actor_kind, actor_id, scheduled_for) "
+                                + "VALUES (?, '{\"services\": []}', ?, ?, now() + make_interval(secs => ?)) RETURNING id")) {
+            close.execute("UPDATE worker_inbox SET status = 'CANCELLED', finished = now()"
+                    + " WHERE status IN ('PENDING', 'RUNNING')");
             insert.setString(1, kind.name());
             insert.setString(2, actor.kind().name());
             insert.setString(3, actor.id());
@@ -313,16 +316,13 @@ class UpdateDirectoryIntegrationTest {
     }
 
     @Test
-    void claimingTakesTheOldestDueRequestAndMarksItRunning() {
-        final UpdateRequest first = queued(UpdateKind.START, Actor.HOST, Duration.ZERO);
-        final UpdateRequest second = queued(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
+    void claimingTakesTheDueRequestAndMarksItRunning() {
+        final UpdateRequest only = queued(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
 
         final UpdateRequest claimed = updates.claimNext().orElseThrow();
-        assertEquals(first.id(), claimed.id(), "oldest first");
+        assertEquals(only.id(), claimed.id());
         assertEquals(UpdateStatus.RUNNING, claimed.status());
         assertNotNull(claimed.started());
-
-        assertEquals(second.id(), updates.claimNext().orElseThrow().id());
         assertTrue(updates.claimNext().isEmpty(), "and then there is nothing left");
     }
 
@@ -336,12 +336,15 @@ class UpdateDirectoryIntegrationTest {
     }
 
     @Test
-    void aDueRequestIsClaimedEvenWhenAnEarlierUndueOneExists() {
-        // The restart is written first and due last; a claim ordered only by id would starve the rest.
+    void theDatabaseItselfRefusesASecondOpenRun() {
         queued(UpdateKind.RESTART, Actor.HOST, Duration.ofSeconds(60));
-        final UpdateRequest report = queued(UpdateKind.START, Actor.HOST, Duration.ZERO);
 
-        assertEquals(report.id(), updates.claimNext().orElseThrow().id());
+        // Past the directory, as the host installer writes: the unique index is the one-run rule.
+        final SQLException second = assertThrows(
+                SQLException.class,
+                () -> executeChecked("INSERT INTO worker_inbox (kind, payload, actor_kind)"
+                        + " VALUES ('START', '{\"services\": []}', 'HOST')"));
+        assertTrue(second.getMessage().contains("worker_inbox_one_open"), second.getMessage());
     }
 
     @Test
@@ -352,7 +355,7 @@ class UpdateDirectoryIntegrationTest {
         try (Connection holder = dataSource.getConnection()) {
             holder.setAutoCommit(false);
             try (Statement statement = holder.createStatement()) {
-                statement.execute("SELECT id FROM update_request WHERE status = 'PENDING' "
+                statement.execute("SELECT id FROM worker_inbox WHERE status = 'PENDING' "
                         + "ORDER BY scheduled_for, id LIMIT 1 FOR UPDATE");
             }
 
@@ -595,16 +598,6 @@ class UpdateDirectoryIntegrationTest {
     }
 
     @Test
-    void theEarlierOfTwoRestartsIsTheOneShownAndTheOneCancelled() {
-        final UpdateRequest soon = queued(UpdateKind.RESTART, Actor.HOST, Duration.ofSeconds(60));
-        queued(UpdateKind.RESTART, Actor.HOST, Duration.ofMinutes(10));
-
-        assertEquals(soon.id(), updates.countingDown().orElseThrow().id());
-        assertEquals(soon.id(), updates.cancelCountdown("stop").orElseThrow().id());
-        assertTrue(updates.countingDown().isPresent(), "the later one is still standing");
-    }
-
-    @Test
     void theFeedReadsForwardFromTheLastIdItDrewAndNoFurtherBack() {
         final UpdateRequest first = queued(UpdateKind.START, Actor.HOST, Duration.ZERO);
         final UpdateRequest second = queued(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
@@ -694,20 +687,14 @@ class UpdateDirectoryIntegrationTest {
     }
 
     @Test
-    void nextDueIsTheEarliestPendingRowAndNothingElse() {
+    void nextDueIsThePendingRowsTimeAndNothingOnceItIsClaimed() {
         assertTrue(updates.nextDue().isEmpty(), "an empty inbox has nothing to wake up for");
 
-        final UpdateRequest restart = queued(UpdateKind.RESTART, Actor.HOST, Duration.ofSeconds(60));
-        assertEquals(restart.scheduledFor(), updates.nextDue().orElseThrow());
-
         final UpdateRequest now = queued(UpdateKind.START, Actor.HOST, Duration.ZERO);
-        assertEquals(now.scheduledFor(), updates.nextDue().orElseThrow(), "the sooner of the two");
+        assertEquals(now.scheduledFor(), updates.nextDue().orElseThrow());
 
         assertTrue(updates.claimNext().isPresent());
-        assertEquals(
-                restart.scheduledFor(),
-                updates.nextDue().orElseThrow(),
-                "a claimed row is not pending any more, so the restart is next again");
+        assertTrue(updates.nextDue().isEmpty(), "a claimed row is not pending any more");
     }
 
     @Test
@@ -739,24 +726,27 @@ class UpdateDirectoryIntegrationTest {
     void theCheckConstraintsRefuseValuesNoBuildCanRead() {
         final SQLException kind = assertThrows(
                 SQLException.class,
-                () -> executeChecked("INSERT INTO update_request (kind, actor_kind) VALUES ('REPORT', 'HOST')"));
-        assertTrue(kind.getMessage().contains("update_request_kind_check"), kind.getMessage());
+                () -> executeChecked(
+                        "INSERT INTO worker_inbox (kind, payload, actor_kind) VALUES ('REPORT', '{\"services\": []}', 'HOST')"));
+        assertTrue(kind.getMessage().contains("worker_inbox_kind_check"), kind.getMessage());
 
         final SQLException status = assertThrows(
                 SQLException.class,
-                () -> executeChecked(
-                        "INSERT INTO update_request (kind, actor_kind, status) VALUES ('UPDATE', 'HOST', 'MAYBE')"));
-        assertTrue(status.getMessage().contains("update_request_status_check"), status.getMessage());
+                () -> executeChecked("INSERT INTO worker_inbox (kind, payload, actor_kind, status, finished)"
+                        + " VALUES ('UPDATE', '{\"services\": []}', 'HOST', 'MAYBE', now())"));
+        assertTrue(status.getMessage().contains("worker_inbox_status_check"), status.getMessage());
 
         final SQLException actor = assertThrows(
                 SQLException.class,
-                () -> executeChecked("INSERT INTO update_request (kind, actor_kind) VALUES ('UPDATE', 'DISCORD')"));
-        assertTrue(actor.getMessage().contains("update_request_actor_kind_check"), actor.getMessage());
+                () -> executeChecked(
+                        "INSERT INTO worker_inbox (kind, payload, actor_kind) VALUES ('UPDATE', '{\"services\": []}', 'DISCORD')"));
+        assertTrue(actor.getMessage().contains("worker_inbox_actor_kind_check"), actor.getMessage());
 
         final SQLException unnamed = assertThrows(
                 SQLException.class,
-                () -> executeChecked("INSERT INTO update_request (kind, actor_kind) VALUES ('UPDATE', 'PERSON')"));
-        assertTrue(unnamed.getMessage().contains("update_request_actor_id_iff_person"), unnamed.getMessage());
+                () -> executeChecked(
+                        "INSERT INTO worker_inbox (kind, payload, actor_kind) VALUES ('UPDATE', '{\"services\": []}', 'PERSON')"));
+        assertTrue(unnamed.getMessage().contains("worker_inbox_actor_id_iff_person"), unnamed.getMessage());
 
         assertFalse(updates.claimNext().isPresent(), "none of the four got in");
     }

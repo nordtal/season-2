@@ -406,7 +406,7 @@ parse_update_args --start
 [[ "$UPDATE_KIND" == START && -z "$UPDATE_SCOPE" ]] || bad "a bare --start carried $UPDATE_SCOPE"
 parse_update_args --start limbo
 [[ "$UPDATE_KIND" == START && "$UPDATE_SCOPE" == limbo ]] || bad "--start limbo gave $UPDATE_SCOPE"
-ok "every kind this command offers is one update_request.kind accepts"
+ok "every kind this command offers is one worker_inbox.kind accepts"
 
 # A bare --start means "release every hold", so the flag after it must not be eaten as a service.
 parse_update_args --start --no-wait
@@ -438,8 +438,8 @@ grep -q "'HOST'" <<<"$sql" || bad "the actor is not the host"
 grep -q "pg_notify('nordtal_update', '')" <<<"$sql" \
     || bad "the bell is not rung in the same statement, so a row can exist that nobody was told about"
 grep -q "make_interval(mins => 0)" <<<"$sql" || bad "the delay did not reach the statement"
-grep -q "NULL)" <<<"$sql" || bad "an empty scope has to be NULL and not an empty string"
-ok "the row names the host, rings the bell with itself, and a whole-network run has a NULL scope"
+grep -q "'services', '\[\]'::jsonb" <<<"$sql" || bad "an empty scope has to be no services and not an empty name"
+ok "the row names the host, rings the bell with itself, and a whole-network run names no service"
 
 sql="$(update_insert_sql DOWN smp 15)"
 grep -q "'smp'" <<<"$sql"   || bad "the scope did not reach the statement"
@@ -462,7 +462,7 @@ done
 for wrong in "" " " SMP "smp," ",smp" "smp,,limbo" "smp limbo" "../smp" "smp;"; do
     update_scope_ok "$wrong" && bad "'$wrong' was accepted as a scope"
 done
-ok "the scope check is update_request_scope_check, spelled the same way"
+ok "the scope check is worker_inbox_services_check's service name, joined by commas"
 
 
 if (( failed > 0 )); then

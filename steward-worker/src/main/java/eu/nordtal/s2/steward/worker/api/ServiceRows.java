@@ -70,7 +70,7 @@ final class ServiceRows {
                 .toList();
     }
 
-    /** {@code update_request} and {@code service_hold}, taken once for the whole table. */
+    /** The worker's inbox and {@code service_hold}, taken once for the whole table. */
     Map<String, ServiceHold> holds() {
         final Map<String, ServiceHold> holds = new LinkedHashMap<>();
         for (final ServiceHold hold : updates.holds()) {

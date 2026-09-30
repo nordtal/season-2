@@ -152,7 +152,7 @@ function Summary() {
   )
 }
 
-/** The `BACKUP` rows of `update_request`, newest first. */
+/** The `BACKUP` rows of the worker's inbox, newest first. */
 function backupRuns(runs: Run[] | undefined): Run[] {
   return (runs ?? []).filter((run) => run.kind === "BACKUP")
 }

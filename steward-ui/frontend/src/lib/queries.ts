@@ -379,7 +379,7 @@ export function useJournal(action: string, subject: string, enabled = true) {
   })
 }
 
-/** The newest actions across `update_request` and `audit_log`, merged and sorted by the worker. */
+/** The newest actions across the worker's inbox and `audit_log`, merged and sorted by the worker. */
 export function useActions(limit = 5, enabled = true) {
   return useQuery({
     queryKey: keys.actions(limit),
@@ -701,7 +701,7 @@ function encodePath(file: string): string {
   return file.split("/").map(encodeURIComponent).join("/")
 }
 
-/** Asks for a run by writing an `update_request` row, which is cancellable and never touches a container. */
+/** Asks for a run by writing a row into the worker's inbox, which is cancellable and never touches a container. */
 export function useAskForRun() {
   const client = useQueryClient()
   return useMutation({

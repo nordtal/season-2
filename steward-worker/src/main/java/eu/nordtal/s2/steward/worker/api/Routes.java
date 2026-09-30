@@ -122,7 +122,7 @@ final class Routes {
         // A small derived reading, not the service table again.
         config.routes.get("/api/alert-level", ctx -> ctx.json(api.alertLevel()));
 
-        // The newest rows across update_request and audit_log, merged.
+        // The newest rows across the worker's inbox and audit_log, merged.
         config.routes.get("/api/actions", api.actions::list);
     }
 

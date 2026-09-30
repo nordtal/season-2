@@ -1,7 +1,7 @@
 package eu.nordtal.s2.database.update;
 
 /**
- * Where an {@link UpdateRequest} has got to, stored in {@code update_request.status}.
+ * Where an {@link UpdateRequest} has got to, stored as its inbox status.
  *
  * {@code PENDING -> RUNNING -> DONE | FAILED}, or {@code PENDING -> CANCELLED}; nothing goes back.
  */

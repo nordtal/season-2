@@ -9,7 +9,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
- * Checks that a report survives the trip through {@code update_request.result} and back.
+ * Checks that a report survives the trip through the run's outcome and back.
  *
  * A {@code null} version must not come back as {@code "null"}, typed text may hold quotes and newlines,
  * and plain-text rows must stay drawable.

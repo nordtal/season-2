@@ -1,5 +1,7 @@
 package eu.nordtal.s2.database.update;
 
+import com.google.gson.JsonElement;
+import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.Actor;
 import java.sql.Array;
 import java.sql.ResultSet;
@@ -12,7 +14,7 @@ import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 import org.jspecify.annotations.Nullable;
 
-/** Maps an {@code update_request} row, reading every instant through {@link OffsetDateTime}. */
+/** Maps a row of the worker's inbox as a run, reading every instant through {@link OffsetDateTime}. */
 public final class UpdateRequestMapper implements RowMapper<UpdateRequest> {
 
     @Override
@@ -28,7 +30,16 @@ public final class UpdateRequestMapper implements RowMapper<UpdateRequest> {
                 texts(rs.getArray("moving")),
                 instant(rs, "started"),
                 instant(rs, "finished"),
-                rs.getString("result"));
+                text(rs.getString("outcome")));
+    }
+
+    /** Returns the report as JSON, or a plain reason as the text it is, so a reader sees what was written. */
+    static @Nullable String text(final @Nullable String outcome) {
+        if (outcome == null) {
+            return null;
+        }
+        final JsonElement stored = Json.tree(outcome);
+        return stored.isJsonPrimitive() ? stored.getAsString() : outcome;
     }
 
     private static @Nullable Instant instant(final ResultSet rs, final String column) throws SQLException {

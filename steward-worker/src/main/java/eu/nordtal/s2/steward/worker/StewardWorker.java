@@ -151,7 +151,7 @@ public final class StewardWorker {
     /**
      * Resolves, migrates and installs what is missing, on the host, on demand.
      *
-     * It writes no {@code update_request} row, since on a fresh deployment the table does not exist yet.
+     * It writes no row into the worker's inbox, since on a fresh deployment the table does not exist yet.
      */
     private static int bootstrap(final Path configDirectory) {
         final StewardSpec config = stewardConfig(configDirectory);

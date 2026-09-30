@@ -302,7 +302,7 @@ export function DriftBadge({ drift, image }: { drift: string; image: string; dig
   }
 }
 
-/** The status of a run, as the `update_request` row carries it. */
+/** The status of a run, as its row in the worker's inbox carries it. */
 export function RunStatus({ status }: { status: string }) {
   const tone: Tone = status === "DONE" ? "ok" : status === "FAILED" ? "down" : status === "RUNNING" ? "warn" : "idle"
   return <StatusBadge tone={tone}>{RUN_STATUS[status] ?? status}</StatusBadge>

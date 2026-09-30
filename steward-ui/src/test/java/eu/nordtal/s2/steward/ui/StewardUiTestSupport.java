@@ -37,7 +37,7 @@ abstract class StewardUiTestSupport extends StewardUiFixture {
     /** Closes whatever run another test left open, so the one-run rule starts every test clean. */
     void settleOpenRuns() throws Exception {
         try (var connection = data.dataSource().getConnection();
-                var settle = connection.prepareStatement("UPDATE update_request SET status = 'DONE', "
+                var settle = connection.prepareStatement("UPDATE worker_inbox SET status = 'DONE', "
                         + "started = coalesce(started, now()), finished = now() "
                         + "WHERE status IN ('PENDING', 'RUNNING')")) {
             settle.executeUpdate();

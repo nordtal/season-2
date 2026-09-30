@@ -5,7 +5,7 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
- * {@link UpdateReport} to and from the JSON in {@code update_request.result}, through the kernel's codec.
+ * {@link UpdateReport} to and from the JSON in the run's outcome, through the kernel's codec.
  *
  * {@link #parse} answers empty for an unreadable row, and every caller falls back to the raw text.
  */

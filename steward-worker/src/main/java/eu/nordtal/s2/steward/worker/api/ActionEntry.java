@@ -11,7 +11,7 @@ import eu.nordtal.s2.database.update.UpdateStatus;
 import java.time.Instant;
 
 /**
- * One row of the actions feed: a run from {@code update_request} or a line from {@code audit_log}.
+ * One row of the actions feed: a run from the worker's inbox or a line from {@code audit_log}.
  *
  * @param kind the {@link UpdateKind} name for a run, or the free-text {@code audit_log.action} for a journal line
  * @param occurred when this happened, by the database's clock
@@ -36,7 +36,7 @@ public record ActionEntry(String kind, Instant occurred, String extent, Actor ac
     }
 
     /**
-     * A run from {@code update_request}.
+     * A run from the worker's inbox.
      *
      * @param run the row, however it finished
      * @return the entry that describes it

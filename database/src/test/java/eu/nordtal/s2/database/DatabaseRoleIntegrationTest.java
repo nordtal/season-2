@@ -61,8 +61,10 @@ class DatabaseRoleIntegrationTest {
                 mayNot(DatabaseRole.SMP, "INSERT INTO hg_event (game_id, type) VALUES (gen_random_uuid(), 'x')"),
                 may(DatabaseRole.HUNGER_GAMES, "INSERT INTO hg_event (game_id, type) VALUES (gen_random_uuid(), 'x')"),
                 mayNot(DatabaseRole.HUNGER_GAMES, "UPDATE smp_player SET aura = 0 WHERE false"),
-                may(DatabaseRole.STEWARD_UI, "INSERT INTO update_request (kind, actor_kind) VALUES ('UPDATE', 'HOST')"),
-                mayNot(DatabaseRole.STEWARD_UI, "DELETE FROM update_request WHERE false"),
+                may(
+                        DatabaseRole.STEWARD_UI,
+                        "INSERT INTO worker_inbox (kind, payload, actor_kind) VALUES ('UPDATE', '{\"services\": []}', 'HOST')"),
+                mayNot(DatabaseRole.STEWARD_UI, "DELETE FROM worker_inbox WHERE false"),
                 mayNot(
                         DatabaseRole.STEWARD_UI,
                         "INSERT INTO service_plugin (service, artifact, project_id, file_prefix, title)"

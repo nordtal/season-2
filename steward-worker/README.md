@@ -29,7 +29,7 @@ pin and no rollback: a bad release is corrected by publishing a better one.
 
 ## Rules
 
-- `serve` is not a scheduler. It migrates at startup and then acts only on rows in `update_request`.
+- `serve` is not a scheduler. It migrates at startup and then acts only on rows in its inbox, `worker_inbox`.
 - An update stops the services whose jars change, migrates, installs, starts them and waits for
   healthy. `bootstrap` fills empty slots and restarts nothing. A report writes nothing.
 - Two workers cannot serve or move jars at once; both are advisory locks, and the second is refused.

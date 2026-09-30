@@ -2,70 +2,44 @@ package eu.nordtal.s2.database.update;
 
 import static eu.nordtal.s2.database.DatabaseMessages.MESSAGES;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonPrimitive;
+import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.Jdbis;
+import eu.nordtal.s2.database.inbox.Inbox;
+import eu.nordtal.s2.database.inbox.Outcome;
+import eu.nordtal.s2.database.inbox.Request;
+import eu.nordtal.s2.database.inbox.Schedule;
+import eu.nordtal.s2.database.inbox.WorkerRequest;
 import eu.nordtal.s2.messages.Refused;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.OffsetDateTime;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import javax.sql.DataSource;
-import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
 /** The only implementation of {@link UpdateDirectory}; it borrows the pool and owns nothing. */
 final class JdbiUpdateDirectory implements UpdateDirectory {
 
-    /** The transaction advisory lock every submit takes before it looks for an open run. */
-    private static final long SUBMIT_LOCK = 0x6E6F726474616C52L;
+    /** The unique index that keeps a second run from being asked for while one is open. */
+    private static final String ONE_OPEN = "worker_inbox_one_open";
 
-    private final Jdbi jdbi;
     private final UpdateDao dao;
+    private final Inbox<WorkerRequest> inbox;
 
     JdbiUpdateDirectory(final DataSource dataSource) {
         Objects.requireNonNull(dataSource, "dataSource");
-        this.jdbi = Jdbis.over(dataSource);
-        this.dao = jdbi.onDemand(UpdateDao.class);
+        this.dao = Jdbis.over(dataSource).onDemand(UpdateDao.class);
+        this.inbox = Inbox.over(dataSource, WorkerRequest.TABLE);
     }
 
     /**
      * Writes a request only when no other run is open and none of its services is held.
-     *
-     * The lock is its own statement, so the check after it reads a fresh snapshot under READ COMMITTED.
+     * The database refuses a second open run by its unique index; holds only change while a run is open.
      */
-    private UpdateRequest guarded(
-            final UpdateKind kind,
-            final java.util.@Nullable List<String> services,
-            final java.util.function.Function<UpdateDao, UpdateRequest> write) {
-        return jdbi.inTransaction(handle -> {
-            handle.execute("SELECT pg_advisory_xact_lock(?)", SUBMIT_LOCK);
-            final UpdateDao locked = handle.attach(UpdateDao.class);
-            final Optional<UpdateRequest> open = locked.open();
-            if (open.isPresent()) {
-                throw new Refused(
-                        UpdateRefusal.RUN_OPEN,
-                        MESSAGES.update()
-                                .runOpen(
-                                        open.get().id(),
-                                        open.get().kind(),
-                                        open.get().status().name().toLowerCase(Locale.ROOT)));
-            }
-            if (kind == UpdateKind.DOWN && services != null && !services.isEmpty()) {
-                final java.util.List<String> held = locked.holds().stream()
-                        .map(ServiceHold::service)
-                        .filter(services::contains)
-                        .toList();
-                if (!held.isEmpty()) {
-                    throw new Refused(
-                            UpdateRefusal.ALREADY_HELD, MESSAGES.update().alreadyHeld(String.join(", ", held)));
-                }
-            }
-            return write.apply(locked);
-        });
-    }
-
     @Override
     public UpdateRequest submit(
             final UpdateKind kind,
@@ -74,18 +48,51 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
             final java.util.@Nullable List<String> services) {
         Objects.requireNonNull(kind, "kind");
         Objects.requireNonNull(actor, "actor");
+        final java.util.List<String> scope = cleaned(services);
+        if (kind == UpdateKind.DOWN && !scope.isEmpty()) {
+            final java.util.List<String> held = dao.holds().stream()
+                    .map(ServiceHold::service)
+                    .filter(scope::contains)
+                    .toList();
+            if (!held.isEmpty()) {
+                throw new Refused(UpdateRefusal.ALREADY_HELD, MESSAGES.update().alreadyHeld(String.join(", ", held)));
+            }
+        }
         // Clamped rather than rejected: a delay computed from two disagreeing clocks means now.
-        final long seconds = delay == null ? 0L : Math.max(0L, delay.toSeconds());
-        final String scope = scopeText(services);
-        return guarded(
-                kind,
-                services,
-                locked -> locked.submit(kind.name(), actor.kind().name(), actor.id(), seconds, scope));
+        final Duration wait = delay == null || delay.isNegative() ? Duration.ZERO : delay;
+        try {
+            return run(inbox.submit(kind.request(scope), actor, Schedule.after(wait)));
+        } catch (final RuntimeException refused) {
+            if (!String.valueOf(refused.getMessage()).contains(ONE_OPEN)) {
+                throw refused;
+            }
+            final UpdateRequest open = dao.open().orElseThrow(() -> refused);
+            throw new Refused(
+                    UpdateRefusal.RUN_OPEN,
+                    MESSAGES.update()
+                            .runOpen(
+                                    open.id(), open.kind(), open.status().name().toLowerCase(Locale.ROOT)));
+        }
+    }
+
+    /** Returns the run as the table holds it now, which the inbox's own row does not carry all of. */
+    private UpdateRequest run(final Request<WorkerRequest> request) {
+        return dao.find(request.id()).orElseThrow(() -> new IllegalStateException("run " + request.id() + " is gone"));
+    }
+
+    /** Returns the answer a run's outcome stores: its report as JSON, or a plain reason as a JSON string. */
+    private static JsonElement answer(final String result) {
+        try {
+            final JsonElement report = Json.tree(result);
+            return report.isJsonObject() ? report : new JsonPrimitive(result);
+        } catch (final RuntimeException notJson) {
+            return new JsonPrimitive(result);
+        }
     }
 
     @Override
     public java.util.List<String> scopeOf(final long id) {
-        return parseScope(dao.scope(id));
+        return dao.services(id);
     }
 
     @Override
@@ -103,28 +110,16 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
         dao.release(service);
     }
 
-    /** Returns the services as the column holds them, blanks dropped, or {@code null} for the whole network. */
-    static @Nullable String scopeText(final java.util.@Nullable List<String> services) {
-        if (services == null || services.isEmpty()) {
-            return null;
+    /** Returns the services with blanks and repeats dropped; empty is the whole network. */
+    static java.util.List<String> cleaned(final java.util.@Nullable List<String> services) {
+        if (services == null) {
+            return java.util.List.of();
         }
-        final String joined = services.stream()
+        return services.stream()
                 .filter(java.util.Objects::nonNull)
                 .map(String::strip)
                 .filter(service -> !service.isEmpty())
                 .distinct()
-                .collect(java.util.stream.Collectors.joining(","));
-        return joined.isEmpty() ? null : joined;
-    }
-
-    /** Returns the services of a scope column; {@code null} and blank both mean the whole network. */
-    static java.util.List<String> parseScope(final @Nullable String scope) {
-        if (scope == null || scope.isBlank()) {
-            return java.util.List.of();
-        }
-        return java.util.Arrays.stream(scope.split(",", -1))
-                .map(String::strip)
-                .filter(service -> !service.isEmpty())
                 .toList();
     }
 
@@ -172,7 +167,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
 
     @Override
     public Optional<UpdateRequest> claimNext() {
-        return dao.claimNext();
+        return inbox.claim().map(this::run);
     }
 
     @Override
@@ -181,17 +176,19 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
         if (!status.isFinished() || status == UpdateStatus.CANCELLED) {
             throw new IllegalArgumentException("A claimed request finishes as DONE or FAILED, not as " + status);
         }
-        return dao.finish(id, status.name(), result);
+        final Outcome outcome =
+                status == UpdateStatus.DONE ? Outcome.done(answer(result)) : Outcome.failed(answer(result));
+        return inbox.settle(id, outcome).map(this::run);
     }
 
     @Override
     public boolean handOver(final long id, final String result) {
-        return dao.handOver(id, result) > 0;
+        return inbox.release(id, answer(result));
     }
 
     @Override
     public boolean progress(final long id, final String result) {
-        return dao.progress(id, result) > 0;
+        return inbox.progress(id, answer(result));
     }
 
     @Override
@@ -228,11 +225,11 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
 
     @Override
     public Optional<Instant> nextDue() {
-        return dao.nextDue().map(OffsetDateTime::toInstant);
+        return inbox.nextDue();
     }
 
     @Override
     public int settleOrphans(final String failed) {
-        return dao.failOrphans(failed);
+        return inbox.settleOrphans(answer(failed));
     }
 }

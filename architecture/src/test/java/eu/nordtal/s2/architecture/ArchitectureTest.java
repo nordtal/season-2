@@ -145,6 +145,22 @@ class ArchitectureTest {
                 "eu.nordtal.s2.internalapi..");
     }
 
+    /** dev runs the command lines steward-agent's Compose writes, and takes nothing else of the agent's along. */
+    @Test
+    void devTakesOnlyTheComposeLinesFromTheAgent() {
+        classes()
+                .that()
+                .resideInAPackage("eu.nordtal.s2.dev..")
+                .should()
+                .onlyDependOnClassesThat(DescribedPredicate.describe(
+                        "are the JDK's, jspecify's, dev's own or steward-agent's Compose",
+                        type -> type.getPackageName().startsWith("java.")
+                                || type.getPackageName().startsWith("org.jspecify")
+                                || type.getPackageName().startsWith("eu.nordtal.s2.dev")
+                                || type.getName().equals("eu.nordtal.s2.stewardagent.Compose")))
+                .check(classes);
+    }
+
     /** The bank key is only useful to whatever can call bunq, so nothing outside steward-bunq can. */
     @Test
     void onlyStewardBunqHoldsTheBankClient() {

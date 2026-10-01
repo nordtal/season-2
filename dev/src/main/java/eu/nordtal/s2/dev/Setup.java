@@ -34,11 +34,11 @@ final class Setup {
     private record Secret(String name, int bytes) {}
 
     private final Path root;
-    private final Compose compose;
+    private final LocalProject compose;
     private final Terminal terminal;
     private final SecureRandom random = new SecureRandom();
 
-    Setup(final Path root, final Compose compose, final Terminal terminal) {
+    Setup(final Path root, final LocalProject compose, final Terminal terminal) {
         this.root = root;
         this.compose = compose;
         this.terminal = terminal;
@@ -47,7 +47,7 @@ final class Setup {
     void init() {
         final EnvFile env = compose.env();
         if (env.exists()) {
-            terminal.log(Compose.ENV_FILE + " already exists; leaving it alone");
+            terminal.log(LocalProject.ENV_FILE + " already exists; leaving it alone");
         } else {
             copyExample(env.path());
             SECRETS.forEach(secret -> generate(env, secret));
@@ -55,7 +55,7 @@ final class Setup {
             deriveRelyingParty(env);
             final List<Integer> leftovers = env.replaceMeLines();
             if (!leftovers.isEmpty()) {
-                terminal.warn("REPLACE_ME is still in " + Compose.ENV_FILE + " at line(s): " + leftovers
+                terminal.warn("REPLACE_ME is still in " + LocalProject.ENV_FILE + " at line(s): " + leftovers
                         + ". Nothing generated a value for those.");
             }
         }
@@ -74,7 +74,7 @@ final class Setup {
         } catch (final IOException e) {
             throw new UncheckedIOException("cannot copy " + EXAMPLE, e);
         }
-        terminal.log("wrote " + Compose.ENV_FILE + " from " + EXAMPLE);
+        terminal.log("wrote " + LocalProject.ENV_FILE + " from " + EXAMPLE);
     }
 
     private void generate(final EnvFile env, final Secret secret) {
@@ -99,7 +99,7 @@ final class Setup {
             if (question.kind() == LocalQuestions.Kind.LICENCE) {
                 if (!LocalQuestions.isYes(answer)) {
                     throw new Processes.Failure("the EULA was not accepted, so there are no servers to start. "
-                            + Compose.ENV_FILE + " has been written as far as this point and can be removed.");
+                            + LocalProject.ENV_FILE + " has been written as far as this point and can be removed.");
                 }
                 env.set(question.name(), "true");
                 terminal.log(question.name() + " accepted and recorded");
@@ -121,7 +121,7 @@ final class Setup {
                 continue;
             }
             env.set(question.name(), answer);
-            terminal.log(question.name() + " written to " + Compose.ENV_FILE);
+            terminal.log(question.name() + " written to " + LocalProject.ENV_FILE);
             return;
         }
     }
@@ -143,7 +143,7 @@ final class Setup {
             terminal.warn(host + " has no dot in it, so steward will refuse to start: a relying party id has to"
                     + " be a registrable domain, and localhost is the only single label that is allowed. Use"
                     + " http://localhost:5173 for the dev server, http://steward.localhost:8080 for the container."
-                    + " Everything else in " + Compose.ENV_FILE + " is written and only this one line needs"
+                    + " Everything else in " + LocalProject.ENV_FILE + " is written and only this one line needs"
                     + " changing.");
         }
     }

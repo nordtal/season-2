@@ -20,11 +20,11 @@ import java.util.regex.Pattern;
 final class Stack {
 
     private final Path root;
-    private final Compose compose;
+    private final LocalProject compose;
     private final Processes processes;
     private final Terminal terminal;
 
-    Stack(final Path root, final Compose compose, final Processes processes, final Terminal terminal) {
+    Stack(final Path root, final LocalProject compose, final Processes processes, final Terminal terminal) {
         this.root = root;
         this.compose = compose;
         this.processes = processes;
@@ -111,7 +111,7 @@ final class Stack {
         final String stewardPort = compose.valueOr("STEWARD_PORT", "8080");
         if (packPort.equals(stewardPort)) {
             throw new Processes.Failure("PACK_PORT and STEWARD_PORT are both " + stewardPort + " in "
-                    + Compose.ENV_FILE + ", and the resource pack host and the interface cannot both have it. Set"
+                    + LocalProject.ENV_FILE + ", and the resource pack host and the interface cannot both have it. Set"
                     + " PACK_PORT=8081 - the pack URL is written by 'dev pack', which reads that value, so nothing"
                     + " else has to change.");
         }

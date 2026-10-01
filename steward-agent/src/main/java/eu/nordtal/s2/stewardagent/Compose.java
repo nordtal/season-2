@@ -19,7 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Every {@code docker compose} invocation this service makes, against the compose file baked into its image.
+ * Every {@code docker compose} command line there is, this service's and the ones {@code dev} runs on its terminal.
  *
  * Every {@code up} carries {@code --no-deps}, so recreating one service never drags in another.
  */
@@ -81,7 +81,7 @@ public final class Compose {
      */
     void assertEnvFileFresh() throws IOException {
         if (!Files.exists(envFile)) {
-            return; // base() only adds --env-file when the path resolves.
+            return; // command() only adds --env-file when the path resolves.
         }
         final OptionalLong nlink = linkCounter.nlink(envFile);
         if (nlink.isPresent() && nlink.getAsLong() == 0) {
@@ -101,8 +101,12 @@ public final class Compose {
         }
     }
 
-    /** The fixed head of every command line: which project, which file, which environment. */
-    private List<String> base() {
+    /**
+     * Returns the command line for {@code arguments}, for a caller that runs it with its own input and output.
+     *
+     * Every line starts the same way: which project, which file, which environment.
+     */
+    public List<String> command(final List<String> arguments) {
         final List<String> command = new ArrayList<>(List.of(
                 "docker",
                 "compose",
@@ -116,6 +120,7 @@ public final class Compose {
             command.add("--env-file");
             command.add(envFile.toString());
         }
+        command.addAll(arguments);
         return command;
     }
 
@@ -126,8 +131,7 @@ public final class Compose {
      */
     public int up(final List<String> services, final Consumer<String> output) throws IOException {
         assertEnvFileFresh();
-        final List<String> command = base();
-        command.addAll(List.of("up", "--detach", "--no-deps"));
+        final List<String> command = command(List.of("up", "--detach", "--no-deps"));
         command.addAll(refuseSelf(services));
         return run(command, output);
     }
@@ -139,8 +143,7 @@ public final class Compose {
      */
     public int bootstrap(final List<String> services, final Consumer<String> output) throws IOException {
         assertEnvFileFresh();
-        final List<String> command = base();
-        command.addAll(List.of("up", "--detach", "--no-deps"));
+        final List<String> command = command(List.of("up", "--detach", "--no-deps"));
         command.addAll(services);
         return run(command, output);
     }
@@ -157,10 +160,7 @@ public final class Compose {
 
     /** Returns the command line {@link #recreate} runs, so a test can check that no token pulls. */
     List<String> recreateCommand(final String service) {
-        final List<String> command = base();
-        command.addAll(List.of("up", "--detach", "--no-deps", "--force-recreate"));
-        command.addAll(refuseSelf(List.of(service)));
-        return command;
+        return command(List.of("up", "--detach", "--no-deps", "--force-recreate", refuseSelf(service)));
     }
 
     /** Returns whether this service's image is already on this host, without pulling. */
@@ -175,9 +175,7 @@ public final class Compose {
      * A failed pull is tolerated only when the image is already here, which covers images pushed to no registry.
      */
     public PullOutcome pull(final String service, final Consumer<String> output) throws IOException {
-        final List<String> command = base();
-        command.addAll(List.of("pull", service));
-        final int code = run(command, output);
+        final int code = run(command(List.of("pull", service)), output);
         if (code == 0) {
             return PullOutcome.PULLED;
         }
@@ -239,20 +237,16 @@ public final class Compose {
      * Returns the command line {@link #config} runs; {@code --profile "*"} is a top-level flag before the subcommand.
      */
     List<String> configCommand(final boolean allProfiles) {
-        final List<String> command = base();
-        if (allProfiles) {
-            command.addAll(List.of("--profile", "*"));
-        }
-        command.addAll(List.of("config", "--format", "json"));
-        return command;
+        final List<String> config = List.of("config", "--format", "json");
+        return command(allProfiles ? concat(List.of("--profile", "*"), config) : config);
     }
 
     /** Returns {@code compose ps} as JSON lines, which the interface draws the service list from. */
     public String state() throws IOException {
-        final List<String> command = base();
-        command.addAll(List.of("ps", "--all", "--format", "json"));
         final StringBuilder json = new StringBuilder();
-        final int code = run(command, line -> json.append(line).append('\n'));
+        final int code = run(
+                command(List.of("ps", "--all", "--format", "json")),
+                line -> json.append(line).append('\n'));
         if (code != 0) {
             throw new IOException("docker compose ps exited " + code);
         }
@@ -277,16 +271,24 @@ public final class Compose {
         }
     }
 
+    private static List<String> concat(final List<String> first, final List<String> second) {
+        final List<String> both = new ArrayList<>(first);
+        both.addAll(second);
+        return both;
+    }
+
     private static List<String> refuseSelf(final List<String> services) {
-        for (final String service : services) {
-            if (SELF.equals(service)) {
-                throw new IllegalArgumentException(
-                        "steward-agent will not recreate itself: the new container would replace "
-                                + "the one running this request, and nobody would ever read the answer. "
-                                + "The setup script on the host renews this service.");
-            }
-        }
+        services.forEach(Compose::refuseSelf);
         return services;
+    }
+
+    private static String refuseSelf(final String service) {
+        if (SELF.equals(service)) {
+            throw new IllegalArgumentException("steward-agent will not recreate itself: the new container would replace"
+                    + " the one running this request, and nobody would ever read the answer. The setup script on the"
+                    + " host renews this service.");
+        }
+        return service;
     }
 
     /** Runs one command and hands every line to {@code output} as it arrives, stderr included. */

@@ -69,6 +69,16 @@ class ProcessRulesTest {
                 .check(classes);
     }
 
+    /** The bot sees a phase change through its hub like every other process; a timer of its own is a poll. */
+    @Test
+    void theBotSeesThePhaseThroughItsHubAndNotOnATimer() {
+        classes()
+                .that(isListed(BOT))
+                .should(callFrom("listen", "Channel#PHASE", "StatusChannels#tick"))
+                .andShould(neverCallFrom("schedule", "StatusChannels#tick"))
+                .check(classes);
+    }
+
     /** A person in this schema is a Discord id in a {@code varchar(32)}; a UUID as text is 36 characters. */
     @Test
     void noMinecraftUuidIsSpelledAsText() {

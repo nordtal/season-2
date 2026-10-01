@@ -1,15 +1,14 @@
 #!/bin/sh
-# Runs the newest jar in the volume, or the jar baked into the image while the volume is empty.
-# steward fills the volume; the baked jar only makes a first deployment possible.
+# Runs the newest jar in JAR_DIR, or the jar baked into the image while the volume is empty or there is
+# none. steward fills the volumes; the baked jar only makes a first deployment possible.
 set -eu
 
-: "${JAR_DIR:?JAR_DIR must be set in the Dockerfile}"
-: "${JAR_PREFIX:?JAR_PREFIX must be set in the Dockerfile}"
+: "${JAR_PREFIX:?JAR_PREFIX must be set in deploy/jvm/Dockerfile}"
 
 BAKED=/app/app.jar
 jar=""
 
-if [ -d "$JAR_DIR" ]; then
+if [ -n "${JAR_DIR:-}" ] && [ -d "$JAR_DIR" ]; then
     # sort -V, since 0.10.0 is newer than 0.9.0; more than one jar means a swap in progress or a hand edit.
     jar="$(ls -1 "$JAR_DIR/$JAR_PREFIX"-*.jar 2>/dev/null | sort -V | tail -n 1 || true)"
     count="$(ls -1 "$JAR_DIR/$JAR_PREFIX"-*.jar 2>/dev/null | wc -l | tr -d ' ')"
@@ -22,13 +21,16 @@ fi
 # Stderr, like every log line: stdout is a command's result, such as the keys `generate-vapid-keys` prints.
 if [ -n "$jar" ]; then
     echo "[entrypoint] running $jar (from the volume, which is where steward puts it)" >&2
+elif [ -f "$BAKED" ] && [ -z "${JAR_DIR:-}" ]; then
+    # No volume: this image is the version, and a new one arrives as a new image.
+    jar="$BAKED"
 elif [ -f "$BAKED" ]; then
     echo "[entrypoint] no ${JAR_PREFIX}-*.jar in $JAR_DIR, so this is the jar baked into the image." >&2
     echo "[entrypoint] That is a first deployment, not an error. Fill the volume with:" >&2
     echo "[entrypoint]   docker compose run --rm steward bootstrap" >&2
     jar="$BAKED"
 else
-    echo "[entrypoint] no ${JAR_PREFIX}-*.jar in $JAR_DIR and no jar baked into this image." >&2
+    echo "[entrypoint] no ${JAR_PREFIX}-*.jar in ${JAR_DIR:-a volume} and no jar baked into this image." >&2
     echo "[entrypoint] There is nothing to run. This image was built wrong." >&2
     exit 1
 fi

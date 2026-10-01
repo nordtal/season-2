@@ -8,6 +8,9 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -81,6 +84,20 @@ public final class Readiness {
             }
             return false;
         }
+    }
+
+    /**
+     * Writes the marker now and then every {@link #BEAT} on a daemon thread, for as long as the process lives.
+     * For a plain JVM process; a plugin beats on its platform's scheduler instead.
+     *
+     * @return whether the first write succeeded
+     */
+    public boolean keepBeating() {
+        final boolean written = refresh();
+        final ScheduledExecutorService beat = Executors.newSingleThreadScheduledExecutor(
+                Thread.ofPlatform().name("readiness").daemon().factory());
+        final var _ = beat.scheduleAtFixedRate(this::refresh, BEAT.toSeconds(), BEAT.toSeconds(), TimeUnit.SECONDS);
+        return written;
     }
 
     /**

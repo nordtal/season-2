@@ -1,5 +1,6 @@
 package eu.nordtal.s2.stewardbunq;
 
+import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.internalapi.BankWire;
 import eu.nordtal.s2.internalapi.InternalServer;
 import io.javalin.config.JavalinConfig;
@@ -35,7 +36,7 @@ public final class StewardBunq {
                 Path.of(server.setting("CONTEXT_PATH", DEFAULT_CONTEXT)));
         // Logged on both branches, so a renamed key cannot turn payments off silently.
         bank.logStartupLine();
-        server.start(BankWire.PORT, config -> routes(config, bank));
+        server.serve(BankWire.PORT, NetworkTime.clock(), config -> routes(config, bank));
     }
 
     /** Every route but health, which the server adds itself. */

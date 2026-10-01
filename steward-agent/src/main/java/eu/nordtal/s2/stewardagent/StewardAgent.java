@@ -106,9 +106,10 @@ public final class StewardAgent {
     private static void serve(final InternalServer server, final Compose compose) throws java.io.IOException {
         // A stale env file shows in the boot log, not on the first deploy.
         compose.assertEnvFileFresh();
-        final Jobs jobs = new Jobs(NetworkTime.clock());
+        final java.time.Clock clock = NetworkTime.clock();
+        final Jobs jobs = new Jobs(clock);
         // Without its secret it does not start: an open process that can recreate every container is a root shell.
-        server.start(DEFAULT_PORT, config -> configureRoutes(config, compose, jobs));
+        server.serve(DEFAULT_PORT, clock, config -> configureRoutes(config, compose, jobs));
     }
 
     private static void configureRoutes(

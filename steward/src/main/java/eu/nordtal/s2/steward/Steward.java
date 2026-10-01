@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward;
 
 import eu.nordtal.jcore.persistence.sql.Database;
+import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.common.time.Waiting;
@@ -50,8 +51,6 @@ import eu.nordtal.s2.steward.schema.ServeLock;
 import eu.nordtal.s2.steward.serve.Runner;
 import eu.nordtal.s2.steward.serve.UpdateServer;
 import eu.nordtal.s2.steward.web.Web;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
@@ -99,13 +98,6 @@ public final class Steward {
      * {@code docker compose run --rm steward} passes the service's command, so the default is unreachable.
      */
     private static final String REPORT = "report";
-
-    /**
-     * Touched once the schema is current and the loop is about to start; the compose healthcheck waits for it.
-     *
-     * It lives in {@code /tmp} so a restart makes it false again.
-     */
-    private static final Path READY_MARKER = Path.of("/tmp/steward-ready");
 
     private Steward() {}
 
@@ -659,16 +651,15 @@ public final class Steward {
         }
     }
 
+    /** Writes the readiness marker once the schema is current and keeps it fresh; every service waits for it. */
     private static void markReady() {
-        try {
-            Files.writeString(READY_MARKER, "ready\n");
-        } catch (final IOException failure) {
+        final Readiness readiness = Readiness.onDefaultPath(CLOCK, log::warn);
+        if (!readiness.keepBeating()) {
             // Fatal to everything waiting on this process, so it is loud.
             log.error(
                     "Could not write the readiness marker {}. The rest of the stack will not"
-                            + " start, because its healthcheck is a test for this file.",
-                    READY_MARKER,
-                    failure);
+                            + " start, because its healthcheck reads this file.",
+                    readiness.marker());
         }
     }
 

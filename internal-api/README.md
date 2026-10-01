@@ -6,7 +6,9 @@ The HTTP wire between `steward` and the services only it may call, `steward-agen
 
 - `InternalServer` reads `NORDTAL_<SERVICE>_PORT` and `NORDTAL_<SERVICE>_TOKEN`, refuses to start
   without a token, and answers `401` on every `/api/*` route but `/api/health` unless
-  `X-Steward-Token` matches. The comparison is constant time.
+  `X-Steward-Token` matches. The comparison is constant time. `serve` also keeps `common`'s
+  readiness marker fresh, which is what the container's healthcheck reads: the image has no HTTP
+  client, and every JVM service is then judged healthy the same way.
 - `InternalClient` is what `steward` holds per service. A refusal arrives as a `Failure` naming the
   service, so an error page can say which one answered: `504` on a timeout, `502` when nothing
   answered at all.

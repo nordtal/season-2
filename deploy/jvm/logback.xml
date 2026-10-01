@@ -1,17 +1,20 @@
 <?xml version="1.0" encoding="utf-8" ?>
+<!-- The one logging configuration of every JVM service; nordtal.jvm-app puts it into each jar. -->
 <configuration>
-    <!-- Stderr, since stdout carries the result that is pasted into Discord. -->
+    <!-- Stderr, since stdout carries a command's result, such as what `steward report` prints. -->
     <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
         <target>System.err</target>
         <!-- An encoder, since a layout warns and a warning prints logback's status report on stdout. -->
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
-    <!-- Hikari's DEBUG pool narration is noise; Flyway's INFO lines stay as the schema's record. -->
+    <!-- DEBUG narration from the pool, JDBI and the web server is noise; Flyway's INFO lines are the schema's record. -->
     <logger name="com.zaxxer.hikari" level="INFO"/>
     <logger name="org.jdbi" level="INFO"/>
+    <logger name="org.eclipse.jetty" level="INFO"/>
+    <logger name="io.javalin" level="INFO"/>
 
     <root level="info">
         <appender-ref ref="STDERR"/>

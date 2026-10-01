@@ -8,6 +8,9 @@ module and none of its callers.
 
 - **Shared groups**: `DatabaseSpec` (`database.yml`) and `ColoursSpec` (`colours.yml`, mapped onto
   the message tones by `Colours`). `DatabasePool` opens the pool a Minecraft process uses.
+  `DistancesSpec` (`distances.yml`) is the three Paper servers' view and simulation distance, two flat
+  numbers where 0 means unset, so the declared default stays the same for every server and a server's
+  own default lives in its plugin.
 - **Checks**: a group is refused as a whole by its `Check`; `Checks` holds the rules every group
   shares. A refusal names the file and the key.
 - **Overrides**: beside every file, `EnvOverrideFile` names the keys the environment overrides, so

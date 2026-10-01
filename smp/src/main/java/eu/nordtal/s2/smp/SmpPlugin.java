@@ -15,6 +15,7 @@ import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.papercommon.command.Answer;
 import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.papercommon.plugin.NordtalPlugin;
+import eu.nordtal.s2.papercommon.world.Distances;
 import eu.nordtal.s2.settings.Check;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.SettingsException;
@@ -189,6 +190,12 @@ public final class SmpPlugin extends NordtalPlugin {
     @Override
     protected List<String> bundles() {
         return List.of("messages/smp");
+    }
+
+    /** Seen 32 chunks far; simulated at the usual 10, since the simulation is what costs the host memory and ticks. */
+    @Override
+    protected Distances distanceDefaults() {
+        return new Distances(32, 10);
     }
 
     @Override

@@ -72,9 +72,12 @@ public final class ConfigApi {
             "smp/smp/sounds.yml",
             "smp/smp/colours.yml",
             "smp/smp/prestige.yml",
+            "smp/smp/distances.yml",
             "hunger-games/hunger-games/sounds.yml",
             "hunger-games/hunger-games/colours.yml",
+            "hunger-games/hunger-games/distances.yml",
             "limbo/limbo/colours.yml",
+            "limbo/limbo/distances.yml",
             // Message bundles, by MessagesApi's identity.
             "smp/smp",
             "hunger-games/hunger-games",

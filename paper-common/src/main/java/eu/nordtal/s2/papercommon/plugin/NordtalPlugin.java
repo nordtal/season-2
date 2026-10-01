@@ -34,11 +34,14 @@ import eu.nordtal.s2.papercommon.command.CommandFilter;
 import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.papercommon.player.Presence;
+import eu.nordtal.s2.papercommon.world.Distances;
+import eu.nordtal.s2.papercommon.world.WorldDistances;
 import eu.nordtal.s2.settings.Check;
 import eu.nordtal.s2.settings.Colours;
 import eu.nordtal.s2.settings.ColoursSpec;
 import eu.nordtal.s2.settings.DatabasePool;
 import eu.nordtal.s2.settings.DatabaseSpec;
+import eu.nordtal.s2.settings.DistancesSpec;
 import eu.nordtal.s2.settings.FileSettings;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.Settings;
@@ -77,6 +80,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
     private Settings settings;
     private Setting<DatabaseSpec> database;
     private Setting<ColoursSpec> colourSettings;
+    private Setting<DistancesSpec> distanceSettings;
+    private WorldDistances worldDistances;
     private volatile ToneColours colours;
     private Messages messages;
     private HikariDataSource pool;
@@ -131,6 +136,11 @@ public abstract class NordtalPlugin extends JavaPlugin {
         return PaperUser.Chime.silent();
     }
 
+    /** Returns the distances every world runs with where {@code distances.yml} sets none; the server's own. */
+    protected Distances distanceDefaults() {
+        return Distances.NONE;
+    }
+
     /** Re-reads this plugin's own settings for a reload, after the base re-read the bundles and the colours. */
     protected List<String> reloadOwn() {
         return List.of();
@@ -154,7 +164,13 @@ public abstract class NordtalPlugin extends JavaPlugin {
         database = setting("database", DatabaseSpec.class, DatabasePool::check);
         colourSettings = setting("colours", ColoursSpec.class, Check.none());
         colours = ToneColours.parse(Colours.declared(colourSettings.get()), getLogger()::warning);
+        distanceSettings = setting("distances", DistancesSpec.class, Check.none());
         prepare();
+
+        // The worlds are loaded by now; one a plugin loads later gets the same through the listener.
+        worldDistances = new WorldDistances(wantedDistances(), logger());
+        worldDistances.apply(getServer().getWorlds());
+        listen(worldDistances);
 
         messages = loadMessages();
 
@@ -202,6 +218,11 @@ public abstract class NordtalPlugin extends JavaPlugin {
                 .getScheduler()
                 .runTaskTimerAsynchronously(this, readiness::refresh, 0L, Readiness.BEAT.toSeconds() * 20L);
         getLogger().info(getName() + " enabled");
+    }
+
+    /** Returns what {@code distances.yml} sets, with this plugin's defaults where it sets nothing. */
+    private Distances wantedDistances() {
+        return Distances.of(distanceSettings.get(), distanceDefaults(), getLogger()::warning);
     }
 
     /** Opens this process's one signal hub on the database settings; nothing listens until it starts. */
@@ -277,7 +298,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
     }
 
     /**
-     * Re-reads the bundles, the colours and this plugin's own settings, each independently of the others.
+     * Re-reads the bundles, the colours, the distances and the plugin's own settings, each on its own.
      *
      * @return what could not be re-read, empty when everything was taken
      */
@@ -294,6 +315,15 @@ public abstract class NordtalPlugin extends JavaPlugin {
             colours = ToneColours.parse(Colours.declared(colourSettings.get()), getLogger()::warning);
         } catch (final SettingsException failure) {
             problems.add("the colours: " + failure.getMessage());
+        }
+        try {
+            distanceSettings.reload();
+            worldDistances.want(wantedDistances());
+            getServer()
+                    .getScheduler()
+                    .runTask(this, () -> worldDistances.apply(getServer().getWorlds()));
+        } catch (final SettingsException failure) {
+            problems.add("the distances: " + failure.getMessage());
         }
         problems.addAll(reloadOwn());
         problems.forEach(problem -> getLogger().severe("not reloaded, the running values stay: " + problem));

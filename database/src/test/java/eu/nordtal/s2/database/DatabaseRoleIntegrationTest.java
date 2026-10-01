@@ -1,9 +1,11 @@
 package eu.nordtal.s2.database;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.database.network.SnapshotDirectory;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -140,6 +142,16 @@ class DatabaseRoleIntegrationTest {
                 connection.rollback();
             }
         }
+    }
+
+    /** The bot names its status channels and the proxy its MOTD from one query over smp's and hunger-games' tables. */
+    @Test
+    void everyProcessThatNamesTheNetworkReadsTheSnapshotUnderItsOwnRole() {
+        assertAll(List.of(DatabaseRole.DISCORD_BOT, DatabaseRole.PROXY).stream()
+                .map(role -> (Executable) () -> assertDoesNotThrow(
+                        () -> SnapshotDirectory.using(database.dataSourceAs(role))
+                                .snapshot(),
+                        role.name())));
     }
 
     @Test

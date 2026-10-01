@@ -4,17 +4,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.database.metric.Metric;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
@@ -27,8 +30,6 @@ class EveryCalledPathIsRoutedTest {
 
     private static final String FRONTEND = "steward-ui/frontend/src";
     private static final String ROUTES = "steward-ui/src/main/java/eu/nordtal/s2/steward/ui/StewardUi.java";
-    private static final String SAMPLER =
-            "steward-worker/src/main/java/eu/nordtal/s2/steward/worker/metric/Sampler.java";
 
     /** An {@code /api/...} literal in the frontend, up to a quote, a query, an interpolation or a backslash. */
     private static final Pattern CALLED = Pattern.compile("[\"`](/api/[^\"`?$\\\\]*)");
@@ -84,22 +85,15 @@ class EveryCalledPathIsRoutedTest {
     /** {@code useMetrics("host", "cpu_percent", 6)}; the second argument is the one that matters. */
     private static final Pattern ASKED_METRIC = Pattern.compile("useMetrics\\(\\s*\"[^\"]*\"\\s*,\\s*\"([^\"]+)\"");
 
-    /** {@code new MetricSample(subject, "cpu_percent", at, value)} in the sampler. */
-    private static final Pattern WRITTEN_METRIC = Pattern.compile("new MetricSample\\([^,]*,\\s*\"([^\"]+)\"");
-
     /**
-     * Every metric the frontend draws a curve of is one the sampler actually writes.
+     * Every metric the frontend draws a curve of is one the sampler writes, which takes its names from {@link Metric}.
      *
      * An unknown metric answers 200 with no points, so a misspelt one draws nothing silently; subjects are not held.
      */
     @Test
     void nothingIsDrawnThatIsNeverSampled() {
-        final Set<String> written = literals(WRITTEN_METRIC, repository().resolve(SAMPLER));
-        assertTrue(
-                written.size() >= 4,
-                "only " + written.size() + " metric names were read out of " + SAMPLER
-                        + " - the sampler moved or it names its metrics some other way now, and"
-                        + " this guard is measuring nothing.");
+        final Set<String> written =
+                Arrays.stream(Metric.values()).map(Metric::key).collect(Collectors.toCollection(TreeSet::new));
 
         final Set<String> asked = new TreeSet<>();
         forEachSourceFile(file -> {
@@ -163,15 +157,6 @@ class EveryCalledPathIsRoutedTest {
             }
         });
         return paths;
-    }
-
-    private static Set<String> literals(final Pattern pattern, final Path file) {
-        final Set<String> found = new TreeSet<>();
-        final Matcher matcher = pattern.matcher(read(file));
-        while (matcher.find()) {
-            found.add(matcher.group(1));
-        }
-        return found;
     }
 
     /** Every {@code .ts} and {@code .tsx} source file of the frontend, one at a time. */

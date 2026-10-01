@@ -49,7 +49,7 @@ class SamplerFoldTest {
 
         assertEquals(
                 List.of("memory_bytes"),
-                samples.stream().map(MetricSample::metric).toList());
+                samples.stream().map(sample -> sample.metric().key()).toList());
     }
 
     @Test
@@ -59,8 +59,8 @@ class SamplerFoldTest {
 
     private static double valueOf(final List<MetricSample> samples, final String subject, final String metric) {
         return samples.stream()
-                .filter(sample ->
-                        sample.subject().equals(subject) && sample.metric().equals(metric))
+                .filter(sample -> sample.subject().equals(subject)
+                        && sample.metric().key().equals(metric))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("no " + metric + " for " + subject))
                 .value();

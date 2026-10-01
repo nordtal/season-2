@@ -61,6 +61,29 @@ final class Wiring {
         return condition("call " + List.of(targets) + " in this order from " + method, method, targets, true);
     }
 
+    /** Returns that some single source line of the class's method {@code method} reaches every target. */
+    static ArchCondition<JavaClass> callOnOneLine(final String method, final String... targets) {
+        return new ArchCondition<>("call " + List.of(targets) + " on one line of " + method) {
+            @Override
+            public void check(final JavaClass type, final ConditionEvents events) {
+                final List<JavaAccess<?>> accesses = units(type, method, events).stream()
+                        .flatMap(unit -> unit.getAccessesFromSelf().stream())
+                        .toList();
+                final boolean together = accesses.stream()
+                        .map(JavaAccess::getLineNumber)
+                        .anyMatch(line -> java.util.Arrays.stream(targets)
+                                .allMatch(target -> accesses.stream()
+                                        .anyMatch(access -> access.getLineNumber() == line
+                                                && named(target).test(access))));
+                if (!together) {
+                    events.add(SimpleConditionEvent.violated(
+                            type,
+                            type.getName() + "." + method + " never reaches " + List.of(targets) + " on one line"));
+                }
+            }
+        };
+    }
+
     /** Returns that the class's method {@code method} reaches none of the targets. */
     static ArchCondition<JavaClass> neverCallFrom(final String method, final String... targets) {
         return new ArchCondition<>("never call " + List.of(targets) + " from " + method) {

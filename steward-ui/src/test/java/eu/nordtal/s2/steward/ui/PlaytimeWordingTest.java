@@ -1,20 +1,16 @@
 package eu.nordtal.s2.steward.ui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.database.access.PlaytimeWording;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
-/** The journal says what the dialog asked for, holding the Java formatting against the TypeScript one. */
+/**
+ * The journal says what the dialog asked for, holding the Java formatting against the TypeScript one.
+ *
+ * That the bot's journal line uses it is {@code :architecture}'s rule.
+ */
 class PlaytimeWordingTest {
 
     /** {@code format.ts}'s own tests pin these; the point here is that both halves agree. */
@@ -42,37 +38,5 @@ class PlaytimeWordingTest {
         // Rounding 3 659 up to "1 h 1 min" would disagree with the column beside it in the journal.
         assertEquals("1 h", PlaytimeWording.of(3_659));
         assertEquals("0 min", PlaytimeWording.of(-1));
-    }
-
-    @Test
-    void theJournalDoesNotSaySeconds() throws IOException {
-        // Catches record(...) reverting to ask.seconds, precise to a machine but not to a reader.
-        final Path source = repository()
-                .resolve("discord-bot/src/main/java/eu/nordtal/s2/discordbot/discord/BotAccessEffects.java");
-        final String text = Files.readString(source, StandardCharsets.UTF_8);
-
-        final Matcher call = Pattern.compile("record\\(\"SET_PLAYTIME\".{0,1200}?\\);", Pattern.DOTALL)
-                .matcher(text);
-        assertTrue(call.find(), "the SET_PLAYTIME journal line is not where this test looks");
-
-        final List<String> offending = new ArrayList<>();
-        if (!call.group().contains("PlaytimeWording.of(seconds)")) {
-            offending.add("the detail is not formatted with PlaytimeWording#of");
-        }
-        if (call.group().contains("\" seconds")) {
-            offending.add("the detail still spells out a number of seconds");
-        }
-        assertEquals(List.of(), offending, call.group());
-    }
-
-    /** The same walk {@code EveryCalledPathIsRoutedTest} uses: up until settings.gradle.kts. */
-    private static Path repository() {
-        Path directory = Path.of("").toAbsolutePath();
-        while (directory != null && !Files.isRegularFile(directory.resolve("settings.gradle.kts"))) {
-            directory = directory.getParent();
-        }
-        assertTrue(
-                directory != null, "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
-        return directory;
     }
 }

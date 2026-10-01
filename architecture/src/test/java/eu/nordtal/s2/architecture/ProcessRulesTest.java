@@ -86,6 +86,15 @@ class ProcessRulesTest {
                 .check(classes);
     }
 
+    /** The admin journal says play time the way Steward's dialog asked for it, never as a count of seconds. */
+    @Test
+    void theJournalSaysPlayTimeInTheUnitStewardShows() {
+        classes()
+                .that(isListed("eu.nordtal.s2.discordbot.discord.BotAccessEffects"))
+                .should(Wiring.callOnOneLine("setPlaytime", "AdminLog#record", "PlaytimeWording#of"))
+                .check(classes);
+    }
+
     private static DescribedPredicate<JavaAccess<?>> uniqueId() {
         return DescribedPredicate.describe(
                 "a player's getUniqueId()",

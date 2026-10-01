@@ -113,7 +113,7 @@ public final class SeasonWelcome {
     }
 
     /** What the moment is made of; the {@link Feedback#STAGING} sound ships blank. */
-    private Cinematic cinematic() {
+    static Cinematic cinematic() {
         return Cinematic.builder()
                 .frames(frames(), FRAME_TICKS)
                 .sound(Feedback.STAGING)

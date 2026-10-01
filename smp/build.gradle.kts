@@ -34,13 +34,6 @@ repositoryRootTestInputs {
     readsTree("resource-pack/src/assets")
     reads("compose.yml")
     reads("deploy/minecraft/entrypoint.sh")
-
-    // Wiring tests read these sources as text, which identical bytecode would not rerun.
-    reads("smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java")
-    reads("smp/src/main/java/eu/nordtal/s2/smp/npc/SpawnNpc.java")
-    reads("smp/src/main/java/eu/nordtal/s2/smp/npc/NpcProtection.java")
-    reads("smp/src/main/java/eu/nordtal/s2/smp/player/PresenceListener.java")
-    reads("smp/src/main/java/eu/nordtal/s2/smp/welcome/SeasonWelcome.java")
 }
 
 repositories {

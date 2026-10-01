@@ -30,7 +30,7 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
 - **The season phase** is one row every process follows on its hub. A switch into `SMP` from before the season stamps
   `fresh_start`, and smp starts its own track over once per stamp whenever it next sees the phase, so a server that
   was down at the switch still starts over and no other process writes smp's tables.
-- **A run** is a request in the run inbox, `worker_inbox`; a unique index keeps one open at a time.
+- **A run** is a request in the run inbox, `steward_inbox`; a unique index keeps one open at a time.
 - **A run's countdown** is typed columns the proxy reads: `scheduled_for` (when steward may claim it),
   `countdown_end` (when the servers go down) and `moving` (what they are), never the report JSON.
 

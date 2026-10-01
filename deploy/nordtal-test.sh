@@ -391,7 +391,7 @@ parse_update_args --start
 [[ "$UPDATE_KIND" == START && -z "$UPDATE_SCOPE" ]] || bad "a bare --start carried $UPDATE_SCOPE"
 parse_update_args --start limbo
 [[ "$UPDATE_KIND" == START && "$UPDATE_SCOPE" == limbo ]] || bad "--start limbo gave $UPDATE_SCOPE"
-ok "every kind this command offers is one worker_inbox.kind accepts"
+ok "every kind this command offers is one steward_inbox.kind accepts"
 
 # A bare --start means "release every hold", so the flag after it must not be eaten as a service.
 parse_update_args --start --no-wait
@@ -447,7 +447,7 @@ done
 for wrong in "" " " SMP "smp," ",smp" "smp,,limbo" "smp limbo" "../smp" "smp;"; do
     update_scope_ok "$wrong" && bad "'$wrong' was accepted as a scope"
 done
-ok "the scope check is worker_inbox_services_check's service name, joined by commas"
+ok "the scope check is steward_inbox_services_check's service name, joined by commas"
 
 
 if (( failed > 0 )); then

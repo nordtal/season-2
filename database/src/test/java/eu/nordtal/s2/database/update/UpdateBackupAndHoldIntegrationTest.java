@@ -38,7 +38,7 @@ class UpdateBackupAndHoldIntegrationTest {
 
     @BeforeEach
     void freshInbox() {
-        execute("TRUNCATE TABLE service_hold, worker_inbox RESTART IDENTITY");
+        execute("TRUNCATE TABLE service_hold, steward_inbox RESTART IDENTITY");
         updates = UpdateDirectory.using(dataSource);
     }
 
@@ -131,7 +131,7 @@ class UpdateBackupAndHoldIntegrationTest {
 
     @Test
     void anUpdateIsNotABackupHoweverHealthyItCameBack() {
-        execute("INSERT INTO worker_inbox (kind, payload, actor_kind, status, started, finished, outcome)"
+        execute("INSERT INTO steward_inbox (kind, payload, actor_kind, status, started, finished, outcome)"
                 + " VALUES ('UPDATE', '{\"services\": []}', 'HOST', 'DONE', now(), now(), $json$"
                 + UpdateReports.toJson(report(UpdateReport.State.SAVED)) + "$json$)");
 
@@ -144,7 +144,7 @@ class UpdateBackupAndHoldIntegrationTest {
      * @return the id, so a test can say which row it expected back
      */
     private static long backupRow(final String status, final double hoursAgo, final String result) {
-        execute("INSERT INTO worker_inbox (kind, payload, actor_kind, status, requested, scheduled_for, started,"
+        execute("INSERT INTO steward_inbox (kind, payload, actor_kind, status, requested, scheduled_for, started,"
                 + " finished, outcome) VALUES ('BACKUP', '{\"services\": []}', 'STEWARD', '" + status + "',"
                 + " now() - make_interval(hours => " + (int) Math.ceil(hoursAgo) + "),"
                 + " now() - make_interval(secs => " + (long) (hoursAgo * 3600) + "),"
@@ -191,7 +191,7 @@ class UpdateBackupAndHoldIntegrationTest {
         final UpdateRequest down = updates.submit(UpdateKind.DOWN, Actor.HOST, Duration.ZERO, List.of("limbo"));
         updates.hold("limbo", Actor.HOST, down.id());
 
-        execute("DELETE FROM worker_inbox WHERE id = " + down.id());
+        execute("DELETE FROM steward_inbox WHERE id = " + down.id());
 
         final ServiceHold held = updates.holds().getFirst();
         assertEquals("limbo", held.service());
@@ -202,7 +202,7 @@ class UpdateBackupAndHoldIntegrationTest {
     private static long lastId() {
         try (Connection connection = dataSource.getConnection();
                 Statement statement = connection.createStatement();
-                java.sql.ResultSet rows = statement.executeQuery("SELECT max(id) FROM worker_inbox")) {
+                java.sql.ResultSet rows = statement.executeQuery("SELECT max(id) FROM steward_inbox")) {
             rows.next();
             return rows.getLong(1);
         } catch (final SQLException failure) {

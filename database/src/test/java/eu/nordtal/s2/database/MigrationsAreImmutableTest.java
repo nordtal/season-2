@@ -39,6 +39,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V3__table_comments_name_steward.sql",
                 "7d87a6342e09b1693c4822884f70a99ddf9cf1ba96377deb8b0fd83c8912ef96");
+        FROZEN.put(
+                "V4__the_run_inbox_is_stewards.sql",
+                "2150325b77eaf1420c53d9f9d03a9db1d813f7a892872d7c529a60a870a0a6ad");
     }
 
     @Test

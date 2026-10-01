@@ -11,7 +11,7 @@ import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.Outcome;
 import eu.nordtal.s2.database.inbox.Request;
 import eu.nordtal.s2.database.inbox.Schedule;
-import eu.nordtal.s2.database.inbox.WorkerRequest;
+import eu.nordtal.s2.database.inbox.StewardRequest;
 import eu.nordtal.s2.messages.Refused;
 import java.time.Duration;
 import java.time.Instant;
@@ -25,15 +25,15 @@ import org.jspecify.annotations.Nullable;
 final class JdbiUpdateDirectory implements UpdateDirectory {
 
     /** The unique index that keeps a second run from being asked for while one is open. */
-    private static final String ONE_OPEN = "worker_inbox_one_open";
+    private static final String ONE_OPEN = "steward_inbox_one_open";
 
     private final UpdateDao dao;
-    private final Inbox<WorkerRequest> inbox;
+    private final Inbox<StewardRequest> inbox;
 
     JdbiUpdateDirectory(final DataSource dataSource) {
         Objects.requireNonNull(dataSource, "dataSource");
         this.dao = Jdbis.over(dataSource).onDemand(UpdateDao.class);
-        this.inbox = Inbox.over(dataSource, WorkerRequest.TABLE);
+        this.inbox = Inbox.over(dataSource, StewardRequest.TABLE);
     }
 
     /**
@@ -76,7 +76,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     /** Returns the run as the table holds it now, which the inbox's own row does not carry all of. */
-    private UpdateRequest run(final Request<WorkerRequest> request) {
+    private UpdateRequest run(final Request<StewardRequest> request) {
         return dao.find(request.id()).orElseThrow(() -> new IllegalStateException("run " + request.id() + " is gone"));
     }
 

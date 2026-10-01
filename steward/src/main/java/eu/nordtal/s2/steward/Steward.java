@@ -8,7 +8,7 @@ import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.InboxTable;
 import eu.nordtal.s2.database.inbox.Inboxes;
-import eu.nordtal.s2.database.inbox.WorkerRequest;
+import eu.nordtal.s2.database.inbox.StewardRequest;
 import eu.nordtal.s2.database.metric.MetricDirectory;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.online.OnlineDirectory;
@@ -307,7 +307,7 @@ public final class Steward {
      */
     private static void clearOldRequests(final Database database) {
         for (final InboxTable<?> table : Inboxes.ALL) {
-            if (table == WorkerRequest.TABLE) {
+            if (table == StewardRequest.TABLE) {
                 continue;
             }
             try {

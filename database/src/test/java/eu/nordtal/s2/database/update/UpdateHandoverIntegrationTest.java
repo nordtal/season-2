@@ -35,7 +35,7 @@ class UpdateHandoverIntegrationTest {
 
     @BeforeEach
     void freshInbox() {
-        execute("TRUNCATE TABLE service_hold, worker_inbox RESTART IDENTITY");
+        execute("TRUNCATE TABLE service_hold, steward_inbox RESTART IDENTITY");
         updates = UpdateDirectory.using(dataSource);
     }
 

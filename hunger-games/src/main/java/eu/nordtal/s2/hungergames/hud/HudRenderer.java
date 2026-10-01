@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import net.kyori.adventure.bossbar.BossBar;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -125,30 +124,30 @@ public final class HudRenderer {
 
     private void renderFor(final Player player) {
         final java.util.Locale locale = locales.of(player.getUniqueId());
-        final BossBar playersBar = playersBars.computeIfAbsent(
-                player.getUniqueId(),
-                key -> BossBar.bossBar(Component.empty(), 1f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS));
-        final BossBar lootBar = lootBars.computeIfAbsent(
-                player.getUniqueId(),
-                key -> BossBar.bossBar(Component.empty(), 1f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS));
-        final BossBar borderBar = borderBars.computeIfAbsent(
-                player.getUniqueId(),
-                key -> BossBar.bossBar(Component.empty(), 1f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS));
+        final BossBar playersBar = playersBars.computeIfAbsent(player.getUniqueId(), key -> BossBarLine.bar());
+        final BossBar lootBar = lootBars.computeIfAbsent(player.getUniqueId(), key -> BossBarLine.bar());
+        final BossBar borderBar = borderBars.computeIfAbsent(player.getUniqueId(), key -> BossBarLine.bar());
 
-        playersBar.name(BossBarLine.render(List.of(Pill.of(
-                Glyphs.BOSSBAR_ICON_ALIVE,
-                withArrow(
-                        messages.format(
-                                locale,
-                                MESSAGES.hg()
-                                        .hud()
-                                        .players(wins.aliveCount(), wins.deadCount(state.effectiveParticipants()))),
-                        nearestPlayerArrow(player))))));
+        BossBarLine.show(
+                playersBar,
+                List.of(Pill.of(
+                        Glyphs.BOSSBAR_ICON_ALIVE,
+                        withArrow(
+                                messages.format(
+                                        locale,
+                                        MESSAGES.hg()
+                                                .hud()
+                                                .players(
+                                                        wins.aliveCount(),
+                                                        wins.deadCount(state.effectiveParticipants()))),
+                                nearestPlayerArrow(player)))));
 
-        lootBar.name(BossBarLine.render(List.of(
-                Pill.of(Glyphs.BOSSBAR_ICON_LOOT_POINT, withArrow(lootLine(locale), nearestLootArrow(player))))));
+        BossBarLine.show(
+                lootBar,
+                List.of(Pill.of(
+                        Glyphs.BOSSBAR_ICON_LOOT_POINT, withArrow(lootLine(locale), nearestLootArrow(player)))));
 
-        borderBar.name(BossBarLine.render(List.of(Pill.of(Glyphs.BOSSBAR_ICON_BORDER, borderLine(locale)))));
+        BossBarLine.show(borderBar, List.of(Pill.of(Glyphs.BOSSBAR_ICON_BORDER, borderLine(locale))));
 
         player.showBossBar(playersBar);
         player.showBossBar(lootBar);

@@ -3,6 +3,7 @@ package eu.nordtal.s2.packrendering.hud;
 import eu.nordtal.s2.packrendering.Glyphs;
 import java.util.List;
 import java.util.Objects;
+import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.ShadowColor;
@@ -53,6 +54,16 @@ public final class BossBarLine {
             }
             return text.isEmpty() ? icon : icon + ICON_GAP + text;
         }
+    }
+
+    /** Returns a new, empty bar in the look every HUD line uses; {@link #show} gives it its line. */
+    public static BossBar bar() {
+        return BossBar.bossBar(Component.empty(), 1f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS);
+    }
+
+    /** Names {@code bar} with the line {@code pills} make, the one way a HUD line reaches a boss bar. */
+    public static void show(final BossBar bar, final List<Pill> pills) {
+        bar.name(render(pills));
     }
 
     /** Returns the line as the component a {@code BossBar#name} takes. */

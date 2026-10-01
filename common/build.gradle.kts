@@ -13,11 +13,6 @@ repositoryRootTestInputs {
     reads("gradle/libs.versions.toml")
     reads("deploy/minecraft/entrypoint.sh")
     reads("compose.yml")
-
-    // ReadinessWiringTest reads where each kind of process beats.
-    reads("paper-common/src/main/java/eu/nordtal/s2/papercommon/plugin/NordtalPlugin.java")
-    reads("proxy/src/main/templates/eu/nordtal/s2/proxy/ProxyPlugin.java")
-    reads("discord-bot/src/main/java/eu/nordtal/s2/discordbot/AccessBot.java")
 }
 
 dependencies {

@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.RepositoryRoot;
 import eu.nordtal.s2.packrendering.Glyphs;
 import eu.nordtal.s2.packrendering.hud.BossBarLine;
 import eu.nordtal.s2.smp.menu.MenuTitle;
@@ -21,12 +20,6 @@ import org.junit.jupiter.api.Test;
  * The shadow costs no advance but seams every tile boundary, which only the pixels show; the boss bar is exempt.
  */
 class GlyphShadowTest {
-
-    /** Every source file that composes a boss bar name; mirrors {@code BossBarFontTest}. */
-    private static final String[] BOSS_BAR_SOURCES = {
-        "smp/src/main/java/eu/nordtal/s2/smp/hud/SmpHud.java",
-        "hunger-games/src/main/java/eu/nordtal/s2/hungergames/hud/HudRenderer.java",
-    };
 
     @Test
     void everyFrameComponentABoardIsBuiltFromCarriesNoShadow() {
@@ -70,18 +63,11 @@ class GlyphShadowTest {
                         + " flatten the one piece of the window a player actually reads");
     }
 
+    /** That no renderer names a boss bar any other way is {@code :architecture}'s rule. */
     @Test
-    void aBossBarLineCarriesNoShadowAndTheRenderersBuildNothingElse() {
+    void aBossBarLineCarriesNoShadow() {
         assertNoShadowOnFont(
                 BossBarLine.render(List.of(BossBarLine.Pill.of("x"))), Glyphs.FONT_BOSSBAR, "BossBarLine.render");
-        for (final String source : BOSS_BAR_SOURCES) {
-            final String text = RepositoryRoot.read(source);
-            assertTrue(
-                    !text.contains("ShadowColor") && !text.contains("Component.text("),
-                    source + " styles a boss bar component itself; the one place that happens is"
-                            + " BossBarLine, so the shadow is off everywhere or nowhere."
-                            + " BossBarFontTest pins that every name goes through it.");
-        }
     }
 
     @Test

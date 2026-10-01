@@ -14,7 +14,7 @@ class SeasonApiTest extends WebTestSupport {
     /** Any {@code which} outside the two dates is refused, rather than overwriting launch. */
     @Test
     void aSeasonDateNeedsAName() throws Exception {
-        final String at = "\"at\":\"2026-10-01T18:00:00Z\"";
+        final String at = "\"at\":\"" + SOON + "\"";
         assertEquals(
                 400,
                 post("/api/season/date", "{" + at + ",\"which\":\"smpstart\"}").statusCode());
@@ -33,7 +33,7 @@ class SeasonApiTest extends WebTestSupport {
     /** A null {@code at} clears a date, a real state the start page reads; a blank one is still refused. */
     @Test
     void aSeasonDateCanBeRemoved() throws Exception {
-        final String at = "\"at\":\"2026-10-01T18:00:00Z\"";
+        final String at = "\"at\":\"" + SOON + "\"";
         assertEquals(
                 200,
                 post("/api/season/date", "{" + at + ",\"which\":\"launch\"}").statusCode());

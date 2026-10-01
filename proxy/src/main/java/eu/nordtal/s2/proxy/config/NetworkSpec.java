@@ -143,7 +143,7 @@ public interface NetworkSpec {
     @ConfigSpec
     interface MotdSpec {
 
-        // A lightened #24357d, readable on the dark server list; BrandColourTest refuses a self-coloured phase.
+        // A lightened #24357d, readable on the dark server list; ProxySettingsTest refuses a self-coloured phase.
         String NORDTAL_BLUE = "<#4a63d8><bold>nordtal.eu</bold></#4a63d8>";
 
         @Order(1)

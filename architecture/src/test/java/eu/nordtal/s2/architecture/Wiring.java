@@ -102,6 +102,71 @@ final class Wiring {
         };
     }
 
+    /** Returns that the class's method {@code method} reaches the target from exactly one source line. */
+    static ArchCondition<JavaClass> callOnceFrom(final String method, final String target) {
+        return new ArchCondition<>("call " + target + " from one line of " + method) {
+            @Override
+            public void check(final JavaClass type, final ConditionEvents events) {
+                final long lines = units(type, method, events).stream()
+                        .flatMap(unit -> unit.getAccessesFromSelf().stream())
+                        .filter(named(target))
+                        .mapToInt(JavaAccess::getLineNumber)
+                        .distinct()
+                        .count();
+                if (lines != 1) {
+                    events.add(SimpleConditionEvent.violated(
+                            type, type.getName() + "." + method + " reaches " + target + " from " + lines + " lines"));
+                }
+            }
+        };
+    }
+
+    /** Returns that no code unit of the class or of a class nested in it reaches the target, except {@code method}. */
+    static ArchCondition<JavaClass> callOnlyFrom(final String method, final String target) {
+        return new ArchCondition<>("call " + target + " from " + method + " alone") {
+            @Override
+            public void check(final JavaClass type, final ConditionEvents events) {
+                units(type, method, events);
+                for (final JavaClass each : withNested(type)) {
+                    for (final JavaCodeUnit unit : each.getCodeUnits()) {
+                        if (each.equals(type) && unit.getName().equals(method)) {
+                            continue;
+                        }
+                        final OptionalInt line = firstLine(List.of(unit), target);
+                        if (line.isPresent()) {
+                            events.add(SimpleConditionEvent.violated(
+                                    type,
+                                    each.getName() + "." + unit.getName() + " reaches " + target + " on line "
+                                            + line.getAsInt()));
+                        }
+                    }
+                }
+            }
+        };
+    }
+
+    /** Returns that every access of the class matching {@code first} has one matching {@code second} on its line. */
+    static ArchCondition<JavaClass> alwaysOnOneLine(
+            final DescribedPredicate<JavaAccess<?>> first, final DescribedPredicate<JavaAccess<?>> second) {
+        return new ArchCondition<>(
+                "reach " + first.getDescription() + " only on a line that reaches " + second.getDescription()) {
+            @Override
+            public void check(final JavaClass type, final ConditionEvents events) {
+                for (final JavaCodeUnit unit : type.getCodeUnits()) {
+                    for (final JavaAccess<?> one : unit.getAccessesFromSelf()) {
+                        if (first.test(one)
+                                && unit.getAccessesFromSelf().stream()
+                                        .noneMatch(other ->
+                                                second.test(other) && other.getLineNumber() == one.getLineNumber())) {
+                            events.add(SimpleConditionEvent.violated(
+                                    type, one.getDescription() + " without " + second.getDescription()));
+                        }
+                    }
+                }
+            }
+        };
+    }
+
     /** Returns that no code unit of the class reaches both kinds of target on one source line. */
     static ArchCondition<JavaClass> neverOnOneLine(
             final DescribedPredicate<JavaAccess<?>> first, final DescribedPredicate<JavaAccess<?>> second) {

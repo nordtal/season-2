@@ -10,8 +10,6 @@ import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateStatus;
 import eu.nordtal.s2.proxy.MutableClock;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -238,8 +236,8 @@ class CountdownTest {
     }
 
     @Test
-    void oneTitlePerSecond() throws Exception {
-        // A title reaches somebody with chat closed; a chat line with it would collide with the tick.
+    void oneTitlePerSecond() {
+        // The chat line draws a title as well (ProxyRulesTest), so a tick on its second would collide with it.
         final List<Countdown.Beat> beats = beatsFor(due(1L, Duration.ofSeconds(30)));
 
         final List<Long> chat = seconds(kinds(beats, Announcement.Kind.COUNTDOWN));
@@ -249,15 +247,6 @@ class CountdownTest {
                     "second " + tick + " has both a chat line and a tick, and both draw a title"
                             + " now: they would be drawn over one another");
         }
-
-        // The other half lives in RestartWatch#say, read as text since no test reaches a proxy.
-        final String say = Files.readString(Path.of("src/main/java/eu/nordtal/s2/proxy/update/RestartWatch.java"));
-        final int countdownCase = say.indexOf("case COUNTDOWN ->");
-        assertTrue(countdownCase >= 0, "RestartWatch#say no longer has a COUNTDOWN case");
-        final String body = say.substring(countdownCase, say.indexOf("case NOW ->", countdownCase));
-        assertTrue(
-                body.contains("title("),
-                "the chat line is still chat only, so the tick removed above bought nothing: " + body);
     }
 
     // helpers

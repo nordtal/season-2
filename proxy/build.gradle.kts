@@ -15,14 +15,8 @@ tasks.withType<JavaCompile>().configureEach {
     }
 }
 
-// BrandColourTest reads NetworkSpec's source, so Gradle has to see it as a test input.
+// ComposeTellsTheStandbyApartTest reads the deployment file itself, so Gradle has to see it as a test input.
 repositoryRootTestInputs {
-    reads("proxy/src/main/java/eu/nordtal/s2/proxy/config/NetworkSpec.java")
-
-    // NobodyComparesAgainstOneLimboTest walks this module's own sources.
-    reads("proxy/src/main")
-
-    // ComposeTellsTheStandbyApartTest reads the deployment file itself.
     reads("compose.yml")
 }
 

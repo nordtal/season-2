@@ -330,6 +330,29 @@ class ProxySettingsTest {
     }
 
     @Test
+    void everyDefaultMotdOpensWithTheOneBrandMark() throws Exception {
+        // One mark, and the phase is what the second line says: a name that changes colour is five marks.
+        final NetworkSpec config = FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
+                .load("network", NetworkSpec.class, ProxySettings::checkNetwork)
+                .get();
+        for (final SeasonPhase phase : SeasonPhase.values()) {
+            final String motd = motdFor(config, phase);
+            assertTrue(motd.startsWith(NetworkSpec.MotdSpec.NORDTAL_BLUE), phase + " opens with its own mark: " + motd);
+            assertFalse(motd.contains("<gradient:"), phase + " colours the name itself: " + motd);
+            assertEquals(
+                    motd.indexOf("nordtal.eu"),
+                    motd.lastIndexOf("nordtal.eu"),
+                    phase + " writes the name out a second time: " + motd);
+        }
+    }
+
+    @Test
+    void theBrandColourIsTheLogosBlueLightened() {
+        // The logo's #24357d off resource-pack/src/pack.png, lightened for the server browser's near-black list.
+        assertEquals("<#4a63d8><bold>nordtal.eu</bold></#4a63d8>", NetworkSpec.MotdSpec.NORDTAL_BLUE);
+    }
+
+    @Test
     void aNetworkConfigStillCarryingBackendLimitLosesTheLineRatherThanTheProxy() throws Exception {
         // A deployed network.yml may still carry `backend-limit`; the loader drops it.
         Files.writeString(directory.resolve("network.yml"), """

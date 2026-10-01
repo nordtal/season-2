@@ -42,6 +42,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V4__the_run_inbox_is_stewards.sql",
                 "2150325b77eaf1420c53d9f9d03a9db1d813f7a892872d7c529a60a870a0a6ad");
+        FROZEN.put(
+                "V5__settings_live_in_the_database.sql",
+                "522be0eaa123914439838988afd2d34ae1198bce938f97733e48d200e5df9411");
     }
 
     @Test

@@ -8,7 +8,7 @@
 #
 #   ./nordtal.sh                       the menu: what is set, change one, then deploy
 #   ./nordtal.sh --deploy              no menu; ask only for what is missing, then deploy
-#   ./nordtal.sh --build               build the deployer from a checkout first (needs a JDK)
+#   ./nordtal.sh --build               build the agent from a checkout first (needs a JDK)
 #   ./nordtal.sh --check               every check, and stop before anything is changed
 #   ./nordtal.sh --from PATH           take the answers from this file instead of asking
 #   ./nordtal.sh --env-file PATH       where the environment file belongs on this host
@@ -28,7 +28,7 @@
 #
 # Every run first fetches the current script and runs that, saying which version and where from;
 # without a network it runs the local copy. Run it after every release: a new compose.yml arrives
-# only inside a new steward-deployer image, and this script is what renews that container.
+# only inside a new steward-agent image, and this script is what renews that container.
 #
 # It asks for what only a person knows, generates the other secrets, and writes them to
 # /etc/nordtal/season-2.env with mode 600, outside the installation directory. It never prints a
@@ -42,7 +42,7 @@ INSTALLED="$INSTALL_DIR/$SELF_NAME"
 SELF_URL="${NORDTAL_SH_URL:-https://raw.githubusercontent.com/nordtal/season-2/main/deploy/nordtal.sh}"
 
 DEFAULT_ENV_FILE="/etc/nordtal/season-2.env"
-DEPLOYER_IMAGE="ghcr.io/nordtal/steward-deployer:latest"
+AGENT_IMAGE="ghcr.io/nordtal/steward-agent:latest"
 DEFAULT_PROJECT="nordtal-s2"
 
 # How long to give GitHub before running what is already here.
@@ -321,7 +321,7 @@ GENERATED=(
     POSTGRES_SMP_PASSWORD
     POSTGRES_STEWARD_PASSWORD
     VELOCITY_FORWARDING_SECRET
-    STEWARD_DEPLOYER_TOKEN
+    STEWARD_AGENT_TOKEN
     STEWARD_WEB_PUSH_PUBLIC_KEY
     STEWARD_WEB_PUSH_PRIVATE_KEY
 )
@@ -771,7 +771,7 @@ FROM_FILE=""
 ENV_FILE=""
 ADDRESSES_GIVEN=""
 CHECK_ONLY=false
-BUILD_DEPLOYER=false
+BUILD_AGENT=false
 SELF_UPDATE=true
 # A plain run shows the menu; `--deploy`, `--check` and `--build` turn it off.
 MENU=true
@@ -790,7 +790,7 @@ while (( $# > 0 )); do
         --env-file)         ENV_FILE="${2:?--env-file needs a path}"; shift 2 ;;
         --address)          ADDRESSES_GIVEN+="${2:?--address needs an address}"$'\n'; shift 2 ;;
         --check)            CHECK_ONLY=true; MENU=false; shift ;;
-        --build)            BUILD_DEPLOYER=true; MENU=false; shift ;;
+        --build)            BUILD_AGENT=true; MENU=false; shift ;;
         --deploy)           MENU=false; shift ;;
         --no-self-update)   SELF_UPDATE=false; shift ;;
         -h|--help)          usage; exit 0 ;;
@@ -922,9 +922,9 @@ docker info >/dev/null 2>&1 \
 log "docker $(docker version --format '{{.Server.Version}}'), compose $(docker compose version --short)"
 
 # 2 · the environment file
-# Holds every secret; compose interpolates it and steward-deployer mounts it read-only.
+# Holds every secret; compose interpolates it and steward-agent mounts it read-only.
 is_absolute "$ENV_FILE" || die "--env-file has to be absolute, and '$ENV_FILE' is not. compose
-       resolves a relative path against steward-deployer's project directory, which is inside its
+       resolves a relative path against steward-agent's project directory, which is inside its
        image - so a relative path here points at a file that does not exist."
 
 if [[ ! -f "$ENV_FILE" ]]; then
@@ -964,11 +964,11 @@ default_for COMPOSE_PROFILES     "db,bot,mc,backup,steward"
 default_for COMPOSE_PROJECT_NAME "$DEFAULT_PROJECT"
 default_for POSTGRES_DB          "nordtal"
 default_for POSTGRES_USER        "nordtal"
-# So steward-deployer mounts the file this deployment is configured from; section 3 checks it.
+# So steward-agent mounts the file this deployment is configured from; section 3 checks it.
 default_for STEWARD_ENV_FILE     "$ENV_FILE"
-# Absolute, since compose resolves a relative bind inside steward-deployer's image.
+# Absolute, since compose resolves a relative bind inside steward-agent's image.
 default_for NORDTAL_DIR           "$INSTALL_DIR"
-# steward-deployer mounts the directory: a file bind would keep a rotated file's old inode.
+# steward-agent mounts the directory: a file bind would keep a rotated file's old inode.
 default_for STEWARD_ENV_DIR       "$(dirname "$ENV_FILE")"
 default_for STEWARD_ENV_FILE_NAME "$(basename "$ENV_FILE")"
 
@@ -1129,7 +1129,7 @@ set_secret POSTGRES_HUNGER_GAMES_PASSWORD 24
 set_secret POSTGRES_SMP_PASSWORD 24
 set_secret POSTGRES_STEWARD_PASSWORD 24
 set_secret VELOCITY_FORWARDING_SECRET 24
-set_secret STEWARD_DEPLOYER_TOKEN
+set_secret STEWARD_AGENT_TOKEN
 
 # 4b · the Web Push keypair
 # Minted with `steward generate-vapid-keys`, which needs neither database nor config. A half
@@ -1207,20 +1207,20 @@ fi
 
 profiles="$(env_value "$ENV_FILE" COMPOSE_PROFILES)"
 profiles_include "$profiles" steward || die "COMPOSE_PROFILES in $ENV_FILE is '$profiles', which does
-       not include 'steward'. caddy and steward-deployer would be defined and never started, and
+       not include 'steward'. caddy and steward-agent would be defined and never started, and
        the stack would come up healthy with nothing in front of the interface."
 
 declared_env_file="$(env_value "$ENV_FILE" STEWARD_ENV_FILE)"
 [[ "$declared_env_file" == "$ENV_FILE" ]] || die "STEWARD_ENV_FILE inside the file says
        '$declared_env_file', and the file is at '$ENV_FILE'. That value is what compose.yml mounts
-       into steward-deployer, so the deployer would mount a different file than the one this
+       into steward-agent, so the agent would mount a different file than the one this
        deployment is configured from - or nothing at all."
 
-# The derived directory and name must match the file, or steward-deployer mounts the wrong one.
+# The derived directory and name must match the file, or steward-agent mounts the wrong one.
 declared_env_dir="$(env_value "$ENV_FILE" STEWARD_ENV_DIR)"
 [[ "$declared_env_dir" == "$(dirname "$ENV_FILE")" ]] || die "STEWARD_ENV_DIR inside the file says
        '$declared_env_dir', and the file is at '$ENV_FILE' (directory '$(dirname "$ENV_FILE")').
-       That value is what compose.yml mounts into steward-deployer as a directory, so a stale
+       That value is what compose.yml mounts into steward-agent as a directory, so a stale
        STEWARD_ENV_DIR would mount the wrong directory entirely."
 declared_dir="$(env_value "$ENV_FILE" NORDTAL_DIR)"
 [[ "$declared_dir" == "$INSTALL_DIR" ]] || die "NORDTAL_DIR inside the file says '$declared_dir',
@@ -1228,13 +1228,13 @@ declared_dir="$(env_value "$ENV_FILE" NORDTAL_DIR)"
        so the deployment would read its worlds and its database from somewhere other than the
        directory this run is installing into."
 is_absolute "$declared_dir" || die "NORDTAL_DIR inside the file is '$declared_dir', which is not an
-       absolute path. steward-deployer runs compose from /app inside its own image, so a relative
+       absolute path. steward-agent runs compose from /app inside its own image, so a relative
        bind resolves against a directory that exists only in there."
 
 declared_env_file_name="$(env_value "$ENV_FILE" STEWARD_ENV_FILE_NAME)"
 [[ "$declared_env_file_name" == "$(basename "$ENV_FILE")" ]] || die "STEWARD_ENV_FILE_NAME inside
        the file says '$declared_env_file_name', and the file is named '$(basename "$ENV_FILE")'.
-       steward-deployer looks for exactly this name inside the mounted directory."
+       steward-agent looks for exactly this name inside the mounted directory."
 
 log "every required value is set; the interface will answer on $STEWARD_NAME"
 
@@ -1299,15 +1299,15 @@ done
 log "$STEWARD_NAME resolves to this host ($(tr '\n' ' ' <<<"$resolved"))"
 
 # 5a · locally built images about to be replaced
-# The deployer pulls every service before `up`, replacing a local build whose tag the registry
-# answers. compose.yml comes from the local deployer image; without one there is nothing to warn.
+# The agent pulls every service before `up`, replacing a local build whose tag the registry
+# answers. compose.yml comes from the local agent image; without one there is nothing to warn.
 COMPOSE_CACHE=""
 compose_file() {
     [[ -n "$COMPOSE_CACHE" ]] && { printf '%s' "$COMPOSE_CACHE"; return 0; }
-    docker image inspect "$DEPLOYER_IMAGE" >/dev/null 2>&1 || return 1
+    docker image inspect "$AGENT_IMAGE" >/dev/null 2>&1 || return 1
     local container cache
     cache="$(mktemp -d)/compose.yml"
-    container="$(docker create "$DEPLOYER_IMAGE" 2>/dev/null)" || return 1
+    container="$(docker create "$AGENT_IMAGE" 2>/dev/null)" || return 1
     if docker cp "$container:/app/compose.yml" "$cache" >/dev/null 2>&1; then
         docker rm -f "$container" >/dev/null 2>&1 || true
         COMPOSE_CACHE="$cache"
@@ -1342,7 +1342,7 @@ images_at_risk() {
         return 0
     }
     json="$(compose_config_json)" || {
-        warn "no copy of $DEPLOYER_IMAGE on this host yet, so there is no compose.yml to read the"
+        warn "no copy of $AGENT_IMAGE on this host yet, so there is no compose.yml to read the"
         warn "image list out of. Nothing here has been deployed before, which is also why there is"
         warn "nothing for this check to protect."
         return 0
@@ -1418,41 +1418,41 @@ if $CHECK_ONLY; then
     exit 0
 fi
 
-# 6 · renew steward-deployer
+# 6 · renew steward-agent
 # The one image the stack cannot replace itself; compose.yml is baked into it.
-if $BUILD_DEPLOYER; then
+if $BUILD_AGENT; then
     # Needs a JDK and a checkout: the installation directory or the one this script sits in.
     checkout=""
-    if [[ -f "$INSTALL_DIR/gradlew" && -d "$INSTALL_DIR/steward-deployer" ]]; then
+    if [[ -f "$INSTALL_DIR/gradlew" && -d "$INSTALL_DIR/steward-agent" ]]; then
         checkout="$INSTALL_DIR"
     elif running_from_a_file && from_a_checkout; then
         checkout="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
     fi
-    [[ -n "$checkout" ]] || die "--build builds $DEPLOYER_IMAGE from a checkout of nordtal/season-2,
+    [[ -n "$checkout" ]] || die "--build builds $AGENT_IMAGE from a checkout of nordtal/season-2,
        and this run is not in one. Run it from a checkout, or drop --build and let it pull the
        published image."
-    log "building $DEPLOYER_IMAGE from $checkout"
-    sh "$checkout/gradlew" :steward-deployer:build
-    docker build -t "$DEPLOYER_IMAGE" "$checkout/steward-deployer"
+    log "building $AGENT_IMAGE from $checkout"
+    sh "$checkout/gradlew" :steward-agent:build
+    docker build -t "$AGENT_IMAGE" "$checkout/steward-agent"
 else
-    log "pulling $DEPLOYER_IMAGE"
-    docker pull "$DEPLOYER_IMAGE" || die "could not pull $DEPLOYER_IMAGE. A registry that answers
+    log "pulling $AGENT_IMAGE"
+    docker pull "$AGENT_IMAGE" || die "could not pull $AGENT_IMAGE. A registry that answers
        'denied' means the same thing as one that answers 'not found': either the release that
        carries this image has not been published yet, or the package is still private. --build
        builds it from this checkout instead, and needs a JDK."
 fi
 
 # 7 · the deployment itself
-# A one-off deployer runs `up`, which pulls every image before stopping anything. The env
-# directory is mounted, and NORDTAL_STEWARD_ENV_FILE names the file inside it.
+# A one-off agent runs `up`, which pulls every image before stopping anything. The env
+# directory is mounted, and NORDTAL_STEWARD_AGENT_ENV_FILE names the file inside it.
 log "deploying - this pulls every image before it stops anything"
 docker run --rm \
     --name "${PROJECT}-setup" \
     -e "COMPOSE_PROJECT_NAME=$PROJECT" \
-    -e "NORDTAL_STEWARD_ENV_FILE=/app/env/$(basename "$ENV_FILE")" \
+    -e "NORDTAL_STEWARD_AGENT_ENV_FILE=/app/env/$(basename "$ENV_FILE")" \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$(dirname "$ENV_FILE"):/app/env:ro" \
-    "$DEPLOYER_IMAGE" up \
+    "$AGENT_IMAGE" up \
     || die "the deployment failed, above. Nothing was stopped if the failure was a pull; if it was
        an up, 'docker compose -p $PROJECT ps' says what is running now."
 

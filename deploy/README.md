@@ -4,8 +4,8 @@ Season 2's deployment: one `docker compose` stack on one host. The project overv
 [`../README.md`](../README.md).
 
 `compose.yml` and `.env.example` are at the repository root, so every command here runs from there.
-`compose.yml` is baked into `steward-deployer`'s image, the one service that creates containers; see
-[`../steward-deployer/README.md`](../steward-deployer/README.md). steward reads, stops and
+`compose.yml` is baked into `steward-agent`'s image, the one service that creates containers; see
+[`../steward-agent/README.md`](../steward-agent/README.md). steward reads, stops and
 starts containers over the Docker socket.
 
 ```
@@ -26,7 +26,7 @@ deploy/
 ## First deployment, in order
 
 A deploy pulls and never builds. The four images (`minecraft`, `steward`, `discord-bot`,
-`steward-deployer`) are pushed to `ghcr.io/nordtal` by
+`steward-agent`) are pushed to `ghcr.io/nordtal` by
 [`release.yml`](../.github/workflows/release.yml) when a release is published.
 
 1. **Publish a release** and let `release.yml` finish.
@@ -43,7 +43,7 @@ A deploy pulls and never builds. The four images (`minecraft`, `steward`, `disco
    It asks for what only a person knows (`STEWARD_HOST`, `STEWARD_ACME_EMAIL`, the EULA, the bot
    token, the Discord login's client id and secret, the guild, the admin role, and optionally bunq),
    generates the secrets, waits until `STEWARD_HOST` resolves to this host so Caddy's certificate
-   request succeeds, renews `steward-deployer` and brings the stack up. A second run asks only for
+   request succeeds, renews `steward-agent` and brings the stack up. A second run asks only for
    what is missing. On a host with an existing `postgres-data` it asks for `POSTGRES_PASSWORD`
    instead of generating one, since Postgres reads it only on an empty data directory. Each service
    logs in as a database role of its own, `POSTGRES_<SERVICE>_PASSWORD`; steward creates the
@@ -62,11 +62,11 @@ Afterwards the script is `./nordtal.sh` in the installation directory:
 ```
 
 Run it after every release: a new `compose.yml` reaches the host only inside a new
-`steward-deployer` image. Every other artefact is moved by steward.
+`steward-agent` image. Every other artefact is moved by steward.
 
 **The environment file** lives at the absolute path `STEWARD_ENV_FILE`, mode 600, outside the
 installation directory, and holds every secret. Edit it in place (`sed -i`); never `mv` a new file
-over it, because an older deployer image binds the file itself and would keep the old inode.
+over it, because an older agent image binds the file itself and would keep the old inode.
 
 **Every hand-typed `docker compose` needs `--env-file`.** Without it Compose interpolates empty
 strings, which fails on `${X:?}` and silently changes everything else:
@@ -169,9 +169,9 @@ steward does not renew its own image or `postgres`; those need `./nordtal.sh`.
 A development loop, not a delivery: a locally built image stands until the next `pull`.
 
 ```bash
-sh gradlew :steward-deployer:build
-docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f ./compose.yml build steward-deployer
-docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f ./compose.yml up -d --no-deps steward-deployer
+sh gradlew :steward-agent:build
+docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f ./compose.yml build steward-agent
+docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f ./compose.yml up -d --no-deps steward-agent
 ```
 
 `--no-deps` keeps it to one service. `steward` and `discord-bot` run the jar from their jar
@@ -206,7 +206,7 @@ Discord guild.
 dev ui
 ```
 
-starts the stack plus steward and steward-deployer, then Vite in the foreground on
+starts the stack plus steward and steward-agent, then Vite in the foreground on
 http://localhost:5173, which proxies `/api` and `/auth` to `127.0.0.1:8080`. Stopping it stops only
 Vite; `dev stop` stops the rest. Node is downloaded by Gradle under `steward/build/nodejs/`.
 To run the Java half from Gradle (`:steward:run`), stop the container first, since both want

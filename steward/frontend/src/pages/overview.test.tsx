@@ -85,7 +85,7 @@ function backend(over: {
       return json(200, await (over.settings?.() ?? Promise.resolve({ disk: 85, memory: 90, backupAgeHours: 36 })))
     }
     /** The other tiles answer emptily, so nothing else can be why a test passes or fails. */
-    if (url === "/api/deployer") return json(200, { available: true })
+    if (url === "/api/agent") return json(200, { available: true })
     if (url.startsWith("/api/metrics")) return json(200, { points: [] })
     if (url.startsWith("/api/updates")) return json(200, [])
     if (url === "/api/season") {

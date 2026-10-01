@@ -3,7 +3,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 
 import { ApiError } from "@/lib/api"
-import { useDeployer, useDeployerJob, useRecreate } from "@/lib/queries"
+import { useAgent, useAgentJob, useRecreate } from "@/lib/queries"
 import { lockTitle, touches, useRunLock } from "@/lib/run-lock"
 import { Button } from "@/components/ui/button"
 import {
@@ -21,7 +21,7 @@ import { Failure } from "@/components/steward/query-state"
 import { StatusBadge } from "@/components/steward/status"
 
 /**
- * Recreates one container through steward-deployer from the image on this host, showing compose's output verbatim.
+ * Recreates one container through steward-agent from the image on this host, showing compose's output verbatim.
  *
  * It is no update: no countdown, no announcement, and the dialog says so before anything happens.
  */
@@ -59,11 +59,11 @@ export function RecreateButton({
   }
   const [jobId, setJobId] = useState<string | null>(null)
   const recreate = useRecreate()
-  const job = useDeployerJob(open ? jobId : null)
+  const job = useAgentJob(open ? jobId : null)
   const { unavailable, title } = useRecreateGate(service)
 
-  /** The deployer refuses to recreate itself, so its button is not drawn at all. */
-  if (service === "steward-deployer") return null
+  /** The agent refuses to recreate itself, so its button is not drawn at all. */
+  if (service === "steward-agent") return null
 
   /** Guarded on `job.error`, since `job.data` survives a failed poll and would keep the dialog shut open forever. */
   const running = recreate.isPending || (!job.error && job.data?.state === "RUNNING")
@@ -170,29 +170,29 @@ export function RecreateButton({
  * A hook of its own, so the service page's menu greys out the same item for the same reason.
  */
 export function useRecreateGate(service: string): { unavailable: boolean; title: string | undefined } {
-  const deployer = useDeployer()
+  const agent = useAgent()
   /** A run owns the containers in its scope, and recreating one it is about to stop would race it. */
   const run = useRunLock().run
   const lock =
     run && touches(run, service) ? { locked: true, title: lockTitle(run) } : { locked: false, title: undefined }
-  /** An answer that the deployer is unavailable or unreachable locks the button; a first load leaves it open. */
-  const unreachable = deployer.data?.available === true && deployer.data.reachable === false
-  const unavailable = deployer.data?.available === false || unreachable || deployer.isError || lock.locked
+  /** An answer that the agent is unavailable or unreachable locks the button; a first load leaves it open. */
+  const unreachable = agent.data?.available === true && agent.data.reachable === false
+  const unavailable = agent.data?.available === false || unreachable || agent.isError || lock.locked
   const title =
     lock.title ??
-    (deployer.data?.available === false
-      ? deployer.data.reason
+    (agent.data?.available === false
+      ? agent.data.reason
       : unreachable
-        ? "steward-deployer is configured but not answering."
-        : deployer.isError
-          ? "The state of steward-deployer is unknown: /api/deployer did not answer."
-          : deployer.data?.available === true
+        ? "steward-agent is configured but not answering."
+        : agent.isError
+          ? "The state of steward-agent is unknown: /api/agent did not answer."
+          : agent.data?.available === true
             ? `Recreate the container for ${service} from the image already on this host.`
-            : "The state of steward-deployer is not known yet.")
+            : "The state of steward-agent is not known yet.")
   return { unavailable, title }
 }
 
-function Output({ job }: { job: ReturnType<typeof useDeployerJob>["data"] }) {
+function Output({ job }: { job: ReturnType<typeof useAgentJob>["data"] }) {
   const state = job?.state ?? "RUNNING"
   return (
     <div className="flex flex-col gap-2">

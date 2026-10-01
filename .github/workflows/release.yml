@@ -150,11 +150,11 @@ jobs:
             ghcr.io/nordtal/caddy:latest
 
       # Carries compose.yml; deploy/nordtal.sh renews it from outside the stack.
-      - name: Build and push the steward-deployer image
+      - name: Build and push the steward-agent image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
-          context: steward-deployer
+          context: steward-agent
           push: true
           tags: |
-            ghcr.io/nordtal/steward-deployer:${{ env.VERSION }}
-            ghcr.io/nordtal/steward-deployer:latest
+            ghcr.io/nordtal/steward-agent:${{ env.VERSION }}
+            ghcr.io/nordtal/steward-agent:latest

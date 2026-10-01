@@ -15,7 +15,7 @@ class StewardRulesTest {
 
     private static final String SERVE = "eu.nordtal.s2.steward.serve.";
     private static final String LOG_FOLLOWS = "eu.nordtal.s2.steward.api.LogFollows";
-    private static final String DEPLOYER = "eu.nordtal.s2.steward.deployer.StewardDeployer";
+    private static final String AGENT = "eu.nordtal.s2.stewardagent.StewardAgent";
 
     /** Standbys up, then the warning, then the wait for the players, then the stop: no other order. */
     private static final String[] CHOREOGRAPHY = {
@@ -93,7 +93,7 @@ class StewardRulesTest {
     @Test
     void recreatingNeverPullsAndDeployingDoes() {
         classes()
-                .that(isListed(DEPLOYER))
+                .that(isListed(AGENT))
                 .should(neverCallFrom("recreate", "Compose#pull"))
                 .andShould(callFrom("recreate", "Compose#hasLocalImage", "Compose#recreate"))
                 .andShould(callFrom("deploy", "Compose#pull"))

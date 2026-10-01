@@ -40,8 +40,8 @@ export function Empty({ title, note, action }: { title: string; note?: string; a
 export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   const api = error instanceof ApiError ? error : null
   const docker = api?.where === "docker"
-  const deployer = api?.where === "steward-deployer"
-  const Icon = docker || deployer ? PlugsIcon : WarningIcon
+  const agent = api?.where === "steward-agent"
+  const Icon = docker || agent ? PlugsIcon : WarningIcon
 
   return (
     <div
@@ -54,8 +54,8 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
           <p className="text-sm font-medium">
             {docker
               ? "Docker is not answering."
-              : deployer
-                ? "steward-deployer is not answering."
+              : agent
+                ? "steward-agent is not answering."
                 : "This information could not be loaded."}
           </p>
           <p className="text-sm text-muted-foreground">
@@ -68,7 +68,7 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
               is running; this list is not empty because of that.
             </p>
           ) : null}
-          {deployer ? (
+          {agent ? (
             <p className="max-w-prose text-sm text-muted-foreground">
               Only this service may create containers. While it stays silent nothing can be recreated - the stack keeps
               running regardless.

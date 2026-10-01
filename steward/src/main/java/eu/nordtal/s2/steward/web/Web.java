@@ -3,6 +3,7 @@ package eu.nordtal.s2.steward.web;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.access.PackExemptions;
+import eu.nordtal.s2.steward.agent.AgentClient;
 import eu.nordtal.s2.steward.api.Caller;
 import eu.nordtal.s2.steward.api.StackApi;
 import eu.nordtal.s2.steward.auth.Credentials;
@@ -40,7 +41,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Nordtal Steward, the web interface: every route the browser calls, behind one gate.
  *
- * Creating a container is not here; only steward-deployer may.
+ * Creating a container is not here; only steward-agent may.
  */
 public final class Web {
 
@@ -97,7 +98,7 @@ public final class Web {
     private final @Nullable PackExemptionApi packExemptionApi;
     private final AuthFlow authFlow;
 
-    private final DeployerApi deployments;
+    private final AgentApi deployments;
 
     private final Updates updates;
 
@@ -122,14 +123,14 @@ public final class Web {
     private Javalin app;
 
     /**
-     * @param deployerOffered whether a deployer token is configured; without one no recreate button is drawn
+     * @param agentOffered whether an agent token is configured; without one no recreate button is drawn
      */
     public Web(
             final WebSpec config,
             final DiscordAuth discord,
             final StackApi stack,
-            final InternalClient deployer,
-            final boolean deployerOffered,
+            final AgentClient agent,
+            final boolean agentOffered,
             final @Nullable Data data,
             final Clock clock) {
         this.config = config;
@@ -168,7 +169,7 @@ public final class Web {
         this.authFlow = new AuthFlow(config, discord, data, this.sessions, localAdmins);
         this.updates = new Updates(data, ctx -> account(ctx).orElseThrow());
         this.season = new SeasonRoutes(data, ctx -> account(ctx).orElseThrow());
-        this.deployments = new DeployerApi(deployer, data, ctx -> account(ctx).orElseThrow(), deployerOffered);
+        this.deployments = new AgentApi(agent, data, ctx -> account(ctx).orElseThrow(), agentOffered);
         final @Nullable PushSubscriptions localPushSubscriptions =
                 data == null ? null : new PushSubscriptions(data.dataSource());
         final @Nullable PushPreferences localPushPreferences =
@@ -267,7 +268,7 @@ public final class Web {
                     registerWebPushRoutes(cfg);
                     // Before the update routes: its /api/updates/available must come before /api/updates/{id}.
                     stack.register(cfg, caller());
-                    registerDeployerRoutes(cfg);
+                    registerAgentRoutes(cfg);
                     registerMetricsRoute(cfg);
                     registerUpdateListRoutes(cfg);
                     registerUpdateLookupRoutes(cfg);
@@ -367,13 +368,13 @@ public final class Web {
         cfg.routes.post("/api/web-push/test", push::test, Gate.KEY_FRESH);
     }
 
-    private void registerDeployerRoutes(final JavalinConfig cfg) {
-        // Not the update door either: this recreates one container, and only the deployer may.
-        cfg.routes.get("/api/deployer", deployments::state, Gate.KEY_HELD);
-        cfg.routes.get("/api/deployer/services", deployments::services, Gate.KEY_HELD);
-        cfg.routes.post("/api/deployer/recreate/{service}", deployments::recreate, Gate.KEY_FRESH);
-        cfg.routes.get("/api/deployer/jobs", deployments::jobs, Gate.KEY_HELD);
-        cfg.routes.get("/api/deployer/jobs/{id}", deployments::job, Gate.KEY_HELD);
+    private void registerAgentRoutes(final JavalinConfig cfg) {
+        // Not the update door either: this recreates one container, and only the agent may.
+        cfg.routes.get("/api/agent", deployments::state, Gate.KEY_HELD);
+        cfg.routes.get("/api/agent/services", deployments::services, Gate.KEY_HELD);
+        cfg.routes.post("/api/agent/recreate/{service}", deployments::recreate, Gate.KEY_FRESH);
+        cfg.routes.get("/api/agent/jobs", deployments::jobs, Gate.KEY_HELD);
+        cfg.routes.get("/api/agent/jobs/{id}", deployments::job, Gate.KEY_HELD);
     }
 
     private void registerMetricsRoute(final JavalinConfig cfg) {

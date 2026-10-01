@@ -47,7 +47,7 @@ const TABLE = {
     service({ service: "postgres", image: "postgres:17-alpine" }),
     service({ service: "caddy", image: "caddy:2" }),
     service({ service: "steward" }),
-    service({ service: "steward-deployer", state: "exited", status: "Exited (0)" }),
+    service({ service: "steward-agent", state: "exited", status: "Exited (0)" }),
   ],
   drift: { checkedAt: new Date().toISOString(), reached: true, unverifiable: [] },
 }
@@ -64,8 +64,8 @@ function draw(table: unknown = TABLE, component: () => React.ReactNode = Network
     "fetch",
     vi.fn(async (url: string) => {
       if (url === "/api/services") return json(table)
-      /** Every toolbar's `RecreateButton` asks `/api/deployer` whether to disable itself. */
-      if (url === "/api/deployer") return json({ available: true })
+      /** Every toolbar's `RecreateButton` asks `/api/agent` whether to disable itself. */
+      if (url === "/api/agent") return json({ available: true })
       throw new Error(`the view asked for ${url}, which this test did not expect`)
     }),
   )
@@ -129,7 +129,7 @@ describe("the network view", () => {
 
     const dot = within(box("smp")).getByLabelText("healthy")
     expect(dot.className).toContain("bg-success")
-    expect(within(box("steward-deployer")).getByLabelText("unhealthy")).toBeTruthy()
+    expect(within(box("steward-agent")).getByLabelText("unhealthy")).toBeTruthy()
     expect(within(box("limbo")).getByLabelText("starting")).toBeTruthy()
   })
 
@@ -145,7 +145,7 @@ describe("the network view", () => {
     // The entry box carries the network's total, which is proxy's own row.
     expect(within(box("players")).getByTitle("players").textContent).toBe("7")
 
-    for (const silent of ["postgres", "caddy", "steward", "steward-deployer", "discord-bot"]) {
+    for (const silent of ["postgres", "caddy", "steward", "steward-agent", "discord-bot"]) {
       expect(within(box(silent)).queryByTitle("players"), `${silent} has no player count and must draw none`).toBeNull()
     }
   })
@@ -306,7 +306,7 @@ describe("the network on a phone", () => {
     expect(within(row("smp")).getByRole("link", { name: "open smp" })).toBeTruthy()
 
     // The same silence the card keeps: five services carry no count and must draw none.
-    for (const silent of ["postgres", "caddy", "steward", "steward-deployer", "discord-bot"]) {
+    for (const silent of ["postgres", "caddy", "steward", "steward-agent", "discord-bot"]) {
       expect(within(row(silent)).queryByTitle("players")).toBeNull()
     }
     // And the same drift marks, from the same component.

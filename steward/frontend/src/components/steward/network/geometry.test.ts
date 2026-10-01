@@ -159,9 +159,9 @@ describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
     expect(placed.groups).toHaveLength(2)
     const byMember = new Map(placed.groups.map((group) => [group.id, new Set(group.members)]))
     const paper = [...byMember.values()].find((members) => members.has("smp"))
-    const deploy = [...byMember.values()].find((members) => members.has("steward-deployer"))
+    const deploy = [...byMember.values()].find((members) => members.has("steward-agent"))
     expect(paper && [...paper].toSorted()).toEqual(["hunger-games", "limbo", "smp"])
-    expect(deploy && [...deploy].toSorted()).toEqual(["steward-deployer"])
+    expect(deploy && [...deploy].toSorted()).toEqual(["steward-agent"])
   })
 
   it("packs a group's members GROUP_GAP apart under one frame padded by GROUP_PADDING on every side", () => {
@@ -187,7 +187,7 @@ describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
   it("draws exactly one traffic edge into each group, and one data edge out of the Paper group", () => {
     const geometry = geometryOf(placed)
     const paperGroup = geometry.memberOf.smp
-    const deployGroup = geometry.memberOf["steward-deployer"]
+    const deployGroup = geometry.memberOf["steward-agent"]
     expect(paperGroup).toBeTruthy()
     expect(deployGroup).toBeTruthy()
 

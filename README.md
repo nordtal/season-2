@@ -33,7 +33,7 @@ flowchart TB
             direction TB
             CADDY["<b>caddy</b><br/>HTTPS"]:::side
             UPD["<b>steward</b><br/><i>:steward</i><br/>the interface · schema · jars · backups"]:::app
-            DEP["<b>steward-deployer</b><br/><i>:steward-deployer</i><br/>the only one that may create containers"]:::app
+            DEP["<b>steward-agent</b><br/><i>:steward-agent</i><br/>the only one that may create containers"]:::app
         end
         subgraph servers["Minecraft servers · one image"]
             direction TB
@@ -78,7 +78,7 @@ the table below are compiled into the jars above.
 - The Steward services sit on their own Docker network; the Minecraft servers do not, so no plugin
   can reach the deploy API. `postgres` is on both.
 - `steward` faces the internet and holds the Docker socket for reading, stopping and starting; only
-  `steward-deployer` creates containers.
+  `steward-agent` creates containers.
 - The database is the source of truth for access, language, phase and event state. Discord roles
   follow it.
 
@@ -92,7 +92,7 @@ the table below are compiled into the jars above.
 | `smp`               | Paper           | The SMP: Nordtal, the farm world, the Nether and the End, milestones, aura, prestige, duels, graves.             |
 | `discord-bot`       | JVM app         | Sells access periods, books bunq payments, mirrors admins.                                                       |
 | `steward`           | JVM app + React | The web interface and its API, the schema, every jar version and run, payments and the nightly backup.           |
-| `steward-deployer`  | JVM app         | The only service allowed to create a container. Carries `compose.yml` inside its own image.                      |
+| `steward-agent`     | JVM app         | The only service allowed to create a container. Carries `compose.yml` inside its own image.                      |
 | `common`            | library         | The shared kernel: platform constants, the phase enum, languages, readiness. No database, no Adventure, no pack. |
 | `database`          | library         | Access, phase, online, audit, the request inboxes, the signal hub and the migration SQL.                         |
 | `messages`          | library         | The message system without Adventure: bundles, specs, contexts. The bot and Steward stop here.                   |
@@ -122,7 +122,7 @@ the table below are compiled into the jars above.
   `Glyphs` and the font files, and checked against each other on every build.
 - **Update runs** park players on a `-standby` service while the real one is swapped. Caddy hands
   port 25565 to whichever proxy is live.
-- **`compose.yml`** ships inside the `steward-deployer` image; [`deploy/nordtal.sh`](deploy/nordtal.sh)
+- **`compose.yml`** ships inside the `steward-agent` image; [`deploy/nordtal.sh`](deploy/nordtal.sh)
   renews that image from outside the stack.
 
 ## Building

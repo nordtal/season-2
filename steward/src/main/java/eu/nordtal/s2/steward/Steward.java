@@ -16,6 +16,8 @@ import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.SettingsException;
+import eu.nordtal.s2.steward.agent.AgentClient;
+import eu.nordtal.s2.steward.agent.AgentRecreate;
 import eu.nordtal.s2.steward.api.StackApi;
 import eu.nordtal.s2.steward.apply.ApplyResult;
 import eu.nordtal.s2.steward.auth.Credentials;
@@ -31,7 +33,6 @@ import eu.nordtal.s2.steward.config.StewardSpec;
 import eu.nordtal.s2.steward.config.WebSpec;
 import eu.nordtal.s2.steward.data.Data;
 import eu.nordtal.s2.steward.docker.Console;
-import eu.nordtal.s2.steward.docker.DeployerRecreate;
 import eu.nordtal.s2.steward.docker.Docker;
 import eu.nordtal.s2.steward.docker.DockerOps;
 import eu.nordtal.s2.steward.docker.DockerSocket;
@@ -48,7 +49,6 @@ import eu.nordtal.s2.steward.schema.Schema;
 import eu.nordtal.s2.steward.schema.ServeLock;
 import eu.nordtal.s2.steward.serve.Runner;
 import eu.nordtal.s2.steward.serve.UpdateServer;
-import eu.nordtal.s2.steward.web.InternalClient;
 import eu.nordtal.s2.steward.web.Web;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -365,24 +365,25 @@ public final class Steward {
     /**
      * The container ops an update, restart or backup stops and starts services through.
      *
-     * Recreating needs the steward-deployer token; without one, {@link DockerOps} refuses by name.
+     * Recreating needs the steward-agent token; without one, {@link DockerOps} refuses by name.
      */
     private static ContainerOps buildContainerOps(final StewardSpec config, final DockerOps dockerOps) {
-        if (config.deployer().token().isBlank()) {
-            log.warn("deployer.token is empty in steward.yml, so this container cannot ask"
-                    + " steward-deployer to recreate a service: an update whose image has"
+        if (config.agent().token().isBlank()) {
+            log.warn("agent.token is empty in steward.yml, so this container cannot ask"
+                    + " steward-agent to recreate a service: an update whose image has"
                     + " moved stops the old container and starts it again on that same"
                     + " image, the line stays FAILED, and the web draws no recreate button."
                     + " The setup script writes that secret.");
             return dockerOps;
         }
-        return new DeployerRecreate(
-                dockerOps,
-                config.deployer().url(),
-                config.deployer().token(),
-                Duration.ofSeconds(config.httpTimeoutSeconds()),
-                Duration.ofSeconds(config.deployer().timeoutSeconds()),
-                Waiting.on(CLOCK));
+        return new AgentRecreate(
+                dockerOps, agentOf(config), Duration.ofSeconds(config.agent().timeoutSeconds()), Waiting.on(CLOCK));
+    }
+
+    /** The one client of steward-agent, for the runs and the web alike. */
+    private static AgentClient agentOf(final StewardSpec config) {
+        return new AgentClient(
+                config.agent().url(), config.agent().token(), Duration.ofSeconds(config.httpTimeoutSeconds()));
     }
 
     private static int serveWithSampler(
@@ -425,17 +426,13 @@ public final class Steward {
                     + " lock screen. Run `steward " + Web.GENERATE_VAPID_KEYS + "` and paste both"
                     + " lines it prints into web.yml's web-push section.");
         }
-        final InternalClient deployer = new InternalClient(
-                "steward-deployer",
-                config.deployer().url(),
-                config.deployer().token(),
-                Duration.ofSeconds(config.httpTimeoutSeconds()));
+        final AgentClient agent = agentOf(config);
         final Web web = new Web(
                 webConfig,
                 new DiscordAuth(webConfig.discord(), webConfig.publicUrl()),
                 stack,
-                deployer,
-                !config.deployer().token().isBlank(),
+                agent,
+                !config.agent().token().isBlank(),
                 data,
                 CLOCK);
         web.start(webConfig.port());

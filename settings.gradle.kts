@@ -37,7 +37,7 @@ include("discord-bot")
 include("steward")
 
 // The one service allowed to create containers.
-include("steward-deployer")
+include("steward-agent")
 
 // The shared kernel every other module stands on: no database, no Adventure, no pack.
 include("common")

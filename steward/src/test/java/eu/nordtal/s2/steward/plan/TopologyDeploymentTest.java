@@ -145,11 +145,11 @@ class TopologyDeploymentTest {
         services.forEach((name, definition) -> {
             @SuppressWarnings("unchecked")
             final Map<String, Object> service = (Map<String, Object>) definition;
-            // postgres, pack-host, steward-deployer and caddy read no rows, so a depends_on there adds nothing.
+            // postgres, pack-host, steward-agent and caddy read no rows, so a depends_on there adds nothing.
             if (name.equals("steward")
                     || name.equals("postgres")
                     || name.equals("pack-host")
-                    || name.equals("steward-deployer")
+                    || name.equals("steward-agent")
                     || name.equals("caddy")) {
                 return;
             }
@@ -387,9 +387,9 @@ class TopologyDeploymentTest {
             }
 
             @Override
-            public DeployerSpec deployer() {
+            public AgentSpec agent() {
                 // Defaults: this test never recreates a container.
-                return new DeployerSpec() {};
+                return new AgentSpec() {};
             }
         };
     }
@@ -499,18 +499,18 @@ class TopologyDeploymentTest {
     }
 
     @Test
-    void theDeployerDeploysTheProjectItWasStartedInNotOneOfItsOwn() {
+    void theAgentDeploysTheProjectItWasStartedInNotOneOfItsOwn() {
         // A disagreeing `--project-name` fails nothing visibly: a second stack comes up beside the running one.
         @SuppressWarnings("unchecked")
-        final Map<String, Object> deployer = (Map<String, Object>) services.get("steward-deployer");
+        final Map<String, Object> agent = (Map<String, Object>) services.get("steward-agent");
         @SuppressWarnings("unchecked")
-        final Map<String, Object> environment = (Map<String, Object>) deployer.get("environment");
+        final Map<String, Object> environment = (Map<String, Object>) agent.get("environment");
         final String declared = String.valueOf(environment.get("COMPOSE_PROJECT_NAME"));
         assertEquals(
                 "${COMPOSE_PROJECT_NAME:-" + Deployment.PROJECT + "}",
                 declared,
-                "compose.yml no longer hands steward-deployer the project name, or its fallback is not"
-                        + " Deployment.PROJECT, which the deployer and steward fall back to. Two different"
+                "compose.yml no longer hands steward-agent the project name, or its fallback is not"
+                        + " Deployment.PROJECT, which the agent and steward fall back to. Two different"
                         + " defaults for the project name are two deployments of the same stack.");
     }
 

@@ -530,9 +530,9 @@ class TopologyTest {
             }
 
             @Override
-            public DeployerSpec deployer() {
+            public AgentSpec agent() {
                 // Defaults: this test never recreates a container.
-                return new DeployerSpec() {};
+                return new AgentSpec() {};
             }
         };
     }
@@ -578,7 +578,7 @@ class TopologyTest {
 
         assertPluginsBackupMatchesSpec(service, stewardMounts, onTheServer);
 
-        // The default is a path under NORDTAL_DIR, not bare and relative, which resolves inside the deployer image.
+        // The default is a path under NORDTAL_DIR, not bare and relative, which resolves inside the agent image.
         final String fallback = defaultOf(sourceOf(onTheServer));
         assertTrue(
                 fallback.startsWith("${NORDTAL_DIR"),

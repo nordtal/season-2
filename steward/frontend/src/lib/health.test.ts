@@ -348,7 +348,7 @@ describe("summarise - image drift", () => {
       ...healthy(),
       table: table([
         service({ service: "steward", drift: "LOCAL" }),
-        service({ service: "steward-deployer", drift: "LOCAL" }),
+        service({ service: "steward-agent", drift: "LOCAL" }),
       ]),
     })
 

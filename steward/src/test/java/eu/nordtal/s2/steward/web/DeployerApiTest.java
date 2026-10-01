@@ -126,9 +126,8 @@ class DeployerApiTest extends WebTestSupport {
         // 5. The two season dates and the phase; PhaseDao casts the actor to varchar(32) and truncates it.
         final JsonObject season = GSON.fromJson(get("/api/season").body(), JsonObject.class);
         final String phaseBefore = season.get("phase").getAsString();
-        final String launchAt = season.has("launch") ? season.get("launch").getAsString() : "2026-10-01T18:00:00Z";
-        final String smpStartAt =
-                season.has("smpStart") ? season.get("smpStart").getAsString() : "2026-10-01T18:00:00Z";
+        final String launchAt = SOON;
+        final String smpStartAt = SOON;
 
         assertEquals(
                 200,

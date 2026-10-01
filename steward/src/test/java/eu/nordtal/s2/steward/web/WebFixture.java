@@ -314,6 +314,16 @@ abstract class WebFixture {
     /** The one key account "1" has, registered once in {@code WebTestSupport}. */
     static final TestAuthenticator authenticator = new TestAuthenticator();
 
+    /**
+     * A season date a month ahead, the same for the whole run.
+     *
+     * A date in the past is refused, and so is a launch after the SMP start.
+     */
+    static final String SOON = java.time.Instant.now()
+            .plus(Duration.ofDays(30))
+            .truncatedTo(java.time.temporal.ChronoUnit.SECONDS)
+            .toString();
+
     /** The origin the interface expects, which is `public-url`'s and not this JVM's address. */
     static final String ORIGIN = "https://steward.dev.nordtal.eu";
 

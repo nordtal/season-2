@@ -14,6 +14,7 @@ import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaCodeUnit;
 import com.tngtech.archunit.core.domain.JavaMethod;
+import com.tngtech.archunit.core.domain.JavaMethodCall;
 import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
@@ -41,6 +42,11 @@ class PlayerTextRulesTest {
     private static final String TONE = "eu.nordtal.s2.messages.Tone";
     private static final String PLUGIN_BASE = "eu.nordtal.s2.papercommon.plugin.NordtalPlugin";
     private static final String SYSTEM_LINES = "eu.nordtal.s2.papercommon.chat.SystemLines";
+    private static final String BOSS_BAR = "net.kyori.adventure.bossbar.BossBar";
+    private static final String BOSS_BAR_LINE = "eu.nordtal.s2.packrendering.hud.BossBarLine";
+    private static final String BOSS_BAR_WIDTH = "eu.nordtal.s2.packrendering.hud.BossBarWidth";
+    private static final String GLYPHS = "eu.nordtal.s2.packrendering.Glyphs";
+    private static final String MENU_TITLE = "eu.nordtal.s2.smp.menu.MenuTitle";
 
     /** The classes that compose a component by hand, and why that is not a message going around the renderer. */
     private static final Map<String, String> COMPOSE_BY_HAND = Map.ofEntries(
@@ -174,6 +180,76 @@ class PlayerTextRulesTest {
         }
     }
 
+    /** A boss bar name not built by BossBarLine resolves its glyphs against {@code minecraft:default}. */
+    @Test
+    void onlyBossBarLineNamesABossBar() {
+        noClasses()
+                .that()
+                .doNotHaveFullyQualifiedName(BOSS_BAR_LINE)
+                .should()
+                .callMethodWhere(DescribedPredicate.describe(
+                        "BossBar.name(...) or BossBar.bossBar(...)", PlayerTextRulesTest::namesABossBar))
+                .because("BossBarLine is the one place the bossbar font is named and the shadow turned off")
+                .check(classes);
+    }
+
+    /** The pill background is BossBarLine's; a second composition of it is the one that drifts. */
+    @Test
+    void nothingOutsideThePackRenderingComposesAPillBackground() {
+        noClasses()
+                .that()
+                .resideOutsideOfPackage("eu.nordtal.s2.packrendering..")
+                .should()
+                .accessTargetWhere(DescribedPredicate.describe(
+                        "a boss bar background glyph or BossBarWidth", PlayerTextRulesTest::isPillBackground))
+                .orShould()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName(BOSS_BAR_WIDTH)
+                .check(classes);
+    }
+
+    /** A chest window's height is even for every row count, which the panel arithmetic needs; a hopper's is not. */
+    @Test
+    void noMenuOpensAnythingButAChest() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(PLAYER_CODE)
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName("org.bukkit.event.inventory.InventoryType")
+                .check(classes);
+    }
+
+    /** A menu whose title skips MenuTitle opens as a plain vanilla window, and nothing about that fails. */
+    @Test
+    void everyMenuTakesItsTitleFromMenuTitle() {
+        classes()
+                .that()
+                .resideInAnyPackage(PLAYER_CODE)
+                .should(openOnlyFramedMenus())
+                .check(classes);
+        assertTrue(
+                classes.get("eu.nordtal.s2.smp.navigate.NavigateGui").getAccessesFromSelf().stream()
+                        .anyMatch(access -> access.getTarget().getName().equals("createInventory")),
+                "NavigateGui, the reference menu, opens no inventory, so this rule may be checking nothing");
+    }
+
+    private static boolean namesABossBar(final JavaMethodCall call) {
+        if (!call.getTargetOwner().getName().equals(BOSS_BAR)) {
+            return false;
+        }
+        final boolean setsTheName = call.getName().equals("name")
+                && !call.getTarget().getRawParameterTypes().isEmpty();
+        return setsTheName || call.getName().equals("bossBar");
+    }
+
+    private static boolean isPillBackground(final JavaAccess<?> access) {
+        final String owner = access.getTargetOwner().getName();
+        final boolean tile =
+                owner.equals(GLYPHS) && access.getTarget().getName().startsWith("BOSSBAR_BG_");
+        return tile || owner.equals(BOSS_BAR_WIDTH);
+    }
+
     private static boolean takes(final List<JavaClass> parameters, final String type) {
         return parameters.stream().anyMatch(parameter -> parameter.getName().equals(type));
     }
@@ -230,5 +306,34 @@ class PlayerTextRulesTest {
                                 .anyMatch(method -> method.getName().equals("command")
                                         && method.getRawReturnType().equals(section)))
                         .orElse(false);
+    }
+
+    /**
+     * Every code unit that creates an inventory also takes a component from MenuTitle, or from a panel built on it.
+     */
+    private static ArchCondition<JavaClass> openOnlyFramedMenus() {
+        return new ArchCondition<>("open no inventory without a MenuTitle") {
+            @Override
+            public void check(final JavaClass type, final ConditionEvents events) {
+                for (final JavaCodeUnit unit : type.getCodeUnits()) {
+                    final boolean opens = unit.getMethodCallsFromSelf().stream()
+                            .anyMatch(call -> call.getName().equals("createInventory"));
+                    final boolean framed = unit.getMethodCallsFromSelf().stream()
+                            .anyMatch(call -> call.getTarget()
+                                            .getRawReturnType()
+                                            .getName()
+                                            .equals(COMPONENT)
+                                    && (call.getTargetOwner().getName().equals(MENU_TITLE)
+                                            || call.getTargetOwner().getAccessesFromSelf().stream()
+                                                    .anyMatch(access -> access.getTargetOwner()
+                                                            .getName()
+                                                            .equals(MENU_TITLE))));
+                    if (opens && !framed) {
+                        events.add(SimpleConditionEvent.violated(
+                                unit, unit.getFullName() + " opens an inventory whose title is not MenuTitle's"));
+                    }
+                }
+            }
+        };
     }
 }

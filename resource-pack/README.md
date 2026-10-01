@@ -80,8 +80,8 @@ A glyph only lines up where its `height` and `ascent` match the surface it is dr
 
 The fonts allocate **independently**: `︀1` means something different in `minecraft:default`
 and in `nordtal:bossbar`. A component that names no font draws whatever `minecraft:default` holds at
-that code point, so every component carrying a `nordtal:` glyph names its font; `BossBarFontTest`
-checks the boss bar renderers.
+that code point, so every component carrying a `nordtal:` glyph names its font; `:architecture` lets
+only `BossBarLine` name a boss bar.
 
 ## The plane
 

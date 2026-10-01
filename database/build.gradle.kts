@@ -6,14 +6,9 @@ plugins {
     id("java-test-fixtures")
 }
 
-// The test image's tag, and the sources PeopleAreDiscordIdsTest reads as text.
+// The test image's tag.
 repositoryRootTestInputs {
     reads("compose.yml")
-    readsTree("smp/src/main/java")
-    readsTree("limbo/src/main/java")
-    readsTree("hunger-games/src/main/java")
-    readsTree("paper-common/src/main/java")
-    readsTree("proxy/src/main/java")
 }
 
 dependencies {

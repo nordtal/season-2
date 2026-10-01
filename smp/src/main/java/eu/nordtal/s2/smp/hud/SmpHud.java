@@ -24,7 +24,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import net.kyori.adventure.bossbar.BossBar;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -125,8 +124,8 @@ public final class SmpHud {
     private void renderFor(final Player player) {
         final Locale locale = locales.of(player.getUniqueId());
 
-        final BossBar status = statusBars.computeIfAbsent(player.getUniqueId(), key -> emptyBar());
-        status.name(BossBarLine.render(statusLine(player, locale)));
+        final BossBar status = statusBars.computeIfAbsent(player.getUniqueId(), key -> BossBarLine.bar());
+        BossBarLine.show(status, statusLine(player, locale));
         player.showBossBar(status);
 
         final Optional<NavigationTarget> target = navigation.of(player.getUniqueId());
@@ -138,13 +137,9 @@ public final class SmpHud {
             return;
         }
 
-        final BossBar navigate = navigateBars.computeIfAbsent(player.getUniqueId(), key -> emptyBar());
-        navigate.name(BossBarLine.render(navigateLine(player, locale, target.get())));
+        final BossBar navigate = navigateBars.computeIfAbsent(player.getUniqueId(), key -> BossBarLine.bar());
+        BossBarLine.show(navigate, navigateLine(player, locale, target.get()));
         player.showBossBar(navigate);
-    }
-
-    private static BossBar emptyBar() {
-        return BossBar.bossBar(Component.empty(), 1f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS);
     }
 
     /**

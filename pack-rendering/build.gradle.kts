@@ -24,8 +24,6 @@ sourceSets.main {
 
 // Files outside this module that the HUD and pack tests read.
 repositoryRootTestInputs {
-    reads("smp/src/main/java/eu/nordtal/s2/smp/hud/SmpHud.java")
-    reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/hud/HudRenderer.java")
     readsTree("smp/src/main/resources/messages")
     readsTree("hunger-games/src/main/resources/messages")
     readsTree("limbo/src/main/resources/messages")

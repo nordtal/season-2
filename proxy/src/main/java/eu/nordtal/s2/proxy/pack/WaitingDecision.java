@@ -19,7 +19,7 @@ public record WaitingDecision(Action action, @Nullable WaitReason reason) {
         /** Send {@code limbo} a {@code WAIT} carrying {@link WaitingDecision#reason()}. */
         SHOW,
 
-        /** Disconnect them: the client never answered the pack offer within {@code pack.yml#apply-timeout-seconds}. */
+        /** Disconnect them: the client never answered the pack offer within {@code pack#apply-timeout-seconds}. */
         TIMED_OUT,
 
         /** Hand them to the router; everything had to be true is true, {@code READY} included. */

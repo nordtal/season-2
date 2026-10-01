@@ -189,7 +189,7 @@ class WebAuthnKeyTest extends WebTestSupport {
 
         // Reading is refused too.
         for (final String path :
-                new String[] {"/api/services", "/api/people", "/api/journal", "/api/updates", "/api/config"}) {
+                new String[] {"/api/services", "/api/people", "/api/journal", "/api/updates", "/api/setting-groups"}) {
             final HttpResponse<String> refused = get(fresh, path);
             assertEquals(403, refused.statusCode(), path + " answered " + refused.body());
             assertEquals(

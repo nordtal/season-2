@@ -48,7 +48,7 @@ class UpdatePlanScopeTest {
 
     @Test
     void theResourcePackIsNotInAScopedRun() {
-        // service == null is the pack: it lives in the proxy pack.yml, not a plugins folder; "update smp" leaves it.
+        // service == null is the pack: it is a setting of the proxy, not a plugins folder; "update smp" leaves it.
         final Change pack = new Change(null, "pack", Change.Status.OUTDATED, "abc1234", null, null);
         final UpdatePlan plan = planOf(List.of(on("smp", "smp"), pack), List.of());
 

@@ -5,119 +5,54 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import eu.nordtal.jcore.config.ConfigLoader;
+import eu.nordtal.jcore.config.spec.Specs;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
-import eu.nordtal.s2.settings.DatabasePool;
+import eu.nordtal.s2.papercommon.sound.SoundsSpec;
 import eu.nordtal.s2.settings.DatabaseSpec;
-import eu.nordtal.s2.settings.FileSettings;
+import eu.nordtal.s2.settings.Group;
+import eu.nordtal.s2.settings.MemorySettingStore;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-/** That the {@code smp} config files can be written into an empty directory and read back. */
+/** That the {@code smp} groups load from their defaults and come back whole from stored rows. */
 class SmpSettingsTest {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(SmpSettingsTest.class);
+    private static final Group<SmpSpec> CONFIG =
+            Group.of("config", SmpSpec.class).checkedBy(SmpSettings::check);
 
-    @TempDir
-    Path directory;
+    private final MemorySettingStore store = new MemorySettingStore();
 
-    /**
-     * Loads every handle into an empty directory, so a missing {@code @ConfigSpec} fails here, not in {@code onEnable}.
-     */
+    /** Loads every group from nothing stored, so a missing {@code @ConfigSpec} fails here, not in {@code onEnable}. */
     @Test
-    void aFreshDirectoryGetsAllFourFiles() throws Exception {
-        final SmpSpec config = FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
-                .load("config", SmpSpec.class, SmpSettings::check)
-                .get();
-        final DatabaseSpec database = FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
-                .load("database", DatabaseSpec.class, DatabasePool::check)
-                .get();
-        final MilestonesSpec milestones = FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
-                .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones)
-                .get();
-        final SoundsSpec sounds = FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
-                .load("sounds", SoundsSpec.class)
-                .get();
-
-        assertTrue(Files.isRegularFile(directory.resolve("config.yml")));
-        assertTrue(Files.isRegularFile(directory.resolve("database.yml")));
-        assertTrue(Files.isRegularFile(directory.resolve("milestones.yml")));
-        assertTrue(Files.isRegularFile(directory.resolve("sounds.yml")));
+    void everyGroupLoadsFromItsDefaults() throws Exception {
+        final SmpSpec config = store.checked("smp", CONFIG, Map.of());
+        final MilestonesSpec milestones = store.checked(
+                "smp", Group.of("milestones", MilestonesSpec.class).checkedBy(SmpSettings::checkMilestones), Map.of());
+        final SoundsSpec sounds = store.checked("smp", Group.of("sounds", SoundsSpec.class), Map.of());
 
         assertEquals("nordtal", config.worldNordtal());
-        assertTrue(database.jdbcUrl().startsWith("jdbc:postgresql:"));
         assertFalse(milestones.milestones().isEmpty());
         assertEquals("minecraft:ui.button.click", sounds.select().key());
     }
 
-    /**
-     * {@code config.yml} does not carry the sounds: a {@code sounds:} block there is dropped on load.
-     *
-     * Sounds in {@code config.yml} would never reload, so nobody may re-declare them in {@code SmpSpec}.
-     */
-    @Test
-    void configYmlDropsASoundsBlock() throws Exception {
-        FileSettings.in(directory, "NORDTAL_SMP", LOGGER).load("config", SmpSpec.class, SmpSettings::check);
-        final Path file = directory.resolve("config.yml");
-        Files.writeString(
-                file,
-                Files.readString(file) + System.lineSeparator()
-                        + "sounds:" + System.lineSeparator()
-                        + "  select:" + System.lineSeparator()
-                        + "    key: minecraft:ui.button.click" + System.lineSeparator());
-
-        FileSettings.in(directory, "NORDTAL_SMP", LOGGER).load("config", SmpSpec.class, SmpSettings::check);
-
-        assertFalse(
-                Files.readAllLines(file).contains("sounds:"),
-                "a sounds block in config.yml has to be gone after one load, not merely ignored");
-    }
-
-    /** {@code admin-permissions} is retired: the loader drops it, so nobody re-declares it as a no-op. */
-    @Test
-    void configYmlDropsRetiredAdminPermissions() throws Exception {
-        FileSettings.in(directory, "NORDTAL_SMP", LOGGER).load("config", SmpSpec.class, SmpSettings::check);
-        final Path file = directory.resolve("config.yml");
-        Files.writeString(
-                file,
-                Files.readString(file) + System.lineSeparator()
-                        + "admin-permissions:" + System.lineSeparator()
-                        + "  - minecraft.command.gamemode" + System.lineSeparator());
-
-        final SmpSpec config = FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
-                .load("config", SmpSpec.class, SmpSettings::check)
-                .get();
-
-        assertAll(
-                () -> assertFalse(
-                        Files.readString(file).contains("admin-permissions"),
-                        "the retired key has to be gone from the file"),
-                () -> assertTrue(
-                        Files.readString(directory.resolve("config.yml.bak")).contains("admin-permissions"),
-                        "and readable in the backup, because it is what the operator had configured"),
-                () -> assertEquals(
-                        "nordtal", config.worldNordtal(), "everything the file still declares survives the deletion"));
-    }
-
-    /** Every value below the nested interfaces survives the round trip, not just the flat ones. */
+    /** Every value below the nested interfaces survives being stored as rows, not just the flat ones. */
     @Test
     void theNestedListsComeBackWithTheirValues() throws Exception {
-        final SmpSpec written = FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
-                .load("config", SmpSpec.class, SmpSettings::check)
-                .get();
-        final SmpSpec reread = FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
-                .load("config", SmpSpec.class, SmpSettings::check)
-                .get();
+        final SmpSpec written = Specs.createDefault(SmpSpec.class);
+        final Map<String, Object> values = new LinkedHashMap<>();
+        storeLeaves(ConfigLoader.gsonBuilder().create().toJsonTree(written), "", values);
+        final SmpSpec reread = new MemorySettingStore().checked("smp", CONFIG, values);
 
         assertEquals(written.balloons().size(), reread.balloons().size());
         assertEquals(written.boards().size(), reread.boards().size());
@@ -148,7 +83,27 @@ class SmpSettingsTest {
                         reread.worldNordtal(),
                         spawn.world(),
                         "first-join-spawn's default world has to be the build world's default name,"
-                                + " or a fresh config.yml ships a first join that goes nowhere"));
+                                + " or a fresh deployment ships a first join that goes nowhere"));
+    }
+
+    /** Puts every leaf below {@code tree} into {@code values} as Steward stores it: a list is one value. */
+    private static void storeLeaves(final JsonElement tree, final String path, final Map<String, Object> values) {
+        if (tree instanceof final JsonObject object) {
+            object.entrySet()
+                    .forEach(entry -> storeLeaves(
+                            entry.getValue(), path.isEmpty() ? entry.getKey() : path + "." + entry.getKey(), values));
+            return;
+        }
+        if (tree.isJsonPrimitive()) {
+            final var primitive = tree.getAsJsonPrimitive();
+            values.put(
+                    path,
+                    primitive.isString()
+                            ? primitive.getAsString()
+                            : primitive.isBoolean() ? (Object) primitive.getAsBoolean() : primitive.getAsNumber());
+            return;
+        }
+        values.put(path, tree.toString());
     }
 
     /** Every number of one landing point, because a null only shows up when it is read. */

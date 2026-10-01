@@ -43,8 +43,8 @@ zip's root is the assembled pack in `build/pack`: [`src/`](src/) plus what the b
 The zip and its hash are attached to each GitHub release, and the proxy offers the pack while the
 player waits in `limbo`. The build is reproducible, so a version always has the same hash.
 
-URL and hash are configuration in the proxy's `pack.yml`; both default to empty, and the proxy fails
-closed until they are set.
+URL and hash are the proxy's `pack` settings, which an update run sets; both default to empty, and
+the proxy fails closed until they are set.
 
 - Use the `github.com/<owner>/<repo>/releases/download/<tag>/<file>` URL, never the signed
   `release-assets.githubusercontent.com` address it redirects to, which expires within the hour.

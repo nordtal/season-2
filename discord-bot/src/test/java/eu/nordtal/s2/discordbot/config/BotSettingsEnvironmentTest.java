@@ -5,89 +5,59 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.jcore.config.ConfigHandle;
-import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.spec.annotation.Protected;
-import eu.nordtal.s2.settings.EnvOverrideFile;
+import eu.nordtal.s2.settings.MemorySettingStore;
 import eu.nordtal.s2.settings.SettingsException;
 import java.lang.reflect.Method;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
-/**
- * How {@code access.yml}'s settings come through the environment overlay and into the override marker file.
- */
+/** How the access settings are refused by name, and how the environment reaches them. */
 class BotSettingsEnvironmentTest {
 
-    private static final String VALID_TIERS = """
-            tiers:
-            - days: 30
-              price-cents: 300
-            - days: 60
-              price-cents: 500
-            - days: 90
-              price-cents: 700""";
+    private final MemorySettingStore store = new MemorySettingStore();
 
-    private static final String VALID_LANGUAGES = """
-            languages:
-            - tag: en
-              role: '30'
-              contribution-channel: '31'
-              link-channel: '32'
-              hunger-games-channel: '39'
-            - tag: de
-              role: '33'
-              contribution-channel: '34'
-              link-channel: '35'
-              hunger-games-channel: '40'""";
-
-    private static final String REST = """
-            guild-id: '1'
-            donation-cents: 500
-            roles:
-              access: '10'
-              donor: '11'
-              admin: '14'
-              admin-ping: '15'
-            channels:
-              admin: '24'
-            payment:
-              request-ttl-hours: 24
-            expiry-reminder-lead-days: 3
-            role-reconcile-interval-minutes: 10
-            """;
-
-    /** A complete, valid access.yml. */
-    private static String access() {
-        return VALID_TIERS + "\n" + VALID_LANGUAGES + "\n" + REST;
-    }
-
-    @TempDir
-    Path directory;
-
-    @BeforeEach
-    void pointConfigsAtTempDirectory() {
-        System.setProperty(BotSettings.DIRECTORY_PROPERTY, directory.toString());
-    }
-
-    @AfterEach
-    void restore() {
-        System.clearProperty(BotSettings.DIRECTORY_PROPERTY);
+    /** A complete, valid access group, as Steward stores it. */
+    private static Map<String, Object> access() {
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("tiers", """
+                [{"days": 30, "price-cents": 300},
+                 {"days": 60, "price-cents": 500},
+                 {"days": 90, "price-cents": 700}]""");
+        values.put("languages", """
+                [{"tag": "en", "role": "30", "contribution-channel": "31", "link-channel": "32",
+                  "hunger-games-channel": "39"},
+                 {"tag": "de", "role": "33", "contribution-channel": "34", "link-channel": "35",
+                  "hunger-games-channel": "40"}]""");
+        values.put("guild-id", "1");
+        values.put("donation-cents", 500);
+        values.put("roles.access", "10");
+        values.put("roles.donor", "11");
+        values.put("roles.admin", "14");
+        values.put("roles.admin-ping", "15");
+        values.put("channels.admin", "24");
+        return values;
     }
 
     @Test
-    void aReplaceMeIdIsRefusedByNameRatherThanStartedWith() throws Exception {
-        // REPLACE_ME rather than zeros: zeros are a valid snowflake for a guild that does not exist.
-        Files.writeString(directory.resolve("access.yml"), access().replace("access: '10'", "access: 'REPLACE_ME'"));
+    void aCompleteAccessGroupLoads() throws Exception {
+        assertEquals(
+                List.of("en", "de"),
+                store.checked(BotSettings.SERVICE, BotSettings.ACCESS, access()).languages().stream()
+                        .map(AccessSpec.LanguageSpec::tag)
+                        .toList());
+    }
 
-        final SettingsException thrown = assertThrows(SettingsException.class, BotSettings::access);
+    @Test
+    void aReplaceMeIdIsRefusedByNameRatherThanStartedWith() {
+        // REPLACE_ME rather than zeros: zeros are a valid snowflake for a guild that does not exist.
+        final Map<String, Object> values = access();
+        values.put("roles.access", "REPLACE_ME");
+
+        final SettingsException thrown = assertThrows(
+                SettingsException.class, () -> store.checked(BotSettings.SERVICE, BotSettings.ACCESS, values));
         assertTrue(
                 thrown.getMessage().contains("roles.access"),
                 "the message has to name the setting, was: " + thrown.getMessage());
@@ -115,48 +85,19 @@ class BotSettingsEnvironmentTest {
                         + " the wrong entry");
     }
 
-    /** Loads {@code access.yml} with a fake environment on top, the way the container does. */
-    private ConfigHandle<AccessSpec> handleFromEnvironment(final Map<String, String> environment) throws Exception {
-        Files.writeString(directory.resolve("access.yml"), access());
-        return ConfigLoader.builder(directory.resolve("access.yml"), AccessSpec.class)
-                .envPrefix("NORDTAL_ACCESS")
-                .environment(environment::get)
-                .load();
-    }
-
-    /**
-     * A setting the environment overrides reaches the override marker file.
-     *
-     * Runs the same two calls as {@code FileSettings#load}.
-     */
+    /** A value under {@code NORDTAL_ACCESS_} wins over what is stored, and Steward is told which path it holds. */
     @Test
-    void anOverriddenSettingEndsUpInTheMarkerFile() throws Exception {
-        final ConfigHandle<AccessSpec> handle = handleFromEnvironment(Map.of("NORDTAL_ACCESS_GUILD_ID", "2"));
+    void theEnvironmentWinsAndStewardIsToldWhichPathItHolds() throws Exception {
+        access().forEach((path, value) -> store.set(BotSettings.SERVICE, "access", path, value));
 
-        assertTrue(
-                handle.environmentOverrides().contains("guild-id"),
-                "jcore itself has to report the override before anything downstream can - reported: "
-                        + handle.environmentOverrides());
+        final AccessSpec taken = BotSettings.access(store.settings(
+                        BotSettings.SERVICE,
+                        BotSettings.ENVIRONMENT.reading(Map.of("NORDTAL_ACCESS_GUILD_ID", "2")::get)))
+                .get();
 
-        EnvOverrideFile.write(handle.file(), handle.environmentOverrides());
-
+        assertEquals("2", taken.guildId());
         assertEquals(
-                Optional.of(handle.environmentOverrides()),
-                EnvOverrideFile.read(handle.file()),
-                "the marker file steward reads has to carry exactly what jcore reported");
-    }
-
-    /** The public entry point writes an override marker file even with no override in play. */
-    @Test
-    void loadingAccessYmlThroughConfigsAccessItselfLeavesAMarkerFileBesideIt() throws Exception {
-        Files.writeString(directory.resolve("access.yml"), access());
-
-        BotSettings.access();
-
-        assertEquals(
-                Optional.of(List.of()),
-                EnvOverrideFile.read(directory.resolve("access.yml")),
-                "nothing is overridden here, but FileSettings#load still has to run the write step - an"
-                        + " absent marker file and an empty one are different facts");
+                List.of("guild-id"),
+                store.group(BotSettings.SERVICE, "access").orElseThrow().environment());
     }
 }

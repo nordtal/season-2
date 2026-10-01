@@ -148,11 +148,11 @@ public interface GateSpec {
     @Key("limbo-sweep-interval-seconds")
     @Comment({
         "How often the players held in the waiting room are re-examined, which is the only way",
-        "to notice a backend coming up. It also enforces pack.yml#apply-timeout-seconds, so it",
+        "to notice a backend coming up. It also enforces pack#apply-timeout-seconds, so it",
         "must stay well below it."
     })
     @Explain(
-            "How often waiting players are re-checked for a backend coming up; must stay well below pack.yml's apply-timeout-seconds.")
+            "How often waiting players are re-checked for a backend coming up; must stay well below the pack's apply-timeout-seconds.")
     default int limboSweepIntervalSeconds() {
         return 5;
     }

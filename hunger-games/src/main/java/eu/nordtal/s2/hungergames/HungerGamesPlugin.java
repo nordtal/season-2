@@ -16,7 +16,6 @@ import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.hungergames.border.BorderController;
 import eu.nordtal.s2.hungergames.config.HungerGamesCheck;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
-import eu.nordtal.s2.hungergames.config.SoundsSpec;
 import eu.nordtal.s2.hungergames.db.HgGame;
 import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
@@ -43,7 +42,8 @@ import eu.nordtal.s2.papercommon.chat.SystemLines;
 import eu.nordtal.s2.papercommon.command.Answer;
 import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.papercommon.plugin.NordtalPlugin;
-import eu.nordtal.s2.settings.Check;
+import eu.nordtal.s2.papercommon.sound.SoundsSpec;
+import eu.nordtal.s2.settings.Group;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.SettingsException;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
@@ -128,8 +128,8 @@ public final class HungerGamesPlugin extends NordtalPlugin {
 
     @Override
     protected void prepare() {
-        config = setting("config", HungerGamesSpec.class, HungerGamesCheck::check);
-        soundSettings = setting("sounds", SoundsSpec.class, Check.none());
+        config = setting(Group.of("config", HungerGamesSpec.class).checkedBy(HungerGamesCheck::check));
+        soundSettings = setting(Group.of("sounds", SoundsSpec.class).whileRunning());
         // Built before anything that plays one: a bad key here is reported and the category silenced.
         sounds = HungerGamesSounds.of(soundSettings.get(), getLogger()::warning);
         final World found = resolveWorld(config.get());
@@ -166,7 +166,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
 
     @Override
     protected List<String> reloadOwn() {
-        return reloadSounds() ? List.of() : List.of("sounds.yml");
+        return reloadSounds() ? List.of() : List.of("the sounds");
     }
 
     @Override

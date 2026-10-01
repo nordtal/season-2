@@ -10,6 +10,7 @@ import eu.nordtal.s2.limbo.waiting.WaitingRoom;
 import eu.nordtal.s2.limbo.world.WaitingWorld;
 import eu.nordtal.s2.limboprotocol.LimboProtocol;
 import eu.nordtal.s2.papercommon.plugin.NordtalPlugin;
+import eu.nordtal.s2.settings.Group;
 import eu.nordtal.s2.settings.Setting;
 import java.util.List;
 import org.bukkit.entity.Player;
@@ -45,7 +46,7 @@ public final class LimboPlugin extends NordtalPlugin {
 
     @Override
     protected void prepare() {
-        config = setting("config", LimboSpec.class, LimboCheck::check);
+        config = setting(Group.of("config", LimboSpec.class).checkedBy(LimboCheck::check));
         final WaitingWorld loaded = WaitingWorld.loadOrCreate(this, config.get());
         if (loaded == null) {
             throw fatal("limbo could not create or load its waiting world '"

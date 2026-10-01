@@ -4,90 +4,55 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.settings.FileSettings;
+import eu.nordtal.s2.settings.Group;
+import eu.nordtal.s2.settings.MemorySettingStore;
 import eu.nordtal.s2.settings.SettingsException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
- * The fail-fast for {@code limbo}'s {@code config.yml}.
+ * The fail-fast for {@code limbo}'s config group.
  *
  * A quietly wrong value here shows up as a black screen, which looks like a crash.
  */
 class LimboCheckTest {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(LimboCheckTest.class);
+    private static final Group<LimboSpec> CONFIG =
+            Group.of("config", LimboSpec.class).checkedBy(LimboCheck::check);
 
-    @TempDir
-    Path directory;
+    private final MemorySettingStore store = new MemorySettingStore();
+
+    private LimboSpec load(final Map<String, ?> values) throws SettingsException {
+        return store.checked("limbo", CONFIG, values);
+    }
 
     @Test
-    void aFreshDirectoryGetsWorkingDefaults() throws Exception {
-        final LimboSpec config = FileSettings.in(directory, "NORDTAL_LIMBO", LOGGER)
-                .load("config", LimboSpec.class, LimboCheck::check)
-                .get();
+    void theDefaultsWork() throws Exception {
+        final LimboSpec config = load(Map.of());
 
         assertEquals("limbo", config.worldName());
         assertEquals(64, config.spawnY());
         assertEquals(4, config.titleRefreshSeconds());
         assertTrue(config.blindness(), "blindness on is what makes the screen actually black");
-        assertTrue(Files.isRegularFile(directory.resolve("config.yml")));
     }
 
     @Test
-    void aZeroTitleRefreshIsRejected() throws Exception {
+    void aZeroTitleRefreshIsRejected() {
         // Zero means a task that never fires, and a title that expires into a blank black screen.
-        write("config.yml", """
-                world-name: limbo
-                spawn-y: 64
-                title-refresh-seconds: 0
-                blindness: true
-                """);
-
-        final SettingsException error = assertThrows(
-                SettingsException.class,
-                () -> FileSettings.in(directory, "NORDTAL_LIMBO", LOGGER)
-                        .load("config", LimboSpec.class, LimboCheck::check));
+        final SettingsException error =
+                assertThrows(SettingsException.class, () -> load(Map.of("title-refresh-seconds", 0)));
         assertTrue(error.getMessage().contains("title-refresh-seconds"), error.getMessage());
     }
 
     @Test
-    void aBlankWorldNameIsRejected() throws Exception {
-        write("config.yml", """
-                world-name: ''
-                spawn-y: 64
-                title-refresh-seconds: 4
-                blindness: true
-                """);
-
-        assertThrows(
-                SettingsException.class,
-                () -> FileSettings.in(directory, "NORDTAL_LIMBO", LOGGER)
-                        .load("config", LimboSpec.class, LimboCheck::check));
+    void aBlankWorldNameIsRejected() {
+        assertThrows(SettingsException.class, () -> load(Map.of("world-name", "")));
     }
 
     @Test
-    void aSpawnHeightOutsideAnyBuildLimitIsRejected() throws Exception {
+    void aSpawnHeightOutsideAnyBuildLimitIsRejected() {
         // Not physics, since the world is empty, but a height the server will not keep a player at.
-        write("config.yml", """
-                world-name: limbo
-                spawn-y: 5000
-                title-refresh-seconds: 4
-                blindness: true
-                """);
-
-        final SettingsException error = assertThrows(
-                SettingsException.class,
-                () -> FileSettings.in(directory, "NORDTAL_LIMBO", LOGGER)
-                        .load("config", LimboSpec.class, LimboCheck::check));
+        final SettingsException error = assertThrows(SettingsException.class, () -> load(Map.of("spawn-y", 5000)));
         assertTrue(error.getMessage().contains("spawn-y"), error.getMessage());
-    }
-
-    private void write(final String name, final String content) throws Exception {
-        Files.writeString(directory.resolve(name), content);
     }
 }

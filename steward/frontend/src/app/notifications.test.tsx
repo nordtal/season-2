@@ -48,19 +48,18 @@ function json(status: number, body: unknown): Response {
 
 type Call = { url: string; method: string; body: unknown }
 
-const ALERTS = "steward/web.yml"
+const ALERTS = "steward/web"
 
-/** The file the three thresholds live in, as `/api/config/<file>` answers it. */
+/** The file the three thresholds live in, as `/api/setting-groups/<file>` answers it. */
 function alertsFile(values: Record<string, string> = {}) {
   const value = (path: string, fallback: string) => values[path] ?? fallback
   return {
     service: "steward",
-    name: "web.yml",
+    name: "web",
     path: ALERTS,
     readable: true,
     writable: true,
     revision: "rev-1",
-    header: [],
     entries: [
       entry("alerts.disk-percent", "disk-percent", value("alerts.disk-percent", "85")),
       entry("alerts.memory-percent", "memory-percent", value("alerts.memory-percent", "90")),
@@ -74,17 +73,14 @@ function entry(path: string, key: string, value: string) {
     path,
     key,
     label: key,
-    comments: [],
     explanation: "",
     noExplanationNeeded: true,
     filled: true,
     value,
     kind: "SCALAR",
     type: "INTEGER",
-    line: 1,
     editable: true,
     secret: false,
-    inSchema: true,
   }
 }
 
@@ -133,10 +129,10 @@ function backend(
         )
       }
       if (url === "/api/web-push/test") return new Response(null, { status: 204 })
-      if (url === "/api/config") {
+      if (url === "/api/setting-groups") {
         return json(200, over.noAlertsFile ? [] : [{ ...alertsFile(), writable: over.writable ?? true }])
       }
-      if (url === `/api/config/${ALERTS}`) {
+      if (url === `/api/setting-groups/${ALERTS}`) {
         if (method === "PUT") {
           const changes = stringChangesOf(body)
           return json(200, { ...alertsFile(changes), revision: "rev-2" })
@@ -343,7 +339,7 @@ describe("the test send hangs off the paper plane", () => {
   })
 })
 
-/** Keys of `steward/web.yml`, written by the configuration form's PUT with its revision. */
+/** Keys of `steward/web`, written by the configuration form's PUT with its revision. */
 describe("the thresholds the notifications fire on", () => {
   it("draws the numbers the file says, not the ones the light happens to hold", async () => {
     vi.stubGlobal("fetch", backend().fetcher)
@@ -363,11 +359,11 @@ describe("the thresholds the notifications fire on", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }))
 
     await waitFor(() =>
-      expect(calls.some((call) => call.method === "PUT" && call.url.startsWith("/api/config/"))).toBe(true),
+      expect(calls.some((call) => call.method === "PUT" && call.url.startsWith("/api/setting-groups/"))).toBe(true),
     )
-    expect(calls.filter((call) => call.method === "PUT" && call.url.startsWith("/api/config/"))).toEqual([
+    expect(calls.filter((call) => call.method === "PUT" && call.url.startsWith("/api/setting-groups/"))).toEqual([
       {
-        url: `/api/config/${ALERTS}`,
+        url: `/api/setting-groups/${ALERTS}`,
         method: "PUT",
         body: { revision: "rev-1", changes: { "alerts.disk-percent": "70" } },
       },

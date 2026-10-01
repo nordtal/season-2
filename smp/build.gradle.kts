@@ -62,6 +62,7 @@ dependencies {
     compileOnly(libs.display.tags)
 
     testImplementation(testFixtures(project(":database")))
+    testImplementation(testFixtures(project(":settings")))
     testImplementation(libs.postgresql.driver)
 }
 

@@ -96,7 +96,6 @@ function configLocation(over: Partial<ConfigLocation> & { path: string; name: st
 function configEntry(over: Partial<ConfigEntry> & { path: string; key: string }): ConfigEntry {
   return {
     label: over.key,
-    comments: [],
     explanation: "",
     noExplanationNeeded: false,
     filled: true,
@@ -104,10 +103,8 @@ function configEntry(over: Partial<ConfigEntry> & { path: string; key: string })
     items: [],
     kind: "SCALAR",
     type: "STRING",
-    line: 1,
     editable: true,
     secret: false,
-    inSchema: true,
     ...over,
   }
 }
@@ -115,7 +112,7 @@ function configEntry(over: Partial<ConfigEntry> & { path: string; key: string })
 /** Wires `useConfigs` and `useConfigDocuments` for one file, paired by index as the palette pairs them. */
 function oneFile(loc: ConfigLocation, entries: ConfigEntry[]) {
   vi.mocked(useConfigs).mockReturnValue(queryResult([loc]))
-  const document: ParsedConfigDocument = { ...loc, revision: "r1", header: [], entries }
+  const document: ParsedConfigDocument = { ...loc, revision: "r1", entries }
   vi.mocked(useConfigDocuments).mockReturnValue([queryResult(document)])
 }
 
@@ -139,7 +136,6 @@ function accessFileScalar(path: string, key: string, label: string, explanation:
     path,
     key,
     label,
-    comments: [],
     explanation,
     noExplanationNeeded: false,
     filled: true,
@@ -147,19 +143,17 @@ function accessFileScalar(path: string, key: string, label: string, explanation:
     items: [],
     kind: "SCALAR",
     type: "STRING",
-    line: 1,
     editable: true,
     secret: false,
-    inSchema: true,
   }
 }
 
-/** The real `discord-bot/access.yml` shape: no comments, so `roles.donor` is found by label, path and `@Explain`. */
+/** The real `discord-bot/access` shape: no comments, so `roles.donor` is found by label, path and `@Explain`. */
 function accessFile() {
   const loc: ConfigLocation = {
     service: "discord-bot",
-    name: "access.yml",
-    path: "discord-bot/access.yml",
+    name: "access",
+    path: "discord-bot/access",
     readable: true,
     writable: true,
   }
@@ -187,7 +181,7 @@ function accessFile() {
     ),
   ]
   vi.mocked(useConfigs).mockReturnValue(queryResult([loc]))
-  vi.mocked(useConfigDocuments).mockReturnValue([queryResult({ ...loc, revision: "r1", header: [], entries })])
+  vi.mocked(useConfigDocuments).mockReturnValue([queryResult({ ...loc, revision: "r1", entries })])
 }
 
 /** Every row the palette is currently showing, top to bottom, by its visible text. */
@@ -197,13 +191,13 @@ function paletteItems(): string[] {
 
 /** The same setting, by the same name, in two services, which is the real case. */
 function twoServicesWithTheSameSetting() {
-  const steward = configLocation({ path: "steward/steward.yml", name: "steward.yml" })
-  const bot = configLocation({ path: "discord-bot/steward.yml", name: "steward.yml", service: "discord-bot" })
+  const steward = configLocation({ path: "steward/steward", name: "steward" })
+  const bot = configLocation({ path: "discord-bot/steward.yml", name: "steward", service: "discord-bot" })
   const same = configEntry({ path: "agent.base-url", key: "base-url", label: "Base url" })
   vi.mocked(useConfigs).mockReturnValue(queryResult([steward, bot]))
   vi.mocked(useConfigDocuments).mockReturnValue([
-    queryResult({ ...steward, revision: "r1", header: [], entries: [same] }),
-    queryResult({ ...bot, revision: "r1", header: [], entries: [{ ...same }] }),
+    queryResult({ ...steward, revision: "r1", entries: [same] }),
+    queryResult({ ...bot, revision: "r1", entries: [{ ...same }] }),
   ])
 }
 
@@ -310,7 +304,7 @@ describe("CommandPalette - finding a run", () => {
 /** Every service's settings are searchable, with the service named in the hit. */
 describe("CommandPalette - finding a setting", () => {
   it("finds a setting by its label and names the service it belongs to", async () => {
-    const loc = configLocation({ path: "steward/steward.yml", name: "steward.yml" })
+    const loc = configLocation({ path: "steward/steward", name: "steward" })
     oneFile(loc, [configEntry({ path: "agent.base-url", key: "base-url", label: "Base url" })])
 
     await search("base url")
@@ -320,7 +314,7 @@ describe("CommandPalette - finding a setting", () => {
   })
 
   it("finds a setting by its current value", async () => {
-    const loc = configLocation({ path: "steward/steward.yml", name: "steward.yml" })
+    const loc = configLocation({ path: "steward/steward", name: "steward" })
     oneFile(loc, [
       configEntry({ path: "agent.base-url", key: "base-url", label: "Base url", value: "http://steward:8081" }),
     ])
@@ -331,7 +325,7 @@ describe("CommandPalette - finding a setting", () => {
   })
 
   it("never finds a secret by its value, even when it is the only thing typed", async () => {
-    const loc = configLocation({ path: "discord-bot/steward.yml", name: "steward.yml", service: "discord-bot" })
+    const loc = configLocation({ path: "discord-bot/steward.yml", name: "steward", service: "discord-bot" })
     const token = "super-secret-discord-token"
     oneFile(loc, [
       /** As if a bug sent a secret's value anyway: the client's own guard has to hold. */
@@ -344,7 +338,7 @@ describe("CommandPalette - finding a setting", () => {
   })
 
   it("still finds that same secret entry by its label - only the value is excluded", async () => {
-    const loc = configLocation({ path: "discord-bot/steward.yml", name: "steward.yml", service: "discord-bot" })
+    const loc = configLocation({ path: "discord-bot/steward.yml", name: "steward", service: "discord-bot" })
     oneFile(loc, [
       configEntry({
         path: "discord.bot-token",
@@ -361,7 +355,7 @@ describe("CommandPalette - finding a setting", () => {
   })
 
   it("shows nothing before anything is typed - not hundreds of settings on open", async () => {
-    const loc = configLocation({ path: "steward/steward.yml", name: "steward.yml" })
+    const loc = configLocation({ path: "steward/steward", name: "steward" })
     oneFile(loc, [configEntry({ path: "agent.base-url", key: "base-url", label: "Base url" })])
 
     render(<CommandPalette />)
@@ -373,7 +367,7 @@ describe("CommandPalette - finding a setting", () => {
 
   it("keeps the trailing grey column off a phone entirely", async () => {
     /** The path is hidden below 640px, where it would truncate the name; jsdom can only check the classes. */
-    const loc = configLocation({ path: "steward/steward.yml", name: "steward.yml" })
+    const loc = configLocation({ path: "steward/steward", name: "steward" })
     oneFile(loc, [configEntry({ path: "agent.base-url", key: "base-url", label: "Base url" })])
 
     await search("base url")
@@ -388,7 +382,7 @@ describe("CommandPalette - finding a setting", () => {
   })
 
   it("selecting a hit navigates to that service's page and hands it a jump", async () => {
-    const loc = configLocation({ path: "steward/steward.yml", name: "steward.yml" })
+    const loc = configLocation({ path: "steward/steward", name: "steward" })
     oneFile(loc, [configEntry({ path: "agent.base-url", key: "base-url", label: "Base url" })])
 
     await search("base url")
@@ -397,10 +391,10 @@ describe("CommandPalette - finding a setting", () => {
     expect(navigateSpy).toHaveBeenCalledWith({
       to: "/services/$name",
       params: { name: "steward" },
-      search: { tab: "settings", file: "steward/steward.yml" },
+      search: { tab: "settings", file: "steward/steward" },
     })
     expect(takePendingJump("steward")).toEqual({
-      file: "steward/steward.yml",
+      file: "steward/steward",
       path: "agent.base-url",
     })
   })
@@ -481,7 +475,7 @@ describe("CommandPalette - finding a message bundle key", () => {
   it("finds a config hit and a bundle hit together, in one list", async () => {
     const configLoc: ConfigLocation = {
       service: "smp",
-      name: "steward.yml",
+      name: "steward",
       path: "smp/steward.yml",
       readable: true,
       writable: true,
@@ -490,21 +484,16 @@ describe("CommandPalette - finding a message bundle key", () => {
       path: "grave.decay.enabled",
       key: "enabled",
       label: "Grave decay enabled",
-      comments: [],
       explanation: "",
       noExplanationNeeded: false,
       filled: true,
       kind: "SCALAR",
       type: "BOOLEAN",
-      line: 1,
       editable: true,
       secret: false,
-      inSchema: true,
     }
     vi.mocked(useConfigs).mockReturnValue(queryResult([configLoc]))
-    vi.mocked(useConfigDocuments).mockReturnValue([
-      queryResult({ ...configLoc, revision: "r1", header: [], entries: [gravEntry] }),
-    ])
+    vi.mocked(useConfigDocuments).mockReturnValue([queryResult({ ...configLoc, revision: "r1", entries: [gravEntry] })])
     oneBundle(bundleLocation({ path: "smp/smp", service: "smp" }), [
       messageEntry({ key: "grave.decay.announce", english: "Grave decay announcement" }),
     ])

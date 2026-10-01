@@ -1,9 +1,13 @@
 package eu.nordtal.s2.steward.config;
 
+import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.settings.Checks;
 import eu.nordtal.s2.settings.DatabasePool;
+import eu.nordtal.s2.settings.DatabaseSettings;
 import eu.nordtal.s2.settings.DatabaseSpec;
-import eu.nordtal.s2.settings.FileSettings;
+import eu.nordtal.s2.settings.Environment;
+import eu.nordtal.s2.settings.EnvironmentSettings;
+import eu.nordtal.s2.settings.Group;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.Settings;
 import eu.nordtal.s2.settings.SettingsException;
@@ -11,16 +15,32 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
+import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * Steward's settings, each value checked once at load, so a bad one names its key and file at startup.
+ * Steward's settings, each value checked once at load, so a bad one names its key and group at startup.
  *
- * Three files: {@code steward.yml}, {@code web.yml} and {@code database.yml}.
+ * The connection comes from the environment; {@code steward} and {@code web} live in the database.
  */
 public final class StewardSettings {
+
+    /** The service whose settings these are. */
+    public static final String SERVICE = "steward";
+
+    /** Steward's environment: {@code NORDTAL_STEWARD} for the steward group, {@code NORDTAL_STEWARD_<GROUP>} else. */
+    public static final Environment ENVIRONMENT =
+            Environment.of("NORDTAL_STEWARD").withMain("steward");
+
+    /**
+     * The value never imported from the last installation's {@code steward.yml}.
+     *
+     * Its volume names differ from the default only by the rename of steward's own volume, which no longer exists.
+     */
+    private static final Set<String> NOT_IMPORTED = Set.of("steward/backup.volumes");
 
     /** {@code owner/name}, the only form the GitHub API takes. */
     private static final Pattern REPO = Pattern.compile("[A-Za-z0-9._-]+/[A-Za-z0-9._-]+");
@@ -32,23 +52,37 @@ public final class StewardSettings {
 
     private StewardSettings() {}
 
-    /** Loads {@code steward.yml}, whose defaults are the real values. */
-    public static Setting<StewardSpec> steward(final Path directory, final Logger logger) throws SettingsException {
-        return settings(directory, logger).load("steward", StewardSpec.class, StewardSettings::checkSteward);
+    /** Returns the steward group, whose defaults are the real values; a change re-arms the two clocks. */
+    public static Group<StewardSpec> stewardGroup() {
+        return Group.of("steward", StewardSpec.class)
+                .checkedBy(StewardSettings::checkSteward)
+                .whileRunning();
     }
 
-    /** Loads {@code web.yml}; its secrets are environment variables and are not in it. */
-    public static Setting<WebSpec> web(final Path directory, final Logger logger) throws SettingsException {
-        return settings(directory, logger).load("web", WebSpec.class, StewardSettings::checkWeb);
+    /** Loads the steward group. */
+    public static Setting<StewardSpec> steward(final Settings settings) throws SettingsException {
+        return settings.load(stewardGroup());
     }
 
-    /** Loads {@code database.yml}, refusing an empty password rather than a pool that cannot connect. */
-    public static Setting<DatabaseSpec> database(final Path directory, final Logger logger) throws SettingsException {
-        return settings(directory, logger).load("database", DatabaseSpec.class, StewardSettings::checkDatabase);
+    /** Loads the web group; its secrets are environment variables and never stored. */
+    public static Setting<WebSpec> web(final Settings settings) throws SettingsException {
+        return settings.load(Group.of("web", WebSpec.class).checkedBy(StewardSettings::checkWeb));
     }
 
-    private static Settings settings(final Path directory, final Logger logger) {
-        return FileSettings.in(directory, "NORDTAL_STEWARD", "steward", logger);
+    /** Loads the connection to the database from the environment, refusing an empty password. */
+    public static Setting<DatabaseSpec> database() throws SettingsException {
+        return EnvironmentSettings.of(ENVIRONMENT)
+                .load(Group.of("database", DatabaseSpec.class).checkedBy(StewardSettings::checkDatabase));
+    }
+
+    /** Returns steward's settings in the database behind {@code dataSource}. */
+    public static DatabaseSettings stored(final DataSource dataSource, final Logger logger) {
+        return DatabaseSettings.over(SettingStore.using(dataSource), SERVICE, ENVIRONMENT, logger);
+    }
+
+    /** Returns steward's settings, importing the files the last installation left in {@code directory} once. */
+    public static DatabaseSettings importing(final DataSource dataSource, final Path directory, final Logger logger) {
+        return stored(dataSource, logger).importingFrom(directory, NOT_IMPORTED);
     }
 
     private static void checkSteward(final StewardSpec config) {

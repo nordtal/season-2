@@ -1,9 +1,13 @@
 package eu.nordtal.s2.discordbot.config;
 
+import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.settings.Checks;
 import eu.nordtal.s2.settings.DatabasePool;
+import eu.nordtal.s2.settings.DatabaseSettings;
 import eu.nordtal.s2.settings.DatabaseSpec;
-import eu.nordtal.s2.settings.FileSettings;
+import eu.nordtal.s2.settings.Environment;
+import eu.nordtal.s2.settings.EnvironmentSettings;
+import eu.nordtal.s2.settings.Group;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.Settings;
 import eu.nordtal.s2.settings.SettingsException;
@@ -13,19 +17,29 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import javax.sql.DataSource;
 import org.slf4j.LoggerFactory;
 
 /**
- * Loads the bot's settings and validates every value, stopping the process on a bad one.
+ * Loads the bot's settings and validates every value: the connection from the environment, the rest from the database.
  *
  * Each group has its own environment prefix, {@code NORDTAL_<GROUP>}; only the guild and the admin role are required.
  */
 public final class BotSettings {
 
+    /** The service whose settings these are. */
+    public static final String SERVICE = "discord-bot";
+
+    /** The bot's environment: every group under {@code NORDTAL_<GROUP>}. */
+    static final Environment ENVIRONMENT = Environment.of("NORDTAL");
+
+    /** The guild, its roles and channels, the price list and the languages. */
+    static final Group<AccessSpec> ACCESS = Group.of("access", AccessSpec.class).checkedBy(BotSettings::validateAccess);
+
     /** System property for the config directory, which the tests point at a temporary one. */
     static final String DIRECTORY_PROPERTY = "access.config.dir";
 
-    /** The one language {@code access.yml} may not leave out, the same one {@link AccessSpec#languages()} protects. */
+    /** The one language the access settings may not leave out, the one {@link AccessSpec#languages()} protects. */
     private static final String FALLBACK_LANGUAGE = Languages.FALLBACK_TAG;
 
     /**
@@ -47,7 +61,7 @@ public final class BotSettings {
     private BotSettings() {}
 
     /**
-     * Returns where an operator's message overrides go, beside the YAML files.
+     * Returns where an operator's message overrides go.
      *
      * @return the override directory, which {@code Messages.load} creates if it is not there
      */
@@ -59,28 +73,34 @@ public final class BotSettings {
         return Path.of(System.getProperty(DIRECTORY_PROPERTY, "config"));
     }
 
+    /** Loads the connection to the database, which the environment alone holds. */
     public static Setting<DatabaseSpec> database() throws SettingsException {
-        return settings().load("database", DatabaseSpec.class, DatabasePool::check);
+        return EnvironmentSettings.of(ENVIRONMENT)
+                .load(Group.of("database", DatabaseSpec.class).checkedBy(DatabasePool::check));
     }
 
-    /** Loads {@code bot.yml}, which holds the Discord token. */
-    public static Setting<BotSpec> bot() throws SettingsException {
-        return settings()
-                .load(
-                        "bot",
-                        BotSpec.class,
-                        config -> Checks.requireSecret("token", "NORDTAL_BOT_TOKEN", config.token()));
+    /** Returns the bot's settings in the database behind {@code dataSource}, importing its last files once. */
+    public static DatabaseSettings stored(final DataSource dataSource) {
+        return DatabaseSettings.over(
+                        SettingStore.using(dataSource),
+                        SERVICE,
+                        ENVIRONMENT,
+                        LoggerFactory.getLogger(BotSettings.class))
+                .importingFrom(directory(), Set.of());
     }
 
-    public static Setting<AccessSpec> access() throws SettingsException {
-        return settings().load("access", AccessSpec.class, BotSettings::validateAccess);
+    /** Loads the bot group, whose Discord token comes from the environment alone. */
+    public static Setting<BotSpec> bot(final Settings settings) throws SettingsException {
+        return settings.load(Group.of("bot", BotSpec.class)
+                .checkedBy(config -> Checks.requireSecret("token", "NORDTAL_BOT_TOKEN", config.token())));
     }
 
-    private static Settings settings() {
-        return FileSettings.in(directory(), "NORDTAL", LoggerFactory.getLogger(BotSettings.class));
+    /** Loads the guild, its roles and channels, the price list and the languages. */
+    public static Setting<AccessSpec> access(final Settings settings) throws SettingsException {
+        return settings.load(ACCESS);
     }
 
-    /** Validates {@code access.yml}; snowflakes must be numeric, not merely non-empty. */
+    /** Validates the access settings; snowflakes must be numeric, not merely non-empty. */
     private static void validateAccess(final AccessSpec config) {
         // No guild means nothing to act on, no admin role means nobody can administer.
         requireSnowflake("guild-id", config.guildId());

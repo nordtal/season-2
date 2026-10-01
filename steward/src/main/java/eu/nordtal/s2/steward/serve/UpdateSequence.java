@@ -34,8 +34,9 @@ final class UpdateSequence {
         final List<String> scope = runner.directory.scopeOf(request.id());
         // Held services are removed first, since starting one to verify it is what the hold forbids.
         final List<String> holds = runner.held();
-        final UpdatePlan plan =
-                Runs.resolve(runner.config, runner.plugins).onlyServices(scope).withoutServices(holds);
+        final UpdatePlan plan = Runs.resolve(runner.config, runner.plugins, runner.settings())
+                .onlyServices(scope)
+                .withoutServices(holds);
         UpdateReport planned =
                 ForeignImages.withImages(PlanReport.of(plan), images, scope).withoutLines(holds);
         final List<String> skipped = holds.stream()
@@ -63,7 +64,8 @@ final class UpdateSequence {
             final Consumer<UpdateReport> progress) {
         UpdateReport report = prep.planned();
         if (handOver.install()) {
-            final ApplyResult result = Runs.apply(runner.config, prep.plan().onlyServices(List.of(Topology.STEWARD)));
+            final ApplyResult result =
+                    Runs.apply(runner.config, prep.plan().onlyServices(List.of(Topology.STEWARD)), runner.settings());
             if (result.hasFailures()) {
                 return Outcome.failed(UpdateReports.toJson(report.withStage(UpdateReport.Stage.FAILED)
                         .withNote(Report.render(result))
@@ -251,7 +253,7 @@ final class UpdateSequence {
 
         UpdateReport report = stopped.report().withStage(UpdateReport.Stage.INSTALLING);
         progress.accept(report);
-        final ApplyResult result = Runs.apply(runner.config, plan);
+        final ApplyResult result = Runs.apply(runner.config, plan, runner.settings());
         report = report.withNote(Report.render(result));
         for (final String service : stopped.services()) {
             // Only where the apply succeeded; marking every stopped service INSTALLED here would be premature.

@@ -35,9 +35,12 @@ import eu.nordtal.s2.settings.Colours;
 import eu.nordtal.s2.settings.ColoursSpec;
 import eu.nordtal.s2.settings.DatabasePool;
 import eu.nordtal.s2.settings.DatabaseSpec;
-import eu.nordtal.s2.settings.FileSettings;
-import eu.nordtal.s2.settings.Settings;
+import eu.nordtal.s2.settings.DatabaseSettings;
+import eu.nordtal.s2.settings.Environment;
+import eu.nordtal.s2.settings.EnvironmentSettings;
+import eu.nordtal.s2.settings.Group;
 import eu.nordtal.s2.settings.SettingsException;
+import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.proxy.config.GateSpec;
 import eu.nordtal.s2.proxy.config.NetworkSpec;
 import eu.nordtal.s2.proxy.config.PackSpec;
@@ -148,13 +151,23 @@ public final class ProxyPlugin {
                     "the message override names {}, which no bundle declares - it is stored and"
                             + " never used; check the spelling", key));
 
-            final Settings settings = FileSettings.in(dataDirectory, "NORDTAL_PROXY", "proxy", logger);
-            start(settings.load("database", DatabaseSpec.class, DatabasePool::check).get(),
-                    settings.load("gate", GateSpec.class, ProxySettings::checkGate).get(),
-                    settings.load("pack", PackSpec.class, ProxySettings::checkPack).get(),
-                    settings.load("network", NetworkSpec.class, ProxySettings::checkNetwork).get(),
-                    settings.load("colours", ColoursSpec.class).get(),
-                    messages);
+            final Environment environment = Environment.of("NORDTAL_PROXY").withMain("proxy");
+            final DatabaseSpec database = EnvironmentSettings.of(environment)
+                    .load(Group.of("database", DatabaseSpec.class).checkedBy(DatabasePool::check)).get();
+            this.pool = DatabasePool.open(database, "proxy-access");
+            // The files of the last season's installation are imported once, then retired.
+            final DatabaseSettings settings = DatabaseSettings.over(
+                    SettingStore.using(pool), "proxy", environment, logger)
+                    .importingFrom(dataDirectory, java.util.Set.of());
+            final GateSpec gate =
+                    settings.load(Group.of("gate", GateSpec.class).checkedBy(ProxySettings::checkGate)).get();
+            final PackSpec pack =
+                    settings.load(Group.of("pack", PackSpec.class).checkedBy(ProxySettings::checkPack)).get();
+            final NetworkSpec network = settings.load(
+                    Group.of("network", NetworkSpec.class).checkedBy(ProxySettings::checkNetwork)).get();
+            final ColoursSpec colours = settings.load(Group.of("colours", ColoursSpec.class)).get();
+            settings.retireFiles();
+            start(database, gate, pack, network, colours, messages);
         } catch (final SettingsException | RuntimeException failure) {
             failClosed(failure);
         }
@@ -163,7 +176,6 @@ public final class ProxyPlugin {
     private void start(final DatabaseSpec databaseConfig, final GateSpec gateConfig,
                        final PackSpec packConfig, final NetworkSpec networkConfig,
                        final ColoursSpec coloursConfig, final Messages messages) {
-        this.pool = DatabasePool.open(databaseConfig, "proxy-access");
         this.access = AccessDirectory.using(pool, clock);
 
         // The five reply colours, read once here; see ColoursSpec.
@@ -217,7 +229,7 @@ public final class ProxyPlugin {
                 ? new PackOffer(proxy, packConfig, packMessages)
                 : null;
         if (offer == null) {
-            logger.warn("pack.yml#enabled is false: NO RESOURCE PACK IS OFFERED. Players still pass "
+            logger.warn("pack#enabled is false: NO RESOURCE PACK IS OFFERED. Players still pass "
                     + "through '{}', but every glyph in the tab list, the nametags, the boards and "
                     + "the HUD will render as a missing-glyph box.", phaseServers.limbo());
         } else {

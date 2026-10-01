@@ -4,104 +4,69 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.gson.Gson;
+import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
-import eu.nordtal.s2.settings.DatabasePool;
+import eu.nordtal.s2.papercommon.sound.SoundsSpec;
 import eu.nordtal.s2.settings.DatabaseSpec;
-import eu.nordtal.s2.settings.FileSettings;
+import eu.nordtal.s2.settings.Group;
+import eu.nordtal.s2.settings.MemorySettingStore;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
- * Checks that {@code hunger-games}' three config files can be written into an empty directory and read back.
+ * Checks that {@code hunger-games}' groups load from their defaults and that a stored list comes back whole.
  *
- * A nested interface without {@code @ConfigSpec} fails only when a fresh file is written.
+ * A nested interface without {@code @ConfigSpec} fails only when its defaults are written out.
  */
 class HungerGamesCheckTest {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(HungerGamesCheckTest.class);
+    private static final Group<HungerGamesSpec> CONFIG =
+            Group.of("config", HungerGamesSpec.class).checkedBy(HungerGamesCheck::check);
 
-    @TempDir
-    Path directory;
+    private final MemorySettingStore store = new MemorySettingStore();
 
-    /** Loads every handle into an empty directory, which serialises every nested spec. */
+    /** Loads every group from nothing stored, which serialises every nested spec. */
     @Test
-    void aFreshDirectoryGetsAllThreeFiles() throws Exception {
-        final HungerGamesSpec config = FileSettings.in(directory, "NORDTAL_HUNGER_GAMES", LOGGER)
-                .load("config", HungerGamesSpec.class, HungerGamesCheck::check)
-                .get();
-        final DatabaseSpec database = FileSettings.in(directory, "NORDTAL_HUNGER_GAMES", LOGGER)
-                .load("database", DatabaseSpec.class, DatabasePool::check)
-                .get();
-        final SoundsSpec sounds = FileSettings.in(directory, "NORDTAL_HUNGER_GAMES", LOGGER)
-                .load("sounds", SoundsSpec.class)
-                .get();
-
-        assertTrue(Files.isRegularFile(directory.resolve("config.yml")));
-        assertTrue(Files.isRegularFile(directory.resolve("database.yml")));
-        assertTrue(Files.isRegularFile(directory.resolve("sounds.yml")));
+    void everyGroupLoadsFromItsDefaults() throws Exception {
+        final HungerGamesSpec config = store.checked("hunger-games", CONFIG, Map.of());
+        final SoundsSpec sounds = store.checked("hunger-games", Group.of("sounds", SoundsSpec.class), Map.of());
 
         assertEquals("hunger_games", config.worldName());
         assertFalse(config.refillTiers().isEmpty());
         assertFalse(config.lootPoints().isEmpty());
-        assertTrue(database.jdbcUrl().startsWith("jdbc:postgresql:"));
         assertEquals("minecraft:entity.villager.no", sounds.loss().key());
     }
 
-    /** Every value below the nested interfaces survives the round trip, not just the flat ones. */
+    /** A list of sections is one stored value, and every value below its nested interfaces comes back. */
     @Test
-    void theNestedListsComeBackWithTheirValues() throws Exception {
-        final HungerGamesSpec written = FileSettings.in(directory, "NORDTAL_HUNGER_GAMES", LOGGER)
-                .load("config", HungerGamesSpec.class, HungerGamesCheck::check)
-                .get();
-        final HungerGamesSpec reread = FileSettings.in(directory, "NORDTAL_HUNGER_GAMES", LOGGER)
-                .load("config", HungerGamesSpec.class, HungerGamesCheck::check)
-                .get();
+    void aStoredListOfSectionsComesBackWithItsValues() throws Exception {
+        final HungerGamesSpec defaults = store.checked("hunger-games", CONFIG, Map.of());
+        final Gson gson = ConfigLoader.gsonBuilder().create();
 
-        assertEquals(written.lootPoints().size(), reread.lootPoints().size());
-        assertEquals(written.refillTiers().size(), reread.refillTiers().size());
+        final HungerGamesSpec reread = new MemorySettingStore()
+                .checked(
+                        "hunger-games",
+                        CONFIG,
+                        Map.of(
+                                "loot-points", gson.toJson(defaults.lootPoints()),
+                                "refill-tiers", gson.toJson(defaults.refillTiers())));
+
+        assertEquals(defaults.lootPoints().size(), reread.lootPoints().size());
+        assertEquals(defaults.refillTiers().size(), reread.refillTiers().size());
         assertEquals(
-                written.lootPoints().getFirst().label(),
+                defaults.lootPoints().getFirst().label(),
                 reread.lootPoints().getFirst().label());
         assertEquals(
-                written.refillTiers().getFirst().items(),
+                defaults.refillTiers().getFirst().items(),
                 reread.refillTiers().getFirst().items());
-        assertEquals(written.lobby().broadcastIntervalSeconds(), reread.lobby().broadcastIntervalSeconds());
-    }
-
-    /**
-     * {@code config.yml} does not carry the sounds, and a config that still does loses the block.
-     *
-     * {@code /hg reload} re-reads nothing from {@code config.yml}, so sounds there would need a restart.
-     */
-    @Test
-    void configYmlDropsASoundsBlock() throws Exception {
-        FileSettings.in(directory, "NORDTAL_HUNGER_GAMES", LOGGER)
-                .load("config", HungerGamesSpec.class, HungerGamesCheck::check);
-        final Path file = directory.resolve("config.yml");
-        Files.writeString(
-                file,
-                Files.readString(file) + System.lineSeparator()
-                        + "sounds:" + System.lineSeparator()
-                        + "  loss:" + System.lineSeparator()
-                        + "    key: minecraft:entity.villager.no" + System.lineSeparator());
-
-        FileSettings.in(directory, "NORDTAL_HUNGER_GAMES", LOGGER)
-                .load("config", HungerGamesSpec.class, HungerGamesCheck::check);
-
-        assertFalse(
-                Files.readAllLines(file).contains("sounds:"),
-                "a sounds block in config.yml has to be gone after one load, not merely ignored");
     }
 
     /** Checks every nested interface for {@code @ConfigSpec} directly, whatever the test JVM has open. */

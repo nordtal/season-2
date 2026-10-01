@@ -208,15 +208,14 @@ describe("useAgentJob - when the polling stops", () => {
 })
 
 describe("useSaveConfig - the revision travels with the change", () => {
-  const FILE = "steward/web.yml"
+  const FILE = "steward/web"
   const SAVED: ConfigDocument = {
     service: "steward",
-    name: "web.yml",
+    name: "web",
     path: FILE,
     readable: true,
     writable: true,
     revision: "rev-2",
-    header: [],
     entries: [],
   }
 
@@ -234,7 +233,7 @@ describe("useSaveConfig - the revision travels with the change", () => {
     await save(client(), answer(200, SAVED))
 
     const [url, init] = fetched.mock.calls[0]
-    expect(url).toBe("/api/config/steward/web.yml")
+    expect(url).toBe("/api/setting-groups/steward/web")
     expect(init?.method).toBe("PUT")
     expect(JSON.parse(init?.body ?? "")).toEqual({
       revision: "rev-1",

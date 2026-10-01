@@ -2,7 +2,6 @@ package eu.nordtal.s2.dev;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,7 +12,6 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Every command that builds, installs or drives the running stack. */
@@ -64,7 +62,7 @@ final class Stack {
         compose.run(restart.toArray(String[]::new));
     }
 
-    /** Builds the resource pack, puts it where pack-host serves it and points the proxy's pack.yml at it. */
+    /** Builds the resource pack, puts it where pack-host serves it and sets the proxy's pack to it. */
     void pack() {
         compose.requireEnv();
         processes.gradle(":resource-pack:packZip");
@@ -73,31 +71,40 @@ final class Stack {
         if (!Files.isRegularFile(zip)) {
             throw new Processes.Failure(zip + " was not built");
         }
-        final Path packYml = compose.pluginsDir("proxy").resolve("proxy/pack.yml");
-        if (!Files.isRegularFile(packYml)) {
-            throw new Processes.Failure(packYml + " is not there yet - bring the proxy up once so it writes it");
-        }
         final String sha1 = sha1(zip);
         final String url = "http://localhost:" + compose.valueOr("PACK_PORT", "8080") + "/" + name;
         try {
             Files.createDirectories(compose.packRoot());
             Files.copy(zip, compose.packRoot().resolve(name), StandardCopyOption.REPLACE_EXISTING);
-            // The same two lines steward's PackWriter owns, and no others.
-            Files.writeString(
-                    packYml,
-                    pointAt(Files.readString(packYml, StandardCharsets.UTF_8), url, sha1),
-                    StandardCharsets.UTF_8);
         } catch (final IOException e) {
             throw new UncheckedIOException("cannot install the pack", e);
         }
-        terminal.log("pack.yml now points at " + url + " (" + sha1 + ")");
+        // The SQL travels as $0, so no shell ever reads it.
+        if (compose.exec(
+                        "postgres",
+                        "sh",
+                        "-c",
+                        "psql -q -v ON_ERROR_STOP=1 -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\" -c \"$0\"",
+                        storePack(url, sha1))
+                != 0) {
+            throw new Processes.Failure(
+                    "the database refused the pack - has steward started once, so the" + " tables exist?");
+        }
+        terminal.log("the proxy now sends " + url + " (" + sha1 + ")");
         compose.run("restart", "proxy");
     }
 
-    /** @return {@code packYml} with its {@code url:} and {@code sha1:} lines replaced and everything else kept */
-    static String pointAt(final String packYml, final String url, final String sha1) {
-        return packYml.replaceAll("(?m)^url:.*$", Matcher.quoteReplacement("url: \"" + url + "\""))
-                .replaceAll("(?m)^sha1:.*$", Matcher.quoteReplacement("sha1: \"" + sha1 + "\""));
+    /** @return the statement that sets the proxy's {@code pack} group to {@code url} and {@code sha1}, as the host */
+    static String storePack(final String url, final String sha1) {
+        return "INSERT INTO setting_override (service, name, path, value, actor_kind, changed) VALUES"
+                + " ('proxy', 'pack', 'url', to_jsonb(" + literal(url) + "::text), 'HOST', now()),"
+                + " ('proxy', 'pack', 'sha1', to_jsonb(" + literal(sha1) + "::text), 'HOST', now())"
+                + " ON CONFLICT (service, name, path) DO UPDATE SET value = excluded.value,"
+                + " actor_kind = excluded.actor_kind, actor_id = NULL, changed = excluded.changed";
+    }
+
+    private static String literal(final String text) {
+        return "'" + text.replace("'", "''") + "'";
     }
 
     /**

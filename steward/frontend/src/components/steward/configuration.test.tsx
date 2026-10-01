@@ -24,31 +24,10 @@ function asInput(element: HTMLElement): HTMLInputElement {
   return element
 }
 
-function asTextArea(element: HTMLElement): HTMLTextAreaElement {
-  if (!(element instanceof HTMLTextAreaElement)) throw new Error("expected a textarea element")
-  return element
-}
-
-function asButton(element: HTMLElement): HTMLButtonElement {
-  if (!(element instanceof HTMLButtonElement)) throw new Error("expected a button element")
-  return element
-}
-
 /** The text a `PUT` request carried, since `RequestInit['body']` is not always a string. */
 function requestBody(body: BodyInit | null | undefined): string {
   if (typeof body !== "string") throw new Error("expected the request body to be a string")
   return body
-}
-
-function isPutRequest(value: unknown): value is { revision: string; content: string } {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "revision" in value &&
-    "content" in value &&
-    typeof value.revision === "string" &&
-    typeof value.content === "string"
-  )
 }
 
 function isBodyWithChanges(value: unknown): value is { changes: unknown } {
@@ -74,7 +53,6 @@ function location(over: Partial<ConfigLocation> & { path: string; name: string }
 function entry(over: Partial<ConfigEntry> & { path: string; key: string }): ConfigEntry {
   return {
     label: over.key,
-    comments: [],
     explanation: "",
     noExplanationNeeded: false,
     filled: true,
@@ -82,10 +60,8 @@ function entry(over: Partial<ConfigEntry> & { path: string; key: string }): Conf
     items: [],
     kind: "SCALAR",
     type: "STRING",
-    line: 1,
     editable: true,
     secret: false,
-    inSchema: true,
     ...over,
   }
 }
@@ -125,7 +101,7 @@ function nonNull<T>(value: T | null, what: string): T {
 
 const GUILD_UNAVAILABLE = { available: false, reason: "no bot token in this test", entries: [] }
 
-/** One `/api/config/<path>` answer per fixture file, keyed the way the route is called. */
+/** One `/api/setting-groups/<path>` answer per fixture file, keyed the way the route is called. */
 function backend(documents: Record<string, ConfigLocation & Record<string, unknown>>) {
   const listing = Object.values(documents).map(({ service, name, path, readable, writable }) => ({
     service,
@@ -135,10 +111,10 @@ function backend(documents: Record<string, ConfigLocation & Record<string, unkno
     writable,
   }))
   return vi.fn<(url: string) => Promise<Response>>(async (url: string) => {
-    if (url === "/api/config") return json(listing)
+    if (url === "/api/setting-groups") return json(listing)
     if (url === "/api/messages") return json([])
     if (url === "/api/discord/roles" || url === "/api/discord/channels") return json(GUILD_UNAVAILABLE)
-    const found = Object.entries(documents).find(([path]) => url === `/api/config/${path}`)
+    const found = Object.entries(documents).find(([path]) => url === `/api/setting-groups/${path}`)
     if (found) return json(found[1])
     throw new Error(`the form asked for ${url}, which this test did not expect`)
   })
@@ -178,10 +154,9 @@ describe("the file row", () => {
     vi.stubGlobal(
       "fetch",
       backend({
-        "steward/steward.yml": {
-          ...location({ path: "steward/steward.yml", name: "steward.yml" }),
+        "steward/steward": {
+          ...location({ path: "steward/steward", name: "steward" }),
           revision: "r1",
-          header: [],
           restartRequired: false,
           entries: [],
         },
@@ -195,58 +170,18 @@ describe("the file row", () => {
     expect(screen.queryByText("steward.yml")).toBeNull()
   })
 
-  it("lists Nordtal's translations, then Nordtal's configs, then everything third-party", async () => {
-    const files = [
-      {
-        service: "smp",
-        name: "bStats/config.yml",
-        path: "smp/bStats/config.yml",
-        readable: true,
-        writable: true,
-        origin: "third-party",
-        plugin: "bStats",
-      },
-      {
-        service: "smp",
-        name: "smp/milestones.yml",
-        path: "smp/smp/milestones.yml",
-        readable: true,
-        writable: true,
-        origin: "nordtal",
-        plugin: "SMP",
-      },
-      {
-        service: "smp",
-        name: "voicechat/voicechat-server.properties",
-        path: "smp/voicechat/voicechat-server.properties",
-        readable: true,
-        writable: true,
-        origin: "third-party",
-        plugin: "voicechat",
-      },
-      {
-        service: "smp",
-        name: "DisplayTags/config.yml",
-        path: "smp/DisplayTags/config.yml",
-        readable: true,
-        writable: true,
-        origin: "nordtal",
-        plugin: "Display Tags",
-      },
-      {
-        service: "smp",
-        name: "smp/config.yml",
-        path: "smp/smp/config.yml",
-        readable: true,
-        writable: true,
-        origin: "nordtal",
-        plugin: "SMP",
-      },
-    ]
+  it("lists the translations, then the groups of settings by name", async () => {
+    const files = ["sounds", "config", "milestones"].map((name) => ({
+      service: "smp",
+      name,
+      path: `smp/${name}`,
+      readable: true,
+      writable: true,
+    }))
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
-        if (url === "/api/config") return json(files)
+        if (url === "/api/setting-groups") return json(files)
         if (url === "/api/messages")
           return json([{ service: "smp", module: "smp", path: "smp/smp/messages", writable: true }])
         throw new Error(`the list asked for ${url}, which this test did not expect`)
@@ -258,26 +193,16 @@ describe("the file row", () => {
     await screen.findByText("SMP Translations")
     const nav = screen.getByRole("navigation", { name: "Files" })
     const lines = Array.from(nav.querySelectorAll("h3, button")).map((node) => node.textContent?.trim())
-    expect(lines).toEqual([
-      "Nordtal",
-      "SMP Translations",
-      "Config",
-      "Display Tags Config",
-      "Milestones",
-      "Third-party",
-      "bStats Config",
-      "Voicechat Server",
-    ])
+    expect(lines).toEqual(["SMP Translations", "Config", "Milestones", "Sounds"])
   })
 
-  it("draws no group headings when every file is Nordtal's", async () => {
+  it("draws no group headings", async () => {
     vi.stubGlobal(
       "fetch",
       backend({
         "discord-bot/bot.yml": {
           ...location({ path: "discord-bot/bot.yml", name: "bot.yml", service: "discord-bot" }),
           revision: "r1",
-          header: [],
           restartRequired: false,
           entries: [],
         },
@@ -291,16 +216,15 @@ describe("the file row", () => {
 
 /** The search box of an open file: label, path, value and explanation, never a secret's value, and a pruned tree. */
 describe("searching a file", () => {
-  const file = "steward/steward.yml"
+  const file = "steward/steward"
 
   function withEntries(entries: ConfigEntry[]) {
     vi.stubGlobal(
       "fetch",
       backend({
         [file]: {
-          ...location({ path: file, name: "steward.yml" }),
+          ...location({ path: file, name: "steward" }),
           revision: "r1",
-          header: [],
           restartRequired: false,
           entries,
         },
@@ -380,16 +304,15 @@ describe("searching a file", () => {
 })
 
 describe("headings and explanations", () => {
-  const file = "steward/steward.yml"
+  const file = "steward/steward"
 
   beforeEach(() => {
     vi.stubGlobal(
       "fetch",
       backend({
         [file]: {
-          ...location({ path: file, name: "steward.yml" }),
+          ...location({ path: file, name: "steward" }),
           revision: "r1",
-          header: [],
           restartRequired: false,
           entries: [
             entry({ path: "agent", key: "agent", label: "Agent", kind: "MAP" }),
@@ -408,16 +331,9 @@ describe("headings and explanations", () => {
               path: "silent",
               key: "silent",
               label: "Silent",
-              comments: ["An old mechanical comment that must not show through."],
+              explanation: "Words the schema says nobody needs.",
               noExplanationNeeded: true,
             }),
-            entry({
-              path: "mechanical",
-              key: "mechanical",
-              label: "Mechanical",
-              comments: ["Whatever jcore's comment block above this key used to say."],
-            }),
-            entry({ path: "orphan", key: "orphan", label: "Orphan", inSchema: false }),
           ],
         },
       }),
@@ -462,21 +378,7 @@ describe("headings and explanations", () => {
     await open("Steward")
     await screen.findByText("Max attempts")
 
-    expect(screen.queryByText("An old mechanical comment that must not show through.")).toBeNull()
-  })
-
-  it("falls back to the mechanical comment when there is no schema explanation", async () => {
-    draw(<Settings service="steward" />)
-    await open("Steward")
-
-    expect(await screen.findByText("Whatever jcore's comment block above this key used to say.")).not.toBeNull()
-  })
-
-  it("marks a key the schema does not cover as not in schema", async () => {
-    draw(<Settings service="steward" />)
-    await open("Steward")
-
-    expect(await screen.findByText("not in schema")).not.toBeNull()
+    expect(screen.queryByText("Words the schema says nobody needs.")).toBeNull()
   })
 })
 
@@ -486,16 +388,15 @@ describe("headings and explanations", () => {
  * `environmentOverridden` absent, `true` and `false` all draw differently.
  */
 describe("environment overrides", () => {
-  const file = "steward/steward.yml"
+  const file = "steward/steward"
 
   function withField(over: Partial<ConfigEntry>) {
     vi.stubGlobal(
       "fetch",
       backend({
         [file]: {
-          ...location({ path: file, name: "steward.yml" }),
+          ...location({ path: file, name: "steward" }),
           revision: "r1",
-          header: [],
           restartRequired: false,
           entries: [
             entry({
@@ -541,16 +442,15 @@ describe("environment overrides", () => {
 })
 
 describe("a schema's allowed values", () => {
-  const file = "steward/steward.yml"
+  const file = "steward/steward"
 
   it("becomes a closed select with no free text when strict", async () => {
     vi.stubGlobal(
       "fetch",
       backend({
         [file]: {
-          ...location({ path: file, name: "steward.yml" }),
+          ...location({ path: file, name: "steward" }),
           revision: "r1",
-          header: [],
           restartRequired: false,
           entries: [
             entry({
@@ -577,9 +477,8 @@ describe("a schema's allowed values", () => {
       "fetch",
       backend({
         [file]: {
-          ...location({ path: file, name: "steward.yml" }),
+          ...location({ path: file, name: "steward" }),
           revision: "r1",
-          header: [],
           restartRequired: false,
           entries: [
             entry({
@@ -602,182 +501,31 @@ describe("a schema's allowed values", () => {
   })
 })
 
-describe("database.yml", () => {
-  it("is visibly read-only even though the mount underneath it is writable", async () => {
-    const file = "steward/database.yml"
+describe("a group whose stored values the service refused", () => {
+  it("says why, so the values in use are known to be the defaults", async () => {
+    const file = "smp/config"
     vi.stubGlobal(
       "fetch",
       backend({
         [file]: {
-          ...location({ path: file, name: "database.yml", writable: true }),
+          ...location({ path: file, name: "config", service: "smp" }),
+          problem: "view-distance must be at least 2",
           revision: "r1",
-          header: [],
           restartRequired: false,
-          entries: [entry({ path: "host", key: "host", label: "Host", value: "postgres" })],
-        },
-      }),
-    )
-    draw(<Settings service="steward" />)
-    await open("Database")
-
-    await screen.findByText("Read-only.")
-    expect(asInput(screen.getByDisplayValue("postgres")).disabled).toBe(true)
-  })
-
-  it("is read-only for a plugin too, whose file is not called database.yml on its own", async () => {
-    /** A plugin's database file sits one level down, so an equality check alone would miss it. */
-    const file = "smp/smp/database.yml"
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        [file]: {
-          ...location({ path: file, name: "smp/database.yml", service: "smp", writable: true }),
-          revision: "r1",
-          header: [],
-          restartRequired: false,
-          entries: [entry({ path: "host", key: "host", label: "Host", value: "postgres" })],
+          entries: [entry({ path: "view-distance", key: "view-distance", label: "View distance", value: "8" })],
         },
       }),
     )
     draw(<Settings service="smp" />)
-    await open("Database")
-
-    await screen.findByText("Read-only.")
-    expect(asInput(screen.getByDisplayValue("postgres")).disabled).toBe(true)
-  })
-})
-
-describe("a file that does not parse as YAML", () => {
-  it("is shown as raw text, editable and with a Save button, when the mount allows a write", async () => {
-    const file = "steward/README.txt"
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        [file]: {
-          ...location({ path: file, name: "README.txt" }),
-          raw: true,
-          reason: "line 1: the top of the file must be a set of keys, found a scalar instead",
-          content: "Read me.\n",
-          revision: "r1",
-        },
-      }),
-    )
-    draw(<Settings service="steward" />)
-    await open("Readme")
-
-    /** The default normalizer trims the fixture's trailing newline. */
-    await screen.findByDisplayValue("Read me.")
-    const save = asButton(screen.getByRole("button", { name: /Save/ }))
-    expect(save.disabled).toBe(true)
-  })
-
-  it("is shown as raw, read-only text with no Save button, when the mount does not allow a write", async () => {
-    const file = "smp/README.txt"
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        [file]: {
-          ...location({ path: file, name: "README.txt", service: "smp", writable: false }),
-          raw: true,
-          reason: "line 1: the top of the file must be a set of keys, found a scalar instead",
-          content: "Read me.\n",
-          revision: "r1",
-        },
-      }),
-    )
-    draw(<Settings service="smp" />)
-    await open("Readme")
-
-    await screen.findByDisplayValue("Read me.")
-    expect(screen.queryByRole("button", { name: /Save/ })).toBeNull()
-  })
-
-  it("saves what was typed on Save, and shows a syntax warning without undoing it", async () => {
-    const file = "steward/config.yml"
-    const broken = "one: 1\ntwo: [unterminated\n"
-    let putBody: { revision: string; content: string } | undefined
-    const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url, init) => {
-      if (url === "/api/messages") return json([])
-      if (url === "/api/config") {
-        return json([{ service: "steward", name: "config.yml", path: file, readable: true, writable: true }])
-      }
-      if (url === "/api/discord/roles" || url === "/api/discord/channels") return json(GUILD_UNAVAILABLE)
-      if (url === `/api/config-raw/${file}` && init?.method === "PUT") {
-        const parsed: unknown = JSON.parse(requestBody(init.body))
-        if (!isPutRequest(parsed)) throw new Error("the raw save did not carry a revision and content")
-        putBody = parsed
-        return json({
-          ...location({ path: file, name: "config.yml" }),
-          raw: true,
-          reason: "line 3: expected ',' or ']', but got :",
-          content: broken,
-          revision: "r2",
-          warnings: ["Line 3: not valid YAML: expected ',' or ']', but got :"],
-        })
-      }
-      if (url === `/api/config/${file}`) {
-        return json({
-          ...location({ path: file, name: "config.yml" }),
-          raw: true,
-          reason: "line 1: the top of the file must be a set of keys, found a scalar instead",
-          content: "one: 1\n",
-          revision: "r1",
-        })
-      }
-      throw new Error(`the form asked for ${url}, which this test did not expect`)
-    })
-    vi.stubGlobal("fetch", fetchMock)
-
-    draw(<Settings service="steward" />)
     await open("Config")
 
-    const editor = asTextArea(await screen.findByLabelText("Raw content of config.yml"))
-    fireEvent.change(editor, { target: { value: broken } })
-    fireEvent.click(screen.getByRole("button", { name: /Save/ }))
-
-    await screen.findByText("Line 3: not valid YAML: expected ',' or ']', but got :")
-    expect(putBody).toEqual({ revision: "r1", content: broken })
-    /** The editor keeps what was typed; `value` is read directly so the line break counts. */
-    expect(editor.value).toBe(broken)
-  })
-})
-
-describe("a file with no schema at all", () => {
-  it("is not marked raw - it still gets the ordinary mechanical form", async () => {
-    const file = "steward/legacy.yml"
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        [file]: {
-          ...location({ path: file, name: "legacy.yml" }),
-          revision: "r1",
-          header: [],
-          restartRequired: false,
-          entries: [
-            entry({
-              path: "port",
-              key: "port",
-              label: "Port",
-              value: "8080",
-              type: "INTEGER",
-              comments: ["Mechanical, no schema wrote this file."],
-            }),
-          ],
-        },
-      }),
-    )
-    draw(<Settings service="steward" />)
-    await open("Legacy")
-
-    await screen.findByText("Mechanical, no schema wrote this file.")
-    expect(screen.queryByText("Shown as raw text.")).toBeNull()
-    screen.getByText("Port")
+    expect(await screen.findByText("Refused: view-distance must be at least 2")).toBeTruthy()
   })
 })
 
 /** Repeatable cards through the real form: `SECTIONS` draws `RepeatableCards`, and only Save writes. */
 describe("repeatable cards for a SECTIONS entry", () => {
-  const file = "discord-bot/access.yml"
+  const file = "discord-bot/access"
   const TEMPLATE: ConfigEntry[] = [
     entry({ path: "tag", key: "tag", label: "Tag" }),
     entry({ path: "contribution-channel", key: "contribution-channel", label: "Contribution channel" }),
@@ -807,9 +555,8 @@ describe("repeatable cards for a SECTIONS entry", () => {
       "fetch",
       backend({
         [file]: {
-          ...location({ path: file, name: "access.yml", service: "discord-bot" }),
+          ...location({ path: file, name: "access", service: "discord-bot" }),
           revision: "r1",
-          header: [],
           restartRequired: false,
           entries: [languages([section("en", "")])],
         },
@@ -830,9 +577,8 @@ describe("repeatable cards for a SECTIONS entry", () => {
       "fetch",
       backend({
         [file]: {
-          ...location({ path: file, name: "access.yml", service: "discord-bot" }),
+          ...location({ path: file, name: "access", service: "discord-bot" }),
           revision: "r1",
-          header: [],
           restartRequired: false,
           entries: [languages([section("en", ""), section("de", "")])],
         },
@@ -858,9 +604,8 @@ describe("repeatable cards for a SECTIONS entry", () => {
       "fetch",
       backend({
         [file]: {
-          ...location({ path: file, name: "access.yml", service: "discord-bot" }),
+          ...location({ path: file, name: "access", service: "discord-bot" }),
           revision: "r1",
-          header: [],
           restartRequired: false,
           entries: [languages([section("en", "")])],
         },
@@ -877,27 +622,25 @@ describe("repeatable cards for a SECTIONS entry", () => {
     let putChanges: unknown
     const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url, init) => {
       if (url === "/api/messages") return json([])
-      if (url === "/api/config") {
-        return json([{ service: "discord-bot", name: "access.yml", path: file, readable: true, writable: true }])
+      if (url === "/api/setting-groups") {
+        return json([{ service: "discord-bot", name: "access", path: file, readable: true, writable: true }])
       }
       if (url === "/api/discord/roles" || url === "/api/discord/channels") return json(GUILD_UNAVAILABLE)
-      if (url === `/api/config/${file}` && init?.method === "PUT") {
+      if (url === `/api/setting-groups/${file}` && init?.method === "PUT") {
         const parsed: unknown = JSON.parse(requestBody(init.body))
         if (!isBodyWithChanges(parsed)) throw new Error("the save did not carry changes")
         putChanges = parsed.changes
         return json({
-          ...location({ path: file, name: "access.yml", service: "discord-bot" }),
+          ...location({ path: file, name: "access", service: "discord-bot" }),
           revision: "r2",
-          header: [],
           restartRequired: false,
           entries: [languages([section("en", "")])],
         })
       }
-      if (url === `/api/config/${file}`) {
+      if (url === `/api/setting-groups/${file}`) {
         return json({
-          ...location({ path: file, name: "access.yml", service: "discord-bot" }),
+          ...location({ path: file, name: "access", service: "discord-bot" }),
           revision: "r1",
-          header: [],
           restartRequired: false,
           entries: [languages([section("en", ""), section("de", "")])],
         })
@@ -937,7 +680,6 @@ describe("a file of colours, side by side", () => {
         [file]: {
           ...location({ path: file, name: "colours.yml", service: "smp" }),
           revision: "r1",
-          header: [],
           restartRequired: false,
           entries: [
             colourEntry("good", "#8ba888"),
@@ -968,7 +710,6 @@ describe("a file of colours, side by side", () => {
         [file]: {
           ...location({ path: file, name: "colours.yml", service: "smp" }),
           revision: "r1",
-          header: [],
           restartRequired: false,
           /** A single colour is not grouped, yet still gets the picker. */
           entries: [colourEntry("good", "#8ba888"), entry({ path: "label", key: "label", value: "smp" })],
@@ -988,7 +729,6 @@ describe("a file of colours, side by side", () => {
         [file]: {
           ...location({ path: file, name: "colours.yml", service: "smp" }),
           revision: "r1",
-          header: [],
           restartRequired: false,
           entries: [entry({ path: "label", key: "label", label: "Label", value: "smp" })],
         },
@@ -1013,7 +753,6 @@ describe("two blocks that share their keys, as one row per key", () => {
         [file]: {
           ...location({ path: file, name: "prestige.yml", service: "smp" }),
           revision: "r1",
-          header: [],
           restartRequired: false,
           entries: ladder(["0", "2", "5"], ["#5fbfae", "#5ea9d6", "#6f93e0"]),
         },
@@ -1101,7 +840,6 @@ describe("two blocks that share their keys, as one row per key", () => {
         [file]: {
           ...location({ path: file, name: "prestige.yml", service: "smp" }),
           revision: "r1",
-          header: [],
           restartRequired: false,
           entries: [
             entry({ path: "hours", key: "hours", label: "hours", kind: "MAP", editable: false }),
@@ -1130,16 +868,15 @@ describe("two blocks that share their keys, as one row per key", () => {
  * Otherwise the jump stays in the map and fires on the next visit.
  */
 describe("a hit that arrives while this page is already open", () => {
-  const file = "steward/steward.yml"
+  const file = "steward/steward"
 
   function drawWith(entries: ConfigEntry[]) {
     vi.stubGlobal(
       "fetch",
       backend({
         [file]: {
-          ...location({ path: file, name: "steward.yml" }),
+          ...location({ path: file, name: "steward" }),
           revision: "r1",
-          header: [],
           restartRequired: false,
           entries,
         },
@@ -1226,10 +963,9 @@ describe("the arrow back to the top", () => {
     vi.stubGlobal(
       "fetch",
       backend({
-        "steward/steward.yml": {
-          ...location({ path: "steward/steward.yml", name: "steward.yml" }),
+        "steward/steward": {
+          ...location({ path: "steward/steward", name: "steward" }),
           revision: "r1",
-          header: [],
           restartRequired: false,
           entries: [entry({ path: "port", key: "port", value: "8080" })],
         },

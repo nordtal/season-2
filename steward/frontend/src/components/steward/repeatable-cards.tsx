@@ -87,8 +87,6 @@ export function RepeatableCards({
   within?: string
 }) {
   const template = entry.template ?? NO_TEMPLATE
-  /** The file's own copy of each section, which the secret placeholder compares against. */
-  const original = useMemo(() => sectionsFromEntry(entry), [entry])
 
   /** The channel fields not marked optional, whose absence marks a card incomplete. */
   const requiredChannelFields = useMemo(() => template.filter((field) => isRequiredChannel(field)), [template])
@@ -202,7 +200,6 @@ export function RepeatableCards({
                     id={id}
                     entry={field}
                     value={text}
-                    edited={text !== textOf(original[index], field.key)}
                     disabled={disabled}
                     roles={roles}
                     channels={channels}

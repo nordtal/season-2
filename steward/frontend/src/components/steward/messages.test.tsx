@@ -55,7 +55,7 @@ function backend(bundles: Record<string, Bundle>, puts: Record<string, (body: un
   })
   return vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
     if (url === "/api/messages") return json(listing)
-    if (url === "/api/config") return json([])
+    if (url === "/api/setting-groups") return json([])
     if (init?.method === "PUT") {
       const found = Object.entries(puts).find(([path]) => url === `/api/messages/${path}`)
       if (found) return json(found[1](JSON.parse(init.body ?? "")))

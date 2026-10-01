@@ -66,7 +66,7 @@ function backend(runs: Run[], onCancel?: () => Response): Mock<typeof fetch> {
       })
     }
     if (url.startsWith("/api/updates")) return json(200, runs)
-    if (url === "/api/config") return json(200, [])
+    if (url === "/api/setting-groups") return json(200, [])
     if (url === "/api/services") {
       return json(200, {
         services: [],

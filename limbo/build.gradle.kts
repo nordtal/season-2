@@ -31,6 +31,9 @@ dependencies {
 
     // :common's JdbiAccessDirectory installs JDBI's PostgresPlugin; jcore declares jdbi3-postgres at runtime only.
     implementation(libs.jdbi.postgres)
+
+    // The settings, loaded in a test as the plugin loads them.
+    testImplementation(testFixtures(project(":settings")))
 }
 
 messageSpec {

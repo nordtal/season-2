@@ -608,21 +608,15 @@ export type Action = {
   actorId: string
 }
 
-/**
- * One config file under the mount, identified by `path` such as `smp/nordtal-smp/config.yml`.
- *
- * `readable` and `writable` are measured, so the listing can say before it draws.
- */
+/** One group of settings a process published, identified by `path` such as `smp/milestones`. */
 export type ConfigLocation = {
   service: string
   name: string
   path: string
   readable: boolean
   writable: boolean
-  /** Who wrote the file, by the plugins tab's Nordtal set. */
-  origin?: "nordtal" | "third-party"
-  /** The plugin whose data folder holds it, by name if Nordtal's and by folder otherwise. */
-  plugin?: string | null
+  /** Why the process refused the stored values and runs on its defaults; absent or null while it took them. */
+  problem?: string | null
 }
 
 /**
@@ -644,13 +638,12 @@ export type ConfigProtectedEntry = {
 /**
  * One key of a config file, as the form draws it.
  *
- * A secret carries `filled` alone, never `value` or `items`; `inSchema` is false only where a schema omits the key.
+ * A secret carries `filled` alone, never `value` or `items`.
  */
 export type ConfigEntry = {
   path: string
   key: string
   label: string
-  comments: string[]
   /** The schema's short `@Explain` text. Empty when no schema entry covers this key. */
   explanation: string
   /** The schema says this needs no explanation, so draw no text rather than empty text. */
@@ -660,20 +653,13 @@ export type ConfigEntry = {
   value?: string
   /** Absent when `secret`; the entries of a LIST, empty for every other kind. */
   items?: string[]
-  /** A sequence of mappings, such as `languages` in `discord-bot/access.yml`, drawn as cards. */
+  /** A sequence of mappings, such as `languages` in the bot's `access` group, drawn as cards. */
   kind: "SCALAR" | "LIST" | "MAP" | "SECTIONS"
   type: "STRING" | "INTEGER" | "DECIMAL" | "BOOLEAN"
-  line: number
   /** False for a nested section, which has no value, and for a list of sections. */
   editable: boolean
   secret: boolean
-  /** Whether the schema declares this key; always `true` when the file has no schema. */
-  inSchema: boolean
-  /**
-   * Whether an environment variable overrides this key, so editing the file does not change the service.
-   *
-   * The field stays editable; absent means the service did not say, not that it is unaffected.
-   */
+  /** Whether an environment variable overrides this key, so a saved value waits until the variable is gone. */
   environmentOverridden?: boolean
   /** The schema's allowed or suggested values, or absent when it names none. */
   choices?: ConfigChoices
@@ -726,30 +712,17 @@ export type GuildList = {
   entries: GuildEntry[]
 }
 
-/**
- * A file steward could not split into keys: a foreign file, or a `.yml` with a mistake in it.
- *
- * Nothing was parsed, so there is no revision and no save.
- */
-export type RawConfigDocument = ConfigLocation & {
-  raw: true
-  reason?: string
-  content: string
-}
-
 export type ParsedConfigDocument = ConfigLocation & {
-  raw?: never
   /**
-   * The revision the file was read at, which the save sends back.
+   * The revision the stored values were read at, which the save sends back.
    *
    * A write in between makes the save a 409 instead of silently overwriting it.
    */
   revision: string
-  header: string[]
   entries: ConfigEntry[]
 }
 
-export type ConfigDocument = RawConfigDocument | ParsedConfigDocument
+export type ConfigDocument = ParsedConfigDocument
 
 /** What a PUT sends: a string is a scalar, a string array a list, a record array a `SECTIONS` entry. */
 /** A value, a list of values, or a list of sections, which may hold lists of sections again. */
@@ -954,20 +927,3 @@ export type ReloadAwareConfigDocument = ParsedConfigDocument & {
   restartRequired: boolean
   reload?: ConfigReloadOutcome
 }
-
-/** `RawConfigDocument` widened with the revision the raw editor's save needs. */
-export type EditableRawConfigDocument = RawConfigDocument & {
-  revision: string
-}
-
-/**
- * What `PUT /api/config-raw/<file>` answers: the file as it now reads, plus every syntax warning.
- *
- * A warning never blocks the save, and `warnings` is empty rather than absent.
- */
-export type RawConfigSaveResult = EditableRawConfigDocument & {
-  warnings: string[]
-}
-
-/** The four formats the raw editor tells apart by file name, mirroring `RawSyntax.Format` in steward. */
-export type RawConfigFormat = "yaml" | "json" | "toml" | "properties" | "text"

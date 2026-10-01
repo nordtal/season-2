@@ -4,11 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.jcore.config.exception.UnknownConfigKeyException;
+import eu.nordtal.s2.settings.MemorySettingStore;
 import eu.nordtal.s2.settings.SettingsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -95,6 +94,13 @@ class BotSettingsTest {
     @TempDir
     Path directory;
 
+    private final MemorySettingStore store = new MemorySettingStore();
+
+    /** Takes the access group the way the first start does, importing the {@code access.yml} written here. */
+    private AccessSpec imported() throws SettingsException {
+        return store.imported(directory, BotSettings.SERVICE, BotSettings.ACCESS);
+    }
+
     @BeforeEach
     void pointConfigsAtTempDirectory() {
         System.setProperty(BotSettings.DIRECTORY_PROPERTY, directory.toString());
@@ -109,7 +115,7 @@ class BotSettingsTest {
     void aCompleteAccessYmlLoadsWithThePricesAsIntegerCents() throws Exception {
         Files.writeString(directory.resolve("access.yml"), access());
 
-        final AccessSpec config = BotSettings.access().get();
+        final AccessSpec config = imported();
 
         assertAll(
                 () -> assertEquals("1", config.guildId()),
@@ -128,7 +134,7 @@ class BotSettingsTest {
         // A guild without an admin channel yet still has to come up to say what else is missing.
         Files.writeString(directory.resolve("access.yml"), access().replace("admin: '24'", "admin: ''"));
 
-        assertEquals("", BotSettings.access().get().channels().admin());
+        assertEquals("", imported().channels().admin());
     }
 
     @Test
@@ -136,7 +142,7 @@ class BotSettingsTest {
         // Empty is a decision; `<#24>` is a paste.
         Files.writeString(directory.resolve("access.yml"), access().replace("admin: '24'", "admin: '<#24>'"));
 
-        final SettingsException error = assertThrows(SettingsException.class, BotSettings::access);
+        final SettingsException error = assertThrows(SettingsException.class, this::imported);
         assertTrue(error.getMessage().contains("channels.admin"), error.getMessage());
     }
 
@@ -144,7 +150,7 @@ class BotSettingsTest {
     void theGuildIdIsOneOfTheTwoTheBotCannotStartWithout() throws Exception {
         Files.writeString(directory.resolve("access.yml"), access().replace("guild-id: '1'", "guild-id: ''"));
 
-        final SettingsException error = assertThrows(SettingsException.class, BotSettings::access);
+        final SettingsException error = assertThrows(SettingsException.class, this::imported);
         assertTrue(error.getMessage().contains("guild-id"), error.getMessage());
     }
 
@@ -156,7 +162,7 @@ class BotSettingsTest {
                         .replace("donor: '11'", "donor: ''")
                         .replace("admin-ping: '15'", "admin-ping: ''"));
 
-        final AccessSpec config = BotSettings.access().get();
+        final AccessSpec config = imported();
 
         assertAll(
                 () -> assertEquals("", config.roles().access()),
@@ -170,7 +176,7 @@ class BotSettingsTest {
         // This role's flag authorises the admin actions and admission during MAINTENANCE.
         Files.writeString(directory.resolve("access.yml"), access().replace("admin: '14'", "admin: ''"));
 
-        final SettingsException error = assertThrows(SettingsException.class, BotSettings::access);
+        final SettingsException error = assertThrows(SettingsException.class, this::imported);
         assertTrue(error.getMessage().contains("roles.admin"), error.getMessage());
     }
 
@@ -178,7 +184,7 @@ class BotSettingsTest {
     void aRoleIdThatIsNotASnowflakeStopsTheBot() throws Exception {
         Files.writeString(directory.resolve("access.yml"), access().replace("access: '10'", "access: '<@&10>'"));
 
-        final SettingsException error = assertThrows(SettingsException.class, BotSettings::access);
+        final SettingsException error = assertThrows(SettingsException.class, this::imported);
         assertTrue(error.getMessage().contains("roles.access"), error.getMessage());
     }
 
@@ -189,7 +195,7 @@ class BotSettingsTest {
                 directory.resolve("access.yml"),
                 access(VALID_TIERS.replace("- days: 60\n  price-cents: 500", "- days: 60\n  price-cents: 900")));
 
-        final SettingsException error = assertThrows(SettingsException.class, BotSettings::access);
+        final SettingsException error = assertThrows(SettingsException.class, this::imported);
         assertTrue(error.getMessage().contains("more expensive as they get longer"), error.getMessage());
     }
 
@@ -198,7 +204,7 @@ class BotSettingsTest {
         // A purchase button carries a day count, so two tiers sharing one is an ambiguous lookup.
         Files.writeString(directory.resolve("access.yml"), access(VALID_TIERS.replace("- days: 90", "- days: 30")));
 
-        final SettingsException error = assertThrows(SettingsException.class, BotSettings::access);
+        final SettingsException error = assertThrows(SettingsException.class, this::imported);
         assertTrue(error.getMessage().contains("Day counts identify a tier"), error.getMessage());
     }
 
@@ -207,14 +213,14 @@ class BotSettingsTest {
         // Prices are set in the interface after the stack is up, not a precondition of being up.
         Files.writeString(directory.resolve("access.yml"), access("tiers: []"));
 
-        assertTrue(BotSettings.access().get().tiers().isEmpty());
+        assertTrue(imported().tiers().isEmpty());
     }
 
     @Test
     void theLanguageListLoadsWithItsTagsRoleAndChannels() throws Exception {
         Files.writeString(directory.resolve("access.yml"), access());
 
-        final AccessSpec config = BotSettings.access().get();
+        final AccessSpec config = imported();
         assertAll(
                 () -> assertEquals(2, config.languages().size()),
                 () -> assertEquals("en", config.languages().getFirst().tag()),
@@ -236,7 +242,7 @@ class BotSettingsTest {
                   link-channel: '35'
                   hunger-games-channel: '40'"""));
 
-        final SettingsException error = assertThrows(SettingsException.class, BotSettings::access);
+        final SettingsException error = assertThrows(SettingsException.class, this::imported);
         assertAll(
                 () -> assertTrue(error.getMessage().contains("no 'en' entry"), error.getMessage()),
                 () -> assertTrue(
@@ -248,7 +254,7 @@ class BotSettingsTest {
     void anEmptyLanguageListStopsTheBot() throws Exception {
         Files.writeString(directory.resolve("access.yml"), languages("languages: []"));
 
-        final SettingsException error = assertThrows(SettingsException.class, BotSettings::access);
+        final SettingsException error = assertThrows(SettingsException.class, this::imported);
         assertAll(
                 () -> assertTrue(error.getMessage().contains("languages is empty"), error.getMessage()),
                 () -> assertTrue(
@@ -262,7 +268,7 @@ class BotSettingsTest {
         Files.writeString(
                 directory.resolve("access.yml"), languages(VALID_LANGUAGES.replace("- tag: de", "- tag: en")));
 
-        final SettingsException error = assertThrows(SettingsException.class, BotSettings::access);
+        final SettingsException error = assertThrows(SettingsException.class, this::imported);
         assertTrue(error.getMessage().contains("Tags identify a language"), error.getMessage());
     }
 
@@ -272,7 +278,7 @@ class BotSettingsTest {
         Files.writeString(
                 directory.resolve("access.yml"), languages(VALID_LANGUAGES.replace("- tag: de", "- tag: DE")));
 
-        final SettingsException error = assertThrows(SettingsException.class, BotSettings::access);
+        final SettingsException error = assertThrows(SettingsException.class, this::imported);
         assertTrue(error.getMessage().contains("must be lower case"), error.getMessage());
     }
 
@@ -287,8 +293,7 @@ class BotSettingsTest {
                         .replace("link-channel: '35'", "link-channel: ''")
                         .replace("hunger-games-channel: '40'", "hunger-games-channel: ''")));
 
-        final AccessSpec.LanguageSpec german =
-                BotSettings.access().get().languages().get(1);
+        final AccessSpec.LanguageSpec german = imported().languages().get(1);
 
         assertAll(
                 () -> assertEquals("", german.role()),
@@ -304,7 +309,7 @@ class BotSettingsTest {
                 directory.resolve("access.yml"),
                 languages(VALID_LANGUAGES.replace("link-channel: '35'", "link-channel: '<#35>'")));
 
-        final SettingsException error = assertThrows(SettingsException.class, BotSettings::access);
+        final SettingsException error = assertThrows(SettingsException.class, this::imported);
         assertTrue(error.getMessage().contains("languages[1].link-channel"), error.getMessage());
     }
 
@@ -312,7 +317,7 @@ class BotSettingsTest {
     void aLanguageWithNoStatusChannelIsALanguageWithNoStatusChannel() throws Exception {
         Files.writeString(directory.resolve("access.yml"), languages(VALID_LANGUAGES));
 
-        final AccessSpec config = BotSettings.access().get();
+        final AccessSpec config = imported();
 
         assertEquals("", config.languages().getFirst().statusChannel());
         assertFalse(Languages.of(config).all().getFirst().hasStatusChannel());
@@ -323,7 +328,7 @@ class BotSettingsTest {
         // The second optional id: the servers' announce rows for this language settle as "no channel".
         Files.writeString(directory.resolve("access.yml"), languages(VALID_LANGUAGES));
 
-        final AccessSpec config = BotSettings.access().get();
+        final AccessSpec config = imported();
 
         assertEquals("", config.languages().getFirst().announcementChannel());
         assertFalse(Languages.of(config).all().getFirst().hasAnnouncementChannel());
@@ -337,7 +342,7 @@ class BotSettingsTest {
                         "hunger-games-channel: '40'",
                         "hunger-games-channel: '40'\n  announcement-channel: 'not-an-id'")));
 
-        final SettingsException error = assertThrows(SettingsException.class, BotSettings::access);
+        final SettingsException error = assertThrows(SettingsException.class, this::imported);
         assertTrue(error.getMessage().contains("languages[1].announcement-channel"), error.getMessage());
     }
 
@@ -349,7 +354,7 @@ class BotSettingsTest {
                 languages(VALID_LANGUAGES.replace(
                         "hunger-games-channel: '40'", "hunger-games-channel: '40'\n  status-channel: 'not-an-id'")));
 
-        final SettingsException error = assertThrows(SettingsException.class, BotSettings::access);
+        final SettingsException error = assertThrows(SettingsException.class, this::imported);
         assertTrue(error.getMessage().contains("languages[1].status-channel"), error.getMessage());
     }
 
@@ -361,7 +366,7 @@ class BotSettingsTest {
                                 "role-reconcile-interval-minutes: 10",
                                 "role-reconcile-interval-minutes: 10\nlink-code-attempts-per-hour: 0"));
 
-        final SettingsException error = assertThrows(SettingsException.class, BotSettings::access);
+        final SettingsException error = assertThrows(SettingsException.class, this::imported);
         assertTrue(error.getMessage().contains("link-code-attempts-per-hour"), error.getMessage());
     }
 
@@ -372,41 +377,8 @@ class BotSettingsTest {
                 directory.resolve("access.yml"),
                 languages(VALID_LANGUAGES.replace("- tag: de", "- tag: " + "a".repeat(20))));
 
-        final SettingsException error = assertThrows(SettingsException.class, BotSettings::access);
+        final SettingsException error = assertThrows(SettingsException.class, this::imported);
         assertTrue(error.getMessage().contains("as long as a managed message's key"), error.getMessage());
-    }
-
-    @Test
-    void theRetiredRolesGermanRolesEnglishAreDeletedFromTheFileNotArguedWith() throws Exception {
-        // A re-declared `german:` key is deleted, not refused.
-        Files.writeString(
-                directory.resolve("access.yml"), access().replace("  donor: '11'", "  donor: '11'\n  german: '12'"));
-
-        final AccessSpec config = BotSettings.access().get();
-
-        assertAll(
-                () -> assertFalse(
-                        Files.readString(directory.resolve("access.yml")).contains("german:"),
-                        "the retired key has to be gone from the file"),
-                () -> assertTrue(
-                        Files.readString(directory.resolve("access.yml.bak")).contains("german:"),
-                        "and recoverable from the backup, because it carried an id"),
-                () -> assertEquals(
-                        2, config.languages().size(), "the list is still the only source for the language roles"));
-    }
-
-    @Test
-    void theRetiredFixedContributionAndLinkChannelsAreDeletedFromTheFile() throws Exception {
-        Files.writeString(
-                directory.resolve("access.yml"),
-                access().replace("  admin: '24'", "  contribution-en: '20'\n  admin: '24'"));
-
-        final AccessSpec config = BotSettings.access().get();
-
-        assertAll(
-                () -> assertFalse(
-                        Files.readString(directory.resolve("access.yml")).contains("contribution-en:")),
-                () -> assertEquals("24", config.channels().admin(), "the sibling ids are not collateral"));
     }
 
     @Test
@@ -414,7 +386,7 @@ class BotSettingsTest {
         // Nothing in the bot's source mentions 'fr'; this file is the entire change per language.
         Files.writeString(directory.resolve("access.yml"), languages(VALID_LANGUAGES + FRENCH));
 
-        final Languages languages = Languages.of(BotSettings.access().get());
+        final Languages languages = Languages.of(imported());
         final Languages.Language french = languages.byTag("fr").orElseThrow();
 
         assertAll(
@@ -435,189 +407,14 @@ class BotSettingsTest {
     }
 
     @Test
-    void aDeployedAccessYmlCarryingTheMovedPaymentKeysLosesThemAndKeepsTheBot() throws Exception {
-        // These belong to steward's bunq block, not this one.
-        Files.writeString(directory.resolve("access.yml"), access().replace("""
-                        payment:
-                          request-ttl-hours: 24
-                        """, """
-                        payment:
-                          request-ttl-hours: 24
-                          watermark: '2026-09-01T00:00:00Z'
-                          recent-payment-count: 50
-                        """));
-
-        BotSettings.access();
-
-        final String written = Files.readString(directory.resolve("access.yml"));
-        assertFalse(
-                written.lines().anyMatch(line -> line.strip().startsWith("watermark:")),
-                "access.yml still carries payment.watermark after a load - something re-declared"
-                        + " it in AccessSpec: " + written);
-        assertFalse(
-                written.lines().anyMatch(line -> line.strip().startsWith("recent-payment-count:")),
-                "access.yml still carries payment.recent-payment-count after a load: " + written);
-    }
-
-    @Test
-    void aMistypedSettingStopsTheBotAndSaysWhatWasMeant() throws Exception {
-        Files.writeString(directory.resolve("access.yml"), access().replace("donation-cents:", "donation-cent:"));
-
-        // jcore keeps the trace of a typo rather than deleting the unknown key.
-        final SettingsException refused = assertThrows(SettingsException.class, BotSettings::access);
-        final UnknownConfigKeyException error = assertInstanceOf(UnknownConfigKeyException.class, refused.getCause());
-
-        assertAll(
-                () -> assertEquals(
-                        "donation-cent", error.unknownKeys().getFirst().path()),
-                () -> assertEquals(
-                        "donation-cents", error.unknownKeys().getFirst().suggestion()));
-    }
-
-    @Test
-    void theRetiredLinkCodeTtlMinutesIsDeletedFromTheFileAndGateYmlKeepsTheOnlyOne() throws Exception {
-        // gate.yml carries the only link-code TTL.
-        Files.writeString(directory.resolve("access.yml"), access() + "link-code-ttl-minutes: 10\n");
-
-        BotSettings.access();
-
-        assertFalse(
-                Files.readString(directory.resolve("access.yml")).contains("link-code-ttl-minutes"),
-                "the key is gone rather than sitting in the file looking like a setting");
-    }
-
-    @Test
-    void aDefaultsAccessYmlIsWrittenAndItCannotStartTheBot() {
-        // Real ids as defaults would let a config that failed to load post into a real channel.
-        assertThrows(SettingsException.class, BotSettings::access);
-
-        final Path file = directory.resolve("access.yml");
-        assertAll(
-                () -> assertTrue(Files.isRegularFile(file)),
-                () -> assertTrue(
-                        Files.readString(file).contains("access: ''"), "the role ids are written empty, never guessed"),
-                () -> assertTrue(
-                        Files.readString(file).contains("price-cents: 300"),
-                        "but the price list is written in full - a fresh install is ready to sell"),
-                () -> assertTrue(
-                        Files.readString(file).contains("price-cents: 700"), "all three tiers, not just the first"),
-                // jcore initialises a List<NestedSpec> to empty; without DefaultLanguages a fresh install has none.
-                () -> assertTrue(
-                        Files.readString(file).contains("tag: en"), "the fallback language is written: " + read(file)),
-                () -> assertTrue(
-                        Files.readString(file).contains("tag: de"),
-                        "and so is German - both entries, not an empty list: " + read(file)),
-                () -> assertTrue(
-                        Files.readString(file).contains("link-channel: ''"),
-                        "with their ids empty, exactly like every other id"),
-                () -> assertTrue(
-                        Files.readString(file).contains("hunger-games-channel: ''"),
-                        "the hunger games channel id too"));
-    }
-
-    private static String read(final Path file) throws Exception {
-        return Files.readString(file);
-    }
-
-    @Test
     void theBotRefusesToStartWhileTheCredentialsAreEmpty() {
-        final SettingsException error = assertThrows(SettingsException.class, BotSettings::bot);
+        final SettingsException error =
+                assertThrows(SettingsException.class, () -> BotSettings.bot(store.settings(BotSettings.SERVICE)));
 
         assertAll(
                 () -> assertTrue(error.getMessage().contains("token"), error.getMessage()),
                 () -> assertTrue(
                         error.getMessage().contains("NORDTAL_BOT_TOKEN"),
                         "the message has to name the variable to set: " + error.getMessage()));
-    }
-
-    @Test
-    void aDeployedBotYmlStillCarryingTheWholeBunqBlockLosesItAndKeepsTheBot() throws Exception {
-        // The bunq block belongs to steward; a deployed bot.yml carrying it costs a WARN and a .bak.
-        Files.writeString(directory.resolve("bot.yml"), """
-                token: a-token
-                bunq:
-                  api-key: a-key
-                  account-id: '1234'
-                  context-path: ''
-                  environment: SANDBOX
-                """);
-
-        assertEquals("a-token", BotSettings.bot().get().token());
-
-        final String written = Files.readString(directory.resolve("bot.yml"));
-        assertFalse(
-                written.lines().anyMatch(line -> line.strip().startsWith("bunq:")),
-                "bot.yml still carries the bunq block after a load. jcore drops a key the interface"
-                        + " does not declare - if it survived, something declared it again: " + written);
-        assertFalse(written.contains("a-key"), "the bunq API key survived into the rewritten bot.yml: " + written);
-    }
-
-    @Test
-    void aDefaultsBotYmlIsWrittenAndTheSecretsSlotStaysEmpty() {
-        assertThrows(SettingsException.class, BotSettings::bot);
-
-        final Path file = directory.resolve("bot.yml");
-        // jcore puts the file-level header into the schema, not the YAML.
-        final Path schema = directory.resolve("bot.schema.json");
-        assertAll(
-                () -> assertTrue(Files.isRegularFile(file), "the defaults file is still written"),
-                () -> assertTrue(
-                        Files.readString(file).contains("token: ''"), "the token slot is written empty, never guessed"),
-                () -> assertTrue(
-                        Files.isRegularFile(schema),
-                        "the schema is written beside it, under the config's own base name"),
-                // "THIS", not "THESE": bot.yml has one setting, the token.
-                () -> assertTrue(
-                        Files.readString(schema).contains("LEAVE THIS EMPTY"),
-                        "and the schema's root explanation carries the header that says so"),
-                () -> assertTrue(
-                        Files.readString(schema).contains("NORDTAL_STEWARD_BUNQ_API_KEY"),
-                        "the header also has to say where the bunq key went, because the one thing"
-                                + " an operator will look for in bot.yml is the setting that is no"
-                                + " longer in it"),
-                () -> assertFalse(
-                        Files.readString(file).contains("LEAVE THIS EMPTY"),
-                        "the YAML itself stays comment-free - that is what jcore 4.0.0 decided"));
-    }
-
-    @Test
-    void aNonPostgresqlJdbcUrlStopsTheBot() throws Exception {
-        Files.writeString(directory.resolve("database.yml"), "jdbc-url: jdbc:mysql://db:3306/access\nusername: u\n");
-
-        final SettingsException error = assertThrows(SettingsException.class, BotSettings::database);
-        assertTrue(error.getMessage().contains("PostgreSQL"), error.getMessage());
-    }
-
-    /** Every loaded config file has a {@code *.schema.json} written beside it, even when validation then fails. */
-    @Test
-    void everyConfigFileThisModuleWritesGetsASchemaJsonBesideIt() {
-        swallowValidationFailure(BotSettings::access);
-        swallowValidationFailure(BotSettings::bot);
-        swallowValidationFailure(BotSettings::database);
-
-        assertAll(
-                () -> assertTrue(
-                        Files.isRegularFile(directory.resolve("access.schema.json")),
-                        "access.yml has no access.schema.json beside it"),
-                () -> assertTrue(
-                        Files.isRegularFile(directory.resolve("bot.schema.json")),
-                        "bot.yml has no bot.schema.json beside it"),
-                () -> assertTrue(
-                        Files.isRegularFile(directory.resolve("database.schema.json")),
-                        "database.yml has no database.schema.json beside it"));
-    }
-
-    /** Runs a config loader and ignores a validation failure, since only the written files matter here. */
-    private static void swallowValidationFailure(final ThrowingCall call) {
-        try {
-            call.run();
-        } catch (final SettingsException expectedForFreshDefaults) {
-            // Ignored on purpose.
-        }
-    }
-
-    @FunctionalInterface
-    private interface ThrowingCall {
-        void run() throws SettingsException;
     }
 }

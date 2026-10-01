@@ -5,41 +5,41 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.settings.FileSettings;
+import eu.nordtal.jcore.config.ConfigLoader;
+import eu.nordtal.s2.settings.Group;
+import eu.nordtal.s2.settings.MemorySettingStore;
 import eu.nordtal.s2.settings.SettingsException;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.milestone.ObjectiveType;
 import eu.nordtal.s2.smp.milestone.Unlock;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.Yaml;
 
-/** That {@code milestones.yml} can be written and read back as the whole track, two levels of nesting deep. */
+/** That the milestone track is stored as one value and read back whole, two levels of nesting deep. */
 class MilestonesTest {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(MilestonesTest.class);
+    private static final Group<MilestonesSpec> MILESTONES =
+            Group.of("milestones", MilestonesSpec.class).checkedBy(SmpSettings::checkMilestones);
 
-    @TempDir
-    Path directory;
+    private final MemorySettingStore store = new MemorySettingStore();
+
+    /** What an admin stored, taken by the next load. */
+    private final Map<String, Object> values = new LinkedHashMap<>();
+
+    private MilestonesSpec load() throws SettingsException {
+        return store.checked("smp", MILESTONES, values);
+    }
 
     @Test
-    void aFreshFileIsWrittenAndReadsBackAsTheWholeTrack() throws Exception {
-        final MilestonesSpec written = FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
-                .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones)
-                .get();
+    void theStoredTrackReadsBackAsTheWholeTrack() throws Exception {
+        final MilestonesSpec written = load();
 
-        assertTrue(
-                Files.isRegularFile(directory.resolve("milestones.yml")),
-                "a fresh load has to write the defaults out, or there is nothing to edit");
-
-        // A SECOND load, from the file the first one just wrote: the first handle still holds in-memory defaults.
-        final MilestonesSpec reread = FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
-                .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones)
-                .get();
+        // A SECOND load, over the whole track stored as the one value it is.
+        values.put("milestones", ConfigLoader.gsonBuilder().create().toJson(written.milestones()));
+        final MilestonesSpec reread = load();
         final MilestoneTrack track = Milestones.read(reread).track();
 
         assertEquals(
@@ -50,12 +50,7 @@ class MilestonesTest {
 
     @Test
     void theNestedObjectivesSurviveTheRoundTrip() throws Exception {
-        FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
-                .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones);
-        final MilestoneTrack track = Milestones.read(FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
-                        .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones)
-                        .get())
-                .track();
+        final MilestoneTrack track = Milestones.read(load()).track();
 
         final var foothold = track.milestone("foothold").orElseThrow();
         assertEquals(4, foothold.objectives().size());
@@ -79,10 +74,7 @@ class MilestonesTest {
 
     @Test
     void theTrackMatchesTheTableInTheConcept() throws Exception {
-        final MilestoneTrack track = Milestones.read(FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
-                        .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones)
-                        .get())
-                .track();
+        final MilestoneTrack track = Milestones.read(load()).track();
 
         // The track, column by column. The numbers are allowed to change; this is what makes a retune deliberate.
         assertEquals(20, track.milestone("waiting").orElseThrow().borderDiameter());
@@ -108,10 +100,7 @@ class MilestonesTest {
 
     @Test
     void everyMilestoneWithObjectivesCarriesExactlyOneParticipationGate() throws Exception {
-        final MilestoneTrack track = Milestones.read(FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
-                        .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones)
-                        .get())
-                .track();
+        final MilestoneTrack track = Milestones.read(load()).track();
 
         // ADVANCEMENT is the only type counting distinct players, the only one three people cannot finish alone.
         assertEquals(
@@ -128,10 +117,7 @@ class MilestonesTest {
 
     @Test
     void theOpeningTwoMilestonesHaveNothingToFinish() throws Exception {
-        final MilestoneTrack track = Milestones.read(FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
-                        .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones)
-                        .get())
-                .track();
+        final MilestoneTrack track = Milestones.read(load()).track();
 
         assertTrue(track.milestone("waiting").orElseThrow().hasNoObjectives());
         assertTrue(track.milestone("departure").orElseThrow().hasNoObjectives());
@@ -161,10 +147,7 @@ class MilestonesTest {
                         advancement: ''
                 """);
 
-        final SettingsException error = assertThrows(
-                SettingsException.class,
-                () -> FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
-                        .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones));
+        final SettingsException error = assertThrows(SettingsException.class, () -> load());
         assertTrue(error.getMessage().contains("HANDIN"), error.getMessage());
     }
 
@@ -189,10 +172,7 @@ class MilestonesTest {
                         advancement: ''
                 """);
 
-        final SettingsException error = assertThrows(
-                SettingsException.class,
-                () -> FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
-                        .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones));
+        final SettingsException error = assertThrows(SettingsException.class, () -> load());
         assertTrue(error.getMessage().contains("participation gate"), error.getMessage());
     }
 
@@ -225,10 +205,7 @@ class MilestonesTest {
                         advancement: 'minecraft:story/iron_tools'
                 """);
 
-        final SettingsException error = assertThrows(
-                SettingsException.class,
-                () -> FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
-                        .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones));
+        final SettingsException error = assertThrows(SettingsException.class, () -> load());
         assertTrue(error.getMessage().contains("HAND_IN with no items"), error.getMessage());
     }
 
@@ -261,14 +238,14 @@ class MilestonesTest {
                         advancement: 'minecraft:story/iron_tools'
                 """);
 
-        final SettingsException error = assertThrows(
-                SettingsException.class,
-                () -> FileSettings.in(directory, "NORDTAL_SMP", LOGGER)
-                        .load("milestones", MilestonesSpec.class, SmpSettings::checkMilestones));
+        final SettingsException error = assertThrows(SettingsException.class, () -> load());
         assertTrue(error.getMessage().contains("belongs to"), error.getMessage());
     }
 
-    private void writeTrack(final String yaml) throws Exception {
-        Files.writeString(directory.resolve("milestones.yml"), yaml);
+    /** Stores every top-level value of {@code yaml} as Steward would, the track as one JSON value. */
+    private void writeTrack(final String yaml) {
+        final Map<String, Object> parsed = new Yaml().load(yaml);
+        parsed.forEach((key, value) ->
+                values.put(key, ConfigLoader.gsonBuilder().create().toJson(value)));
     }
 }

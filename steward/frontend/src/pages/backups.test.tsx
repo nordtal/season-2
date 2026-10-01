@@ -15,7 +15,7 @@ function json(status: number, body: unknown): Response {
   })
 }
 
-const FILE = "steward/steward.yml"
+const FILE = "steward/steward"
 const IDENTIFIER_PATTERN = /\b\d{17,20}\b/
 
 function entry(over: Record<string, unknown>) {
@@ -23,7 +23,6 @@ function entry(over: Record<string, unknown>) {
     path: "backup.remote.endpoint",
     key: "endpoint",
     label: "Endpoint",
-    comments: [],
     explanation: "",
     noExplanationNeeded: true,
     filled: false,
@@ -31,10 +30,8 @@ function entry(over: Record<string, unknown>) {
     items: [],
     kind: "SCALAR",
     type: "STRING",
-    line: 1,
     editable: true,
     secret: false,
-    inSchema: true,
     ...over,
   }
 }
@@ -43,12 +40,11 @@ function entry(over: Record<string, unknown>) {
 function stewardConfig(over: { secretValue?: string } = {}) {
   return {
     service: "steward",
-    name: "steward.yml",
+    name: "steward",
     path: FILE,
     readable: true,
     writable: true,
     revision: "rev-1",
-    header: [],
     entries: [
       entry({ path: "backup.at", key: "at", label: "At", value: "04:45" }),
       /** A LIST key with two days, so the file's value differs from the default of all seven. */
@@ -173,10 +169,10 @@ function backend(
   } = {},
 ) {
   return vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
-    if (url === "/api/config") {
-      return json(200, [{ service: "steward", name: "steward.yml", path: FILE, readable: true, writable: true }])
+    if (url === "/api/setting-groups") {
+      return json(200, [{ service: "steward", name: "steward", path: FILE, readable: true, writable: true }])
     }
-    if (url === `/api/config/${FILE}`) {
+    if (url === `/api/setting-groups/${FILE}`) {
       if (init?.method === "PUT") {
         return (over.put ?? (() => json(200, stewardConfig())))(JSON.parse(init?.body ?? ""))
       }
@@ -259,8 +255,9 @@ describe("BackupsPage - the destination dialog never draws a secret", () => {
 
     const set = asInput(await screen.findByLabelText("Access key"))
     const unset = asInput(screen.getByLabelText("Secret key"))
-    expect(set.placeholder).toContain("set")
-    expect(unset.placeholder).toBe("empty")
+    expect(set.placeholder).toBe("set")
+    expect(unset.placeholder).toBe("not set")
+    expect(set.disabled).toBe(true)
   })
 
   it("has nothing to save once a typed value is put back the way it was", async () => {

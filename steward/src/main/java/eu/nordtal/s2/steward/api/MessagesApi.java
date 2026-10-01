@@ -12,11 +12,11 @@ import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.InboxStatus;
 import eu.nordtal.s2.database.inbox.Request;
 import eu.nordtal.s2.database.inbox.Schedule;
-import eu.nordtal.s2.steward.configfile.MessageArg;
-import eu.nordtal.s2.steward.configfile.MessageBundle;
-import eu.nordtal.s2.steward.configfile.MessageBundleLocation;
-import eu.nordtal.s2.steward.configfile.MessageBundles;
-import eu.nordtal.s2.steward.configfile.MessageEntry;
+import eu.nordtal.s2.steward.messages.MessageArg;
+import eu.nordtal.s2.steward.messages.MessageBundle;
+import eu.nordtal.s2.steward.messages.MessageBundleLocation;
+import eu.nordtal.s2.steward.messages.MessageBundles;
+import eu.nordtal.s2.steward.messages.MessageEntry;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import io.javalin.http.ForbiddenResponse;
@@ -29,15 +29,42 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** The two routes over the message bundles, kept apart from {@link ConfigApi} since a bundle is not a config file. */
+/** The two routes over the message bundles, which stay files until the messages move into the database. */
 public final class MessagesApi {
 
     private static final Logger log = LoggerFactory.getLogger(MessagesApi.class);
+
+    /** Asks a running service to re-read what it can while it runs, narrowed so a test can pass a lambda. */
+    @FunctionalInterface
+    public interface Reloader {
+
+        /**
+         * Asks {@code service} for a reload through its inbox and waits for the answer.
+         *
+         * @return the answer, or empty when the service did not answer in time
+         * @throws IllegalArgumentException for a service that has no inbox
+         */
+        Optional<Reloaded> reload(String service);
+    }
+
+    /**
+     * A service's answer to a reload.
+     *
+     * @param applied whether it re-read everything
+     * @param text its own words, for the page
+     */
+    public record Reloaded(boolean applied, String text) {}
+
+    /** The bundles a running Minecraft service re-reads on a reload, by identity; any other needs a restart. */
+    private static final Set<String> RELOADABLE =
+            Set.of("smp/smp", "hunger-games/hunger-games", "limbo/limbo", "proxy/proxy");
 
     /** The one bundle whose reload goes through the bot's inbox, which answers with the keys it does not know. */
     private static final String RELOADABLE_SERVICE = "discord-bot";
@@ -59,7 +86,7 @@ public final class MessagesApi {
     private final Path configsRoot;
     private final @Nullable Path volumesRoot;
     private final @Nullable Inbox<BotRequest> inbox;
-    private final ConfigApi.Reloader reloader;
+    private final Reloader reloader;
 
     /**
      * Builds the API.
@@ -72,7 +99,7 @@ public final class MessagesApi {
             final Path configsRoot,
             final @Nullable Path volumesRoot,
             final @Nullable Inbox<BotRequest> inbox,
-            final ConfigApi.Reloader reloader,
+            final Reloader reloader,
             final Waiting waiting) {
         this.waiting = waiting;
         this.configsRoot = configsRoot;
@@ -147,13 +174,65 @@ public final class MessagesApi {
     }
 
     /**
-     * Asks the service that owns a just-saved bundle to re-read it, answered like {@code ConfigApi#reload}.
+     * Asks {@code service} to re-read what {@link #RELOADABLE} names by {@code identity}; never restarts anything.
+     *
+     * Answers {@code RESTART_REQUIRED}, {@code APPLIED} when the service re-read it, or {@code NO_ANSWER}.
+     */
+    static Map<String, Object> reload(
+            final Reloader reloader,
+            final String identity,
+            final String service,
+            final String name,
+            final String file) {
+        final Map<String, Object> answer = new LinkedHashMap<>();
+        if (!RELOADABLE.contains(identity)) {
+            answer.put("status", "RESTART_REQUIRED");
+            answer.put(
+                    "message",
+                    "Saved. Nothing reloads " + name + " live; "
+                            + (service.isEmpty() ? "it" : service)
+                            + " only reads it again at its next restart, which stays a click of its own.");
+            return answer;
+        }
+        final Optional<Reloaded> reloaded;
+        try {
+            reloaded = reloader.reload(service);
+        } catch (final IllegalArgumentException e) {
+            log.warn("{} is reloadable, but {} cannot be asked: {}", file, service, e.getMessage());
+            answer.put("status", "RESTART_REQUIRED");
+            answer.put("message", "Saved. " + e.getMessage());
+            return answer;
+        }
+        if (reloaded.isEmpty()) {
+            log.warn("{} was saved but {} did not answer the reload", file, service);
+            answer.put("status", "NO_ANSWER");
+            answer.put(
+                    "message",
+                    "Saved, but " + service + " did not answer. The change is on disk and takes effect once that"
+                            + " service reads it again.");
+        } else if (reloaded.get().applied()) {
+            answer.put("status", "APPLIED");
+            answer.put(
+                    "message",
+                    "Saved, and " + service + " re-read it: " + reloaded.get().text());
+        } else {
+            answer.put("status", "NO_ANSWER");
+            answer.put(
+                    "message",
+                    "Saved, but " + service + " did not take all of it: "
+                            + reloaded.get().text());
+        }
+        return answer;
+    }
+
+    /**
+     * Asks the service that owns a just-saved bundle to re-read it, answered like the static {@code reload}.
      *
      * The bot's answer adds {@code unknown}: the keys its override file declares that the bundle does not know.
      */
     private Map<String, Object> reload(final MessageBundleLocation location) {
         if (!RELOADABLE_SERVICE.equals(location.service())) {
-            final Map<String, Object> answer = ConfigApi.reload(
+            final Map<String, Object> answer = reload(
                     reloader, identityOf(location), location.service(), identityOf(location), identityOf(location));
             answer.put("unknown", List.of());
             return answer;

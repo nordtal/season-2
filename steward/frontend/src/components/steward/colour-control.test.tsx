@@ -14,7 +14,6 @@ const showPreview = () => fireEvent.click(screen.getByRole("button", { name: /pr
 function field(over: Partial<ConfigEntry> & { key: string; path: string }): ConfigEntry {
   return {
     label: over.key,
-    comments: [],
     explanation: "",
     noExplanationNeeded: false,
     filled: true,
@@ -22,10 +21,8 @@ function field(over: Partial<ConfigEntry> & { key: string; path: string }): Conf
     items: [],
     kind: "SCALAR",
     type: "STRING",
-    line: 1,
     editable: true,
     secret: false,
-    inSchema: true,
     ...over,
   }
 }

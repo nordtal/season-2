@@ -1,10 +1,10 @@
 package eu.nordtal.s2.steward.apply;
 
+import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.steward.config.StewardSpec;
 import eu.nordtal.s2.steward.plan.Change;
 import eu.nordtal.s2.steward.plan.Installation;
 import eu.nordtal.s2.steward.plan.JarName;
-import eu.nordtal.s2.steward.plan.PackState;
 import eu.nordtal.s2.steward.plan.Topology;
 import eu.nordtal.s2.steward.plan.UpdatePlan;
 import eu.nordtal.s2.steward.source.Checksum;
@@ -38,9 +38,13 @@ public final class Applier {
     private final StewardSpec config;
     private final Fetcher fetcher;
 
-    public Applier(final StewardSpec config, final Fetcher fetcher) {
+    /** Where the proxy's pack is set. */
+    private final SettingStore settings;
+
+    public Applier(final StewardSpec config, final Fetcher fetcher, final SettingStore settings) {
         this.config = config;
         this.fetcher = fetcher;
+        this.settings = settings;
     }
 
     public ApplyResult apply(final UpdatePlan plan) {
@@ -81,7 +85,7 @@ public final class Applier {
         final Change blocked = UpdatePlan.blocker(changes);
         if (blocked != null) {
             markServiceBlocked(service, changes, blocked, outcomes);
-            outcomes.addAll(applyPack(root, service, changes));
+            outcomes.addAll(applyPack(service, changes));
             return outcomes;
         }
 
@@ -97,7 +101,7 @@ public final class Applier {
         markUnsupportedOrUnchanged(service, changes, outcomes);
 
         if (work.isEmpty()) {
-            outcomes.addAll(applyPack(root, service, changes));
+            outcomes.addAll(applyPack(service, changes));
             return outcomes;
         }
 
@@ -112,13 +116,13 @@ public final class Applier {
             work.forEach(change ->
                     outcomes.add(new ApplyResult.Outcome(service, change.artifact(), ApplyResult.Status.FAILED, why)));
             stagingByDestination.values().forEach(Applier::quietlyDelete);
-            outcomes.addAll(applyPack(root, service, changes));
+            outcomes.addAll(applyPack(service, changes));
             return outcomes;
         }
 
         outcomes.addAll(moveIntoPlace(service, volume, work, staged));
         stagingByDestination.values().forEach(Applier::quietlyDelete);
-        outcomes.addAll(applyPack(root, service, changes));
+        outcomes.addAll(applyPack(service, changes));
         return outcomes;
     }
 
@@ -217,8 +221,8 @@ public final class Applier {
         return outcomes;
     }
 
-    /** The proxy's {@code pack.yml}, written after its jars, with the URL and sha1 the release publishes. */
-    private List<ApplyResult.Outcome> applyPack(final Path root, final String service, final List<Change> changes) {
+    /** The proxy's pack, set after its jars, with the URL and sha1 the release publishes. */
+    private List<ApplyResult.Outcome> applyPack(final String service, final List<Change> changes) {
         final Change pack = changes.stream()
                 .filter(change -> change.artifact().equals(Topology.RESOURCE_PACK))
                 .findFirst()
@@ -227,14 +231,14 @@ public final class Applier {
             return List.of();
         }
 
-        // "Could not be checked" is not "unchanged": pack.yml keeps the previous pack.
+        // "Could not be checked" is not "unchanged": the proxy keeps the previous pack.
         if (pack.status().isFailure()) {
             return List.of(new ApplyResult.Outcome(
                     service,
                     Topology.RESOURCE_PACK,
                     ApplyResult.Status.SKIPPED,
                     "could not be checked" + (pack.note() == null ? "" : " (" + pack.note() + ")")
-                            + "; pack.yml was left alone, so the client is still sent "
+                            + "; the proxy's pack was left alone, so the client is still sent "
                             + (pack.installed() == null ? "whatever it already said" : pack.installed())
                             + ". The jars beside it were not held back for it."));
         }
@@ -255,16 +259,15 @@ public final class Applier {
         }
 
         try {
-            final boolean written = PackWriter.write(
-                    PackState.fileIn(root.resolve(service)), wanted.url().toString(), sha1.hex());
+            final boolean written = PackWriter.write(settings, wanted.url().toString(), sha1.hex());
             return List.of(new ApplyResult.Outcome(
                     service,
                     Topology.RESOURCE_PACK,
                     written ? ApplyResult.Status.DONE : ApplyResult.Status.UNCHANGED,
                     written
-                            ? "pack.yml now points at " + wanted.fileName() + " (sha1 " + sha1.hex() + ")"
-                            : "pack.yml already said this"));
-        } catch (final IOException failed) {
+                            ? "the proxy now sends " + wanted.fileName() + " (sha1 " + sha1.hex() + ")"
+                            : "the proxy already sent this"));
+        } catch (final RuntimeException failed) {
             return List.of(new ApplyResult.Outcome(
                     service, Topology.RESOURCE_PACK, ApplyResult.Status.FAILED, failed.getMessage()));
         }

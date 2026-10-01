@@ -1,8 +1,8 @@
 <!--
   dev pack
 
-  Builds the resource pack, copies the zip into PACK_ROOT, rewrites url and sha1 in the proxy's
-  pack.yml and restarts the proxy. The proxy must have run once so that pack.yml exists.
+  Builds the resource pack, copies the zip into PACK_ROOT, sets url and sha1 of the proxy's pack
+  in the database and restarts the proxy. Steward must have run once so that the tables exist.
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev pack" type="Application" factoryName="Application" folderName="dev: build and deploy">

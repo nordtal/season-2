@@ -1,16 +1,8 @@
 import { WarningIcon } from "@phosphor-icons/react"
 
-import type {
-  ConfigChanges,
-  ConfigEntry,
-  EditableRawConfigDocument,
-  GuildList,
-  ParsedConfigDocument,
-  RawConfigDocument,
-} from "@/lib/api"
+import type { ConfigChanges, ConfigEntry, GuildList, ParsedConfigDocument } from "@/lib/api"
 import { languageName } from "@/lib/language-names"
 import { ListControl, ScalarControl } from "@/components/steward/config-controls"
-import { RawConfigEditor } from "@/components/steward/raw-config-editor"
 import { type SectionValues, RepeatableCards, sectionsFromEntry } from "@/components/steward/repeatable-cards"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -18,19 +10,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 /** Re-exported for `snowflake-picker.test.tsx`; it lives in `config-controls.tsx` to avoid an import cycle. */
 export { discordId } from "@/components/steward/config-controls"
 
-/** The marker for a key the file has but the schema does not mention. */
-export function NotInSchemaBadge() {
-  return (
-    <Badge variant="outline" className="shrink-0 gap-1 text-muted-foreground">
-      not in schema
-    </Badge>
-  )
-}
-
 /**
- * The marker for a key an environment variable answers, where saving changes the file but not the service.
- *
- * The field stays editable, so the file can be prepared for when the variable is gone.
+ * The marker for a key an environment variable answers, where a saved value waits until the variable is gone.
  */
 export function EnvironmentOverriddenBadge() {
   return (
@@ -43,33 +24,9 @@ export function EnvironmentOverriddenBadge() {
           </Badge>
         </span>
       </TooltipTrigger>
-      <TooltipContent className="max-w-xs">
-        An environment variable overrides this. Saving changes the file, not the running service, until that variable is
-        removed.
-      </TooltipContent>
+      <TooltipContent className="max-w-xs">An environment variable overrides this until it is removed.</TooltipContent>
     </Tooltip>
   )
-}
-
-/** Whether `document` carries the `revision` steward sends on every raw document. */
-function isEditable(document: RawConfigDocument): document is EditableRawConfigDocument {
-  return "revision" in document && typeof document.revision === "string"
-}
-
-/** A file that is not valid YAML, shown as it stands on disk and handed to `RawConfigEditor` for editing. */
-export function RawConfigView({
-  file,
-  document,
-  origin,
-}: {
-  file: string
-  document: RawConfigDocument
-  origin?: "nordtal" | "third-party"
-}) {
-  if (!isEditable(document)) {
-    throw new Error(`${file}: steward answered a raw document with no revision`)
-  }
-  return <RawConfigEditor file={file} origin={origin} document={document} />
 }
 
 export type Draft = Record<string, string | string[] | SectionValues[]>
@@ -84,7 +41,7 @@ function isSectionValuesArray(value: Draft[string] | undefined): value is Sectio
   )
 }
 
-/** Only the keys that differ from the file, so a one word change stays a one line diff. */
+/** Only the keys that differ from what is stored, so a one word change stays one row. */
 export function changed(document: ParsedConfigDocument, draft: Draft): ConfigChanges {
   const changes: ConfigChanges = {}
   for (const entry of document.entries) {
@@ -103,8 +60,7 @@ export function changed(document: ParsedConfigDocument, draft: Draft): ConfigCha
       }
       continue
     }
-    /** A secret has no value to compare, so any typed value is a change, an empty one emptying it. */
-    if (entry.secret || value !== (entry.value ?? "")) {
+    if (!entry.secret && value !== (entry.value ?? "")) {
       changes[entry.path] = value
     }
   }
@@ -171,7 +127,6 @@ export function Control({
       id={entry.path}
       entry={entry}
       value={value}
-      edited={typed !== undefined}
       disabled={disabled}
       roles={roles}
       channels={channels}

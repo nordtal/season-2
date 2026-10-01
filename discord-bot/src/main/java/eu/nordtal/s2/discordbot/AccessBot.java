@@ -42,6 +42,7 @@ import eu.nordtal.s2.discordbot.hungergames.Teams;
 import eu.nordtal.s2.discordbot.status.StatusChannels;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.MessageEnvironment;
+import eu.nordtal.s2.settings.DatabaseSettings;
 import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.settings.SettingsException;
 import java.time.Clock;
@@ -116,8 +117,6 @@ public class AccessBot implements AutoCloseable {
 
     public AccessBot() throws InterruptedException, SettingsException {
         final DatabaseSpec databaseConfig = BotSettings.database().get();
-        final BotSpec botConfig = BotSettings.bot().get();
-        final AccessSpec accessConfig = BotSettings.access().get();
 
         this.database = Database.create(toDatabaseConfig(databaseConfig));
         this.database.jdbi().installPlugin(Jdbis.ids());
@@ -126,6 +125,10 @@ public class AccessBot implements AutoCloseable {
         try {
             // The bot does not migrate; this refuses an unmigrated database by name.
             SchemaCheck.validate(database.dataSource());
+            final DatabaseSettings settings = BotSettings.stored(database.dataSource());
+            final BotSpec botConfig = BotSettings.bot(settings).get();
+            final AccessSpec accessConfig = BotSettings.access(settings).get();
+            settings.retireFiles();
 
             // Borrows the bot's pool; closing a borrowed pool is a no-op.
             this.access = AccessDirectory.using(database.dataSource(), clock);

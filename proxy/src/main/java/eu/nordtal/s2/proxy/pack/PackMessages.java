@@ -41,7 +41,7 @@ public final class PackMessages {
         return MessageRenderer.of(messages).format(locale, MESSAGES.pack().invalidUrl());
     }
 
-    /** The client never answered the offer within {@code pack.yml#apply-timeout-seconds}. */
+    /** The client never answered the offer within {@code pack#apply-timeout-seconds}. */
     public Component timedOut(final Locale locale) {
         return MessageRenderer.of(messages).format(locale, MESSAGES.pack().timeout());
     }

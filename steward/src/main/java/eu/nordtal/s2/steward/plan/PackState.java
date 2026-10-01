@@ -1,70 +1,60 @@
 package eu.nordtal.s2.steward.plan;
 
-import java.io.IOException;
-import java.io.Reader;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Map;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
+import eu.nordtal.s2.database.setting.SettingStore;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
-import org.yaml.snakeyaml.DumperOptions;
-import org.yaml.snakeyaml.LoaderOptions;
-import org.yaml.snakeyaml.Yaml;
-import org.yaml.snakeyaml.constructor.SafeConstructor;
-import org.yaml.snakeyaml.nodes.Tag;
-import org.yaml.snakeyaml.representer.Representer;
-import org.yaml.snakeyaml.resolver.Resolver;
 
 /**
- * The resource pack the proxy offers, read out of {@code pack.yml} in the {@code proxy} volume.
+ * The resource pack the proxy offers: {@code url} and {@code sha1} of its {@code pack} group, which an update run sets.
  *
- * Read with SnakeYAML, since jcore creates a missing file; every scalar is text, so a numeric hash stays one.
+ * Only the stored rows count, so a proxy that never had a pack reads as absent whatever its spec defaults to.
  */
-public record PackState(
-        boolean present, @Nullable String url, @Nullable String sha1) {
+public record PackState(@Nullable String url, @Nullable String sha1) {
 
-    /** The Velocity plugin id, which is the name of its data directory under {@code plugins/}. */
-    public static final String PLUGIN_ID = "proxy";
+    /** The service whose settings hold the pack. */
+    public static final String SERVICE = "proxy";
 
-    public static Path fileIn(final Path proxyVolume) {
-        return proxyVolume.resolve(Installation.PLUGINS).resolve(PLUGIN_ID).resolve("pack.yml");
+    /** The group of that service which holds it. */
+    public static final String GROUP = "pack";
+
+    /** Whether a pack was ever set: a hash is what the client is held to. */
+    public boolean present() {
+        return sha1 != null;
     }
 
-    /** Never creates or rewrites the file, and treats an unreadable one as absent with a reason. */
-    public static PackState read(final Path proxyVolume) throws IOException {
-        final Path file = fileIn(proxyVolume);
-        if (!Files.isRegularFile(file)) {
-            return new PackState(false, null, null);
-        }
-        try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
-            final Object loaded = textOnlyYaml().load(reader);
-            if (!(loaded instanceof Map<?, ?> map)) {
-                throw new IOException(file + " is not a YAML mapping");
+    /** Reads the two values as stored. */
+    public static PackState read(final SettingStore store) {
+        return of(store.overrides(List.of(SERVICE)));
+    }
+
+    /** Returns the pack among {@code stored}, ignoring every other group and service. */
+    public static PackState of(final List<SettingStore.Value> stored) {
+        String url = null;
+        String sha1 = null;
+        for (final SettingStore.Value value : stored) {
+            if (!SERVICE.equals(value.service()) || !GROUP.equals(value.group())) {
+                continue;
             }
-            return new PackState(true, text(map.get("url")), text(map.get("sha1")));
-        }
-    }
-
-    /** A YAML parser that resolves only {@code null}, so every other scalar arrives as text. */
-    private static Yaml textOnlyYaml() {
-        final LoaderOptions loading = new LoaderOptions();
-        final DumperOptions dumping = new DumperOptions();
-        final Resolver textOnly = new Resolver() {
-            @Override
-            protected void addImplicitResolvers() {
-                addImplicitResolver(Tag.NULL, EMPTY, null);
-                addImplicitResolver(Tag.NULL, NULL, "~nN\u0000");
-                addImplicitResolver(Tag.MERGE, MERGE, "<");
+            switch (value.path()) {
+                case "url" -> url = text(value.value());
+                case "sha1" -> sha1 = text(value.value());
+                default -> {
+                    // The pack's other settings are an admin's, not the release's.
+                }
             }
-        };
-        return new Yaml(new SafeConstructor(loading), new Representer(dumping), dumping, loading, textOnly);
+        }
+        return new PackState(url, sha1);
     }
 
-    private static @Nullable String text(final @Nullable Object value) {
-        if (value == null) {
+    /** A stored JSON value as text, so a hash made only of digits stays the text it was. */
+    private static @Nullable String text(final String json) {
+        final JsonElement value = JsonParser.parseString(json);
+        if (!value.isJsonPrimitive()) {
             return null;
         }
-        final String string = value.toString().strip();
-        return string.isEmpty() ? null : string;
+        final String text = value.getAsString().strip();
+        return text.isEmpty() ? null : text;
     }
 }

@@ -622,22 +622,20 @@ class TopologyTest {
     }
 
     @Test
-    void theConfigsTheInterfaceShowsAreTheConfigsTheServicesActuallyRead() {
-        // Saving a form IS the reload, so a volume spelt differently here shows a form and quietly changes nothing.
+    void theBundlesTheInterfaceShowsAreTheBundlesTheServicesActuallyRead() {
+        // Saving a bundle IS the reload, so a volume spelt differently here shows a form and quietly changes nothing.
         @SuppressWarnings("unchecked")
         final Map<String, Object> editor = (Map<String, Object>) services.get("steward");
         assertNotNull(editor, "compose.yml has no steward service");
         final List<String> stewardMounts = mountsOf(editor);
 
-        // The interface shows a file under the compose service name, the same name the server owns it under.
+        // The interface shows a bundle under the compose service name, the same name the server owns it under.
         for (final Topology.Service service : Topology.SERVICES) {
             assertServerConfigMatchesInterface(service, stewardMounts);
         }
 
-        // The two services whose own name is the directory name ConfigLocation#service reports to the browser.
-        for (final String each : List.of("steward", "discord-bot")) {
-            assertOwnConfigMatchesInterface(each, stewardMounts);
-        }
+        // The bot, whose own name is the directory name a bundle's service reports to the browser.
+        assertOwnConfigMatchesInterface("discord-bot", stewardMounts);
     }
 
     private void assertServerConfigMatchesInterface(final Topology.Service service, final List<String> stewardMounts) {
@@ -651,7 +649,7 @@ class TopologyTest {
                 .filter(mount -> mount.endsWith(":/configs/" + service.name()))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("steward mounts nothing at"
-                        + " /configs/" + service.name() + ", so that server's config.yml is in"
+                        + " /configs/" + service.name() + ", so that server's messages are in"
                         + " no form at all."
                         + " A volume that is not mounted is not an error to the page - it lists"
                         + " what it finds - so this is invisible from the browser."));
@@ -664,8 +662,8 @@ class TopologyTest {
 
         assertFalse(
                 onTheInterface.endsWith(":ro"),
-                service.name() + "'s config is mounted read-only into steward, so the form"
-                        + " is drawn and the save fails: every config in the stack is editable from the interface.");
+                service.name() + "'s bundles are mounted read-only into steward, so the form"
+                        + " is drawn and the save fails: every bundle in the stack is editable from the interface.");
     }
 
     private void assertOwnConfigMatchesInterface(final String each, final List<String> stewardMounts) {

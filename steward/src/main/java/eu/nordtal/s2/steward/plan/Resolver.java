@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward.plan;
 
 import eu.nordtal.s2.common.Platform;
+import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.steward.config.StewardSpec;
 import eu.nordtal.s2.steward.source.Checksum;
 import eu.nordtal.s2.steward.source.GitHubReleases;
@@ -35,19 +36,24 @@ public final class Resolver {
     private final Clock clock;
     private final eu.nordtal.s2.steward.plugin.PluginDirectory plugins;
 
+    /** Where the proxy's pack is read; {@code null} without a database. */
+    private final @Nullable SettingStore settings;
+
     public Resolver(
             final StewardSpec config,
             final GitHubReleases github,
             final Modrinth modrinth,
             final PaperFill fill,
-            final Clock clock) {
-        this(config, github, modrinth, fill, clock, eu.nordtal.s2.steward.plugin.PluginDirectory.NONE);
+            final Clock clock,
+            final @Nullable SettingStore settings) {
+        this(config, github, modrinth, fill, clock, eu.nordtal.s2.steward.plugin.PluginDirectory.NONE, settings);
     }
 
     /**
      * Resolves against the fixed topology plus the plugins an admin added.
      *
      * @param plugins merged in by {@link Topology#servicesWith}; {@code PluginDirectory#NONE} without a database
+     * @param settings where the proxy's pack is read; {@code null} leaves the pack unknown
      */
     public Resolver(
             final StewardSpec config,
@@ -55,13 +61,15 @@ public final class Resolver {
             final Modrinth modrinth,
             final PaperFill fill,
             final Clock clock,
-            final eu.nordtal.s2.steward.plugin.PluginDirectory plugins) {
+            final eu.nordtal.s2.steward.plugin.PluginDirectory plugins,
+            final @Nullable SettingStore settings) {
         this.config = config;
         this.github = github;
         this.modrinth = modrinth;
         this.fill = fill;
         this.clock = clock;
         this.plugins = plugins;
+        this.settings = settings;
     }
 
     public UpdatePlan resolve() {
@@ -94,7 +102,7 @@ public final class Resolver {
         for (final String artifact : Topology.STANDALONE_JARS) {
             changes.add(resolveStandalone(root, artifact, newest, failures, unreleased));
         }
-        changes.add(resolvePack(root, newest, failures, unreleased));
+        changes.add(resolvePack(newest, failures, unreleased));
 
         return new UpdatePlan(
                 clock.instant(),
@@ -441,27 +449,28 @@ public final class Resolver {
     }
 
     private Change resolvePack(
-            final Path root,
-            final Map<String, RemoteFile> newest,
-            final Map<String, String> failures,
-            final Set<String> unreleased) {
+            final Map<String, RemoteFile> newest, final Map<String, String> failures, final Set<String> unreleased) {
         final RemoteFile wanted = newest.get(Topology.RESOURCE_PACK);
         final String why = failures.getOrDefault(Topology.RESOURCE_PACK, "no source answered for the pack");
         if (wanted == null && !unreleased.contains(Topology.RESOURCE_PACK)) {
             return Change.unresolved(Topology.PROXY, Topology.RESOURCE_PACK, why);
         }
 
+        if (settings == null) {
+            return Change.unresolved(
+                    Topology.PROXY, Topology.RESOURCE_PACK, "no database, so what the proxy sends is unknown");
+        }
         final PackState state;
         try {
-            state = PackState.read(root.resolve(Topology.PROXY));
-        } catch (final IOException failed) {
+            state = PackState.read(settings);
+        } catch (final RuntimeException failed) {
             return Change.unresolved(
-                    Topology.PROXY, Topology.RESOURCE_PACK, "could not read pack.yml: " + failed.getMessage());
+                    Topology.PROXY, Topology.RESOURCE_PACK, "could not read the proxy's pack: " + failed.getMessage());
         }
 
         if (wanted == null) {
             // A release without a pack keeps the installed one, like a season jar; only an empty proxy fails.
-            return state.present() && state.sha1() != null
+            return state.present()
                     ? new Change(
                             Topology.PROXY,
                             Topology.RESOURCE_PACK,
@@ -472,16 +481,14 @@ public final class Resolver {
                     : Change.unresolved(Topology.PROXY, Topology.RESOURCE_PACK, why);
         }
 
-        if (!state.present() || state.sha1() == null) {
+        if (!state.present()) {
             return new Change(
                     Topology.PROXY,
                     Topology.RESOURCE_PACK,
                     Change.Status.MISSING,
                     null,
                     wanted,
-                    state.present()
-                            ? "pack.yml has no sha1"
-                            : PackState.fileIn(root.resolve(Topology.PROXY)) + " does not exist yet");
+                    state.url() == null ? "the proxy has no pack yet" : "the proxy's pack has no sha1");
         }
 
         // The hash is the identity, compared case-insensitively since a typed hash may differ in case.

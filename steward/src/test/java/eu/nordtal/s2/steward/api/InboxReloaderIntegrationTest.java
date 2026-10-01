@@ -61,7 +61,7 @@ class InboxReloaderIntegrationTest {
                 ? Outcome.done("The settings and the message bundles were reloaded.")
                 : Outcome.failed("not a reload"));
 
-        final Optional<ConfigApi.Reloaded> answer = reloader().reload("smp");
+        final Optional<MessagesApi.Reloaded> answer = reloader().reload("smp");
 
         assertTrue(answer.isPresent(), "the SMP answered within its patience");
         assertTrue(answer.get().applied());
@@ -74,7 +74,7 @@ class InboxReloaderIntegrationTest {
     void aServerThatKeptPartOfItsOldSettingsIsNotApplied() {
         smpAnswering(request -> Outcome.failed("Not everything was reloaded: prestige.yml"));
 
-        final Optional<ConfigApi.Reloaded> answer = reloader().reload("smp");
+        final Optional<MessagesApi.Reloaded> answer = reloader().reload("smp");
 
         assertTrue(answer.isPresent());
         assertFalse(answer.get().applied());

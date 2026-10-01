@@ -46,7 +46,6 @@ function entry(over: Partial<ConfigEntry>): ConfigEntry {
     path: "roles.admin",
     key: "admin",
     label: "Admin",
-    comments: [],
     explanation: "",
     noExplanationNeeded: false,
     filled: true,
@@ -54,10 +53,8 @@ function entry(over: Partial<ConfigEntry>): ConfigEntry {
     items: [],
     kind: "SCALAR",
     type: "STRING",
-    line: 1,
     editable: true,
     secret: false,
-    inSchema: true,
     ...over,
   }
 }

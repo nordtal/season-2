@@ -2,7 +2,6 @@ package eu.nordtal.s2.steward;
 
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.health.Readiness;
-import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.inbox.Inbox;
@@ -13,17 +12,18 @@ import eu.nordtal.s2.database.metric.MetricDirectory;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.online.OnlineDirectory;
 import eu.nordtal.s2.database.online.OnlineRoster;
+import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.internalapi.InternalClient;
+import eu.nordtal.s2.settings.DatabaseSettings;
 import eu.nordtal.s2.settings.DatabaseSpec;
+import eu.nordtal.s2.settings.EnvironmentSettings;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.SettingsException;
 import eu.nordtal.s2.steward.agent.AgentRecreate;
 import eu.nordtal.s2.steward.api.StackApi;
 import eu.nordtal.s2.steward.apply.ApplyResult;
-import eu.nordtal.s2.steward.auth.Credentials;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
-import eu.nordtal.s2.steward.auth.Sessions;
 import eu.nordtal.s2.steward.backup.Backups;
 import eu.nordtal.s2.steward.backup.DatabaseDump;
 import eu.nordtal.s2.steward.backup.Schedules;
@@ -71,9 +71,13 @@ public final class Steward {
     /** The one clock of this process. */
     private static final Clock CLOCK = NetworkTime.clock();
 
+    /** The logger the settings name what they refused or ignored in. */
+    private static final org.slf4j.Logger SETTINGS_LOG = LoggerFactory.getLogger(StewardSettings.class);
+
     /** How long a settled request is kept in its inbox. */
     private static final java.time.Duration REQUEST_RETENTION = java.time.Duration.ofDays(30);
 
+    /** Where the last installation's settings files are mounted, imported once and then deleted. */
     private static final String DEFAULT_CONFIG_DIR = "config";
 
     /**
@@ -107,10 +111,10 @@ public final class Steward {
 
         final int status = switch (command(args)) {
             // The schema on its own, so this works on a host with no release yet.
-            case MIGRATE -> migrate(configDirectory) ? 0 : 1;
+            case MIGRATE -> migrate() ? 0 : 1;
             case SERVE -> serve(configDirectory);
             case BOOTSTRAP -> bootstrap(configDirectory);
-            case FORGET -> forgetFactors(configDirectory, args);
+            case FORGET -> ForgetFactors.run(args, databaseConfig(), CLOCK);
             case Web.GENERATE_VAPID_KEYS -> generateVapidKeys();
             // Retired, and named so it does not fall through to a report that looks like it worked.
             case "apply" -> {
@@ -121,22 +125,22 @@ public final class Steward {
                 yield 1;
             }
             // Named as well as defaulted, since `docker compose run --rm steward` cannot reach the default.
-            case REPORT -> report(configDirectory);
-            default -> report(configDirectory);
+            case REPORT -> report();
+            default -> report();
         };
         System.exit(status);
     }
 
-    private static int report(final Path configDirectory) {
-        final StewardSpec config = stewardConfig(configDirectory);
-        if (config == null) {
-            return 1;
-        }
+    private static int report() {
         // The one caller that may run with no database, so its absence is said out loud.
-        final DatabaseSpec databaseConfig = databaseConfig(configDirectory);
+        final DatabaseSpec databaseConfig = databaseConfig();
         final Database opened =
                 databaseConfig == null ? null : DatabaseWaiting.openDatabase(databaseConfig, Waiting.on(CLOCK));
         try {
+            final StewardSpec config = reportConfig(opened);
+            if (config == null) {
+                return 1;
+            }
             final eu.nordtal.s2.steward.plugin.PluginDirectory plugins = opened == null
                     ? eu.nordtal.s2.steward.plugin.PluginDirectory.NONE
                     : eu.nordtal.s2.steward.plugin.PluginDirectory.using(opened.dataSource());
@@ -145,7 +149,8 @@ public final class Steward {
                         + " report. Everything the topology names is in it.");
             }
             // stdout, not the logger, so the report can be pasted as is.
-            System.out.println(Report.render(Runs.resolve(config, plugins)));
+            System.out.println(Report.render(
+                    Runs.resolve(config, plugins, opened == null ? null : SettingStore.using(opened.dataSource()))));
         } finally {
             if (opened != null) {
                 opened.close();
@@ -160,9 +165,8 @@ public final class Steward {
      * It writes no row into the run inbox, since on a fresh deployment the table does not exist yet.
      */
     private static int bootstrap(final Path configDirectory) {
-        final StewardSpec config = stewardConfig(configDirectory);
-        final DatabaseSpec databaseConfig = databaseConfig(configDirectory);
-        if (config == null || databaseConfig == null) {
+        final DatabaseSpec databaseConfig = databaseConfig();
+        if (databaseConfig == null) {
             return 1;
         }
 
@@ -186,15 +190,33 @@ public final class Steward {
             }
 
             try (RunLock held = lock.get()) {
-                return bootstrapUnderLock(config, database);
+                return bootstrapUnderLock(configDirectory, database);
             }
         }
     }
 
-    /** Resolves what is missing, prints it, migrates and installs it under the bootstrap lock. */
-    private static int bootstrapUnderLock(final StewardSpec config, final Database database) {
+    /** Migrates, then resolves what is missing, prints it and installs it under the bootstrap lock. */
+    private static int bootstrapUnderLock(final Path configDirectory, final Database database) {
+        // Before a single jar moves, so a plugin never meets a schema older than itself; the settings live in it.
+        try {
+            Schema.migrate(database, Schema.passwords(System.getenv()));
+        } catch (final RuntimeException failure) {
+            log.error("The database schema could not be applied. Nothing else was done.", failure);
+            return 1;
+        }
+        final DatabaseSettings settings =
+                StewardSettings.importing(database.dataSource(), configDirectory, SETTINGS_LOG);
+        final StewardSpec config;
+        try {
+            config = StewardSettings.steward(settings).get();
+        } catch (final SettingsException broken) {
+            log.error("Refusing to run on settings that cannot be read: {}", broken.getMessage());
+            return 1;
+        }
+        settings.retireFiles();
+        final SettingStore store = SettingStore.using(database.dataSource());
         final UpdatePlan resolved =
-                Runs.resolve(config, eu.nordtal.s2.steward.plugin.PluginDirectory.using(database.dataSource()));
+                Runs.resolve(config, eu.nordtal.s2.steward.plugin.PluginDirectory.using(database.dataSource()), store);
         final UpdatePlan plan = resolved.onlyMissing();
         System.out.println(Report.render(resolved));
         // Even when not empty, so a report naming only the install does not read as a failure.
@@ -215,49 +237,42 @@ public final class Steward {
                     + " difference.");
         }
 
-        // Before a single jar moves, so a plugin never meets a schema older than itself.
-        try {
-            Schema.migrate(database, Schema.passwords(System.getenv()));
-        } catch (final RuntimeException failure) {
-            log.error("The database schema could not be applied. Nothing else was done.", failure);
-            return 1;
-        }
-
-        final ApplyResult result = Runs.apply(config, plan);
+        final ApplyResult result = Runs.apply(config, plan, store);
         System.out.println(Report.render(result));
         return result.hasFailures() ? 1 : 0;
     }
 
     private static int serve(final Path configDirectory) {
-        // The handle, so saving this file in Steward re-arms the two clocks.
-        final Setting<StewardSpec> handle = stewardHandle(configDirectory);
-        final DatabaseSpec databaseConfig = databaseConfig(configDirectory);
-        final WebSpec webConfig = webConfig(configDirectory);
-        if (handle == null || databaseConfig == null || webConfig == null) {
+        final DatabaseSpec databaseConfig = databaseConfig();
+        if (databaseConfig == null) {
             return 1;
         }
-        final StewardSpec config = handle.get();
-
         final Database opened = DatabaseWaiting.openDatabase(databaseConfig, Waiting.on(CLOCK));
         if (opened == null) {
             return 1;
         }
         try (Database database = opened) {
-            return serveWithDatabase(new Configs(handle, config, webConfig, databaseConfig), database);
+            return serveWithDatabase(configDirectory, databaseConfig, database);
         }
     }
 
     /**
-     * The three files {@code serve} runs on, read once at its start.
+     * The settings {@code serve} runs on, taken once the schema is current.
      *
-     * @param handle {@code steward.yml} as a handle, so a save re-arms the two clocks
-     * @param config what {@code handle} said at the start
+     * @param handle the steward group, so a change in Steward re-arms the two clocks
+     * @param config what {@code handle} hands out, which reads through to every reload
+     * @param settings where both groups came from, listened to for a change
      */
-    private record Configs(Setting<StewardSpec> handle, StewardSpec config, WebSpec web, DatabaseSpec database) {}
+    private record Configs(
+            Setting<StewardSpec> handle,
+            StewardSpec config,
+            WebSpec web,
+            DatabaseSpec database,
+            DatabaseSettings settings) {}
 
     /** Takes the serve lock and, once held, runs the container's whole lifetime. */
-    private static int serveWithDatabase(final Configs configs, final Database database) {
-        final StewardSpec config = configs.config();
+    private static int serveWithDatabase(
+            final Path configDirectory, final DatabaseSpec databaseConfig, final Database database) {
         // First: settleOrphans closes every RUNNING row, which is only right while one process claims them.
         final Optional<ServeLock> serveLock;
         try {
@@ -289,6 +304,11 @@ public final class Steward {
                         failure);
                 return 1;
             }
+            final Configs configs = configsOf(configDirectory, databaseConfig, database);
+            if (configs == null) {
+                return 1;
+            }
+            final StewardSpec config = configs.config();
             clearOldRequests(database);
 
             // Fill empty volumes before the marker; a failure here does not stop it.
@@ -298,6 +318,23 @@ public final class Steward {
             markReady();
 
             return serveNetwork(configs, database);
+        }
+    }
+
+    /** Takes both groups out of the database, importing the last installation's files once, or {@code null}. */
+    private static @Nullable Configs configsOf(
+            final Path configDirectory, final DatabaseSpec databaseConfig, final Database database) {
+        final DatabaseSettings settings =
+                StewardSettings.importing(database.dataSource(), configDirectory, SETTINGS_LOG);
+        try {
+            final Setting<StewardSpec> handle = StewardSettings.steward(settings);
+            final WebSpec web = StewardSettings.web(settings).get();
+            settings.retireFiles();
+            return new Configs(handle, handle.get(), web, databaseConfig, settings);
+        } catch (final SettingsException broken) {
+            // No stack trace, so the sentence is not missed.
+            log.error("Refusing to serve on settings that cannot be read: {}", broken.getMessage());
+            return null;
         }
     }
 
@@ -397,15 +434,20 @@ public final class Steward {
                 eu.nordtal.s2.steward.plugin.PluginDirectory.using(database.dataSource());
 
         try (Schedules schedules = new Schedules(data.updates(), config, CLOCK);
-                StackApi stack = buildStack(
-                        config, docker, dockerOps, database, data, addedPlugins, configs.handle(), schedules)) {
+                StackApi stack = buildStack(config, docker, dockerOps, database, data, addedPlugins)) {
             // Started after the marker, so a failure of the interface cannot keep the servers down.
             final Web web = startWeb(configs, stack, data);
             try {
                 // The nightly backup and the optional scheduled update.
                 schedules.arm();
                 return serveWithApi(
-                        config, configs.database(), database, containers, backups, data.updates(), addedPlugins);
+                        configs,
+                        database,
+                        containers,
+                        backups,
+                        data.updates(),
+                        addedPlugins,
+                        () -> reReadOwn(configs.handle(), schedules));
             } finally {
                 web.stop();
             }
@@ -461,9 +503,9 @@ public final class Steward {
             final DockerOps dockerOps,
             final Database database,
             final Data data,
-            final eu.nordtal.s2.steward.plugin.PluginDirectory addedPlugins,
-            final Setting<StewardSpec> handle,
-            final Schedules schedules) {
+            final eu.nordtal.s2.steward.plugin.PluginDirectory addedPlugins) {
+        // Every process's settings, which its signal re-reads; the proxy's pack among them.
+        final SettingStore settings = SettingStore.using(database.dataSource());
         return new StackApi(
                 docker,
                 dockerOps,
@@ -487,7 +529,7 @@ public final class Steward {
                         OnlineRoster.using(database.dataSource(), CLOCK),
                         CLOCK),
                 // The same resolve a run starts with, so the page can ask what is newest without a run.
-                () -> Runs.resolve(config, addedPlugins),
+                () -> Runs.resolve(config, addedPlugins, settings),
                 // Its own Modrinth client, living as long as the API.
                 new eu.nordtal.s2.steward.api.PluginsApi(
                         addedPlugins,
@@ -505,30 +547,36 @@ public final class Steward {
                         CLOCK),
                 // The bot's inbox: saving a message asks it to re-read the file.
                 data.bot(),
-                // The servers' inboxes: saving their files or bundles asks them to re-read them.
+                // The servers' inboxes: saving their bundles asks them to re-read them.
                 new eu.nordtal.s2.steward.api.InboxReloader(
                         database.dataSource(), eu.nordtal.s2.common.time.Waiting.on(CLOCK)),
-                // A save of Steward's own steward.yml re-arms the clocks.
-                () -> {
-                    try {
-                        handle.reload();
-                    } catch (final SettingsException broken) {
-                        throw new IllegalStateException(broken.getMessage(), broken);
-                    }
-                    schedules.arm();
-                },
+                settings,
                 CLOCK);
+    }
+
+    /** Takes the steward group again after a change in Steward and re-arms the two clocks from it. */
+    private static void reReadOwn(final Setting<StewardSpec> handle, final Schedules schedules) {
+        try {
+            handle.reload();
+        } catch (final SettingsException broken) {
+            // The problem is on the group, where Steward shows it; the values in use stay.
+            log.warn("The steward settings were changed but refused, so the last ones stay: {}", broken.getMessage());
+            return;
+        }
+        schedules.arm();
     }
 
     /** The request loop, the payment loop over steward-bunq, and the only process that stops and starts services. */
     private static int serveWithApi(
-            final StewardSpec config,
-            final DatabaseSpec databaseConfig,
+            final Configs configs,
             final Database database,
             final ContainerOps containers,
             final Backups backups,
             final UpdateDirectory updates,
-            final eu.nordtal.s2.steward.plugin.PluginDirectory addedPlugins) {
+            final eu.nordtal.s2.steward.plugin.PluginDirectory addedPlugins,
+            final Runnable onSettings) {
+        final StewardSpec config = configs.config();
+        final DatabaseSpec databaseConfig = configs.database();
         try (PaymentLoop paymentLoop = PaymentsStartup.start(
                         config, database, Waiting.on(CLOCK), Duration.ofSeconds(config.httpTimeoutSeconds()));
                 SignalHub signals = SignalHub.open(
@@ -543,6 +591,7 @@ public final class Steward {
                     new Runner(config, database, containers, backups, updates, Waiting.on(CLOCK), addedPlugins),
                     CLOCK)) {
                 server.listen(signals);
+                configs.settings().listen(signals, onSettings);
                 if (paymentLoop != null) {
                     paymentLoop.listen(signals);
                 }
@@ -585,9 +634,11 @@ public final class Steward {
 
     /** Resolves what is missing and installs it under the bootstrap lock. */
     private static void bootstrapAtStartupUnderLock(final StewardSpec config, final Database database) {
+        final SettingStore settings = SettingStore.using(database.dataSource());
         final UpdatePlan missing;
         try {
-            missing = Runs.resolve(config, eu.nordtal.s2.steward.plugin.PluginDirectory.using(database.dataSource()))
+            missing = Runs.resolve(
+                            config, eu.nordtal.s2.steward.plugin.PluginDirectory.using(database.dataSource()), settings)
                     .onlyMissing();
         } catch (final RuntimeException failure) {
             log.error(
@@ -615,18 +666,19 @@ public final class Steward {
             return;
         }
 
-        installMissing(config, missing);
+        installMissing(config, missing, settings);
     }
 
     /** Installs what {@code missing} names, and logs how it went. */
-    private static void installMissing(final StewardSpec config, final UpdatePlan missing) {
+    private static void installMissing(
+            final StewardSpec config, final UpdatePlan missing, final SettingStore settings) {
         log.info(
                 "Bootstrap: {} artefact(s) have nothing installed at all. Installing those, and"
                         + " only those, before this container reports ready.",
                 missing.withStatus(Change.Status.MISSING).size());
         final ApplyResult result;
         try {
-            result = Runs.apply(config, missing);
+            result = Runs.apply(config, missing, settings);
         } catch (final RuntimeException failure) {
             log.error(
                     "Bootstrap: the install failed part way through. Some volumes may still be"
@@ -672,37 +724,33 @@ public final class Steward {
         return args.length == 0 ? "" : args[0].strip().toLowerCase(Locale.ROOT);
     }
 
-    private static @Nullable StewardSpec stewardConfig(final Path configDirectory) {
-        final Setting<StewardSpec> handle = stewardHandle(configDirectory);
-        return handle == null ? null : handle.get();
-    }
-
-    private static @Nullable Setting<StewardSpec> stewardHandle(final Path configDirectory) {
+    /** The steward group for the report: from the database where it answers, else from the environment alone. */
+    private static @Nullable StewardSpec reportConfig(final @Nullable Database opened) {
         try {
-            return StewardSettings.steward(configDirectory, LoggerFactory.getLogger(StewardSettings.class));
+            if (opened != null) {
+                try {
+                    return StewardSettings.steward(StewardSettings.stored(opened.dataSource(), SETTINGS_LOG))
+                            .get();
+                } catch (final RuntimeException noSettingsYet) {
+                    log.warn(
+                            "The database holds no settings yet, so this report runs on the defaults: {}",
+                            noSettingsYet.getMessage());
+                }
+            }
+            return StewardSettings.steward(EnvironmentSettings.of(StewardSettings.ENVIRONMENT))
+                    .get();
         } catch (final SettingsException broken) {
             // No stack trace, so the sentence is not missed.
-            log.error("Refusing to run on a config that cannot be read: {}", broken.getMessage());
+            log.error("Refusing to run on settings that cannot be read: {}", broken.getMessage());
             return null;
         }
     }
 
-    private static @Nullable DatabaseSpec databaseConfig(final Path configDirectory) {
+    private static @Nullable DatabaseSpec databaseConfig() {
         try {
-            return StewardSettings.database(configDirectory, LoggerFactory.getLogger(StewardSettings.class))
-                    .get();
+            return StewardSettings.database().get();
         } catch (final SettingsException broken) {
-            log.error("Refusing to touch the database on a config that cannot be read: {}", broken.getMessage());
-            return null;
-        }
-    }
-
-    private static @Nullable WebSpec webConfig(final Path configDirectory) {
-        try {
-            return StewardSettings.web(configDirectory, LoggerFactory.getLogger(StewardSettings.class))
-                    .get();
-        } catch (final SettingsException broken) {
-            log.error("Refusing to serve the web interface on a config that cannot be read: {}", broken.getMessage());
+            log.error("Refusing to touch the database on settings that cannot be read: {}", broken.getMessage());
             return null;
         }
     }
@@ -715,61 +763,9 @@ public final class Steward {
         return 0;
     }
 
-    /**
-     * {@code forget-factors <discord-id>}: the way back in after a lost authenticator, run from a host shell.
-     *
-     * Removes keys and sessions together, so no signed-in browser stays inside; returns the exit status.
-     */
-    private static int forgetFactors(final Path configDirectory, final String[] args) {
-        if (args.length != 2 || args[1].isBlank()) {
-            System.err.println("Usage: " + FORGET + " <discord-id>");
-            System.err.println("Clears the security keys and the sessions of one account, so that"
-                    + " its next sign-in starts at the setup page.");
-            return 2;
-        }
-        final DiscordId discordId = DiscordId.of(args[1].trim());
-        // Anything but digits would run a DELETE matching nothing.
-        if (!discordId.value().chars().allMatch(Character::isDigit)) {
-            System.err.println("`" + discordId + "` is not a Discord id - those are digits only."
-                    + " Take it from the journal or from the account list.");
-            return 2;
-        }
-        final DatabaseSpec databaseConfig = databaseConfig(configDirectory);
-        if (databaseConfig == null) {
-            return 1;
-        }
-        final Database opened = DatabaseWaiting.openDatabase(databaseConfig, Waiting.on(CLOCK));
-        if (opened == null) {
-            return 1;
-        }
-        try (Database database = opened) {
-            final Data data = new Data(database, CLOCK);
-            final int keys = new Credentials(data.dataSource()).forget(discordId);
-            final int signedOut = new Sessions(data.dataSource(), Duration.ofDays(1)).endAllOf(discordId);
-            if (keys == 0 && signedOut == 0) {
-                System.out.println("Nothing to forget: " + discordId + " has no security key and"
-                        + " no session. Its next sign-in already starts at the setup page.");
-                return 0;
-            }
-            // Written after the deletes, so a row never claims something that did not happen.
-            data.audit()
-                    .record(
-                            "FORGET_FACTORS",
-                            "host",
-                            discordId.value(),
-                            null,
-                            keys + " security key(s) and " + signedOut + " session(s) of " + discordId
-                                    + " were cleared from the host");
-            System.out.println(
-                    "Cleared " + keys + " security key(s) and " + signedOut + " session(s) of " + discordId + ".");
-            System.out.println("Its next sign-in will ask for Discord and then register a new key.");
-            return 0;
-        }
-    }
-
     /** Applies the schema on its own; {@code false} means the run must not continue. */
-    private static boolean migrate(final Path configDirectory) {
-        final DatabaseSpec database = databaseConfig(configDirectory);
+    private static boolean migrate() {
+        final DatabaseSpec database = databaseConfig();
         if (database == null) {
             return false;
         }

@@ -19,6 +19,7 @@ import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.InboxTable;
 import eu.nordtal.s2.database.inbox.Outcome;
 import eu.nordtal.s2.database.notify.SignalHub;
+import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messages.MessageRef;
@@ -36,13 +37,15 @@ import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.papercommon.player.Presence;
 import eu.nordtal.s2.papercommon.world.Distances;
 import eu.nordtal.s2.papercommon.world.WorldDistances;
-import eu.nordtal.s2.settings.Check;
 import eu.nordtal.s2.settings.Colours;
 import eu.nordtal.s2.settings.ColoursSpec;
 import eu.nordtal.s2.settings.DatabasePool;
+import eu.nordtal.s2.settings.DatabaseSettings;
 import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.settings.DistancesSpec;
-import eu.nordtal.s2.settings.FileSettings;
+import eu.nordtal.s2.settings.Environment;
+import eu.nordtal.s2.settings.EnvironmentSettings;
+import eu.nordtal.s2.settings.Group;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.Settings;
 import eu.nordtal.s2.settings.SettingsException;
@@ -54,6 +57,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Level;
@@ -77,7 +81,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
 
     private final Clock clock = NetworkTime.clock();
 
-    private Settings settings;
+    private DatabaseSettings settings;
     private Setting<DatabaseSpec> database;
     private Setting<ColoursSpec> colourSettings;
     private Setting<DistancesSpec> distanceSettings;
@@ -111,7 +115,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
     /** Adds this plugin's subcommands to its root, below the {@code reload} the base adds. */
     protected void commands(final LiteralArgumentBuilder<CommandSourceStack> root) {}
 
-    /** Loads this plugin's own settings and refuses what must hold before the database opens, worlds say. */
+    /** Loads this plugin's own settings and refuses what must hold before its features start, worlds say. */
     protected abstract void prepare();
 
     /** Wires this plugin's features onto the running base; refreshes registered on {@link #hub()} run in order. */
@@ -136,7 +140,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
         return PaperUser.Chime.silent();
     }
 
-    /** Returns the distances every world runs with where {@code distances.yml} sets none; the server's own. */
+    /** Returns the distances every world runs with where an admin sets none; the server's own unless overridden. */
     protected Distances distanceDefaults() {
         return Distances.NONE;
     }
@@ -160,12 +164,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
     }
 
     private void start() {
-        settings = FileSettings.in(getDataFolder().toPath(), settingsPrefix(), logger());
-        database = setting("database", DatabaseSpec.class, DatabasePool::check);
-        colourSettings = setting("colours", ColoursSpec.class, Check.none());
-        colours = ToneColours.parse(Colours.declared(colourSettings.get()), getLogger()::warning);
-        distanceSettings = setting("distances", DistancesSpec.class, Check.none());
-        prepare();
+        takeSettings();
 
         // The worlds are loaded by now; one a plugin loads later gets the same through the listener.
         worldDistances = new WorldDistances(wantedDistances(), logger());
@@ -174,7 +173,6 @@ public abstract class NordtalPlugin extends JavaPlugin {
 
         messages = loadMessages();
 
-        pool = DatabasePool.open(database.get(), getName());
         jdbi = Jdbis.over(pool);
         access = AccessReader.using(pool, clock);
         identities = new Identities(access::identity);
@@ -210,6 +208,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
         enable();
         adminWatch.listen(signals);
         commandFilter.listen(signals);
+        // An admin's change in Steward is a reload, on the hub's thread like one Steward asks for.
+        settings.listen(signals, this::reload);
         signals.start();
 
         // Last, so a marker means every step above ran; async, so a frozen main thread lets it go stale.
@@ -220,9 +220,26 @@ public abstract class NordtalPlugin extends JavaPlugin {
         getLogger().info(getName() + " enabled");
     }
 
-    /** Returns what {@code distances.yml} sets, with this plugin's defaults where it sets nothing. */
+    /** Opens the pool on the environment's connection and takes every group of this server from the database. */
+    private void takeSettings() {
+        final Environment environment = Environment.of(settingsPrefix());
+        database = setting(
+                EnvironmentSettings.of(environment),
+                Group.of("database", DatabaseSpec.class).checkedBy(DatabasePool::check));
+        pool = DatabasePool.open(database.get(), getName());
+        // The files of the last season's installation are imported once, then retired.
+        settings = DatabaseSettings.over(SettingStore.using(pool), getName(), environment, logger())
+                .importingFrom(getDataFolder().toPath(), Set.of());
+        colourSettings = setting(Group.of("colours", ColoursSpec.class).whileRunning());
+        colours = ToneColours.parse(Colours.declared(colourSettings.get()), getLogger()::warning);
+        distanceSettings = setting(Distances.group(distanceDefaults()));
+        prepare();
+        settings.retireFiles();
+    }
+
+    /** Returns the distances as last taken, within what Paper accepts. */
     private Distances wantedDistances() {
-        return Distances.of(distanceSettings.get(), distanceDefaults(), getLogger()::warning);
+        return Distances.of(distanceSettings.get(), getLogger()::warning);
     }
 
     /** Opens this process's one signal hub on the database settings; nothing listens until it starts. */
@@ -417,16 +434,19 @@ public abstract class NordtalPlugin extends JavaPlugin {
     }
 
     /**
-     * Loads one group of this plugin's settings, or stops the server naming the file.
+     * Loads one group of this plugin's settings, or stops the server naming the group.
      *
      * @return the group, as {@link Settings#load} reads it
      */
-    protected final <T> Setting<T> setting(final String name, final Class<T> spec, final Check<T> check) {
+    protected final <T> Setting<T> setting(final Group<T> group) {
+        return setting(settings, group);
+    }
+
+    private <T> Setting<T> setting(final Settings source, final Group<T> group) {
         try {
-            return settings.load(name, spec, check);
+            return source.load(group);
         } catch (final SettingsException refused) {
-            throw fatal(getName() + " is not starting because its configuration could not be read: "
-                    + refused.getMessage());
+            throw fatal(getName() + " is not starting because its settings could not be read: " + refused.getMessage());
         }
     }
 

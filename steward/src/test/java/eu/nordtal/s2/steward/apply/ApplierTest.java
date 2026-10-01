@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.settings.MemorySettingStore;
 import eu.nordtal.s2.steward.config.BackupSpec;
 import eu.nordtal.s2.steward.config.StewardSpec;
 import eu.nordtal.s2.steward.plan.Change;
@@ -32,6 +33,9 @@ class ApplierTest {
 
     @TempDir
     Path volumes;
+
+    /** Where the proxy's pack is stored. */
+    private final MemorySettingStore settings = new MemorySettingStore();
 
     @Test
     void anOutdatedJarIsReplacedAndTheOneItSupersedesIsDeleted() throws IOException {
@@ -279,9 +283,9 @@ class ApplierTest {
     }
 
     @Test
-    void thePacksTwoLinesAreWrittenFromTheReleaseHashIncluded() throws IOException {
+    void thePacksTwoValuesAreWrittenFromTheReleaseHashIncluded() throws IOException {
         install("proxy", "plugins/proxy-0.1.0.jar");
-        writePackYml();
+        storePack();
 
         final Change pack = new Change(
                 "proxy",
@@ -299,9 +303,9 @@ class ApplierTest {
 
         final ApplyResult result = apply(new Fake(), plan(pack));
 
-        final String written = Files.readString(PackState.fileIn(volumes.resolve("proxy")));
-        assertTrue(written.contains("sha1: " + SHA1), written);
-        assertTrue(written.contains("releases/download/v0.2.0/"), written);
+        final PackState written = PackState.read(settings);
+        assertEquals(SHA1, written.sha1());
+        assertTrue(written.url().contains("releases/download/v0.2.0/"), written.url());
         assertEquals(
                 ApplyResult.Status.DONE,
                 outcome(result, "proxy", "resource-pack").status());
@@ -459,7 +463,7 @@ class ApplierTest {
                 "a pack that could not be checked must not read as UNCHANGED - the client is still"
                         + " being sent the previous one, and that is a fallback, not a no-op");
         assertNotNull(pack.detail());
-        assertTrue(pack.detail().contains("pack.yml was left alone"), pack.detail());
+        assertTrue(pack.detail().contains("pack was left alone"), pack.detail());
     }
 
     @Test
@@ -546,7 +550,7 @@ class ApplierTest {
                 return new AgentSpec() {};
             }
         };
-        return new Applier(config, fetcher).apply(plan);
+        return new Applier(config, fetcher, settings).apply(plan);
     }
 
     private static UpdatePlan plan(final Change... changes) {
@@ -569,15 +573,13 @@ class ApplierTest {
         Files.writeString(file, "old", StandardCharsets.UTF_8);
     }
 
-    private void writePackYml() throws IOException {
-        final Path file = PackState.fileIn(volumes.resolve("proxy"));
-        Files.createDirectories(file.getParent());
-        Files.writeString(file, """
-                enabled: true
-                url: https://github.com/nordtal/season-2/releases/download/v0.1.0/nordtal-resource-pack-0.1.0.zip
-                sha1: 0000000000000000000000000000000000000000
-                force: true
-                """, StandardCharsets.UTF_8);
+    private void storePack() {
+        settings.set(
+                        "proxy",
+                        "pack",
+                        "url",
+                        "https://github.com/nordtal/season-2/releases/download/v0.1.0/nordtal-resource-pack-0.1.0.zip")
+                .set("proxy", "pack", "sha1", "0000000000000000000000000000000000000000");
     }
 
     /** Where the fetcher was asked to put one file, which is the staging directory. */

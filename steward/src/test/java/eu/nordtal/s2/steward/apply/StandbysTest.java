@@ -16,7 +16,7 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * What a standby's {@code plugins/} holds after a run.
  *
- * A replacement must come up on the same jars and the same {@code pack.yml} as the service it replaces.
+ * A replacement must come up on the same jars and the same data files as the service it replaces.
  */
 class StandbysTest {
 
@@ -24,9 +24,9 @@ class StandbysTest {
     Path volumes;
 
     @Test
-    void theStandbyGetsTheJarsAndThePackYmlTheLiveServiceJustGot() throws IOException {
+    void theStandbyGetsTheJarsAndTheDataFilesTheLiveServiceHas() throws IOException {
         write("proxy/plugins/proxy-0.9.3.jar", "new");
-        write("proxy/plugins/proxy/pack.yml", "url: https://example.invalid/pack.zip\nsha1: abc\n");
+        write("proxy/plugins/proxy/icon.png", "icon");
         mounted(Topology.standbyOf(Topology.PROXY));
 
         final List<ApplyResult.Outcome> outcomes = Standbys.fill(volumes, List.of(Topology.PROXY));
@@ -40,9 +40,9 @@ class StandbysTest {
                         + " would read as a failure of the proxy update itself");
         assertEquals("new", read("proxy-standby/plugins/proxy-0.9.3.jar"));
         assertEquals(
-                "url: https://example.invalid/pack.zip\nsha1: abc\n",
-                read("proxy-standby/plugins/proxy/pack.yml"),
-                "the standby hands a transferred player a different resource pack to download");
+                "icon",
+                read("proxy-standby/plugins/proxy/icon.png"),
+                "the standby shows a transferred player's server list a different network");
     }
 
     @Test
@@ -73,19 +73,18 @@ class StandbysTest {
 
     @Test
     void aFileThatChangedWithoutChangingSizeIsCopied() throws IOException {
-        // pack.yml is the file that matters: a sha1 is forty hex chars regardless, so comparing by size hides a change.
-        write("proxy/plugins/proxy/pack.yml", "url: https://example.invalid/p.zip\nsha1: aaaa\n");
+        // A replaced icon or a hash in a file keeps its size, so comparing by size hides a change.
+        write("proxy/plugins/proxy/icon.png", "aaaa");
         mounted(Topology.standbyOf(Topology.PROXY));
         Standbys.fill(volumes, List.of(Topology.PROXY));
 
-        write("proxy/plugins/proxy/pack.yml", "url: https://example.invalid/p.zip\nsha1: bbbb\n");
+        write("proxy/plugins/proxy/icon.png", "bbbb");
         final List<ApplyResult.Outcome> second = Standbys.fill(volumes, List.of(Topology.PROXY));
 
         assertEquals(
-                "url: https://example.invalid/p.zip\nsha1: bbbb\n",
-                read("proxy-standby/plugins/proxy/pack.yml"),
-                "the standby kept the old pack.yml, so a transferred player is told to download a"
-                        + " pack under a hash that no longer matches it");
+                "bbbb",
+                read("proxy-standby/plugins/proxy/icon.png"),
+                "the standby kept the old file because it had the same size");
         assertEquals(ApplyResult.Status.DONE, second.getFirst().status(), detail(second));
     }
 

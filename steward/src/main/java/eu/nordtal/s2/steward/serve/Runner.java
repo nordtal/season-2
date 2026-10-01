@@ -2,6 +2,7 @@ package eu.nordtal.s2.steward.serve;
 
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.time.Waiting;
+import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.database.update.ServiceHold;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateReport;
@@ -47,6 +48,16 @@ public final class Runner implements RequestRunner {
 
     /** The plugins an admin added, handed to every resolve; {@code PluginDirectory#NONE} by default. */
     final eu.nordtal.s2.steward.plugin.PluginDirectory plugins;
+
+    /** Where the proxy's pack is set, built on first use like the occupancy below. */
+    private volatile @Nullable SettingStore settings;
+
+    SettingStore settings() {
+        if (settings == null) {
+            settings = SettingStore.using(database.dataSource());
+        }
+        return settings;
+    }
 
     /** How many players are on a service, built on first use since a run that stops nothing never asks. */
     private volatile @Nullable Occupancy occupancy;

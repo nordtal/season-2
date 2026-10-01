@@ -1,7 +1,7 @@
 import type { ConfigDocument, ConfigEntry } from "@/lib/api"
 
-/** The file the bot reads its languages, and each language's announcement channel, from. */
-export const ACCESS_FILE = "discord-bot/access.yml"
+/** The group the bot reads its languages, and each language's announcement channel, from. */
+export const ACCESS_FILE = "discord-bot/access"
 
 /** The languages an announcement is written in when the file cannot say. */
 export const FALLBACK_LANGUAGES = ["en", "de"]
@@ -18,12 +18,12 @@ function field(section: ConfigEntry[], key: string) {
 }
 
 /**
- * Where an announcement lands per language, read from `discord-bot/access.yml`.
+ * Where an announcement lands per language, read from the bot's `access` group.
  *
  * Null when the file has no `languages` cards; the page then writes in {@link FALLBACK_LANGUAGES} with no channel.
  */
 export function announcementTargets(document: ConfigDocument | undefined): AnnouncementTargets | null {
-  if (!document || document.raw) return null
+  if (!document) return null
   const entry = document.entries.find((candidate) => candidate.path === "languages")
   if (!entry || entry.kind !== "SECTIONS" || !entry.sections) return null
   const languages = entry.sections

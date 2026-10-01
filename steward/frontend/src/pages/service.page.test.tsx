@@ -36,7 +36,7 @@ function backend(service: Record<string, unknown>, active: unknown = { run: null
     const url = urlOf(input)
     if (url.startsWith("/api/services/")) return json(200, service)
     if (url === "/api/updates/active") return json(200, active)
-    if (url === "/api/config") {
+    if (url === "/api/setting-groups") {
       return json(200, [{ service: "smp", name: "config.yml", path: "smp/config.yml", readable: true, writable: true }])
     }
     if (url === "/api/messages") return json(200, [])

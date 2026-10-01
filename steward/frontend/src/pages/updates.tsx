@@ -433,7 +433,6 @@ function ScheduleDialog() {
                   id={entry.path}
                   entry={entry}
                   value={draft[entry.path] ?? entry.value ?? ""}
-                  edited={draft[entry.path] !== undefined}
                   disabled={!document.writable || save.isPending}
                   roles={undefined}
                   channels={undefined}

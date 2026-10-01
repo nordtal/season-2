@@ -44,7 +44,7 @@ else's job.
 | PacketEvents                                         | Modrinth v2, filtered to the Minecraft version and `paper` |
 | Paper, Velocity                                      | PaperMC Fill v3, newest `STABLE` build                     |
 | what is installed                                    | the volumes under `volumes-root`                           |
-| what pack the proxy offers                           | `pack.yml` in the `proxy` volume                           |
+| what pack the proxy offers                           | the proxy's `pack` settings, `url` and `sha1`              |
 
 Every repository is read through `/releases/latest`, which skips drafts and pre-releases. There is no
 pin and no rollback: a bad release is corrected by publishing a better one.
@@ -86,17 +86,19 @@ pin and no rollback: a bad release is corrected by publishing a better one.
 
 ## Configuration
 
-Three files in one volume, `steward-config`, each overridable from the environment; their defaults
-are the real values.
+The connection and every secret come from the environment; everything else is two groups in the
+database, `steward` and `web`, which Steward publishes at start and edits on its settings pages.
 
-| file           | environment                  | holds                                                                     |
-| -------------- | ---------------------------- | ------------------------------------------------------------------------- |
-| `steward.yml`  | `NORDTAL_STEWARD_*`          | sources, Docker, backups, the agent's and steward-bunq's addresses        |
-| `web.yml`      | `NORDTAL_STEWARD_WEB_*`      | the port, the public address, Discord sign-in, WebAuthn, alerts, Web Push |
-| `database.yml` | `NORDTAL_STEWARD_DATABASE_*` | the connection, as for every process                                      |
+| group      | environment                  | holds                                                                     |
+| ---------- | ---------------------------- | ------------------------------------------------------------------------- |
+| `steward`  | `NORDTAL_STEWARD_*`          | sources, Docker, backups, the agent's and steward-bunq's addresses        |
+| `web`      | `NORDTAL_STEWARD_WEB_*`      | the port, the public address, Discord sign-in, WebAuthn, alerts, Web Push |
+| `database` | `NORDTAL_STEWARD_DATABASE_*` | the connection, from the environment alone                                |
 
-`StewardSettings` loads and checks all three before the database is opened, so a wrong address or
-port stops the start rather than the first sign-in.
+`StewardSettings` loads and checks them before the web starts, so a wrong address or port stops the
+start rather than the first sign-in. A change to `steward` re-arms both clocks without a restart.
+The first start finds the last installation's `steward.yml` and `web.yml` in `steward-config`,
+imports what differs from the defaults and deletes them.
 
 ## Tests
 

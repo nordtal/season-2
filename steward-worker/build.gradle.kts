@@ -21,15 +21,6 @@ repositoryRootTestInputs {
     reads("steward-worker/README.md")
     reads("deploy/README.md")
 
-    // Read as text by the tests that assert statement order inside these sequences.
-    reads("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/serve/Runner.java")
-    reads("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/serve/BackupSequence.java")
-    reads("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/serve/RestartSequence.java")
-    reads("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/serve/UpdateSequence.java")
-
-    // HeartbeatLeavesTheTimerTest asserts which executor writes the heartbeat.
-    reads("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/api/WorkerApi.java")
-
     // TopologyTest checks that the release workflow pushes every image compose.yml names.
     reads(".github/workflows/release.yml")
 

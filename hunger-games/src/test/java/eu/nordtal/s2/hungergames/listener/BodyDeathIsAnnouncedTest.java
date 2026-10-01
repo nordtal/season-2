@@ -9,36 +9,12 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 /**
- * Checks by text search that a body's death reaches the kill feed, in both languages.
+ * Checks that both sentences of a body's death are in both languages of the bundle.
  *
- * Vanilla writes no death message for an {@code EntityDeathEvent}, so {@code onMarkerDeath} has to announce it.
+ * Vanilla writes no death message for an {@code EntityDeathEvent}; that {@code onMarkerDeath} announces it is
+ * {@code :architecture}'s rule.
  */
 class BodyDeathIsAnnouncedTest {
-
-    @Test
-    void aBodysDeathIsAnnouncedFromTheHandlerThatBooksIt() throws IOException {
-        final String source =
-                read("hunger-games/src/main/java/eu/nordtal/s2/hungergames/" + "listener/CombatListener.java");
-
-        final int marker = source.indexOf("public void onMarkerDeath");
-        assertTrue(
-                marker > 0,
-                "onMarkerDeath is gone - if it was renamed, this test moves with it,"
-                        + " because a check that cannot find its subject silently stops running");
-
-        // Ends at the helper's declaration: a slice reaching past it goes green even if the call is gone.
-        final int helper = source.indexOf("private void announceBodyDeath");
-        assertTrue(
-                helper > marker,
-                "announceBodyDeath is gone or has moved above onMarkerDeath;"
-                        + " this test brackets the handler and needs the helper below it");
-        final String body = source.substring(marker, helper);
-        assertTrue(
-                body.contains("announceBodyDeath("),
-                "onMarkerDeath books the death without announcing it. That is the state this file"
-                        + " was in until 2026-09-09: the sound plays, the roster updates, the body"
-                        + " disappears, and the kill feed says nothing at all.");
-    }
 
     @Test
     void theTwoSentencesAreTwoBecauseByNobodyIsNotASentence() throws IOException {

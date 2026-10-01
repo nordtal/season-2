@@ -79,6 +79,20 @@ class ConfigApiReloadTest {
     }
 
     @Test
+    void distancesYmlReloadsOnEveryPaperServer() {
+        // The plugin base re-reads the view and simulation distance and applies them to every world.
+        for (final String service : List.of("smp", "hunger-games", "limbo")) {
+            final RecordingReloader reloader = new RecordingReloader();
+            final ConfigApi api = new ConfigApi(Path.of("/tmp"), reloader);
+
+            final Map<String, Object> outcome = api.reload(location(service, service + "/distances.yml"));
+
+            assertEquals("APPLIED", outcome.get("status"), service);
+            assertEquals(List.of(service), reloader.calls);
+        }
+    }
+
+    @Test
     void prestigeYmlReloadsBecauseSmpReloadReReadsHoursAndColours() {
         final RecordingReloader reloader = new RecordingReloader();
         final ConfigApi api = new ConfigApi(Path.of("/tmp"), reloader);

@@ -4,19 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.limbo.listener.PresenceListener;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 /**
  * Nobody in the waiting room reaches anybody else: no chat, no commands, no seeing or hearing another player.
  *
- * Partly a source rule: a handler that stops existing cannot be noticed without a server.
+ * That both handlers exist and hiding goes both ways is {@code :architecture}'s rule.
  */
 class ThePassageIsSilentTest {
-
-    private static final Path LISTENER = Path.of("src/main/java/eu/nordtal/s2/limbo/listener/PresenceListener.java");
 
     @Test
     void aPlayersCommandsAreSwallowedAndAnAdminsAreNot() {
@@ -24,24 +19,5 @@ class ThePassageIsSilentTest {
         assertFalse(
                 PresenceListener.mutes(true),
                 "/limbo is the one command anybody would run here, and an admin is who runs it");
-    }
-
-    @Test
-    void chatAndCommandsAreBothCancelled() throws IOException {
-        final String source = Files.readString(LISTENER);
-
-        assertTrue(source.contains("public void onChat(final AsyncChatEvent event)"), "chat is deliverable again");
-        assertTrue(
-                source.contains("public void onCommand(final PlayerCommandPreprocessEvent event)"),
-                "/msg is deliverable again, which is chat with a different prefix");
-    }
-
-    @Test
-    void hidingIsDoneInBothDirections() throws IOException {
-        // A client renders nobody it does not see, so a hidden player also makes no sound to it.
-        final String source = Files.readString(LISTENER);
-
-        assertTrue(source.contains("joining.hidePlayer(plugin, other)"), "one direction is gone");
-        assertTrue(source.contains("other.hidePlayer(plugin, joining)"), "the other direction is gone");
     }
 }

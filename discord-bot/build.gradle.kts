@@ -7,8 +7,6 @@ application.mainClass.set("eu.nordtal.s2.discordbot.AccessBot")
 
 // ConfigsTest reads the access blocks of the real .env.example, so the file is a declared input.
 repositoryRootTestInputs {
-    // StartupFailuresTest reads AccessBot as text.
-    reads("discord-bot/src/main/java/eu/nordtal/s2/discordbot/AccessBot.java")
     reads(".env.example")
 }
 

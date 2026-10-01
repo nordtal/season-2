@@ -15,7 +15,7 @@ import org.bukkit.entity.Player;
 /**
  * The one place in {@code smp} that names a sound to Bukkit, on the main thread.
  *
- * {@code :common} cannot reference Paper, and {@code SoundVocabularyTest} allows no second call site.
+ * {@code :common} cannot reference Paper, and {@code :architecture} allows no second call site.
  */
 public final class SmpSounds {
 

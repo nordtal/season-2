@@ -216,8 +216,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         listen(new FreezeListener(manager));
         // The five system lines; the death line keeps vanilla's own component for killer and weapon.
         final ArenaComposition composition = new ArenaComposition(locales());
-        final SystemLines systemLines = new SystemLines(composition::of, messages(), locales());
-        listen(systemLines);
+        final SystemLines systemLines = systemLines(composition::of);
         presence = new PresenceListener(this, locales(), bodies, state, messages(), systemLines);
         listen(presence);
         listen(new CombatListener(

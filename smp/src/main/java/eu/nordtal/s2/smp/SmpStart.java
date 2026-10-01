@@ -83,11 +83,8 @@ final class SmpStart {
     record Presence(SystemLines systemLines, BukkitCinematics cinematics, SeasonWelcome welcome) {}
 
     static Presence wirePresenceInputs(final SmpPlugin plugin, final SmpSpec config, final Surfaces surfaces) {
-        final SystemLines systemLines = new SystemLines(
-                player ->
-                        surfaces.composition().chatPrefix(player.getName(), plugin.identities.of(player.getUniqueId())),
-                plugin.messages(),
-                plugin.locales());
+        final SystemLines systemLines = plugin.systemLines(player ->
+                surfaces.composition().chatPrefix(player.getName(), plugin.identities.of(player.getUniqueId())));
 
         // Paper disables plugins before saving players, so a blindness would otherwise be saved too.
         final BukkitCinematics cinematics = new BukkitCinematics(plugin, plugin.sounds::play);
@@ -102,7 +99,6 @@ final class SmpStart {
         final PresenceListener listener = new PresenceListener(
                 plugin, surfaces.surfaces(), presence.systemLines(), presence.welcome()::onLanguageReady);
         plugin.getServer().getPluginManager().registerEvents(listener, plugin);
-        plugin.getServer().getPluginManager().registerEvents(presence.systemLines(), plugin);
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(

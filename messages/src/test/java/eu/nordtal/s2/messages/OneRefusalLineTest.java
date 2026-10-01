@@ -11,19 +11,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.TreeSet;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
  * Checks that "no such command" and "you may not type that" are one sentence everywhere.
  *
- * Two sentences would let a player enumerate the command tree. {@code CommandGate} and
- * {@code CommandFilter}, including its {@link org.bukkit.event.command.UnknownCommandEvent} handler,
- * must all render the same message; a text search, as the handlers need a running server.
+ * Two sentences would let a player enumerate the command tree. That both refusers render only this key is
+ * {@code :architecture}'s rule; the bundles that word it are checked here.
  */
 class OneRefusalLineTest {
 
@@ -33,41 +29,6 @@ class OneRefusalLineTest {
     /** The two bundles carrying it, each missing its language and extension. */
     private static final List<String> BUNDLES = List.of(
             "paper-common/src/main/resources/messages/paper-common/", "proxy/src/main/resources/messages/proxy/");
-
-    /** The two classes that answer a command somebody may not, or cannot, run. */
-    private static final List<String> REFUSERS = List.of(
-            "paper-common/src/main/java/eu/nordtal/s2/papercommon/command/CommandFilter.java",
-            "proxy/src/main/java/eu/nordtal/s2/proxy/command/CommandGate.java");
-
-    /** Any message a refuser renders: a chain of section and key calls on the spec, named in kebab case. */
-    private static final Pattern RENDERED_KEY = Pattern.compile("MESSAGES((?:\\s*\\.\\s*[a-zA-Z0-9]+\\(\\))+)");
-
-    @Test
-    void bothRefusersSayExactlyOneThingAndItIsTheSameThing() {
-        final Set<String> keys = new TreeSet<>();
-        for (final String refuser : REFUSERS) {
-            final Matcher matcher = RENDERED_KEY.matcher(read(RepositoryRoot.resolve(refuser)));
-            while (matcher.find()) {
-                keys.add(keyOf(matcher.group(1)));
-            }
-        }
-        assertEquals(
-                Set.of(KEY),
-                keys,
-                "a second sentence here is how a player learns which of 'you may not' and 'there is"
-                        + " no such command' they hit - which is the whole of what the allowlist is"
-                        + " keeping from them");
-    }
-
-    @Test
-    void thePaperSideAnswersUnknowncommandeventOrAnAdminReadsVanillas() {
-        final String filter = read(RepositoryRoot.resolve(REFUSERS.get(0)));
-        assertTrue(
-                filter.contains("UnknownCommandEvent"),
-                "without this handler a typo, an admin's mistyped command and every command typed"
-                        + " before a proxy has published a list all read vanilla's 'Unknown or"
-                        + " incomplete command', in the server's language, with a red caret");
-    }
 
     /** Reads both bundles off the file, since neither module is on a classpath a test here can load. */
     @Test
@@ -117,23 +78,9 @@ class OneRefusalLineTest {
                         + " rests on there being one sentence");
     }
 
-    /** {@code .command().noSuchThing()} to {@code command.no-such-thing}. */
-    private static String keyOf(final String chain) {
-        final List<String> segments = new ArrayList<>();
-        for (final String call : chain.replaceAll("\\s", "").split("\\(\\)", -1)) {
-            if (!call.isEmpty()) {
-                segments.add(call.substring(1)
-                        .replaceAll("([a-z0-9])([A-Z])", "$1-$2")
-                        .toLowerCase(java.util.Locale.ROOT));
-            }
-        }
-        return String.join(".", segments);
-    }
-
     private static List<Path> bundles() {
         final List<Path> found = new ArrayList<>();
-        for (final String root :
-                List.of("smp", "limbo", "hunger-games", "proxy", "commands", "paper-common", "discord-bot")) {
+        for (final String root : List.of("smp", "limbo", "hunger-games", "proxy", "paper-common", "discord-bot")) {
             final Path directory = RepositoryRoot.resolve(root + "/src/main/resources/messages");
             if (!Files.isDirectory(directory)) {
                 continue;

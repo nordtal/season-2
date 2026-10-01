@@ -18,8 +18,8 @@ import org.jspecify.annotations.Nullable;
  * @param bunqPaymentId   the payment that settled it, null until it is paid
  * @param settled         when it was booked, null unless {@code status} is {@code PAID}
  * @param tabFailed       bunq's error when the tab could not be made, null otherwise
- * @param tabCancelled    when the worker cancelled it at bunq, null while it stands
- * @param matchedCents    what arrived, in cents, null until the worker found it
+ * @param tabCancelled    when steward cancelled it at bunq, null while it stands
+ * @param matchedCents    what arrived, in cents, null until steward found it
  * @param matchedBy       along which path it was found, null until then
  */
 public record PaymentRequest(

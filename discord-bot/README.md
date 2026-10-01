@@ -4,14 +4,14 @@ The season 2 Discord bot: access purchases and grants, account linking, roles, t
 registration, status channels and the admin log. It talks to PostgreSQL and the Discord gateway and
 to nothing else, so it runs without any Minecraft server.
 
-It holds no bunq key. The bot writes a `payment_request` row; `steward-worker` creates the bunq.me
+It holds no bunq key. The bot writes a `payment_request` row; `steward` creates the bunq.me
 tab, writes the link back and finds the money, and the bot books it.
 
 It never migrates the schema. At startup it runs Flyway's `validate()` and refuses a database it
-was not built against, so `steward-worker` has to have run first:
+was not built against, so `steward` has to have run first:
 
 ```bash
-docker compose run --rm steward-worker migrate
+docker compose run --rm steward migrate
 ```
 
 ## What it needs
@@ -41,7 +41,7 @@ To build the image locally, build the jar first; the Dockerfile copies whatever 
 COMPOSE_PROFILES=db,bot docker compose up -d --build
 ```
 
-The container runs the newest `discord-bot-*.jar` in its jar volume, which `steward-worker` fills,
+The container runs the newest `discord-bot-*.jar` in its jar volume, which `steward` fills,
 and falls back to the jar baked into the image only while that volume is empty. The first log line
 names the jar it picked. The whole deployment is described in [../deploy/README.md](../deploy/README.md).
 

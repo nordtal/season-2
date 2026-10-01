@@ -62,7 +62,7 @@ class EvacuationTest {
 
     @Test
     void theRowsMovingServicesAreTheEvacuationWhateverTheReportSays() {
-        // The worker decides what moves when its countdown starts; the proxy never reads the report.
+        // Steward decides what moves when its countdown starts; the proxy never reads the report.
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.STOPPING)
                 .with(new UpdateReport.ServiceLine(
                         "hunger-games",

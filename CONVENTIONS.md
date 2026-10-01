@@ -78,7 +78,7 @@ The release notes are generated from these subjects by git-cliff (`cliff.toml`).
 
 ## This repository: season-2
 
-- **Commit scope** is the module directory (`feat(steward-ui): …`, `fix(smp): …`), `deploy` for
+- **Commit scope** is the module directory (`feat(steward): …`, `fix(smp): …`), `deploy` for
   `deploy/` and `compose.yml`, `build-logic` for `build-logic/` and the version catalog.
 - **Architecture** _(checked by ArchUnit)_:
   - `:common` depends only on the JDK, JSpecify and Gson, which every platform ships and nothing
@@ -90,11 +90,11 @@ The release notes are generated from these subjects by git-cliff (`cliff.toml`).
     both platforms provide. Neither `discord-bot` nor Steward depends on Adventure or on either
     renderer.
   - No Paper plugin calls a blocking `join`; database work leaves the main thread.
-  - Only `steward-worker` runs Flyway `migrate()`. `discord-bot` only validates, plugins do neither.
-- **steward-ui frontend** is formatted by oxfmt and linted by oxlint with type-aware rules
+  - Only `steward` runs Flyway `migrate()`. `discord-bot` only validates, plugins do neither.
+- **The steward frontend** is formatted by oxfmt and linted by oxlint with type-aware rules
   (oxlint-tsgolint), warnings as errors. `src/components/ui` is ours once generated and follows every
   rule. TSDoc follows the comment rules above. _(checked)_
 - **YAML, Markdown and JSON** are formatted by oxfmt. _(checked)_
 - **SQL migrations** are never reformatted: an applied migration whose checksum changes is refused
   by Flyway `validate()`.
-- The one file under `steward-worker/src/main/java/com/bunq/sdk` keeps the vendor's package.
+- The one file under `steward/src/main/java/com/bunq/sdk` keeps the vendor's package.

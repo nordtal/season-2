@@ -22,7 +22,7 @@ kind_is() {
     [[ "$actual" == "$expected" ]] || bad "'$name' is '$actual', expected '$expected'"
 }
 
-case_begin "the names steward-worker actually writes are recognised"
+case_begin "the names steward actually writes are recognised"
 # The names TarSnapshots and DatabaseDump write; the stamp is yyyyMMdd'T'HHmmss'Z' in UTC.
 kind_is "nordtal-s2_mc-smp-20260913T031500Z.tar.zst"         volume
 kind_is "nordtal-s2_mc-smp-plugins-20260913T031500Z.tar.zst" volume

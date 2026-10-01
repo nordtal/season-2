@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
 /**
  * The one service allowed to create containers, from the {@code compose.yml} baked into its image.
  *
- * {@code deployer up} is the setup script's blocking run; {@code deployer serve} is steward-ui's API.
+ * {@code deployer up} is the setup script's blocking run; {@code deployer serve} is the API steward calls.
  */
 public final class StewardDeployer {
 

@@ -6,7 +6,7 @@ import java.util.Map;
 import javax.sql.DataSource;
 
 /**
- * How many players are on each Minecraft-facing subject, written by the proxy for steward-worker.
+ * How many players are on each Minecraft-facing subject, written by the proxy for steward.
  * One row per subject, overwritten; judging staleness from {@link OnlineCount#updated()} is the reader's job.
  */
 public interface OnlineDirectory {

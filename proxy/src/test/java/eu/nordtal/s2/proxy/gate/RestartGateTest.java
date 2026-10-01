@@ -105,7 +105,7 @@ class RestartGateTest {
 
     @Test
     void itPromisesNoTime() {
-        // The worker restarts it after a stop that has not happened yet, so any time would be a guess.
+        // Steward restarts it after a stop that has not happened yet, so any time would be a guess.
         for (final Locale locale : new Locale[] {Locale.ENGLISH, Locale.GERMAN}) {
             final String raw = messages.get(locale, "gate.restarting");
             assertTrue(raw.matches("(?s).*\\S.*"), raw);

@@ -32,8 +32,7 @@ flowchart TB
         subgraph steward["Steward · its own network"]
             direction TB
             CADDY["<b>caddy</b><br/>HTTPS"]:::side
-            UI["<b>steward-ui</b><br/><i>:steward-ui</i><br/>the interface · no socket"]:::app
-            UPD["<b>steward-worker</b><br/><i>:steward-worker</i><br/>versions · schema · jars · backups"]:::app
+            UPD["<b>steward</b><br/><i>:steward</i><br/>the interface · schema · jars · backups"]:::app
             DEP["<b>steward-deployer</b><br/><i>:steward-deployer</i><br/>the only one that may create containers"]:::app
         end
         subgraph servers["Minecraft servers · one image"]
@@ -50,9 +49,8 @@ flowchart TB
 
     admins(["Admins"]):::ext --> CADDY
     players ~~~ UPD
-    CADDY --> UI
-    UI -->|"read: state · logs · drift"| UPD
-    UI -->|"create a container"| DEP
+    CADDY --> UPD
+    UPD -->|"create a container"| DEP
     UPD ==>|"schema, then jars"| servers
     UPD ==> BOT
     NC -->|"pack"| LIMBO
@@ -61,7 +59,6 @@ flowchart TB
     servers --> PG
     BOT --> PG
     UPD --> PG
-    UI --> PG
 
     classDef ext fill:#8b949e26,stroke:#8b949e,stroke-width:2px
     classDef proxy fill:#4a90e233,stroke:#4a90e2,stroke-width:3px
@@ -80,32 +77,32 @@ the table below are compiled into the jars above.
 - A standby instance of a service is its name plus `-standby` and runs the same jar and config.
 - The Steward services sit on their own Docker network; the Minecraft servers do not, so no plugin
   can reach the deploy API. `postgres` is on both.
-- `steward-ui` faces the internet, so it owns no Docker socket and asks the other two services.
+- `steward` faces the internet and holds the Docker socket for reading, stopping and starting; only
+  `steward-deployer` creates containers.
 - The database is the source of truth for access, language, phase and event state. Discord roles
   follow it.
 
 ## Modules
 
-| module              | platform        | what it owns                                                                                                                                     |
-| ------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `proxy`             | Velocity        | The login gate, the season phase, and which backend a player belongs on.                                                                         |
-| `limbo`             | Paper           | The waiting room: applying and enforcing the resource pack before a player goes anywhere.                                                        |
-| `hunger-games`      | Paper           | The start event: registration, teams, border, loot, HUD, winning.                                                                                |
-| `smp`               | Paper           | The SMP: Nordtal, the farm world, the Nether and the End, milestones, aura, prestige, duels, graves.                                             |
-| `discord-bot`       | JVM app         | Sells access periods, books bunq payments, mirrors admins.                                                                                       |
-| `steward-worker`    | JVM app         | Resolves platform and plugin versions, migrates the schema, swaps jars, stops and starts the servers around a run, and takes the nightly backup. |
-| `steward-ui`        | JVM app + React | The web interface: state, logs, configuration, seasons, access, payments, the journal. No Docker socket, ever.                                   |
-| `steward-deployer`  | JVM app         | The only service allowed to create a container. Carries `compose.yml` inside its own image.                                                      |
-| `common`            | library         | The shared kernel: platform constants, the phase enum, languages, readiness. No database, no Adventure, no pack.                                 |
-| `database`          | library         | Access, phase, online, audit, the request inboxes, the signal hub and the migration SQL.                                                         |
-| `messages`          | library         | The message system without Adventure: bundles, specs, contexts. The bot and Steward stop here.                                                   |
-| `message-rendering` | library         | Messages as Adventure components, for Paper and Velocity code.                                                                                   |
-| `pack-rendering`    | library         | Glyph constants, the `<glyph:name>` tag, boss bar and tab list rendering from the resource pack.                                                 |
-| `limbo-protocol`    | library         | The wire protocol between the proxy and limbo.                                                                                                   |
-| `paper-common`      | library         | What the three Paper plugins share and Velocity cannot use.                                                                                      |
-| `settings`          | library         | Where every process's settings come from, and the database and colour settings they share.                                                       |
-| `resource-pack`     | assets          | The pack, its fonts, and the zip + SHA-1 a release ships.                                                                                        |
-| `architecture`      | tests           | The ArchUnit rules over every module's compiled classes: the dependency lists and the wiring.                                                    |
+| module              | platform        | what it owns                                                                                                     |
+| ------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `proxy`             | Velocity        | The login gate, the season phase, and which backend a player belongs on.                                         |
+| `limbo`             | Paper           | The waiting room: applying and enforcing the resource pack before a player goes anywhere.                        |
+| `hunger-games`      | Paper           | The start event: registration, teams, border, loot, HUD, winning.                                                |
+| `smp`               | Paper           | The SMP: Nordtal, the farm world, the Nether and the End, milestones, aura, prestige, duels, graves.             |
+| `discord-bot`       | JVM app         | Sells access periods, books bunq payments, mirrors admins.                                                       |
+| `steward`           | JVM app + React | The web interface and its API, the schema, every jar version and run, payments and the nightly backup.           |
+| `steward-deployer`  | JVM app         | The only service allowed to create a container. Carries `compose.yml` inside its own image.                      |
+| `common`            | library         | The shared kernel: platform constants, the phase enum, languages, readiness. No database, no Adventure, no pack. |
+| `database`          | library         | Access, phase, online, audit, the request inboxes, the signal hub and the migration SQL.                         |
+| `messages`          | library         | The message system without Adventure: bundles, specs, contexts. The bot and Steward stop here.                   |
+| `message-rendering` | library         | Messages as Adventure components, for Paper and Velocity code.                                                   |
+| `pack-rendering`    | library         | Glyph constants, the `<glyph:name>` tag, boss bar and tab list rendering from the resource pack.                 |
+| `limbo-protocol`    | library         | The wire protocol between the proxy and limbo.                                                                   |
+| `paper-common`      | library         | What the three Paper plugins share and Velocity cannot use.                                                      |
+| `settings`          | library         | Where every process's settings come from, and the database and colour settings they share.                       |
+| `resource-pack`     | assets          | The pack, its fonts, and the zip + SHA-1 a release ships.                                                        |
+| `architecture`      | tests           | The ArchUnit rules over every module's compiled classes: the dependency lists and the wiring.                    |
 
 `DisplayTags` also runs on this network and ships from
 [nordtal/papermc-display-tags](https://github.com/nordtal/papermc-display-tags).
@@ -163,4 +160,4 @@ environment variables; this public repository holds none.
 
 The one outbound call to a third party: Steward draws player heads from
 [mineatar](https://mineatar.io), sending it the `mc_uuid` on each render
-(`steward-ui.yml`, `avatars.minecraft-head-base-url`; empty disables it).
+(`web.yml`, `avatars.minecraft-head-base-url`; empty disables it).

@@ -5,7 +5,7 @@ import java.util.Optional;
 import javax.sql.DataSource;
 
 /**
- * What the standby proxy last said it holds, read by steward-worker before it stops {@code proxy-standby}.
+ * What the standby proxy last said it holds, read by steward before it stops {@code proxy-standby}.
  *
  * It returns the count and when it was written; how old is too old is the caller's decision.
  */

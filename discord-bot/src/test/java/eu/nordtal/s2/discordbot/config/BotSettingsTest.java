@@ -436,7 +436,7 @@ class BotSettingsTest {
 
     @Test
     void aDeployedAccessYmlCarryingTheMovedPaymentKeysLosesThemAndKeepsTheBot() throws Exception {
-        // These belong to steward-worker's bunq block, not this one.
+        // These belong to steward's bunq block, not this one.
         Files.writeString(directory.resolve("access.yml"), access().replace("""
                         payment:
                           request-ttl-hours: 24
@@ -532,7 +532,7 @@ class BotSettingsTest {
 
     @Test
     void aDeployedBotYmlStillCarryingTheWholeBunqBlockLosesItAndKeepsTheBot() throws Exception {
-        // The bunq block belongs to steward-worker; a deployed bot.yml carrying it costs a WARN and a .bak.
+        // The bunq block belongs to steward; a deployed bot.yml carrying it costs a WARN and a .bak.
         Files.writeString(directory.resolve("bot.yml"), """
                 token: a-token
                 bunq:

@@ -1,0 +1,162 @@
+package eu.nordtal.s2.steward.api;
+
+import eu.nordtal.s2.steward.auth.Gate;
+import io.javalin.config.JavalinConfig;
+import io.javalin.http.BadRequestResponse;
+import java.util.Map;
+
+/**
+ * Every route {@link StackApi} serves, each with the {@link Gate} it needs.
+ *
+ * A read is {@link Gate#KEY_HELD}, anything that changes the stack {@link Gate#KEY_FRESH}.
+ */
+final class Routes {
+
+    private Routes() {}
+
+    /** Wires every route onto {@code config}. */
+    static void register(final StackApi api, final JavalinConfig config, final Caller caller) {
+        serviceRoutes(api, config, caller);
+        consoleRoute(api, config);
+        configRoutes(api, config);
+        messageRoutes(api, config);
+        hostRoutes(api, config);
+        pluginRoutes(api, config, caller);
+        availableRoute(api, config);
+    }
+
+    /** The service table and one service's row, plus its live log. */
+    private static void serviceRoutes(final StackApi api, final JavalinConfig config, final Caller caller) {
+        // One round trip per table: state, health, image, uptime, RAM and CPU together.
+        config.routes.get("/api/services", ctx -> ctx.json(api.serviceTable()), Gate.KEY_HELD);
+
+        config.routes.get(
+                "/api/services/{name}",
+                ctx -> ctx.json(api.service(ctx.pathParam("name"))
+                        .orElseThrow(() ->
+                                new io.javalin.http.NotFoundResponse("no such service: " + ctx.pathParam("name")))),
+                Gate.KEY_HELD);
+
+        // SSE: one direction, reconnects itself, no reverse-proxy rule.
+        config.routes.sse(
+                "/api/services/{name}/logs",
+                client -> {
+                    if (!caller.stillSignedIn(client.ctx())) {
+                        client.close();
+                        return;
+                    }
+                    final String name = client.ctx().pathParam("name");
+                    final String containerId =
+                            Archives.containerOf(api.docker, api.project, name).orElse(null);
+                    if (containerId == null) {
+                        client.sendEvent("gone", "no running container for " + name);
+                        client.close();
+                        return;
+                    }
+                    api.logFollows.serve(client, containerId, name, () -> caller.stillSignedIn(client.ctx()));
+                },
+                Gate.KEY_HELD);
+    }
+
+    /**
+     * One line into one server's console.
+     *
+     * The answer is not in the response: the server prints it on its own console, where every admin sees it.
+     */
+    private static void consoleRoute(final StackApi api, final JavalinConfig config) {
+        config.routes.post(
+                "/api/services/{name}/console",
+                ctx -> {
+                    final StackApi.ConsoleLine body = ctx.bodyAsClass(StackApi.ConsoleLine.class);
+                    if (body == null || body.command == null || body.command.isBlank()) {
+                        throw new BadRequestResponse("command is the line to type");
+                    }
+                    try {
+                        api.console.send(ctx.pathParam("name"), body.command.strip());
+                    } catch (IllegalArgumentException e) {
+                        throw new BadRequestResponse(e.getMessage());
+                    }
+                    ctx.status(202)
+                            .json(Map.of(
+                                    "sent", body.command.strip(), "where", "the answer appears in this service's log"));
+                },
+                Gate.KEY_FRESH);
+    }
+
+    /** The configuration of every service in the stack, and the raw editor's own save. */
+    private static void configRoutes(final StackApi api, final JavalinConfig config) {
+        config.routes.get("/api/config", api.configs::list, Gate.KEY_HELD);
+        config.routes.get("/api/config/<file>", api.configs::one, Gate.KEY_HELD);
+        config.routes.put("/api/config/<file>", api.configs::save, Gate.KEY_FRESH);
+        config.routes.put("/api/config-raw/<file>", api.configs::saveRaw, Gate.KEY_FRESH);
+    }
+
+    /** The message bundles, on their own routes. */
+    private static void messageRoutes(final StackApi api, final JavalinConfig config) {
+        config.routes.get("/api/messages", api.messages::list, Gate.KEY_HELD);
+        config.routes.get("/api/messages/<bundle>", api.messages::one, Gate.KEY_HELD);
+        config.routes.put("/api/messages/<bundle>", api.messages::save, Gate.KEY_FRESH);
+    }
+
+    /** The host numbers, the nightly schedule, the backup list and its download, and the feed. */
+    private static void hostRoutes(final StackApi api, final JavalinConfig config) {
+        config.routes.get("/api/host", ctx -> ctx.json(api.hostNumbers()), Gate.KEY_HELD);
+
+        // "Tonight" means a moment on this host, not in the browser's zone.
+        config.routes.get("/api/schedule", ctx -> ctx.json(api.schedule()), Gate.KEY_HELD);
+
+        // What is actually on the disk, not what a run reported.
+        config.routes.get("/api/backups", ctx -> ctx.json(Archives.list(api.backups)), Gate.KEY_HELD);
+
+        // Streamed, not buffered, since these are hundreds of megabytes; reading a backup is a read.
+        config.routes.get(
+                "/api/backups/{name}/download",
+                ctx -> Archives.download(ctx, api.backups, ctx.pathParam("name")),
+                Gate.KEY_HELD);
+
+        // The newest rows across the run inbox and audit_log, merged.
+        config.routes.get("/api/actions", api.actions::list, Gate.KEY_HELD);
+    }
+
+    /**
+     * The plugins on one Minecraft server, and the Modrinth search beside them.
+     *
+     * Installing writes a row the next update run fulfils; removing deletes the jar and data folder at once.
+     */
+    private static void pluginRoutes(final StackApi api, final JavalinConfig config, final Caller caller) {
+        config.routes.get("/api/services/{name}/plugins", ctx -> api.plugins().list(ctx), Gate.KEY_HELD);
+        config.routes.get(
+                "/api/services/{name}/plugins/search", ctx -> api.plugins().search(ctx), Gate.KEY_HELD);
+        // The name on the row comes from the session, never from the browser.
+        config.routes.post(
+                "/api/services/{name}/plugins", ctx -> api.plugins().add(ctx, caller.name(ctx)), Gate.KEY_FRESH);
+        config.routes.delete(
+                "/api/services/{name}/plugins/{artifact}", ctx -> api.plugins().remove(ctx), Gate.KEY_FRESH);
+    }
+
+    /**
+     * What a run would do, without doing it.
+     *
+     * Reading this route writes nothing: no request row, no container touched, no jar moved.
+     */
+    private static void availableRoute(final StackApi api, final JavalinConfig config) {
+        // Before /api/updates/{id}, which the web registers later: Javalin matches in registration order.
+        config.routes.get(
+                "/api/updates/available",
+                ctx -> {
+                    final Refreshed<StackApi.Available> available = api.available;
+                    if (available == null) {
+                        // 503, not an empty plan, since those are different answers.
+                        ctx.status(503)
+                                .json(Map.of("error", "Steward has no sources configured, so nothing can be resolved"));
+                        return;
+                    }
+                    // Asked again on purpose right after publishing: a parameter that throws the cache away.
+                    if (ctx.queryParam("refresh") != null) {
+                        available.invalidate();
+                    }
+                    ctx.json(api.availability(available.get()));
+                },
+                Gate.KEY_HELD);
+    }
+}

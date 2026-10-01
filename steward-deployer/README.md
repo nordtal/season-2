@@ -2,7 +2,7 @@
 
 The one service allowed to create containers. It carries `compose.yml` inside its own image, so
 a change to the deployment is a new image of this service, renewed by the setup script on the host.
-Jars inside volumes are steward-worker's business; anything that needs a new container goes
+Jars inside volumes are steward's business; anything that needs a new container goes
 through here.
 
 ## What it will not do
@@ -10,12 +10,12 @@ through here.
 - **Recreate itself.** `steward-deployer` is refused wherever a service name is accepted, since
   the new container would kill the process handling the request.
 - **Pull dependencies along.** Every `up` carries `--no-deps`.
-- **Schedule.** Deployments happen only when somebody, or steward-ui, asks.
+- **Schedule.** Deployments happen only when somebody, or steward, asks.
 
 ## Run it
 
     steward-deployer up      # the setup script: pull, then up, wait, exit with the code
-    steward-deployer serve   # the HTTP API steward-ui calls (default in the container)
+    steward-deployer serve   # the HTTP API steward calls (default in the container)
 
 | Endpoint                           | What it does                                                                  |
 | ---------------------------------- | ----------------------------------------------------------------------------- |

@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 /**
  * When a tick of {@link OnlineWriter} actually writes.
  *
- * Too slow misleads steward-worker's wait for an empty service; too fast writes rows to no end.
+ * Too slow misleads steward's wait for an empty service; too fast writes rows to no end.
  */
 class OnlineWriterCadenceTest {
 

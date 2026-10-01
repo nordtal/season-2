@@ -9,7 +9,7 @@ import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 
 /**
- * steward-worker's inbox, as seen by every process that can ask for a run.
+ * steward's inbox, as seen by every process that can ask for a run.
  *
  * A request is a row plus an empty {@code pg_notify}; the notification is never the state, so a wake-up re-reads.
  */
@@ -32,7 +32,7 @@ public interface UpdateDirectory {
      *
      * @param kind  what to do
      * @param actor who is asking
-     * @param delay how long the worker must wait before claiming it; negative means zero
+     * @param delay how long steward must wait before claiming it; negative means zero
      * @return the row as written
      * @throws Refused with an {@link UpdateRefusal} when another run is open anywhere, or a take-down names a
      *     held service
@@ -115,14 +115,14 @@ public interface UpdateDirectory {
     Optional<UpdateRequest> lastSuccessfulBackup(Duration within);
 
     /**
-     * Takes the oldest due request and marks it running; only steward-worker calls this.
+     * Takes the oldest due request and marks it running; only steward calls this.
      *
      * @return the claimed request, or empty when nothing is due
      */
     Optional<UpdateRequest> claimNext();
 
     /**
-     * Writes the answer to a claimed request; only the worker calls this.
+     * Writes the answer to a claimed request; only steward calls this.
      *
      * @param id     the row
      * @param status {@link UpdateStatus#DONE} or {@link UpdateStatus#FAILED}
@@ -141,7 +141,7 @@ public interface UpdateDirectory {
     boolean progress(long id, String result);
 
     /**
-     * Returns a running request to the inbox, for the newer steward-worker the run installed to claim.
+     * Returns a running request to the inbox, for the newer steward the run installed to claim.
      *
      * @return whether a running row was handed over
      */
@@ -150,7 +150,7 @@ public interface UpdateDirectory {
     }
 
     /**
-     * Starts the countdown on a claimed request, once the worker knows the plan has work in it.
+     * Starts the countdown on a claimed request, once steward knows the plan has work in it.
      *
      * @param id     the claimed request
      * @param length how long the countdown runs, from now on the database's clock
@@ -160,7 +160,7 @@ public interface UpdateDirectory {
     Optional<UpdateRequest> startCountdown(long id, Duration length, java.util.Collection<String> moving);
 
     /**
-     * Ends the countdown in one statement that decides the race with a cancel at zero; only the worker calls this.
+     * Ends the countdown in one statement that decides the race with a cancel at zero; only steward calls this.
      *
      * @return {@code true} when the run may go ahead, {@code false} when somebody cancelled
      */
@@ -189,7 +189,7 @@ public interface UpdateDirectory {
     Optional<Instant> nextDue();
 
     /**
-     * Fails everything left {@code RUNNING}, since only one worker serves; only it calls this, once, at startup.
+     * Fails everything left {@code RUNNING}, since only one steward serves; only it calls this, once, at startup.
      *
      * @param failed what to write into those rows
      * @return how many there were

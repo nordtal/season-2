@@ -22,7 +22,7 @@ class NordtalQuestionsTest {
     @Test
     void everyBorrowedQuestionIsOneTheInstallerAsksInTheSameWords() {
         for (final LocalQuestions.Question question : LocalQuestions.ALL) {
-            if (question.name().equals("STEWARD_UI_PUBLIC_URL")) {
+            if (question.name().equals("STEWARD_PUBLIC_URL")) {
                 continue;
             }
             assertTrue(

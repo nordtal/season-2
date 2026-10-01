@@ -57,7 +57,7 @@ smp_contribution|objective_id, discord_id, amount, updated|
 smp_grave|id, owner_id, world, x, y, z, contents, experience, created, looted, looted_by|
 smp_poi|id, name, world, x, y, z, created_by, created|
 smp_spin|discord_id, granted, used, last_free|
-service_hold|service, since, actor_kind, actor_id, request_id|service, since, CASE WHEN held_by ~ $re$\(\d{17,20}\)\s*$$re$ THEN $$PERSON$$ WHEN held_by IS NULL OR held_by LIKE $$steward-worker%$$ THEN $$STEWARD$$ ELSE $$HOST$$ END, substring(held_by FROM $re$\((\d{17,20})\)\s*$$re$), NULL
+service_hold|service, since, actor_kind, actor_id, request_id|service, since, CASE WHEN held_by ~ $re$\(\d{17,20}\)\s*$$re$ THEN $$PERSON$$ WHEN held_by IS NULL OR held_by LIKE $$steward%$$ THEN $$STEWARD$$ ELSE $$HOST$$ END, substring(held_by FROM $re$\((\d{17,20})\)\s*$$re$), NULL
 service_plugin|service, artifact, project_id, file_prefix, title, icon_url, page_url, added, added_by|
 audit_log|id, occurred, action, actor, subject, mc_uuid, detail|
 managed_message|kind, channel_id, message_id, updated|

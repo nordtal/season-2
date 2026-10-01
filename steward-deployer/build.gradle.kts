@@ -10,7 +10,7 @@ repositoryRootTestInputs {
 }
 
 dependencies {
-    // steward-ui has no docker socket, so it asks this service to recreate containers over HTTP.
+    // Only this service creates containers; steward asks it to recreate one over HTTP.
     implementation(libs.javalin)
     implementation(libs.gson)
 

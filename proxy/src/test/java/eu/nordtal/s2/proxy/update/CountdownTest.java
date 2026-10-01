@@ -117,7 +117,7 @@ class CountdownTest {
     }
 
     /**
-     * A first line that survives the latency between steward-worker's write and the proxy's read.
+     * A first line that survives the latency between steward's write and the proxy's read.
      *
      * Measured against the real constant less a fixed latency, in whole seconds as spoken.
      */

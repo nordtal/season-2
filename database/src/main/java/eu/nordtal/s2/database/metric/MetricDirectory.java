@@ -6,7 +6,7 @@ import java.util.List;
 import javax.sql.DataSource;
 
 /**
- * The time series behind Steward's start page, written by steward-worker and read by steward-ui.
+ * The time series behind Steward's start page, written and read by steward.
  *
  * Raw samples are compacted into hourly means and then forgotten.
  */
@@ -31,7 +31,7 @@ public interface MetricDirectory {
     void record(List<MetricSample> samples);
 
     /**
-     * Returns one series over a window, oldest first, which is what steward-ui draws.
+     * Returns one series over a window, oldest first, which is what Steward draws.
      * From the oldest raw sample's hour on, raw samples answer; before it, hourly means.
      *
      * @param from inclusive
@@ -40,7 +40,7 @@ public interface MetricDirectory {
     List<MetricPoint> range(String subject, String metric, Instant from, Instant to);
 
     /**
-     * Turns raw samples before the start of the given instant's UTC hour into hourly means; worker only.
+     * Turns raw samples before the start of the given instant's UTC hour into hourly means; steward only.
      * Nothing is deleted, and an hour that already has its mean is left alone.
      *
      * @return how many hourly rows were written
@@ -48,7 +48,7 @@ public interface MetricDirectory {
     int compact(Instant olderThan);
 
     /**
-     * Deletes raw samples before the given instant's UTC hour whose hour already has a mean; worker only.
+     * Deletes raw samples before the given instant's UTC hour whose hour already has a mean; steward only.
      *
      * @return how many raw rows were deleted
      */

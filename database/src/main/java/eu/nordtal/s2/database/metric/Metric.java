@@ -1,6 +1,6 @@
 package eu.nordtal.s2.database.metric;
 
-/** Every number the worker samples, by the name the table and the browser use for it. */
+/** Every number steward samples, by the name the table and the browser use for it. */
 public enum Metric {
     LOAD1("load1"),
     CPU_PERCENT("cpu_percent"),

@@ -75,9 +75,9 @@ public interface SwapStore {
     List<Seat> takeAllSeats();
 
     /**
-     * The standby's heartbeat, so {@code steward-worker} can see whether it is safe to stop it.
+     * The standby's heartbeat, so {@code steward} can see whether it is safe to stop it.
      *
-     * @param players how many the standby is holding right now; zero is what the worker waits for
+     * @param players how many the standby is holding right now; zero is what steward waits for
      * @param now the proxy's clock, which tells a live zero from a dead process's last write
      */
     void reportStandby(int players, Instant now);

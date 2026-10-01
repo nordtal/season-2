@@ -259,7 +259,7 @@ class PaymentRequestIntegrationTest {
                         "30 days on top of 30 days"));
     }
 
-    /** The bank's inbox, as the worker would read it. */
+    /** The bank's inbox, as steward would read it. */
     private Inbox<BankRequest> bank() {
         return Inbox.over(database.dataSource(), BankRequest.TABLE);
     }
@@ -289,7 +289,7 @@ class PaymentRequestIntegrationTest {
         final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
         assertTrue(requests.attachTab(request.id(), 4242L, "https://bunq.me/x"));
 
-        // Otherwise the worker makes a second tab.
+        // Otherwise steward makes a second tab.
         assertFalse(requests.requestTab(request.id(), Actor.person(DiscordId.of(USER))), "asking changes nothing");
         assertTrue(asked().isEmpty());
     }
@@ -318,7 +318,7 @@ class PaymentRequestIntegrationTest {
         requests.attachTab(request.id(), 4242L, "https://bunq.me/x");
 
         assertTrue(requests.recordCancelled(request.id()));
-        assertFalse(requests.recordCancelled(request.id()), "without an exit the worker cancels it forever");
+        assertFalse(requests.recordCancelled(request.id()), "without an exit steward cancels it forever");
         assertNotNull(requests.byId(request.id()).orElseThrow().tabCancelled());
     }
 
@@ -332,7 +332,7 @@ class PaymentRequestIntegrationTest {
         final PaymentRequest matched = requests.openOf(DiscordId.of(USER)).orElseThrow();
         assertAll(
                 () -> assertEquals(
-                        PaymentRequestStatus.OPEN, matched.status(), "the worker finds the money; the bot books it"),
+                        PaymentRequestStatus.OPEN, matched.status(), "steward finds the money; the bot books it"),
                 () -> assertNull(matched.settled()),
                 () -> assertEquals(300, matched.matchedCents()),
                 () -> assertEquals(PaymentMatch.TAB, matched.matchedBy()),

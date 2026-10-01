@@ -39,13 +39,13 @@ class JobsTest {
     @Test
     void aJobThatThrowsIsFailedAndSaysWhatThrewRatherThanEndingSilently() throws Exception {
         final Jobs.Job job = jobs.start("deploy", List.of(), output -> {
-            throw new IllegalStateException("no image for steward-ui");
+            throw new IllegalStateException("no image for steward");
         });
         waitFor(job);
 
         assertEquals(Jobs.State.FAILED, job.state());
         assertTrue(
-                job.lines().stream().anyMatch(line -> line.contains("no image for steward-ui")),
+                job.lines().stream().anyMatch(line -> line.contains("no image for steward")),
                 job.lines().toString());
     }
 

@@ -32,7 +32,7 @@ class OomLightningRodTest {
             "smp", false,
             "hunger-games", false,
             "postgres", false,
-            "steward-worker", false));
+            "steward", false));
 
     private final String compose = read("compose.yml");
 

@@ -46,7 +46,7 @@ class UpdateReportsTest {
         final UpdateReport report = new UpdateReport(
                 UpdateReport.Stage.PLANNED,
                 List.of(new UpdateReport.ServiceLine(
-                        "steward-worker",
+                        "steward",
                         UpdateReport.State.PLANNED,
                         List.of(new UpdateReport.Change("chunky", null, "1.4.36")),
                         null)),

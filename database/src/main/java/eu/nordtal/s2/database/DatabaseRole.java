@@ -34,8 +34,8 @@ public enum DatabaseRole {
     /** The SMP server. */
     SMP(Login.PASSWORD),
 
-    /** Steward's interface and API. */
-    STEWARD_UI(Login.PASSWORD),
+    /** Steward, which V1 grants to by the name it had when V1 was frozen, {@code role_steward_ui}. */
+    STEWARD(Login.PASSWORD, "role_steward_ui"),
 
     /** The shared read models; every role above is a member, and nobody logs in as it. */
     READ(Login.NONE),
@@ -54,9 +54,15 @@ public enum DatabaseRole {
     }
 
     private final Login login;
+    private final @Nullable String placeholder;
 
     DatabaseRole(final Login login) {
+        this(login, null);
+    }
+
+    DatabaseRole(final Login login, final @Nullable String placeholder) {
         this.login = login;
+        this.placeholder = placeholder;
     }
 
     /** Returns this role's part of a name, such as {@code hunger_games}. */
@@ -64,9 +70,9 @@ public enum DatabaseRole {
         return name().toLowerCase(Locale.ROOT);
     }
 
-    /** Returns the Flyway placeholder V1 names this role by, such as {@code role_hunger_games}. */
+    /** Returns the Flyway placeholder a migration names this role by, such as {@code role_hunger_games}. */
     public String placeholder() {
-        return "role_" + key();
+        return placeholder != null ? placeholder : "role_" + key();
     }
 
     /** Returns the role's name under {@link #PREFIX}, which compose.yml gives each service as its user. */

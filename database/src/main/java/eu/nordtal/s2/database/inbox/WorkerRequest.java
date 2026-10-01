@@ -3,10 +3,10 @@ package eu.nordtal.s2.database.inbox;
 import eu.nordtal.s2.database.notify.Channel;
 import java.util.List;
 
-/** A run steward-worker is asked for; each record is one kind, and each names the services it is for. */
+/** A run steward is asked for; each record is one kind, and each names the services it is for. */
 public sealed interface WorkerRequest {
 
-    /** The worker's inbox table, whose rows the proxy and the bot's feed follow on the same channel. */
+    /** The run inbox table, whose rows the proxy and the bot's feed follow on the same channel. */
     InboxTable<WorkerRequest> TABLE = InboxTable.of("worker_inbox", Channel.UPDATE, WorkerRequest.class);
 
     /** Returns the compose services the run is for; empty is the whole network. */

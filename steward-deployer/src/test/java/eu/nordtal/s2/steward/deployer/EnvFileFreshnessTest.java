@@ -93,6 +93,6 @@ class EnvFileFreshnessTest {
         final Compose compose = new Compose(
                 Path.of("/app/compose.yml"), tempEnvFile, Path.of("/app"), "nordtal-s2", path -> OptionalLong.of(0L));
 
-        assertThrows(Compose.StaleEnvFileException.class, () -> compose.recreate("steward-ui", line -> {}));
+        assertThrows(Compose.StaleEnvFileException.class, () -> compose.recreate("steward", line -> {}));
     }
 }

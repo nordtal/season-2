@@ -7,12 +7,12 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One run: a row of the worker's inbox, what was asked for, by whom, and what happened.
+ * One run: a row of the run inbox, what was asked for, by whom, and what happened.
  *
- * @param scheduledFor the instant the worker may claim it
- * @param countdownEnd when the servers go down, {@code null} until the worker's plan has work and counts down
+ * @param scheduledFor the instant steward may claim it
+ * @param countdownEnd when the servers go down, {@code null} until steward's plan has work and counts down
  * @param moving       the services this run stops, empty until the countdown starts
- * @param started      when a worker claimed it, {@code null} while {@link UpdateStatus#PENDING}
+ * @param started      when steward claimed it, {@code null} while {@link UpdateStatus#PENDING}
  * @param finished     when it reached a terminal state, {@code null} until then
  * @param result       the report, verbatim, {@code null} until finished
  */

@@ -23,7 +23,7 @@ import org.slf4j.Logger;
 public final class ProxySwap {
 
     /**
-     * The proxy's compose service name, as steward-worker's report spells it; {@code ProxySwapDecisionTest} pins it.
+     * The proxy's compose service name, as steward's report spells it; {@code ProxySwapDecisionTest} pins it.
      */
     static final String OWN_SERVICE = OnlineCounts.PROXY;
 

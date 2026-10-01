@@ -25,7 +25,7 @@ import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 
 /**
- * Books the payments steward-worker has matched and posts the notices that need a human.
+ * Books the payments steward has matched and posts the notices that need a human.
  *
  * Driven by {@code nordtal_payment}, with the timer in {@code AccessBot} as the guarantee.
  */
@@ -87,7 +87,7 @@ public final class PaymentProcessor {
     /**
      * Books one payment against one request, applying the "pay what you get" rule.
      *
-     * @param request   the open request steward-worker attributed money to
+     * @param request   the open request steward attributed money to
      * @param paymentId the bunq payment
      * @param cents     what actually arrived, not what the request asked for
      */
@@ -192,7 +192,7 @@ public final class PaymentProcessor {
                 .queue(ok -> {}, failure -> log.error("Could not post the donation thank-you", failure));
     }
 
-    /** Posts what steward-worker found and could not act on, claiming each row before it is sent. */
+    /** Posts what steward found and could not act on, claiming each row before it is sent. */
     private void postWhatNeedsAHuman() {
         for (final PaymentNotice notice : requests.unpostedNotices()) {
             if (requests.claimNotice(notice.bunqPaymentId())) {

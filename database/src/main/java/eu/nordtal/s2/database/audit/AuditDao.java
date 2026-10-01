@@ -11,7 +11,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * The SQL surface of the journal; {@link AuditDirectory} is the API.
  *
- * The insert is for steward-ui's grants and revokes; the phase switch writes its own row and must not use it.
+ * The insert is for Steward's grants and revokes; the phase switch writes its own row and must not use it.
  */
 interface AuditDao {
 

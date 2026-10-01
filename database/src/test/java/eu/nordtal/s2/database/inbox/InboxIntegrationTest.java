@@ -266,7 +266,7 @@ class InboxIntegrationTest {
     @Test
     void aWriterCanAskAndReadAndOnlyTheConsumerCanClaim() {
         final Inbox<BotRequest> ui =
-                Inbox.over(database.dataSourceAs(eu.nordtal.s2.database.DatabaseRole.STEWARD_UI), BotRequest.TABLE);
+                Inbox.over(database.dataSourceAs(eu.nordtal.s2.database.DatabaseRole.STEWARD), BotRequest.TABLE);
         final Inbox<BotRequest> bot =
                 Inbox.over(database.dataSourceAs(eu.nordtal.s2.database.DatabaseRole.DISCORD_BOT), BotRequest.TABLE);
 

@@ -22,7 +22,7 @@ import java.util.TreeMap;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What a {@link MessageSpec} says about its bundle, as data, for steward-worker.
+ * What a {@link MessageSpec} says about its bundle, as data, for steward.
  *
  * Written into the jar as {@code messages/<bundle>/schema.json} at build time, in the order of the English file.
  */
@@ -244,7 +244,7 @@ public final class MessageSchema {
         return line.length();
     }
 
-    /** Returns the schema as the JSON steward-worker reads. */
+    /** Returns the schema as the JSON steward reads. */
     public static String json(final Class<?> spec) {
         final Map<String, ContextJson> contexts = new LinkedHashMap<>();
         contextTypes(spec)

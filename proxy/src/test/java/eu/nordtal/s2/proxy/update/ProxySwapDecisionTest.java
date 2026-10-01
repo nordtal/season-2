@@ -16,7 +16,7 @@ class ProxySwapDecisionTest {
 
     @Test
     void theNameIsTheWorkersName() {
-        // Must equal the worker's Topology.PROXY, which this module cannot see; a mismatch silently stops swaps.
+        // Must equal steward's Topology.PROXY, which this module cannot see; a mismatch silently stops swaps.
         assertEquals("proxy", ProxySwap.OWN_SERVICE);
         assertEquals(OnlineCounts.PROXY, ProxySwap.OWN_SERVICE);
     }

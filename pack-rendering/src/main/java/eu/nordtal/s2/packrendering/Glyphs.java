@@ -125,7 +125,7 @@ public final class Glyphs {
     /**
      * Returns the glyphs of {@code minecraft:default} by the name a message writes as {@code <glyph:name>}.
      *
-     * Read from {@code glyph-names.txt} beside this class, which the steward-ui build reads as well.
+     * Read from {@code glyph-names.txt} beside this class, which the steward build reads as well.
      */
     public static java.util.Map<String, String> named() {
         return Named.TABLE;

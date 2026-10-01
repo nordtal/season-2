@@ -1,4 +1,4 @@
-// Writes messages/<bundle>/schema.json from the module's message spec, for steward-worker to show.
+// Writes messages/<bundle>/schema.json from the module's message spec, for steward to show.
 // The classpath is the resource source directories, since processed resources would be a cycle.
 
 plugins {

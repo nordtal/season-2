@@ -5,7 +5,7 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * The local season 2 network: the same compose.yml, Dockerfiles and steward-worker production runs, on local jars.
+ * The local season 2 network: the same compose.yml, Dockerfiles and steward production runs, on local jars.
  *
  * Runs as {@code sh gradlew -q :dev:run --args="<command>"} on any OS with Java and Docker.
  */

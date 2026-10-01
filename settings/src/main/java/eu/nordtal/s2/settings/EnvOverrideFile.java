@@ -16,7 +16,7 @@ import java.util.Optional;
  */
 public final class EnvOverrideFile {
 
-    /** The suffix of every such file, so steward-worker does not list them as configurations. */
+    /** The suffix of every such file, so steward does not list them as configurations. */
     public static final String SUFFIX = ".env-overrides.txt";
 
     private EnvOverrideFile() {}

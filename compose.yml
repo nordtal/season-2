@@ -10,13 +10,13 @@
 # Caddy's config is inline at the foot for the same reason: the deployer cannot see host files.
 #
 # Every image is pulled and tagged `latest`; `build:` blocks are for local development. The images
-# are a floor: steward-worker replaces jars in the volumes with the latest release.
+# are a floor: steward replaces jars in the volumes with the latest release.
 #
 # COMPOSE_PROFILES selects the services; production is `db,bot,mc,backup,steward`. `up` and `down`
 # must use the same selection. `standby` is never selected: an update run starts those services
 # by name and stops them again.
 #
-# steward-worker has no profile, applies the schema and is the only depends_on target, so nothing
+# steward has no profile, applies the schema and is the only depends_on target, so nothing
 # starts against an older schema. Nothing depends on postgres, so an external database works.
 
 name: nordtal-s2
@@ -31,7 +31,7 @@ x-minecraft: &minecraft
   restart: unless-stopped
   depends_on:
     # The schema only; see the header on why not the database.
-    steward-worker:
+    steward:
       condition: service_healthy
   # The entrypoint must be PID 1 to trap SIGTERM and hold stdout; `init: true` would break both.
   init: false
@@ -63,7 +63,7 @@ x-minecraft: &minecraft
       max-file: "5"
 
 # The database every client connects to, each under its own variable prefix. NORDTAL_DATABASE_* points
-# the stack at an external PostgreSQL; POSTGRES_* configures the bundled one. steward-worker logs in as
+# the stack at an external PostgreSQL; POSTGRES_* configures the bundled one. steward logs in as
 # the owner, migrates, and first creates every other service's role with the password given here; each
 # service logs in as its own role, whose name is fixed (DatabaseRole in :database).
 x-database:
@@ -75,7 +75,7 @@ x-database:
   limbo-password: &db-limbo-password ${POSTGRES_LIMBO_PASSWORD:?set POSTGRES_LIMBO_PASSWORD in .env}
   hunger-games-password: &db-hunger-games-password ${POSTGRES_HUNGER_GAMES_PASSWORD:?set POSTGRES_HUNGER_GAMES_PASSWORD in .env}
   smp-password: &db-smp-password ${POSTGRES_SMP_PASSWORD:?set POSTGRES_SMP_PASSWORD in .env}
-  steward-ui-password: &db-steward-ui-password ${POSTGRES_STEWARD_UI_PASSWORD:?set POSTGRES_STEWARD_UI_PASSWORD in .env}
+  steward-password: &db-steward-password ${POSTGRES_STEWARD_PASSWORD:?set POSTGRES_STEWARD_PASSWORD in .env}
 
 services:
   postgres:
@@ -95,7 +95,7 @@ services:
       - "${POSTGRES_BIND:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - ${POSTGRES_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/postgres-data}:/var/lib/postgresql/data
-      # The worker runs pg_dump inside this container, so the dump directory is mounted here.
+      # steward runs pg_dump inside this container, so the dump directory is mounted here.
       # postgres-data itself is never archived: a tar of a live PGDATA does not restore.
       - ${STEWARD_BACKUPS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-backups}:/backups
     healthcheck:
@@ -107,7 +107,7 @@ services:
     logging: *logging
 
   # The Discord bot: no Minecraft dependency and no bank credential. It validates the schema and asks
-  # steward-worker for payment links through a table. The name matches the module, the artefact id and
+  # steward for payment links through a table. The name matches the module, the artefact id and
   # the jar volume, held equal by TopologyTest; the profile stays `bot`.
   discord-bot:
     profiles: ["bot"]
@@ -119,7 +119,7 @@ services:
     restart: unless-stopped
     depends_on:
       # The bot refuses an unmigrated database.
-      steward-worker:
+      steward:
         condition: service_healthy
     # The Minecraft readiness marker, written once JDA is ready and refreshed by the timer thread, so a
     # wedged timer goes red. The bot listens on nothing, so there is no port check.
@@ -141,14 +141,14 @@ services:
 
       # bot.yml
       NORDTAL_BOT_TOKEN: ${NORDTAL_BOT_TOKEN:?set NORDTAL_BOT_TOKEN in .env}
-      # The bunq key lives on steward-worker, not here.
+      # The bunq key lives on steward, not here.
 
       # access.yml: the guild and the admin role are required; deploy/nordtal.sh asks for both.
       NORDTAL_ACCESS_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in the environment file - deploy/nordtal.sh asks for it}
       NORDTAL_ACCESS_ROLES_ADMIN: ${NORDTAL_ACCESS_ROLES_ADMIN:?set NORDTAL_ACCESS_ROLES_ADMIN in the environment file - deploy/nordtal.sh asks for it}
     volumes:
       - ${BOT_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-config}:/app/config
-      # The jar; steward-worker fills it as /volumes/discord-bot.
+      # The jar; steward fills it as /volumes/discord-bot.
       - ${BOT_JAR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-jar}:/app/lib
     logging: *logging
 
@@ -195,7 +195,7 @@ services:
       NORDTAL_PROXY_NETWORK_STANDBY: "false"
       # caddy sends a PROXY header; the entrypoint writes this into velocity.toml on every start.
       VELOCITY_HAPROXY: ${VELOCITY_HAPROXY:-true}
-      # The pack url and sha1 live in pack.yml, never here: an override would hide the worker's writes.
+      # The pack url and sha1 live in pack.yml, never here: an override would hide what steward writes.
       NORDTAL_PROXY_DATABASE_JDBC_URL: *db-url
       NORDTAL_PROXY_DATABASE_USERNAME: nordtal_proxy
       NORDTAL_PROXY_DATABASE_PASSWORD: *db-proxy-password
@@ -220,7 +220,7 @@ services:
     # Reached through caddy on ${PROXY_STANDBY_PORT}; voice follows whichever proxy answers.
     volumes:
       - ${PROXY_STANDBY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-standby}:/data
-      # steward-worker copies the live proxy's jars and pack.yml here.
+      # steward copies the live proxy's jars and pack.yml here.
       - ${PROXY_STANDBY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-standby-plugins}:/data/plugins
 
   # The waiting room. Needs the database for one thing only: the player's language.
@@ -293,7 +293,7 @@ services:
       <<: *minecraft-env
       SERVER_KIND: paper
       SERVER_VERSION: "26.2"
-      # steward-worker resolves DisplayTags and PacketEvents; the datapacks are pinned by sha512.
+      # steward resolves DisplayTags and PacketEvents; the datapacks are pinned by sha512.
       DATAPACK_URLS: ${SMP_DATAPACK_URLS:-f5283548323149ecd3f218b8efbe03c1c582df3f40b6bb3b095ba9e4cac0c87108b98adabd6ebd3a8037ec239773a253f75b8bee7db52e6f5663bf9dc63c2ea3@https://cdn.modrinth.com/data/8oi3bsk5/versions/CzijfXJQ/Terralith_26.2_v2.6.4.zip cf026b67f4fc0f5ab15229995f11faf43fdd41b29777a6756151276e83da65f887fe03b6356c5011f8ba32371f98941778928e4258e81b4c97411a40af1635ca@https://cdn.modrinth.com/data/tpehi7ww/versions/CS77UwHE/Dungeons%20and%20Taverns%20v5.3.2.zip}
       # Must match SmpSpec#world-nordtal; ComposeWorldTest holds that.
       LEVEL_NAME: ${SMP_LEVEL_NAME:-nordtal}
@@ -316,24 +316,25 @@ services:
       # plugins/ apart from the rest, as for the proxy.
       - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/data/plugins
 
-  # steward-worker owns the schema and every jar version. `serve` is not a scheduler: it acts only on
-  # rows in worker_inbox. One-shot commands: `report`, `migrate` and `bootstrap` (fills empty volumes).
-  steward-worker:
+  # steward: the web interface, its API, the schema and every jar version, in one process. `serve` is
+  # not a scheduler: it acts only on rows in worker_inbox. One-shot commands: `report`, `migrate`,
+  # `bootstrap` (fills empty volumes), `forget-factors` and `generate-vapid-keys`.
+  steward:
     build:
       # The Dockerfile globs build/libs for the jar, so there are no build args.
-      context: ./steward-worker
-    image: ${STEWARD_WORKER_IMAGE:-ghcr.io/nordtal/steward-worker:latest}
+      context: ./steward
+    image: ${STEWARD_IMAGE:-ghcr.io/nordtal/steward:latest}
     restart: unless-stopped
     # Only the steward network: it holds the docker socket, so no Minecraft server may reach it.
     networks: ["steward"]
-    # A `run` without a subcommand inherits this; use `steward-worker report` for a read-only run.
+    # A `run` without a subcommand inherits this; use `steward report` for a read-only run.
     command: ["serve"]
     # Makes http://host.docker.internal:<port> reach the host on Linux too.
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
       # Written once the schema is current; everything else waits for it.
-      test: ["CMD-SHELL", "test -f /tmp/steward-worker-ready"]
+      test: ["CMD-SHELL", "test -f /tmp/steward-ready"]
       interval: 10s
       timeout: 3s
       # 15 minutes, for a first bootstrap that downloads every jar.
@@ -351,23 +352,40 @@ services:
       NORDTAL_STEWARD_DATABASE_LIMBO_PASSWORD: *db-limbo-password
       NORDTAL_STEWARD_DATABASE_HUNGER_GAMES_PASSWORD: *db-hunger-games-password
       NORDTAL_STEWARD_DATABASE_SMP_PASSWORD: *db-smp-password
-      NORDTAL_STEWARD_DATABASE_STEWARD_UI_PASSWORD: *db-steward-ui-password
+      NORDTAL_STEWARD_DATABASE_STEWARD_PASSWORD: *db-steward-password
 
-      # steward.yml; steward-worker always follows each repository's latest GitHub release.
+      # steward.yml; steward always follows each repository's latest GitHub release.
       NORDTAL_STEWARD_SEASON_REPO: ${SEASON_REPO:-}
       # Optional; raises GitHub's rate limit.
-      NORDTAL_STEWARD_GITHUB_TOKEN: ${STEWARD_WORKER_GITHUB_TOKEN:-}
-      # Shared with steward-ui for its internal API; required.
-      NORDTAL_STEWARD_API_TOKEN: ${STEWARD_API_TOKEN:?set STEWARD_API_TOKEN in .env - the secret steward-ui and steward-worker share, `openssl rand -hex 32`}
+      NORDTAL_STEWARD_GITHUB_TOKEN: ${STEWARD_GITHUB_TOKEN:-}
 
       # steward.yml#deployer: recreating a container goes through steward-deployer's API.
-      NORDTAL_STEWARD_DEPLOYER_TOKEN: ${STEWARD_DEPLOYER_TOKEN:?set STEWARD_DEPLOYER_TOKEN in .env - the secret steward-ui, steward-worker and steward-deployer share, `openssl rand -hex 32`}
+      NORDTAL_STEWARD_DEPLOYER_TOKEN: ${STEWARD_DEPLOYER_TOKEN:?set STEWARD_DEPLOYER_TOKEN in .env - the secret steward and steward-deployer share, `openssl rand -hex 32`}
 
       # steward.yml#bunq: optional; without it payments are off, and the startup log says so.
       NORDTAL_STEWARD_BUNQ_API_KEY: ${NORDTAL_STEWARD_BUNQ_API_KEY:-}
       NORDTAL_STEWARD_BUNQ_ACCOUNT_ID: ${NORDTAL_STEWARD_BUNQ_ACCOUNT_ID:-}
+
+      # web.yml; the address is also the Discord redirect URI and the WebAuthn origin.
+      NORDTAL_STEWARD_WEB_PUBLIC_URL: ${STEWARD_PUBLIC_URL:-https://${STEWARD_HOST:?set STEWARD_HOST in .env - the name this interface answers on, e.g. steward.dev.nordtal.eu}}
+      # Must cover the host above, or the container refuses to start; blank keeps web.yml.
+      NORDTAL_STEWARD_WEB_WEBAUTHN_RELYING_PARTY_ID: ${STEWARD_WEBAUTHN_RP_ID:-}
+      # Discord sign-in; empty disables it, and the sign-in page says which value is missing.
+      NORDTAL_STEWARD_WEB_DISCORD_CLIENT_ID: ${STEWARD_DISCORD_CLIENT_ID:-}
+      NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET: ${STEWARD_DISCORD_CLIENT_SECRET:-}
+      # Seeded from the same variable as the bot's access.yml.
+      NORDTAL_STEWARD_WEB_DISCORD_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in the environment file - deploy/nordtal.sh asks for it}
+      # Only lists guild roles and channels for the editor's pickers; empty falls back to text fields.
+      NORDTAL_STEWARD_WEB_DISCORD_BOT_TOKEN: ${NORDTAL_BOT_TOKEN:-}
+      # Web Push keys from `steward generate-vapid-keys`; blank keeps what web.yml holds.
+      NORDTAL_STEWARD_WEB_WEB_PUSH_PUBLIC_KEY: ${STEWARD_WEB_PUSH_PUBLIC_KEY:-}
+      NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY: ${STEWARD_WEB_PUSH_PRIVATE_KEY:-}
+    ports:
+      # Loopback only; production traffic comes through Caddy.
+      - "${STEWARD_BIND:-127.0.0.1}:${STEWARD_PORT:-8080}:8080"
     volumes:
-      - ${STEWARD_WORKER_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-worker-config}:/app/config
+      # steward.yml, web.yml and database.yml.
+      - ${STEWARD_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-config}:/app/config
       # bunq binds its context to the registering device and IP, so it is never copied.
       - ${BUNQ_CONTEXT:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bunq-context}:/app/bunq
       # What `apply` writes, under the names Topology expects.
@@ -386,11 +404,10 @@ services:
       # Jar folders, handled like plugins folders.
       - ${BOT_JAR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-jar}:/volumes/discord-bot
       # A new jar here takes effect at the next restart.
-      - ${STEWARD_WORKER_JAR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-worker-jar}:/volumes/steward-worker
+      - ${STEWARD_JAR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-jar}:/volumes/steward
       # Every service's config, one directory per service, for the web editor. A write is also the reload.
       # Plugin paths must match the servers' expressions exactly.
-      - ${STEWARD_UI_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-ui-config}:/configs/steward-ui
-      - ${STEWARD_WORKER_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-worker-config}:/configs/steward-worker
+      - ${STEWARD_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-config}:/configs/steward
       - ${BOT_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-config}:/configs/discord-bot
       - ${PROXY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-plugins}:/configs/proxy
       - ${LIMBO_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-plugins}:/configs/limbo
@@ -402,59 +419,12 @@ services:
       - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/backup-sources/nordtal-s2_mc-smp-plugins:ro
       - ${HUNGER_GAMES_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games-plugins}:/backup-sources/nordtal-s2_mc-hunger-games-plugins:ro
       - ${BOT_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-config}:/backup-sources/nordtal-s2_bot-config:ro
-      - ${STEWARD_UI_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-ui-config}:/backup-sources/nordtal-s2_steward-ui-config:ro
+      - ${STEWARD_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-config}:/backup-sources/nordtal-s2_steward-config:ro
       # Archives land here, outside every backed-up volume.
       - ${STEWARD_BACKUPS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-backups}:/backups
-      # Not restrictable with `:ro`; DockerOps only reads, stops and starts, and steward-ui gets no socket.
+      # Not restrictable with `:ro`; DockerOps only reads, stops and starts, and recreating goes through
+      # steward-deployer.
       - /var/run/docker.sock:/var/run/docker.sock
-    logging: *logging
-
-  # steward-ui: the web interface, with no docker socket; it reaches the worker and deployer
-  # only through their fixed endpoints.
-  steward-ui:
-    profiles: ["steward"]
-    # For local development; a deploy pulls.
-    build:
-      context: ./steward-ui
-    image: ${STEWARD_UI_IMAGE:-ghcr.io/nordtal/steward-ui:latest}
-    restart: unless-stopped
-    networks: ["steward"]
-    depends_on:
-      # Reads tables directly, so it waits for the schema.
-      steward-worker:
-        condition: service_healthy
-    # The image carries the healthcheck.
-    environment:
-      TZ: ${TZ:-Europe/Berlin}
-
-      # database.yml
-      NORDTAL_STEWARD_UI_DATABASE_JDBC_URL: *db-url
-      NORDTAL_STEWARD_UI_DATABASE_USERNAME: nordtal_steward_ui
-      NORDTAL_STEWARD_UI_DATABASE_PASSWORD: *db-steward-ui-password
-
-      # steward-ui.yml; the address is also the Discord redirect URI and the WebAuthn origin.
-      NORDTAL_STEWARD_UI_PUBLIC_URL: ${STEWARD_UI_PUBLIC_URL:-https://${STEWARD_HOST:?set STEWARD_HOST in .env - the name this interface answers on, e.g. steward.dev.nordtal.eu}}
-      # Must cover the host above, or the container refuses to start; blank keeps steward-ui.yml.
-      NORDTAL_STEWARD_UI_WEBAUTHN_RELYING_PARTY_ID: ${STEWARD_WEBAUTHN_RP_ID:-}
-      # Two different tokens: only the deployer may create containers.
-      NORDTAL_STEWARD_UI_WORKER_TOKEN: ${STEWARD_API_TOKEN:?set STEWARD_API_TOKEN in .env - the secret steward-ui and steward-worker share, `openssl rand -hex 32`}
-      NORDTAL_STEWARD_UI_DEPLOYER_TOKEN: ${STEWARD_DEPLOYER_TOKEN:?set STEWARD_DEPLOYER_TOKEN in .env - the secret steward-ui and steward-deployer share, and a DIFFERENT one, `openssl rand -hex 32`}
-      # Discord sign-in; empty disables it, and the sign-in page says which value is missing.
-      NORDTAL_STEWARD_UI_DISCORD_CLIENT_ID: ${STEWARD_UI_DISCORD_CLIENT_ID:-}
-      NORDTAL_STEWARD_UI_DISCORD_CLIENT_SECRET: ${STEWARD_UI_DISCORD_CLIENT_SECRET:-}
-      # Seeded from the same variable as the bot's access.yml.
-      NORDTAL_STEWARD_UI_DISCORD_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in the environment file - deploy/nordtal.sh asks for it}
-      # Only lists guild roles and channels for the editor's pickers; empty falls back to text fields.
-      NORDTAL_STEWARD_UI_DISCORD_BOT_TOKEN: ${NORDTAL_BOT_TOKEN:-}
-      # Web Push keys from `steward-ui generate-vapid-keys`; blank keeps what steward-ui.yml holds.
-      NORDTAL_STEWARD_UI_WEB_PUSH_PUBLIC_KEY: ${STEWARD_UI_WEB_PUSH_PUBLIC_KEY:-}
-      NORDTAL_STEWARD_UI_WEB_PUSH_PRIVATE_KEY: ${STEWARD_UI_WEB_PUSH_PRIVATE_KEY:-}
-    ports:
-      # Loopback only; production traffic comes through Caddy.
-      - "${STEWARD_UI_BIND:-127.0.0.1}:${STEWARD_UI_PORT:-8080}:8080"
-    volumes:
-      - ${STEWARD_UI_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-ui-config}:/app/config
-      # No stack configs here: this service runs as uid 10001 and reaches them through the worker.
     logging: *logging
 
   # steward-deployer: the only process allowed to create a container. It carries this file in its
@@ -476,7 +446,7 @@ services:
     environment:
       TZ: ${TZ:-Europe/Berlin}
       # Required; it refuses to serve without one.
-      NORDTAL_STEWARD_DEPLOYER_TOKEN: ${STEWARD_DEPLOYER_TOKEN:?set STEWARD_DEPLOYER_TOKEN in .env - the secret steward-ui and steward-deployer share, `openssl rand -hex 32`}
+      NORDTAL_STEWARD_DEPLOYER_TOKEN: ${STEWARD_DEPLOYER_TOKEN:?set STEWARD_DEPLOYER_TOKEN in .env - the secret steward and steward-deployer share, `openssl rand -hex 32`}
       # The env file decides; repeated so host and interface select the same services.
       COMPOSE_PROFILES: ${COMPOSE_PROFILES:-db,bot,mc,backup,steward}
       # Must match the host's project, or a deploy starts a second, empty stack.
@@ -591,8 +561,8 @@ configs:
       	encode zstd gzip
 
       	# No CSP: one would have to allow cdn.modrinth.com in img-src, and CaddyPolicyTest holds that.
-      	# Only steward-ui is exposed here; the internal APIs must never get a route.
-      	reverse_proxy steward-ui:8080 {
+      	# Only steward is exposed here; the internal APIs must never get a route.
+      	reverse_proxy steward:8080 {
       		# Keeps quiet Server-Sent Event streams open.
       		flush_interval -1
       	}
@@ -604,15 +574,14 @@ volumes:
   steward-backups:
   postgres-data:
   bot-config:
-  steward-worker-config:
   # Backed up: it holds the thresholds edited in the interface.
-  steward-ui-config:
+  steward-config:
   # Not backed up; losing it means a new certificate and Let's Encrypt's rate limit.
   caddy-data:
   caddy-config:
-  # Refilled by `steward-worker bootstrap`, so not backed up.
+  # Refilled by `steward bootstrap`, so not backed up.
   bot-jar:
-  steward-worker-jar:
+  steward-jar:
   # Never copied or backed up: bunq binds it to one device and IP.
   bunq-context:
   mc-proxy:
@@ -631,7 +600,7 @@ volumes:
   mc-limbo-standby-plugins:
 
 # `default` holds the Minecraft services and the bot; `steward` holds the Steward services and Caddy.
-# Postgres is on both, so no plugin can reach the worker's API.
+# Postgres is on both, so no plugin can reach steward.
 networks:
   default:
   steward:

@@ -111,7 +111,7 @@ public final class RestartWatch {
     /**
      * Whether a countdown is running right now.
      *
-     * {@code OnlineWriter} writes counts every second from here on, so steward-worker reads fresh ones at zero.
+     * {@code OnlineWriter} writes counts every second from here on, so steward reads fresh ones at zero.
      */
     public synchronized boolean isCountingDown() {
         return countdown.watching() != null;

@@ -17,8 +17,7 @@ val checkedModules =
         ":smp",
         ":proxy",
         ":discord-bot",
-        ":steward-worker",
-        ":steward-ui",
+        ":steward",
         ":steward-deployer",
         ":dev",
     )
@@ -28,7 +27,7 @@ dependencies {
     checkedModules.forEach { testRuntimeOnly(project(it)) { isTransitive = false } }
 }
 
-// Compiled classes only: a module's jar would pull in its resources, and steward-ui's are the frontend build.
+// Compiled classes only: a module's jar would pull in its resources, and steward's are the frontend build.
 configurations.testRuntimeClasspath {
     attributes {
         attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.CLASSES))

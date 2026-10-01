@@ -1,10 +1,10 @@
 <!--
-  gradlew :steward-ui:check
+  gradlew :steward:check
 
-  Runs steward-ui's JVM tests and the vitest suite.
+  Runs steward's JVM tests and the vitest suite.
 -->
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="tests: ui steward-ui check (vitest + java)" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: ui">
+  <configuration default="false" name="tests: ui steward check (vitest + java)" type="GradleRunConfiguration" factoryName="Gradle" folderName="tests: ui">
     <ExternalSystemSettings>
       <option name="executionName" />
       <option name="externalProjectPath" value="$PROJECT_DIR$" />
@@ -15,7 +15,7 @@
       </option>
       <option name="taskNames">
         <list>
-          <option value=":steward-ui:check" />
+          <option value=":steward:check" />
         </list>
       </option>
       <option name="vmOptions" />

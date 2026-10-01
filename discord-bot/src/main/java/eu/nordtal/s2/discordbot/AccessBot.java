@@ -130,7 +130,7 @@ public class AccessBot implements AutoCloseable {
             // Borrows the bot's pool; closing a borrowed pool is a no-op.
             this.access = AccessDirectory.using(database.dataSource(), clock);
             final PhaseDirectory phases = PhaseDirectory.using(database.dataSource(), clock);
-            // steward-worker's inbox: the bot writes requests and reads answers, never updating them.
+            // steward's inbox: the bot writes requests and reads answers, never updating them.
             final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
 
             final CoreServices core = loadCoreServices(accessConfig);
@@ -206,7 +206,7 @@ public class AccessBot implements AutoCloseable {
                         key));
         final Tiers tiers = Tiers.of(accessConfig);
 
-        // The bunq key lives in steward-worker and is read here as a row.
+        // The bunq key lives in steward and is read here as a row.
         Configured.report(accessConfig, PaymentGateway.state(database.jdbi()));
         final PaymentRequests requests = new PaymentRequests(database.dataSource());
         final Purchases purchases = new Purchases(requests, tiers, accessConfig);

@@ -5,7 +5,7 @@ Season 2's deployment: one `docker compose` stack on one host. The project overv
 
 `compose.yml` and `.env.example` are at the repository root, so every command here runs from there.
 `compose.yml` is baked into `steward-deployer`'s image, the one service that creates containers; see
-[`../steward-deployer/README.md`](../steward-deployer/README.md). steward-worker reads, stops and
+[`../steward-deployer/README.md`](../steward-deployer/README.md). steward reads, stops and
 starts containers over the Docker socket.
 
 ```
@@ -25,13 +25,13 @@ deploy/
 
 ## First deployment, in order
 
-A deploy pulls and never builds. The five images (`minecraft`, `steward-worker`, `discord-bot`,
-`steward-ui`, `steward-deployer`) are pushed to `ghcr.io/nordtal` by
+A deploy pulls and never builds. The four images (`minecraft`, `steward`, `discord-bot`,
+`steward-deployer`) are pushed to `ghcr.io/nordtal` by
 [`release.yml`](../.github/workflows/release.yml) when a release is published.
 
 1. **Publish a release** and let `release.yml` finish.
-2. **Set all five packages to Public.** A package is private on its first push, a private package
-   answers a pull with `denied`, and steward-worker cannot read its digest, so drift shows as
+2. **Set all four packages to Public.** A package is private on its first push, a private package
+   answers a pull with `denied`, and steward cannot read its digest, so drift shows as
    `UNKNOWN`.
 3. **Run the installer in the installation directory.** Every volume is a folder in it.
 
@@ -46,7 +46,7 @@ A deploy pulls and never builds. The five images (`minecraft`, `steward-worker`,
    request succeeds, renews `steward-deployer` and brings the stack up. A second run asks only for
    what is missing. On a host with an existing `postgres-data` it asks for `POSTGRES_PASSWORD`
    instead of generating one, since Postgres reads it only on an empty data directory. Each service
-   logs in as a database role of its own, `POSTGRES_<SERVICE>_PASSWORD`; steward-worker creates the
+   logs in as a database role of its own, `POSTGRES_<SERVICE>_PASSWORD`; steward creates the
    roles and sets those passwords at every start, so a new one needs only a restart.
 
 4. **Upload the hand-built worlds**; see [Getting a world into a volume](#getting-a-world-into-a-volume).
@@ -62,7 +62,7 @@ Afterwards the script is `./nordtal.sh` in the installation directory:
 ```
 
 Run it after every release: a new `compose.yml` reaches the host only inside a new
-`steward-deployer` image. Every other artefact is moved by the worker.
+`steward-deployer` image. Every other artefact is moved by steward.
 
 **The environment file** lives at the absolute path `STEWARD_ENV_FILE`, mode 600, outside the
 installation directory, and holds every secret. Edit it in place (`sed -i`); never `mv` a new file
@@ -75,10 +75,10 @@ strings, which fails on `${X:?}` and silently changes everything else:
 docker compose --env-file /etc/nordtal/season-2.env ps
 ```
 
-On its first start steward-worker applies the schema, fills every empty volume and only then writes
+On its first start steward applies the schema, fills every empty volume and only then writes
 the readiness marker the other services wait for. It never upgrades anything that is installed.
 With `bootstrap: false` in `steward.yml` the servers refuse to start until
-`docker compose run --rm steward-worker bootstrap` has run.
+`docker compose run --rm steward bootstrap` has run.
 
 There is no pin and no rollback: every image is `latest`, and a bad release is fixed by a better one.
 
@@ -149,11 +149,11 @@ From the host, when neither is reachable:
 ./nordtal.sh update --start        # release every hold, or one service
 ./nordtal.sh update --in 10        # count down ten minutes first
 ./nordtal.sh update --no-wait      # print the request id and return
-docker compose run --rm steward-worker report      # what would change, changes nothing
-docker compose run --rm steward-worker bootstrap   # migrate, then fill empty slots only
+docker compose run --rm steward report      # what would change, changes nothing
+docker compose run --rm steward bootstrap   # migrate, then fill empty slots only
 ```
 
-Each request is a row in `worker_inbox`, the worker's inbox; the report is written to its `outcome` column.
+Each request is a row in `worker_inbox`, steward's inbox; the report is written to its `outcome` column.
 One run is open at a time: the database refuses a second request while one is pending or running.
 
 A run downloads everything into a staging directory first, stops the affected servers, migrates,
@@ -162,19 +162,19 @@ what it stopped. A server moves together or not at all. A service that refuses t
 nothing is installed. Checksums are verified where the source has one; GitHub release assets carry
 none. The server jar is the newest `STABLE` build of `SERVER_VERSION` in `compose.yml`.
 
-steward-worker does not renew its own image or `postgres`; those need `./nordtal.sh`.
+steward does not renew its own image or `postgres`; those need `./nordtal.sh`.
 
 ### Replacing one service, from this checkout
 
 A development loop, not a delivery: a locally built image stands until the next `pull`.
 
 ```bash
-sh gradlew :steward-ui:build
-docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f ./compose.yml build steward-ui
-docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f ./compose.yml up -d --no-deps steward-ui
+sh gradlew :steward-deployer:build
+docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f ./compose.yml build steward-deployer
+docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f ./compose.yml up -d --no-deps steward-deployer
 ```
 
-`--no-deps` keeps it to one service. `steward-worker` and `discord-bot` run the jar from their jar
+`--no-deps` keeps it to one service. `steward` and `discord-bot` run the jar from their jar
 volume, not the one in the image, so for them copy the built jar into that volume and restart. Check
 which jar runs with `docker exec <container> cat /proc/1/cmdline | tr '\0' ' '`.
 
@@ -206,11 +206,11 @@ Discord guild.
 dev ui
 ```
 
-starts the stack plus the three steward services, then Vite in the foreground on
+starts the stack plus steward and steward-deployer, then Vite in the foreground on
 http://localhost:5173, which proxies `/api` and `/auth` to `127.0.0.1:8080`. Stopping it stops only
-Vite; `dev stop` stops the rest. Node is downloaded by Gradle under `steward-ui/build/nodejs/`.
-To run the Java half from Gradle (`:steward-ui:run`), stop the container first, since both want
-`:8080`. `STEWARD_UI_PUBLIC_URL` must be the browser's address, or Discord and WebAuthn sign-in fail.
+Vite; `dev stop` stops the rest. Node is downloaded by Gradle under `steward/build/nodejs/`.
+To run the Java half from Gradle (`:steward:run`), stop the container first, since both want
+`:8080`. `STEWARD_PUBLIC_URL` must be the browser's address, or Discord and WebAuthn sign-in fail.
 
 ### The resource pack
 
@@ -243,12 +243,12 @@ docker compose --profile standby up -d proxy-standby
 docker compose --profile standby down proxy-standby
 ```
 
-steward-worker copies the live service's `plugins/` to them after every update. Both proxies sit
+steward copies the live service's `plugins/` to them after every update. Both proxies sit
 behind `caddy`, which also carries voice chat's UDP to whichever proxy answers.
 
 ## Backups
 
-Everything that cannot be rebuilt is in PostgreSQL and the world volume, and steward-worker backs up
+Everything that cannot be rebuilt is in PostgreSQL and the world volume, and steward backs up
 both. The nightly run is `steward.yml#backup.at`; `/backup now` asks for one. A run counts down,
 dumps the database with `pg_dump` inside the postgres container (nothing stops for it), stops the
 configured services, tars each volume through `zstd`, applies retention and starts everything again.
@@ -271,8 +271,8 @@ sudo bash deploy/restore.sh nordtal-<stamp>.dump                    # the databa
 
 A volume archive **replaces** the volume: the script stops what mounts it, asks for the volume's name
 typed back, unpacks and starts the services again. A dump goes into a new database
-`restore_<stamp>` beside the live one; promoting it is up to you. Restoring `steward-ui-config` also
-restores its VAPID keypair, which invalidates every push subscription made since.
+`restore_<stamp>` beside the live one; promoting it is up to you. Restoring `steward-config` also
+restores the VAPID keypair in web.yml, which invalidates every push subscription made since.
 
 ## Voice chat
 
@@ -281,7 +281,7 @@ a player without the mod notices nothing, and no server requires it.
 
 ## Third-party plugins
 
-- **DisplayTags and PacketEvents** are required on `smp`; the worker resolves both.
+- **DisplayTags and PacketEvents** are required on `smp`; steward resolves both.
 - **CoreProtect** is optional, with its own SQLite file.
 - **Terralith and Dungeons and Taverns** are the season's terrain, fetched from `SMP_DATAPACK_URLS`
   before the first start; `smp` refuses to start without them.

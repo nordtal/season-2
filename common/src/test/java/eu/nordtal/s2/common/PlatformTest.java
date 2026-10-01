@@ -41,7 +41,7 @@ class PlatformTest {
                 paper.substring(0, build),
                 Platform.MINECRAFT,
                 "Platform.MINECRAFT and the paper-api version in gradle/libs.versions.toml name"
-                        + " different Minecraft versions. One of them decides what the worker"
+                        + " different Minecraft versions. One of them decides what steward"
                         + " installs and the other decides what every plugin is compiled against;"
                         + " a network where they disagree loads no plugins.");
     }
@@ -52,20 +52,20 @@ class PlatformTest {
         assertEquals(
                 version("velocity"),
                 Platform.VELOCITY_API,
-                "Platform.VELOCITY_API no longer matches the catalog. The worker's warning about"
+                "Platform.VELOCITY_API no longer matches the catalog. Steward's warning about"
                         + " running the proxy on a newer API than it was built for is measured"
                         + " against this string, so a stale one makes that warning meaningless.");
     }
 
     @Test
-    void theCatalogsVelocityFallsInsideTheFamilyStewardWorkerFollows() {
+    void theCatalogsVelocityFallsInsideTheFamilyStewardFollows() {
         // VELOCITY_FAMILY names a major line, which must be the line the proxy is compiled for.
         assertEquals(
                 major(Platform.VELOCITY_API),
                 major(Platform.VELOCITY_FAMILY),
                 "Platform.VELOCITY_FAMILY (" + Platform.VELOCITY_FAMILY + ") and the velocity-api in"
-                        + " the catalog (" + Platform.VELOCITY_API + ") are different majors. The"
-                        + " worker would install a proxy build the plugin cannot run on.");
+                        + " the catalog (" + Platform.VELOCITY_API + ") are different majors."
+                        + " Steward would install a proxy build the plugin cannot run on.");
     }
 
     private static String major(final String version) {

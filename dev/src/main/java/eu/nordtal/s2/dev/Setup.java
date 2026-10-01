@@ -26,9 +26,8 @@ final class Setup {
             new Secret("POSTGRES_LIMBO_PASSWORD", 24),
             new Secret("POSTGRES_HUNGER_GAMES_PASSWORD", 24),
             new Secret("POSTGRES_SMP_PASSWORD", 24),
-            new Secret("POSTGRES_STEWARD_UI_PASSWORD", 24),
+            new Secret("POSTGRES_STEWARD_PASSWORD", 24),
             new Secret("VELOCITY_FORWARDING_SECRET", 24),
-            new Secret("STEWARD_API_TOKEN", 32),
             new Secret("STEWARD_DEPLOYER_TOKEN", 32));
 
     private record Secret(String name, int bytes) {}
@@ -51,10 +50,6 @@ final class Setup {
         } else {
             copyExample(env.path());
             SECRETS.forEach(secret -> generate(env, secret));
-            // Reading and creating containers are separate privileges, so separate tokens.
-            if (env.value("STEWARD_API_TOKEN").equals(env.value("STEWARD_DEPLOYER_TOKEN"))) {
-                throw new Processes.Failure("STEWARD_API_TOKEN and STEWARD_DEPLOYER_TOKEN came out the same.");
-            }
             LocalQuestions.ALL.forEach(question -> ask(env, question));
             deriveRelyingParty(env);
             final List<Integer> leftovers = env.replaceMeLines();
@@ -131,12 +126,12 @@ final class Setup {
     }
 
     /**
-     * Derives {@code STEWARD_WEBAUTHN_RP_ID} from the address, which steward-ui refuses to start without agreeing.
+     * Derives {@code STEWARD_WEBAUTHN_RP_ID} from the address, which steward refuses to start without agreeing.
      *
-     * steward-ui refuses a single label other than {@code localhost}, so that is warned about now.
+     * steward refuses a single label other than {@code localhost}, so that is warned about now.
      */
     private void deriveRelyingParty(final EnvFile env) {
-        final Optional<String> url = env.value("STEWARD_UI_PUBLIC_URL").filter(LocalQuestions::looksLikeBrowserUrl);
+        final Optional<String> url = env.value("STEWARD_PUBLIC_URL").filter(LocalQuestions::looksLikeBrowserUrl);
         if (url.isEmpty()) {
             return;
         }
@@ -144,7 +139,7 @@ final class Setup {
         env.set("STEWARD_WEBAUTHN_RP_ID", host);
         terminal.log("STEWARD_WEBAUTHN_RP_ID = " + host + " (derived from the address above)");
         if (!host.contains(".") && !host.equals("localhost")) {
-            terminal.warn(host + " has no dot in it, so steward-ui will refuse to start: a relying party id has to"
+            terminal.warn(host + " has no dot in it, so steward will refuse to start: a relying party id has to"
                     + " be a registrable domain, and localhost is the only single label that is allowed. Use"
                     + " http://localhost:5173 for the dev server, http://steward.localhost:8080 for the container."
                     + " Everything else in " + Compose.ENV_FILE + " is written and only this one line needs"

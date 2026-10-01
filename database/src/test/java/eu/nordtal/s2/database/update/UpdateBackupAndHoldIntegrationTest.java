@@ -150,7 +150,7 @@ class UpdateBackupAndHoldIntegrationTest {
                 + " now() - make_interval(secs => " + (long) (hoursAgo * 3600) + "),"
                 + " now() - make_interval(secs => " + (long) (hoursAgo * 3600) + "),"
                 + " now() - make_interval(secs => " + (long) (hoursAgo * 3600) + "),"
-                // A report is stored as an object, anything else as a JSON string, as the worker stores them.
+                // A report is stored as an object, anything else as a JSON string, as steward stores them.
                 + (result.startsWith("{")
                         ? " cast($json$" + result + "$json$ AS jsonb))"
                         : " to_jsonb(cast($json$" + result + "$json$ AS text)))"));
@@ -159,7 +159,7 @@ class UpdateBackupAndHoldIntegrationTest {
 
     @Test
     void aHoldSurvivesRefreshesRatherThanDuplicatesAndGoesAwayAgain() {
-        // Holds outlive a restart of the worker and the interface, so this runs against a real table.
+        // Holds outlive a restart of steward and the interface, so this runs against a real table.
         final UpdateRequest down = updates.submit(UpdateKind.DOWN, Actor.HOST, Duration.ZERO, List.of("smp"));
 
         updates.hold("smp", Actor.person(DiscordId.of("300000000000000001")), down.id());

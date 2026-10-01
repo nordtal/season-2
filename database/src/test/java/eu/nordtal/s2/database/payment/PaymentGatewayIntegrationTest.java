@@ -10,7 +10,7 @@ import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** Holds the one {@code payment_gateway} row: the state the worker announces and the watermark it writes once. */
+/** Holds the one {@code payment_gateway} row: the state steward announces and the watermark it writes once. */
 class PaymentGatewayIntegrationTest {
 
     private Jdbi jdbi;

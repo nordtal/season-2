@@ -28,8 +28,8 @@ class SchemaSecretsTest {
         // Asserted in the negative: a bunq block in BotSpec would be an unannotated bank credential.
         assertNull(
                 SchemaWriter.build(BotSpec.class).children().get("bunq"),
-                "BotSpec declares a bunq block again. The key belongs to steward-worker - see"
-                        + " StewardSpec.BunqSpec and steward-worker's SchemaSecretsTest.");
+                "BotSpec declares a bunq block again. The key belongs to steward - see"
+                        + " StewardSpec.BunqSpec and steward's SchemaSecretsTest.");
     }
 
     @Test

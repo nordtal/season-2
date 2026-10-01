@@ -104,17 +104,9 @@ final class JdbiSettingStore implements SettingStore {
             final Actor actor,
             final Predicate<List<Value>> current) {
         return jdbi.inTransaction(handle -> {
-            // The group's row is the lock: it serialises two changes even when one of them adds the first value.
-            final boolean published = handle.createQuery(
-                            "SELECT 1 FROM setting_group WHERE service = :service AND name = :name FOR UPDATE")
-                    .bind("service", service)
-                    .bind("name", name)
-                    .mapTo(Integer.class)
-                    .findOne()
-                    .isPresent();
-            if (!published) {
-                throw new IllegalArgumentException(service + " has published no group " + name);
-            }
+            // One lock per group to the end of the transaction, which also holds for a group not yet published.
+            handle.execute(
+                    "SELECT pg_advisory_xact_lock(hashtext('setting_override'), hashtext(?))", service + "/" + name);
             final List<Value> held = handle.createQuery("""
                             SELECT service, name, path, value::text AS value FROM setting_override
                             WHERE service = :service AND name = :name ORDER BY path""")

@@ -72,11 +72,11 @@ public interface SettingStore {
     Optional<Group> group(String service, String name);
 
     /**
-     * Sets and removes values of one group in one transaction and signals its service, if {@code current} holds.
+     * Sets and removes values of one group, published or not yet, in one transaction if {@code current} holds.
      *
      * @param values  JSON text per path, or {@code null} to remove the path's value
      * @param current asked with the group's values under a lock; {@code false} leaves everything as it was
-     * @return whether anything was written
+     * @return whether anything was written, which signals the service
      */
     boolean change(
             String service,

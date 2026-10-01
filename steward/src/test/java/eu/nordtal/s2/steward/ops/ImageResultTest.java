@@ -19,15 +19,15 @@ class ImageResultTest {
     @Test
     void anUnverifiableImageIsNamedAndTheNoteSaysWhyItCouldNotBeCompared() {
         final ImageResult result = ImageResult.of(
-                Map.of("smp", ImageResult.State.UP_TO_DATE, "steward-deployer", ImageResult.State.UNKNOWN),
-                Set.of("steward-deployer"));
+                Map.of("smp", ImageResult.State.UP_TO_DATE, "steward-agent", ImageResult.State.UNKNOWN),
+                Set.of("steward-agent"));
 
         final String note = result.notCheckable()
                 .orElseThrow(() -> new AssertionError("an unverifiable image produced no note at all, which"
                         + " reads exactly like one that was checked and found current"));
 
         assertEquals(
-                "The registry could not be asked about steward-deployer, so nothing here can tell a"
+                "The registry could not be asked about steward-agent, so nothing here can tell a"
                         + " current image from a stale one for it. A local build is told apart from this"
                         + " already, so what is left is a registry that did not answer, or an image whose"
                         + " exact identity the daemon no longer has on file. Neither of those is"
@@ -47,8 +47,8 @@ class ImageResultTest {
     @Test
     void oneCheckedServiceSilencesNothingcheckedWhichIsWhyNotcheckableIsSeparate() {
         final ImageResult result = ImageResult.of(
-                Map.of("smp", ImageResult.State.UP_TO_DATE, "steward-deployer", ImageResult.State.UNKNOWN),
-                Set.of("steward-deployer"));
+                Map.of("smp", ImageResult.State.UP_TO_DATE, "steward-agent", ImageResult.State.UNKNOWN),
+                Set.of("steward-agent"));
 
         assertEquals(
                 Optional.empty(),
@@ -63,7 +63,7 @@ class ImageResultTest {
     @Test
     void neverBothNotesOneThingThatWentWrongIsOneSentenceAboutIt() {
         final ImageResult result =
-                ImageResult.of(Map.of("steward-deployer", ImageResult.State.UNKNOWN), Set.of("steward-deployer"));
+                ImageResult.of(Map.of("steward-agent", ImageResult.State.UNKNOWN), Set.of("steward-agent"));
 
         assertTrue(result.notCheckable().isPresent());
         assertEquals(
@@ -112,16 +112,16 @@ class ImageResultTest {
     void aLocalBuildIsNamedButIsNotTheUnverifiableNotesBusiness() {
         // A local build (rebuilt with docker build and never pushed) is not a question nobody could answer.
         final ImageResult result = ImageResult.of(Map.of(
-                "steward-deployer",
+                "steward-agent",
                 ImageResult.State.LOCAL,
                 "steward",
                 ImageResult.State.LOCAL,
                 "smp",
                 ImageResult.State.UP_TO_DATE));
 
-        assertTrue(result.isLocal("steward-deployer"));
+        assertTrue(result.isLocal("steward-agent"));
         assertFalse(
-                result.isOutdated("steward-deployer"),
+                result.isOutdated("steward-agent"),
                 "LOCAL is the opposite direction from OUTDATED, not a milder version of it");
         assertEquals(Optional.empty(), result.nothingChecked());
         assertEquals(
@@ -130,7 +130,7 @@ class ImageResultTest {
         final String note =
                 result.localImages().orElseThrow(() -> new AssertionError("two local builds produced no note at all"));
         assertEquals(
-                "Built on this host and never published: steward, steward-deployer. The next"
+                "Built on this host and never published: steward, steward-agent. The next"
                         + " real update run replaces them with whatever the last release actually contains,"
                         + " without asking.",
                 note);

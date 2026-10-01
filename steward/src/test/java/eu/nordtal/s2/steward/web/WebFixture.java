@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.settings.DatabaseSpec;
+import eu.nordtal.s2.steward.agent.AgentClient;
 import eu.nordtal.s2.steward.api.StackApi;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.auth.TestAuthenticator;
@@ -31,13 +32,13 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
 /**
- * The stand-in Docker daemon, deployer and Discord, and the real interface, stack routes and database before them.
+ * The stand-in Docker daemon, agent and Discord, and the real interface, stack routes and database before them.
  *
  * One Postgres container, one set of stand-ins and one {@link Web}, started once per subclass.
  */
 abstract class WebFixture {
 
-    static final int DEPLOYER_PORT = 18092;
+    static final int AGENT_PORT = 18092;
     static final int WEB_PORT = 18090;
     static final int DISCORD_PORT = 18093;
     static final Gson GSON = new Gson();
@@ -58,10 +59,10 @@ abstract class WebFixture {
     /** The daemon the stack routes talk to, with one running {@code smp} container. */
     static FakeDaemon daemon;
 
-    static Javalin fakeDeployer;
+    static Javalin fakeAgent;
     static Javalin fakeDiscord;
 
-    /** What the stand-in deployer was last asked to recreate, so a test can read it back. */
+    /** What the stand-in agent was last asked to recreate, so a test can read it back. */
     static final java.util.List<String> recreated = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
 
     static Web web;
@@ -83,7 +84,7 @@ abstract class WebFixture {
         writeConfigFixtures();
         scratch = Files.createTempDirectory("steward-web");
         daemon = new FakeDaemon(scratch);
-        startFakeDeployer();
+        startFakeAgent();
         startFakeDiscord();
         config = buildConfig();
         startDatabase();
@@ -116,14 +117,13 @@ abstract class WebFixture {
                 """);
     }
 
-    private static void startFakeDeployer() {
-        // A stand-in for steward-deployer, the one process steward still calls over HTTP.
-        fakeDeployer = Javalin.create(cfg -> {
+    private static void startFakeAgent() {
+        // A stand-in for steward-agent, the one process steward still calls over HTTP.
+        fakeAgent = Javalin.create(cfg -> {
                     cfg.jsonMapper(new JavalinGson(new Gson(), true));
                     cfg.startup.showJavalinBanner = false;
                     cfg.routes.before("/api/*", ctx -> {
-                        if (!ctx.path().equals("/api/health")
-                                && !"deployer-token".equals(ctx.header("X-Steward-Token"))) {
+                        if (!ctx.path().equals("/api/health") && !"agent-token".equals(ctx.header("X-Steward-Token"))) {
                             throw new io.javalin.http.UnauthorizedResponse("bad or missing token");
                         }
                     });
@@ -156,7 +156,7 @@ abstract class WebFixture {
                                     "lines",
                                     List.of("Container nordtal-s2-smp-1  Recreated"))));
                 })
-                .start(DEPLOYER_PORT);
+                .start(AGENT_PORT);
     }
 
     private static void startFakeDiscord() {
@@ -301,11 +301,7 @@ abstract class WebFixture {
                 config,
                 new DiscordAuth(config.discord(), config.publicUrl(), "http://127.0.0.1:" + DISCORD_PORT),
                 stack,
-                new InternalClient(
-                        "steward-deployer",
-                        "http://127.0.0.1:" + DEPLOYER_PORT,
-                        "deployer-token",
-                        Duration.ofSeconds(5)),
+                new AgentClient("http://127.0.0.1:" + AGENT_PORT, "agent-token", Duration.ofSeconds(5)),
                 true,
                 data,
                 Clock.systemUTC());
@@ -339,8 +335,8 @@ abstract class WebFixture {
                 // A socket file left in a temp directory is not worth failing a test run over.
             }
         }
-        if (fakeDeployer != null) {
-            fakeDeployer.stop();
+        if (fakeAgent != null) {
+            fakeAgent.stop();
         }
         if (fakeDiscord != null) {
             fakeDiscord.stop();

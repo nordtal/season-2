@@ -46,10 +46,10 @@ repositoryRootTestInputs {
 
     // DocumentedCommandsTest reads every document that shows a `steward` command.
     reads("steward/README.md")
-    reads("steward-deployer/README.md")
+    reads("steward-agent/README.md")
 
     // NothingIsGermanTest reads the agent's sources beside this module's own.
-    readsTree("steward-deployer/src")
+    readsTree("steward-agent/src")
 
     reads("discord-bot/src/main/resources/messages/access/de.properties")
     reads("discord-bot/src/main/resources/messages/access/en.properties")

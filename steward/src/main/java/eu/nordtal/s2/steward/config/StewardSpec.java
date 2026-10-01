@@ -173,11 +173,11 @@ public interface StewardSpec {
     @Key("docker")
     @Comment({
         "The daemon this service reads for container state, health, image drift, logs, the",
-        "console and metrics. It only reads, stops and starts; creating a container is steward-deployer's.",
+        "console and metrics. It only reads, stops and starts; creating a container is steward-agent's.",
         "Without the socket, the drift check and metrics answer that they could not look."
     })
     @Explain(
-            "Read, stop and start only; creating a container belongs to steward-deployer. Without the socket this reports 'could not look'.")
+            "Read, stop and start only; creating a container belongs to steward-agent. Without the socket this reports 'could not look'.")
     DockerSpec docker();
 
     @Order(14)
@@ -203,15 +203,15 @@ public interface StewardSpec {
     UpdateSpec update();
 
     @Order(17)
-    @Name("Deployer")
-    @Key("deployer")
+    @Name("Agent")
+    @Key("agent")
     @Comment({
-        "steward-deployer, the one process allowed to create a container. An update asks its",
+        "steward-agent, the one process allowed to create a container. An update asks its",
         "HTTP API to pull and recreate a service whose image is out of date. Without a token it asks nothing."
     })
     @Explain(
-            "Asks steward-deployer to recreate a service whose image is stale. Without a token below, it asks nothing at all.")
-    DeployerSpec deployer();
+            "Asks steward-agent to recreate a service whose image is stale. Without a token below, it asks nothing at all.")
+    AgentSpec agent();
 
     @Order(16)
     @Name("Configs root")
@@ -349,29 +349,29 @@ public interface StewardSpec {
         }
     }
 
-    /** How this container asks steward-deployer to recreate one service. */
+    /** How this container asks steward-agent to recreate one service. */
     @ConfigSpec
-    interface DeployerSpec {
+    interface AgentSpec {
 
         @Order(1)
         @Name("URL")
         @Key("url")
-        @Comment("Where steward-deployer's HTTP API answers from inside this container.")
+        @Comment("Where steward-agent's HTTP API answers from inside this container.")
         @NoExplanationNeeded
         default String url() {
-            return "http://steward-deployer:8081";
+            return "http://steward-agent:8081";
         }
 
         @Order(2)
         @Name("Token")
         @Key("token")
         @Comment({
-            "The shared secret sent as X-Steward-Token to ask steward-deployer for a recreate.",
-            "Empty means this container never asks. Set NORDTAL_STEWARD_DEPLOYER_TOKEN instead."
+            "The shared secret sent as X-Steward-Token to ask steward-agent for a recreate.",
+            "Empty means this container never asks. Set NORDTAL_STEWARD_AGENT_TOKEN instead."
         })
         @Secret
         @Explain(
-                "The secret steward-deployer expects. Empty means this container never asks for a recreate and draws no recreate button.")
+                "The secret steward-agent expects. Empty means this container never asks for a recreate and draws no recreate button.")
         default String token() {
             return "";
         }

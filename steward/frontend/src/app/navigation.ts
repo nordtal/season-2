@@ -26,7 +26,7 @@ export const SERVICES = [
   "postgres",
   "caddy",
   "steward",
-  "steward-deployer",
+  "steward-agent",
 ] as const
 
 export type ServiceName = (typeof SERVICES)[number]

@@ -49,7 +49,7 @@ describe("the edges are between boxes that exist", () => {
     for (const edge of EDGES.filter((one) => one.kind === "data")) {
       expect(edge.to).toBe("postgres")
     }
-    /** Six of the nine hold a connection, as compose.yml declares; caddy, steward-deployer and postgres do not. */
+    /** Six of the nine hold a connection, as compose.yml declares; caddy, steward-agent and postgres do not. */
     expect(EDGES.filter((edge) => edge.kind === "data").length).toBe(6)
   })
 })

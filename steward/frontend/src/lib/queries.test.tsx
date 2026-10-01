@@ -4,7 +4,7 @@ import { cleanup, renderHook, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ApiError, currentCsrf, rememberCsrf, type ConfigDocument } from "@/lib/api"
-import { keys, useCommandRun, useDeployerJob, useMe, useSaveConfig } from "@/lib/queries"
+import { keys, useCommandRun, useAgentJob, useMe, useSaveConfig } from "@/lib/queries"
 
 /**
  * When a poll stops, and what a save sends.
@@ -147,43 +147,43 @@ describe("useCommandRun - when the polling stops", () => {
   })
 })
 
-describe("useDeployerJob - when the polling stops", () => {
+describe("useAgentJob - when the polling stops", () => {
   it("asks every second while compose is still working", async () => {
     const queryClient = client()
     fetched.mockResolvedValue(answer(200, { id: "j1", state: "RUNNING", lines: [] }))
-    renderHook(() => useDeployerJob("j1"), { wrapper: wrap(queryClient) })
-    await waitFor(() => expect(stateOf(queryClient, keys.deployerJob("j1")).data).toBeDefined())
+    renderHook(() => useAgentJob("j1"), { wrapper: wrap(queryClient) })
+    await waitFor(() => expect(stateOf(queryClient, keys.agentJob("j1")).data).toBeDefined())
 
-    expect(pollOf(queryClient, keys.deployerJob("j1"))).toBe(1000)
+    expect(pollOf(queryClient, keys.agentJob("j1"))).toBe(1000)
   })
 
   it("stops once the job has ended, in either direction", async () => {
     const queryClient = client()
     for (const state of ["DONE", "FAILED"] as const) {
       fetched.mockResolvedValue(answer(200, { id: "j1", state, lines: [], exitCode: 0 }))
-      renderHook(() => useDeployerJob("j1"), { wrapper: wrap(queryClient) })
-      await waitFor(() => expect(stateOf(queryClient, keys.deployerJob("j1")).data).toBeDefined())
+      renderHook(() => useAgentJob("j1"), { wrapper: wrap(queryClient) })
+      await waitFor(() => expect(stateOf(queryClient, keys.agentJob("j1")).data).toBeDefined())
 
-      expect(pollOf(queryClient, keys.deployerJob("j1"))).toBe(false)
+      expect(pollOf(queryClient, keys.agentJob("j1"))).toBe(false)
       queryClient.clear()
     }
   })
 
   it("stops on a failed poll while the job it remembers is still RUNNING", async () => {
-    /** steward-deployer going away mid-recreate, with the last answer saying RUNNING. */
+    /** steward-agent going away mid-recreate, with the last answer saying RUNNING. */
     const queryClient = client()
     fetched.mockResolvedValueOnce(answer(200, { id: "j1", state: "RUNNING", lines: ["Container smp  Recreating"] }))
-    const { result } = renderHook(() => useDeployerJob("j1"), { wrapper: wrap(queryClient) })
-    await waitFor(() => expect(stateOf(queryClient, keys.deployerJob("j1")).data).toBeDefined())
+    const { result } = renderHook(() => useAgentJob("j1"), { wrapper: wrap(queryClient) })
+    await waitFor(() => expect(stateOf(queryClient, keys.agentJob("j1")).data).toBeDefined())
 
     fetched.mockImplementation(async () =>
-      answer(502, { error: "steward-deployer is not answering.", where: "steward-deployer" }),
+      answer(502, { error: "steward-agent is not answering.", where: "steward-agent" }),
     )
     await result.current.refetch()
-    await waitFor(() => expect(stateOf(queryClient, keys.deployerJob("j1")).error).toBeInstanceOf(ApiError))
+    await waitFor(() => expect(stateOf(queryClient, keys.agentJob("j1")).error).toBeInstanceOf(ApiError))
 
-    expect(stateOf(queryClient, keys.deployerJob("j1")).data).toMatchObject({ state: "RUNNING" })
-    expect(pollOf(queryClient, keys.deployerJob("j1"))).toBe(false)
+    expect(stateOf(queryClient, keys.agentJob("j1")).data).toMatchObject({ state: "RUNNING" })
+    expect(pollOf(queryClient, keys.agentJob("j1"))).toBe(false)
   })
 
   it("refreshes the service table once the job has ended and not while it runs", async () => {
@@ -192,13 +192,13 @@ describe("useDeployerJob - when the polling stops", () => {
     const invalidated = vi.spyOn(queryClient, "invalidateQueries")
 
     fetched.mockResolvedValueOnce(answer(200, { id: "j1", state: "RUNNING", lines: [] }))
-    const { result } = renderHook(() => useDeployerJob("j1"), { wrapper: wrap(queryClient) })
-    await waitFor(() => expect(stateOf(queryClient, keys.deployerJob("j1")).data).toBeDefined())
+    const { result } = renderHook(() => useAgentJob("j1"), { wrapper: wrap(queryClient) })
+    await waitFor(() => expect(stateOf(queryClient, keys.agentJob("j1")).data).toBeDefined())
     expect(invalidated).not.toHaveBeenCalled()
 
     fetched.mockImplementation(async () => answer(200, { id: "j1", state: "DONE", lines: [], exitCode: 0 }))
     await result.current.refetch()
-    await waitFor(() => expect(stateOf(queryClient, keys.deployerJob("j1")).data).toMatchObject({ state: "DONE" }))
+    await waitFor(() => expect(stateOf(queryClient, keys.agentJob("j1")).data).toMatchObject({ state: "DONE" }))
 
     expect(invalidated.mock.calls.map(([argument]) => argument)).toEqual([
       { queryKey: keys.services },

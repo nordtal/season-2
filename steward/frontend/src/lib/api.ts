@@ -4,8 +4,8 @@
  * A write carries the CSRF token, a 401 means the session is gone, and an error names which service is down.
  */
 
-/** What answered badly: steward itself, the Docker daemon behind the stack's state, or the deployer. */
-export type Where = "steward" | "docker" | "steward-deployer"
+/** What answered badly: steward itself, the Docker daemon behind the stack's state, or the agent. */
+export type Where = "steward" | "docker" | "steward-agent"
 
 export class ApiError extends Error {
   readonly status: number
@@ -129,7 +129,7 @@ async function send<T>(path: string, options: Options = {}): Promise<T> {
   if (!response.ok) {
     const body: Record<string, unknown> | null = isRecord(parsed) ? parsed : null
     /** The backend names whatever did not answer, which tells a silent daemon from a throwing service. */
-    const where: Where = body?.where === "docker" || body?.where === "steward-deployer" ? body.where : "steward"
+    const where: Where = body?.where === "docker" || body?.where === "steward-agent" ? body.where : "steward"
     const message = (body && messageOf(body)) ?? `${response.status} ${response.statusText}`
     const detail = body ? (typeof body.detail === "string" ? body.detail : "") : text
     const code = typeof body?.code === "string" ? body.code : ""
@@ -810,10 +810,10 @@ export type HungerGamesRound = {
   registered?: number
 }
 
-/** steward-deployer: one question and one verb. */
+/** steward-agent: one question and one verb. */
 
-/** Whether the recreate button may be drawn, since an unconfigured deployer is not a broken one. */
-export type DeployerState = {
+/** Whether the recreate button may be drawn, since an unconfigured agent is not a broken one. */
+export type AgentState = {
   available: boolean
   /** Present only when `available` is false, and it is the whole explanation. */
   reason?: string
@@ -821,7 +821,7 @@ export type DeployerState = {
 }
 
 /** One compose operation, while it runs and after it has ended. */
-export type DeployerJob = {
+export type AgentJob = {
   id: string
   kind: string
   services: string[]
@@ -829,7 +829,7 @@ export type DeployerJob = {
   started: string
   finished?: string
   exitCode?: number
-  /** compose's own output, in order; only `GET /api/deployer/jobs/{id}` carries it. */
+  /** compose's own output, in order; only `GET /api/agent/jobs/{id}` carries it. */
   lines?: string[]
 }
 

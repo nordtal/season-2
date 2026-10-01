@@ -90,11 +90,11 @@ grep -qx "$comment_line" <<<"$lines" && bad "the explanatory comment was reporte
 ok "the value is found, the documentation is not"
 
 case_begin "the steward profile has to be selected"
-# Without the steward profile, caddy and steward-deployer never start.
+# Without the steward profile, caddy and steward-agent never start.
 profiles_include "db,bot,mc,backup,steward" steward || bad "the real selection was refused"
 profiles_include "steward" steward                  || bad "steward on its own was refused"
 profiles_include "db, steward ,mc" steward          || bad "spaces around the name broke it"
-for wrong in "" "db,bot,mc,backup" "stewards" "steward-deployer" "db,bot,steward2"; do
+for wrong in "" "db,bot,mc,backup" "stewards" "steward-agent" "db,bot,steward2"; do
     if profiles_include "$wrong" steward; then
         bad "'$wrong' was accepted as selecting the steward profile"
     fi
@@ -190,17 +190,17 @@ ok "no compose config and no local digests both come back silent, not as a false
 
 case_begin "a generated secret lands in the file whatever the assignment looks like"
 # set_secret finds and replaces a name the same way, with leading whitespace or `export`.
-for form in "STEWARD_DEPLOYER_TOKEN=" "  STEWARD_DEPLOYER_TOKEN=" "export STEWARD_DEPLOYER_TOKEN=" \
-            "STEWARD_DEPLOYER_TOKEN = " "  export  STEWARD_DEPLOYER_TOKEN="; do
+for form in "STEWARD_AGENT_TOKEN=" "  STEWARD_AGENT_TOKEN=" "export STEWARD_AGENT_TOKEN=" \
+            "STEWARD_AGENT_TOKEN = " "  export  STEWARD_AGENT_TOKEN="; do
     secrets="$WORK/secret.env"
     printf 'BEFORE=1\n%s\nAFTER=2\n' "$form" > "$secrets"
 
-    set_assignment "$secrets" STEWARD_DEPLOYER_TOKEN "$(printf '%064d' 7 | tr '0-9' 'a-f0-3')"
+    set_assignment "$secrets" STEWARD_AGENT_TOKEN "$(printf '%064d' 7 | tr '0-9' 'a-f0-3')"
 
-    written="$(env_value "$secrets" STEWARD_DEPLOYER_TOKEN)"
+    written="$(env_value "$secrets" STEWARD_AGENT_TOKEN)"
     [[ "$written" =~ ^[0-9a-f]{64}$ ]] \
         || bad "«$form» left the token as «$written» and said it had generated one"
-    count="$(grep -cE '^[[:space:]]*(export[[:space:]]+)?STEWARD_DEPLOYER_TOKEN[[:space:]]*=' "$secrets")"
+    count="$(grep -cE '^[[:space:]]*(export[[:space:]]+)?STEWARD_AGENT_TOKEN[[:space:]]*=' "$secrets")"
     [[ "$count" == "1" ]] || bad "«$form» left $count assignments of the name in the file"
     # No other line changed.
     [[ "$(env_value "$secrets" BEFORE)" == "1" && "$(env_value "$secrets" AFTER)" == "2" ]] \
@@ -211,8 +211,8 @@ ok "every spelling of an empty assignment is replaced, once, in place"
 case_begin "a name that is not in the file is appended, not lost"
 secrets="$WORK/secret.env"
 printf 'BEFORE=1\n' > "$secrets"
-set_assignment "$secrets" STEWARD_DEPLOYER_TOKEN "abc"
-[[ "$(env_value "$secrets" STEWARD_DEPLOYER_TOKEN)" == "abc" ]] || bad "the new name was not written"
+set_assignment "$secrets" STEWARD_AGENT_TOKEN "abc"
+[[ "$(env_value "$secrets" STEWARD_AGENT_TOKEN)" == "abc" ]] || bad "the new name was not written"
 [[ "$(env_value "$secrets" BEFORE)" == "1" ]] || bad "the file it was appended to was disturbed"
 ok "an absent name is appended once"
 

@@ -20,15 +20,15 @@ tasks.register("releaseArtifacts") {
     )
 }
 
-// Fills what the image Dockerfiles COPY: jars from `build/libs` and the deployer's `build/compose`.
+// Fills what the image Dockerfiles COPY: jars from `build/libs` and the agent's `build/compose`.
 tasks.register("imageContexts") {
     group = "distribution"
     description = "Builds what the image Dockerfiles COPY, so `docker build` has something to find."
     dependsOn(
         ":discord-bot:shadowJar",
         ":steward:shadowJar",
-        // `build`, not `shadowJar`: the deployer's context is the jar AND the staged compose.yml.
-        ":steward-deployer:build",
+        // `build`, not `shadowJar`: the agent's context is the jar AND the staged compose.yml.
+        ":steward-agent:build",
     )
 }
 

@@ -28,6 +28,6 @@ export const PLAN: Arrangement = {
     /** The Paper servers, which only `proxy` routes to; its frame runs 562..818. */
     { id: "paper", members: ["smp", "hunger-games", "limbo"], lane: 1, y: 690 },
     /** What only `steward` calls; its frame runs 722..818, ending on the Paper group's bottom line. */
-    { id: "steward-ops", members: ["steward-deployer"], lane: 0, y: 770 },
+    { id: "steward-ops", members: ["steward-agent"], lane: 0, y: 770 },
   ],
 }

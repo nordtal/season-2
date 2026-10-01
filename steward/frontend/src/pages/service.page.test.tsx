@@ -41,7 +41,7 @@ function backend(service: Record<string, unknown>, active: unknown = { run: null
     }
     if (url === "/api/messages") return json(200, [])
     if (url === "/api/settings") return json(200, { minecraftHeadBaseUrl: "" })
-    if (url === "/api/deployer") return json(200, { available: true, reachable: true })
+    if (url === "/api/agent") return json(200, { available: true, reachable: true })
     if (url === "/api/schedule") return json(200, { nextBackupAt: null, backupAt: "", zone: "UTC" })
     return json(404, { error: `not stubbed: ${url}` })
   })

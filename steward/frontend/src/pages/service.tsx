@@ -186,7 +186,7 @@ function ServiceActions({
   const lock = useRunLock()
   /** Take down and Start are one switch following `hold`; neither is drawn while the row loads. */
   const hold = service === undefined ? undefined : service.hold ? "START" : "DOWN"
-  const recreatable = name !== "steward-deployer"
+  const recreatable = name !== "steward-agent"
   const HoldIcon = hold === "START" ? PlayIcon : PowerIcon
   const holdLabel = hold === "START" ? "Start" : "Take down"
 

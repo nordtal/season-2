@@ -3,7 +3,7 @@ package eu.nordtal.s2.steward.ops;
 /**
  * What an update sequence needs a container runtime to do, as the seam its tests fake.
  *
- * Creating a container is not on it: that needs the compose file, which {@code steward-deployer} has.
+ * Creating a container is not on it: that needs the compose file, which {@code steward-agent} has.
  */
 public interface ContainerOps {
 

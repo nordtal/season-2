@@ -24,17 +24,17 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * Nothing in steward, steward-deployer, their deploy script or the compose file is German.
+ * Nothing in steward, steward-agent, their deploy script or the compose file is German.
  *
  * The word list is the German bundle minus the English one, plus {@code language-rules.json}, matched by stem.
  */
 class NothingIsGermanTest {
 
     /** What Steward is: its processes, the script that puts them on a host, the compose file. */
-    private static final List<String> TREES = List.of("steward/src", "steward-deployer/src");
+    private static final List<String> TREES = List.of("steward/src", "steward-agent/src");
 
     private static final List<String> FILES = List.of(
-            "deploy/nordtal.sh", "steward/README.md", "steward-deployer/README.md", "deploy/README.md", "compose.yml");
+            "deploy/nordtal.sh", "steward/README.md", "steward-agent/README.md", "deploy/README.md", "compose.yml");
 
     private static final String BUNDLE = "discord-bot/src/main/resources/messages/access/";
     private static final String RULES = "steward/language-rules.json";

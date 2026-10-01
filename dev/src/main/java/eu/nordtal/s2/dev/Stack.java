@@ -118,7 +118,7 @@ final class Stack {
         terminal.log("bringing up the stack (" + compose.valueOr("COMPOSE_PROFILES", "") + ")");
         compose.run("up", "-d");
         terminal.log("and the two services the interface is");
-        compose.run("up", "-d", "steward", "steward-deployer");
+        compose.run("up", "-d", "steward", "steward-agent");
         terminal.log("the interface is on http://localhost:5173 - the container itself is on 127.0.0.1:" + stewardPort);
         terminal.log("Stopping this stops Vite and LEAVES THE CONTAINERS RUNNING. The counter-command is: dev stop");
         processes.gradle(":steward:viteDev");

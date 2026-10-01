@@ -22,7 +22,7 @@ function json({ status = 200, body }: Answer): Response {
   })
 }
 
-/** The deployer's three routes. `job` is a function so a test can change its mind mid-dialog. */
+/** The agent's three routes. `job` is a function so a test can change its mind mid-dialog. */
 function backend(
   over: {
     available?: boolean
@@ -32,7 +32,7 @@ function backend(
   } = {},
 ) {
   return vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url: string, init?: RequestInit) => {
-    if (url === "/api/deployer") {
+    if (url === "/api/agent") {
       return json({
         body: {
           available: over.available ?? true,
@@ -41,10 +41,10 @@ function backend(
         },
       })
     }
-    if (url.startsWith("/api/deployer/recreate/") && init?.method === "POST") {
+    if (url.startsWith("/api/agent/recreate/") && init?.method === "POST") {
       return json({ body: { id: "j1", kind: "RECREATE", services: ["smp"], state: "RUNNING", started: "now" } })
     }
-    if (url.startsWith("/api/deployer/jobs/")) {
+    if (url.startsWith("/api/agent/jobs/")) {
       return json(over.job?.() ?? { body: { id: "j1", state: "RUNNING", lines: [] } })
     }
     throw new Error(`the dialog asked for ${url}, which this test did not expect`)
@@ -84,14 +84,14 @@ describe("RecreateButton - before anything is pressed", () => {
     vi.stubGlobal("fetch", fetched)
   })
 
-  it("is not drawn at all for the deployer itself", async () => {
-    /** The deployer refuses to recreate itself, so no button is drawn for it. */
-    draw(<RecreateButton service="steward-deployer" />)
+  it("is not drawn at all for the agent itself", async () => {
+    /** The agent refuses to recreate itself, so no button is drawn for it. */
+    draw(<RecreateButton service="steward-agent" />)
 
     expect(screen.queryByRole("button")).toBeNull()
   })
 
-  it("is disabled with the deployer's own reason on it when there is no shared secret", async () => {
+  it("is disabled with the agent's own reason on it when there is no shared secret", async () => {
     fetched = backend({ available: false, reason: "No shared secret has been set up." })
     vi.stubGlobal("fetch", fetched)
     draw(<RecreateButton service="smp" />)
@@ -102,7 +102,7 @@ describe("RecreateButton - before anything is pressed", () => {
     expect(button.title).toBe("No shared secret has been set up.")
   })
 
-  it("is disabled when the deployer is configured but its container is not answering", async () => {
+  it("is disabled when the agent is configured but its container is not answering", async () => {
     /** `reachable: false` is a measured answer from the endpoint, and answers lock the button. */
     fetched = backend({ available: true, reachable: false })
     vi.stubGlobal("fetch", fetched)
@@ -110,7 +110,7 @@ describe("RecreateButton - before anything is pressed", () => {
 
     const button = asButton(screen.getByRole("button", { name: /Recreate/ }))
     await waitFor(() => expect(button.disabled).toBe(true))
-    expect(button.title).toBe("steward-deployer is configured but not answering.")
+    expect(button.title).toBe("steward-agent is configured but not answering.")
     expect(button.title).not.toContain("already on this host")
   })
 
@@ -126,13 +126,13 @@ describe("RecreateButton - before anything is pressed", () => {
   })
 })
 
-describe("RecreateButton - when /api/deployer itself cannot be asked", () => {
+describe("RecreateButton - when /api/agent itself cannot be asked", () => {
   it("disables the button and stops claiming a state nobody has checked, on a 404", async () => {
-    /** No answer at all: `deployer.data` stays undefined, which must not read as available. */
+    /** No answer at all: `agent.data` stays undefined, which must not read as available. */
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
-        if (url === "/api/deployer") return json({ status: 404, body: { error: "not found", where: "steward" } })
+        if (url === "/api/agent") return json({ status: 404, body: { error: "not found", where: "steward" } })
         throw new Error(`the test did not expect ${url}`)
       }),
     )
@@ -144,14 +144,14 @@ describe("RecreateButton - when /api/deployer itself cannot be asked", () => {
   })
 })
 
-describe("RecreateButton - before /api/deployer has answered at all", () => {
+describe("RecreateButton - before /api/agent has answered at all", () => {
   it("keeps the button active but does not claim a state nobody has checked yet", async () => {
     /** The first load leaves the button open but must not claim the confident title. */
     let settle!: (response: Response) => void
     vi.stubGlobal(
       "fetch",
       vi.fn((url: string) => {
-        if (url === "/api/deployer") return new Promise<Response>((resolve) => (settle = resolve))
+        if (url === "/api/agent") return new Promise<Response>((resolve) => (settle = resolve))
         throw new Error(`the test did not expect ${url}`)
       }),
     )
@@ -212,16 +212,16 @@ describe("RecreateButton - while the job is read", () => {
     vi.stubGlobal(
       "fetch",
       backend({
-        job: () => ({ status: 502, body: { error: "steward-deployer is not answering.", where: "steward-deployer" } }),
+        job: () => ({ status: 502, body: { error: "steward-agent is not answering.", where: "steward-agent" } }),
       }),
     )
     draw(<RecreateButton service="smp" />)
     const dialog = await start()
 
     await waitFor(() => expect(within(dialog).getByRole("alert")).toBeTruthy())
-    expect(within(dialog).getByRole("alert").textContent).toContain("steward-deployer is not answering.")
+    expect(within(dialog).getByRole("alert").textContent).toContain("steward-agent is not answering.")
     expect(within(dialog).queryByText("Running")).toBeNull()
-    // The sentence that tells an operator what a silent deployer costs them.
+    // The sentence that tells an operator what a silent agent costs them.
     expect(within(dialog).getByRole("alert").textContent).toContain("nothing can be")
   })
 
@@ -232,7 +232,7 @@ describe("RecreateButton - while the job is read", () => {
       backend({
         job: () =>
           broken
-            ? { status: 502, body: { error: "steward-deployer is not answering.", where: "steward-deployer" } }
+            ? { status: 502, body: { error: "steward-agent is not answering.", where: "steward-agent" } }
             : { body: { id: "j1", state: "DONE", exitCode: 0, lines: ["Container nordtal-s2-smp-1  Recreated"] } },
       }),
     )
@@ -257,7 +257,7 @@ describe("RecreateButton - the footer while the job is unreadable", () => {
       backend({
         job: () =>
           broken
-            ? { status: 502, body: { error: "steward-deployer is not answering.", where: "steward-deployer" } }
+            ? { status: 502, body: { error: "steward-agent is not answering.", where: "steward-agent" } }
             : { body: { id: "j1", state: "RUNNING", lines: ["Container nordtal-s2-smp-1  Recreating"] } },
       }),
     )

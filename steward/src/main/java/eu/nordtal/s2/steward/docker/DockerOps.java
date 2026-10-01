@@ -202,7 +202,7 @@ public final class DockerOps implements ContainerOps {
     public record ImageCheck(
             ImageResult.State state, @Nullable String reason) {}
 
-    /** Refused: recreating from an inspect would rebuild a container definition that {@code steward-deployer} owns. */
+    /** Refused: recreating from an inspect would rebuild a container definition that {@code steward-agent} owns. */
     @Override
     public RedeployResult deploy(final String service) {
         return refusal("deploying", service);
@@ -213,9 +213,9 @@ public final class DockerOps implements ContainerOps {
         return refusal("recreating", service);
     }
 
-    /** The same refusal for both: creating a container needs the compose file, which {@code DeployerRecreate} has. */
+    /** The same refusal for both: creating a container needs the compose file, which {@code AgentRecreate} has. */
     private static RedeployResult refusal(final String verb, final String service) {
-        return RedeployResult.refused(verb + " " + service + " is steward-deployer's: it has the "
+        return RedeployResult.refused(verb + " " + service + " is steward-agent's: it has the "
                 + "compose file, and a container rebuilt from an inspect would drift from it "
                 + "silently. Not wired from here yet - see §8b.");
     }

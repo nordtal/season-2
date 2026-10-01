@@ -79,7 +79,7 @@ export function NetworkTable() {
                   <SkeletonText className="w-16 shrink-0" width="short" />
                 )}
 
-                {/* Fixed width, since `RecreateButton` skips `steward-deployer` and that row would sit ragged. */}
+                {/* Fixed width, since `RecreateButton` skips `steward-agent` and that row would sit ragged. */}
                 <div className="flex w-[3.125rem] shrink-0 justify-end">
                   <NodeToolbar id={id} />
                 </div>

@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory;
 /**
  * The Docker Engine API, as far as Steward needs it.
  *
- * Only {@link #stop}, {@link #start} and {@link #exec} write; creating a container is {@code steward-deployer}'s alone.
+ * Only {@link #stop}, {@link #start} and {@link #exec} write; creating a container is {@code steward-agent}'s alone.
  */
 public final class Docker {
 

@@ -6,8 +6,8 @@
 # volume defaults to a folder under it. The environment file lives at STEWARD_ENV_FILE, outside that
 # directory, so a hand-typed `docker compose` needs `--env-file`. .env.example documents every setting.
 #
-# This file is baked into steward-deployer's image, the only service allowed to create containers.
-# Caddy's config is inline at the foot for the same reason: the deployer cannot see host files.
+# This file is baked into steward-agent's image, the only service allowed to create containers.
+# Caddy's config is inline at the foot for the same reason: the agent cannot see host files.
 #
 # Every image is pulled and tagged `latest`; `build:` blocks are for local development. The images
 # are a floor: steward replaces jars in the volumes with the latest release.
@@ -359,8 +359,8 @@ services:
       # Optional; raises GitHub's rate limit.
       NORDTAL_STEWARD_GITHUB_TOKEN: ${STEWARD_GITHUB_TOKEN:-}
 
-      # steward.yml#deployer: recreating a container goes through steward-deployer's API.
-      NORDTAL_STEWARD_DEPLOYER_TOKEN: ${STEWARD_DEPLOYER_TOKEN:?set STEWARD_DEPLOYER_TOKEN in .env - the secret steward and steward-deployer share, `openssl rand -hex 32`}
+      # steward.yml#agent: recreating a container goes through steward-agent's API.
+      NORDTAL_STEWARD_AGENT_TOKEN: ${STEWARD_AGENT_TOKEN:?set STEWARD_AGENT_TOKEN in .env - the secret steward and steward-agent share, `openssl rand -hex 32`}
 
       # steward.yml#bunq: optional; without it payments are off, and the startup log says so.
       NORDTAL_STEWARD_BUNQ_API_KEY: ${NORDTAL_STEWARD_BUNQ_API_KEY:-}
@@ -423,17 +423,17 @@ services:
       # Archives land here, outside every backed-up volume.
       - ${STEWARD_BACKUPS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-backups}:/backups
       # Not restrictable with `:ro`; DockerOps only reads, stops and starts, and recreating goes through
-      # steward-deployer.
+      # steward-agent.
       - /var/run/docker.sock:/var/run/docker.sock
     logging: *logging
 
-  # steward-deployer: the only process allowed to create a container. It carries this file in its
+  # steward-agent: the only process allowed to create a container. It carries this file in its
   # image and never recreates itself; deploy/nordtal.sh renews it.
-  steward-deployer:
+  steward-agent:
     profiles: ["steward"]
     build:
-      context: ./steward-deployer
-    image: ${STEWARD_DEPLOYER_IMAGE:-ghcr.io/nordtal/steward-deployer:latest}
+      context: ./steward-agent
+    image: ${STEWARD_AGENT_IMAGE:-ghcr.io/nordtal/steward-agent:latest}
     restart: unless-stopped
     networks: ["steward"]
     healthcheck:
@@ -446,13 +446,13 @@ services:
     environment:
       TZ: ${TZ:-Europe/Berlin}
       # Required; it refuses to serve without one.
-      NORDTAL_STEWARD_DEPLOYER_TOKEN: ${STEWARD_DEPLOYER_TOKEN:?set STEWARD_DEPLOYER_TOKEN in .env - the secret steward and steward-deployer share, `openssl rand -hex 32`}
+      NORDTAL_STEWARD_AGENT_TOKEN: ${STEWARD_AGENT_TOKEN:?set STEWARD_AGENT_TOKEN in .env - the secret steward and steward-agent share, `openssl rand -hex 32`}
       # The env file decides; repeated so host and interface select the same services.
       COMPOSE_PROFILES: ${COMPOSE_PROFILES:-db,bot,mc,backup,steward}
       # Must match the host's project, or a deploy starts a second, empty stack.
       COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-nordtal-s2}
       # A file name inside the directory mounted below, not a path.
-      NORDTAL_STEWARD_ENV_FILE: /app/env/${STEWARD_ENV_FILE_NAME:?set STEWARD_ENV_FILE_NAME in .env - the file name (not the path) of the environment file, derived from STEWARD_ENV_FILE by deploy/nordtal.sh}
+      NORDTAL_STEWARD_AGENT_ENV_FILE: /app/env/${STEWARD_ENV_FILE_NAME:?set STEWARD_ENV_FILE_NAME in .env - the file name (not the path) of the environment file, derived from STEWARD_ENV_FILE by deploy/nordtal.sh}
     volumes:
       # `:ro` cannot restrict the API behind the socket.
       - /var/run/docker.sock:/var/run/docker.sock

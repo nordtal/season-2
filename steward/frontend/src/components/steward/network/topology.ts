@@ -30,7 +30,7 @@ export const SECTIONS: Array<{ id: string; title: string; members: ServiceName[]
   {
     id: "steward",
     title: "Steward",
-    members: ["steward", "steward-deployer"],
+    members: ["steward", "steward-agent"],
   },
   { id: "discord", title: "Discord", members: ["discord-bot"] },
   { id: "database", title: "Database", members: ["postgres"] },
@@ -43,7 +43,7 @@ export const EDGES: Edge[] = [
   { from: "proxy", to: "smp", kind: "traffic" },
   { from: "proxy", to: "hunger-games", kind: "traffic" },
   { from: "proxy", to: "limbo", kind: "traffic" },
-  { from: "steward", to: "steward-deployer", kind: "traffic" },
+  { from: "steward", to: "steward-agent", kind: "traffic" },
   ...DATABASE_CLIENTS.map((client): Edge => ({ from: client, to: "postgres", kind: "data" })),
 ]
 

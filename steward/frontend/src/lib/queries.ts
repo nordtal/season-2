@@ -17,8 +17,8 @@ import {
   type ConfigChanges,
   type ConfigDocument,
   type ConfigLocation,
-  type DeployerJob,
-  type DeployerState,
+  type AgentJob,
+  type AgentState,
   type Grant,
   type GuildList,
   type Host,
@@ -90,8 +90,8 @@ export const keys = {
   announcements: ["announcements"] as const,
   hungerGamesRound: ["hunger-games-round"] as const,
   configs: ["configs"] as const,
-  deployer: ["deployer"] as const,
-  deployerJob: (id: string) => ["deployer-job", id] as const,
+  agent: ["agent"] as const,
+  agentJob: (id: string) => ["agent-job", id] as const,
   config: (file: string) => ["config", file] as const,
   guildRoles: ["guild-roles"] as const,
   guildChannels: ["guild-channels"] as const,
@@ -476,11 +476,11 @@ export function useGuildChannels() {
   })
 }
 
-/** Whether the deployer has a secret and answers, asked before the recreate button is drawn. */
-export function useDeployer(enabled = true) {
+/** Whether the agent has a secret and answers, asked before the recreate button is drawn. */
+export function useAgent(enabled = true) {
   return useQuery({
-    queryKey: keys.deployer,
-    queryFn: () => api<DeployerState>("/api/deployer"),
+    queryKey: keys.agent,
+    queryFn: () => api<AgentState>("/api/agent"),
     staleTime: 60 * SECOND,
     enabled,
   })
@@ -489,22 +489,22 @@ export function useDeployer(enabled = true) {
 /**
  * Recreates one service's container from the image already on the host, which is not an update.
  *
- * The answer is the job; the caller follows it with `useDeployerJob`.
+ * The answer is the job; the caller follows it with `useAgentJob`.
  */
 export function useRecreate() {
   return useMutation({
     mutationFn: (service: string) =>
-      api<DeployerJob>(`/api/deployer/recreate/${encodeURIComponent(service)}`, { method: "POST" }),
+      api<AgentJob>(`/api/agent/recreate/${encodeURIComponent(service)}`, { method: "POST" }),
   })
 }
 
 /** One job, polled while it runs. `lines` is compose's own output and arrives with it. */
-export function useDeployerJob(id: string | null) {
+export function useAgentJob(id: string | null) {
   const client = useQueryClient()
   return useQuery({
-    queryKey: keys.deployerJob(id ?? ""),
+    queryKey: keys.agentJob(id ?? ""),
     queryFn: async () => {
-      const job = await api<DeployerJob>(`/api/deployer/jobs/${encodeURIComponent(id ?? "")}`)
+      const job = await api<AgentJob>(`/api/agent/jobs/${encodeURIComponent(id ?? "")}`)
       if (job.state !== "RUNNING") {
         /** The container is new, so the service queries are refreshed once the job is over. */
         void client.invalidateQueries({ queryKey: keys.services })

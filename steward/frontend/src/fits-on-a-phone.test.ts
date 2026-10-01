@@ -155,7 +155,7 @@ describe("the rules that make it fit on a phone", () => {
     assert.include(
       mobile,
       "overflow-wrap: anywhere",
-      "`ghcr.io/nordtal/steward-deployer:latest` is one word to a line breaker and 281px wide in a" +
+      "`ghcr.io/nordtal/steward-agent:latest` is one word to a line breaker and 281px wide in a" +
         " 200px column. Without overflow-wrap it hangs off the right edge of the phone.",
     )
   })

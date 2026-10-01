@@ -24,15 +24,15 @@ class SchemaSecretsTest {
     }
 
     @Test
-    void stewardYmlsDeployerTokenIsDeclaredSecretInItsSchema() {
-        final SchemaNode deployer =
-                SchemaWriter.build(StewardSpec.class).children().get("deployer");
-        assertNotNull(deployer, "StewardSpec's schema has no 'deployer' entry at all");
-        final SchemaNode token = deployer.children().get("token");
-        assertNotNull(token, "DeployerSpec's schema has no 'token' entry at all");
+    void stewardYmlsAgentTokenIsDeclaredSecretInItsSchema() {
+        final SchemaNode agent =
+                SchemaWriter.build(StewardSpec.class).children().get("agent");
+        assertNotNull(agent, "StewardSpec's schema has no 'agent' entry at all");
+        final SchemaNode token = agent.children().get("token");
+        assertNotNull(token, "AgentSpec's schema has no 'token' entry at all");
         assertTrue(
                 token.secret(),
-                "deployer.token is the shared secret sent to steward-deployer as"
+                "agent.token is the shared secret sent to steward-agent as"
                         + " X-Steward-Token and must be @Secret - without the annotation it is masked only"
                         + " by ConfigEntry.isSecretKey's 'token' substring heuristic, which a rename of this"
                         + " key would silently break");

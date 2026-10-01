@@ -75,7 +75,7 @@ const SERVICE_TITLES: Record<string, string> = {
   proxy: "Proxy",
   "discord-bot": "Discord Bot",
   steward: "Steward",
-  "steward-deployer": "Steward Deployer",
+  "steward-agent": "Steward Agent",
   postgres: "Postgres",
   caddy: "Caddy",
 }

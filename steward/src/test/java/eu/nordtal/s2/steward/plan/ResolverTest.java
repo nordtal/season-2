@@ -679,9 +679,9 @@ class ResolverTest {
             }
 
             @Override
-            public DeployerSpec deployer() {
+            public AgentSpec agent() {
                 // Defaults: this test never recreates a container.
-                return new DeployerSpec() {};
+                return new AgentSpec() {};
             }
         };
     }

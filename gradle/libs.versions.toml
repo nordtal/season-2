@@ -32,7 +32,7 @@ testcontainers = "1.21.4"
 jimfs = "1.3.2"
 # :common's tests parse the font files with it. Paper's version, never shaded.
 gson = "2.14.0"
-# The web layer of steward and steward-deployer; its JSON mapper is gson, as in jcore.
+# The web layer of steward and steward-agent; its JSON mapper is gson, as in jcore.
 javalin = "7.2.3"
 # Downloads a private Node under build/ for the frontend build.
 node = "7.1.0"

@@ -29,7 +29,7 @@ long log follow re-checks the session once a second, so a sign-out ends it.
 What the split bought was that the process on the internet held no Docker socket. That is given up
 for now and comes back when the Docker, file and run code moves into `steward-agent`: steward then
 asks the agent for all of it. Until then steward reads, stops and starts containers through the
-socket, and only `steward-deployer` creates one.
+socket, and only `steward-agent` creates one.
 
 It logs in as the database owner, because it migrates. The role `nordtal_steward` (`DatabaseRole.STEWARD`)
 holds the grants the interface needs and is what steward logs in as once migrating is someone
@@ -70,7 +70,7 @@ pin and no rollback: a bad release is corrected by publishing a better one.
   request, so a release's migrations are applied by that release.
 - **Containers.** It holds the Docker socket to read state, health and metrics, to stop and start
   containers and to write into the Minecraft consoles. It never creates a container; that is
-  `steward-deployer`'s.
+  `steward-agent`'s.
 - **Images.** It checks each service's image against the registry before a run, and reports an image
   it could not check as unchecked, never as current.
 - **Metrics.** Every 30 seconds it writes host and container samples into `metric_sample`, and folds
@@ -89,7 +89,7 @@ are the real values.
 
 | file           | environment                  | holds                                                                     |
 | -------------- | ---------------------------- | ------------------------------------------------------------------------- |
-| `steward.yml`  | `NORDTAL_STEWARD_*`          | sources, Docker, backups, bunq, the deployer's address                    |
+| `steward.yml`  | `NORDTAL_STEWARD_*`          | sources, Docker, backups, bunq, the agent's address                       |
 | `web.yml`      | `NORDTAL_STEWARD_WEB_*`      | the port, the public address, Discord sign-in, WebAuthn, alerts, Web Push |
 | `database.yml` | `NORDTAL_STEWARD_DATABASE_*` | the connection, as for every process                                      |
 

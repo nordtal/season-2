@@ -238,11 +238,11 @@ class ConfigFilesReadTest {
         assertEquals(List.of(), document.header());
         assertEquals(
                 ConfigEntry.Type.INTEGER,
-                entry(document, "deployer.timeout-seconds").type());
-        assertEquals("600", entry(document, "deployer.timeout-seconds").value());
-        assertEquals(Kind.MAP, entry(document, "deployer").kind());
+                entry(document, "agent.timeout-seconds").type());
+        assertEquals("600", entry(document, "agent.timeout-seconds").value());
+        assertEquals(Kind.MAP, entry(document, "agent").kind());
         assertEquals("/configs", entry(document, "configs-root").value());
-        assertTrue(entry(document, "deployer.token").secret());
+        assertTrue(entry(document, "agent.token").secret());
         assertTrue(entry(document, "github-token").secret());
         assertEquals(Kind.LIST, entry(document, "backup.volumes").kind());
     }

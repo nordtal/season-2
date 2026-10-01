@@ -18,7 +18,7 @@ val checkedModules =
         ":proxy",
         ":discord-bot",
         ":steward",
-        ":steward-deployer",
+        ":steward-agent",
         ":dev",
     )
 

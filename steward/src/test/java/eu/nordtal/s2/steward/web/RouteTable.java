@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.web;
 
+import eu.nordtal.s2.steward.agent.AgentClient;
 import eu.nordtal.s2.steward.api.FakeDirectories;
 import eu.nordtal.s2.steward.api.StackApi;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
@@ -72,7 +73,7 @@ final class RouteTable {
                         config,
                         new DiscordAuth(config.discord(), config.publicUrl()),
                         stack,
-                        new InternalClient("steward-deployer", "http://127.0.0.1:1", "", Duration.ofSeconds(1)),
+                        new AgentClient("http://127.0.0.1:1", "", Duration.ofSeconds(1)),
                         false,
                         null,
                         Clock.systemUTC())

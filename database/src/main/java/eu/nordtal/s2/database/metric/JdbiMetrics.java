@@ -30,7 +30,8 @@ final class JdbiMetrics implements MetricDirectory {
         final List<MetricDao.BoundSample> bound = new ArrayList<>(samples.size());
         for (final MetricSample sample : samples) {
             Objects.requireNonNull(sample, "sample");
-            bound.add(new MetricDao.BoundSample(sample.subject(), sample.metric(), utc(sample.at()), sample.value()));
+            bound.add(new MetricDao.BoundSample(
+                    sample.subject(), sample.metric().key(), utc(sample.at()), sample.value()));
         }
         dao.record(bound);
     }

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.deployer;
 
+import eu.nordtal.s2.common.Deployment;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.common.time.NetworkTime;
 import io.javalin.Javalin;
@@ -32,7 +33,7 @@ public final class StewardDeployer {
                 path("NORDTAL_STEWARD_COMPOSE_FILE", "/app/compose.yml"),
                 path("NORDTAL_STEWARD_ENV_FILE", "/app/env/.env"),
                 path("NORDTAL_STEWARD_PROJECT_DIRECTORY", "/app"),
-                env("COMPOSE_PROJECT_NAME", "nordtal-s2"));
+                env("COMPOSE_PROJECT_NAME", Deployment.PROJECT));
 
         switch (mode) {
             case "up" -> System.exit(deploy(compose, List.of(), System.out::println, true));

@@ -49,11 +49,11 @@ class MetricDirectoryIntegrationTest {
     @Test
     void aBatchComesBackAsItWasWritten() {
         metrics.record(List.of(
-                new MetricSample("host", "cpu", TEN, 12.5),
-                new MetricSample("host", "cpu", TEN.plusSeconds(30), 18.25),
-                new MetricSample("smp", "cpu", TEN, 3.0)));
+                new MetricSample("host", Metric.CPU_PERCENT, TEN, 12.5),
+                new MetricSample("host", Metric.CPU_PERCENT, TEN.plusSeconds(30), 18.25),
+                new MetricSample("smp", Metric.CPU_PERCENT, TEN, 3.0)));
 
-        final List<MetricPoint> host = metrics.range("host", "cpu", TEN, TEN.plusSeconds(60));
+        final List<MetricPoint> host = metrics.range("host", "cpu_percent", TEN, TEN.plusSeconds(60));
         assertEquals(2, host.size(), "one series, and the other subject's row is not in it");
 
         assertEquals(TEN, host.get(0).at());
@@ -63,13 +63,15 @@ class MetricDirectoryIntegrationTest {
         assertEquals(TEN.plusSeconds(30), host.get(1).at(), "oldest first");
         assertEquals(18.25, host.get(1).value());
 
-        assertEquals(1, metrics.range("smp", "cpu", TEN, TEN.plusSeconds(60)).size());
+        assertEquals(
+                1, metrics.range("smp", "cpu_percent", TEN, TEN.plusSeconds(60)).size());
     }
 
     @Test
     void theInstantWrittenIsTheInstantStoredWhateverZoneEitherSideIsIn() {
         // pgjdbc and the server may use different zones; only a literal instant shows a shift.
-        metrics.record(List.of(new MetricSample("host", "cpu", Instant.parse("2026-08-01T13:37:00Z"), 1.0)));
+        metrics.record(
+                List.of(new MetricSample("host", Metric.CPU_PERCENT, Instant.parse("2026-08-01T13:37:00Z"), 1.0)));
 
         assertEquals(
                 1, count("SELECT count(*) FROM metric_sample " + "WHERE at = timestamptz '2026-08-01 13:37:00+00'"));
@@ -78,7 +80,8 @@ class MetricDirectoryIntegrationTest {
     @Test
     void asecondIdenticalBatchAddsNothing() {
         final List<MetricSample> sweep = List.of(
-                new MetricSample("host", "cpu", TEN, 12.5), new MetricSample("host", "memory", TEN, 4_000_000_000.0));
+                new MetricSample("host", Metric.CPU_PERCENT, TEN, 12.5),
+                new MetricSample("host", Metric.MEMORY_USED_BYTES, TEN, 4_000_000_000.0));
 
         metrics.record(sweep);
         metrics.record(sweep);
@@ -91,12 +94,12 @@ class MetricDirectoryIntegrationTest {
 
     @Test
     void aSampleAlreadyWrittenIsNeverRevisedByALaterOne() {
-        metrics.record(List.of(new MetricSample("host", "cpu", TEN, 12.5)));
-        metrics.record(List.of(new MetricSample("host", "cpu", TEN, 99.0)));
+        metrics.record(List.of(new MetricSample("host", Metric.CPU_PERCENT, TEN, 12.5)));
+        metrics.record(List.of(new MetricSample("host", Metric.CPU_PERCENT, TEN, 99.0)));
 
         assertEquals(
                 12.5,
-                metrics.range("host", "cpu", TEN, ELEVEN).getFirst().value(),
+                metrics.range("host", "cpu_percent", TEN, ELEVEN).getFirst().value(),
                 "DO NOTHING and not DO UPDATE: a measurement at an instant is a fact");
     }
 
@@ -108,17 +111,20 @@ class MetricDirectoryIntegrationTest {
 
     @Test
     void aValueTheMeanCouldNotSurviveIsRefusedBeforeItReachesTheTable() {
-        assertThrows(IllegalArgumentException.class, () -> new MetricSample("host", "cpu", TEN, Double.NaN));
         assertThrows(
-                IllegalArgumentException.class, () -> new MetricSample("host", "cpu", TEN, Double.POSITIVE_INFINITY));
+                IllegalArgumentException.class, () -> new MetricSample("host", Metric.CPU_PERCENT, TEN, Double.NaN));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new MetricSample("host", Metric.CPU_PERCENT, TEN, Double.POSITIVE_INFINITY));
     }
 
     @Test
     void everyResolutionTheCodeCanNameIsOneTheCheckAccepts() throws Exception {
         // Resolution is a Java enum behind a text CHECK; a constant without a migration fails only here.
         for (final Resolution resolution : Resolution.values()) {
-            execute("INSERT INTO metric_sample (subject, metric, resolution, at, value) VALUES " + "('host', 'cpu', '"
-                    + resolution.name() + "', timestamptz '2026-08-01 10:00:00+00', 1.0)");
+            execute("INSERT INTO metric_sample (subject, metric, resolution, at, value) VALUES "
+                    + "('host', 'cpu_percent', '" + resolution.name()
+                    + "', timestamptz '2026-08-01 10:00:00+00', 1.0)");
         }
         assertEquals(Resolution.values().length, count("SELECT count(*) FROM metric_sample"));
     }
@@ -127,31 +133,31 @@ class MetricDirectoryIntegrationTest {
     void compactionWritesTheHoursMeanAndTheMeanIsTheMean() {
         // The mean 30 differs from the sum, the median and the mean of any two of them.
         metrics.record(List.of(
-                new MetricSample("host", "cpu", TEN, 12.0),
-                new MetricSample("host", "cpu", TEN.plusSeconds(1800), 18.0),
-                new MetricSample("host", "cpu", TEN.plusSeconds(3540), 60.0),
-                new MetricSample("host", "cpu", ELEVEN, 40.0),
-                new MetricSample("host", "cpu", ELEVEN.plusSeconds(1800), 60.0)));
+                new MetricSample("host", Metric.CPU_PERCENT, TEN, 12.0),
+                new MetricSample("host", Metric.CPU_PERCENT, TEN.plusSeconds(1800), 18.0),
+                new MetricSample("host", Metric.CPU_PERCENT, TEN.plusSeconds(3540), 60.0),
+                new MetricSample("host", Metric.CPU_PERCENT, ELEVEN, 40.0),
+                new MetricSample("host", Metric.CPU_PERCENT, ELEVEN.plusSeconds(1800), 60.0)));
 
         assertEquals(2, metrics.compact(TWELVE), "two whole hours, one row each");
 
-        assertEquals(30.0, hourly("host", "cpu", TEN));
-        assertEquals(50.0, hourly("host", "cpu", ELEVEN));
+        assertEquals(30.0, hourly("host", "cpu_percent", TEN));
+        assertEquals(50.0, hourly("host", "cpu_percent", ELEVEN));
     }
 
     @Test
     void theHourThatIsStillBeingMeasuredIsNotCompacted() {
         // An hour still in progress must not be compacted, or its second half would be lost.
         metrics.record(List.of(
-                new MetricSample("host", "cpu", TEN, 12.0),
-                new MetricSample("host", "cpu", TEN.plusSeconds(1800), 18.0),
-                new MetricSample("host", "cpu", ELEVEN, 40.0)));
+                new MetricSample("host", Metric.CPU_PERCENT, TEN, 12.0),
+                new MetricSample("host", Metric.CPU_PERCENT, TEN.plusSeconds(1800), 18.0),
+                new MetricSample("host", Metric.CPU_PERCENT, ELEVEN, 40.0)));
 
         assertEquals(
                 1,
                 metrics.compact(ELEVEN.plusSeconds(1800)),
                 "only the ten o'clock hour: the cut is rounded down to 11:00");
-        assertEquals(15.0, hourly("host", "cpu", TEN));
+        assertEquals(15.0, hourly("host", "cpu_percent", TEN));
         assertEquals(
                 0,
                 count("SELECT count(*) FROM metric_sample WHERE resolution = 'HOUR' "
@@ -161,9 +167,9 @@ class MetricDirectoryIntegrationTest {
     @Test
     void compactingTwiceLeavesExactlyTheSameRows() {
         metrics.record(List.of(
-                new MetricSample("host", "cpu", TEN, 12.0),
-                new MetricSample("host", "cpu", TEN.plusSeconds(1800), 18.0),
-                new MetricSample("host", "cpu", TEN.plusSeconds(3540), 60.0)));
+                new MetricSample("host", Metric.CPU_PERCENT, TEN, 12.0),
+                new MetricSample("host", Metric.CPU_PERCENT, TEN.plusSeconds(1800), 18.0),
+                new MetricSample("host", Metric.CPU_PERCENT, TEN.plusSeconds(3540), 60.0)));
 
         assertEquals(1, metrics.compact(ELEVEN));
         final long afterFirst = count("SELECT count(*) FROM metric_sample");
@@ -171,7 +177,9 @@ class MetricDirectoryIntegrationTest {
         assertEquals(0, metrics.compact(ELEVEN), "the second run finds the hour already averaged");
         assertEquals(afterFirst, count("SELECT count(*) FROM metric_sample"), "and writes nothing");
         assertEquals(
-                30.0, hourly("host", "cpu", TEN), "and the mean is still the mean of the raw samples, not of itself");
+                30.0,
+                hourly("host", "cpu_percent", TEN),
+                "and the mean is still the mean of the raw samples, not of itself");
 
         // Guards against a mean folded into a mean, which changes the value rather than the row count.
         assertEquals(1, count("SELECT count(*) FROM metric_sample WHERE resolution = 'HOUR'"));
@@ -180,10 +188,10 @@ class MetricDirectoryIntegrationTest {
     @Test
     void forgetRemovesTheRawRowsThatHaveAMeanAndOnlyThose() {
         metrics.record(List.of(
-                new MetricSample("host", "cpu", TEN, 12.0),
-                new MetricSample("host", "cpu", TEN.plusSeconds(1800), 18.0),
-                new MetricSample("host", "cpu", ELEVEN, 40.0),
-                new MetricSample("host", "cpu", ELEVEN.plusSeconds(1800), 60.0)));
+                new MetricSample("host", Metric.CPU_PERCENT, TEN, 12.0),
+                new MetricSample("host", Metric.CPU_PERCENT, TEN.plusSeconds(1800), 18.0),
+                new MetricSample("host", Metric.CPU_PERCENT, ELEVEN, 40.0),
+                new MetricSample("host", Metric.CPU_PERCENT, ELEVEN.plusSeconds(1800), 60.0)));
 
         // Only the ten o'clock hour is averaged...
         assertEquals(1, metrics.compact(ELEVEN));
@@ -207,29 +215,29 @@ class MetricDirectoryIntegrationTest {
     @Test
     void forgettingTwiceRemovesNothingTheSecondTime() {
         metrics.record(List.of(
-                new MetricSample("host", "cpu", TEN, 12.0),
-                new MetricSample("host", "cpu", TEN.plusSeconds(1800), 18.0)));
+                new MetricSample("host", Metric.CPU_PERCENT, TEN, 12.0),
+                new MetricSample("host", Metric.CPU_PERCENT, TEN.plusSeconds(1800), 18.0)));
         metrics.compact(ELEVEN);
 
         assertEquals(2, metrics.forget(ELEVEN));
         assertEquals(0, metrics.forget(ELEVEN));
-        assertEquals(15.0, hourly("host", "cpu", TEN), "and the mean outlives them, which is the point");
+        assertEquals(15.0, hourly("host", "cpu_percent", TEN), "and the mean outlives them, which is the point");
     }
 
     @Test
     void aWindowSpanningBothResolutionsIsOneCurveWithOnePointPerInstant() {
         metrics.record(List.of(
-                new MetricSample("host", "cpu", TEN, 12.0),
-                new MetricSample("host", "cpu", TEN.plusSeconds(1800), 18.0),
-                new MetricSample("host", "cpu", ELEVEN, 40.0),
-                new MetricSample("host", "cpu", ELEVEN.plusSeconds(1800), 60.0),
-                new MetricSample("host", "cpu", TWELVE, 100.0)));
+                new MetricSample("host", Metric.CPU_PERCENT, TEN, 12.0),
+                new MetricSample("host", Metric.CPU_PERCENT, TEN.plusSeconds(1800), 18.0),
+                new MetricSample("host", Metric.CPU_PERCENT, ELEVEN, 40.0),
+                new MetricSample("host", Metric.CPU_PERCENT, ELEVEN.plusSeconds(1800), 60.0),
+                new MetricSample("host", Metric.CPU_PERCENT, TWELVE, 100.0)));
 
         metrics.compact(TWELVE);
         metrics.forget(TWELVE);
 
         final List<MetricPoint> curve =
-                metrics.range("host", "cpu", TEN.minus(Duration.ofHours(1)), TWELVE.plusSeconds(3600));
+                metrics.range("host", "cpu_percent", TEN.minus(Duration.ofHours(1)), TWELVE.plusSeconds(3600));
 
         assertEquals(3, curve.size(), "two hourly means and the one raw sample that is left");
 
@@ -253,12 +261,12 @@ class MetricDirectoryIntegrationTest {
     void betweenACompactionAndTheDeleteBehindItTheRawSamplesWin() {
         // Between compact and forget an hour exists twice; summing both would double it on the graph.
         metrics.record(List.of(
-                new MetricSample("host", "cpu", TEN, 12.0),
-                new MetricSample("host", "cpu", TEN.plusSeconds(1800), 18.0),
-                new MetricSample("host", "cpu", ELEVEN, 40.0)));
+                new MetricSample("host", Metric.CPU_PERCENT, TEN, 12.0),
+                new MetricSample("host", Metric.CPU_PERCENT, TEN.plusSeconds(1800), 18.0),
+                new MetricSample("host", Metric.CPU_PERCENT, ELEVEN, 40.0)));
         metrics.compact(ELEVEN);
 
-        final List<MetricPoint> curve = metrics.range("host", "cpu", TEN, TWELVE);
+        final List<MetricPoint> curve = metrics.range("host", "cpu_percent", TEN, TWELVE);
 
         assertEquals(3, curve.size(), "three raw samples, and the mean of two of them is not a fourth point");
         assertTrue(
@@ -274,12 +282,12 @@ class MetricDirectoryIntegrationTest {
     void andTheyWinEvenWhenNoSampleHappensToSitOnTheHour() {
         // Nothing at exactly 10:00, so the seam is not the oldest raw instant itself.
         metrics.record(List.of(
-                new MetricSample("host", "cpu", TEN.plusSeconds(600), 12.0),
-                new MetricSample("host", "cpu", TEN.plusSeconds(1800), 18.0),
-                new MetricSample("host", "cpu", ELEVEN.plusSeconds(60), 40.0)));
+                new MetricSample("host", Metric.CPU_PERCENT, TEN.plusSeconds(600), 12.0),
+                new MetricSample("host", Metric.CPU_PERCENT, TEN.plusSeconds(1800), 18.0),
+                new MetricSample("host", Metric.CPU_PERCENT, ELEVEN.plusSeconds(60), 40.0)));
         metrics.compact(ELEVEN);
 
-        final List<MetricPoint> curve = metrics.range("host", "cpu", TEN, TWELVE);
+        final List<MetricPoint> curve = metrics.range("host", "cpu_percent", TEN, TWELVE);
 
         assertEquals(3, curve.size(), "three raw samples, and the mean of two of them is not a fourth point");
         assertTrue(
@@ -294,32 +302,33 @@ class MetricDirectoryIntegrationTest {
     void aSeriesWithNothingButMeansIsStillACurve() {
         // With no raw rows, coalesce(min(raw), 'infinity') keeps the seam from being null and the graph empty.
         metrics.record(List.of(
-                new MetricSample("host", "cpu", TEN, 12.0),
-                new MetricSample("host", "cpu", TEN.plusSeconds(1800), 18.0)));
+                new MetricSample("host", Metric.CPU_PERCENT, TEN, 12.0),
+                new MetricSample("host", Metric.CPU_PERCENT, TEN.plusSeconds(1800), 18.0)));
         metrics.compact(ELEVEN);
         metrics.forget(ELEVEN);
 
-        final List<MetricPoint> curve = metrics.range("host", "cpu", TEN, TWELVE);
+        final List<MetricPoint> curve = metrics.range("host", "cpu_percent", TEN, TWELVE);
         assertEquals(1, curve.size());
         assertEquals(15.0, curve.getFirst().value());
     }
 
     @Test
     void anEmptyWindowIsEmptyAndNotAnError() {
-        metrics.record(List.of(new MetricSample("host", "cpu", TEN, 12.0)));
+        metrics.record(List.of(new MetricSample("host", Metric.CPU_PERCENT, TEN, 12.0)));
 
-        assertTrue(metrics.range("host", "cpu", TWELVE, TEN).isEmpty(), "a window that runs backwards");
-        assertTrue(metrics.range("host", "cpu", TEN, TEN).isEmpty(), "and one that has collapsed");
-        assertTrue(metrics.range("nothing", "cpu", TEN, TWELVE).isEmpty(), "and a series nobody writes");
+        assertTrue(metrics.range("host", "cpu_percent", TWELVE, TEN).isEmpty(), "a window that runs backwards");
+        assertTrue(metrics.range("host", "cpu_percent", TEN, TEN).isEmpty(), "and one that has collapsed");
+        assertTrue(metrics.range("nothing", "cpu_percent", TEN, TWELVE).isEmpty(), "and a series nobody writes");
     }
 
     @Test
     void toIsExclusiveSoTwoAdjacentWindowsDoNotBothContainThePointBetweenThem() {
-        metrics.record(
-                List.of(new MetricSample("host", "cpu", TEN, 12.0), new MetricSample("host", "cpu", ELEVEN, 40.0)));
+        metrics.record(List.of(
+                new MetricSample("host", Metric.CPU_PERCENT, TEN, 12.0),
+                new MetricSample("host", Metric.CPU_PERCENT, ELEVEN, 40.0)));
 
-        assertEquals(1, metrics.range("host", "cpu", TEN, ELEVEN).size());
-        assertEquals(1, metrics.range("host", "cpu", ELEVEN, TWELVE).size());
+        assertEquals(1, metrics.range("host", "cpu_percent", TEN, ELEVEN).size());
+        assertEquals(1, metrics.range("host", "cpu_percent", ELEVEN, TWELVE).size());
     }
 
     private double hourly(final String subject, final String metric, final Instant hour) {

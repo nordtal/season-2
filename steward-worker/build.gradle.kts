@@ -33,9 +33,6 @@ repositoryRootTestInputs {
     // TopologyTest checks that the release workflow pushes every image compose.yml names.
     reads(".github/workflows/release.yml")
 
-    // The compose project name must match on both sides of the socket.
-    reads("steward-deployer/src/main/java/eu/nordtal/s2/steward/deployer/StewardDeployer.java")
-
     // TopologyDeploymentTest holds dev.env.example against every required variable in compose.yml.
     reads("deploy/dev.env.example")
 }

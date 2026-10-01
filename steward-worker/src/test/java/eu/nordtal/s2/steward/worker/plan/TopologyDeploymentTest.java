@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.Deployment;
 import eu.nordtal.s2.steward.worker.config.BackupSpec;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import java.io.IOException;
@@ -503,7 +504,7 @@ class TopologyDeploymentTest {
     }
 
     @Test
-    void theDeployerDeploysTheProjectItWasStartedInNotOneOfItsOwn() throws IOException {
+    void theDeployerDeploysTheProjectItWasStartedInNotOneOfItsOwn() {
         // A disagreeing `--project-name` fails nothing visibly: a second stack comes up beside the running one.
         @SuppressWarnings("unchecked")
         final Map<String, Object> deployer = (Map<String, Object>) services.get("steward-deployer");
@@ -511,20 +512,11 @@ class TopologyDeploymentTest {
         final Map<String, Object> environment = (Map<String, Object>) deployer.get("environment");
         final String declared = String.valueOf(environment.get("COMPOSE_PROJECT_NAME"));
         assertEquals(
-                "${COMPOSE_PROJECT_NAME:-nordtal-s2}",
+                "${COMPOSE_PROJECT_NAME:-" + Deployment.PROJECT + "}",
                 declared,
-                "compose.yml no longer hands steward-deployer the project name. Without it the"
-                        + " service falls back to its own default, which is only the same value"
-                        + " until somebody sets COMPOSE_PROJECT_NAME in .env.");
-
-        final String source = Files.readString(
-                findUpwards("steward-deployer/src/main/java/eu/nordtal/s2/steward/deployer/StewardDeployer.java"),
-                StandardCharsets.UTF_8);
-        assertTrue(
-                source.contains("env(\"COMPOSE_PROJECT_NAME\", \"nordtal-s2\")"),
-                "StewardDeployer's fallback project name is not `nordtal-s2` any more, and"
-                        + " compose.yml's is. Two different defaults for the project name are two"
-                        + " deployments of the same stack.");
+                "compose.yml no longer hands steward-deployer the project name, or its fallback is not"
+                        + " Deployment.PROJECT, which the deployer and the worker fall back to. Two different"
+                        + " defaults for the project name are two deployments of the same stack.");
     }
 
     @Test

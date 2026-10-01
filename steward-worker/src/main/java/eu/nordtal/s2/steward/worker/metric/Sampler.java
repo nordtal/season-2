@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.worker.metric;
 
+import eu.nordtal.s2.database.metric.Metric;
 import eu.nordtal.s2.database.metric.MetricDirectory;
 import eu.nordtal.s2.database.metric.MetricSample;
 import eu.nordtal.s2.steward.worker.docker.Docker;
@@ -106,13 +107,14 @@ public final class Sampler implements AutoCloseable {
             return List.of();
         }
         final List<MetricSample> samples = new ArrayList<>();
-        samples.add(new MetricSample("host", "load1", at, snapshot.load1()));
-        snapshot.cpuPercent().ifPresent(percent -> samples.add(new MetricSample("host", "cpu_percent", at, percent)));
+        samples.add(new MetricSample("host", Metric.LOAD1, at, snapshot.load1()));
+        snapshot.cpuPercent()
+                .ifPresent(percent -> samples.add(new MetricSample("host", Metric.CPU_PERCENT, at, percent)));
         samples.add(new MetricSample(
-                "host", "memory_used_bytes", at, snapshot.memoryTotalBytes() - snapshot.memoryAvailableBytes()));
-        samples.add(new MetricSample("host", "memory_total_bytes", at, snapshot.memoryTotalBytes()));
-        samples.add(new MetricSample("host", "disk_used_bytes", at, snapshot.diskUsedBytes()));
-        samples.add(new MetricSample("host", "disk_total_bytes", at, snapshot.diskTotalBytes()));
+                "host", Metric.MEMORY_USED_BYTES, at, snapshot.memoryTotalBytes() - snapshot.memoryAvailableBytes()));
+        samples.add(new MetricSample("host", Metric.MEMORY_TOTAL_BYTES, at, snapshot.memoryTotalBytes()));
+        samples.add(new MetricSample("host", Metric.DISK_USED_BYTES, at, snapshot.diskUsedBytes()));
+        samples.add(new MetricSample("host", Metric.DISK_TOTAL_BYTES, at, snapshot.diskTotalBytes()));
         return samples;
     }
 
@@ -169,8 +171,8 @@ public final class Sampler implements AutoCloseable {
             reading.cpuPercent().ifPresent(percent -> cpu.merge(reading.service(), percent, Double::sum));
         }
         final List<MetricSample> samples = new ArrayList<>();
-        memory.forEach((service, bytes) -> samples.add(new MetricSample(service, "memory_bytes", at, bytes)));
-        cpu.forEach((service, percent) -> samples.add(new MetricSample(service, "cpu_percent", at, percent)));
+        memory.forEach((service, bytes) -> samples.add(new MetricSample(service, Metric.MEMORY_BYTES, at, bytes)));
+        cpu.forEach((service, percent) -> samples.add(new MetricSample(service, Metric.CPU_PERCENT, at, percent)));
         return samples;
     }
 

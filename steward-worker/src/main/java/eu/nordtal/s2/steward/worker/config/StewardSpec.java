@@ -8,6 +8,7 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 import eu.nordtal.jcore.config.spec.annotation.Secret;
+import eu.nordtal.s2.common.Deployment;
 import java.util.List;
 
 /**
@@ -331,7 +332,7 @@ public interface StewardSpec {
         @Explain(
                 "Written down rather than guessed from labels, so a second copy of the stack cannot change what it matches.")
         default String project() {
-            return "nordtal-s2";
+            return Deployment.PROJECT;
         }
 
         @Order(3)

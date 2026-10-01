@@ -45,6 +45,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V5__settings_live_in_the_database.sql",
                 "522be0eaa123914439838988afd2d34ae1198bce938f97733e48d200e5df9411");
+        FROZEN.put(
+                "V6__an_override_may_precede_its_group.sql",
+                "8dd54db7d52b1a8be2d2efca09fe0bc47334329a6cfe5e39e73199ed3f7db1a6");
     }
 
     @Test

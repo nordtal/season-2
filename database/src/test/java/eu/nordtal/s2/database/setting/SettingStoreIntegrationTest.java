@@ -62,6 +62,18 @@ class SettingStoreIntegrationTest {
     }
 
     @Test
+    void aValueMayPrecedeItsGroupsFirstPublication() {
+        final SettingStore store = SettingStore.using(TestDatabase.fresh().dataSource());
+
+        // The update run sets the proxy's pack before a proxy of this season has ever started.
+        assertTrue(store.change("proxy", "pack", Map.of("sha1", "\"ab12\""), Actor.STEWARD, held -> true));
+        store.publish("proxy", "pack", SCHEMA, "{}", List.of(), false);
+
+        assertEquals(
+                List.of(new SettingStore.Value("proxy", "pack", "sha1", "\"ab12\"")), store.overrides(Set.of("proxy")));
+    }
+
+    @Test
     void anImportNeverReplacesAnAdminsValue() {
         final SettingStore store = SettingStore.using(TestDatabase.fresh().dataSource());
         store.publish("proxy", "gate", SCHEMA, "{}", List.of(), false);

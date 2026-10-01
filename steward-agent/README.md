@@ -37,7 +37,7 @@ image is already on the host.
 ## Building
 
     ./gradlew :steward-agent:build          # jar, and compose.yml staged into build/compose/
-    docker build -t ghcr.io/nordtal/steward-agent:dev steward-agent
+    docker build -f deploy/jvm/Dockerfile --build-arg MODULE=steward-agent -t ghcr.io/nordtal/steward-agent:dev .
 
 ## Where things live
 

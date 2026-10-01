@@ -78,6 +78,16 @@ class ReadinessTest {
     }
 
     @Test
+    void keepingTheBeatWritesTheMarkerAtOnce(@TempDir final Path directory) {
+        // A container is healthy from the first write, so it may not wait for the first beat.
+        final Path marker = directory.resolve("tmp/nordtal-ready");
+        final Readiness readiness = new Readiness(marker, Clock.systemUTC(), complaint -> {});
+
+        assertTrue(readiness.keepBeating());
+        assertTrue(Readiness.fresh(marker, Instant.now(), Readiness.STALE_AFTER));
+    }
+
+    @Test
     void aMarkerThatIsNotThereIsNotFreshAndNeitherIsAnOldOne(@TempDir final Path directory) throws IOException {
         final Path marker = directory.resolve("nordtal-ready");
         assertFalse(

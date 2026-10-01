@@ -1,4 +1,4 @@
-// A standalone JVM application, shipped as a fat jar and an image from the module's Dockerfile.
+// A standalone JVM application, shipped as a fat jar and an image from deploy/jvm/Dockerfile.
 
 plugins {
     id("nordtal.shaded")
@@ -15,7 +15,7 @@ tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJ
     }
 }
 
-// The jar the Dockerfile copies must be the only one it could copy; see CheckOneImageJar.
+// The jar the image template copies must be the only one it could copy; see CheckOneImageJar.
 val checkOneImageJar =
     tasks.register<eu.nordtal.s2.build.CheckOneImageJar>("checkOneImageJar") {
         libraries.set(layout.buildDirectory.dir("libs"))
@@ -26,4 +26,9 @@ val checkOneImageJar =
 
 tasks.named("check") {
     dependsOn(checkOneImageJar)
+}
+
+// One logging configuration for every service. A module's own logback.xml would be a duplicate and fail the copy.
+tasks.named<ProcessResources>("processResources") {
+    from(rootProject.layout.projectDirectory.file("deploy/jvm/logback.xml"))
 }

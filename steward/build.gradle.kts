@@ -44,8 +44,13 @@ repositoryRootTestInputs {
     // TopologyDeploymentTest holds dev.env.example against every required variable in compose.yml.
     reads("deploy/dev.env.example")
 
+    // TopologyDeploymentTest holds every JVM service to the one image template and what it admits.
+    reads(".dockerignore")
+
     // DocumentedCommandsTest reads every document that shows a `steward` command.
     reads("steward/README.md")
+    reads("deploy/jvm/Dockerfile")
+    reads("deploy/jvm/entrypoint.sh")
     reads("steward-agent/README.md")
 
     // NothingIsGermanTest reads the agent's, steward-bunq's and the internal wire's sources beside this module's own.

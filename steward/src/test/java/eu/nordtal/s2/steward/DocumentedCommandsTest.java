@@ -21,8 +21,13 @@ import org.junit.jupiter.api.Test;
 class DocumentedCommandsTest {
 
     /** Everywhere this command is written down for a person to copy. */
-    private static final List<String> DOCUMENTS =
-            List.of("compose.yml", ".env.example", "steward/Dockerfile", "steward/README.md", "deploy/README.md");
+    private static final List<String> DOCUMENTS = List.of(
+            "compose.yml",
+            ".env.example",
+            "deploy/jvm/Dockerfile",
+            "deploy/jvm/entrypoint.sh",
+            "steward/README.md",
+            "deploy/README.md");
 
     /** What {@link Steward} actually dispatches on. Anything else reads as the default. */
     // "apply" is deliberately absent, with the button that did the same: it would tell somebody to swap jars live.
@@ -45,9 +50,10 @@ class DocumentedCommandsTest {
             final Matcher matcher = INVOCATION.matcher(text);
             while (matcher.find()) {
                 final String rest = matcher.group("rest").strip();
+                // A shell script closes its quote right after the word: `... steward bootstrap" >&2`.
                 final String first = rest.isEmpty()
                         ? ""
-                        : WHITESPACE.splitAsStream(rest).findFirst().orElse("");
+                        : WHITESPACE.splitAsStream(rest).findFirst().orElse("").replaceAll("[\"']+$", "");
                 if (!SUBCOMMANDS.contains(first)) {
                     bare.add(relative + ": \"" + matcher.group().strip() + "\"");
                 }

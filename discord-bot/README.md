@@ -34,7 +34,7 @@ The bot is the `bot` profile of the stack at the repository root. From the insta
 COMPOSE_PROFILES=db,bot docker compose --env-file /etc/nordtal/season-2.env up -d
 ```
 
-To build the image locally, build the jar first; the Dockerfile copies whatever `build/libs` holds:
+To build the image locally, build the jar first; `deploy/jvm/Dockerfile` copies whatever `build/libs` holds:
 
 ```bash
 ./gradlew :discord-bot:shadowJar

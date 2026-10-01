@@ -21,6 +21,15 @@
 
 name: nordtal-s2
 
+# Our JVM services share one image template; each passes its module.
+x-jvm-build: &jvm-build # `./gradlew imageContexts` first: the template copies each jar from its module's build/libs.
+  context: .
+  dockerfile: deploy/jvm/Dockerfile
+
+# Healthy means the process refreshed its readiness marker within 90s: three beats, held equal to
+# Readiness.STALE_AFTER by TopologyTest. Every JVM service of ours writes it.
+x-readiness: &readiness ["CMD-SHELL", "test $$(( $$(date +%s) - $$(stat -c %Y /tmp/nordtal-ready) )) -lt 90"]
+
 # Shared by the four Minecraft services, which differ only in environment.
 x-minecraft: &minecraft
   profiles: ["mc"]
@@ -114,17 +123,17 @@ services:
     # A floor: the entrypoint runs the discord-bot-*.jar in the volume and logs which one.
     image: ${BOT_IMAGE:-ghcr.io/nordtal/discord-bot:latest}
     build:
-      # Needs `./gradlew :discord-bot:shadowJar` first; the Dockerfile globs build/libs.
-      context: ./discord-bot
+      <<: *jvm-build
+      args: { MODULE: discord-bot }
     restart: unless-stopped
     depends_on:
       # The bot refuses an unmigrated database.
       steward:
         condition: service_healthy
-    # The Minecraft readiness marker, written once JDA is ready and refreshed by the timer thread, so a
-    # wedged timer goes red. The bot listens on nothing, so there is no port check.
+    # The marker is written once JDA is ready and refreshed by the timer thread, so a wedged timer goes
+    # red. The bot listens on nothing, so there is no port check.
     healthcheck:
-      test: ["CMD-SHELL", "test $$(( $$(date +%s) - $$(stat -c %Y /tmp/nordtal-ready) )) -lt 90"]
+      test: *readiness
       interval: 15s
       timeout: 5s
       retries: 3
@@ -321,8 +330,8 @@ services:
   # `bootstrap` (fills empty volumes), `forget-factors` and `generate-vapid-keys`.
   steward:
     build:
-      # The Dockerfile globs build/libs for the jar, so there are no build args.
-      context: ./steward
+      <<: *jvm-build
+      args: { MODULE: steward }
     image: ${STEWARD_IMAGE:-ghcr.io/nordtal/steward:latest}
     restart: unless-stopped
     # It holds the docker socket, so no Minecraft server may reach it; `agent` and `bank` are its alone.
@@ -333,8 +342,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
-      # Written once the schema is current; everything else waits for it.
-      test: ["CMD-SHELL", "test -f /tmp/steward-ready"]
+      # The marker is first written once the schema is current; everything else waits for it.
+      test: *readiness
       interval: 10s
       timeout: 3s
       # 15 minutes, for a first bootstrap that downloads every jar.
@@ -429,14 +438,15 @@ services:
   steward-agent:
     profiles: ["steward"]
     build:
-      context: ./steward-agent
+      <<: *jvm-build
+      args: { MODULE: steward-agent }
     image: ${STEWARD_AGENT_IMAGE:-ghcr.io/nordtal/steward-agent:latest}
     restart: unless-stopped
     # Reachable from steward alone, and with no way out: the daemon behind the socket does the pulling.
     networks: ["agent"]
     healthcheck:
-      # The alpine image has wget, not curl.
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/api/health"]
+      # The marker is written once the API listens.
+      test: *readiness
       interval: 30s
       timeout: 10s
       retries: 3
@@ -463,14 +473,15 @@ services:
   steward-bunq:
     profiles: ["steward"]
     build:
-      context: ./steward-bunq
+      <<: *jvm-build
+      args: { MODULE: steward-bunq }
     image: ${STEWARD_BUNQ_IMAGE:-ghcr.io/nordtal/steward-bunq:latest}
     restart: unless-stopped
     # `bank` is steward's way in, `bank-egress` its own way out to bunq; nobody else is on either.
     networks: ["bank", "bank-egress"]
     healthcheck:
-      # The alpine image has wget, not curl.
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8082/api/health"]
+      # The marker is written once the API listens.
+      test: *readiness
       interval: 30s
       timeout: 10s
       retries: 3

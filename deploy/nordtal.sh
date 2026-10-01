@@ -1435,7 +1435,7 @@ if $BUILD_AGENT; then
        published image."
     log "building $AGENT_IMAGE from $checkout"
     sh "$checkout/gradlew" :steward-agent:build
-    docker build -t "$AGENT_IMAGE" "$checkout/steward-agent"
+    docker build -f "$checkout/deploy/jvm/Dockerfile" --build-arg MODULE=steward-agent -t "$AGENT_IMAGE" "$checkout"
 else
     log "pulling $AGENT_IMAGE"
     docker pull "$AGENT_IMAGE" || die "could not pull $AGENT_IMAGE. A registry that answers

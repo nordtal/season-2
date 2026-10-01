@@ -49,7 +49,7 @@ class InternalServerTest {
         final String base = "http://127.0.0.1:" + running.port();
 
         final InternalClient stranger = new InternalClient("steward-bunq", base, "a-guess", Duration.ofSeconds(5));
-        assertTrue(stranger.isReachable(), "health is open, for the compose healthcheck");
+        assertTrue(stranger.isReachable(), "health is open, so steward can ask whether the service is up");
         assertEquals(
                 401,
                 assertThrows(InternalClient.Failure.class, () -> stranger.get("/api/thing"))

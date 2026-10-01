@@ -106,5 +106,5 @@ recorded from the live GitHub, Modrinth and PaperMC APIs, and `TopologyTest` rea
 
 ## Output
 
-The report goes to stdout and every log line to stderr, which is why this module has its own
-`logback.xml`.
+The report goes to stdout and every log line to stderr, which is where the one
+`deploy/jvm/logback.xml` every JVM service shares writes them.

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.internalapi;
 
+import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.json.Json;
 import io.javalin.Javalin;
 import io.javalin.config.JavalinConfig;
@@ -7,6 +8,7 @@ import io.javalin.http.UnauthorizedResponse;
 import io.javalin.json.JavalinGson;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Clock;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -27,7 +29,7 @@ public final class InternalServer {
     /** The header the shared secret travels in. */
     public static final String TOKEN_HEADER = "X-Steward-Token";
 
-    /** The one unguarded route, for the compose healthcheck and {@link InternalClient#isReachable()}. */
+    /** The one unguarded route, for {@link InternalClient#isReachable()}; the container's health is the marker. */
     public static final String HEALTH = "/api/health";
 
     private final String service;
@@ -63,6 +65,17 @@ public final class InternalServer {
         final int port = Integer.parseInt(setting("PORT", String.valueOf(defaultPort)));
         final Javalin server = create(setting("TOKEN", ""), routes).start(port);
         log.info("{} listening on {}", service, port);
+        return server;
+    }
+
+    /**
+     * Starts as {@link #start} does, then keeps the readiness marker fresh that the container's healthcheck reads.
+     *
+     * @param clock the process's one clock, which stamps the marker
+     */
+    public Javalin serve(final int defaultPort, final Clock clock, final Consumer<JavalinConfig> routes) {
+        final Javalin server = start(defaultPort, routes);
+        Readiness.onDefaultPath(clock, log::warn).keepBeating();
         return server;
     }
 

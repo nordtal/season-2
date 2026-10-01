@@ -46,9 +46,7 @@ jobs:
       # Catches a broken Dockerfile on every push.
       - name: Build the images without pushing
         run: |
-          version="$(grep '^version=' gradle.properties | cut -d= -f2)"
-          docker build --build-arg "JAR=build/libs/discord-bot-$version.jar" \
-            -t nordtal/discord-bot:ci discord-bot
-          docker build --build-arg "JAR=build/libs/steward-$version.jar" \
-            -t nordtal/steward:ci steward
+          for module in discord-bot steward steward-agent steward-bunq; do
+            docker build -f deploy/jvm/Dockerfile --build-arg "MODULE=$module" -t "nordtal/$module:ci" .
+          done
           docker build -t nordtal/minecraft:ci deploy/minecraft

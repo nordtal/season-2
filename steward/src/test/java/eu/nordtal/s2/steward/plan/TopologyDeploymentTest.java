@@ -29,6 +29,10 @@ import org.yaml.snakeyaml.Yaml;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TopologyDeploymentTest {
 
+    /** Every service that runs one of our jars on the image template; each writes the readiness marker. */
+    private static final List<String> JVM_SERVICES =
+            List.of(Topology.DISCORD_BOT, Topology.STEWARD, AgentRecreate.SERVICE, BankWire.SERVICE);
+
     private final Map<String, Object> services = readComposeServices();
 
     @Test
@@ -66,7 +70,7 @@ class TopologyDeploymentTest {
     @Test
     void everyProcessThatCanFailSilentlyReportsAReadinessMarkerToItsContainer() {
         // The marker decides readiness, not the port: a disabled plugin still leaves the port open.
-        final List<String> named = new java.util.ArrayList<>(List.of(Topology.DISCORD_BOT));
+        final List<String> named = new java.util.ArrayList<>(JVM_SERVICES);
         Topology.SERVICES.forEach(service -> named.add(service.name()));
 
         for (final String name : named) {
@@ -97,7 +101,7 @@ class TopologyDeploymentTest {
     void theStalenessWindowInComposeYmlIsStillTheOneReadinessBeatsTo() {
         // compose.yml's shell test cannot read the Java constant, so the window is a second copy that can only drift.
         final java.util.regex.Pattern window = java.util.regex.Pattern.compile("-lt (\\d+)");
-        final List<String> named = new java.util.ArrayList<>(List.of(Topology.DISCORD_BOT));
+        final List<String> named = new java.util.ArrayList<>(JVM_SERVICES);
         Topology.SERVICES.forEach(service -> named.add(service.name()));
 
         for (final String name : named) {
@@ -550,6 +554,43 @@ class TopologyDeploymentTest {
                             + " never builds, so that image exists only where somebody built it by"
                             + " hand and the deploy fails with `denied` everywhere else.");
         });
+    }
+
+    @Test
+    void everyJvmServiceBuildsFromTheOneTemplateUnderItsOwnName() throws IOException {
+        final String template = Files.readString(findUpwards("deploy/jvm/Dockerfile"), StandardCharsets.UTF_8);
+        final List<String> admitted = Files.readAllLines(findUpwards(".dockerignore"), StandardCharsets.UTF_8).stream()
+                .map(String::strip)
+                .toList();
+        services.forEach((name, definition) -> {
+            final Object build = ((Map<?, ?>) definition).get("build");
+            if (build instanceof Map<?, ?> map && "deploy/jvm/Dockerfile".equals(map.get("dockerfile"))) {
+                assertTrue(
+                        JVM_SERVICES.contains(name),
+                        "'" + name + "' builds from the JVM template but is not in JVM_SERVICES, so nothing"
+                                + " here holds its readiness marker.");
+            }
+        });
+        assertAll(JVM_SERVICES.stream().map(name -> () -> {
+            final Object build = ((Map<?, ?>) services.get(name)).get("build");
+            assertTrue(build instanceof Map<?, ?>, "'" + name + "' has no build: block");
+            final Map<?, ?> map = (Map<?, ?>) build;
+            assertEquals(
+                    ".", map.get("context"), "'" + name + "' builds from another context than the repository root");
+            assertEquals(
+                    "deploy/jvm/Dockerfile", map.get("dockerfile"), "'" + name + "' builds from its own Dockerfile");
+            final Object args = map.get("args");
+            assertEquals(
+                    name,
+                    args instanceof Map<?, ?> given ? given.get("MODULE") : null,
+                    "'" + name + "' passes another MODULE, so its image runs another module's jar");
+            assertTrue(
+                    template.lines().anyMatch(line -> line.strip().equals("FROM jvm AS " + name)),
+                    "deploy/jvm/Dockerfile has no stage '" + name + "', so its build fails on the last FROM.");
+            assertTrue(
+                    admitted.contains("!" + name + "/build/libs/*.jar"),
+                    "/.dockerignore does not let " + name + "'s jar in, so the image has nothing to COPY.");
+        }));
     }
 
     @Test

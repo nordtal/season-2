@@ -36,6 +36,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V2__bot_reads_the_milestone_track.sql",
                 "49cbf2fccb6d506c021acfb4dacecaf8d4153f951c5fd55b229d03999d9e0cf4");
+        FROZEN.put(
+                "V3__table_comments_name_steward.sql",
+                "7d87a6342e09b1693c4822884f70a99ddf9cf1ba96377deb8b0fd83c8912ef96");
     }
 
     @Test

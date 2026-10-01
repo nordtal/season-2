@@ -25,8 +25,8 @@ deploy/
 
 ## First deployment, in order
 
-A deploy pulls and never builds. The four images (`minecraft`, `steward`, `discord-bot`,
-`steward-agent`) are pushed to `ghcr.io/nordtal` by
+A deploy pulls and never builds. The images (`minecraft`, `steward`, `steward-agent`, `steward-bunq`,
+`discord-bot`, `caddy`) are pushed to `ghcr.io/nordtal` by
 [`release.yml`](../.github/workflows/release.yml) when a release is published.
 
 1. **Publish a release** and let `release.yml` finish.

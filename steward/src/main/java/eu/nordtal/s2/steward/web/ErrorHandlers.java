@@ -1,8 +1,8 @@
 package eu.nordtal.s2.steward.web;
 
 import eu.nordtal.s2.database.DatabaseText;
+import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.messages.Refused;
-import eu.nordtal.s2.steward.agent.AgentClient;
 import eu.nordtal.s2.steward.docker.DockerException;
 import io.javalin.config.JavalinConfig;
 import java.util.Map;
@@ -52,7 +52,7 @@ final class ErrorHandlers {
                             failure.body() == null ? "" : failure.body()));
         });
 
-        cfg.routes.exception(AgentClient.Failure.class, (failure, ctx) -> {
+        cfg.routes.exception(InternalClient.Failure.class, (failure, ctx) -> {
             log.warn("{} did not answer: {}", failure.where(), failure.getMessage());
             ctx.status(failure.status() == 0 ? 502 : failure.status())
                     .json(Map.of(

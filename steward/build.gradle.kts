@@ -48,8 +48,10 @@ repositoryRootTestInputs {
     reads("steward/README.md")
     reads("steward-agent/README.md")
 
-    // NothingIsGermanTest reads the agent's sources beside this module's own.
-    readsTree("steward-agent/src")
+    // NothingIsGermanTest reads the agent's, steward-bunq's and the internal wire's sources beside this module's own.
+    readsTree("steward-agent/src", "steward-bunq/src", "internal-api/src")
+    reads("steward-bunq/README.md")
+    reads("internal-api/README.md")
 
     reads("discord-bot/src/main/resources/messages/access/de.properties")
     reads("discord-bot/src/main/resources/messages/access/en.properties")
@@ -238,11 +240,8 @@ dependencies {
     // Web Push, VAPID and aes128gcm; the version catalog says why this library and not the Bouncy Castle fork.
     implementation(libs.webpush)
 
-    // BunqRequestBuilder patches the SDK's own class; read it before touching this or the OkHttp version.
-    implementation(libs.bunq.sdk)
-
-    // The patched BunqRequestBuilder extends okhttp3.Request.Builder, which the SDK ships at runtime scope only.
-    implementation(libs.okhttp)
+    // The guarded wire to steward-agent and steward-bunq; the bank SDK and its key stay in steward-bunq.
+    implementation(project(":internal-api"))
 
     // :database takes the driver, JDBI, HikariCP and slf4j compileOnly; the bundle puts them on the runtime path.
     implementation(project(":database"))

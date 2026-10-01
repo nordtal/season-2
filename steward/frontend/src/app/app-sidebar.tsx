@@ -37,7 +37,7 @@ export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "
             {group.entries.map((entry) => {
               const isActive = entry.id === active
               /**
-               * Only the nine container rows carry a dot, keyed by the service name `navigation.ts` put in the params.
+               * Only the ten container rows carry a dot, keyed by the service name `navigation.ts` put in the params.
                */
               const service =
                 group.id === "services"

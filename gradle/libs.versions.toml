@@ -10,7 +10,7 @@ jcore = "4.4.0"
 displaytags = "latest.release"
 jda = "6.0.0-rc.4"
 bunq = "1.28.0.6"
-# steward compiles a patched bunq SDK class against OkHttp; must equal what the SDK resolves.
+# steward-bunq compiles a patched bunq SDK class against OkHttp; must equal what the SDK resolves.
 okhttp = "3.14.9"
 guava = "33.6.0-jre"
 logback = "1.5.18"

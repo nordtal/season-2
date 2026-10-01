@@ -7,12 +7,12 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 /**
- * Records whether steward has bunq credentials, so the bot can tell before offering a purchase.
+ * Records whether steward-bunq has bunq credentials, so the bot can tell before offering a purchase.
  * Written at every steward start; a missing row is {@link State#UNKNOWN}, not off.
  */
 public final class PaymentGateway {
 
-    /** What steward last said about its bunq credentials. */
+    /** What steward last found out about steward-bunq's credentials. */
     public enum State {
 
         /** An API key and an account id are both set; the poll runs and a tab can be made. */

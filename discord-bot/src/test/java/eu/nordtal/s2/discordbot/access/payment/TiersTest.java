@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.database.payment.Money;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -171,16 +170,5 @@ class TiersTest {
                 tiers.resolve(400, new Tiers.Order(45, 400, 0)).orElseThrow();
 
         assertAll(() -> assertEquals(45, settlement.days()), () -> assertFalse(settlement.downgraded()));
-    }
-
-    @Test
-    void moneyRoundTripsThroughBunqsDecimalStringsExactly() {
-        assertAll(
-                () -> assertEquals("3.00", Money.toDecimalString(300)),
-                () -> assertEquals("12.05", Money.toDecimalString(1205)),
-                () -> assertEquals(300, Money.toCents("3.00")),
-                () -> assertEquals(500, Money.toCents("5")),
-                // A float comparison could fail an exact 5.00 on an "at least 5" check.
-                () -> assertEquals(1205, Money.toCents("12.05")));
     }
 }

@@ -129,48 +129,16 @@ class StewardSettingsTest {
     }
 
     @Test
-    void aFreshFileHasNoBunqCredentialsAndThatIsAValidDeployment() throws Exception {
+    void aFreshFileHasNoBankTokenAndThatIsAValidDeployment() throws Exception {
         final StewardSpec.BunqSpec bunq =
                 StewardSettings.steward(directory, LOGGER).get().bunq();
 
         // Empty is the default and the load succeeds: a season with no bank account must still be able to start.
-        assertEquals("", bunq.apiKey());
-        assertEquals("", bunq.accountId());
+        assertEquals("", bunq.token());
+        assertEquals("http://steward-bunq:8082", bunq.url());
         assertEquals(30, bunq.pollIntervalSeconds());
         assertEquals(50, bunq.recentPaymentCount());
         assertEquals("", bunq.watermark(), "the first start stamps its own instant; see Watermark");
-    }
-
-    @Test
-    void halfABunqCredentialIsRefused() throws Exception {
-        // A key with no matching account is always a setup stopped midway, and the message has to say what happened.
-        Files.writeString(directory.resolve("steward.yml"), """
-                bunq:
-                  api-key: 'a-key'
-                  account-id: ''
-                """);
-
-        final SettingsException error =
-                assertThrows(SettingsException.class, () -> StewardSettings.steward(directory, LOGGER));
-
-        final String message = String.valueOf(error.getMessage()) + error.getCause();
-        assertTrue(message.contains("both api-key and account-id or neither"), message);
-    }
-
-    @Test
-    void aNonNumericBunqAccountIdIsCaughtAtStartupNotInsideAPoll() throws Exception {
-        Files.writeString(directory.resolve("steward.yml"), """
-                bunq:
-                  api-key: 'a-key'
-                  account-id: 'NL91BUNQ0417164300'
-                """);
-
-        final SettingsException error =
-                assertThrows(SettingsException.class, () -> StewardSettings.steward(directory, LOGGER));
-
-        // A bad IBAN parses as a long id and must not surface as a bare NumberFormatException at startup.
-        final String message = String.valueOf(error.getMessage()) + error.getCause();
-        assertTrue(message.contains("must be a number"), message);
     }
 
     @Test
@@ -189,11 +157,10 @@ class StewardSettingsTest {
     }
 
     @Test
-    void aCompleteBunqBlockLoadsAndTheIdKeepsItsOwnText() throws Exception {
+    void aCompleteBunqBlockLoads() throws Exception {
         Files.writeString(directory.resolve("steward.yml"), """
                 bunq:
-                  api-key: 'a-key'
-                  account-id: '987654'
+                  token: 'a-token'
                   poll-interval-seconds: 45
                   recent-payment-count: 10
                   watermark: '2026-09-01T00:00:00Z'
@@ -201,7 +168,7 @@ class StewardSettingsTest {
 
         final StewardSpec.BunqSpec bunq =
                 StewardSettings.steward(directory, LOGGER).get().bunq();
-        assertEquals("987654", bunq.accountId());
+        assertEquals("a-token", bunq.token());
         assertEquals(45, bunq.pollIntervalSeconds());
         assertEquals(10, bunq.recentPaymentCount());
         assertEquals("2026-09-01T00:00:00Z", bunq.watermark());

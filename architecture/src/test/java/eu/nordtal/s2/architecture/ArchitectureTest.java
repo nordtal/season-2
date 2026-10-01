@@ -131,6 +131,33 @@ class ArchitectureTest {
                 "eu.nordtal.s2.packrendering..");
     }
 
+    /** The wire to the internal services: Javalin and the kernel, and nothing a service does behind it. */
+    @Test
+    void theInternalWireDependsOnJavalinAndTheKernelAlone() {
+        onlyOn(
+                "eu.nordtal.s2.internalapi..",
+                "java..",
+                "org.jspecify..",
+                "org.slf4j..",
+                "io.javalin..",
+                "com.google.gson..",
+                "eu.nordtal.s2.common..",
+                "eu.nordtal.s2.internalapi..");
+    }
+
+    /** The bank key is only useful to whatever can call bunq, so nothing outside steward-bunq can. */
+    @Test
+    void onlyStewardBunqHoldsTheBankClient() {
+        noClasses()
+                .that()
+                .resideOutsideOfPackage("eu.nordtal.s2.stewardbunq..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAPackage("com.bunq..")
+                .because("steward and everything else reach the bank through steward-bunq's internal API")
+                .check(classes);
+    }
+
     @Test
     void neitherTheBotNorStewardRendersForMinecraft() {
         noClasses()

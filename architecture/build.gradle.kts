@@ -19,6 +19,8 @@ val checkedModules =
         ":discord-bot",
         ":steward",
         ":steward-agent",
+        ":steward-bunq",
+        ":internal-api",
         ":dev",
     )
 

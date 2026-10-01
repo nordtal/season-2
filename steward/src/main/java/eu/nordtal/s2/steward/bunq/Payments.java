@@ -1,6 +1,5 @@
 package eu.nordtal.s2.steward.bunq;
 
-import com.bunq.sdk.model.generated.endpoint.PaymentApiObject;
 import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.inbox.BankRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
@@ -11,6 +10,7 @@ import eu.nordtal.s2.database.payment.PaymentMatch;
 import eu.nordtal.s2.database.payment.PaymentRequest;
 import eu.nordtal.s2.database.payment.PaymentRequestStatus;
 import eu.nordtal.s2.database.payment.PaymentRequests;
+import eu.nordtal.s2.internalapi.BankWire;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Map;
@@ -18,7 +18,6 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import lombok.extern.slf4j.Slf4j;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
-import org.jspecify.annotations.Nullable;
 
 /**
  * Does everything that has to happen at bunq, driven by the bank's inbox and the {@code payment_request} table.
@@ -39,7 +38,7 @@ public final class Payments {
     /** How much of a failure message is worth putting in front of the person who is waiting. */
     private static final int REASON_LIMIT = 400;
 
-    private final BunqGateway bunq;
+    private final Bank bunq;
     private final PaymentRequests requests;
     private final Inbox<BankRequest> inbox;
     private final Instant watermark;
@@ -55,7 +54,7 @@ public final class Payments {
      * @param recentPaymentCount how many recent payments the fallback scan reads per pass
      */
     public Payments(
-            final BunqGateway bunq,
+            final Bank bunq,
             final PaymentRequests requests,
             final Inbox<BankRequest> inbox,
             final Instant watermark,
@@ -117,7 +116,7 @@ public final class Payments {
         if (request.status() != PaymentRequestStatus.OPEN || request.tab().isPresent()) {
             return Outcome.done(Map.of("nothing", "the request is closed or has its tab"));
         }
-        final BunqGateway.Tab tab;
+        final BankWire.Tab tab;
         try {
             tab = bunq.createTab(request.amountCents(), request.reference());
         } catch (final RuntimeException failure) {
@@ -160,29 +159,28 @@ public final class Payments {
     private void matchByTab() {
         for (final PaymentRequest request : requests.openWithTab()) {
             final long tabId = request.tab().orElseThrow();
-            for (final PaymentApiObject payment : bunq.paymentsFor(tabId)) {
-                final Integer cents = eligible(payment);
-                if (cents == null) {
-                    continue;
+            for (final BankWire.Payment payment : bunq.paymentsFor(tabId)) {
+                if (eligible(payment)) {
+                    attribute(request, payment.id(), payment.cents(), PaymentMatch.TAB);
+                    break;
                 }
-                attribute(request, payment.getId(), cents, PaymentMatch.TAB);
-                break;
             }
         }
     }
 
     private void matchByReference() {
-        for (final PaymentApiObject payment : bunq.recentPayments(recentPaymentCount)) {
-            final Integer cents = eligible(payment);
-            if (cents == null) {
+        for (final BankWire.Payment payment : bunq.recentPayments(recentPaymentCount)) {
+            if (!eligible(payment)) {
                 continue;
             }
+            final long paymentId = payment.id();
+            final int cents = payment.cents();
 
-            final String description = payment.getDescription() == null ? "" : payment.getDescription();
-            final Matcher matcher = PaymentRequests.REFERENCE_PATTERN.matcher(description.toUpperCase(Locale.ROOT));
+            final Matcher matcher = PaymentRequests.REFERENCE_PATTERN.matcher(
+                    payment.description().toUpperCase(Locale.ROOT));
             if (!matcher.find()) {
                 // Money unrelated to this network; reporting every one would flood the admin channel.
-                log.debug("Payment {} carries no NT- reference; ignoring it", payment.getId());
+                log.debug("Payment {} carries no NT- reference; ignoring it", paymentId);
                 continue;
             }
 
@@ -190,22 +188,22 @@ public final class Payments {
             final Optional<PaymentRequest> request = requests.byReference(reference);
             if (request.isEmpty()) {
                 requests.noticeOnce(
-                        payment.getId(),
+                        paymentId,
                         UNMATCHED,
-                        "Payment " + payment.getId() + " (" + Money.format(cents) + ") carries reference `" + reference
+                        "Payment " + paymentId + " (" + Money.format(cents) + ") carries reference `" + reference
                                 + "`, which no request has.");
                 continue;
             }
             if (request.get().status() != PaymentRequestStatus.OPEN) {
                 requests.noticeOnce(
-                        payment.getId(),
+                        paymentId,
                         EXPIRED_REFERENCE,
-                        "Payment " + payment.getId() + " (" + Money.format(cents) + ") arrived on `"
+                        "Payment " + paymentId + " (" + Money.format(cents) + ") arrived on `"
                                 + reference + "`, which is " + request.get().status()
                                 + ". Book it by hand with `/settle " + reference + "` if it is genuine.");
                 continue;
             }
-            attribute(request.get(), payment.getId(), cents, PaymentMatch.REFERENCE);
+            attribute(request.get(), paymentId, cents, PaymentMatch.REFERENCE);
         }
     }
 
@@ -238,23 +236,9 @@ public final class Payments {
         }
     }
 
-    /**
-     * Returns the amount in cents when this payment may be considered at all.
-     *
-     * @return the cents, or {@code null} when not EUR, not positive, before the watermark or already claimed
-     */
-    private @Nullable Integer eligible(final PaymentApiObject payment) {
-        if (payment.getId() == null) {
-            return null;
-        }
-        final Instant created = BunqGateway.createdAt(payment);
-        if (created == null || created.isBefore(watermark)) {
-            return null;
-        }
-        if (requests.alreadyBooked(payment.getId())) {
-            return null;
-        }
-        return BunqGateway.positiveEuroCents(payment);
+    /** Returns whether a payment may be considered at all: created after the watermark and not booked already. */
+    private boolean eligible(final BankWire.Payment payment) {
+        return !Instant.parse(payment.created()).isBefore(watermark) && !requests.alreadyBooked(payment.id());
     }
 
     /** Returns what to write into {@code tab_failed}: the message, bounded, since the person waiting sees it. */

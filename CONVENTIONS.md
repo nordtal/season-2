@@ -97,4 +97,4 @@ The release notes are generated from these subjects by git-cliff (`cliff.toml`).
 - **YAML, Markdown and JSON** are formatted by oxfmt. _(checked)_
 - **SQL migrations** are never reformatted: an applied migration whose checksum changes is refused
   by Flyway `validate()`.
-- The one file under `steward/src/main/java/com/bunq/sdk` keeps the vendor's package.
+- The one file under `steward-bunq/src/main/java/com/bunq/sdk` keeps the vendor's package.

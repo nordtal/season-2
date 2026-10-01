@@ -32,7 +32,7 @@ dependencies {
 
     implementation(libs.jda)
 
-    // No bunq SDK here: the key and the patched BunqRequestBuilder live only in :steward.
+    // No bunq SDK here: the key and the patched BunqRequestBuilder live only in :steward-bunq.
 
     // Compile-only for SchemaCheck: jcore ships Flyway, and two versions on one classpath break its ServiceLoader.
     compileOnly(libs.flyway.core)

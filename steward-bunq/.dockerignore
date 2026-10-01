@@ -1,0 +1,6 @@
+# Excludes everything, then adds back each file the Dockerfile COPYs; a new COPY needs a line here.
+*
+!build/libs/*.jar
+
+# The thin jar must stay out: the Dockerfile copies build/libs by glob and would take either jar.
+build/libs/*-thin.jar

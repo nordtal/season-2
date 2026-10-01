@@ -20,7 +20,7 @@ describe("activeEntryId - the longest match wins", () => {
     expect(activeEntryId("/operations/backups", NAVIGATION)).toBe("operations-backups")
   })
 
-  it("keeps the right service selected rather than all nine of them", () => {
+  it("keeps the right service selected rather than all ten of them", () => {
     /** Every service entry shares /services, so the resolved href with the real name decides. */
     expect(activeEntryId("/services/limbo", NAVIGATION)).toBe("service-limbo")
     expect(activeEntryId("/services/steward", NAVIGATION)).toBe("service-steward")

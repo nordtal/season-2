@@ -1,4 +1,4 @@
-package eu.nordtal.s2.steward.agent;
+package eu.nordtal.s2.internalapi;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -18,15 +18,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 /**
- * The two decisions {@link AgentClient} makes before and after the wire.
+ * The two decisions {@link InternalClient} makes before and after the wire.
  *
  * A real socket shows the JDK client, built as this class builds it, hands a {@code 307} back rather than following it.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class AgentClientTest {
+class InternalClientTest {
 
     private static HttpServer server;
-    private static AgentClient client;
+    private static InternalClient client;
 
     @BeforeAll
     static void startAServerThatAnswersWhateverIsAskedOfIt() throws IOException {
@@ -60,8 +60,11 @@ class AgentClientTest {
         // A thread per exchange, so the slow handler does not stall the rest on the default executor.
         server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
         server.start();
-        client =
-                new AgentClient("http://127.0.0.1:" + server.getAddress().getPort(), "a-secret", Duration.ofSeconds(5));
+        client = new InternalClient(
+                "steward-agent",
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "a-secret",
+                Duration.ofSeconds(5));
     }
 
     @AfterAll
@@ -83,7 +86,7 @@ class AgentClientTest {
         }) {
             final IllegalArgumentException refused = assertThrows(
                     IllegalArgumentException.class,
-                    () -> new AgentClient(outside, "a-secret", Duration.ofSeconds(1)),
+                    () -> new InternalClient("steward-agent", outside, "a-secret", Duration.ofSeconds(1)),
                     outside);
             assertTrue(
                     refused.getMessage().contains("steward-agent")
@@ -106,15 +109,15 @@ class AgentClientTest {
             "http://[::1]:8081",
             "http://steward:8081/"
         }) {
-            new AgentClient(inside, "a-secret", Duration.ofSeconds(1));
+            new InternalClient("steward-agent", inside, "a-secret", Duration.ofSeconds(1));
         }
     }
 
     @Test
     void nothingToProtectMeansNothingToRefuse() {
-        // The unconfigured agent already refuses everything through AgentApi#require.
-        new AgentClient("http://steward.nordtal.eu", "", Duration.ofSeconds(1));
-        new AgentClient("http://anything.example.com", "   ", Duration.ofSeconds(1));
+        // The unconfigured agent already refuses everything through the caller's own check.
+        new InternalClient("steward-agent", "http://steward.nordtal.eu", "", Duration.ofSeconds(1));
+        new InternalClient("steward-agent", "http://anything.example.com", "   ", Duration.ofSeconds(1));
     }
 
     @Test
@@ -122,13 +125,13 @@ class AgentClientTest {
         // A forgotten scheme parses as scheme `steward` with no host, which must land in the refusal.
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new AgentClient("steward:8081", "a-secret", Duration.ofSeconds(1)));
+                () -> new InternalClient("steward-agent", "steward:8081", "a-secret", Duration.ofSeconds(1)));
     }
 
     @Test
     void aRedirectIsNotASuccess() {
         // A client that followed redirects would answer 200 or hang here.
-        final AgentClient.Failure refused = assertThrows(AgentClient.Failure.class, () -> client.get("/api/307"));
+        final InternalClient.Failure refused = assertThrows(InternalClient.Failure.class, () -> client.get("/api/307"));
 
         assertEquals(307, refused.status());
         assertEquals(
@@ -140,7 +143,7 @@ class AgentClientTest {
         // The same status through post(); what the message says is a separate matter, deliberately not asserted.
         assertEquals(
                 307,
-                assertThrows(AgentClient.Failure.class, () -> client.post("/api/307", "{}"))
+                assertThrows(InternalClient.Failure.class, () -> client.post("/api/307", "{}"))
                         .status());
     }
 
@@ -159,7 +162,7 @@ class AgentClientTest {
         assertEquals("body of 200", client.get("/api/200"));
         assertEquals("body of 201", client.post("/api/201", "{}"));
 
-        final AgentClient.Failure refused = assertThrows(AgentClient.Failure.class, () -> client.get("/api/400"));
+        final InternalClient.Failure refused = assertThrows(InternalClient.Failure.class, () -> client.get("/api/400"));
         assertEquals(400, refused.status());
         assertEquals(
                 "body of 400",
@@ -169,20 +172,22 @@ class AgentClientTest {
 
         assertEquals(
                 500,
-                assertThrows(AgentClient.Failure.class, () -> client.get("/api/500"))
+                assertThrows(InternalClient.Failure.class, () -> client.get("/api/500"))
                         .status());
         assertEquals(
                 404,
-                assertThrows(AgentClient.Failure.class, () -> client.post("/api/404", "{}"))
+                assertThrows(InternalClient.Failure.class, () -> client.post("/api/404", "{}"))
                         .status());
     }
 
     @Test
     void anUnreachableServiceIsASentence() {
         // Unreachable has to be distinguishable from "answered something I did not like": different problems.
-        final AgentClient nobody = new AgentClient("http://127.0.0.1:1", "a-secret", Duration.ofMillis(500));
+        final InternalClient nobody =
+                new InternalClient("steward-agent", "http://127.0.0.1:1", "a-secret", Duration.ofMillis(500));
 
-        final AgentClient.Failure failure = assertThrows(AgentClient.Failure.class, () -> nobody.get("/api/health"));
+        final InternalClient.Failure failure =
+                assertThrows(InternalClient.Failure.class, () -> nobody.get("/api/health"));
         assertEquals(502, failure.status());
         assertEquals("steward-agent", failure.where());
         assertTrue(failure.getMessage().contains("steward-agent"), failure.getMessage());
@@ -191,10 +196,14 @@ class AgentClientTest {
     @Test
     void aSlowServiceIsNotAnAbsentOne() {
         // HttpTimeoutException is an IOException, so the two must be caught in an order that tells them apart.
-        final AgentClient patient = new AgentClient(
-                "http://127.0.0.1:" + server.getAddress().getPort(), "a-secret", Duration.ofMillis(300));
+        final InternalClient patient = new InternalClient(
+                "steward-agent",
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "a-secret",
+                Duration.ofMillis(300));
 
-        final AgentClient.Failure failure = assertThrows(AgentClient.Failure.class, () -> patient.get("/api/slow"));
+        final InternalClient.Failure failure =
+                assertThrows(InternalClient.Failure.class, () -> patient.get("/api/slow"));
         assertEquals(504, failure.status());
         assertEquals("steward-agent", failure.where());
         assertTrue(
@@ -205,9 +214,11 @@ class AgentClientTest {
 
     @Test
     void theSentenceNamesThePath() {
-        final AgentClient nobody = new AgentClient("http://127.0.0.1:1", "a-secret", Duration.ofMillis(500));
+        final InternalClient nobody =
+                new InternalClient("steward-agent", "http://127.0.0.1:1", "a-secret", Duration.ofMillis(500));
 
-        final AgentClient.Failure failure = assertThrows(AgentClient.Failure.class, () -> nobody.get("/api/services"));
+        final InternalClient.Failure failure =
+                assertThrows(InternalClient.Failure.class, () -> nobody.get("/api/services"));
         assertTrue(failure.getMessage().contains("/api/services"), failure.getMessage());
     }
 }

@@ -161,7 +161,7 @@ describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
     const paper = [...byMember.values()].find((members) => members.has("smp"))
     const deploy = [...byMember.values()].find((members) => members.has("steward-agent"))
     expect(paper && [...paper].toSorted()).toEqual(["hunger-games", "limbo", "smp"])
-    expect(deploy && [...deploy].toSorted()).toEqual(["steward-agent"])
+    expect(deploy && [...deploy].toSorted()).toEqual(["steward-agent", "steward-bunq"])
   })
 
   it("packs a group's members GROUP_GAP apart under one frame padded by GROUP_PADDING on every side", () => {

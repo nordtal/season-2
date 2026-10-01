@@ -303,8 +303,8 @@ declare -A QUESTION_HINT=(
         and make sure your own account has it."
     [NORDTAL_STEWARD_BUNQ_API_KEY]="Without it the whole stack starts and runs; steward just never polls bunq, and access
         can only be granted by hand - through the interface or through /access in Discord."
-    [NORDTAL_STEWARD_BUNQ_ACCOUNT_ID]="A number. steward refuses to start with a key and no account, because a poll loop
-        with nowhere to look would be a silent one."
+    [NORDTAL_STEWARD_BUNQ_ACCOUNT_ID]="A number. steward-bunq refuses to start with a key and no account, because a poll
+        loop with nowhere to look would be a silent one."
     [COMPOSE_PROFILES]="A comma-separated list. The production selection is db,bot,mc,backup,steward and there is
         rarely a reason to type anything else; 'steward' has to be in it or the interface is defined
         and never started."
@@ -322,6 +322,7 @@ GENERATED=(
     POSTGRES_STEWARD_PASSWORD
     VELOCITY_FORWARDING_SECRET
     STEWARD_AGENT_TOKEN
+    STEWARD_BUNQ_TOKEN
     STEWARD_WEB_PUSH_PUBLIC_KEY
     STEWARD_WEB_PUSH_PRIVATE_KEY
 )
@@ -986,7 +987,7 @@ for question in "${QUESTIONS[@]}"; do
     ask_question "$question"
 done
 
-# bunq is optional: without it nothing polls for payments. The key lives in steward.
+# bunq is optional: without it nothing polls for payments. The key lives in steward-bunq alone.
 if ask_question NORDTAL_STEWARD_BUNQ_API_KEY; then
     ask_question NORDTAL_STEWARD_BUNQ_ACCOUNT_ID
 fi
@@ -996,9 +997,9 @@ fi
 for stale in NORDTAL_BOT_BUNQ_API_KEY NORDTAL_BOT_BUNQ_ACCOUNT_ID; do
     if [[ -n "$(env_value "$ENV_FILE" "$stale")" ]]; then
         warn "$ENV_FILE still has $stale. Nothing reads it - bunq lives in
-       steward and the names are NORDTAL_STEWARD_BUNQ_API_KEY and
+       steward-bunq and the names are NORDTAL_STEWARD_BUNQ_API_KEY and
        NORDTAL_STEWARD_BUNQ_ACCOUNT_ID. Delete the old line once the new one is in, and read
-       steward's first log line after the next deploy: it says 'bunq is ON' or 'bunq is
+       steward-bunq's first log line after the next deploy: it says 'bunq is ON' or 'bunq is
        OFF' in one sentence, and that sentence is the only confirmation there is."
     fi
 done
@@ -1044,7 +1045,7 @@ if $MENU; then
                 choice="$(menu_choice "$typed" "${#QUESTIONS[@]}")"
                 picked="${QUESTIONS[$(( ${choice#edit } - 1 ))]}"
                 ask_question "$picked" again || true
-                # steward refuses a bunq key without an account, so ask for both.
+                # steward-bunq refuses a bunq key without an account, so ask for both.
                 if [[ "$picked" == NORDTAL_STEWARD_BUNQ_API_KEY \
                     && -n "$(env_value "$ENV_FILE" NORDTAL_STEWARD_BUNQ_API_KEY)" \
                     && -z "$(env_value "$ENV_FILE" NORDTAL_STEWARD_BUNQ_ACCOUNT_ID)" ]]; then
@@ -1130,6 +1131,7 @@ set_secret POSTGRES_SMP_PASSWORD 24
 set_secret POSTGRES_STEWARD_PASSWORD 24
 set_secret VELOCITY_FORWARDING_SECRET 24
 set_secret STEWARD_AGENT_TOKEN
+set_secret STEWARD_BUNQ_TOKEN
 
 # 4b · the Web Push keypair
 # Minted with `steward generate-vapid-keys`, which needs neither database nor config. A half

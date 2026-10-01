@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sun.net.httpserver.HttpServer;
 import eu.nordtal.s2.common.time.Waiting;
+import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.steward.ops.ContainerOps;
 import eu.nordtal.s2.steward.ops.ImageResult;
 import eu.nordtal.s2.steward.ops.RedeployResult;
@@ -48,7 +49,11 @@ class AgentRecreateTest {
     private AgentRecreate client(final ContainerOps delegate, final Duration patience) {
         return new AgentRecreate(
                 delegate,
-                new AgentClient("http://127.0.0.1:" + server.getAddress().getPort(), "a-secret", Duration.ofSeconds(5)),
+                new InternalClient(
+                        "steward-agent",
+                        "http://127.0.0.1:" + server.getAddress().getPort(),
+                        "a-secret",
+                        Duration.ofSeconds(5)),
                 patience,
                 Waiting.on(Clock.systemUTC()));
     }
@@ -199,7 +204,7 @@ class AgentRecreateTest {
         // No HttpServer created or started at all: nothing is listening on this port, the "agent is down" case.
         final AgentRecreate client = new AgentRecreate(
                 new NoopDelegate(),
-                new AgentClient("http://127.0.0.1:1", "a-secret", Duration.ofSeconds(1)),
+                new InternalClient("steward-agent", "http://127.0.0.1:1", "a-secret", Duration.ofSeconds(1)),
                 Duration.ofSeconds(5),
                 Waiting.on(Clock.systemUTC()));
 
@@ -228,7 +233,11 @@ class AgentRecreateTest {
         final AtomicInteger calls = new AtomicInteger();
         final AgentRecreate client = new AgentRecreate(
                 new NoopDelegate(),
-                new AgentClient("http://127.0.0.1:" + server.getAddress().getPort(), "a-secret", Duration.ofSeconds(5)),
+                new InternalClient(
+                        "steward-agent",
+                        "http://127.0.0.1:" + server.getAddress().getPort(),
+                        "a-secret",
+                        Duration.ofSeconds(5)),
                 Duration.ofSeconds(5),
                 new Waiting() {
                     @Override

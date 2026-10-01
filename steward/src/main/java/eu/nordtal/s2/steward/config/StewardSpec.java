@@ -162,10 +162,10 @@ public interface StewardSpec {
     @Name("bunq")
     @Key("bunq")
     @Comment({
-        "The bank. This is the only container that holds a bunq credential or calls bunq.",
-        "All of it is optional; a season without an account works except for buying access."
+        "Payments, through steward-bunq, the only container that holds a bunq credential or calls bunq.",
+        "A season without an account works except for buying access."
     })
-    @Explain("The bunq account payments arrive in. Leave it empty for a season that sells nothing.")
+    @Explain("How payments reach the bank through steward-bunq. Without a token a season sells nothing.")
     BunqSpec bunq();
 
     @Order(15)
@@ -225,50 +225,33 @@ public interface StewardSpec {
         return "/configs";
     }
 
-    /** bunq: the credentials, the API context file and the poll; purchase settings stay in {@code access.yml}. */
+    /** Payments: where steward-bunq answers and how often it is asked; purchases are {@code access.yml}'s. */
     @ConfigSpec
     interface BunqSpec {
 
         @Order(1)
-        @Name("API key")
-        @Key("api-key")
-        @Comment({
-            "bunq API key. Set NORDTAL_STEWARD_BUNQ_API_KEY instead of filling this in.",
-            "Empty is valid, so this container logs on every start whether bunq is on."
-        })
-        @Secret
+        @Name("URL")
+        @Key("url")
+        @Comment("Where steward-bunq, the one process holding the bank key, answers from inside this container.")
         @NoExplanationNeeded
-        default String apiKey() {
-            return "";
+        default String url() {
+            return "http://steward-bunq:8082";
         }
 
         @Order(2)
-        @Name("Account ID")
-        @Key("account-id")
+        @Name("Token")
+        @Key("token")
         @Comment({
-            "The bunq monetary account id that is polled and billed. A number; steward will",
-            "not start if it is set and not numeric."
+            "The shared secret sent as X-Steward-Token to steward-bunq. Empty means this container",
+            "never asks the bank anything, so payments are off. Set NORDTAL_STEWARD_BUNQ_TOKEN instead."
         })
-        @Explain(
-                "A number, not an IBAN or alias. Steward refuses to start if it is non-numeric or only half the pair is filled in.")
-        default String accountId() {
+        @Secret
+        @Explain("The secret steward-bunq expects. Empty turns payments off: nothing here asks the bank anything.")
+        default String token() {
             return "";
         }
 
         @Order(3)
-        @Name("Context path")
-        @Key("context-path")
-        @Comment({
-            "Where the bunq API context file, which holds credentials, is kept. Empty means the",
-            "working directory. Never copy one in: bunq binds it to the device that registered it."
-        })
-        @Explain(
-                "Where the bunq API context file is kept. Never copy one in, since bunq binds it to the device that registered it.")
-        default String contextPath() {
-            return "";
-        }
-
-        @Order(4)
         @Name("Poll interval (seconds)")
         @Key("poll-interval-seconds")
         @Comment({
@@ -280,7 +263,7 @@ public interface StewardSpec {
             return 30;
         }
 
-        @Order(5)
+        @Order(4)
         @Name("Watermark")
         @Key("watermark")
         @Comment({
@@ -293,7 +276,7 @@ public interface StewardSpec {
             return "";
         }
 
-        @Order(6)
+        @Order(5)
         @Name("Recent payment count")
         @Key("recent-payment-count")
         @Comment({

@@ -105,6 +105,7 @@ the table below are compiled into the jars above.
 | `paper-common`      | library         | What the three Paper plugins share and Velocity cannot use.                                                                                      |
 | `settings`          | library         | Where every process's settings come from, and the database and colour settings they share.                                                       |
 | `resource-pack`     | assets          | The pack, its fonts, and the zip + SHA-1 a release ships.                                                                                        |
+| `architecture`      | tests           | The ArchUnit rules over every module's compiled classes: the dependency lists and the wiring.                                                    |
 
 `DisplayTags` also runs on this network and ships from
 [nordtal/papermc-display-tags](https://github.com/nordtal/papermc-display-tags).

@@ -109,7 +109,7 @@ class UpdateServerTest {
     }
 
     @Test
-    void aHandedOverRunGoesBackToTheInboxAndThisWorkerTakesNothingElse() {
+    void aHandedOverRunGoesBackToTheInboxAndThisStewardTakesNothingElse() {
         // Steward is about to exit and must not start a second request.
         final UpdateRequest update = directory.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
         directory.submit(UpdateKind.BACKUP, Actor.HOST, Duration.ZERO);

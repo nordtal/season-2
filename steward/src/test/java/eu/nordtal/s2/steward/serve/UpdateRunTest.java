@@ -81,7 +81,7 @@ class UpdateRunTest {
     }
 
     @Test
-    void stewardWorkerNeverStopsItself() {
+    void stewardNeverStopsItself() {
         final FakeContainers containers = new FakeContainers().running(Topology.STEWARD, Topology.SMP);
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
 

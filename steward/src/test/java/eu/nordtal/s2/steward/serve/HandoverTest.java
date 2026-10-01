@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 class HandoverTest {
 
     @Test
-    void aNewerWorkerInTheReleaseIsInstalledAndHandedTheRun() {
+    void aNewerStewardInTheReleaseIsInstalledAndHandedTheRun() {
         final Handover.Decision decision =
                 Handover.decide(plan(own(Change.Status.OUTDATED, "0.9.7", "0.9.8")), "0.9.7", null);
 
@@ -32,7 +32,7 @@ class HandoverTest {
     }
 
     @Test
-    void aWorkerAlreadyInTheVolumeButNotRunningIsHandedTheRunWithoutInstallingAnything() {
+    void aStewardAlreadyInTheVolumeButNotRunningIsHandedTheRunWithoutInstallingAnything() {
         // 0.9.7 in the volume, 0.9.6 answering the request.
         final Handover.Decision decision =
                 Handover.decide(plan(own(Change.Status.UP_TO_DATE, "0.9.7", "0.9.7")), "0.9.6", null);
@@ -43,20 +43,20 @@ class HandoverTest {
     }
 
     @Test
-    void theWorkerThatIsCurrentRunsTheUpdateItself() {
+    void theStewardThatIsCurrentRunsTheUpdateItself() {
         assertInstanceOf(
                 Handover.Proceed.class,
                 Handover.decide(plan(own(Change.Status.UP_TO_DATE, "0.9.8", "0.9.8")), "0.9.8", null));
     }
 
     @Test
-    void aRunScopedAwayFromTheWorkerIsNotHandedOver() {
+    void aRunScopedAwayFromStewardIsNotHandedOver() {
         // "update smp" does not name steward, so onlyServices has already dropped its row.
         assertInstanceOf(Handover.Proceed.class, Handover.decide(plan(), "0.9.7", null));
     }
 
     @Test
-    void aWorkerThatDoesNotKnowItsOwnVersionNeverHandsOver() {
+    void aStewardThatDoesNotKnowItsOwnVersionNeverHandsOver() {
         // From an IDE or a test there is no version to check a handover against.
         assertInstanceOf(
                 Handover.Proceed.class,
@@ -64,7 +64,7 @@ class HandoverTest {
     }
 
     @Test
-    void theWorkerTheRunWasHandedToFinishesIt() {
+    void theStewardTheRunWasHandedToFinishesIt() {
         final String handedOver = handedOverTo("0.9.8");
 
         assertInstanceOf(
@@ -73,7 +73,7 @@ class HandoverTest {
     }
 
     @Test
-    void aWorkerThatIsNotTheOneTheRunWasHandedToRefusesInsteadOfHandingItOverAgain() {
+    void aStewardThatIsNotTheOneTheRunWasHandedToRefusesInsteadOfHandingItOverAgain() {
         // The entrypoint started something other than the jar that was placed.
         final String handedOver = handedOverTo("0.9.8");
 
@@ -86,7 +86,7 @@ class HandoverTest {
     }
 
     @Test
-    void aFailedWorkerRowIsLeftToTheRunWhichRefusesOverItAnyway() {
+    void aFailedStewardRowIsLeftToTheRunWhichRefusesOverItAnyway() {
         // UNRESOLVED is not work; the plan's own failure handling decides what happens to it.
         assertInstanceOf(
                 Handover.Proceed.class,

@@ -249,7 +249,7 @@ class ConfigFilesReadTest {
 
     /** The same shapes again, in a hand-made fixture that does not drift with the real spec. */
     @Test
-    void aWorkerStyleFileWithAListAndTwoSectionsReadsBack() throws IOException {
+    void aStewardStyleFileWithAListAndTwoSectionsReadsBack() throws IOException {
         final Path file = directory.resolve("steward.yml");
         Files.writeString(file, """
                 # -------------------------------------------------------------------

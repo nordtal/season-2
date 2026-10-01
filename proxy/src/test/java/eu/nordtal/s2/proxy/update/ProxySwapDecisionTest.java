@@ -15,7 +15,7 @@ class ProxySwapDecisionTest {
     private static final Set<String> PROXY_NEXT = Set.of(ProxySwap.OWN_SERVICE);
 
     @Test
-    void theNameIsTheWorkersName() {
+    void theNameIsTheOneStewardStops() {
         // Must equal steward's Topology.PROXY, which this module cannot see; a mismatch silently stops swaps.
         assertEquals("proxy", ProxySwap.OWN_SERVICE);
         assertEquals(OnlineCounts.PROXY, ProxySwap.OWN_SERVICE);

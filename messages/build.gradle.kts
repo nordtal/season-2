@@ -3,14 +3,14 @@ plugins {
     id("java-library")
 }
 
-// Every message bundle and every module source the bundle and wiring tests read as text.
+// Every message bundle, which the bundle tests read off the file.
 repositoryRootTestInputs {
     readsTree("discord-bot/src/main/resources/messages")
-    readsTree("hunger-games/src/main")
-    readsTree("limbo/src/main")
-    readsTree("paper-common/src/main")
-    readsTree("proxy/src/main")
-    readsTree("smp/src/main")
+    readsTree("hunger-games/src/main/resources/messages")
+    readsTree("limbo/src/main/resources/messages")
+    readsTree("paper-common/src/main/resources/messages")
+    readsTree("proxy/src/main/resources/messages")
+    readsTree("smp/src/main/resources/messages")
 }
 
 dependencies {

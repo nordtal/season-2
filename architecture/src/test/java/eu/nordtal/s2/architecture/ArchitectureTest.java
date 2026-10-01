@@ -1,6 +1,5 @@
 package eu.nordtal.s2.architecture;
 
-import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
@@ -12,10 +11,8 @@ import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.AccessTarget.CodeUnitAccessTarget;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaConstructorCall;
-import com.tngtech.archunit.core.importer.ClassFileImporter;
 import java.util.List;
 import java.util.Set;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -62,10 +59,7 @@ class ArchitectureTest {
 
     @BeforeAll
     static void importClasses() {
-        Assumptions.assumeTrue(Boolean.getBoolean("conventions.enforced"));
-        classes = new ClassFileImporter()
-                .importPackages("eu.nordtal.s2")
-                .that(DescribedPredicate.not(resideInAPackage("eu.nordtal.s2.architecture..")));
+        classes = Codebase.classes();
     }
 
     @Test

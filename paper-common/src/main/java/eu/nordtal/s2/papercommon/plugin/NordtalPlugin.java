@@ -28,6 +28,7 @@ import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.context.MessageEnvironment;
 import eu.nordtal.s2.papercommon.access.AdminWatch;
 import eu.nordtal.s2.papercommon.access.BukkitOps;
+import eu.nordtal.s2.papercommon.chat.SystemLines;
 import eu.nordtal.s2.papercommon.command.Answer;
 import eu.nordtal.s2.papercommon.command.CommandFilter;
 import eu.nordtal.s2.papercommon.command.PaperUser;
@@ -419,6 +420,16 @@ public abstract class NordtalPlugin extends JavaPlugin {
     /** Registers a listener for this plugin. */
     protected final void listen(final Listener listener) {
         getServer().getPluginManager().registerEvents(listener, this);
+    }
+
+    /**
+     * Builds and registers the five lines players read about each other (said, joined, left, died, earned).
+     * A server where players see each other calls it once from {@link #enable()}.
+     */
+    public final SystemLines systemLines(final SystemLines.Composition composition) {
+        final SystemLines lines = new SystemLines(composition, messages, locales);
+        listen(lines);
+        return lines;
     }
 
     /** Returns the one clock of this process. */

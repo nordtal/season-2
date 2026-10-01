@@ -7,12 +7,12 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 /**
- * Records whether steward-worker has bunq credentials, so the bot can tell before offering a purchase.
- * Written at every worker start; a missing row is {@link State#UNKNOWN}, not off.
+ * Records whether steward has bunq credentials, so the bot can tell before offering a purchase.
+ * Written at every steward start; a missing row is {@link State#UNKNOWN}, not off.
  */
 public final class PaymentGateway {
 
-    /** What steward-worker last said about its bunq credentials. */
+    /** What steward last said about its bunq credentials. */
     public enum State {
 
         /** An API key and an account id are both set; the poll runs and a tab can be made. */
@@ -21,18 +21,18 @@ public final class PaymentGateway {
         /** Neither is set. The stack is healthy and nothing can be bought, deliberately. */
         OFF,
 
-        /** No steward-worker has written the row yet, which does not mean bunq is off. */
+        /** No steward has written the row yet, which does not mean bunq is off. */
         UNKNOWN
     }
 
     private PaymentGateway() {}
 
-    /** Records what steward-worker found, overwriting the previous state. */
+    /** Records what steward found, overwriting the previous state. */
     public static void announce(final Jdbi jdbi, final boolean on) {
         jdbi.onDemand(GatewayDao.class).upsert((on ? State.ON : State.OFF).name());
     }
 
-    /** Returns what steward-worker last said, or {@link State#UNKNOWN} when nothing has. */
+    /** Returns what steward last said, or {@link State#UNKNOWN} when nothing has. */
     public static State state(final Jdbi jdbi) {
         return jdbi.onDemand(GatewayDao.class).state().map(State::valueOf).orElse(State.UNKNOWN);
     }

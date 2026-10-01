@@ -30,11 +30,11 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
 - **The season phase** is one row every process follows on its hub. A switch into `SMP` from before the season stamps
   `fresh_start`, and smp starts its own track over once per stamp whenever it next sees the phase, so a server that
   was down at the switch still starts over and no other process writes smp's tables.
-- **A run** is a request in the worker's inbox, `worker_inbox`; a unique index keeps one open at a time.
-- **A run's countdown** is typed columns the proxy reads: `scheduled_for` (when the worker may claim it),
+- **A run** is a request in the run inbox, `worker_inbox`; a unique index keeps one open at a time.
+- **A run's countdown** is typed columns the proxy reads: `scheduled_for` (when steward may claim it),
   `countdown_end` (when the servers go down) and `moving` (what they are), never the report JSON.
 
-**Roles**: steward-worker migrates and owns every table; every other service logs in as its own
+**Roles**: steward migrates and owns every table; every other service logs in as its own
 `DatabaseRole`, and V1 grants each what it owns and what it reads or writes of someone else's, the
 shared read models through one read role. V1 names the roles by Flyway placeholder and never creates
 one: roles belong to the cluster, so the migrator creates them first (`DatabaseRole.provision`), with

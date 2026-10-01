@@ -39,13 +39,13 @@ class ComposeRefusesItselfTest {
 
     @Test
     void aDeploymentOfEverythingNamesEveryServiceAndLeavesThisOneOut() {
-        final List<String> all = List.of("postgres", "smp", "steward-ui", Compose.SELF);
+        final List<String> all = List.of("postgres", "smp", "steward", Compose.SELF);
 
         final List<String> deployed = StewardDeployer.servicesToDeploy(all, List.of(), false);
 
         assertFalse(deployed.isEmpty(), "an empty list would mean every service, this one included");
         assertFalse(deployed.contains(Compose.SELF), deployed.toString());
-        assertEquals(List.of("postgres", "smp", "steward-ui"), deployed);
+        assertEquals(List.of("postgres", "smp", "steward"), deployed);
     }
 
     /** A request for the deployer alone is refused, not turned into an empty list meaning every service. */

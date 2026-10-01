@@ -78,8 +78,8 @@ class SetupTest {
     @Test
     void theAddressIsRequiredAndAnEndedInputSaysSo() throws IOException {
         final EnvFile env = env();
-        assertThrows(Processes.Failure.class, () -> setup("").ask(env, question("STEWARD_UI_PUBLIC_URL")));
-        setup("\nhttp://localhost:5173\n").ask(env, question("STEWARD_UI_PUBLIC_URL"));
-        assertEquals(Optional.of("http://localhost:5173"), env.value("STEWARD_UI_PUBLIC_URL"));
+        assertThrows(Processes.Failure.class, () -> setup("").ask(env, question("STEWARD_PUBLIC_URL")));
+        setup("\nhttp://localhost:5173\n").ask(env, question("STEWARD_PUBLIC_URL"));
+        assertEquals(Optional.of("http://localhost:5173"), env.value("STEWARD_PUBLIC_URL"));
     }
 }

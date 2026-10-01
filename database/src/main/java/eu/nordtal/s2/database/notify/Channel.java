@@ -17,13 +17,13 @@ public enum Channel {
     /** A request in a Minecraft server's inbox was written or moved on. The Paper servers and the proxy listen. */
     SERVER("nordtal_server"),
 
-    /** A run was asked for, moved on or settled. steward-worker, the proxy and the bot's update feed listen. */
+    /** A run was asked for, moved on or settled. steward, the proxy and the bot's update feed listen. */
     UPDATE("nordtal_update"),
 
     /** The proxy published a new command allowlist, only on a change. The three Paper servers listen. */
     ALLOWLIST("nordtal_allowlist"),
 
-    /** A {@code payment_request} row was written. steward-worker and discord-bot listen. */
+    /** A {@code payment_request} row was written. steward and discord-bot listen. */
     PAYMENT("nordtal_payment"),
 
     /** A request in the bot's inbox was written or moved on. discord-bot listens. */

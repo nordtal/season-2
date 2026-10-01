@@ -51,7 +51,7 @@ class RunConfigurationsTest {
             final String command = parameters.group(1).replaceFirst(" .*", "");
             assertTrue(commands.contains(command), file.getFileName() + " runs '" + command + "', which dev has not");
         }
-        assertEquals(31, dev.size(), "the dev: folders hold thirty-one configurations; .run/README.md says so");
+        assertEquals(30, dev.size(), "the dev: folders hold thirty configurations; .run/README.md says so");
     }
 
     @Test

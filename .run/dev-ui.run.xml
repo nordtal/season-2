@@ -1,8 +1,8 @@
 <!--
   dev ui
 
-  Runs the stack, steward-ui on 127.0.0.1:8080 and the Vite dev server on http://localhost:5173.
-  Stopping it stops Vite only; `dev stop` stops the containers. It conflicts with `:steward-ui:run`
+  Runs the stack, steward on 127.0.0.1:8080 and the Vite dev server on http://localhost:5173.
+  Stopping it stops Vite only; `dev stop` stops the containers. It conflicts with `:steward:run`
   on port 8080.
 -->
 <component name="ProjectRunConfigurationManager">

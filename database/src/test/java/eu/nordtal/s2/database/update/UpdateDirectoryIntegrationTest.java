@@ -81,7 +81,7 @@ class UpdateDirectoryIntegrationTest {
         assertEquals(UpdateKind.START, request.kind());
         assertEquals(UpdateStatus.PENDING, request.status());
         assertEquals(Actor.person(DiscordId.of("300000000000000001")), request.actor());
-        assertNull(request.countdownEnd(), "nothing counts down before the worker has a plan");
+        assertNull(request.countdownEnd(), "nothing counts down before steward has a plan");
         assertEquals(List.of(), request.moving());
         assertNotNull(request.requested());
         assertNull(request.started(), "nothing has claimed it");
@@ -351,7 +351,7 @@ class UpdateDirectoryIntegrationTest {
     void twoWorkersNeverClaimTheSameRow() throws Exception {
         updates.submit(UpdateKind.START, Actor.HOST, Duration.ZERO);
 
-        // Hold the row in an open transaction, the way a second worker that claimed it would.
+        // Hold the row in an open transaction, the way a second steward that claimed it would.
         try (Connection holder = dataSource.getConnection()) {
             holder.setAutoCommit(false);
             try (Statement statement = holder.createStatement()) {
@@ -394,7 +394,7 @@ class UpdateDirectoryIntegrationTest {
         assertTrue(updates.finish(submitted.id(), UpdateStatus.DONE, "x").isPresent());
         assertTrue(
                 updates.finish(submitted.id(), UpdateStatus.FAILED, "y").isEmpty(),
-                "and an answer that is already there is not overwritten by a second worker");
+                "and an answer that is already there is not overwritten by a second steward");
     }
 
     @Test
@@ -402,7 +402,7 @@ class UpdateDirectoryIntegrationTest {
         final UpdateRequest submitted = updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
 
-        // CANCELLED is a person withdrawing a run, so a worker cannot report its own work as one.
+        // CANCELLED is a person withdrawing a run, so steward cannot report its own work as one.
         assertThrows(
                 IllegalArgumentException.class,
                 () -> updates.finish(submitted.id(), UpdateStatus.CANCELLED, "too late"));
@@ -421,11 +421,11 @@ class UpdateDirectoryIntegrationTest {
         assertEquals("Alex changed their mind", cancelled.result());
 
         assertTrue(updates.countingDown().isEmpty(), "and nothing is counting down any more");
-        assertTrue(updates.claimNext().isEmpty(), "and no worker will ever pick it up");
+        assertTrue(updates.claimNext().isEmpty(), "and steward will never pick it up");
     }
 
     @Test
-    void theCountdownStewardWorkerStartsIsTheOneTheProxyShowsAndTheButtonStops() {
+    void theCountdownStewardStartsIsTheOneTheProxyShowsAndTheButtonStops() {
         // Claimed first, counted down after, so a run that finds nothing new never warns anybody.
         final UpdateRequest submitted = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
         assertTrue(updates.countingDown().isEmpty(), "a request nobody has resolved yet is not counting down");
@@ -653,7 +653,7 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void anOrphanedRestartIsAFailureLikeEveryOtherKindSince20260908() {
-        // A restart never stops the worker, so an orphaned one means the worker died, as for every kind.
+        // A restart never stops steward, so an orphaned one means steward died, as for every kind.
         final UpdateRequest restart = updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
 

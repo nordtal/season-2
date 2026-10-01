@@ -136,7 +136,7 @@ interface PaymentRequestDao {
             @Bind("donationCents") int donationCents);
 
     /**
-     * Stores the tab steward-worker made, and announces it.
+     * Stores the tab steward made, and announces it.
      *
      * @return 1 when stored, 0 when the row had closed, leaving the caller a live URL to cancel
      */
@@ -269,7 +269,7 @@ interface PaymentRequestDao {
             @Bind("matchedCents") int matchedCents,
             @Bind("matchedBy") String matchedBy);
 
-    /** Returns rows steward-worker has matched to a payment and nobody has booked yet. */
+    /** Returns rows steward has matched to a payment and nobody has booked yet. */
     @SqlQuery("""
             SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
                    bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,

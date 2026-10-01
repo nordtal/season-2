@@ -14,7 +14,7 @@ import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 import org.jspecify.annotations.Nullable;
 
-/** Maps a row of the worker's inbox as a run, reading every instant through {@link OffsetDateTime}. */
+/** Maps a row of the run inbox as a run, reading every instant through {@link OffsetDateTime}. */
 public final class UpdateRequestMapper implements RowMapper<UpdateRequest> {
 
     @Override

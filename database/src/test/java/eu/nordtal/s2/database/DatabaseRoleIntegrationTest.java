@@ -28,7 +28,7 @@ class DatabaseRoleIntegrationTest {
             DatabaseRole.LIMBO,
             DatabaseRole.HUNGER_GAMES,
             DatabaseRole.SMP,
-            DatabaseRole.STEWARD_UI);
+            DatabaseRole.STEWARD);
 
     private static TestDatabase database;
 
@@ -65,11 +65,11 @@ class DatabaseRoleIntegrationTest {
                 may(DatabaseRole.HUNGER_GAMES, "INSERT INTO hg_event (game_id, type) VALUES (gen_random_uuid(), 'x')"),
                 mayNot(DatabaseRole.HUNGER_GAMES, "UPDATE smp_player SET aura = 0 WHERE false"),
                 may(
-                        DatabaseRole.STEWARD_UI,
+                        DatabaseRole.STEWARD,
                         "INSERT INTO worker_inbox (kind, payload, actor_kind) VALUES ('UPDATE', '{\"services\": []}', 'HOST')"),
-                mayNot(DatabaseRole.STEWARD_UI, "DELETE FROM worker_inbox WHERE false"),
+                mayNot(DatabaseRole.STEWARD, "DELETE FROM worker_inbox WHERE false"),
                 mayNot(
-                        DatabaseRole.STEWARD_UI,
+                        DatabaseRole.STEWARD,
                         "INSERT INTO service_plugin (service, artifact, project_id, file_prefix, title)"
                                 + " VALUES ('a', 'b', 'c', 'd', 'e')"),
                 may(DatabaseRole.DISCORD_BOT, "SELECT count(*) FROM flyway_schema_history"),
@@ -77,7 +77,7 @@ class DatabaseRoleIntegrationTest {
                 mayNot(
                         DatabaseRole.DISCORD_BOT,
                         "INSERT INTO bot_inbox (kind, payload, actor_kind) VALUES ('REVOKE', '{}', 'HOST')"),
-                mayNot(DatabaseRole.STEWARD_UI, "UPDATE bot_inbox SET status = 'DONE' WHERE false"),
+                mayNot(DatabaseRole.STEWARD, "UPDATE bot_inbox SET status = 'DONE' WHERE false"),
                 may(
                         DatabaseRole.SMP,
                         "INSERT INTO bot_inbox (kind, payload, actor_kind) VALUES ('ANNOUNCE', '{}', 'STEWARD')"),
@@ -86,7 +86,7 @@ class DatabaseRoleIntegrationTest {
                         "INSERT INTO bank_inbox (kind, payload, actor_kind) VALUES ('CANCEL_TAB', '{}', 'HOST')"),
                 mayNot(DatabaseRole.DISCORD_BOT, "UPDATE bank_inbox SET status = 'DONE' WHERE false"),
                 mayNot(
-                        DatabaseRole.STEWARD_UI,
+                        DatabaseRole.STEWARD,
                         "INSERT INTO bank_inbox (kind, payload, actor_kind) VALUES ('CANCEL_TAB', '{}', 'HOST')"),
                 mayNot(DatabaseRole.DISCORD_BOT, "SELECT count(*) FROM steward_session")));
         for (final DatabaseRole role : LOGINS) {
@@ -99,7 +99,7 @@ class DatabaseRoleIntegrationTest {
         assertAll(cases.stream().map(DatabaseRoleIntegrationTest::check));
     }
 
-    /** Every server claims only its own inbox; steward-ui asks the SMP and the Hunger Games, the owner the rest. */
+    /** Every server claims only its own inbox; steward asks the SMP and the Hunger Games, the owner the rest. */
     private static List<Case> serverInboxes() {
         return List.of(
                 mayNot(
@@ -108,10 +108,10 @@ class DatabaseRoleIntegrationTest {
                 may(DatabaseRole.SMP, "UPDATE smp_inbox SET status = 'DONE' WHERE false"),
                 mayNot(DatabaseRole.SMP, "UPDATE hunger_games_inbox SET status = 'DONE' WHERE false"),
                 may(
-                        DatabaseRole.STEWARD_UI,
+                        DatabaseRole.STEWARD,
                         "INSERT INTO hunger_games_inbox (kind, payload, actor_kind) VALUES ('START_GAME', '{}', 'HOST')"),
                 mayNot(
-                        DatabaseRole.STEWARD_UI,
+                        DatabaseRole.STEWARD,
                         "INSERT INTO limbo_inbox (kind, payload, actor_kind) VALUES ('RELOAD', '{}', 'HOST')"),
                 mayNot(
                         DatabaseRole.PROXY,

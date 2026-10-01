@@ -109,7 +109,7 @@ class ProxyRulesTest {
                 "the repeating sweeps catch a countdown whose scheduled beats a restart lost: " + swept);
     }
 
-    /** steward-worker counts the players the instant the counter reaches zero. */
+    /** steward counts the players the instant the counter reaches zero. */
     @Test
     void theCountsHurryFromTheCountdownOn() {
         classes()

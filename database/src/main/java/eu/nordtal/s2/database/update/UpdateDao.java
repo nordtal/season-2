@@ -8,7 +8,7 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jspecify.annotations.Nullable;
 
-/** The SQL a run adds to the worker's inbox, whose state machine is the inbox's; {@link UpdateDirectory} is the API. */
+/** The SQL a run adds to the run inbox, whose state machine is the inbox's; {@link UpdateDirectory} is the API. */
 @RegisterRowMapper(UpdateRequestMapper.class)
 interface UpdateDao {
 

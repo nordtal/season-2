@@ -22,7 +22,7 @@ die()  { printf '\033[31m[restore]\033[0m %s\n' "$*" >&2; exit 1; }
 
 # Decisions without side effects, above the source guard so deploy/restore-test.sh can drive them.
 
-# The stamp steward-worker writes into every name: UTC, fixed width, no separator a glob would mind.
+# The stamp steward writes into every name: UTC, fixed width, no separator a glob would mind.
 STAMP_PATTERN='[0-9]{8}T[0-9]{6}Z'
 
 # What this file is: `volume`, `database`, `partial` (an interrupted backup), `mark` (an
@@ -128,7 +128,7 @@ BACKUPS_SOURCE="$(source_for "$BACKUPS_VOLUME" || true)"
        environment file whose COMPOSE_PROJECT_NAME decides the prefix (this run used '$PROJECT')."
 
 # The image that wrote the archives, for the same tar and zstd; every run overrides its entrypoint.
-TOOLS="${STEWARD_WORKER_IMAGE:-ghcr.io/nordtal/steward-worker:latest}"
+TOOLS="${STEWARD_IMAGE:-ghcr.io/nordtal/steward:latest}"
 in_backups() {
     docker run --rm --entrypoint sh \
         -v "$BACKUPS_SOURCE:/backups:ro" "$TOOLS" -c "$1"
@@ -155,7 +155,7 @@ fi
 kind="$(archive_kind "$ARCHIVE")"
 case "$kind" in
     partial)
-        die "'$ARCHIVE' is a .partial file. steward-worker writes every archive under that name and
+        die "'$ARCHIVE' is a .partial file. steward writes every archive under that name and
        renames it only after reading it back, so this one is a backup that was interrupted - there
        is nothing complete in it to restore." ;;
     mark)

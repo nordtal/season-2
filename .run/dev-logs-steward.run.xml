@@ -1,0 +1,17 @@
+<!--
+  dev logs steward
+
+  Follows steward, which applies the schema, fills empty volumes and serves the interface. Look here
+  when `dev up` seems to hang.
+-->
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="dev logs steward" type="Application" factoryName="Application" folderName="dev: logs">
+    <option name="MAIN_CLASS_NAME" value="eu.nordtal.s2.dev.Dev" />
+    <module name="season-2.dev.main" />
+    <option name="PROGRAM_PARAMETERS" value="logs steward" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

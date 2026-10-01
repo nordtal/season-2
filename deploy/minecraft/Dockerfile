@@ -1,5 +1,5 @@
 # One image for all four Minecraft services; SERVER_KIND and SERVER_VERSION tell them apart.
-# No jar is baked in: the server and plugin jars live in the volume, and steward-worker owns both.
+# No jar is baked in: the server and plugin jars live in the volume, and steward owns both.
 #
 #   docker build -t ghcr.io/nordtal/minecraft:<tag> deploy/minecraft
 FROM eclipse-temurin:25-jre

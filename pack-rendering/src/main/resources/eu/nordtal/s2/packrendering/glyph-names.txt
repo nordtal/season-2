@@ -1,5 +1,5 @@
 # The names of the glyphs in minecraft:default, in the order Steward's editor offers them.
-# A message draws one with <glyph:name>; the steward-ui build reads this file for its glyph menu.
+# A message draws one with <glyph:name>; the steward build reads this file for its glyph menu.
 # One line per glyph: the name, then its code point. GlyphNamesTest holds every line to Glyphs and
 # to default.json, and every glyph of default.json to exactly one line.
 admin FE004

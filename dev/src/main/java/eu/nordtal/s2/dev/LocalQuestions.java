@@ -46,7 +46,7 @@ final class LocalQuestions {
                     "Four Minecraft servers are about to start, and none of them may without this. [y/N]",
                     answer -> true),
             new Question(
-                    "STEWARD_UI_PUBLIC_URL",
+                    "STEWARD_PUBLIC_URL",
                     Kind.PLAIN,
                     "What address will you open the interface on?",
                     "Scheme and host, no path - http://steward.localhost:8080 is the container itself and is the"
@@ -61,14 +61,14 @@ final class LocalQuestions {
                             + " your laptop. " + SKIP,
                     answer -> true),
             new Question(
-                    "STEWARD_UI_DISCORD_CLIENT_ID",
+                    "STEWARD_DISCORD_CLIENT_ID",
                     Kind.OPTIONAL_PLAIN,
                     "The Discord application's Client ID - this is what the interface signs you in with.",
                     "The same test application, OAuth2 page. Its redirect URI has to be <the address above>"
                             + "/auth/callback. " + SKIP,
                     LocalQuestions::looksLikeSnowflake),
             new Question(
-                    "STEWARD_UI_DISCORD_CLIENT_SECRET",
+                    "STEWARD_DISCORD_CLIENT_SECRET",
                     Kind.OPTIONAL_SECRET,
                     "The same application's Client Secret.",
                     "OAuth2 -> Reset Secret, on the test application. " + SKIP,

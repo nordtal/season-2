@@ -15,10 +15,10 @@ class RecreateDoesNotPullTest {
 
     @Test
     void theRecreateCommandLineFetchesNothingByAnyOfComposesSpellings() {
-        final List<String> command = compose.recreateCommand("steward-ui");
+        final List<String> command = compose.recreateCommand("steward");
 
         assertTrue(command.containsAll(List.of("up", "--detach", "--no-deps", "--force-recreate")), command.toString());
-        assertTrue(command.contains("steward-ui"), command.toString());
+        assertTrue(command.contains("steward"), command.toString());
         // `docker compose up` fetches through `--pull always` too, so every token is checked.
         for (final String token : command) {
             assertFalse(token.contains("pull"), "recreate must not fetch, and this does: " + command);

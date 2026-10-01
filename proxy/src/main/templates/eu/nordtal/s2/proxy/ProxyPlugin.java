@@ -429,7 +429,7 @@ public final class ProxyPlugin {
                     + "whatever list they last read. This proxy still enforces it.", failure);
         }
 
-        // A reload of this proxy's messages, asked for by steward-worker; the main proxy alone answers it.
+        // A reload of this proxy's messages, asked for by steward; the main proxy alone answers it.
         ProxyInbox.open(role, pool, signals, request -> switch (request.payload()) {
             case Reload reload -> reloadMessages(messages)
                     ? Outcome.done(english(messages, ProxyMessages.MESSAGES.admin().reloaded()))

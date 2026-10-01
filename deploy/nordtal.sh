@@ -16,7 +16,7 @@
 #   ./nordtal.sh --address IP          this host's public address, for a host behind NAT
 #   ./nordtal.sh --no-self-update      run this file as it is, without asking GitHub for a newer one
 #
-# `update` only writes a row into the worker's inbox and waits for the worker's report:
+# `update` only writes a row into steward's inbox and waits for steward's report:
 #
 #   ./nordtal.sh update                the whole network: install what is new, restart what needs it
 #   ./nordtal.sh update --restart      restart everything, install nothing
@@ -75,7 +75,7 @@ REQUIRED=(
     POSTGRES_LIMBO_PASSWORD
     POSTGRES_HUNGER_GAMES_PASSWORD
     POSTGRES_SMP_PASSWORD
-    POSTGRES_STEWARD_UI_PASSWORD
+    POSTGRES_STEWARD_PASSWORD
     VELOCITY_FORWARDING_SECRET
     EULA
     NORDTAL_BOT_TOKEN
@@ -87,21 +87,19 @@ REQUIRED=(
     STEWARD_ENV_DIR
     STEWARD_ENV_FILE_NAME
     NORDTAL_DIR
-    STEWARD_UI_DISCORD_CLIENT_ID
-    STEWARD_UI_DISCORD_CLIENT_SECRET
+    STEWARD_DISCORD_CLIENT_ID
+    STEWARD_DISCORD_CLIENT_SECRET
 )
 
 # One directory per compose.yml volume under NORDTAL_DIR, named like the volume without its prefix.
-# A copy of compose.yml, which is not on the host yet. The optional owner is for a service that does
-# not run as root: steward-ui, whose bind mount Docker would create as root.
+# A copy of compose.yml, which is not on the host yet.
 DATA_DIRS=(
     "postgres-data"
     "steward-backups"
     "bot-config"
     "bot-jar"
-    "steward-worker-config"
-    "steward-worker-jar"
-    "steward-ui-config:10001:10001"
+    "steward-config"
+    "steward-jar"
     "caddy-data"
     "caddy-config"
     "bunq-context"
@@ -114,10 +112,6 @@ DATA_DIRS=(
     "mc-hunger-games-plugins"
     "mc-smp-plugins"
 )
-
-# The name and the owner of one of those entries.
-dir_name()  { printf '%s' "${1%%:*}"; }
-dir_owner() { if [[ "$1" == *:* ]]; then printf '%s' "${1#*:}"; fi; }
 
 # Decisions without side effects, which deploy/nordtal-test.sh drives without Docker or a network.
 
@@ -234,8 +228,8 @@ QUESTIONS=(
     NETWORK_PUBLIC_ADDRESS
     EULA
     NORDTAL_BOT_TOKEN
-    STEWARD_UI_DISCORD_CLIENT_ID
-    STEWARD_UI_DISCORD_CLIENT_SECRET
+    STEWARD_DISCORD_CLIENT_ID
+    STEWARD_DISCORD_CLIENT_SECRET
     NORDTAL_ACCESS_GUILD_ID
     NORDTAL_ACCESS_ROLES_ADMIN
     NORDTAL_STEWARD_BUNQ_API_KEY
@@ -249,8 +243,8 @@ declare -A QUESTION_KIND=(
     [NETWORK_PUBLIC_ADDRESS]=plain
     [EULA]=licence
     [NORDTAL_BOT_TOKEN]=secret
-    [STEWARD_UI_DISCORD_CLIENT_ID]=plain
-    [STEWARD_UI_DISCORD_CLIENT_SECRET]=secret
+    [STEWARD_DISCORD_CLIENT_ID]=plain
+    [STEWARD_DISCORD_CLIENT_SECRET]=secret
     [NORDTAL_ACCESS_GUILD_ID]=plain
     [NORDTAL_ACCESS_ROLES_ADMIN]=plain
     [NORDTAL_STEWARD_BUNQ_API_KEY]=optional-secret
@@ -264,8 +258,8 @@ declare -A QUESTION_CHECK=(
     [NETWORK_PUBLIC_ADDRESS]=looks_like_public_address
     [EULA]=-
     [NORDTAL_BOT_TOKEN]=-
-    [STEWARD_UI_DISCORD_CLIENT_ID]=looks_like_snowflake
-    [STEWARD_UI_DISCORD_CLIENT_SECRET]=-
+    [STEWARD_DISCORD_CLIENT_ID]=looks_like_snowflake
+    [STEWARD_DISCORD_CLIENT_SECRET]=-
     [NORDTAL_ACCESS_GUILD_ID]=looks_like_snowflake
     [NORDTAL_ACCESS_ROLES_ADMIN]=looks_like_snowflake
     [NORDTAL_STEWARD_BUNQ_API_KEY]=-
@@ -279,8 +273,8 @@ declare -A QUESTION_PROMPT=(
     [NETWORK_PUBLIC_ADDRESS]="What do players type into Minecraft to reach this network?"
     [EULA]="Do you accept the Minecraft EULA? (https://aka.ms/MinecraftEULA)"
     [NORDTAL_BOT_TOKEN]="The Discord bot token."
-    [STEWARD_UI_DISCORD_CLIENT_ID]="The Discord application's Client ID - this is what the interface signs you in with."
-    [STEWARD_UI_DISCORD_CLIENT_SECRET]="The same application's Client Secret."
+    [STEWARD_DISCORD_CLIENT_ID]="The Discord application's Client ID - this is what the interface signs you in with."
+    [STEWARD_DISCORD_CLIENT_SECRET]="The same application's Client Secret."
     [NORDTAL_ACCESS_GUILD_ID]="The id of the guild this deployment belongs to."
     [NORDTAL_ACCESS_ROLES_ADMIN]="The id of the admin role."
     [NORDTAL_STEWARD_BUNQ_API_KEY]="The bunq API key, if payments should work. Press Enter to skip."
@@ -298,18 +292,18 @@ declare -A QUESTION_HINT=(
     [EULA]="Four Minecraft servers are about to start, and none of them may without this. [y/N]"
     [NORDTAL_BOT_TOKEN]="Discord Developer Portal -> your application -> Bot -> Reset Token. Nothing is echoed while you
         type, and this script never prints it back."
-    [STEWARD_UI_DISCORD_CLIENT_ID]="Same application, OAuth2 page. Its redirect URI has to be
+    [STEWARD_DISCORD_CLIENT_ID]="Same application, OAuth2 page. Its redirect URI has to be
         https://<the name above>/auth/callback, or the sign-in comes back with an error from
         Discord rather than from here."
-    [STEWARD_UI_DISCORD_CLIENT_SECRET]="OAuth2 -> Reset Secret. Discord shows it once; if you have lost it, reset it and paste the new
+    [STEWARD_DISCORD_CLIENT_SECRET]="OAuth2 -> Reset Secret. Discord shows it once; if you have lost it, reset it and paste the new
         one - nothing else in this deployment holds a copy."
     [NORDTAL_ACCESS_GUILD_ID]="Discord -> Developer Mode -> right-click the server -> Copy Server ID."
     [NORDTAL_ACCESS_ROLES_ADMIN]="This is the one role that is not optional: it is what the bot mirrors into the database, and it
         is what decides who may sign in to the interface at all. Right-click the role -> Copy Role ID,
         and make sure your own account has it."
-    [NORDTAL_STEWARD_BUNQ_API_KEY]="Without it the whole stack starts and runs; steward-worker just never polls bunq, and access
+    [NORDTAL_STEWARD_BUNQ_API_KEY]="Without it the whole stack starts and runs; steward just never polls bunq, and access
         can only be granted by hand - through the interface or through /access in Discord."
-    [NORDTAL_STEWARD_BUNQ_ACCOUNT_ID]="A number. steward-worker refuses to start with a key and no account, because a poll loop
+    [NORDTAL_STEWARD_BUNQ_ACCOUNT_ID]="A number. steward refuses to start with a key and no account, because a poll loop
         with nowhere to look would be a silent one."
     [COMPOSE_PROFILES]="A comma-separated list. The production selection is db,bot,mc,backup,steward and there is
         rarely a reason to type anything else; 'steward' has to be in it or the interface is defined
@@ -325,12 +319,11 @@ GENERATED=(
     POSTGRES_LIMBO_PASSWORD
     POSTGRES_HUNGER_GAMES_PASSWORD
     POSTGRES_SMP_PASSWORD
-    POSTGRES_STEWARD_UI_PASSWORD
+    POSTGRES_STEWARD_PASSWORD
     VELOCITY_FORWARDING_SECRET
-    STEWARD_API_TOKEN
     STEWARD_DEPLOYER_TOKEN
-    STEWARD_UI_WEB_PUSH_PUBLIC_KEY
-    STEWARD_UI_WEB_PUSH_PRIVATE_KEY
+    STEWARD_WEB_PUSH_PUBLIC_KEY
+    STEWARD_WEB_PUSH_PRIVATE_KEY
 )
 
 # What the menu prints for a value: three dots for a set secret, the value otherwise, or "not set".
@@ -637,7 +630,7 @@ parse_update_args() {
     fi
 }
 
-# Inserts the row and notifies in one statement, as the worker's inbox does. The database refuses a
+# Inserts the row and notifies in one statement, as steward's inbox does. The database refuses a
 # second open run by itself. Concatenation is safe because every value passed a shape check that admits no quote.
 update_insert_sql() {
     local kind="$1" scope="$2" minutes="$3"
@@ -660,7 +653,7 @@ update_status_sql() {
     printf "SELECT status, coalesce(outcome #>> '{}', '') FROM worker_inbox WHERE id = %s;\n" "$1"
 }
 
-# Whether a status means the worker is finished with this row, one way or another.
+# Whether a status means steward is finished with this row, one way or another.
 update_is_over() {
     case "$1" in
         DONE|FAILED|CANCELLED) return 0 ;;
@@ -720,7 +713,7 @@ cmd_update() {
     update_wait "$id" "$container" "$user" "$database"
 }
 
-# Follows one request until the worker is finished with it, then prints the run's report.
+# Follows one request until steward is finished with it, then prints the run's report.
 update_wait() {
     local id="$1" container="$2" user="$3" database="$4"
     local waited=0 answer status report said=""
@@ -993,7 +986,7 @@ for question in "${QUESTIONS[@]}"; do
     ask_question "$question"
 done
 
-# bunq is optional: without it nothing polls for payments. The key lives in steward-worker.
+# bunq is optional: without it nothing polls for payments. The key lives in steward.
 if ask_question NORDTAL_STEWARD_BUNQ_API_KEY; then
     ask_question NORDTAL_STEWARD_BUNQ_ACCOUNT_ID
 fi
@@ -1003,9 +996,9 @@ fi
 for stale in NORDTAL_BOT_BUNQ_API_KEY NORDTAL_BOT_BUNQ_ACCOUNT_ID; do
     if [[ -n "$(env_value "$ENV_FILE" "$stale")" ]]; then
         warn "$ENV_FILE still has $stale. Nothing reads it - bunq lives in
-       steward-worker and the names are NORDTAL_STEWARD_BUNQ_API_KEY and
+       steward and the names are NORDTAL_STEWARD_BUNQ_API_KEY and
        NORDTAL_STEWARD_BUNQ_ACCOUNT_ID. Delete the old line once the new one is in, and read
-       steward-worker's first log line after the next deploy: it says 'bunq is ON' or 'bunq is
+       steward's first log line after the next deploy: it says 'bunq is ON' or 'bunq is
        OFF' in one sentence, and that sentence is the only confirmation there is."
     fi
 done
@@ -1051,7 +1044,7 @@ if $MENU; then
                 choice="$(menu_choice "$typed" "${#QUESTIONS[@]}")"
                 picked="${QUESTIONS[$(( ${choice#edit } - 1 ))]}"
                 ask_question "$picked" again || true
-                # steward-worker refuses a bunq key without an account, so ask for both.
+                # steward refuses a bunq key without an account, so ask for both.
                 if [[ "$picked" == NORDTAL_STEWARD_BUNQ_API_KEY \
                     && -n "$(env_value "$ENV_FILE" NORDTAL_STEWARD_BUNQ_API_KEY)" \
                     && -z "$(env_value "$ENV_FILE" NORDTAL_STEWARD_BUNQ_ACCOUNT_ID)" ]]; then
@@ -1127,35 +1120,28 @@ else
     set_secret POSTGRES_PASSWORD 24
 fi
 
-# Each service's own database role; steward-worker sets these on the roles at every start, so a new
+# Each service's own database role; steward sets these on the roles at every start, so a new
 # one only needs a restart, unlike POSTGRES_PASSWORD.
 set_secret POSTGRES_DISCORD_BOT_PASSWORD 24
 set_secret POSTGRES_PROXY_PASSWORD 24
 set_secret POSTGRES_LIMBO_PASSWORD 24
 set_secret POSTGRES_HUNGER_GAMES_PASSWORD 24
 set_secret POSTGRES_SMP_PASSWORD 24
-set_secret POSTGRES_STEWARD_UI_PASSWORD 24
+set_secret POSTGRES_STEWARD_PASSWORD 24
 set_secret VELOCITY_FORWARDING_SECRET 24
-set_secret STEWARD_API_TOKEN
 set_secret STEWARD_DEPLOYER_TOKEN
 
-if [[ "$(env_value "$ENV_FILE" STEWARD_API_TOKEN)" == "$(env_value "$ENV_FILE" STEWARD_DEPLOYER_TOKEN)" ]]; then
-    $CHECK_ONLY || die "STEWARD_API_TOKEN and STEWARD_DEPLOYER_TOKEN are the same value. Reading
-       containers and creating containers are different privileges - that is why they are two
-       services on two ports - and one token for both makes the boundary a comment."
-fi
-
 # 4b · the Web Push keypair
-# Minted with `steward-ui generate-vapid-keys`, which needs neither database nor config. A half
+# Minted with `steward generate-vapid-keys`, which needs neither database nor config. A half
 # set pair is replaced whole. The image is pulled only if absent, so a local build survives.
 generate_vapid_keys() {
-    local image="${STEWARD_UI_IMAGE:-ghcr.io/nordtal/steward-ui:latest}"
+    local image="${STEWARD_IMAGE:-ghcr.io/nordtal/steward:latest}"
     local pub priv output
-    pub="$(env_value "$ENV_FILE" STEWARD_UI_WEB_PUSH_PUBLIC_KEY)"
-    priv="$(env_value "$ENV_FILE" STEWARD_UI_WEB_PUSH_PRIVATE_KEY)"
+    pub="$(env_value "$ENV_FILE" STEWARD_WEB_PUSH_PUBLIC_KEY)"
+    priv="$(env_value "$ENV_FILE" STEWARD_WEB_PUSH_PRIVATE_KEY)"
 
     if [[ -n "${pub//[[:space:]]/}" && -n "${priv//[[:space:]]/}" ]]; then
-        log "STEWARD_UI_WEB_PUSH_PUBLIC_KEY / _PRIVATE_KEY are already set (left alone)"
+        log "STEWARD_WEB_PUSH_PUBLIC_KEY / _PRIVATE_KEY are already set (left alone)"
         return
     fi
     if $CHECK_ONLY; then
@@ -1168,13 +1154,13 @@ generate_vapid_keys() {
     fi
 
     local fallback="web-push stays unconfigured for now - the subscribe button is simply not
-       drawn. Generate a pair once the stack is up with \`docker exec ${PROJECT}-steward-ui-1
-       steward-ui generate-vapid-keys\`, paste the two lines into STEWARD_UI_WEB_PUSH_PUBLIC_KEY
-       and STEWARD_UI_WEB_PUSH_PRIVATE_KEY in $ENV_FILE, and recreate steward-ui so it reads them."
+       drawn. Generate a pair once the stack is up with \`docker exec ${PROJECT}-steward-1
+       steward generate-vapid-keys\`, paste the two lines into STEWARD_WEB_PUSH_PUBLIC_KEY
+       and STEWARD_WEB_PUSH_PRIVATE_KEY in $ENV_FILE, and recreate steward so it reads them."
 
     if ! docker image inspect "$image" >/dev/null 2>&1; then
         log "pulling $image to mint a Web Push VAPID keypair (no database and no config needed for
-       that one command - see steward-ui's StewardUi.java)"
+       that one command - see steward's Steward.java)"
         if ! docker pull "$image" >/dev/null 2>&1; then
             warn "could not pull $image, so no VAPID keypair was generated. $fallback"
             return
@@ -1193,9 +1179,9 @@ generate_vapid_keys() {
         return
     fi
 
-    set_assignment "$ENV_FILE" STEWARD_UI_WEB_PUSH_PUBLIC_KEY "$pub"
-    set_assignment "$ENV_FILE" STEWARD_UI_WEB_PUSH_PRIVATE_KEY "$priv"
-    log "STEWARD_UI_WEB_PUSH_PUBLIC_KEY / _PRIVATE_KEY generated (a fresh VAPID keypair)"
+    set_assignment "$ENV_FILE" STEWARD_WEB_PUSH_PUBLIC_KEY "$pub"
+    set_assignment "$ENV_FILE" STEWARD_WEB_PUSH_PRIVATE_KEY "$priv"
+    log "STEWARD_WEB_PUSH_PUBLIC_KEY / _PRIVATE_KEY generated (a fresh VAPID keypair)"
 }
 generate_vapid_keys
 
@@ -1221,8 +1207,8 @@ fi
 
 profiles="$(env_value "$ENV_FILE" COMPOSE_PROFILES)"
 profiles_include "$profiles" steward || die "COMPOSE_PROFILES in $ENV_FILE is '$profiles', which does
-       not include 'steward'. caddy, steward-ui and steward-deployer would be defined and never
-       started, and the stack would come up healthy with no interface on it."
+       not include 'steward'. caddy and steward-deployer would be defined and never started, and
+       the stack would come up healthy with nothing in front of the interface."
 
 declared_env_file="$(env_value "$ENV_FILE" STEWARD_ENV_FILE)"
 [[ "$declared_env_file" == "$ENV_FILE" ]] || die "STEWARD_ENV_FILE inside the file says
@@ -1253,12 +1239,11 @@ declared_env_file_name="$(env_value "$ENV_FILE" STEWARD_ENV_FILE_NAME)"
 log "every required value is set; the interface will answer on $STEWARD_NAME"
 
 # 4c · the data directories
-# Created here because Docker would create steward-ui-config root-owned, and steward-ui runs as uid
-# 10001. Existing directories are left alone.
+# Docker would create a missing one as well; here, one that cannot be created ends the run before
+# anything starts. Existing directories are left alone.
 log "the installation directory: $INSTALL_DIR"
 for entry in "${DATA_DIRS[@]}"; do
-    directory="$INSTALL_DIR/$(dir_name "$entry")"
-    owner="$(dir_owner "$entry")"
+    directory="$INSTALL_DIR/$entry"
     if [[ -d "$directory" ]]; then
         continue
     fi
@@ -1266,12 +1251,6 @@ for entry in "${DATA_DIRS[@]}"; do
     mkdir -p "$directory" || die "could not create $directory. Every world, every database and
        every backup this deployment has is about to live under $INSTALL_DIR, so a directory that
        cannot be created there is the end of the run."
-    if [[ -n "$owner" ]]; then
-        chown "$owner" "$directory" || die "could not chown $directory to $owner. steward-ui runs
-       as that uid and writes its own configuration there; root-owned, it would report a saved
-       setting and change nothing."
-        log "$(dir_name "$entry")/ created, owned by $owner"
-    fi
 done
 
 # 5 · the name, and the wait

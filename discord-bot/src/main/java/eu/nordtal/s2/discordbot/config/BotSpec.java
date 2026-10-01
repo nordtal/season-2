@@ -11,7 +11,7 @@ import eu.nordtal.jcore.config.spec.annotation.Secret;
 /**
  * {@code config/bot.yml}: the Discord token, validated at startup.
  *
- * It comes from {@code NORDTAL_BOT_TOKEN}; the bunq credentials belong to {@code steward-worker}.
+ * It comes from {@code NORDTAL_BOT_TOKEN}; the bunq credentials belong to {@code steward}.
  */
 @ConfigSpec(
         header = {
@@ -27,7 +27,7 @@ import eu.nordtal.jcore.config.spec.annotation.Secret;
             "local checkout.",
             "",
             "The bot will not start while it is empty. The bunq key belongs to",
-            "steward-worker, as NORDTAL_STEWARD_BUNQ_API_KEY."
+            "steward, as NORDTAL_STEWARD_BUNQ_API_KEY."
         })
 public interface BotSpec {
 

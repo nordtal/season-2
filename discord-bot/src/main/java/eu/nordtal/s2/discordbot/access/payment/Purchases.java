@@ -12,7 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * The purchase state machine, without any Discord or any bank call in it.
  *
- * It writes {@code tab_requested} and {@code cancel_requested}; steward-worker makes the bank call.
+ * It writes {@code tab_requested} and {@code cancel_requested}; steward makes the bank call.
  */
 @Slf4j
 public final class Purchases {

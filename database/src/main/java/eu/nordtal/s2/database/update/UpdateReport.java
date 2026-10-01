@@ -80,7 +80,7 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
     /**
      * Returns whether at least one line is {@link State#SAVED}, which a run's status alone does not prove.
      *
-     * It cannot tell which volume failed; the worker settles a run {@code FAILED} when any line is.
+     * It cannot tell which volume failed; steward settles a run {@code FAILED} when any line is.
      */
     public boolean savedSomething() {
         return services.stream().anyMatch(line -> line.state() == State.SAVED);

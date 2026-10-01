@@ -15,7 +15,7 @@ tasks.register("releaseArtifacts") {
         ":smp:shadowJar",
         ":proxy:shadowJar",
         ":discord-bot:shadowJar",
-        ":steward-worker:shadowJar",
+        ":steward:shadowJar",
         ":resource-pack:packZip",
     )
 }
@@ -26,8 +26,7 @@ tasks.register("imageContexts") {
     description = "Builds what the image Dockerfiles COPY, so `docker build` has something to find."
     dependsOn(
         ":discord-bot:shadowJar",
-        ":steward-worker:shadowJar",
-        ":steward-ui:shadowJar",
+        ":steward:shadowJar",
         // `build`, not `shadowJar`: the deployer's context is the jar AND the staged compose.yml.
         ":steward-deployer:build",
     )

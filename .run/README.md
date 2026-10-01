@@ -2,7 +2,7 @@
 
 JetBrains IDEs read the run configurations in this directory. None needs bash.
 
-The `dev:` folders hold thirty-one configurations, each one `dev` command with nothing added, so
+The `dev:` folders hold thirty configurations, each one `dev` command with nothing added, so
 `dev help` stays the list and `./gradlew -q :dev:run --args="<command>"` is the terminal equivalent.
 `RunConfigurationsTest` fails when one names a command the program lacks.
 

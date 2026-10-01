@@ -34,7 +34,7 @@ class StandbyReturnDecisionTest {
 
     @Test
     void aCancelledRunStillEnds() {
-        // A run called off between park and stop never brings the outage, and the failed worker cannot say so.
+        // A run called off between park and stop never brings the outage, and the failed steward cannot say so.
         assertFalse(StandbyReturn.releases(false, StandbyReturn.RESCUE_AFTER.minusSeconds(1)));
         assertTrue(StandbyReturn.releases(false, StandbyReturn.RESCUE_AFTER));
     }

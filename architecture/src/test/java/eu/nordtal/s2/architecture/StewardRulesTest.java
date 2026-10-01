@@ -13,8 +13,8 @@ import org.junit.jupiter.api.Test;
 /** The order of a run's steps, and which thread writes a heartbeat, as Steward's processes are wired. */
 class StewardRulesTest {
 
-    private static final String SERVE = "eu.nordtal.s2.steward.worker.serve.";
-    private static final String LOG_FOLLOWS = "eu.nordtal.s2.steward.worker.api.LogFollows";
+    private static final String SERVE = "eu.nordtal.s2.steward.serve.";
+    private static final String LOG_FOLLOWS = "eu.nordtal.s2.steward.api.LogFollows";
     private static final String DEPLOYER = "eu.nordtal.s2.steward.deployer.StewardDeployer";
 
     /** Standbys up, then the warning, then the wait for the players, then the stop: no other order. */

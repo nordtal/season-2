@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 /**
- * A run handed from one steward-worker to the next, against a real PostgreSQL.
+ * A run handed from one steward to the next, against a real PostgreSQL.
  *
  * The row is the whole handover, so its claim, countdown and orphan rules are checked in SQL, not on a fake.
  */
@@ -41,7 +41,7 @@ class UpdateHandoverIntegrationTest {
 
     @Test
     void aHandedOverRunIsClaimedAgainWithItsReportAndStaysOpenInBetween() {
-        // The new worker must find the run and its note.
+        // The new steward must find the run and its note.
         final UpdateRequest run = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
 
@@ -49,7 +49,7 @@ class UpdateHandoverIntegrationTest {
 
         final UpdateRequest waiting = updates.find(run.id()).orElseThrow();
         assertEquals(UpdateStatus.PENDING, waiting.status());
-        assertNull(waiting.started(), "nobody is running it until the next worker claims it");
+        assertNull(waiting.started(), "nobody is running it until the next steward claims it");
         assertEquals(run.id(), updates.open().orElseThrow().id(), "and no second run can slip in meanwhile");
         assertTrue(updates.countingDown().isEmpty(), "and nobody is counted down to a handover");
         assertEquals(0, updates.settleOrphans("orphaned"), "a restart must not settle a run that was handed over");

@@ -49,6 +49,6 @@ jobs:
           version="$(grep '^version=' gradle.properties | cut -d= -f2)"
           docker build --build-arg "JAR=build/libs/discord-bot-$version.jar" \
             -t nordtal/discord-bot:ci discord-bot
-          docker build --build-arg "JAR=build/libs/steward-worker-$version.jar" \
-            -t nordtal/steward-worker:ci steward-worker
+          docker build --build-arg "JAR=build/libs/steward-$version.jar" \
+            -t nordtal/steward:ci steward
           docker build -t nordtal/minecraft:ci deploy/minecraft

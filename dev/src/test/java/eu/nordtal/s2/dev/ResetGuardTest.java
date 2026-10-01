@@ -17,7 +17,7 @@ class ResetGuardTest {
 
     @Test
     void noNameAnotherContainerAWildcardAndANearMissAreAllRefused() {
-        for (final String wrong : List.of("", " ", "postgres", "steward-worker", "all", "smp ", "SMP", "../smp", "*")) {
+        for (final String wrong : List.of("", " ", "postgres", "steward", "all", "smp ", "SMP", "../smp", "*")) {
             assertFalse(ResetGuard.known(wrong), "'" + wrong + "' was accepted as a service to reset");
         }
     }

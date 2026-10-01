@@ -33,11 +33,10 @@ include("proxy")
 // Standalone JVM applications.
 include("discord-bot")
 
-// Owns every version and the database schema.
-include("steward-worker")
+// Steward: the web interface, its API, the database schema and every run.
+include("steward")
 
-// Steward's web interface and the one service allowed to create containers.
-include("steward-ui")
+// The one service allowed to create containers.
 include("steward-deployer")
 
 // The shared kernel every other module stands on: no database, no Adventure, no pack.

@@ -359,7 +359,7 @@ expect_status 0
 expect_cache "$dir" paper-26.2-124.jar
 ok "older builds removed, the chosen one kept"
 
-# A version bump leaves both jars, since steward-worker supersedes by filename prefix.
+# A version bump leaves both jars, since steward supersedes by filename prefix.
 case_begin "a superseded version goes too, not only a superseded build"
 dir=$(cache sweep-versions velocity-4.1.1-24.jar velocity-4.2.0-31.jar)
 sweep "$dir" velocity "$dir/velocity-4.2.0-31.jar"

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Runs the newest jar in the volume, or the jar baked into the image while the volume is empty.
-# steward-worker fills the volume; the baked jar only makes a first deployment possible.
+# steward fills the volume; the baked jar only makes a first deployment possible.
 set -eu
 
 : "${JAR_DIR:?JAR_DIR must be set in the Dockerfile}"
@@ -20,11 +20,11 @@ if [ -d "$JAR_DIR" ]; then
 fi
 
 if [ -n "$jar" ]; then
-    echo "[entrypoint] running $jar (from the volume, which is where steward-worker puts it)"
+    echo "[entrypoint] running $jar (from the volume, which is where steward puts it)"
 elif [ -f "$BAKED" ]; then
     echo "[entrypoint] no ${JAR_PREFIX}-*.jar in $JAR_DIR, so this is the jar baked into the image."
     echo "[entrypoint] That is a first deployment, not an error. Fill the volume with:"
-    echo "[entrypoint]   docker compose run --rm steward-worker bootstrap"
+    echo "[entrypoint]   docker compose run --rm steward bootstrap"
     jar="$BAKED"
 else
     echo "[entrypoint] no ${JAR_PREFIX}-*.jar in $JAR_DIR and no jar baked into this image." >&2

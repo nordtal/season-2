@@ -35,11 +35,11 @@ final class Stack {
     void up() {
         compose.requireEnv();
         build(ResetGuard.SERVICES);
-        processes.gradle(":steward-worker:shadowJar");
+        processes.gradle(":steward:shadowJar");
         ResetGuard.SERVICES.forEach(this::install);
-        // Built, never pulled: the migrations a local plugin needs are shaded into the local steward-worker.
-        terminal.log("building the minecraft and steward-worker images");
-        compose.run("build", "steward-worker", "proxy");
+        // Built, never pulled: the migrations a local plugin needs are shaded into the local steward.
+        terminal.log("building the minecraft and steward images");
+        compose.run("build", "steward", "proxy");
         compose.run("up", "-d");
         terminal.log("up. First start downloads Paper, Velocity and the third-party plugins; give it a few");
         terminal.log("minutes and watch with: dev logs");
@@ -82,7 +82,7 @@ final class Stack {
         try {
             Files.createDirectories(compose.packRoot());
             Files.copy(zip, compose.packRoot().resolve(name), StandardCopyOption.REPLACE_EXISTING);
-            // The same two lines steward-worker's PackWriter owns, and no others.
+            // The same two lines steward's PackWriter owns, and no others.
             Files.writeString(
                     packYml,
                     pointAt(Files.readString(packYml, StandardCharsets.UTF_8), url, sha1),
@@ -108,20 +108,20 @@ final class Stack {
     void ui() {
         compose.requireEnv();
         final String packPort = compose.valueOr("PACK_PORT", "8080");
-        final String stewardPort = compose.valueOr("STEWARD_UI_PORT", "8080");
+        final String stewardPort = compose.valueOr("STEWARD_PORT", "8080");
         if (packPort.equals(stewardPort)) {
-            throw new Processes.Failure("PACK_PORT and STEWARD_UI_PORT are both " + stewardPort + " in "
+            throw new Processes.Failure("PACK_PORT and STEWARD_PORT are both " + stewardPort + " in "
                     + Compose.ENV_FILE + ", and the resource pack host and the interface cannot both have it. Set"
                     + " PACK_PORT=8081 - the pack URL is written by 'dev pack', which reads that value, so nothing"
                     + " else has to change.");
         }
         terminal.log("bringing up the stack (" + compose.valueOr("COMPOSE_PROFILES", "") + ")");
         compose.run("up", "-d");
-        terminal.log("and the three services the interface is");
-        compose.run("up", "-d", "steward-worker", "steward-ui", "steward-deployer");
+        terminal.log("and the two services the interface is");
+        compose.run("up", "-d", "steward", "steward-deployer");
         terminal.log("the interface is on http://localhost:5173 - the container itself is on 127.0.0.1:" + stewardPort);
         terminal.log("Stopping this stops Vite and LEAVES THE CONTAINERS RUNNING. The counter-command is: dev stop");
-        processes.gradle(":steward-ui:viteDev");
+        processes.gradle(":steward:viteDev");
     }
 
     /**

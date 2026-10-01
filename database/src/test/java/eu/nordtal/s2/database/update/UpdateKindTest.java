@@ -7,7 +7,7 @@ import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** The kinds of a run and the kinds of the worker's inbox are one list. */
+/** The kinds of a run and the kinds of the run inbox are one list. */
 class UpdateKindTest {
 
     @Test

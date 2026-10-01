@@ -96,16 +96,16 @@ class BotSettingsEnvironmentTest {
     /**
      * The {@code @Protected} annotation and the bot's startup rule name the same fallback language.
      *
-     * Nothing notices at runtime if they drift, because the removal refusal lives in steward-worker.
+     * Nothing notices at runtime if they drift, because the removal refusal lives in steward.
      */
     @Test
-    void theLanguageStewardWorkerRefusesToRemoveIsTheOneThisBotFallsBackTo() throws Exception {
+    void theLanguageStewardRefusesToRemoveIsTheOneThisBotFallsBackTo() throws Exception {
         final Method languages = AccessSpec.class.getMethod("languages");
         final Protected annotation = languages.getAnnotation(Protected.class);
         assertNotNull(
                 annotation,
                 "AccessSpec#languages() must carry @Protected - without it"
-                        + " steward-worker lets an operator remove the fallback language through the API,"
+                        + " steward lets an operator remove the fallback language through the API,"
                         + " and the bot only notices on its next restart");
         assertEquals("tag", annotation.field(), "@Protected has to match on the element's own tag field");
         assertEquals(
@@ -143,7 +143,7 @@ class BotSettingsEnvironmentTest {
         assertEquals(
                 Optional.of(handle.environmentOverrides()),
                 EnvOverrideFile.read(handle.file()),
-                "the marker file steward-worker reads has to carry exactly what jcore reported");
+                "the marker file steward reads has to carry exactly what jcore reported");
     }
 
     /** The public entry point writes an override marker file even with no override in play. */

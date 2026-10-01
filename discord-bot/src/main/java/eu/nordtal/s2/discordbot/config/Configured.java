@@ -29,7 +29,7 @@ public final class Configured {
      * Logs one line naming every feature that has no id behind it.
      *
      * @param config the loaded and validated access configuration
-     * @param gateway what steward-worker last reported about its bunq credentials, so this one line stays complete
+     * @param gateway what steward last reported about its bunq credentials, so this one line stays complete
      */
     public static void report(final AccessSpec config, final PaymentGateway.State gateway) {
         final List<String> off = new ArrayList<>();
@@ -51,13 +51,13 @@ public final class Configured {
     private static void addGateway(final List<String> off, final PaymentGateway.State gateway) {
         switch (gateway) {
             case OFF ->
-                off.add("bunq in steward-worker's steward.yml - the worker started and "
+                off.add("bunq in steward's steward.yml - Steward started and "
                         + "found no key, so nothing is ever polled for and nothing can be bought; the "
                         + "rest of the bot is unaffected");
-            // Not "off": a worker that never started and one without a key look alike.
+            // Not "off": a steward that never started and one without a key look alike.
             case UNKNOWN ->
-                off.add("bunq - no steward-worker has said whether it has a key since "
-                        + "this database was created. Read steward-worker's own start line: it says "
+                off.add("bunq - no steward has said whether it has a key since "
+                        + "this database was created. Read steward's own start line: it says "
                         + "'bunq is ON' or 'bunq is OFF' in one sentence");
             case ON -> {}
         }

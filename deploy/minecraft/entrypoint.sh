@@ -2,7 +2,7 @@
 # PID 1 for every Minecraft service. In order, it:
 #
 #   1. runs the newest cached server jar, or resolves one from the PaperMC Fill API
-#   2. refuses to start on an empty plugins folder, which steward-worker fills
+#   2. refuses to start on an empty plugins folder, which steward fills
 #   3. starts the server in tmux, so `docker exec` has a writable console
 #   4. turns SIGTERM into a graceful shutdown and waits for the world to save
 set -Eeuo pipefail
@@ -359,7 +359,7 @@ FILL_UA="nordtal-season-2/deploy (+https://github.com/nordtal/season-2)"
 mkdir -p "$CACHE" "$PLUGINS" "$(dirname "$SOCK")"
 
 # the server jar
-# steward-worker fills the cache; the newest version and build there runs. Fill is asked only when
+# steward fills the cache; the newest version and build there runs. Fill is asked only when
 # the cache is empty. There is no pin and no way back from a bad build; do not add one.
 JAR_NAME=$(newest_server_jar "$CACHE" "$SERVER_KIND")
 
@@ -381,7 +381,7 @@ else
     [[ "$version" == "$SERVER_VERSION" ]] \
         || log "${SERVER_KIND} family ${SERVER_VERSION} resolves to version ${version}"
 
-    # `/builds/latest` includes ALPHA builds, so the list is filtered as steward-worker does.
+    # `/builds/latest` includes ALPHA builds, so the list is filtered as steward does.
     builds=$(curl -fsSL --max-time 60 -H "User-Agent: ${FILL_UA}" \
         "${FILL_API}/${SERVER_KIND}/versions/${version}/builds") \
         || die "could not read the ${SERVER_KIND} ${version} builds from the Fill API, and no ${SERVER_KIND} jar is cached in ${CACHE}. Refusing to start: this container has no server to run."
@@ -389,7 +389,7 @@ else
     meta=$(jq -er '[.[] | select(.channel == "STABLE" and .downloads."server:default")] | max_by(.id)' <<<"$builds") \
         || die "the Fill API lists no STABLE build with a 'server:default' download for ${SERVER_KIND} ${version}. Check ${FILL_API}/${SERVER_KIND}/versions/${version}/builds"
 
-    # The API's filename is the one the worker installs under, so both agree.
+    # The API's filename is the one steward installs under, so both agree.
     JAR_NAME=$(jq -er '.downloads."server:default".name' <<<"$meta") \
         || die "the Fill API returned a download with no filename"
     JAR_PATH="$CACHE/$JAR_NAME"
@@ -420,7 +420,7 @@ SERVER_BUILD_RUNNING="${SERVER_VERSION_RUNNING##*-}"
 SERVER_VERSION_RUNNING="${SERVER_VERSION_RUNNING%-*}"
 
 # plugins
-# steward-worker owns the plugin jars; this script must never fetch them.
+# steward owns the plugin jars; this script must never fetch them.
 #
 # EXPECTED_PLUGINS lists filename prefixes, split as JarName does (${file%-*.jar}). It is a minimum:
 # extra jars are fine, a missing one refuses the start. A renamed third-party jar would refuse too,
@@ -431,9 +431,9 @@ if [[ "${ALLOW_NO_PLUGINS:-false}" != "true" ]]; then
     shopt -u nullglob
 
     if (( ${#installed[@]} == 0 )); then
-        die "no plugin jars in ${PLUGINS}. This container does not fetch them any more - steward-worker does. Run it once against this stack:
+        die "no plugin jars in ${PLUGINS}. This container does not fetch them any more - steward does. Run it once against this stack:
 
-    docker compose run --rm steward-worker bootstrap
+    docker compose run --rm steward bootstrap
 
 Refusing to start: a Minecraft server with no plugins is a server with no season on it, and nothing about it looks wrong until somebody joins. Set ALLOW_NO_PLUGINS=true if a server with no plugins really is what you want."
     fi
@@ -466,9 +466,9 @@ Refusing to start: a Minecraft server with no plugins is a server with no season
 
 Refusing to start. A folder with SOME of the plugins in it is the state that looks fine and is not: a Minecraft server missing its season jar starts, reports healthy, and is discovered by the first player who joins.
 
-The likeliest cause is a steward-worker run that could not reach a source and skipped this whole server - read its log for a line saying so, and run it again once the source answers:
+The likeliest cause is a steward run that could not reach a source and skipped this whole server - read its log for a line saying so, and run it again once the source answers:
 
-    docker compose run --rm steward-worker bootstrap
+    docker compose run --rm steward bootstrap
 
 If the plugin IS in the folder under a different filename, its publisher renamed the jar: correct EXPECTED_PLUGINS for this service rather than deleting anything."
         fi

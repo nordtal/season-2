@@ -4,12 +4,12 @@ import eu.nordtal.s2.database.inbox.WorkerRequest;
 import java.util.List;
 
 /**
- * What an {@link UpdateRequest} asks steward-worker to do: the kind of its request in the worker's inbox.
+ * What an {@link UpdateRequest} asks steward to do: the kind of its request in the run inbox.
  * {@code UpdateKindTest} holds it against {@link WorkerRequest}'s kinds.
  */
 public enum UpdateKind {
 
-    /** Counts down, stops what changes, migrates, swaps and restarts; never stops the worker. */
+    /** Counts down, stops what changes, migrates, swaps and restarts; never stops steward. */
     UPDATE,
 
     /** Counts down, stops, starts and waits, with nothing installed. */
@@ -18,7 +18,7 @@ public enum UpdateKind {
     /**
      * Counts down, stops, saves the volumes and starts again.
      *
-     * Stopping first keeps a world copy from tearing; steward-worker's own clock submits the nightly one.
+     * Stopping first keeps a world copy from tearing; steward's own clock submits the nightly one.
      */
     BACKUP,
 
@@ -37,7 +37,7 @@ public enum UpdateKind {
         return this == UPDATE || this == RESTART || this == BACKUP || this == DOWN;
     }
 
-    /** Returns the request of this kind for the services, which the worker's inbox stores. */
+    /** Returns the request of this kind for the services, which the run inbox stores. */
     public WorkerRequest request(final List<String> services) {
         return switch (this) {
             case UPDATE -> new WorkerRequest.Update(services);
@@ -48,7 +48,7 @@ public enum UpdateKind {
         };
     }
 
-    /** Returns the kind of a request in the worker's inbox. */
+    /** Returns the kind of a request in the run inbox. */
     public static UpdateKind of(final WorkerRequest request) {
         return valueOf(WorkerRequest.TABLE.kindOf(request));
     }

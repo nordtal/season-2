@@ -10,13 +10,13 @@ public enum UpdateStatus {
     /** Written and waiting. */
     PENDING,
 
-    /** Claimed by a worker; exactly one process holds it. */
+    /** Claimed by steward; exactly one process holds it. */
     RUNNING,
 
     /** Finished; {@code result} holds the report. */
     DONE,
 
-    /** Finished badly, with {@code result} saying how; also what a starting worker marks leftover running rows. */
+    /** Finished badly, with {@code result} saying how; also what a starting steward marks leftover running rows. */
     FAILED,
 
     /** Withdrawn before it ran; only reachable from {@link #PENDING}. */

@@ -90,11 +90,11 @@ grep -qx "$comment_line" <<<"$lines" && bad "the explanatory comment was reporte
 ok "the value is found, the documentation is not"
 
 case_begin "the steward profile has to be selected"
-# Without the steward profile, caddy, steward-ui and steward-deployer never start.
+# Without the steward profile, caddy and steward-deployer never start.
 profiles_include "db,bot,mc,backup,steward" steward || bad "the real selection was refused"
 profiles_include "steward" steward                  || bad "steward on its own was refused"
 profiles_include "db, steward ,mc" steward          || bad "spaces around the name broke it"
-for wrong in "" "db,bot,mc,backup" "stewards" "steward-ui" "db,bot,steward2"; do
+for wrong in "" "db,bot,mc,backup" "stewards" "steward-deployer" "db,bot,steward2"; do
     if profiles_include "$wrong" steward; then
         bad "'$wrong' was accepted as selecting the steward profile"
     fi
@@ -157,20 +157,20 @@ ok "an image whose local digest matches what the registry currently serves is si
 
 case_begin "local and registry digest disagree - RISK (the containerd-store case)"
 # The containerd store: a local build has a RepoDigest that differs from the registry's.
-pairs=$'ghcr.io/nordtal/steward-ui:latest\tsteward-ui'
-local_digests=$'ghcr.io/nordtal/steward-ui:latest\t["ghcr.io/nordtal/steward-ui@sha256:a429f360e0c8"]'
-registry_digests=$'ghcr.io/nordtal/steward-ui:latest\tsha256:39d016200b67'
+pairs=$'ghcr.io/nordtal/discord-bot:latest\tdiscord-bot'
+local_digests=$'ghcr.io/nordtal/discord-bot:latest\t["ghcr.io/nordtal/discord-bot@sha256:a429f360e0c8"]'
+registry_digests=$'ghcr.io/nordtal/discord-bot:latest\tsha256:39d016200b67'
 result="$(at_risk_images "$pairs" "$local_digests" "$registry_digests")"
-[[ "$result" == $'RISK\tghcr.io/nordtal/steward-ui:latest\tsteward-ui' ]] \
+[[ "$result" == $'RISK\tghcr.io/nordtal/discord-bot:latest\tdiscord-bot' ]] \
     || bad "a locally built image with a mismatched registry digest was not reported, got: «$result»"
 ok "a locally built image is RISK when the registry's current digest differs from its own"
 
 case_begin "the registry did not answer - UNKNOWN, neither cleared nor flagged"
 # "Could not compare" is reported apart from "safe".
-pairs=$'ghcr.io/nordtal/steward-worker:latest\tsteward-worker'
-local_digests=$'ghcr.io/nordtal/steward-worker:latest\t["ghcr.io/nordtal/steward-worker@sha256:ea9364be13a9"]'
+pairs=$'ghcr.io/nordtal/steward:latest\tsteward'
+local_digests=$'ghcr.io/nordtal/steward:latest\t["ghcr.io/nordtal/steward@sha256:ea9364be13a9"]'
 result="$(at_risk_images "$pairs" "$local_digests" "")"
-[[ "$result" == $'UNKNOWN\tghcr.io/nordtal/steward-worker:latest\tsteward-worker' ]] \
+[[ "$result" == $'UNKNOWN\tghcr.io/nordtal/steward:latest\tsteward' ]] \
     || bad "a registry that did not answer should be its own line, got: «$result»"
 ok "no registry answer is its own line, not a pass and not an alarm"
 
@@ -190,17 +190,17 @@ ok "no compose config and no local digests both come back silent, not as a false
 
 case_begin "a generated secret lands in the file whatever the assignment looks like"
 # set_secret finds and replaces a name the same way, with leading whitespace or `export`.
-for form in "STEWARD_API_TOKEN=" "  STEWARD_API_TOKEN=" "export STEWARD_API_TOKEN=" \
-            "STEWARD_API_TOKEN = " "  export  STEWARD_API_TOKEN="; do
+for form in "STEWARD_DEPLOYER_TOKEN=" "  STEWARD_DEPLOYER_TOKEN=" "export STEWARD_DEPLOYER_TOKEN=" \
+            "STEWARD_DEPLOYER_TOKEN = " "  export  STEWARD_DEPLOYER_TOKEN="; do
     secrets="$WORK/secret.env"
     printf 'BEFORE=1\n%s\nAFTER=2\n' "$form" > "$secrets"
 
-    set_assignment "$secrets" STEWARD_API_TOKEN "$(printf '%064d' 7 | tr '0-9' 'a-f0-3')"
+    set_assignment "$secrets" STEWARD_DEPLOYER_TOKEN "$(printf '%064d' 7 | tr '0-9' 'a-f0-3')"
 
-    written="$(env_value "$secrets" STEWARD_API_TOKEN)"
+    written="$(env_value "$secrets" STEWARD_DEPLOYER_TOKEN)"
     [[ "$written" =~ ^[0-9a-f]{64}$ ]] \
         || bad "«$form» left the token as «$written» and said it had generated one"
-    count="$(grep -cE '^[[:space:]]*(export[[:space:]]+)?STEWARD_API_TOKEN[[:space:]]*=' "$secrets")"
+    count="$(grep -cE '^[[:space:]]*(export[[:space:]]+)?STEWARD_DEPLOYER_TOKEN[[:space:]]*=' "$secrets")"
     [[ "$count" == "1" ]] || bad "«$form» left $count assignments of the name in the file"
     # No other line changed.
     [[ "$(env_value "$secrets" BEFORE)" == "1" && "$(env_value "$secrets" AFTER)" == "2" ]] \
@@ -276,8 +276,8 @@ case_begin "what a deployment demands of a person is the short list"
 # bunq stays optional; without it no payments are taken.
 for name in COMPOSE_PROFILES POSTGRES_PASSWORD VELOCITY_FORWARDING_SECRET EULA NORDTAL_BOT_TOKEN \
             NORDTAL_ACCESS_GUILD_ID NORDTAL_ACCESS_ROLES_ADMIN STEWARD_HOST STEWARD_ACME_EMAIL \
-            STEWARD_ENV_FILE STEWARD_ENV_DIR STEWARD_ENV_FILE_NAME STEWARD_UI_DISCORD_CLIENT_ID \
-            STEWARD_UI_DISCORD_CLIENT_SECRET; do
+            STEWARD_ENV_FILE STEWARD_ENV_DIR STEWARD_ENV_FILE_NAME STEWARD_DISCORD_CLIENT_ID \
+            STEWARD_DISCORD_CLIENT_SECRET; do
     contains "$name" "${REQUIRED[@]}" || bad "$name is not required and should be"
 done
 for name in NORDTAL_STEWARD_BUNQ_API_KEY NORDTAL_STEWARD_BUNQ_ACCOUNT_ID; do
@@ -316,7 +316,7 @@ for name in "${QUESTIONS[@]}"; do
     [[ -n "${QUESTION_PROMPT[$name]:-}" ]] || bad "$name has no prompt"
     [[ -n "${QUESTION_HINT[$name]:-}" ]]   || bad "$name has no hint"
 done
-for name in NORDTAL_BOT_TOKEN STEWARD_UI_DISCORD_CLIENT_SECRET NORDTAL_STEWARD_BUNQ_API_KEY; do
+for name in NORDTAL_BOT_TOKEN STEWARD_DISCORD_CLIENT_SECRET NORDTAL_STEWARD_BUNQ_API_KEY; do
     case "${QUESTION_KIND[$name]}" in
         secret|optional-secret) ;;
         *) bad "$name is not a secret kind, so the menu would print it" ;;
@@ -348,21 +348,6 @@ looks_like_profiles "/etc/nordtal"             && bad "a path was accepted"
 looks_like_profiles "db,,bot"                  && bad "an empty profile was accepted"
 looks_like_profiles ""                         && bad "nothing was accepted"
 ok "names and commas; a path, an empty element and nothing are refused"
-
-case_begin "one directory in the installation has an owner, and it is the interface's"
-# steward-ui runs as non-root, so its bind mount needs its owner set.
-owned=""
-for entry in "${DATA_DIRS[@]}"; do
-    [[ -n "$(dir_owner "$entry")" ]] && owned+="$(dir_name "$entry") "
-done
-[[ "$owned" == "steward-ui-config " ]] || bad "the owned directories are '$owned'"
-[[ "$(dir_name  "steward-ui-config:10001:10001")" == "steward-ui-config" ]] || bad "dir_name"
-[[ "$(dir_owner "steward-ui-config:10001:10001")" == "10001:10001" ]]       || bad "dir_owner"
-[[ "$(dir_name  "mc-smp")"  == "mc-smp" ]] || bad "a directory with no owner"
-[[ -z "$(dir_owner "mc-smp")" ]]           || bad "mc-smp has an owner and should not"
-# nordtal.sh assigns the answer under set -e, so a directory with no owner has to be a success too.
-( owner="$(dir_owner "mc-smp")" ) || bad "dir_owner fails for a directory with no owner"
-ok "steward-ui-config is chowned to 10001:10001 and nothing else is"
 
 case_begin "a downloaded file has to be this script before it replaces this script"
 # The renewal only runs a download that is complete and is the script.
@@ -456,7 +441,7 @@ done
 ok "the three finished statuses end it and nothing else does"
 
 # The scope shape, held against the constraint the database carries.
-for good in smp limbo smp,limbo hunger-games steward-worker; do
+for good in smp limbo smp,limbo hunger-games steward; do
     update_scope_ok "$good" || bad "$good was refused"
 done
 for wrong in "" " " SMP "smp," ",smp" "smp,,limbo" "smp limbo" "../smp" "smp;"; do

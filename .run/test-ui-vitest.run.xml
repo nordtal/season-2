@@ -1,5 +1,5 @@
 <!--
-  gradlew :steward-ui:viteTest
+  gradlew :steward:viteTest
 
   Runs the frontend's vitest suite through Gradle's private Node; `npx vitest` without node on
   PATH exits 0 having tested nothing.
@@ -16,7 +16,7 @@
       </option>
       <option name="taskNames">
         <list>
-          <option value=":steward-ui:viteTest" />
+          <option value=":steward:viteTest" />
         </list>
       </option>
       <option name="vmOptions" />

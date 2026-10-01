@@ -90,7 +90,7 @@ public final class PaymentRequests {
         return dao.booked(bunqPaymentId).isPresent();
     }
 
-    /** Returns requests steward-worker has attributed money to and nobody has booked: the bot's queue. */
+    /** Returns requests steward has attributed money to and nobody has booked: the bot's queue. */
     public List<PaymentRequest> matchedAwaitingBooking() {
         return dao.matchedAwaitingBooking();
     }

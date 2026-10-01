@@ -164,7 +164,7 @@ public final class Evacuation {
         return running.map(Evacuation::backends).orElseGet(Set::of);
     }
 
-    /** The services the run stops, as the worker wrote them when its countdown started. */
+    /** The services the run stops, as steward wrote them when its countdown started. */
     static Set<String> backends(final UpdateRequest request) {
         return Set.copyOf(request.moving());
     }

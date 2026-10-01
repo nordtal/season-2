@@ -43,14 +43,14 @@ class SchemaCheckTest {
         final IllegalStateException refused =
                 assertThrows(IllegalStateException.class, () -> SchemaCheck.validate(database.dataSource()));
 
-        assertTrue(refused.getMessage().contains("steward-worker migrate"), refused.getMessage());
+        assertTrue(refused.getMessage().contains("steward migrate"), refused.getMessage());
         assertTrue(refused.getMessage().contains("does not apply migrations any more"), refused.getMessage());
     }
 
     @Test
     @org.junit.jupiter.api.Order(2)
     void aMigratedDatabasePasses() {
-        // The fixture migrates as steward-worker does, placeholders and all.
+        // The fixture migrates as steward does, placeholders and all.
         assertDoesNotThrow(() -> SchemaCheck.validate(TestDatabase.fresh().dataSource()));
     }
 }

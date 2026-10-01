@@ -52,8 +52,8 @@ class ArchitectureTest {
             "eu.nordtal.s2.smp.config.SoundsSpec",
             "eu.nordtal.s2.settings.ColoursSpec",
             "eu.nordtal.s2.settings.DatabaseSpec",
-            "eu.nordtal.s2.steward.ui.config.UiSpec",
-            "eu.nordtal.s2.steward.worker.config.StewardSpec");
+            "eu.nordtal.s2.steward.config.WebSpec",
+            "eu.nordtal.s2.steward.config.StewardSpec");
 
     private static JavaClasses classes;
 
@@ -185,10 +185,10 @@ class ArchitectureTest {
     }
 
     @Test
-    void onlyStewardWorkerMigrates() {
+    void onlyStewardMigrates() {
         noClasses()
                 .that()
-                .resideOutsideOfPackage("eu.nordtal.s2.steward.worker..")
+                .resideOutsideOfPackage("eu.nordtal.s2.steward..")
                 .should()
                 .callMethodWhere(DescribedPredicate.describe(
                         "a migration",

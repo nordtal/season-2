@@ -62,9 +62,7 @@ import eu.nordtal.s2.proxy.command.InfoTexts;
 import eu.nordtal.s2.proxy.command.PrivateMessages;
 import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.SignalHub;
-import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.Outcome;
-import eu.nordtal.s2.database.inbox.ProxyRequest;
 import eu.nordtal.s2.database.inbox.Reload;
 import eu.nordtal.s2.proxy.phase.PhaseWatch;
 import eu.nordtal.s2.proxy.online.OnlineWriter;
@@ -394,7 +392,7 @@ public final class ProxyPlugin {
         if (role.isStandby()) {
             logger.info("THIS IS THE STANDBY PROXY. Arrivals are held in '{}' and transferred back "
                             + "to {} as soon as it answers again; no player counts are written "
-                            + "from here.", phaseServers.limboStandby(),
+                            + "from here, and proxy_inbox is left to the main proxy.", phaseServers.limboStandby(),
                     publicAddress == null ? "nowhere - network.yml#public-address is empty"
                             : publicAddress.getHostString() + ":" + publicAddress.getPort());
         } else if (swap.isArmed()) {
@@ -431,17 +429,12 @@ public final class ProxyPlugin {
                     + "whatever list they last read. This proxy still enforces it.", failure);
         }
 
-        // A reload of this proxy's messages, asked for by steward-worker, answered on the hub's thread.
-        final Inbox<ProxyRequest> inbox = Inbox.over(pool, ProxyRequest.TABLE);
-        final int orphans = inbox.settleOrphans(java.util.Map.of("error", "the proxy restarted while it ran this"));
-        if (orphans > 0) {
-            logger.warn("{} request(s) in {} were left running by the last start", orphans, ProxyRequest.TABLE);
-        }
-        inbox.listen(signals, request -> switch (request.payload()) {
+        // A reload of this proxy's messages, asked for by steward-worker; the main proxy alone answers it.
+        ProxyInbox.open(role, pool, signals, request -> switch (request.payload()) {
             case Reload reload -> reloadMessages(messages)
                     ? Outcome.done(english(messages, ProxyMessages.MESSAGES.admin().reloaded()))
                     : Outcome.failed(english(messages, ProxyMessages.MESSAGES.admin().reloadFailed()));
-        });
+        }, logger);
 
         // The five a player types, as plain Velocity Brigadier, not admin-only.
         final PrivateMessages privateMessages =

@@ -30,7 +30,10 @@ public enum Channel {
     BOT("nordtal_bot"),
 
     /** The SMP track, its progress or the aura board moved. smp emits and its surfaces listen. */
-    SMP("nordtal_smp");
+    SMP("nordtal_smp"),
+
+    /** A stored setting changed; payload its service. steward emits, every process with settings listens. */
+    SETTINGS("nordtal_settings");
 
     private final String sqlName;
 

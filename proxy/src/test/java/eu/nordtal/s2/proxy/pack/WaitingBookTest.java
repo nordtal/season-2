@@ -283,7 +283,7 @@ class WaitingBookTest {
         assertEquals(
                 Action.RELEASE,
                 decide(book),
-                "pack.yml#enabled false is a waiting room with one fewer thing in it, not a "
+                "pack#enabled false is a waiting room with one fewer thing in it, not a "
                         + "waiting room that disconnects everybody");
     }
 

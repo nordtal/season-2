@@ -21,13 +21,10 @@ function config(over: Partial<ConfigEntry> & { path: string }): ConfigEntry {
     kind: "SCALAR",
     type: "STRING",
     value: "",
-    comments: [],
     explanation: "",
     noExplanationNeeded: false,
     filled: true,
-    line: 0,
     editable: true,
-    inSchema: true,
     secret: false,
     ...over,
   }

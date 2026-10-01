@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.Platform;
 import eu.nordtal.s2.common.http.HttpFailure;
+import eu.nordtal.s2.settings.MemorySettingStore;
 import eu.nordtal.s2.steward.config.BackupSpec;
 import eu.nordtal.s2.steward.config.StewardSpec;
 import eu.nordtal.s2.steward.http.FakeHttp;
@@ -25,6 +26,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -37,6 +39,9 @@ class ResolverTest {
 
     @TempDir
     Path volumes;
+
+    /** Where the proxy's pack is stored; {@code null} stands for a run without a database. */
+    private @Nullable MemorySettingStore settings = new MemorySettingStore();
 
     private FakeHttp http;
 
@@ -347,7 +352,7 @@ class ResolverTest {
     @Test
     void thePackIsComparedOnItsHashNotOnItsUrl() throws IOException {
         installCurrentEverything();
-        writePackYml("0000000000000000000000000000000000000000");
+        storePack("0000000000000000000000000000000000000000");
 
         final UpdatePlan plan = resolve();
 
@@ -362,15 +367,28 @@ class ResolverTest {
     }
 
     @Test
-    void noPackYmlYetIsMissingWithThePathInItNotACrash() throws IOException {
+    void aProxyWithNoPackYetIsMissingNotACrash() throws IOException {
         installCurrentEverything();
-        Files.delete(PackState.fileIn(volumes.resolve("proxy")));
+        settings = new MemorySettingStore();
 
         final Change change = changeFor(resolve(), "proxy", "resource-pack");
 
         assertEquals(Change.Status.MISSING, change.status());
         assertNotNull(change.note());
-        assertTrue(change.note().contains("pack.yml"), change.note());
+        assertTrue(change.note().contains("no pack yet"), change.note());
+    }
+
+    @Test
+    void withoutADatabaseThePackIsUnknownNotMissing() throws IOException {
+        installCurrentEverything();
+        settings = null;
+
+        final Change change = changeFor(resolve(), "proxy", "resource-pack");
+
+        // MISSING would make a bootstrap install it, which needs the very database that is not there.
+        assertEquals(Change.Status.UNRESOLVED, change.status());
+        assertNotNull(change.note());
+        assertTrue(change.note().contains("no database"), change.note());
     }
 
     @Test
@@ -397,7 +415,7 @@ class ResolverTest {
     @Test
     void aReleaseWithoutAPackZipAndNoPackInstalledIsStillUnresolved() throws IOException {
         installCurrentEverything();
-        Files.delete(PackState.fileIn(volumes.resolve("proxy")));
+        settings = new MemorySettingStore();
         http.answering(
                 "/repos/nordtal/season-2/releases",
                 FakeHttp.read("github-season-v0.1.0.json")
@@ -594,7 +612,7 @@ class ResolverTest {
         // The bot and steward share one jar folder with no plugins subfolder; only the bot's jar exists here.
         write("discord-bot", "discord-bot-0.1.0.jar");
         Files.createDirectories(volumes.resolve("steward"));
-        writePackYml(PACK_SHA1);
+        storePack(PACK_SHA1);
     }
 
     private void write(final String service, final String relative) throws IOException {
@@ -608,16 +626,13 @@ class ResolverTest {
         write(service, to);
     }
 
-    private void writePackYml(final String sha1) throws IOException {
-        final Path file = PackState.fileIn(volumes.resolve("proxy"));
-        Files.createDirectories(file.getParent());
-        Files.writeString(file, """
-                enabled: true
-                url: https://github.com/nordtal/season-2/releases/download/v0.1.0/nordtal-resource-pack-0.1.0.zip
-                sha1: %s
-                force: true
-                apply-timeout-seconds: 180
-                """.formatted(sha1), StandardCharsets.UTF_8);
+    private void storePack(final String sha1) {
+        settings.set(
+                        "proxy",
+                        "pack",
+                        "url",
+                        "https://github.com/nordtal/season-2/releases/download/v0.1.0/nordtal-resource-pack-0.1.0.zip")
+                .set("proxy", "pack", "sha1", sha1);
     }
 
     private List<String> tree() throws IOException {
@@ -632,7 +647,8 @@ class ResolverTest {
                         new GitHubReleases(http),
                         new Modrinth(http),
                         new PaperFill(http),
-                        Clock.fixed(Instant.parse("2026-09-01T18:00:00Z"), ZoneOffset.UTC))
+                        Clock.fixed(Instant.parse("2026-09-01T18:00:00Z"), ZoneOffset.UTC),
+                        settings)
                 .resolve();
     }
 

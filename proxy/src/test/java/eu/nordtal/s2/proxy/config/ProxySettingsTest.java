@@ -1,6 +1,5 @@
 package eu.nordtal.s2.proxy.config;
 
-import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -9,83 +8,59 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.settings.DatabasePool;
 import eu.nordtal.s2.settings.DatabaseSpec;
-import eu.nordtal.s2.settings.FileSettings;
+import eu.nordtal.s2.settings.Environment;
+import eu.nordtal.s2.settings.EnvironmentSettings;
+import eu.nordtal.s2.settings.Group;
+import eu.nordtal.s2.settings.MemorySettingStore;
 import eu.nordtal.s2.settings.SettingsException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-/** Every invalid value in the proxy's own config files stops the gate from starting. */
+/** Every invalid value in the proxy's own settings is refused by name. */
 class ProxySettingsTest {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ProxySettingsTest.class);
+    private final MemorySettingStore store = new MemorySettingStore();
 
-    @TempDir
-    Path directory;
+    /** What an admin stored, taken by the next load. */
+    private final Map<String, Object> values = new LinkedHashMap<>();
 
-    // database.yml
+    // database, from the environment
 
     @Test
     void aFreshDirectoryGetsWorkingDefaults() throws Exception {
-        final DatabaseSpec config = FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                .load("database", DatabaseSpec.class, DatabasePool::check)
-                .get();
+        final DatabaseSpec config = database();
 
         assertEquals("nordtal", config.username());
         assertEquals(5, config.maximumPoolSize());
         assertEquals(3, config.queryTimeoutSeconds());
-        assertTrue(
-                Files.isRegularFile(directory.resolve("database.yml")),
-                "a fresh load must write the defaults out, the same as every other config in this repo");
     }
 
     @Test
     void aNonPostgresqlJdbcUrlIsRejected() throws Exception {
-        Files.writeString(directory.resolve("database.yml"), """
-                jdbc-url: 'jdbc:mysql://localhost:3306/access'
-                username: access
-                password: ''
-                maximum-pool-size: 5
-                query-timeout-seconds: 3
-                """);
+        values.put("NORDTAL_PROXY_DATABASE_JDBC_URL", "jdbc:mysql://localhost:3306/access");
 
-        final SettingsException error = assertThrows(
-                SettingsException.class,
-                () -> FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                        .load("database", DatabaseSpec.class, DatabasePool::check));
+        final SettingsException error = assertThrows(SettingsException.class, () -> database());
         assertTrue(error.getMessage().contains("jdbc-url"), error.getMessage());
     }
 
     @Test
     void aZeroQueryTimeoutIsRejected() throws Exception {
-        Files.writeString(directory.resolve("database.yml"), """
-                jdbc-url: 'jdbc:postgresql://localhost:5432/access'
-                username: access
-                password: ''
-                maximum-pool-size: 5
-                query-timeout-seconds: 0
-                """);
+        values.put("NORDTAL_PROXY_DATABASE_QUERY_TIMEOUT_SECONDS", "0");
 
-        final SettingsException error = assertThrows(
-                SettingsException.class,
-                () -> FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                        .load("database", DatabaseSpec.class, DatabasePool::check));
+        final SettingsException error = assertThrows(SettingsException.class, () -> database());
         assertTrue(error.getMessage().contains("query-timeout-seconds"), error.getMessage());
     }
 
-    // gate.yml
+    // gate
 
     @Test
     void aFreshGateConfigGetsTheDocumentedDefaults() throws Exception {
-        final GateSpec config = FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                .load("gate", GateSpec.class, ProxySettings::checkGate)
-                .get();
+        final GateSpec config =
+                store.checked("proxy", Group.of("gate", GateSpec.class).checkedBy(ProxySettings::checkGate), values);
 
         assertEquals(
                 "https://nordtal.eu",
@@ -109,9 +84,8 @@ class ProxySettingsTest {
     @Test
     void theServerNamesDefaultToTheModuleDirectoryNames() throws Exception {
         // The defaults are the module directory names, the runtime identity of the three Paper plugins.
-        final GateSpec config = FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                .load("gate", GateSpec.class, ProxySettings::checkGate)
-                .get();
+        final GateSpec config =
+                store.checked("proxy", Group.of("gate", GateSpec.class).checkedBy(ProxySettings::checkGate), values);
 
         assertEquals("limbo", config.serverLimbo(), "MAINTENANCE routes here");
         assertEquals("hunger-games", config.serverHungerGames(), "PRE_EVENT and START_EVENT route here");
@@ -121,49 +95,49 @@ class ProxySettingsTest {
     @Test
     void aBlankServerNameIsRejected() throws Exception {
         // A name that could never resolve to a registered server is a mistake; a velocity.toml mismatch is not.
-        writeGate("server-limbo: ''");
+        values.put("server-limbo", "");
 
         final SettingsException error = assertThrows(
                 SettingsException.class,
-                () -> FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                        .load("gate", GateSpec.class, ProxySettings::checkGate));
+                () -> store.checked(
+                        "proxy", Group.of("gate", GateSpec.class).checkedBy(ProxySettings::checkGate), values));
         assertTrue(error.getMessage().contains("server-limbo"), error.getMessage());
     }
 
     @Test
     void aNegativeFallbackWindowIsRejected() throws Exception {
-        writeGate("fallback-cache-window-minutes: -1");
+        values.put("fallback-cache-window-minutes", -1);
 
         final SettingsException error = assertThrows(
                 SettingsException.class,
-                () -> FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                        .load("gate", GateSpec.class, ProxySettings::checkGate));
+                () -> store.checked(
+                        "proxy", Group.of("gate", GateSpec.class).checkedBy(ProxySettings::checkGate), values));
         assertTrue(error.getMessage().contains("fallback-cache-window-minutes"), error.getMessage());
     }
 
     @Test
     void aZeroLinkCodeTtlIsRejected() throws Exception {
-        writeGate("link-code-ttl-minutes: 0");
+        values.put("link-code-ttl-minutes", 0);
 
         final SettingsException error = assertThrows(
                 SettingsException.class,
-                () -> FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                        .load("gate", GateSpec.class, ProxySettings::checkGate));
+                () -> store.checked(
+                        "proxy", Group.of("gate", GateSpec.class).checkedBy(ProxySettings::checkGate), values));
         assertTrue(error.getMessage().contains("link-code-ttl-minutes"), error.getMessage());
     }
 
     @Test
     void aNegativePlaytimeFlushIntervalIsRejected() throws Exception {
-        writeGate("playtime-flush-interval-seconds: -30");
+        values.put("playtime-flush-interval-seconds", -30);
 
         final SettingsException error = assertThrows(
                 SettingsException.class,
-                () -> FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                        .load("gate", GateSpec.class, ProxySettings::checkGate));
+                () -> store.checked(
+                        "proxy", Group.of("gate", GateSpec.class).checkedBy(ProxySettings::checkGate), values));
         assertTrue(error.getMessage().contains("playtime-flush-interval-seconds"), error.getMessage());
     }
 
-    // pack.yml
+    // pack
 
     private static final String REAL_LOOKING_SHA1 = "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c";
 
@@ -172,11 +146,8 @@ class ProxySettingsTest {
         // Enabled but empty by default, so a fresh install fails closed.
         assertThrows(
                 SettingsException.class,
-                () -> FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                        .load("pack", PackSpec.class, ProxySettings::checkPack));
-        assertTrue(
-                Files.isRegularFile(directory.resolve("pack.yml")),
-                "the defaults must still be written out, or there is nothing to fill in");
+                () -> store.checked(
+                        "proxy", Group.of("pack", PackSpec.class).checkedBy(ProxySettings::checkPack), values));
     }
 
     @Test
@@ -188,9 +159,8 @@ class ProxySettingsTest {
                 true,
                 180);
 
-        final PackSpec config = FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                .load("pack", PackSpec.class, ProxySettings::checkPack)
-                .get();
+        final PackSpec config =
+                store.checked("proxy", Group.of("pack", PackSpec.class).checkedBy(ProxySettings::checkPack), values);
 
         assertTrue(config.enabled());
         assertTrue(config.force(), "the pack offer is forced");
@@ -203,9 +173,8 @@ class ProxySettingsTest {
         // The escape hatch for a development proxy, which must not be refused over values nothing reads.
         writePack("", "", false, true, 180);
 
-        final PackSpec config = FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                .load("pack", PackSpec.class, ProxySettings::checkPack)
-                .get();
+        final PackSpec config =
+                store.checked("proxy", Group.of("pack", PackSpec.class).checkedBy(ProxySettings::checkPack), values);
 
         assertFalse(config.enabled());
         assertEquals("", config.url());
@@ -217,8 +186,8 @@ class ProxySettingsTest {
 
         final SettingsException error = assertThrows(
                 SettingsException.class,
-                () -> FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                        .load("pack", PackSpec.class, ProxySettings::checkPack));
+                () -> store.checked(
+                        "proxy", Group.of("pack", PackSpec.class).checkedBy(ProxySettings::checkPack), values));
         assertTrue(error.getMessage().contains("url"), error.getMessage());
     }
 
@@ -229,8 +198,8 @@ class ProxySettingsTest {
 
         final SettingsException error = assertThrows(
                 SettingsException.class,
-                () -> FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                        .load("pack", PackSpec.class, ProxySettings::checkPack));
+                () -> store.checked(
+                        "proxy", Group.of("pack", PackSpec.class).checkedBy(ProxySettings::checkPack), values));
         assertTrue(error.getMessage().contains("url"), error.getMessage());
     }
 
@@ -244,8 +213,8 @@ class ProxySettingsTest {
 
             final SettingsException error = assertThrows(
                     SettingsException.class,
-                    () -> FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                            .load("pack", PackSpec.class, ProxySettings::checkPack),
+                    () -> store.checked(
+                            "proxy", Group.of("pack", PackSpec.class).checkedBy(ProxySettings::checkPack), values),
                     wrong);
             assertTrue(error.getMessage().contains("sha1"), error.getMessage());
         }
@@ -263,9 +232,7 @@ class ProxySettingsTest {
 
         assertEquals(
                 REAL_LOOKING_SHA1.toUpperCase(java.util.Locale.ROOT),
-                FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                        .load("pack", PackSpec.class, ProxySettings::checkPack)
-                        .get()
+                store.checked("proxy", Group.of("pack", PackSpec.class).checkedBy(ProxySettings::checkPack), values)
                         .sha1());
     }
 
@@ -276,36 +243,28 @@ class ProxySettingsTest {
 
         final SettingsException error = assertThrows(
                 SettingsException.class,
-                () -> FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                        .load("pack", PackSpec.class, ProxySettings::checkPack));
+                () -> store.checked(
+                        "proxy", Group.of("pack", PackSpec.class).checkedBy(ProxySettings::checkPack), values));
         assertTrue(error.getMessage().contains("apply-timeout-seconds"), error.getMessage());
     }
 
     private void writePack(
-            final String url, final String sha1, final boolean enabled, final boolean force, final int timeout)
-            throws Exception {
-        Files.writeString(directory.resolve("pack.yml"), """
-                enabled: %s
-                url: '%s'
-                sha1: '%s'
-                force: %s
-                apply-timeout-seconds: %d
-                """.formatted(enabled, url, sha1, force, timeout));
+            final String url, final String sha1, final boolean enabled, final boolean force, final int timeout) {
+        values.put("enabled", enabled);
+        values.put("url", url);
+        values.put("sha1", sha1);
+        values.put("force", force);
+        values.put("apply-timeout-seconds", timeout);
     }
 
-    // network.yml
+    // network
 
     @Test
     void aFreshNetworkConfigLoadsAndCarriesAMotdForEveryPhase() throws Exception {
-        final NetworkSpec config = FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                .load("network", NetworkSpec.class, ProxySettings::checkNetwork)
-                .get();
+        final NetworkSpec config = store.checked(
+                "proxy", Group.of("network", NetworkSpec.class).checkedBy(ProxySettings::checkNetwork), values);
 
         assertEquals(500, config.maxPlayers());
-        assertTrue(
-                Files.isRegularFile(directory.resolve("network.yml")),
-                "a fresh load must write the defaults out - and this file is also the only place the"
-                        + " placeholder list is documented");
 
         // The nested MotdSpec needs its own @ConfigSpec to survive the round trip.
         for (final SeasonPhase phase : SeasonPhase.values()) {
@@ -316,9 +275,8 @@ class ProxySettingsTest {
     @Test
     void everyPhaseGetsItsOwnMotdRatherThanOneSharedLine() throws Exception {
         // Two phases sharing a default would make five keys pointless.
-        final NetworkSpec config = FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                .load("network", NetworkSpec.class, ProxySettings::checkNetwork)
-                .get();
+        final NetworkSpec config = store.checked(
+                "proxy", Group.of("network", NetworkSpec.class).checkedBy(ProxySettings::checkNetwork), values);
         final Set<String> distinct = new HashSet<>();
         for (final SeasonPhase phase : SeasonPhase.values()) {
             distinct.add(motdFor(config, phase));
@@ -332,9 +290,8 @@ class ProxySettingsTest {
     @Test
     void everyDefaultMotdOpensWithTheOneBrandMark() throws Exception {
         // One mark, and the phase is what the second line says: a name that changes colour is five marks.
-        final NetworkSpec config = FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                .load("network", NetworkSpec.class, ProxySettings::checkNetwork)
-                .get();
+        final NetworkSpec config = store.checked(
+                "proxy", Group.of("network", NetworkSpec.class).checkedBy(ProxySettings::checkNetwork), values);
         for (final SeasonPhase phase : SeasonPhase.values()) {
             final String motd = motdFor(config, phase);
             assertTrue(motd.startsWith(NetworkSpec.MotdSpec.NORDTAL_BLUE), phase + " opens with its own mark: " + motd);
@@ -353,43 +310,10 @@ class ProxySettingsTest {
     }
 
     @Test
-    void aNetworkConfigStillCarryingBackendLimitLosesTheLineRatherThanTheProxy() throws Exception {
-        // A deployed network.yml may still carry `backend-limit`; the loader drops it.
-        Files.writeString(directory.resolve("network.yml"), """
-                max-players: 500
-                backend-limit: 1000
-                snapshot-refresh-seconds: 10
-                motd:
-                  pre-launch: 'a'
-                  pre-event: 'b'
-                  start-event: 'c'
-                  smp: 'd'
-                  maintenance: 'e'
-                """);
-
-        final NetworkSpec config = FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                .load("network", NetworkSpec.class, ProxySettings::checkNetwork)
-                .get();
-
-        assertAll(
-                () -> assertEquals(
-                        500,
-                        config.maxPlayers(),
-                        "the one number there is has to survive the deletion of the retired one"),
-                () -> assertFalse(
-                        Files.readString(directory.resolve("network.yml")).contains("backend-limit"),
-                        "the retired key stays in the file, still looking like a setting"),
-                () -> assertTrue(
-                        Files.readString(directory.resolve("network.yml.bak")).contains("backend-limit"),
-                        "what was deleted has to be recoverable"));
-    }
-
-    @Test
     void aFreshNetworkConfigCarriesTheAllowlistOfOurOwnPlayerCommands() throws Exception {
         // The default is the assertion: this list is what every player on the network can type.
-        final NetworkSpec config = FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                .load("network", NetworkSpec.class, ProxySettings::checkNetwork)
-                .get();
+        final NetworkSpec config = store.checked(
+                "proxy", Group.of("network", NetworkSpec.class).checkedBy(ProxySettings::checkNetwork), values);
 
         assertEquals(
                 List.of("navigate", "poi", "hg ready", "msg", "whisper", "r", "discord", "rules"),
@@ -399,67 +323,41 @@ class ProxySettingsTest {
     @Test
     void aBlankAllowlistEntryIsRejectedBecauseItWouldBeDroppedSilently() throws Exception {
         // A blank entry has no segments and would match every command.
-        Files.writeString(directory.resolve("network.yml"), """
-                max-players: 500
-                snapshot-refresh-seconds: 10
-                command-allowlist:
-                  - msg
-                  - ''
-                motd:
-                  pre-launch: 'a'
-                  pre-event: 'b'
-                  start-event: 'c'
-                  smp: 'd'
-                  maintenance: 'e'
-                """);
+        values.put("command-allowlist", List.of("msg", ""));
 
         final SettingsException error = assertThrows(
                 SettingsException.class,
-                () -> FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                        .load("network", NetworkSpec.class, ProxySettings::checkNetwork));
+                () -> store.checked(
+                        "proxy",
+                        Group.of("network", NetworkSpec.class).checkedBy(ProxySettings::checkNetwork),
+                        values));
         assertTrue(error.getMessage().contains("command-allowlist"), error.getMessage());
     }
 
     @Test
     void anEmptyAllowlistIsAllowedBecauseLockingTheNetworkDownIsALegitimateThingToWant() throws Exception {
         // An empty allowlist is legitimate and is not refused.
-        Files.writeString(directory.resolve("network.yml"), """
-                max-players: 500
-                snapshot-refresh-seconds: 10
-                command-allowlist: []
-                motd:
-                  pre-launch: 'a'
-                  pre-event: 'b'
-                  start-event: 'c'
-                  smp: 'd'
-                  maintenance: 'e'
-                """);
+        values.put("command-allowlist", List.of());
 
         assertEquals(
                 List.of(),
-                FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                        .load("network", NetworkSpec.class, ProxySettings::checkNetwork)
-                        .get()
+                store.checked(
+                                "proxy",
+                                Group.of("network", NetworkSpec.class).checkedBy(ProxySettings::checkNetwork),
+                                values)
                         .commandAllowlist());
     }
 
     @Test
     void anEmptyMotdIsRejectedRatherThanShownAsAnEmptyServerBrowserEntry() throws Exception {
-        Files.writeString(directory.resolve("network.yml"), """
-                max-players: 500
-                snapshot-refresh-seconds: 10
-                motd:
-                  pre-launch: ''
-                  pre-event: 'b'
-                  start-event: 'c'
-                  smp: 'd'
-                  maintenance: 'e'
-                """);
+        values.put("motd.pre-launch", "");
 
         final SettingsException error = assertThrows(
                 SettingsException.class,
-                () -> FileSettings.in(directory, "NORDTAL_PROXY", "proxy", LOGGER)
-                        .load("network", NetworkSpec.class, ProxySettings::checkNetwork));
+                () -> store.checked(
+                        "proxy",
+                        Group.of("network", NetworkSpec.class).checkedBy(ProxySettings::checkNetwork),
+                        values));
         assertTrue(error.getMessage().contains("motd.pre-launch"), error.getMessage());
     }
 
@@ -473,24 +371,14 @@ class ProxySettingsTest {
         };
     }
 
-    /** Writes a complete, valid {@code gate.yml} with one line replaced, since jcore refuses unknown keys. */
-    private void writeGate(final String override) throws Exception {
-        final String[] defaults = {
-            "discord-invite-url: 'https://nordtal.eu'",
-            "link-code-ttl-minutes: 10",
-            "fallback-cache-window-minutes: 15",
-            "expiry-check-interval-seconds: 60",
-            "expiry-warning-lead-minutes: 5",
-            "playtime-flush-interval-seconds: 300",
-            "server-limbo: limbo",
-            "server-hunger-games: hunger-games",
-            "server-smp: smp",
-        };
-        final String key = override.substring(0, override.indexOf(':') + 1);
-        final StringBuilder yaml = new StringBuilder();
-        for (final String line : defaults) {
-            yaml.append(line.startsWith(key) ? override : line).append('\n');
-        }
-        Files.writeString(directory.resolve("gate.yml"), yaml.toString());
+    /** Takes the proxy's database settings from an environment holding what {@link #values} names. */
+    private DatabaseSpec database() throws SettingsException {
+        return EnvironmentSettings.of(
+                        Environment.of("NORDTAL_PROXY").withMain("proxy").reading(name -> {
+                            final Object value = values.get(name);
+                            return value == null ? null : value.toString();
+                        }))
+                .load(Group.of("database", DatabaseSpec.class).checkedBy(DatabasePool::check))
+                .get();
     }
 }

@@ -5,31 +5,37 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.settings.MemorySettingStore;
+import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.SettingsException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
- * What {@code steward.yml} refuses, and what it drops.
+ * What the steward group refuses, and what it starts with.
  *
- * A live PGDATA in {@code backup.volumes} is refused; a retired key costs a WARN and a {@code .bak}, not a start.
+ * A live PGDATA in {@code backup.volumes} is refused; a refused change keeps the values in use.
  */
 class StewardSettingsTest {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(StewardSettingsTest.class);
+    private final MemorySettingStore store = new MemorySettingStore();
 
-    @TempDir
-    Path directory;
+    private Setting<StewardSpec> steward() throws SettingsException {
+        return StewardSettings.steward(store.settings(StewardSettings.SERVICE));
+    }
+
+    /** Stores {@code value} at {@code path} as an admin would and takes the group again. */
+    private SettingsException refused(final String path, final Object value) throws SettingsException {
+        final Setting<StewardSpec> steward = steward();
+        store.set(StewardSettings.SERVICE, "steward", path, value);
+        return assertThrows(SettingsException.class, steward::reload);
+    }
 
     @Test
-    void aFreshFileBacksUpTheFourVolumesThatCannotBeRebuiltAndNeverPgdata() throws Exception {
-        final StewardSpec config = StewardSettings.steward(directory, LOGGER).get();
-        final java.util.List<String> volumes = config.backup().volumes();
+    void theDefaultsBackUpTheFourVolumesThatCannotBeRebuiltAndNeverPgdata() throws Exception {
+        final StewardSpec config = steward().get();
+        final List<String> volumes = config.backup().volumes();
 
         // Nordtal is a hand-built world in no repository or release; plugins volumes hold every hand-edited config.
         assertTrue(volumes.contains("nordtal-s2_mc-smp"), volumes.toString());
@@ -45,14 +51,11 @@ class StewardSettingsTest {
 
         // hunger-games has no world worth saving but a plugins/ volume worth snapshotting; the proxy needs neither.
         assertEquals(
-                java.util.List.of(
-                        eu.nordtal.s2.steward.plan.Topology.SMP, eu.nordtal.s2.steward.plan.Topology.DISCORD_BOT),
+                List.of(eu.nordtal.s2.steward.plan.Topology.SMP, eu.nordtal.s2.steward.plan.Topology.DISCORD_BOT),
                 config.backup().stopServices());
         assertFalse(
-                config.backup().volumes().stream()
-                        .anyMatch(volume -> volume.contains("proxy") || volume.contains("limbo")),
-                "proxy and limbo left the backup on 2026-09-20 and a restart writes everything" + " they hold: "
-                        + config.backup().volumes());
+                volumes.stream().anyMatch(volume -> volume.contains("proxy") || volume.contains("limbo")),
+                "proxy and limbo left the backup and a restart writes everything they hold: " + volumes);
 
         // A run ending FAILED mentions the admin role through UpdateFeed, so a half-hour outage is not silent.
         assertEquals(30, config.backup().patienceMinutes());
@@ -60,14 +63,7 @@ class StewardSettingsTest {
 
     @Test
     void listingPostgresDataIsRefusedByNameNotWarnedAbout() throws Exception {
-        java.nio.file.Files.writeString(directory.resolve("steward.yml"), """
-                backup:
-                  volumes:
-                    - 'nordtal-s2_postgres-data'
-                """);
-
-        final SettingsException error =
-                assertThrows(SettingsException.class, () -> StewardSettings.steward(directory, LOGGER));
+        final SettingsException error = refused("backup.volumes", "[\"nordtal-s2_postgres-data\"]");
 
         final String message = String.valueOf(error.getMessage() + error.getCause());
         assertTrue(
@@ -78,14 +74,7 @@ class StewardSettingsTest {
     @Test
     void aVolumeListWithoutTheWorldIsRefusedBecauseTheWorldCannotBeRebuilt() throws Exception {
         // A run reports DONE for saving what this list names; dropping mc-smp would still report DONE without it.
-        java.nio.file.Files.writeString(directory.resolve("steward.yml"), """
-                backup:
-                  volumes:
-                    - 'nordtal-s2_bot-config'
-                """);
-
-        final SettingsException error =
-                assertThrows(SettingsException.class, () -> StewardSettings.steward(directory, LOGGER));
+        final SettingsException error = refused("backup.volumes", "[\"nordtal-s2_bot-config\"]");
 
         final String message = String.valueOf(error.getMessage() + error.getCause());
         assertTrue(
@@ -94,44 +83,19 @@ class StewardSettingsTest {
     }
 
     @Test
-    void aDeployedStewardYmlStillCarryingRetiredKeysLosesThemAndStarts() throws Exception {
-        // A RETIRED key gets a WARN and a .bak, then the process starts; nobody must re-declare one as a no-op.
-        StewardSettings.steward(directory, LOGGER);
+    void aRefusedChangeKeepsTheValuesInUseAndSaysWhyOnTheGroup() throws Exception {
+        final Setting<StewardSpec> steward = steward();
+        store.set(StewardSettings.SERVICE, "steward", "backup.volumes", "[\"nordtal-s2_postgres-data\"]");
 
-        final Path file = directory.resolve("steward.yml");
-        Files.writeString(file, Files.readString(file, StandardCharsets.UTF_8) + """
+        assertThrows(SettingsException.class, steward::reload);
 
-                minecraft-version: '26.2'
-                velocity-version: '4.1.1'
-                paper-build: latest
-                velocity-build: '24'
-                arcane:
-                  base-url: 'https://arcane.example.com'
-                  api-key: 'token'
-                """, StandardCharsets.UTF_8);
-
-        final StewardSpec config = StewardSettings.steward(directory, LOGGER).get();
-        assertEquals("nordtal/season-2", config.seasonRepo(), "steward refused to start");
-
-        final String written = Files.readString(file, StandardCharsets.UTF_8);
-        for (final String retired :
-                new String[] {"minecraft-version", "velocity-version", "paper-build", "velocity-build", "arcane"}) {
-            assertFalse(
-                    written.contains(retired),
-                    "steward.yml still carries '" + retired + "' after a load. Either it was"
-                            + " re-declared - which makes an operator believe a value nothing"
-                            + " reads - or jcore stopped trimming retired keys.");
-        }
-        assertTrue(
-                Files.isRegularFile(directory.resolve("steward.yml.bak")),
-                "the old content is not in a .bak, so an operator who wanted those lines back has"
-                        + " nowhere to read them from");
+        assertTrue(steward.get().backup().volumes().contains("nordtal-s2_mc-smp"));
+        assertTrue(store.group(StewardSettings.SERVICE, "steward").orElseThrow().problem() != null);
     }
 
     @Test
-    void aFreshFileHasNoBankTokenAndThatIsAValidDeployment() throws Exception {
-        final StewardSpec.BunqSpec bunq =
-                StewardSettings.steward(directory, LOGGER).get().bunq();
+    void noBankTokenIsAValidDeployment() throws Exception {
+        final StewardSpec.BunqSpec bunq = steward().get().bunq();
 
         // Empty is the default and the load succeeds: a season with no bank account must still be able to start.
         assertEquals("", bunq.token());
@@ -142,32 +106,26 @@ class StewardSettingsTest {
     }
 
     @Test
-    void aWatermarkOverrideThatIsNotAnInstantIsRefused() throws Exception {
+    void aWatermarkThatIsNotAnInstantIsRefused() throws Exception {
         // An unreadable watermark must not surface as a poll that books nothing, indistinguishable from a quiet bank.
-        Files.writeString(directory.resolve("steward.yml"), """
-                bunq:
-                  watermark: '1 September 2026'
-                """);
-
-        final SettingsException error =
-                assertThrows(SettingsException.class, () -> StewardSettings.steward(directory, LOGGER));
+        final SettingsException error = refused("bunq.watermark", "1 September 2026");
 
         final String message = String.valueOf(error.getMessage()) + error.getCause();
         assertTrue(message.contains("ISO-8601"), message);
     }
 
     @Test
-    void aCompleteBunqBlockLoads() throws Exception {
-        Files.writeString(directory.resolve("steward.yml"), """
-                bunq:
-                  token: 'a-token'
-                  poll-interval-seconds: 45
-                  recent-payment-count: 10
-                  watermark: '2026-09-01T00:00:00Z'
-                """);
+    void aCompleteBunqBlockLoadsWithItsTokenFromTheEnvironment() throws Exception {
+        store.set(StewardSettings.SERVICE, "steward", "bunq.poll-interval-seconds", 45)
+                .set(StewardSettings.SERVICE, "steward", "bunq.recent-payment-count", 10)
+                .set(StewardSettings.SERVICE, "steward", "bunq.watermark", "2026-09-01T00:00:00Z");
 
-        final StewardSpec.BunqSpec bunq =
-                StewardSettings.steward(directory, LOGGER).get().bunq();
+        final StewardSpec.BunqSpec bunq = StewardSettings.steward(store.settings(
+                        StewardSettings.SERVICE,
+                        StewardSettings.ENVIRONMENT.reading(Map.of("NORDTAL_STEWARD_BUNQ_TOKEN", "a-token")::get)))
+                .get()
+                .bunq();
+
         assertEquals("a-token", bunq.token());
         assertEquals(45, bunq.pollIntervalSeconds());
         assertEquals(10, bunq.recentPaymentCount());

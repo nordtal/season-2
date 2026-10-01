@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward.api;
 
 import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.steward.docker.Console;
 import eu.nordtal.s2.steward.docker.Docker;
 import eu.nordtal.s2.steward.docker.DockerOps;
@@ -23,6 +24,11 @@ final class StackServer {
         @Override
         public String name(final Context ctx) {
             return "a test (1)";
+        }
+
+        @Override
+        public Actor actor(final Context ctx) {
+            return Actor.STEWARD;
         }
 
         @Override

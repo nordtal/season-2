@@ -21,11 +21,10 @@ function json(status: number, body: unknown): Response {
   })
 }
 
-const FILE = "steward/steward.yml"
+const FILE = "steward/steward"
 
 function entry(over: Record<string, unknown>) {
   return {
-    comments: [],
     explanation: "",
     noExplanationNeeded: true,
     filled: false,
@@ -33,10 +32,8 @@ function entry(over: Record<string, unknown>) {
     items: [],
     kind: "SCALAR",
     type: "STRING",
-    line: 1,
     editable: true,
     secret: false,
-    inSchema: true,
     ...over,
   }
 }
@@ -44,12 +41,11 @@ function entry(over: Record<string, unknown>) {
 function stewardConfig() {
   return {
     service: "steward",
-    name: "steward.yml",
+    name: "steward",
     path: FILE,
     readable: true,
     writable: true,
     revision: "rev-1",
-    header: [],
     entries: [
       entry({ path: "backup.at", key: "at", label: "At", value: "04:45" }),
       entry({ path: "backup.days", key: "days", label: "Days", kind: "LIST", value: undefined, items: ["MONDAY"] }),
@@ -85,10 +81,10 @@ function run(id: number, kind: string) {
 
 function backend(over: { schedule?: unknown; put?: (body: unknown) => Response; runs?: unknown[] } = {}) {
   return vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
-    if (url === "/api/config") {
-      return json(200, [{ service: "steward", name: "steward.yml", path: FILE, readable: true, writable: true }])
+    if (url === "/api/setting-groups") {
+      return json(200, [{ service: "steward", name: "steward", path: FILE, readable: true, writable: true }])
     }
-    if (url === `/api/config/${FILE}`) {
+    if (url === `/api/setting-groups/${FILE}`) {
       if (init?.method === "PUT") return (over.put ?? (() => json(200, stewardConfig())))(JSON.parse(init?.body ?? ""))
       return json(200, stewardConfig())
     }

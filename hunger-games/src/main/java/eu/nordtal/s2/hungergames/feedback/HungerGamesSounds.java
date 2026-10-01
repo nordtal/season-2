@@ -1,9 +1,9 @@
 package eu.nordtal.s2.hungergames.feedback;
 
-import eu.nordtal.s2.hungergames.config.SoundsSpec;
 import eu.nordtal.s2.messagerendering.feedback.FeedbackSounds;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.messages.feedback.FeedbackSound;
+import eu.nordtal.s2.papercommon.sound.SoundsSpec;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.function.Consumer;

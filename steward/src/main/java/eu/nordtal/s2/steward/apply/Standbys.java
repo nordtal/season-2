@@ -97,7 +97,7 @@ public final class Standbys {
     /**
      * One directory, recursively, made equal to another.
      *
-     * Files are compared by content, since timestamps collide and {@code pack.yml} keeps its size.
+     * Files are compared by content, since timestamps collide and a changed file can keep its size.
      */
     private static void copyInto(final Path source, final Path target, final Tally tally) throws IOException {
         final Set<String> wanted = new LinkedHashSet<>();

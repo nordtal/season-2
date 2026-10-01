@@ -4,6 +4,7 @@ import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
+import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.database.update.ServiceHold;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.steward.backup.NightlyClock;
@@ -41,7 +42,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The stack's routes: services, logs, the console, config files, messages, the host, backups and plugins.
+ * The stack's routes: services, logs, the console, settings, messages, the host, backups and plugins.
  *
  * Stopping and starting are not here; they are rows in the run inbox. Every route sits behind the web's gate.
  */
@@ -75,6 +76,9 @@ public final class StackApi implements AutoCloseable {
 
     /** The plugin routes, or null without a database, when every route answers 503. */
     private final @Nullable PluginsApi managedPlugins;
+
+    /** Every process's settings, or {@code null} without a database. */
+    private final @Nullable SettingsApi settings;
 
     /** The live console SSE stream and its shutdown ordering. */
     final LogFollows logFollows;
@@ -121,7 +125,6 @@ public final class StackApi implements AutoCloseable {
      */
     final @Nullable Refreshed<Available> available;
 
-    final ConfigApi configs;
     final MessagesApi messages;
     final ActionsApi actions;
     /** The Disk field of one service's page; never part of the service table. */
@@ -161,7 +164,7 @@ public final class StackApi implements AutoCloseable {
                 null,
                 null,
                 null,
-                () -> {},
+                null,
                 clock);
     }
 
@@ -179,11 +182,10 @@ public final class StackApi implements AutoCloseable {
      * @param managedPlugins the plugin routes, or {@code null} without a database, when they answer 503
      * @param botInbox the bot's inbox, or {@code null} without a database, when a bot bundle save asks for a
      *     restart
-     * @param nightly the schedule as it stands right now, changed when steward.yml is saved
-     * @param reloads asks a server to re-read a saved file, or {@code null} without a database, when a save asks for
+     * @param nightly the schedule as it stands right now, changed with the steward settings
+     * @param reloads asks a server to re-read a saved bundle, or {@code null} without a database, when a save asks for
      *     a restart
-     * @param reReadOwn what a save of Steward's own {@code steward.yml} runs; it may throw, and the save then waits
-     *     for a restart
+     * @param settings every process's settings, or {@code null} without a database, when their routes answer 503
      */
     public StackApi(
             final Docker docker,
@@ -201,24 +203,23 @@ public final class StackApi implements AutoCloseable {
             final @Nullable Supplier<UpdatePlan> resolve,
             final @Nullable PluginsApi managedPlugins,
             final @Nullable Inbox<BotRequest> botInbox,
-            final ConfigApi.@Nullable Reloader reloads,
-            final Runnable reReadOwn,
+            final MessagesApi.@Nullable Reloader reloads,
+            final @Nullable SettingStore settings,
             final Clock clock) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.managedPlugins = managedPlugins;
+        this.settings = settings == null ? null : new SettingsApi(settings);
         this.docker = docker;
         this.console = console;
         this.host = host;
         this.project = project;
         this.backups = backups;
         this.nightly = nightly;
-        final ConfigApi.Reloader reloader = reloads == null
+        final MessagesApi.Reloader reloader = reloads == null
                 ? service -> {
                     throw new IllegalArgumentException("Steward has no database to ask " + service + " through.");
                 }
                 : reloads;
-        this.configs = new ConfigApi(configs, reloader, java.util.Map.of(ConfigApi.OWN_CONFIG, reReadOwn));
-        // Not a config file, so it has its own API.
         this.messages = new MessagesApi(configs, volumesRoot, botInbox, reloader, Waiting.on(clock));
         // One query over two tables, not a frontend-side merge.
         this.actions = new ActionsApi(updates, audit);
@@ -260,6 +261,14 @@ public final class StackApi implements AutoCloseable {
                 log.warn("the first image comparison failed - the next request will try again: {}", failed.toString());
             }
         });
+    }
+
+    /** The settings routes, or a 503: without a database there are no settings to show. */
+    SettingsApi settings() {
+        if (settings == null) {
+            throw new io.javalin.http.ServiceUnavailableResponse("Steward has no database, so it holds no settings");
+        }
+        return settings;
     }
 
     /** The plugin routes, or a 503, since "no plugins" and "cannot read the table" are different answers. */

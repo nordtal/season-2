@@ -22,7 +22,7 @@ import {
 import { Progress } from "@/components/ui/progress"
 
 /** The track's definition, read through the configuration API for its order and what each step asks for. */
-export const TRACK_FILE = "smp/smp/milestones.yml"
+export const TRACK_FILE = "smp/milestones"
 
 export type TrackTask = SmpObjective & {
   role?: string
@@ -52,7 +52,7 @@ const TYPE: Record<SmpObjective["type"], string> = {
  * Without the file the database's order stands; a row the file no longer declares goes last.
  */
 export function trackSteps(progress: SmpTrack, definition?: ConfigDocument): TrackStep[] {
-  const declared = definition && !definition.raw ? sectionsOf(definition.entries, "milestones") : []
+  const declared = definition ? sectionsOf(definition.entries, "milestones") : []
   const rows = new Map(progress.milestones.map((milestone) => [milestone.key, milestone]))
   const steps: TrackStep[] = []
   for (const section of declared) {

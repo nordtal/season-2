@@ -17,7 +17,7 @@ public final class LimboHold {
     /**
      * The first reason to keep waiting, or empty when the player may be connected onward.
      *
-     * @param packSettled whether the pack is applied, or there is none because {@code pack.yml#enabled} is off
+     * @param packSettled whether the pack is applied, or there is none because {@code pack#enabled} is off
      * @param admin whether the player carries {@code discord_user.admin}; maintenance does not hold them
      * @param standby whether this is the standby proxy, which releases nobody, admins included
      * @param destinationAvailable whether that phase's backend is registered and not suspended

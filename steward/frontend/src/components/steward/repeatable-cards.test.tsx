@@ -12,7 +12,6 @@ function field(over: Partial<ConfigEntry> & { key: string }): ConfigEntry {
   return {
     path: over.key,
     label: over.key,
-    comments: [],
     explanation: "",
     noExplanationNeeded: false,
     filled: true,
@@ -20,10 +19,8 @@ function field(over: Partial<ConfigEntry> & { key: string }): ConfigEntry {
     items: [],
     kind: "SCALAR",
     type: "STRING",
-    line: 1,
     editable: true,
     secret: false,
-    inSchema: true,
     ...over,
   }
 }

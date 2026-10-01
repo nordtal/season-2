@@ -11,4 +11,9 @@ public final class SettingsException extends Exception {
     public SettingsException(final String message, final Throwable cause) {
         super(message, cause);
     }
+
+    /** A refusal recorded earlier, of which only the sentence is left. */
+    public SettingsException(final String message) {
+        super(message);
+    }
 }

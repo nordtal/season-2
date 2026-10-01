@@ -20,14 +20,14 @@ import java.util.function.Supplier;
 import javax.sql.DataSource;
 
 /** Asks a Minecraft service for a reload as a request in its inbox, and waits a few seconds for the answer. */
-public final class InboxReloader implements ConfigApi.Reloader {
+public final class InboxReloader implements MessagesApi.Reloader {
 
     /** How long a service may take; a reload re-reads a handful of files. */
     private static final Duration ANSWER_WITHIN = Duration.ofSeconds(10);
 
     private static final Duration LOOK_EVERY = Duration.ofMillis(200);
 
-    private final Map<String, Supplier<Optional<ConfigApi.Reloaded>>> services;
+    private final Map<String, Supplier<Optional<MessagesApi.Reloaded>>> services;
     private final Waiting waiting;
     private final Duration answerWithin;
 
@@ -51,15 +51,15 @@ public final class InboxReloader implements ConfigApi.Reloader {
     }
 
     @Override
-    public Optional<ConfigApi.Reloaded> reload(final String service) {
-        final Supplier<Optional<ConfigApi.Reloaded>> ask = services.get(service);
+    public Optional<MessagesApi.Reloaded> reload(final String service) {
+        final Supplier<Optional<MessagesApi.Reloaded>> ask = services.get(service);
         if (ask == null) {
             throw new IllegalArgumentException(service + " has no inbox to ask for a reload; restart it instead.");
         }
         return ask.get();
     }
 
-    private <P> Optional<ConfigApi.Reloaded> ask(final Inbox<P> inbox, final P reload) {
+    private <P> Optional<MessagesApi.Reloaded> ask(final Inbox<P> inbox, final P reload) {
         // Steward itself: this process does not know which browser asked and must not invent one.
         final Request<P> asked = inbox.submit(reload, Actor.STEWARD, Schedule.within(answerWithin));
         return waiting.until(
@@ -67,7 +67,7 @@ public final class InboxReloader implements ConfigApi.Reloader {
                         answerWithin.plusSeconds(1),
                         Backoff.fixed(LOOK_EVERY))
                 .filter(row -> row.status() != InboxStatus.EXPIRED)
-                .map(row -> new ConfigApi.Reloaded(row.status() == InboxStatus.DONE, text(row)));
+                .map(row -> new MessagesApi.Reloaded(row.status() == InboxStatus.DONE, text(row)));
     }
 
     private static <P> String text(final Request<P> row) {

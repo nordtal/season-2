@@ -4,7 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.settings.FileSettings;
+import eu.nordtal.s2.settings.Group;
+import eu.nordtal.s2.settings.MemorySettingStore;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
@@ -14,9 +15,6 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
 
 /**
@@ -26,20 +24,17 @@ import org.yaml.snakeyaml.Yaml;
  */
 class ComposeWorldTest {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ComposeWorldTest.class);
-
     /** {@code ${HUNGER_GAMES_LEVEL_NAME:-hunger_games}}: the fallback an unfilled .env leaves. */
     private static final Pattern DEFAULTED = Pattern.compile("^\\$\\{[A-Z0-9_]+:-(.*)}$");
-
-    @TempDir
-    Path directory;
 
     @Test
     void composeGeneratesTheWorldTheSpecNames() throws Exception {
         final String composed = defaultOf(environmentOf("hunger-games").get("LEVEL_NAME"), "hunger-games.LEVEL_NAME");
-        final String named = FileSettings.in(directory, "NORDTAL_HUNGER_GAMES", LOGGER)
-                .load("config", HungerGamesSpec.class, HungerGamesCheck::check)
-                .get()
+        final String named = new MemorySettingStore()
+                .checked(
+                        "hunger-games",
+                        Group.of("config", HungerGamesSpec.class).checkedBy(HungerGamesCheck::check),
+                        Map.of())
                 .worldName();
 
         assertEquals(

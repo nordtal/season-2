@@ -53,16 +53,9 @@ import {
   type TreeLeaf,
   type TreeNode,
 } from "@/lib/settings-tree"
-import {
-  changed,
-  Control,
-  EnvironmentOverriddenBadge,
-  NotInSchemaBadge,
-  RawConfigView,
-  type Draft,
-} from "@/components/steward/configuration"
+import { changed, Control, EnvironmentOverriddenBadge, type Draft } from "@/components/steward/configuration"
 import { explanationOf } from "@/components/steward/config-controls"
-import { configTitle, translationsTitle } from "@/lib/words"
+import { fileTitle, translationsTitle } from "@/lib/words"
 import type { PairedBlocks } from "@/components/steward/paired-blocks"
 import { Failure, QueryState, SkeletonText } from "@/components/steward/query-state"
 import type { SectionValues } from "@/components/steward/repeatable-cards"
@@ -112,11 +105,10 @@ export function ServiceSettings({
     report.current = onFile
   })
 
-  const groups = useMemo(
-    () => groupsOf(service, configs.data ?? [], bundles.data ?? []),
+  const files = useMemo(
+    () => filesOf(service, configs.data ?? [], bundles.data ?? []),
     [service, configs.data, bundles.data],
   )
-  const files = useMemo(() => groups.flatMap((group) => group.items), [groups])
   const loading = configs.isPending || bundles.isPending
   /** On a wide screen the first readable file is shown when none is chosen, derived rather than written to the URL. */
   const shown = file ?? (wide ? files.find((item) => item.readable)?.id : undefined)
@@ -164,21 +156,14 @@ export function ServiceSettings({
         ) : files.length === 0 && !failure ? (
           <p className="px-2 text-sm text-muted-foreground">No files.</p>
         ) : (
-          groups.map((group) => (
-            <Fragment key={group.label ?? "files"}>
-              {group.label ? (
-                <h3 className="px-2 pt-3 pb-1 text-xs font-medium text-muted-foreground first:pt-0">{group.label}</h3>
-              ) : null}
-              {group.items.map((item) => (
-                <FileRow
-                  key={item.id}
-                  item={item}
-                  selected={item.id === shown}
-                  dirty={dirty.includes(item.id)}
-                  onSelect={() => onFile(item.id)}
-                />
-              ))}
-            </Fragment>
+          files.map((item) => (
+            <FileRow
+              key={item.id}
+              item={item}
+              selected={item.id === shown}
+              dirty={dirty.includes(item.id)}
+              onSelect={() => onFile(item.id)}
+            />
           ))
         )}
       </nav>
@@ -229,8 +214,6 @@ type FileItem =
   | { kind: "config"; id: string; label: string; readable: boolean; writable: boolean; location: ConfigLocation }
   | { kind: "bundle"; id: string; label: string; readable: boolean; writable: boolean; location: MessageBundleLocation }
 
-type FileGroup = { label: string | null; items: FileItem[] }
-
 /** The router's own position in the browser history, or 0 for an entry it never numbered. */
 function historyEntryIndex(): number {
   const state: unknown = window.history.state
@@ -240,15 +223,15 @@ function historyEntryIndex(): number {
   return typeof index === "number" ? index : 0
 }
 
-/** Nordtal's translations and configs first, third-party files below; headings only when there are both. */
-function groupsOf(service: string, configs: ConfigLocation[], bundles: MessageBundleLocation[]): FileGroup[] {
+/** The translations first, then the groups of settings. */
+function filesOf(service: string, configs: ConfigLocation[], bundles: MessageBundleLocation[]): FileItem[] {
   const byLabel = (a: FileItem, b: FileItem) => a.label.localeCompare(b.label)
   const settings: FileItem[] = configs
     .filter((file) => file.service === service)
     .map((location) => ({
       kind: "config",
       id: location.path,
-      label: configTitle(location),
+      label: fileTitle(location.name),
       readable: location.readable,
       writable: location.writable,
       location,
@@ -263,14 +246,7 @@ function groupsOf(service: string, configs: ConfigLocation[], bundles: MessageBu
       writable: location.writable,
       location,
     }))
-  const thirdParty = (item: FileItem) => item.kind === "config" && item.location.origin === "third-party"
-  const nordtal = [...translations.toSorted(byLabel), ...settings.filter((item) => !thirdParty(item)).toSorted(byLabel)]
-  const others = settings.filter(thirdParty).toSorted(byLabel)
-  if (others.length === 0) return [{ label: null, items: nordtal }]
-  return [
-    { label: "Nordtal", items: nordtal },
-    { label: "Third-party", items: others },
-  ].filter((group) => group.items.length > 0)
+  return [...translations.toSorted(byLabel), ...settings.toSorted(byLabel)]
 }
 
 /** Whether the two-column layout, Tailwind's `lg`, is showing. */
@@ -572,9 +548,9 @@ function isLanguage(value: string): value is Language {
   return value === "en" || value === "de"
 }
 
-/** Whether `document` carries the two reload fields every GET and PUT of a config file sends. */
+/** Whether `document` carries the two reload fields every GET and PUT of a group sends. */
 function isReloadAware(document: ConfigDocument): document is ReloadAwareConfigDocument {
-  return !document.raw && "restartRequired" in document && typeof document.restartRequired === "boolean"
+  return "restartRequired" in document && typeof document.restartRequired === "boolean"
 }
 
 function ConfigFile({ item, target }: { item: Extract<FileItem, { kind: "config" }>; target: Target | null }) {
@@ -582,9 +558,6 @@ function ConfigFile({ item, target }: { item: Extract<FileItem, { kind: "config"
   return (
     <QueryState query={document} rows={8}>
       {(read) => {
-        if (read.raw) {
-          return <RawConfigView file={item.location.path} document={read} origin={item.location.origin} />
-        }
         if (!isReloadAware(read)) {
           throw new Error(`${item.location.path}: steward answered a config document with no restartRequired`)
         }
@@ -640,9 +613,7 @@ function ConfigForm({
   const count = Object.keys(changes).length
   const draftIds = useMemo(() => new Set(Object.keys(changes)), [changes])
 
-  // `database.yml` holds what the service connects to Postgres with and is never saved from here.
-  const databaseFile = document.name.split("/").pop() === "database.yml"
-  const writable = document.writable && !databaseFile
+  const writable = document.writable
 
   function set(path: string, value: DraftValue | undefined) {
     const entry = byPath.get(path)
@@ -687,7 +658,15 @@ function ConfigForm({
       nodes={nodes}
       draftIds={draftIds}
       matches={configLeafMatches}
-      notice={!writable ? "Read-only." : document.restartRequired ? "Applies after a restart." : null}
+      notice={
+        document.problem
+          ? `Refused: ${document.problem}`
+          : !writable
+            ? "Read-only."
+            : document.restartRequired
+              ? "Applies after a restart."
+              : null
+      }
       target={target}
       above={save.error ? <Failure error={save.error} /> : null}
       renderLeaf={(leaf, highlight) =>
@@ -760,7 +739,6 @@ function SettingField({
         <Label htmlFor={entry.path} className={layout === "cell" ? "sr-only" : "min-w-0 text-sm font-normal"}>
           {entry.label}
         </Label>
-        {!entry.inSchema ? <NotInSchemaBadge /> : null}
         {entry.environmentOverridden ? <EnvironmentOverriddenBadge /> : null}
         {dirty ? (
           <>

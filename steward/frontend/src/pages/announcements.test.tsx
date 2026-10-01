@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import type { ConfigDocument, ConfigEntry, ParsedConfigDocument } from "@/lib/api"
+import type { ConfigEntry, ParsedConfigDocument } from "@/lib/api"
 import { announcementTargets } from "@/lib/announcement-targets"
 import { AnnouncementsPage } from "@/pages/announcements"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -26,26 +26,22 @@ function field(key: string, value: string): ConfigEntry {
     value,
     kind: "SCALAR",
     type: "STRING",
-    comments: [],
     explanation: "",
     noExplanationNeeded: false,
     filled: true,
-    line: 0,
     editable: true,
     secret: false,
-    inSchema: true,
   }
 }
 
 function accessFile({ en = "111", de = "", overridden = false } = {}): ParsedConfigDocument {
   return {
     service: "discord-bot",
-    path: "discord-bot/access.yml",
-    name: "access.yml",
+    path: "discord-bot/access",
+    name: "access",
     readable: true,
     writable: true,
     revision: "r1",
-    header: [],
     entries: [
       {
         path: "languages",
@@ -53,14 +49,11 @@ function accessFile({ en = "111", de = "", overridden = false } = {}): ParsedCon
         label: "languages",
         kind: "SECTIONS",
         type: "STRING",
-        comments: [],
         explanation: "",
         noExplanationNeeded: false,
         filled: true,
-        line: 0,
         editable: false,
         secret: false,
-        inSchema: true,
         environmentOverridden: overridden,
         sections: [
           [field("tag", "en"), field("announcement-channel", en)],
@@ -105,7 +98,7 @@ function backend(file: unknown = accessFile()) {
         return json(202, { ids: { en: "21", de: "22" } })
       }
       if (url === "/api/announcements") return json(200, RECENT)
-      if (url === "/api/config/discord-bot/access.yml") return json(200, file)
+      if (url === "/api/setting-groups/discord-bot/access") return json(200, file)
       if (url === "/api/discord/channels") {
         return json(200, { available: true, entries: [{ id: "111", name: "announcements", type: 0 }] })
       }
@@ -195,19 +188,6 @@ describe("AnnouncementsPage", () => {
 })
 
 describe("announcementTargets", () => {
-  it("has nothing to say about a raw file", () => {
-    const raw: ConfigDocument = {
-      raw: true,
-      content: "",
-      path: "x",
-      name: "x",
-      service: "discord-bot",
-      readable: true,
-      writable: true,
-    }
-    expect(announcementTargets(raw)).toBeNull()
-  })
-
   it("reads each language's channel in file order", () => {
     expect(announcementTargets(accessFile())).toEqual({
       languages: [

@@ -59,7 +59,7 @@ public final class WaitingBook {
     /**
      * Takes the pack setting, both periods and the proxy's role.
      *
-     * @param packOffered whether there is a pack to wait for, {@code pack.yml#enabled}
+     * @param packOffered whether there is a pack to wait for, {@code pack#enabled}
      * @param readyGrace how long the rest may be settled before release without {@code limbo}'s confirmation
      */
     public WaitingBook(

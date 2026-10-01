@@ -1,24 +1,16 @@
 package eu.nordtal.s2.settings;
 
 /**
- * Where a process's settings come from: one named group per spec, each checked once it is read.
+ * Where a process's settings come from: one group per spec, each checked once it is read.
  *
- * Files are the only source; a process holds this interface, so a new source changes none of its callers.
+ * A process holds this interface, so where the values are kept changes none of its callers.
  */
 public interface Settings {
 
     /**
-     * Reads one group of settings described by {@code spec}, and refuses it when {@code check} throws.
+     * Reads one group of settings.
      *
-     * @param name  the group's name, which a file source turns into {@code <name>.yml}
-     * @param spec  the {@code @ConfigSpec} interface describing every value
-     * @param check what a valid group is beyond its types; it throws {@link IllegalArgumentException}
-     * @throws SettingsException if the group cannot be read or {@code check} refused it
+     * @throws SettingsException if the group cannot be read, or its check refuses even its defaults
      */
-    <T> Setting<T> load(String name, Class<T> spec, Check<T> check) throws SettingsException;
-
-    /** Reads one group of settings that needs no check beyond its types. */
-    default <T> Setting<T> load(final String name, final Class<T> spec) throws SettingsException {
-        return load(name, spec, Check.none());
-    }
+    <T> Setting<T> load(Group<T> group) throws SettingsException;
 }

@@ -20,11 +20,10 @@ export function humanFileName(name: string): string {
   return fileTitle(name)
 }
 
-/** The short text under a label: the schema's words, or the file's own comment block. */
+/** The short text under a label: the schema's words. */
 export function explanationOf(entry: ConfigEntry): string | null {
   if (entry.noExplanationNeeded) return null
   if (entry.explanation) return entry.explanation
-  if (entry.comments.length > 0) return entry.comments.join("\n").trim()
   return null
 }
 
@@ -113,14 +112,11 @@ function ChoicesControl({
 
 /**
  * One scalar key: a secret, choices, a Discord id, a colour, a boolean or text, in that precedence.
- *
- * `edited` tells an untouched empty secret from a deliberate deletion.
  */
 export function ScalarControl({
   id,
   entry,
   value,
-  edited,
   disabled,
   roles,
   channels,
@@ -129,31 +125,14 @@ export function ScalarControl({
   id: string
   entry: ConfigEntry
   value: string
-  edited: boolean
   disabled: boolean
   roles: GuildList | undefined
   channels: GuildList | undefined
   onChange: (value: string) => void
 }) {
+  /** A secret lives in the host environment alone, so the form says only whether it is set. */
   if (entry.secret) {
-    return (
-      <div className="flex flex-col gap-1.5">
-        <Input
-          id={id}
-          type="password"
-          autoComplete="off"
-          disabled={disabled}
-          value={value}
-          placeholder={entry.filled ? "set - type a new one to replace it" : "empty"}
-          onChange={(event) => onChange(event.target.value)}
-        />
-        <p className="text-sm text-muted-foreground">
-          {edited && value === ""
-            ? "Saving it empty deletes this secret from the file."
-            : "The stored value is never sent to the browser. It can be overwritten, not read back."}
-        </p>
-      </div>
-    )
+    return <Input id={id} type="password" disabled value="" placeholder={entry.filled ? "set" : "not set"} />
   }
 
   /** Declared choices win over the Discord picker, being more specific than a guess from the name. */

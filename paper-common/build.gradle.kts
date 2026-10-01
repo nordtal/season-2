@@ -24,7 +24,14 @@ dependencies {
 
     // Every plugin shades jcore, which carries both; the base only compiles against them.
     compileOnly(libs.hikaricp)
+    // The shared sounds group is a spec; every plugin shades jcore, so the base only compiles against it.
+    compileOnly(libs.jcore)
     compileOnly(libs.jdbi.core)
+
+    // A server's settings, loaded in a test as the plugin loads them.
+    testImplementation(testFixtures(project(":settings")))
+    testImplementation(libs.jcore)
+    testImplementation(libs.gson)
 }
 
 messageSpec {

@@ -31,7 +31,7 @@ export type Thresholds = {
 }
 
 /**
- * What web.yml ships with, for tests and never as a fallback.
+ * What the `web` group defaults to, for tests and never as a fallback.
  *
  * Without the server's thresholds the checks that need them do not run, so screen and Discord agree.
  */

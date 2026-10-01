@@ -43,7 +43,7 @@ public final class PackStation {
     private final WaitingBook book;
     private final BackendHealth health;
 
-    /** {@code null} when {@code pack.yml#enabled} is off. */
+    /** {@code null} when {@code pack#enabled} is off. */
     private final PackOffer offer;
 
     private final MinecraftChannelIdentifier channel = MinecraftChannelIdentifier.from(LimboProtocol.CHANNEL);
@@ -168,9 +168,9 @@ public final class PackStation {
                 disconnect(player, messages.failedDownload(locale));
             }
             case INVALID_URL -> {
-                // Everybody's problem, not this player's: pack.yml#url does not load at all.
+                // Everybody's problem, not this player's: pack#url does not load at all.
                 logger.error(
-                        "The client of {} reports pack.yml#url as unloadable. EVERY player will "
+                        "The client of {} reports pack#url as unloadable. EVERY player will "
                                 + "fail this way until it is fixed.",
                         player.getUsername());
                 disconnect(player, messages.invalidUrl(locale));

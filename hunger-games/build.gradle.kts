@@ -44,6 +44,7 @@ dependencies {
 
     // KillCountsIntegrationTest runs killCounts on the real schema: count(*) is bigint, which no fake catches.
     testImplementation(testFixtures(project(":database")))
+    testImplementation(testFixtures(project(":settings")))
 
     // jcore puts the driver on the runtime classpath only; a test builds a PGSimpleDataSource by hand.
     testImplementation(libs.postgresql.driver)

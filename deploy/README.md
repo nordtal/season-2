@@ -218,8 +218,8 @@ To run the Java half from Gradle (`:steward:run`), stop the container first, sin
 dev pack
 ```
 
-builds the pack, serves it through the `devpack` profile on `PACK_PORT`, and writes its URL and
-SHA-1 into the proxy's `pack.yml`. Rerun it after any change under `resource-pack/src/`; a
+builds the pack, serves it through the `devpack` profile on `PACK_PORT`, and sets the proxy's pack
+to its URL and SHA-1. Rerun it after any change under `resource-pack/src/`; a
 `FAILED_DOWNLOAD` in the client is almost always a stale hash. To draw the pack, install it straight
 into a Minecraft instance instead; see [resource-pack/README.md](../resource-pack/README.md).
 
@@ -271,8 +271,8 @@ sudo bash deploy/restore.sh nordtal-<stamp>.dump                    # the databa
 
 A volume archive **replaces** the volume: the script stops what mounts it, asks for the volume's name
 typed back, unpacks and starts the services again. A dump goes into a new database
-`restore_<stamp>` beside the live one; promoting it is up to you. Restoring `steward-config` also
-restores the VAPID keypair in web.yml, which invalidates every push subscription made since.
+`restore_<stamp>` beside the live one; promoting it is up to you. Every process's settings are rows
+in that database, so they come back with the dump.
 
 ## Voice chat
 

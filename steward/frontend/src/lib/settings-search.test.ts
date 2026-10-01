@@ -30,7 +30,6 @@ import {
 function entry(over: Partial<ConfigEntry> & { path: string; key: string }): ConfigEntry {
   return {
     label: over.key,
-    comments: [],
     explanation: "",
     noExplanationNeeded: false,
     filled: true,
@@ -38,10 +37,8 @@ function entry(over: Partial<ConfigEntry> & { path: string; key: string }): Conf
     items: [],
     kind: "SCALAR",
     type: "STRING",
-    line: 1,
     editable: true,
     secret: false,
-    inSchema: true,
     ...over,
   }
 }
@@ -51,7 +48,7 @@ function location(over: Partial<ConfigLocation> & { path: string; name: string }
 }
 
 function document(path: string, entries: ConfigEntry[]): ParsedConfigDocument {
-  return { ...location({ path, name: path }), revision: "r1", header: [], entries }
+  return { ...location({ path, name: path }), revision: "r1", entries }
 }
 
 describe("entryHaystack / matchesQuery", () => {
@@ -77,11 +74,6 @@ describe("entryHaystack / matchesQuery", () => {
       explanation: "How many times a failed job is retried before it is given up on.",
     })
     expect(matchesQuery(e, "given up")).toBe(true)
-  })
-
-  it("matches on the mechanical comments when there is no schema explanation", () => {
-    const e = entry({ path: "port", key: "port", comments: ["Mechanical, no schema wrote this file."] })
-    expect(matchesQuery(e, "mechanical")).toBe(true)
   })
 
   it("is case-insensitive", () => {
@@ -141,7 +133,7 @@ describe("entryHaystack / matchesQuery", () => {
 
 describe("searchAcross", () => {
   it("pairs a hit with the file it lives in, across several files", () => {
-    const steward = document("steward/steward.yml", [
+    const steward = document("steward/steward", [
       entry({ path: "agent.base-url", key: "base-url", value: "http://steward:8081" }),
     ])
     const bot = document("discord-bot/steward.yml", [entry({ path: "guild-id", key: "guild-id", value: "8081" })])
@@ -152,27 +144,17 @@ describe("searchAcross", () => {
       ],
       "8081",
     )
-    expect(hits.map((hit) => hit.location.path).toSorted()).toEqual(["discord-bot/steward.yml", "steward/steward.yml"])
-  })
-
-  it("skips a raw document - there are no entries to search", () => {
-    const raw = {
-      ...location({ path: "steward/README.txt", name: "README.txt" }),
-      raw: true as const,
-      content: "8081",
-    }
-    const hits = searchAcross([{ location: raw, document: raw }], "8081")
-    expect(hits).toEqual([])
+    expect(hits.map((hit) => hit.location.path).toSorted()).toEqual(["discord-bot/steward.yml", "steward/steward"])
   })
 
   it("skips a file whose document has not loaded yet", () => {
-    const loc = location({ path: "steward/steward.yml", name: "steward.yml" })
+    const loc = location({ path: "steward/steward", name: "steward" })
     const hits = searchAcross([{ location: loc, document: undefined }], "anything")
     expect(hits).toEqual([])
   })
 
   it("returns nothing for an empty query without looking at any document", () => {
-    const steward = document("steward/steward.yml", [
+    const steward = document("steward/steward", [
       entry({ path: "agent.base-url", key: "base-url", value: "http://steward:8081" }),
     ])
     expect(searchAcross([{ location: steward, document: steward }], "")).toEqual([])
@@ -181,16 +163,16 @@ describe("searchAcross", () => {
 
 describe("pending jump", () => {
   it("hands a jump to the one read that follows, then forgets it", () => {
-    setPendingJump("steward", { file: "steward/steward.yml", path: "agent.base-url" })
+    setPendingJump("steward", { file: "steward/steward", path: "agent.base-url" })
     expect(takePendingJump("steward")).toEqual({
-      file: "steward/steward.yml",
+      file: "steward/steward",
       path: "agent.base-url",
     })
     expect(takePendingJump("steward")).toBeUndefined()
   })
 
   it("keeps jumps for different services apart", () => {
-    setPendingJump("steward", { file: "steward/steward.yml", path: "a" })
+    setPendingJump("steward", { file: "steward/steward", path: "a" })
     setPendingJump("discord-bot", { file: "discord-bot/steward.yml", path: "b" })
     expect(takePendingJump("discord-bot")?.path).toBe("b")
     expect(takePendingJump("steward")?.path).toBe("a")
@@ -301,7 +283,6 @@ function configLocation(over: Partial<ConfigLocation> & { path: string; name: st
 function configEntry(over: Partial<ConfigEntry> & { path: string; key: string }): ConfigEntry {
   return {
     label: over.key,
-    comments: [],
     explanation: "",
     noExplanationNeeded: false,
     filled: true,
@@ -309,22 +290,20 @@ function configEntry(over: Partial<ConfigEntry> & { path: string; key: string })
     items: [],
     kind: "SCALAR",
     type: "STRING",
-    line: 1,
     editable: true,
     secret: false,
-    inSchema: true,
     ...over,
   }
 }
 
 function configDocument(loc: ConfigLocation, entries: ConfigEntry[]): ParsedConfigDocument {
-  return { ...loc, revision: "r1", header: [], entries }
+  return { ...loc, revision: "r1", entries }
 }
 
 describe("searchSettingsAndMessages - one list, from two suppliers", () => {
   /** Config search alone finds nothing for this text; with the bundles it finds it. */
   it("finds a text that lives only in a bundle - not in any config file of the same service", () => {
-    const loc = configLocation({ path: "smp/steward.yml", name: "steward.yml" })
+    const loc = configLocation({ path: "smp/steward.yml", name: "steward" })
     const configDoc = configDocument(loc, [
       configEntry({ path: "grave.decay.enabled", key: "enabled", label: "Grave decay enabled" }),
     ])
@@ -347,7 +326,7 @@ describe("searchSettingsAndMessages - one list, from two suppliers", () => {
   })
 
   it("still finds a config hit when the query matches only a config file", () => {
-    const loc = configLocation({ path: "smp/steward.yml", name: "steward.yml" })
+    const loc = configLocation({ path: "smp/steward.yml", name: "steward" })
     const configDoc = configDocument(loc, [
       configEntry({ path: "grave.decay.enabled", key: "enabled", label: "Grave decay enabled" }),
     ])
@@ -357,7 +336,7 @@ describe("searchSettingsAndMessages - one list, from two suppliers", () => {
   })
 
   it("finds both a config hit and a message hit for one query, in one list", () => {
-    const loc = configLocation({ path: "smp/steward.yml", name: "steward.yml" })
+    const loc = configLocation({ path: "smp/steward.yml", name: "steward" })
     const configDoc = configDocument(loc, [
       configEntry({ path: "grave.decay.enabled", key: "enabled", label: "Grave decay enabled" }),
     ])

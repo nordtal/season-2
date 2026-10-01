@@ -52,6 +52,7 @@ dependencies {
 
     // PlaytimeDao's upsert runs against a real PostgreSQL; Flyway never reaches the shaded jar.
     testImplementation(testFixtures(project(":database")))
+    testImplementation(testFixtures(project(":settings")))
 }
 
 messageSpec {

@@ -49,7 +49,7 @@ function backend(plan: Available, fresh?: Available): { fetch: typeof fetch; ask
     if (url === "/api/updates/available?refresh") return json(200, fresh ?? plan)
     if (url === "/api/updates/available") return json(200, plan)
     if (url.startsWith("/api/updates")) return json(200, [])
-    if (url === "/api/config") return json(200, [])
+    if (url === "/api/setting-groups") return json(200, [])
     if (url === "/api/services") {
       return json(200, {
         services: [],

@@ -34,7 +34,6 @@ import {
   type Person,
   type PluginSearch,
   type ServicePlugins,
-  type RawConfigSaveResult,
   type ReloadAwareConfigDocument,
   type Available,
   type Run,
@@ -519,7 +518,7 @@ export function useAgentJob(id: string | null) {
 }
 
 /**
- * The traffic light's two adjustable thresholds, from web.yml.
+ * The traffic light's two adjustable thresholds, from the `web` group.
  *
  * Kept on the server, since the same traffic light fires into the Discord admin channel.
  */
@@ -682,17 +681,17 @@ export function useTestWebPush() {
 export function useConfigs(enabled = true) {
   return useQuery({
     queryKey: keys.configs,
-    queryFn: () => api<ConfigLocation[]>("/api/config"),
+    queryFn: () => api<ConfigLocation[]>("/api/setting-groups"),
     staleTime: 5 * 60 * SECOND,
     enabled,
   })
 }
 
-/** One config file, by the listing's `path` with each segment encoded on its own. */
+/** One group of settings, by the listing's `path` with each segment encoded on its own. */
 export function useConfig(file: string, enabled = true) {
   return useQuery({
     queryKey: keys.config(file),
-    queryFn: () => api<ConfigDocument>(`/api/config/${encodePath(file)}`),
+    queryFn: () => api<ConfigDocument>(`/api/setting-groups/${encodePath(file)}`),
     enabled: enabled && Boolean(file),
   })
 }
@@ -801,7 +800,7 @@ export function useRemovePlugin(service: string) {
 }
 
 /**
- * Saves a config file, naming the revision the form was drawn from.
+ * Saves a group of settings, naming the revision the form was drawn from.
  *
  * A save against an older revision is answered 409 instead of overwriting.
  */
@@ -809,44 +808,18 @@ export function useSaveConfig(file: string) {
   const client = useQueryClient()
   return useMutation({
     mutationFn: ({ revision, changes }: { revision: string; changes: ConfigChanges }) =>
-      /** Never `raw`, since a raw file has no save button; the answer carries `reload`. */
-      api<ReloadAwareConfigDocument>(`/api/config/${encodePath(file)}`, {
+      api<ReloadAwareConfigDocument>(`/api/setting-groups/${encodePath(file)}`, {
         method: "PUT",
         body: { revision, changes },
       }),
     onSuccess: (document) => {
-      /** The answer is the file as written, so the form redraws from it. */
+      /** The answer is the group as stored, so the form redraws from it. */
       client.setQueryData(keys.config(file), document)
-      /** A save of steward's steward.yml may move both clocks. */
+      /** A save of steward's own group may move both clocks. */
       void client.invalidateQueries({ queryKey: keys.schedule })
     },
     onError: (failure) => {
-      /** A 409 means the cached copy and its revision are stale, so the file is read again. */
-      if (failure instanceof ApiError && failure.status === 409) {
-        void client.invalidateQueries({ queryKey: keys.config(file) })
-      }
-    },
-  })
-}
-
-/**
- * Saves the exact text typed into the raw editor, with a revision as in {@link useSaveConfig}.
- *
- * A syntax warning rides along on the 200 and never rejects the promise.
- */
-export function useSaveRawConfig(file: string) {
-  const client = useQueryClient()
-  return useMutation({
-    mutationFn: ({ revision, content }: { revision: string; content: string }) =>
-      api<RawConfigSaveResult>(`/api/config-raw/${encodePath(file)}`, {
-        method: "PUT",
-        body: { revision, content },
-      }),
-    onSuccess: (document) => {
-      client.setQueryData(keys.config(file), document)
-    },
-    onError: (failure) => {
-      // The same 409 handling as useSaveConfig.
+      /** A 409 means the cached copy and its revision are stale, so the group is read again. */
       if (failure instanceof ApiError && failure.status === 409) {
         void client.invalidateQueries({ queryKey: keys.config(file) })
       }
@@ -1073,15 +1046,15 @@ export function useGlyphs() {
 }
 
 /**
- * Every one of the given config documents, fetched only while `enabled`.
+ * Every one of the given groups of settings, fetched only while `enabled`.
  *
- * Keys are shared with {@link useConfig}, so a file already loaded costs nothing a second time.
+ * Keys are shared with {@link useConfig}, so a group already loaded costs nothing a second time.
  */
 export function useConfigDocuments(files: string[], enabled: boolean) {
   return useQueries({
     queries: files.map((file) => ({
       queryKey: keys.config(file),
-      queryFn: () => api<ConfigDocument>(`/api/config/${encodePath(file)}`),
+      queryFn: () => api<ConfigDocument>(`/api/setting-groups/${encodePath(file)}`),
       staleTime: 5 * 60 * SECOND,
       enabled,
     })),

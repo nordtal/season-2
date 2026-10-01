@@ -15,8 +15,9 @@ import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.papercommon.command.Answer;
 import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.papercommon.plugin.NordtalPlugin;
+import eu.nordtal.s2.papercommon.sound.SoundsSpec;
 import eu.nordtal.s2.papercommon.world.Distances;
-import eu.nordtal.s2.settings.Check;
+import eu.nordtal.s2.settings.Group;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.SettingsException;
 import eu.nordtal.s2.smp.announce.Announcer;
@@ -28,7 +29,6 @@ import eu.nordtal.s2.smp.config.MilestonesSpec;
 import eu.nordtal.s2.smp.config.PrestigeSpec;
 import eu.nordtal.s2.smp.config.SmpSettings;
 import eu.nordtal.s2.smp.config.SmpSpec;
-import eu.nordtal.s2.smp.config.SoundsSpec;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.duel.Duels;
@@ -200,10 +200,14 @@ public final class SmpPlugin extends NordtalPlugin {
 
     @Override
     protected void prepare() {
-        config = setting("config", SmpSpec.class, SmpSettings::check);
-        milestoneSettings = setting("milestones", MilestonesSpec.class, SmpSettings::checkMilestones);
-        soundSettings = setting("sounds", SoundsSpec.class, Check.none());
-        prestigeSettings = setting("prestige", PrestigeSpec.class, SmpSettings::checkPrestige);
+        config = setting(Group.of("config", SmpSpec.class).checkedBy(SmpSettings::check));
+        milestoneSettings = setting(Group.of("milestones", MilestonesSpec.class)
+                .checkedBy(SmpSettings::checkMilestones)
+                .whileRunning());
+        soundSettings = setting(Group.of("sounds", SoundsSpec.class).whileRunning());
+        prestigeSettings = setting(Group.of("prestige", PrestigeSpec.class)
+                .checkedBy(SmpSettings::checkPrestige)
+                .whileRunning());
         loadMilestoneTrack();
         loadFeedbackPalettes();
         worlds = bootstrapWorlds(config.get());

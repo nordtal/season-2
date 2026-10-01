@@ -92,17 +92,6 @@ export function fileTitle(path: string): string {
   return sentence ? capitalCase(withoutRepeats(sentence)) : path
 }
 
-/** How a config file is named in the list; a file in another plugin's folder gets that plugin's name first. */
-export function configTitle(location: { service: string; name: string; plugin?: string | null }): string {
-  const slash = location.name.indexOf("/")
-  if (slash < 0) return fileTitle(location.name)
-  const folder = location.name.slice(0, slash)
-  const rest = location.name.slice(slash + 1)
-  if (folder === location.service) return fileTitle(rest)
-  const plugin = location.plugin ?? folder
-  return fileTitle(`${plugin.replace(/ /g, "-")}/${rest}`)
-}
-
 /** A message bundle is named after the service or module it belongs to: "SMP Translations". */
 export function translationsTitle(bundle: { service: string; module: string }): string {
   return `${serviceTitle(bundle.module || bundle.service)} Translations`

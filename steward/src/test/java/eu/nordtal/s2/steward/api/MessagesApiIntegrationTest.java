@@ -98,7 +98,7 @@ class MessagesApiIntegrationTest {
                     console.add(service);
                     return consoleDown
                             ? java.util.Optional.empty()
-                            : java.util.Optional.of(new ConfigApi.Reloaded(true, "reloaded"));
+                            : java.util.Optional.of(new MessagesApi.Reloaded(true, "reloaded"));
                 },
                 Waiting.on(Clock.systemUTC()));
         app = Javalin.create(config -> {

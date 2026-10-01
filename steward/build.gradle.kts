@@ -267,6 +267,7 @@ dependencies {
     // The shutdown tests count logged warnings.
     testImplementation(libs.logback.classic)
     testImplementation(testFixtures(project(":database")))
+    testImplementation(testFixtures(project(":settings")))
     testImplementation(libs.cbor)
 
     // ConfigFilesOwnershipTest needs a file owned by another user, which only an in-memory filesystem gives.

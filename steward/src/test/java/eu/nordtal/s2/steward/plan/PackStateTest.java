@@ -5,69 +5,61 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import eu.nordtal.s2.settings.MemorySettingStore;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
-/** Reading {@code pack.yml} out of the proxy's volume without writing to it. */
+/** Reading the proxy's pack out of its stored settings. */
 class PackStateTest {
 
-    @TempDir
-    Path volume;
+    private static final String URL =
+            "https://github.com/nordtal/season-2/releases/download/v0.1.0/nordtal-resource-pack-0.1.0.zip";
+
+    private final MemorySettingStore store = new MemorySettingStore();
 
     @Test
-    void aHashMadeOnlyOfDigitsIsTextNotANumber() throws IOException {
-        // Guards against SnakeYAML reading forty zeroes as the long 0, matched against a hash never in the file.
-        writePackYml("0000000000000000000000000000000000000000");
+    void aHashMadeOnlyOfDigitsIsTextNotANumber() {
+        store.set("proxy", "pack", "sha1", "0000000000000000000000000000000000000000");
 
         assertEquals(
                 "0000000000000000000000000000000000000000",
-                PackState.read(volume).sha1());
+                PackState.read(store).sha1());
     }
 
     @Test
-    void theOrdinaryCaseUrlAndSha1ComeBackAsTheyAreWritten() throws IOException {
-        writePackYml("6f1ed002ab5595859014ebf0951522d9d0f2ee34");
+    void theOrdinaryCaseUrlAndSha1ComeBackAsTheyAreStored() {
+        store.set("proxy", "pack", "url", URL).set("proxy", "pack", "sha1", "6f1ed002ab5595859014ebf0951522d9d0f2ee34");
 
-        final PackState state = PackState.read(volume);
+        final PackState state = PackState.read(store);
 
         assertTrue(state.present());
         assertEquals("6f1ed002ab5595859014ebf0951522d9d0f2ee34", state.sha1());
-        assertTrue(state.url().endsWith("nordtal-resource-pack-0.1.0.zip"), state.url());
+        assertEquals(URL, state.url());
     }
 
     @Test
-    void noFileIsAbsentAndReadingItCreatesNothing() throws IOException {
-        final PackState state = PackState.read(volume);
+    void nothingStoredIsAbsent() {
+        final PackState state = PackState.read(store);
 
         assertFalse(state.present());
-        assertNull(state.sha1());
-        assertFalse(Files.exists(PackState.fileIn(volume)), "reading must never create the file");
+        assertNull(state.url());
     }
 
     @Test
-    void anEmptyValueIsEmptyNotTheTextNull() throws IOException {
-        final Path file = PackState.fileIn(volume);
-        Files.createDirectories(file.getParent());
-        Files.writeString(file, "enabled: true\nurl:\nsha1:\n", StandardCharsets.UTF_8);
+    void anEmptyValueIsEmptyNotTheTextNull() {
+        store.set("proxy", "pack", "url", "").set("proxy", "pack", "sha1", " ");
 
-        final PackState state = PackState.read(volume);
+        final PackState state = PackState.read(store);
 
-        assertTrue(state.present());
+        assertFalse(state.present());
         assertNull(state.url());
         assertNull(state.sha1());
     }
 
-    private void writePackYml(final String sha1) throws IOException {
-        final Path file = PackState.fileIn(volume);
-        Files.createDirectories(file.getParent());
-        Files.writeString(file, """
-                enabled: true
-                url: https://github.com/nordtal/season-2/releases/download/v0.1.0/nordtal-resource-pack-0.1.0.zip
-                sha1: %s
-                """.formatted(sha1), StandardCharsets.UTF_8);
+    @Test
+    void anotherGroupOrServiceIsNotThePack() {
+        store.set("proxy", "network", "sha1", "6f1ed002ab5595859014ebf0951522d9d0f2ee34")
+                .set("limbo", "pack", "sha1", "6f1ed002ab5595859014ebf0951522d9d0f2ee34");
+
+        assertFalse(PackState.read(store).present());
     }
 }

@@ -190,14 +190,14 @@ function Types({ state }: { state: NotificationActions }) {
   )
 }
 
-/** The service and file holding the three numbers: `WebSpec.AlertSpec`, keyed under `alerts`. */
+/** The service and group holding the three numbers: `WebSpec.AlertSpec`, keyed under `alerts`. */
 const ALERTS_SERVICE = "steward"
-const ALERTS_FILE = "web.yml"
+const ALERTS_FILE = "web"
 
 /**
  * The three numbers the light, and therefore every push, fires on, editable here.
  *
- * It writes `web.yml` with the configuration form's PUT, so a stale revision is refused with a 409.
+ * It saves the `web` group with the configuration form's PUT, so a stale revision is refused with a 409.
  */
 function Thresholds({ state }: { state: NotificationActions }) {
   const client = useQueryClient()
@@ -207,7 +207,7 @@ function Thresholds({ state }: { state: NotificationActions }) {
   const save = useSaveConfig(file?.path ?? "")
   const [edited, setEdited] = useState<Record<string, string>>({})
 
-  const parsed = document.data && !document.data.raw ? document.data : null
+  const parsed = document.data ?? null
   const entries: ConfigEntry[] = parsed?.entries ?? []
   const rows = THRESHOLDS.map((threshold) => ({
     ...threshold,
@@ -271,7 +271,7 @@ function Thresholds({ state }: { state: NotificationActions }) {
               {
                 onSuccess: () => {
                   setEdited({})
-                  /** The light reads `/api/settings`, a different cache entry from the file just written. */
+                  /** The light reads `/api/settings`, a different cache entry from the group just saved. */
                   void client.invalidateQueries({ queryKey: keys.settings })
                 },
               },

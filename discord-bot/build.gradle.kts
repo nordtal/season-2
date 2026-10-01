@@ -44,6 +44,7 @@ dependencies {
 
     // A real PostgreSQL, for gen_random_uuid(), the partial unique index and numeric rounding.
     testImplementation(testFixtures(project(":database")))
+    testImplementation(testFixtures(project(":settings")))
     testRuntimeOnly(libs.postgresql.driver)
 }
 

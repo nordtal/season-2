@@ -57,15 +57,12 @@ export function BackupsPage() {
   )
 }
 
-/** `steward/steward.yml`, looked up in `/api/config` so a missing file gets no form. */
+/** Steward's own group, looked up in `/api/setting-groups` so a group not yet published gets no form. */
 export function useStewardConfig() {
   const configs = useConfigs()
-  const file = configs.data?.find(
-    (location) => location.service === "steward" && location.name.split("/").pop() === "steward.yml",
-  )
+  const file = configs.data?.find((location) => location.service === "steward" && location.name === "steward")
   const document = useConfig(file?.path ?? "", Boolean(file))
-  const parsed = document.data && !document.data.raw ? document.data : undefined
-  return { file: file?.path, document: parsed, pending: configs.isPending || document.isPending }
+  return { file: file?.path, document: document.data, pending: configs.isPending || document.isPending }
 }
 
 /** One key of that file by its dotted path, or `undefined` when there is none. */
@@ -81,7 +78,7 @@ export function entryAt(document: ParsedConfigDocument | undefined, path: string
 export function useConfigDraft(document: ParsedConfigDocument | undefined, keys: readonly string[]) {
   const [draft, setDraft] = useState<Record<string, string>>({})
 
-  /** The answer to a save is the file as written, so a write resets the form to it. */
+  /** The answer to a save is the group as stored, so a write resets the form to it. */
   const [lastDocument, setLastDocument] = useState(document)
   if (lastDocument !== document) {
     setLastDocument(document)
@@ -97,15 +94,14 @@ export function useConfigDraft(document: ParsedConfigDocument | undefined, keys:
   for (const entry of entries) {
     const typed = draft[entry.path]
     if (typed === undefined) continue
-    /** A secret has no value to compare with, so anything typed into one is a change. */
-    if (entry.secret ? typed !== "" : typed !== (entry.value ?? "")) changes[entry.path] = typed
+    if (!entry.secret && typed !== (entry.value ?? "")) changes[entry.path] = typed
   }
   const changed = Object.keys(changes).length
 
   return { entries, draft, setDraft, changes, changed }
 }
 
-/** One entry's value as it would be saved now: typed, or the file's. */
+/** One entry's value as it would be saved now: typed, or the stored one. */
 export function draftValue(entries: ConfigEntry[], draft: Record<string, string>, path: string): string {
   const typed = draft[path]
   if (typed !== undefined) return typed
@@ -270,7 +266,7 @@ const REMOTE_KEYS = [
 /**
  * Where a copy goes that is not on this disk.
  *
- * Saves five keys of `steward.yml` with its revision; the two keys are secrets never read back.
+ * Saves the three keys of `backup.remote` that are not secrets; the two keys are the host environment's.
  */
 function DestinationDialog() {
   const { file, document, pending } = useStewardConfig()
@@ -294,10 +290,7 @@ function DestinationDialog() {
         {pending ? (
           <Loading rows={3} />
         ) : !document || entries.length === 0 ? (
-          <Empty
-            title="Steward's config has no backup.remote section"
-            note="The file in the volume predates it. A steward that has started since the section was added writes it in."
-          />
+          <Empty title="No backup.remote section" note="Steward has not published it yet." />
         ) : (
           <div className="flex flex-col gap-4">
             {entries.map((entry) => (
@@ -307,7 +300,6 @@ function DestinationDialog() {
                   id={entry.path}
                   entry={entry}
                   value={draft[entry.path] ?? (entry.secret ? "" : (entry.value ?? ""))}
-                  edited={draft[entry.path] !== undefined}
                   disabled={!document.writable || save.isPending}
                   roles={undefined}
                   channels={undefined}
@@ -327,7 +319,7 @@ function DestinationDialog() {
                       onError: (failure) =>
                         toast.error(
                           failure instanceof ApiError && failure.status === 409
-                            ? "The file changed while this was open. It has been read again."
+                            ? "It changed while this was open. It has been read again."
                             : String(failure),
                         ),
                     },
@@ -519,7 +511,6 @@ function ScheduleDialog() {
                   id={entry.path}
                   entry={entry}
                   value={draft[entry.path] ?? (entry.secret ? "" : (entry.value ?? ""))}
-                  edited={draft[entry.path] !== undefined}
                   disabled={!document.writable || save.isPending}
                   roles={undefined}
                   channels={undefined}

@@ -26,7 +26,6 @@ export function isSearchable(entry: ConfigEntry): boolean {
 export function entryHaystack(entry: ConfigEntry): string {
   const parts = [entry.label, entry.path]
   if (entry.explanation) parts.push(entry.explanation)
-  if (entry.comments.length > 0) parts.push(...entry.comments)
   if (!entry.secret) {
     if (entry.value) parts.push(entry.value)
     if (entry.items && entry.items.length > 0) parts.push(...entry.items)
@@ -65,9 +64,7 @@ export type MessageSettingsHit = {
 export type SettingsHit = ConfigSettingsHit | MessageSettingsHit
 
 /**
- * Every hit across a set of files, given each file's fetched document or `undefined`.
- *
- * A raw document has no `entries` and matches nothing.
+ * Every hit across a set of groups, given each group's fetched document or `undefined`.
  */
 export function searchAcross(
   files: Array<{ location: ConfigLocation; document: ConfigDocument | undefined }>,
@@ -76,7 +73,7 @@ export function searchAcross(
   if (!query.trim()) return []
   const hits: ConfigSettingsHit[] = []
   for (const { location, document } of files) {
-    if (!document || document.raw) continue
+    if (!document) continue
     for (const entry of document.entries) {
       if (matchesQuery(entry, query)) hits.push({ kind: "config", location, entry })
     }

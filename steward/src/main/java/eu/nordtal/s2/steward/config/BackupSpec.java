@@ -30,8 +30,7 @@ public interface BackupSpec {
                 "nordtal-s2_mc-smp",
                 "nordtal-s2_mc-smp-plugins",
                 "nordtal-s2_mc-hunger-games-plugins",
-                "nordtal-s2_bot-config",
-                "nordtal-s2_steward-config");
+                "nordtal-s2_bot-config");
     }
 
     @Order(2)

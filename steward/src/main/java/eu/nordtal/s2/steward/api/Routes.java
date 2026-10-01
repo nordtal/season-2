@@ -18,8 +18,8 @@ final class Routes {
     static void register(final StackApi api, final JavalinConfig config, final Caller caller) {
         serviceRoutes(api, config, caller);
         consoleRoute(api, config);
-        configRoutes(api, config);
         messageRoutes(api, config);
+        settingRoutes(api, config, caller);
         hostRoutes(api, config);
         pluginRoutes(api, config, caller);
         availableRoute(api, config);
@@ -83,12 +83,15 @@ final class Routes {
                 Gate.KEY_FRESH);
     }
 
-    /** The configuration of every service in the stack, and the raw editor's own save. */
-    private static void configRoutes(final StackApi api, final JavalinConfig config) {
-        config.routes.get("/api/config", api.configs::list, Gate.KEY_HELD);
-        config.routes.get("/api/config/<file>", api.configs::one, Gate.KEY_HELD);
-        config.routes.put("/api/config/<file>", api.configs::save, Gate.KEY_FRESH);
-        config.routes.put("/api/config-raw/<file>", api.configs::saveRaw, Gate.KEY_FRESH);
+    /** Every process's settings: the groups it published, and a save that writes rows. */
+    private static void settingRoutes(final StackApi api, final JavalinConfig config, final Caller caller) {
+        config.routes.get("/api/setting-groups", ctx -> api.settings().list(ctx), Gate.KEY_HELD);
+        config.routes.get(
+                "/api/setting-groups/{service}/{name}", ctx -> api.settings().one(ctx), Gate.KEY_HELD);
+        config.routes.put(
+                "/api/setting-groups/{service}/{name}",
+                ctx -> api.settings().save(ctx, caller.actor(ctx)),
+                Gate.KEY_FRESH);
     }
 
     /** The message bundles, on their own routes. */

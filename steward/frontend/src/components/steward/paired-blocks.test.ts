@@ -6,7 +6,6 @@ import type { ConfigEntry } from "@/lib/api"
 function field(over: Partial<ConfigEntry> & { key: string; path: string }): ConfigEntry {
   return {
     label: over.key,
-    comments: [],
     explanation: "",
     noExplanationNeeded: true,
     filled: true,
@@ -14,10 +13,8 @@ function field(over: Partial<ConfigEntry> & { key: string; path: string }): Conf
     items: [],
     kind: "SCALAR",
     type: "STRING",
-    line: 1,
     editable: true,
     secret: false,
-    inSchema: true,
     ...over,
   }
 }

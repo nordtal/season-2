@@ -18,7 +18,6 @@ function entry(key: string, value?: string, more: Partial<ConfigEntry> = {}): Co
     path: key,
     key,
     label: key,
-    comments: [],
     explanation: "",
     noExplanationNeeded: true,
     filled: true,
@@ -27,10 +26,8 @@ function entry(key: string, value?: string, more: Partial<ConfigEntry> = {}): Co
     sections: [],
     kind: "SCALAR",
     type: "STRING",
-    line: 1,
     editable: true,
     secret: false,
-    inSchema: true,
     ...more,
   }
 }
@@ -59,11 +56,10 @@ function milestone(key: string, unlocks: string, border: number, objectives: Con
 const FILE: ConfigDocument = {
   service: "smp",
   name: "milestones.yml",
-  path: "smp/smp/milestones.yml",
+  path: "smp/milestones",
   readable: true,
   writable: true,
   revision: "r1",
-  header: [],
   entries: [
     entry("milestones", undefined, {
       sections: [
@@ -117,7 +113,7 @@ function backend({ row = { status: "DONE", result: "Objective closed." } }: { ro
         return json(202, { id: String(sent.length), status: "PENDING" })
       }
       if (url === "/api/smp/track") return json(200, TRACK)
-      if (url === "/api/config/smp/smp/milestones.yml") return json(200, FILE)
+      if (url === "/api/setting-groups/smp/milestones") return json(200, FILE)
       if (url.startsWith("/api/commands/")) return json(200, { id: url.split("/").pop(), ...row })
       throw new Error(`the card asked for ${url}, which this test did not expect`)
     }),

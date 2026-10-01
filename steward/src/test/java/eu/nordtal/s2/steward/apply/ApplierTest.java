@@ -337,7 +337,7 @@ class ApplierTest {
     }
 
     @Test
-    void stewardWorkerInstallsItsOwnJarForTheNextStartToPickUp() throws IOException {
+    void stewardInstallsItsOwnJarForTheNextStartToPickUp() throws IOException {
         Files.createDirectories(volumes.resolve("steward"));
 
         final ApplyResult result = apply(

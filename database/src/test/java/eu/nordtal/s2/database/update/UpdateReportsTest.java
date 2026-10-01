@@ -92,7 +92,7 @@ class UpdateReportsTest {
     }
 
     @Test
-    void thePlainTextAnOlderWorkerWroteIsNotAReportAndDoesNotThrow() {
+    void thePlainTextAnOlderStewardWroteIsNotAReportAndDoesNotThrow() {
         // Plain-text rows must parse to empty without throwing.
         assertEquals(Optional.empty(), UpdateReports.parse("Nothing needed doing.\n  smp: paper 26.2.121 (current)"));
         assertEquals(Optional.empty(), UpdateReports.parse(null));

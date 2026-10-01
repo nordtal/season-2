@@ -180,7 +180,7 @@ class ConfigApiReloadTest {
     }
 
     @Test
-    void thisWorkersOwnStewardYmlIsReadAgainByThisProcessNotByAnInbox() {
+    void stewardsOwnStewardYmlIsReadAgainByThisProcessNotByAnInbox() {
         final RecordingReloader reloader = new RecordingReloader();
         final int[] reread = {0};
         final ConfigApi api = new ConfigApi(Path.of("/tmp"), reloader, Map.of(ConfigApi.OWN_CONFIG, () -> reread[0]++));

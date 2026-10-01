@@ -36,7 +36,7 @@ class StopVerificationTest {
     }
 
     @Test
-    void stewardWorkerIsNeverCountedItIsTheProcessAsking() {
+    void stewardIsNeverCountedItIsTheProcessAsking() {
         assertTrue(Runner.servicesThatRefused(planned("steward"), Set.of()).isEmpty());
     }
 }

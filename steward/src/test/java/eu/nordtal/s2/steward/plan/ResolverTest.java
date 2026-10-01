@@ -536,7 +536,7 @@ class ResolverTest {
     }
 
     @Test
-    void theWorkerInstallsItsOwnJarWhichTakesEffectOnTheNextStartAndNotBefore() throws IOException {
+    void stewardInstallsItsOwnJarWhichTakesEffectOnTheNextStartAndNotBefore() throws IOException {
         installCurrentEverything();
         http.answering(
                 "/repos/nordtal/season-2/releases",

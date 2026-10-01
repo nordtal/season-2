@@ -68,7 +68,7 @@ class DocumentedCommandsTest {
     }
 
     @Test
-    void theWorkerServiceStillRunsServeWhichIsTheWholeReasonARunInheritsIt() throws IOException {
+    void theStewardServiceStillRunsServeWhichIsTheWholeReasonARunInheritsIt() throws IOException {
         final String compose = Files.readString(repositoryRoot().resolve("compose.yml"), StandardCharsets.UTF_8);
         assertTrue(
                 compose.contains("command: [\"serve\"]"),

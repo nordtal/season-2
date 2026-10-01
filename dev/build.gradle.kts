@@ -20,4 +20,12 @@ repositoryRootTestInputs {
     reads("deploy/nordtal.sh")
     reads("deploy/dev.env.example")
     readsTree(".run")
+
+    // LocalProjectTest reads this module's sources for a compose command line of their own.
+    readsTree("dev/src/main/java")
+}
+
+dependencies {
+    // steward-agent's Compose writes every docker compose command line; dev runs the same ones on this terminal.
+    implementation(project(":steward-agent"))
 }

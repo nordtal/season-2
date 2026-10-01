@@ -41,6 +41,8 @@ image is already on the host.
 
 ## Where things live
 
-- `Compose`: every `docker compose` command line.
+- `Compose`: every `docker compose` command line, this service's and `dev`'s. `dev` builds its
+  lines here and runs them on its own terminal, so the local stack and the deployment cannot drift
+  apart in how they call Compose; `:architecture` lets it take nothing else of this module.
 - `Jobs`: the in-memory job queue and its output.
 - `StewardAgent`: the two entry points and the HTTP routes; the server and its gate are `:internal-api`'s.

@@ -50,7 +50,7 @@ public final class Dev {
         final String command = args.isEmpty() ? "help" : args.getFirst();
         final List<String> rest = args.isEmpty() ? List.of() : args.subList(1, args.size());
         final Processes processes = new Processes(root);
-        final Compose compose = new Compose(root, processes, terminal);
+        final LocalProject compose = new LocalProject(root, processes, terminal);
         final Stack stack = new Stack(root, compose, processes, terminal);
         switch (command) {
             case "init" -> new Setup(root, compose, terminal).init();

@@ -1,16 +1,17 @@
 package eu.nordtal.s2.dev;
 
+import eu.nordtal.s2.stewardagent.Compose;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 /**
- * {@code docker compose} against {@code deploy/dev.env}: the same compose.yml production runs, pointed at local jars.
+ * The local compose project: the same compose.yml production runs, against {@code deploy/dev.env} and local jars.
  *
- * Each server's {@code plugins/} is a local directory named by {@code <SERVICE>_PLUGINS}, not a volume.
+ * Its command lines are steward-agent's {@link Compose}'s, run on this terminal. Plugins are local directories.
  */
-final class Compose {
+final class LocalProject {
 
     static final String ENV_FILE = "deploy/dev.env";
 
@@ -19,7 +20,7 @@ final class Compose {
     private final Processes processes;
     private final Terminal terminal;
 
-    Compose(final Path root, final Processes processes, final Terminal terminal) {
+    LocalProject(final Path root, final Processes processes, final Terminal terminal) {
         this.root = root;
         this.env = new EnvFile(root.resolve(ENV_FILE));
         this.processes = processes;
@@ -42,12 +43,15 @@ final class Compose {
         Processes.require(processes.run(command(arguments)), "docker compose " + String.join(" ", arguments));
     }
 
-    /** @return the full command line for {@code arguments} */
+    /**
+     * Returns the full command line for {@code arguments}.
+     *
+     * The project name is the one {@link #project} reads volumes by, so the two cannot disagree.
+     */
     List<String> command(final String... arguments) {
         requireEnv();
-        final List<String> command = new ArrayList<>(List.of("docker", "compose", "--env-file", ENV_FILE));
-        command.addAll(List.of(arguments));
-        return command;
+        return new Compose(root.resolve("compose.yml"), root.resolve(ENV_FILE), root, project())
+                .command(List.of(arguments));
     }
 
     /**

@@ -28,7 +28,7 @@ class SetupTest {
                 new BufferedReader(new StringReader(typed)),
                 new PrintStream(printed, true, StandardCharsets.UTF_8),
                 null);
-        return new Setup(root, new Compose(root, new Processes(root), terminal), terminal);
+        return new Setup(root, new LocalProject(root, new Processes(root), terminal), terminal);
     }
 
     private EnvFile env() throws IOException {

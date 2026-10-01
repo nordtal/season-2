@@ -369,11 +369,8 @@ public final class ProxyPlugin {
         // Parks the network when this proxy itself stops; `role` decides which half acts.
         final ProxySwap swap = new ProxySwap(proxy, logger, UpdateDirectory.using(pool), swaps,
                 role, standbyAddress, clock);
-        // Second at zero: backends first, then the network, the order a player travels.
-        this.restartWatch.whenZeroReached(() -> {
-            this.evacuation.check();
-            swap.check();
-        });
+        // Second at zero, beside the announcement.
+        this.restartWatch.whenZeroReached(() -> atZero(swap));
         // Lets the announcement say whether a standby catches players, once per countdown.
         this.restartWatch.standbyProxyAnswers(swap::canPark);
         proxy.getScheduler().buildTask(this, swap::check)
@@ -483,6 +480,12 @@ public final class ProxyPlugin {
 
         signals.start();
         startHeartbeat();
+    }
+
+    /** What the zero beat moves: the backends first, then the network, the order a player travels. */
+    private void atZero(final ProxySwap swap) {
+        this.evacuation.check();
+        swap.check();
     }
 
     /**

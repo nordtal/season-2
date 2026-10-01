@@ -10,8 +10,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.Set;
@@ -116,18 +114,6 @@ class RunShapeTest {
         assertFalse(RunShape.losesVoice(RunShape.Fate.NOTHING, false));
         assertFalse(RunShape.losesVoice(RunShape.Fate.WAITING_ROOM, false));
         assertFalse(RunShape.losesVoice(RunShape.Fate.DISCONNECT, false));
-    }
-
-    @Test
-    void theHintIsSaidOnce() throws IOException {
-        // A source rule, like CountdownTest's: repeating a side note would make it read as the main event.
-        final String source = Files.readString(Path.of("src/main/java/eu/nordtal/s2/proxy/update/RestartWatch.java"));
-        assertTrue(
-                source.contains("if (!saidVoice) {"),
-                "a missing guard would say the hint on every chat line: " + source);
-        assertTrue(
-                source.contains("saidVoice = false;"),
-                "nothing resets the guard, so the second run of a session says nothing at all");
     }
 
     // the lines

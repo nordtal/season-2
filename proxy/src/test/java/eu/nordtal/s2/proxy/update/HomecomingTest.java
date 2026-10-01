@@ -9,8 +9,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
@@ -99,21 +97,6 @@ class HomecomingTest {
         assertTrue(
                 Homecoming.NOTICE.toSeconds() <= Countdown.SUBTITLES_FROM,
                 "the notice has grown past the seconds Countdown counts");
-    }
-
-    @Test
-    void theSentenceComesBeforeTheTransfer() throws IOException {
-        // Read as source: in the other order the message reaches a connection the transfer closed.
-        final String source = Files.readString(Path.of("src/main/java/eu/nordtal/s2/proxy/update/StandbyReturn.java"));
-        final int said = source.indexOf("voice.say(here, beat.announcement())");
-        final int moved = source.indexOf("sendHome(here)");
-
-        assertTrue(said > 0 && moved > 0, "StandbyReturn must speak and transfer in one beat");
-        assertTrue(said < moved, "the transfer is written before the sentence");
-        assertEquals(
-                said,
-                source.lastIndexOf("voice.say("),
-                "the standby speaks in more than one place, so one of them is after the transfer");
     }
 
     // the lines

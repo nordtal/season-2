@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.database.metric.Metric;
+import io.javalin.Javalin;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -19,6 +20,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -29,17 +32,26 @@ import org.junit.jupiter.api.Test;
 class EveryCalledPathIsRoutedTest {
 
     private static final String FRONTEND = "steward-ui/frontend/src";
-    private static final String ROUTES = "steward-ui/src/main/java/eu/nordtal/s2/steward/ui/StewardUi.java";
 
     /** An {@code /api/...} literal in the frontend, up to a quote, a query, an interpolation or a backslash. */
     private static final Pattern CALLED = Pattern.compile("[\"`](/api/[^\"`?$\\\\]*)");
 
-    /** {@code cfg.routes.get("/api/...", ...)} and the other five verbs, plus sse. */
-    private static final Pattern REGISTERED =
-            Pattern.compile("routes\\.(?:get|post|put|patch|delete|sse)\\(\\s*\"(/api/[^\"]*)\"");
-
     /** The catch-all {@code /api/<path>}, which matches every path and so must not count as an answer. */
     private static final Pattern CATCH_ALL = Pattern.compile("/api/(?:\\{[^}]+}|<[^>]+>)");
+
+    private static Javalin app;
+
+    @BeforeAll
+    static void start() {
+        app = RouteTable.start();
+    }
+
+    @AfterAll
+    static void stop() {
+        if (app != null) {
+            app.stop();
+        }
+    }
 
     @Test
     void nothingIsCalledThatIsNotRouted() {
@@ -47,8 +59,8 @@ class EveryCalledPathIsRoutedTest {
         // A guard that silently stops guarding is worse than none: say so here, not at the wrong assertion.
         assertTrue(
                 routes.size() > 20,
-                "only " + routes.size() + " routes were read out of " + ROUTES
-                        + " - the route table moved or the pattern stopped matching it.");
+                "only " + routes.size() + " /api routes were found on the running service - the API moved"
+                        + " under another prefix, or the service stopped registering before its database.");
 
         final List<String> unrouted = new ArrayList<>();
         for (final String called : called()) {
@@ -137,15 +149,13 @@ class EveryCalledPathIsRoutedTest {
         return called.matches(regex.toString());
     }
 
+    /** Every {@code /api/...} path the running service registers, the catch-all aside. */
     private static Set<String> registered() {
-        final Set<String> routes = new TreeSet<>();
-        final Matcher matcher = REGISTERED.matcher(read(repository().resolve(ROUTES)));
-        while (matcher.find()) {
-            if (!CATCH_ALL.matcher(matcher.group(1)).matches()) {
-                routes.add(matcher.group(1));
-            }
-        }
-        return routes;
+        return RouteTable.endpoints(app).stream()
+                .map(endpoint -> endpoint.path)
+                .filter(path ->
+                        path.startsWith("/api/") && !CATCH_ALL.matcher(path).matches())
+                .collect(Collectors.toCollection(TreeSet::new));
     }
 
     private static Set<String> called() {

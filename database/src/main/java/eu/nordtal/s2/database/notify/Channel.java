@@ -8,7 +8,7 @@ import java.util.Objects;
  */
 public enum Channel {
 
-    /** The season phase moved. Emitted by the phase directory; the proxy, smp and hunger-games listen. */
+    /** The season phase moved. Emitted by the phase directory; the proxy, smp, hunger-games and the bot listen. */
     PHASE("nordtal_phase"),
 
     /** An admin flag in {@code discord_user} was written; payload the Discord id. The proxy, bot and Paper listen. */

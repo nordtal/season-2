@@ -84,7 +84,7 @@ public final class StatusChannels {
                         language.hasStatusChannel() || (announcements != null && language.hasAnnouncementChannel()));
     }
 
-    /** Reads the state, renders a name per language and renames what changed, once a minute. */
+    /** Reads the state, renders a name per language and renames what changed, on every signal of the bot's hub. */
     public void tick() {
         final SeasonPhase phase = phases.currentPhase();
         announceIfChanged(phase);

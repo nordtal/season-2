@@ -47,6 +47,7 @@ import eu.nordtal.s2.settings.SettingsException;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -171,12 +172,13 @@ public class AccessBot implements AutoCloseable {
                 new UpdateFeed(updates, UpdateFeed.Board.of(wiring.admin()), core.messages(), clock);
         updateFeed.start();
 
-        schedule(accessConfig, wiring.roles(), status);
+        schedule(accessConfig, wiring.roles());
 
         // Started last: it refreshes immediately on connect and touches JDA.
         final SignalHub hub = listen(
                 databaseConfig,
                 updateFeed,
+                status,
                 wiring.processor(),
                 wiring.purchaseFlow(),
                 openInbox(new BotInbox(wiring.inboxEffects(), wiring.announcements()::post)),
@@ -321,7 +323,7 @@ public class AccessBot implements AutoCloseable {
     }
 
     /** Starts the recurring timers, each guarded because the scheduler silently cancels a task that throws. */
-    private void schedule(final AccessSpec config, final AccessRoles roles, final StatusChannels status) {
+    private void schedule(final AccessSpec config, final AccessRoles roles) {
         final int reconcile = config.roleReconcileIntervalMinutes();
         repeat(guarded("role reconcile", roles::reconcile), reconcile, reconcile, TimeUnit.MINUTES);
 
@@ -334,13 +336,6 @@ public class AccessBot implements AutoCloseable {
                 1,
                 1,
                 TimeUnit.HOURS);
-
-        // The tick only calls Discord when the rendered name changed.
-        if (status.configured()) {
-            repeat(guarded("status channels", status::tick), 0, 1, TimeUnit.MINUTES);
-        } else {
-            log.info("No language has a status-channel; the sidebar status is off");
-        }
     }
 
     /**
@@ -364,6 +359,7 @@ public class AccessBot implements AutoCloseable {
     private SignalHub listen(
             final DatabaseSpec databaseConfig,
             final UpdateFeed updateFeed,
+            final StatusChannels status,
             final PaymentProcessor processor,
             final PurchaseFlow purchaseFlow,
             final Runnable drainInbox,
@@ -376,16 +372,25 @@ public class AccessBot implements AutoCloseable {
                 "access-bot-signals",
                 log);
         // Unconditional: without bunq both queues are simply empty.
-        hub.on(Channel.PAYMENT, "matched payments", () -> worker.execute(guarded("payment booking", processor::poll)));
-        hub.on(
-                Channel.PAYMENT,
-                "waiting payment links",
-                () -> worker.execute(guarded("payment links", purchaseFlow::fillIn)));
-        hub.on(Channel.BOT, "the bot inbox", () -> worker.execute(guarded("the bot inbox", drainInbox)));
-        hub.on(Channel.ADMIN, "admin role", () -> worker.execute(guarded("admin role", adminRole::reconcile)));
+        hub.on(Channel.PAYMENT, "matched payments", handTo(worker, "payment booking", processor::poll));
+        hub.on(Channel.PAYMENT, "waiting payment links", handTo(worker, "payment links", purchaseFlow::fillIn));
+        hub.on(Channel.BOT, "the bot inbox", handTo(worker, "the bot inbox", drainInbox));
+        hub.on(Channel.ADMIN, "admin role", handTo(worker, "admin role", adminRole::reconcile));
         hub.on(Channel.UPDATE, "the update feed", () -> updateFeed.submit(worker));
+        // On the one timer thread, as before: two ticks at once would both announce the same phase change.
+        if (status.configured()) {
+            hub.on(Channel.PHASE, "the status channels", handTo(timers, "status channels", status::tick));
+        } else {
+            log.info("No language has a status-channel; the sidebar status is off");
+        }
         hub.start();
         return hub;
+    }
+
+    /** Returns a refresh that hands {@code task} to {@code executor}, so the hub's thread never waits on it. */
+    private Runnable handTo(final Executor executor, final String name, final Runnable task) {
+        final Runnable guardedTask = guarded(name, task);
+        return () -> executor.execute(guardedTask);
     }
 
     private void repeat(final Runnable task, final long initialDelay, final long delay, final TimeUnit unit) {

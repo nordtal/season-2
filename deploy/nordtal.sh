@@ -576,13 +576,13 @@ set_secret() {
 # An update run requested from the host, which works while the stack itself is broken.
 # These are decisions only; `cmd_update` below the seam reaches for Docker.
 
-# The kinds `worker_inbox.kind` accepts.
+# The kinds `steward_inbox.kind` accepts.
 UPDATE_KINDS=(UPDATE RESTART BACKUP DOWN START)
 
 # How long the command waits; the run itself carries on after it gives up.
 UPDATE_TIMEOUT_DEFAULT=1800
 
-# The service names `worker_inbox_services_check` accepts, joined by commas, so a bad scope is refused here.
+# The service names `steward_inbox_services_check` accepts, joined by commas, so a bad scope is refused here.
 update_scope_ok() {
     [[ "$1" =~ ^[a-z0-9-]+(,[a-z0-9-]+)*$ ]]
 }
@@ -639,7 +639,7 @@ update_insert_sql() {
     [[ -n "$scope" ]] && services_sql="to_jsonb(string_to_array('$scope', ','))"
     cat <<SQL
 WITH inserted AS (
-    INSERT INTO worker_inbox (kind, payload, actor_kind, scheduled_for)
+    INSERT INTO steward_inbox (kind, payload, actor_kind, scheduled_for)
     VALUES ('$kind', jsonb_build_object('services', $services_sql), 'HOST', now() + make_interval(mins => $minutes))
     RETURNING id
 ), notified AS (
@@ -651,7 +651,7 @@ SQL
 
 # One line: the status, a tab and the report, empty rather than NULL.
 update_status_sql() {
-    printf "SELECT status, coalesce(outcome #>> '{}', '') FROM worker_inbox WHERE id = %s;\n" "$1"
+    printf "SELECT status, coalesce(outcome #>> '{}', '') FROM steward_inbox WHERE id = %s;\n" "$1"
 }
 
 # Whether a status means steward is finished with this row, one way or another.
@@ -731,7 +731,7 @@ update_wait() {
             said="$status"
         fi
         if [[ -z "$status" ]]; then
-            die "request $id is no longer in worker_inbox. Somebody deleted the row."
+            die "request $id is no longer in steward_inbox. Somebody deleted the row."
         fi
         if update_is_over "$status"; then
             # jq if it is there, the raw JSON line if not.

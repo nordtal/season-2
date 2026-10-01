@@ -42,8 +42,8 @@ class UpdateDirectoryIntegrationTest {
         dataSource = TestDatabase.fresh().dataSource();
     }
 
-    /** Both tables, since {@code service_hold} references {@code worker_inbox}; {@code CASCADE} would take more. */
-    private static final String FRESH_INBOX = "TRUNCATE TABLE service_hold, worker_inbox RESTART IDENTITY";
+    /** Both tables, since {@code service_hold} references {@code steward_inbox}; {@code CASCADE} would take more. */
+    private static final String FRESH_INBOX = "TRUNCATE TABLE service_hold, steward_inbox RESTART IDENTITY";
 
     @BeforeEach
     void freshInbox() {
@@ -56,9 +56,9 @@ class UpdateDirectoryIntegrationTest {
         try (Connection connection = dataSource.getConnection();
                 Statement close = connection.createStatement();
                 java.sql.PreparedStatement insert = connection.prepareStatement(
-                        "INSERT INTO worker_inbox (kind, payload, actor_kind, actor_id, scheduled_for) "
+                        "INSERT INTO steward_inbox (kind, payload, actor_kind, actor_id, scheduled_for) "
                                 + "VALUES (?, '{\"services\": []}', ?, ?, now() + make_interval(secs => ?)) RETURNING id")) {
-            close.execute("UPDATE worker_inbox SET status = 'CANCELLED', finished = now()"
+            close.execute("UPDATE steward_inbox SET status = 'CANCELLED', finished = now()"
                     + " WHERE status IN ('PENDING', 'RUNNING')");
             insert.setString(1, kind.name());
             insert.setString(2, actor.kind().name());
@@ -342,20 +342,20 @@ class UpdateDirectoryIntegrationTest {
         // Past the directory, as the host installer writes: the unique index is the one-run rule.
         final SQLException second = assertThrows(
                 SQLException.class,
-                () -> executeChecked("INSERT INTO worker_inbox (kind, payload, actor_kind)"
+                () -> executeChecked("INSERT INTO steward_inbox (kind, payload, actor_kind)"
                         + " VALUES ('START', '{\"services\": []}', 'HOST')"));
-        assertTrue(second.getMessage().contains("worker_inbox_one_open"), second.getMessage());
+        assertTrue(second.getMessage().contains("steward_inbox_one_open"), second.getMessage());
     }
 
     @Test
-    void twoWorkersNeverClaimTheSameRow() throws Exception {
+    void twoStewardsNeverClaimTheSameRow() throws Exception {
         updates.submit(UpdateKind.START, Actor.HOST, Duration.ZERO);
 
         // Hold the row in an open transaction, the way a second steward that claimed it would.
         try (Connection holder = dataSource.getConnection()) {
             holder.setAutoCommit(false);
             try (Statement statement = holder.createStatement()) {
-                statement.execute("SELECT id FROM worker_inbox WHERE status = 'PENDING' "
+                statement.execute("SELECT id FROM steward_inbox WHERE status = 'PENDING' "
                         + "ORDER BY scheduled_for, id LIMIT 1 FOR UPDATE");
             }
 
@@ -729,26 +729,26 @@ class UpdateDirectoryIntegrationTest {
         final SQLException kind = assertThrows(
                 SQLException.class,
                 () -> executeChecked(
-                        "INSERT INTO worker_inbox (kind, payload, actor_kind) VALUES ('REPORT', '{\"services\": []}', 'HOST')"));
-        assertTrue(kind.getMessage().contains("worker_inbox_kind_check"), kind.getMessage());
+                        "INSERT INTO steward_inbox (kind, payload, actor_kind) VALUES ('REPORT', '{\"services\": []}', 'HOST')"));
+        assertTrue(kind.getMessage().contains("steward_inbox_kind_check"), kind.getMessage());
 
         final SQLException status = assertThrows(
                 SQLException.class,
-                () -> executeChecked("INSERT INTO worker_inbox (kind, payload, actor_kind, status, finished)"
+                () -> executeChecked("INSERT INTO steward_inbox (kind, payload, actor_kind, status, finished)"
                         + " VALUES ('UPDATE', '{\"services\": []}', 'HOST', 'MAYBE', now())"));
-        assertTrue(status.getMessage().contains("worker_inbox_status_check"), status.getMessage());
+        assertTrue(status.getMessage().contains("steward_inbox_status_check"), status.getMessage());
 
         final SQLException actor = assertThrows(
                 SQLException.class,
                 () -> executeChecked(
-                        "INSERT INTO worker_inbox (kind, payload, actor_kind) VALUES ('UPDATE', '{\"services\": []}', 'DISCORD')"));
-        assertTrue(actor.getMessage().contains("worker_inbox_actor_kind_check"), actor.getMessage());
+                        "INSERT INTO steward_inbox (kind, payload, actor_kind) VALUES ('UPDATE', '{\"services\": []}', 'DISCORD')"));
+        assertTrue(actor.getMessage().contains("steward_inbox_actor_kind_check"), actor.getMessage());
 
         final SQLException unnamed = assertThrows(
                 SQLException.class,
                 () -> executeChecked(
-                        "INSERT INTO worker_inbox (kind, payload, actor_kind) VALUES ('UPDATE', '{\"services\": []}', 'PERSON')"));
-        assertTrue(unnamed.getMessage().contains("worker_inbox_actor_id_iff_person"), unnamed.getMessage());
+                        "INSERT INTO steward_inbox (kind, payload, actor_kind) VALUES ('UPDATE', '{\"services\": []}', 'PERSON')"));
+        assertTrue(unnamed.getMessage().contains("steward_inbox_actor_id_iff_person"), unnamed.getMessage());
 
         assertFalse(updates.claimNext().isPresent(), "none of the four got in");
     }

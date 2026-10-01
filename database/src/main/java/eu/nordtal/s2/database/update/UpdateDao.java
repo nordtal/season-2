@@ -14,7 +14,7 @@ interface UpdateDao {
 
     /** Returns the oldest run that is pending or running, which is what refuses a new one. */
     @SqlQuery("""
-            SELECT * FROM worker_inbox
+            SELECT * FROM steward_inbox
             WHERE status IN ('PENDING', 'RUNNING')
             ORDER BY id
             LIMIT 1
@@ -22,10 +22,10 @@ interface UpdateDao {
     Optional<UpdateRequest> open();
 
     /** Returns the services a run is for, empty for a whole-network run and for no row. */
-    @SqlQuery("SELECT jsonb_array_elements_text(payload -> 'services') FROM worker_inbox WHERE id = :id")
+    @SqlQuery("SELECT jsonb_array_elements_text(payload -> 'services') FROM steward_inbox WHERE id = :id")
     List<String> services(@Bind("id") long id);
 
-    @SqlQuery("SELECT * FROM worker_inbox WHERE id = :id")
+    @SqlQuery("SELECT * FROM steward_inbox WHERE id = :id")
     Optional<UpdateRequest> find(@Bind("id") long id);
 
     /**
@@ -33,20 +33,20 @@ interface UpdateDao {
      *
      * @param id the last one already seen; {@code 0} for everything
      */
-    @SqlQuery("SELECT * FROM worker_inbox WHERE id > :id ORDER BY id")
+    @SqlQuery("SELECT * FROM steward_inbox WHERE id > :id ORDER BY id")
     java.util.List<UpdateRequest> since(@Bind("id") long id);
 
     /** Returns the most recent requests, newest first. */
-    @SqlQuery("SELECT * FROM worker_inbox ORDER BY id DESC LIMIT :limit")
+    @SqlQuery("SELECT * FROM steward_inbox ORDER BY id DESC LIMIT :limit")
     java.util.List<UpdateRequest> recent(@Bind("limit") int limit);
 
     /** Returns the highest id in the table, or zero when it is empty. */
-    @SqlQuery("SELECT coalesce(max(id), 0) FROM worker_inbox")
+    @SqlQuery("SELECT coalesce(max(id), 0) FROM steward_inbox")
     long latestId();
 
     /** Returns every request that reached a terminal state in the last {@code seconds}. */
     @SqlQuery("""
-            SELECT * FROM worker_inbox
+            SELECT * FROM steward_inbox
             WHERE finished IS NOT NULL
               AND finished > now() - make_interval(secs => cast(:seconds AS double precision))
             ORDER BY id
@@ -60,7 +60,7 @@ interface UpdateDao {
      * @param seconds how far back to look, from the database's clock
      */
     @SqlQuery("""
-            SELECT * FROM worker_inbox
+            SELECT * FROM steward_inbox
             WHERE kind = 'BACKUP'
               AND status = 'DONE'
               AND finished IS NOT NULL
@@ -77,7 +77,7 @@ interface UpdateDao {
      */
     @SqlQuery("""
             WITH updated AS (
-                UPDATE worker_inbox
+                UPDATE steward_inbox
                 SET countdown_end = now() + make_interval(secs => cast(:seconds AS double precision)),
                     moving = :moving
                 WHERE id = :id AND status = 'RUNNING'
@@ -96,7 +96,7 @@ interface UpdateDao {
      */
     @SqlQuery("""
             WITH committed AS (
-                UPDATE worker_inbox
+                UPDATE steward_inbox
                 SET countdown_end = now()
                 WHERE id = :id AND status = 'RUNNING'
                 RETURNING id
@@ -111,7 +111,7 @@ interface UpdateDao {
      * The kind list is held against {@link UpdateKind#stopsServers()} by an integration test.
      */
     @SqlQuery("""
-            SELECT * FROM worker_inbox
+            SELECT * FROM steward_inbox
             WHERE kind IN ('RESTART', 'UPDATE', 'BACKUP', 'DOWN')
               AND ((status = 'PENDING' AND scheduled_for > now())
                    OR (status = 'RUNNING' AND countdown_end > now()))
@@ -126,7 +126,7 @@ interface UpdateDao {
      * Any kind counts, since a backup stops the same servers as an update.
      */
     @SqlQuery("""
-            SELECT * FROM worker_inbox
+            SELECT * FROM steward_inbox
             WHERE status = 'RUNNING'
               AND (countdown_end IS NULL OR countdown_end <= now())
             ORDER BY id
@@ -142,7 +142,7 @@ interface UpdateDao {
     @SqlQuery("""
             WITH cancellable AS (
                 SELECT id
-                FROM worker_inbox
+                FROM steward_inbox
                 -- Exactly what countingDown() finds: the button says "Stop the countdown", and a
                 -- countdown it could not stop would be worse than no button.
                 WHERE kind IN ('RESTART', 'UPDATE', 'BACKUP', 'DOWN')
@@ -153,7 +153,7 @@ interface UpdateDao {
                 FOR UPDATE SKIP LOCKED
             ),
             cancelled AS (
-                UPDATE worker_inbox
+                UPDATE steward_inbox
                 SET status = 'CANCELLED', finished = now(), outcome = to_jsonb(cast(:reason AS text))
                 WHERE id IN (SELECT id FROM cancellable)
                 RETURNING *

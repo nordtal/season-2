@@ -1,11 +1,11 @@
 package eu.nordtal.s2.database.update;
 
-import eu.nordtal.s2.database.inbox.WorkerRequest;
+import eu.nordtal.s2.database.inbox.StewardRequest;
 import java.util.List;
 
 /**
  * What an {@link UpdateRequest} asks steward to do: the kind of its request in the run inbox.
- * {@code UpdateKindTest} holds it against {@link WorkerRequest}'s kinds.
+ * {@code UpdateKindTest} holds it against {@link StewardRequest}'s kinds.
  */
 public enum UpdateKind {
 
@@ -38,19 +38,19 @@ public enum UpdateKind {
     }
 
     /** Returns the request of this kind for the services, which the run inbox stores. */
-    public WorkerRequest request(final List<String> services) {
+    public StewardRequest request(final List<String> services) {
         return switch (this) {
-            case UPDATE -> new WorkerRequest.Update(services);
-            case RESTART -> new WorkerRequest.Restart(services);
-            case BACKUP -> new WorkerRequest.Backup(services);
-            case DOWN -> new WorkerRequest.Down(services);
-            case START -> new WorkerRequest.Start(services);
+            case UPDATE -> new StewardRequest.Update(services);
+            case RESTART -> new StewardRequest.Restart(services);
+            case BACKUP -> new StewardRequest.Backup(services);
+            case DOWN -> new StewardRequest.Down(services);
+            case START -> new StewardRequest.Start(services);
         };
     }
 
     /** Returns the kind of a request in the run inbox. */
-    public static UpdateKind of(final WorkerRequest request) {
-        return valueOf(WorkerRequest.TABLE.kindOf(request));
+    public static UpdateKind of(final StewardRequest request) {
+        return valueOf(StewardRequest.TABLE.kindOf(request));
     }
 
     /** Returns whether this kind is half of the down and up pair, where a stopped service is the finished state. */

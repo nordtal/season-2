@@ -326,7 +326,7 @@ services:
       - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/data/plugins
 
   # steward: the web interface, its API, the schema and every jar version, in one process. `serve` is
-  # not a scheduler: it acts only on rows in worker_inbox. One-shot commands: `report`, `migrate`,
+  # not a scheduler: it acts only on rows in steward_inbox. One-shot commands: `report`, `migrate`,
   # `bootstrap` (fills empty volumes), `forget-factors` and `generate-vapid-keys`.
   steward:
     build:

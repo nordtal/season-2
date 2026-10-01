@@ -153,7 +153,7 @@ docker compose run --rm steward report      # what would change, changes nothing
 docker compose run --rm steward bootstrap   # migrate, then fill empty slots only
 ```
 
-Each request is a row in `worker_inbox`, steward's inbox; the report is written to its `outcome` column.
+Each request is a row in `steward_inbox`, steward's inbox; the report is written to its `outcome` column.
 One run is open at a time: the database refuses a second request while one is pending or running.
 
 A run downloads everything into a staging directory first, stops the affected servers, migrates,

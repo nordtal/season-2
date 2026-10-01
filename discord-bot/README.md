@@ -4,8 +4,8 @@ The season 2 Discord bot: access purchases and grants, account linking, roles, t
 registration, status channels and the admin log. It talks to PostgreSQL and the Discord gateway and
 to nothing else, so it runs without any Minecraft server.
 
-It holds no bunq key. The bot writes a `payment_request` row; `steward` creates the bunq.me
-tab, writes the link back and finds the money, and the bot books it.
+It holds no bunq key. The bot writes a `payment_request` row; `steward` has `steward-bunq` create
+the bunq.me tab, writes the link back and finds the money, and the bot books it.
 
 It never migrates the schema. At startup it runs Flyway's `validate()` and refuses a database it
 was not built against, so `steward` has to have run first:

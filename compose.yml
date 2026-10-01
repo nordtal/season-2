@@ -141,7 +141,7 @@ services:
 
       # bot.yml
       NORDTAL_BOT_TOKEN: ${NORDTAL_BOT_TOKEN:?set NORDTAL_BOT_TOKEN in .env}
-      # The bunq key lives on steward, not here.
+      # The bunq key lives on steward-bunq, not here.
 
       # access.yml: the guild and the admin role are required; deploy/nordtal.sh asks for both.
       NORDTAL_ACCESS_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in the environment file - deploy/nordtal.sh asks for it}
@@ -325,8 +325,8 @@ services:
       context: ./steward
     image: ${STEWARD_IMAGE:-ghcr.io/nordtal/steward:latest}
     restart: unless-stopped
-    # Only the steward network: it holds the docker socket, so no Minecraft server may reach it.
-    networks: ["steward"]
+    # It holds the docker socket, so no Minecraft server may reach it; `agent` and `bank` are its alone.
+    networks: ["steward", "agent", "bank"]
     # A `run` without a subcommand inherits this; use `steward report` for a read-only run.
     command: ["serve"]
     # Makes http://host.docker.internal:<port> reach the host on Linux too.
@@ -362,9 +362,8 @@ services:
       # steward.yml#agent: recreating a container goes through steward-agent's API.
       NORDTAL_STEWARD_AGENT_TOKEN: ${STEWARD_AGENT_TOKEN:?set STEWARD_AGENT_TOKEN in .env - the secret steward and steward-agent share, `openssl rand -hex 32`}
 
-      # steward.yml#bunq: optional; without it payments are off, and the startup log says so.
-      NORDTAL_STEWARD_BUNQ_API_KEY: ${NORDTAL_STEWARD_BUNQ_API_KEY:-}
-      NORDTAL_STEWARD_BUNQ_ACCOUNT_ID: ${NORDTAL_STEWARD_BUNQ_ACCOUNT_ID:-}
+      # steward.yml#bunq: payments go through steward-bunq, which alone holds the bank key.
+      NORDTAL_STEWARD_BUNQ_TOKEN: ${STEWARD_BUNQ_TOKEN:?set STEWARD_BUNQ_TOKEN in .env - the secret steward and steward-bunq share, `openssl rand -hex 32`}
 
       # web.yml; the address is also the Discord redirect URI and the WebAuthn origin.
       NORDTAL_STEWARD_WEB_PUBLIC_URL: ${STEWARD_PUBLIC_URL:-https://${STEWARD_HOST:?set STEWARD_HOST in .env - the name this interface answers on, e.g. steward.dev.nordtal.eu}}
@@ -386,8 +385,6 @@ services:
     volumes:
       # steward.yml, web.yml and database.yml.
       - ${STEWARD_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-config}:/app/config
-      # bunq binds its context to the registering device and IP, so it is never copied.
-      - ${BUNQ_CONTEXT:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bunq-context}:/app/bunq
       # What `apply` writes, under the names Topology expects.
       - ${PROXY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy}:/volumes/proxy
       - ${LIMBO_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo}:/volumes/limbo
@@ -435,7 +432,8 @@ services:
       context: ./steward-agent
     image: ${STEWARD_AGENT_IMAGE:-ghcr.io/nordtal/steward-agent:latest}
     restart: unless-stopped
-    networks: ["steward"]
+    # Reachable from steward alone, and with no way out: the daemon behind the socket does the pulling.
+    networks: ["agent"]
     healthcheck:
       # The alpine image has wget, not curl.
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/api/health"]
@@ -458,6 +456,35 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       # A directory, not the file: a file bind would keep the pre-rotation inode.
       - ${STEWARD_ENV_DIR:?set STEWARD_ENV_DIR in .env - the directory holding STEWARD_ENV_FILE, derived from it by deploy/nordtal.sh}:/app/env:ro
+    logging: *logging
+
+  # steward-bunq: the only process that holds the bank key. It decides nothing and keeps nothing but
+  # bunq's session for this device, which bunq binds to the device and IP that registered it.
+  steward-bunq:
+    profiles: ["steward"]
+    build:
+      context: ./steward-bunq
+    image: ${STEWARD_BUNQ_IMAGE:-ghcr.io/nordtal/steward-bunq:latest}
+    restart: unless-stopped
+    # `bank` is steward's way in, `bank-egress` its own way out to bunq; nobody else is on either.
+    networks: ["bank", "bank-egress"]
+    healthcheck:
+      # The alpine image has wget, not curl.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8082/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      # Required; it refuses to serve without one.
+      NORDTAL_STEWARD_BUNQ_TOKEN: ${STEWARD_BUNQ_TOKEN:?set STEWARD_BUNQ_TOKEN in .env - the secret steward and steward-bunq share, `openssl rand -hex 32`}
+      # Optional; without them payments are off, and the startup log says so.
+      NORDTAL_STEWARD_BUNQ_API_KEY: ${NORDTAL_STEWARD_BUNQ_API_KEY:-}
+      NORDTAL_STEWARD_BUNQ_ACCOUNT_ID: ${NORDTAL_STEWARD_BUNQ_ACCOUNT_ID:-}
+    volumes:
+      # Never copied: bunq binds the context to the registering device and IP.
+      - ${BUNQ_CONTEXT:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bunq-context}:/app/bunq
     logging: *logging
 
   # Caddy: HTTPS for the interface and the guard in front of the game port. The Caddyfile is inline
@@ -599,8 +626,14 @@ volumes:
   mc-limbo-standby:
   mc-limbo-standby-plugins:
 
-# `default` holds the Minecraft services and the bot; `steward` holds the Steward services and Caddy.
-# Postgres is on both, so no plugin can reach steward.
+# `default` holds the Minecraft services and the bot; `steward` holds steward and Caddy. Postgres is on
+# both, so no plugin can reach steward. `agent` and `bank` each join steward to one service that only
+# steward may reach; neither leads out. steward-bunq alone reaches the bank, through `bank-egress`.
 networks:
   default:
   steward:
+  agent:
+    internal: true
+  bank:
+    internal: true
+  bank-egress:

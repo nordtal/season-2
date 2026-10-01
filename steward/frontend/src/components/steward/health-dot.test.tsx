@@ -62,7 +62,7 @@ describe("the sidebar stays silent", () => {
     assert.deepEqual(
       mentionsQuiet(source),
       [],
-      "app-sidebar.tsx now mentions `quiet`. The sidebar draws nothing for a healthy service - nine" +
+      "app-sidebar.tsx now mentions `quiet`. The sidebar draws nothing for a healthy service - ten" +
         " green dots beside a service list say nothing that their absence would not, and the one" +
         " row that is not fine is what a silent sidebar makes easy to see. The network view is the" +
         " caller that goes loud, not this one.",

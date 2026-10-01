@@ -39,6 +39,12 @@ include("steward")
 // The one service allowed to create containers.
 include("steward-agent")
 
+// The only process that holds the bank key; only steward reaches it.
+include("steward-bunq")
+
+// The wire between steward and the services only it may reach.
+include("internal-api")
+
 // The shared kernel every other module stands on: no database, no Adventure, no pack.
 include("common")
 

@@ -13,10 +13,10 @@ import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.online.OnlineDirectory;
 import eu.nordtal.s2.database.online.OnlineRoster;
 import eu.nordtal.s2.database.update.UpdateDirectory;
+import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.SettingsException;
-import eu.nordtal.s2.steward.agent.AgentClient;
 import eu.nordtal.s2.steward.agent.AgentRecreate;
 import eu.nordtal.s2.steward.api.StackApi;
 import eu.nordtal.s2.steward.apply.ApplyResult;
@@ -381,9 +381,12 @@ public final class Steward {
     }
 
     /** The one client of steward-agent, for the runs and the web alike. */
-    private static AgentClient agentOf(final StewardSpec config) {
-        return new AgentClient(
-                config.agent().url(), config.agent().token(), Duration.ofSeconds(config.httpTimeoutSeconds()));
+    private static InternalClient agentOf(final StewardSpec config) {
+        return new InternalClient(
+                AgentRecreate.SERVICE,
+                config.agent().url(),
+                config.agent().token(),
+                Duration.ofSeconds(config.httpTimeoutSeconds()));
     }
 
     private static int serveWithSampler(
@@ -426,7 +429,7 @@ public final class Steward {
                     + " lock screen. Run `steward " + Web.GENERATE_VAPID_KEYS + "` and paste both"
                     + " lines it prints into web.yml's web-push section.");
         }
-        final AgentClient agent = agentOf(config);
+        final InternalClient agent = agentOf(config);
         final Web web = new Web(
                 webConfig,
                 new DiscordAuth(webConfig.discord(), webConfig.publicUrl()),
@@ -525,7 +528,7 @@ public final class Steward {
                 CLOCK);
     }
 
-    /** The request loop, and the only process that calls bunq and stops and starts services. */
+    /** The request loop, the payment loop over steward-bunq, and the only process that stops and starts services. */
     private static int serveWithApi(
             final StewardSpec config,
             final DatabaseSpec databaseConfig,
@@ -534,8 +537,8 @@ public final class Steward {
             final Backups backups,
             final UpdateDirectory updates,
             final eu.nordtal.s2.steward.plugin.PluginDirectory addedPlugins) {
-        // The only evidence bunq works, since both variables are optional.
-        try (PaymentLoop paymentLoop = PaymentsStartup.start(config, database, CLOCK);
+        try (PaymentLoop paymentLoop = PaymentsStartup.start(
+                        config, database, Waiting.on(CLOCK), Duration.ofSeconds(config.httpTimeoutSeconds()));
                 SignalHub signals = SignalHub.open(
                         databaseConfig.jdbcUrl(),
                         databaseConfig.username(),

@@ -16,7 +16,7 @@ import type { LinkProps } from "@tanstack/react-router"
 
 /** The one list of places, read by the sidebar, the palette and the breadcrumb; a route missing here is unreachable. */
 
-/** The nine containers of the season 2 stack, in the order the sidebar lists them. */
+/** The ten containers of the season 2 stack, in the order the sidebar lists them. */
 export const SERVICES = [
   "smp",
   "hunger-games",
@@ -27,6 +27,7 @@ export const SERVICES = [
   "caddy",
   "steward",
   "steward-agent",
+  "steward-bunq",
 ] as const
 
 export type ServiceName = (typeof SERVICES)[number]

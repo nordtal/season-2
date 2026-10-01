@@ -1,6 +1,6 @@
 package eu.nordtal.s2.steward.web;
 
-import eu.nordtal.s2.steward.agent.AgentClient;
+import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.data.Data;
 import io.javalin.http.BadRequestResponse;
@@ -26,7 +26,7 @@ public final class AgentApi {
     /** steward-agent does not recreate itself: the request runs through it and would never come back. */
     private static final String SELF = "steward-agent";
 
-    private final AgentClient agent;
+    private final InternalClient agent;
 
     private final @Nullable Data data;
 
@@ -35,7 +35,7 @@ public final class AgentApi {
 
     /** {@code configured} is whether a secret was given at all; a stack not set up yet is not a fault. */
     public AgentApi(
-            final AgentClient agent,
+            final InternalClient agent,
             final @Nullable Data data,
             final Function<Context, DiscordAuth.Account> accounts,
             final boolean configured) {

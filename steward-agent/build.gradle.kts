@@ -10,8 +10,8 @@ repositoryRootTestInputs {
 }
 
 dependencies {
-    // Only this service creates containers; steward asks it to recreate one over HTTP.
-    implementation(libs.javalin)
+    // Only this service creates containers; steward asks it over the guarded internal API.
+    implementation(project(":internal-api"))
     implementation(libs.gson)
 
     // The kernel, for the process clock; it depends on the JDK alone.

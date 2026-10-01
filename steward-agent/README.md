@@ -28,6 +28,8 @@ through here.
 | `GET /api/jobs/{id}/stream`        | the same output as SSE, replayed from the start on connect                    |
 
 Every route but `/api/health` needs `X-Steward-Token`, and the service refuses to start without it.
+The gate is `:internal-api`'s, the same one `steward-bunq` runs behind. The service sits on the
+internal `agent` network with `steward` alone, so nothing else can even knock.
 
 A deployment pulls every image before it stops anything. A failed pull is tolerated only when the
 image is already on the host.
@@ -41,4 +43,4 @@ image is already on the host.
 
 - `Compose`: every `docker compose` command line.
 - `Jobs`: the in-memory job queue and its output.
-- `StewardAgent`: the two entry points and the HTTP routes.
+- `StewardAgent`: the two entry points and the HTTP routes; the server and its gate are `:internal-api`'s.

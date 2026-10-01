@@ -1,18 +1,14 @@
 package eu.nordtal.s2.stewardagent;
 
 import eu.nordtal.s2.common.Deployment;
-import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.common.time.NetworkTime;
-import io.javalin.Javalin;
+import eu.nordtal.s2.internalapi.InternalServer;
 import io.javalin.http.HttpStatus;
-import io.javalin.json.JavalinGson;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * The one service allowed to create containers, from the {@code compose.yml} baked into its image.
@@ -21,23 +17,23 @@ import org.slf4j.LoggerFactory;
  */
 public final class StewardAgent {
 
-    private static final Logger log = LoggerFactory.getLogger(StewardAgent.class);
-
     private static final int DEFAULT_PORT = 8081;
 
     private StewardAgent() {}
 
     public static void main(final String[] args) throws Exception {
         final String mode = args.length == 0 ? "serve" : args[0];
+        final InternalServer server = new InternalServer(Compose.SELF, System::getenv);
+        final String project = System.getenv("COMPOSE_PROJECT_NAME");
         final Compose compose = new Compose(
-                path("NORDTAL_STEWARD_AGENT_COMPOSE_FILE", "/app/compose.yml"),
-                path("NORDTAL_STEWARD_AGENT_ENV_FILE", "/app/env/.env"),
-                path("NORDTAL_STEWARD_AGENT_PROJECT_DIRECTORY", "/app"),
-                env("COMPOSE_PROJECT_NAME", Deployment.PROJECT));
+                Path.of(server.setting("COMPOSE_FILE", "/app/compose.yml")),
+                Path.of(server.setting("ENV_FILE", "/app/env/.env")),
+                Path.of(server.setting("PROJECT_DIRECTORY", "/app")),
+                project == null || project.isBlank() ? Deployment.PROJECT : project);
 
         switch (mode) {
             case "up" -> System.exit(deploy(compose, List.of(), System.out::println, true));
-            case "serve" -> serve(compose);
+            case "serve" -> serve(server, compose);
             default -> {
                 System.err.println("usage: steward-agent [serve|up]");
                 System.exit(2);
@@ -107,43 +103,16 @@ public final class StewardAgent {
         return List.copyOf(services);
     }
 
-    private static void serve(final Compose compose) throws java.io.IOException {
-        final String token = requireToken();
+    private static void serve(final InternalServer server, final Compose compose) throws java.io.IOException {
         // A stale env file shows in the boot log, not on the first deploy.
         compose.assertEnvFileFresh();
         final Jobs jobs = new Jobs(NetworkTime.clock());
-
-        Javalin.create(config -> configureRoutes(config, compose, jobs, token)).start(port());
-
-        log.info("steward-agent listening on {}", port());
-    }
-
-    private static String requireToken() {
-        final String token = System.getenv("NORDTAL_STEWARD_AGENT_TOKEN");
-        if (token == null || token.isBlank()) {
-            // An unauthenticated process that can recreate every container is a remote root shell.
-            throw new IllegalStateException("NORDTAL_STEWARD_AGENT_TOKEN is not set. steward-agent creates containers "
-                    + "and will not serve without a shared secret; the setup script writes one.");
-        }
-        return token;
+        // Without its secret it does not start: an open process that can recreate every container is a root shell.
+        server.start(DEFAULT_PORT, config -> configureRoutes(config, compose, jobs));
     }
 
     private static void configureRoutes(
-            final io.javalin.config.JavalinConfig config, final Compose compose, final Jobs jobs, final String token) {
-        config.jsonMapper(new JavalinGson(Json.gson(), true));
-        config.startup.showJavalinBanner = false;
-
-        config.routes.before("/api/*", ctx -> {
-            if (ctx.path().equals("/api/health")) {
-                return;
-            }
-            if (!token.equals(ctx.header("X-Steward-Token"))) {
-                throw new io.javalin.http.UnauthorizedResponse("bad or missing X-Steward-Token");
-            }
-        });
-
-        config.routes.get("/api/health", ctx -> ctx.json(Map.of("status", "ok")));
-
+            final io.javalin.config.JavalinConfig config, final Compose compose, final Jobs jobs) {
         // The agent's own answer to "did my deployment arrive".
         config.routes.get(
                 "/api/state", ctx -> ctx.contentType("application/json").result(compose.state()));
@@ -199,19 +168,5 @@ public final class StewardAgent {
     /** The body of {@code POST /api/deploy}: an empty list means the whole project. */
     private static final class Request {
         private @Nullable List<String> services;
-    }
-
-    private static int port() {
-        final String value = System.getenv("NORDTAL_STEWARD_AGENT_PORT");
-        return value == null || value.isBlank() ? DEFAULT_PORT : Integer.parseInt(value.trim());
-    }
-
-    private static String env(final String name, final String fallback) {
-        final String value = System.getenv(name);
-        return value == null || value.isBlank() ? fallback : value;
-    }
-
-    private static Path path(final String name, final String fallback) {
-        return Path.of(env(name, fallback));
     }
 }

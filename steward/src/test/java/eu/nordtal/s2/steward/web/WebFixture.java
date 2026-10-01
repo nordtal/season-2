@@ -3,8 +3,10 @@ package eu.nordtal.s2.steward.web;
 import com.google.gson.Gson;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.database.TestDatabase;
+import eu.nordtal.s2.internalapi.InternalClient;
+import eu.nordtal.s2.internalapi.InternalServer;
 import eu.nordtal.s2.settings.DatabaseSpec;
-import eu.nordtal.s2.steward.agent.AgentClient;
+import eu.nordtal.s2.steward.agent.AgentRecreate;
 import eu.nordtal.s2.steward.api.StackApi;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.auth.TestAuthenticator;
@@ -118,16 +120,9 @@ abstract class WebFixture {
     }
 
     private static void startFakeAgent() {
-        // A stand-in for steward-agent, the one process steward still calls over HTTP.
-        fakeAgent = Javalin.create(cfg -> {
-                    cfg.jsonMapper(new JavalinGson(new Gson(), true));
-                    cfg.startup.showJavalinBanner = false;
-                    cfg.routes.before("/api/*", ctx -> {
-                        if (!ctx.path().equals("/api/health") && !"agent-token".equals(ctx.header("X-Steward-Token"))) {
-                            throw new io.javalin.http.UnauthorizedResponse("bad or missing token");
-                        }
-                    });
-                    cfg.routes.get("/api/health", ctx -> ctx.json(Map.of("status", "ok")));
+        // A stand-in for steward-agent behind the real guard, so the secret is checked as it is in the stack.
+        fakeAgent = new InternalServer(AgentRecreate.SERVICE, Map.of("NORDTAL_STEWARD_AGENT_TOKEN", "agent-token")::get)
+                .start(AGENT_PORT, cfg -> {
                     cfg.routes.get("/api/services", ctx -> ctx.json(Map.of("smp", "ghcr.io/nordtal/minecraft:latest")));
                     cfg.routes.post("/api/recreate/{service}", ctx -> {
                         recreated.add(ctx.pathParam("service"));
@@ -155,8 +150,7 @@ abstract class WebFixture {
                                     0,
                                     "lines",
                                     List.of("Container nordtal-s2-smp-1  Recreated"))));
-                })
-                .start(AGENT_PORT);
+                });
     }
 
     private static void startFakeDiscord() {
@@ -301,7 +295,8 @@ abstract class WebFixture {
                 config,
                 new DiscordAuth(config.discord(), config.publicUrl(), "http://127.0.0.1:" + DISCORD_PORT),
                 stack,
-                new AgentClient("http://127.0.0.1:" + AGENT_PORT, "agent-token", Duration.ofSeconds(5)),
+                new InternalClient(
+                        "steward-agent", "http://127.0.0.1:" + AGENT_PORT, "agent-token", Duration.ofSeconds(5)),
                 true,
                 data,
                 Clock.systemUTC());

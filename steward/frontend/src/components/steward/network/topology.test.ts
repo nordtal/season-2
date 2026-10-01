@@ -5,7 +5,7 @@ import { SERVICES } from "@/app/navigation"
 import { EDGES, INGRESS, SECTIONS, imageTag, layoutFaults } from "./topology"
 
 /**
- * A hand-written arrangement silently loses a tenth service; `geometry.test.ts` asserts each plan places all nine.
+ * A hand-written arrangement silently loses an eleventh service; `geometry.test.ts` asserts each plan places all ten.
  */
 describe("layoutFaults names what an arrangement forgot", () => {
   it("notices a service that no draft placed, which is the failure it exists for", () => {
@@ -22,9 +22,9 @@ describe("layoutFaults names what an arrangement forgot", () => {
   })
 })
 
-/** The phone's table is a second hand-written list of the nine names, checked the same way. */
+/** The phone's table is a second hand-written list of the ten names, checked the same way. */
 describe("the sections cover every service, once", () => {
-  it("names all nine between them and repeats none", () => {
+  it("names all ten between them and repeats none", () => {
     const rows = SECTIONS.flatMap((section) => section.members)
     /** `players` has no row but `layoutFaults` expects it, so it is prepended. */
     expect(layoutFaults([INGRESS, ...rows])).toEqual([])
@@ -49,7 +49,7 @@ describe("the edges are between boxes that exist", () => {
     for (const edge of EDGES.filter((one) => one.kind === "data")) {
       expect(edge.to).toBe("postgres")
     }
-    /** Six of the nine hold a connection, as compose.yml declares; caddy, steward-agent and postgres do not. */
+    /** Six of the ten hold a connection, as compose.yml declares; caddy, the agent, steward-bunq and postgres do not. */
     expect(EDGES.filter((edge) => edge.kind === "data").length).toBe(6)
   })
 })

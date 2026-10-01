@@ -48,6 +48,7 @@ const TABLE = {
     service({ service: "caddy", image: "caddy:2" }),
     service({ service: "steward" }),
     service({ service: "steward-agent", state: "exited", status: "Exited (0)" }),
+    service({ service: "steward-bunq" }),
   ],
   drift: { checkedAt: new Date().toISOString(), reached: true, unverifiable: [] },
 }
@@ -145,7 +146,7 @@ describe("the network view", () => {
     // The entry box carries the network's total, which is proxy's own row.
     expect(within(box("players")).getByTitle("players").textContent).toBe("7")
 
-    for (const silent of ["postgres", "caddy", "steward", "steward-agent", "discord-bot"]) {
+    for (const silent of ["postgres", "caddy", "steward", "steward-agent", "steward-bunq", "discord-bot"]) {
       expect(within(box(silent)).queryByTitle("players"), `${silent} has no player count and must draw none`).toBeNull()
     }
   })
@@ -305,8 +306,8 @@ describe("the network on a phone", () => {
     expect(within(row("smp")).getByRole("link", { name: "smp" })).toBeTruthy()
     expect(within(row("smp")).getByRole("link", { name: "open smp" })).toBeTruthy()
 
-    // The same silence the card keeps: five services carry no count and must draw none.
-    for (const silent of ["postgres", "caddy", "steward", "steward-agent", "discord-bot"]) {
+    // The same silence the card keeps: six services carry no count and must draw none.
+    for (const silent of ["postgres", "caddy", "steward", "steward-agent", "steward-bunq", "discord-bot"]) {
       expect(within(row(silent)).queryByTitle("players")).toBeNull()
     }
     // And the same drift marks, from the same component.

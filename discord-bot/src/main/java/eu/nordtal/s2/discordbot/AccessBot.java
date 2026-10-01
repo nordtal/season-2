@@ -206,7 +206,7 @@ public class AccessBot implements AutoCloseable {
                         key));
         final Tiers tiers = Tiers.of(accessConfig);
 
-        // The bunq key lives in steward and is read here as a row.
+        // The bunq key lives in steward-bunq; whether payments are on is read here as a row.
         Configured.report(accessConfig, PaymentGateway.state(database.jdbi()));
         final PaymentRequests requests = new PaymentRequests(database.dataSource());
         final Purchases purchases = new Purchases(requests, tiers, accessConfig);

@@ -27,6 +27,7 @@ tasks.register("imageContexts") {
     dependsOn(
         ":discord-bot:shadowJar",
         ":steward:shadowJar",
+        ":steward-bunq:shadowJar",
         // `build`, not `shadowJar`: the agent's context is the jar AND the staged compose.yml.
         ":steward-agent:build",
     )

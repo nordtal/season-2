@@ -15,12 +15,12 @@ import org.junit.jupiter.api.Test;
 class SchemaSecretsTest {
 
     @Test
-    void stewardYmlsBunqApiKeyIsDeclaredSecretInItsSchema() {
+    void stewardYmlsBunqTokenIsDeclaredSecretInItsSchema() {
         final SchemaNode bunq = SchemaWriter.build(StewardSpec.class).children().get("bunq");
         assertNotNull(bunq, "StewardSpec's schema has no 'bunq' entry at all - this is where its guard lives");
-        final SchemaNode apiKey = bunq.children().get("api-key");
-        assertNotNull(apiKey, "BunqSpec's schema has no 'api-key' entry at all");
-        assertTrue(apiKey.secret(), "bunq.api-key is a bunq API credential and must be @Secret");
+        final SchemaNode token = bunq.children().get("token");
+        assertNotNull(token, "BunqSpec's schema has no 'token' entry at all");
+        assertTrue(token.secret(), "bunq.token opens steward-bunq, the bank's one door, and must be @Secret");
     }
 
     @Test

@@ -1,4 +1,4 @@
-package eu.nordtal.s2.steward.agent;
+package eu.nordtal.s2.internalapi;
 
 import eu.nordtal.s2.common.http.Reply;
 import eu.nordtal.s2.common.http.WebClient;
@@ -10,29 +10,37 @@ import java.time.Duration;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Steward's one way to steward-agent: JSON both ways, the shared secret in {@code X-Steward-Token}.
+ * Steward's way to a service behind an {@link InternalServer}: JSON both ways, the shared secret in its header.
  *
- * An answer passes through unparsed; only a failure is turned into a {@link Failure} that names the agent.
+ * An answer passes through unparsed; only a failure is turned into a {@link Failure} that names the service.
  */
-public final class AgentClient {
+public final class InternalClient {
 
-    /** The compose service, named in every message, since the interface shows which service did not answer. */
-    public static final String NAME = "steward-agent";
-
+    private final String service;
     private final WebClient web;
     private final String baseUrl;
     private final Duration timeout;
 
-    /** Talks to the agent at {@code baseUrl}, waiting at most {@code timeout} for an answer. */
-    public AgentClient(final String baseUrl, final String token, final Duration timeout) {
+    /**
+     * Talks to {@code service} at {@code baseUrl}, waiting at most {@code timeout} for an answer.
+     *
+     * @throws IllegalArgumentException when a token would travel to {@code baseUrl} in the clear
+     */
+    public InternalClient(final String service, final String baseUrl, final String token, final Duration timeout) {
         final String trimmed = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
-        this.baseUrl = token.isBlank() ? trimmed : WebClient.tokenSafe(NAME + ".base-url", trimmed);
+        this.service = service;
+        this.baseUrl = token.isBlank() ? trimmed : WebClient.tokenSafe("the address of " + service, trimmed);
         this.timeout = timeout;
-        this.web = WebClient.create(timeout).header("X-Steward-Token", token);
+        this.web = WebClient.create(timeout).header(InternalServer.TOKEN_HEADER, token);
+    }
+
+    /** Returns the compose service this client talks to, as every message names it. */
+    public String service() {
+        return service;
     }
 
     public boolean isReachable() {
-        return web.answers(uri("/api/health"));
+        return web.answers(uri(InternalServer.HEALTH));
     }
 
     public String get(final String path) {
@@ -49,19 +57,24 @@ public final class AgentClient {
             final Reply reply = exchange.send();
             if (!reply.ok()) {
                 // Many of these statuses (a proxy's 307, a bodiless 502) carry no body of their own.
-                throw new Failure(reply.status(), NAME + " answered " + reply.status() + " for " + path, reply.body());
+                throw new Failure(
+                        service,
+                        reply.status(),
+                        service + " answered " + reply.status() + " for " + path,
+                        reply.body());
             }
             return reply.body();
         } catch (final HttpTimeoutException slow) {
-            throw new Failure(504, NAME + " did not answer " + path + " within " + timeout.toSeconds() + "s", null);
+            throw new Failure(
+                    service, 504, service + " did not answer " + path + " within " + timeout.toSeconds() + "s", null);
         } catch (final InterruptedIOException interrupted) {
-            throw new Failure(503, "interrupted while asking " + NAME, null);
+            throw new Failure(service, 503, "interrupted while asking " + service, null);
         } catch (final IOException e) {
-            throw new Failure(502, NAME + " could not be reached at " + baseUrl + " for " + path, null);
+            throw new Failure(service, 502, service + " could not be reached at " + baseUrl + " for " + path, null);
         }
     }
 
-    /** One request to the agent, sent when {@link #answered} asks for it. */
+    /** One request, sent when {@link #answered} asks for it. */
     @FunctionalInterface
     private interface Exchange {
         Reply send() throws IOException;
@@ -71,27 +84,30 @@ public final class AgentClient {
         return URI.create(baseUrl + path);
     }
 
-    /** The agent did not answer, or answered with a failure; the message is a sentence to show. */
+    /** The service did not answer, or answered with a failure; the message is a sentence to show. */
     public static final class Failure extends RuntimeException {
 
+        private final String where;
         private final int status;
         private final @Nullable String body;
 
-        Failure(final int status, final String message, final @Nullable String body) {
+        Failure(final String where, final int status, final String message, final @Nullable String body) {
             super(message);
+            this.where = where;
             this.status = status;
             this.body = body;
         }
 
         /** Which service did not answer; the interface shows it, so it must not be a guess. */
         public String where() {
-            return NAME;
+            return where;
         }
 
         public int status() {
             return status;
         }
 
+        /** Returns what the service itself said, which is the explanation worth showing, if it said anything. */
         public @Nullable String body() {
             return body;
         }

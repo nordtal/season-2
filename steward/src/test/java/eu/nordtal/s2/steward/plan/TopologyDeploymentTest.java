@@ -8,6 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.Deployment;
+import eu.nordtal.s2.internalapi.BankWire;
+import eu.nordtal.s2.steward.agent.AgentRecreate;
 import eu.nordtal.s2.steward.config.BackupSpec;
 import eu.nordtal.s2.steward.config.StewardSpec;
 import java.io.IOException;
@@ -145,11 +147,12 @@ class TopologyDeploymentTest {
         services.forEach((name, definition) -> {
             @SuppressWarnings("unchecked")
             final Map<String, Object> service = (Map<String, Object>) definition;
-            // postgres, pack-host, steward-agent and caddy read no rows, so a depends_on there adds nothing.
+            // postgres, pack-host, steward-agent, steward-bunq and caddy read no rows, so a depends_on adds nothing.
             if (name.equals("steward")
                     || name.equals("postgres")
                     || name.equals("pack-host")
                     || name.equals("steward-agent")
+                    || name.equals("steward-bunq")
                     || name.equals("caddy")) {
                 return;
             }
@@ -318,36 +321,87 @@ class TopologyDeploymentTest {
         }
     }
 
+    @Test
+    void theBankKeyIsHandedToStewardBunqAndToNoOtherService() {
+        // Only steward-bunq holds the bank client, so a key handed to any other container is a key it can leak.
+        services.forEach((name, service) -> {
+            if (!name.equals(BankWire.SERVICE)) {
+                final String environment = String.valueOf(((Map<?, ?>) service).get("environment"));
+                assertFalse(
+                        environment.contains("BUNQ_API_KEY") || environment.contains("BUNQ_ACCOUNT_ID"),
+                        "compose.yml hands the bunq key or account to '" + name + "', but only "
+                                + BankWire.SERVICE + " speaks to the bank. Every other process reaches"
+                                + " it through steward-bunq's API and has no use for the key.");
+            }
+        });
+    }
+
+    @Test
+    void noServiceButStewardSharesANetworkWithTheAgentOrTheBank() {
+        // The agent holds the docker socket and steward-bunq the bank key; steward is the one caller of both.
+        for (final String guarded : List.of(AgentRecreate.SERVICE, BankWire.SERVICE)) {
+            final Set<String> theirs = networksOf(guarded);
+            services.keySet().stream()
+                    .filter(name -> !name.equals(guarded) && !name.equals(Topology.STEWARD))
+                    .forEach(name -> {
+                        final Set<String> shared = new LinkedHashSet<>(networksOf(name));
+                        shared.retainAll(theirs);
+                        assertTrue(
+                                shared.isEmpty(),
+                                "'" + name + "' shares " + shared + " with " + guarded + ", which only steward"
+                                        + " may reach. Give the two a network of their own instead.");
+                    });
+        }
+    }
+
+    @Test
+    void theNetworksThatLeadToTheAgentOrTheBankHaveNoWayOut() {
+        // An internal network has no gateway: what joins steward to the agent or to the bank leads nowhere else.
+        final Set<String> guarded = new LinkedHashSet<>(networksOf(AgentRecreate.SERVICE));
+        final Set<String> bank = new LinkedHashSet<>(networksOf(BankWire.SERVICE));
+        bank.retainAll(networksOf(Topology.STEWARD));
+        guarded.addAll(bank);
+        assertFalse(bank.isEmpty(), "steward shares no network with " + BankWire.SERVICE + ", so it cannot call it");
+
+        final Map<?, ?> declared = (Map<?, ?>) composeRoot().get("networks");
+        for (final String network : guarded) {
+            final Object definition = declared.get(network);
+            assertTrue(
+                    definition instanceof Map<?, ?> map && Boolean.TRUE.equals(map.get("internal")),
+                    "The network '" + network + "' joins steward to the agent or to the bank but is not"
+                            + " `internal: true`, so it is also a way out to the internet and the host.");
+        }
+    }
+
+    /** The networks a service joins; a service that names none is on {@code default}. */
+    private Set<String> networksOf(final String service) {
+        final Object networks = ((Map<?, ?>) services.get(service)).get("networks");
+        if (networks == null) {
+            return Set.of("default");
+        }
+        if (networks instanceof Map<?, ?> map) {
+            return map.keySet().stream().map(String::valueOf).collect(java.util.stream.Collectors.toSet());
+        }
+        return ((List<?>) networks).stream().map(String::valueOf).collect(java.util.stream.Collectors.toSet());
+    }
+
     /** The compose project name, which is the prefix Docker puts on every volume in it. */
     private static String composeProject() {
-        final Path compose = findUpwards("compose.yml");
-        try (Reader reader = Files.newBufferedReader(compose, StandardCharsets.UTF_8)) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> root = (Map<String, Object>) new Yaml().load(reader);
-            final Object name = root.get("name");
-            assertNotNull(
-                    name,
-                    "compose.yml has no top-level name:, so the volume prefix is the"
-                            + " directory name and depends on where somebody cloned this repository");
-            return String.valueOf(name);
-        } catch (final IOException unreadable) {
-            throw new IllegalStateException("could not read " + compose, unreadable);
-        }
+        final Object name = composeRoot().get("name");
+        assertNotNull(
+                name,
+                "compose.yml has no top-level name:, so the volume prefix is the"
+                        + " directory name and depends on where somebody cloned this repository");
+        return String.valueOf(name);
     }
 
     /** The keys under compose.yml's top-level {@code volumes:} block. */
     private static Set<String> composeVolumes() {
-        final Path compose = findUpwards("compose.yml");
-        try (Reader reader = Files.newBufferedReader(compose, StandardCharsets.UTF_8)) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> root = (Map<String, Object>) new Yaml().load(reader);
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> volumes = (Map<String, Object>) root.get("volumes");
-            assertNotNull(volumes, compose + " has no volumes block");
-            return new LinkedHashSet<>(volumes.keySet());
-        } catch (final IOException unreadable) {
-            throw new IllegalStateException("could not read " + compose, unreadable);
-        }
+        final Map<?, ?> volumes = (Map<?, ?>) composeRoot().get("volumes");
+        assertNotNull(volumes, "compose.yml has no volumes block");
+        return volumes.keySet().stream()
+                .map(String::valueOf)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
     }
 
     /** {@link StewardSpec} answering nothing but its own defaults. */
@@ -612,15 +666,19 @@ class TopologyDeploymentTest {
     }
 
     private static Map<String, Object> readComposeServices() {
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> services = (Map<String, Object>) composeRoot().get("services");
+        assertNotNull(services, "compose.yml has no services block");
+        return services;
+    }
+
+    /** compose.yml as SnakeYAML reads it, anchors and merge keys resolved. */
+    private static Map<String, Object> composeRoot() {
         final Path compose = findUpwards("compose.yml");
         try (Reader reader = Files.newBufferedReader(compose, StandardCharsets.UTF_8)) {
-            final Object loaded = new Yaml().load(reader);
             @SuppressWarnings("unchecked")
-            final Map<String, Object> root = (Map<String, Object>) loaded;
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> services = (Map<String, Object>) root.get("services");
-            assertNotNull(services, compose + " has no services block");
-            return services;
+            final Map<String, Object> root = (Map<String, Object>) new Yaml().load(reader);
+            return root;
         } catch (final IOException unreadable) {
             throw new IllegalStateException("could not read " + compose, unreadable);
         }

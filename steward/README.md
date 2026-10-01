@@ -78,9 +78,11 @@ pin and no rollback: a bad release is corrected by publishing a better one.
 - **Backups.** `pg_dump` inside the postgres container, then the volumes as zstd tars read back once
   before the rename from `.partial`. The nightly clock only writes a request row. There is no offsite
   copy.
-- **Payments.** It is the only container holding a bunq credential. `NORDTAL_STEWARD_BUNQ_API_KEY`
-  and `NORDTAL_STEWARD_BUNQ_ACCOUNT_ID` are set together or not at all, and every start logs one line
-  saying whether bunq is on. `bunq-context` is regenerated after a move, never copied.
+- **Payments.** It books them and holds no bank credential: every question to bunq goes to
+  `steward-bunq` (`steward.yml#bunq`, its address and the token they share). At start it asks
+  `steward-bunq` for the account for up to thirty seconds. When it answers, the poll starts and the
+  bot learns whether payments are on; when it does not, the log says so at ERROR and payments stay
+  off until the next start.
 
 ## Configuration
 
@@ -89,7 +91,7 @@ are the real values.
 
 | file           | environment                  | holds                                                                     |
 | -------------- | ---------------------------- | ------------------------------------------------------------------------- |
-| `steward.yml`  | `NORDTAL_STEWARD_*`          | sources, Docker, backups, bunq, the agent's address                       |
+| `steward.yml`  | `NORDTAL_STEWARD_*`          | sources, Docker, backups, the agent's and steward-bunq's addresses        |
 | `web.yml`      | `NORDTAL_STEWARD_WEB_*`      | the port, the public address, Discord sign-in, WebAuthn, alerts, Web Push |
 | `database.yml` | `NORDTAL_STEWARD_DATABASE_*` | the connection, as for every process                                      |
 

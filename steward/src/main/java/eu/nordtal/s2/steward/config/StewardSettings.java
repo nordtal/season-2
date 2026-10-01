@@ -89,27 +89,8 @@ public final class StewardSettings {
         Checks.requirePositive("maximum-pool-size", config.maximumPoolSize());
     }
 
-    /**
-     * Refuses a half-filled bunq block by name; empty is allowed and means no bank account.
-     *
-     * A non-numeric account id is refused here too, at the start rather than in the poll loop.
-     */
+    /** Refuses a poll or a watermark that cannot work; the credentials are steward-bunq's and checked there. */
     private static void requireBunq(final StewardSpec.BunqSpec bunq) {
-        final boolean key = isSet(bunq.apiKey());
-        final boolean account = isSet(bunq.accountId());
-        if (key != account) {
-            throw new IllegalArgumentException("bunq needs both api-key and account-id or neither,"
-                    + " and only " + (key ? "api-key" : "account-id") + " is set. Leave both empty"
-                    + " to run without payments.");
-        }
-        if (account) {
-            try {
-                Long.parseLong(bunq.accountId().trim());
-            } catch (final NumberFormatException e) {
-                throw new IllegalArgumentException("bunq.account-id must be a number, was '" + bunq.accountId() + "'");
-            }
-        }
-
         Checks.requirePositive("bunq.poll-interval-seconds", bunq.pollIntervalSeconds());
         Checks.requirePositive("bunq.recent-payment-count", bunq.recentPaymentCount());
 
@@ -123,10 +104,6 @@ public final class StewardSettings {
                         + " instant such as 2026-09-01T00:00:00Z, was: " + watermark);
             }
         }
-    }
-
-    private static boolean isSet(final @Nullable String value) {
-        return value != null && !value.isBlank();
     }
 
     /** Refuses {@code postgres-data} as a backup volume, since a snapshot of a live PGDATA is torn. */

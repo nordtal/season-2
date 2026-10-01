@@ -28,7 +28,8 @@ final class Setup {
             new Secret("POSTGRES_SMP_PASSWORD", 24),
             new Secret("POSTGRES_STEWARD_PASSWORD", 24),
             new Secret("VELOCITY_FORWARDING_SECRET", 24),
-            new Secret("STEWARD_AGENT_TOKEN", 32));
+            new Secret("STEWARD_AGENT_TOKEN", 32),
+            new Secret("STEWARD_BUNQ_TOKEN", 32));
 
     private record Secret(String name, int bytes) {}
 

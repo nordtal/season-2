@@ -3,7 +3,7 @@ package eu.nordtal.s2.steward.web;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.access.PackExemptions;
-import eu.nordtal.s2.steward.agent.AgentClient;
+import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.steward.api.Caller;
 import eu.nordtal.s2.steward.api.StackApi;
 import eu.nordtal.s2.steward.auth.Credentials;
@@ -129,7 +129,7 @@ public final class Web {
             final WebSpec config,
             final DiscordAuth discord,
             final StackApi stack,
-            final AgentClient agent,
+            final InternalClient agent,
             final boolean agentOffered,
             final @Nullable Data data,
             final Clock clock) {

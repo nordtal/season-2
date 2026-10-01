@@ -34,6 +34,7 @@ flowchart TB
             CADDY["<b>caddy</b><br/>HTTPS"]:::side
             UPD["<b>steward</b><br/><i>:steward</i><br/>the interface · schema · jars · backups"]:::app
             DEP["<b>steward-agent</b><br/><i>:steward-agent</i><br/>the only one that may create containers"]:::app
+            BANK["<b>steward-bunq</b><br/><i>:steward-bunq</i><br/>the only one that holds the bank key"]:::app
         end
         subgraph servers["Minecraft servers · one image"]
             direction TB
@@ -48,9 +49,11 @@ flowchart TB
     end
 
     admins(["Admins"]):::ext --> CADDY
+    BANK --> bunq(["bunq"]):::ext
     players ~~~ UPD
     CADDY --> UPD
     UPD -->|"create a container"| DEP
+    UPD -->|"tabs, payments"| BANK
     UPD ==>|"schema, then jars"| servers
     UPD ==> BOT
     NC -->|"pack"| LIMBO
@@ -75,8 +78,9 @@ Italic names are Gradle modules; every other box is a container in `compose.yml`
 the table below are compiled into the jars above.
 
 - A standby instance of a service is its name plus `-standby` and runs the same jar and config.
-- The Steward services sit on their own Docker network; the Minecraft servers do not, so no plugin
-  can reach the deploy API. `postgres` is on both.
+- The Steward services sit on their own Docker networks; the Minecraft servers do not, so no plugin
+  can reach the deploy API. `postgres` is on both. `steward-agent` and `steward-bunq` each share an
+  internal network with `steward` and nobody else, so only `steward` can call either of them.
 - `steward` faces the internet and holds the Docker socket for reading, stopping and starting; only
   `steward-agent` creates containers.
 - The database is the source of truth for access, language, phase and event state. Discord roles
@@ -93,12 +97,14 @@ the table below are compiled into the jars above.
 | `discord-bot`       | JVM app         | Sells access periods, books bunq payments, mirrors admins.                                                       |
 | `steward`           | JVM app + React | The web interface and its API, the schema, every jar version and run, payments and the nightly backup.           |
 | `steward-agent`     | JVM app         | The only service allowed to create a container. Carries `compose.yml` inside its own image.                      |
+| `steward-bunq`      | JVM app         | The only service holding the bank key: creates and cancels tabs, lists payments. Decides nothing.                |
 | `common`            | library         | The shared kernel: platform constants, the phase enum, languages, readiness. No database, no Adventure, no pack. |
 | `database`          | library         | Access, phase, online, audit, the request inboxes, the signal hub and the migration SQL.                         |
 | `messages`          | library         | The message system without Adventure: bundles, specs, contexts. The bot and Steward stop here.                   |
 | `message-rendering` | library         | Messages as Adventure components, for Paper and Velocity code.                                                   |
 | `pack-rendering`    | library         | Glyph constants, the `<glyph:name>` tag, boss bar and tab list rendering from the resource pack.                 |
 | `limbo-protocol`    | library         | The wire protocol between the proxy and limbo.                                                                   |
+| `internal-api`      | library         | The token-guarded HTTP wire between `steward` and the services only it may call, and the bank's wire records.    |
 | `paper-common`      | library         | What the three Paper plugins share and Velocity cannot use.                                                      |
 | `settings`          | library         | Where every process's settings come from, and the database and colour settings they share.                       |
 | `resource-pack`     | assets          | The pack, its fonts, and the zip + SHA-1 a release ships.                                                        |

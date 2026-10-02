@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.internalapi.InternalClient;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -30,6 +32,35 @@ class ComposeRefusesItselfTest {
                 assertThrows(IllegalArgumentException.class, () -> compose.recreate(Compose.SELF, line -> {}));
 
         assertTrue(refused.getMessage().contains("setup script"), refused.getMessage());
+    }
+
+    @Test
+    void overHttpTheRefusalIsTheAnswerAndNoJobIsStartedToFailLater() throws IOException {
+        final Path scratch = Files.createTempDirectory(Path.of("/tmp"), "agent");
+        final Jobs jobs = new Jobs(java.time.Clock.systemUTC());
+        try (AgentStandIn agent =
+                new AgentStandIn(scratch, 0, config -> StewardAgent.jobRoutes(config, compose, jobs, nowhere()))) {
+            for (final String[] call : new String[][] {
+                {AgentWire.of(AgentWire.RECREATE, Compose.SELF), ""},
+                {AgentWire.DEPLOY, "{\"services\":[\"smp\",\"" + Compose.SELF + "\"]}"}
+            }) {
+                final InternalClient.Failure refused = assertThrows(
+                        InternalClient.Failure.class, () -> agent.client().post(call[0], call[1]));
+                assertEquals(400, refused.status(), call[0]);
+            }
+            assertTrue(jobs.all().isEmpty(), "a refused request started a job: " + jobs.all());
+        } finally {
+            try (var files = Files.walk(scratch)) {
+                files.sorted(java.util.Comparator.reverseOrder())
+                        .forEach(path -> path.toFile().delete());
+            }
+        }
+    }
+
+    /** A daemon nobody answers on: a refused request must never get as far as asking it. */
+    private static eu.nordtal.s2.stewardagent.docker.Docker nowhere() {
+        return new eu.nordtal.s2.stewardagent.docker.Docker(new eu.nordtal.s2.stewardagent.docker.DockerSocket(
+                Path.of("/does/not/exist.sock"), java.time.Duration.ofSeconds(1)));
     }
 
     @Test

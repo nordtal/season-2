@@ -912,15 +912,24 @@ export function useEnforcePack() {
   })
 }
 
+/** What a booking by hand answered. */
+interface Settled {
+  outcome?: "BOOKED" | "NOT_OPEN" | "UNKNOWN"
+  days?: number
+  until?: string
+  was?: string
+}
+
 /** Books a payment by hand; `outcome` is `BOOKED`, `NOT_OPEN` (then `was` says what it is) or `UNKNOWN`. */
 export function useSettle() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: async (reference: string) => {
-      const result = await askTheBot("/api/access/settle", { reference })
+      // steward books it in one transaction and answers; the bot is told and only reacts.
+      const result = await api<Settled>("/api/access/settle", { method: "POST", body: { reference } })
       return {
         outcome: result.outcome ?? "UNKNOWN",
-        days: Number(result.days ?? 0),
+        days: result.days ?? 0,
         until: result.until,
         was: result.was,
       }

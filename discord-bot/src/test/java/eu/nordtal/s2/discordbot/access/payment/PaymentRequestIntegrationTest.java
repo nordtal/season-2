@@ -21,8 +21,6 @@ import eu.nordtal.s2.database.access.AccessSource;
 import eu.nordtal.s2.database.inbox.BankRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.Request;
-import eu.nordtal.s2.database.payment.PaymentMatch;
-import eu.nordtal.s2.database.payment.PaymentNotice;
 import eu.nordtal.s2.database.payment.PaymentRequest;
 import eu.nordtal.s2.database.payment.PaymentRequestStatus;
 import eu.nordtal.s2.database.payment.PaymentRequests;
@@ -77,10 +75,8 @@ class PaymentRequestIntegrationTest {
     void clean() {
         assumeTrue(database != null);
         database.jdbi()
-                .useHandle(
-                        handle -> handle.execute(
-                                "TRUNCATE access_grant, payment_request, expiry_notice, payment_notice, "
-                                        + "account_link, link_code, audit_log, discord_user, payment_gateway, bank_inbox CASCADE"));
+                .useHandle(handle -> handle.execute("TRUNCATE access_grant, payment_request, expiry_notice, "
+                        + "account_link, link_code, audit_log, discord_user, payment_gateway, bank_inbox CASCADE"));
         requests = new PaymentRequests(database.dataSource());
         access = AccessDirectory.using(database.dataSource(), Clock.systemUTC());
     }
@@ -103,7 +99,6 @@ class PaymentRequestIntegrationTest {
                         "link_code",
                         "managed_message",
                         "payment_gateway",
-                        "payment_notice",
                         "payment_request")),
                 tables.toString());
     }
@@ -121,7 +116,7 @@ class PaymentRequestIntegrationTest {
     @Test
     void closingTheOldRequestIsWhatMakesANewOnePossible() {
         final PaymentRequest first = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
-        assertTrue(requests.close(first.id(), PaymentRequestStatus.SUPERSEDED));
+        assertTrue(requests.closeAndRequestCancel(first.id(), PaymentRequestStatus.SUPERSEDED, Actor.STEWARD));
 
         final PaymentRequest second = requests.open(DiscordId.of(USER), 60, 500, 0, TTL_HOURS);
 
@@ -193,46 +188,8 @@ class PaymentRequestIntegrationTest {
     }
 
     @Test
-    void oneBunqPaymentCanOnlyEverBeBookedOnce() {
-        final PaymentRequest first = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
-        assertTrue(requests.settle(first.id(), 777L));
-        requests.close(first.id(), PaymentRequestStatus.CANCELLED); // no-op: it is PAID
-
-        final PaymentRequest second = requests.open(DiscordId.of(OTHER), 30, 300, 0, TTL_HOURS);
-
-        assertFalse(requests.settle(second.id(), 777L));
-        assertTrue(requests.alreadyBooked(777L));
-    }
-
-    @Test
-    void settlingTwiceBooksOnce() {
-        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
-
-        assertAll(
-                () -> assertTrue(requests.settle(request.id(), 888L)),
-                () -> assertFalse(requests.settle(request.id(), 888L), "the row is no longer OPEN"));
-    }
-
-    @Test
-    void aManualSettlementBooksWithoutABunqPaymentId() {
-        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
-
-        assertTrue(requests.settleManually(request.id()));
-
-        final PaymentRequest reloaded = requests.recentOf(DiscordId.of(USER), 1).getFirst();
-        assertAll(
-                () -> assertEquals(PaymentRequestStatus.PAID, reloaded.status()),
-                () -> assertNotNull(reloaded.settled()),
-                () -> assertEquals(
-                        null,
-                        reloaded.bunqPaymentId(),
-                        "a manual settlement is told apart from a matched one by having no payment"));
-    }
-
-    @Test
     void oneRequestCanOnlyEverProduceOneGrant() {
         final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
-        requests.settle(request.id(), 999L);
 
         access.grantAccess(DiscordId.of(USER), 30, AccessSource.PURCHASE, request.id());
 
@@ -248,7 +205,6 @@ class PaymentRequestIntegrationTest {
         final AccessGrant first = access.grantAccess(DiscordId.of(USER), 30, AccessSource.ADMIN, null);
 
         final PaymentRequest request = requests.open(DiscordId.of(USER), 90, 700, 0, TTL_HOURS);
-        requests.settle(request.id(), 1234L);
         final AccessGrant second = access.grantAccess(DiscordId.of(USER), 30, AccessSource.PURCHASE, request.id());
 
         assertAll(
@@ -323,45 +279,6 @@ class PaymentRequestIntegrationTest {
     }
 
     @Test
-    void aMatchIsWrittenOntoARowThatIsStillOpenSoTheSettledIffPaidCheckHolds() {
-        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
-        requests.attachTab(request.id(), 4242L, "https://bunq.me/x");
-
-        assertTrue(requests.recordMatch(request.id(), 4711L, 300, PaymentMatch.TAB));
-
-        final PaymentRequest matched = requests.openOf(DiscordId.of(USER)).orElseThrow();
-        assertAll(
-                () -> assertEquals(
-                        PaymentRequestStatus.OPEN, matched.status(), "steward finds the money; the bot books it"),
-                () -> assertNull(matched.settled()),
-                () -> assertEquals(300, matched.matchedCents()),
-                () -> assertEquals(PaymentMatch.TAB, matched.matchedBy()),
-                () -> assertEquals(4711L, matched.bunqPaymentId()),
-                () -> assertTrue(
-                        requests.alreadyBooked(4711L), "the claim on the payment id happens here, not at the booking"));
-    }
-
-    @Test
-    void oneBunqPaymentCannotBeAttributedToTwoRequests() {
-        final PaymentRequest first = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
-        assertTrue(requests.recordMatch(first.id(), 4711L, 300, PaymentMatch.TAB));
-
-        final PaymentRequest second = requests.open(DiscordId.of(OTHER), 30, 300, 0, TTL_HOURS);
-
-        // recordMatch passes the unique violation on rather than hiding it.
-        final UnableToExecuteStatementException failure = assertThrows(
-                UnableToExecuteStatementException.class,
-                () -> requests.recordMatch(second.id(), 4711L, 300, PaymentMatch.REFERENCE));
-        assertTrue(
-                String.valueOf(failure.getMessage()).contains("payment_request_bunq_payment_id_key"),
-                failure.getMessage());
-    }
-
-    private static List<String> references(final List<PaymentRequest> found) {
-        return found.stream().map(PaymentRequest::reference).toList();
-    }
-
-    @Test
     void theFirstStartStampsTheWatermarkAndNoLaterStartMovesIt() throws Exception {
         final Instant before = Instant.now();
         final Instant first = Watermark.resolve(database.jdbi(), "", Instant.now());
@@ -396,97 +313,6 @@ class PaymentRequestIntegrationTest {
         Watermark.resolve(database.jdbi(), "2020-01-01T00:00:00Z", Instant.now());
 
         assertTrue(Watermark.stored(database.jdbi()).isPresent());
-    }
-
-    @Test
-    void aPaymentIsRaisedToTheAdminChannelExactlyOnceHoweverOftenItIsPolled() {
-        // bunq keeps returning the same payment, so the notice must not repeat every poll.
-        assertAll(
-                () -> assertTrue(requests.noticeOnce(555L, "UNMATCHED", "first")),
-                () -> assertFalse(requests.noticeOnce(555L, "UNMATCHED", "second poll")),
-                () -> assertFalse(requests.noticeOnce(555L, "UNMATCHED", "third poll")));
-    }
-
-    @Test
-    void aNoticeWaitsInTheTableUntilSomebodyClaimsItAndIsClaimedOnlyOnce() {
-        // The posted column makes the row a queue, so a bot dying between write and post keeps it.
-        requests.noticeOnce(555L, "UNMATCHED", "56.00 EUR with no reference");
-        requests.noticeOnce(556L, "EXPIRED_REFERENCE", "NT-ABCDEF is not open");
-
-        assertEquals(
-                List.of(555L, 556L),
-                requests.unpostedNotices().stream()
-                        .map(PaymentNotice::bunqPaymentId)
-                        .toList(),
-                "oldest first, so the admin channel reads in the order the money arrived");
-        assertEquals(
-                "56.00 EUR with no reference",
-                requests.unpostedNotices().getFirst().detail());
-        assertEquals("UNMATCHED", requests.unpostedNotices().getFirst().reason());
-
-        assertTrue(requests.claimNotice(555L));
-        assertFalse(
-                requests.claimNotice(555L),
-                "two bots, or one bot and a poll racing itself, must not both post the same line");
-
-        assertEquals(
-                List.of(556L),
-                requests.unpostedNotices().stream()
-                        .map(PaymentNotice::bunqPaymentId)
-                        .toList(),
-                "a claimed notice leaves the queue; without that it is posted on every pass forever");
-    }
-
-    @Test
-    void aNoticeNobodyClaimsStaysInTheQueueAcrossARestart() {
-        requests.noticeOnce(557L, "UNMATCHED", "money nobody heard about");
-
-        // Written by one container, read by another.
-        assertEquals(1, requests.unpostedNotices().size());
-        assertEquals(1, requests.unpostedNotices().size(), "reading is not claiming");
-    }
-
-    @Test
-    void matchedMoneyWaitsInAQueueOfItsOwnUntilItIsBooked() {
-        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
-        requests.attachTab(request.id(), 4242L, "https://bunq.me/x");
-        assertTrue(requests.matchedAwaitingBooking().isEmpty(), "an open request with a tab is not money");
-
-        assertTrue(requests.recordMatch(request.id(), 4711L, 500, PaymentMatch.REFERENCE));
-
-        final List<PaymentRequest> queue = requests.matchedAwaitingBooking();
-        assertEquals(List.of(request.reference()), references(queue));
-        assertAll(
-                // The grant comes from what arrived, and this row has no bunq payment.
-                () -> assertEquals(500, queue.getFirst().matchedCents()),
-                () -> assertEquals(4711L, queue.getFirst().bunqPaymentId()),
-                () -> assertEquals(PaymentMatch.REFERENCE, queue.getFirst().matchedBy()));
-
-        assertTrue(requests.settle(request.id(), 4711L));
-        assertTrue(
-                requests.matchedAwaitingBooking().isEmpty(),
-                "booking is the exit; without it the same money is granted on every pass");
-    }
-
-    @Test
-    void aManualSettlementNeverEntersTheBookingQueue() {
-        final PaymentRequest request = requests.open(DiscordId.of(USER), 30, 300, 0, TTL_HOURS);
-
-        assertTrue(requests.settleManually(request.id()));
-
-        final PaymentRequest settled = requests.byId(request.id()).orElseThrow();
-        assertAll(
-                () -> assertEquals(PaymentRequestStatus.PAID, settled.status()),
-                () -> assertEquals(
-                        PaymentMatch.MANUAL,
-                        settled.matchedBy(),
-                        "an audit that cannot tell a hand-granted request from a matched one is"
-                                + " missing the only thing anybody asks it afterwards"),
-                () -> assertNull(
-                        settled.matchedCents(),
-                        "nothing arrived, so there is no amount to record - and that is exactly why"
-                                + " matchedAwaitingBooking keys on matched_cents"),
-                () -> assertTrue(requests.matchedAwaitingBooking().isEmpty()));
     }
 
     @Test

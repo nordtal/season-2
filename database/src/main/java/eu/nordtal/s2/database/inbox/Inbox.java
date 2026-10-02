@@ -4,6 +4,7 @@ import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.audit.AuditLine;
+import eu.nordtal.s2.database.audit.Journal;
 import eu.nordtal.s2.database.notify.SignalHub;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -134,18 +135,17 @@ public final class Inbox<P> {
     public Request<P> submit(final P payload, final Actor actor, final Schedule schedule, final AuditLine journal) {
         Objects.requireNonNull(journal, "journal");
         return jdbi.inTransaction(handle -> {
-            handle.createUpdate("""
-                            INSERT INTO audit_log (action, actor, subject, mc_uuid, detail)
-                            VALUES (:action, :actor, :subject, :mcUuid, :detail)
-                            """)
-                    .bind("action", journal.action())
-                    .bind("actor", journal.actor())
-                    .bind("subject", journal.subject())
-                    .bind("mcUuid", journal.mcUuid())
-                    .bind("detail", journal.detail())
-                    .execute();
+            Journal.write(handle, journal);
             return insert(handle, payload, actor, schedule);
         });
+    }
+
+    /**
+     * Writes a request through a transaction the caller holds, so it commits with the caller's own statements.
+     * The consumer is woken when that transaction commits.
+     */
+    public Request<P> submitWithin(final Handle handle, final P payload, final Actor actor) {
+        return insert(Objects.requireNonNull(handle, "handle"), payload, actor, Schedule.NOW);
     }
 
     private Request<P> insert(final Handle handle, final P payload, final Actor actor, final Schedule schedule) {

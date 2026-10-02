@@ -14,6 +14,7 @@ import eu.nordtal.s2.database.inbox.Request;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 /** Which effect a kind reaches, who it is filed under, and what goes into the answer. */
@@ -48,13 +49,6 @@ class BotInboxTest {
         }
 
         @Override
-        public AccessChanges.Settled settle(final String reference, final Actor by) {
-            carriedOut.add("settle " + reference + " by " + by.filed());
-            return new AccessChanges.Settled(
-                    AccessChanges.Settlement.BOOKED, Instant.parse("2026-11-01T00:00:00Z"), 30, "OPEN");
-        }
-
-        @Override
         public void setPlaytime(final DiscordId discordId, final long seconds, final Actor by) {
             carriedOut.add("playtime " + discordId + " " + seconds + " by " + by.filed());
         }
@@ -80,7 +74,20 @@ class BotInboxTest {
             alert -> {
                 carriedOut.add("alert " + alert.level() + " " + alert.title() + " " + alert.mentions());
                 return true;
-            });
+            },
+            booked -> carriedOut.add("told " + booked.person() + " " + booked.days()));
+
+    /** A payment steward booked, as the bot is told of it. */
+    private static final BotRequest.PaymentBooked BOOKED = new BotRequest.PaymentBooked(
+            UUID.fromString("00000000-0000-0000-0000-000000000007"),
+            DiscordId.of("400000000000000002"),
+            "NT-7",
+            30,
+            0,
+            false,
+            300,
+            Instant.parse("2026-10-02T00:00:00Z"),
+            Instant.parse("2026-11-01T00:00:00Z"));
 
     private static Request<BotRequest> row(final BotRequest payload, final eu.nordtal.s2.database.Actor actor) {
         return new Request<>(
@@ -108,7 +115,7 @@ class BotInboxTest {
         answer(new BotRequest.Grant(someone, 30));
         answer(new BotRequest.Revoke(someone));
         answer(new BotRequest.Unlink(someone));
-        answer(new BotRequest.Settle("NT-7"));
+        answer(BOOKED);
         answer(new BotRequest.SetPlaytime(someone, 7200));
 
         assertEquals(
@@ -116,7 +123,7 @@ class BotInboxTest {
                         "grant 400000000000000002 30 by 400000000000000001",
                         "revoke 400000000000000002 by 400000000000000001",
                         "unlink 400000000000000002 by 400000000000000001",
-                        "settle NT-7 by 400000000000000001",
+                        "told 400000000000000002 30",
                         "playtime 400000000000000002 7200 by 400000000000000001"),
                 carriedOut);
     }
@@ -126,9 +133,7 @@ class BotInboxTest {
         final DiscordId someone = DiscordId.of("400000000000000002");
         assertEquals("{\"until\":\"2026-10-20T00:00:00Z\"}", answer(new BotRequest.Grant(someone, 30)));
         assertEquals("{\"revoked\":\"2\"}", answer(new BotRequest.Revoke(someone)));
-        assertEquals(
-                "{\"outcome\":\"BOOKED\",\"days\":\"30\",\"until\":\"2026-11-01T00:00:00Z\",\"was\":\"OPEN\"}",
-                answer(new BotRequest.Settle("NT-7")));
+        assertEquals("{\"told\":\"400000000000000002\"}", answer(BOOKED));
     }
 
     /** A reload answers with the keys nobody declares, and throws when the bundle no longer parses. */

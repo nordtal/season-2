@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiPredicate;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import org.jspecify.annotations.Nullable;
 
@@ -21,18 +22,22 @@ public final class BotInbox implements Inbox.Handler<BotRequest> {
     private final AccessChanges effects;
     private final BiPredicate<String, String> announce;
     private final Predicate<BotRequest.PostAlert> alert;
+    private final Consumer<BotRequest.PaymentBooked> paid;
 
     /**
      * @param announce posts a text into one language's announcement channel and answers whether it went out
      * @param alert posts an alert into the admin channel and answers whether there was one
+     * @param paid tells a payer what steward booked for them
      */
     public BotInbox(
             final AccessChanges effects,
             final BiPredicate<String, String> announce,
-            final Predicate<BotRequest.PostAlert> alert) {
+            final Predicate<BotRequest.PostAlert> alert,
+            final Consumer<BotRequest.PaymentBooked> paid) {
         this.effects = Objects.requireNonNull(effects, "effects");
         this.announce = Objects.requireNonNull(announce, "announce");
         this.alert = Objects.requireNonNull(alert, "alert");
+        this.paid = Objects.requireNonNull(paid, "paid");
     }
 
     @Override
@@ -45,18 +50,9 @@ public final class BotInbox implements Inbox.Handler<BotRequest> {
             }
             case BotRequest.Revoke revoke -> done("revoked", String.valueOf(effects.revoke(revoke.person(), by)));
             case BotRequest.Unlink unlink -> done("unlinked", String.valueOf(effects.unlink(unlink.person(), by)));
-            case BotRequest.Settle settle -> {
-                final AccessChanges.Settled settled = effects.settle(settle.reference(), by);
-                // `until` is null for both refusals; a surface must tell "booked" from "nothing to book".
-                yield done(
-                        "outcome",
-                        settled.outcome().name(),
-                        "days",
-                        String.valueOf(settled.days()),
-                        "until",
-                        settled.until() == null ? null : settled.until().toString(),
-                        "was",
-                        settled.status());
+            case BotRequest.PaymentBooked booked -> {
+                paid.accept(booked);
+                yield done("told", booked.person().value());
             }
             case BotRequest.SetPlaytime playtime -> {
                 effects.setPlaytime(playtime.person(), playtime.seconds(), by);

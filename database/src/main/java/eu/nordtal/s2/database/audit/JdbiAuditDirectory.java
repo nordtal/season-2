@@ -4,16 +4,19 @@ import eu.nordtal.s2.database.Jdbis;
 import java.util.List;
 import java.util.Objects;
 import javax.sql.DataSource;
+import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
 /** The only implementation of {@link AuditDirectory}; it borrows its pool and owns nothing. */
 final class JdbiAuditDirectory implements AuditDirectory {
 
+    private final Jdbi jdbi;
     private final AuditDao dao;
 
     JdbiAuditDirectory(final DataSource dataSource) {
         Objects.requireNonNull(dataSource, "dataSource");
-        this.dao = Jdbis.over(dataSource).onDemand(AuditDao.class);
+        this.jdbi = Jdbis.over(dataSource);
+        this.dao = jdbi.onDemand(AuditDao.class);
     }
 
     @Override
@@ -33,8 +36,8 @@ final class JdbiAuditDirectory implements AuditDirectory {
             final @Nullable String subject,
             final java.util.@Nullable UUID mcUuid,
             final @Nullable String detail) {
-        Objects.requireNonNull(action, "action");
-        dao.record(action, actor, subject, mcUuid, detail);
+        final AuditLine line = new AuditLine(action, actor, subject, mcUuid, detail);
+        jdbi.useHandle(handle -> Journal.write(handle, line));
     }
 
     /** Turns an empty search box into no filter, so a statement parameter is a value or absent. */

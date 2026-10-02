@@ -1,4 +1,4 @@
-package eu.nordtal.s2.discordbot.access.payment;
+package eu.nordtal.s2.database.payment;
 
 /**
  * One thing that can be bought: a number of days of access for a price.

@@ -8,6 +8,7 @@ import eu.nordtal.s2.database.inbox.HungerGamesRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.SmpRequest;
 import eu.nordtal.s2.database.metric.MetricDirectory;
+import eu.nordtal.s2.database.payment.Bookings;
 import eu.nordtal.s2.database.payment.PaymentRequests;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
 import eu.nordtal.s2.database.update.UpdateDirectory;
@@ -25,6 +26,7 @@ public final class Data {
     private final MetricDirectory metrics;
     private final PhaseDirectory phase;
     private final PaymentRequests payments;
+    private final Bookings bookings;
     private final AuditDirectory audit;
     private final AccessDirectory access;
     private final Inbox<SmpRequest> smp;
@@ -37,6 +39,7 @@ public final class Data {
         this.metrics = MetricDirectory.using(database.dataSource());
         this.phase = PhaseDirectory.using(database.dataSource(), clock);
         this.payments = new PaymentRequests(database.dataSource());
+        this.bookings = new Bookings(database.dataSource());
         this.audit = AuditDirectory.using(database.dataSource());
         this.access = AccessDirectory.using(database.dataSource(), clock);
         this.smp = Inbox.over(database.dataSource(), SmpRequest.TABLE);
@@ -63,6 +66,11 @@ public final class Data {
 
     public PaymentRequests payments() {
         return payments;
+    }
+
+    /** Books a payment in one transaction, which a booking by hand on the Access page goes through. */
+    public Bookings bookings() {
+        return bookings;
     }
 
     public AuditDirectory audit() {

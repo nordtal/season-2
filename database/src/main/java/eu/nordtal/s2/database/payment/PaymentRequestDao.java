@@ -8,6 +8,7 @@ import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The SQL surface of {@code payment_request}; {@link PaymentRequests} is the API.
@@ -166,29 +167,40 @@ interface PaymentRequestDao {
             """)
     int close(@Bind("id") UUID id, @Bind("status") String status);
 
-    /**
-     * Books a payment against a request; the {@code status = 'OPEN'} predicate lets exactly one poll pass win.
-     *
-     * @return 1 when this call booked it, 0 when it was already closed
-     */
-    @SqlUpdate("""
-            UPDATE payment_request
-            SET status = 'PAID', settled = now(), bunq_payment_id = :bunqPaymentId
+    /** Locks one open request for the transaction that books it, so its order cannot change under the booking. */
+    @SqlQuery("""
+            SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
+                   bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
+                   tab_failed, tab_cancelled,
+                   matched_cents, matched_by
+            FROM payment_request
             WHERE id = :id AND status = 'OPEN'
+            FOR UPDATE
             """)
-    int settle(@Bind("id") UUID id, @Bind("bunqPaymentId") long bunqPaymentId);
+    Optional<PaymentRequest> lockOpen(@Bind("id") UUID id);
 
     /**
-     * Books a request without a bunq payment, after an admin confirmed by hand that money arrived.
-     *
-     * @return 1 when the request was still open
+     * Marks a locked request paid with what arrived and how it was found, and announces it; 1 when it did.
+     * The unique index on {@code bunq_payment_id} refuses a payment another request already booked.
      */
-    @SqlUpdate("""
-            UPDATE payment_request
-            SET status = 'PAID', settled = now(), matched_by = 'MANUAL'
-            WHERE id = :id AND status = 'OPEN'
+    @SqlQuery("""
+            WITH booked AS (
+                UPDATE payment_request
+                SET status = 'PAID', settled = now(), bunq_payment_id = :bunqPaymentId,
+                    matched_cents = :receivedCents, matched_by = :matchedBy
+                WHERE id = :id AND status = 'OPEN'
+                RETURNING id
+            ),
+                 notified AS (
+                     SELECT pg_notify('nordtal_payment', '') FROM booked
+                 )
+            SELECT count(*) FROM notified
             """)
-    int settleManually(@Bind("id") UUID id);
+    int markPaid(
+            @Bind("id") UUID id,
+            @Bind("bunqPaymentId") @Nullable Long bunqPaymentId,
+            @Bind("receivedCents") @Nullable Integer receivedCents,
+            @Bind("matchedBy") String matchedBy);
 
     @SqlQuery("SELECT 1 FROM payment_request WHERE bunq_payment_id = :bunqPaymentId")
     Optional<Integer> booked(@Bind("bunqPaymentId") long bunqPaymentId);
@@ -243,83 +255,4 @@ interface PaymentRequestDao {
             SELECT count(*) FROM notified
             """)
     int recordCancelled(@Bind("id") UUID id);
-
-    /**
-     * Attributes a bunq payment to a request and claims {@code bunq_payment_id}, leaving the booking to the bot.
-     *
-     * @return 1 when this call attributed it, 0 when the row was closed or already carries a payment
-     */
-    @SqlQuery("""
-            WITH updated AS (
-                UPDATE payment_request
-                SET bunq_payment_id = :bunqPaymentId,
-                    matched_cents = :matchedCents,
-                    matched_by = :matchedBy
-                WHERE id = :id AND status = 'OPEN' AND bunq_payment_id IS NULL
-                RETURNING id
-            ),
-                 notified AS (
-                     SELECT pg_notify('nordtal_payment', '') FROM updated
-                 )
-            SELECT count(*) FROM notified
-            """)
-    int recordMatch(
-            @Bind("id") UUID id,
-            @Bind("bunqPaymentId") long bunqPaymentId,
-            @Bind("matchedCents") int matchedCents,
-            @Bind("matchedBy") String matchedBy);
-
-    /** Returns rows steward has matched to a payment and nobody has booked yet. */
-    @SqlQuery("""
-            SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
-                   bunq_tab_id, share_url, bunq_payment_id, created, expires, settled,
-                   tab_failed, tab_cancelled,
-                   matched_cents, matched_by
-            FROM payment_request
-            WHERE status = 'OPEN' AND matched_cents IS NOT NULL
-            ORDER BY created ASC
-            """)
-    List<PaymentRequest> matchedAwaitingBooking();
-
-    /**
-     * Records that a payment needs a human, once ever, and wakes whoever posts it.
-     *
-     * @return 1 the first time, 0 on every later poll that sees the same payment
-     */
-    @SqlQuery("""
-            WITH inserted AS (
-                INSERT INTO payment_notice (bunq_payment_id, reason, detail)
-                VALUES (:bunqPaymentId, :reason, :detail)
-                ON CONFLICT (bunq_payment_id) DO NOTHING
-                RETURNING bunq_payment_id
-            ),
-                 notified AS (
-                     SELECT pg_notify('nordtal_payment', '') FROM inserted
-                 )
-            SELECT count(*) FROM notified
-            """)
-    int noticeOnce(
-            @Bind("bunqPaymentId") long bunqPaymentId, @Bind("reason") String reason, @Bind("detail") String detail);
-
-    /** Returns notices nobody has put in the admin channel yet, oldest first. */
-    @SqlQuery("""
-            SELECT bunq_payment_id, reason, detail, reported
-            FROM payment_notice
-            WHERE posted IS NULL
-            ORDER BY reported ASC
-            """)
-    @RegisterRowMapper(PaymentNoticeMapper.class)
-    List<PaymentNotice> unpostedNotices();
-
-    /**
-     * Claims a notice before it is posted, so a crash loses a post rather than doubling it.
-     *
-     * @return 1 when this call claimed it, 0 when somebody else had
-     */
-    @SqlUpdate("""
-            UPDATE payment_notice
-            SET posted = now()
-            WHERE bunq_payment_id = :bunqPaymentId AND posted IS NULL
-            """)
-    int claimNotice(@Bind("bunqPaymentId") long bunqPaymentId);
 }

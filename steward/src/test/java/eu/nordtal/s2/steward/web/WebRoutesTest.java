@@ -6,6 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.payment.PaymentRequest;
+import eu.nordtal.s2.database.payment.PaymentRequests;
 import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -214,7 +217,6 @@ class WebRoutesTest extends WebTestSupport {
                 "UNLINK",
                 "{\"person\":\"700000000000000007\"}"
             },
-            {"/api/access/settle", "{\"reference\":\"AB12CD\"}", "SETTLE", "{\"reference\":\"AB12CD\"}"},
             {
                 "/api/people/700000000000000007/playtime",
                 "{\"seconds\":3600}",
@@ -261,6 +263,40 @@ class WebRoutesTest extends WebTestSupport {
                 // The admin's Discord id, which is what the bot re-reads and journals.
                 assertEquals("1", row.getString("actor_id"));
             }
+        }
+    }
+
+    /** A booking by hand is booked here, in one answer, and the bot is only told; the admin is the actor. */
+    @Test
+    void aBookingByHandIsBookedHereAndTheBotIsOnlyTold() throws Exception {
+        final PaymentRequest request = new PaymentRequests(WebFixture.postgres.dataSource())
+                .open(DiscordId.of("700000000000000009"), 30, 300, 0, 24);
+
+        final JsonObject unknown = GSON.fromJson(
+                post("/api/access/settle", "{\"reference\":\"NT-ZZZZZZ\"}").body(), JsonObject.class);
+        final HttpResponse<String> asked =
+                post("/api/access/settle", "{\"reference\":\"" + request.reference() + "\"}");
+        final JsonObject booked = GSON.fromJson(asked.body(), JsonObject.class);
+        final JsonObject again = GSON.fromJson(
+                post("/api/access/settle", "{\"reference\":\"" + request.reference() + "\"}")
+                        .body(),
+                JsonObject.class);
+
+        assertEquals("UNKNOWN", unknown.get("outcome").getAsString());
+        assertEquals(200, asked.statusCode(), asked.body());
+        assertEquals("BOOKED", booked.get("outcome").getAsString());
+        assertEquals(30, booked.get("days").getAsInt());
+        assertEquals("NOT_OPEN", again.get("outcome").getAsString());
+        assertEquals("PAID", again.get("was").getAsString());
+        assertEquals(
+                1,
+                count("select count(*) from bot_inbox where kind = 'PAYMENT_BOOKED' and actor_kind = 'PERSON'"
+                        + " and actor_id = '1'"));
+        assertEquals(1, count("select count(*) from access_grant where source = 'PURCHASE'"));
+
+        try (var connection = WebFixture.postgres.dataSource().getConnection();
+                var statement = connection.createStatement()) {
+            statement.execute("delete from bot_inbox");
         }
     }
 

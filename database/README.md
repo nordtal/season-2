@@ -24,6 +24,10 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
 - **The servers' inboxes** take a few typed kinds each: `Reload` (one record every server takes), the SMP's track
   actions and the Hunger Games start. A server answers one the same way its console answers the same action, and a
   refusal of one is a `ServerRefusal` worded in this module's bundle, so Steward can say it without the server's.
+- **A payment is booked** by `Bookings`, in one transaction over the locked request: paid, the access it buys
+  appended through `Grants`, the donor flag, the journal line and the bot's `PAYMENT_BOOKED`, all or nothing. A
+  bank payment books at most one request, which the unique index on `bunq_payment_id` decides; `Tiers` is the
+  rule for what an amount buys.
 - **Time** comes from the caller: every directory that decides by the clock takes an `InstantSource`.
 - **Who asked** for a request is an `Actor`: a person by Discord id, Steward on its own, or the host's
   installer, stored as `actor_kind` and `actor_id` in every request table and never as a name to parse.

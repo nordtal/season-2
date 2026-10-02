@@ -21,16 +21,6 @@ import org.junit.jupiter.api.io.TempDir;
 /** Every value that must not get past startup: mistyped keys, malformed ids and missing settings. */
 class BotSettingsTest {
 
-    /** The agreed price list, as YAML. */
-    private static final String VALID_TIERS = """
-            tiers:
-            - days: 30
-              price-cents: 300
-            - days: 60
-              price-cents: 500
-            - days: 90
-              price-cents: 700""";
-
     /** The agreed language list, as YAML. */
     private static final String VALID_LANGUAGES = """
             languages:
@@ -54,10 +44,9 @@ class BotSettingsTest {
               link-channel: '38'
               hunger-games-channel: '41'""";
 
-    /** Everything but the tiers and the languages, without the retired per-language role and channel keys. */
+    /** Everything but the languages, without the retired per-language role and channel keys. */
     private static final String REST = """
             guild-id: '1'
-            donation-cents: 500
             roles:
               access: '10'
               donor: '11'
@@ -70,24 +59,14 @@ class BotSettingsTest {
             role-reconcile-interval-minutes: 10
             """;
 
-    /** Returns a complete access.yml with the given tiers and languages blocks. */
-    private static String access(final String tiers, final String languages) {
-        return tiers + "\n" + languages + "\n" + REST;
-    }
-
-    /** A complete access.yml with the agreed language list and the given tiers. */
-    private static String access(final String tiers) {
-        return access(tiers, VALID_LANGUAGES);
-    }
-
-    /** A complete access.yml with the agreed price list and the given languages. */
+    /** A complete access.yml with the given languages block. */
     private static String languages(final String languages) {
-        return access(VALID_TIERS, languages);
+        return languages + "\n" + REST;
     }
 
     /** A complete, valid access.yml. */
     private static String access() {
-        return access(VALID_TIERS, VALID_LANGUAGES);
+        return languages(VALID_LANGUAGES);
     }
 
     @TempDir
@@ -111,17 +90,13 @@ class BotSettingsTest {
     }
 
     @Test
-    void aCompleteAccessYmlLoadsWithThePricesAsIntegerCents() throws Exception {
+    void aCompleteAccessYmlLoads() throws Exception {
         Files.writeString(directory.resolve("access.yml"), access());
 
         final AccessSpec config = imported();
 
         assertAll(
                 () -> assertEquals("1", config.guildId()),
-                () -> assertEquals(3, config.tiers().size()),
-                () -> assertEquals(30, config.tiers().getFirst().days()),
-                () -> assertEquals(700, config.tiers().getLast().priceCents()),
-                () -> assertEquals(500, config.donationCents()),
                 () -> assertEquals("10", config.roles().access()),
                 () -> assertEquals("14", config.roles().admin()),
                 () -> assertEquals("24", config.channels().admin()),
@@ -182,34 +157,6 @@ class BotSettingsTest {
 
         final SettingsException error = assertThrows(SettingsException.class, this::imported);
         assertTrue(error.getMessage().contains("roles.access"), error.getMessage());
-    }
-
-    @Test
-    void aLongerTierThatCostsLessStopsTheBot() throws Exception {
-        // A shortfall walks down to the highest tier the amount covers.
-        Files.writeString(
-                directory.resolve("access.yml"),
-                access(VALID_TIERS.replace("- days: 60\n  price-cents: 500", "- days: 60\n  price-cents: 900")));
-
-        final SettingsException error = assertThrows(SettingsException.class, this::imported);
-        assertTrue(error.getMessage().contains("more expensive as they get longer"), error.getMessage());
-    }
-
-    @Test
-    void twoTiersOfferingTheSameNumberOfDaysStopTheBot() throws Exception {
-        // A purchase button carries a day count, so two tiers sharing one is an ambiguous lookup.
-        Files.writeString(directory.resolve("access.yml"), access(VALID_TIERS.replace("- days: 90", "- days: 30")));
-
-        final SettingsException error = assertThrows(SettingsException.class, this::imported);
-        assertTrue(error.getMessage().contains("Day counts identify a tier"), error.getMessage());
-    }
-
-    @Test
-    void anEmptyTierListIsADeploymentThatHasNotPricedAnythingYet() throws Exception {
-        // Prices are set in the interface after the stack is up, not a precondition of being up.
-        Files.writeString(directory.resolve("access.yml"), access("tiers: []"));
-
-        assertTrue(imported().tiers().isEmpty());
     }
 
     @Test

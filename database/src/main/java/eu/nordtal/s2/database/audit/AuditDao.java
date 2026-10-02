@@ -1,11 +1,9 @@
 package eu.nordtal.s2.database.audit;
 
 import java.util.List;
-import java.util.UUID;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
-import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -43,16 +41,4 @@ interface AuditDao {
             @Bind("action") @Nullable String action,
             @Bind("subject") @Nullable String subject,
             @Bind("limit") int limit);
-
-    /** Writes one line into the journal, deliberately outside the transaction of the action it describes. */
-    @SqlUpdate("""
-            INSERT INTO audit_log (action, actor, subject, mc_uuid, detail)
-            VALUES (:action, :actor, :subject, :mcUuid, :detail)
-            """)
-    void record(
-            @Bind("action") String action,
-            @Bind("actor") @Nullable String actor,
-            @Bind("subject") @Nullable String subject,
-            @Bind("mcUuid") @Nullable UUID mcUuid,
-            @Bind("detail") @Nullable String detail);
 }

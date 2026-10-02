@@ -3,10 +3,13 @@ package eu.nordtal.s2.steward;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.time.Backoff;
 import eu.nordtal.s2.common.time.Waiting;
+import eu.nordtal.s2.database.alert.AlertBook;
 import eu.nordtal.s2.database.inbox.BankRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
+import eu.nordtal.s2.database.payment.Bookings;
 import eu.nordtal.s2.database.payment.PaymentGateway;
 import eu.nordtal.s2.database.payment.PaymentRequests;
+import eu.nordtal.s2.database.payment.Tiers;
 import eu.nordtal.s2.database.payment.Watermark;
 import eu.nordtal.s2.internalapi.BankWire;
 import eu.nordtal.s2.internalapi.InternalClient;
@@ -32,10 +35,16 @@ final class PaymentsStartup {
     /**
      * Asks steward-bunq whether there is an account, records it for the bot, and starts the loop if there is.
      *
+     * @param tiers the price list a matched payment is booked by
+     *
      * @return the running loop, or {@code null} when there is no bank to poll
      */
     static @Nullable PaymentLoop start(
-            final StewardSpec config, final Database database, final Waiting waiting, final Duration timeout) {
+            final StewardSpec config,
+            final Tiers tiers,
+            final Database database,
+            final Waiting waiting,
+            final Duration timeout) {
         final StewardSpec.BunqSpec settings = config.bunq();
         final Duration poll = Duration.ofSeconds(settings.pollIntervalSeconds());
         if (settings.token().isBlank()) {
@@ -82,6 +91,9 @@ final class PaymentsStartup {
                 new Payments(
                         bank,
                         new PaymentRequests(database.dataSource()),
+                        new Bookings(database.dataSource()),
+                        tiers,
+                        AlertBook.using(database.dataSource()),
                         Inbox.over(database.dataSource(), BankRequest.TABLE),
                         watermark,
                         settings.recentPaymentCount()),

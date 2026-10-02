@@ -1,6 +1,7 @@
 package eu.nordtal.s2.discordbot.config;
 
 import eu.nordtal.s2.database.payment.PaymentGateway;
+import eu.nordtal.s2.database.payment.Tiers;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -29,12 +30,16 @@ public final class Configured {
      * Logs one line naming every feature that has no id behind it.
      *
      * @param config the loaded and validated access configuration
+     * @param tiers the network's price list, whose emptiness switches the purchase off
      * @param gateway what steward last found about steward-bunq's credentials, so this one line stays complete
      */
-    public static void report(final AccessSpec config, final PaymentGateway.State gateway) {
+    public static void report(final AccessSpec config, final Tiers tiers, final PaymentGateway.State gateway) {
         final List<String> off = new ArrayList<>();
         addGateway(off, gateway);
         addRolesAndChannels(off, config);
+        if (tiers.all().isEmpty()) {
+            off.add("prices.tiers - there is nothing to buy, so the contribution message offers only the donation");
+        }
         addLanguages(off, config);
 
         if (off.isEmpty()) {
@@ -73,9 +78,6 @@ public final class Configured {
         if (!isSet(config.channels().admin())) {
             off.add("channels.admin - nothing is posted to an admin channel at all; alerts are "
                     + "logged here instead");
-        }
-        if (config.tiers().isEmpty()) {
-            off.add("tiers - there is nothing to buy, so the contribution message offers only the " + "donation");
         }
     }
 

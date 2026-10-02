@@ -62,10 +62,14 @@ pin and no rollback: a bad release is corrected by publishing a better one.
   the postgres container and writes the volumes as zstd tars. steward lists and downloads them
   through the agent. There is no offsite copy.
 - **Alerts.** Every alert is a row in `admin_alert`, raised by whoever saw it: steward measures the
-  stack every 30 seconds against the `web` group's thresholds and raises a failed run; the bot raises
-  what it could not do in Discord or with a payment. Steward routes each row once, to Web Push and to the admin channel through the
+  stack every 30 seconds against the `web` group's thresholds and raises a failed run and a payment
+  nobody can book, once per bank payment; the bot raises what it could not do in Discord or with a purchase. Steward routes each row once, to Web Push and to the admin channel through the
   bot's inbox, per alert type and per admin. The browser only displays `GET /api/alerts`.
-- **Payments.** It books them and holds no bank credential: every question to bunq goes to
+- **Payments.** It books them and holds no bank credential. A booking is one transaction in
+  `:database`'s `Bookings`: the request is paid, the access appended, the donor flag set, the journal
+  line written and the bot told through its inbox, or none of it. The poll books what it matched at the
+  network's `prices` as they were at start; a booking by hand from the Access page is the same booking
+  at what was ordered, answered at once, with the admin as its actor. Every question to bunq goes to
   `steward-bunq` (`steward#bunq`, its address and the token they share). At start it asks
   `steward-bunq` for the account for up to thirty seconds. When it answers, the poll starts and the
   bot learns whether payments are on; when it does not, the log says so at ERROR and payments stay

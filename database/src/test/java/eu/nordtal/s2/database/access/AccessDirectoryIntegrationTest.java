@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.TestDatabase;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -312,7 +313,7 @@ class AccessDirectoryIntegrationTest {
     void accessStateOfALinkedActiveMember() {
         directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
         directory.setLocale(DiscordId.of(DISCORD_ID), Locale.GERMAN);
-        directory.setDonor(DiscordId.of(DISCORD_ID), true);
+        Jdbis.over(dataSource).useTransaction(handle -> Grants.markDonor(handle, DiscordId.of(DISCORD_ID)));
         directory.grantAccess(DiscordId.of(DISCORD_ID), 60, AccessSource.PURCHASE, null);
 
         final AccessState state = directory.accessState(MC_UUID);
@@ -514,7 +515,7 @@ class AccessDirectoryIntegrationTest {
     void theAdminFlagIsClearedAgainUnlikeDonor() {
         directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
         setAdmin(DiscordId.of(DISCORD_ID), true);
-        directory.setDonor(DiscordId.of(DISCORD_ID), true);
+        Jdbis.over(dataSource).useTransaction(handle -> Grants.markDonor(handle, DiscordId.of(DISCORD_ID)));
 
         setAdmin(DiscordId.of(DISCORD_ID), false);
 

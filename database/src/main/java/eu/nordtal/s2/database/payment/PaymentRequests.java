@@ -17,7 +17,10 @@ import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 
-/** The {@code payment_request} table, as the rest of the bot sees it; only reference allocation is Java logic. */
+/**
+ * The {@code payment_request} table, short of its booking, which {@link Bookings} does.
+ * Only reference allocation is Java logic.
+ */
 public final class PaymentRequests {
 
     /**
@@ -76,7 +79,7 @@ public final class PaymentRequests {
         return dao.recent(Math.max(1, limit));
     }
 
-    /** Returns every open request, for {@code /settle}'s autocompletion. */
+    /** Returns every open request, which the Access page offers a booking by hand on. */
     public List<PaymentRequest> allOpen() {
         return dao.allOpen();
     }
@@ -88,16 +91,6 @@ public final class PaymentRequests {
 
     public boolean alreadyBooked(final long bunqPaymentId) {
         return dao.booked(bunqPaymentId).isPresent();
-    }
-
-    /** Returns requests steward has attributed money to and nobody has booked: the bot's queue. */
-    public List<PaymentRequest> matchedAwaitingBooking() {
-        return dao.matchedAwaitingBooking();
-    }
-
-    /** Returns payments that need a human and have not been put in the admin channel yet. */
-    public List<PaymentNotice> unpostedNotices() {
-        return dao.unpostedNotices();
     }
 
     /**
@@ -151,63 +144,6 @@ public final class PaymentRequests {
     }
 
     /**
-     * Moves an open request out of the way.
-     *
-     * @param status anything but {@code PAID}; use {@link #settle(UUID, long)} for that
-     * @return {@code true} when this call closed it
-     */
-    public boolean close(final UUID id, final PaymentRequestStatus status) {
-        if (status == PaymentRequestStatus.PAID) {
-            throw new IllegalArgumentException("use settle() to mark a request paid");
-        }
-        return dao.close(id, status.name()) == 1;
-    }
-
-    /**
-     * Books a bunq payment against a request.
-     *
-     * @return {@code false} when the request was no longer open, or the payment was booked elsewhere
-     */
-    public boolean settle(final UUID id, final long bunqPaymentId) {
-        try {
-            return dao.settle(id, bunqPaymentId) == 1;
-        } catch (final UnableToExecuteStatementException exception) {
-            if (isUniqueViolation(exception)) {
-                // payment_request_bunq_payment_id_key: somebody else got there first.
-                return false;
-            }
-            throw exception;
-        }
-    }
-
-    /**
-     * Books a request an admin has confirmed by hand, with no bunq payment behind it.
-     *
-     * @return {@code true} when the request was still open
-     */
-    public boolean settleManually(final UUID id) {
-        return dao.settleManually(id) == 1;
-    }
-
-    /**
-     * Records that a payment needs a human, exactly once ever.
-     *
-     * @return {@code true} the first time this payment is raised, {@code false} on every later poll
-     */
-    public boolean noticeOnce(final long bunqPaymentId, final String reason, final String detail) {
-        return dao.noticeOnce(bunqPaymentId, reason, detail) == 1;
-    }
-
-    /**
-     * Claims a notice for the admin channel.
-     *
-     * @return {@code true} when this call claimed it and must post it
-     */
-    public boolean claimNotice(final long bunqPaymentId) {
-        return dao.claimNotice(bunqPaymentId) == 1;
-    }
-
-    /**
      * Asks the bank's inbox for a bunq.me tab, clearing any previous refusal, so this is also the retry.
      *
      * @param by who asked: the payer, pressing the button
@@ -241,7 +177,7 @@ public final class PaymentRequests {
      */
     public boolean closeAndRequestCancel(final UUID id, final PaymentRequestStatus status, final Actor by) {
         if (status == PaymentRequestStatus.PAID) {
-            throw new IllegalArgumentException("use settle() to mark a request paid");
+            throw new IllegalArgumentException("a request is paid only by a booking");
         }
         bank.submit(new BankRequest.CancelTab(id), by);
         return dao.close(id, status.name()) == 1;
@@ -254,18 +190,6 @@ public final class PaymentRequests {
      */
     public boolean recordCancelled(final UUID id) {
         return dao.recordCancelled(id) == 1;
-    }
-
-    /**
-     * Attributes a payment to a request without booking it, leaving the booking to the bot.
-     * Unlike {@link #settle(UUID, long)}, a double claim throws, since attribution has one writer.
-     *
-     * @return {@code false} when the request was no longer open or already carried a payment
-     * @throws UnableToExecuteStatementException when that payment is already claimed by another request
-     */
-    public boolean recordMatch(
-            final UUID id, final long bunqPaymentId, final int matchedCents, final PaymentMatch matchedBy) {
-        return dao.recordMatch(id, bunqPaymentId, matchedCents, matchedBy.name()) == 1;
     }
 
     private String randomReference() {

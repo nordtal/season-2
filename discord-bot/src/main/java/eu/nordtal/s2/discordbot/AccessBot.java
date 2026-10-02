@@ -16,6 +16,7 @@ import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.payment.PaymentGateway;
 import eu.nordtal.s2.database.payment.PaymentRequests;
+import eu.nordtal.s2.database.payment.Tiers;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.discordbot.access.SeasonStart;
@@ -24,9 +25,8 @@ import eu.nordtal.s2.discordbot.access.discord.LinkFlow;
 import eu.nordtal.s2.discordbot.access.discord.ManagedMessages;
 import eu.nordtal.s2.discordbot.access.discord.PurchaseFlow;
 import eu.nordtal.s2.discordbot.access.discord.RedemptionLimit;
-import eu.nordtal.s2.discordbot.access.payment.PaymentProcessor;
+import eu.nordtal.s2.discordbot.access.payment.BookingReaction;
 import eu.nordtal.s2.discordbot.access.payment.Purchases;
-import eu.nordtal.s2.discordbot.access.payment.Tiers;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.BotSettings;
 import eu.nordtal.s2.discordbot.config.BotSpec;
@@ -111,7 +111,7 @@ public class AccessBot implements AutoCloseable {
     private record DiscordWiring(
             AdminLog admin,
             AccessRoles roles,
-            PaymentProcessor processor,
+            BookingReaction bookings,
             PurchaseFlow purchaseFlow,
             AdminRole adminRole,
             GuildState guildState,
@@ -132,6 +132,8 @@ public class AccessBot implements AutoCloseable {
             final BotSpec botConfig = BotSettings.bot(settings).get();
             final AccessSpec accessConfig = BotSettings.access(settings).get();
             final SeasonSpec season = settings.load(NetworkSettings.SEASON).get();
+            final Tiers tiers =
+                    NetworkSettings.tiers(settings.load(NetworkSettings.PRICES).get());
             settings.retireFiles();
 
             // Borrows the bot's pool; closing a borrowed pool is a no-op.
@@ -140,7 +142,7 @@ public class AccessBot implements AutoCloseable {
             // steward's inbox: the bot writes requests and reads answers, never updating them.
             final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
 
-            final CoreServices core = loadCoreServices(accessConfig, season);
+            final CoreServices core = loadCoreServices(accessConfig, season, tiers);
             this.jda = connectJda(botConfig);
 
             final DiscordWiring wiring = wireDiscord(jda, accessConfig, core, phases);
@@ -186,9 +188,12 @@ public class AccessBot implements AutoCloseable {
                 databaseConfig,
                 updateFeed,
                 status,
-                wiring.processor(),
                 wiring.purchaseFlow(),
-                openInbox(new BotInbox(wiring.inboxEffects(), wiring.announcements()::post, wiring.admin()::postAlert)),
+                openInbox(new BotInbox(
+                        wiring.inboxEffects(),
+                        wiring.announcements()::post,
+                        wiring.admin()::postAlert,
+                        wiring.bookings()::tell)),
                 wiring.adminRole());
 
         // Last on purpose: a marker on disk means the constructor finished.
@@ -198,7 +203,7 @@ public class AccessBot implements AutoCloseable {
         return hub;
     }
 
-    private CoreServices loadCoreServices(final AccessSpec accessConfig, final SeasonSpec season) {
+    private CoreServices loadCoreServices(final AccessSpec accessConfig, final SeasonSpec season, final Tiers tiers) {
         final Languages languages = Languages.of(accessConfig);
         final Messages messages = Messages.load(
                         AccessBot.class.getClassLoader(),
@@ -211,10 +216,8 @@ public class AccessBot implements AutoCloseable {
                         "the message override names {}, which no bundle declares - it is stored"
                                 + " and never used; check the spelling",
                         key));
-        final Tiers tiers = Tiers.of(accessConfig);
-
         // The bunq key lives in steward-bunq; whether payments are on is read here as a row.
-        Configured.report(accessConfig, PaymentGateway.state(database.jdbi()));
+        Configured.report(accessConfig, tiers, PaymentGateway.state(database.jdbi()));
         final PaymentRequests requests = new PaymentRequests(database.dataSource());
         final Purchases purchases = new Purchases(requests, tiers, accessConfig);
 
@@ -243,16 +246,8 @@ public class AccessBot implements AutoCloseable {
         final SeasonStart seasonStart = new SeasonStart(phases, admin);
         final AccessRoles roles =
                 new AccessRoles(jda, accessConfig, access, core.messages(), admin, database.jdbi(), clock);
-        final PaymentProcessor processor = new PaymentProcessor(
-                core.languages(),
-                core.requests(),
-                core.tiers(),
-                access,
-                roles,
-                admin,
-                core.messages(),
-                jda,
-                seasonStart);
+        final BookingReaction bookings =
+                new BookingReaction(core.languages(), roles, admin, core.messages(), jda, seasonStart);
         // A grant tree decided in Steward; the bot drops a branch when its admin leaves the guild, never grants.
         final AdminTree adminTree = AdminTree.using(database.dataSource());
         final GuildState guildState =
@@ -271,7 +266,7 @@ public class AccessBot implements AutoCloseable {
                 admin,
                 seasonStart,
                 roles,
-                processor,
+                bookings,
                 guildState,
                 adminRole,
                 teams,
@@ -285,7 +280,7 @@ public class AccessBot implements AutoCloseable {
             final AdminLog admin,
             final SeasonStart seasonStart,
             final AccessRoles roles,
-            final PaymentProcessor processor,
+            final BookingReaction bookings,
             final GuildState guildState,
             final AdminRole adminRole,
             final Teams teams,
@@ -303,7 +298,7 @@ public class AccessBot implements AutoCloseable {
                 new RegisterFlow(jda, teams, core.messages(), worker));
 
         final BotAccessEffects inboxEffects =
-                new BotAccessEffects(access, roles, core.requests(), admin, seasonStart, core.messages(), log);
+                new BotAccessEffects(access, roles, admin, seasonStart, core.messages(), log);
         final eu.nordtal.s2.discordbot.announce.Announcements announcements =
                 new eu.nordtal.s2.discordbot.announce.Announcements(jda, core.languages(), log);
 
@@ -313,7 +308,7 @@ public class AccessBot implements AutoCloseable {
         jda.updateCommands().addCommands(commands).queue();
 
         return new DiscordWiring(
-                admin, roles, processor, purchaseFlow, adminRole, guildState, inboxEffects, announcements);
+                admin, roles, bookings, purchaseFlow, adminRole, guildState, inboxEffects, announcements);
     }
 
     private void publishAndReconcile(
@@ -363,7 +358,6 @@ public class AccessBot implements AutoCloseable {
             final DatabaseSpec databaseConfig,
             final UpdateFeed updateFeed,
             final StatusChannels status,
-            final PaymentProcessor processor,
             final PurchaseFlow purchaseFlow,
             final Runnable drainInbox,
             final AdminRole adminRole) {
@@ -374,8 +368,7 @@ public class AccessBot implements AutoCloseable {
                 LISTENER_SOCKET_TIMEOUT_SECONDS,
                 "access-bot-signals",
                 log);
-        // Unconditional: without bunq both queues are simply empty.
-        hub.on(Channel.PAYMENT, "matched payments", handTo(worker, "payment booking", processor::poll));
+        // Unconditional: without bunq no link ever arrives. A booked payment reaches the bot through its inbox.
         hub.on(Channel.PAYMENT, "waiting payment links", handTo(worker, "payment links", purchaseFlow::fillIn));
         hub.on(Channel.BOT, "the bot inbox", handTo(worker, "the bot inbox", drainInbox));
         hub.on(Channel.ADMIN, "admin role", handTo(worker, "admin role", adminRole::reconcile));

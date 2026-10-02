@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -175,8 +176,27 @@ class InboxIntegrationTest {
     }
 
     @Test
+    void aBookedPaymentReachesTheBotWithEveryTypedValue() {
+        final BotRequest.PaymentBooked booked = new BotRequest.PaymentBooked(
+                UUID.fromString("00000000-0000-0000-0000-000000000042"),
+                SOMEONE,
+                "NT-ABC123",
+                60,
+                500,
+                true,
+                900,
+                Instant.parse("2026-10-01T00:00:00Z"),
+                Instant.parse("2026-11-30T00:00:00Z"));
+        inbox.submit(booked, Actor.STEWARD, Schedule.within(Duration.ofHours(1)));
+
+        final Request<BotRequest> claimed = inbox.claim().orElseThrow();
+        assertEquals("PAYMENT_BOOKED", claimed.kind());
+        assertEquals(booked, claimed.payload());
+    }
+
+    @Test
     void aRefusalReadsBackWithItsReasonAndMessage() {
-        final Request<BotRequest> asked = inbox.submit(new BotRequest.Settle("NT-000001"), ADMIN);
+        final Request<BotRequest> asked = inbox.submit(new BotRequest.Revoke(SOMEONE), ADMIN);
         assertTrue(inbox.claim().isPresent());
 
         inbox.settle(

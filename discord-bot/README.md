@@ -4,8 +4,10 @@ The season 2 Discord bot: access purchases and grants, account linking, roles, t
 registration, status channels and the admin log. It talks to PostgreSQL and the Discord gateway and
 to nothing else, so it runs without any Minecraft server.
 
-It holds no bunq key. The bot writes a `payment_request` row; `steward` has `steward-bunq` create
-the bunq.me tab, writes the link back and finds the money, and the bot books it.
+It holds no bunq key and books nothing. The bot writes a `payment_request` row for the wish to buy;
+`steward` has `steward-bunq` create the bunq.me tab, writes the link back, finds the money and books it,
+and the bot is told through its inbox (`PAYMENT_BOOKED`) and reacts: the role, the direct message, the
+thank-you in the channel and the admin note. The prices are the network's `prices` group.
 
 It never migrates the schema. At startup it runs Flyway's `validate()` and refuses a database it
 was not built against; the `migrate` service migrates, and compose starts the bot only once that
@@ -44,7 +46,7 @@ a new version arrives as a new image. The whole deployment is described in
 
 ## Where things live
 
-- `access/`: purchases, grants, linking, tiers and the managed messages.
+- `access/`: purchases, grants, linking, the reaction to a booked payment and the managed messages.
 - `hungergames/`: team registration.
 - `status/`: the status channel names.
 - `announce/`, `discord/`: announcements, admin commands and the update feed.

@@ -3,6 +3,8 @@ package eu.nordtal.s2.discordbot;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.alert.AlertBook;
+import eu.nordtal.s2.database.audit.AuditLine;
+import eu.nordtal.s2.database.audit.Journal;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.Configured;
@@ -29,13 +31,13 @@ public final class AdminLog {
 
     private final JDA jda;
     private final AccessSpec config;
-    private final AuditDao dao;
+    private final Jdbi jdbi;
     private final AlertBook alerts;
 
     public AdminLog(final JDA jda, final AccessSpec config, final Jdbi jdbi, final AlertBook alerts) {
         this.jda = jda;
         this.config = config;
-        this.dao = jdbi.onDemand(AuditDao.class);
+        this.jdbi = jdbi;
         this.alerts = alerts;
     }
 
@@ -128,7 +130,8 @@ public final class AdminLog {
             final @Nullable UUID mcUuid,
             final String detail) {
         try {
-            dao.record(action, actor, subject, mcUuid, detail);
+            final AuditLine line = new AuditLine(action, actor, subject, mcUuid, detail);
+            jdbi.useHandle(handle -> Journal.write(handle, line));
         } catch (final RuntimeException exception) {
             // An audit write must never take down the action it audits.
             log.error("Could not write the audit_log row for {} ({})", action, detail, exception);

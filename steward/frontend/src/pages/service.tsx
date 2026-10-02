@@ -303,11 +303,7 @@ export function ServiceHead({
         <span className="text-xs font-medium font-heading text-muted-foreground max-sm:sr-only">State</span>
         <div className="flex flex-wrap items-center gap-2">
           {/* The hold is part of the state badge, the same reading the sidebar and network view draw. */}
-          {service ? (
-            <ServiceState state={service.state} health={service.health} hold={service.hold} />
-          ) : (
-            <Skeleton className="h-5 w-20 rounded-full" />
-          )}
+          {service ? <ServiceState service={service} /> : <Skeleton className="h-5 w-20 rounded-full" />}
           {service ? <DriftBadge drift={service.drift} image={service.image} /> : null}
         </div>
         <span className="text-2xl font-semibold tabular-nums max-sm:text-sm">

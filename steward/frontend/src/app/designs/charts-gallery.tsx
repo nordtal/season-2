@@ -113,11 +113,7 @@ function Head({
       <div className="col-span-2 flex flex-col gap-2 lg:shrink-0">
         <span className="text-xs font-medium font-heading text-muted-foreground">State</span>
         <div className="flex flex-wrap items-center gap-2">
-          {service ? (
-            <ServiceState state={service.state} health={service.health} hold={service.hold} />
-          ) : (
-            <Skeleton className="h-5 w-20 rounded-full" />
-          )}
+          {service ? <ServiceState service={service} /> : <Skeleton className="h-5 w-20 rounded-full" />}
           {service ? <DriftBadge drift={service.drift} image={service.image} /> : null}
         </div>
         <span className="text-2xl font-semibold tabular-nums">

@@ -550,6 +550,7 @@ export type Service = {
   standby?: boolean
   hold?: Hold
   health?: string
+  alert?: AlertLevel
   startedAt?: string
   memoryBytes?: number
   memoryLimitBytes?: number

@@ -56,15 +56,17 @@ export function StatusBadge({
   )
 }
 
-/** The three fields {@link serviceTone} and {@link ServiceState} need. */
-export type ServiceHealth = Pick<Service, "state" | "health" | "hold">
+/** The fields {@link serviceTone} and {@link ServiceState} need; `alert` is the alert rule's verdict on the row. */
+export type ServiceHealth = Pick<Service, "state" | "health" | "hold" | "alert">
 
-/** One service reduced to a tone, shared by {@link ServiceState} and {@link HealthDot} so they cannot drift apart. */
+/**
+ * One service reduced to a tone, shared by {@link ServiceState} and {@link HealthDot} so they cannot drift apart.
+ *
+ * Red is the alert rule's word alone; a stop it raises nothing about is meant, a standby or a hold, so `idle`.
+ */
 export function serviceTone(service: ServiceHealth): Tone {
-  /** A deliberately stopped service is `idle`, not down. */
-  if (held(service)) return "idle"
-  if (service.state !== "running") return "down"
-  if (service.health === "unhealthy") return "down"
+  if (service.alert === "down") return "down"
+  if (service.state !== "running") return "idle"
   if (service.health === "starting") return "warn"
   return "ok"
 }
@@ -75,38 +77,27 @@ export function held(service: ServiceHealth): boolean {
 }
 
 /** Docker's container state, with health folded in where there is one. */
-export function ServiceState({
-  state,
-  health,
-  hold,
-}: {
-  state: string
-  health?: string
-  /** The hold, if the caller has one; a stopped service with one reads as held. */
-  hold?: Service["hold"]
-}) {
+export function ServiceState({ service }: { service: ServiceHealth }) {
+  const { state, health, hold } = service
+  const tone = serviceTone(service)
   if (state !== "running") {
-    if (hold) {
-      /** One badge: Docker's own word moves to the title rather than a second, red badge. */
+    if (tone === "down") {
       return (
-        <StatusBadge
-          tone="idle"
-          tipContent={
-            `Held down since ${dateTime(hold.since)}.` +
-            ` No update and no restart starts it again. Docker reports the state "${state}".`
-          }
-        >
-          held down
+        <StatusBadge tone="down" tipContent={`Docker reports the state "${state}".`}>
+          {STATES[state] ?? state}
         </StatusBadge>
       )
     }
+    /** One badge: Docker's own word moves to the title rather than a second, red badge. */
     return (
-      <StatusBadge tone="down" tipContent={`Docker reports the state "${state}".`}>
-        {STATES[state] ?? state}
+      <StatusBadge
+        tone="idle"
+        tipContent={(hold ? `Held down since ${dateTime(hold.since)}. ` : "") + `Docker reports the state "${state}".`}
+      >
+        {hold ? "held down" : "standby"}
       </StatusBadge>
     )
   }
-  const tone = serviceTone({ state, health })
   if (tone === "down") {
     return (
       <StatusBadge tone="down" tipContent="The container is running, but its healthcheck is failing.">
@@ -141,7 +132,7 @@ const DOT_TONE: Record<Tone, string> = {
   ok: "bg-success",
   warn: "bg-warning",
   down: "bg-destructive",
-  /** A held service: a bordered dot, differing from the other three in shape, not only colour. */
+  /** A meant stop: a bordered dot, differing from the other three in shape, not only colour. */
   idle: "border border-muted-foreground/60 bg-muted-foreground/30",
 }
 
@@ -181,12 +172,13 @@ export function HealthDot({
 
   const tone = serviceTone(service)
   if (tone === "ok" && quiet) return null
+  const word = tone === "idle" && !held(service) ? "standby" : DOT_WORD[tone]
 
   return (
     <span
       role="img"
-      aria-label={DOT_WORD[tone]}
-      title={DOT_WORD[tone]}
+      aria-label={word}
+      title={word}
       className={cn("size-2 shrink-0 rounded-full", DOT_TONE[tone], className)}
     />
   )

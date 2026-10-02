@@ -53,7 +53,7 @@ const TABLE = {
     service({ service: "postgres", image: "postgres:17-alpine" }),
     service({ service: "caddy", image: "caddy:2" }),
     service({ service: "steward" }),
-    service({ service: "steward-agent", state: "exited", status: "Exited (0)" }),
+    service({ service: "steward-agent", state: "exited", status: "Exited (0)", alert: "down" }),
     service({ service: "steward-bunq" }),
   ],
   drift: { checkedAt: new Date().toISOString(), reached: true, unverifiable: [] },

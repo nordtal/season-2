@@ -255,6 +255,51 @@ public final class Inbox<P> {
                 """, Map.of("outcome", Json.encode(Objects.requireNonNull(answer, "answer"))));
     }
 
+    /** Returns one row whole, as JSON, so it can outlive the table being replaced by a restore. */
+    public Optional<String> carry(final long id) {
+        return jdbi.withHandle(
+                handle -> handle.createQuery("SELECT cast(to_jsonb(t) AS text) FROM <table> t WHERE id = :id")
+                        .define("table", table.name())
+                        .bind("id", id)
+                        .mapTo(String.class)
+                        .findOne());
+    }
+
+    /**
+     * Fails every row a restored dump held open, then writes a carried row back and counts the ids on from it.
+     * One transaction, so a restore never leaves two open runs or none.
+     *
+     * @param row what {@link #carry} returned
+     * @param answer what to write into the rows the dump held open
+     */
+    public void putBack(final String row, final Object answer) {
+        Objects.requireNonNull(row, "row");
+        final String outcome = Json.encode(Objects.requireNonNull(answer, "answer"));
+        jdbi.useTransaction(handle -> {
+            handle.createUpdate("""
+                            UPDATE <table> SET status = 'FAILED', finished = now(), outcome = cast(:outcome AS jsonb)
+                            WHERE status IN ('PENDING', 'RUNNING')
+                            """)
+                    .define("table", table.name())
+                    .bind("outcome", outcome)
+                    .execute();
+            handle.createUpdate("DELETE FROM <table> WHERE id = cast(cast(:row AS jsonb) ->> 'id' AS bigint)")
+                    .define("table", table.name())
+                    .bind("row", row)
+                    .execute();
+            handle.createUpdate(
+                            "INSERT INTO <table> SELECT * FROM jsonb_populate_record(null::<table>, cast(:row AS jsonb))")
+                    .define("table", table.name())
+                    .bind("row", row)
+                    .execute();
+            handle.createQuery("SELECT setval(pg_get_serial_sequence(:name, 'id'), (SELECT max(id) FROM <table>))")
+                    .define("table", table.name())
+                    .bind("name", table.name())
+                    .mapTo(Long.class)
+                    .one();
+        });
+    }
+
     /**
      * Deletes every settled request that finished longer ago than {@code age}; a pending row is work, not history.
      *

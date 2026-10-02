@@ -217,4 +217,23 @@ public interface UpdateDirectory {
      * @return how many there were
      */
     int settleOrphans(String failed);
+
+    /**
+     * Returns one row whole, as JSON, so a database restore can put it back; empty for an unknown id.
+     *
+     * The default carries nothing, for a directory that cannot write.
+     */
+    default Optional<String> carry(final long id) {
+        return Optional.empty();
+    }
+
+    /**
+     * After a restore: fails every row the dump held open, then writes the carried row back and counts on from it.
+     *
+     * @param row what {@link #carry} returned before the restore
+     * @param failed what to write into the rows the dump held open
+     */
+    default void putBack(final String row, final String failed) {
+        throw new UnsupportedOperationException("this directory cannot put a row back");
+    }
 }

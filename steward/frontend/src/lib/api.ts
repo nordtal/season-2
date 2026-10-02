@@ -487,6 +487,8 @@ export type ServicePlugin = {
   filePrefix?: string
   fileName?: string
   version?: string
+  /** The release whose run installed this jar; absent for a jar no run noted, such as one copied in by hand. */
+  release?: string
   /**
    * `plugins/<dataFolder>/`, read from the jar's own descriptor.
    *

@@ -97,6 +97,7 @@ class DatabaseRoleIntegrationTest {
             cases.add(mayNot(role, "UPDATE audit_log SET detail = '' WHERE false"));
             cases.add(mayNot(role, "DELETE FROM audit_log WHERE false"));
             cases.add(mayNot(role, "SELECT count(*) FROM service_plugin"));
+            cases.add(mayNot(role, "SELECT count(*) FROM plugin_file"));
         }
         cases.addAll(serverInboxes());
         assertAll(cases.stream().map(DatabaseRoleIntegrationTest::check));

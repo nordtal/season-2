@@ -99,6 +99,7 @@ public final class PluginsApi {
         rows.addAll(notYetInstalledRows(added, claimed));
 
         rows.sort(Comparator.comparing(row -> String.valueOf(row.get("name")).toLowerCase(java.util.Locale.ROOT)));
+        noteReleases(rows, plugins.releases(service.name()));
 
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("service", service.name());
@@ -219,6 +220,20 @@ public final class PluginsApi {
             row.put("pageUrl", plugin.pageUrl());
         }
         return row;
+    }
+
+    /**
+     * Puts the release whose run moved each jar into place on its row, by file name.
+     *
+     * A jar nobody noted, such as one copied in by hand or installed before the note existed, gets no field.
+     */
+    static void noteReleases(final List<Map<String, Object>> rows, final Map<String, String> releases) {
+        for (final Map<String, Object> row : rows) {
+            final String release = releases.get(String.valueOf(row.get("fileName")));
+            if (release != null) {
+                row.put("release", release);
+            }
+        }
     }
 
     private static @Nullable ManagedPlugin ownerOf(final Installation.Jar jar, final List<ManagedPlugin> added) {

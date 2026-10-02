@@ -215,7 +215,16 @@ function PluginRow({
         {plugin ? (
           <>
             <span className="truncate text-sm font-medium">{plugin.name}</span>
-            {version ? <span className="truncate text-xs text-muted-foreground tnum">{version}</span> : null}
+            {version || plugin.release ? (
+              <span className="flex min-w-0 gap-2 text-xs text-muted-foreground tnum">
+                {version ? <span className="truncate">{version}</span> : null}
+                {plugin.release ? (
+                  <span className="shrink-0" title={`Installed by release v${plugin.release}`}>
+                    v{plugin.release}
+                  </span>
+                ) : null}
+              </span>
+            ) : null}
           </>
         ) : (
           <>

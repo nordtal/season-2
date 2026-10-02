@@ -25,12 +25,12 @@ public final class Bootstrap {
     public static void installMissing(
             final RunSpec config, final Database database, final Supplier<AgentWire.Topology> topology) {
         final SettingStore settings = SettingStore.using(database.dataSource());
+        final PluginDirectory plugins = PluginDirectory.using(database.dataSource());
         final UpdatePlan missing;
         final AgentWire.Topology read;
         try {
             read = topology.get();
-            missing = Runs.resolve(config, read, PluginDirectory.using(database.dataSource()), settings)
-                    .onlyMissing();
+            missing = Runs.resolve(config, read, plugins, settings).onlyMissing();
         } catch (final RuntimeException failure) {
             log.error(
                     "Bootstrap: nothing could be resolved, so no missing file was installed. Any server whose"
@@ -58,7 +58,7 @@ public final class Bootstrap {
                 missing.withStatus(Change.Status.MISSING).size());
         final ApplyResult result;
         try {
-            result = Runs.apply(config, read, missing, settings);
+            result = Runs.apply(config, read, missing, settings, plugins);
         } catch (final RuntimeException failure) {
             log.error(
                     "Bootstrap: the install failed part way through. Some volumes may still be empty, and a server"

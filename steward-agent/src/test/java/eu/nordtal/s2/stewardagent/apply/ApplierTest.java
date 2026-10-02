@@ -51,6 +51,7 @@ class ApplierTest {
         assertEquals(ApplyResult.Status.DONE, outcome.status());
         assertNotNull(outcome.detail());
         assertTrue(outcome.detail().contains("removed smp-0.1.0.jar"), outcome.detail());
+        assertEquals("smp-0.2.0.jar", outcome.file(), "the file moved into place, which the run notes");
         assertTrue(result.restartWorthOffering());
     }
 

@@ -20,7 +20,15 @@ const PLUGINS = {
   gameVersion: "26.2",
   mounted: true,
   plugins: [
-    { name: "SMP", running: true, removable: false, fileName: "smp-0.9.4.jar", group: "nordtal", rank: 1 },
+    {
+      name: "SMP",
+      running: true,
+      removable: false,
+      fileName: "smp-0.9.4.jar",
+      release: "0.10.3",
+      group: "nordtal",
+      rank: 1,
+    },
     {
       name: "packetevents",
       running: true,
@@ -179,6 +187,19 @@ describe("ServicePlugins", () => {
     expect(within(coreprotect).getByText("Not installed")).toBeTruthy()
     expect(coreprotect.querySelector("img")).toBeTruthy()
     expect(screen.queryByText(/pre-booked/i)).toBeNull()
+  })
+
+  it("names the release that installed a jar, and none where no run noted one", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend(() => json(200, AVAILABLE)),
+    )
+    draw()
+
+    const smp = (await screen.findByText("SMP")).closest("li")!
+    expect(within(smp).getByTitle("Installed by release v0.10.3").textContent).toBe("v0.10.3")
+    const chunky = screen.getByText("Chunky").closest("li")!
+    expect(within(chunky).queryByTitle(/Installed by release/)).toBeNull()
   })
 
   it("says there is no build when nothing resolves for a plugin that is not installed", async () => {

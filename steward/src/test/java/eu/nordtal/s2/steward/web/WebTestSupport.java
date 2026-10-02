@@ -49,21 +49,17 @@ abstract class WebTestSupport extends WebFixture {
         }
     }
 
-    /** The newest journal row of this action, written by that id and naming the person in its detail. */
-    static void journalledBy(final String id, final String action, final String name) throws Exception {
+    /** Returns the newest journal row of this action, after checking that this person is its actor. */
+    static JsonObject journalledBy(final String id, final String action) throws Exception {
         final JsonObject row = newestJournalRow(action);
-        assertEquals(
-                id,
-                row.get("actor").getAsString(),
-                action + " was journalled as something other than the bare Discord id: " + row);
-        // The name moved to `detail`, which is `text` and has room for it.
-        assertTrue(
-                row.get("detail").getAsString().contains(name),
-                action + " lost the name entirely instead of moving it into the detail: " + row);
+        final JsonObject actor = row.getAsJsonObject("actor");
+        assertEquals("PERSON", actor.get("kind").getAsString(), action + " was not filed under a person: " + row);
+        assertEquals(id, actor.get("person").getAsString(), action + " was filed under somebody else: " + row);
+        return row;
     }
 
     static String actorOf(final String action) throws Exception {
-        return newestJournalRow(action).get("actor").getAsString();
+        return newestJournalRow(action).getAsJsonObject("actor").get("person").getAsString();
     }
 
     static JsonObject newestJournalRow(final String action) throws Exception {

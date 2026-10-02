@@ -3,6 +3,7 @@ package eu.nordtal.s2.steward.api;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
+import com.google.gson.JsonObject;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.audit.AuditEntry;
@@ -131,31 +132,37 @@ class ActionEntryTest {
     }
 
     @Test
-    void anAuditLineWithNoActorIsTheSystem() {
-        final ActionEntry entry = ActionEntry.of(
-                new AuditEntry(UUID.randomUUID(), FINISHED, "SETTLE", null, null, null, "settled by the poll loop"));
+    void aCarriedLineStillShowsItsSentence() {
+        final ActionEntry entry = ActionEntry.of(new AuditEntry(
+                UUID.randomUUID(),
+                FINISHED,
+                "SETTLE",
+                Actor.STEWARD,
+                null,
+                null,
+                facts("detail", "settled by the poll loop")));
         assertEquals(Actor.STEWARD, entry.actor());
         assertEquals("settled by the poll loop", entry.extent());
     }
 
     @Test
-    void anAuditLinesActorIsAlreadyACleanDiscordId() {
+    void aTypedLineCarriesItsActorAndNamesItsAction() {
         final ActionEntry entry = ActionEntry.of(new AuditEntry(
                 UUID.randomUUID(),
                 FINISHED,
                 "GRANT_ACCESS",
-                "594510749410525200",
-                "594510749410525200",
+                Actor.person(DiscordId.of("594510749410525200")),
+                DiscordId.of("594510749410525200"),
                 null,
-                "30 days"));
+                facts("days", "30")));
         assertEquals(Actor.person(DiscordId.of("594510749410525200")), entry.actor());
-        assertEquals("30 days", entry.extent());
+        assertEquals("GRANT_ACCESS", entry.extent(), "the values are rendered by the page, not by this list");
     }
 
     @Test
     void aBlankDetailFallsBackToTheActionItself() {
         final ActionEntry entry = ActionEntry.of(
-                new AuditEntry(UUID.randomUUID(), FINISHED, "LINK", null, null, UUID.randomUUID(), null));
+                new AuditEntry(UUID.randomUUID(), FINISHED, "LINK", Actor.STEWARD, null, UUID.randomUUID(), facts()));
         assertEquals("LINK", entry.extent());
     }
 
@@ -170,5 +177,13 @@ class ActionEntryTest {
                 "api.ts types this field String and hands it to relative() - an object here is an"
                         + " invalid date in every row of the feed");
         assertEquals("2026-09-17T00:55:04.879Z", occurred);
+    }
+
+    private static JsonObject facts(final String... pairs) {
+        final JsonObject facts = new JsonObject();
+        for (int i = 0; i < pairs.length; i += 2) {
+            facts.addProperty(pairs[i], pairs[i + 1]);
+        }
+        return facts;
     }
 }

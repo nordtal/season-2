@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.messages.Refused;
 import java.sql.Connection;
@@ -39,6 +40,12 @@ import org.postgresql.PGNotification;
 class PhaseDirectoryIntegrationTest {
 
     private static final String ADMIN_ID = "300000000000000001";
+    private static final Actor ADMIN = Actor.person(DiscordId.of(ADMIN_ID));
+    private static final String LINE = """
+            action || '|' || actor_kind || '|' || coalesce(actor_id, '-') || '|' || (facts ->> 'from') || ' -> '
+                || (facts ->> 'to') || coalesce(' (' || (facts ->> 'reason') || ')', '')""";
+    private static final String CHANGE = "(facts ->> 'from') || ' -> ' || (facts ->> 'to')"
+            + " || coalesce(' (' || (facts ->> 'reason') || ')', '')";
     private static DataSource dataSource;
 
     private PhaseDirectory phases;
@@ -144,7 +151,7 @@ class PhaseDirectoryIntegrationTest {
 
     @Test
     void switchingChangesTheRowAndReportsWhatItReplaced() {
-        final PhaseChange change = phases.switchPhase(SeasonPhase.START_EVENT, ADMIN_ID, "the event begins");
+        final PhaseChange change = phases.switchPhase(SeasonPhase.START_EVENT, ADMIN, "the event begins");
 
         assertEquals(SeasonPhase.PRE_EVENT, change.previous());
         assertEquals(SeasonPhase.START_EVENT, change.current());
@@ -157,39 +164,34 @@ class PhaseDirectoryIntegrationTest {
 
     @Test
     void switchingWritesExactlyOneAuditRowAndCannotBeMadeToSkipIt() {
-        phases.switchPhase(SeasonPhase.SMP, ADMIN_ID, "the winner is crowned");
+        phases.switchPhase(SeasonPhase.SMP, ADMIN, "the winner is crowned");
 
-        final List<String> rows = query("""
-                SELECT action || '|' || coalesce(actor, '-') || '|' || coalesce(detail, '-')
-                FROM audit_log
-                """);
+        final List<String> rows = query("SELECT " + LINE + " FROM audit_log");
 
         assertEquals(
-                List.of("SET_PHASE|" + ADMIN_ID + "|PRE_EVENT -> SMP (the winner is crowned)"),
+                List.of("SET_PHASE|PERSON|" + ADMIN_ID + "|PRE_EVENT -> SMP (the winner is crowned)"),
                 rows,
                 "the audit entry is part of the same statement as the update - there is no way to "
                         + "issue one without the other, which is the point of a single switch method");
     }
 
     @Test
-    void theReasonIsOptionalAndSoIsTheActor() {
-        phases.switchPhase(SeasonPhase.MAINTENANCE, null, null);
+    void theReasonIsOptionalAndStewardIsAnActorOfItsOwn() {
+        phases.switchPhase(SeasonPhase.MAINTENANCE, Actor.STEWARD, null);
 
-        assertEquals(List.of("SET_PHASE|-|PRE_EVENT -> MAINTENANCE"), query("""
-                SELECT action || '|' || coalesce(actor, '-') || '|' || coalesce(detail, '-')
-                FROM audit_log
-                """));
+        assertEquals(
+                List.of("SET_PHASE|STEWARD|-|PRE_EVENT -> MAINTENANCE"), query("SELECT " + LINE + " FROM audit_log"));
     }
 
     @Test
     void switchingToThePhaseThatIsAlreadyCurrentIsRecordedRatherThanRefused() {
-        final PhaseChange change = phases.switchPhase(SeasonPhase.PRE_EVENT, ADMIN_ID, null);
+        final PhaseChange change = phases.switchPhase(SeasonPhase.PRE_EVENT, ADMIN, null);
 
         assertTrue(change.unchanged());
         assertEquals(SeasonPhase.PRE_EVENT, change.current());
         assertEquals(
                 List.of("PRE_EVENT -> PRE_EVENT"),
-                query("SELECT detail FROM audit_log"),
+                query("SELECT " + CHANGE + " FROM audit_log"),
                 "a switch that changed nothing is still something a human may need to see afterwards");
     }
 
@@ -197,10 +199,10 @@ class PhaseDirectoryIntegrationTest {
     @Test
     void enteringTheSeasonFromTheEventStampsAFreshStartAndLeavesTheTrackToSmp() {
         playedTrack();
-        phases.switchPhase(SeasonPhase.START_EVENT, ADMIN_ID, null);
+        phases.switchPhase(SeasonPhase.START_EVENT, ADMIN, null);
         assertEquals(0, count("SELECT count(*) FROM season_phase WHERE fresh_start IS NOT NULL"));
 
-        phases.switchPhase(SeasonPhase.SMP, ADMIN_ID, null);
+        phases.switchPhase(SeasonPhase.SMP, ADMIN, null);
 
         assertEquals(1, count("SELECT count(*) FROM season_phase WHERE fresh_start = updated"));
         assertEquals(
@@ -212,9 +214,9 @@ class PhaseDirectoryIntegrationTest {
     @Test
     void comingBackFromMaintenanceStampsNoFreshStart() {
         playedTrack();
-        phases.switchPhase(SeasonPhase.MAINTENANCE, ADMIN_ID, null);
+        phases.switchPhase(SeasonPhase.MAINTENANCE, ADMIN, null);
 
-        phases.switchPhase(SeasonPhase.SMP, ADMIN_ID, null);
+        phases.switchPhase(SeasonPhase.SMP, ADMIN, null);
 
         assertEquals(0, count("SELECT count(*) FROM season_phase WHERE fresh_start IS NOT NULL"));
     }
@@ -232,14 +234,14 @@ class PhaseDirectoryIntegrationTest {
 
     @Test
     void everySwitchLeavesItsOwnAuditRowBehind() {
-        phases.switchPhase(SeasonPhase.START_EVENT, ADMIN_ID, null);
-        phases.switchPhase(SeasonPhase.SMP, ADMIN_ID, null);
-        phases.switchPhase(SeasonPhase.MAINTENANCE, ADMIN_ID, "database maintenance");
+        phases.switchPhase(SeasonPhase.START_EVENT, ADMIN, null);
+        phases.switchPhase(SeasonPhase.SMP, ADMIN, null);
+        phases.switchPhase(SeasonPhase.MAINTENANCE, ADMIN, "database maintenance");
 
         // Compared as a set: the three rows share a transaction timestamp, so their order is arbitrary.
         assertEquals(
                 Set.of("PRE_EVENT -> START_EVENT", "START_EVENT -> SMP", "SMP -> MAINTENANCE (database maintenance)"),
-                Set.copyOf(query("SELECT detail FROM audit_log")));
+                Set.copyOf(query("SELECT " + CHANGE + " FROM audit_log")));
         assertEquals(3, count("SELECT count(*) FROM audit_log"));
         assertEquals(SeasonPhase.MAINTENANCE, phases.currentPhase());
     }
@@ -248,7 +250,7 @@ class PhaseDirectoryIntegrationTest {
     void aSwitchThatFindsNoRowWritesNothingAtAll() {
         execute("DELETE FROM season_phase");
 
-        assertThrows(IllegalStateException.class, () -> phases.switchPhase(SeasonPhase.SMP, ADMIN_ID, null));
+        assertThrows(IllegalStateException.class, () -> phases.switchPhase(SeasonPhase.SMP, ADMIN, null));
 
         assertEquals(
                 0,
@@ -270,7 +272,7 @@ class PhaseDirectoryIntegrationTest {
                 statement.execute("LISTEN nordtal_phase");
             }
 
-            phases.switchPhase(SeasonPhase.SMP, ADMIN_ID, null);
+            phases.switchPhase(SeasonPhase.SMP, ADMIN, null);
 
             final PGNotification[] notifications = awaitNotification(listener);
             assertNotNull(notifications, "no notification arrived on nordtal_phase within the timeout");
@@ -300,7 +302,7 @@ class PhaseDirectoryIntegrationTest {
     void settingTheLaunchDateWritesItAndFilesAnAuditEntry() {
         final Instant when = Instant.now().plus(Duration.ofDays(14));
 
-        final DateChange change = phases.setLaunch(when, ADMIN_ID);
+        final DateChange change = phases.setLaunch(when, ADMIN);
 
         assertNull(change.previous());
         assertWithinSeconds(when, change.current(), 1);
@@ -311,9 +313,9 @@ class PhaseDirectoryIntegrationTest {
 
     @Test
     void clearingALaunchDateGoesBackToNoDateAnnounced() {
-        phases.setLaunch(Instant.now().plus(Duration.ofDays(14)), ADMIN_ID);
+        phases.setLaunch(Instant.now().plus(Duration.ofDays(14)), ADMIN);
 
-        final DateChange change = phases.setLaunch(null, ADMIN_ID);
+        final DateChange change = phases.setLaunch(null, ADMIN);
 
         assertNotNull(change.previous());
         assertNull(change.current());
@@ -324,7 +326,7 @@ class PhaseDirectoryIntegrationTest {
     void aDateInThePastIsRefusedAndWritesNothing() {
         final Instant past = Instant.now().minus(Duration.ofHours(1));
 
-        assertThrows(Refused.class, () -> phases.setLaunch(past, ADMIN_ID));
+        assertThrows(Refused.class, () -> phases.setLaunch(past, ADMIN));
 
         assertTrue(phases.launch().isEmpty());
         assertEquals(0, count("SELECT count(*) FROM audit_log"), "a refusal writes no audit entry");
@@ -332,13 +334,13 @@ class PhaseDirectoryIntegrationTest {
 
     @Test
     void theTwoDatesMayNotCrossEachOther() {
-        phases.setLaunch(Instant.now().plus(Duration.ofDays(10)), ADMIN_ID);
+        phases.setLaunch(Instant.now().plus(Duration.ofDays(10)), ADMIN);
 
         // The SMP cannot start running before the network it runs on is open.
-        assertThrows(Refused.class, () -> phases.setSmpStart(Instant.now().plus(Duration.ofDays(3)), ADMIN_ID));
+        assertThrows(Refused.class, () -> phases.setSmpStart(Instant.now().plus(Duration.ofDays(3)), ADMIN));
         // And the opening cannot be moved past a start that is already announced.
-        phases.setSmpStart(Instant.now().plus(Duration.ofDays(17)), ADMIN_ID);
-        assertThrows(Refused.class, () -> phases.setLaunch(Instant.now().plus(Duration.ofDays(20)), ADMIN_ID));
+        phases.setSmpStart(Instant.now().plus(Duration.ofDays(17)), ADMIN);
+        assertThrows(Refused.class, () -> phases.setLaunch(Instant.now().plus(Duration.ofDays(20)), ADMIN));
     }
 
     @Test
@@ -348,10 +350,16 @@ class PhaseDirectoryIntegrationTest {
         grant(DiscordId.of("400000000000000001"), "now()", "now() + make_interval(hours => 720)");
         final Instant opening = Instant.now().plus(Duration.ofDays(20));
 
-        final DateChange change = phases.setSmpStart(opening, ADMIN_ID);
+        final DateChange change = phases.setSmpStart(opening, ADMIN);
 
         assertEquals(1, change.grants());
         assertEquals(1, change.accounts());
+        assertEquals(
+                List.of("SET_SMP_START|1|true"),
+                query(
+                        "SELECT action || '|' || (facts ->> 'movedGrants') || '|' || (facts -> 'from' IS NULL AND facts -> 'to' IS NOT NULL)"
+                                + " FROM audit_log"),
+                "the journal keeps the moved grants as a number and leaves out the date that was not set");
         assertWithinSeconds(opening, validFrom(DiscordId.of("400000000000000001")), 2);
         assertWithinSeconds(opening.plus(Duration.ofDays(30)), validUntil(DiscordId.of("400000000000000001")), 2);
     }
@@ -367,7 +375,7 @@ class PhaseDirectoryIntegrationTest {
         grant(DiscordId.of("400000000000000002"), endOfTheFirst, endOfTheFirst + " + make_interval(hours => 720)");
         final Instant opening = Instant.now().plus(Duration.ofDays(20));
 
-        final DateChange change = phases.setSmpStart(opening, ADMIN_ID);
+        final DateChange change = phases.setSmpStart(opening, ADMIN);
 
         assertEquals(2, change.grants());
         assertEquals(1, change.accounts(), "one person, two periods");
@@ -397,7 +405,7 @@ class PhaseDirectoryIntegrationTest {
         grant(DiscordId.of("400000000000000004"), "now()", "now() + make_interval(hours => 720)");
         final Instant opening = Instant.now().plus(Duration.ofDays(20));
 
-        final DateChange change = phases.setSmpStart(opening, ADMIN_ID);
+        final DateChange change = phases.setSmpStart(opening, ADMIN);
 
         assertEquals(2, change.grants());
         assertEquals(2, change.accounts());
@@ -411,7 +419,7 @@ class PhaseDirectoryIntegrationTest {
     @Test
     void movingAnAnnouncedDateShiftsEverythingAnchoredToItByTheSameAmount() {
         final Instant first = Instant.now().plus(Duration.ofDays(10));
-        phases.setSmpStart(first, ADMIN_ID);
+        phases.setSmpStart(first, ADMIN);
         user(DiscordId.of("400000000000000005"));
         grant(
                 DiscordId.of("400000000000000005"),
@@ -419,7 +427,7 @@ class PhaseDirectoryIntegrationTest {
                 "(SELECT smp_start FROM season_phase WHERE id) + make_interval(hours => 720)");
 
         final Instant moved = first.plus(Duration.ofDays(7));
-        final DateChange change = phases.setSmpStart(moved, ADMIN_ID);
+        final DateChange change = phases.setSmpStart(moved, ADMIN);
 
         assertEquals(1, change.grants());
         assertWithinSeconds(moved, validFrom(DiscordId.of("400000000000000005")), 2);
@@ -433,7 +441,7 @@ class PhaseDirectoryIntegrationTest {
         execute("UPDATE access_grant SET revoked = now() WHERE discord_id = '400000000000000006'");
         final Instant before = validFrom(DiscordId.of("400000000000000006"));
 
-        final DateChange change = phases.setSmpStart(Instant.now().plus(Duration.ofDays(20)), ADMIN_ID);
+        final DateChange change = phases.setSmpStart(Instant.now().plus(Duration.ofDays(20)), ADMIN);
 
         assertEquals(0, change.grants(), "a revoked grant does not count and must not move");
         assertWithinSeconds(before, validFrom(DiscordId.of("400000000000000006")), 1);
@@ -441,7 +449,7 @@ class PhaseDirectoryIntegrationTest {
 
     @Test
     void clearingTheDateMovesNothing() {
-        phases.setSmpStart(Instant.now().plus(Duration.ofDays(10)), ADMIN_ID);
+        phases.setSmpStart(Instant.now().plus(Duration.ofDays(10)), ADMIN);
         user(DiscordId.of("400000000000000007"));
         grant(
                 DiscordId.of("400000000000000007"),
@@ -449,7 +457,7 @@ class PhaseDirectoryIntegrationTest {
                 "(SELECT smp_start FROM season_phase WHERE id) + make_interval(hours => 720)");
         final Instant before = validFrom(DiscordId.of("400000000000000007"));
 
-        final DateChange change = phases.setSmpStart(null, ADMIN_ID);
+        final DateChange change = phases.setSmpStart(null, ADMIN);
 
         assertNull(change.current());
         assertEquals(0, change.grants(), "there is no date left to anchor them to");
@@ -461,9 +469,9 @@ class PhaseDirectoryIntegrationTest {
         final Instant opening = Instant.now().plus(Duration.ofDays(20));
         user(DiscordId.of("400000000000000008"));
         grant(DiscordId.of("400000000000000008"), "now()", "now() + make_interval(hours => 720)");
-        assertEquals(1, phases.setSmpStart(opening, ADMIN_ID).grants());
+        assertEquals(1, phases.setSmpStart(opening, ADMIN).grants());
 
-        final DateChange again = phases.setSmpStart(opening, ADMIN_ID);
+        final DateChange again = phases.setSmpStart(opening, ADMIN);
 
         assertTrue(again.unchanged());
         assertEquals(0, again.grants(), "everything is already anchored to that instant");
@@ -471,9 +479,9 @@ class PhaseDirectoryIntegrationTest {
 
     @Test
     void onceTheSeasonIsRunningTheDateIsRefused() {
-        phases.switchPhase(SeasonPhase.SMP, ADMIN_ID, "test");
+        phases.switchPhase(SeasonPhase.SMP, ADMIN, "test");
 
-        assertThrows(Refused.class, () -> phases.setSmpStart(Instant.now().plus(Duration.ofDays(5)), ADMIN_ID));
+        assertThrows(Refused.class, () -> phases.setSmpStart(Instant.now().plus(Duration.ofDays(5)), ADMIN));
 
         assertTrue(phases.smpStart().isEmpty());
     }

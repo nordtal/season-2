@@ -85,13 +85,7 @@ final class PushEndpoints {
                         body.keys.p256dh,
                         body.keys.auth,
                         ctx.header("User-Agent"));
-        data().audit()
-                .record(
-                        "WEB_PUSH_SUBSCRIBE",
-                        who.signedInDiscordId().value(),
-                        who.signedInDiscordId().value(),
-                        null,
-                        "subscribed a browser to the alerts' web push");
+        data().audit().record(who.ownLine("WEB_PUSH_SUBSCRIBE", Map.of()));
         ctx.status(204);
     }
 
@@ -105,13 +99,7 @@ final class PushEndpoints {
         if (!pushSubscriptions().unsubscribe(who.signedInDiscordId(), body.endpoint)) {
             throw new NotFoundResponse("this account has no web push subscription of that endpoint");
         }
-        data().audit()
-                .record(
-                        "WEB_PUSH_UNSUBSCRIBE",
-                        who.signedInDiscordId().value(),
-                        who.signedInDiscordId().value(),
-                        null,
-                        "unsubscribed a browser from the alerts' web push");
+        data().audit().record(who.ownLine("WEB_PUSH_UNSUBSCRIBE", Map.of()));
         ctx.status(204);
     }
 
@@ -167,13 +155,7 @@ final class PushEndpoints {
             throw new BadRequestResponse(
                     "the push service did not accept it - see the log of" + " steward for what it said");
         }
-        data().audit()
-                .record(
-                        "WEB_PUSH_TEST",
-                        who.signedInDiscordId().value(),
-                        who.signedInDiscordId().value(),
-                        null,
-                        "sent a test " + type.key() + " notification to one of its own browsers");
+        data().audit().record(who.ownLine("WEB_PUSH_TEST", Map.of("alert", type.key())));
         ctx.status(204);
     }
 

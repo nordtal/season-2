@@ -5,6 +5,7 @@ import eu.nordtal.s2.database.alert.AlertBook;
 import eu.nordtal.s2.database.alert.AlertChannel;
 import eu.nordtal.s2.database.alert.AlertType;
 import eu.nordtal.s2.database.alert.RaisedAlert;
+import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.steward.alert.AlertMonitor;
 import eu.nordtal.s2.steward.alert.AlertPreferences;
 import eu.nordtal.s2.steward.auth.Sessions;
@@ -27,6 +28,7 @@ final class AlertRoutes {
     private final @Nullable AlertMonitor monitor;
     private final @Nullable AlertBook book;
     private final @Nullable AlertPreferences preferences;
+    private final @Nullable AuditDirectory audit;
 
     AlertRoutes(
             final Function<Context, Sessions.Session> sessions,
@@ -37,6 +39,7 @@ final class AlertRoutes {
         this.monitor = monitor;
         this.book = data == null ? null : AlertBook.using(data.dataSource());
         this.preferences = preferences;
+        this.audit = data == null ? null : data.audit();
     }
 
     /** {@code GET /api/alerts}. */
@@ -77,6 +80,11 @@ final class AlertRoutes {
             throw new BadRequestResponse("a notification preference is a known type, a channel and an enabled flag");
         }
         preferences().set(who.signedInDiscordId(), type, channel, body.enabled);
+        if (audit != null) {
+            audit.record(who.ownLine(
+                    "SET_ALERT_PREFERENCE",
+                    Map.of("alert", type.key(), "channel", channel.key(), "enabled", body.enabled)));
+        }
         ctx.json(Map.of("type", type.key(), "channel", channel.key(), "enabled", body.enabled));
     }
 

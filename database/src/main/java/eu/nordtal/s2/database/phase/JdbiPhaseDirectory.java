@@ -3,6 +3,7 @@ package eu.nordtal.s2.database.phase;
 import static eu.nordtal.s2.database.DatabaseMessages.MESSAGES;
 
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.messages.Refused;
 import java.time.Clock;
@@ -41,11 +42,11 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
     }
 
     @Override
-    public PhaseChange switchPhase(
-            final SeasonPhase phase, final @Nullable String actor, final @Nullable String reason) {
+    public PhaseChange switchPhase(final SeasonPhase phase, final Actor actor, final @Nullable String reason) {
         Objects.requireNonNull(phase, "phase");
 
-        final @Nullable PhaseChange change = dao.switchPhase(phase.name(), actor, reason);
+        final @Nullable PhaseChange change =
+                dao.switchPhase(phase.name(), actor.kind().name(), actor.id(), reason);
         if (change == null) {
             // No row matched: the singleton is gone, a corrupted database that must not get an audit entry.
             throw new IllegalStateException(
@@ -55,7 +56,7 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
     }
 
     @Override
-    public DateChange setLaunch(final @Nullable Instant at, final @Nullable String actor) {
+    public DateChange setLaunch(final @Nullable Instant at, final Actor actor) {
         if (at != null && at.isBefore(clock.instant())) {
             throw new Refused(
                     SeasonDateRefusal.IN_THE_PAST,
@@ -70,11 +71,11 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
                                     SeasonDates.format(at, clock.getZone()),
                                     SeasonDates.format(smpStart, clock.getZone())));
         }
-        return written(dao.setLaunch(at, actor));
+        return written(dao.setLaunch(at, actor.kind().name(), actor.id()));
     }
 
     @Override
-    public DateChange setSmpStart(final @Nullable Instant at, final @Nullable String actor) {
+    public DateChange setSmpStart(final @Nullable Instant at, final Actor actor) {
         // Read outside the write on purpose: this guards a forgetful admin, not a race.
         if (currentPhase() == SeasonPhase.SMP) {
             throw new Refused(SeasonDateRefusal.SMP_RUNNING, MESSAGES.season().smpRunning());
@@ -93,7 +94,7 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
                                     SeasonDates.format(at, clock.getZone()),
                                     SeasonDates.format(launch, clock.getZone())));
         }
-        return written(dao.setSmpStart(at, actor));
+        return written(dao.setSmpStart(at, actor.kind().name(), actor.id()));
     }
 
     /** The same missing-row check {@link #switchPhase} makes, for the same reason. */

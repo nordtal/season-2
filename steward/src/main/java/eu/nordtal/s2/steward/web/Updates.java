@@ -1,8 +1,7 @@
 package eu.nordtal.s2.steward.web;
 
-import eu.nordtal.s2.common.id.DiscordId;
-import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.DatabaseText;
+import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
@@ -89,7 +88,7 @@ final class Updates {
                 : Duration.ofSeconds(ask.delaySeconds);
         final UpdateRequest written;
         try {
-            written = data().updates().submit(kind, Actor.person(DiscordId.of(who.id())), delay, ask.services);
+            written = data().updates().submit(kind, who.actor(), delay, ask.services);
         } catch (final Refused refused) {
             throw new ConflictResponse(DatabaseText.english(refused.refusal().message()));
         } catch (final IllegalArgumentException named) {
@@ -113,15 +112,15 @@ final class Updates {
         if (cancelled.isEmpty()) {
             throw new ConflictResponse("too late - the countdown has already run out");
         }
-        // The actor is the Discord id, never the composed "name (id)": audit_log.actor is varchar(32).
         data().audit()
-                .record(
+                .record(AuditLine.of(
                         "CANCEL_RUN",
-                        who.id(),
-                        String.valueOf(cancelled.get().id()),
-                        null,
-                        cancelled.get().kind() + " request " + cancelled.get().id() + " cancelled by " + who.name()
-                                + " from the web interface");
+                        who.actor(),
+                        Map.of(
+                                "run",
+                                cancelled.get().id(),
+                                "kind",
+                                cancelled.get().kind().name())));
         log.info(
                 "{} cancelled {} request {}",
                 who.name(),

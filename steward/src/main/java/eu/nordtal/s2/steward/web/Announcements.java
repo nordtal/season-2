@@ -2,9 +2,7 @@ package eu.nordtal.s2.steward.web;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.json.Json;
-import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
@@ -83,14 +81,9 @@ final class Announcements {
         final DiscordAuth.Account who = accounts.apply(ctx);
         final Request<BotRequest> asked = bot().submit(
                         new BotRequest.Announce(checked),
-                        Actor.person(DiscordId.of(who.id())),
+                        who.actor(),
                         Schedule.within(PATIENCE),
-                        new AuditLine(
-                                "ANNOUNCE",
-                                who.id(),
-                                null,
-                                null,
-                                "asked by " + who.name() + " from the web interface"));
+                        AuditLine.of("ANNOUNCE", who.actor(), Map.of("languages", List.copyOf(checked.keySet()))));
         final Map<String, String> ids = new LinkedHashMap<>();
         checked.keySet().forEach(tag -> ids.put(tag, "announce:" + asked.id() + ":" + tag));
         ctx.status(202).json(Map.of("ids", ids));

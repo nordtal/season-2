@@ -67,6 +67,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V13__steward_books_a_payment_in_one_transaction.sql",
                 "ecadf24a178b9688313ef944dd24439be37125f989e166d62d7a901ffc28c8c8");
+        FROZEN.put(
+                "V14__a_journal_line_is_typed_values.sql",
+                "58af9e2ad0f73c1f3f6f45653c6d324e706181663525a8920f771668b8c1fa1c");
     }
 
     @Test

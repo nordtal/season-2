@@ -695,7 +695,7 @@ describe("AccessPage - the generic command card is gone", () => {
   })
 })
 
-/** `audit_log.detail` is prose, so it wraps while every other cell stays `whitespace-nowrap`. */
+/** A line's values may run long, so they wrap while every other cell stays `whitespace-nowrap`. */
 describe("JournalPage - Detail is running text, not a field", () => {
   it("lets the Detail cell wrap, rather than forcing it onto one unbroken line", async () => {
     const LONG_DETAIL = "30 days granted by hm.ally from the admin panel; the Minecraft account was linked beforehand"
@@ -707,9 +707,9 @@ describe("JournalPage - Detail is running text, not a field", () => {
             id: "j1",
             occurred: "2026-09-18T09:00:00Z",
             action: "GRANT_ACCESS",
-            actor: "hm.ally",
+            actor: { kind: "PERSON", person: "214906139328839681" },
             subject: "214906139328839681",
-            detail: LONG_DETAIL,
+            facts: { detail: LONG_DETAIL },
           },
         ],
       }),
@@ -727,9 +727,9 @@ const JOURNAL_ENTRIES = () => [
     id: "j1",
     occurred: "2026-09-18T09:00:00Z",
     action: "GRANT_ACCESS",
-    actor: "214906139328839681",
+    actor: { kind: "PERSON", person: "214906139328839681" },
     subject: "300000000000000002",
-    detail: "30 days granted",
+    facts: { days: 30, until: "2026-10-18T09:00:00Z" },
   },
 ]
 
@@ -741,6 +741,8 @@ describe("JournalPage - profiles, never user ids", () => {
     await screen.findByText("GRANT_ACCESS")
     expect(await screen.findByText("Ally")).toBeTruthy()
     expect(screen.getByText("bob")).toBeTruthy()
+    // Typed values by key, never a sentence the writer composed.
+    expect(screen.getByText("days").parentElement?.textContent).toBe("days 30")
     expect(IDENTIFIER_PATTERN.test(document.body.textContent ?? "")).toBe(false)
   })
 
@@ -753,8 +755,8 @@ describe("JournalPage - profiles, never user ids", () => {
             id: "j2",
             occurred: "2026-09-18T09:00:00Z",
             action: "REVOKE_ACCESS",
-            actor: "999999999999999999",
-            detail: "left the guild long ago",
+            actor: { kind: "PERSON", person: "999999999999999999" },
+            facts: { grants: 1 },
           },
         ],
       }),
@@ -767,7 +769,7 @@ describe("JournalPage - profiles, never user ids", () => {
     expect(IDENTIFIER_PATTERN.test(document.body.textContent ?? "")).toBe(false)
   })
 
-  it("draws a service it concerns as a link to that service, and an unknown actor as unknown", async () => {
+  it("draws a service a carried line names as a link to that service, and the host as the host", async () => {
     vi.stubGlobal(
       "fetch",
       backend({
@@ -775,9 +777,9 @@ describe("JournalPage - profiles, never user ids", () => {
           {
             id: "j3",
             occurred: "2026-09-18T09:00:00Z",
-            action: "FORGET_FACTORS",
-            actor: "host",
-            subject: "smp",
+            action: "RECREATE",
+            actor: { kind: "HOST" },
+            facts: { target: "smp" },
           },
         ],
       }),
@@ -793,7 +795,9 @@ describe("JournalPage - profiles, never user ids", () => {
     vi.stubGlobal(
       "fetch",
       backend({
-        journal: () => [{ id: "j3", occurred: "2026-09-18T09:00:00Z", action: "SETTLE", detail: "nightly" }],
+        journal: () => [
+          { id: "j3", occurred: "2026-09-18T09:00:00Z", action: "SETTLE", actor: { kind: "STEWARD" }, facts: {} },
+        ],
       }),
     )
     draw(<JournalPage />)

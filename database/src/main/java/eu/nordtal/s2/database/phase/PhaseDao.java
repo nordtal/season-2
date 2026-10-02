@@ -25,7 +25,8 @@ interface PhaseDao {
     /**
      * Switches the phase, writes the audit entry and notifies with no payload, as one statement.
      *
-     * @param actor  the Discord id of the admin who caused it, or {@code null}
+     * @param actorKind who caused it, as {@code audit_log.actor_kind}
+     * @param actorId   the Discord id when a person caused it
      * @param reason free text appended to the audit detail in brackets, or {@code null}
      * @return the previous phase, the new phase and when; no row if the singleton is missing
      */
@@ -49,11 +50,13 @@ interface PhaseDao {
                      RETURNING phase, updated
                  ),
                  audited AS (
-                     INSERT INTO audit_log (action, actor, detail)
+                     INSERT INTO audit_log (action, actor_kind, actor_id, facts)
                      SELECT 'SET_PHASE',
-                            cast(:actor AS varchar(32)),
-                            previous.phase || ' -> ' || switched.phase
-                                || coalesce(' (' || cast(:reason AS text) || ')', '')
+                            cast(:actorKind AS varchar(16)),
+                            cast(:actorId AS varchar(32)),
+                            jsonb_strip_nulls(jsonb_build_object(
+                                'from', previous.phase, 'to', switched.phase,
+                                'reason', nullif(cast(:reason AS text), '')))
                      FROM previous, switched
                  )
             SELECT previous.phase                 AS previous_phase,
@@ -66,7 +69,8 @@ interface PhaseDao {
     @Nullable
     PhaseChange switchPhase(
             @Bind("phase") String phase,
-            @Bind("actor") @Nullable String actor,
+            @Bind("actorKind") String actorKind,
+            @Bind("actorId") @Nullable String actorId,
             @Bind("reason") @Nullable String reason);
 
     /**
@@ -86,11 +90,11 @@ interface PhaseDao {
                      RETURNING launch
                  ),
                  audited AS (
-                     INSERT INTO audit_log (action, actor, detail)
+                     INSERT INTO audit_log (action, actor_kind, actor_id, facts)
                      SELECT 'SET_LAUNCH',
-                            cast(:actor AS varchar(32)),
-                            coalesce(cast(previous.launch AS text), 'not set') || ' -> '
-                                || coalesce(cast(written.launch AS text), 'not set')
+                            cast(:actorKind AS varchar(16)),
+                            cast(:actorId AS varchar(32)),
+                            jsonb_strip_nulls(jsonb_build_object('from', previous.launch, 'to', written.launch))
                      FROM previous, written
                  )
             SELECT previous.launch                AS previous_at,
@@ -102,7 +106,10 @@ interface PhaseDao {
             """)
     @RegisterRowMapper(DateChangeMapper.class)
     @Nullable
-    DateChange setLaunch(@Bind("at") @Nullable Instant at, @Bind("actor") @Nullable String actor);
+    DateChange setLaunch(
+            @Bind("at") @Nullable Instant at,
+            @Bind("actorKind") String actorKind,
+            @Bind("actorId") @Nullable String actorId);
 
     /**
      * Writes {@code smp_start} and moves the paid access anchored to it, with audit and notification.
@@ -152,12 +159,13 @@ interface PhaseDao {
                      RETURNING smp_start
                  ),
                  audited AS (
-                     INSERT INTO audit_log (action, actor, detail)
+                     INSERT INTO audit_log (action, actor_kind, actor_id, facts)
                      SELECT 'SET_SMP_START',
-                            cast(:actor AS varchar(32)),
-                            coalesce(cast(previous.smp_start AS text), 'not set') || ' -> '
-                                || coalesce(cast(written.smp_start AS text), 'not set')
-                                || ' (' || (SELECT count(*) FROM moved) || ' grants moved)'
+                            cast(:actorKind AS varchar(16)),
+                            cast(:actorId AS varchar(32)),
+                            jsonb_strip_nulls(jsonb_build_object(
+                                'from', previous.smp_start, 'to', written.smp_start,
+                                'movedGrants', (SELECT count(*) FROM moved)))
                      FROM previous, written
                  )
             SELECT previous.smp_start                        AS previous_at,
@@ -170,5 +178,8 @@ interface PhaseDao {
             """)
     @RegisterRowMapper(DateChangeMapper.class)
     @Nullable
-    DateChange setSmpStart(@Bind("at") @Nullable Instant at, @Bind("actor") @Nullable String actor);
+    DateChange setSmpStart(
+            @Bind("at") @Nullable Instant at,
+            @Bind("actorKind") String actorKind,
+            @Bind("actorId") @Nullable String actorId);
 }

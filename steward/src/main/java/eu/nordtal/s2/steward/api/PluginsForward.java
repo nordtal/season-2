@@ -43,9 +43,11 @@ public final class PluginsForward {
                 .result(agent.searchPlugins(service(ctx), Objects.requireNonNullElse(ctx.queryParam("q"), "")));
     }
 
-    /** {@code POST /api/services/{name}/plugins}: a row the next update run fulfils. */
-    void add(final Context ctx, final String by) {
-        ctx.status(201).contentType(JSON).result(agent.addPlugin(service(ctx), ctx.body(), by));
+    /** {@code POST /api/services/{name}/plugins}: a row the next update run fulfils, answered and returned. */
+    String add(final Context ctx, final String by) {
+        final String row = agent.addPlugin(service(ctx), ctx.body(), by);
+        ctx.status(201).contentType(JSON).result(row);
+        return row;
     }
 
     /** {@code DELETE /api/services/{name}/plugins/{artifact}}: a REMOVE_PLUGIN run, answered with its row. */

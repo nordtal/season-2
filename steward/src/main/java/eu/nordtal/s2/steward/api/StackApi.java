@@ -2,6 +2,7 @@ package eu.nordtal.s2.steward.api;
 
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.audit.AuditDirectory;
+import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.setting.SettingStore;
@@ -116,6 +117,7 @@ public final class StackApi implements AutoCloseable {
 
     final MessagesApi messages;
     final ActionsApi actions;
+    private final AuditDirectory audit;
     /** The Disk field of one service's page; never part of the service table. */
     private final DiskUsage disk;
     /** How many lines the console can fill per service, Docker plus archive, capped at the top step. */
@@ -178,6 +180,7 @@ public final class StackApi implements AutoCloseable {
         this.messages = new MessagesApi(agent, botInbox, reloader, Waiting.on(clock));
         // One query over two tables, not a frontend-side merge.
         this.actions = new ActionsApi(updates, audit);
+        this.audit = audit;
         // Its own virtual thread per refresh, so a du never waits behind a registry call.
         this.disk = new DiskUsage(
                 agent, runnable -> Thread.ofVirtual().name("disk-usage").start(runnable), clock::instant);
@@ -473,6 +476,15 @@ public final class StackApi implements AutoCloseable {
     static final class ConsoleLine {
         @Nullable
         String command;
+    }
+
+    /** Writes the journal line of a change a route made; the change has happened, so a failure is only logged. */
+    void journal(final AuditLine line) {
+        try {
+            audit.record(line);
+        } catch (final RuntimeException failed) {
+            log.error("Could not write the journal line {} {}", line.action(), line.facts(), failed);
+        }
     }
 
     /** Types one line into a server's console through the agent, which logs who typed it beside the line. */

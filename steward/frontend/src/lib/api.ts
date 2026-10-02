@@ -619,14 +619,15 @@ export type Grant = {
   created: string
 }
 
+/** One line of `/api/journal`: who did what to whom, and the typed values that say what happened. */
 export type JournalEntry = {
   id: string
   occurred: string
   action: string
-  actor?: string
+  actor: { kind: ActorKind; person?: string }
   subject?: string
   mcUuid?: string
-  detail?: string
+  facts: Record<string, unknown>
 }
 
 /** Who asked for a run or did a journalled thing; `actorId` is a Discord id for a `PERSON` and `""` otherwise. */

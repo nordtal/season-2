@@ -7,12 +7,14 @@ import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AccessGrant;
 import eu.nordtal.s2.database.access.AccessSource;
 import eu.nordtal.s2.database.access.PlaytimeWording;
+import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.access.SeasonStart;
 import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
 import eu.nordtal.s2.messages.Messages;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -60,7 +62,12 @@ public final class BotAccessEffects implements AccessChanges {
                                 .grantedSection()
                                 .admin(String.valueOf(days), AccessRoles.timestamp(granted.validUntil()))));
 
-        admin.record("GRANT_ACCESS", by.filed(), discordId.value(), by.minecraftUuid(), days + " days");
+        admin.record(new AuditLine(
+                "GRANT_ACCESS",
+                by.filed(),
+                discordId,
+                by.minecraftUuid(),
+                Map.of("days", days, "until", granted.validUntil())));
         admin.note(
                 "🎟️ Access granted",
                 by.mention() + " → <@" + discordId + "> " + days + " days, until "
@@ -79,7 +86,8 @@ public final class BotAccessEffects implements AccessChanges {
                     messages.format(roles.localeOf(discordId), MESSAGES.dm().revoked()));
         }
 
-        admin.record("REVOKE_ACCESS", by.filed(), discordId.value(), by.minecraftUuid(), revoked + " grant(s)");
+        admin.record(
+                new AuditLine("REVOKE_ACCESS", by.filed(), discordId, by.minecraftUuid(), Map.of("grants", revoked)));
         admin.note("🚫 Access revoked", by.mention() + " → <@" + discordId + ">, " + revoked + " grants");
         return revoked;
     }
@@ -92,7 +100,7 @@ public final class BotAccessEffects implements AccessChanges {
         if (!access.unlink(discordId)) {
             return false;
         }
-        admin.record("UNLINK", by.filed(), discordId.value(), linked.orElse(null), "by an admin, not self-service");
+        admin.record(new AuditLine("UNLINK", by.filed(), discordId, linked.orElse(null), Map.of("selfService", false)));
         admin.note(
                 "✂️ Unlinked",
                 by.mention() + " → <@" + discordId + "> `"
@@ -108,8 +116,8 @@ public final class BotAccessEffects implements AccessChanges {
     @Override
     public void setPlaytime(final DiscordId discordId, final long seconds, final Actor by) {
         access.setPlaytimeSeconds(discordId, seconds);
-        // Days, hours and minutes, the unit Steward uses.
-        admin.record("SET_PLAYTIME", by.filed(), discordId.value(), by.minecraftUuid(), PlaytimeWording.of(seconds));
+        admin.record(
+                new AuditLine("SET_PLAYTIME", by.filed(), discordId, by.minecraftUuid(), Map.of("seconds", seconds)));
         admin.note("⏱️ Play time set", by.mention() + " → <@" + discordId + "> " + PlaytimeWording.of(seconds));
     }
 

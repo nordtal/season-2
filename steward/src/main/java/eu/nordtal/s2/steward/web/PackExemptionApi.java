@@ -5,6 +5,7 @@ import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.access.PackExemptions;
 import eu.nordtal.s2.database.audit.AuditDirectory;
+import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
@@ -58,7 +59,7 @@ final class PackExemptionApi {
             final String unchanged) {
         switch (outcome) {
             case CHANGED -> {
-                audit.record(action, who.id(), target, null, null);
+                audit.record(AuditLine.about(action, who.actor(), DiscordId.of(target), Map.of()));
                 log.info("{} {} for {}", who.name(), action, target);
                 ctx.json(Map.of("outcome", outcome.name()));
             }

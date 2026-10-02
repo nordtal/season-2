@@ -9,13 +9,13 @@ import org.jspecify.annotations.Nullable;
 /**
  * The SQL surface of the journal; {@link AuditDirectory} is the API.
  *
- * The insert is for Steward's grants and revokes; the phase switch writes its own row and must not use it.
+ * The insert is {@link Journal}'s, which every writer goes through.
  */
 interface AuditDao {
 
     /** Returns the newest lines; {@code id} breaks ties, since one transaction's entries share {@code occurred}. */
     @SqlQuery("""
-            SELECT id, occurred, action, actor, subject, mc_uuid, detail
+            SELECT id, occurred, action, actor_kind, actor_id, subject, mc_uuid, facts
             FROM audit_log
             ORDER BY occurred DESC, id DESC
             LIMIT :limit
@@ -29,7 +29,7 @@ interface AuditDao {
      * The casts are required: {@code :action IS NULL} alone leaves the parameter type undeterminable.
      */
     @SqlQuery("""
-            SELECT id, occurred, action, actor, subject, mc_uuid, detail
+            SELECT id, occurred, action, actor_kind, actor_id, subject, mc_uuid, facts
             FROM audit_log
             WHERE (cast(:action AS varchar) IS NULL OR action = cast(:action AS varchar))
               AND (cast(:subject AS varchar) IS NULL OR subject = cast(:subject AS varchar))

@@ -9,7 +9,6 @@ import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.Configured;
 import java.util.List;
-import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -114,27 +113,12 @@ public final class AdminLog {
                         failure -> log.error("Could not edit admin-channel message {}", messageId, failure));
     }
 
-    /**
-     * Writes one {@code audit_log} row, and never throws.
-     *
-     * @param action LINK, UNLINK, GRANT_ACCESS, REVOKE_ACCESS, SETTLE, ...
-     * @param actor the admin who caused it, {@code null} when the bot acted on its own
-     * @param subject who it is about, {@code null} when it is about nobody in particular
-     * @param mcUuid the Minecraft account, for link and unlink
-     * @param detail free text for whoever reads the table later
-     */
-    public void record(
-            final String action,
-            final @Nullable String actor,
-            final @Nullable String subject,
-            final @Nullable UUID mcUuid,
-            final String detail) {
+    /** Writes one journal line, and never throws: the action it records has already happened. */
+    public void record(final AuditLine line) {
         try {
-            final AuditLine line = new AuditLine(action, actor, subject, mcUuid, detail);
             jdbi.useHandle(handle -> Journal.write(handle, line));
         } catch (final RuntimeException exception) {
-            // An audit write must never take down the action it audits.
-            log.error("Could not write the audit_log row for {} ({})", action, detail, exception);
+            log.error("Could not write the audit_log row for {} {}", line.action(), line.facts(), exception);
         }
     }
 

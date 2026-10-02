@@ -1,12 +1,15 @@
 package eu.nordtal.s2.steward.auth;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.Jdbis;
+import eu.nordtal.s2.database.audit.AuditLine;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import javax.sql.DataSource;
@@ -171,6 +174,11 @@ public final class Sessions {
 
         public DiscordId signedInDiscordId() {
             return Objects.requireNonNull(discordId, "a signed-in session always carries a discord id");
+        }
+
+        /** Returns a journal line about something this person did to their own account. */
+        public AuditLine ownLine(final String action, final Map<String, Object> facts) {
+            return AuditLine.about(action, Actor.person(signedInDiscordId()), signedInDiscordId(), facts);
         }
 
         public String signedInDisplayName() {

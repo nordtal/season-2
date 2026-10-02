@@ -1,8 +1,6 @@
 package eu.nordtal.s2.steward.web;
 
 import com.google.gson.JsonObject;
-import eu.nordtal.s2.common.id.DiscordId;
-import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.DatabaseText;
 import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.inbox.BotRequest;
@@ -66,14 +64,9 @@ final class CommandApi {
         // One statement: a committed row with no journal line would run an action silently.
         final Request<P> asked = inbox.submit(
                 request,
-                Actor.person(DiscordId.of(who.id())),
+                who.actor(),
                 Schedule.within(PATIENCE),
-                new AuditLine(
-                        inbox.table().kindOf(request),
-                        who.id(),
-                        what,
-                        null,
-                        "asked by " + who.name() + " from Steward"));
+                AuditLine.of(inbox.table().kindOf(request), who.actor(), Map.of("target", what)));
         log.info("{} asked for {}", who.name(), what);
         return asked.id();
     }

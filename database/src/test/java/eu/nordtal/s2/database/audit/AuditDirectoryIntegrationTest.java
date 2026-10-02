@@ -3,13 +3,17 @@ package eu.nordtal.s2.database.audit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.TestDatabase;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeAll;
@@ -55,10 +59,10 @@ class AuditDirectoryIntegrationTest {
         assertNotNull(entry.id());
         assertNotNull(entry.occurred());
         assertEquals("LINK", entry.action());
-        assertEquals(ADMIN, entry.actor());
-        assertEquals(ALICE, entry.subject());
+        assertEquals(Actor.person(DiscordId.of(ADMIN)), entry.actor());
+        assertEquals(DiscordId.of(ALICE), entry.subject());
         assertEquals(ALICE_MC, entry.mcUuid());
-        assertEquals("linked by hand", entry.detail());
+        assertEquals("linked by hand", note(entry));
     }
 
     @Test
@@ -67,10 +71,10 @@ class AuditDirectoryIntegrationTest {
 
         final AuditEntry entry = directory.recent(10).getFirst();
 
-        assertNull(entry.actor(), "the bot acting on its own has no actor");
+        assertEquals(Actor.STEWARD, entry.actor(), "Steward acting on its own is an actor of its own");
         assertNull(entry.subject());
         assertNull(entry.mcUuid());
-        assertNull(entry.detail());
+        assertEquals(0, entry.facts().size(), "a line with nothing to add carries an empty object, never null");
     }
 
     @Test
@@ -164,22 +168,65 @@ class AuditDirectoryIntegrationTest {
         entry("-1 minutes", "REVOKE_ACCESS", ADMIN, ALICE, "NULL", "'alice-revoke'");
     }
 
-    private static List<String> details(final List<AuditEntry> entries) {
-        return entries.stream().map(AuditEntry::detail).toList();
+    @Test
+    void aWrittenLineComesBackWithItsTypedValues() {
+        directory.record(new AuditLine(
+                "GRANT_ACCESS",
+                Actor.person(DiscordId.of(ADMIN)),
+                DiscordId.of(ALICE),
+                ALICE_MC,
+                Map.of("days", 30, "donor", true, "reference", "AB12CD")));
+
+        final AuditEntry entry = directory.recent(1).getFirst();
+
+        assertEquals(Actor.person(DiscordId.of(ADMIN)), entry.actor());
+        assertEquals(30, entry.facts().get("days").getAsInt());
+        assertTrue(entry.facts().get("donor").getAsBoolean());
+        assertEquals("AB12CD", entry.facts().get("reference").getAsString());
     }
 
-    /** Writes one {@code audit_log} row; {@code mcUuid} and {@code detail} arrive quoted or as {@code NULL}. */
+    @Test
+    void theTableRefusesAnActorThatIsHalfAPerson() {
+        assertThrows(
+                IllegalStateException.class,
+                () -> execute("INSERT INTO audit_log (action, actor_kind, actor_id) VALUES ('X', 'STEWARD', '" + ADMIN
+                        + "')"));
+        assertThrows(
+                IllegalStateException.class,
+                () -> execute("INSERT INTO audit_log (action, actor_kind) VALUES ('X', 'PERSON')"));
+        assertThrows(
+                IllegalStateException.class,
+                () -> execute(
+                        "INSERT INTO audit_log (action, actor_kind, facts) VALUES ('X', 'STEWARD', '\"a sentence\"')"));
+    }
+
+    private static List<String> details(final List<AuditEntry> entries) {
+        return entries.stream().map(AuditDirectoryIntegrationTest::note).toList();
+    }
+
+    private static String note(final AuditEntry entry) {
+        return entry.facts().get("note").getAsString();
+    }
+
+    /** Writes one {@code audit_log} row; {@code mcUuid} and {@code note} arrive quoted or as {@code NULL}. */
     private static void entry(
             final String occurred,
             final String action,
             final String actor,
             final String subject,
             final String mcUuid,
-            final String detail) {
+            final String note) {
         execute("""
-                INSERT INTO audit_log (occurred, action, actor, subject, mc_uuid, detail)
-                VALUES (now() + interval '%s', '%s', %s, %s, %s, %s)
-                """.formatted(occurred, action, quoted(actor), quoted(subject), mcUuid, detail));
+                INSERT INTO audit_log (occurred, action, actor_kind, actor_id, subject, mc_uuid, facts)
+                VALUES (now() + interval '%s', '%s', '%s', %s, %s, %s, jsonb_strip_nulls(jsonb_build_object('note', %s)))
+                """.formatted(
+                        occurred,
+                        action,
+                        actor == null ? "STEWARD" : "PERSON",
+                        quoted(actor),
+                        quoted(subject),
+                        mcUuid,
+                        "NULL".equals(note) ? "cast(NULL AS text)" : note));
     }
 
     private static String quoted(final String value) {

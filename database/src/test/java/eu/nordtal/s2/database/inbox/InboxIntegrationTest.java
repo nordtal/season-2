@@ -264,7 +264,11 @@ class InboxIntegrationTest {
                 new BotRequest.Revoke(SOMEONE),
                 ADMIN,
                 Schedule.NOW,
-                new AuditLine("INBOX_TEST", "400000000000000001", "400000000000000002", null, null));
+                AuditLine.about(
+                        "INBOX_TEST",
+                        Actor.person(DiscordId.of("400000000000000001")),
+                        DiscordId.of("400000000000000002"),
+                        Map.of()));
 
         assertEquals(before + 1, count("SELECT count(*) FROM audit_log WHERE action = 'INBOX_TEST'"));
         assertEquals(1, count("SELECT count(*) FROM bot_inbox"));

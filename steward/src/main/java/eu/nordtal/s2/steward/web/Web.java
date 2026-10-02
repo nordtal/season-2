@@ -1,6 +1,5 @@
 package eu.nordtal.s2.steward.web;
 
-import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.access.AdminTree;
@@ -528,9 +527,9 @@ public final class Web {
 
             @Override
             public Actor actor(final Context ctx) {
-                final DiscordAuth.Account who =
-                        account(ctx).orElseThrow(() -> new UnauthorizedResponse("sign in first"));
-                return Actor.person(DiscordId.of(who.id()));
+                return account(ctx)
+                        .orElseThrow(() -> new UnauthorizedResponse("sign in first"))
+                        .actor();
             }
 
             @Override

@@ -5,7 +5,9 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.common.http.Reply;
 import eu.nordtal.s2.common.http.WebClient;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.steward.config.WebSpec;
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -209,7 +211,13 @@ public final class DiscordAuth {
     }
 
     /** Who signed in, with the roles kept so a later refusal can name the missing one. */
-    public record Account(String id, String name, List<String> roles) {}
+    public record Account(String id, String name, List<String> roles) {
+
+        /** Returns them as the actor of whatever they ask for. */
+        public Actor actor() {
+            return Actor.person(DiscordId.of(id));
+        }
+    }
 
     /** Signed in, or refused with a reason a person can act on. */
     public record Outcome(

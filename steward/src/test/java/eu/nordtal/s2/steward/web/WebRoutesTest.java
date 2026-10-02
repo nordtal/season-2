@@ -58,6 +58,10 @@ class WebRoutesTest extends WebTestSupport {
         assertTrue(
                 daemon.execs.stream().anyMatch(exec -> exec.contains("\"mc\"") && exec.contains("\"list\"")),
                 "the line never reached the container's console: " + daemon.execs);
+        final JsonObject line = newestJournalRow("CONSOLE");
+        assertEquals("1", line.getAsJsonObject("actor").get("person").getAsString(), "the admin, as a column");
+        assertEquals("list", line.getAsJsonObject("facts").get("command").getAsString());
+        assertEquals("smp", line.getAsJsonObject("facts").get("service").getAsString());
     }
 
     @Test

@@ -160,14 +160,7 @@ final class SecondFactor {
         }
         // Registering a key is holding it.
         sessions().markVerified(who.id());
-        // audit_log.actor is varchar(32), so the actor is the Discord id.
-        data().audit()
-                .record(
-                        "REGISTER_KEY",
-                        who.signedInDiscordId().value(),
-                        who.signedInDiscordId().value(),
-                        null,
-                        "registered the security key \"" + key.label() + "\"");
+        data().audit().record(who.ownLine("REGISTER_KEY", Map.of("label", key.label())));
         ctx.json(Map.of("label", key.label(), "userVerified", key.userVerified(), "backedUp", key.backedUp()));
     }
 
@@ -214,14 +207,7 @@ final class SecondFactor {
             return;
         }
         sessions().markVerified(who.id());
-        data().audit()
-                .record(
-                        "HELD_KEY",
-                        who.signedInDiscordId().value(),
-                        who.signedInDiscordId().value(),
-                        null,
-                        "held the security key \"" + held.label() + "\""
-                                + (held.userVerified() ? " and unlocked it" : ""));
+        data().audit().record(who.ownLine("HELD_KEY", Map.of("label", held.label(), "unlocked", held.userVerified())));
         ctx.json(Map.of("label", held.label(), "userVerified", held.userVerified()));
     }
 
@@ -247,13 +233,7 @@ final class SecondFactor {
         if (!credentials().rename(who.signedInDiscordId(), keyIdOf(ctx), label)) {
             throw new NotFoundResponse("this account has no key of that id");
         }
-        data().audit()
-                .record(
-                        "RENAME_KEY",
-                        who.signedInDiscordId().value(),
-                        who.signedInDiscordId().value(),
-                        null,
-                        "renamed a security key to \"" + label + "\"");
+        data().audit().record(who.ownLine("RENAME_KEY", Map.of("label", label)));
         ctx.json(Map.of("label", label));
     }
 
@@ -270,13 +250,7 @@ final class SecondFactor {
             throw new NotFoundResponse("this account has no key of that id");
         }
         final int left = credentials().of(who.signedInDiscordId()).size();
-        data().audit()
-                .record(
-                        "REMOVE_KEY",
-                        who.signedInDiscordId().value(),
-                        who.signedInDiscordId().value(),
-                        null,
-                        "removed the security key \"" + label + "\" - " + left + " left on this account");
+        data().audit().record(who.ownLine("REMOVE_KEY", Map.of("label", label, "left", left)));
         ctx.json(Map.of("removed", label, "left", left));
     }
 }

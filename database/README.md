@@ -31,6 +31,11 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
 - **Time** comes from the caller: every directory that decides by the clock takes an `InstantSource`.
 - **Who asked** for a request is an `Actor`: a person by Discord id, Steward on its own, or the host's
   installer, stored as `actor_kind` and `actor_id` in every request table and never as a name to parse.
+- **The journal**, `audit_log`, is written only through `Journal.write`, inside the caller's transaction where there is
+  one. An `AuditLine` is an action, an `Actor` like a request's, the person it concerns and typed facts under their
+  own keys; it never holds a sentence, because the page that shows a line renders it and a sentence cannot be
+  searched, counted or translated. A line from before typed facts keeps its sentence under `detail`, and a command,
+  run or service it named as its subject under `target`.
 - **The season phase** is one row every process follows on its hub. A switch into `SMP` from before the season stamps
   `fresh_start`, and smp starts its own track over once per stamp whenever it next sees the phase, so a server that
   was down at the switch still starts over and no other process writes smp's tables.

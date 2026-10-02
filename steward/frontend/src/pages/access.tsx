@@ -37,7 +37,7 @@ import {
   useSettle,
   useUnlink,
 } from "@/lib/queries"
-import { Entity } from "@/components/steward/entity"
+import { Actor, Entity } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
 import { RowActions, type RowAction } from "@/components/steward/row-actions"
 import { Stat } from "@/components/steward/stat"
@@ -1677,6 +1677,29 @@ const WAITING_ENTRIES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
  *
  * Both filters are exact matches, so actions are picked from the rows present and the subject is submitted.
  */
+/** A journal line's values by key; a line from before typed values keeps its one sentence under `detail`. */
+function JournalFacts({ facts }: { facts: Record<string, unknown> }) {
+  const shown = Object.entries(facts).filter(([key]) => key !== "target")
+  if (shown.length === 0) return <>{"\u2013"}</>
+  if (shown.length === 1 && shown[0][0] === "detail") return <>{factText(shown[0][1])}</>
+  return (
+    <span className="flex flex-wrap gap-x-3">
+      {shown.map(([key, value]) => (
+        <span key={key}>
+          <span className="text-foreground">{key}</span> {factText(value)}
+        </span>
+      ))}
+    </span>
+  )
+}
+
+function factText(value: unknown): string {
+  if (Array.isArray(value)) return value.map(factText).join(", ")
+  if (typeof value === "string") return value
+  if (typeof value === "number" || typeof value === "boolean") return String(value)
+  return JSON.stringify(value)
+}
+
 export function JournalPage() {
   /** The unfiltered query, for the options; it shares its key with the filtered one while no filter is set. */
   const all = useJournal("", "")
@@ -1819,18 +1842,20 @@ export function JournalPage() {
                             </TableCell>
                             {/* A profile, never an id; no admin at all is Steward's own mark. */}
                             <TableCell data-label="Triggered by" className="text-muted-foreground">
-                              {entry.actor ? <Entity id={entry.actor} /> : <Entity system />}
+                              <Actor kind={entry.actor.kind} id={entry.actor.person ?? ""} />
                             </TableCell>
                             <TableCell data-label="Concerns" className="text-muted-foreground">
                               {entry.subject ? (
                                 <Entity id={entry.subject} />
                               ) : entry.mcUuid ? (
                                 <Entity id={entry.mcUuid} kind="minecraft" />
+                              ) : typeof entry.facts.target === "string" ? (
+                                <Entity id={entry.facts.target} />
                               ) : null}
                             </TableCell>
-                            {/* Running text, so it wraps where TableCell would not. */}
+                            {/* The line's values, wrapping where TableCell would not. */}
                             <TableCell data-label="Detail" className="text-muted-foreground whitespace-normal">
-                              {entry.detail ?? "\u2013"}
+                              <JournalFacts facts={entry.facts} />
                             </TableCell>
                           </TableRow>
                         ))}

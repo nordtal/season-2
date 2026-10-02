@@ -1,24 +1,27 @@
 package eu.nordtal.s2.database.audit;
 
+import com.google.gson.JsonObject;
+import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.Actor;
 import java.time.Instant;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One line of {@code audit_log}, append-only, serialised straight to JSON.
+ * One line of {@code audit_log}, append-only, serialised straight to JSON for Steward to render.
  *
  * @param occurred when it happened, by the database's clock
  * @param action   such as {@code LINK} or {@code GRANT_ACCESS}; a string, as the column has no CHECK
- * @param actor    the Discord id of the admin who caused it, {@code null} when the bot acted on its own
- * @param subject  the Discord id the line is about, {@code null} when there is no one person
+ * @param actor    who did it: a person, Steward on its own, or the host
+ * @param subject  the person the line is about, {@code null} when there is no one person
  * @param mcUuid   the Minecraft account for link and unlink, {@code null} otherwise
- * @param detail   free text, {@code null} when the action says everything
+ * @param facts    the line's typed values by key, as they were written
  */
 public record AuditEntry(
         UUID id,
         Instant occurred,
         String action,
-        @Nullable String actor,
-        @Nullable String subject,
+        Actor actor,
+        @Nullable DiscordId subject,
         @Nullable UUID mcUuid,
-        @Nullable String detail) {}
+        JsonObject facts) {}

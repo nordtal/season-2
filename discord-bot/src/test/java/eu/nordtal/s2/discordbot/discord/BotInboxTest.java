@@ -32,25 +32,25 @@ class BotInboxTest {
 
         @Override
         public Instant grant(final DiscordId discordId, final int days, final Actor by) {
-            carriedOut.add("grant " + discordId + " " + days + " by " + by.filed());
+            carriedOut.add("grant " + discordId + " " + days + " by " + filed(by));
             return Instant.parse("2026-10-20T00:00:00Z");
         }
 
         @Override
         public int revoke(final DiscordId discordId, final Actor by) {
-            carriedOut.add("revoke " + discordId + " by " + by.filed());
+            carriedOut.add("revoke " + discordId + " by " + filed(by));
             return 2;
         }
 
         @Override
         public boolean unlink(final DiscordId discordId, final Actor by) {
-            carriedOut.add("unlink " + discordId + " by " + by.filed());
+            carriedOut.add("unlink " + discordId + " by " + filed(by));
             return true;
         }
 
         @Override
         public void setPlaytime(final DiscordId discordId, final long seconds, final Actor by) {
-            carriedOut.add("playtime " + discordId + " " + seconds + " by " + by.filed());
+            carriedOut.add("playtime " + discordId + " " + seconds + " by " + filed(by));
         }
 
         @Override
@@ -120,11 +120,11 @@ class BotInboxTest {
 
         assertEquals(
                 List.of(
-                        "grant 400000000000000002 30 by 400000000000000001",
-                        "revoke 400000000000000002 by 400000000000000001",
-                        "unlink 400000000000000002 by 400000000000000001",
+                        "grant 400000000000000002 30 by PERSON 400000000000000001",
+                        "revoke 400000000000000002 by PERSON 400000000000000001",
+                        "unlink 400000000000000002 by PERSON 400000000000000001",
                         "told 400000000000000002 30",
-                        "playtime 400000000000000002 7200 by 400000000000000001"),
+                        "playtime 400000000000000002 7200 by PERSON 400000000000000001"),
                 carriedOut);
     }
 
@@ -174,7 +174,11 @@ class BotInboxTest {
         subject.handle(
                 row(new BotRequest.Revoke(DiscordId.of("400000000000000002")), eu.nordtal.s2.database.Actor.STEWARD));
 
-        // The audit's own reading of no actor: the system, never a made-up name in the id column.
-        assertEquals(List.of("revoke 400000000000000002 by null"), carriedOut);
+        // Steward is an actor kind of its own, never a made-up name in the id column.
+        assertEquals(List.of("revoke 400000000000000002 by STEWARD null"), carriedOut);
+    }
+
+    private static String filed(final Actor by) {
+        return by.filed().kind() + " " + by.filed().id();
     }
 }

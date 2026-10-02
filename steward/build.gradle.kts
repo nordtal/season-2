@@ -37,15 +37,9 @@ repositoryRootTestInputs {
     reads("README.md")
     reads("deploy/nordtal.sh")
     reads("deploy/README.md")
-
-    // TopologyTest checks that the release workflow pushes every image compose.yml names.
-    reads(".github/workflows/release.yml")
-
-    // TopologyDeploymentTest holds dev.env.example against every required variable in compose.yml.
+    // DiscordAuthTest reads the documented environment beside the setup script.
     reads("deploy/dev.env.example")
 
-    // TopologyDeploymentTest holds every JVM service to the one image template and what it admits.
-    reads(".dockerignore")
 
     // DocumentedCommandsTest reads every document that shows a `steward` command.
     reads("steward/README.md")
@@ -252,10 +246,6 @@ dependencies {
     implementation(project(":database"))
     implementation(libs.bundles.access.persistence)
     implementation(libs.postgresql.driver)
-    // JdbiPluginDirectory installs JDBI's PostgresPlugin, which jcore declares at runtime scope only.
-    implementation(libs.jdbi.postgres)
-    // Compile-only for Schema, which passes the role placeholders: jcore ships Flyway at runtime.
-    compileOnly(libs.flyway.core)
 
     // The one loader, the database group and checks every process shares.
     implementation(project(":settings"))

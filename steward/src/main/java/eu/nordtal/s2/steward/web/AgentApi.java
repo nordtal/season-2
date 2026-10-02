@@ -1,50 +1,23 @@
 package eu.nordtal.s2.steward.web;
 
 import eu.nordtal.s2.internalapi.agent.AgentClient;
-import eu.nordtal.s2.internalapi.agent.AgentWire;
-import eu.nordtal.s2.steward.auth.DiscordAuth;
-import eu.nordtal.s2.steward.data.Data;
-import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
-import io.javalin.http.ServiceUnavailableResponse;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
-import java.util.function.Function;
-import org.jspecify.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
- * Asks steward-agent to recreate one service's container, after checking the caller and the name.
+ * Whether steward-agent can be asked at all, so a page can draw what needs it before anybody clicks.
  *
- * The name is checked because it goes into a URL path; the journal row is written here.
+ * Making a container again is a RECREATE run, asked for like every other run.
  */
 public final class AgentApi {
 
-    private static final Logger log = LoggerFactory.getLogger(AgentApi.class);
-
     private final AgentClient agent;
-
-    private final @Nullable Data data;
-
-    private final Function<Context, DiscordAuth.Account> accounts;
     private final boolean configured;
 
     /** {@code configured} is whether a secret was given at all; a stack not set up yet is not a fault. */
-    public AgentApi(
-            final AgentClient agent,
-            final @Nullable Data data,
-            final Function<Context, DiscordAuth.Account> accounts,
-            final boolean configured) {
+    public AgentApi(final AgentClient agent, final boolean configured) {
         this.agent = agent;
-        this.data = data;
-        this.accounts = accounts;
         this.configured = configured;
-    }
-
-    private Data data() {
-        return Objects.requireNonNull(data, "no database - this route is not available without one");
     }
 
     /** Whether the button may be drawn, so a page can decide before anybody clicks. */
@@ -59,68 +32,5 @@ public final class AgentApi {
             return;
         }
         ctx.json(Map.of("available", true, "reachable", agent.isReachable()));
-    }
-
-    /** {@code POST /api/agent/recreate/{service}}: accepted, and then it is a job. */
-    public void recreate(final Context ctx) {
-        require();
-        final String service = serviceOf(ctx);
-        final DiscordAuth.Account who = accounts.apply(ctx);
-
-        // Written before the call, with the id, since audit_log.actor is varchar(32).
-        data().audit()
-                .record(
-                        "RECREATE",
-                        who.id(),
-                        service,
-                        null,
-                        // "requested", not "recreated": the call can still be refused or stall.
-                        "recreation from the current image requested by " + who.name() + " from the web interface");
-        log.info("{} asked steward-agent to recreate {}", who.name(), service);
-
-        ctx.status(202).json(agent.startRecreate(service));
-    }
-
-    /** {@code GET /api/agent/jobs/{id}}: the job with its output so far. */
-    public void job(final Context ctx) {
-        require();
-        ctx.json(agent.job(jobId(ctx)));
-    }
-
-    /** {@code GET /api/agent/jobs}: the jobs this agent has run since it started. */
-    public void jobs(final Context ctx) {
-        require();
-        ctx.json(agent.jobs());
-    }
-
-    private void require() {
-        if (!configured) {
-            throw new ServiceUnavailableResponse(
-                    "agent.token is empty in the steward group, so nothing can be asked of "
-                            + "steward-agent. The setup script writes that secret.");
-        }
-    }
-
-    /** The service name out of the path: lowercase letters, digits, hyphens and underscores only. */
-    private static String serviceOf(final Context ctx) {
-        final String service = ctx.pathParam("service").trim().toLowerCase(Locale.ROOT);
-        if (service.isEmpty() || !service.matches("[a-z0-9][a-z0-9_-]{0,62}")) {
-            throw new BadRequestResponse("\"" + ctx.pathParam("service") + "\" is not a compose service name");
-        }
-        // The request runs through it, so the answer would never come back.
-        if (service.equals(AgentWire.SERVICE)) {
-            throw new BadRequestResponse("steward-agent does not recreate itself: it is the container this request "
-                    + "is travelling through, so the answer would never come back. The setup "
-                    + "script on the host renews that one.");
-        }
-        return service;
-    }
-
-    private static String jobId(final Context ctx) {
-        final String id = ctx.pathParam("id").trim();
-        if (id.isEmpty() || !id.matches("[A-Za-z0-9_-]{1,64}")) {
-            throw new BadRequestResponse("\"" + ctx.pathParam("id") + "\" is not a job id");
-        }
-        return id;
     }
 }

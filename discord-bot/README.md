@@ -8,11 +8,8 @@ It holds no bunq key. The bot writes a `payment_request` row; `steward` has `ste
 the bunq.me tab, writes the link back and finds the money, and the bot books it.
 
 It never migrates the schema. At startup it runs Flyway's `validate()` and refuses a database it
-was not built against, so `steward` has to have run first:
-
-```bash
-docker compose run --rm steward migrate
-```
+was not built against; `steward-agent` migrates at every start of its own, and compose starts the
+bot only once it is healthy.
 
 ## What it needs
 

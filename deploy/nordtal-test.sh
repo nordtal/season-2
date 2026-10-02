@@ -417,19 +417,19 @@ parse_update_args --in 10 --no-wait --timeout 60
     || bad "--in/--no-wait/--timeout did not all land"
 ok "the countdown, the timeout and not waiting at all"
 
-case_begin "update: the statement, and why it is safe to assemble by hand"
-sql="$(update_insert_sql UPDATE "" 0)"
-grep -q "'HOST'" <<<"$sql" || bad "the actor is not the host"
-grep -q "pg_notify('nordtal_update', '')" <<<"$sql" \
-    || bad "the bell is not rung in the same statement, so a row can exist that nobody was told about"
-grep -q "make_interval(mins => 0)" <<<"$sql" || bad "the delay did not reach the statement"
-grep -q "'services', '\[\]'::jsonb" <<<"$sql" || bad "an empty scope has to be no services and not an empty name"
-ok "the row names the host, rings the bell with itself, and a whole-network run names no service"
+case_begin "update: the request is the agent's, never SQL of this script's"
+mapfile -t words < <(update_request_words UPDATE "" 0)
+[[ "${words[*]:0:2}" == "steward-agent request" ]] || bad "the request is not steward-agent's: ${words[*]}"
+[[ "${#words[@]}" == 5 && -z "${words[3]}" ]] \
+    || bad "an empty scope has to stay one empty word, or the minutes would be read as services"
+[[ "${words[2]}" == UPDATE && "${words[4]}" == 0 ]] || bad "the kind or the delay did not land: ${words[*]}"
+ok "the agent writes the row, so the open run stays the one lock"
 
-sql="$(update_insert_sql DOWN smp 15)"
-grep -q "'smp'" <<<"$sql"   || bad "the scope did not reach the statement"
-grep -q "make_interval(mins => 15)" <<<"$sql" || bad "the fifteen minutes did not"
+mapfile -t words < <(update_request_words DOWN smp,limbo 15)
+[[ "${words[3]}" == smp,limbo && "${words[4]}" == 15 ]] || bad "a scoped, delayed run lost one: ${words[*]}"
 ok "a scoped, delayed run carries both"
+grep -q 'INSERT INTO steward_inbox' "$SETUP" && bad "nordtal.sh still writes the inbox itself"
+ok "no statement of its own is left in the script"
 
 case_begin "update: which statuses end the wait"
 for over in DONE FAILED CANCELLED; do

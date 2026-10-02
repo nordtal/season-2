@@ -27,17 +27,12 @@ public final class AgentWire {
     /** One service's {@link Container}, with the registry digests of its image. */
     public static final String CONTAINER = CONTAINERS + "/{service}";
 
-    /** POST, answered by a {@link RedeployResult}; {@code {id}} is the container. */
-    public static final String STOP = "/api/stop/{id}";
-
     /**
-     * The longest a stop through {@link #STOP} may take: the {@code stop_grace_period}, the kill and its answer.
+     * The longest a run's stop may take: the {@code stop_grace_period}, the kill and its answer.
      *
-     * The agent never waits a grace longer than this allows, and the client waits this long.
+     * The agent never waits a grace longer than this allows.
      */
     public static final Duration LONGEST_STOP = Duration.ofMinutes(4);
-
-    public static final String START = "/api/start/{id}";
 
     /** Every running service's image against its registry: an {@link ImageResult}, slow on purpose. */
     public static final String IMAGES = "/api/images";
@@ -76,29 +71,14 @@ public final class AgentWire {
     /** One finished archive's bytes, streamed. */
     public static final String BACKUP = BACKUPS + "/{name}";
 
-    /** POST a {@link DatabaseDump}, answered by a {@link SnapshotResult}. */
-    public static final String DUMP_DATABASE = "/api/backup/database";
+    /** What every source calls newest against what is installed, flattened for the updates page; slow on purpose. */
+    public static final String PLAN = "/api/plan";
 
-    /** POST a {@link VolumeSnapshot}, answered by a {@link SnapshotResult}. */
-    public static final String SNAPSHOT_VOLUME = "/api/backup/volume";
+    /** The plugins an admin added to one server, and the ones the network gives; POST adds one. */
+    public static final String PLUGINS = "/api/plugins/{name}";
 
-    /** POST an {@link UnverifiedMark}, answered by a {@link Mark}. */
-    public static final String MARK_UNVERIFIED = "/api/backup/mark";
-
-    /** POST a {@link Retention}, answered by the names it removed. */
-    public static final String PRUNE = "/api/backup/prune";
-
-    /** POST {@link Deploy}: pull, then up; answered {@code 202} with a {@link Job}. */
-    public static final String DEPLOY = "/api/deploy";
-
-    /** POST: the container again from the image on this host; answered {@code 202} with a {@link Job}. */
-    public static final String RECREATE = "/api/recreate/{service}";
-
-    /** Every job since the agent started, as {@link Job}s. */
-    public static final String JOBS = "/api/jobs";
-
-    /** One {@link Job} with its output so far. */
-    public static final String JOB = JOBS + "/{id}";
+    /** Modrinth's answer to {@code ?q=} for one server. */
+    public static final String PLUGIN_SEARCH = PLUGINS + "/search";
 
     private AgentWire() {}
 
@@ -230,36 +210,6 @@ public final class AgentWire {
 
     /** One file in the backup directory; a {@code partial} one is being written or died halfway. */
     public record Archive(String name, long bytes, String human, Instant modified, boolean partial) {}
-
-    /** Which service runs PostgreSQL and the role pg_dump logs in as. */
-    public record DatabaseDump(String service, String role) {}
-
-    /** One volume by its Docker name, and how long the tar may take before it is abandoned. */
-    public record VolumeSnapshot(String volume, Duration patience) {}
-
-    public record UnverifiedMark(String archive, String why) {}
-
-    /** The mark's name, or {@code null} when it could not be written. */
-    public record Mark(@Nullable String name) {}
-
-    /** The services one deployment pulls and brings up; empty means the whole project. */
-    public record Deploy(List<String> services) {}
-
-    /**
-     * A deployment or a recreate, which runs on after the request that started it.
-     *
-     * @param state {@code RUNNING}, {@code DONE} or {@code FAILED}
-     * @param lines compose's own output, filled only by {@link #JOB}
-     */
-    public record Job(
-            String id,
-            String kind,
-            List<String> services,
-            String state,
-            Instant started,
-            @Nullable Instant finished,
-            @Nullable Integer exitCode,
-            @Nullable List<String> lines) {}
 
     /** An answer that is not the one asked for, with the sentence to show and where it came from. */
     public record Refusal(String error, String where) {}

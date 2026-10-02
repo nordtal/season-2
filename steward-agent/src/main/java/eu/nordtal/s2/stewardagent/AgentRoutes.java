@@ -21,7 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The routes that read the daemon or act on one container: the topology, the containers, the host and the console.
+ * The routes that read the daemon: the topology, the containers, the host and the console; every stop is a run.
  *
  * Every failure leaves as a {@link AgentWire.Refusal}, so steward can show the sentence and where it came from.
  */
@@ -52,8 +52,6 @@ final class AgentRoutes {
         config.routes.get(AgentWire.TOPOLOGY, ctx -> ctx.json(topology.read()));
         config.routes.get(AgentWire.CONTAINERS, ctx -> ctx.json(containers.list(sampler.latestByService())));
         config.routes.get(AgentWire.CONTAINER, this::one);
-        config.routes.post(AgentWire.STOP, ctx -> ctx.json(containers.stop(ctx.pathParam("id"))));
-        config.routes.post(AgentWire.START, ctx -> ctx.json(containers.start(ctx.pathParam("id"))));
         config.routes.get(AgentWire.IMAGES, ctx -> ctx.json(containers.images()));
         config.routes.post(AgentWire.CONSOLE, this::console);
         config.routes.get(AgentWire.HOST, ctx -> ctx.json(host()));

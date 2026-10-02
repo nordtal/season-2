@@ -31,23 +31,6 @@ class StewardSettingsTest {
     }
 
     @Test
-    void aBackupWaitsHalfAnHourForTheServersByDefault() throws Exception {
-        // A run ending FAILED mentions the admin role through UpdateFeed, so a half-hour outage is not silent.
-        assertEquals(30, steward().get().backup().patienceMinutes());
-    }
-
-    @Test
-    void aRefusedChangeKeepsTheValuesInUseAndSaysWhyOnTheGroup() throws Exception {
-        final Setting<StewardSpec> steward = steward();
-        store.set(StewardSettings.SERVICE, "steward", "backup.patience-minutes", 0);
-
-        assertThrows(SettingsException.class, steward::reload);
-
-        assertEquals(30, steward.get().backup().patienceMinutes());
-        assertTrue(store.group(StewardSettings.SERVICE, "steward").orElseThrow().problem() != null);
-    }
-
-    @Test
     void noBankTokenIsAValidDeployment() throws Exception {
         final StewardSpec.BunqSpec bunq = steward().get().bunq();
 

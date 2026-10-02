@@ -10,11 +10,9 @@ import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.ImageResult;
+import eu.nordtal.s2.internalapi.agent.Topology;
 import eu.nordtal.s2.steward.alert.StackReading;
 import eu.nordtal.s2.steward.backup.NightlyClock;
-import eu.nordtal.s2.steward.plan.Change;
-import eu.nordtal.s2.steward.plan.Topology;
-import eu.nordtal.s2.steward.plan.UpdatePlan;
 import io.javalin.config.JavalinConfig;
 import java.io.InputStream;
 import java.time.Clock;
@@ -67,7 +65,7 @@ public final class StackApi implements AutoCloseable {
     private final Supplier<Nightly> nightly;
 
     /** The plugin routes, or null without a database, when every route answers 503. */
-    private final @Nullable PluginsApi managedPlugins;
+    private final @Nullable PluginsForward managedPlugins;
 
     /** Every process's settings, or {@code null} without a database. */
     private final @Nullable SettingsApi settings;
@@ -108,7 +106,7 @@ public final class StackApi implements AutoCloseable {
     private static final Duration AVAILABLE_TTL = Duration.ofHours(6);
 
     /** One resolve and the moment it was made, for the same reason {@link Drift} is one value. */
-    record Available(UpdatePlan plan, Instant checkedAt) {}
+    record Available(String plan, Instant checkedAt) {}
 
     /**
      * The resolve, or {@code null} where this API has no sources to ask.
@@ -142,7 +140,8 @@ public final class StackApi implements AutoCloseable {
      * @param updates the run inbox, sharing one directory with the run loop
      * @param audit {@code audit_log}, for {@link ActionsApi}
      * @param online where the player counts and the player list come from, or {@code null} without a database
-     * @param resolve {@code Runs#resolve}, asked again when the cache ages; {@code null} makes the endpoint answer 503
+     * @param resolve steward-agent's resolve as its JSON, asked again when the cache ages; {@code null} makes the
+     *     endpoint answer 503
      * @param managedPlugins the plugin routes, or {@code null} without a database, when they answer 503
      * @param botInbox the bot's inbox, or {@code null} without a database, when a bot bundle save asks for a
      *     restart
@@ -157,8 +156,8 @@ public final class StackApi implements AutoCloseable {
             final AuditDirectory audit,
             final Supplier<Nightly> nightly,
             final @Nullable ServicesApi online,
-            final @Nullable Supplier<UpdatePlan> resolve,
-            final @Nullable PluginsApi managedPlugins,
+            final @Nullable Supplier<String> resolve,
+            final @Nullable PluginsForward managedPlugins,
             final @Nullable Inbox<BotRequest> botInbox,
             final MessagesApi.@Nullable Reloader reloads,
             final @Nullable SettingStore settings,
@@ -223,7 +222,7 @@ public final class StackApi implements AutoCloseable {
     }
 
     /** The plugin routes, or a 503, since "no plugins" and "cannot read the table" are different answers. */
-    PluginsApi plugins() {
+    PluginsForward plugins() {
         if (managedPlugins == null) {
             throw new io.javalin.http.ServiceUnavailableResponse(
                     "Steward has no database, so it cannot say which plugins were added");
@@ -379,58 +378,12 @@ public final class StackApi implements AutoCloseable {
         ctx.result(body);
     }
 
-    /**
-     * `/api/updates/available`'s body: the whole resolve, flattened, plus the age of the reading.
-     *
-     * Every row is carried with its status, so outdated and unresolved never look alike.
-     */
+    /** `/api/updates/available`'s body: the agent's whole resolve, plus the age of the reading. */
     Map<String, Object> availability(final Available reading) {
-        final UpdatePlan plan = reading.plan();
-        final List<Map<String, Object>> changes = new ArrayList<>();
-        for (final Change change : plan.changes()) {
-            final Map<String, Object> row = new LinkedHashMap<>();
-            // The pack has no service, so the key is left off rather than sent empty.
-            if (change.service() != null) {
-                row.put("service", change.service());
-            }
-            row.put("artifact", change.artifact());
-            row.put("status", change.status().name());
-            row.put("work", change.status().isWork());
-            row.put("failure", change.status().isFailure());
-            // Work a run would not do: another row of the same service failed to check, so the applier skips it.
-            row.put(
-                    "held",
-                    change.status().isWork() && change.service() != null && plan.blocker(change.service()) != null);
-            if (change.installed() != null) {
-                row.put("installed", change.installed());
-            }
-            if (change.wanted() != null) {
-                // Version for a person, filename for the comparison, since some files carry a suffix.
-                row.put("version", change.wanted().version());
-                row.put("fileName", change.wanted().fileName());
-            }
-            if (change.note() != null) {
-                row.put("note", change.note());
-            }
-            changes.add(row);
-        }
-
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("checkedAt", reading.checkedAt().toString());
-        answer.put("resolvedAt", plan.resolvedAt().toString());
-        if (plan.seasonTag() != null) {
-            answer.put("seasonTag", plan.seasonTag());
-        }
-        answer.put("seasonPrerelease", plan.seasonPrerelease());
-        answer.put("hasWork", plan.hasWork());
-        answer.put("hasFailures", plan.hasFailures());
-        answer.put("changes", changes);
-        answer.put(
-                "unclaimed",
-                plan.unclaimed().stream()
-                        .map(one -> Map.of("service", one.service(), "fileName", one.fileName()))
-                        .toList());
-        answer.put("notes", plan.notes());
+        answer.putAll(eu.nordtal.s2.common.json.Json.decode(
+                reading.plan(), new com.google.gson.reflect.TypeToken<LinkedHashMap<String, Object>>() {}));
         return answer;
     }
 

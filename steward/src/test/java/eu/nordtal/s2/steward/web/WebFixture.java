@@ -2,17 +2,16 @@ package eu.nordtal.s2.steward.web;
 
 import com.google.gson.Gson;
 import eu.nordtal.jcore.persistence.sql.Database;
-import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.settings.DatabaseSpec;
+import eu.nordtal.s2.settings.DatabaseWaiting;
 import eu.nordtal.s2.steward.alert.Thresholds;
 import eu.nordtal.s2.steward.api.StackApi;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.auth.TestAuthenticator;
 import eu.nordtal.s2.steward.config.WebSpec;
 import eu.nordtal.s2.steward.data.Data;
-import eu.nordtal.s2.steward.schema.Schema;
 import eu.nordtal.s2.stewardagent.AgentStandIn;
 import eu.nordtal.s2.stewardagent.docker.FakeDaemon;
 import io.javalin.Javalin;
@@ -63,9 +62,6 @@ abstract class WebFixture {
 
     static Javalin fakeDiscord;
 
-    /** What the stand-in agent was last asked to recreate, so a test can read it back. */
-    static final java.util.List<String> recreated = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
-
     static Web web;
     static HttpClient http;
     static TestDatabase postgres;
@@ -90,35 +86,8 @@ abstract class WebFixture {
     }
 
     private static void startAgent() throws IOException {
-        // The real agent routes behind the real guard; only the deployments are stand-ins, since they run compose.
-        agent = new AgentStandIn(scratch, AGENT_PORT, cfg -> {
-            cfg.routes.post("/api/recreate/{service}", ctx -> {
-                recreated.add(ctx.pathParam("service"));
-                ctx.status(202)
-                        .json(Map.of(
-                                "id",
-                                "job-1",
-                                "kind",
-                                "recreate",
-                                "services",
-                                List.of(ctx.pathParam("service")),
-                                "state",
-                                "RUNNING"));
-            });
-            cfg.routes.get(
-                    "/api/jobs/{id}",
-                    ctx -> ctx.json(Map.of(
-                            "id",
-                            ctx.pathParam("id"),
-                            "kind",
-                            "recreate",
-                            "state",
-                            "DONE",
-                            "exitCode",
-                            0,
-                            "lines",
-                            List.of("Container nordtal-s2-smp-1  Recreated"))));
-        });
+        // The real agent routes behind the real guard.
+        agent = new AgentStandIn(scratch, AGENT_PORT, cfg -> {});
         daemon = agent.daemon;
     }
 
@@ -216,22 +185,24 @@ abstract class WebFixture {
     private static void startDatabase() {
         // A real database with the real migrations, not a stub that only agrees with itself.
         postgres = TestDatabase.fresh();
-        database = Schema.open(new DatabaseSpec() {
-            @Override
-            public String jdbcUrl() {
-                return postgres.jdbcUrl();
-            }
+        database = DatabaseWaiting.open(
+                new DatabaseSpec() {
+                    @Override
+                    public String jdbcUrl() {
+                        return postgres.jdbcUrl();
+                    }
 
-            @Override
-            public String username() {
-                return postgres.username();
-            }
+                    @Override
+                    public String username() {
+                        return postgres.username();
+                    }
 
-            @Override
-            public String password() {
-                return postgres.password();
-            }
-        });
+                    @Override
+                    public String password() {
+                        return postgres.password();
+                    }
+                },
+                "steward-test");
         data = new Data(database, Clock.systemUTC());
     }
 
@@ -241,8 +212,7 @@ abstract class WebFixture {
      * A new {@link StackApi} each time, since stopping a {@link Web} closes the one it was given.
      */
     static Web newWeb() {
-        final AgentClient client =
-                new AgentClient(agent.client(), Waiting.on(Clock.systemUTC()), Duration.ofSeconds(5));
+        final AgentClient client = new AgentClient(agent.client());
         final StackApi stack = new StackApi(
                 client,
                 data.updates(),

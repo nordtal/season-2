@@ -112,7 +112,7 @@ final class Routes {
     /**
      * The plugins on one Minecraft server, and the Modrinth search beside them.
      *
-     * Installing writes a row the next update run fulfils; removing deletes the jar and data folder at once.
+     * Installing writes a row the next update run fulfils; removing is a run that stops the server first.
      */
     private static void pluginRoutes(final StackApi api, final JavalinConfig config, final Caller caller) {
         config.routes.get("/api/services/{name}/plugins", ctx -> api.plugins().list(ctx), Gate.KEY_HELD);
@@ -122,7 +122,9 @@ final class Routes {
         config.routes.post(
                 "/api/services/{name}/plugins", ctx -> api.plugins().add(ctx, caller.name(ctx)), Gate.KEY_FRESH);
         config.routes.delete(
-                "/api/services/{name}/plugins/{artifact}", ctx -> api.plugins().remove(ctx), Gate.KEY_FRESH);
+                "/api/services/{name}/plugins/{artifact}",
+                ctx -> api.plugins().remove(ctx, caller.actor(ctx)),
+                Gate.KEY_FRESH);
     }
 
     /**

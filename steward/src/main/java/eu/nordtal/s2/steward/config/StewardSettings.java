@@ -15,7 +15,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.util.Set;
-import java.util.regex.Pattern;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -33,12 +32,6 @@ public final class StewardSettings {
     /** Steward's environment: {@code NORDTAL_STEWARD} for the steward group, {@code NORDTAL_STEWARD_<GROUP>} else. */
     public static final Environment ENVIRONMENT =
             Environment.of("NORDTAL_STEWARD").withMain("steward");
-
-    /** {@code owner/name}, the only form the GitHub API takes. */
-    private static final Pattern REPO = Pattern.compile("[A-Za-z0-9._-]+/[A-Za-z0-9._-]+");
-
-    /** A Modrinth id is eight characters of its own base62 alphabet. */
-    private static final Pattern MODRINTH_ID = Pattern.compile("[A-Za-z0-9]{8}");
 
     private static final String LOCALHOST = "localhost";
 
@@ -90,13 +83,7 @@ public final class StewardSettings {
     }
 
     private static void checkSteward(final StewardSpec config) {
-        requireRepo("season-repo", config.seasonRepo());
-        requireRepo("display-tags-repo", config.displayTagsRepo());
-        requireModrinthId("packetevents-project", config.packetEventsProject());
-        Checks.requireText("volumes-root", config.volumesRoot());
         Checks.requirePositive("http-timeout-seconds", config.httpTimeoutSeconds());
-        Checks.requirePositive("download-timeout-seconds", config.downloadTimeoutSeconds());
-        requireBackup(config.backup());
         requireBunq(config.bunq());
     }
 
@@ -147,29 +134,6 @@ public final class StewardSettings {
                 throw new IllegalArgumentException("bunq.watermark must be empty or an ISO-8601"
                         + " instant such as 2026-09-01T00:00:00Z, was: " + watermark);
             }
-        }
-    }
-
-    private static void requireBackup(final BackupSpec backup) {
-        Checks.requirePositive("backup.patience-minutes", backup.patienceMinutes());
-    }
-
-    private static void requireRepo(final String key, final String value) {
-        Checks.requireText(key, value);
-        if (!REPO.matcher(value).matches()) {
-            throw new IllegalArgumentException(key + " must be a GitHub repository as owner/name"
-                    + " - not a URL and not just the name - was '" + value + "'");
-        }
-    }
-
-    private static void requireModrinthId(final String key, final String value) {
-        Checks.requireText(key, value);
-        if (!MODRINTH_ID.matcher(value).matches()) {
-            // A slug only fails as an id when the author renames it, so it is caught here.
-            throw new IllegalArgumentException(key + " must be a Modrinth project id: eight"
-                    + " alphanumeric characters, not the slug. Read it from the 'project_id' field"
-                    + " of any version, or from a cdn.modrinth.com/data/<id>/ URL. Was '"
-                    + value + "'");
         }
     }
 

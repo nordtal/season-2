@@ -4,6 +4,7 @@ import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.settings.DatabaseSpec;
+import eu.nordtal.s2.settings.DatabaseWaiting;
 import eu.nordtal.s2.steward.auth.Credentials;
 import eu.nordtal.s2.steward.auth.Sessions;
 import eu.nordtal.s2.steward.data.Data;
@@ -38,7 +39,8 @@ final class ForgetFactors {
         if (databaseConfig == null) {
             return 1;
         }
-        final Database opened = DatabaseWaiting.openDatabase(databaseConfig, Waiting.on(clock));
+        final Database opened =
+                DatabaseWaiting.openDatabase(databaseConfig, "steward-forget-factors", Waiting.on(clock));
         if (opened == null) {
             return 1;
         }

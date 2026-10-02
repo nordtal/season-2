@@ -69,7 +69,7 @@ final class Updates {
     void ask(final Context ctx) {
         final Ask ask = ctx.bodyAsClass(Ask.class);
         if (ask == null || ask.kind == null) {
-            throw new BadRequestResponse("kind is UPDATE, BACKUP, RESTART, DOWN or START");
+            throw new BadRequestResponse("kind is UPDATE, BACKUP, RESTART, DOWN, START, RECREATE or DEPLOY");
         }
         final UpdateKind kind;
         try {
@@ -77,9 +77,10 @@ final class Updates {
         } catch (IllegalArgumentException e) {
             throw new BadRequestResponse(ask.kind + " is not a kind of run");
         }
-        // DOWN is the one kind where an unnamed scope would stop the whole network.
-        if (kind == UpdateKind.DOWN && (ask.services == null || ask.services.isEmpty())) {
-            throw new BadRequestResponse("a DOWN has to name the services it puts down");
+        // An unnamed scope would put the whole network down, or throw every player out without a countdown.
+        if ((kind == UpdateKind.DOWN || kind == UpdateKind.RECREATE)
+                && (ask.services == null || ask.services.isEmpty())) {
+            throw new BadRequestResponse("a " + kind + " has to name the services it is for");
         }
         final DiscordAuth.Account who = accounts.apply(ctx);
         // `scheduled_for`: the run loop refuses to claim the row until then.
@@ -91,6 +92,9 @@ final class Updates {
             written = data().updates().submit(kind, Actor.person(DiscordId.of(who.id())), delay, ask.services);
         } catch (final Refused refused) {
             throw new ConflictResponse(DatabaseText.english(refused.refusal().message()));
+        } catch (final IllegalArgumentException named) {
+            // A restore and a plugin removal carry more than services and have routes of their own.
+            throw new BadRequestResponse(named.getMessage());
         }
         log.info(
                 "{} asked for {} as request {}{}",

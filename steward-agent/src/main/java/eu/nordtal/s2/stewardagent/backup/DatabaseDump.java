@@ -1,9 +1,9 @@
 package eu.nordtal.s2.stewardagent.backup;
 
 import eu.nordtal.s2.internalapi.agent.SnapshotResult;
-import eu.nordtal.s2.internalapi.agent.Snapshots;
 import eu.nordtal.s2.stewardagent.docker.Docker;
 import eu.nordtal.s2.stewardagent.docker.DockerException;
+import eu.nordtal.s2.stewardagent.run.Snapshots;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;

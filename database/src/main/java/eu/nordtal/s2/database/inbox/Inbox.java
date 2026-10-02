@@ -208,15 +208,6 @@ public final class Inbox<P> {
         return move(id, InboxStatus.PENDING, InboxStatus.CANCELLED, answer);
     }
 
-    /**
-     * Returns a running request to the inbox, answer and all, for the next claim.
-     *
-     * @return whether a running row was handed back
-     */
-    public boolean release(final long id, final @Nullable Object answer) {
-        return move(id, InboxStatus.RUNNING, InboxStatus.PENDING, answer).isPresent();
-    }
-
     private Optional<Request<P>> move(
             final long id, final InboxStatus from, final InboxStatus to, final @Nullable Object answer) {
         return jdbi.withHandle(handle -> handle.createQuery(MOVE)

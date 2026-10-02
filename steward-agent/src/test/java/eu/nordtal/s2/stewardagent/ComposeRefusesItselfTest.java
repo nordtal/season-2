@@ -5,8 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.internalapi.InternalClient;
-import eu.nordtal.s2.internalapi.agent.AgentWire;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -35,25 +33,18 @@ class ComposeRefusesItselfTest {
     }
 
     @Test
-    void overHttpTheRefusalIsTheAnswerAndNoJobIsStartedToFailLater() throws IOException {
-        final Path scratch = Files.createTempDirectory(Path.of("/tmp"), "agent");
-        final Jobs jobs = new Jobs(java.time.Clock.systemUTC());
-        try (AgentStandIn agent =
-                new AgentStandIn(scratch, 0, config -> StewardAgent.jobRoutes(config, compose, jobs, nowhere()))) {
-            for (final String[] call : new String[][] {
-                {AgentWire.of(AgentWire.RECREATE, Compose.SELF), ""},
-                {AgentWire.DEPLOY, "{\"services\":[\"smp\",\"" + Compose.SELF + "\"]}"}
-            }) {
-                final InternalClient.Failure refused = assertThrows(
-                        InternalClient.Failure.class, () -> agent.client().post(call[0], call[1]));
-                assertEquals(400, refused.status(), call[0]);
-            }
-            assertTrue(jobs.all().isEmpty(), "a refused request started a job: " + jobs.all());
-        } finally {
-            try (var files = Files.walk(scratch)) {
-                files.sorted(java.util.Comparator.reverseOrder())
-                        .forEach(path -> path.toFile().delete());
-            }
+    void aRunThatNamesItIsRefusedBeforeTheDaemonIsAsked() {
+        final var docker = nowhere();
+        final LocalStack stack = new LocalStack(
+                docker,
+                new eu.nordtal.s2.stewardagent.docker.Containers(docker, "nordtal-s2"),
+                new eu.nordtal.s2.stewardagent.topology.ComposeTopology(
+                        compose::definitions, "/backup-sources", java.time.Clock.systemUTC()),
+                compose);
+
+        for (final var result : List.of(stack.recreate(Compose.SELF), stack.deploy(Compose.SELF))) {
+            assertFalse(result.triggered(), result.message());
+            assertTrue(result.message().contains("renews it"), result.message());
         }
     }
 

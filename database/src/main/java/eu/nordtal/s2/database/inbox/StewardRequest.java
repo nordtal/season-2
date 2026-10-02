@@ -85,20 +85,20 @@ public sealed interface StewardRequest {
     }
 
     /**
-     * Takes one jar out of a server's plugins folder while that server is stopped.
+     * Takes an added plugin, its jar and its data folder, off a server while that server is stopped.
      *
      * @param services the one server
-     * @param file the jar's file name in its plugins folder
+     * @param artifact the plugin's artefact id, as the list of added plugins names it
      */
-    record RemovePlugin(List<String> services, String file) implements StewardRequest {
+    record RemovePlugin(List<String> services, String artifact) implements StewardRequest {
 
         public RemovePlugin {
             services = List.copyOf(services);
             if (services.size() != 1) {
                 throw new IllegalArgumentException("a plugin is removed from exactly one server, not " + services);
             }
-            if (file == null || !file.endsWith(".jar") || file.contains("/")) {
-                throw new IllegalArgumentException("a plugin is one jar file in the folder, not " + file);
+            if (artifact == null || artifact.isBlank() || artifact.contains("/") || artifact.length() > 100) {
+                throw new IllegalArgumentException("a plugin is named by its artefact id, not " + artifact);
             }
         }
     }

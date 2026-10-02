@@ -43,8 +43,8 @@ class SchemaCheckTest {
         final IllegalStateException refused =
                 assertThrows(IllegalStateException.class, () -> SchemaCheck.validate(database.dataSource()));
 
-        assertTrue(refused.getMessage().contains("steward migrate"), refused.getMessage());
-        assertTrue(refused.getMessage().contains("does not apply migrations any more"), refused.getMessage());
+        assertTrue(refused.getMessage().contains("restart steward-agent"), refused.getMessage());
+        assertTrue(refused.getMessage().contains("does not apply migrations"), refused.getMessage());
     }
 
     @Test

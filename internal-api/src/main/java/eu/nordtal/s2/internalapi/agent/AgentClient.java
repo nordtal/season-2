@@ -3,13 +3,11 @@ package eu.nordtal.s2.internalapi.agent;
 import com.google.gson.JsonParseException;
 import com.google.gson.reflect.TypeToken;
 import eu.nordtal.s2.common.json.Json;
-import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.agent.AgentWire.Archive;
 import eu.nordtal.s2.internalapi.agent.AgentWire.Container;
 import eu.nordtal.s2.internalapi.agent.AgentWire.Containers;
 import eu.nordtal.s2.internalapi.agent.AgentWire.Host;
-import eu.nordtal.s2.internalapi.agent.AgentWire.Job;
 import eu.nordtal.s2.internalapi.agent.AgentWire.Round;
 import java.io.InputStream;
 import java.net.URLEncoder;
@@ -19,44 +17,29 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 
 /**
  * The only way steward reaches Docker and the volumes: every route of {@link AgentWire}, typed.
  *
- * As {@link ContainerOps} it is what a run stops and starts through; {@link #snapshots} is what a backup saves with.
+ * It reads and asks; nothing on it stops a container, since every stop is a run the agent carries out.
  */
-public final class AgentClient implements ContainerOps {
-
-    /** How often a deployment's job is asked about. */
-    private static final Duration JOB_POLL = Duration.ofSeconds(3);
+public final class AgentClient {
 
     /** How long the registry comparison may take, one question per image. */
     private static final Duration IMAGES_WITHIN = Duration.ofMinutes(2);
 
-    /** How long a stop may take: the service's grace period, the kill, and the inspect after it. */
-    private static final Duration STOP_WITHIN = AgentWire.LONGEST_STOP.plusSeconds(15);
-
-    /** How long a database dump may take. */
-    private static final Duration DUMP_WITHIN = Duration.ofMinutes(30);
+    /** A resolve asks every source once; GitHub and Modrinth together can take this long. */
+    private static final Duration PLAN_WITHIN = Duration.ofMinutes(2);
 
     /** {@code du} on a large world; the agent stops it after half a minute. */
     private static final Duration DISK_WITHIN = Duration.ofSeconds(40);
 
     private final InternalClient http;
-    private final Waiting waiting;
-    private final Duration jobPatience;
 
-    /**
-     * Talks to steward-agent through {@code http}.
-     *
-     * @param jobPatience how long a deployment or a recreate may run before a run stops waiting for it
-     */
-    public AgentClient(final InternalClient http, final Waiting waiting, final Duration jobPatience) {
+    /** Talks to steward-agent through {@code http}. */
+    public AgentClient(final InternalClient http) {
         this.http = http;
-        this.waiting = waiting;
-        this.jobPatience = jobPatience;
     }
 
     /** Whether the agent answers its health route at all. */
@@ -64,7 +47,6 @@ public final class AgentClient implements ContainerOps {
         return http.isReachable();
     }
 
-    @Override
     public AgentWire.Topology topology() {
         return Json.decode(http.get(AgentWire.TOPOLOGY), AgentWire.Topology.class);
     }
@@ -162,20 +144,6 @@ public final class AgentClient implements ContainerOps {
         http.post(AgentWire.of(AgentWire.CONSOLE, service), Json.encode(new AgentWire.ConsoleLine(command, actor)));
     }
 
-    public List<Job> jobs() {
-        return Json.decode(http.get(AgentWire.JOBS), new TypeToken<List<Job>>() {});
-    }
-
-    public Job job(final String id) {
-        return Json.decode(http.get(AgentWire.of(AgentWire.JOB, encode(id))), Job.class);
-    }
-
-    /** Starts recreating one service from the image on this host and answers with the job, without waiting. */
-    public Job startRecreate(final String service) {
-        return Json.decode(http.post(AgentWire.of(AgentWire.RECREATE, service), "{}"), Job.class);
-    }
-
-    @Override
     public RuntimeResult runtime() {
         final Containers all;
         try {
@@ -192,26 +160,6 @@ public final class AgentClient implements ContainerOps {
                 .toList());
     }
 
-    @Override
-    public RedeployResult stop(final String containerId) {
-        return acted("stopping", AgentWire.of(AgentWire.STOP, containerId), STOP_WITHIN);
-    }
-
-    @Override
-    public RedeployResult start(final String containerId) {
-        return acted("starting", AgentWire.of(AgentWire.START, containerId), STOP_WITHIN);
-    }
-
-    /** Sends a stop or a start; an agent that did not answer is a refusal, since nothing is known to have happened. */
-    private RedeployResult acted(final String verb, final String path, final Duration within) {
-        try {
-            return Json.decode(http.post(path, "{}", within), RedeployResult.class);
-        } catch (final InternalClient.Failure refused) {
-            return RedeployResult.refused(verb + ": " + sentence(refused));
-        }
-    }
-
-    @Override
     public ImageResult images() {
         try {
             return Json.decode(http.get(AgentWire.IMAGES, IMAGES_WITHIN), ImageResult.class);
@@ -220,126 +168,29 @@ public final class AgentClient implements ContainerOps {
         }
     }
 
-    /** Pulls one service's image and recreates it, waiting for the job; the service is always named. */
-    @Override
-    public RedeployResult deploy(final String service) {
-        return followed(
-                service,
-                "deploy",
-                () -> http.post(AgentWire.DEPLOY, Json.encode(new AgentWire.Deploy(List.of(service)))));
+    /** The resolve as the updates page draws it, as the agent's JSON. */
+    public String plan() {
+        return http.get(AgentWire.PLAN, PLAN_WITHIN);
     }
 
-    /** Recreates one service from the image already here, waiting for the job. */
-    @Override
-    public RedeployResult recreate(final String service) {
-        return followed(service, "recreate", () -> http.post(AgentWire.of(AgentWire.RECREATE, service), "{}"));
+    /** One server's plugins as the agent's JSON. */
+    public String plugins(final String service) {
+        return http.get(AgentWire.of(AgentWire.PLUGINS, encode(service)));
     }
 
-    /**
-     * Sends one of the two requests and follows the job it hands back until it settles or the patience runs out.
-     *
-     * @param what "deploy" or "recreate", named in every message since only a deploy fetches an image
-     */
-    private RedeployResult followed(final String service, final String what, final Supplier<String> send) {
-        final Instant deadline = waiting.now().plus(jobPatience);
-        final Job accepted;
-        try {
-            accepted = Json.decode(send.get(), Job.class);
-        } catch (final InternalClient.Failure refused) {
-            return RedeployResult.refused("the " + what + " of " + service + " was not accepted: " + sentence(refused));
-        } catch (final JsonParseException malformed) {
-            return RedeployResult.unverified(AgentWire.SERVICE + " accepted the " + what + " of " + service
-                    + " but named no job to follow: " + malformed.getMessage());
-        }
-        final String job = " (job " + accepted.id() + ")";
-        while (true) {
-            final Job state;
-            try {
-                state = job(accepted.id());
-            } catch (final InternalClient.Failure unread) {
-                return RedeployResult.unverified(AgentWire.SERVICE + " accepted the " + what + " of " + service + job
-                        + ", and how it went could not be read back: " + sentence(unread));
-            }
-            if ("DONE".equals(state.state())) {
-                return RedeployResult.triggered(AgentWire.SERVICE + " finished the " + what + " of " + service + job);
-            }
-            if ("FAILED".equals(state.state())) {
-                return RedeployResult.refused(
-                        AgentWire.SERVICE + "'s " + what + " of " + service + " failed" + job + ": " + lastLine(state));
-            }
-            if (!waiting.now().isBefore(deadline)) {
-                return RedeployResult.unverified(AgentWire.SERVICE + "'s " + what + " of " + service + job
-                        + " had not finished after " + jobPatience.toSeconds() + "s; it may still be running, and"
-                        + " Steward's agent page shows it");
-            }
-            if (!waiting.sleep(JOB_POLL)) {
-                return RedeployResult.unverified(
-                        "interrupted while waiting for " + AgentWire.SERVICE + "'s " + what + " of " + service + job);
-            }
-        }
-    }
-
-    private static String lastLine(final Job job) {
-        final List<String> lines = job.lines();
-        return lines == null || lines.isEmpty() ? "no output" : lines.getLast();
+    /** Modrinth's hits for {@code query} on one server, as the agent's JSON. */
+    public String searchPlugins(final String service, final String query) {
+        return http.get(AgentWire.of(AgentWire.PLUGIN_SEARCH, encode(service)) + "?q=" + encode(query));
     }
 
     /**
-     * What a backup saves through, with the database and the patience read again for every call.
+     * Adds a plugin to one server; it is installed by the next update run.
      *
-     * @param plan which service runs PostgreSQL (blank for no dump), its backup role, and one volume's patience
+     * @param body the plugin as the interface asked for it, passed on unread
+     * @param by who asked, as the interface names them
      */
-    public Snapshots snapshots(final Supplier<Backup> plan) {
-        return new AgentSnapshots(this, plan);
-    }
-
-    /**
-     * What a backup is told on every call.
-     *
-     * @param databaseService the compose service running PostgreSQL, or blank to dump nothing
-     */
-    public record Backup(String databaseService, String role, Duration patience) {}
-
-    SnapshotResult dumpDatabase(final String service, final String role) {
-        return saved(
-                Snapshots.DATABASE,
-                AgentWire.DUMP_DATABASE,
-                Json.encode(new AgentWire.DatabaseDump(service, role)),
-                DUMP_WITHIN);
-    }
-
-    SnapshotResult snapshot(final String volume, final Duration patience) {
-        return saved(
-                volume,
-                AgentWire.SNAPSHOT_VOLUME,
-                Json.encode(new AgentWire.VolumeSnapshot(volume, patience)),
-                patience.plus(Duration.ofMinutes(1)));
-    }
-
-    /** Sends one save, and turns an agent that did not answer into a failed save of that name. */
-    private SnapshotResult saved(final String name, final String path, final String body, final Duration within) {
-        try {
-            return Json.decode(http.post(path, body, within), SnapshotResult.class);
-        } catch (final InternalClient.Failure failed) {
-            return SnapshotResult.failed(name, Duration.ZERO, sentence(failed));
-        }
-    }
-
-    @Nullable
-    String mark(final String archive, final String why) {
-        try {
-            return Json.decode(
-                            http.post(
-                                    AgentWire.MARK_UNVERIFIED, Json.encode(new AgentWire.UnverifiedMark(archive, why))),
-                            AgentWire.Mark.class)
-                    .name();
-        } catch (final InternalClient.Failure failed) {
-            return null;
-        }
-    }
-
-    List<String> prune(final Retention policy) {
-        return Json.decode(http.post(AgentWire.PRUNE, Json.encode(policy)), new TypeToken<List<String>>() {});
+    public String addPlugin(final String service, final String body, final String by) {
+        return http.post(AgentWire.of(AgentWire.PLUGINS, encode(service)) + "?by=" + encode(by), body);
     }
 
     /** The failure's sentence: what the agent itself said when it said anything, the client's own words if not. */

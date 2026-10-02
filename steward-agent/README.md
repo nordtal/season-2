@@ -1,8 +1,10 @@
 # steward-agent
 
-The one door to Docker and to the volumes. It holds the Docker socket and carries `compose.yml`
-inside its own image, so a change to the deployment is a new image of this service, renewed by the
-setup script on the host. `steward` mounts no socket and reaches all of it through
+The one door to Docker and to the volumes, and the process that carries out every run. It holds the
+Docker socket and carries `compose.yml` inside its own image, so a change to the deployment is a new
+image of this service, renewed by the setup script on the host. It is the only process that runs
+Flyway: at every start it migrates, serves its API, installs whatever slot is still empty, reports
+ready and then claims runs from `steward_inbox`. Every other service waits for it to become healthy. `steward` mounts no socket and reaches all of it through
 `:internal-api`'s `AgentClient`; `:architecture` refuses `java.net.UnixDomainSocketAddress` anywhere
 else, and any class of this module inside `steward`.
 
@@ -11,44 +13,86 @@ else, and any class of this module inside `steward`.
 - **Recreate itself.** `steward-agent` is refused wherever a service name is accepted, since
   the new container would kill the process handling the request.
 - **Pull dependencies along.** Every `up` carries `--no-deps`.
-- **Schedule.** Deployments happen only when somebody, or steward, asks. The sampler is the one
-  thing it does on its own clock, and it only reads.
+- **Schedule.** A run happens only when a row in `steward_inbox` asks for one: a button in steward,
+  `/update` in Discord or in game, a clock in steward, or `steward-agent request` on the host. The
+  sampler is the one thing it does on its own clock, and it only reads.
 - **Hand out secrets.** Nothing on the wire carries a container's environment or the env file.
 
 ## Run it
 
-    steward-agent up      # the setup script: pull, then up, wait, exit with the code
-    steward-agent serve   # the HTTP API steward calls (default in the container)
+    steward-agent up                          # the setup script: pull, then up, wait, exit with the code
+    steward-agent serve                       # migrate, the API, then runs (default in the container)
+    steward-agent request KIND [a,b] [MIN]    # ask for a run, as a button would; prints its id
+    steward-agent status ID                   # the run's status, a tab and its report
+
+The host reaches the last two through `docker exec <project>-steward-agent-1`, which is what
+`./nordtal.sh update` does. They write and read the same row a button does, so the open run in the
+inbox is the one lock for the host as well.
+
+## Runs
+
+Every kind is one sequence, `Run`: plan, open the standbys, count down, evacuate, wait until empty,
+stop, carry out the payload, start, verify, close the standbys and settle. `Kinds` holds one planner
+per kind; a plan that stops nothing (a `START`, or an update with nothing to do) counts nobody down.
+The kinds are `UPDATE`, `RESTART`, `BACKUP`, `DOWN`, `START`, `RECREATE`, `DEPLOY`, `RESTORE` and
+`REMOVE_PLUGIN`; a kind's payload is the request's, typed in `StewardRequest`.
+
+The run never stops steward-agent. A run that names it is refused, and its own outdated image is
+reported for the script on the host to renew.
+
+## Where a version comes from
+
+| what                                                 | source                                                     |
+| ---------------------------------------------------- | ---------------------------------------------------------- |
+| the season-2 jars, the resource pack and its `.sha1` | GitHub releases, `nordtal/season-2`                        |
+| DisplayTags                                          | GitHub releases, `nordtal/papermc-display-tags`            |
+| PacketEvents                                         | Modrinth v2, filtered to the Minecraft version and `paper` |
+| Paper, Velocity                                      | PaperMC Fill v3, newest `STABLE` build                     |
+| what is installed                                    | the volumes under `volumes-root`                           |
+| what pack the proxy offers                           | the proxy's `pack` settings, `url` and `sha1`              |
+
+Every repository is read through `/releases/latest`, which skips drafts and pre-releases. There is no
+pin and no rollback: a bad release is corrected by publishing a better one.
+
+## Rules
+
+- `serve` is not a scheduler. It migrates at startup and then acts only on rows in its inbox, `steward_inbox`.
+- An update stops the services whose jars change, migrates, installs, starts them and waits for
+  healthy. `bootstrap` fills empty slots and restarts nothing. A report writes nothing.
+- Two steward processes cannot serve or move jars at once; both are advisory locks, and the second is
+  refused.
+- Artefacts are staged in `.nordtal-staging` inside the server's volume and move only when all are
+  present. A server moves together or not at all.
+- Nothing it does not account for is deleted, and only after the new jar is in place.
+- A version not tagged for the platform is refused. "Skipped" is distinct from success and failure.
 
 ## The contract
 
 The paths and records are `AgentWire`, the client is `AgentClient`; both live in `:internal-api`,
 so steward and this service compile against one definition. `{service}` is a compose service name.
 
-| Route                                                     | Answer                                                                                    |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `GET /api/health`                                         | the only route without the token                                                          |
-| `GET /api/topology`                                       | `Topology`: every service in the baked file, its image and its labels' meaning            |
-| `GET /api/containers`                                     | `Containers`: every container of the project with the sampler's last `Reading`            |
-| `GET /api/containers/{service}`                           | one `Container`, with the registry digests of its image; `404` when there is none         |
-| `POST /api/stop/{id}`, `/api/start/{id}`                  | `RedeployResult`; a run's stop and start. A stop waits the service's `stop_grace_period`  |
-| `GET /api/images`                                         | `ImageResult`: each running image against its registry, slow on purpose                   |
-| `GET /api/containers/{service}/logs`                      | SSE: `line` and `run` events, the backlog first; `end` or `gone` when it stops            |
-| `GET /api/containers/{service}/log-capacity?max=`         | `LogCapacity`: how many lines the backlog can fill                                        |
-| `POST /api/containers/{service}/console`                  | `ConsoleLine` (`command`, `actor`); `202`, the answer lands in the log                    |
-| `GET /api/host`                                           | `Host`: `/proc`, the root filesystem and Docker's disk use                                |
-| `GET /api/volumes/{service}/disk`                         | `Disk`: `du` of that service's volume; `404` for one not mounted here                     |
-| `GET /api/bundles`                                        | `BundleRef`s: every message bundle a jar carries, before it is opened                     |
-| `GET /api/bundles/{service}?module=`                      | one `MessageBundle`, packaged text and overrides side by side                             |
-| `POST /api/bundles/{service}?module=`                     | `BundleChanges`; `SavedBundle` with the dropped placeholders, `400` for an undeclared one |
-| `GET /api/samples?after=`                                 | the sampler's `Round`s after an ISO instant, oldest first; all it holds without one       |
-| `GET /api/backups`                                        | `Archive`s, newest first                                                                  |
-| `GET /api/backups/{name}`                                 | one finished archive's bytes; `400` for a name that is not one, `404` when it is gone     |
-| `POST /api/backup/database`, `/volume`, `/mark`, `/prune` | the steps of a backup run, answered by `SnapshotResult`, `Mark` or names                  |
-| `POST /api/deploy`                                        | `{"services": []}`, empty meaning the whole project; answers `202` with a job             |
-| `POST /api/recreate/{service}`                            | `up -d --no-deps --force-recreate` from the local image                                   |
-| `GET /api/jobs`, `/api/jobs/{id}`                         | what ran, and its output                                                                  |
-| `GET /api/jobs/{id}/stream`                               | the same output as SSE, replayed from the start on connect                                |
+| Route                                             | Answer                                                                                    |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `GET /api/health`                                 | the only route without the token                                                          |
+| `GET /api/topology`                               | `Topology`: every service in the baked file, its image and its labels' meaning            |
+| `GET /api/containers`                             | `Containers`: every container of the project with the sampler's last `Reading`            |
+| `GET /api/containers/{service}`                   | one `Container`, with the registry digests of its image; `404` when there is none         |
+| `GET /api/images`                                 | `ImageResult`: each running image against its registry, slow on purpose                   |
+| `GET /api/containers/{service}/logs`              | SSE: `line` and `run` events, the backlog first; `end` or `gone` when it stops            |
+| `GET /api/containers/{service}/log-capacity?max=` | `LogCapacity`: how many lines the backlog can fill                                        |
+| `POST /api/containers/{service}/console`          | `ConsoleLine` (`command`, `actor`); `202`, the answer lands in the log                    |
+| `GET /api/host`                                   | `Host`: `/proc`, the root filesystem and Docker's disk use                                |
+| `GET /api/volumes/{service}/disk`                 | `Disk`: `du` of that service's volume; `404` for one not mounted here                     |
+| `GET /api/bundles`                                | `BundleRef`s: every message bundle a jar carries, before it is opened                     |
+| `GET /api/bundles/{service}?module=`              | one `MessageBundle`, packaged text and overrides side by side                             |
+| `POST /api/bundles/{service}?module=`             | `BundleChanges`; `SavedBundle` with the dropped placeholders, `400` for an undeclared one |
+| `GET /api/samples?after=`                         | the sampler's `Round`s after an ISO instant, oldest first; all it holds without one       |
+| `GET /api/backups`                                | `Archive`s, newest first                                                                  |
+| `GET /api/backups/{name}`                         | one finished archive's bytes; `400` for a name that is not one, `404` when it is gone     |
+| `GET /api/plan`                                   | what the next update would change, resolved now; changes nothing                          |
+| `GET /api/plugins/{service}`                      | the managed plugins of one server                                                         |
+| `GET /api/plugins/{service}/search?q=`            | Modrinth's answer for that server's platform                                              |
+| `POST /api/plugins/{service}?by=`                 | adds a plugin to the list the next run installs; removing one is a `REMOVE_PLUGIN` run    |
 
 A refusal is a `Refusal` (`error`, the sentence to show, and `where`): `502` with `where` `docker`
 when the daemon failed, `502` with `compose` when a Compose command did, `400` with
@@ -56,8 +100,9 @@ when the daemon failed, `502` with `compose` when a Compose command did, `400` w
 names the daemon and not the agent.
 
 Every route but `/api/health` needs `X-Steward-Token`, and the service refuses to start without it.
-The gate is `:internal-api`'s, the same one `steward-bunq` runs behind. The service sits on the
-internal `agent` network with `steward` alone, so nothing else can even knock.
+The gate is `:internal-api`'s, the same one `steward-bunq` runs behind. steward reaches it on the
+internal `agent` network; the agent also sits on `steward`, for postgres and for the way out to
+GitHub, Modrinth and PaperMC, which Caddy shares.
 
 The console set is the label `eu.nordtal.console: "true"` in `compose.yml`, read through
 `docker compose config`; a line goes to `mc` as one argument, never through a shell, and the log
@@ -70,15 +115,26 @@ already holds, so a restart of either loses nothing.
 A deployment pulls every image before it stops anything. A failed pull is tolerated only when the
 image is already on the host.
 
-| Setting (`NORDTAL_STEWARD_AGENT_*`) | Default                | What                                                                 |
-| ----------------------------------- | ---------------------- | -------------------------------------------------------------------- |
-| `TOKEN`                             | none, required         | the secret steward sends                                             |
-| `PORT`                              | `8081`                 |                                                                      |
-| `DOCKER_SOCKET`                     | `/var/run/docker.sock` |                                                                      |
-| `CONFIGS`                           | `/configs`             | each service's plugins folder, where the message overrides live      |
-| `VOLUMES_ROOT`                      | `/volumes`             | the services' volumes, read-only: rotated logs, sizes, the bot's jar |
-| `BACKUP_SOURCES`                    | `/backup-sources`      | one read-only mount per volume a backup saves                        |
-| `BACKUPS`                           | `/backups`             | the archives, the same volume postgres dumps into                    |
+The connection comes from the environment (`NORDTAL_STEWARD_AGENT_DATABASE_*`, with one
+`..._<ROLE>_PASSWORD` per service role it creates before migrating); everything a run reads is the
+`runs` group in the database, edited in Steward: the release sources, the volumes root, the timeouts,
+the backup retention and how long a backup waits for a server to stop.
+
+| Setting (`NORDTAL_STEWARD_AGENT_*`) | Default                | What                                                            |
+| ----------------------------------- | ---------------------- | --------------------------------------------------------------- |
+| `TOKEN`                             | none, required         | the secret steward sends                                        |
+| `PORT`                              | `8081`                 |                                                                 |
+| `DOCKER_SOCKET`                     | `/var/run/docker.sock` |                                                                 |
+| `CONFIGS`                           | `/configs`             | each service's plugins folder, where the message overrides live |
+| `VOLUMES_ROOT`                      | `/volumes`             | the `runs` group's `volumes-root`: what a run installs into     |
+| `BACKUP_SOURCES`                    | `/backup-sources`      | one read-only mount per volume a backup saves                   |
+| `BACKUPS`                           | `/backups`             | the archives, the same volume postgres dumps into               |
+
+## Tests
+
+`./gradlew :steward-agent:test` needs no network. Fixtures in `src/test/resources/fixtures/` were
+recorded from the live GitHub, Modrinth and PaperMC APIs, and `TopologyTest` reads the real
+`compose.yml`.
 
 ## Building
 
@@ -90,8 +146,13 @@ image is already on the host.
 - `Compose`: every `docker compose` command line, this service's and `dev`'s. `dev` builds its
   lines here and runs them on its own terminal, so the local stack and the deployment cannot drift
   apart in how they call Compose; `:architecture` lets it take nothing else of this module.
-- `Jobs`: the in-memory job queue and its output.
-- `StewardAgent`: the two entry points; the server and its gate are `:internal-api`'s.
+- `StewardAgent`: the entry points; the server and its gate are `:internal-api`'s. `HostRequests`
+  is `request` and `status`.
+- `run`: the inbox loop (`UpdateServer`, `Runner`), the one sequence (`Run`, `Choreography`,
+  `UpdateRun`) and the kinds (`Kinds`). `LocalStack` and `LocalSnapshots` are the containers and the
+  archives a run acts on.
+- `plan`, `apply`, `source`, `plugin`: resolving what is current, placing it, where versions come
+  from, and the managed plugins. `schema`: the migration and the roles.
 - `AgentApi`: every other route, composed in one place: `docker` (the socket, containers, the
   console), `logs`, `measure` (host, sampler), `backup` and `topology`.
 - Test fixtures: `FakeDaemon`, a socket that answers like Docker, and `AgentStandIn`, this API over

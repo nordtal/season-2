@@ -10,13 +10,13 @@
 # Caddy's config is inline at the foot for the same reason: the agent cannot see host files.
 #
 # Every image is pulled and tagged `latest`; `build:` blocks are for local development. The images
-# are a floor: steward replaces jars in the volumes with the latest release.
+# are a floor: steward-agent replaces jars in the volumes with the latest release.
 #
 # COMPOSE_PROFILES selects the services; production is `db,bot,mc,backup,steward`. `up` and `down`
 # must use the same selection. `standby` is never selected: an update run starts those services
 # by name and stops them again.
 #
-# steward has no profile, applies the schema and is the only depends_on target, so nothing
+# steward-agent has no profile, applies the schema and is the only depends_on target, so nothing
 # starts against an older schema. Nothing depends on postgres, so an external database works.
 
 name: nordtal-s2
@@ -40,7 +40,7 @@ x-minecraft: &minecraft
   restart: unless-stopped
   depends_on:
     # The schema only; see the header on why not the database.
-    steward:
+    steward-agent:
       condition: service_healthy
   # The entrypoint must be PID 1 to trap SIGTERM and hold stdout; `init: true` would break both.
   init: false
@@ -72,9 +72,10 @@ x-minecraft: &minecraft
       max-file: "5"
 
 # The database every client connects to, each under its own variable prefix. NORDTAL_DATABASE_* points
-# the stack at an external PostgreSQL; POSTGRES_* configures the bundled one. steward logs in as
+# the stack at an external PostgreSQL; POSTGRES_* configures the bundled one. steward-agent logs in as
 # the owner, migrates, and first creates every other service's role with the password given here; each
-# service logs in as its own role, whose name is fixed (DatabaseRole in :database).
+# service logs in as its own role, whose name is fixed (DatabaseRole in :database). steward still logs
+# in as the owner too.
 x-database:
   url: &db-url ${NORDTAL_DATABASE_JDBC_URL:-jdbc:postgresql://postgres:5432/${POSTGRES_DB:-nordtal}}
   username: &db-username ${NORDTAL_DATABASE_USERNAME:-${POSTGRES_USER:-nordtal}}
@@ -89,8 +90,8 @@ x-database:
 services:
   postgres:
     profiles: ["db"]
-    # The only service on both networks; see `networks:` at the foot.
-    networks: ["default", "steward"]
+    # On every network a process with a database login is on; see `networks:` at the foot.
+    networks: ["default", "steward", "agent-database"]
     # The version the integration tests run against.
     image: ${POSTGRES_IMAGE:-postgres:17-alpine}
     restart: unless-stopped
@@ -130,7 +131,7 @@ services:
     restart: unless-stopped
     depends_on:
       # The bot refuses an unmigrated database.
-      steward:
+      steward-agent:
         condition: service_healthy
     # The marker is written once JDA is ready and refreshed by the timer thread, so a wedged timer goes
     # red. The bot listens on nothing, so there is no port check.
@@ -329,9 +330,8 @@ services:
       # plugins/ apart from the rest, as for the proxy.
       - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/data/plugins
 
-  # steward: the web interface, its API, the schema and every jar version, in one process. `serve` is
-  # not a scheduler: it acts only on rows in steward_inbox. One-shot commands: `report`, `migrate`,
-  # `bootstrap` (fills empty volumes), `forget-factors` and `generate-vapid-keys`.
+  # steward: the web interface and its API, payments, alerts and the clocks that ask for runs. It
+  # carries out no run. One-shot commands: `forget-factors` and `generate-vapid-keys`.
   steward:
     build:
       <<: *jvm-build
@@ -340,39 +340,28 @@ services:
     restart: unless-stopped
     # It reaches Docker and payments only through `agent` and `bank`, which are its alone.
     networks: ["steward", "agent", "bank"]
-    # A `run` without a subcommand inherits this; use `steward report` for a read-only run.
     command: ["serve"]
+    # The schema is steward-agent's; steward starts against a current one.
+    depends_on:
+      steward-agent:
+        condition: service_healthy
     # Makes http://host.docker.internal:<port> reach the host on Linux too.
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
-      # The marker is first written once the schema is current; everything else waits for it.
       test: *readiness
       interval: 10s
       timeout: 3s
-      # 15 minutes, for a first bootstrap that downloads every jar.
-      retries: 90
-      start_period: 120s
+      retries: 6
+      start_period: 60s
     environment:
       TZ: ${TZ:-Europe/Berlin}
-      # The database group; the only process that migrates.
+      # The database group.
       NORDTAL_STEWARD_DATABASE_JDBC_URL: *db-url
       NORDTAL_STEWARD_DATABASE_USERNAME: *db-username
       NORDTAL_STEWARD_DATABASE_PASSWORD: *db-password
-      # The passwords of the roles it creates before migrating.
-      NORDTAL_STEWARD_DATABASE_DISCORD_BOT_PASSWORD: *db-discord-bot-password
-      NORDTAL_STEWARD_DATABASE_PROXY_PASSWORD: *db-proxy-password
-      NORDTAL_STEWARD_DATABASE_LIMBO_PASSWORD: *db-limbo-password
-      NORDTAL_STEWARD_DATABASE_HUNGER_GAMES_PASSWORD: *db-hunger-games-password
-      NORDTAL_STEWARD_DATABASE_SMP_PASSWORD: *db-smp-password
-      NORDTAL_STEWARD_DATABASE_STEWARD_PASSWORD: *db-steward-password
 
-      # The steward group; steward always follows each repository's latest GitHub release.
-      NORDTAL_STEWARD_SEASON_REPO: ${SEASON_REPO:-}
-      # Optional; raises GitHub's rate limit.
-      NORDTAL_STEWARD_GITHUB_TOKEN: ${STEWARD_GITHUB_TOKEN:-}
-
-      # steward#agent: recreating a container goes through steward-agent's API.
+      # steward#agent: containers, logs, backups and the plan come from steward-agent's API.
       NORDTAL_STEWARD_AGENT_TOKEN: ${STEWARD_AGENT_TOKEN:?set STEWARD_AGENT_TOKEN in .env - the secret steward and steward-agent share, `openssl rand -hex 32`}
 
       # steward#bunq: payments go through steward-bunq, which alone holds the bank key.
@@ -398,43 +387,29 @@ services:
     volumes:
       # The last installation's steward.yml and web.yml: the first start imports them into the database and deletes them.
       - ${STEWARD_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-config}:/app/config
-      # What `apply` writes, under the names Topology expects.
-      - ${PROXY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy}:/volumes/proxy
-      - ${LIMBO_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo}:/volumes/limbo
-      - ${HUNGER_GAMES_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games}:/volumes/hunger-games
-      - ${SMP_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp}:/volumes/smp
-      # Must match the servers' plugins/ expressions exactly; TopologyTest holds that.
-      - ${PROXY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-plugins}:/volumes/proxy/plugins
-      - ${LIMBO_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-plugins}:/volumes/limbo/plugins
-      - ${HUNGER_GAMES_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games-plugins}:/volumes/hunger-games/plugins
-      - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/volumes/smp/plugins
-      # Standby plugins/: copies of the live ones after every apply, not backed up.
-      - ${PROXY_STANDBY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-standby-plugins}:/volumes/proxy-standby/plugins
-      - ${LIMBO_STANDBY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-standby-plugins}:/volumes/limbo-standby/plugins
-      # Jar folders, handled like plugins folders.
-      - ${BOT_JAR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-jar}:/volumes/discord-bot
-      # A new jar here takes effect at the next restart.
-      - ${STEWARD_JAR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-jar}:/volumes/steward
+      # Its own jar, which steward-agent installs; the entrypoint starts the newest one.
+      - ${STEWARD_JAR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-jar}:/volumes/steward:ro
     logging: *logging
 
-  # steward-agent: the only process allowed to create a container. It carries this file in its
-  # image and never recreates itself; deploy/nordtal.sh renews it.
+  # steward-agent: the only process allowed to create a container, and the one that migrates and
+  # carries out every run. It carries this file in its image and never recreates itself;
+  # deploy/nordtal.sh renews it. No profile: everything else waits for it.
   steward-agent:
-    profiles: ["steward"]
     build:
       <<: *jvm-build
       args: { MODULE: steward-agent }
     image: ${STEWARD_AGENT_IMAGE:-ghcr.io/nordtal/steward-agent:latest}
     restart: unless-stopped
-    # Reachable from steward alone, and with no way out: the daemon behind the socket does the pulling.
-    networks: ["agent"]
+    # `agent` is steward's way in, `agent-database` reaches postgres alone, `agent-egress` the release sources.
+    networks: ["agent", "agent-database", "agent-egress"]
     healthcheck:
-      # The marker is written once the API listens.
+      # The marker is first written once the schema is current and every missing jar is installed.
       test: *readiness
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      interval: 10s
+      timeout: 3s
+      # 15 minutes, for a first bootstrap that downloads every jar.
+      retries: 90
+      start_period: 120s
     environment:
       TZ: ${TZ:-Europe/Berlin}
       # Required; it refuses to serve without one.
@@ -445,6 +420,23 @@ services:
       COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-nordtal-s2}
       # A file name inside the directory mounted below, not a path.
       NORDTAL_STEWARD_AGENT_ENV_FILE: /app/env/${STEWARD_ENV_FILE_NAME:?set STEWARD_ENV_FILE_NAME in .env - the file name (not the path) of the environment file, derived from STEWARD_ENV_FILE by deploy/nordtal.sh}
+
+      # The database group; the only process that migrates.
+      NORDTAL_STEWARD_AGENT_DATABASE_JDBC_URL: *db-url
+      NORDTAL_STEWARD_AGENT_DATABASE_USERNAME: *db-username
+      NORDTAL_STEWARD_AGENT_DATABASE_PASSWORD: *db-password
+      # The passwords of the roles it creates before migrating.
+      NORDTAL_STEWARD_AGENT_DATABASE_DISCORD_BOT_PASSWORD: *db-discord-bot-password
+      NORDTAL_STEWARD_AGENT_DATABASE_PROXY_PASSWORD: *db-proxy-password
+      NORDTAL_STEWARD_AGENT_DATABASE_LIMBO_PASSWORD: *db-limbo-password
+      NORDTAL_STEWARD_AGENT_DATABASE_HUNGER_GAMES_PASSWORD: *db-hunger-games-password
+      NORDTAL_STEWARD_AGENT_DATABASE_SMP_PASSWORD: *db-smp-password
+      NORDTAL_STEWARD_AGENT_DATABASE_STEWARD_PASSWORD: *db-steward-password
+
+      # The runs group; every run follows each repository's latest GitHub release.
+      NORDTAL_STEWARD_AGENT_SEASON_REPO: ${SEASON_REPO:-}
+      # Optional; raises GitHub's rate limit.
+      NORDTAL_STEWARD_AGENT_GITHUB_TOKEN: ${STEWARD_GITHUB_TOKEN:-}
     volumes:
       # `:ro` cannot restrict the API behind the socket.
       - /var/run/docker.sock:/var/run/docker.sock
@@ -458,11 +450,22 @@ services:
       - ${BOT_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-config}:/backup-sources/nordtal-s2_bot-config:ro
       # Archives land here, outside every backed-up volume; postgres writes its dump into the same one.
       - ${STEWARD_BACKUPS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-backups}:/backups
-      # The servers' data, read-only: the rotated logs behind the console's backlog and each volume's size.
-      - ${PROXY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy}:/volumes/proxy:ro
-      - ${LIMBO_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo}:/volumes/limbo:ro
-      - ${HUNGER_GAMES_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games}:/volumes/hunger-games:ro
-      - ${SMP_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp}:/volumes/smp:ro
+      # What a run installs into, under the names Topology expects; also the rotated logs behind the
+      # console's backlog and each volume's size.
+      - ${PROXY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy}:/volumes/proxy
+      - ${LIMBO_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo}:/volumes/limbo
+      - ${HUNGER_GAMES_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games}:/volumes/hunger-games
+      - ${SMP_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp}:/volumes/smp
+      # Must match the servers' plugins/ expressions exactly; TopologyTest holds that.
+      - ${PROXY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-plugins}:/volumes/proxy/plugins
+      - ${LIMBO_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-plugins}:/volumes/limbo/plugins
+      - ${HUNGER_GAMES_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games-plugins}:/volumes/hunger-games/plugins
+      - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/volumes/smp/plugins
+      # Standby plugins/: copies of the live ones after every apply, not backed up.
+      - ${PROXY_STANDBY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-standby-plugins}:/volumes/proxy-standby/plugins
+      - ${LIMBO_STANDBY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-standby-plugins}:/volumes/limbo-standby/plugins
+      # Jar folders, handled like plugins folders; a new jar takes effect at the service's next start.
+      - ${STEWARD_JAR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-jar}:/volumes/steward
       # Every service's message bundles, one directory per service, read out of the jars and saved beside them.
       # Plugin paths must match the servers' expressions exactly.
       - ${BOT_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-config}:/configs/discord-bot
@@ -470,8 +473,8 @@ services:
       - ${LIMBO_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-plugins}:/configs/limbo
       - ${HUNGER_GAMES_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games-plugins}:/configs/hunger-games
       - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/configs/smp
-      # The bot's jar, whose bundle sits in the jar and not beside a plugins folder.
-      - ${BOT_JAR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-jar}:/volumes/discord-bot:ro
+      # The bot's jar, also where its bundle sits, since it is in the jar and not beside a plugins folder.
+      - ${BOT_JAR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-jar}:/volumes/discord-bot
     logging: *logging
 
   # steward-bunq: the only process that holds the bank key. It decides nothing and keeps nothing but
@@ -623,7 +626,7 @@ volumes:
   # Not backed up; losing it means a new certificate and Let's Encrypt's rate limit.
   caddy-data:
   caddy-config:
-  # Refilled by `steward bootstrap`, so not backed up.
+  # Refilled by steward-agent's first start, so not backed up.
   bot-jar:
   steward-jar:
   # Never copied or backed up: bunq binds it to one device and IP.
@@ -643,14 +646,18 @@ volumes:
   mc-limbo-standby:
   mc-limbo-standby-plugins:
 
-# `default` holds the Minecraft services and the bot; `steward` holds steward and Caddy. Postgres is on
-# both, so no plugin can reach steward. `agent` and `bank` each join steward to one service that only
-# steward may reach; neither leads out. steward-bunq alone reaches the bank, through `bank-egress`.
+# `default` holds the Minecraft services and the bot; `steward` holds steward and Caddy. Postgres is
+# on both, so no plugin can reach steward. `agent` and `bank` each join steward to one service that
+# only steward may reach; neither leads out. `agent-database` joins steward-agent to postgres alone.
+# Each of the two reaches the internet through an egress network of its own.
 networks:
   default:
   steward:
   agent:
     internal: true
+  agent-database:
+    internal: true
+  agent-egress:
   bank:
     internal: true
   bank-egress:

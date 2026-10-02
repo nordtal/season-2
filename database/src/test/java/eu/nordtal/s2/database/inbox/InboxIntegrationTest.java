@@ -207,7 +207,7 @@ class InboxIntegrationTest {
     }
 
     @Test
-    void onlyAnUnclaimedRequestCanBeCancelledAndAReleasedOneIsClaimedAgain() {
+    void onlyAnUnclaimedRequestCanBeCancelled() {
         final Request<BotRequest> waiting = inbox.submit(new BotRequest.Revoke(SOMEONE), ADMIN);
         assertEquals(
                 InboxStatus.CANCELLED,
@@ -216,11 +216,6 @@ class InboxIntegrationTest {
         final Request<BotRequest> running = inbox.submit(new BotRequest.Unlink(SOMEONE), ADMIN);
         assertTrue(inbox.claim().isPresent());
         assertTrue(inbox.cancel(running.id(), null).isEmpty(), "withdrew a request already running");
-
-        assertTrue(inbox.release(running.id(), Map.of("handed", "over")));
-        final Request<BotRequest> again = inbox.claim().orElseThrow();
-        assertEquals(running.id(), again.id());
-        assertEquals("{\"handed\": \"over\"}", again.outcome(), "the answer so far travels with it");
     }
 
     @Test

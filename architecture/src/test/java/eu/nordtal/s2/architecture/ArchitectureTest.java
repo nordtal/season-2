@@ -53,7 +53,8 @@ class ArchitectureTest {
             "eu.nordtal.s2.settings.DatabaseSpec",
             "eu.nordtal.s2.settings.network.PlayersSpec",
             "eu.nordtal.s2.steward.config.WebSpec",
-            "eu.nordtal.s2.steward.config.StewardSpec");
+            "eu.nordtal.s2.steward.config.StewardSpec",
+            "eu.nordtal.s2.stewardagent.config.RunSpec");
 
     private static JavaClasses classes;
 
@@ -228,10 +229,10 @@ class ArchitectureTest {
     }
 
     @Test
-    void onlyStewardMigrates() {
+    void onlyStewardAgentMigrates() {
         noClasses()
                 .that()
-                .resideOutsideOfPackage("eu.nordtal.s2.steward..")
+                .resideOutsideOfPackage("eu.nordtal.s2.stewardagent..")
                 .should()
                 .callMethodWhere(DescribedPredicate.describe(
                         "a migration",

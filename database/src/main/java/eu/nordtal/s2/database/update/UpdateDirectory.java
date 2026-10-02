@@ -172,15 +172,6 @@ public interface UpdateDirectory {
     boolean progress(long id, String result);
 
     /**
-     * Returns a running request to the inbox, for the newer steward the run installed to claim.
-     *
-     * @return whether a running row was handed over
-     */
-    default boolean handOver(final long id, final String result) {
-        throw new UnsupportedOperationException("this directory cannot hand a run over: " + id);
-    }
-
-    /**
      * Starts the countdown on a claimed request, once steward knows the plan has work in it.
      *
      * @param id     the claimed request

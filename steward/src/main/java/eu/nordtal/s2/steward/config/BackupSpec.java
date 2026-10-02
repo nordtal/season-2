@@ -9,31 +9,9 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 import eu.nordtal.jcore.config.spec.annotation.Secret;
 import java.util.List;
 
-/** What a {@code BACKUP} run saves and what it stops while it does. */
+/** When the nightly {@code BACKUP} is asked for, and where an offsite copy would go; what it keeps is the agent's. */
 @ConfigSpec
 public interface BackupSpec {
-
-    @Order(5)
-    @Name("Retention")
-    @Key("retention")
-    @Comment({
-        "How long a backup is kept on this host: the newest days in full, then one a week,",
-        "then one a month. It counts days, after collapsing each day to its last run."
-    })
-    @Explain("The newest days in full, then one a week, then one a month, counted in days rather than files.")
-    RetentionSpec retention();
-
-    @Order(6)
-    @Name("Database service")
-    @Key("database-service")
-    @Comment({
-        "The compose service running PostgreSQL. pg_dump runs inside it, so the client always",
-        "matches the server. Empty turns the database dump off and the report says so."
-    })
-    @Explain("pg_dump runs inside this service, so its version always matches. Empty turns off just the database dump.")
-    default String databaseService() {
-        return "postgres";
-    }
 
     @Order(7)
     @Name("Time of day")
@@ -61,19 +39,6 @@ public interface BackupSpec {
         return List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY");
     }
 
-    @Order(9)
-    @Name("Patience (minutes)")
-    @Key("patience-minutes")
-    @Comment({
-        "How long one volume's snapshot may take before the run gives up and starts the",
-        "servers again. A run that ends FAILED mentions the admin role in the admin channel."
-    })
-    @Explain(
-            "How long one volume's snapshot may run before this gives up and restarts the servers. A FAILED result pings the admin role.")
-    default int patienceMinutes() {
-        return 30;
-    }
-
     @Order(10)
     @Name("Remote")
     @Key("remote")
@@ -83,62 +48,6 @@ public interface BackupSpec {
     })
     @Explain("Where a copy goes that is not on this disk. An empty endpoint means there is none.")
     RemoteSpec remote();
-
-    /** How long a backup is kept; {@code Retention} in the backup package does the arithmetic. */
-    @ConfigSpec
-    interface RetentionSpec {
-
-        @Order(1)
-        @Name("Daily")
-        @Key("daily")
-        @Comment({
-            "How many of the most recent days are kept in full. Below 1 the sweep refuses to run",
-            "rather than deleting everything."
-        })
-        @Explain(
-                "Days, not files: several runs on one day count as that one day. Below 1 the sweep refuses rather than deleting everything.")
-        default int daily() {
-            return 14;
-        }
-
-        @Order(2)
-        @Name("Weekly")
-        @Key("weekly")
-        @Comment({
-            "How many ISO weeks keep their newest surviving backup, counted from this week.",
-            "0 turns the weekly step off."
-        })
-        @Explain(
-                "Counted from this week, so the first weeks overlap the daily window. 0 ends the history where the daily window ends.")
-        default int weekly() {
-            return 8;
-        }
-
-        @Order(3)
-        @Name("Monthly")
-        @Key("monthly")
-        @Comment({
-            "How many calendar months keep their newest surviving backup, counted the same way.",
-            "0 turns the monthly step off."
-        })
-        @Explain("Six months of history for the price of six archives per volume. 0 turns the monthly step off.")
-        default int monthly() {
-            return 6;
-        }
-
-        @Order(4)
-        @Name("Collapse after (days)")
-        @Key("collapse-after-days")
-        @Comment({
-            "How long several runs of one day are all kept before only the last of that day",
-            "survives. Nothing inside this window is ever deleted; 0 collapses a day at the next sweep."
-        })
-        @Explain(
-                "A backup taken by hand survives the nightly one for this many days. Nothing inside the window is ever deleted.")
-        default int collapseAfterDays() {
-            return 3;
-        }
-    }
 
     /** The offsite target: an S3 bucket and its two credentials, which the interface only reports as set or not. */
     @ConfigSpec

@@ -8,7 +8,7 @@ import org.flywaydb.core.Flyway;
 /**
  * Refuses to start against a database this jar was not built against.
  *
- * steward migrates; without this the bot would fail on its first query, inside a Discord interaction.
+ * steward-agent migrates; without this the bot would fail on its first query, inside a Discord interaction.
  */
 @Slf4j
 final class SchemaCheck {
@@ -31,9 +31,9 @@ final class SchemaCheck {
         } catch (final RuntimeException invalid) {
             throw new IllegalStateException(
                     "The database schema is not the one this bot was built against, so it is not"
-                            + " starting. The bot does not apply migrations any more - steward"
-                            + " does. Run it against this stack:\n\n"
-                            + "    docker compose run --rm steward migrate\n\n"
+                            + " starting. The bot does not apply migrations - steward-agent does, at"
+                            + " every start of its own. Restart it against this stack:\n\n"
+                            + "    docker compose restart steward-agent\n\n"
                             + "Flyway said: " + invalid.getMessage(),
                     invalid);
         }

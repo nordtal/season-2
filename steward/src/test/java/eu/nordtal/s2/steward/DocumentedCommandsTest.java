@@ -29,10 +29,8 @@ class DocumentedCommandsTest {
             "steward/README.md",
             "deploy/README.md");
 
-    /** What {@link Steward} actually dispatches on. Anything else reads as the default. */
-    // "apply" is deliberately absent, with the button that did the same: it would tell somebody to swap jars live.
-    private static final List<String> SUBCOMMANDS =
-            List.of("report", "migrate", "bootstrap", "serve", "forget-factors", "generate-vapid-keys");
+    /** What {@link Steward} actually dispatches on. Anything else is refused. */
+    private static final List<String> SUBCOMMANDS = List.of("serve", "forget-factors", "generate-vapid-keys");
 
     private static final Pattern INVOCATION = Pattern.compile("docker compose run (?:--rm )?steward(?<rest>[^\\n`]*)");
 
@@ -63,7 +61,7 @@ class DocumentedCommandsTest {
         if (!bare.isEmpty()) {
             fail("a `docker compose run` with no subcommand does NOT reach the read-only default -"
                     + " Compose hands it the service's `command` (serve), or the image's CMD when"
-                    + " the service names none. Write `steward report`:\n" + String.join("\n", bare));
+                    + " the service names none. Name one of " + SUBCOMMANDS + ":\n" + String.join("\n", bare));
         }
     }
 

@@ -812,7 +812,7 @@ export type HungerGamesRound = {
   registered?: number
 }
 
-/** steward-agent: one question and one verb. */
+/** steward-agent: whether it can be asked. */
 
 /** Whether the recreate button may be drawn, since an unconfigured agent is not a broken one. */
 export type AgentState = {
@@ -820,19 +820,6 @@ export type AgentState = {
   /** Present only when `available` is false, and it is the whole explanation. */
   reason?: string
   reachable?: boolean
-}
-
-/** One compose operation, while it runs and after it has ended. */
-export type AgentJob = {
-  id: string
-  kind: string
-  services: string[]
-  state: "RUNNING" | "DONE" | "FAILED"
-  started: string
-  finished?: string
-  exitCode?: number
-  /** compose's own output, in order; only `GET /api/agent/jobs/{id}` carries it. */
-  lines?: string[]
 }
 
 /**

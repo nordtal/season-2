@@ -18,7 +18,7 @@ class UpdateKindTest {
         for (final UpdateKind kind : UpdateKind.values()) {
             final StewardRequest request = switch (kind) {
                 case RESTORE -> new StewardRequest.Restore(List.of(), "db-20261002T030000Z.dump");
-                case REMOVE_PLUGIN -> new StewardRequest.RemovePlugin(List.of("smp"), "chunky.jar");
+                case REMOVE_PLUGIN -> new StewardRequest.RemovePlugin(List.of("smp"), "chunky");
                 default -> kind.request(List.of("smp"));
             };
             assertEquals(kind, UpdateKind.of(request));

@@ -321,4 +321,8 @@ export const RUN_KIND: Record<string, string> = {
   RESTART: "Restart",
   DOWN: "Take down",
   START: "Start",
+  RECREATE: "Recreate",
+  DEPLOY: "Deploy",
+  RESTORE: "Restore",
+  REMOVE_PLUGIN: "Remove plugin",
 }

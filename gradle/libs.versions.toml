@@ -22,7 +22,7 @@ postgresql = "42.7.13"
 # JDBI and HikariCP match jcore exactly, so :common gets them without jcore and the bot resolves one copy.
 jdbi = "3.54.0"
 hikaricp = "7.1.0"
-# Tests apply the real migration files with it; at runtime only steward migrates, through jcore.
+# Tests apply the real migration files with it; at runtime only steward-agent migrates.
 flyway = "13.4.0"
 # API only; :common never binds a backend.
 slf4j = "2.0.18"

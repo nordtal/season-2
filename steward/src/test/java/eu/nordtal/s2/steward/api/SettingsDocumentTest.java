@@ -13,6 +13,7 @@ import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.settings.Group;
 import eu.nordtal.s2.settings.MemorySettingStore;
+import eu.nordtal.s2.settings.Refers;
 import io.javalin.http.BadRequestResponse;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +47,16 @@ class SettingsDocumentTest {
         assertEquals("Welcome", entry(document, "motd").value());
         assertEquals("20", entry(document, "max-players").value());
         assertEquals(List.of("msg"), entry(document, "allowlist").items());
+    }
+
+    @Test
+    void aValueNamingAnItemSaysSoAndAPlainOneNothing() throws Exception {
+        final SettingsDocument document = document();
+
+        assertEquals(
+                new SettingsDocument.Reference(Refers.To.ITEM, null, false),
+                entry(document, "prizes").refers());
+        assertNull(entry(document, "motd").refers());
     }
 
     @Test

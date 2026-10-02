@@ -676,6 +676,7 @@ export type ConfigEntry = {
   sections?: ConfigEntry[][]
   choices?: ConfigChoices
   protectedEntry?: ConfigProtectedEntry
+  refers?: ConfigReference
 }
 
 export type ReloadOutcome = {
@@ -765,6 +766,12 @@ export type ConfigProtectedEntry = {
   value: string
 }
 
+export type ConfigReference = {
+  to: ReferenceKind
+  dependsOn?: string
+  optional: boolean
+}
+
 export type ReloadStatus = "APPLIED" | "NO_ANSWER" | "RESTART_REQUIRED"
 
 export type MessageArg = {
@@ -782,5 +789,22 @@ export type ReportChange = {
   to: string
   state: ChangeState
 }
+
+export type ReferenceKind =
+  | "ITEM"
+  | "BLOCK"
+  | "ENTITY_TYPE"
+  | "ADVANCEMENT"
+  | "STATISTIC"
+  | "SUBJECT"
+  | "ENCHANTMENT"
+  | "BIOME"
+  | "MOB_EFFECT"
+  | "SOUND_EVENT"
+  | "DAMAGE_TYPE"
+  | "COLOUR"
+  | "DISCORD_ROLE"
+  | "DISCORD_CHANNEL"
+  | "DISCORD_USER"
 
 export type ChangeState = "MOVING" | "UNSUPPORTED"

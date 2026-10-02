@@ -315,18 +315,6 @@ public interface AccessSpec {
         default String admin() {
             return "";
         }
-
-        @Order(4)
-        @Name("Admin ping role")
-        @Key("admin-ping")
-        @Comment({
-            "Mentioned in the admin channel for entries that need a human. It grants no",
-            "power and may be the same role as 'admin'."
-        })
-        @Explain("Only decides who is pinged in the admin channel; grants no power, and may be the same role as admin.")
-        default String adminPing() {
-            return "";
-        }
     }
 
     /** Channel ids the bot writes to that are not per-language. */

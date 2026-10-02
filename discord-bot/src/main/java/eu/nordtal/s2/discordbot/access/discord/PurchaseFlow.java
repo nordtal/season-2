@@ -3,6 +3,8 @@ package eu.nordtal.s2.discordbot.access.discord;
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.alert.Alert;
+import eu.nordtal.s2.database.alert.AlertType;
 import eu.nordtal.s2.database.payment.Money;
 import eu.nordtal.s2.database.payment.PaymentRequest;
 import eu.nordtal.s2.database.payment.PaymentRequestStatus;
@@ -293,8 +295,14 @@ public final class PurchaseFlow extends ListenerAdapter {
             return true;
         }
         if (request.tabFailed() != null) {
-            // bunq's error text goes to the admin channel, not the buyer.
-            admin.alert("🛑 bunq refused a link", "`" + request.reference() + "` `" + request.tabFailed() + "`");
+            // bunq's error text goes to the admins as an alert, not to the buyer.
+            admin.alert(new Alert(
+                    AlertType.PAYMENT,
+                    Alert.Level.DOWN,
+                    "purchase",
+                    "bunq refused a payment link",
+                    "`" + request.reference() + "` `" + request.tabFailed() + "`",
+                    "/payments"));
             edit(hook, messages.format(locale, MESSAGES.purchase().linkSection().refused()));
             return true;
         }
@@ -355,11 +363,17 @@ public final class PurchaseFlow extends ListenerAdapter {
         event.reply(text).setEphemeral(true).queue();
     }
 
-    /** Tells the user a plain sentence and the admin channel the detail. */
+    /** Tells the user a plain sentence and raises the detail as an alert. */
     private void fail(
             final IDeferrableCallback event, final Locale locale, final String what, final RuntimeException exception) {
         log.error("Purchase failed while {}", what, exception);
-        admin.alert("🛑 Purchase failed", event.getUser().getAsMention() + " " + what + " `" + exception + "`");
+        admin.alert(new Alert(
+                AlertType.PAYMENT,
+                Alert.Level.DOWN,
+                "purchase",
+                "A purchase failed",
+                event.getUser().getAsMention() + " " + what + " `" + exception + "`",
+                "/payments"));
         event.getHook()
                 .editOriginal(messages.format(locale, MESSAGES.purchase().failed()))
                 .setComponents(List.of())

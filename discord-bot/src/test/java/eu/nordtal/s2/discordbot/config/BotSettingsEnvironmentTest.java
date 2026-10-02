@@ -36,7 +36,6 @@ class BotSettingsEnvironmentTest {
         values.put("roles.access", "10");
         values.put("roles.donor", "11");
         values.put("roles.admin", "14");
-        values.put("roles.admin-ping", "15");
         values.put("channels.admin", "24");
         return values;
     }

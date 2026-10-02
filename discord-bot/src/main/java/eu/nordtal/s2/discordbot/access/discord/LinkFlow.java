@@ -5,6 +5,8 @@ import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.LinkRedemption;
+import eu.nordtal.s2.database.alert.Alert;
+import eu.nordtal.s2.database.alert.AlertType;
 import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.Ids;
 import eu.nordtal.s2.messages.Messages;
@@ -103,7 +105,13 @@ public final class LinkFlow extends ListenerAdapter {
                 redeem(event, locale, code);
             } catch (final RuntimeException exception) {
                 log.error("Redeeming a link code failed", exception);
-                admin.alert("🛑 Link failed", event.getUser().getAsMention() + " `" + exception + "`");
+                admin.alert(new Alert(
+                        AlertType.BOT,
+                        Alert.Level.DOWN,
+                        "link",
+                        "A link failed",
+                        event.getUser().getAsMention() + " `" + exception + "`",
+                        "/access"));
                 event.getHook()
                         .editOriginal(messages.format(locale, MESSAGES.link().failed()))
                         .queue();

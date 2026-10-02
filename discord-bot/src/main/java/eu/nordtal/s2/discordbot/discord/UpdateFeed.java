@@ -8,7 +8,6 @@ import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
-import eu.nordtal.s2.database.update.UpdateStatus;
 import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.Card;
 import eu.nordtal.s2.messages.Messages;
@@ -27,6 +26,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Draws every update run in the admin channel, in English.
+ *
+ * An edit notifies nobody, so a failed run reaches the admins as steward's alert, not from here.
  */
 @Slf4j
 public final class UpdateFeed {
@@ -41,9 +42,6 @@ public final class UpdateFeed {
 
         void edit(String messageId, MessageEmbed embed);
 
-        /** Posts a line mentioning the admin role, used only for a failed run since an edit notifies nobody. */
-        void alert(String title, String text);
-
         static Board of(final AdminLog admin) {
             return new Board() {
                 @Override
@@ -54,11 +52,6 @@ public final class UpdateFeed {
                 @Override
                 public void edit(final String messageId, final MessageEmbed embed) {
                     admin.edit(messageId, embed);
-                }
-
-                @Override
-                public void alert(final String title, final String text) {
-                    admin.alert(title, text);
                 }
             };
         }
@@ -175,9 +168,6 @@ public final class UpdateFeed {
         for (final UpdateRequest request : fresh) {
             lastSeen = Math.max(lastSeen, request.id());
             final boolean over = request.status().isFinished();
-            if (over) {
-                alertIfFailed(request);
-            }
             board.post(embed(request), messageId -> {
                 if (over) {
                     return;
@@ -213,22 +203,8 @@ public final class UpdateFeed {
                 drawing.put(id, new Drawn(drawn.messageId(), request.result()));
             }
             if (request.status().isFinished()) {
-                alertIfFailed(request);
                 drawing.remove(id);
             }
-        }
-    }
-
-    /** Mentions the admin role once when a run failed; a cancellation is not a failure. */
-    private void alertIfFailed(final UpdateRequest request) {
-        if (request.status() != UpdateStatus.FAILED) {
-            return;
-        }
-        try {
-            board.alert("🛑 " + request.kind().name().toLowerCase(java.util.Locale.ROOT) + " failed", asker(request));
-        } catch (final RuntimeException failure) {
-            // The embed is already posted; losing the mention must not lose the pass.
-            log.warn("Could not alert admins about failed update request {}", request.id(), failure);
         }
     }
 

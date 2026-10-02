@@ -79,7 +79,8 @@ pin and no rollback: a bad release is corrected by publishing a better one.
   writes the volumes as zstd tars, read back once before the rename from `.partial`. The nightly clock only writes a request row. There is no offsite
   copy.
 - **Alerts.** Every alert is a row in `admin_alert`, raised by whoever saw it: steward measures the
-  stack every 30 seconds against the `web` group's thresholds and raises a failed run. Steward routes each row once, to Web Push and to the admin channel through the
+  stack every 30 seconds against the `web` group's thresholds and raises a failed run; the bot raises
+  what it could not do in Discord or with a payment. Steward routes each row once, to Web Push and to the admin channel through the
   bot's inbox, per alert type and per admin. The browser only displays `GET /api/alerts`.
 - **Payments.** It books them and holds no bank credential: every question to bunq goes to
   `steward-bunq` (`steward#bunq`, its address and the token they share). At start it asks

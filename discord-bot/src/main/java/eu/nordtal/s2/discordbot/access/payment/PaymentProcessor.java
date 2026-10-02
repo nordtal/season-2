@@ -6,6 +6,8 @@ import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AccessGrant;
 import eu.nordtal.s2.database.access.AccessSource;
+import eu.nordtal.s2.database.alert.Alert;
+import eu.nordtal.s2.database.alert.AlertType;
 import eu.nordtal.s2.database.payment.Money;
 import eu.nordtal.s2.database.payment.PaymentNotice;
 import eu.nordtal.s2.database.payment.PaymentRequest;
@@ -197,15 +199,19 @@ public final class PaymentProcessor {
         for (final PaymentNotice notice : requests.unpostedNotices()) {
             if (requests.claimNotice(notice.bunqPaymentId())) {
                 // Falls back to the reason label on a notice built with no detail sentence.
-                admin.alert("💶 Payment needs a look", Objects.requireNonNullElse(notice.detail(), notice.reason()));
+                admin.alert(needsALook(Objects.requireNonNullElse(notice.detail(), notice.reason())));
             }
         }
     }
 
-    /** Raises a payment to the admin channel once ever, writing and claiming the notice together. */
+    /** Raises a payment once ever, writing and claiming the notice together. */
     private void raise(final long paymentId, final String reason, final String text) {
         if (requests.noticeOnce(paymentId, reason, text) && requests.claimNotice(paymentId)) {
-            admin.alert("💶 Payment needs a look", text);
+            admin.alert(needsALook(text));
         }
+    }
+
+    private static Alert needsALook(final String detail) {
+        return new Alert(AlertType.PAYMENT, Alert.Level.DOWN, "payment", "A payment needs a look", detail, "/payments");
     }
 }

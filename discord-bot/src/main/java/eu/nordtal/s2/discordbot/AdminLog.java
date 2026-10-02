@@ -2,6 +2,7 @@ package eu.nordtal.s2.discordbot;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.alert.Alert;
+import eu.nordtal.s2.database.alert.AlertBook;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.Configured;
@@ -17,30 +18,39 @@ import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Writes every admin action to {@code audit_log} and, when a human is needed, to the admin channel.
+ * Writes every admin action to {@code audit_log}, posts notes to the admin channel, and raises what needs a human.
  *
- * Every line is a {@link Card}; {@link #alert} mentions the admin role for anything to act on, {@link #note} does not.
+ * An {@link #alert} is a row steward routes, so this class never decides who hears of it; {@link #postAlert} draws one.
  */
 @Slf4j
 public final class AdminLog {
 
+    static final String RAISED_BY = "discord-bot";
+
     private final JDA jda;
     private final AccessSpec config;
     private final AuditDao dao;
+    private final AlertBook alerts;
 
-    public AdminLog(final JDA jda, final AccessSpec config, final Jdbi jdbi) {
+    public AdminLog(final JDA jda, final AccessSpec config, final Jdbi jdbi, final AlertBook alerts) {
         this.jda = jda;
         this.config = config;
         this.dao = jdbi.onDemand(AuditDao.class);
+        this.alerts = alerts;
     }
 
-    /** Posts a card somebody must act on, mentioning the admin role when one is configured. */
-    public void alert(final String title, final String text) {
-        send(
-                Configured.isSet(config.roles().adminPing())
-                        ? "<@&" + config.roles().adminPing() + ">"
-                        : null,
-                card(title, text));
+    /** Raises something an admin must act on; steward routes it to push and back here, and this never throws. */
+    public void alert(final Alert alert) {
+        raise(alerts, alert);
+    }
+
+    static void raise(final AlertBook book, final Alert alert) {
+        try {
+            book.raise(alert, RAISED_BY);
+        } catch (final RuntimeException exception) {
+            // With the database gone, this line is the only place the alert exists.
+            log.error("Could not raise the alert {}: {}", alert.title(), alert.detail(), exception);
+        }
     }
 
     /** Posts an alert steward routed here, and answers whether there was an admin channel to post it to. */
@@ -68,7 +78,7 @@ public final class AdminLog {
         send(null, card(title, text));
     }
 
-    /** Draws one admin-log line; the role mention stays outside, since a mention inside an embed pings nobody. */
+    /** Draws one admin-log line; a mention stays outside, since a mention inside an embed pings nobody. */
     static MessageEmbed card(final String title, final String text) {
         return Card.of(title).lead(text).build();
     }

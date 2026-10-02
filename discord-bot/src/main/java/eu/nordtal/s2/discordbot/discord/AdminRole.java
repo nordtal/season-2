@@ -2,6 +2,8 @@ package eu.nordtal.s2.discordbot.discord;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AdminTree;
+import eu.nordtal.s2.database.alert.Alert;
+import eu.nordtal.s2.database.alert.AlertType;
 import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import java.util.HashSet;
@@ -43,9 +45,13 @@ public final class AdminRole {
         final Role role = guild.getRoleById(config.roles().admin());
         if (role == null) {
             if (alerted.add("role")) {
-                adminLog.alert(
-                        "⚠️ Admin role missing",
-                        "`" + config.roles().admin() + "` does not exist, so it is not kept in step with Steward.");
+                adminLog.alert(new Alert(
+                        AlertType.BOT,
+                        Alert.Level.WARN,
+                        "admin role",
+                        "The admin role is missing",
+                        "`" + config.roles().admin() + "` does not exist, so it is not kept in step with Steward.",
+                        "/access"));
             }
             return;
         }
@@ -83,7 +89,13 @@ public final class AdminRole {
 
     private void failed(final DiscordId discordId, final String what, final Throwable failure) {
         if (alerted.add(discordId.value())) {
-            adminLog.alert("⚠️ Admin role not changed", "<@" + discordId + "> " + what + ": " + failure.getMessage());
+            adminLog.alert(new Alert(
+                    AlertType.BOT,
+                    Alert.Level.WARN,
+                    "admin role",
+                    "The admin role was not changed",
+                    "<@" + discordId + "> " + what + ": " + failure.getMessage(),
+                    "/access"));
         } else {
             log.debug("Could still not {} {}: {}", what, discordId, failure.getMessage());
         }

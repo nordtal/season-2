@@ -109,7 +109,6 @@ public final class BotSettings {
         // Everything below is optional; empty means the feature is not served.
         requireSnowflakeIfSet("roles.access", config.roles().access());
         requireSnowflakeIfSet("roles.donor", config.roles().donor());
-        requireSnowflakeIfSet("roles.admin-ping", config.roles().adminPing());
 
         requireSnowflakeIfSet("channels.admin", config.channels().admin());
 

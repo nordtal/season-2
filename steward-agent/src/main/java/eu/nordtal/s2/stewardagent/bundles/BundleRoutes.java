@@ -32,21 +32,21 @@ public final class BundleRoutes {
     private static final Set<String> LANGUAGES = Set.of("en", "de");
 
     private final Path configs;
-    private final @Nullable Path volumes;
+    private final ImageJars images;
 
     /**
      * @param configs one directory per service, holding its plugins' data folders
-     * @param volumes where a standalone jar such as the bot's lives, or {@code null} to look in {@code configs} only
+     * @param images where the bot's jar is found, which is in its image and not beside its data
      */
-    public BundleRoutes(final Path configs, final @Nullable Path volumes) {
+    public BundleRoutes(final Path configs, final ImageJars images) {
         this.configs = configs;
-        this.volumes = volumes;
+        this.images = images;
     }
 
     public void register(final JavalinConfig config) {
         config.routes.get(
                 AgentWire.BUNDLES,
-                ctx -> ctx.json(MessageBundles.discover(configs, volumes).stream()
+                ctx -> ctx.json(MessageBundles.discover(configs, images).stream()
                         .map(location ->
                                 new AgentWire.BundleRef(location.service(), location.module(), location.writable()))
                         .toList()));
@@ -150,7 +150,7 @@ public final class BundleRoutes {
     private MessageBundleLocation locate(final Context ctx) {
         final String service = ctx.pathParam("service");
         final String module = Objects.requireNonNullElse(ctx.queryParam("module"), "");
-        return MessageBundles.discover(configs, volumes).stream()
+        return MessageBundles.discover(configs, images).stream()
                 .filter(location ->
                         location.service().equals(service) && location.module().equals(module))
                 .findFirst()

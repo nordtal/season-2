@@ -12,6 +12,8 @@ tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJ
                 .getByType<JavaApplication>()
                 .mainClass
                 .get()
+        // The release a process was built as; steward-agent tells its release from it.
+        attributes["Implementation-Version"] = project.version.toString()
     }
 }
 

@@ -36,8 +36,16 @@ final class Release {
                 .orElse(null);
     }
 
-    /** The version of the jar this process was started from, as its manifest names it; {@code null} from a test. */
+    /**
+     * The release this process runs as, or {@code null} from a test.
+     *
+     * That is the {@code NORDTAL_RELEASE} its container was made with, its image's tag, or else its manifest version.
+     */
     static @Nullable String ownVersion() {
+        final String release = System.getenv("NORDTAL_RELEASE");
+        if (release != null && !release.isBlank()) {
+            return release;
+        }
         return Release.class.getPackage().getImplementationVersion();
     }
 }

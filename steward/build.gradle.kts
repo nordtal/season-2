@@ -11,13 +11,6 @@ plugins {
 
 application.mainClass.set("eu.nordtal.s2.steward.Steward")
 
-// Handover compares this version with the one a run was handed to.
-tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
-    manifest {
-        attributes["Implementation-Version"] = project.version.toString()
-    }
-}
-
 tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
         // Names start() as NullAway's initializer, since Web's app field is set there.

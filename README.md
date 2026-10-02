@@ -157,8 +157,8 @@ A release is a published GitHub release, not a pushed tag:
 gh release create v0.1.0 --target main --title v0.1.0 --generate-notes
 ```
 
-The `release` workflow refuses a tag that disagrees with `gradle.properties`, attaches the jars and
-the pack, and pushes the five images tagged with the version and `latest`. Rerun a failed build
+The `release` workflow refuses a tag that disagrees with `gradle.properties`, pushes every image
+tagged with the version alone, and only then attaches the four plugin jars and the pack. Rerun a failed build
 with `gh workflow run release.yml -f tag=v0.1.0`. A deploy only pulls, so an unpublished image fails
 with `denied`.
 

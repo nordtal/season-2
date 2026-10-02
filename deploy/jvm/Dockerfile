@@ -15,19 +15,17 @@ WORKDIR /app
 COPY deploy/jvm/entrypoint.sh /app/entrypoint.sh
 ENTRYPOINT ["/app/entrypoint.sh"]
 
-# Configuration in config/: bot.yml, database.yml and access.yml. JAR_DIR is where steward-agent puts its jar.
+# Configuration in config/: bot.yml, database.yml and access.yml.
 FROM jvm AS discord-bot
-RUN mkdir -p config lib
-ENV JAR_DIR=/app/lib
-VOLUME ["/app/config", "/app/lib"]
+RUN mkdir -p config
+VOLUME ["/app/config"]
 
 # `steward` is a command too, for `docker exec nordtal-s2-steward-1 steward forget-factors <discord-id>`.
 FROM jvm AS steward
 RUN mkdir -p config \
     && printf '#!/bin/sh\nexec /app/entrypoint.sh "$@"\n' > /usr/local/bin/steward \
     && chmod 0755 /usr/local/bin/steward
-ENV NORDTAL_STEWARD_CONFIG_DIR=/app/config \
-    JAR_DIR=/volumes/steward
+ENV NORDTAL_STEWARD_CONFIG_DIR=/app/config
 EXPOSE 8080
 VOLUME ["/app/config"]
 
@@ -61,7 +59,7 @@ EXPOSE 8082
 VOLUME ["/app/bunq"]
 
 # Last, since it changes on every build. .dockerignore keeps the -thin jar out, so the glob matches one.
+# The image is the version: no service of ours runs a jar from a volume.
 FROM ${MODULE} AS image
 ARG MODULE
-ENV JAR_PREFIX=${MODULE}
 COPY ${MODULE}/build/libs/${MODULE}-*.jar /app/app.jar

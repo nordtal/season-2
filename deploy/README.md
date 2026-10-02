@@ -68,10 +68,12 @@ Run it after every release: a new `compose.yml` reaches the host only inside a n
 installation directory, and holds every secret. Edit it in place (`sed -i`); never `mv` a new file
 over it, because an older agent image binds the file itself and would keep the old inode.
 
-**Every hand-typed `docker compose` needs `--env-file`.** Without it Compose interpolates empty
-strings, which fails on `${X:?}` and silently changes everything else:
+**Every hand-typed `docker compose` needs `--env-file` and the release.** Without the file Compose
+interpolates empty strings, which fails on `${X:?}` and silently changes everything else. The release
+is never in the file: it is the tag of the steward-agent that runs, which passes it on itself.
 
 ```bash
+export NORDTAL_RELEASE="$(docker ps --filter label=com.docker.compose.service=steward-agent --format '{{.Image}}' | sed 's/.*://')"
 docker compose --env-file /etc/nordtal/season-2.env ps
 ```
 
@@ -80,7 +82,8 @@ the readiness marker the other services wait for. It never upgrades anything tha
 With `bootstrap: false` in its `runs` group the servers refuse to start until an update run
 (`./nordtal.sh update`) has installed them.
 
-There is no pin and no rollback: every image is `latest`, and a bad release is fixed by a better one.
+Every image of ours is tagged with the release steward-agent runs; only the plugins and Paper and
+Velocity are files in volumes. There is no rollback: a bad release is fixed by a better one.
 
 ## First-start seeding
 

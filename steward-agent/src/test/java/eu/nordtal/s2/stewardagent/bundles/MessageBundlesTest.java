@@ -33,7 +33,15 @@ class MessageBundlesTest {
     Path configs;
 
     @TempDir
-    Path volumes;
+    Path images;
+
+    /** The bot's jar as the agent copies it out of the running container, keyed by service. */
+    private ImageJars imageJars() {
+        return service -> {
+            final Path jar = images.resolve(service + ".jar");
+            return Files.isRegularFile(jar) ? jar : null;
+        };
+    }
 
     // Discovery
 
@@ -42,7 +50,7 @@ class MessageBundlesTest {
         writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of("messages/smp/en.properties", "welcome=Welcome\n"));
         Files.createDirectories(configs.resolve("smp/smp/messages"));
 
-        final List<MessageBundleLocation> found = MessageBundles.discover(configs, volumes);
+        final List<MessageBundleLocation> found = MessageBundles.discover(configs, imageJars());
 
         assertEquals(1, found.size(), found.toString());
         assertEquals("smp", found.getFirst().service());
@@ -51,21 +59,19 @@ class MessageBundlesTest {
     }
 
     @Test
-    void aStandaloneJarsBundleHasNoModuleAndItsJarIsFoundInTheVolumesMount() throws IOException {
-        // discord-bot's own jar is not under the configs mount at all, only its data is.
+    void aWholeServicesBundleHasNoModuleAndItsJarComesFromItsImage() throws IOException {
+        // discord-bot's own jar is in its image, not on any volume; only its data is under the configs mount.
         Files.createDirectories(configs.resolve("discord-bot/messages"));
         writeJar(
-                volumes.resolve("discord-bot/discord-bot-0.9.1.jar"),
+                images.resolve("discord-bot.jar"),
                 Map.of("messages/access/en.properties", "contribution.title=Access\n"));
 
-        final List<MessageBundleLocation> found = MessageBundles.discover(configs, volumes);
+        final List<MessageBundleLocation> found = MessageBundles.discover(configs, imageJars());
 
         assertEquals(1, found.size(), found.toString());
         assertEquals("discord-bot", found.getFirst().service());
         assertEquals("", found.getFirst().module());
-        assertEquals(
-                volumes.resolve("discord-bot/discord-bot-0.9.1.jar"),
-                found.getFirst().jar());
+        assertEquals(images.resolve("discord-bot.jar"), found.getFirst().jar());
     }
 
     @Test
@@ -73,12 +79,12 @@ class MessageBundlesTest {
         Files.createDirectories(configs.resolve("limbo/limbo/messages"));
         // No jar anywhere: a deployment installing this module for the first time.
 
-        assertEquals(List.of(), MessageBundles.discover(configs, volumes));
+        assertEquals(List.of(), MessageBundles.discover(configs, imageJars()));
     }
 
     @Test
     void aRootThatIsNotMountedIsAnEmptyListNotAFailure() {
-        assertEquals(List.of(), MessageBundles.discover(configs.resolve("never-mounted"), volumes));
+        assertEquals(List.of(), MessageBundles.discover(configs.resolve("never-mounted"), imageJars()));
     }
 
     // Reading and merging

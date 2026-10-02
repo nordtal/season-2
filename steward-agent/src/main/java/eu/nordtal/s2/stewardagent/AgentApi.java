@@ -3,6 +3,7 @@ package eu.nordtal.s2.stewardagent;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.stewardagent.backup.BackupRoutes;
 import eu.nordtal.s2.stewardagent.bundles.BundleRoutes;
+import eu.nordtal.s2.stewardagent.bundles.ImageJars;
 import eu.nordtal.s2.stewardagent.docker.Console;
 import eu.nordtal.s2.stewardagent.docker.Containers;
 import eu.nordtal.s2.stewardagent.docker.Docker;
@@ -52,7 +53,10 @@ public final class AgentApi implements AutoCloseable {
                 sampler,
                 topology);
         this.backups = new BackupRoutes(paths.backups());
-        this.bundles = new BundleRoutes(paths.configs(), paths.volumesRoot());
+        this.bundles = new BundleRoutes(
+                paths.configs(),
+                ImageJars.fromContainers(
+                        docker, project, java.nio.file.Path.of(System.getProperty("java.io.tmpdir"), "image-jars")));
         this.sizes = new VolumeSizes(paths.volumesRoot());
     }
 

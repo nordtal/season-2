@@ -70,6 +70,7 @@ val stageComposeFile by tasks.registering(Copy::class) {
     into(layout.buildDirectory.dir("compose"))
 }
 
-tasks.named("build") {
+// Off `assemble`, so whatever builds the jar for the image also stages the file baked beside it.
+tasks.named("assemble") {
     dependsOn(stageComposeFile)
 }

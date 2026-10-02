@@ -14,8 +14,6 @@ tasks.register("releaseArtifacts") {
         ":hunger-games:shadowJar",
         ":smp:shadowJar",
         ":proxy:shadowJar",
-        ":discord-bot:shadowJar",
-        ":steward:shadowJar",
         ":resource-pack:packZip",
     )
 }
@@ -28,8 +26,8 @@ tasks.register("imageContexts") {
         ":discord-bot:shadowJar",
         ":steward:shadowJar",
         ":steward-bunq:shadowJar",
-        // `build`, not `shadowJar`: the agent's context is the jar AND the staged compose.yml.
-        ":steward-agent:build",
+        // The agent's context is its jar and the staged compose.yml, which `assemble` makes together.
+        ":steward-agent:assemble",
     )
 }
 

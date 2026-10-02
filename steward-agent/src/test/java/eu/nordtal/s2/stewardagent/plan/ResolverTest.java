@@ -430,49 +430,18 @@ class ResolverTest {
     }
 
     @Test
-    void theBotIsAJarInAVolumeLikeEverythingElseAndReadsAsUpToDate() throws IOException {
-        installCurrentEverything();
-
-        final Change change = changeFor(resolve(), "discord-bot", "discord-bot");
-
-        assertEquals(Change.Status.UP_TO_DATE, change.status());
-        assertEquals("discord-bot-0.1.0.jar", change.installed());
-    }
-
-    @Test
-    void anOlderBotJarIsWorkExactlyLikeAnOlderPlugin() throws IOException {
-        installCurrentEverything();
-        replace("discord-bot", "discord-bot-0.1.0.jar", "discord-bot-0.0.9.jar");
-
-        final Change change = changeFor(resolve(), "discord-bot", "discord-bot");
-
-        assertEquals(Change.Status.OUTDATED, change.status());
-        assertEquals("discord-bot-0.0.9.jar", change.installed());
-        assertTrue(change.status().isWork());
-    }
-
-    @Test
     void aVolumeThatIsNotMountedIsReportedAsThatNeverAsAnEmptyOne() throws IOException {
         installCurrentEverything();
-        Files.delete(volumes.resolve("discord-bot").resolve("discord-bot-0.1.0.jar"));
-        Files.delete(volumes.resolve("discord-bot"));
+        try (var walk = Files.walk(volumes.resolve("limbo"))) {
+            walk.sorted(java.util.Comparator.reverseOrder())
+                    .forEach(path -> path.toFile().delete());
+        }
 
-        final Change change = changeFor(resolve(), "discord-bot", "discord-bot");
+        final Change change = changeFor(resolve(), "limbo", "limbo");
 
         assertEquals(Change.Status.MOUNT_MISSING, change.status());
         assertNotNull(change.note());
         assertTrue(change.note().contains("not mounted"), change.note());
-    }
-
-    @Test
-    void aReleaseWithNoStewardJarInItLeavesThatRowUnresolvedNotWrong() throws IOException {
-        installCurrentEverything();
-        // No steward jar in this release is exactly what an unresolvable row looks like, clearing on the next release.
-        final Change change = changeFor(resolve(), "steward", "steward");
-
-        assertEquals(Change.Status.UNRESOLVED, change.status());
-        assertNotNull(change.note());
-        assertTrue(change.note().contains("steward-<version>.jar"), change.note());
     }
 
     @Test
@@ -481,7 +450,7 @@ class ResolverTest {
         replace("smp", "plugins/packetevents-spigot-2.13.0.jar", "plugins/packetevents-spigot-2.12.0.jar");
         http.answering(
                 "/repos/nordtal/season-2/releases",
-                FakeHttp.read("github-season-v0.1.0.json").replace("smp-0.1.0.jar", "steward-0.1.0.jar"));
+                FakeHttp.read("github-season-v0.1.0.json").replace("smp-0.1.0.jar", "other-0.1.0.jar"));
 
         final UpdatePlan plan = resolve();
         final Change smp = changeFor(plan, "smp", "smp");
@@ -509,7 +478,7 @@ class ResolverTest {
         installCurrentEverything();
         http.answering(
                 "/repos/nordtal/season-2/releases",
-                FakeHttp.read("github-season-v0.1.0.json").replace("smp-0.1.0.jar", "steward-0.1.0.jar"));
+                FakeHttp.read("github-season-v0.1.0.json").replace("smp-0.1.0.jar", "other-0.1.0.jar"));
 
         final eu.nordtal.s2.database.update.UpdateReport report = PlanReport.of(resolve());
 
@@ -555,24 +524,6 @@ class ResolverTest {
     }
 
     @Test
-    void stewardInstallsItsOwnJarWhichTakesEffectOnTheNextStartAndNotBefore() throws IOException {
-        installCurrentEverything();
-        http.answering(
-                "/repos/nordtal/season-2/releases",
-                FakeHttp.read("github-season-v0.1.0.json").replace("smp-0.1.0.jar", "steward-0.1.0.jar"));
-
-        final Change change = changeFor(resolve(), "steward", "steward");
-
-        // MISSING not UP_TO_DATE: an empty, mounted volume is what a first deployment looks like before any install.
-        assertEquals(Change.Status.MISSING, change.status());
-        assertTrue(
-                change.status().isWork(),
-                "it is work like anything else - what it is not is work that changes THIS process");
-        assertNotNull(change.wanted());
-        assertEquals("steward-0.1.0.jar", change.wanted().fileName());
-    }
-
-    @Test
     void aReleasePinnedByTagThatIsAPreReleaseSaysSoOnTheSecondLine() throws IOException {
         installCurrentEverything();
         http.answering(
@@ -610,9 +561,6 @@ class ResolverTest {
         write("smp", "plugins/packetevents-spigot-2.13.0.jar");
         write("smp", "plugins/voicechat-bukkit-2.6.23.jar");
         write("smp", ".server/paper-26.2-121.jar");
-        // The bot and steward share one jar folder with no plugins subfolder; only the bot's jar exists here.
-        write("discord-bot", "discord-bot-0.1.0.jar");
-        Files.createDirectories(volumes.resolve("steward"));
         storePack(PACK_SHA1);
     }
 

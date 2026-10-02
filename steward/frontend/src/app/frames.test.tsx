@@ -20,6 +20,7 @@ const ME: Me = {
   csrf: "t",
   webauthn: "required",
   relyingPartyId: "nordtal.eu",
+  stepUpMinutes: 15,
   verified: true,
   keys: [{ id: "k1", label: "YubiKey", registeredAt: "2026-09-01T10:00:00Z" }],
 }

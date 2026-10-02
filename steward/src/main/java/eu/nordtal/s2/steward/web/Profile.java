@@ -10,10 +10,9 @@ import eu.nordtal.s2.steward.auth.WebAuthn;
 import eu.nordtal.s2.steward.data.Data;
 import eu.nordtal.s2.steward.data.ExampleValues;
 import io.javalin.http.Context;
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -73,25 +72,48 @@ final class Profile {
         ctx.json(exampleValues().of(who.signedInDiscordId(), who.signedInDisplayName()));
     }
 
+    /** One registered security key; {@code backedUp} is absent when the authenticator did not say. */
+    public record SecurityKey(
+            String id,
+            String label,
+            Instant registeredAt,
+            @Nullable Instant lastUsedAt,
+            @Nullable List<String> transports,
+            @Nullable Boolean backedUp) {}
+
+    /**
+     * {@code GET /api/me}: who is signed in, the CSRF token every write needs, and what the key covers.
+     *
+     * Everything about the session is absent while nobody is signed in.
+     */
+    public record Me(
+            boolean signedIn,
+            @Nullable DiscordId id,
+            @Nullable String name,
+            @Nullable String csrf,
+            @Nullable Instant signedInAt,
+            @Nullable Instant expiresAt,
+            @Nullable String signInUnavailable,
+            String webauthn,
+            @Nullable List<SecurityKey> keys,
+            @Nullable Boolean verified,
+            @Nullable Instant verifiedAt,
+            @Nullable String relyingPartyId,
+            long stepUpMinutes,
+            @Nullable String discordAvatarUrl) {}
+
     /** The keys of one account, as {@code /api/me} lists them. */
-    private List<Map<String, Object>> keysOf(final DiscordId discordId) {
-        final List<Map<String, Object>> listed = new ArrayList<>();
+    private List<SecurityKey> keysOf(final DiscordId discordId) {
+        final List<SecurityKey> listed = new ArrayList<>();
         for (final Credentials.Key key : credentials().of(discordId)) {
-            final Map<String, Object> one = new LinkedHashMap<>();
-            one.put("id", new ByteArray(key.credentialId()).getBase64Url());
-            one.put("label", key.label());
-            one.put("registeredAt", key.createdAt().toString());
-            if (key.lastUsedAt() != null) {
-                one.put("lastUsedAt", key.lastUsedAt().toString());
-            }
-            if (key.transports() != null && !key.transports().isBlank()) {
-                one.put("transports", List.of(key.transports().split(",")));
-            }
-            // Absent rather than false when the authenticator did not say.
-            if (key.backedUp() != null) {
-                one.put("backedUp", key.backedUp());
-            }
-            listed.add(one);
+            final String transports = key.transports();
+            listed.add(new SecurityKey(
+                    new ByteArray(key.credentialId()).getBase64Url(),
+                    key.label(),
+                    key.createdAt(),
+                    key.lastUsedAt(),
+                    transports == null || transports.isBlank() ? null : List.of(transports.split(",")),
+                    key.backedUp()));
         }
         return listed;
     }
@@ -115,32 +137,44 @@ final class Profile {
 
     void whoAmI(final Context ctx) {
         final Optional<Sessions.Session> found = session.apply(ctx);
-        final Map<String, Object> answer = new LinkedHashMap<>();
-        answer.put("signedIn", found.isPresent());
-        found.ifPresent(who -> {
-            answer.put("id", who.signedInDiscordId());
-            answer.put("name", who.signedInDisplayName());
-            // Written with the row; this route is the one place it may be read.
-            answer.put("csrf", who.csrf());
-            answer.put("signedInAt", who.createdAt().toString());
-            answer.put("expiresAt", who.expiresAt().toString());
-            // `keys` empty is the forced setup page; `verified` is whether a key was held this session.
-            answer.put("keys", keysOf(who.signedInDiscordId()));
-            answer.put("verified", who.verified());
-            if (who.verifiedAt() != null) {
-                answer.put("verifiedAt", who.verifiedAt().toString());
-            }
-            answer.put("relyingPartyId", webauthn().relyingPartyId());
-            avatarOf(who.signedInDiscordId()).ifPresent(url -> answer.put("discordAvatarUrl", url));
-        });
-        discord.whatIsMissing().ifPresent(missing -> answer.put("signInUnavailable", missing));
-        answer.put(
-                "webauthn",
-                "A security key is required: it is asked for at every sign-in, and"
-                        + " again before anything that changes something - one touch covers the next "
-                        + Web.STEP_UP.toMinutes() + " minutes.");
-        // A number too, so the dialog does not repeat a literal that could drift.
-        answer.put("stepUpMinutes", Web.STEP_UP.toMinutes());
-        ctx.json(answer);
+        final @Nullable String missing = discord.whatIsMissing().orElse(null);
+        final String webauthn = "A security key is required: it is asked for at every sign-in, and"
+                + " again before anything that changes something - one touch covers the next "
+                + Web.STEP_UP.toMinutes() + " minutes.";
+        if (found.isEmpty()) {
+            ctx.json(new Me(
+                    false,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    missing,
+                    webauthn,
+                    null,
+                    null,
+                    null,
+                    null,
+                    Web.STEP_UP.toMinutes(),
+                    null));
+            return;
+        }
+        final Sessions.Session who = found.get();
+        // The CSRF token is written with the row, and this route is the one place it may be read.
+        ctx.json(new Me(
+                true,
+                who.signedInDiscordId(),
+                who.signedInDisplayName(),
+                who.csrf(),
+                who.createdAt(),
+                who.expiresAt(),
+                missing,
+                webauthn,
+                keysOf(who.signedInDiscordId()),
+                who.verified(),
+                who.verifiedAt(),
+                webauthn().relyingPartyId(),
+                Web.STEP_UP.toMinutes(),
+                avatarOf(who.signedInDiscordId()).orElse(null)));
     }
 }

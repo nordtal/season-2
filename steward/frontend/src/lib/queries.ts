@@ -41,8 +41,8 @@ import {
   type Season,
   type Service,
   type ServiceTable,
-  type AlertChannelKey,
-  type AlertTypeKey,
+  type AlertPreference,
+  type AlertType,
   type PushDevice,
   type AlertPreferences,
   type Alerts,
@@ -615,8 +615,8 @@ export function useAlertPreferences(enabled = true) {
 export function useSetAlertPreference() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (choice: { type: AlertTypeKey; channel: AlertChannelKey; enabled: boolean }) =>
-      api<{ type: AlertTypeKey; channel: AlertChannelKey; enabled: boolean }>("/api/alerts/preferences", {
+    mutationFn: (choice: AlertPreference) =>
+      api<AlertPreference>("/api/alerts/preferences", {
         method: "PUT",
         body: choice,
       }),
@@ -635,7 +635,7 @@ export function useSetAlertPreference() {
 export function useTestWebPush() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (what: { endpoint: string; type: AlertTypeKey }) =>
+    mutationFn: (what: { endpoint: string; type: AlertType }) =>
       api<void>("/api/web-push/test", { method: "POST", body: what }),
     onSettled: () => {
       void client.invalidateQueries({ queryKey: keys.webPushDevices })

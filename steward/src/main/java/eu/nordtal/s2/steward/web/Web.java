@@ -1,6 +1,5 @@
 package eu.nordtal.s2.steward.web;
 
-import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.access.AdminTree;
@@ -10,6 +9,7 @@ import eu.nordtal.s2.database.metric.Metric;
 import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
+import eu.nordtal.s2.steward.WireJson;
 import eu.nordtal.s2.steward.alert.AlertMonitor;
 import eu.nordtal.s2.steward.alert.AlertPreferences;
 import eu.nordtal.s2.steward.alert.AlertRouter;
@@ -406,7 +406,7 @@ public final class Web {
     }
 
     private void configureFrontend(final JavalinConfig cfg) {
-        cfg.jsonMapper(new JavalinGson(Json.gson(), true));
+        cfg.jsonMapper(new JavalinGson(WireJson.gson(), true));
         cfg.startup.showJavalinBanner = false;
 
         // The built frontend, which Gradle packs into the jar under /web.

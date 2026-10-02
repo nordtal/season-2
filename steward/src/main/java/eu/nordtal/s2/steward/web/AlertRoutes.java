@@ -13,7 +13,9 @@ import eu.nordtal.s2.steward.data.Data;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import io.javalin.http.ServiceUnavailableResponse;
+import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
@@ -47,20 +49,42 @@ final class AlertRoutes {
         ctx.json(read());
     }
 
+    /**
+     * {@code GET /api/alerts}: what is wrong now, red first, and every alert raised lately, newest first.
+     *
+     * {@code checkedAt} is absent before the first reading, {@code unreadable} while the last one failed.
+     */
+    public record Alerts(
+            @Nullable Instant checkedAt,
+            @Nullable String unreadable,
+            Alert.Level level,
+            List<Alert> alerts,
+            List<RecentAlert> recent) {}
+
+    /** One alert as it was raised, by steward or the bot. */
+    public record RecentAlert(
+            long id,
+            Instant raised,
+            String raisedBy,
+            AlertType type,
+            Alert.Level level,
+            String subject,
+            String title,
+            String detail,
+            String path) {}
+
     /** What is wrong now and what was raised lately, as {@code GET /api/alerts} answers. */
-    Map<String, Object> read() {
+    Alerts read() {
         if (monitor == null || book == null) {
             throw new ServiceUnavailableResponse("Steward has no database, so it keeps no alerts");
         }
         final AlertMonitor.Snapshot now = monitor.snapshot();
-        final Map<String, Object> answer = new LinkedHashMap<>();
-        answer.put("checkedAt", now.checkedAt() == null ? null : now.checkedAt().toString());
-        answer.put("unreadable", now.unreadable());
-        answer.put("level", now.level().key());
-        answer.put("alerts", now.alerts().stream().map(AlertRoutes::shown).toList());
-        answer.put(
-                "recent", book.recent(RECENT).stream().map(AlertRoutes::shown).toList());
-        return answer;
+        return new Alerts(
+                now.checkedAt(),
+                now.unreadable(),
+                now.level(),
+                now.alerts(),
+                book.recent(RECENT).stream().map(AlertRoutes::shown).toList());
     }
 
     /** {@code GET /api/alerts/preferences}: every type with its channels, for the admin who asks. */
@@ -74,6 +98,9 @@ final class AlertRoutes {
         });
         ctx.json(answer);
     }
+
+    /** One switch of one admin: whether alerts of a type reach them on a channel. */
+    public record AlertPreference(AlertType type, AlertChannel channel, boolean enabled) {}
 
     /** {@code PUT /api/alerts/preferences}: one switch, for the admin who is signed in. */
     void setPreference(final Context ctx) {
@@ -90,7 +117,7 @@ final class AlertRoutes {
                     "SET_ALERT_PREFERENCE",
                     Map.of("alert", type.key(), "channel", channel.key(), "enabled", body.enabled)));
         }
-        ctx.json(Map.of("type", type.key(), "channel", channel.key(), "enabled", body.enabled));
+        ctx.json(new AlertPreference(type, channel, body.enabled));
     }
 
     private AlertPreferences preferences() {
@@ -100,23 +127,18 @@ final class AlertRoutes {
         return preferences;
     }
 
-    private static Map<String, Object> shown(final Alert alert) {
-        final Map<String, Object> row = new LinkedHashMap<>();
-        row.put("type", alert.type().key());
-        row.put("level", alert.level().key());
-        row.put("subject", alert.subject());
-        row.put("title", alert.title());
-        row.put("detail", alert.detail());
-        row.put("path", alert.path());
-        return row;
-    }
-
-    private static Map<String, Object> shown(final RaisedAlert raised) {
-        final Map<String, Object> row = shown(raised.alert());
-        row.put("id", raised.id());
-        row.put("raised", raised.raised().toString());
-        row.put("raisedBy", raised.raisedBy());
-        return row;
+    private static RecentAlert shown(final RaisedAlert raised) {
+        final Alert alert = raised.alert();
+        return new RecentAlert(
+                raised.id(),
+                raised.raised(),
+                raised.raisedBy(),
+                alert.type(),
+                alert.level(),
+                alert.subject(),
+                alert.title(),
+                alert.detail(),
+                alert.path());
     }
 
     private static final class PreferenceBody {

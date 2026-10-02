@@ -75,6 +75,17 @@ pin and no rollback: a bad release is corrected by publishing a better one.
   many times a minute, and every signal also runs a payment pass. A request in a server's or the bot's
   inbox moves its topic by `Inbox.version()`, so a page waiting for an answer waits on the stream.
   Logs are not on it: a log is its own follow, relayed from the agent once.
+- **The API's types.** Every route answers and reads records, declared in the feature package of the
+  route, and the frontend's types in `frontend/src/lib/api.gen.ts` are written from them by
+  `./gradlew :steward:generateApiTypes`; `ApiTypesTest` fails on `check` while the committed file
+  differs. The generator is `ApiTypes` in the test sources, a small reflection over
+  record components, chosen over the maintained generators because none of them reads JSpecify's
+  type-use `@Nullable`, which is what makes a field optional. Each package lists its top-level records
+  in a test-source `*Wire` class and `ApiRoots` gathers them; what they hold is reached from them. A
+  `@Nullable` component is an absent field, never a `null`, since the codec drops nulls. `WireJson` is
+  the one codec of the routes and names the enums spelled in lowercase, for both sides. No fetch
+  functions are generated: the routes are registered by hand, so there is no catalogue to write them
+  from.
 - **Alerts.** Every alert is a row in `admin_alert`, raised by whoever saw it: steward measures the
   stack every 30 seconds against the `web` group's thresholds and raises a failed run and a payment
   nobody can book, once per bank payment; the bot raises what it could not do in Discord or with a purchase. Steward routes each row once, to Web Push and to the admin channel through the

@@ -141,7 +141,7 @@ function MetricRow() {
 
       <IssuesTile
         alerts={alerts.data?.alerts ?? []}
-        waiting={alerts.isPending || (alerts.data !== undefined && alerts.data.checkedAt === null)}
+        waiting={alerts.isPending || (alerts.data !== undefined && alerts.data.checkedAt === undefined)}
         failed={Boolean(alerts.error ?? alerts.data?.unreadable)}
       />
     </div>

@@ -116,7 +116,7 @@ function MetricRow() {
         ) : null}
       </MetricTile>
 
-      {/* The one tile that links anywhere: `/operations/backups` holds what this number summarises. */}
+      {/* `/operations/backups` holds what this number summarises, as `/alerts` does the issues'. */}
       <Link to="/operations/backups" className="flex min-w-0 flex-col gap-1.5">
         <Stat
           label="Latest backup"
@@ -139,11 +139,13 @@ function MetricRow() {
         }
       />
 
-      <IssuesTile
-        alerts={alerts.data?.alerts ?? []}
-        waiting={alerts.isPending || (alerts.data !== undefined && alerts.data.checkedAt === undefined)}
-        failed={Boolean(alerts.error ?? alerts.data?.unreadable)}
-      />
+      <Link to="/alerts" className="flex min-w-0 flex-col gap-1.5">
+        <IssuesTile
+          alerts={alerts.data?.alerts ?? []}
+          waiting={alerts.isPending || (alerts.data !== undefined && alerts.data.checkedAt === undefined)}
+          failed={Boolean(alerts.error ?? alerts.data?.unreadable)}
+        />
+      </Link>
     </div>
   )
 }

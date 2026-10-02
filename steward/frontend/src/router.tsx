@@ -10,6 +10,7 @@ import { SeasonPage, seasonSearch } from "@/pages/season"
 import { AnnouncementsPage } from "@/pages/announcements"
 import { JournalPage, PaymentsPage, AccessPage } from "@/pages/access"
 import { OverviewPage } from "@/pages/overview"
+import { AlertsPage } from "@/pages/alerts"
 import { ChartsGalleryPage } from "@/app/designs/charts-gallery"
 import { TranslationsPage, translationsSearch } from "@/app/designs/translations/translations-page"
 
@@ -73,6 +74,7 @@ const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/access", component: AccessPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/payments", component: PaymentsPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/journal", component: JournalPage }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/alerts", component: AlertsPage }),
   // Chart proposals for a service page's head; goes with `app/designs/` once one is picked.
   createRoute({ getParentRoute: () => rootRoute, path: "/designs/charts", component: ChartsGalleryPage }),
   // The three translation editors on real bundles; goes with `app/designs/` once one is picked.

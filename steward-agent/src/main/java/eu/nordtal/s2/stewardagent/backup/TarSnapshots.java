@@ -91,6 +91,19 @@ public final class TarSnapshots {
         return ARCHIVE.matcher(name).matches() || DUMP.matcher(name).matches();
     }
 
+    /**
+     * What a restore of a finished archive replaces, by the name a person types to confirm it.
+     *
+     * @return the volume, or the database's name for a dump; empty for anything but a finished archive
+     */
+    public static Optional<String> restoresInto(final String name) {
+        final Matcher archive = ARCHIVE.matcher(name);
+        if (archive.matches() && VOLUME_NAME.matcher(archive.group("volume")).matches()) {
+            return Optional.of(archive.group("volume"));
+        }
+        return DUMP.matcher(name).matches() ? Optional.of(DatabaseDump.DATABASE_NAME) : Optional.empty();
+    }
+
     /** Level 1, since region files are already compressed and downtime, not disk, is what is minimised. */
     private static final String LEVEL = "-1";
 

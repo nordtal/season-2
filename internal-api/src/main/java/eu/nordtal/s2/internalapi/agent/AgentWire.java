@@ -221,8 +221,18 @@ public final class AgentWire {
     /** The bundle as it reads after a save, and every dropped placeholder the new text no longer carries. */
     public record SavedBundle(MessageBundle bundle, List<String> warnings) {}
 
-    /** One file in the backup directory; a {@code partial} one is being written or died halfway. */
-    public record Archive(String name, long bytes, String human, Instant modified, boolean partial) {}
+    /**
+     * One file in the backup directory; a {@code partial} one is being written or died halfway.
+     *
+     * @param restoresInto the volume a restore of it replaces, or the database's name for a dump, typed to confirm
+     */
+    public record Archive(
+            String name,
+            long bytes,
+            String human,
+            Instant modified,
+            boolean partial,
+            @Nullable String restoresInto) {}
 
     /** An answer that is not the one asked for, with the sentence to show and where it came from. */
     public record Refusal(String error, String where) {}

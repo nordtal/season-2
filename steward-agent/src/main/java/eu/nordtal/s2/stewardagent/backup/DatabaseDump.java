@@ -26,8 +26,11 @@ public final class DatabaseDump {
     private static final DateTimeFormatter STAMP =
             DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").withZone(ZoneOffset.UTC);
 
+    /** The database compose.yml creates, which a dump is named after and a restore is confirmed by. */
+    static final String DATABASE_NAME = "nordtal";
+
     /** {@code nordtal-<stamp>.dump}, in two halves, so {@link TarSnapshots#prune} can match what this writes. */
-    static final String PREFIX = "nordtal-";
+    static final String PREFIX = DATABASE_NAME + "-";
 
     /** The second half of {@link #PREFIX}. */
     static final String SUFFIX = ".dump";

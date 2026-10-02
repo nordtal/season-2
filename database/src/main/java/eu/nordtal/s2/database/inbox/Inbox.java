@@ -99,6 +99,21 @@ public final class Inbox<P> {
         return new Inbox<>(dataSource, table);
     }
 
+    /**
+     * Returns the inbox of its one consumer at that consumer's start, failing what its last start left running.
+     *
+     * @param consumer who answers the table, as a sentence names it: "the bot", "smp"
+     */
+    public static <P> Inbox<P> takeOver(final DataSource dataSource, final InboxTable<P> table, final String consumer) {
+        Objects.requireNonNull(consumer, "consumer");
+        final Inbox<P> inbox = over(dataSource, table);
+        final int orphans = inbox.settleOrphans(Map.of("error", consumer + " restarted while it ran this"));
+        if (orphans > 0) {
+            log.warn("{} request(s) in {} were left running by the last start of {}", orphans, table, consumer);
+        }
+        return inbox;
+    }
+
     /** Returns the table this inbox works on. */
     public InboxTable<P> table() {
         return table;
@@ -233,7 +248,7 @@ public final class Inbox<P> {
     }
 
     /**
-     * Fails every request left running, which only the one consumer may call, at its start.
+     * Fails every request left running, which only the one consumer may call, at its start; {@link #takeOver} does.
      *
      * @param answer what to write into those rows
      * @return how many there were

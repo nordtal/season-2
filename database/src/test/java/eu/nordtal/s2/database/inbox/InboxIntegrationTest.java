@@ -229,8 +229,10 @@ class InboxIntegrationTest {
         assertTrue(inbox.claim().isPresent());
         final Request<BotRequest> waiting = inbox.submit(new BotRequest.Unlink(SOMEONE), ADMIN);
 
-        assertEquals(1, inbox.settleOrphans(Map.of("error", "restarted")));
-        assertEquals(InboxStatus.FAILED, inbox.find(orphan.id()).orElseThrow().status());
+        Inbox.takeOver(database.dataSource(), BotRequest.TABLE, "the bot");
+        final Request<BotRequest> failed = inbox.find(orphan.id()).orElseThrow();
+        assertEquals(InboxStatus.FAILED, failed.status());
+        assertEquals("{\"error\": \"the bot restarted while it ran this\"}", failed.outcome());
         assertEquals(InboxStatus.PENDING, inbox.find(waiting.id()).orElseThrow().status());
 
         execute("UPDATE bot_inbox SET finished = now() - interval '40 days' WHERE id = " + orphan.id());

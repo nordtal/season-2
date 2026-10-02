@@ -45,11 +45,7 @@ class ProxyInboxIntegrationTest {
         final SignalHub signals = hub();
 
         final boolean answers = ProxyInbox.open(
-                ProxyRole.STANDBY,
-                database.dataSource(),
-                signals,
-                request -> Outcome.done("answered by the standby"),
-                LOG);
+                ProxyRole.STANDBY, database.dataSource(), signals, request -> Outcome.done("answered by the standby"));
 
         assertEquals(
                 InboxStatus.RUNNING,
@@ -64,11 +60,7 @@ class ProxyInboxIntegrationTest {
         final SignalHub signals = hub();
 
         final boolean answers = ProxyInbox.open(
-                ProxyRole.LIVE,
-                database.dataSource(),
-                signals,
-                request -> Outcome.done("answered by the main proxy"),
-                LOG);
+                ProxyRole.LIVE, database.dataSource(), signals, request -> Outcome.done("answered by the main proxy"));
 
         assertTrue(answers);
         assertEquals(InboxStatus.FAILED, inbox.find(running).orElseThrow().status());

@@ -3,9 +3,7 @@ package eu.nordtal.s2.proxy;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.ProxyRequest;
 import eu.nordtal.s2.database.notify.SignalHub;
-import java.util.Map;
 import javax.sql.DataSource;
-import org.slf4j.Logger;
 
 /**
  * Opens {@code proxy_inbox} on the main proxy: fails what its last start left running, then answers on the hub.
@@ -24,17 +22,11 @@ public final class ProxyInbox {
             final ProxyRole role,
             final DataSource pool,
             final SignalHub signals,
-            final Inbox.Handler<ProxyRequest> handler,
-            final Logger logger) {
+            final Inbox.Handler<ProxyRequest> handler) {
         if (role.isStandby()) {
             return false;
         }
-        final Inbox<ProxyRequest> inbox = Inbox.over(pool, ProxyRequest.TABLE);
-        final int orphans = inbox.settleOrphans(Map.of("error", "the proxy restarted while it ran this"));
-        if (orphans > 0) {
-            logger.warn("{} request(s) in {} were left running by the last start", orphans, ProxyRequest.TABLE);
-        }
-        inbox.listen(signals, handler);
+        Inbox.takeOver(pool, ProxyRequest.TABLE, "the proxy").listen(signals, handler);
         return true;
     }
 }

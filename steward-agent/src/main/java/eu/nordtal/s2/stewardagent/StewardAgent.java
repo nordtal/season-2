@@ -163,7 +163,7 @@ public final class StewardAgent {
 
     private static void deployRoute(
             final io.javalin.http.Context ctx, final Compose compose, final Jobs jobs, final Docker docker) {
-        final AgentWire.Deploy request = ctx.bodyAsClass(AgentWire.Deploy.class);
+        final AgentWire.Deploy request = InternalServer.body(ctx, AgentWire.Deploy.class);
         final List<String> services = request == null || request.services() == null ? List.of() : request.services();
         final Jobs.Job job =
                 jobs.start("deploy", services, output -> deploy(compose, services, output, false, docker::hasImage));

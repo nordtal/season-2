@@ -1,5 +1,6 @@
 package eu.nordtal.s2.stewardagent.bundles;
 
+import eu.nordtal.s2.internalapi.InternalServer;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.MessageArg;
 import eu.nordtal.s2.internalapi.agent.MessageBundle;
@@ -58,7 +59,7 @@ public final class BundleRoutes {
         if (!location.writable()) {
             throw new ForbiddenResponse(name(location) + " is mounted read-only, so a change to it cannot be saved.");
         }
-        final AgentWire.BundleChanges body = ctx.bodyAsClass(AgentWire.BundleChanges.class);
+        final AgentWire.BundleChanges body = InternalServer.body(ctx, AgentWire.BundleChanges.class);
         final Map<String, Map<String, String>> byLanguage = byLanguage(body);
         final MessageBundle before = read(location);
         final List<String> problems = new ArrayList<>();

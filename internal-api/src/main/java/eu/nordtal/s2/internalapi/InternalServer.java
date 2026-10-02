@@ -4,6 +4,8 @@ import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.json.Json;
 import io.javalin.Javalin;
 import io.javalin.config.JavalinConfig;
+import io.javalin.http.BadRequestResponse;
+import io.javalin.http.Context;
 import io.javalin.http.UnauthorizedResponse;
 import io.javalin.json.JavalinGson;
 import java.nio.charset.StandardCharsets;
@@ -98,6 +100,28 @@ public final class InternalServer {
             config.routes.get(HEALTH, ctx -> ctx.json(Map.of("status", "ok")));
             routes.accept(config);
         });
+    }
+
+    /**
+     * The request's body as {@code type}, or a 400 that says why it is not one, never a 500.
+     *
+     * A wire record that refuses a value in its constructor is the caller's mistake, and so is a body that is no JSON.
+     */
+    public static <T> T body(final Context ctx, final Class<T> type) {
+        final T body;
+        try {
+            body = ctx.bodyAsClass(type);
+        } catch (final RuntimeException refused) {
+            Throwable cause = refused;
+            while (cause.getCause() != null) {
+                cause = cause.getCause();
+            }
+            throw new BadRequestResponse("not a " + type.getSimpleName() + ": " + cause.getMessage());
+        }
+        if (body == null) {
+            throw new BadRequestResponse("expected a " + type.getSimpleName() + " as the body");
+        }
+        return body;
     }
 
     /** Compares in constant time, so the answer's timing says nothing about how much of a guess was right. */

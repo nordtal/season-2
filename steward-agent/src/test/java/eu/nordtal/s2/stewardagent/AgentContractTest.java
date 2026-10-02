@@ -178,6 +178,17 @@ class AgentContractTest {
     }
 
     @Test
+    void aRetentionThatWouldDeleteEveryBackupIsRefusedAsTheCallersMistake() {
+        final InternalClient.Failure refused = assertThrows(
+                InternalClient.Failure.class,
+                () -> agent.client()
+                        .post(AgentWire.PRUNE, "{\"daily\":0,\"weekly\":0,\"monthly\":0,\"collapseAfterDays\":0}"));
+
+        assertEquals(400, refused.status());
+        assertTrue(String.valueOf(refused.body()).contains("daily must be at least 1"), refused.body());
+    }
+
+    @Test
     void theWrongSecretIsRefused() {
         final InternalClient stranger =
                 new InternalClient(AgentWire.SERVICE, agent.base(), "a-guess", Duration.ofSeconds(5));

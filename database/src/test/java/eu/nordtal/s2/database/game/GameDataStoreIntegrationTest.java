@@ -27,6 +27,7 @@ class GameDataStoreIntegrationTest {
                             "advancements.story.mine_stone.title",
                             "Stone Age",
                             "minecraft:story/root",
+                            "Mine Stone with your new Pickaxe",
                             "task",
                             "minecraft:wooden_pickaxe",
                             false,

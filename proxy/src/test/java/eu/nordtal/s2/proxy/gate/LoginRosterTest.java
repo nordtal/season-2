@@ -46,7 +46,7 @@ class LoginRosterTest {
         assertEquals(
                 DiscordId.of(DISCORD_ID),
                 roster.of(PLAYER).orElseThrow().discordId(),
-                "the actor written into audit_log by /phase set");
+                "the Discord id the roster knows the player by");
         assertEquals(Locale.GERMAN, roster.localeOf(PLAYER));
     }
 

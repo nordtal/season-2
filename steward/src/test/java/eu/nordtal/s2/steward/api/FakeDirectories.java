@@ -1,8 +1,10 @@
 package eu.nordtal.s2.steward.api;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.database.audit.AuditEntry;
+import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateStatus;
@@ -11,7 +13,6 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 /**
  * {@link UpdateDirectory} and {@link AuditDirectory} over fixed rows, for a {@link StackApi} without PostgreSQL.
@@ -147,18 +148,15 @@ public final class FakeDirectories {
                 final int clamped = Math.max(1, limit);
                 final List<AuditEntry> filtered = sorted.stream()
                         .filter(entry -> action == null || action.isBlank() || action.equals(entry.action()))
-                        .filter(entry -> subject == null || subject.isBlank() || subject.equals(entry.subject()))
+                        .filter(entry -> subject == null
+                                || subject.isBlank()
+                                || DiscordId.of(subject).equals(entry.subject()))
                         .toList();
                 return filtered.size() > clamped ? filtered.subList(0, clamped) : filtered;
             }
 
             @Override
-            public void record(
-                    final String action,
-                    final String actor,
-                    final String subject,
-                    final UUID mcUuid,
-                    final String detail) {
+            public void record(final AuditLine line) {
                 throw new UnsupportedOperationException("not exercised by this fake");
             }
         };

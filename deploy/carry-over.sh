@@ -10,9 +10,10 @@
 # and the script ends by comparing the row count of every carried table on both sides.
 #
 # Carried: access, links, the admin tree, playtime, the season, smp and Hunger Games data, the audit
-# log, Steward's security keys and push subscriptions, the bot's posted messages, the payment
-# gateway and its watermark, holds and added plugins, and a tab still to be made or cancelled as a request in the
-# bank's inbox. Dropped: run and request history, metrics, sessions, link codes and who is online, which a fresh
+# log as typed lines, Steward's security keys and push subscriptions, the bot's posted messages, the payment
+# gateway and its watermark, holds and added plugins, a tab still to be made or cancelled as a request in the
+# bank's inbox, and a payment notice as the alert it now is. A payment matched but not yet booked is matched
+# again. Dropped: run and request history, metrics, sessions, link codes and who is online, which a fresh
 # installation rebuilds or never needs.
 set -eu
 
@@ -37,10 +38,10 @@ psql_on() {
 TABLES='discord_user|discord_id, locale, member_state, donor, updated, admin, discord_username, discord_username_updated, discord_display_name, discord_display_name_updated, discord_avatar_url, discord_avatar_url_updated, admin_granted_by, admin_granted_at, pack_exempt_by, pack_exempt_at|
 account_link|discord_id, mc_uuid, linked, mc_name, mc_name_updated|
 admin_grant|id, discord_id, granted_by, granted|
-payment_request|id, reference, discord_id, days, amount_cents, donation_cents, status, bunq_tab_id, share_url, bunq_payment_id, created, expires, settled, tab_failed, tab_cancelled, matched_cents, matched_by|
+payment_request|id, reference, discord_id, days, amount_cents, donation_cents, status, bunq_tab_id, share_url, bunq_payment_id, created, expires, settled, tab_failed, tab_cancelled, matched_cents, matched_by|id, reference, discord_id, days, amount_cents, donation_cents, status, bunq_tab_id, share_url, CASE WHEN status = $$OPEN$$ AND matched_cents IS NOT NULL THEN NULL ELSE bunq_payment_id END, created, expires, settled, tab_failed, tab_cancelled, CASE WHEN status = $$OPEN$$ AND matched_cents IS NOT NULL THEN NULL ELSE matched_cents END, CASE WHEN status = $$OPEN$$ AND matched_cents IS NOT NULL THEN NULL ELSE matched_by END
 bank_inbox|kind, payload, actor_kind|SELECT $$OPEN_TAB$$, jsonb_build_object($$payment$$, id), $$HOST$$ FROM payment_request WHERE status = $$OPEN$$ AND tab_requested IS NOT NULL AND bunq_tab_id IS NULL AND cancel_requested IS NULL UNION ALL SELECT $$CANCEL_TAB$$, jsonb_build_object($$payment$$, id), $$HOST$$ FROM payment_request WHERE cancel_requested IS NOT NULL AND bunq_tab_id IS NOT NULL AND tab_cancelled IS NULL
 access_grant|id, discord_id, valid_from, valid_until, source, payment_request_id, revoked, created|
-payment_notice|bunq_payment_id, reason, detail, reported, posted|
+admin_alert|raised, raised_by, type, level, subject, title, detail, path, source, routed|SELECT reported, $$steward$$, $$PAYMENT$$, $$DOWN$$, $$payment$$, $$A payment needs a look$$, coalesce(detail, reason), $$/payments$$, $$payment:$$ || bunq_payment_id, posted FROM payment_notice
 expiry_notice|discord_id, valid_until, kind, sent|
 payment_gateway|id, state, watermark|SELECT true, (SELECT value FROM bot_setting WHERE key = $$payment.gateway$$ AND value IN ($$ON$$, $$OFF$$)), (SELECT value::timestamptz FROM bot_setting WHERE key = $$payment.watermark$$) WHERE EXISTS (SELECT 1 FROM bot_setting WHERE key IN ($$payment.gateway$$, $$payment.watermark$$))
 season_phase|id, phase, updated, launch, smp_start|
@@ -59,7 +60,7 @@ smp_poi|id, name, world, x, y, z, created_by, created|
 smp_spin|discord_id, granted, used, last_free|
 service_hold|service, since, actor_kind, actor_id, request_id|service, since, CASE WHEN held_by ~ $re$\(\d{17,20}\)\s*$$re$ THEN $$PERSON$$ WHEN held_by IS NULL OR held_by LIKE $$steward%$$ THEN $$STEWARD$$ ELSE $$HOST$$ END, substring(held_by FROM $re$\((\d{17,20})\)\s*$$re$), NULL
 service_plugin|service, artifact, project_id, file_prefix, title, icon_url, page_url, added, added_by|
-audit_log|id, occurred, action, actor, subject, mc_uuid, detail|
+audit_log|id, occurred, action, actor_kind, actor_id, subject, mc_uuid, facts|id, occurred, action, CASE WHEN actor ~ $re$^[0-9]+$$re$ THEN $$PERSON$$ WHEN actor = $$host$$ THEN $$HOST$$ ELSE $$STEWARD$$ END, CASE WHEN actor ~ $re$^[0-9]+$$re$ THEN actor END, CASE WHEN subject ~ $re$^[0-9]{15,}$$re$ THEN subject END, mc_uuid, jsonb_strip_nulls(jsonb_build_object($$detail$$, detail, $$target$$, CASE WHEN subject !~ $re$^[0-9]{15,}$$re$ THEN subject END))
 managed_message|kind, channel_id, message_id, updated|
 steward_credential|credential_id, discord_id, public_key, signature_count, label, transports, backup_eligible, backed_up, created_at, last_used_at|
 steward_push_subscription|endpoint, discord_id, p256dh, auth, created_at, last_sent_at, device|

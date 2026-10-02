@@ -1,5 +1,8 @@
 package eu.nordtal.s2.database.audit;
 
+import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.database.Actor;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
@@ -22,9 +25,10 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
                 Objects.requireNonNull(rs.getObject("id", UUID.class), "id"),
                 occurred.toInstant(),
                 Objects.requireNonNull(rs.getString("action"), "action"),
-                rs.getString("actor"),
-                rs.getString("subject"),
+                Actor.of(Objects.requireNonNull(rs.getString("actor_kind"), "actor_kind"), rs.getString("actor_id")),
+                DiscordId.ofNullable(rs.getString("subject")),
                 rs.getObject("mc_uuid", UUID.class),
-                rs.getString("detail"));
+                Json.tree(Objects.requireNonNull(rs.getString("facts"), "facts"))
+                        .getAsJsonObject());
     }
 }

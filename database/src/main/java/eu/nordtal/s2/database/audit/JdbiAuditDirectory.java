@@ -30,13 +30,7 @@ final class JdbiAuditDirectory implements AuditDirectory {
     }
 
     @Override
-    public void record(
-            final String action,
-            final @Nullable String actor,
-            final @Nullable String subject,
-            final java.util.@Nullable UUID mcUuid,
-            final @Nullable String detail) {
-        final AuditLine line = new AuditLine(action, actor, subject, mcUuid, detail);
+    public void record(final AuditLine line) {
         jdbi.useHandle(handle -> Journal.write(handle, line));
     }
 

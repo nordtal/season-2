@@ -1,6 +1,7 @@
 package eu.nordtal.s2.database.phase;
 
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.messages.Refused;
 import java.time.Clock;
 import java.time.Instant;
@@ -38,33 +39,33 @@ public interface PhaseDirectory {
     /**
      * Switches the phase and records who did it, in one statement; switching to the current phase is not an error.
      *
-     * @param actor  the Discord id of the admin who caused it, or {@code null} for a switch no human asked for
+     * @param actor  who caused it: the admin, or Steward for a switch no human asked for
      * @param reason free text for whoever reads the admin channel later, may be {@code null}
      * @throws IllegalStateException if the {@code season_phase} row does not exist
      */
-    PhaseChange switchPhase(SeasonPhase phase, @Nullable String actor, @Nullable String reason);
+    PhaseChange switchPhase(SeasonPhase phase, Actor actor, @Nullable String reason);
 
     /**
      * Sets or clears {@code launch}, the instant the network opens.
      *
      * @param at    the instant the network opens, or {@code null} for no date announced
-     * @param actor the Discord id of the admin who asked for it, or {@code null} for the console
+     * @param actor who asked for it
      * @return what the column held before and holds now
      * @throws Refused with a {@link SeasonDateRefusal} if the date is in the past or after {@link #smpStart()}
      * @throws IllegalStateException if the {@code season_phase} row does not exist
      */
-    DateChange setLaunch(@Nullable Instant at, @Nullable String actor);
+    DateChange setLaunch(@Nullable Instant at, Actor actor);
 
     /**
      * Sets or clears {@code smp_start}, and moves the paid access anchored to it as {@link PhaseDao} describes.
      * The phase is read just before the write, so a racing switch shows only in the audit entry.
      *
      * @param at    the instant paid access starts running, or {@code null} to clear the date
-     * @param actor the Discord id of the admin who asked for it, or {@code null} for the console
+     * @param actor who asked for it
      * @return what the column held before and holds now, and how much access moved with it
      * @throws Refused with a {@link SeasonDateRefusal} if the date is in the past, before {@link #launch()}, or in
      *     {@code SMP}
      * @throws IllegalStateException if the {@code season_phase} row does not exist
      */
-    DateChange setSmpStart(@Nullable Instant at, @Nullable String actor);
+    DateChange setSmpStart(@Nullable Instant at, Actor actor);
 }

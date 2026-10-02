@@ -9,6 +9,8 @@ import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.audit.Journal;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -141,14 +143,17 @@ public final class Bookings {
 
     private static AuditLine journalLine(
             final PaymentRequest request, final Arrival arrival, final Tiers.Settlement settlement, final Actor by) {
-        return new AuditLine(
-                ACTION,
-                by.id(),
-                request.discordId().value(),
-                null,
-                "reference=" + request.reference() + " payment=" + arrival.bunqPaymentId()
-                        + " matched=" + arrival.matchedBy() + " received=" + arrival.receivedCents()
-                        + " ordered=" + request.days() + " granted=" + settlement.days()
-                        + " donation=" + settlement.donationCents() + " downgraded=" + settlement.downgraded());
+        final Map<String, Object> facts = new LinkedHashMap<>();
+        facts.put("reference", request.reference());
+        facts.put("matchedBy", arrival.matchedBy().name());
+        if (arrival.bunqPaymentId() != null) {
+            facts.put("bunqPayment", arrival.bunqPaymentId());
+            facts.put("receivedCents", arrival.receivedCents());
+        }
+        facts.put("orderedDays", request.days());
+        facts.put("days", settlement.days());
+        facts.put("donationCents", settlement.donationCents());
+        facts.put("downgraded", settlement.downgraded());
+        return AuditLine.about(ACTION, by, request.discordId(), facts);
     }
 }

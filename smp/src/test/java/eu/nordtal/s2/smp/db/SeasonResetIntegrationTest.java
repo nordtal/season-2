@@ -3,6 +3,7 @@ package eu.nordtal.s2.smp.db;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.DatabaseRole;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.TestDatabase;
@@ -43,7 +44,7 @@ class SeasonResetIntegrationTest {
     void enteringTheSeasonStartsTheTrackOverOnceAndKeepsTheAura() {
         assertEquals(0, smp.startOverIfDue(), "no fresh start was stamped yet");
 
-        phases.switchPhase(SeasonPhase.SMP, null, null);
+        phases.switchPhase(SeasonPhase.SMP, Actor.STEWARD, null);
 
         assertEquals(1, smp.startOverIfDue());
         assertEquals(List.of("departure|LOCKED|-", "waiting|LOCKED|-"), track());
@@ -58,8 +59,8 @@ class SeasonResetIntegrationTest {
 
     @Test
     void aServerThatWasDownAtTheSwitchStartsOverWhenItNextLooks() {
-        phases.switchPhase(SeasonPhase.SMP, null, null);
-        phases.switchPhase(SeasonPhase.MAINTENANCE, null, null);
+        phases.switchPhase(SeasonPhase.SMP, Actor.STEWARD, null);
+        phases.switchPhase(SeasonPhase.MAINTENANCE, Actor.STEWARD, null);
 
         assertEquals(1, smp.startOverIfDue(), "the stamp waits for smp, whatever the phase is now");
         assertEquals(List.of("logs|0|-"), objectives());
@@ -67,12 +68,12 @@ class SeasonResetIntegrationTest {
 
     @Test
     void aBreakFromMaintenanceKeepsTheTrack() {
-        phases.switchPhase(SeasonPhase.SMP, null, null);
+        phases.switchPhase(SeasonPhase.SMP, Actor.STEWARD, null);
         assertEquals(1, smp.startOverIfDue());
         owner.useHandle(handle -> handle.execute("UPDATE smp_objective SET amount = 10"));
 
-        phases.switchPhase(SeasonPhase.MAINTENANCE, null, null);
-        phases.switchPhase(SeasonPhase.SMP, null, null);
+        phases.switchPhase(SeasonPhase.MAINTENANCE, Actor.STEWARD, null);
+        phases.switchPhase(SeasonPhase.SMP, Actor.STEWARD, null);
 
         assertEquals(0, smp.startOverIfDue());
         assertEquals(List.of("logs|10|-"), objectives());

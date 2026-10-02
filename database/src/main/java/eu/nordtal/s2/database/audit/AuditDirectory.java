@@ -33,17 +33,6 @@ public interface AuditDirectory {
     /**
      * Writes one line into the journal.
      * It is a separate statement from the action it describes, so failed bookkeeping never locks a member out.
-     *
-     * @param action a short upper-case constant such as {@code GRANT_ACCESS}, unconstrained by the schema
-     * @param actor who did it, as a person reads it; null for the system itself
-     * @param subject whom it was about, a Discord id where there is one; may be null
-     * @param mcUuid the Minecraft account it concerned; may be null
-     * @param detail one line of what happened; may be null
      */
-    void record(
-            String action,
-            @Nullable String actor,
-            @Nullable String subject,
-            java.util.@Nullable UUID mcUuid,
-            @Nullable String detail);
+    void record(AuditLine line);
 }

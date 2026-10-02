@@ -1,8 +1,12 @@
 package eu.nordtal.s2.steward.api;
 
+import com.google.gson.JsonElement;
+import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.steward.auth.Gate;
 import io.javalin.config.JavalinConfig;
 import io.javalin.http.BadRequestResponse;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -18,7 +22,7 @@ final class Routes {
     static void register(final StackApi api, final JavalinConfig config, final Caller caller) {
         serviceRoutes(api, config, caller);
         consoleRoute(api, config, caller);
-        messageRoutes(api, config);
+        messageRoutes(api, config, caller);
         settingRoutes(api, config, caller);
         hostRoutes(api, config, caller);
         pluginRoutes(api, config, caller);
@@ -66,6 +70,10 @@ final class Routes {
                     }
                     // The agent refuses a service without a console with a 400 that names the ones with one.
                     api.console(ctx.pathParam("name"), body.command.strip(), caller.name(ctx));
+                    api.journal(AuditLine.of(
+                            "CONSOLE",
+                            caller.actor(ctx),
+                            Map.of("service", ctx.pathParam("name"), "command", body.command.strip())));
                     ctx.status(202)
                             .json(Map.of(
                                     "sent", body.command.strip(), "where", "the answer appears in this service's log"));
@@ -80,15 +88,28 @@ final class Routes {
                 "/api/setting-groups/{service}/{name}", ctx -> api.settings().one(ctx), Gate.KEY_HELD);
         config.routes.put(
                 "/api/setting-groups/{service}/{name}",
-                ctx -> api.settings().save(ctx, caller.actor(ctx)),
+                ctx -> {
+                    api.settings().save(ctx, caller.actor(ctx));
+                    api.journal(AuditLine.of(
+                            "SAVE_SETTINGS",
+                            caller.actor(ctx),
+                            Map.of("service", ctx.pathParam("service"), "group", ctx.pathParam("name"))));
+                },
                 Gate.KEY_FRESH);
     }
 
     /** The message bundles, on their own routes. */
-    private static void messageRoutes(final StackApi api, final JavalinConfig config) {
+    private static void messageRoutes(final StackApi api, final JavalinConfig config, final Caller caller) {
         config.routes.get("/api/messages", api.messages::list, Gate.KEY_HELD);
         config.routes.get("/api/messages/<bundle>", api.messages::one, Gate.KEY_HELD);
-        config.routes.put("/api/messages/<bundle>", api.messages::save, Gate.KEY_FRESH);
+        config.routes.put(
+                "/api/messages/<bundle>",
+                ctx -> {
+                    api.messages.save(ctx);
+                    api.journal(AuditLine.of(
+                            "SAVE_MESSAGES", caller.actor(ctx), Map.of("bundle", ctx.pathParam("bundle"))));
+                },
+                Gate.KEY_FRESH);
     }
 
     /** The host numbers, the nightly schedule, the backup list, its download and its restore, and the feed. */
@@ -123,7 +144,19 @@ final class Routes {
                 "/api/services/{name}/plugins/search", ctx -> api.plugins().search(ctx), Gate.KEY_HELD);
         // The name on the row comes from the session, never from the browser.
         config.routes.post(
-                "/api/services/{name}/plugins", ctx -> api.plugins().add(ctx, caller.name(ctx)), Gate.KEY_FRESH);
+                "/api/services/{name}/plugins",
+                ctx -> {
+                    final String row = api.plugins().add(ctx, caller.name(ctx));
+                    final Map<String, Object> facts = new LinkedHashMap<>();
+                    facts.put("service", ctx.pathParam("name"));
+                    final JsonElement artifact =
+                            Json.tree(row).getAsJsonObject().get("artifact");
+                    if (artifact != null && artifact.isJsonPrimitive()) {
+                        facts.put("artifact", artifact.getAsString());
+                    }
+                    api.journal(AuditLine.of("ADD_PLUGIN", caller.actor(ctx), facts));
+                },
+                Gate.KEY_FRESH);
         config.routes.delete(
                 "/api/services/{name}/plugins/{artifact}",
                 ctx -> api.plugins().remove(ctx, caller.actor(ctx)),

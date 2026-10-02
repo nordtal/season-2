@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.phase.DateChange;
 import eu.nordtal.s2.database.phase.PhaseChange;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
@@ -150,12 +151,12 @@ class PhaseWatchTest {
         }
 
         @Override
-        public DateChange setLaunch(final java.time.Instant at, final String actor) {
+        public DateChange setLaunch(final java.time.Instant at, final Actor actor) {
             throw new UnsupportedOperationException("this fake only reads the row");
         }
 
         @Override
-        public DateChange setSmpStart(final java.time.Instant at, final String actor) {
+        public DateChange setSmpStart(final java.time.Instant at, final Actor actor) {
             throw new UnsupportedOperationException("this fake only reads the row");
         }
 
@@ -177,7 +178,7 @@ class PhaseWatchTest {
         }
 
         @Override
-        public PhaseChange switchPhase(final SeasonPhase phase, final String actor, final String reason) {
+        public PhaseChange switchPhase(final SeasonPhase phase, final Actor actor, final String reason) {
             throw new UnsupportedOperationException("PhaseWatch never writes");
         }
     }

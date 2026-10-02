@@ -1,6 +1,6 @@
 package eu.nordtal.s2.steward.api;
 
-import eu.nordtal.s2.common.id.DiscordId;
+import com.google.gson.JsonElement;
 import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.audit.AuditEntry;
 import eu.nordtal.s2.database.update.UpdateKind;
@@ -47,20 +47,19 @@ public record ActionEntry(String kind, Instant occurred, String extent, Actor ac
     }
 
     /**
-     * A line from {@code audit_log}, whose {@code actor} is a Discord id or {@code null} for Steward itself.
+     * A line from {@code audit_log}: its action, or the sentence a line from before typed values still carries.
      *
      * @param entry the journal line
      * @return the entry that describes it
      */
     static ActionEntry of(final AuditEntry entry) {
-        final String actor = entry.actor();
-        final String detail = entry.detail();
-        final String extent = detail == null || detail.isBlank() ? entry.action() : detail;
-        return new ActionEntry(
-                entry.action(),
-                entry.occurred(),
-                extent,
-                actor == null ? Actor.STEWARD : Actor.person(DiscordId.of(actor)));
+        final JsonElement detail = entry.facts().get("detail");
+        final String extent = detail != null
+                        && detail.isJsonPrimitive()
+                        && !detail.getAsString().isBlank()
+                ? detail.getAsString()
+                : entry.action();
+        return new ActionEntry(entry.action(), entry.occurred(), extent, entry.actor());
     }
 
     /**

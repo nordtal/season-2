@@ -70,7 +70,12 @@ class WebAuthnKeyTest extends WebTestSupport {
             // Registering a key is holding it, so the session is verified without a second ceremony.
             assertTrue(me.get("verified").getAsBoolean(), me.toString());
 
-            journalledBy("770000000000000002", "REGISTER_KEY", "YubiKey blau");
+            assertEquals(
+                    "YubiKey blau",
+                    journalledBy("770000000000000002", "REGISTER_KEY")
+                            .getAsJsonObject("facts")
+                            .get("label")
+                            .getAsString());
         } finally {
             memberId.set("1");
             memberNick.set("Ally");

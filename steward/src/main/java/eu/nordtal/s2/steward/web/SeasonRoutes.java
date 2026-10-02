@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward.web;
 
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.data.Data;
 import io.javalin.http.BadRequestResponse;
@@ -41,7 +42,7 @@ final class SeasonRoutes {
             throw new BadRequestResponse(ask.phase + " is not a phase");
         }
         final DiscordAuth.Account who = accounts.apply(ctx);
-        final var change = data().phase().switchPhase(phase, who.id(), ask.reason == null ? "" : ask.reason);
+        final var change = data().phase().switchPhase(phase, who.actor(), ask.reason);
         ctx.json(change);
     }
 
@@ -64,8 +65,7 @@ final class SeasonRoutes {
             }
         }
         final DiscordAuth.Account who = accounts.apply(ctx);
-        // The Discord id, since PhaseDirectory's SQL casts this to varchar(32) and truncates.
-        final String actor = who.id();
+        final Actor actor = who.actor();
         // An unmatched value must refuse rather than default to one date.
         final var change = switch (ask.which == null ? "" : ask.which.trim()) {
             case "smpStart" -> data().phase().setSmpStart(at, actor);

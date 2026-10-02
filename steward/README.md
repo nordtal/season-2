@@ -61,6 +61,9 @@ pin and no rollback: a bad release is corrected by publishing a better one.
 - **Backups.** The nightly clock only writes a request row; `steward-agent` runs `pg_dump` inside
   the postgres container and writes the volumes as zstd tars. steward lists and downloads them
   through the agent. There is no offsite copy.
+- **The journal.** Every route that changes something writes its line through `:database`'s `Journal` with the
+  signed-in admin as a structured actor (`DiscordAuth.Account.actor()`, `Sessions.Session.ownLine` for one's own
+  keys and browsers) and typed facts. The Access page draws the actor as a profile and the facts by key.
 - **Alerts.** Every alert is a row in `admin_alert`, raised by whoever saw it: steward measures the
   stack every 30 seconds against the `web` group's thresholds and raises a failed run and a payment
   nobody can book, once per bank payment; the bot raises what it could not do in Discord or with a purchase. Steward routes each row once, to Web Push and to the admin channel through the

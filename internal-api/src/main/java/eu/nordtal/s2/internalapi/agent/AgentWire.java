@@ -1,6 +1,7 @@
 package eu.nordtal.s2.internalapi.agent;
 
 import com.google.gson.annotations.SerializedName;
+import eu.nordtal.s2.common.id.Actor;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -273,7 +274,7 @@ public final class AgentWire {
     public record LogCapacity(int lines) {}
 
     /** A line for a server's console and who typed it, which the agent logs beside it. */
-    public record ConsoleLine(String command, String actor) {}
+    public record ConsoleLine(String command, Actor actor) {}
 
     /** The host's memory, CPU, load and disk, and how much of the disk Docker's images and volumes take. */
     public record Host(
@@ -357,6 +358,7 @@ public final class AgentWire {
      * @param release the release whose run installed the jar, absent for a jar no run noted
      * @param dataFolder {@code plugins/<dataFolder>/} from the jar's own descriptor, absent when it could not be read
      * @param artifact an added plugin's Modrinth slug, or a given plugin's artefact id when it is not on disk
+     * @param addedBy who added it, for an added plugin only
      */
     public record Plugin(
             String name,
@@ -372,7 +374,7 @@ public final class AgentWire {
             @Nullable String artifact,
             @Nullable String projectId,
             @Nullable Instant added,
-            @Nullable String addedBy,
+            @Nullable Actor addedBy,
             @Nullable String iconUrl,
             @Nullable String pageUrl) {
 
@@ -458,6 +460,16 @@ public final class AgentWire {
      * @param fileName the file that would arrive, so the page can say it rather than "ok"
      */
     public record PluginAdded(String service, String artifact, String filePrefix, String fileName, String version) {}
+
+    /** The Modrinth project an admin chose to install, as the browser sends it; nothing else of it is trusted. */
+    public record PluginAsk(
+            @Nullable String projectId,
+            @Nullable String slug,
+            @Nullable String title,
+            @Nullable String iconUrl) {}
+
+    /** A plugin to add and who asked, which steward takes from the session and never from the browser. */
+    public record AddPlugin(PluginAsk plugin, Actor by) {}
 
     /** A file in a server's plugins folder that no artefact of the network claims. */
     public record Unclaimed(String service, String fileName) {}

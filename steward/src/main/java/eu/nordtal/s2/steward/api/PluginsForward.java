@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * The plugins on one server: the list, the search and the install are steward-agent's, passed on unread.
+ * The plugins on one server: the list, the search and the install are steward-agent's, passed on with who asked.
  *
  * Removing one stops its server, so it is a run like every other stop.
  */
@@ -42,8 +42,12 @@ public final class PluginsForward {
     }
 
     /** {@code POST /api/services/{name}/plugins}: a row the next update run fulfils, answered and returned. */
-    AgentWire.PluginAdded add(final Context ctx, final String by) {
-        final AgentWire.PluginAdded added = agent.addPlugin(service(ctx), ctx.body(), by);
+    AgentWire.PluginAdded add(final Context ctx, final Actor by) {
+        final AgentWire.PluginAsk ask = ctx.bodyAsClass(AgentWire.PluginAsk.class);
+        if (ask == null) {
+            throw new BadRequestResponse("the body is the Modrinth project to install");
+        }
+        final AgentWire.PluginAdded added = agent.addPlugin(service(ctx), new AgentWire.AddPlugin(ask, by));
         ctx.status(201).json(added);
         return added;
     }

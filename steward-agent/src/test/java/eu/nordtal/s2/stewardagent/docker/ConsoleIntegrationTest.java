@@ -3,6 +3,7 @@ package eu.nordtal.s2.stewardagent.docker;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.stewardagent.TestProject;
 import java.time.Duration;
 import java.time.Instant;
@@ -45,7 +46,7 @@ class ConsoleIntegrationTest {
 
         // A round trip must be proved by a line absent before it was sent, or a stale answer passes wrongly.
         final Instant sentAt = Instant.now().minusSeconds(1);
-        console.send(SMP, "list", "ConsoleIntegrationTest");
+        console.send(SMP, "list", Actor.STEWARD);
 
         // Polling, not sleeping once: a healthy server answers under a second, a loaded one should not fail the test.
         final Instant giveUp = Instant.now().plus(Duration.ofSeconds(15));

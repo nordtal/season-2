@@ -23,15 +23,16 @@ interface PluginDao {
     /** Writes the row, or refreshes {@code file_prefix} on the one already there while keeping {@code added}. */
     @SqlUpdate("""
             INSERT INTO service_plugin
-                (service, artifact, project_id, file_prefix, title, icon_url, page_url, added_by)
-            VALUES (:service, :artifact, :projectId, :filePrefix, :title, :iconUrl, :pageUrl, :addedBy)
+                (service, artifact, project_id, file_prefix, title, icon_url, page_url, actor_kind, actor_id)
+            VALUES (:service, :artifact, :projectId, :filePrefix, :title, :iconUrl, :pageUrl, :actorKind, :actorId)
             ON CONFLICT (service, artifact) DO UPDATE
                 SET project_id = EXCLUDED.project_id,
                     file_prefix = EXCLUDED.file_prefix,
                     title = EXCLUDED.title,
                     icon_url = EXCLUDED.icon_url,
                     page_url = EXCLUDED.page_url,
-                    added_by = EXCLUDED.added_by
+                    actor_kind = EXCLUDED.actor_kind,
+                    actor_id = EXCLUDED.actor_id
             """)
     void add(
             @Bind("service") String service,
@@ -41,7 +42,8 @@ interface PluginDao {
             @Bind("title") String title,
             @Bind("iconUrl") @Nullable String iconUrl,
             @Bind("pageUrl") @Nullable String pageUrl,
-            @Bind("addedBy") @Nullable String addedBy);
+            @Bind("actorKind") String actorKind,
+            @Bind("actorId") @Nullable String actorId);
 
     /** Notes the file an artefact runs from now, replacing the one before it. */
     @SqlUpdate("""

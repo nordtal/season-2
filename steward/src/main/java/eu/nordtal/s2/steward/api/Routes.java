@@ -68,7 +68,7 @@ final class Routes {
                         throw new BadRequestResponse("command is the line to type");
                     }
                     // The agent refuses a service without a console with a 400 that names the ones with one.
-                    api.console(ctx.pathParam("name"), body.command.strip(), caller.name(ctx));
+                    api.console(ctx.pathParam("name"), body.command.strip(), caller.actor(ctx));
                     api.journal(AuditLine.of(
                             "CONSOLE",
                             caller.actor(ctx),
@@ -140,11 +140,11 @@ final class Routes {
         config.routes.get("/api/services/{name}/plugins", ctx -> api.plugins().list(ctx), Gate.KEY_HELD);
         config.routes.get(
                 "/api/services/{name}/plugins/search", ctx -> api.plugins().search(ctx), Gate.KEY_HELD);
-        // The name on the row comes from the session, never from the browser.
+        // Who asked comes from the session, never from the browser.
         config.routes.post(
                 "/api/services/{name}/plugins",
                 ctx -> {
-                    final AgentWire.PluginAdded added = api.plugins().add(ctx, caller.name(ctx));
+                    final AgentWire.PluginAdded added = api.plugins().add(ctx, caller.actor(ctx));
                     api.journal(AuditLine.of(
                             "ADD_PLUGIN",
                             caller.actor(ctx),

@@ -584,7 +584,7 @@ export type ServicePlugin = {
   artifact?: string
   projectId?: string
   added?: string
-  addedBy?: string
+  addedBy?: Actor
   iconUrl?: string
   pageUrl?: string
 }

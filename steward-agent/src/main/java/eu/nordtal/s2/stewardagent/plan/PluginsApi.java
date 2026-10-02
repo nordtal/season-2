@@ -1,5 +1,7 @@
 package eu.nordtal.s2.stewardagent.plan;
 
+import eu.nordtal.s2.common.id.Actor;
+import eu.nordtal.s2.internalapi.InternalServer;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.JarName;
 import eu.nordtal.s2.internalapi.agent.Topology;
@@ -233,7 +235,7 @@ public final class PluginsApi {
         private @Nullable String artifact;
         private @Nullable String projectId;
         private @Nullable Instant added;
-        private @Nullable String addedBy;
+        private @Nullable Actor addedBy;
         private @Nullable String iconUrl;
         private @Nullable String pageUrl;
 
@@ -359,45 +361,48 @@ public final class PluginsApi {
         ctx.json(new AgentWire.PluginSearch(service.name(), service.kind().modrinthLoader(), gameVersion, query, rows));
     }
 
-    /** What a browser may send to {@code POST /api/services/{name}/plugins}. */
-    public static final class Ask {
-        public @Nullable String projectId;
-        public @Nullable String slug;
-        public @Nullable String title;
-        public @Nullable String iconUrl;
-    }
-
     /**
      * {@code POST /api/services/{name}/plugins}: the Install button, which writes a row the next run fulfils.
      *
-     * It resolves the newest build first, so the dialog says when none fits; {@code by} comes from the session.
+     * It resolves the newest build first, so the dialog says when none fits; who asked comes from steward's session.
      */
-    public void add(final Context ctx, final String by) {
+    public void add(final Context ctx) {
         final Topology.Service service = serviceOf(ctx.pathParam("name"));
-        final Ask ask = ctx.bodyAsClass(Ask.class);
-        if (ask == null || ask.projectId == null || ask.projectId.isBlank() || ask.slug == null || ask.slug.isBlank()) {
+        final AgentWire.AddPlugin added = InternalServer.body(ctx, AgentWire.AddPlugin.class);
+        // Gson leaves a missing field null whatever the record declares.
+        if (added == null || added.by() == null) {
+            throw new BadRequestResponse("an added plugin carries who asked for it");
+        }
+        final AgentWire.PluginAsk ask = added.plugin();
+        if (ask == null
+                || ask.projectId() == null
+                || ask.projectId().isBlank()
+                || ask.slug() == null
+                || ask.slug().isBlank()) {
             throw new BadRequestResponse("projectId and slug are which Modrinth project to install");
         }
-        final String projectId = ask.projectId.strip();
-        final String rawSlug = ask.slug.strip();
+        final Actor by = added.by();
+        final String projectId = ask.projectId().strip();
+        final String rawSlug = ask.slug().strip();
         final Addition addition = resolveAddition(service, rawSlug, projectId);
 
-        final String title = blankToNull(ask.title);
+        final String title = blankToNull(ask.title());
         plugins.add(new ManagedPlugin(
                 service.name(),
                 addition.slug(),
                 projectId,
                 addition.prefix(),
                 title == null ? addition.slug() : title,
-                icon(ask.iconUrl),
+                icon(ask.iconUrl()),
                 // Built here, never from the body: a request may only choose the Modrinth project.
                 "https://modrinth.com/plugin/" + addition.slug(),
                 clock.instant(),
                 by));
 
         log.info(
-                "{} added {} ({}) to {} - it installs with the next run as {}",
-                by,
+                "{} {} added {} ({}) to {} - it installs with the next run as {}",
+                by.kind(),
+                Objects.requireNonNullElse(by.id(), ""),
                 addition.slug(),
                 projectId,
                 service.name(),

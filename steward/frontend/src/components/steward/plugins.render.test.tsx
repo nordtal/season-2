@@ -73,6 +73,7 @@ const PLUGINS = {
       artifact: "journeymap",
       projectId: "lfHFW1mp",
       dataFolder: "journeymap",
+      addedBy: { kind: "PERSON", person: "300000000000000077" },
       group: "added",
     },
   ],
@@ -128,6 +129,8 @@ const AVAILABLE = {
 function backend(available: () => Response) {
   return vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url: string) => {
     if (url === "/api/services/smp/plugins") return json(200, PLUGINS)
+    if (url === "/api/people") return json(200, [{ discordId: "300000000000000077", discordDisplayName: "Alex" }])
+    if (url === "/api/settings") return json(200, { minecraftHeadBaseUrl: "" })
     if (url.startsWith("/api/updates/available")) return available()
     return json(404, { error: `not stubbed: ${url}` })
   })
@@ -186,6 +189,17 @@ describe("ServicePlugins", () => {
     expect(within(coreprotect).getByText("Not installed")).toBeTruthy()
     expect(coreprotect.querySelector("img")).toBeTruthy()
     expect(screen.queryByText(/pre-booked/i)).toBeNull()
+  })
+
+  it("shows who added a plugin as their profile", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend(() => json(200, AVAILABLE)),
+    )
+    draw()
+
+    const journeymap = (await screen.findByText("JourneyMap")).closest("li")!
+    expect(await within(journeymap).findByText("Alex")).toBeTruthy()
   })
 
   it("names the release that installed a jar, and none where no run noted one", async () => {

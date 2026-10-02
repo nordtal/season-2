@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.id.Actor;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -21,7 +22,7 @@ class ConsoleTest {
     void aServiceWithoutAConsoleIsRefusedAndToldWhichOnesHaveOne() throws IOException {
         try (FakeDaemon daemon = new FakeDaemon(scratch)) {
             final IllegalArgumentException refused = assertThrows(
-                    IllegalArgumentException.class, () -> console(daemon).send("postgres", "list", "tester"));
+                    IllegalArgumentException.class, () -> console(daemon).send("postgres", "list", Actor.STEWARD));
             assertEquals("postgres has no console. The services with one are proxy, smp.", refused.getMessage());
             assertTrue(daemon.execs.isEmpty(), "a refused line reached the daemon");
         }
@@ -30,7 +31,7 @@ class ConsoleTest {
     @Test
     void aLineReachesTheServerThroughMcAsOneArgument() throws IOException {
         try (FakeDaemon daemon = new FakeDaemon(scratch)) {
-            console(daemon).send("smp", "say hello; rm -rf /", "tester");
+            console(daemon).send("smp", "say hello; rm -rf /", Actor.STEWARD);
             assertEquals(1, daemon.execs.size());
             assertTrue(
                     daemon.execs.getFirst().contains("[\"mc\",\"say hello; rm -rf /\"]"),
@@ -41,7 +42,7 @@ class ConsoleTest {
     @Test
     void anEmptyLineIsNotACommand() throws IOException {
         try (FakeDaemon daemon = new FakeDaemon(scratch)) {
-            assertThrows(IllegalArgumentException.class, () -> console(daemon).send("smp", "  ", "tester"));
+            assertThrows(IllegalArgumentException.class, () -> console(daemon).send("smp", "  ", Actor.STEWARD));
             assertTrue(daemon.execs.isEmpty());
         }
     }

@@ -18,11 +18,6 @@ final class StackServer {
     /** Signed in for as long as the test runs; the gate in front of these routes is {@code GateTest}'s to check. */
     private static final Caller ALWAYS = new Caller() {
         @Override
-        public String name(final Context ctx) {
-            return "a test (1)";
-        }
-
-        @Override
         public Actor actor(final Context ctx) {
             return Actor.STEWARD;
         }

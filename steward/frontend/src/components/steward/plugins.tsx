@@ -22,6 +22,7 @@ import {
 } from "@/lib/queries"
 import { StewardMark } from "@/app/steward-mark"
 import { AskThenAct } from "@/components/steward/ask-then-act"
+import { Actor } from "@/components/steward/entity"
 import { Button } from "@/components/ui/button"
 import {
   ResponsiveDialog,
@@ -215,13 +216,16 @@ function PluginRow({
         {plugin ? (
           <>
             <span className="truncate text-sm font-medium">{plugin.name}</span>
-            {version || plugin.release ? (
-              <span className="flex min-w-0 gap-2 text-xs text-muted-foreground tnum">
+            {version || plugin.release || plugin.addedBy ? (
+              <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground tnum">
                 {version ? <span className="truncate">{version}</span> : null}
                 {plugin.release ? (
                   <span className="shrink-0" title={`Installed by release v${plugin.release}`}>
                     v{plugin.release}
                   </span>
+                ) : null}
+                {plugin.addedBy ? (
+                  <Actor kind={plugin.addedBy.kind} id={plugin.addedBy.person ?? ""} className="min-w-0" />
                 ) : null}
               </span>
             ) : null}

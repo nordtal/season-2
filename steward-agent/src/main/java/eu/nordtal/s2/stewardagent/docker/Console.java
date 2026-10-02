@@ -1,6 +1,8 @@
 package eu.nordtal.s2.stewardagent.docker;
 
+import eu.nordtal.s2.common.id.Actor;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
@@ -30,11 +32,11 @@ public final class Console {
      * Sends one line to a server's console, as an argument and never through a shell, and logs who typed it.
      *
      * @param command the line as typed, without a leading slash
-     * @param actor who typed it, as steward's journal names them
+     * @param actor who typed it, logged as its kind and Discord id
      * @throws IllegalArgumentException if that service has no console, naming those that have one
      * @throws DockerException if the container is not there or the exec failed
      */
-    public void send(final String service, final String command, final String actor) {
+    public void send(final String service, final String command, final Actor actor) {
         final Set<String> consoles = withConsole.get();
         if (!consoles.contains(service)) {
             throw new IllegalArgumentException(service + " has no console. The services with one are "
@@ -47,7 +49,7 @@ public final class Console {
                 .orElseThrow(() -> new DockerException(
                         "no running container for " + service + ", so there is no console to type into"));
 
-        log.info("console {} <- {}: {}", service, actor, command);
+        log.info("console {} <- {} {}: {}", service, actor.kind(), Objects.requireNonNullElse(actor.id(), ""), command);
         // `mc` exits once tmux has the line, so an empty answer is success.
         final Docker.ExecResult answer = docker.exec(containerId, List.of("mc", command));
         if (!answer.ok()) {

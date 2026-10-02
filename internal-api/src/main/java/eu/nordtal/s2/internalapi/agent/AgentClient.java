@@ -2,6 +2,7 @@ package eu.nordtal.s2.internalapi.agent;
 
 import com.google.gson.JsonParseException;
 import com.google.gson.reflect.TypeToken;
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.agent.AgentWire.Archive;
@@ -140,7 +141,7 @@ public final class AgentClient {
      *
      * @param actor who typed it, as the journal names them
      */
-    public void console(final String service, final String command, final String actor) {
+    public void console(final String service, final String command, final Actor actor) {
         http.post(AgentWire.of(AgentWire.CONSOLE, service), Json.encode(new AgentWire.ConsoleLine(command, actor)));
     }
 
@@ -185,15 +186,10 @@ public final class AgentClient {
                 AgentWire.PluginSearch.class);
     }
 
-    /**
-     * Adds a plugin to one server; it is installed by the next update run.
-     *
-     * @param body the plugin as the interface asked for it, passed on unread
-     * @param by who asked, as the interface names them
-     */
-    public AgentWire.PluginAdded addPlugin(final String service, final String body, final String by) {
+    /** Adds a plugin to one server; it is installed by the next update run. */
+    public AgentWire.PluginAdded addPlugin(final String service, final AgentWire.AddPlugin plugin) {
         return Json.decode(
-                http.post(AgentWire.of(AgentWire.PLUGINS, encode(service)) + "?by=" + encode(by), body),
+                http.post(AgentWire.of(AgentWire.PLUGINS, encode(service)), Json.encode(plugin)),
                 AgentWire.PluginAdded.class);
     }
 

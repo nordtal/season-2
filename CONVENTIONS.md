@@ -90,7 +90,8 @@ The release notes are generated from these subjects by git-cliff (`cliff.toml`).
     both platforms provide. Neither `discord-bot` nor Steward depends on Adventure or on either
     renderer.
   - No Paper plugin calls a blocking `join`; database work leaves the main thread.
-  - Only `steward` runs Flyway `migrate()`. `discord-bot` only validates, plugins do neither.
+  - Only steward-agent's `migrate` service runs Flyway `migrate()`. `discord-bot` only validates, plugins do
+    neither.
 - **The steward frontend** is formatted by oxfmt and linted by oxlint with type-aware rules
   (oxlint-tsgolint), warnings as errors. `src/components/ui` is ours once generated and follows every
   rule. TSDoc follows the comment rules above. _(checked)_

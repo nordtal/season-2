@@ -51,6 +51,9 @@ class PlayerTextRulesTest {
     /** The classes that compose a component by hand, and why that is not a message going around the renderer. */
     private static final Map<String, String> COMPOSE_BY_HAND = Map.ofEntries(
             Map.entry("eu.nordtal.s2.smp.player.PlayerComposition", "glyphs and player names: nametag, tab, chat"),
+            Map.entry(
+                    "eu.nordtal.s2.papercommon.game.GameDataExport",
+                    "placeholders in a game name rendered for Steward, never shown to a player"),
             Map.entry("eu.nordtal.s2.smp.board.BoardFrame", "pack glyphs around lines already rendered"),
             Map.entry("eu.nordtal.s2.smp.menu.MenuTitle", "pack glyphs and spacing around a title already rendered"),
             Map.entry("eu.nordtal.s2.smp.npc.SpawnNpc", "the NPC's name from config.yml, a name and not a message"),

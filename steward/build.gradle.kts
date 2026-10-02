@@ -211,8 +211,9 @@ val localEnvironment =
         }.orElse(emptyMap())
 
 // Tests compile against classes alone: the resources hold the frontend build, which reads the generated types.
+val mainClasses = sourceSets["main"].output.classesDirs
 sourceSets.test {
-    compileClasspath = files(sourceSets.main.get().output.classesDirs) + configurations["testCompileClasspath"]
+    compileClasspath = files(mainClasses) + configurations["testCompileClasspath"]
 }
 
 // The frontend's API types, written from the records the routes answer and read; ApiTypesTest holds them.

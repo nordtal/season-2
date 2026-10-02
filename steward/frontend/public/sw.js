@@ -1,4 +1,4 @@
-// Steward's service worker: the traffic light on a phone's lock screen.
+// Steward's service worker: its alerts on a phone's lock screen.
 //
 // Plain JavaScript under public/, since the browser fetches /sw.js before any bundle runs and Vite copies it as is.
 
@@ -18,8 +18,9 @@ const STATES = {
   down: "down",
 }
 
-/** The title: the subject and what is up with it; every push is a state change, never a person's action. */
-function titleOf(subject, level) {
+/** The title steward wrote, or one made of the subject and its level for a push that carries none. */
+function titleOf(title, subject, level) {
+  if (title) return title
   if (!subject) return level === "ok" ? "Steward is clear" : "Steward needs attention"
   return level === "ok" ? `${subject} is clear` : `${subject} needs attention`
 }
@@ -33,11 +34,12 @@ self.addEventListener("push", (event) => {
   }
   const type = typeof data.type === "string" && data.type ? data.type : "alert"
   const level = typeof data.level === "string" ? data.level : "warn"
+  const title = typeof data.title === "string" ? data.title : ""
   const subject = typeof data.subject === "string" ? data.subject : ""
   const path = typeof data.path === "string" && data.path ? data.path : "/"
 
   event.waitUntil(
-    self.registration.showNotification(titleOf(subject, level), {
+    self.registration.showNotification(titleOf(title, subject, level), {
       body: STATES[level] || level,
       icon: "/icon.png",
       badge: "/icon.png",

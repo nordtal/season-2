@@ -29,7 +29,7 @@ interface PushSubscriptionDao {
             @Bind("auth") String auth,
             @Bind("device") @Nullable String device);
 
-    /** Every subscription, for {@code AlertWatch}. */
+    /** Every subscription, for {@code AlertRouter}. */
     @SqlQuery("""
             SELECT endpoint, discord_id, p256dh, auth, created_at, last_sent_at, device
             FROM steward_push_subscription

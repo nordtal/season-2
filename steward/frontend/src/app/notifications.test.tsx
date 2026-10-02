@@ -8,7 +8,7 @@ import { asButton, asElement, asInput } from "@/lib/test-elements"
 import { stringChangesOf } from "@/lib/query-fixtures"
 
 /**
- * The notifications dialog: one switch writes its own type, and the test send carries the chosen device and type.
+ * The notifications dialog: one switch writes its own type and channel, and the test send carries device and type.
  *
  * `@/lib/push` is mocked, since `push.test.ts` already holds it against a fake service worker.
  */
@@ -87,7 +87,7 @@ function entry(path: string, key: string, value: string) {
 function backend(
   over: {
     devices?: unknown[]
-    preferences?: Record<string, boolean>
+    preferences?: Record<string, Record<string, boolean>>
     /** No `web.yml` in the listing at all, the read only shape. */
     noAlertsFile?: boolean
     writable?: boolean
@@ -115,16 +115,19 @@ function backend(
           ],
         )
       }
-      if (url === "/api/web-push/preferences") {
+      if (url === "/api/alerts/preferences") {
         if (method === "PUT") return json(200, body)
         return json(
           200,
           over.preferences ?? {
-            service: true,
-            backup: true,
-            disk: true,
-            memory: true,
-            drift: false,
+            service: { push: true, discord: false },
+            backup: { push: true, discord: false },
+            disk: { push: true, discord: false },
+            memory: { push: true, discord: false },
+            drift: { push: false, discord: false },
+            run: { push: true, discord: true },
+            payment: { push: true, discord: true },
+            bot: { push: false, discord: true },
           },
         )
       }
@@ -176,34 +179,47 @@ async function open() {
   await screen.findByText("Notifications")
 }
 
-describe("the types, one switch each", () => {
-  it("draws every type the server answers with, in its own words", async () => {
+describe("the types, one switch per channel each", () => {
+  it("draws every type the server answers with, in its own words, on both channels", async () => {
     vi.stubGlobal("fetch", backend().fetcher)
     await open()
 
     /** One wait for the list, then a plain `get` per type, so a missing type is named rather than timed out. */
-    await screen.findByRole("switch", { name: "Services" })
-    for (const label of ["Services", "Backups", "Disk", "Memory", "Images"]) {
-      assert.isOk(screen.getByRole("switch", { name: label }), label)
+    await screen.findByRole("switch", { name: "Services by Push" })
+    for (const label of [
+      "Services",
+      "Backups",
+      "Disk",
+      "Memory",
+      "Images",
+      "Failed runs",
+      "Payments",
+      "Discord actions",
+    ]) {
+      for (const channel of ["Push", "Discord"]) {
+        assert.isOk(screen.getByRole("switch", { name: `${label} by ${channel}` }), `${label} by ${channel}`)
+      }
     }
   })
 
-  it("shows a type that is off as off, rather than as the default", async () => {
+  it("shows a channel that is off as off, rather than as the default", async () => {
     vi.stubGlobal("fetch", backend().fetcher)
     await open()
 
-    /** Waits on a type that is on, so the wait means the answer arrived. */
-    const disk = await screen.findByRole("switch", { name: "Disk" })
+    /** Waits on a switch that is on, so the wait means the answer arrived. */
+    const disk = await screen.findByRole("switch", { name: "Disk by Push" })
     await waitFor(() => expect(disk.getAttribute("aria-checked")).toBe("true"))
-    expect(screen.getByRole("switch", { name: "Images" }).getAttribute("aria-checked")).toBe("false")
+    expect(screen.getByRole("switch", { name: "Images by Push" }).getAttribute("aria-checked")).toBe("false")
+    expect(screen.getByRole("switch", { name: "Disk by Discord" }).getAttribute("aria-checked")).toBe("false")
+    expect(screen.getByRole("switch", { name: "Failed runs by Discord" }).getAttribute("aria-checked")).toBe("true")
   })
 
-  it("writes the type that was flicked, and only that one", async () => {
+  it("writes the type and channel that were flicked, and only those", async () => {
     const { calls, fetcher } = backend()
     vi.stubGlobal("fetch", fetcher)
     await open()
 
-    const disk = await screen.findByRole("switch", { name: "Disk" })
+    const disk = await screen.findByRole("switch", { name: "Disk by Push" })
     await waitFor(() => expect(disk.getAttribute("aria-checked")).toBe("true"))
     fireEvent.click(disk)
 
@@ -211,9 +227,9 @@ describe("the types, one switch each", () => {
     await waitFor(() => expect(calls.some((call) => call.method === "PUT")).toBe(true))
     expect(calls.filter((call) => call.method === "PUT")).toEqual([
       {
-        url: "/api/web-push/preferences",
+        url: "/api/alerts/preferences",
         method: "PUT",
-        body: { type: "disk", enabled: false },
+        body: { type: "disk", channel: "push", enabled: false },
       },
     ])
   })
@@ -222,7 +238,19 @@ describe("the types, one switch each", () => {
     vi.stubGlobal("fetch", backend().fetcher)
     await open()
 
-    const memory = await screen.findByRole("switch", { name: "Memory" })
+    const memory = await screen.findByRole("switch", { name: "Memory by Discord" })
+    await waitFor(() => expect(memory.getAttribute("aria-checked")).toBe("false"))
+    fireEvent.click(memory)
+
+    await waitFor(() => expect(memory.getAttribute("aria-checked")).toBe("true"))
+    expect(screen.getByRole("switch", { name: "Memory by Push" }).getAttribute("aria-checked")).toBe("true")
+  })
+
+  it("leaves the push switch where it was put too", async () => {
+    vi.stubGlobal("fetch", backend().fetcher)
+    await open()
+
+    const memory = await screen.findByRole("switch", { name: "Memory by Push" })
     await waitFor(() => expect(memory.getAttribute("aria-checked")).toBe("true"))
     fireEvent.click(memory)
 
@@ -306,13 +334,16 @@ describe("the test send hangs off the paper plane", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Send a test notification to iPhone, Safari" }))
 
     expect(await screen.findByText("Test notifications")).toBeTruthy()
-    /** Every type, in the words `AlertWatch#sample` sends. */
+    /** Every type, in the words `AlertRouter#sample` sends. */
     for (const label of [
       "Service down",
       "Backup missing",
       "Disk filling up",
       "Memory filling up",
       "Image out of date",
+      "Run failed",
+      "Payment needs a look",
+      "Role not given",
     ]) {
       expect(screen.getByRole("button", { name: label })).toBeTruthy()
     }
@@ -330,11 +361,12 @@ describe("the test send hangs off the paper plane", () => {
     vi.stubGlobal("fetch", backend().fetcher)
     await open()
 
-    const switches = await screen.findAllByRole("switch")
+    await screen.findAllByRole("switch")
+    const switches = screen.getAllByRole("switch", { name: / by Push$/ })
     fireEvent.click(screen.getByRole("button", { name: "Send a test notification to iPhone, Safari" }))
     const popover = asElement((await screen.findByText("Test notifications")).parentElement)
 
-    /** One row per switch, so no test sends nothing and no switch goes untested. */
+    /** One row per push switch, so no test sends nothing and no switch goes untested. */
     expect(within(popover).getAllByRole("button")).toHaveLength(switches.length)
   })
 })
@@ -405,12 +437,15 @@ describe("this browser's own switch, which used to be the settings page's", () =
     expect(await screen.findByRole("button", { name: "Turn off" })).toBeTruthy()
   })
 
-  it("says a browser that cannot do this at all, rather than drawing dead switches", async () => {
+  it("says a browser that cannot push, and still lets it choose the admin channel", async () => {
     supported = false
     vi.stubGlobal("fetch", backend({ devices: [] }).fetcher)
     await open()
 
     expect(screen.getByText("This browser cannot receive push notifications.")).toBeTruthy()
-    expect(screen.queryByRole("switch")).toBeNull()
+    const discord = await screen.findByRole("switch", { name: "Services by Discord" })
+    await waitFor(() => expect(asButton(discord).disabled).toBe(false))
+    expect(asButton(screen.getByRole("switch", { name: "Services by Push" })).disabled).toBe(true)
+    expect(screen.queryByText("No device is subscribed.")).toBeNull()
   })
 })

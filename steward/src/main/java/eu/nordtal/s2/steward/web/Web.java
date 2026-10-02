@@ -5,7 +5,14 @@ import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.access.PackExemptions;
+import eu.nordtal.s2.database.alert.AlertBook;
+import eu.nordtal.s2.database.notify.Channel;
+import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
+import eu.nordtal.s2.steward.alert.AlertMonitor;
+import eu.nordtal.s2.steward.alert.AlertPreferences;
+import eu.nordtal.s2.steward.alert.AlertRouter;
+import eu.nordtal.s2.steward.alert.Thresholds;
 import eu.nordtal.s2.steward.api.Caller;
 import eu.nordtal.s2.steward.api.StackApi;
 import eu.nordtal.s2.steward.auth.Credentials;
@@ -18,9 +25,8 @@ import eu.nordtal.s2.steward.data.Data;
 import eu.nordtal.s2.steward.data.ExampleValues;
 import eu.nordtal.s2.steward.discord.DiscordApi;
 import eu.nordtal.s2.steward.discord.DiscordDirectory;
-import eu.nordtal.s2.steward.push.AlertWatch;
-import eu.nordtal.s2.steward.push.PushPreferences;
 import eu.nordtal.s2.steward.push.PushSubscriptions;
+import eu.nordtal.s2.steward.push.WebPushSender;
 import io.javalin.Javalin;
 import io.javalin.config.JavalinConfig;
 import io.javalin.http.Context;
@@ -76,8 +82,13 @@ public final class Web {
 
     private final PushEndpoints push;
 
-    /** Pushes proactive alerts; null without a VAPID keypair. */
-    private final @Nullable AlertWatch alertWatch;
+    /** Measures the stack and raises what changed; null only in a test without a database. */
+    private final @Nullable AlertMonitor alertMonitor;
+
+    /** Sends every raised alert on its way; null only in a test without a database. */
+    private final @Nullable AlertRouter alertRouter;
+
+    private final AlertRoutes alerts;
 
     /** The names of the guild's roles and channels, so an id can be picked rather than typed. */
     private final DiscordApi guild;
@@ -112,7 +123,7 @@ public final class Web {
 
     private final Metrics metrics;
 
-    /** How often {@link AlertWatch#poll} reads the traffic light's state. */
+    /** How often {@link AlertMonitor#poll} reads the stack. */
     private static final Duration ALERT_POLL = Duration.ofSeconds(30);
 
     /** The session sweep and the alert poll, two small jobs on one thread. */
@@ -174,8 +185,8 @@ public final class Web {
         this.deployments = new AgentApi(agent, data, ctx -> account(ctx).orElseThrow(), agentOffered);
         final @Nullable PushSubscriptions localPushSubscriptions =
                 data == null ? null : new PushSubscriptions(data.dataSource());
-        final @Nullable PushPreferences localPushPreferences =
-                data == null ? null : new PushPreferences(data.dataSource());
+        final @Nullable AlertPreferences localAlertPreferences =
+                data == null ? null : new AlertPreferences(data.dataSource());
         this.exampleValues = data == null ? null : new ExampleValues(data.dataSource());
         this.profile = new Profile(
                 this::requireSession,
@@ -185,41 +196,68 @@ public final class Web {
                 discord,
                 localWebauthn,
                 this.exampleValues);
-        final PushWiring pushWiring = wirePush(config, stack, data, localPushSubscriptions, localPushPreferences);
-        this.alertWatch = pushWiring.alertWatch();
-        this.push = pushWiring.push();
+        final com.interaso.webpush.@Nullable VapidKeys localVapidKeys = vapidKeysOf(config.webPush());
+        final AlertWiring wiring = wireAlerts(config, stack, data, localPushSubscriptions, localVapidKeys, clock);
+        this.alertMonitor = wiring.monitor();
+        this.alertRouter = wiring.router();
+        this.alerts = new AlertRoutes(this::requireSession, wiring.monitor(), data, localAlertPreferences);
+        this.push =
+                new PushEndpoints(this::requireSession, data, localPushSubscriptions, wiring.router(), localVapidKeys);
     }
 
-    private record PushWiring(@Nullable AlertWatch alertWatch, PushEndpoints push) {}
+    private record AlertWiring(
+            @Nullable AlertMonitor monitor, @Nullable AlertRouter router) {}
 
-    private PushWiring wirePush(
+    /** The one alert path: measured here, raised as rows, routed to push and the admin channel. */
+    private AlertWiring wireAlerts(
             final WebSpec config,
             final StackApi stack,
             final @Nullable Data data,
             final @Nullable PushSubscriptions localPushSubscriptions,
-            final @Nullable PushPreferences localPushPreferences) {
-        final com.interaso.webpush.@Nullable VapidKeys localVapidKeys = vapidKeysOf(config.webPush());
-        // The same thresholds /api/settings answers, so a lock screen and a browser tab agree.
-        final @Nullable AlertWatch localAlertWatch =
-                (localPushSubscriptions == null || localPushPreferences == null || localVapidKeys == null)
-                        ? null
-                        : new AlertWatch(
-                                stack::alertReading,
-                                localPushSubscriptions,
-                                localPushPreferences,
-                                config.webPush().subject(),
-                                localVapidKeys,
-                                config.alerts().diskPercent(),
-                                config.alerts().memoryPercent(),
-                                config.alerts().backupAgeHours());
-        final PushEndpoints localPush = new PushEndpoints(
-                this::requireSession,
-                data,
+            final com.interaso.webpush.@Nullable VapidKeys localVapidKeys,
+            final Clock clock) {
+        if (data == null) {
+            return new AlertWiring(null, null);
+        }
+        final AlertBook book = AlertBook.using(data.dataSource());
+        final AdminTree tree = Objects.requireNonNull(admins);
+        final AlertRouter router = new AlertRouter(
+                book,
+                new AlertPreferences(data.dataSource()),
+                () -> tree.admins().stream().map(AdminTree.Admin::discordId).toList(),
+                data.bot(),
                 localPushSubscriptions,
-                localPushPreferences,
-                localAlertWatch,
-                localVapidKeys);
-        return new PushWiring(localAlertWatch, localPush);
+                localVapidKeys == null
+                        ? null
+                        : new WebPushSender(config.webPush().subject(), localVapidKeys),
+                config.publicUrl());
+        // The only place the thresholds are read; the web group applies at the next start.
+        final AlertMonitor monitor = new AlertMonitor(
+                stack::stackReading,
+                new Thresholds(
+                        config.alerts().diskPercent(),
+                        config.alerts().memoryPercent(),
+                        config.alerts().backupAgeHours()),
+                book,
+                data.updates(),
+                clock);
+        return new AlertWiring(monitor, router);
+    }
+
+    /**
+     * Routes alerts and raises failed runs on the timer's thread whenever the hub rings; before the hub's start.
+     *
+     * Each pass reads everything again, so a missed or doubled signal costs nothing.
+     */
+    public void listen(final SignalHub hub) {
+        final AlertRouter router = alertRouter;
+        final AlertMonitor monitor = alertMonitor;
+        if (router != null) {
+            hub.on(Channel.ALERT, "alert routing", () -> timer.execute(router::route));
+        }
+        if (monitor != null) {
+            hub.on(Channel.UPDATE, "failed runs", () -> timer.execute(monitor::runs));
+        }
     }
 
     /** Fails the route when this instance has no database. */
@@ -293,9 +331,9 @@ public final class Web {
             // Runs on the existing scheduler; an expired session is refused by the lookup regardless.
             final var _ = timer.scheduleWithFixedDelay(authFlow::sweepSessions, 0, SWEEP.toSeconds(), TimeUnit.SECONDS);
         }
-        if (alertWatch != null) {
+        if (alertMonitor != null) {
             // Same scheduler as the sweep above: one small reading, not a workload of its own.
-            final var _ = timer.scheduleWithFixedDelay(alertWatch::poll, 0, ALERT_POLL.toSeconds(), TimeUnit.SECONDS);
+            final var _ = timer.scheduleWithFixedDelay(alertMonitor::poll, 0, ALERT_POLL.toSeconds(), TimeUnit.SECONDS);
         }
         discord.whatIsMissing()
                 .ifPresent(missing ->
@@ -365,9 +403,12 @@ public final class Web {
 
         // A test send is a write: it reaches out to a push service in somebody's name.
         cfg.routes.get("/api/web-push/devices", push::devices, Gate.KEY_HELD);
-        cfg.routes.get("/api/web-push/preferences", push::preferences, Gate.KEY_HELD);
-        cfg.routes.put("/api/web-push/preferences", push::setPreference, Gate.KEY_FRESH);
         cfg.routes.post("/api/web-push/test", push::test, Gate.KEY_FRESH);
+
+        // Choosing a channel for oneself is a write like any other.
+        cfg.routes.get("/api/alerts", alerts::current, Gate.KEY_HELD);
+        cfg.routes.get("/api/alerts/preferences", alerts::preferences, Gate.KEY_HELD);
+        cfg.routes.put("/api/alerts/preferences", alerts::setPreference, Gate.KEY_FRESH);
     }
 
     private void registerAgentRoutes(final JavalinConfig cfg) {

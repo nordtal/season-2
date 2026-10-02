@@ -222,14 +222,43 @@ export type WebPushPublicKey = {
 }
 
 /**
- * What a notification can be about, spelled as `AlertType`'s own keys.
+ * What an alert can be about, spelled as `AlertType`'s own keys.
  *
  * A union, so a server type added without a label here is a type error.
  */
-export type AlertTypeKey = "service" | "backup" | "disk" | "memory" | "drift"
+export type AlertTypeKey = "service" | "backup" | "disk" | "memory" | "drift" | "run" | "payment" | "bot"
 
-/** `GET /api/web-push/preferences`: every type, with this account's effective answer. */
-export type WebPushPreferences = Record<AlertTypeKey, boolean>
+/** Where an alert reaches an admin besides this interface, spelled as `AlertChannel`'s keys. */
+export type AlertChannelKey = "push" | "discord"
+
+/** `GET /api/alerts/preferences`: every type with this account's effective answer per channel. */
+export type AlertPreferences = Record<AlertTypeKey, Record<AlertChannelKey, boolean>>
+
+export type AlertLevel = "ok" | "warn" | "down"
+
+/** One alert as steward judged it; `path` is the page that can act on it. */
+export type Alert = {
+  type: AlertTypeKey
+  level: AlertLevel
+  /** The word or comma-joined words it is about, such as "smp" or "disk"; never a sentence. */
+  subject: string
+  title: string
+  detail: string
+  path: string
+}
+
+/** `GET /api/alerts`: what is wrong now, and what was raised lately. */
+export type Alerts = {
+  /** When the stack was last read, or null before the first reading. */
+  checkedAt: string | null
+  /** Why the last reading failed, or null when it succeeded. */
+  unreadable: string | null
+  level: AlertLevel
+  /** What is wrong right now, red first. */
+  alerts: Alert[]
+  /** Every alert raised lately, by steward and the bot, newest first. */
+  recent: Array<Alert & { id: number; raised: string; raisedBy: string }>
+}
 
 /**
  * One row of `GET /api/web-push/devices`, a browser this account has subscribed.

@@ -97,7 +97,7 @@ describe("a held service is not a broken one", () => {
   })
 
   it("changes nothing about a held container that is running anyway", () => {
-    /** A held service that is up and unhealthy stays red, as in `health.ts`. */
+    /** A held service that is up and unhealthy stays red, as steward's alerts judge it. */
     render(<HealthDot service={{ ...held, state: "running", health: "unhealthy" }} quiet={false} />)
     expect(screen.getByLabelText("unhealthy").className).toContain("bg-destructive")
   })

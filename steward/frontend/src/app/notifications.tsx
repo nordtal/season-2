@@ -3,21 +3,21 @@ import { Link } from "@tanstack/react-router"
 import { useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 
-import type { AlertTypeKey, ConfigEntry, PushDevice } from "@/lib/api"
+import type { AlertChannelKey, AlertTypeKey, ConfigEntry, PushDevice } from "@/lib/api"
 import { relative } from "@/lib/format"
 import { pushSupported } from "@/lib/push"
 import {
   keys,
   useConfig,
   useConfigs,
+  useAlertPreferences,
   useForgetWebPushDevice,
   useSaveConfig,
-  useSetWebPushPreference,
+  useSetAlertPreference,
   useSubscribeWebPush,
   useTestWebPush,
   useUnsubscribeWebPush,
   useWebPushDevices,
-  useWebPushPreferences,
   useWebPushPublicKey,
   useWebPushSubscription,
 } from "@/lib/queries"
@@ -43,7 +43,7 @@ export type NotificationActions = ReturnType<typeof useNotificationActions>
 /**
  * The words for {@link AlertTypeKey}.
  *
- * `label` names what a switch governs; `test` and `tone` are what `AlertWatch#sample` really sends.
+ * `label` names what a switch governs; `test` and `tone` are what `AlertRouter#sample` really sends.
  */
 const TYPES: ReadonlyArray<{
   key: AlertTypeKey
@@ -56,6 +56,15 @@ const TYPES: ReadonlyArray<{
   { key: "disk", label: "Disk", test: "Disk filling up", tone: "warn" },
   { key: "memory", label: "Memory", test: "Memory filling up", tone: "warn" },
   { key: "drift", label: "Images", test: "Image out of date", tone: "warn" },
+  { key: "run", label: "Failed runs", test: "Run failed", tone: "down" },
+  { key: "payment", label: "Payments", test: "Payment needs a look", tone: "down" },
+  { key: "bot", label: "Discord actions", test: "Role not given", tone: "warn" },
+]
+
+/** The two places an alert can reach an admin besides Steward, as columns. */
+const CHANNELS: ReadonlyArray<{ key: AlertChannelKey; label: string }> = [
+  { key: "push", label: "Push" },
+  { key: "discord", label: "Discord" },
 ]
 
 export function useNotificationActions() {
@@ -65,11 +74,11 @@ export function useNotificationActions() {
   const publicKey = useWebPushPublicKey(supported)
   const subscription = useWebPushSubscription(supported)
   const devices = useWebPushDevices(open)
-  const preferences = useWebPushPreferences(open)
+  const preferences = useAlertPreferences(open)
   const subscribe = useSubscribeWebPush()
   const unsubscribe = useUnsubscribeWebPush()
   const forget = useForgetWebPushDevice()
-  const choose = useSetWebPushPreference()
+  const choose = useSetAlertPreference()
   const test = useTestWebPush()
 
   return {
@@ -98,16 +107,16 @@ export function NotificationsDialog({ state }: { state: NotificationActions }) {
           <ResponsiveDialogTitle>Notifications</ResponsiveDialogTitle>
         </ResponsiveDialogHeader>
 
-        {state.supported ? (
-          <div className="flex min-h-0 flex-col gap-4 overflow-x-hidden overflow-y-auto">
+        <div className="flex min-h-0 flex-col gap-4 overflow-x-hidden overflow-y-auto">
+          {state.supported ? (
             <ThisDevice state={state} />
-            <Types state={state} />
-            <Thresholds state={state} />
-            <Devices state={state} />
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">This browser cannot receive push notifications.</p>
-        )}
+          ) : (
+            <p className="text-sm text-muted-foreground">This browser cannot receive push notifications.</p>
+          )}
+          <Types state={state} />
+          <Thresholds state={state} />
+          {state.supported ? <Devices state={state} /> : null}
+        </div>
       </ResponsiveDialogContent>
     </ResponsiveDialog>
   )
@@ -157,27 +166,35 @@ function ThisDevice({ state }: { state: NotificationActions }) {
   )
 }
 
-/** One switch per {@link AlertTypeKey}, for this account and all of its browsers at once. */
+/** One switch per {@link AlertTypeKey} and channel, for this account and all of its browsers at once. */
 function Types({ state }: { state: NotificationActions }) {
   const chosen = state.preferences.data
 
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-xs text-muted-foreground">Notify me about</span>
+      <div className="flex items-center gap-2">
+        <span className="min-w-0 flex-1 text-xs text-muted-foreground">Notify me about</span>
+        {CHANNELS.map((channel) => (
+          <span key={channel.key} className="w-14 shrink-0 text-center text-xs text-muted-foreground">
+            {channel.label}
+          </span>
+        ))}
+      </div>
       <ul className="flex flex-col">
         {TYPES.map((type) => (
-          <li key={type.key} className="flex items-center justify-between gap-2 py-1">
-            <label htmlFor={`notify-${type.key}`} className="min-w-0 truncate text-sm">
-              {type.label}
-            </label>
-            <Switch
-              id={`notify-${type.key}`}
-              className="shrink-0"
-              /** Off until the query answers, and disabled until then, so no type ever reads as off by accident. */
-              checked={chosen?.[type.key] ?? false}
-              disabled={!chosen}
-              onCheckedChange={(enabled) => state.choose.mutate({ type: type.key, enabled })}
-            />
+          <li key={type.key} className="flex items-center gap-2 py-1">
+            <span className="min-w-0 flex-1 truncate text-sm">{type.label}</span>
+            {CHANNELS.map((channel) => (
+              <span key={channel.key} className="flex w-14 shrink-0 justify-center">
+                <Switch
+                  aria-label={`${type.label} by ${channel.label}`}
+                  /** Off until the query answers, and disabled until then, so no type ever reads as off by accident. */
+                  checked={chosen?.[type.key]?.[channel.key] ?? false}
+                  disabled={!chosen || (channel.key === "push" && !state.supported)}
+                  onCheckedChange={(enabled) => state.choose.mutate({ type: type.key, channel: channel.key, enabled })}
+                />
+              </span>
+            ))}
           </li>
         ))}
       </ul>
@@ -195,7 +212,7 @@ const ALERTS_SERVICE = "steward"
 const ALERTS_FILE = "web"
 
 /**
- * The three numbers the light, and therefore every push, fires on, editable here.
+ * The three numbers steward's measured alerts fire on, editable here; the web group applies at its next start.
  *
  * It saves the `web` group with the configuration form's PUT, so a stale revision is refused with a 409.
  */
@@ -271,8 +288,8 @@ function Thresholds({ state }: { state: NotificationActions }) {
               {
                 onSuccess: () => {
                   setEdited({})
-                  /** The light reads `/api/settings`, a different cache entry from the group just saved. */
-                  void client.invalidateQueries({ queryKey: keys.settings })
+                  /** The alerts are a different cache entry from the group just saved. */
+                  void client.invalidateQueries({ queryKey: keys.alerts })
                 },
               },
             )
@@ -290,7 +307,7 @@ function Thresholds({ state }: { state: NotificationActions }) {
   )
 }
 
-/** The three keys, in the order the light reads them. */
+/** The three keys, in the order the alerts read them. */
 const THRESHOLDS: ReadonlyArray<{ key: string; path: string; label: string; unit: string }> = [
   { key: "disk", path: "alerts.disk-percent", label: "Disk in use", unit: "%" },
   { key: "memory", path: "alerts.memory-percent", label: "Memory in use", unit: "%" },

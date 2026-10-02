@@ -422,7 +422,8 @@ public final class Steward {
                         backups,
                         data.updates(),
                         addedPlugins,
-                        () -> reReadOwn(configs.handle(), schedules));
+                        () -> reReadOwn(configs.handle(), schedules),
+                        web::listen);
             } finally {
                 web.stop();
             }
@@ -434,7 +435,7 @@ public final class Steward {
         final WebSpec webConfig = configs.web();
         final StewardSpec config = configs.config();
         if (webConfig.webPush().publicKey().isBlank()) {
-            log.warn("web-push has no VAPID keypair yet, so the traffic light cannot reach a phone's"
+            log.warn("web-push has no VAPID keypair yet, so the alerts cannot reach a phone's"
                     + " lock screen. Run `steward " + Web.GENERATE_VAPID_KEYS + "` and paste both"
                     + " lines it prints into the web group's web-push section.");
         }
@@ -522,7 +523,8 @@ public final class Steward {
             final Snapshots backups,
             final UpdateDirectory updates,
             final eu.nordtal.s2.steward.plugin.PluginDirectory addedPlugins,
-            final Runnable onSettings) {
+            final Runnable onSettings,
+            final java.util.function.Consumer<SignalHub> alerts) {
         final StewardSpec config = configs.config();
         final DatabaseSpec databaseConfig = configs.database();
         try (PaymentLoop paymentLoop = PaymentsStartup.start(
@@ -543,6 +545,7 @@ public final class Steward {
                 if (paymentLoop != null) {
                     paymentLoop.listen(signals);
                 }
+                alerts.accept(signals);
                 signals.start();
                 // SIGTERM is how a redeploy asks; without this the container is killed after the grace period.
                 Runtime.getRuntime().addShutdownHook(new Thread(server::close, "steward-shutdown"));

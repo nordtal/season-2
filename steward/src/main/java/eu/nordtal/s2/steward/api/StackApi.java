@@ -10,11 +10,11 @@ import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.ImageResult;
+import eu.nordtal.s2.steward.alert.StackReading;
 import eu.nordtal.s2.steward.backup.NightlyClock;
 import eu.nordtal.s2.steward.plan.Change;
 import eu.nordtal.s2.steward.plan.Topology;
 import eu.nordtal.s2.steward.plan.UpdatePlan;
-import eu.nordtal.s2.steward.push.AlertReading;
 import io.javalin.config.JavalinConfig;
 import java.io.InputStream;
 import java.time.Clock;
@@ -434,30 +434,42 @@ public final class StackApi implements AutoCloseable {
         return answer;
     }
 
-    /**
-     * Everything that is wrong right now and the three raw measurements, for the push watch to judge.
-     *
-     * The thresholds live in the web group; this reading only says what was found.
-     */
-    public AlertReading alertReading() {
-        final List<Map<String, Object>> archives = new ArrayList<>();
-        for (final AgentWire.Archive archive : archives()) {
-            final Map<String, Object> row = new LinkedHashMap<>();
-            row.put("name", archive.name());
-            row.put("modified", archive.modified().toString());
-            row.put("partial", archive.partial());
-            archives.add(row);
+    /** What every measured alert is judged on: the service table, the archives on disk and the host's numbers. */
+    public StackReading stackReading() {
+        final ImageResult images = drift().result();
+        final List<StackReading.Service> services = new ArrayList<>();
+        for (final Map<String, Object> row : serviceRows.rows(images)) {
+            services.add(new StackReading.Service(
+                    String.valueOf(row.get("service")),
+                    String.valueOf(row.get("state")),
+                    row.get("health") instanceof String health ? health : null,
+                    Boolean.TRUE.equals(row.get("standby")) || row.containsKey("hold"),
+                    "OUTDATED".equals(row.get("drift"))));
         }
-        final AlertLevel.Reading reading = AlertLevel.of(serviceTable(), archives, hostNumbers(), clock.instant());
-        final List<AlertReading.Trigger> triggers = new ArrayList<>();
-        for (final AlertLevel.Trigger trigger : reading.triggers()) {
-            triggers.add(new AlertReading.Trigger(
-                    trigger.kind().name().toLowerCase(java.util.Locale.ROOT),
-                    trigger.level().name().toLowerCase(java.util.Locale.ROOT),
-                    trigger.subject(),
-                    trigger.path()));
+        final String registryProblem = images.reached()
+                ? null
+                : java.util.Objects.requireNonNullElse(images.message(), "the registry did not answer");
+        final List<StackReading.Archive> archives = archives().stream()
+                .map(archive -> new StackReading.Archive(archive.name(), archive.modified(), archive.partial()))
+                .toList();
+        return new StackReading(services, registryProblem, archives, host());
+    }
+
+    /** The disk and memory numbers, or null when the agent could not read them. */
+    private StackReading.@Nullable Host host() {
+        final AgentWire.HostNumbers numbers;
+        try {
+            numbers = agent.host().numbers();
+        } catch (final InternalClient.Failure unreachable) {
+            return null;
         }
-        return new AlertReading(triggers, reading.diskPercent(), reading.memoryPercent(), reading.backupAgeHours());
+        return numbers == null
+                ? null
+                : new StackReading.Host(
+                        numbers.diskUsedBytes(),
+                        numbers.diskTotalBytes(),
+                        numbers.memoryAvailableBytes(),
+                        numbers.memoryTotalBytes());
     }
 
     /** The body of a console POST. */

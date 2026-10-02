@@ -5,8 +5,11 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static eu.nordtal.s2.architecture.Wiring.callFrom;
 import static eu.nordtal.s2.architecture.Wiring.callInOrder;
 import static eu.nordtal.s2.architecture.Wiring.isListed;
+import static eu.nordtal.s2.architecture.Wiring.isOrIsNestedIn;
 import static eu.nordtal.s2.architecture.Wiring.neverCallFrom;
+import static eu.nordtal.s2.architecture.Wiring.reaches;
 
+import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -35,14 +38,16 @@ class StewardRulesTest {
     @Test
     void nothingIsCountedDownBeforeThePlanIsResolvedAndFoundToBeWork() {
         classes()
-                .that(isListed(SERVE + "Runner"))
-                .should(callInOrder(
-                        "update", "UpdateSequence#prepareUpdate", "UpdateReport#isWork", "UpdateSequence#run"))
+                .that(isListed(SERVE + "Kinds"))
+                .should(callInOrder("update", "Runs#resolve", "UpdateReport#isWork", "Plan#of"))
                 .check(classes);
         classes()
-                .that(isListed(SERVE + "UpdateSequence"))
-                .should(callFrom("prepareUpdate", "Runs#resolve"))
-                .andShould(callInOrder("run", "Runner#countDown", "Runner#cancelled", "UpdateRun#stop"))
+                .that(isListed(SERVE + "Runner"))
+                .should(callInOrder("run", "Runner#plan", "Run#carryOut"))
+                .check(classes);
+        classes()
+                .that(isListed(SERVE + "Run"))
+                .should(callInOrder("carryOut", "Runner#countDown", "Runner#cancelled", "UpdateRun#stop"))
                 .because("a cancelled countdown leaves the run before anything is stopped")
                 .check(classes);
     }
@@ -51,25 +56,29 @@ class StewardRulesTest {
     @Test
     void everyRunThatStopsServersRunsTheSameChoreography() {
         classes()
-                .that(isListed(SERVE + "UpdateSequence"))
-                .should(callInOrder(
-                        "run", "UpdateSequence#openUpdateStandbys", CHOREOGRAPHY[1], CHOREOGRAPHY[2], CHOREOGRAPHY[3]))
-                .andShould(callFrom("openUpdateStandbys", CHOREOGRAPHY[0]))
-                .andShould(callFrom("run", "Choreography#close"))
+                .that(isListed(SERVE + "Run"))
+                .should(callInOrder("carryOut", CHOREOGRAPHY))
+                .andShould(callFrom("carryOut", "Choreography#close"))
                 .check(classes);
-        classes()
-                .that(isListed(SERVE + "BackupSequence", SERVE + "RestartSequence"))
-                .should(callInOrder("runUnderLock", CHOREOGRAPHY))
-                .andShould(callFrom("runUnderLock", "Choreography#close"))
+        noClasses()
+                .that()
+                .resideInAPackage("eu.nordtal.s2.steward..")
+                .and(DescribedPredicate.not(isOrIsNestedIn(SERVE + "Run")))
+                .should()
+                .callMethodWhere(reaches(SERVE + "UpdateRun", "stop"))
+                .orShould()
+                .callMethodWhere(reaches(SERVE + "Runner", "countDown"))
+                .because("every kind of run is a plan carried out by Run, so no kind stops a server its own way")
                 .check(classes);
     }
 
     /** Failing is there to warn about archives that exist; failing instead of writing them is the loss. */
     @Test
-    void aBackupSavesTheVolumesBeforeItDecidesTheRunFailed() {
+    void aRunCarriesOutItsPayloadBeforeItDecidesTheRunFailed() {
         classes()
-                .that(isListed(SERVE + "BackupSequence"))
-                .should(callInOrder("runUnderLock", "UpdateRun#save", "Runner#settle"))
+                .that(isListed(SERVE + "Run"))
+                .should(callInOrder("carryOut", "UpdateRun#stop", "Payload#carryOut", "Run#finish"))
+                .andShould(callFrom("finish", "Runner#settle"))
                 .check(classes);
     }
 

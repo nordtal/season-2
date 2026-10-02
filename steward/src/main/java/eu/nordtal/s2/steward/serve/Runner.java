@@ -9,9 +9,7 @@ import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateStatus;
-import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.ContainerOps;
-import eu.nordtal.s2.internalapi.agent.ImageResult;
 import eu.nordtal.s2.internalapi.agent.RuntimeResult;
 import eu.nordtal.s2.internalapi.agent.Snapshots;
 import eu.nordtal.s2.steward.config.StewardSpec;
@@ -112,81 +110,52 @@ public final class Runner implements RequestRunner {
     @Override
     public Outcome run(final UpdateRequest request, final Consumer<UpdateReport> progress) {
         try {
-            return switch (request.kind()) {
-                case UPDATE -> update(request, progress);
-                case RESTART -> restart(request, progress);
-                case BACKUP -> backup(request, progress);
-                case DOWN -> down(request, progress);
-                case START -> startHeld(request, progress);
-                case RESTORE, RECREATE, DEPLOY, REMOVE_PLUGIN ->
-                    Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                            .withNote("This steward does not carry out a " + request.kind()
-                                    + " run. Nothing was done.")));
-            };
+            final UpdateRun steps = new UpdateRun(containers, backups, progress);
+            // Read before anything is planned, so a run that cannot stop a server never moves a jar.
+            final RuntimeResult runtime = steps.check();
+            if (!runtime.reached()) {
+                return Outcome.failed(UpdateReports.toJson(
+                        UpdateReport.at(UpdateReport.Stage.FAILED).withNote(unreachableMessage(runtime))));
+            }
+            final Optional<RunLock> lock;
+            try {
+                lock = RunLock.tryAcquire(database.dataSource());
+            } catch (final SQLException failure) {
+                return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                        .withNote("Could not reach the database to take the steward lock, so nothing was done: "
+                                + failure)));
+            }
+            if (lock.isEmpty()) {
+                return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                        .withNote("Another steward run is in progress - nothing was done. That is either another"
+                                + " run or a `docker compose run --rm steward bootstrap` somebody started on the"
+                                + " host. Wait for it to finish and ask again.")));
+            }
+            try (RunLock held = lock.get()) {
+                final Kinds.Planned planned = plan(request, progress);
+                return planned.outcome() != null
+                        ? planned.outcome()
+                        : new Run(this, steps, runtime, progress)
+                                .carryOut(request, Objects.requireNonNull(planned.plan()));
+            }
         } catch (final RuntimeException failure) {
             log.error("Request {} ({}) failed", request.id(), request.kind(), failure);
             return Outcome.failed("This request failed: " + failure + "\nSteward's log has the stack trace.");
         }
     }
 
-    /**
-     * The whole sequence: check, resolve, count down (already spent), stop, migrate, swap, start, verify.
-     *
-     * The runtime is read before anything resolves, so a run that cannot stop a server never moves a jar.
-     */
-    private Outcome update(final UpdateRequest request, final Consumer<UpdateReport> progress) {
-        final UpdateRun run = new UpdateRun(containers, backups, progress);
-
-        final RuntimeResult runtime = run.check();
-        if (!runtime.reached()) {
-            return Outcome.failed(UpdateReports.toJson(
-                    UpdateReport.at(UpdateReport.Stage.FAILED).withNote(unreachableMessage(runtime))));
-        }
-
-        progress.accept(UpdateReport.at(UpdateReport.Stage.RESOLVING));
-
-        final Optional<RunLock> lock;
-        try {
-            lock = RunLock.tryAcquire(database.dataSource());
-        } catch (final SQLException failure) {
-            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote("Could not reach the database to take the steward lock: " + failure)));
-        }
-        if (lock.isEmpty()) {
-            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote("Another steward run is in progress - nothing was done. That"
-                            + " is either another update or a `docker compose run --rm"
-                            + " steward bootstrap` somebody started on the host. Wait for it"
-                            + " to finish and ask again.")));
-        }
-
-        // After the runtime check, before anything is resolved: it belongs in the plan a person confirms.
-        final ImageResult images = containers.images();
-
-        try (RunLock held = lock.get()) {
-            final UpdateSequence.Preparation prep = UpdateSequence.prepareUpdate(this, request, images);
-            // First, so a newer steward migrates and installs this release.
-            final Handover.Decision handover = Handover.decide(prep.plan(), Handover.ownVersion(), request.result());
-            if (handover instanceof final Handover.Refuse refuse) {
-                return Outcome.failed(UpdateReports.toJson(
-                        prep.planned().withStage(UpdateReport.Stage.FAILED).withNote(refuse.reason())));
-            }
-            if (handover instanceof final Handover.HandOver handOver) {
-                return UpdateSequence.handOver(this, prep, handOver, progress);
-            }
-            if (!prep.planned().isWork() && !prep.foreign().isEmpty()) {
-                return UpdateSequence.updateWithNoServer(this, run, prep, progress);
-            }
-            if (!prep.planned().isWork()) {
-                // A third answer: nothing to check, no work, no failure, and no countdown.
-                return Outcome.done(UpdateReports.toJson(prep.planned()
-                        .withStage(
-                                prep.plan().hasFailures()
-                                        ? UpdateReport.Stage.FAILED
-                                        : UpdateReport.Stage.NOTHING_TO_DO)));
-            }
-            return UpdateSequence.run(this, request, run, runtime, images, prep, progress);
-        }
+    /** What the request's kind plans; the sequence after it is the same for every kind. */
+    private Kinds.Planned plan(final UpdateRequest request, final Consumer<UpdateReport> progress) {
+        return switch (request.kind()) {
+            case UPDATE -> Kinds.update(this, request, progress);
+            case RESTART -> Kinds.restart(this, request);
+            case BACKUP -> Kinds.backup(this, progress);
+            case DOWN -> Kinds.down(this, request);
+            case START -> Kinds.start(this, request);
+            case RESTORE, RECREATE, DEPLOY, REMOVE_PLUGIN ->
+                Kinds.Planned.outcome(Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                        .withNote("This steward does not carry out a " + request.kind() + " run. Nothing was done."))));
+        };
     }
 
     /**
@@ -194,9 +163,12 @@ public final class Runner implements RequestRunner {
      *
      * @return {@code true} when the countdown ran out and the run may proceed; {@code false} when cancelled
      */
-    boolean countDown(final long id, final UpdateReport planned, final Consumer<UpdateReport> progress) {
-        final Optional<UpdateRequest> counting =
-                directory.startCountdown(id, UpdateDirectory.UPDATE_COUNTDOWN, movingServices(planned));
+    boolean countDown(
+            final long id,
+            final UpdateReport planned,
+            final List<String> moving,
+            final Consumer<UpdateReport> progress) {
+        final Optional<UpdateRequest> counting = directory.startCountdown(id, UpdateDirectory.UPDATE_COUNTDOWN, moving);
         if (counting.isEmpty()) {
             // No longer RUNNING between the claim and here, which in practice means cancelled.
             log.info("Request {} is no longer running, so no countdown was started", id);
@@ -293,86 +265,6 @@ public final class Runner implements RequestRunner {
     }
 
     /**
-     * Counts down, stops the servers, snapshots the volumes, starts the servers and waits for them.
-     *
-     * Every path from the stop ends in a start, so a failed snapshot never leaves the network down.
-     */
-    private Outcome backup(final UpdateRequest request, final Consumer<UpdateReport> progress) {
-        final UpdateRun run = new UpdateRun(containers, backups, progress);
-
-        final RuntimeResult runtime = run.check();
-        if (!runtime.reached()) {
-            return Outcome.failed(UpdateReports.toJson(
-                    UpdateReport.at(UpdateReport.Stage.FAILED).withNote(unreachableMessage(runtime))));
-        }
-
-        // compose.yml says what a backup saves and stops: the agent's mounts and the label eu.nordtal.backup.
-        final AgentWire.Topology topology;
-        try {
-            topology = containers.topology();
-        } catch (final RuntimeException unread) {
-            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote("steward-agent did not say what a backup saves, so nothing was stopped and"
-                            + " nothing was saved: " + unread.getMessage())));
-        }
-        if (topology.backupVolumes().isEmpty()) {
-            // Not a quiet success: a compose.yml with no backup mounts must not take the network down for nothing.
-            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote("compose.yml mounts no volume for steward-agent to back up, so there is nothing to"
-                            + " save and nothing was stopped.")));
-        }
-
-        // The same lock an update takes, so a backup never overlaps a run moving jars.
-        final Optional<RunLock> lock;
-        try {
-            lock = RunLock.tryAcquire(database.dataSource());
-        } catch (final SQLException failure) {
-            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote("Could not reach the database to take the steward lock: " + failure)));
-        }
-        if (lock.isEmpty()) {
-            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote("Another steward run is in progress - nothing was backed up."
-                            + " That is either an update, a restart or a `docker compose run --rm"
-                            + " steward bootstrap` somebody started on the host. Wait for it"
-                            + " and ask again.")));
-        }
-        try (RunLock held = lock.get()) {
-            return BackupSequence.runUnderLock(this, request, run, runtime, topology, progress);
-        }
-    }
-
-    /** The same sequence with nothing installed: stop the servers, start them, wait for them. */
-    private Outcome restart(final UpdateRequest request, final Consumer<UpdateReport> progress) {
-        final UpdateRun run = new UpdateRun(containers, backups, progress);
-
-        final RuntimeResult runtime = run.check();
-        if (!runtime.reached()) {
-            return Outcome.failed(UpdateReports.toJson(
-                    UpdateReport.at(UpdateReport.Stage.FAILED).withNote(unreachableMessage(runtime))));
-        }
-
-        // The same lock an update takes: `bootstrap` holds it while moving jars, and a restart must not race it.
-        final Optional<RunLock> lock;
-        try {
-            lock = RunLock.tryAcquire(database.dataSource());
-        } catch (final SQLException failure) {
-            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote("Could not reach the database to take the steward lock: " + failure)));
-        }
-        if (lock.isEmpty()) {
-            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote("Another steward run is in progress - nothing was restarted."
-                            + " That is either an update or a `docker compose run --rm"
-                            + " steward bootstrap` somebody started on the host. Wait for it"
-                            + " and ask again.")));
-        }
-        try (RunLock held = lock.get()) {
-            return RestartSequence.runUnderLock(this, request, run, runtime, progress);
-        }
-    }
-
-    /**
      * Which Minecraft services a restart takes round.
      *
      * @param scope what the request names, empty for the whole network
@@ -390,16 +282,6 @@ public final class Runner implements RequestRunner {
     /** The services somebody is deliberately holding down, in no particular order. */
     List<String> held() {
         return directory.holds().stream().map(ServiceHold::service).toList();
-    }
-
-    /** Stops the named services and leaves them stopped; see {@link HoldSequence#down}. */
-    private Outcome down(final UpdateRequest request, final Consumer<UpdateReport> progress) {
-        return HoldSequence.down(this, request, progress);
-    }
-
-    /** Takes the hold off named (or every held) services and starts them again; see {@link HoldSequence#startHeld}. */
-    private Outcome startHeld(final UpdateRequest request, final Consumer<UpdateReport> progress) {
-        return HoldSequence.startHeld(this, request, progress);
     }
 
     /** Whether that service is one of the four somebody can be standing on. */

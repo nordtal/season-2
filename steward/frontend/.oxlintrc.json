@@ -6,15 +6,31 @@
     "suspicious": "error"
   },
   "rules": {
-    "react/react-in-jsx-scope": "off"
+    "react/react-in-jsx-scope": "off",
+    "max-lines": [
+      "error",
+      {
+        "max": 800,
+        "skipBlankLines": false,
+        "skipComments": false
+      }
+    ]
   },
-  "env": { "browser": true },
+  "env": {
+    "browser": true
+  },
   "ignorePatterns": ["dist/**"],
   "overrides": [
     {
       "files": ["src/main.tsx"],
       "rules": {
         "import/no-unassigned-import": "off"
+      }
+    },
+    {
+      "files": ["src/lib/api.gen.ts"],
+      "rules": {
+        "max-lines": "off"
       }
     }
   ]

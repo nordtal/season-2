@@ -153,6 +153,13 @@ final class FakeContainers implements ContainerOps {
         services.put(service, new ServiceRuntime(service, service + "-container", "running", "unhealthy"));
     }
 
+    /** Every container that was started passes its healthcheck, as all of them do a while later. */
+    void settle() {
+        services.replaceAll((name, entry) -> "starting".equals(entry.health())
+                ? new ServiceRuntime(name, entry.containerId(), "running", "healthy")
+                : entry);
+    }
+
     void back(final String service) {
         services.put(service, new ServiceRuntime(service, service + "-container", "running", "healthy"));
     }

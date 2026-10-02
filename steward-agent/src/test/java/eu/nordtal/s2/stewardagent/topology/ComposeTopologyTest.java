@@ -107,6 +107,44 @@ class ComposeTopologyTest {
     }
 
     @Test
+    void theFourPictureLabelsBecomeAWiringAndAServiceWithoutASectionIsNotDrawn() {
+        final AgentWire.Topology read = parse("""
+                {"caddy": {"labels": {"eu.nordtal.section": "Entry", "eu.nordtal.entry": "true",
+                   "eu.nordtal.reaches": "steward"}},
+                 "steward": {"labels": {"eu.nordtal.section": " Steward ", "eu.nordtal.reaches": "agent  bunq",
+                   "eu.nordtal.stores-in": "postgres"}},
+                 "migrate": {}}
+                """);
+
+        assertEquals(
+                new AgentWire.Wiring("Entry", true, List.of("steward"), List.of()),
+                read.services().get(0).wiring());
+        assertEquals(
+                new AgentWire.Wiring("Steward", false, List.of("agent", "bunq"), List.of("postgres")),
+                read.services().get(1).wiring());
+        assertNull(read.services().get(2).wiring());
+    }
+
+    /** A wire to a service the page does not draw would end nowhere, so every name a wiring gives is drawn. */
+    @Test
+    void everyServiceTheRepositorysWiringNamesIsDrawn() {
+        final List<AgentWire.Service> drawn = ComposeFile.topology().services().stream()
+                .filter(service -> service.wiring() != null)
+                .toList();
+        final List<String> names = drawn.stream().map(AgentWire.Service::name).toList();
+
+        assertTrue(drawn.size() > 1, "compose.yml draws the network");
+        for (final AgentWire.Service service : drawn) {
+            final AgentWire.Wiring wiring = java.util.Objects.requireNonNull(service.wiring());
+            for (final String target : java.util.stream.Stream.concat(
+                            wiring.reaches().stream(), wiring.storesIn().stream())
+                    .toList()) {
+                assertTrue(names.contains(target), service.name() + " is wired to " + target + ", which is not drawn");
+            }
+        }
+    }
+
+    @Test
     void theRenewLabelSaysWhenARunMakesAServiceAgainInFileOrder() {
         final AgentWire.Topology read = parse("""
                 {"postgres": {"labels": {"eu.nordtal.renew": "last"}}, "smp": {"labels": {"eu.nordtal.renew": "run"}},

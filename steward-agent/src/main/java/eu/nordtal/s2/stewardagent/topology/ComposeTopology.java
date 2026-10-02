@@ -47,6 +47,18 @@ public final class ComposeTopology {
     /** The label that says when a run makes a service again: {@code run}, {@code after} or {@code last}. */
     public static final String RENEW = "eu.nordtal.renew";
 
+    /** The heading the network page groups a service under; a service without it is not drawn. */
+    public static final String SECTION = "eu.nordtal.section";
+
+    /** The label that marks a service players reach from outside, with the value {@code true}. */
+    public static final String ENTRY = "eu.nordtal.entry";
+
+    /** The services a service sends requests to, space-separated. */
+    public static final String REACHES = "eu.nordtal.reaches";
+
+    /** The services a service keeps its data in, space-separated. */
+    public static final String STORES_IN = "eu.nordtal.stores-in";
+
     private static final java.util.regex.Pattern SPACES = java.util.regex.Pattern.compile("\\s+");
 
     /** How long one reading is used; the file is baked into the image, only the environment file can change. */
@@ -121,7 +133,8 @@ public final class ComposeTopology {
                     "stop".equals(text(labels, BACKUP)),
                     server(name, labels),
                     text(labels, STANDBY_OF),
-                    renewal(name, text(labels, RENEW))));
+                    renewal(name, text(labels, RENEW)),
+                    wiring(labels)));
             for (final JsonObject mount : mounts(service)) {
                 final String target = text(mount, "target");
                 if (target != null && target.startsWith(root) && target.length() > root.length()) {
@@ -167,6 +180,22 @@ public final class ComposeTopology {
         } catch (final IllegalArgumentException unknown) {
             throw new IllegalStateException(name + "'s " + SERVER + " label: " + unknown.getMessage(), unknown);
         }
+    }
+
+    /** Where the network page draws a service, or none for one without {@link #SECTION}. */
+    private static AgentWire.@Nullable Wiring wiring(final JsonObject labels) {
+        final String section = text(labels, SECTION);
+        if (section == null || section.isBlank()) {
+            return null;
+        }
+        return new AgentWire.Wiring(
+                section.strip(), "true".equals(text(labels, ENTRY)), names(labels, REACHES), names(labels, STORES_IN));
+    }
+
+    private static List<String> names(final JsonObject labels, final String label) {
+        final String listed =
+                Objects.requireNonNullElse(text(labels, label), "").strip();
+        return listed.isEmpty() ? List.of() : List.of(SPACES.split(listed));
     }
 
     private static AgentWire.@Nullable Renewal renewal(final String name, final @Nullable String label) {

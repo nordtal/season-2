@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { OverviewPage } from "@/pages/overview"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { NETWORK_MAP } from "@/lib/query-fixtures"
 
 /**
  * The Issues tile: what steward judged, and how complete that reading is.
@@ -90,6 +91,7 @@ function backend(over: {
       })
     }
     if (url === "/api/host") return json(200, HOST)
+    if (url === "/api/topology") return json(200, NETWORK_MAP)
     if (url === "/api/backups") return json(200, over.backups ?? [backup(2), dump(2)])
     if (url === "/api/alerts") return json(200, await (over.alerts?.() ?? Promise.resolve(reading([]))))
     /** The other tiles answer emptily, so nothing else can be why a test passes or fails. */

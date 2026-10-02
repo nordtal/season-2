@@ -5,6 +5,7 @@ import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { AppFrame } from "@/app/frames"
 import type { Me } from "@/lib/api"
+import { NETWORK_MAP } from "@/lib/query-fixtures"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
@@ -65,14 +66,15 @@ function drawAt(path: string, { open = true }: { open?: boolean } = {}) {
 }
 
 beforeEach(() => {
-  // The sidebar's service rows carry a health dot, so the shell opens one query on mount.
+  // The sidebar lists the served services, each with a health dot, so the shell opens two queries on mount.
   vi.stubGlobal(
     "fetch",
-    vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ services: [] }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }),
+    vi.fn(
+      async (url: string) =>
+        new Response(JSON.stringify(url === "/api/topology" ? NETWORK_MAP : { services: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
     ),
   )
 })
@@ -125,7 +127,8 @@ describe("the frame on a desktop", () => {
     const island = screen.getByRole("button", { name: "Navigation" }).parentElement!
     expect(island.textContent).toContain("Steward")
     expect(island.querySelector("[data-trail]")?.getAttribute("aria-hidden")).toBe("true")
-    expect(screen.getByRole("link", { name: /smp/ }).getAttribute("aria-current")).toBe("page")
+    /** The service rows come with `/api/topology`, a moment after the page. */
+    expect((await screen.findByRole("link", { name: /smp/ })).getAttribute("aria-current")).toBe("page")
   })
 
   it("has the account within reach of the island, and opens the settings from it", async () => {
@@ -178,7 +181,7 @@ describe("the frame on a phone", () => {
     // The cookie says open; the phone's navigation has its own state and starts closed.
     expect(toggle.getAttribute("aria-expanded")).toBe("false")
     const dock = toggle.parentElement!
-    expect(dock.textContent).toContain("smp")
+    await waitFor(() => expect(dock.textContent).toContain("smp"))
     expect(within(dock).getByRole("button", { name: "Search pages" })).toBeTruthy()
     expect(within(dock).getByRole("button", { name: /Account/ })).toBeTruthy()
     expect(screen.queryByRole("navigation", { name: "Pages" })).toBeNull()

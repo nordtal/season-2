@@ -56,6 +56,7 @@ import {
   type DateChange,
   type Service,
   type ServiceTable,
+  type NetworkMap,
   type AlertPreference,
   type AlertType,
   type PushDevice,
@@ -80,6 +81,7 @@ const SECOND = 1000
 export const keys = {
   me: ["me"] as const,
   services: ["services"] as const,
+  topology: ["topology"] as const,
   service: (name: string) => ["service", name] as const,
   plugins: (name: string) => ["plugins", name] as const,
   pluginSearch: (name: string, query: string) => ["plugin-search", name, query] as const,
@@ -209,6 +211,16 @@ export function useRemoveKey() {
       await client.invalidateQueries({ queryKey: keys.me })
       return removed
     },
+  })
+}
+
+/** The services the network page draws and the sidebar lists, as compose.yml's labels place and wire them. */
+export function useTopology(enabled = true) {
+  return useQuery({
+    queryKey: keys.topology,
+    queryFn: () => api<NetworkMap>("/api/topology"),
+    ...live("TOPOLOGY"),
+    enabled,
   })
 }
 

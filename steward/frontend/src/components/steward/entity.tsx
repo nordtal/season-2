@@ -1,23 +1,22 @@
 import { HardDrivesIcon, QuestionIcon } from "@phosphor-icons/react"
 import { Link } from "@tanstack/react-router"
 
-import { SERVICES } from "@/app/navigation"
 import { PersonIdentity } from "@/components/steward/identity"
 import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import type { ActorKind, Person } from "@/lib/api"
-import { useAvatarBaseUrl, usePeople } from "@/lib/queries"
+import { useAvatarBaseUrl, usePeople, useTopology } from "@/lib/queries"
 
 export type EntityKind = "discord" | "minecraft" | "service"
 
 const SNOWFLAKE = /^\d{17,20}$/
 const UUID = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i
 
-/** What an identifier is, from its shape alone; `unknown` is an answer, not a failure. */
-export function entityKind(id: string): EntityKind | "unknown" {
+/** What an identifier is, from its shape or from the served `services`; `unknown` is an answer, not a failure. */
+export function entityKind(id: string, services: readonly string[]): EntityKind | "unknown" {
   const trimmed = id.trim()
   if (SNOWFLAKE.test(trimmed)) return "discord"
   if (UUID.test(trimmed)) return "minecraft"
-  if ((SERVICES as readonly string[]).includes(trimmed)) return "service"
+  if (services.includes(trimmed)) return "service"
   return "unknown"
 }
 
@@ -52,7 +51,11 @@ export type EntityProps = {
  * An unknown one shows a question mark rather than passing for a name; `kind` overrides the detection.
  */
 export function Entity({ id, kind, system, interactive, className }: EntityProps) {
-  const resolved: EntityKind | "unknown" = system ? "unknown" : (kind ?? entityKind(id ?? ""))
+  /** Asked only for a name that is neither a Discord id nor a UUID, the one case the shape cannot settle. */
+  const byName = !system && kind === undefined && entityKind(id ?? "", []) === "unknown"
+  const topology = useTopology(byName)
+  const services = topology.data?.services.map((box) => box.name) ?? []
+  const resolved: EntityKind | "unknown" = system ? "unknown" : (kind ?? entityKind(id ?? "", services))
   const isPerson = !system && (resolved === "discord" || resolved === "minecraft")
   const people = usePeople(isPerson)
   const avatarBase = useAvatarBaseUrl(isPerson)
@@ -60,6 +63,11 @@ export function Entity({ id, kind, system, interactive, className }: EntityProps
   if (system) return <PersonIdentity system className={className} />
 
   const value = (id ?? "").trim()
+
+  /** Waiting on the map is not "no such service", which the question mark would claim. */
+  if (byName && topology.isPending) {
+    return <SkeletonText width="medium" className={"text-sm " + (className ?? "")} />
+  }
 
   if (resolved === "discord" || resolved === "minecraft") {
     /** Waiting on the roster is not "nobody on record", which would state a fact the page does not have. */

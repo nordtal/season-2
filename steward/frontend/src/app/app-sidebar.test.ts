@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest"
 
 import { activeEntryId, resolveHref } from "@/app/app-sidebar"
-import { NAVIGATION } from "@/app/navigation"
+import { navigation } from "@/app/navigation"
+import { topologyOf } from "@/components/steward/network/topology"
+import { NETWORK_MAP } from "@/lib/query-fixtures"
+
+const NAVIGATION = navigation(topologyOf(NETWORK_MAP).names)
 
 /** Which single row the sidebar lights up: the longest match across the whole navigation wins. */
 describe("activeEntryId - the longest match wins", () => {
@@ -20,7 +24,7 @@ describe("activeEntryId - the longest match wins", () => {
     expect(activeEntryId("/operations/backups", NAVIGATION)).toBe("operations-backups")
   })
 
-  it("keeps the right service selected rather than all ten of them", () => {
+  it("keeps the right service selected rather than all of them", () => {
     /** Every service entry shares /services, so the resolved href with the real name decides. */
     expect(activeEntryId("/services/limbo", NAVIGATION)).toBe("service-limbo")
     expect(activeEntryId("/services/steward", NAVIGATION)).toBe("service-steward")

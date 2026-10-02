@@ -27,7 +27,8 @@ public final class ApiWire {
             MessagesApi.Bundle.class,
             MessagesApi.Saved.class,
             AgentWire.PluginAdded.class,
-            Routes.ConsoleSent.class);
+            Routes.ConsoleSent.class,
+            StackApi.NetworkMap.class);
 
     /** Records here whose own simple name would say too little or collide. */
     public static final Map<Class<?>, String> NAMES = Map.ofEntries(

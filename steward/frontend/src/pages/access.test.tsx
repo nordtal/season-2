@@ -9,6 +9,7 @@ import { IDENTIFIER_PATTERN } from "@/components/steward/identity"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { toast } from "sonner"
 import { asButton } from "@/lib/test-elements"
+import { NETWORK_MAP } from "@/lib/query-fixtures"
 
 /**
  * The Access page: faces for identifiers, search over four fields, and filtering before paging.
@@ -170,6 +171,7 @@ function backend(
     }
     if (url === "/api/me") return json(200, { signedIn: true, id: ME, webauthn: "READY" })
     if (url === "/api/people") return json(200, over.people ? over.people() : PEOPLE)
+    if (url === "/api/topology") return json(200, NETWORK_MAP)
     if (url === "/api/payments") return json(200, over.payments ? over.payments() : [])
     if (url.startsWith("/api/journal")) return json(200, over.journal ? over.journal() : [])
     if (url === "/api/settings") {

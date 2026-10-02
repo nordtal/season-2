@@ -199,7 +199,7 @@ public final class StackApi implements AutoCloseable {
     public void watch(final LiveFeed live) {
         live.watch(Topic.SERVICES, this::serviceTable);
         live.watch(Topic.HOST, this::hostNumbers);
-        live.watch(Topic.TOPOLOGY, agent::topology);
+        live.watch(Topic.TOPOLOGY, this::network);
         if (settings != null) {
             live.watch(Topic.SETTINGS, settings::read);
         }
@@ -252,6 +252,32 @@ public final class StackApi implements AutoCloseable {
             List<String> unverifiable,
             @Nullable String reason,
             @Nullable String message) {}
+
+    /** The services the network page draws, as compose.yml's labels place and wire them, in file order. */
+    NetworkMap network() {
+        final List<NetworkBox> boxes = new ArrayList<>();
+        for (final AgentWire.Service service : agent.topology().services()) {
+            final AgentWire.Wiring wiring = service.wiring();
+            if (wiring != null) {
+                boxes.add(new NetworkBox(
+                        service.name(), wiring.section(), wiring.entry(), wiring.reaches(), wiring.storesIn()));
+            }
+        }
+        return new NetworkMap(boxes);
+    }
+
+    /** {@code GET /api/topology}: every service the network page draws, the one list the browser knows them by. */
+    public record NetworkMap(List<NetworkBox> services) {}
+
+    /**
+     * One service as the network page draws it.
+     *
+     * @param section the heading it is grouped under
+     * @param entry whether players reach it from outside
+     * @param reaches the services it sends requests to
+     * @param storesIn the services it keeps its data in
+     */
+    public record NetworkBox(String name, String section, boolean entry, List<String> reaches, List<String> storesIn) {}
 
     /** The service table, with the age of the drift comparison beside it. */
     ServiceTable serviceTable() {

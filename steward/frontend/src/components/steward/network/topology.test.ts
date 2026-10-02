@@ -1,56 +1,75 @@
 import { describe, expect, it } from "vitest"
 
-import { SERVICES } from "@/app/navigation"
+import { NETWORK_MAP } from "@/lib/query-fixtures"
 
-import { EDGES, INGRESS, SECTIONS, imageTag, layoutFaults } from "./topology"
+import { INGRESS, imageTag, layoutFaults, topologyOf } from "./topology"
 
-/**
- * A hand-written arrangement silently loses an eleventh service; `geometry.test.ts` asserts each plan places all ten.
- */
+const TOPOLOGY = topologyOf(NETWORK_MAP)
+const NAMES = TOPOLOGY.names
+
+/** A hand-written arrangement silently loses a service the stack gained; `view.tsx` then draws the table instead. */
 describe("layoutFaults names what an arrangement forgot", () => {
   it("notices a service that no draft placed, which is the failure it exists for", () => {
-    const short = SERVICES.filter((name) => name !== "limbo")
-    expect(layoutFaults([INGRESS, ...short])).toEqual(["limbo is placed nowhere"])
+    const short = NAMES.filter((name) => name !== "limbo")
+    expect(layoutFaults([INGRESS, ...short], NAMES)).toEqual(["limbo is placed nowhere"])
   })
 
   it("notices a name that is not a service at all", () => {
-    expect(layoutFaults([INGRESS, ...SERVICES, "pack-host"])).toEqual(["pack-host is not in SERVICES"])
+    expect(layoutFaults([INGRESS, ...NAMES, "pack-host"], NAMES)).toEqual(["pack-host is not a served service"])
   })
 
   it("notices the same box drawn twice", () => {
-    expect(layoutFaults([INGRESS, ...SERVICES, "postgres"])).toEqual(["postgres is placed twice"])
+    expect(layoutFaults([INGRESS, ...NAMES, "postgres"], NAMES)).toEqual(["postgres is placed twice"])
   })
 })
 
-/** The phone's table is a second hand-written list of the ten names, checked the same way. */
-describe("the sections cover every service, once", () => {
-  it("names all ten between them and repeats none", () => {
-    const rows = SECTIONS.flatMap((section) => section.members)
-    /** `players` has no row but `layoutFaults` expects it, so it is prepended. */
-    expect(layoutFaults([INGRESS, ...rows])).toEqual([])
+describe("the sections, read off the labels", () => {
+  it("run from the players inwards, with what only stores data last", () => {
+    expect(TOPOLOGY.sections.map((section) => section.title)).toEqual([
+      "Entry",
+      "Paper",
+      "Steward",
+      "Discord",
+      "Database",
+    ])
   })
 
-  it("gives every section a heading and at least one row", () => {
-    for (const section of SECTIONS) {
-      expect(`${section.id} has ${section.members.length} rows`).not.toBe(`${section.id} has 0 rows`)
-      expect(section.title).toMatch(/^[A-Z]/)
-    }
+  it("name every served service once between them, in the order the labels list them", () => {
+    expect(layoutFaults([INGRESS, ...TOPOLOGY.sections.flatMap((section) => section.members)], NAMES)).toEqual([])
+    expect(TOPOLOGY.sections[0].members).toEqual(["proxy", "caddy"])
+    expect(NAMES).toHaveLength(NETWORK_MAP.services.length)
   })
 })
 
-describe("the edges are between boxes that exist", () => {
-  it("names only services and the entry box", () => {
-    const known = new Set<string>([INGRESS, ...SERVICES])
-    const unknown = EDGES.flatMap((edge) => [edge.from, edge.to]).filter((id) => !known.has(id))
-    expect(unknown).toEqual([])
+describe("the edges, read off the labels", () => {
+  it("lead from the players to each entry, and along every reach", () => {
+    const traffic = TOPOLOGY.edges.filter((edge) => edge.kind === "traffic").map((edge) => `${edge.from}-${edge.to}`)
+    expect(traffic).toEqual([
+      "players-proxy",
+      "players-caddy",
+      "proxy-smp",
+      "proxy-hunger-games",
+      "proxy-limbo",
+      "steward-steward-agent",
+      "steward-steward-bunq",
+      "caddy-steward",
+    ])
   })
 
-  it("has the database at the end of every data edge, and nowhere else", () => {
-    for (const edge of EDGES.filter((one) => one.kind === "data")) {
-      expect(edge.to).toBe("postgres")
-    }
-    /** Six of the ten hold a connection, as compose.yml declares; caddy, the agent, steward-bunq and postgres do not. */
-    expect(EDGES.filter((edge) => edge.kind === "data").length).toBe(6)
+  it("bundle everything that keeps its data in postgres into the one sink", () => {
+    expect(TOPOLOGY.sink).toBe("postgres")
+    expect(TOPOLOGY.storers).toEqual(["discord-bot", "proxy", "limbo", "hunger-games", "smp", "steward"])
+  })
+
+  it("name no sink once data is kept in two places, since one bundle cannot reach both", () => {
+    const split = topologyOf({
+      services: [
+        ...NETWORK_MAP.services,
+        { name: "cache", section: "Database", entry: false, reaches: [], storesIn: [] },
+        { name: "worker", section: "Steward", entry: false, reaches: [], storesIn: ["cache"] },
+      ],
+    })
+    expect(split.sink).toBeUndefined()
   })
 })
 

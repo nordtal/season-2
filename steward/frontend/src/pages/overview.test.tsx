@@ -122,6 +122,7 @@ function draw() {
     createRoute({ getParentRoute: () => root, path: "/services/$name", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/season", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/journal", component: nothing }),
+    createRoute({ getParentRoute: () => root, path: "/alerts", component: nothing }),
   ])
   const router = createRouter({
     routeTree,

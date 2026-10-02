@@ -1,6 +1,7 @@
 import {
   ArchiveIcon,
   ArrowCircleUpIcon,
+  BellIcon,
   BookOpenTextIcon,
   CalendarIcon,
   CreditCardIcon,
@@ -97,6 +98,14 @@ export function navigation(services: readonly string[]): NavGroup[] {
           note: "Runs, archives, retention, the offsite copy and the way back.",
           icon: ArchiveIcon,
           keywords: ["backup", "archive", "snapshot", "retention", "s3", "storage box", "offsite", "restore"],
+        },
+        {
+          id: "operations-alerts",
+          label: "Alerts",
+          to: "/alerts",
+          note: "What is wrong now, and every alert raised lately.",
+          icon: BellIcon,
+          keywords: ["alert", "issue", "problem", "warning", "down", "notification"],
         },
       ],
     },

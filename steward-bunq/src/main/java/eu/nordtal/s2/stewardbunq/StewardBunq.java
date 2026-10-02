@@ -43,7 +43,7 @@ public final class StewardBunq {
     static void routes(final JavalinConfig config, final BunqGateway bank) {
         config.routes.get(BankWire.ACCOUNT, ctx -> ctx.json(bank.account()));
         config.routes.post(BankWire.TABS, ctx -> {
-            final BankWire.NewTab asked = ctx.bodyAsClass(BankWire.NewTab.class);
+            final BankWire.NewTab asked = InternalServer.body(ctx, BankWire.NewTab.class);
             if (asked == null || asked.amountCents() <= 0 || asked.description() == null) {
                 throw new BadRequestResponse("a tab needs a positive amountCents and a description");
             }

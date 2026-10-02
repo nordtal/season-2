@@ -58,4 +58,33 @@ class InternalServerTest {
         final InternalClient steward = new InternalClient("steward-bunq", base, "the-secret", Duration.ofSeconds(5));
         assertEquals("thing", steward.get("/api/thing"));
     }
+
+    /** A body whose constructor refuses some values, as the agent's wire records do. */
+    record Positive(int value) {
+        Positive {
+            if (value < 1) {
+                throw new IllegalArgumentException("value must be at least 1, was " + value);
+            }
+        }
+    }
+
+    @Test
+    void aBodyItsRecordRefusesIsABadRequestNotAServerError() {
+        running = SERVER.create(
+                        "the-secret",
+                        config -> config.routes.post("/api/thing", ctx -> {
+                            final Positive body = InternalServer.body(ctx, Positive.class);
+                            ctx.result(Integer.toString(body.value()));
+                        }))
+                .start("127.0.0.1", 0);
+        final InternalClient steward = new InternalClient(
+                "steward-bunq", "http://127.0.0.1:" + running.port(), "the-secret", Duration.ofSeconds(5));
+
+        assertEquals("3", steward.post("/api/thing", "{\"value\":3}"));
+        for (final String refused : new String[] {"{\"value\":0}", "not json", ""}) {
+            final InternalClient.Failure failure =
+                    assertThrows(InternalClient.Failure.class, () -> steward.post("/api/thing", refused));
+            assertEquals(400, failure.status(), refused + " is the caller's mistake: " + failure.getMessage());
+        }
+    }
 }

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.stewardagent;
 
+import eu.nordtal.s2.internalapi.InternalServer;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.stewardagent.docker.Console;
 import eu.nordtal.s2.stewardagent.docker.Containers;
@@ -68,7 +69,7 @@ final class AgentRoutes {
     }
 
     private void console(final Context ctx) {
-        final AgentWire.ConsoleLine line = ctx.bodyAsClass(AgentWire.ConsoleLine.class);
+        final AgentWire.ConsoleLine line = InternalServer.body(ctx, AgentWire.ConsoleLine.class);
         // Gson leaves a missing field null whatever the record declares.
         if (line == null || line.command() == null || line.actor() == null) {
             throw new BadRequestResponse("a console line carries the command and who typed it");

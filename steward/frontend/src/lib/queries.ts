@@ -50,13 +50,14 @@ import {
 } from "@/lib/api"
 import { browserHasSecurityKeys, createSecurityKey, whyTheKeyFailed } from "@/lib/webauthn"
 import { holdTheKey } from "@/lib/hold-key"
+import { live, nextChange, RECONCILE, type Topic } from "@/lib/live"
 import { currentPushEndpoint, subscribeToPush, unsubscribeFromPush } from "@/lib/push"
 import type { CreationOptionsJson } from "@/lib/webauthn"
 
 /**
- * One hook per endpoint, with its refresh interval decided here rather than at the call site.
+ * One hook per endpoint, with the live topics it follows decided here rather than at the call site.
  *
- * The service table costs a second of Docker daemon time per refresh, so it polls every ten seconds.
+ * A live query is read again when steward's stream announces one of its topics, and once a minute anyway.
  */
 
 const SECOND = 1000
@@ -200,7 +201,7 @@ export function useServices(enabled = true) {
   return useQuery({
     queryKey: keys.services,
     queryFn: () => api<ServiceTable>("/api/services"),
-    refetchInterval: 10 * SECOND,
+    ...live("SERVICES"),
     enabled,
   })
 }
@@ -209,7 +210,7 @@ export function useService(name: string, enabled = true) {
   return useQuery({
     queryKey: keys.service(name),
     queryFn: () => api<Service>(`/api/services/${encodeURIComponent(name)}`),
-    refetchInterval: 10 * SECOND,
+    ...live("SERVICES"),
     enabled,
   })
 }
@@ -218,17 +219,17 @@ export function useHost(enabled = true) {
   return useQuery({
     queryKey: keys.host,
     queryFn: () => api<Host>("/api/host"),
-    refetchInterval: 10 * SECOND,
+    ...live("HOST"),
     enabled,
   })
 }
 
-/** Steward's nightly clock, cached for an hour and never polled, since it changes only on a restart. */
+/** Steward's nightly clock, which moves when its settings are saved. */
 export function useSchedule(enabled = true) {
   return useQuery({
     queryKey: keys.schedule,
     queryFn: () => api<Schedule>("/api/schedule"),
-    staleTime: 60 * 60 * SECOND,
+    ...live("SETTINGS"),
     enabled,
   })
 }
@@ -237,8 +238,8 @@ export function useBackups(enabled = true) {
   return useQuery({
     queryKey: keys.backups,
     queryFn: () => api<Backup[]>("/api/backups"),
-    /** Thirty seconds, so a run started by hand shows its archive without a reload. */
-    refetchInterval: 30 * SECOND,
+    /** An archive is written by a run, so a finished run is when the list moves. */
+    ...live("RUNS"),
     enabled,
   })
 }
@@ -274,7 +275,7 @@ export function useRuns(limit = 20, enabled = true) {
   return useQuery({
     queryKey: keys.runs(limit),
     queryFn: () => api<Run[]>(`/api/updates?limit=${limit}`),
-    refetchInterval: 10 * SECOND,
+    ...live("RUNS"),
     enabled,
   })
 }
@@ -284,20 +285,17 @@ export function useActiveRun(enabled = true) {
   return useQuery({
     queryKey: keys.activeRun,
     queryFn: () => api<ActiveRun>("/api/updates/active"),
-    refetchInterval: 5 * SECOND,
+    ...live("RUNS"),
     enabled,
   })
 }
 
-/** One run, polled every two seconds until it has finished, since steward writes progress into the report. */
+/** One run, read again on every change of the runs while it is open, since its report carries the progress. */
 export function useRun(id: string, enabled = true) {
   return useQuery({
     queryKey: keys.run(id),
     queryFn: () => api<Run>(`/api/updates/${encodeURIComponent(id)}`),
-    refetchInterval: (query) => {
-      const status = query.state.data?.status
-      return status === "DONE" || status === "FAILED" || status === "CANCELLED" ? false : 2 * SECOND
-    },
+    ...live("RUNS"),
     enabled,
   })
 }
@@ -309,8 +307,7 @@ export function useMetrics(subject: string, metric: string, hours: number, enabl
       api<Metrics>(
         `/api/metrics?subject=${encodeURIComponent(subject)}&metric=${encodeURIComponent(metric)}&hours=${hours}`,
       ),
-    // The sampler writes every 30 seconds; asking more often can only return the same points.
-    refetchInterval: 30 * SECOND,
+    ...live("METRICS"),
     enabled,
   })
 }
@@ -319,7 +316,7 @@ export function useSeason(enabled = true) {
   return useQuery({
     queryKey: keys.season,
     queryFn: () => api<Season>("/api/season"),
-    staleTime: 60 * SECOND,
+    ...live("SEASON"),
     enabled,
   })
 }
@@ -328,7 +325,7 @@ export function usePeople(enabled = true) {
   return useQuery({
     queryKey: keys.people,
     queryFn: () => api<Person[]>("/api/people"),
-    staleTime: 30 * SECOND,
+    ...live("PEOPLE"),
     enabled,
   })
 }
@@ -337,7 +334,7 @@ export function usePayments(enabled = true) {
   return useQuery({
     queryKey: keys.payments,
     queryFn: () => api<Payment[]>("/api/payments"),
-    staleTime: 30 * SECOND,
+    ...live("PEOPLE"),
     enabled,
   })
 }
@@ -351,7 +348,7 @@ export function useOpenPayments(enabled = true) {
   return useQuery({
     queryKey: keys.openPayments,
     queryFn: () => api<Payment[]>("/api/payments/open"),
-    staleTime: 15 * SECOND,
+    ...live("PEOPLE"),
     enabled,
   })
 }
@@ -360,6 +357,7 @@ export function useGrants(discordId: string | null) {
   return useQuery({
     queryKey: keys.grants(discordId ?? ""),
     queryFn: () => api<Grant[]>(`/api/people/${encodeURIComponent(discordId ?? "")}/grants`),
+    ...live("PEOPLE"),
     enabled: Boolean(discordId),
   })
 }
@@ -373,7 +371,7 @@ export function useJournal(action: string, subject: string, enabled = true) {
       if (subject) query.set("subject", subject)
       return api<JournalEntry[]>(`/api/journal?${query}`)
     },
-    staleTime: 15 * SECOND,
+    ...live("JOURNAL"),
     enabled,
   })
 }
@@ -383,7 +381,7 @@ export function useActions(limit = 5, enabled = true) {
   return useQuery({
     queryKey: keys.actions(limit),
     queryFn: () => api<Action[]>(`/api/actions?limit=${limit}`),
-    staleTime: 15 * SECOND,
+    ...live("RUNS", "JOURNAL"),
     enabled,
   })
 }
@@ -393,6 +391,7 @@ export function useSmpTrack() {
   return useQuery({
     queryKey: keys.smpTrack,
     queryFn: () => api<SmpTrack>("/api/smp/track"),
+    ...live("GAMES"),
   })
 }
 
@@ -401,6 +400,7 @@ export function useHungerGamesRound() {
   return useQuery({
     queryKey: keys.hungerGamesRound,
     queryFn: () => api<HungerGamesRound>("/api/hunger-games/round"),
+    ...live("GAMES"),
   })
 }
 
@@ -421,6 +421,7 @@ export function useAnnouncements() {
   return useQuery({
     queryKey: keys.announcements,
     queryFn: () => api<Announcements>("/api/announcements"),
+    ...live("REQUESTS"),
   })
 }
 
@@ -437,17 +438,18 @@ export function useSendAnnouncement() {
   })
 }
 
-/** What became of one request, polled every second until it has settled. */
+/** What became of one request, read again on every change of the requests until it has settled. */
 export function useCommandRun(id: string | null) {
   return useQuery({
     queryKey: keys.commandRun(id ?? ""),
     queryFn: () => api<CommandRun>(`/api/commands/${id}`),
     enabled: Boolean(id),
+    meta: { topics: ["REQUESTS"] satisfies Topic[] },
     refetchInterval: (query) => {
-      /** A failed poll stops polling; the row shows the error and a button to ask again. */
+      /** A failed read stops the reconciliation; the row shows the error and a button to ask again. */
       if (query.state.error) return false
       const status = query.state.data?.status
-      return status === undefined || status === "PENDING" || status === "RUNNING" ? SECOND : false
+      return status === undefined || status === "PENDING" || status === "RUNNING" ? RECONCILE : false
     },
   })
 }
@@ -490,7 +492,7 @@ export function useAlerts(enabled = true) {
   return useQuery({
     queryKey: keys.alerts,
     queryFn: () => api<Alerts>("/api/alerts"),
-    refetchInterval: 30 * SECOND,
+    ...live("ALERTS"),
     enabled,
   })
 }
@@ -646,7 +648,7 @@ export function useConfigs(enabled = true) {
   return useQuery({
     queryKey: keys.configs,
     queryFn: () => api<ConfigLocation[]>("/api/setting-groups"),
-    staleTime: 5 * 60 * SECOND,
+    ...live("SETTINGS"),
     enabled,
   })
 }
@@ -656,6 +658,7 @@ export function useConfig(file: string, enabled = true) {
   return useQuery({
     queryKey: keys.config(file),
     queryFn: () => api<ConfigDocument>(`/api/setting-groups/${encodePath(file)}`),
+    ...live("SETTINGS"),
     enabled: enabled && Boolean(file),
   })
 }
@@ -706,12 +709,12 @@ export function useConsole(service: string) {
   })
 }
 
-/** The plugins on one Minecraft server, polled slowly since they change when an update run finishes. */
+/** The plugins on one Minecraft server, which change when a run installs or removes one. */
 export function usePlugins(service: string) {
   return useQuery({
     queryKey: keys.plugins(service),
     queryFn: () => api<ServicePlugins>(`/api/services/${encodeURIComponent(service)}/plugins`),
-    refetchInterval: 30 * SECOND,
+    ...live("RUNS"),
     /** A 404 means the service has no plugins folder; every other failure gets one retry. */
     retry: (count, error) => !(error instanceof ApiError && error.status === 404) && count < 1,
   })
@@ -806,23 +809,28 @@ export function useSaveConfig(file: string) {
 }
 
 /**
- * Asks the bot for an access change and polls its row every second until it has settled.
+ * Asks the bot for an access change and reads its row again on every change of the requests until it has settled.
  *
  * Only the bot can apply the role, send the direct message and post the admin note.
  */
 async function askTheBot(path: string, body: unknown): Promise<Record<string, string | undefined>> {
   const asked = await api<AccessRequestRun>(path, { method: "POST", body })
   for (;;) {
-    const row = await api<AccessRequestRun>(`/api/access/requests/${asked.id}`)
-    if (row.status === "DONE") return row.result ?? {}
-    if (row.status === "FAILED") {
-      throw new Error(row.result?.error ?? "The bot could not carry this out.")
+    const change = nextChange("REQUESTS")
+    try {
+      const row = await api<AccessRequestRun>(`/api/access/requests/${asked.id}`)
+      if (row.status === "DONE") return row.result ?? {}
+      if (row.status === "FAILED") {
+        throw new Error(row.result?.error ?? "The bot could not carry this out.")
+      }
+      if (row.status === "EXPIRED") {
+        // EXPIRED means the bot never picked the row up, so nothing changed.
+        throw new Error("The bot did not pick this up within two minutes. Nothing was changed.")
+      }
+      await change.arrived
+    } finally {
+      change.stop()
     }
-    if (row.status === "EXPIRED") {
-      // EXPIRED means the bot never picked the row up, so nothing changed.
-      throw new Error("The bot did not pick this up within two minutes. Nothing was changed.")
-    }
-    await new Promise((resolve) => setTimeout(resolve, SECOND))
   }
 }
 

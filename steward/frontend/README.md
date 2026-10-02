@@ -42,3 +42,12 @@ src/
 ```
 
 `src/app/navigation.ts` lists every place in the interface; a route missing from it cannot be reached.
+
+## Data
+
+Every read is a hook in `lib/queries.ts`, and nothing polls. A hook that follows something that
+changes spreads `live(...topics)` from `lib/live.ts` into its options: the one stream the shell holds
+(`/api/live`, described in steward's README) refetches it when one of its topics changes, and the
+minute's reconciliation reads it anyway. Waiting for the bot or a server is waiting for the next
+`REQUESTS` change, never a timer. `nothing-polls.test.ts` holds both rules. Every SSE route is
+followed through `lib/event-stream.ts`, which owns the backoff and the reconnect.

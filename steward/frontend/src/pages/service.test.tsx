@@ -15,7 +15,7 @@ const service = (over: Partial<Service> = {}): Service => ({
   state: "running",
   status: "Up 3 hours (healthy)",
   hasConsole: true,
-  drift: "NONE",
+  drift: "UNKNOWN",
   health: "healthy",
   ...over,
 })

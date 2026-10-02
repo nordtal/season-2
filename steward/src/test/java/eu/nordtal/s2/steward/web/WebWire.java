@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward.web;
 
 import java.util.List;
+import java.util.Map;
 
 /** The records the routes of this package answer and read, for the generated TypeScript types. */
 public final class WebWire {
@@ -11,7 +12,12 @@ public final class WebWire {
             PushEndpoints.WebPushPublicKey.class,
             PushEndpoints.PushDevice.class,
             AlertRoutes.Alerts.class,
-            AlertRoutes.AlertPreference.class);
+            AlertRoutes.AlertPreference.class,
+            Metrics.Curve.class,
+            AgentApi.AgentState.class);
+
+    /** Records here whose own simple name would say too little. */
+    public static final Map<Class<?>, String> NAMES = Map.of(Metrics.Curve.class, "Metrics");
 
     private WebWire() {}
 }

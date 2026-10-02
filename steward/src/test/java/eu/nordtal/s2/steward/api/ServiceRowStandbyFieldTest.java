@@ -4,10 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.gson.JsonObject;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -33,38 +32,33 @@ class ServiceRowStandbyFieldTest {
         assertEquals(List.of("proxy-standby", "limbo-standby"), TOPOLOGY.standbys());
 
         for (final String standby : TOPOLOGY.standbys()) {
-            assertEquals(
-                    true, row(standby).get("standby"), standby + " is off on purpose and must not read as a fault");
+            assertTrue(
+                    row(standby).get("standby").getAsBoolean(),
+                    standby + " is off on purpose and must not read as a fault");
         }
     }
 
     @Test
     void anOrdinaryServiceCarriesNoKeyAtAllAbsentNeverFalse() {
-        final Map<String, Object> row = row("smp");
-
         assertFalse(
-                row.containsKey("standby"),
+                row("smp").has("standby"),
                 "the frontend reads `standby === true`; a `false` here would be a second spelling");
-        assertTrue(row.isEmpty(), "nothing else is written either - it adds one field or none");
     }
 
     @Test
     void theLiveServiceAStandbyBelongsToIsNotMarked() {
         for (final String live : List.of("proxy", "limbo")) {
-            assertFalse(row(live).containsKey("standby"), live + " being down is an outage, not a standby at rest");
+            assertFalse(row(live).has("standby"), live + " being down is an outage, not a standby at rest");
         }
     }
 
     @Test
     void aNameThatMerelyLooksLikeOneIsNotOne() {
         assertFalse(
-                row("postgres-standby").containsKey("standby"),
-                "the answer comes from the label, not from how the name ends");
+                row("postgres-standby").has("standby"), "the answer comes from the label, not from how the name ends");
     }
 
-    private static Map<String, Object> row(final String service) {
-        final Map<String, Object> row = new LinkedHashMap<>();
-        ServiceRows.putStandby(row, service, TOPOLOGY);
-        return row;
+    private static JsonObject row(final String service) {
+        return ServiceRowOnlineFieldsTest.wireRow(service, ServicesApi.Online.NONE, TOPOLOGY);
     }
 }

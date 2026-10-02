@@ -175,108 +175,6 @@ function messageOf(body: Record<string, unknown>): string | null {
 /** What the endpoints answer: generated from steward's records, and written out below where a route has none yet. */
 export type * from "./api.gen"
 
-/** Docker's own words, passed through: `state` is the container state, `status` its sentence. */
-export type Service = {
-  service: string
-  containerId: string
-  image: string
-  state: string
-  status: string
-  hasConsole: boolean
-  drift: string
-  health?: string
-  startedAt?: string
-  memoryBytes?: number
-  memoryLimitBytes?: number
-  cpuPercent?: number
-  /**
-   * How many people are connected, on the four services that can say.
-   *
-   * Absent is not zero, so never write `players ?? 0`.
-   */
-  players?: number
-  /** Who is connected: the whole network on `proxy`, its own on a backend. Absent is not empty. */
-  roster?: Array<{ uuid?: string; name?: string }>
-  /**
-   * Set when somebody stopped this service on purpose and it must stay stopped.
-   *
-   * Absent is not false: a stopped container without one fell over, which only `service_hold` can say.
-   */
-  hold?: { since: string }
-  /**
-   * Set on the `standby` profile's services, which are meant to be stopped.
-   *
-   * Absent is not false; without it a healthy stack would show two faults.
-   */
-  standby?: true
-  unreadable?: string
-  /** Only on the single-service endpoint. */
-  digests?: string[]
-  /** Only on the single-service endpoint: one of the four with a plugins folder. */
-  hasPlugins?: boolean
-  /** Lines the console can fill, Docker plus the archived runs, capped at 10000. */
-  logCapacity?: number
-  /** What the service's volume takes on disk; absent for a service without one. */
-  diskBytes?: number
-  diskMeasuredAt?: string
-}
-
-/**
- * The service table, with the age of the drift comparison beside it.
- *
- * `checkedAt` is how old the image comparison is, not the rest of the row.
- */
-export type ServiceTable = {
-  services: Service[]
-  drift: {
-    checkedAt: string | null
-    reached: boolean
-    unverifiable: string[]
-    reason?: string
-    message?: string
-  }
-}
-
-export type Host = {
-  load1?: number
-  cpus?: number
-  cpuPercent?: number
-  memoryTotalBytes?: number
-  memoryAvailableBytes?: number
-  diskTotalBytes?: number
-  diskUsedBytes?: number
-  imagesBytes?: number
-  volumesBytes?: number
-  unreadable?: string
-  dockerDiskUnreadable?: string
-  containerLimits: string
-}
-
-/**
- * Steward's nightly clock, read from steward rather than guessed here.
- *
- * `nextBackupAt` is an ISO instant; `backupAt` and `zone` are for saying it. All three are null or "off" when unset.
- */
-export type Schedule = {
-  backupAt: string | null
-  zone: string
-  nextBackupAt: string | null
-  /** The optional update clock: a null `updateAt` is no schedule, the default. */
-  updateAt?: string | null
-  updateDays?: string[]
-  nextUpdateAt?: string | null
-}
-
-export type Backup = {
-  name: string
-  bytes: number
-  human: string
-  modified: string
-  partial: boolean
-  /** What a restore of it replaces, typed back to confirm; absent on a partial file. */
-  restoresInto?: string | null
-}
-
 /** One artefact inside a service line: a jar, a plugin, the schema. */
 export type ReportChange = {
   artefact: string
@@ -371,85 +269,6 @@ export type Available = {
   changes: AvailableChange[]
   unclaimed: { service: string; fileName: string }[]
   notes: string[]
-}
-
-/**
- * One plugin on one Minecraft server.
- *
- * `running` is a jar on disk and `removable` a `service_plugin` row; neither implies the other.
- */
-export type ServicePlugin = {
-  /** The title for an added plugin and any jar Modrinth published; otherwise the jar's filename prefix. */
-  name: string
-  /** Which list it belongs in: `nordtal` built here, `preinstalled` given by the network, `added` installed here. */
-  group?: "nordtal" | "preinstalled" | "added"
-  /** A Nordtal plugin's place in its list, before the alphabet. */
-  rank?: number
-  running: boolean
-  removable: boolean
-  filePrefix?: string
-  fileName?: string
-  version?: string
-  /** The release whose run installed this jar; absent for a jar no run noted, such as one copied in by hand. */
-  release?: string
-  /**
-   * `plugins/<dataFolder>/`, read from the jar's own descriptor.
-   *
-   * Absent when steward could not read it, and the removal must then say so.
-   */
-  dataFolder?: string
-  /** An added plugin's Modrinth slug, or a given plugin's artefact id when it is not on disk. */
-  artifact?: string
-  projectId?: string
-  added?: string
-  addedBy?: string
-  iconUrl?: string
-  pageUrl?: string
-}
-
-/** `GET /api/services/{name}/plugins`. */
-export type ServicePlugins = {
-  service: string
-  /** `paper` or `velocity`, what the search on this page is filtered to. */
-  loader: string
-  gameVersion: string
-  /** False when steward cannot see the volume, which is not an empty server. */
-  mounted: boolean
-  plugins: ServicePlugin[]
-}
-
-/** One Modrinth search hit, already filtered to this service's loader and Minecraft version. */
-export type PluginHit = {
-  projectId: string
-  slug: string
-  title: string
-  description?: string
-  /** On `cdn.modrinth.com`, which the browser loads directly. */
-  iconUrl?: string
-  pageUrl: string
-  downloads: number
-  /** Already added here. */
-  added: boolean
-  /** One of the plugins the network gives, so it can be neither added nor removed. */
-  fixed: boolean
-}
-
-/** `GET /api/services/{name}/plugins/search`. */
-export type PluginSearch = {
-  service: string
-  loader: string
-  gameVersion: string
-  query: string
-  hits: PluginHit[]
-}
-
-export type MetricPoint = { at: string; value: number }
-
-export type Metrics = {
-  subject: string
-  metric: string
-  from: string
-  points: MetricPoint[]
 }
 
 export type Season = {
@@ -721,14 +540,6 @@ export type HungerGamesRound = {
 }
 
 /** steward-agent: whether it can be asked. */
-
-/** Whether the recreate button may be drawn, since an unconfigured agent is not a broken one. */
-export type AgentState = {
-  available: boolean
-  /** Present only when `available` is false, and it is the whole explanation. */
-  reason?: string
-  reachable?: boolean
-}
 
 /**
  * Where one message bundle lives.

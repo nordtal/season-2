@@ -2,7 +2,7 @@ package eu.nordtal.s2.steward.web;
 
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import io.javalin.http.Context;
-import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Whether steward-agent can be asked at all, so a page can draw what needs it before anybody clicks.
@@ -20,17 +20,22 @@ public final class AgentApi {
         this.configured = configured;
     }
 
+    /** Whether steward can ask the agent; {@code reason} only when it cannot, {@code reachable} only when it can. */
+    public record AgentState(
+            boolean available,
+            @Nullable String reason,
+            @Nullable Boolean reachable) {}
+
     /** Whether the button may be drawn, so a page can decide before anybody clicks. */
     public void state(final Context ctx) {
         if (!configured) {
-            ctx.json(Map.of(
-                    "available",
+            ctx.json(new AgentState(
                     false,
-                    "reason",
                     "agent.token is empty in the steward group, so this interface cannot ask "
-                            + "steward-agent for anything. The setup script writes that secret."));
+                            + "steward-agent for anything. The setup script writes that secret.",
+                    null));
             return;
         }
-        ctx.json(Map.of("available", true, "reachable", agent.isReachable()));
+        ctx.json(new AgentState(true, null, agent.isReachable()));
     }
 }

@@ -37,7 +37,10 @@ function row(over: Partial<Service> & { service: string }): Service {
 
 function services(rows: (Partial<Service> & { service: string })[]) {
   vi.mocked(useServices).mockReturnValue(
-    queryResult({ services: rows.map(row), drift: { checkedAt: null, reached: true, unverifiable: [] } }),
+    queryResult({
+      services: rows.map(row),
+      drift: { checkedAt: "2026-09-15T00:00:00Z", reached: true, unverifiable: [] },
+    }),
   )
 }
 

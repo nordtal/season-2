@@ -7,6 +7,7 @@ import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.ImageResult;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -32,8 +33,74 @@ final class ServiceRows {
         this.players = players;
     }
 
+    /**
+     * One row of {@code /api/services}; the last five fields only on {@code /api/services/{name}}.
+     *
+     * Absent is never zero, empty or false: nobody reported the players, or the service is no standby and not held.
+     */
+    public record Service(
+            String service,
+            String containerId,
+            @Nullable String image,
+            String state,
+            @Nullable String status,
+            boolean hasConsole,
+            ImageResult.State drift,
+            @Nullable Integer players,
+            @Nullable List<Connected> roster,
+            @Nullable Boolean standby,
+            @Nullable Hold hold,
+            @Nullable String health,
+            @Nullable String startedAt,
+            @Nullable Long memoryBytes,
+            @Nullable Long memoryLimitBytes,
+            @Nullable Double cpuPercent,
+            @Nullable List<String> digests,
+            @Nullable Boolean hasPlugins,
+            @Nullable Integer logCapacity,
+            @Nullable Long diskBytes,
+            @Nullable Instant diskMeasuredAt) {
+
+        /** This row with what only the page of one service shows. */
+        Service detailed(
+                final List<String> digests,
+                final boolean hasPlugins,
+                final int logCapacity,
+                final @Nullable Long diskBytes,
+                final @Nullable Instant diskMeasuredAt) {
+            return new Service(
+                    service,
+                    containerId,
+                    image,
+                    state,
+                    status,
+                    hasConsole,
+                    drift,
+                    players,
+                    roster,
+                    standby,
+                    hold,
+                    health,
+                    startedAt,
+                    memoryBytes,
+                    memoryLimitBytes,
+                    cpuPercent,
+                    digests,
+                    hasPlugins,
+                    logCapacity,
+                    diskBytes,
+                    diskMeasuredAt);
+        }
+    }
+
+    /** Somebody stopped the service on purpose, and it stays stopped. */
+    public record Hold(Instant since) {}
+
+    /** The two fields of a connected player that leave this process. */
+    public record Connected(String uuid, String name) {}
+
     /** Every service row, sorted by name. */
-    List<Map<String, Object>> rows(final ImageResult drift) {
+    List<Service> rows(final ImageResult drift) {
         final AgentWire.Containers containers = agent.containers();
         if (!containers.reached()) {
             // The agent answered and the daemon behind it did not; the interface names the daemon.
@@ -43,7 +110,7 @@ final class ServiceRows {
         final ServicesApi.Online counts = online();
         final Map<String, ServiceHold> holds = holds();
         final AgentWire.Topology topology = topology();
-        final List<Map<String, Object>> all = new ArrayList<>();
+        final List<Service> all = new ArrayList<>();
         for (final AgentWire.Container container : containers.containers()) {
             all.add(describe(container, drift, counts, holds, topology));
         }
@@ -75,48 +142,39 @@ final class ServiceRows {
         return holds;
     }
 
-    /**
-     * One row.
-     *
-     * {@code players} and {@code roster} are absent, not zero or empty, for a service the proxy has not reported.
-     */
-    Map<String, Object> describe(
+    /** One row. */
+    static Service describe(
             final AgentWire.Container container,
             final ImageResult drift,
             final ServicesApi.Online counts,
             final Map<String, ServiceHold> holds,
             final AgentWire.Topology topology) {
         final String service = container.service();
-        final Map<String, Object> row = new LinkedHashMap<>();
-        row.put("service", service);
-        row.put("containerId", container.id());
-        row.put("image", container.image());
-        row.put("state", container.state());
-        row.put("status", container.status());
-        row.put("hasConsole", consoles(topology).contains(service));
-        row.put("drift", drift.state(service).name());
-        putOnline(row, service, counts);
-        putStandby(row, service, topology);
-        // Same rule as `players`: the key is absent when nobody holds it.
         final ServiceHold hold = holds.get(service);
-        if (hold != null) {
-            final Map<String, Object> about = new LinkedHashMap<>();
-            about.put("since", hold.since().toString());
-            row.put("hold", about);
-        }
-        if (container.isRunning()) {
-            row.put("health", container.health());
-            row.put("startedAt", container.startedAt());
-            final AgentWire.Reading sample = container.sample();
-            if (sample != null) {
-                row.put("memoryBytes", sample.memoryBytes());
-                row.put("memoryLimitBytes", sample.memoryLimitBytes());
-                if (sample.cpuPercent() != null) {
-                    row.put("cpuPercent", sample.cpuPercent());
-                }
-            }
-        }
-        return row;
+        final boolean running = container.isRunning();
+        final AgentWire.@Nullable Reading sample = running ? container.sample() : null;
+        return new Service(
+                service,
+                container.id(),
+                container.image(),
+                container.state(),
+                container.status(),
+                consoles(topology).contains(service),
+                drift.state(service),
+                counts.counts().get(service),
+                roster(service, counts),
+                standby(service, topology),
+                hold == null ? null : new Hold(hold.since()),
+                running ? container.health() : null,
+                running ? container.startedAt() : null,
+                sample == null ? null : sample.memoryBytes(),
+                sample == null ? null : sample.memoryLimitBytes(),
+                sample == null ? null : sample.cpuPercent(),
+                null,
+                null,
+                null,
+                null,
+                null);
     }
 
     /** The counts and the list as they stand, or nothing at all, never a guessed zero. */
@@ -125,41 +183,22 @@ final class ServiceRows {
     }
 
     /**
-     * Marks the row of a standby service, whose normal state is stopped, so a dashboard does not call it down.
+     * True for a standby service, whose normal state is stopped, so a dashboard does not call it down.
      *
-     * @param service the compose service name this row is about
+     * Absent rather than false for every other service, so there is one spelling.
      */
-    static void putStandby(final Map<String, Object> row, final String service, final AgentWire.Topology topology) {
-        if (topology.standbys().contains(service)) {
-            row.put("standby", true);
-        }
+    static @Nullable Boolean standby(final String service, final AgentWire.Topology topology) {
+        return topology.standbys().contains(service) ? Boolean.TRUE : null;
     }
 
-    /**
-     * Writes {@code players} and {@code roster} onto a row, or neither.
-     *
-     * @param service the compose service name both maps are keyed by
-     */
-    static void putOnline(final Map<String, Object> row, final String service, final ServicesApi.Online online) {
-        final Integer connected = online.counts().get(service);
-        if (connected != null) {
-            row.put("players", connected);
-        }
+    /** Who is connected to a service, or nothing at all when nobody has said, never a guessed empty list. */
+    static @Nullable List<Connected> roster(final String service, final ServicesApi.Online online) {
         final List<OnlinePlayer> roster = online.roster().get(service);
-        if (roster != null) {
-            row.put("roster", named(roster));
+        if (roster == null) {
+            return null;
         }
-    }
-
-    /** The two fields of a player that leave this process. */
-    private static List<Map<String, Object>> named(final List<OnlinePlayer> roster) {
-        final List<Map<String, Object>> people = new ArrayList<>(roster.size());
-        for (final OnlinePlayer player : roster) {
-            final Map<String, Object> person = new LinkedHashMap<>();
-            person.put("uuid", player.uuid().toString());
-            person.put("name", player.name());
-            people.add(person);
-        }
-        return List.copyOf(people);
+        return roster.stream()
+                .map(player -> new Connected(player.uuid().toString(), player.name()))
+                .toList();
     }
 }

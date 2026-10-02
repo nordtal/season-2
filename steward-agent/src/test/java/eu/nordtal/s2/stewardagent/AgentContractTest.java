@@ -58,9 +58,13 @@ class AgentContractTest {
                 Json.decode(agent.client().get(AgentWire.TOPOLOGY), AgentWire.Topology.class);
         assertEquals(
                 List.of(
-                        new AgentWire.Service("smp", "ghcr.io/nordtal/minecraft:latest", true),
-                        new AgentWire.Service("postgres", "postgres:18", false)),
+                        new AgentWire.Service("smp", "ghcr.io/nordtal/minecraft:latest", true, true),
+                        new AgentWire.Service("steward-agent", "ghcr.io/nordtal/steward-agent:latest", false, false),
+                        new AgentWire.Service("postgres", "postgres:18", false, false)),
                 topology.services());
+        // The backup set is the agent's own mounts, and the stop set the label: nothing else names either.
+        assertEquals(List.of("nordtal-s2_mc-smp"), topology.backupVolumes());
+        assertEquals(List.of("smp"), topology.stoppedForBackup());
     }
 
     @Test

@@ -1,21 +1,19 @@
 package eu.nordtal.s2.steward.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.settings.MemorySettingStore;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.SettingsException;
-import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
  * What the steward group refuses, and what it starts with.
  *
- * A live PGDATA in {@code backup.volumes} is refused; a refused change keeps the values in use.
+ * A refused change keeps the values in use.
  */
 class StewardSettingsTest {
 
@@ -33,63 +31,19 @@ class StewardSettingsTest {
     }
 
     @Test
-    void theDefaultsBackUpTheFourVolumesThatCannotBeRebuiltAndNeverPgdata() throws Exception {
-        final StewardSpec config = steward().get();
-        final List<String> volumes = config.backup().volumes();
-
-        // Nordtal is a hand-built world in no repository or release; plugins volumes hold every hand-edited config.
-        assertTrue(volumes.contains("nordtal-s2_mc-smp"), volumes.toString());
-        assertTrue(volumes.contains("nordtal-s2_mc-smp-plugins"), volumes.toString());
-        assertTrue(
-                volumes.stream().noneMatch(volume -> volume.endsWith("postgres-data")),
-                "a snapshot of a live PGDATA fails at RESTORE and nowhere else: " + volumes);
-
-        // The database is DUMPED, not snapshotted, straight into backup.output-root, so it needs no volume here.
-        assertTrue(
-                volumes.stream().noneMatch(volume -> volume.contains("dumps") || volume.contains("backups")),
-                "the backups are not a thing to back up: " + volumes);
-
-        // hunger-games has no world worth saving but a plugins/ volume worth snapshotting; the proxy needs neither.
-        assertEquals(
-                List.of(eu.nordtal.s2.steward.plan.Topology.SMP, eu.nordtal.s2.steward.plan.Topology.DISCORD_BOT),
-                config.backup().stopServices());
-        assertFalse(
-                volumes.stream().anyMatch(volume -> volume.contains("proxy") || volume.contains("limbo")),
-                "proxy and limbo left the backup and a restart writes everything they hold: " + volumes);
-
+    void aBackupWaitsHalfAnHourForTheServersByDefault() throws Exception {
         // A run ending FAILED mentions the admin role through UpdateFeed, so a half-hour outage is not silent.
-        assertEquals(30, config.backup().patienceMinutes());
-    }
-
-    @Test
-    void listingPostgresDataIsRefusedByNameNotWarnedAbout() throws Exception {
-        final SettingsException error = refused("backup.volumes", "[\"nordtal-s2_postgres-data\"]");
-
-        final String message = String.valueOf(error.getMessage() + error.getCause());
-        assertTrue(
-                message.contains("postgres-dumps"),
-                "and it names the volume that should have been there instead: " + message);
-    }
-
-    @Test
-    void aVolumeListWithoutTheWorldIsRefusedBecauseTheWorldCannotBeRebuilt() throws Exception {
-        // A run reports DONE for saving what this list names; dropping mc-smp would still report DONE without it.
-        final SettingsException error = refused("backup.volumes", "[\"nordtal-s2_bot-config\"]");
-
-        final String message = String.valueOf(error.getMessage() + error.getCause());
-        assertTrue(
-                message.contains("in no repository and in no"),
-                "and it says what the missing volume is load-bearing for: " + message);
+        assertEquals(30, steward().get().backup().patienceMinutes());
     }
 
     @Test
     void aRefusedChangeKeepsTheValuesInUseAndSaysWhyOnTheGroup() throws Exception {
         final Setting<StewardSpec> steward = steward();
-        store.set(StewardSettings.SERVICE, "steward", "backup.volumes", "[\"nordtal-s2_postgres-data\"]");
+        store.set(StewardSettings.SERVICE, "steward", "backup.patience-minutes", 0);
 
         assertThrows(SettingsException.class, steward::reload);
 
-        assertTrue(steward.get().backup().volumes().contains("nordtal-s2_mc-smp"));
+        assertEquals(30, steward.get().backup().patienceMinutes());
         assertTrue(store.group(StewardSettings.SERVICE, "steward").orElseThrow().problem() != null);
     }
 

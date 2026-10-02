@@ -24,10 +24,14 @@ public final class ComposeTopology {
     /** The label that marks a service whose console can be typed into. */
     public static final String CONSOLE = "eu.nordtal.console";
 
+    /** The label that marks a service a backup stops while it saves, with the value {@code stop}. */
+    public static final String BACKUP = "eu.nordtal.backup";
+
     /** How long one reading is used; the file is baked into the image, only the environment file can change. */
     private static final Duration FRESH_FOR = Duration.ofMinutes(1);
 
     private final Definitions definitions;
+    private final String backupSources;
     private final Clock clock;
 
     private @Nullable Reading last;
@@ -40,8 +44,12 @@ public final class ComposeTopology {
         JsonObject read() throws IOException;
     }
 
-    public ComposeTopology(final Definitions definitions, final Clock clock) {
+    /**
+     * @param backupSources where the agent's backup mounts sit, so every mount below it is a volume a backup saves
+     */
+    public ComposeTopology(final Definitions definitions, final String backupSources, final Clock clock) {
         this.definitions = definitions;
+        this.backupSources = backupSources;
         this.clock = clock;
     }
 
@@ -53,7 +61,7 @@ public final class ComposeTopology {
             return reading.topology();
         }
         try {
-            final AgentWire.Topology topology = parse(definitions.read());
+            final AgentWire.Topology topology = parse(definitions.read(), backupSources);
             last = new Reading(topology, now);
             return topology;
         } catch (final IOException unreadable) {
@@ -73,17 +81,31 @@ public final class ComposeTopology {
     }
 
     /** The topology out of {@code compose config}'s {@code services} object. */
-    static AgentWire.Topology parse(final JsonObject services) {
+    static AgentWire.Topology parse(final JsonObject services, final String backupSources) {
+        final String root = backupSources.endsWith("/") ? backupSources : backupSources + "/";
         final List<AgentWire.Service> all = new ArrayList<>();
+        final Set<String> saved = new LinkedHashSet<>();
         for (final String name : services.keySet()) {
             final JsonObject service = services.getAsJsonObject(name);
             final JsonObject labels =
                     service.has("labels") && service.get("labels").isJsonObject()
                             ? service.getAsJsonObject("labels")
                             : new JsonObject();
-            all.add(new AgentWire.Service(name, text(service, "image"), "true".equals(text(labels, CONSOLE))));
+            all.add(new AgentWire.Service(
+                    name,
+                    text(service, "image"),
+                    "true".equals(text(labels, CONSOLE)),
+                    "stop".equals(text(labels, BACKUP))));
+            if (service.has("volumes") && service.get("volumes").isJsonArray()) {
+                for (final JsonElement mount : service.getAsJsonArray("volumes")) {
+                    final String target = mount.isJsonObject() ? text(mount.getAsJsonObject(), "target") : null;
+                    if (target != null && target.startsWith(root) && target.length() > root.length()) {
+                        saved.add(target.substring(root.length()));
+                    }
+                }
+            }
         }
-        return new AgentWire.Topology(List.copyOf(all));
+        return new AgentWire.Topology(all, List.copyOf(saved));
     }
 
     private static @Nullable String text(final JsonObject json, final String key) {

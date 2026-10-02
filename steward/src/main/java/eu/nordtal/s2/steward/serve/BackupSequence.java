@@ -4,6 +4,7 @@ import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.Retention;
 import eu.nordtal.s2.internalapi.agent.RuntimeResult;
 import eu.nordtal.s2.internalapi.agent.SnapshotResult;
@@ -18,8 +19,9 @@ final class BackupSequence {
 
     private BackupSequence() {}
 
-    /** The database dump line, plus a PLANNED line for each service {@code backup.stop-services} names. */
-    static UpdateReport prepareReport(final Runner runner, final Consumer<UpdateReport> progress) {
+    /** The database dump line, plus a PLANNED line for each service compose.yml labels {@code eu.nordtal.backup}. */
+    static UpdateReport prepareReport(
+            final Runner runner, final List<String> stopped, final Consumer<UpdateReport> progress) {
         // The database first, with everything running: pg_dump's MVCC snapshot needs nothing stopped.
         final SnapshotResult dumped = runner.backups.saveDatabase();
         UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING)
@@ -30,12 +32,9 @@ final class BackupSequence {
                         dumped.ok() ? null : dumped.message()));
         progress.accept(planned);
 
-        for (final String service : runner.config.backup().stopServices()) {
-            if (service == null || service.isBlank()) {
-                continue;
-            }
+        for (final String service : stopped) {
             planned = planned.with(new UpdateReport.ServiceLine(
-                    service.trim(),
+                    service,
                     UpdateReport.State.PLANNED,
                     List.of(new UpdateReport.Change("backup", null, "stopped while saving")),
                     null));
@@ -85,9 +84,10 @@ final class BackupSequence {
             final UpdateRequest request,
             final UpdateRun run,
             final RuntimeResult runtime,
-            final List<String> volumes,
+            final AgentWire.Topology topology,
             final Consumer<UpdateReport> progress) {
-        UpdateReport planned = prepareReport(runner, progress);
+        final List<String> volumes = topology.backupVolumes();
+        UpdateReport planned = prepareReport(runner, topology.stoppedForBackup(), progress);
 
         // The same choreography as an update, since a snapshot stop throws people out just as hard.
         final Choreography choreography = new Choreography(runner.containers, runner.occupancy(), runner.waiting);

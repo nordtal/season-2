@@ -61,7 +61,9 @@ internal `agent` network with `steward` alone, so nothing else can even knock.
 
 The console set is the label `eu.nordtal.console: "true"` in `compose.yml`, read through
 `docker compose config`; a line goes to `mc` as one argument, never through a shell, and the log
-names who typed it. The sampler reads `docker stats` and `/proc` every 30 seconds and keeps the
+names who typed it. The backup set is the agent's own mounts under `/backup-sources`, and the stop
+set the label `eu.nordtal.backup: stop`; `/api/topology` serves both, and steward keeps no list of
+either. The sampler reads `docker stats` and `/proc` every 30 seconds and keeps the
 last hour; steward copies what it took into `metric_sample`, asking after the newest round it
 already holds, so a restart of either loses nothing.
 

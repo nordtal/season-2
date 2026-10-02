@@ -180,69 +180,65 @@ class TopologyDeploymentTest {
         final String project = composeProject();
         final Set<String> declared = composeVolumes();
 
-        for (final String volume : defaults().backup().volumes()) {
+        for (final String volume : backupSet()) {
             assertTrue(
                     volume.startsWith(project + "_"),
-                    "backup.volumes lists '" + volume + "', which does not start with compose's own"
-                            + " project name '" + project + "_'. Docker prefixes every volume in a"
+                    "steward-agent mounts '" + volume + "' for the backup, which does not start with compose's"
+                            + " own project name '" + project + "_'. Docker prefixes every volume in a"
                             + " compose project, and only the prefixed name exists.");
             final String key = volume.substring(project.length() + 1);
             assertTrue(
                     declared.contains(key),
-                    "backup.volumes lists '" + volume + "', but compose.yml declares no volume '"
-                            + key + "'. Docker creates a volume it has never seen on first use, so"
-                            + " this would snapshot an empty directory and report success.");
+                    "steward-agent mounts '" + volume + "' for the backup, but compose.yml declares no volume '" + key
+                            + "'. This would snapshot a directory nothing writes and report success.");
         }
     }
 
     @Test
-    void everyVolumeMountedForTheBackupIsAVolumeTheBackupActuallySaves() {
-        // The quiet direction: a volume mounted for the backup but never named in backup.volumes is simply never saved.
-        final Set<String> saved = Set.copyOf(defaults().backup().volumes());
-        // steward-agent tars them, so the mounts are its own.
+    void theBackupSavesTheWorldAndNeverALiveDatabase() {
+        final List<String> saved = backupSet();
+
+        // Nordtal is a hand-built world in no repository or release; a backup without it would still report DONE.
+        assertTrue(saved.contains(composeProject() + "_mc-smp"), "the backup does not save the world: " + saved);
+        // A snapshot of a running PGDATA fails at RESTORE and nowhere else; the database is dumped instead.
+        assertTrue(
+                saved.stream().noneMatch(volume -> volume.endsWith("postgres-data")),
+                "the backup tars a live database directory: " + saved);
+    }
+
+    @Test
+    void aBackupStopsTheWorldAndTheBotAndKeepsTheNetworkUp() {
+        // A snapshot of a running Paper server is torn; proxy, limbo and hunger-games hold no world worth saving.
+        final List<String> stopped = new java.util.ArrayList<>();
+        for (final Map.Entry<String, Object> entry : services.entrySet()) {
+            @SuppressWarnings("unchecked")
+            final Object labels = ((Map<String, Object>) entry.getValue()).get("labels");
+            if (labels instanceof Map<?, ?> map && "stop".equals(String.valueOf(map.get("eu.nordtal.backup")))) {
+                stopped.add(entry.getKey());
+            }
+        }
+        assertEquals(
+                List.of(Topology.DISCORD_BOT, Topology.SMP),
+                stopped.stream().sorted().toList());
+    }
+
+    /** The volumes a backup saves: every mount under steward-agent's backup sources, as the agent reads them. */
+    private List<String> backupSet() {
         @SuppressWarnings("unchecked")
         final Map<String, Object> agent = (Map<String, Object>) services.get(AgentWire.SERVICE);
         final String root = AgentApi.Paths.DEFAULTS.backupSources() + "/";
-
-        // Parsed from the right: a variable-backed default itself contains colons, so the left finds only part of it.
-        int checked = 0;
+        final List<String> saved = new java.util.ArrayList<>();
         for (final String mount : mountsOf(agent)) {
             final String withoutMode =
                     mount.endsWith(":ro") || mount.endsWith(":rw") ? mount.substring(0, mount.lastIndexOf(':')) : mount;
+            // Parsed from the right: a variable-backed default itself contains colons.
             final String destination = withoutMode.substring(withoutMode.lastIndexOf(':') + 1);
-            if (!destination.startsWith(root)) {
-                continue;
+            if (destination.startsWith(root)) {
+                saved.add(destination.substring(root.length()));
             }
-            checked++;
-            final String volume = destination.substring(root.length());
-            assertTrue(
-                    saved.contains(volume),
-                    "compose.yml mounts " + volume + " at " + destination + " for the backup to"
-                            + " read, and backup.volumes does not list it. Nothing fails: the volume"
-                            + " is simply never saved, and the report says nothing about a volume it"
-                            + " was never asked for.");
         }
-        // Counted too, because a loop that silently skips mounts asserts nothing about the ones it drops.
-        final long mounted =
-                mountsOf(agent).stream().filter(mount -> mount.contains(root)).count();
-        assertEquals(
-                mounted,
-                checked,
-                "compose.yml has " + mounted + " mounts under " + root
-                        + " and this test looked at " + checked + " of them. The parsing dropped the rest,"
-                        + " which is how a volume goes unsaved with a green build.");
-    }
-
-    @Test
-    void everyServiceABackupStopsIsAServiceComposeYmlRuns() {
-        // A name no container carries aborts the run before anything is saved, which is an outage for nothing.
-        for (final String service : defaults().backup().stopServices()) {
-            assertNotNull(
-                    services.get(service),
-                    "backup.stop-services names '" + service
-                            + "', which is not a service in compose.yml. The run would stop nothing, save"
-                            + " nothing and report a failure.");
-        }
+        assertFalse(saved.isEmpty(), "steward-agent mounts nothing under " + root + ", so a backup saves nothing");
+        return saved;
     }
 
     @Test

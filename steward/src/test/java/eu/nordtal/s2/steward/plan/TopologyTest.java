@@ -9,8 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.Platform;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
-import eu.nordtal.s2.steward.config.BackupSpec;
-import eu.nordtal.s2.steward.config.StewardSpec;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
@@ -441,47 +439,6 @@ class TopologyTest {
         }
     }
 
-    /** The volumes {@code backup.volumes} names, asked of the spec so no second list exists. */
-    private static final Set<String> BACKED_UP = Set.copyOf(defaults().backup().volumes());
-
-    /** {@link StewardSpec} answering nothing but its own defaults. */
-    private static StewardSpec defaults() {
-        return new StewardSpec() {
-            @Override
-            public BunqSpec bunq() {
-                // Empty credentials are a valid season: "no bank account". Nothing here asks bunq anything.
-                return new BunqSpec() {};
-            }
-
-            @Override
-            public UpdateSpec update() {
-                return new UpdateSpec() {};
-            }
-
-            @Override
-            public BackupSpec backup() {
-                return new BackupSpec() {
-                    // backup.remote has no default of its own, so this hands its defaults back by name.
-                    @Override
-                    public RemoteSpec remote() {
-                        return new RemoteSpec() {};
-                    }
-
-                    @Override
-                    public RetentionSpec retention() {
-                        return new RetentionSpec() {};
-                    }
-                };
-            }
-
-            @Override
-            public AgentSpec agent() {
-                // Defaults: this test never recreates a container.
-                return new AgentSpec() {};
-            }
-        };
-    }
-
     @Test
     void everyServersPluginsIsTheSameDirectoryForTheServerAndForSteward() {
         @SuppressWarnings("unchecked")
@@ -551,23 +508,12 @@ class TopologyTest {
         final Optional<String> forTheBackup = agentMounts.stream()
                 .filter(mount -> mount.endsWith(":/backup-sources/" + backupVolume + ":ro"))
                 .findFirst();
-        if (BACKED_UP.contains(backupVolume)) {
-            assertTrue(
-                    forTheBackup.isPresent(),
-                    "backup.volumes lists " + backupVolume
-                            + " and steward-agent does not mount it, so it is not saved");
-            // `:ro` is a third field; sourceOf reads up to the destination, so drop it first.
-            final String mount = forTheBackup.orElseThrow();
-            assertEquals(
-                    sourceOf(onTheServer),
-                    sourceOf(mount.substring(0, mount.length() - ":ro".length())),
-                    service.name() + ": the backup reads a different plugin source than the" + " server runs from");
-        } else {
-            assertTrue(
-                    forTheBackup.isEmpty(),
-                    backupVolume + " is mounted for the backup and"
-                            + " backup.volumes does not list it - it would be mounted and never saved");
-        }
+        // The mount is the backup set, so a plugins volume mounted for it is saved and must be the server's own.
+        forTheBackup.ifPresent(mount -> assertEquals(
+                sourceOf(onTheServer),
+                // `:ro` is a third field; sourceOf reads up to the destination, so drop it first.
+                sourceOf(mount.substring(0, mount.length() - ":ro".length())),
+                service.name() + ": the backup reads a different plugin source than the server runs from"));
     }
 
     @Test

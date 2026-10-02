@@ -254,8 +254,10 @@ dumps the database with `pg_dump` inside the postgres container (nothing stops f
 configured services, tars each volume through `zstd`, applies retention and starts everything again.
 Every archive is read back before it loses its `.partial` suffix.
 
-`backup.volumes` must include `mc-smp` and must never include `postgres-data`: a copy of a running
-data directory is torn. Retention defaults to 14 days, then 8 weeks, then 6 months. There is no
+compose.yml is the backup set: every volume mounted under steward-agent's `/backup-sources` is saved,
+and every service labelled `eu.nordtal.backup: stop` is stopped while it is. The set must include
+`mc-smp` and must never include `postgres-data`, since a copy of a running data directory is torn;
+`TopologyDeploymentTest` holds both. Retention defaults to 14 days, then 8 weeks, then 6 months. There is no
 offsite copy yet, so every archive shares a disk with its source.
 
 A `<archive>.unverified` file means a service's stop could not be confirmed; the archive is readable,

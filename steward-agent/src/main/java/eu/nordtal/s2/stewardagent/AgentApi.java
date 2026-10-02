@@ -41,7 +41,8 @@ public final class AgentApi implements AutoCloseable {
             final ComposeTopology.Definitions definitions,
             final Paths paths,
             final Clock clock) {
-        final ComposeTopology topology = new ComposeTopology(definitions, clock);
+        final ComposeTopology topology =
+                new ComposeTopology(definitions, paths.backupSources().toString(), clock);
         this.sampler = new Sampler(docker, new HostMetrics(), project, clock);
         this.logs = new LogStreams(docker, project, paths.volumesRoot(), clock);
         this.routes = new AgentRoutes(

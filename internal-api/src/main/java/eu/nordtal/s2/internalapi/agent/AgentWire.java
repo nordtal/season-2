@@ -107,16 +107,35 @@ public final class AgentWire {
         return route.replaceFirst("\\{[a-z]+}", value);
     }
 
-    /** Every service compose.yml defines, in file order, as its labels describe it. */
-    public record Topology(List<Service> services) {}
+    /**
+     * Every service compose.yml defines, in file order, as its labels describe it, and what a backup saves.
+     *
+     * @param backupVolumes the volumes mounted under the agent's backup sources, by the name a snapshot carries
+     */
+    public record Topology(List<Service> services, List<String> backupVolumes) {
+
+        public Topology {
+            services = List.copyOf(services);
+            backupVolumes = List.copyOf(backupVolumes);
+        }
+
+        /** The services a backup stops while it saves, in file order. */
+        public List<String> stoppedForBackup() {
+            return services.stream()
+                    .filter(Service::stoppedForBackup)
+                    .map(Service::name)
+                    .toList();
+        }
+    }
 
     /**
      * One service of compose.yml.
      *
      * @param image the image reference after interpolation, or {@code null} for a service that only builds
      * @param console whether a line can be typed into it, which the label {@code eu.nordtal.console} says
+     * @param stoppedForBackup whether a backup stops it while it saves, which the label {@code eu.nordtal.backup} says
      */
-    public record Service(String name, @Nullable String image, boolean console) {}
+    public record Service(String name, @Nullable String image, boolean console, boolean stoppedForBackup) {}
 
     /**
      * One container, as the service table and a run read it.

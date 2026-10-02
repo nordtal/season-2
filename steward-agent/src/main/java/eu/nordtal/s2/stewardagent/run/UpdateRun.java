@@ -159,20 +159,25 @@ final class UpdateRun {
         return start(state, ImageResult.of(java.util.Map.of()));
     }
 
+    /** Starts them, recreating each whose image is out of date from a pulled one. */
+    UpdateReport start(final Stopped state, final ImageResult images) {
+        return start(state, images, List.of(), true);
+    }
+
     /**
      * Starts everything this run stopped.
      *
      * @param images the services to recreate on a newer image; empty on every path that promises no version change
      */
-    UpdateReport start(final Stopped state, final ImageResult images) {
+    UpdateReport start(final Stopped state, final ImageResult images, final List<String> remade, final boolean pulls) {
         UpdateReport report = state.report().withStage(UpdateReport.Stage.STARTING);
         progress.accept(report);
 
         for (final String service : state.services()) {
             final UpdateReport.ServiceLine line = report.line(service);
 
-            if (images.isOutdated(service)) {
-                report = startOutdated(report, state, service);
+            if (images.isOutdated(service) || remade.contains(service)) {
+                report = startRemade(report, state, service, images.isOutdated(service), pulls);
                 progress.accept(report);
                 continue;
             }
@@ -194,25 +199,32 @@ final class UpdateRun {
     }
 
     // A recreate this process cannot do is no reason to leave a server off: the old image is put back.
-    private UpdateReport startOutdated(final UpdateReport before, final Stopped state, final String service) {
+    private UpdateReport startRemade(
+            final UpdateReport before,
+            final Stopped state,
+            final String service,
+            final boolean outdated,
+            final boolean pulls) {
+        // An out-of-date image is always pulled; a recreate asked for by name pulls when the kind does.
+        final boolean pull = outdated || pulls;
         // Written before the call, so a recreate that never returns leaves this as the report's last word.
         final UpdateReport report = before.with(before.line(service)
                 .at(UpdateReport.State.STARTING)
-                .withDetail("pulling its image and recreating the container"));
+                .withDetail(pull ? "pulling its image and recreating the container" : "recreating the container"));
         progress.accept(report);
-        final RedeployResult recreated = containers.deploy(service);
+        final RedeployResult recreated = pull ? containers.deploy(service) : containers.recreate(service);
         if (recreated.triggered()) {
             return report.with(report.line(service).at(UpdateReport.State.STARTING));
         }
 
-        final String why =
-                "its image is out of date and the container could not be" + " recreated: " + recreated.message();
-        final ServiceRuntime outdated = state.runtime().service(service).orElse(null);
-        if (outdated == null || outdated.containerId() == null) {
+        final String why = (outdated ? "its image is out of date and the" : "the")
+                + " container could not be recreated: " + recreated.message();
+        final ServiceRuntime old = state.runtime().service(service).orElse(null);
+        if (old == null || old.containerId() == null) {
             return report.with(
                     report.line(service).failed(why + " - and there is no container id to put the old one back with"));
         }
-        final RedeployResult back = containers.start(outdated.containerId());
+        final RedeployResult back = containers.start(old.containerId());
         if (back.triggered()) {
             // Docker accepting a start is not a service coming back; verify() finishes this with what it saw.
             final String half = why + ". It was started again on the image it already had";

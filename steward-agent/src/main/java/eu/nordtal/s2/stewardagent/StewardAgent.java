@@ -227,7 +227,15 @@ public final class StewardAgent {
                             log);
                     UpdateServer loop = new UpdateServer(
                             updates,
-                            new Runner(runs.get(), database, stack, snapshots, updates, Waiting.on(clock), plugins),
+                            new Runner(
+                                    runs.get(),
+                                    database,
+                                    stack,
+                                    snapshots,
+                                    updates,
+                                    Waiting.on(clock),
+                                    plugins,
+                                    runRoutes.removal()),
                             clock)) {
                 loop.listen(signals);
                 settings.listen(signals, () -> reload(runs));

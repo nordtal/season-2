@@ -81,11 +81,13 @@ final class Run {
      * @param startsAgain whether what was stopped is started again, which only a take-down leaves out
      * @param alsoStarts services the run starts although it did not stop them, as a release of a hold does
      * @param images the services to recreate on a newer image as they start
-     * @param foreign the images nobody here builds to renew once the rest is back, announced like a stop
+     * @param foreign the images nobody here builds to make again once the rest is back, announced like a stop
      * @param refusedStop the first words of the report when a service did not stop, or {@code null} to carry on
      * @param refusedStandby the report's note when a standby did not come up, from the standby's own sentence
      * @param what what the run is called in a sentence, such as "this restart"
      * @param atRisk what an unverified stop put at risk, as the middle of a sentence
+     * @param remade services whose container is made again as they start, whatever their image's state
+     * @param pulls whether making a container again pulls its image first; only a recreate does not
      */
     record Plan(
             UpdateReport planned,
@@ -101,11 +103,14 @@ final class Run {
             String what,
             String atRisk,
             Runner.Doubt doubt,
-            boolean alreadyFailed) {
+            boolean alreadyFailed,
+            List<String> remade,
+            boolean pulls) {
 
         Plan {
             alsoStarts = List.copyOf(alsoStarts);
             foreign = List.copyOf(foreign);
+            remade = List.copyOf(remade);
         }
 
         /** A plan with the defaults most kinds share: announced, started again, nothing renewed. */
@@ -131,13 +136,15 @@ final class Run {
                     what,
                     atRisk,
                     doubt,
-                    false);
+                    false,
+                    List.of(),
+                    true);
         }
 
-        Plan announced(final boolean announced) {
+        Plan announced(final boolean warned) {
             return new Plan(
                     planned,
-                    announced,
+                    warned,
                     stops,
                     payload,
                     startsAgain,
@@ -149,7 +156,9 @@ final class Run {
                     what,
                     atRisk,
                     doubt,
-                    alreadyFailed);
+                    alreadyFailed,
+                    remade,
+                    pulls);
         }
 
         /** A run that stops nothing and warns nobody, since everything it starts is already down. */
@@ -168,7 +177,9 @@ final class Run {
                     what,
                     atRisk,
                     doubt,
-                    alreadyFailed);
+                    alreadyFailed,
+                    remade,
+                    pulls);
         }
 
         Plan leavingThemDown() {
@@ -186,7 +197,9 @@ final class Run {
                     what,
                     atRisk,
                     doubt,
-                    alreadyFailed);
+                    alreadyFailed,
+                    remade,
+                    pulls);
         }
 
         Plan alsoStarting(final List<String> services) {
@@ -204,7 +217,9 @@ final class Run {
                     what,
                     atRisk,
                     doubt,
-                    alreadyFailed);
+                    alreadyFailed,
+                    remade,
+                    pulls);
         }
 
         Plan renewing(final ImageResult newer, final List<String> renewed, final boolean failed) {
@@ -222,7 +237,34 @@ final class Run {
                     what,
                     atRisk,
                     doubt,
-                    failed);
+                    failed,
+                    remade,
+                    pulls);
+        }
+
+        /**
+         * Makes the containers of these services again: ours as they start, the foreign ones once the rest is back.
+         *
+         * @param pulling whether each image is pulled first, as a deploy does, or taken from this host
+         */
+        Plan remaking(final List<String> ours, final List<String> theirs, final boolean pulling) {
+            return new Plan(
+                    planned,
+                    announced,
+                    stops,
+                    payload,
+                    startsAgain,
+                    alsoStarts,
+                    images,
+                    theirs,
+                    refusedStop,
+                    refusedStandby,
+                    what,
+                    atRisk,
+                    doubt,
+                    alreadyFailed,
+                    ours,
+                    pulling);
         }
 
         /** What the countdown names as moving: every service stopped, and every foreign image renewed. */
@@ -293,14 +335,17 @@ final class Run {
             plan.alsoStarts().stream()
                     .filter(service -> !starting.contains(service))
                     .forEach(starting::add);
-            final UpdateReport started =
-                    steps.start(new UpdateRun.Stopped(report, List.copyOf(starting), runtime), plan.images());
+            final UpdateReport started = steps.start(
+                    new UpdateRun.Stopped(report, List.copyOf(starting), runtime),
+                    plan.images(),
+                    plan.remade(),
+                    plan.pulls());
             report = steps.verify(started, starting, runner.waiting);
         }
 
         // Last, once the Minecraft services are healthy again, and postgres last of all.
-        final UpdateReport renewed =
-                ForeignImages.renewForeign(runner.containers, steps, report, plan.foreign(), progress, runner.waiting);
+        final UpdateReport renewed = ForeignImages.renewForeign(
+                runner.containers, steps, report, plan.foreign(), plan.pulls(), progress, runner.waiting);
 
         final UpdateReport finished = Runner.settle(
                 Runner.noteStandbys(renewed, choreography.close()),

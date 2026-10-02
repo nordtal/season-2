@@ -37,6 +37,11 @@ per kind; a plan that stops nothing (a `START`, or an update with nothing to do)
 The kinds are `UPDATE`, `RESTART`, `BACKUP`, `DOWN`, `START`, `RECREATE`, `DEPLOY`, `RESTORE` and
 `REMOVE_PLUGIN`; a kind's payload is the request's, typed in `StewardRequest`.
 
+A `RECREATE` makes the named containers again from the images on this host, a `DEPLOY` pulls first.
+Caddy, pack-host and postgres are made again only once the rest is back, and only in a run that
+counts down, since every server's connections go through them. A `REMOVE_PLUGIN` stops its one
+server, deletes the added plugin's jar and data folder and starts it again.
+
 The run never stops steward-agent. A run that names it is refused, and its own outdated image is
 reported for the script on the host to renew.
 

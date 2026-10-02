@@ -1,5 +1,6 @@
 package eu.nordtal.s2.stewardagent.run;
 
+import eu.nordtal.s2.database.inbox.StewardRequest;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
@@ -337,5 +338,121 @@ final class Kinds {
                         Runner.Doubt.IS_ONLY_SAID)
                 .stoppingNothing()
                 .alsoStarting(services));
+    }
+
+    /**
+     * Makes the named services' containers again, from the image on this host or from a pulled one.
+     *
+     * Ours are stopped and made again as they start; caddy, pack-host and postgres once the rest is back.
+     */
+    static Planned remake(final Runner runner, final UpdateRequest request, final boolean pull) {
+        final String verb = pull ? "deploy" : "recreate";
+        final List<String> scope = runner.directory.scopeOf(request.id());
+        if (scope.isEmpty()) {
+            return failed("This " + verb + " names no service. Nothing was stopped: a container is made again"
+                    + " one service at a time, by name.");
+        }
+        if (scope.contains(AgentWire.SERVICE)) {
+            return failed("Nothing was stopped: steward-agent carries this run out, so it cannot make its own"
+                    + " container again. `./nordtal.sh` on the host renews it.");
+        }
+        final List<String> unknown = scope.stream()
+                .filter(service -> !ForeignImages.RECREATABLE.contains(service))
+                .filter(service -> !ForeignImages.FOREIGN_IMAGES.contains(service))
+                .toList();
+        if (!unknown.isEmpty()) {
+            return failed("Nothing was stopped: " + String.join(", ", unknown) + " is not a service a run may"
+                    + " make again.");
+        }
+        final List<String> holds = runner.held();
+        final List<String> ours = scope.stream()
+                .filter(ForeignImages.RECREATABLE::contains)
+                .filter(service -> !holds.contains(service))
+                .toList();
+        // In renewal order, postgres last, since the report goes through it.
+        final List<String> theirs = ForeignImages.FOREIGN_IMAGES.stream()
+                .filter(scope::contains)
+                .filter(service -> !holds.contains(service))
+                .toList();
+        UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING);
+        for (final String service : ours) {
+            planned = planned.with(new UpdateReport.ServiceLine(
+                    service,
+                    UpdateReport.State.PLANNED,
+                    List.of(new UpdateReport.Change(
+                            "container", null, pull ? "made again from a pulled image" : "made again")),
+                    null));
+        }
+        final List<String> skipped = scope.stream().filter(holds::contains).toList();
+        if (!skipped.isEmpty()) {
+            planned = planned.withNote(String.join(", ", skipped) + " is being held down and was left out: making"
+                    + " its container again would start it.");
+        }
+        if (ours.isEmpty() && theirs.isEmpty()) {
+            return Planned.outcome(
+                    Outcome.done(UpdateReports.toJson(planned.withStage(UpdateReport.Stage.NOTHING_TO_DO))));
+        }
+        return Planned.plan(Run.Plan.of(
+                        planned,
+                        Run.Payload.NONE,
+                        "NOTHING WAS MADE AGAIN:",
+                        refusal -> "NOTHING WAS STOPPED. " + refusal + ".",
+                        "this " + verb,
+                        "its container was made again",
+                        Runner.Doubt.IS_ONLY_SAID)
+                // Postgres and Caddy carry every server's connections, so they are announced like a stop.
+                .announced(ours.stream().anyMatch(Runner::isMinecraft) || !theirs.isEmpty())
+                .remaking(ours, theirs, pull));
+    }
+
+    /** Stops the one server, deletes an added plugin's jar and data folder, and starts it again. */
+    static Planned removePlugin(final Runner runner, final UpdateRequest request) {
+        final StewardRequest asked = runner.directory.requestOf(request.id()).orElse(null);
+        if (!(asked instanceof StewardRequest.RemovePlugin removal)) {
+            return failed("This row does not say which plugin to remove. Nothing was stopped.");
+        }
+        final String service = removal.services().getFirst();
+        final String artifact = removal.artifact();
+        if (!runner.removal.has(service, artifact)) {
+            return failed("Nothing was stopped: " + service + " has no added plugin " + artifact + ". The"
+                    + " plugins the network gives are not in that list and cannot be removed.");
+        }
+        final boolean held = runner.held().contains(service);
+        final UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING)
+                .with(new UpdateReport.ServiceLine(
+                        service,
+                        // A held server is already down, so the run neither stops nor starts it.
+                        held ? UpdateReport.State.STOPPED : UpdateReport.State.PLANNED,
+                        List.of(new UpdateReport.Change("plugin", artifact, "removed")),
+                        null));
+        final Run.Payload remove = (steps, stopped) -> {
+            try {
+                final List<String> deleted = runner.removal.remove(service, artifact);
+                return new Run.Done(
+                        stopped.report()
+                                .withNote(
+                                        deleted.isEmpty()
+                                                ? artifact + " had nothing installed; it is off the list."
+                                                : "Removed " + String.join(", ", deleted) + "."),
+                        false);
+            } catch (final RuntimeException refused) {
+                return new Run.Done(
+                        stopped.report().withNote("The plugin was not removed: " + refused.getMessage()), true);
+            }
+        };
+        final Run.Plan plan = Run.Plan.of(
+                planned,
+                remove,
+                "NOTHING WAS REMOVED: a running server keeps a deleted plugin loaded and its folder open.",
+                refusal -> "NOTHING WAS STOPPED AND NOTHING WAS REMOVED. " + refusal + ".",
+                "this removal",
+                "the plugin was deleted",
+                Runner.Doubt.IS_ONLY_SAID);
+        return Planned.plan(held ? plan.stoppingNothing().leavingThemDown() : plan);
+    }
+
+    private static Planned failed(final String note) {
+        return Planned.outcome(Outcome.failed(
+                UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED).withNote(note))));
     }
 }

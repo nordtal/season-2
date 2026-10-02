@@ -9,6 +9,7 @@ import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.TestDatabase;
+import eu.nordtal.s2.database.inbox.StewardRequest;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateReport;
@@ -37,6 +38,20 @@ class RunnerTest {
     private final FakeSnapshots snapshots = new FakeSnapshots(containers.calls);
     private final List<UpdateReport> progress = new ArrayList<>();
 
+    /** Removes only what a test added, and writes each removal into the calls beside the stops and starts. */
+    private final PluginRemoval removal = new PluginRemoval() {
+        @Override
+        public boolean has(final String service, final String artifact) {
+            return "smp".equals(service) && "chunky".equals(artifact);
+        }
+
+        @Override
+        public List<String> remove(final String service, final String artifact) {
+            containers.calls.add("remove:" + service + "/" + artifact);
+            return List.of(artifact + "-1.0.jar");
+        }
+    };
+
     private TestDatabase postgres;
     private Database database;
     private UpdateDirectory directory;
@@ -64,7 +79,7 @@ class RunnerTest {
                 },
                 "steward-test");
         directory = UpdateDirectory.using(database.dataSource());
-        runner = new Runner(defaults(), database, containers, snapshots, directory, driven());
+        runner = new Runner(defaults(), database, containers, snapshots, directory, driven(), removal);
     }
 
     @AfterEach
@@ -147,6 +162,77 @@ class RunnerTest {
         assertTrue(outcome.report().contains("NOTHING_TO_DO"), outcome.report());
         assertEquals(List.of(), containers.calls, "a run that discovers there is nothing to do must stop nothing");
         assertEquals(null, directory.find(request.id()).orElseThrow().countdownEnd());
+    }
+
+    @Test
+    void aRecreateCountsDownStopsTheServerAndMakesItsContainerFromTheImageOnThisHost() {
+        final UpdateRequest request = claimed(UpdateKind.RECREATE, List.of("smp"));
+
+        final Outcome outcome = runner.run(request, progress::add);
+
+        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
+        assertEquals(List.of("stop:smp-container", "recreate-local:smp"), containers.calls);
+        assertNotNull(directory.find(request.id()).orElseThrow().countdownEnd(), "players on smp are warned first");
+    }
+
+    @Test
+    void aDeployOfTheBotPullsItsImageWithoutWarningAnyPlayer() {
+        final UpdateRequest request = claimed(UpdateKind.DEPLOY, List.of("discord-bot"));
+
+        final Outcome outcome = runner.run(request, progress::add);
+
+        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
+        assertEquals(List.of("stop:discord-bot-container", "recreate:discord-bot"), containers.calls);
+        assertEquals(null, directory.find(request.id()).orElseThrow().countdownEnd(), "nobody stands on the bot");
+    }
+
+    @Test
+    void aRecreateOfPostgresIsAnnouncedAndMadeOnceTheRestIsBack() {
+        containers.running("postgres");
+        final UpdateRequest request = claimed(UpdateKind.RECREATE, List.of("postgres", "smp"));
+
+        final Outcome outcome = runner.run(request, progress::add);
+
+        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
+        assertEquals(List.of("stop:smp-container", "recreate-local:smp", "recreate-local:postgres"), containers.calls);
+        assertEquals(
+                List.of("smp", "postgres"),
+                directory.find(request.id()).orElseThrow().moving());
+    }
+
+    @Test
+    void aRecreateOfTheAgentItselfIsRefusedAndStopsNothing() {
+        final Outcome outcome = runner.run(claimed(UpdateKind.RECREATE, List.of("steward-agent")), progress::add);
+
+        assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
+        assertTrue(outcome.report().contains("nordtal.sh"), outcome.report());
+        assertEquals(List.of(), containers.calls);
+    }
+
+    @Test
+    void aPluginRemovalStopsTheServerRemovesThePluginAndStartsItAgain() {
+        final UpdateRequest request = claimed(new StewardRequest.RemovePlugin(List.of("smp"), "chunky"));
+
+        final Outcome outcome = runner.run(request, progress::add);
+
+        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
+        assertEquals(List.of("stop:smp-container", "remove:smp/chunky", "start:smp-container"), containers.calls);
+        assertTrue(outcome.report().contains("chunky-1.0.jar"), outcome.report());
+    }
+
+    @Test
+    void aRemovalOfAPluginNobodyAddedStopsNothing() {
+        final Outcome outcome =
+                runner.run(claimed(new StewardRequest.RemovePlugin(List.of("smp"), "worldedit")), progress::add);
+
+        assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
+        assertEquals(List.of(), containers.calls);
+    }
+
+    /** Submits a request of any kind due now and claims it. */
+    private UpdateRequest claimed(final StewardRequest request) {
+        directory.submit(request, Actor.HOST, Duration.ZERO);
+        return directory.claimNext().orElseThrow();
     }
 
     /** Submits a run due now and claims it, as the loop does. */

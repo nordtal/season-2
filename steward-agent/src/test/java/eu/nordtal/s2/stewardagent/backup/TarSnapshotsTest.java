@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.internalapi.agent.Retention;
 import eu.nordtal.s2.internalapi.agent.SnapshotResult;
+import eu.nordtal.s2.stewardagent.run.Snapshots;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -20,6 +21,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -73,6 +75,50 @@ class TarSnapshotsTest {
                 Files.readAllBytes(restored.resolve("region/r.0.0.mca")),
                 "the region file did not survive the round trip");
         assertEquals("level-name=world\n", Files.readString(restored.resolve("server.properties")));
+    }
+
+    @Test
+    void aRestoredVolumeHoldsTheArchiveAgainAndNothingThatCameAfterIt() throws IOException {
+        final Path source = sourceDir(VOLUME);
+        Files.createDirectories(source.resolve("region"));
+        Files.writeString(source.resolve("region/r.0.0.mca"), "before");
+        final SnapshotResult saved = snapshots(NIGHT).save(VOLUME, WALL);
+        Files.writeString(source.resolve("region/r.0.0.mca"), "after");
+        Files.writeString(source.resolve("griefed.txt"), "came later");
+
+        final SnapshotResult restored = snapshots(NIGHT.plusSeconds(60))
+                .restore(Path.of(saved.file()).getFileName().toString(), WALL);
+
+        assertTrue(restored.ok(), restored.message());
+        assertEquals("before", Files.readString(source.resolve("region/r.0.0.mca")));
+        assertFalse(Files.exists(source.resolve("griefed.txt")), "a restore is the archive, not the archive added");
+    }
+
+    @Test
+    void aRestoreOfAnArchiveThatDoesNotReadThroughLeavesTheVolumeAlone() throws IOException {
+        Files.writeString(sourceDir(VOLUME).resolve("level.dat"), "live");
+        final String broken = VOLUME + "-20260912T000000Z.tar.zst";
+        Files.createDirectories(outputRoot());
+        Files.writeString(outputRoot().resolve(broken), "not zstd");
+
+        final SnapshotResult restored = snapshots(NIGHT).restore(broken, WALL);
+
+        assertFalse(restored.ok(), restored.message());
+        assertEquals("live", Files.readString(sourceDir(VOLUME).resolve("level.dat")));
+    }
+
+    @Test
+    void onlyAFinishedArchiveDirectlyInTheBackupsIsAnyRestoresBusiness() throws IOException {
+        Files.createDirectories(outputRoot().resolve("sub"));
+        Files.writeString(outputRoot().resolve("sub/" + VOLUME + "-20260912T000000Z.tar.zst"), "x");
+        Files.writeString(outputRoot().resolve("nordtal-20260912T000000Z.dump"), "x");
+
+        assertEquals(Optional.empty(), snapshots(NIGHT).seriesOf("sub/" + VOLUME + "-20260912T000000Z.tar.zst"));
+        assertEquals(Optional.empty(), snapshots(NIGHT).seriesOf("../" + VOLUME + "-20260912T000000Z.tar.zst"));
+        assertEquals(Optional.empty(), snapshots(NIGHT).seriesOf(VOLUME + "-20260913T000000Z.tar.zst"));
+        assertEquals(Optional.of(Snapshots.DATABASE), snapshots(NIGHT).seriesOf("nordtal-20260912T000000Z.dump"));
+        assertFalse(
+                snapshots(NIGHT).restore("nordtal-20260912T000000Z.dump", WALL).ok(), "a dump is no volume");
     }
 
     @Test

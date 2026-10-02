@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.DatabaseRole;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.alert.AlertChannel;
 import eu.nordtal.s2.database.alert.AlertType;
@@ -21,16 +22,22 @@ class AlertPreferencesTest {
 
     private static DataSource dataSource;
 
+    /** The owner, for fixtures and for whatever stands in for another service. */
+    private static DataSource owner;
+
     private AlertPreferences preferences;
 
     @BeforeAll
     static void startDatabase() {
-        dataSource = TestDatabase.fresh().dataSource();
+        final TestDatabase database = TestDatabase.fresh();
+        owner = database.dataSource();
+        // The role steward logs in as, so a statement it was never granted fails here first.
+        dataSource = database.dataSourceAs(DatabaseRole.STEWARD);
     }
 
     @BeforeEach
     void freshTable() throws java.sql.SQLException {
-        try (var connection = dataSource.getConnection();
+        try (var connection = owner.getConnection();
                 var statement = connection.createStatement()) {
             statement.execute("TRUNCATE steward_alert_preference");
         }
@@ -63,7 +70,7 @@ class AlertPreferencesTest {
 
     @Test
     void aRowThisBuildDoesNotKnowIsIgnored() throws java.sql.SQLException {
-        try (var connection = dataSource.getConnection();
+        try (var connection = owner.getConnection();
                 var statement = connection.createStatement()) {
             statement.execute("INSERT INTO steward_alert_preference (discord_id, alert_type, channel, enabled,"
                     + " updated_at) VALUES ('42', 'sunspots', 'PUSH', false, now())");

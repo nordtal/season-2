@@ -5,6 +5,10 @@ import eu.nordtal.s2.common.Deployment;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.common.time.Waiting;
+import eu.nordtal.s2.database.inbox.Inbox;
+import eu.nordtal.s2.database.inbox.InboxTable;
+import eu.nordtal.s2.database.inbox.Inboxes;
+import eu.nordtal.s2.database.inbox.StewardRequest;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.internalapi.InternalServer;
@@ -42,6 +46,9 @@ import java.util.function.Predicate;
 public final class StewardAgent {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(StewardAgent.class);
+
+    /** How long a settled request is kept in its inbox. */
+    private static final Duration REQUEST_RETENTION = Duration.ofDays(30);
 
     private StewardAgent() {}
 
@@ -156,6 +163,7 @@ public final class StewardAgent {
                         "The database schema could not be applied, so this container will not become ready.", failure);
                 return 1;
             }
+            clearOldRequests(database);
             final DatabaseSettings settings = AgentSettings.stored(database.dataSource(), log);
             final Setting<RunSpec> runs;
             try {
@@ -165,6 +173,28 @@ public final class StewardAgent {
                 return 1;
             }
             return serveWithDatabase(server, compose, docker, clock, database, databaseConfig, settings, runs);
+        }
+    }
+
+    /**
+     * Deletes the settled requests of every inbox but the run inbox older than {@link #REQUEST_RETENTION}.
+     * The runs are kept: they are the history Steward shows. Once at startup, as the owner, which deletes from
+     * inboxes no other role may.
+     */
+    private static void clearOldRequests(final Database database) {
+        for (final InboxTable<?> table : Inboxes.ALL) {
+            if (table == StewardRequest.TABLE) {
+                continue;
+            }
+            try {
+                final int gone = Inbox.over(database.dataSource(), table).purge(REQUEST_RETENTION);
+                if (gone > 0) {
+                    log.info("Removed {} settled requests from {} older than {}.", gone, table, REQUEST_RETENTION);
+                }
+            } catch (final RuntimeException failure) {
+                // Not fatal: an inbox that keeps its old rows is still an inbox.
+                log.warn("Could not clear out old requests from {}; they stay where they are.", table, failure);
+            }
         }
     }
 

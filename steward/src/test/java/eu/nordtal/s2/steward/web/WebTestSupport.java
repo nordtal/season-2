@@ -32,7 +32,7 @@ abstract class WebTestSupport extends WebFixture {
 
     /** Closes whatever run another test left open, so the one-run rule starts every test clean. */
     void settleOpenRuns() throws Exception {
-        try (var connection = data.dataSource().getConnection();
+        try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var settle = connection.prepareStatement("UPDATE steward_inbox SET status = 'DONE', "
                         + "started = coalesce(started, now()), finished = now() "
                         + "WHERE status IN ('PENDING', 'RUNNING')")) {
@@ -41,7 +41,7 @@ abstract class WebTestSupport extends WebFixture {
     }
 
     static long count(final String sql) throws Exception {
-        try (var connection = data.dataSource().getConnection();
+        try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var statement = connection.createStatement();
                 var row = statement.executeQuery(sql)) {
             row.next();
@@ -92,7 +92,7 @@ abstract class WebTestSupport extends WebFixture {
         final String csrf = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
                 .get("csrf")
                 .getAsString();
-        try (var connection = data.dataSource().getConnection();
+        try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var statement = connection.prepareStatement(
                         "UPDATE steward_session SET verified_at = now() - interval '1 hour'" + " WHERE csrf = ?")) {
             statement.setString(1, csrf);
@@ -163,7 +163,7 @@ abstract class WebTestSupport extends WebFixture {
 
     /** Makes this account an admin granted by the root, {@code "1"}, whatever it was before. */
     static void admitBelowRoot(final DiscordId discordId) throws Exception {
-        try (var connection = data.dataSource().getConnection();
+        try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var admit = connection.prepareStatement("""
                      INSERT INTO discord_user (discord_id, member_state, admin, admin_granted_by,
                                                admin_granted_at, updated)

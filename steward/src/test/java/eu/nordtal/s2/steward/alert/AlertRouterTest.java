@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.DatabaseRole;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.alert.AlertBook;
@@ -32,6 +33,9 @@ class AlertRouterTest {
 
     private static DataSource dataSource;
 
+    /** The owner, for fixtures and for whatever stands in for another service. */
+    private static DataSource owner;
+
     private AlertBook book;
     private AlertPreferences preferences;
     private PushSubscriptions subscriptions;
@@ -41,12 +45,15 @@ class AlertRouterTest {
 
     @BeforeAll
     static void startDatabase() {
-        dataSource = TestDatabase.fresh().dataSource();
+        final TestDatabase database = TestDatabase.fresh();
+        owner = database.dataSource();
+        // The role steward logs in as, so a statement it was never granted fails here first.
+        dataSource = database.dataSourceAs(DatabaseRole.STEWARD);
     }
 
     @BeforeEach
     void freshTables() throws java.sql.SQLException {
-        try (var connection = dataSource.getConnection();
+        try (var connection = owner.getConnection();
                 var statement = connection.createStatement()) {
             statement.execute("TRUNCATE admin_alert, steward_push_subscription, steward_alert_preference, bot_inbox");
         }
@@ -73,7 +80,8 @@ class AlertRouterTest {
 
     private List<BotRequest.PostAlert> posted() {
         final List<BotRequest.PostAlert> posts = new ArrayList<>();
-        for (Optional<Request<BotRequest>> one = bot.claim(); one.isPresent(); one = bot.claim()) {
+        final Inbox<BotRequest> theBot = Inbox.over(owner, BotRequest.TABLE);
+        for (Optional<Request<BotRequest>> one = theBot.claim(); one.isPresent(); one = theBot.claim()) {
             posts.add((BotRequest.PostAlert) one.get().payload());
         }
         return posts;

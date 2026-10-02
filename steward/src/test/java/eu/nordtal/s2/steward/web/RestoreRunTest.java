@@ -25,7 +25,7 @@ class RestoreRunTest extends WebTestSupport {
     void forget() throws Exception {
         Files.deleteIfExists(agent.backups.resolve(ARCHIVE));
         Files.deleteIfExists(agent.backups.resolve(DUMP));
-        try (var connection = data.dataSource().getConnection();
+        try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var statement = connection.createStatement()) {
             statement.execute("delete from steward_inbox where kind = 'RESTORE'");
         }

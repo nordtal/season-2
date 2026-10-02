@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import eu.nordtal.s2.database.Actor;
+import eu.nordtal.s2.database.DatabaseRole;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.alert.AlertBook;
@@ -29,6 +30,9 @@ class AlertMonitorTest {
 
     private static DataSource dataSource;
 
+    /** The owner, for fixtures and for whatever stands in for another service. */
+    private static DataSource owner;
+
     private AlertBook book;
     private UpdateDirectory runs;
     private Supplier<StackReading> reading;
@@ -37,12 +41,15 @@ class AlertMonitorTest {
 
     @BeforeAll
     static void startDatabase() {
-        dataSource = TestDatabase.fresh().dataSource();
+        final TestDatabase database = TestDatabase.fresh();
+        owner = database.dataSource();
+        // The role steward logs in as, so a statement it was never granted fails here first.
+        dataSource = database.dataSourceAs(DatabaseRole.STEWARD);
     }
 
     @BeforeEach
     void freshTables() throws java.sql.SQLException {
-        try (var connection = dataSource.getConnection();
+        try (var connection = owner.getConnection();
                 var statement = connection.createStatement()) {
             statement.execute("TRUNCATE admin_alert, steward_inbox CASCADE");
         }
@@ -168,8 +175,10 @@ class AlertMonitorTest {
 
     private long finished(final UpdateStatus status) {
         final long id = runs.submit(UpdateKind.UPDATE, Actor.STEWARD, null).id();
-        assertEquals(id, runs.claimNext().orElseThrow().id());
-        assertEquals(status, runs.finish(id, status, "{}").orElseThrow().status());
+        // steward-agent's half, as the owner it logs in as.
+        final UpdateDirectory agent = UpdateDirectory.using(owner);
+        assertEquals(id, agent.claimNext().orElseThrow().id());
+        assertEquals(status, agent.finish(id, status, "{}").orElseThrow().status());
         return id;
     }
 }

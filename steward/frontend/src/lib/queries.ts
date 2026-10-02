@@ -747,6 +747,21 @@ export function useInstallPlugin(service: string) {
   })
 }
 
+/** Asks for a RESTORE run of one archive, with what it replaces typed back as the confirmation. */
+export function useRestore() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ archive, confirm }: { archive: string; confirm: string }) =>
+      api<{ id: number; kind: string; archive: string }>(`/api/backups/${encodeURIComponent(archive)}/restore`, {
+        method: "POST",
+        body: { confirm },
+      }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["runs"] })
+    },
+  })
+}
+
 /** Asks for a REMOVE_PLUGIN run: the server is stopped, and the row, the jar and the data folder go. */
 export function useRemovePlugin(service: string) {
   const client = useQueryClient()

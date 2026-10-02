@@ -370,6 +370,8 @@ export type Backup = {
   human: string
   modified: string
   partial: boolean
+  /** What a restore of it replaces, typed back to confirm; absent on a partial file. */
+  restoresInto?: string | null
 }
 
 /** One artefact inside a service line: a jar, a plugin, the schema. */

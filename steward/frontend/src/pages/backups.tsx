@@ -7,7 +7,7 @@ import type { Backup, ConfigChanges, ConfigEntry, ParsedConfigDocument, Run } fr
 import { ApiError } from "@/lib/api"
 import { archived } from "@/lib/backup-name"
 import { bytes, count, dateTime, duration, parseInstant, relative } from "@/lib/format"
-import { useBackups, useConfig, useConfigs, useRuns, useSaveConfig, useSchedule } from "@/lib/queries"
+import { useBackups, useConfig, useConfigs, useRestore, useRuns, useSaveConfig, useSchedule } from "@/lib/queries"
 import { ScalarControl } from "@/components/steward/config-controls"
 import { Actor } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
@@ -17,13 +17,15 @@ import { RunStatus } from "@/components/steward/status"
 import { Empty, Loading, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AskButton, CopyButton } from "@/pages/operations"
+import { AskButton } from "@/pages/operations"
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
   ResponsiveDialogTrigger,
@@ -33,7 +35,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 /**
  * Everything about the backups: the numbers, the runs, the offsite target and the schedule.
  *
- * A secret is never drawn, and nothing here starts or restores anything; runs are asked for on Operations.
+ * A secret is never drawn; a backup and a restore are runs like every other.
  */
 export function BackupsPage() {
   return (
@@ -592,18 +594,31 @@ function ScheduleDialog() {
 }
 
 /**
- * Builds the restore command for a person to run on the host, where it still works with the stack down.
+ * Asks for a restore of one finished archive, once what it replaces is typed back.
  *
- * Only finished archives are offered.
+ * The run backs up first, counts down and stops what the archive replaces; `deploy/restore.sh` is for a host without steward-agent.
  */
 function RestoreDialog() {
   const backups = useBackups()
+  const restore = useRestore()
+  const [open, setOpen] = useState(false)
   const [chosen, setChosen] = useState<string>("")
-  const restorable = useMemo(() => (backups.data ?? []).filter((backup) => !backup.partial), [backups.data])
-  const command = `sudo bash deploy/restore.sh ${chosen || "<archive>"}`
+  const [typed, setTyped] = useState("")
+  const restorable = useMemo(
+    () => (backups.data ?? []).filter((backup) => !backup.partial && backup.restoresInto),
+    [backups.data],
+  )
+  const replaces = restorable.find((backup) => backup.name === chosen)?.restoresInto ?? ""
 
   return (
-    <ResponsiveDialog>
+    <ResponsiveDialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        setChosen("")
+        setTyped("")
+      }}
+    >
       <ResponsiveDialogTrigger asChild>
         <Button variant="outline" size="sm">
           <ArrowCounterClockwiseIcon />
@@ -613,7 +628,7 @@ function RestoreDialog() {
       <ResponsiveDialogContent>
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>Restore</ResponsiveDialogTitle>
-          <ResponsiveDialogDescription>Run on the host. Steward does not run it.</ResponsiveDialogDescription>
+          <ResponsiveDialogDescription>A run: a backup first, then a countdown.</ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
         {backups.isPending || backups.error ? (
@@ -633,7 +648,13 @@ function RestoreDialog() {
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="restore-archive">Archive</Label>
-              <Select value={chosen} onValueChange={setChosen}>
+              <Select
+                value={chosen}
+                onValueChange={(value) => {
+                  setChosen(value)
+                  setTyped("")
+                }}
+              >
                 <SelectTrigger id="restore-archive" className="w-full">
                   <SelectValue placeholder="Choose an archive…" />
                 </SelectTrigger>
@@ -646,15 +667,46 @@ function RestoreDialog() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center gap-2">
-              <code className="min-w-0 flex-1 overflow-x-auto rounded-md border border-border bg-[#0a0a0a] px-3 py-2 font-mono text-xs whitespace-pre">
-                {command}
-              </code>
-              <CopyButton text={command} disabled={!chosen} />
-            </div>
+            {replaces ? (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="restore-confirm">
+                  Type <span className="font-mono">{replaces}</span>
+                </Label>
+                <Input
+                  id="restore-confirm"
+                  value={typed}
+                  autoComplete="off"
+                  spellCheck={false}
+                  onChange={(event) => setTyped(event.target.value)}
+                />
+              </div>
+            ) : null}
             <p className="text-xs text-warning">
-              A volume is overwritten, not added to - everything made since the backup is gone.
+              {replaces === "nordtal"
+                ? "The database is replaced - everything written since the backup is gone."
+                : "A volume is overwritten, not added to - everything made since the backup is gone."}
             </p>
+            <ResponsiveDialogFooter>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={!replaces || typed !== replaces || restore.isPending}
+                onClick={() =>
+                  restore.mutate(
+                    { archive: chosen, confirm: typed },
+                    {
+                      onSuccess: (run) => {
+                        setOpen(false)
+                        toast.success(`Restore entered as run #${run.id}`)
+                      },
+                      onError: (error) => toast.error("Restore was not entered", { description: String(error) }),
+                    },
+                  )
+                }
+              >
+                Restore
+              </Button>
+            </ResponsiveDialogFooter>
           </div>
         )}
       </ResponsiveDialogContent>

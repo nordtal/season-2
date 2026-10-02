@@ -21,20 +21,7 @@ import { Preview } from "@/app/designs/translations/preview"
 import { SegmentEditor } from "@/app/designs/translations/segment-editor"
 import { SourceEditor } from "@/app/designs/translations/source-editor"
 import { VisualEditor } from "@/app/designs/translations/visual-editor"
-
-type Editor = "visual" | "source" | "segments"
-
-export type TranslationsSearch = { bundle?: string; key?: string; editor?: Editor; lang?: Language }
-
-export function translationsSearch(search: Record<string, unknown>): TranslationsSearch {
-  const answer: TranslationsSearch = {}
-  if (typeof search.bundle === "string" && search.bundle) answer.bundle = search.bundle
-  if (typeof search.key === "string" && search.key) answer.key = search.key
-  if (search.editor === "visual" || search.editor === "source" || search.editor === "segments")
-    answer.editor = search.editor
-  if (search.lang === "en" || search.lang === "de") answer.lang = search.lang
-  return answer
-}
+import type { Editor, TranslationsSearch } from "@/app/designs/translations/search"
 
 const DEFAULT_BUNDLE = "proxy/proxy"
 const DEFAULT_KEY = "info.discord"

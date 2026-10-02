@@ -1,4 +1,4 @@
-import { createRootRoute, createRoute, createRouter, redirect } from "@tanstack/react-router"
+import { createRootRoute, createRoute, createRouter, lazyRouteComponent, redirect } from "@tanstack/react-router"
 
 import { NotFoundPage } from "@/app/not-found"
 import { Shell } from "@/app/shell"
@@ -11,8 +11,7 @@ import { AnnouncementsPage } from "@/pages/announcements"
 import { JournalPage, PaymentsPage, AccessPage } from "@/pages/access"
 import { OverviewPage } from "@/pages/overview"
 import { AlertsPage } from "@/pages/alerts"
-import { ChartsGalleryPage } from "@/app/designs/charts-gallery"
-import { TranslationsPage, translationsSearch } from "@/app/designs/translations/translations-page"
+import { translationsSearch } from "@/app/designs/translations/search"
 
 /** The route tree, written out, since a generated `routeTree.gen.ts` in src/ would keep `viteBuild` out of date. */
 
@@ -75,13 +74,17 @@ const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/payments", component: PaymentsPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/journal", component: JournalPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/alerts", component: AlertsPage }),
-  // Chart proposals for a service page's head; goes with `app/designs/` once one is picked.
-  createRoute({ getParentRoute: () => rootRoute, path: "/designs/charts", component: ChartsGalleryPage }),
-  // The three translation editors on real bundles; goes with `app/designs/` once one is picked.
+  // Chart proposals for a service page's head, loaded apart; goes once the picked one is in the service page.
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/designs/charts",
+    component: lazyRouteComponent(() => import("@/app/designs/charts-gallery"), "ChartsGalleryPage"),
+  }),
+  // The translation editors on real bundles, loaded apart; goes once the picked one is in the messages tool.
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/designs/translations",
-    component: TranslationsPage,
+    component: lazyRouteComponent(() => import("@/app/designs/translations/translations-page"), "TranslationsPage"),
     validateSearch: translationsSearch,
   }),
 ]

@@ -8,6 +8,7 @@ import { SignInPage } from "@/app/sign-in"
 import { StewardMark } from "@/app/steward-mark"
 import { ApiError } from "@/lib/api"
 import type { Me } from "@/lib/api"
+import { useLiveStream } from "@/lib/live"
 import { useMe } from "@/lib/queries"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Failure } from "@/components/steward/query-state"
@@ -47,6 +48,8 @@ export function Shell() {
 
 /** Everything past the four doors, apart from {@link Shell} since it reads the router and they do not. */
 function SignedIn({ me, isMobile }: { me: Me; isMobile: boolean }) {
+  /** Here, past the key, since `/api/live` answers only a session that holds one. */
+  useLiveStream(true)
   return (
     <TooltipProvider delayDuration={300}>
       <SidebarProvider

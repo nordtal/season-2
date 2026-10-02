@@ -4,6 +4,7 @@ import { cleanup, renderHook, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ApiError, currentCsrf, rememberCsrf, type ConfigDocument } from "@/lib/api"
+import { RECONCILE } from "@/lib/live"
 import { keys, useCommandRun, useMe, useSaveConfig } from "@/lib/queries"
 
 /**
@@ -72,15 +73,15 @@ afterEach(() => {
   cleanup()
 })
 
-describe("useCommandRun - when the polling stops", () => {
-  it("keeps asking every second while the row is unsettled", async () => {
+describe("useCommandRun - when the reconciliation stops", () => {
+  it("keeps reading once a minute while the row is unsettled", async () => {
     const queryClient = client()
     for (const status of ["PENDING", "RUNNING"] as const) {
       fetched.mockResolvedValue(answer(200, { id: "7", status }))
       renderHook(() => useCommandRun("7"), { wrapper: wrap(queryClient) })
       await waitFor(() => expect(stateOf(queryClient, keys.commandRun("7")).data).toBeDefined())
 
-      expect(pollOf(queryClient, keys.commandRun("7"))).toBe(1000)
+      expect(pollOf(queryClient, keys.commandRun("7"))).toBe(RECONCILE)
       queryClient.clear()
     }
   })
@@ -92,7 +93,7 @@ describe("useCommandRun - when the polling stops", () => {
     renderHook(() => useCommandRun("7"), { wrapper: wrap(queryClient) })
     await waitFor(() => expect(fetched).toHaveBeenCalled())
 
-    expect(pollOf(queryClient, keys.commandRun("7"))).toBe(1000)
+    expect(pollOf(queryClient, keys.commandRun("7"))).toBe(RECONCILE)
   })
 
   it("stops for each of the three settled states", async () => {
@@ -143,7 +144,7 @@ describe("useCommandRun - when the polling stops", () => {
     await result.current.refetch()
     await waitFor(() => expect(stateOf(queryClient, keys.commandRun("7")).error).toBeNull())
 
-    expect(pollOf(queryClient, keys.commandRun("7"))).toBe(1000)
+    expect(pollOf(queryClient, keys.commandRun("7"))).toBe(RECONCILE)
   })
 })
 

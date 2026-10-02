@@ -109,7 +109,7 @@ final class ForeignImages {
     }
 
     /**
-     * Pulls and recreates each of them after the Minecraft services are back, then waits for health.
+     * Makes each of them again after the Minecraft services are back, pulling first when asked, then waits for health.
      *
      * A failure fails the line and the run, and rolls nothing back: the old container keeps running.
      */
@@ -118,6 +118,7 @@ final class ForeignImages {
             final UpdateRun run,
             final UpdateReport before,
             final List<String> services,
+            final boolean pull,
             final Consumer<UpdateReport> progress,
             final Waiting waiting) {
         if (services.isEmpty()) {
@@ -130,18 +131,20 @@ final class ForeignImages {
             report = report.with(new UpdateReport.ServiceLine(
                     service,
                     UpdateReport.State.STARTING,
-                    List.of(new UpdateReport.Change("image", null, "newer image")),
-                    "pulling its image and recreating the container"));
+                    List.of(
+                            pull
+                                    ? new UpdateReport.Change("image", null, "newer image")
+                                    : new UpdateReport.Change("container", null, "made again")),
+                    pull ? "pulling its image and recreating the container" : "recreating the container"));
             progress.accept(report);
-            final RedeployResult result = containers.deploy(service);
+            final RedeployResult result = pull ? containers.deploy(service) : containers.recreate(service);
             if (result.triggered()) {
                 asked.add(service);
                 continue;
             }
             report = report.with(report.line(service)
-                    .failed("its image is out of date and the"
-                            + " container could not be recreated: " + result.message()
-                            + ". It is still running the image it had."));
+                    .failed("the container could not be recreated: " + result.message()
+                            + ". The one it had is still running."));
             progress.accept(report);
         }
         // This process writes the run's final report through postgres after returning from here.

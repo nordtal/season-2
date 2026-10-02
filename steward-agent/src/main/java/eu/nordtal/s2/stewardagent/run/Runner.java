@@ -43,6 +43,9 @@ public final class Runner implements RequestRunner {
     /** The plugins an admin added, handed to every resolve; {@code PluginDirectory#NONE} by default. */
     final eu.nordtal.s2.stewardagent.plugin.PluginDirectory plugins;
 
+    /** How a plugin removal deletes what it removes; {@link PluginRemoval#NONE} by default. */
+    final PluginRemoval removal;
+
     /** Where the proxy's pack is set, built on first use like the occupancy below. */
     private volatile @Nullable SettingStore settings;
 
@@ -83,7 +86,28 @@ public final class Runner implements RequestRunner {
                 backups,
                 directory,
                 waiting,
-                eu.nordtal.s2.stewardagent.plugin.PluginDirectory.NONE);
+                eu.nordtal.s2.stewardagent.plugin.PluginDirectory.NONE,
+                PluginRemoval.NONE);
+    }
+
+    /** The same, with a removal a test can watch. */
+    Runner(
+            final RunSpec config,
+            final Database database,
+            final ContainerOps containers,
+            final Snapshots backups,
+            final UpdateDirectory directory,
+            final Waiting waiting,
+            final PluginRemoval removal) {
+        this(
+                config,
+                database,
+                containers,
+                backups,
+                directory,
+                waiting,
+                eu.nordtal.s2.stewardagent.plugin.PluginDirectory.NONE,
+                removal);
     }
 
     public Runner(
@@ -93,8 +117,10 @@ public final class Runner implements RequestRunner {
             final Snapshots backups,
             final UpdateDirectory directory,
             final Waiting waiting,
-            final eu.nordtal.s2.stewardagent.plugin.PluginDirectory plugins) {
+            final eu.nordtal.s2.stewardagent.plugin.PluginDirectory plugins,
+            final PluginRemoval removal) {
         this.plugins = plugins;
+        this.removal = removal;
         this.config = config;
         this.database = database;
         this.containers = containers;
@@ -132,7 +158,10 @@ public final class Runner implements RequestRunner {
             case BACKUP -> Kinds.backup(this, progress);
             case DOWN -> Kinds.down(this, request);
             case START -> Kinds.start(this, request);
-            case RESTORE, RECREATE, DEPLOY, REMOVE_PLUGIN ->
+            case RECREATE -> Kinds.remake(this, request, false);
+            case DEPLOY -> Kinds.remake(this, request, true);
+            case REMOVE_PLUGIN -> Kinds.removePlugin(this, request);
+            case RESTORE ->
                 Kinds.Planned.outcome(Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
                         .withNote("This steward-agent does not carry out a " + request.kind()
                                 + " run. Nothing was done."))));

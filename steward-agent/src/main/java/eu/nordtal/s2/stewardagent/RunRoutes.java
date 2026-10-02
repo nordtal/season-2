@@ -10,6 +10,7 @@ import eu.nordtal.s2.stewardagent.config.RunSpec;
 import eu.nordtal.s2.stewardagent.plan.PlanView;
 import eu.nordtal.s2.stewardagent.plan.PluginsApi;
 import eu.nordtal.s2.stewardagent.plugin.PluginDirectory;
+import eu.nordtal.s2.stewardagent.run.PluginRemoval;
 import eu.nordtal.s2.stewardagent.run.Runs;
 import eu.nordtal.s2.stewardagent.source.Modrinth;
 import eu.nordtal.s2.stewardagent.source.SourceHttp;
@@ -17,6 +18,7 @@ import io.javalin.config.JavalinConfig;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -63,7 +65,18 @@ final class RunRoutes {
     }
 
     /** The removal a REMOVE_PLUGIN run carries out while it holds the server stopped. */
-    PluginsApi plugins() {
-        return pluginsApi;
+    PluginRemoval removal() {
+        return new PluginRemoval() {
+            @Override
+            public boolean has(final String service, final String artifact) {
+                return plugins.on(service).stream()
+                        .anyMatch(plugin -> plugin.artifact().equals(artifact));
+            }
+
+            @Override
+            public List<String> remove(final String service, final String artifact) {
+                return pluginsApi.remove(service, artifact);
+            }
+        };
     }
 }

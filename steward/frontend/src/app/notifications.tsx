@@ -207,14 +207,14 @@ function Types({ state }: { state: NotificationActions }) {
   )
 }
 
-/** The service and group holding the three numbers: `WebSpec.AlertSpec`, keyed under `alerts`. */
+/** The service and group holding the three numbers: `AlertsSpec`. */
 const ALERTS_SERVICE = "steward"
-const ALERTS_FILE = "web"
+const ALERTS_FILE = "alerts"
 
 /**
- * The three numbers steward's measured alerts fire on, editable here; the web group applies at its next start.
+ * The three numbers steward's measured alerts fire on, editable here and applied at steward's next reading.
  *
- * It saves the `web` group with the configuration form's PUT, so a stale revision is refused with a 409.
+ * It saves the `alerts` group with the configuration form's PUT, so a stale revision is refused with a 409.
  */
 function Thresholds({ state }: { state: NotificationActions }) {
   const client = useQueryClient()
@@ -309,9 +309,9 @@ function Thresholds({ state }: { state: NotificationActions }) {
 
 /** The three keys, in the order the alerts read them. */
 const THRESHOLDS: ReadonlyArray<{ key: string; path: string; label: string; unit: string }> = [
-  { key: "disk", path: "alerts.disk-percent", label: "Disk in use", unit: "%" },
-  { key: "memory", path: "alerts.memory-percent", label: "Memory in use", unit: "%" },
-  { key: "backup", path: "alerts.backup-age-hours", label: "Newest backup", unit: "h" },
+  { key: "disk", path: "disk-percent", label: "Disk in use", unit: "%" },
+  { key: "memory", path: "memory-percent", label: "Memory in use", unit: "%" },
+  { key: "backup", path: "backup-age-hours", label: "Newest backup", unit: "h" },
 ]
 
 /** What a deployment that cannot write the file gets: the numbers, and where they are set. */

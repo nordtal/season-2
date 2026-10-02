@@ -70,30 +70,20 @@ public interface WebSpec {
     }
 
     @Order(5)
-    @Name("Alerts")
-    @Key("alerts")
-    @Comment({
-        "When steward's measured alerts turn yellow or red, on every page, by push and in the admin",
-        "channel. A service that is down and a missing backup always alert, deliberately not adjustable."
-    })
-    @Explain("Only these thresholds are a matter of taste; a stopped service and a missing backup always alert.")
-    AlertSpec alerts();
-
-    @Order(6)
     @Name("Avatars")
     @Key("avatars")
     @Comment("Where a Minecraft head image comes from; the address is built from mc_uuid and this base.")
     @NoExplanationNeeded
     AvatarSpec avatars();
 
-    @Order(7)
+    @Order(6)
     @Name("Passkeys")
     @Key("webauthn")
     @Comment("The second factor: which domain a registered security key belongs to.")
     @NoExplanationNeeded
     WebAuthnSpec webauthn();
 
-    @Order(8)
+    @Order(7)
     @Name("Web push")
     @Key("web-push")
     @Comment({
@@ -157,42 +147,6 @@ public interface WebSpec {
         @NoExplanationNeeded
         default String subject() {
             return "mailto:admin@nordtal.eu";
-        }
-    }
-
-    /** The thresholds of steward's measured alerts, the only copy there is. */
-    @ConfigSpec
-    interface AlertSpec {
-
-        @Order(1)
-        @Name("Disk usage (percent)")
-        @Key("disk-percent")
-        @Comment("How full the disk may get before the start page says so; meant to fire long before anything stops.")
-        @NoExplanationNeeded
-        default int diskPercent() {
-            return 85;
-        }
-
-        @Order(2)
-        @Name("Memory usage (percent)")
-        @Key("memory-percent")
-        @Comment("The same for memory, as a share of the whole machine, since no container sets a limit.")
-        @Explain("A share of the whole host's memory, since no container sets a limit of its own.")
-        default int memoryPercent() {
-            return 90;
-        }
-
-        @Order(3)
-        @Name("Backup age (hours)")
-        @Key("backup-age-hours")
-        @Comment({
-            "How old the newest finished backup may be before it alerts red. 36 hours leaves",
-            "one missed night visible. It counts files on disk, not runs that reported success."
-        })
-        @Explain(
-                "Counts files actually on disk, not runs that reported success, since a run once reported success having saved nothing.")
-        default int backupAgeHours() {
-            return 36;
         }
     }
 

@@ -3,6 +3,7 @@ package eu.nordtal.s2.steward.web;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
+import eu.nordtal.s2.steward.alert.Thresholds;
 import eu.nordtal.s2.steward.api.FakeDirectories;
 import eu.nordtal.s2.steward.api.StackApi;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
@@ -27,11 +28,6 @@ final class RouteTable {
             @Override
             public DiscordSpec discord() {
                 return new DiscordSpec() {};
-            }
-
-            @Override
-            public AlertSpec alerts() {
-                return new AlertSpec() {};
             }
 
             @Override
@@ -62,6 +58,7 @@ final class RouteTable {
                 Clock.systemUTC());
         return new Web(
                         config,
+                        () -> new Thresholds(85, 90, 36),
                         new DiscordAuth(config.discord(), config.publicUrl()),
                         stack,
                         agent,

@@ -48,22 +48,22 @@ function json(status: number, body: unknown): Response {
 
 type Call = { url: string; method: string; body: unknown }
 
-const ALERTS = "steward/web"
+const ALERTS = "steward/alerts"
 
 /** The file the three thresholds live in, as `/api/setting-groups/<file>` answers it. */
 function alertsFile(values: Record<string, string> = {}) {
   const value = (path: string, fallback: string) => values[path] ?? fallback
   return {
     service: "steward",
-    name: "web",
+    name: "alerts",
     path: ALERTS,
     readable: true,
     writable: true,
     revision: "rev-1",
     entries: [
-      entry("alerts.disk-percent", "disk-percent", value("alerts.disk-percent", "85")),
-      entry("alerts.memory-percent", "memory-percent", value("alerts.memory-percent", "90")),
-      entry("alerts.backup-age-hours", "backup-age-hours", value("alerts.backup-age-hours", "30")),
+      entry("disk-percent", "disk-percent", value("disk-percent", "85")),
+      entry("memory-percent", "memory-percent", value("memory-percent", "90")),
+      entry("backup-age-hours", "backup-age-hours", value("backup-age-hours", "30")),
     ],
   }
 }
@@ -88,7 +88,7 @@ function backend(
   over: {
     devices?: unknown[]
     preferences?: Record<string, Record<string, boolean>>
-    /** No `web.yml` in the listing at all, the read only shape. */
+    /** No `alerts` group in the listing at all, the read only shape. */
     noAlertsFile?: boolean
     writable?: boolean
   } = {},
@@ -371,7 +371,7 @@ describe("the test send hangs off the paper plane", () => {
   })
 })
 
-/** Keys of `steward/web`, written by the configuration form's PUT with its revision. */
+/** Keys of `steward/alerts`, written by the configuration form's PUT with its revision. */
 describe("the thresholds the notifications fire on", () => {
   it("draws the numbers the file says, not the ones the light happens to hold", async () => {
     vi.stubGlobal("fetch", backend().fetcher)
@@ -397,7 +397,7 @@ describe("the thresholds the notifications fire on", () => {
       {
         url: `/api/setting-groups/${ALERTS}`,
         method: "PUT",
-        body: { revision: "rev-1", changes: { "alerts.disk-percent": "70" } },
+        body: { revision: "rev-1", changes: { "disk-percent": "70" } },
       },
     ])
   })

@@ -6,6 +6,7 @@ import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.settings.DatabaseSpec;
+import eu.nordtal.s2.steward.alert.Thresholds;
 import eu.nordtal.s2.steward.api.StackApi;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.auth.TestAuthenticator;
@@ -188,12 +189,6 @@ abstract class WebFixture {
                 return WEB_PORT;
             }
 
-            // The alerts' thresholds, left at the interface's own defaults.
-            @Override
-            public AlertSpec alerts() {
-                return new AlertSpec() {};
-            }
-
             @Override
             public DiscordSpec discord() {
                 return fakeDiscordSpec();
@@ -256,6 +251,7 @@ abstract class WebFixture {
                 Clock.systemUTC());
         return new Web(
                 config,
+                () -> new Thresholds(85, 90, 36),
                 new DiscordAuth(config.discord(), config.publicUrl(), "http://127.0.0.1:" + DISCORD_PORT),
                 stack,
                 client,

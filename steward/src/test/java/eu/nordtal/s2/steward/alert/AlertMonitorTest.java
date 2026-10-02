@@ -32,6 +32,7 @@ class AlertMonitorTest {
     private AlertBook book;
     private UpdateDirectory runs;
     private Supplier<StackReading> reading;
+    private Thresholds thresholds;
     private AlertMonitor monitor;
 
     @BeforeAll
@@ -48,7 +49,8 @@ class AlertMonitorTest {
         book = AlertBook.using(dataSource);
         runs = UpdateDirectory.using(dataSource);
         reading = () -> stack(10, "running");
-        monitor = new AlertMonitor(() -> reading.get(), new Thresholds(85, 90, 36), book, runs, Clock.systemUTC());
+        thresholds = new Thresholds(85, 90, 36);
+        monitor = new AlertMonitor(() -> reading.get(), () -> thresholds, book, runs, Clock.systemUTC());
     }
 
     /** A stack with fresh backups, one service in {@code state} and the disk {@code diskGib} of 100 GiB full. */
@@ -68,6 +70,15 @@ class AlertMonitorTest {
                 .map(RaisedAlert::alert)
                 .map(alert -> alert.type().key() + " " + alert.level().key() + " " + alert.title())
                 .toList();
+    }
+
+    @Test
+    void aChangedThresholdAppliesAtTheNextReading() {
+        reading = () -> stack(80, "running");
+        monitor.poll();
+        thresholds = new Thresholds(75, 90, 36);
+        monitor.poll();
+        assertEquals(List.of("disk warn The disk is 80 % full"), raised());
     }
 
     @Test

@@ -56,6 +56,18 @@ public final class StewardSettings {
         return settings.load(stewardGroup());
     }
 
+    /** Returns the alerts group, which applies while steward runs, at the monitor's next reading. */
+    public static Group<AlertsSpec> alertsGroup() {
+        return Group.of("alerts", AlertsSpec.class)
+                .checkedBy(StewardSettings::checkAlerts)
+                .whileRunning();
+    }
+
+    /** Loads the alerts group. */
+    public static Setting<AlertsSpec> alerts(final Settings settings) throws SettingsException {
+        return settings.load(alertsGroup());
+    }
+
     /** Loads the web group; its secrets are environment variables and never stored. */
     public static Setting<WebSpec> web(final Settings settings) throws SettingsException {
         return settings.load(Group.of("web", WebSpec.class).checkedBy(StewardSettings::checkWeb));
@@ -98,6 +110,12 @@ public final class StewardSettings {
         }
         requirePublicUrl(config.publicUrl());
         requireRelyingParty(config.webauthn() == null ? null : config.webauthn().relyingPartyId(), config.publicUrl());
+    }
+
+    private static void checkAlerts(final AlertsSpec config) {
+        Checks.requirePositive("disk-percent", config.diskPercent());
+        Checks.requirePositive("memory-percent", config.memoryPercent());
+        Checks.requirePositive("backup-age-hours", config.backupAgeHours());
     }
 
     private static void checkDatabase(final DatabaseSpec config) {

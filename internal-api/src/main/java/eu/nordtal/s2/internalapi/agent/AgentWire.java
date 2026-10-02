@@ -30,6 +30,13 @@ public final class AgentWire {
     /** POST, answered by a {@link RedeployResult}; {@code {id}} is the container. */
     public static final String STOP = "/api/stop/{id}";
 
+    /**
+     * The longest a stop through {@link #STOP} may take: the {@code stop_grace_period}, the kill and its answer.
+     *
+     * The agent never waits a grace longer than this allows, and the client waits this long.
+     */
+    public static final Duration LONGEST_STOP = Duration.ofMinutes(4);
+
     public static final String START = "/api/start/{id}";
 
     /** Every running service's image against its registry: an {@link ImageResult}, slow on purpose. */

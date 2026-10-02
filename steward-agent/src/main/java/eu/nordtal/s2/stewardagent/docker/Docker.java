@@ -31,8 +31,11 @@ public final class Docker {
 
     private static final String LABEL_SERVICE = "com.docker.compose.service";
 
-    /** How long past the grace a stop is waited for: the kill and its answer, and still inside steward's own wait. */
-    private static final java.time.Duration KILL_MARGIN = java.time.Duration.ofSeconds(15);
+    /** How long past the grace a stop is waited for: the kill and its answer. */
+    static final java.time.Duration KILL_MARGIN = java.time.Duration.ofSeconds(15);
+
+    /** Docker's own grace for a container created without {@code stop_grace_period}. */
+    static final int DEFAULT_STOP_TIMEOUT = 10;
 
     /** How long an exec may take before the connection is closed, so a hang becomes a {@link DockerException}. */
     private static final java.time.Duration EXEC_DEADLINE = java.time.Duration.ofSeconds(15);
@@ -96,6 +99,11 @@ public final class Docker {
                 health,
                 state == null ? null : string(state, "StartedAt"),
                 config != null && config.has("Tty") && config.get("Tty").getAsBoolean(),
+                config != null
+                                && config.has("StopTimeout")
+                                && !config.get("StopTimeout").isJsonNull()
+                        ? config.get("StopTimeout").getAsInt()
+                        : DEFAULT_STOP_TIMEOUT,
                 state != null && state.has("ExitCode") && !state.get("ExitCode").isJsonNull()
                         ? state.get("ExitCode").getAsInt()
                         : -1,
@@ -354,6 +362,7 @@ public final class Docker {
     /**
      * One container in full; {@code repoDigests} is what the drift check compares.
      *
+     * @param stopTimeout the seconds Docker waits before a kill, which compose sets from {@code stop_grace_period}
      * @param exitCode what the process exited with, or {@code -1}; {@code 137} is SIGKILL after a stop timed out
      */
     public record Inspection(
@@ -365,6 +374,7 @@ public final class Docker {
             @Nullable String health,
             @Nullable String startedAt,
             boolean tty,
+            int stopTimeout,
             int exitCode,
             List<String> repoDigests) {
 

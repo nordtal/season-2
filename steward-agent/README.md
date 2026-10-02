@@ -31,7 +31,7 @@ so steward and this service compile against one definition. `{service}` is a com
 | `GET /api/topology`                                       | `Topology`: every service in the baked file, its image and its labels' meaning            |
 | `GET /api/containers`                                     | `Containers`: every container of the project with the sampler's last `Reading`            |
 | `GET /api/containers/{service}`                           | one `Container`, with the registry digests of its image; `404` when there is none         |
-| `POST /api/stop/{id}`, `/api/start/{id}`                  | `RedeployResult`; a run's stop and start                                                  |
+| `POST /api/stop/{id}`, `/api/start/{id}`                  | `RedeployResult`; a run's stop and start. A stop waits the service's `stop_grace_period`     |
 | `GET /api/images`                                         | `ImageResult`: each running image against its registry, slow on purpose                   |
 | `GET /api/containers/{service}/logs`                      | SSE: `line` and `run` events, the backlog first; `end` or `gone` when it stops            |
 | `GET /api/containers/{service}/log-capacity?max=`         | `LogCapacity`: how many lines the backlog can fill                                        |

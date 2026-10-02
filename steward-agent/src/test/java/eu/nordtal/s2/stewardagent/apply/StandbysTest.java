@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.internalapi.agent.Topology;
+import eu.nordtal.s2.stewardagent.topology.ComposeFile;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -27,9 +28,10 @@ class StandbysTest {
     void theStandbyGetsTheJarsAndTheDataFilesTheLiveServiceHas() throws IOException {
         write("proxy/plugins/proxy-0.9.3.jar", "new");
         write("proxy/plugins/proxy/icon.png", "icon");
-        mounted(Topology.standbyOf(Topology.PROXY));
+        mounted(ComposeFile.topology().standbyOf(Topology.PROXY).orElseThrow());
 
-        final List<ApplyResult.Outcome> outcomes = Standbys.fill(volumes, List.of(Topology.PROXY));
+        final List<ApplyResult.Outcome> outcomes =
+                Standbys.fill(volumes, List.of(Topology.PROXY), ComposeFile.topology());
 
         assertEquals(1, outcomes.size(), "one row per mounted standby: " + outcomes);
         assertEquals(ApplyResult.Status.DONE, outcomes.getFirst().status(), detail(outcomes));
@@ -50,7 +52,7 @@ class StandbysTest {
         write("limbo/plugins/limbo-0.9.3.jar", "new");
         write("limbo-standby/plugins/limbo-0.9.2.jar", "old");
 
-        Standbys.fill(volumes, List.of(Topology.LIMBO));
+        Standbys.fill(volumes, List.of(Topology.LIMBO), ComposeFile.topology());
 
         assertTrue(Files.isRegularFile(volumes.resolve("limbo-standby/plugins/limbo-0.9.3.jar")));
         assertFalse(
@@ -62,10 +64,11 @@ class StandbysTest {
     @Test
     void aSecondRunInARowCopiesNothingAndSaysSo() throws IOException {
         write("proxy/plugins/proxy-0.9.3.jar", "new");
-        mounted(Topology.standbyOf(Topology.PROXY));
+        mounted(ComposeFile.topology().standbyOf(Topology.PROXY).orElseThrow());
 
-        Standbys.fill(volumes, List.of(Topology.PROXY));
-        final List<ApplyResult.Outcome> second = Standbys.fill(volumes, List.of(Topology.PROXY));
+        Standbys.fill(volumes, List.of(Topology.PROXY), ComposeFile.topology());
+        final List<ApplyResult.Outcome> second =
+                Standbys.fill(volumes, List.of(Topology.PROXY), ComposeFile.topology());
 
         // A second run right after a real one must come back UNCHANGED; an unconditional mirror would say DONE forever.
         assertEquals(ApplyResult.Status.UNCHANGED, second.getFirst().status(), detail(second));
@@ -75,11 +78,12 @@ class StandbysTest {
     void aFileThatChangedWithoutChangingSizeIsCopied() throws IOException {
         // A replaced icon or a hash in a file keeps its size, so comparing by size hides a change.
         write("proxy/plugins/proxy/icon.png", "aaaa");
-        mounted(Topology.standbyOf(Topology.PROXY));
-        Standbys.fill(volumes, List.of(Topology.PROXY));
+        mounted(ComposeFile.topology().standbyOf(Topology.PROXY).orElseThrow());
+        Standbys.fill(volumes, List.of(Topology.PROXY), ComposeFile.topology());
 
         write("proxy/plugins/proxy/icon.png", "bbbb");
-        final List<ApplyResult.Outcome> second = Standbys.fill(volumes, List.of(Topology.PROXY));
+        final List<ApplyResult.Outcome> second =
+                Standbys.fill(volumes, List.of(Topology.PROXY), ComposeFile.topology());
 
         assertEquals(
                 "bbbb",
@@ -93,17 +97,18 @@ class StandbysTest {
         write("proxy/plugins/proxy-0.9.3.jar", "new");
 
         // No proxy-standby directory: an older stack without this feature must not grow a skipped line in the report.
-        assertEquals(List.of(), Standbys.fill(volumes, List.of(Topology.PROXY)));
+        assertEquals(List.of(), Standbys.fill(volumes, List.of(Topology.PROXY), ComposeFile.topology()));
     }
 
     @Test
     void onlyTheServicesTheRunTouchedAreMirrored() throws IOException {
         write("proxy/plugins/proxy-0.9.3.jar", "new");
         write("limbo/plugins/limbo-0.9.3.jar", "new");
-        mounted(Topology.standbyOf(Topology.PROXY));
-        mounted(Topology.standbyOf(Topology.LIMBO));
+        mounted(ComposeFile.topology().standbyOf(Topology.PROXY).orElseThrow());
+        mounted(ComposeFile.topology().standbyOf(Topology.LIMBO).orElseThrow());
 
-        final List<ApplyResult.Outcome> outcomes = Standbys.fill(volumes, List.of(Topology.LIMBO));
+        final List<ApplyResult.Outcome> outcomes =
+                Standbys.fill(volumes, List.of(Topology.LIMBO), ComposeFile.topology());
 
         assertEquals(
                 List.of("limbo-standby"),
@@ -115,9 +120,10 @@ class StandbysTest {
 
     @Test
     void aMountedStandbyWithNothingToCopyFromIsAFailureNotASilence() throws IOException {
-        mounted(Topology.standbyOf(Topology.PROXY));
+        mounted(ComposeFile.topology().standbyOf(Topology.PROXY).orElseThrow());
 
-        final List<ApplyResult.Outcome> outcomes = Standbys.fill(volumes, List.of(Topology.PROXY));
+        final List<ApplyResult.Outcome> outcomes =
+                Standbys.fill(volumes, List.of(Topology.PROXY), ComposeFile.topology());
 
         assertEquals(ApplyResult.Status.FAILED, outcomes.getFirst().status(), detail(outcomes));
         // The status alone could also mean an unhandled exception; the row must name which directory was empty.

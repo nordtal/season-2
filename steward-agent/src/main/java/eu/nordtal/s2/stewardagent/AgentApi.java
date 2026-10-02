@@ -30,6 +30,7 @@ public final class AgentApi implements AutoCloseable {
     private final Sampler sampler;
     private final BundleRoutes bundles;
     private final VolumeSizes sizes;
+    private final ComposeTopology topology;
 
     /**
      * Wires the routes of one compose project.
@@ -44,8 +45,7 @@ public final class AgentApi implements AutoCloseable {
             final Containers.Definitions hashes,
             final Paths paths,
             final Clock clock) {
-        final ComposeTopology topology =
-                new ComposeTopology(definitions, paths.backupSources().toString(), clock);
+        this.topology = new ComposeTopology(definitions, paths.backupSources().toString(), clock);
         this.sampler = new Sampler(docker, new HostMetrics(), project, clock);
         this.logs = new LogStreams(docker, project, paths.volumesRoot(), clock);
         this.routes = new AgentRoutes(
@@ -80,6 +80,11 @@ public final class AgentApi implements AutoCloseable {
     /** Starts the sampler, whose first round is taken at once. */
     public void start() {
         sampler.start();
+    }
+
+    /** What compose.yml's labels say, the one reading the routes and the runs share. */
+    public ComposeTopology topology() {
+        return topology;
     }
 
     public void register(final JavalinConfig config) {

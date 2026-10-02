@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.internalapi.agent.Topology;
 import eu.nordtal.s2.stewardagent.source.Modrinth;
+import eu.nordtal.s2.stewardagent.topology.ComposeFile;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -20,7 +21,7 @@ class AbsentFixedPluginsTest {
             Topology.CORE_PROTECT, "Lu3KuzdV");
 
     private static Topology.Service smp() {
-        return Topology.SERVICES.stream()
+        return ComposeFile.topology().servers().stream()
                 .filter(service -> service.name().equals("smp"))
                 .findFirst()
                 .orElseThrow();

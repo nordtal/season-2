@@ -1,6 +1,7 @@
 package eu.nordtal.s2.stewardagent.run;
 
 import eu.nordtal.s2.common.time.Waiting;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.RedeployResult;
 import eu.nordtal.s2.internalapi.agent.RuntimeResult;
 import eu.nordtal.s2.internalapi.agent.ServiceRuntime;
@@ -57,13 +58,14 @@ final class Choreography {
     /**
      * Which standbys a run over these services needs: one per moving service that has a standby.
      *
+     * @param topology which service has which standby
      * @param moving the services this run is going to stop
-     * @return the compose service names to start first, in {@code SERVICES_WITH_STANDBY} order
+     * @return the compose service names to start first, in compose.yml's order
      */
-    static List<String> standbysFor(final Collection<String> moving) {
-        return Topology.SERVICES_WITH_STANDBY.stream()
-                .filter(moving::contains)
-                .map(Topology::standbyOf)
+    static List<String> standbysFor(final AgentWire.Topology topology, final Collection<String> moving) {
+        return topology.services().stream()
+                .filter(service -> service.standbyOf() != null && moving.contains(service.standbyOf()))
+                .map(AgentWire.Service::name)
                 .toList();
     }
 
@@ -73,7 +75,7 @@ final class Choreography {
      * @return a window that {@link Window#opened() opened}, or one carrying the report sentence of a refused run
      */
     Window open(final Collection<String> moving) {
-        final List<String> wanted = standbysFor(moving);
+        final List<String> wanted = standbysFor(containers.topology(), moving);
         if (wanted.isEmpty()) {
             return new Window(List.of(), null);
         }
@@ -142,7 +144,7 @@ final class Choreography {
     @Nullable
     String waitUntilEmpty(final Collection<String> moving) {
         final List<String> watched =
-                moving.stream().filter(Choreography::canCarryPlayers).toList();
+                moving.stream().filter(this::canCarryPlayers).toList();
         if (watched.isEmpty()) {
             return null;
         }
@@ -205,8 +207,8 @@ final class Choreography {
     }
 
     /** Whether a player could be standing on this service at all; the others need no wait. */
-    private static boolean canCarryPlayers(final String service) {
-        return Topology.SERVICES.stream().anyMatch(one -> one.name().equals(service));
+    private boolean canCarryPlayers(final String service) {
+        return containers.topology().hasPlugins(service);
     }
 
     /**
@@ -252,7 +254,11 @@ final class Choreography {
         final Instant deadline = clock.now().plus(STANDBY_DRAINS_WITHIN);
         while (true) {
             final Instant now = clock.now();
-            final OptionalInt players = Topology.standbyOf(Topology.PROXY).equals(standby)
+            final OptionalInt players = containers
+                            .topology()
+                            .standbyOf(Topology.PROXY)
+                            .filter(standby::equals)
+                            .isPresent()
                     ? occupancy.onStandbyProxy(now)
                     : occupancy.on(standby, now);
             if (players.isEmpty() || players.getAsInt() == 0) {

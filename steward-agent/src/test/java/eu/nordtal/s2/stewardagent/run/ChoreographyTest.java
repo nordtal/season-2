@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.time.Waiting;
+import eu.nordtal.s2.stewardagent.topology.ComposeFile;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -27,24 +28,25 @@ class ChoreographyTest {
 
     @Test
     void theLimboBringsALimboTheProxyBringsAProxyAndTheSmpBringsNeither() {
-        assertEquals(List.of("limbo-standby"), Choreography.standbysFor(Set.of("limbo")));
-        assertEquals(List.of("proxy-standby"), Choreography.standbysFor(Set.of("proxy")));
+        assertEquals(List.of("limbo-standby"), Choreography.standbysFor(ComposeFile.topology(), Set.of("limbo")));
+        assertEquals(List.of("proxy-standby"), Choreography.standbysFor(ComposeFile.topology(), Set.of("proxy")));
         assertEquals(
                 List.of("proxy-standby", "limbo-standby"),
-                Choreography.standbysFor(Set.of("limbo", "proxy")),
-                "the order is SERVICES_WITH_STANDBY's, so a swap always starts the proxy first");
+                Choreography.standbysFor(ComposeFile.topology(), Set.of("limbo", "proxy")),
+                "the order is compose.yml's, so a swap always starts the proxy first");
 
         // A run that moves the SMP needs a waiting room the whole time, and if it leaves limbo alone, limbo IS it.
         assertEquals(
                 List.of(),
-                Choreography.standbysFor(Set.of("smp")),
+                Choreography.standbysFor(ComposeFile.topology(), Set.of("smp")),
                 "an SMP-only run has a waiting room already - the live limbo");
         assertEquals(
                 List.of("limbo-standby"),
-                Choreography.standbysFor(Set.of("smp", "limbo")),
+                Choreography.standbysFor(ComposeFile.topology(), Set.of("smp", "limbo")),
                 "and when the run takes the waiting room too, the standby is the waiting room");
 
-        assertEquals(List.of(), Choreography.standbysFor(Set.of("hunger-games", "discord-bot")));
+        assertEquals(
+                List.of(), Choreography.standbysFor(ComposeFile.topology(), Set.of("hunger-games", "discord-bot")));
     }
 
     // Opening the window

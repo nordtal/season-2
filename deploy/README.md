@@ -301,8 +301,9 @@ a player without the mod notices nothing, and no server requires it.
 - **Terralith and Dungeons and Taverns** are the season's terrain, fetched from `SMP_DATAPACK_URLS`
   before the first start; `smp` refuses to start without them.
 
-Each service lists the plugins it requires in `EXPECTED_PLUGINS`, and a folder missing one stops the
-container. Extra jars are allowed.
+Each server's plugins are its `eu.nordtal.plugins` label in `compose.yml`, `artifact[=jar prefix][?]`
+per plugin. steward-agent reads the label and installs them; the entrypoint reads the same string as
+`SERVER_PLUGINS` and refuses to start while a plugin without `?` is missing. Extra jars are allowed.
 
 ## Troubleshooting
 

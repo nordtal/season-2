@@ -1,11 +1,18 @@
 package eu.nordtal.s2.stewardagent.topology;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
+import eu.nordtal.s2.internalapi.agent.Topology;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /** What {@code compose config} says about the services, read the way a backup and a restore need it. */
@@ -54,5 +61,78 @@ class ComposeTopologyTest {
         assertEquals(
                 List.of(),
                 ComposeTopology.parse(new JsonObject(), "/backup-sources").usersOf("x"));
+    }
+
+    @Test
+    void aServersLabelsSayItsKindItsPluginsTheirJarPrefixesAndWhichItMayLack() {
+        final AgentWire.Topology read = parse("""
+                {"smp": {"labels": {"eu.nordtal.server": "paper",
+                  "eu.nordtal.plugins": "smp display-tags=papermc-display-tags voicechat? tags=other-tags?"}}}
+                """);
+
+        final Topology.Service smp = read.servers().getFirst();
+        assertEquals(Topology.Kind.PAPER, smp.kind());
+        assertEquals(List.of("smp", "display-tags", "voicechat", "tags"), smp.plugins());
+        assertEquals(List.of("voicechat", "tags"), smp.optional());
+        assertEquals(Map.of("display-tags", "papermc-display-tags", "tags", "other-tags"), smp.prefixes());
+        assertEquals("papermc-display-tags", smp.prefixOf("display-tags"));
+        assertEquals("smp", smp.prefixOf("smp"));
+    }
+
+    @Test
+    void aServiceWithoutTheServerLabelHasNoPluginsFolder() {
+        final AgentWire.Topology read = parse("""
+                {"postgres": {"labels": {"eu.nordtal.renew": "last"}}, "proxy": {"labels":
+                  {"eu.nordtal.server": "velocity", "eu.nordtal.plugins": "proxy"}}}
+                """);
+
+        assertEquals(
+                List.of("proxy"),
+                read.servers().stream().map(Topology.Service::name).toList());
+        assertTrue(read.hasPlugins("proxy"));
+        assertFalse(read.hasPlugins("postgres"));
+        assertNull(read.services().getFirst().server());
+    }
+
+    @Test
+    void aStandbyNamesTheServiceItStandsInFor() {
+        final AgentWire.Topology read = parse("""
+                {"proxy": {}, "proxy-standby": {"labels": {"eu.nordtal.standby-of": "proxy"}}, "limbo": {},
+                 "limbo-standby": {"labels": {"eu.nordtal.standby-of": "limbo"}}}
+                """);
+
+        assertEquals(List.of("proxy-standby", "limbo-standby"), read.standbys());
+        assertEquals(Optional.of("limbo-standby"), read.standbyOf("limbo"));
+        assertEquals(Optional.empty(), read.standbyOf("smp"));
+    }
+
+    @Test
+    void theRenewLabelSaysWhenARunMakesAServiceAgainInFileOrder() {
+        final AgentWire.Topology read = parse("""
+                {"postgres": {"labels": {"eu.nordtal.renew": "last"}}, "smp": {"labels": {"eu.nordtal.renew": "run"}},
+                 "caddy": {"labels": {"eu.nordtal.renew": "after"}}, "pack-host": {"labels": {"eu.nordtal.renew": "after"}},
+                 "migrate": {}}
+                """);
+
+        assertEquals(List.of("smp"), read.renewed(AgentWire.Renewal.RUN));
+        assertEquals(List.of("caddy", "pack-host"), read.renewed(AgentWire.Renewal.AFTER));
+        assertEquals(List.of("postgres"), read.renewed(AgentWire.Renewal.LAST));
+    }
+
+    @Test
+    void aLabelNoneOfThisUnderstandsIsRefusedRatherThanReadAsNothing() {
+        assertThrows(IllegalStateException.class, () -> parse("""
+                {"smp": {"labels": {"eu.nordtal.server": "spigot"}}}
+                """));
+        assertThrows(IllegalStateException.class, () -> parse("""
+                {"smp": {"labels": {"eu.nordtal.server": "paper", "eu.nordtal.plugins": "smp tags="}}}
+                """));
+        assertThrows(IllegalStateException.class, () -> parse("""
+                {"smp": {"labels": {"eu.nordtal.renew": "sometimes"}}}
+                """));
+    }
+
+    private static AgentWire.Topology parse(final String services) {
+        return ComposeTopology.parse(JsonParser.parseString(services).getAsJsonObject(), "/backup-sources");
     }
 }

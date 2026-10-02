@@ -3,6 +3,7 @@ package eu.nordtal.s2.stewardagent.topology;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
+import eu.nordtal.s2.internalapi.agent.Topology;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Clock;
@@ -29,6 +30,24 @@ public final class ComposeTopology {
 
     /** The label that marks a service a backup stops while it saves, with the value {@code stop}. */
     public static final String BACKUP = "eu.nordtal.backup";
+
+    /** The label that makes a service a Minecraft server, its value the {@link Topology.Kind}'s Fill project. */
+    public static final String SERVER = "eu.nordtal.server";
+
+    /**
+     * A server's plugins, space-separated as {@code artifact[=jar prefix][?]}, {@code ?} for one it may lack.
+     *
+     * The entrypoint's guard reads the same string as {@code SERVER_PLUGINS}, through a YAML alias.
+     */
+    public static final String PLUGINS = "eu.nordtal.plugins";
+
+    /** The label that makes a service the standby of the one it names. */
+    public static final String STANDBY_OF = "eu.nordtal.standby-of";
+
+    /** The label that says when a run makes a service again: {@code run}, {@code after} or {@code last}. */
+    public static final String RENEW = "eu.nordtal.renew";
+
+    private static final java.util.regex.Pattern SPACES = java.util.regex.Pattern.compile("\\s+");
 
     /** How long one reading is used; the file is baked into the image, only the environment file can change. */
     private static final Duration FRESH_FOR = Duration.ofMinutes(1);
@@ -99,7 +118,10 @@ public final class ComposeTopology {
                     name,
                     text(service, "image"),
                     "true".equals(text(labels, CONSOLE)),
-                    "stop".equals(text(labels, BACKUP))));
+                    "stop".equals(text(labels, BACKUP)),
+                    server(name, labels),
+                    text(labels, STANDBY_OF),
+                    renewal(name, text(labels, RENEW))));
             for (final JsonObject mount : mounts(service)) {
                 final String target = text(mount, "target");
                 if (target != null && target.startsWith(root) && target.length() > root.length()) {
@@ -110,6 +132,54 @@ public final class ComposeTopology {
         final Map<String, List<String>> mountedBy = new LinkedHashMap<>();
         saved.forEach((volume, source) -> mountedBy.put(volume, usersOf(services, source)));
         return new AgentWire.Topology(all, List.copyOf(saved.keySet()), mountedBy);
+    }
+
+    /** The server {@code name}'s labels describe, or none for a service without {@link #SERVER}. */
+    private static Topology.@Nullable Service server(final String name, final JsonObject labels) {
+        final String kind = text(labels, SERVER);
+        if (kind == null) {
+            return null;
+        }
+        final List<String> plugins = new ArrayList<>();
+        final List<String> optional = new ArrayList<>();
+        final Map<String, String> prefixes = new LinkedHashMap<>();
+        final String listed =
+                Objects.requireNonNullElse(text(labels, PLUGINS), "").strip();
+        for (final String entry : listed.isEmpty() ? new String[0] : SPACES.split(listed)) {
+            final boolean mayLack = entry.endsWith("?");
+            final String plain = mayLack ? entry.substring(0, entry.length() - 1) : entry;
+            final int equals = plain.indexOf('=');
+            final String artifact = equals < 0 ? plain : plain.substring(0, equals);
+            if (artifact.isEmpty() || (equals >= 0 && equals == plain.length() - 1)) {
+                throw new IllegalStateException(name + "'s " + PLUGINS + " label has an entry '" + entry
+                        + "' that is not artifact[=jar prefix][?]");
+            }
+            plugins.add(artifact);
+            if (mayLack) {
+                optional.add(artifact);
+            }
+            if (equals >= 0) {
+                prefixes.put(artifact, plain.substring(equals + 1));
+            }
+        }
+        try {
+            return new Topology.Service(name, Topology.Kind.of(kind), plugins, optional, prefixes);
+        } catch (final IllegalArgumentException unknown) {
+            throw new IllegalStateException(name + "'s " + SERVER + " label: " + unknown.getMessage(), unknown);
+        }
+    }
+
+    private static AgentWire.@Nullable Renewal renewal(final String name, final @Nullable String label) {
+        if (label == null) {
+            return null;
+        }
+        try {
+            return AgentWire.Renewal.valueOf(label.toUpperCase(java.util.Locale.ROOT));
+        } catch (final IllegalArgumentException unknown) {
+            throw new IllegalStateException(
+                    name + "'s " + RENEW + " label says '" + label + "', which is none of run, after and last",
+                    unknown);
+        }
     }
 
     /** The services but the agent with a mount of {@code source}, in file order. */

@@ -15,6 +15,7 @@ import eu.nordtal.s2.stewardagent.plan.UpdatePlan;
 import eu.nordtal.s2.stewardagent.source.Checksum;
 import eu.nordtal.s2.stewardagent.source.Fetcher;
 import eu.nordtal.s2.stewardagent.source.RemoteFile;
+import eu.nordtal.s2.stewardagent.topology.ComposeFile;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -471,7 +472,7 @@ class ApplierTest {
                 };
             }
         };
-        return new Applier(config, fetcher, settings).apply(plan);
+        return new Applier(config, fetcher, settings, ComposeFile.topology()).apply(plan);
     }
 
     private static UpdatePlan plan(final Change... changes) {

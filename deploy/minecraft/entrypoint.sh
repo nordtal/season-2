@@ -422,9 +422,10 @@ SERVER_VERSION_RUNNING="${SERVER_VERSION_RUNNING%-*}"
 # plugins
 # steward owns the plugin jars; this script must never fetch them.
 #
-# EXPECTED_PLUGINS lists filename prefixes, split as JarName does (${file%-*.jar}). It is a minimum:
-# extra jars are fine, a missing one refuses the start. A renamed third-party jar would refuse too,
-# loudly and with the prefix named.
+# SERVER_PLUGINS is the service's eu.nordtal.plugins label: artifact[=jar prefix][?], one per plugin.
+# Every entry without a `?` must be installed, matched by its jar prefix (the artefact id where none is
+# given) as JarName splits a filename (${file%-*.jar}). It is a minimum: extra jars are fine, a missing
+# one refuses the start. A renamed third-party jar would refuse too, loudly and with the prefix named.
 if [[ "${ALLOW_NO_PLUGINS:-false}" != "true" ]]; then
     shopt -s nullglob
     installed=("$PLUGINS"/*.jar)
@@ -438,7 +439,7 @@ if [[ "${ALLOW_NO_PLUGINS:-false}" != "true" ]]; then
 Refusing to start: a Minecraft server with no plugins is a server with no season on it, and nothing about it looks wrong until somebody joins. Set ALLOW_NO_PLUGINS=true if a server with no plugins really is what you want."
     fi
 
-    if [[ -n "${EXPECTED_PLUGINS:-}" ]]; then
+    if [[ -n "${SERVER_PLUGINS:-}" ]]; then
         # The identity of every jar actually in the folder, by the JarName rule.
         present=()
         for jar in "${installed[@]}"; do
@@ -447,8 +448,15 @@ Refusing to start: a Minecraft server with no plugins is a server with no season
         done
 
         missing=()
+        required=()
         expected=0
-        for wanted in $EXPECTED_PLUGINS; do
+        # read -a, not an unquoted expansion: a `?` entry is a glob pattern to the shell.
+        read -ra entries <<<"$SERVER_PLUGINS"
+        for entry in "${entries[@]}"; do
+            # One the server may lack is not asked for: an artefact with no build must not keep it down.
+            [[ "$entry" == *\? ]] && continue
+            wanted="${entry#*=}"
+            required+=("$wanted")
             expected=$(( expected + 1 ))
             found=0
             for have in "${present[@]}"; do
@@ -462,7 +470,7 @@ Refusing to start: a Minecraft server with no plugins is a server with no season
 
   missing:  ${missing[*]}
   present:  ${present[*]:-nothing}
-  expected: ${EXPECTED_PLUGINS}
+  expected: ${required[*]}
 
 Refusing to start. A folder with SOME of the plugins in it is the state that looks fine and is not: a Minecraft server missing its season jar starts, reports healthy, and is discovered by the first player who joins.
 
@@ -470,11 +478,11 @@ The likeliest cause is a run that could not reach a source and skipped this whol
 
     docker compose restart steward-agent
 
-If the plugin IS in the folder under a different filename, its publisher renamed the jar: correct EXPECTED_PLUGINS for this service rather than deleting anything."
+If the plugin IS in the folder under a different filename, its publisher renamed the jar: give the new prefix in this service's eu.nordtal.plugins label in compose.yml (artifact=prefix) rather than deleting anything."
         fi
         log "plugins present: ${#installed[@]} jar(s); all ${expected} expected one(s) accounted for"
     else
-        log "plugins present: ${#installed[@]} jar(s) - EXPECTED_PLUGINS is unset, so only 'not empty' was checked"
+        log "plugins present: ${#installed[@]} jar(s) - SERVER_PLUGINS is unset, so only 'not empty' was checked"
     fi
 fi
 

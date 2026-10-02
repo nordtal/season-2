@@ -4,23 +4,35 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.internalapi.agent.Topology;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
  * The standby marker keeps a stopped standby out of the fault count.
  *
- * Docker cannot tell a stopped standby from a crashed backend; only {@link Topology#standbyNames()} knows.
+ * Docker cannot tell a stopped standby from a crashed backend; only the topology the agent serves knows.
  */
 class ServiceRowStandbyFieldTest {
 
-    @Test
-    void everyStandbyTopologyKnowsIsMarked() {
-        assertFalse(Topology.standbyNames().isEmpty(), "a rule about an empty list proves nothing");
+    /** What the agent serves, with the label {@code eu.nordtal.standby-of} on the two standbys. */
+    private static final AgentWire.Topology TOPOLOGY = new AgentWire.Topology(
+            List.of(
+                    new AgentWire.Service("proxy", null, true, false),
+                    new AgentWire.Service("proxy-standby", null, false, false, null, "proxy", null),
+                    new AgentWire.Service("limbo", null, true, false),
+                    new AgentWire.Service("limbo-standby", null, false, false, null, "limbo", null),
+                    new AgentWire.Service("smp", null, true, true),
+                    new AgentWire.Service("postgres", null, false, false)),
+            List.of());
 
-        for (final String standby : Topology.standbyNames()) {
+    @Test
+    void everyStandbyTheTopologyKnowsIsMarked() {
+        assertEquals(List.of("proxy-standby", "limbo-standby"), TOPOLOGY.standbys());
+
+        for (final String standby : TOPOLOGY.standbys()) {
             assertEquals(
                     true, row(standby).get("standby"), standby + " is off on purpose and must not read as a fault");
         }
@@ -38,9 +50,7 @@ class ServiceRowStandbyFieldTest {
 
     @Test
     void theLiveServiceAStandbyBelongsToIsNotMarked() {
-        // A substring match would let a dead proxy pass as its standby.
-        for (final String standby : Topology.standbyNames()) {
-            final String live = standby.substring(0, standby.lastIndexOf('-'));
+        for (final String live : List.of("proxy", "limbo")) {
             assertFalse(row(live).containsKey("standby"), live + " being down is an outage, not a standby at rest");
         }
     }
@@ -49,15 +59,12 @@ class ServiceRowStandbyFieldTest {
     void aNameThatMerelyLooksLikeOneIsNotOne() {
         assertFalse(
                 row("postgres-standby").containsKey("standby"),
-                "the answer comes from Topology, not from how the name ends");
-        assertTrue(
-                Topology.standbyNames().stream().noneMatch("postgres-standby"::equals),
-                "if this ever becomes a real service, the test above is the one to change");
+                "the answer comes from the label, not from how the name ends");
     }
 
     private static Map<String, Object> row(final String service) {
         final Map<String, Object> row = new LinkedHashMap<>();
-        ServiceRows.putStandby(row, service);
+        ServiceRows.putStandby(row, service, TOPOLOGY);
         return row;
     }
 }

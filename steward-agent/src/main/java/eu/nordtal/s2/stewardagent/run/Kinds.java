@@ -54,11 +54,12 @@ final class Kinds {
         final List<String> scope = runner.directory.scopeOf(request.id());
         // Held services are removed first, since starting one to verify it is what the hold forbids.
         final List<String> holds = runner.held();
-        final UpdatePlan plan = Runs.resolve(runner.config, runner.plugins, runner.settings())
+        final AgentWire.Topology topology = runner.topology();
+        final UpdatePlan plan = Runs.resolve(runner.config, topology, runner.plugins, runner.settings())
                 .onlyServices(scope)
                 .withoutServices(holds);
-        UpdateReport planned =
-                ForeignImages.withImages(PlanReport.of(plan), images, scope).withoutLines(holds);
+        UpdateReport planned = ForeignImages.withImages(PlanReport.of(plan), images, topology, scope)
+                .withoutLines(holds);
         final List<String> skipped = holds.stream()
                 .filter(service -> scope.isEmpty() || scope.contains(service))
                 .toList();
@@ -66,7 +67,7 @@ final class Kinds {
             planned = planned.withNote(String.join(", ", skipped) + " is being held down and was"
                     + " left out of this run. Start it again and ask for the update once more.");
         }
-        final List<String> foreign = ForeignImages.staleForeign(images).stream()
+        final List<String> foreign = ForeignImages.staleForeign(topology, images).stream()
                 // A scoped run renews a foreign image only when the scope names it.
                 .filter(service -> scope.isEmpty() || scope.contains(service))
                 // A held service is not renewed either: recreating its container is starting it.
@@ -205,7 +206,7 @@ final class Kinds {
                 throw new Run.Abort(report.withNote("NOTHING WAS INSTALLED. The schema could not be brought to this"
                         + " release, so every server was started again on what it had: " + migrated.message()));
             }
-            final ApplyResult result = Runs.apply(runner.config, plan, runner.settings());
+            final ApplyResult result = Runs.apply(runner.config, runner.topology(), plan, runner.settings());
             report = report.withNote(Report.render(result));
             for (final String service : state.services()) {
                 // Only where the apply succeeded; marking every stopped service INSTALLED here would be premature.
@@ -239,7 +240,8 @@ final class Kinds {
         final List<String> holds = runner.held();
         final List<String> scope = runner.directory.scopeOf(request.id());
         UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING);
-        for (final String service : Runner.restarted(scope, holds)) {
+        final List<String> servers = runner.servers();
+        for (final String service : Runner.restarted(servers, scope, holds)) {
             planned = planned.with(new UpdateReport.ServiceLine(
                     service,
                     UpdateReport.State.PLANNED,
@@ -256,8 +258,7 @@ final class Kinds {
                                             + " this run may restart - either it is not one, or it is being"
                                             + " held down. Nothing was stopped."))));
         }
-        final List<String> untouched = Topology.SERVICES.stream()
-                .map(Topology.Service::name)
+        final List<String> untouched = servers.stream()
                 .filter(holds::contains)
                 .filter(service -> scope.isEmpty() || scope.contains(service))
                 .toList();
@@ -398,7 +399,7 @@ final class Kinds {
                         "it was put down on purpose",
                         Runner.Doubt.IS_ONLY_SAID)
                 // Only when somebody could be standing on one of them, since the countdown warns players.
-                .announced(scope.stream().anyMatch(Runner::isMinecraft))
+                .announced(scope.stream().anyMatch(runner::isMinecraft))
                 .leavingThemDown());
     }
 
@@ -458,9 +459,12 @@ final class Kinds {
                     + " container again. An update hands itself to a one-shot steward-agent whenever this one is"
                     + " out of date, and that one-shot renews it.");
         }
+        final AgentWire.Topology topology = runner.topology();
+        final List<String> recreatable = topology.renewed(AgentWire.Renewal.RUN);
+        final List<String> foreign = ForeignImages.foreign(topology);
         final List<String> unknown = scope.stream()
-                .filter(service -> !ForeignImages.RECREATABLE.contains(service))
-                .filter(service -> !ForeignImages.FOREIGN_IMAGES.contains(service))
+                .filter(service -> !recreatable.contains(service))
+                .filter(service -> !foreign.contains(service))
                 .toList();
         if (!unknown.isEmpty()) {
             return failed("Nothing was stopped: " + String.join(", ", unknown) + " is not a service a run may"
@@ -468,23 +472,15 @@ final class Kinds {
         }
         final List<String> holds = runner.held();
         final List<String> ours = scope.stream()
-                .filter(ForeignImages.RECREATABLE::contains)
+                .filter(recreatable::contains)
                 .filter(service -> !holds.contains(service))
                 .toList();
         // In renewal order, postgres last, since the report goes through it.
-        final List<String> theirs = ForeignImages.FOREIGN_IMAGES.stream()
+        final List<String> theirs = foreign.stream()
                 .filter(scope::contains)
                 .filter(service -> !holds.contains(service))
                 .toList();
-        UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING);
-        for (final String service : ours) {
-            planned = planned.with(new UpdateReport.ServiceLine(
-                    service,
-                    UpdateReport.State.PLANNED,
-                    List.of(new UpdateReport.Change(
-                            "container", null, pull ? "made again from a pulled image" : "made again")),
-                    null));
-        }
+        UpdateReport planned = remadeLines(ours, pull);
         final List<String> skipped = scope.stream().filter(holds::contains).toList();
         if (!skipped.isEmpty()) {
             planned = planned.withNote(String.join(", ", skipped) + " is being held down and was left out: making"
@@ -503,8 +499,22 @@ final class Kinds {
                         "its container was made again",
                         Runner.Doubt.IS_ONLY_SAID)
                 // Postgres and Caddy carry every server's connections, so they are announced like a stop.
-                .announced(ours.stream().anyMatch(Runner::isMinecraft) || !theirs.isEmpty())
+                .announced(ours.stream().anyMatch(runner::isMinecraft) || !theirs.isEmpty())
                 .remaking(ours, theirs, pull));
+    }
+
+    /** A remake's plan before it starts: one planned line for each of our services it makes again. */
+    private static UpdateReport remadeLines(final List<String> ours, final boolean pull) {
+        UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING);
+        for (final String service : ours) {
+            planned = planned.with(new UpdateReport.ServiceLine(
+                    service,
+                    UpdateReport.State.PLANNED,
+                    List.of(new UpdateReport.Change(
+                            "container", null, pull ? "made again from a pulled image" : "made again")),
+                    null));
+        }
+        return planned;
     }
 
     /** Stops the one server, deletes an added plugin's jar and data folder, and starts it again. */
@@ -598,7 +608,7 @@ final class Kinds {
                         "this restore",
                         "the archive was put back",
                         Runner.Doubt.FAILS_THE_RUN)
-                .announced(users.stream().anyMatch(Runner::isMinecraft)));
+                .announced(users.stream().anyMatch(runner::isMinecraft)));
     }
 
     private static Planned restoreDatabase(final Runner runner, final UpdateRequest request, final String dump) {
@@ -608,7 +618,7 @@ final class Kinds {
             return failed("Nothing was stopped and the database was not touched: the database could not be"
                     + " saved as it is first. " + dumped.message());
         }
-        final List<String> users = running(runner, List.copyOf(ForeignImages.RECREATABLE));
+        final List<String> users = running(runner, runner.topology().renewed(AgentWire.Renewal.RUN));
         final UpdateReport planned = stopping(users, "restore", dump)
                 .with(new UpdateReport.ServiceLine(
                         Snapshots.DATABASE,
@@ -661,9 +671,7 @@ final class Kinds {
     private static List<String> running(final Runner runner, final List<String> services) {
         final List<String> holds = runner.held();
         final eu.nordtal.s2.internalapi.agent.RuntimeResult runtime = runner.containers.runtime();
-        return Stream.concat(
-                        Topology.SERVICES.stream().map(Topology.Service::name),
-                        ForeignImages.RECREATABLE.stream().sorted())
+        return Stream.concat(runner.servers().stream(), services.stream().sorted())
                 .distinct()
                 .filter(services::contains)
                 .filter(service -> !holds.contains(service))

@@ -15,6 +15,7 @@ import eu.nordtal.s2.stewardagent.AgentApi;
 import eu.nordtal.s2.stewardagent.Compose;
 import eu.nordtal.s2.stewardagent.config.RunSpec;
 import eu.nordtal.s2.stewardagent.config.RunSpec.BackupSpec;
+import eu.nordtal.s2.stewardagent.topology.ComposeFile;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
@@ -31,6 +32,8 @@ import org.yaml.snakeyaml.Yaml;
 /** The deployment, backup and standby half of {@link TopologyTest}, which reads compose.yml on its own. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TopologyDeploymentTest {
+
+    private static final List<Topology.Service> SERVERS = ComposeFile.topology().servers();
 
     /** The compose service running PostgreSQL, which every process with a login reaches. */
     private static final String DATABASE = "postgres";
@@ -78,7 +81,7 @@ class TopologyDeploymentTest {
     void everyProcessThatCanFailSilentlyReportsAReadinessMarkerToItsContainer() {
         // The marker decides readiness, not the port: a disabled plugin still leaves the port open.
         final List<String> named = new java.util.ArrayList<>(JVM_SERVICES);
-        Topology.SERVICES.forEach(service -> named.add(service.name()));
+        SERVERS.forEach(service -> named.add(service.name()));
 
         for (final String name : named) {
             @SuppressWarnings("unchecked")
@@ -109,7 +112,7 @@ class TopologyDeploymentTest {
         // compose.yml's shell test cannot read the Java constant, so the window is a second copy that can only drift.
         final java.util.regex.Pattern window = java.util.regex.Pattern.compile("-lt (\\d+)");
         final List<String> named = new java.util.ArrayList<>(JVM_SERVICES);
-        Topology.SERVICES.forEach(service -> named.add(service.name()));
+        SERVERS.forEach(service -> named.add(service.name()));
 
         for (final String name : named) {
             @SuppressWarnings("unchecked")
@@ -133,7 +136,7 @@ class TopologyDeploymentTest {
     @Test
     void theMinecraftServicesStillTestThePortAsWellAsTheMarker() {
         // The compose healthcheck replaces the image's own; the port check repeats because the marker lags readiness.
-        for (final Topology.Service service : Topology.SERVICES) {
+        for (final Topology.Service service : SERVERS) {
             @SuppressWarnings("unchecked")
             final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
             @SuppressWarnings("unchecked")
@@ -330,10 +333,15 @@ class TopologyDeploymentTest {
 
     @Test
     void everyServiceNameStewardLooksUpIsAServiceComposeYmlDefines() {
-        // A name Topology uses that compose.yml lacks cannot be found or stopped; steward looks itself up too.
-        final List<String> asked = new java.util.ArrayList<>();
-        Topology.SERVICES.forEach(service -> asked.add(service.name()));
-        asked.addAll(List.of(Topology.DISCORD_BOT, Topology.STEWARD));
+        // A name the code uses that compose.yml lacks cannot be found or stopped; steward looks itself up too.
+        final List<String> asked = List.of(
+                Topology.PROXY,
+                Topology.LIMBO,
+                Topology.HUNGER_GAMES,
+                Topology.SMP,
+                Topology.DISCORD_BOT,
+                Topology.STEWARD,
+                Topology.MIGRATE);
 
         for (final String name : asked.stream().distinct().toList()) {
             assertNotNull(
@@ -616,16 +624,17 @@ class TopologyDeploymentTest {
         assertTrue(text.contains("required: true"), manifest + " no longer requires it");
         assertTrue(
                 smpPlugins().contains(Topology.DISPLAY_TAGS),
-                "smp requires DisplayTags but Topology does not list it, so steward would" + " never install it");
+                "smp requires DisplayTags but its eu.nordtal.plugins label does not name it, so steward would"
+                        + " never install it");
     }
 
     @Test
     void noMinecraftServiceExistsInComposeYmlThatTheTopologyDoesNotKnowAbout() {
         // Catches a backend added to compose.yml and not here, which steward would then quietly never touch.
         final Set<String> known = new LinkedHashSet<>();
-        Topology.SERVICES.forEach(service -> known.add(service.name()));
-        // The standbys are Minecraft services too, deliberately not Topology.Service rows: their jars are copied.
-        known.addAll(Topology.standbyNames());
+        SERVERS.forEach(service -> known.add(service.name()));
+        // The standbys are Minecraft services too, deliberately no servers: their jars are copied.
+        known.addAll(ComposeFile.topology().standbys());
 
         services.forEach((name, definition) -> {
             @SuppressWarnings("unchecked")
@@ -634,8 +643,9 @@ class TopologyDeploymentTest {
             if (environment != null && environment.containsKey("SERVER_KIND")) {
                 assertTrue(
                         known.contains(name),
-                        "compose.yml runs a Minecraft service '" + name + "' that Topology does not know."
-                                + " Add it to Topology.SERVICES - steward will not touch it otherwise.");
+                        "compose.yml runs a Minecraft service '" + name + "' that no label makes a server or a"
+                                + " standby. Give it eu.nordtal.server and eu.nordtal.plugins - steward will not"
+                                + " touch it otherwise.");
             }
         });
     }
@@ -696,7 +706,7 @@ class TopologyDeploymentTest {
     }
 
     private static java.util.List<String> smpPlugins() {
-        return Topology.SERVICES.stream()
+        return SERVERS.stream()
                 .filter(service -> service.name().equals(Topology.SMP))
                 .findFirst()
                 .orElseThrow()

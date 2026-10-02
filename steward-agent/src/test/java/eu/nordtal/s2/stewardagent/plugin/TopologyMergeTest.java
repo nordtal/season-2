@@ -6,12 +6,19 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.internalapi.agent.Topology;
+import eu.nordtal.s2.stewardagent.topology.ComposeFile;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /** {@link PluginDirectory#servicesWith}, where the fixed plugin lists and the {@code service_plugin} rows meet. */
 class TopologyMergeTest {
+
+    private static final List<Topology.Service> SERVERS = ComposeFile.topology().servers();
+
+    private static List<Topology.Service> servicesWith(final List<ManagedPlugin> added) {
+        return PluginDirectory.servicesWith(SERVERS, added);
+    }
 
     private static ManagedPlugin added(final String service, final String slug) {
         return new ManagedPlugin(service, slug, "AbCdEf01", slug + "-bukkit", slug, null, null, Instant.EPOCH, "till");
@@ -26,12 +33,12 @@ class TopologyMergeTest {
 
     @Test
     void noRowsIsTheListTheCodeGivesUnchangedAndNotCopied() {
-        assertSame(Topology.SERVICES, PluginDirectory.servicesWith(List.of()));
+        assertSame(SERVERS, servicesWith(List.of()));
     }
 
     @Test
     void anAddedPluginJoinsItsServicesPluginsAndNothingElses() {
-        final List<Topology.Service> merged = PluginDirectory.servicesWith(List.of(added(Topology.SMP, "worldedit")));
+        final List<Topology.Service> merged = servicesWith(List.of(added(Topology.SMP, "worldedit")));
 
         assertTrue(find(merged, Topology.SMP).plugins().contains("worldedit"));
         assertFalse(find(merged, Topology.LIMBO).plugins().contains("worldedit"));
@@ -42,19 +49,20 @@ class TopologyMergeTest {
 
     @Test
     void andItIsOptionalSoAMissingBuildCanNeverKeepAServerFromStarting() {
-        final List<Topology.Service> merged = PluginDirectory.servicesWith(List.of(added(Topology.SMP, "worldedit")));
+        final List<Topology.Service> merged = servicesWith(List.of(added(Topology.SMP, "worldedit")));
 
         final Topology.Service smp = find(merged, Topology.SMP);
         assertTrue(smp.optional().contains("worldedit"));
-        // guarded() is EXPECTED_PLUGINS: an added plugin must not hold the SMP for lacking a build, like CoreProtect.
-        assertFalse(smp.guarded().contains("worldedit"));
-        assertTrue(smp.guarded().contains(Topology.SMP));
-        assertTrue(smp.guarded().contains(Topology.DISPLAY_TAGS));
+        // An added plugin must not hold the SMP for lacking a build, like CoreProtect; the label's own stay required.
+        assertFalse(smp.optional().contains(Topology.SMP));
+        assertFalse(smp.optional().contains(Topology.DISPLAY_TAGS));
+        // The jar prefixes the label gives survive the merge, since the plugins tab names a jar by them.
+        assertEquals("papermc-display-tags", smp.prefixOf(Topology.DISPLAY_TAGS));
     }
 
     @Test
     void onTheProxyTheArtefactIdCarriesTheLoaderAsVoicechatVelocityAlreadyDoes() {
-        final List<Topology.Service> merged = PluginDirectory.servicesWith(
+        final List<Topology.Service> merged = servicesWith(
                 List.of(added(Topology.PROXY, "simple-voice-chat"), added(Topology.SMP, "simple-voice-chat")));
 
         // One Modrinth project, two jars: without the suffix both resolve to one artefact id, whichever wins.
@@ -66,10 +74,9 @@ class TopologyMergeTest {
     @Test
     void aRowNamingAServiceThatDoesNotExistIsIgnoredNotRefused() {
         // A row addressed to a service name that no longer exists must not fail the resolve for the other services.
-        final List<Topology.Service> merged =
-                PluginDirectory.servicesWith(List.of(added("network-control", "worldedit")));
+        final List<Topology.Service> merged = servicesWith(List.of(added("network-control", "worldedit")));
 
-        assertEquals(Topology.SERVICES.size(), merged.size());
+        assertEquals(SERVERS.size(), merged.size());
         merged.forEach(service -> assertFalse(
                 service.plugins().contains("worldedit"),
                 service.name() + " picked up a row addressed to a service that does not exist"));
@@ -77,8 +84,7 @@ class TopologyMergeTest {
 
     @Test
     void aRowForAPluginTheCodeAlreadyGivesChangesNothingTheFixedEntryWins() {
-        final List<Topology.Service> merged =
-                PluginDirectory.servicesWith(List.of(added(Topology.SMP, Topology.PACKETEVENTS)));
+        final List<Topology.Service> merged = servicesWith(List.of(added(Topology.SMP, Topology.PACKETEVENTS)));
 
         final Topology.Service smp = find(merged, Topology.SMP);
         assertEquals(
@@ -86,7 +92,7 @@ class TopologyMergeTest {
                 smp.plugins().stream().filter(Topology.PACKETEVENTS::equals).count(),
                 "packetevents appears twice, so it would be resolved twice and fought over on disk");
         // It keeps the fixed rows guardedness too: PacketEvents is required on the SMP, a table row cannot demote it.
-        assertTrue(smp.guarded().contains(Topology.PACKETEVENTS));
+        assertFalse(smp.optional().contains(Topology.PACKETEVENTS));
     }
 
     @Test

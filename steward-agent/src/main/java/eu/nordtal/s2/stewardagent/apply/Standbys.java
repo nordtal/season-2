@@ -1,6 +1,6 @@
 package eu.nordtal.s2.stewardagent.apply;
 
-import eu.nordtal.s2.internalapi.agent.Topology;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.stewardagent.plan.Installation;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -29,15 +29,18 @@ public final class Standbys {
      *
      * @param volumesRoot where the services' volumes are mounted in this container
      * @param services the services this run touched; anything without a standby is ignored
+     * @param topology which service has which standby
      * @return one row per standby that is mounted, under the standby's own compose service name
      */
-    public static List<ApplyResult.Outcome> fill(final Path volumesRoot, final Collection<String> services) {
+    public static List<ApplyResult.Outcome> fill(
+            final Path volumesRoot, final Collection<String> services, final AgentWire.Topology topology) {
         final List<ApplyResult.Outcome> outcomes = new ArrayList<>();
-        for (final String service : Topology.SERVICES_WITH_STANDBY) {
-            if (!services.contains(service)) {
+        for (final AgentWire.Service each : topology.services()) {
+            final String service = each.standbyOf();
+            if (service == null || !services.contains(service)) {
                 continue;
             }
-            final String standby = Topology.standbyOf(service);
+            final String standby = each.name();
             final Path target = volumesRoot.resolve(standby).resolve(Installation.PLUGINS);
             if (!Files.isDirectory(volumesRoot.resolve(standby))) {
                 log.info(

@@ -69,10 +69,10 @@ public interface RunSpec {
     @Comment({
         "The Modrinth project id of CoreProtect, the block logger on smp. Without a build for",
         "this Minecraft version it resolves as UNSUPPORTED and installs nothing. Blanking it",
-        "does not retire it; editing Topology.SERVICES does."
+        "does not retire it; removing it from smp's eu.nordtal.plugins label does."
     })
     @Explain(
-            "Resolves UNSUPPORTED rather than failing while there is no build for this version. Retiring it means editing Topology.SERVICES.")
+            "Resolves UNSUPPORTED rather than failing while there is no build for this version. Retiring it means removing it from smp's eu.nordtal.plugins label in compose.yml.")
     default String coreProtectProject() {
         return "Lu3KuzdV";
     }

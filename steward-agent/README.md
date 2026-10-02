@@ -143,7 +143,19 @@ The console set is the label `eu.nordtal.console: "true"` in `compose.yml`, read
 `docker compose config`; a line goes to `mc` as one argument, never through a shell, and the log
 names who typed it. The backup set is the agent's own mounts under `/backup-sources`, and the stop
 set the label `eu.nordtal.backup: stop`; `/api/topology` serves both, and steward keeps no list of
-either. The sampler reads `docker stats` and `/proc` every 30 seconds and keeps the
+either.
+
+The servers are labels too, and nothing in Java mirrors them:
+
+| label                   | on                               | says                                                                         |
+| ----------------------- | -------------------------------- | ---------------------------------------------------------------------------- |
+| `eu.nordtal.server`     | the four Minecraft servers       | `paper` or `velocity`; the service has a plugins folder                      |
+| `eu.nordtal.plugins`    | the same                         | `artifact[=jar prefix][?]` per plugin, `?` where it may be missing           |
+| `eu.nordtal.standby-of` | `proxy-standby`, `limbo-standby` | the service it stands in for, whose `plugins/` it gets a copy of             |
+| `eu.nordtal.renew`      | every service a run makes again  | `run` (stopped, renewed, started), `after` (once the rest is back) or `last` |
+
+The Minecraft entrypoint reads `eu.nordtal.server` and `eu.nordtal.plugins` as `SERVER_KIND` and
+`SERVER_PLUGINS`, YAML aliases of the labels, so the guard and the agent read one string. The sampler reads `docker stats` and `/proc` every 30 seconds and keeps the
 last hour; steward copies what it took into `metric_sample`, asking after the newest round it
 already holds, so a restart of either loses nothing.
 

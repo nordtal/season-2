@@ -94,6 +94,8 @@ x-database:
 services:
   postgres:
     profiles: ["db"]
+    # A run renews its image last of all, since the run's report goes through it.
+    labels: { eu.nordtal.renew: last }
     # On every network a process with a database login is on; see `networks:` at the foot.
     networks: ["default", "steward", "agent-database"]
     # The version the integration tests run against.
@@ -125,8 +127,8 @@ services:
   # held equal by TopologyTest; the profile stays `bot`.
   discord-bot:
     profiles: ["bot"]
-    # A backup stops it while it saves, so bot-config is not written mid-snapshot.
-    labels: { eu.nordtal.backup: stop }
+    # A backup stops it while it saves, so bot-config is not written mid-snapshot; a run renews it.
+    labels: { eu.nordtal.backup: stop, eu.nordtal.renew: run }
     image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/discord-bot:${NORDTAL_RELEASE:?the release every image of ours runs - steward-agent and deploy/nordtal.sh pass it}
     build:
       <<: *jvm-build
@@ -169,6 +171,8 @@ services:
   # `dev pack` builds the zip into PACK_ROOT and sets the proxy's pack to it.
   pack-host:
     profiles: ["devpack"]
+    # Nobody here builds its image; a run renews it once the rest is back.
+    labels: { eu.nordtal.renew: after }
     image: ${PACK_HOST_IMAGE:-nginx:alpine}
     restart: unless-stopped
     ports:
@@ -180,16 +184,23 @@ services:
   # The Velocity proxy.
   proxy:
     <<: *minecraft
-    # steward-agent types into its console; the standbys have none.
-    labels: { eu.nordtal.console: "true" }
+    # What server it is and which plugins it runs, read by steward-agent and, through the aliases in the
+    # environment, by the entrypoint. A plugin is artifact[=jar prefix][?]: the prefix where the jar is not
+    # named after the artefact, `?` where its absence must not stop the server. A run renews it; steward-agent
+    # types into its console, which the standbys do not have.
+    labels:
+      eu.nordtal.server: &proxy-kind velocity
+      # Voice chat's proxy half may be missing: this container is the network.
+      eu.nordtal.plugins: &proxy-plugins "proxy voicechat-velocity?"
+      eu.nordtal.renew: run
+      eu.nordtal.console: "true"
     # Holds nothing that cannot be rebuilt, so the OOM killer should take it first.
     oom_score_adj: 500
     # Anchored so proxy-standby reuses this exact node.
     environment: &proxy-env
       <<: *minecraft-env
-      SERVER_KIND: velocity
-      # Jar name prefixes that must be installed before the proxy starts; a minimum, not an exact set.
-      EXPECTED_PLUGINS: ${PROXY_EXPECTED_PLUGINS:-proxy}
+      SERVER_KIND: *proxy-kind
+      SERVER_PLUGINS: *proxy-plugins
       # Fill's family name; TopologyTest holds it against Platform.VELOCITY_FAMILY.
       SERVER_VERSION: "4.0.0"
       HEAP: ${PROXY_HEAP:-1G}
@@ -222,6 +233,7 @@ services:
   # Shares the proxy's environment node and has volumes of its own.
   proxy-standby:
     <<: *minecraft
+    labels: { eu.nordtal.standby-of: proxy }
     # OomLightningRodTest holds this equal to the proxy's.
     oom_score_adj: 500
     # Started by name only.
@@ -239,16 +251,20 @@ services:
   # The waiting room. Needs the database for one thing only: the player's language.
   limbo:
     <<: *minecraft
-    # steward-agent types into its console; the standbys have none.
-    labels: { eu.nordtal.console: "true" }
+    # As the proxy's.
+    labels:
+      eu.nordtal.server: &limbo-kind paper
+      eu.nordtal.plugins: &limbo-plugins "limbo"
+      eu.nordtal.renew: run
+      eu.nordtal.console: "true"
     # Holds nothing that cannot be rebuilt, so the OOM killer should take it first.
     oom_score_adj: 500
     # Anchored so limbo-standby reuses this exact node.
     environment: &limbo-env
       <<: *minecraft-env
-      SERVER_KIND: paper
+      SERVER_KIND: *limbo-kind
       SERVER_VERSION: "26.2"
-      EXPECTED_PLUGINS: ${LIMBO_EXPECTED_PLUGINS:-limbo}
+      SERVER_PLUGINS: *limbo-plugins
       HEAP: ${LIMBO_HEAP:-1G}
       JVM_OPTS: ${LIMBO_JVM_OPTS:-}
       # No level name or seed: limbo builds its own empty world.
@@ -266,6 +282,7 @@ services:
   # A second limbo that holds players while limbo or the SMP restarts; listed in both velocity.toml files.
   limbo-standby:
     <<: *minecraft
+    labels: { eu.nordtal.standby-of: limbo }
     # Equal to limbo's.
     oom_score_adj: 500
     profiles: ["standby"]
@@ -277,14 +294,17 @@ services:
   # The start event; stoppable once the phase turns to SMP.
   hunger-games:
     <<: *minecraft
-    # steward-agent types into its console; the standbys have none.
-    labels: { eu.nordtal.console: "true" }
+    # As the proxy's. Voice chat runs where people play, not on limbo, and may be missing.
+    labels:
+      eu.nordtal.server: &hunger-games-kind paper
+      eu.nordtal.plugins: &hunger-games-plugins "hunger-games voicechat?"
+      eu.nordtal.renew: run
+      eu.nordtal.console: "true"
     environment:
       <<: *minecraft-env
-      SERVER_KIND: paper
+      SERVER_KIND: *hunger-games-kind
       SERVER_VERSION: "26.2"
-      # Simple Voice Chat is optional, so it is not required here.
-      EXPECTED_PLUGINS: ${HUNGER_GAMES_EXPECTED_PLUGINS:-hunger-games}
+      SERVER_PLUGINS: *hunger-games-plugins
       HEAP: ${HUNGER_GAMES_HEAP:-4G}
       JVM_OPTS: ${HUNGER_GAMES_JVM_OPTS:-}
       # The event world; ComposeWorldTest holds this default against the plugin's.
@@ -303,21 +323,25 @@ services:
   # The SMP: four worlds, and the only service with required third-party plugins.
   smp:
     <<: *minecraft
-    # steward-agent types into its console; a backup stops it, since a snapshot of a running world is torn.
-    labels: { eu.nordtal.console: "true", eu.nordtal.backup: stop }
+    # As the proxy's; a backup also stops it, since a snapshot of a running world is torn. CoreProtect has
+    # no build for every version and voice chat is optional, so neither may stop it.
+    labels:
+      eu.nordtal.server: &smp-kind paper
+      eu.nordtal.plugins: &smp-plugins "smp display-tags=papermc-display-tags packetevents=packetevents-spigot voicechat? coreprotect?"
+      eu.nordtal.renew: run
+      eu.nordtal.console: "true"
+      eu.nordtal.backup: stop
     environment:
       <<: *minecraft-env
-      SERVER_KIND: paper
+      SERVER_KIND: *smp-kind
       SERVER_VERSION: "26.2"
-      # steward resolves DisplayTags and PacketEvents; the datapacks are pinned by sha512.
+      SERVER_PLUGINS: *smp-plugins
+      # The datapacks are pinned by sha512.
       DATAPACK_URLS: ${SMP_DATAPACK_URLS:-f5283548323149ecd3f218b8efbe03c1c582df3f40b6bb3b095ba9e4cac0c87108b98adabd6ebd3a8037ec239773a253f75b8bee7db52e6f5663bf9dc63c2ea3@https://cdn.modrinth.com/data/8oi3bsk5/versions/CzijfXJQ/Terralith_26.2_v2.6.4.zip cf026b67f4fc0f5ab15229995f11faf43fdd41b29777a6756151276e83da65f887fe03b6356c5011f8ba32371f98941778928e4258e81b4c97411a40af1635ca@https://cdn.modrinth.com/data/tpehi7ww/versions/CS77UwHE/Dungeons%20and%20Taverns%20v5.3.2.zip}
       # Must match SmpSpec#world-nordtal; ComposeWorldTest holds that.
       LEVEL_NAME: ${SMP_LEVEL_NAME:-nordtal}
       # Applied only while the world does not exist yet.
       LEVEL_SEED: ${SMP_LEVEL_SEED:-1837371427}
-      # Required jars by filename prefix; CoreProtect and Simple Voice Chat are optional.
-      # TopologyTest holds this list against the optional artefacts.
-      EXPECTED_PLUGINS: ${SMP_EXPECTED_PLUGINS:-smp papermc-display-tags packetevents-spigot}
       HEAP: ${SMP_HEAP:-6G}
       JVM_OPTS: ${SMP_JVM_OPTS:-}
       EULA: ${EULA:?set EULA=true to accept https://aka.ms/MinecraftEULA}
@@ -334,6 +358,7 @@ services:
   # steward: the web interface and its API, payments, alerts and the clocks that ask for runs. It
   # carries out no run. One-shot commands: `forget-factors` and `generate-vapid-keys`.
   steward:
+    labels: { eu.nordtal.renew: run }
     build:
       <<: *jvm-build
       args: { MODULE: steward }
@@ -500,6 +525,7 @@ services:
   # bunq's session for this device, which bunq binds to the device and IP that registered it.
   steward-bunq:
     profiles: ["steward"]
+    labels: { eu.nordtal.renew: run }
     build:
       <<: *jvm-build
       args: { MODULE: steward-bunq }
@@ -529,8 +555,9 @@ services:
   # Caddy: HTTPS for the interface and the guard in front of the game port. The Caddyfile is inline
   # below; compose interpolates `${...}` inside it, so Caddy's `{$VAR}` syntax cannot be used.
   caddy:
-    # Also in `mc`, because it guards the game port; no update run restarts it.
+    # Also in `mc`, because it guards the game port; a run renews it only once the rest is back.
     profiles: ["steward", "mc"]
+    labels: { eu.nordtal.renew: after }
     build:
       # Caddy with the layer 4 app built in.
       context: ./deploy/caddy

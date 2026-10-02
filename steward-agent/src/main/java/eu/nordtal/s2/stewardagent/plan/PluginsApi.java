@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,35 +52,26 @@ public final class PluginsApi {
     private final Map<String, String> fixedProjects;
 
     private final Clock clock;
-
-    /**
-     * Builds the API with no fixed Modrinth plugins.
-     *
-     * @param volumesRoot where the services' volumes are mounted here, or {@code null} when none are, which the list
-     *     reports
-     * @param gameVersion the Minecraft version every search and resolve is filtered to
-     */
-    public PluginsApi(
-            final PluginDirectory plugins,
-            final Modrinth modrinth,
-            final @Nullable Path volumesRoot,
-            final String gameVersion,
-            final Clock clock) {
-        this(plugins, modrinth, volumesRoot, gameVersion, Map.of(), clock);
-    }
+    private final Supplier<List<Topology.Service>> servers;
 
     /**
      * Builds the API.
      *
+     * @param servers the servers as compose.yml's labels describe them, read again on every request
+     * @param volumesRoot where the services' volumes are mounted here, or {@code null} when none are, which the list
+     *     reports
+     * @param gameVersion the Minecraft version every search and resolve is filtered to
      * @param fixedProjects the Modrinth project id of each plugin the network gives, keyed by artefact id
      */
     public PluginsApi(
+            final Supplier<List<Topology.Service>> servers,
             final PluginDirectory plugins,
             final Modrinth modrinth,
             final @Nullable Path volumesRoot,
             final String gameVersion,
             final Map<String, String> fixedProjects,
             final Clock clock) {
+        this.servers = Objects.requireNonNull(servers, "servers");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.fixedProjects = Map.copyOf(fixedProjects);
         this.plugins = Objects.requireNonNull(plugins, "plugins");
@@ -159,7 +151,7 @@ public final class PluginsApi {
                 absent.stream().map(fixedProjects::get).filter(Objects::nonNull).toList());
         for (final String artifact : absent) {
             final Map<String, Object> described = new LinkedHashMap<>();
-            final String nordtal = Topology.nordtalPrefixOf(artifact);
+            final String nordtal = nordtalPrefixOf(service, artifact);
             described.put("name", nordtal != null ? Topology.NORDTAL_PLUGINS.get(nordtal) : artifact);
             described.put("running", false);
             described.put("removable", false);
@@ -260,7 +252,7 @@ public final class PluginsApi {
             final Map<String, String> fixedProjects) {
         final List<String> absent = new ArrayList<>();
         for (final String artifact : service.plugins()) {
-            final String nordtal = Topology.nordtalPrefixOf(artifact);
+            final String nordtal = nordtalPrefixOf(service, artifact);
             final String project = fixedProjects.get(artifact);
             final boolean present;
             if (nordtal != null) {
@@ -402,8 +394,8 @@ public final class PluginsApi {
         final String artifact = Topology.addedArtifact(slug, service.kind());
         if (service.plugins().contains(artifact)) {
             throw new ConflictResponse(service.name() + " already runs " + artifact
-                    + " because the network gives it. It is in Topology.SERVICES and cannot be"
-                    + " added or removed from here.");
+                    + " because the network gives it. compose.yml's eu.nordtal.plugins label names it, so it"
+                    + " cannot be added or removed from here.");
         }
 
         final RemoteFile newest;
@@ -489,11 +481,17 @@ public final class PluginsApi {
     }
 
     private Topology.Service serviceOf(final String name) {
-        return Topology.SERVICES.stream()
+        return servers.get().stream()
                 .filter(service -> service.name().equals(name))
                 .findFirst()
                 .orElseThrow(() -> new NotFoundResponse(name + " is not a Minecraft service."
-                        + " Only the four in Topology.SERVICES have a plugins folder."));
+                        + " Only a service compose.yml labels eu.nordtal.server has a plugins folder."));
+    }
+
+    /** The filename prefix of a fixed artefact Nordtal publishes on this service, or none for another's. */
+    private static @Nullable String nordtalPrefixOf(final Topology.Service service, final String artifact) {
+        final String prefix = service.prefixOf(artifact);
+        return Topology.isNordtal(prefix) ? prefix : null;
     }
 
     private Path pluginsDirectory(final String service) {

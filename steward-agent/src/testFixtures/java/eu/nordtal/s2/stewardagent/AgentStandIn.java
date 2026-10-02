@@ -28,13 +28,19 @@ public final class AgentStandIn implements AutoCloseable {
 
     public static final String TOKEN = "agent-token";
 
-    /** compose.yml as the stand-in reads it: {@code smp} with a console, stopped for a backup, {@code postgres} not. */
+    /**
+     * compose.yml as the stand-in reads it, with {@code smp} and {@code postgres} labelled as they ship.
+     *
+     * {@code smp} is a server with a console that a backup stops and a run renews; {@code postgres} is renewed last.
+     */
     public static final String SERVICES = """
             {"smp":{"image":"ghcr.io/nordtal/minecraft:latest",
-                    "labels":{"eu.nordtal.console":"true","eu.nordtal.backup":"stop"}},
+                    "labels":{"eu.nordtal.console":"true","eu.nordtal.backup":"stop","eu.nordtal.server":"paper",
+                              "eu.nordtal.plugins":"smp display-tags=papermc-display-tags voicechat?",
+                              "eu.nordtal.renew":"run"}},
              "steward-agent":{"image":"ghcr.io/nordtal/steward-agent:latest",
                     "volumes":[{"type":"bind","source":"/srv/mc-smp","target":"%s/nordtal-s2_mc-smp"}]},
-             "postgres":{"image":"postgres:18"}}
+             "postgres":{"image":"postgres:18","labels":{"eu.nordtal.renew":"last"}}}
             """;
 
     public final FakeDaemon daemon;

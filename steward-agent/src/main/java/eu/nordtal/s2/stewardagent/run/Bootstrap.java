@@ -2,11 +2,13 @@ package eu.nordtal.s2.stewardagent.run;
 
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.database.setting.SettingStore;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.stewardagent.apply.ApplyResult;
 import eu.nordtal.s2.stewardagent.config.RunSpec;
 import eu.nordtal.s2.stewardagent.plan.Change;
 import eu.nordtal.s2.stewardagent.plan.UpdatePlan;
 import eu.nordtal.s2.stewardagent.plugin.PluginDirectory;
+import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -20,11 +22,14 @@ public final class Bootstrap {
     private Bootstrap() {}
 
     /** Resolves what is missing and installs it; called before the run loop claims anything, so nothing races it. */
-    public static void installMissing(final RunSpec config, final Database database) {
+    public static void installMissing(
+            final RunSpec config, final Database database, final Supplier<AgentWire.Topology> topology) {
         final SettingStore settings = SettingStore.using(database.dataSource());
         final UpdatePlan missing;
+        final AgentWire.Topology read;
         try {
-            missing = Runs.resolve(config, PluginDirectory.using(database.dataSource()), settings)
+            read = topology.get();
+            missing = Runs.resolve(config, read, PluginDirectory.using(database.dataSource()), settings)
                     .onlyMissing();
         } catch (final RuntimeException failure) {
             log.error(
@@ -53,7 +58,7 @@ public final class Bootstrap {
                 missing.withStatus(Change.Status.MISSING).size());
         final ApplyResult result;
         try {
-            result = Runs.apply(config, missing, settings);
+            result = Runs.apply(config, read, missing, settings);
         } catch (final RuntimeException failure) {
             log.error(
                     "Bootstrap: the install failed part way through. Some volumes may still be empty, and a server"

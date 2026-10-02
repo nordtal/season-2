@@ -133,18 +133,18 @@ class RunnerTest {
         assertEquals(
                 List.of(
                         "dump",
-                        "stop:smp-container",
                         "stop:discord-bot-container",
+                        "stop:smp-container",
                         "backup:nordtal-s2_mc-smp",
                         "backup:nordtal-s2_mc-smp-plugins",
                         "backup:nordtal-s2_mc-hunger-games-plugins",
                         "backup:nordtal-s2_bot-config",
                         "prune:" + defaults().backup().retention().daily(),
-                        "start:smp-container",
-                        "start:discord-bot-container"),
+                        "start:discord-bot-container",
+                        "start:smp-container"),
                 containers.calls);
         assertEquals(
-                List.of("smp", "discord-bot"),
+                List.of("discord-bot", "smp"),
                 directory.find(request.id()).orElseThrow().moving());
     }
 

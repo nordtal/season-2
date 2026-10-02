@@ -2,7 +2,6 @@ package eu.nordtal.s2.steward.api;
 
 import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
-import eu.nordtal.s2.internalapi.agent.Topology;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
@@ -40,11 +39,8 @@ final class DiskUsage {
         this.clock = clock;
     }
 
-    /** The last measurement for {@code service}, or empty when it has no volume or none could be taken. */
+    /** The last measurement for {@code service}, a server, or empty when none could be taken. */
     Optional<Measured> of(final String service) {
-        if (!Topology.hasPlugins(service)) {
-            return Optional.empty();
-        }
         final Measured measured = cache.computeIfAbsent(
                         service,
                         name -> new Refreshed<>(

@@ -351,6 +351,22 @@ public final class Inbox<P> {
                 .list());
     }
 
+    /**
+     * Returns a text that changes whenever a row of this inbox is written, or reads as expired from now on.
+     *
+     * Every write gives a row a newer {@code xmin}; a watcher compares two versions instead of reading the rows.
+     */
+    public String version() {
+        return jdbi.withHandle(handle -> handle.createQuery("""
+                        SELECT coalesce(max(xmin::text::bigint), 0) || ':' || count(*) || ':'
+                               || count(*) FILTER (WHERE status = 'PENDING' AND expires <= now())
+                        FROM <table>
+                        """)
+                .define("table", table.name())
+                .mapTo(String.class)
+                .one());
+    }
+
     /** Returns when the next pending request becomes due, or empty when there is none. */
     public Optional<Instant> nextDue() {
         return jdbi.withHandle(handle -> handle.createQuery("""

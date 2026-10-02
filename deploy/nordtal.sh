@@ -22,7 +22,7 @@
 #
 # Where steward-agent already runs and is healthy, a deploy is an update run like any other: it
 # writes the request and waits for the report. Only an install, or a stack whose agent is down or
-# unhealthy, gets the agent's `up` - which is the emergency repair.
+# unhealthy, gets the agent's `up`, which is the emergency repair.
 #
 # `update` asks steward-agent for a run, the way Steward's buttons do, and waits for its report:
 #

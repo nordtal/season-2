@@ -2,7 +2,7 @@ package eu.nordtal.s2.limbo.config;
 
 import eu.nordtal.s2.settings.Checks;
 
-/** What a valid {@code config.yml} of limbo is beyond its types. */
+/** What a valid {@code config} group of limbo is beyond its types. */
 public final class LimboCheck {
 
     private LimboCheck() {}

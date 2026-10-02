@@ -81,7 +81,7 @@ public final class SmpPlugin extends NordtalPlugin {
     private Setting<SmpSpec> config;
     private Setting<MilestonesSpec> milestoneSettings;
 
-    /** Its own group so a reload can re-read it, unlike {@code config.yml}, which is bound once at enable. */
+    /** Its own group so a reload can re-read it, unlike the {@code config} group, which is bound once at enable. */
     private Setting<SoundsSpec> soundSettings;
 
     /** Swapped by a reload; every listener holds this one instance. */
@@ -290,17 +290,17 @@ public final class SmpPlugin extends NordtalPlugin {
     private void loadMilestoneTrack() {
         final Milestones.Result milestonesResult = Milestones.read(milestoneSettings.get());
         if (!milestonesResult.problems().isEmpty()) {
-            milestonesResult.problems().forEach(problem -> getLogger().severe("milestones.yml: " + problem));
+            milestonesResult.problems().forEach(problem -> getLogger().severe("milestones: " + problem));
         }
         final MilestoneTrack loadedTrack = milestonesResult.track();
         if (loadedTrack == null) {
-            throw fatal("smp is not starting: milestones.yml could not be parsed into a track at all - "
+            throw fatal("smp is not starting: the milestones group could not be parsed into a track at all - "
                     + "see the problem just logged.");
         }
         final List<TrackValidation.Problem> unknown = TrackNames.validate(loadedTrack, TrackNames.Server.running());
         if (!unknown.isEmpty()) {
-            unknown.forEach(problem -> getLogger().severe("milestones.yml: " + problem));
-            throw fatal("smp is not starting: milestones.yml names what this server does not have, see the"
+            unknown.forEach(problem -> getLogger().severe("milestones: " + problem));
+            throw fatal("smp is not starting: the milestones group names what this server does not have, see the"
                     + " problems just logged.");
         }
         track = loadedTrack;

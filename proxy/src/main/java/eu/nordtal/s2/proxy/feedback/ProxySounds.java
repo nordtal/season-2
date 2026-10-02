@@ -27,7 +27,7 @@ public final class ProxySounds implements CommandGate.Chime {
     }
 
     /**
-     * The one sound this module plays: {@link Feedback#REFUSED}, at the key and pitch smp's {@code sounds.yml} ships.
+     * The one sound this module plays: {@link Feedback#REFUSED}, at the key and pitch smp's {@code sounds} group ships.
      *
      * @param problems where a value that had to be ignored is reported, once each
      */

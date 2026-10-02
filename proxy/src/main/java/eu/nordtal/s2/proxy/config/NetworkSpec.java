@@ -11,7 +11,7 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
  * The proxy's own place in the network: whether it is the standby, where players reach it, how often numbers are read.
  * The limit, the allowlist and the MOTD are the network's, in {@code eu.nordtal.s2.settings.network}.
  */
-@ConfigSpec(header = "proxy: its place in the network, taken at its next start")
+@ConfigSpec
 public interface NetworkSpec {
 
     @Order(1)

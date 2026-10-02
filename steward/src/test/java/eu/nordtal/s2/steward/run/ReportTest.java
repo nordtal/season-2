@@ -25,7 +25,7 @@ class ReportTest {
     private static final String GITHUB_403 =
             "HTTP 403 from https://api.github.com/repos/nordtal/season-2/releases/latest"
                     + " - rate limited. GitHub allows 60 unauthenticated requests per hour per IP;"
-                    + " set github-token in steward.yml if this host shares its address. Body: "
+                    + " set github-token in the steward group if this host shares its address. Body: "
                     + "x".repeat(300);
 
     @Test

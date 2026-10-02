@@ -58,7 +58,7 @@ public final class Web {
     /** How long one touch of the security key covers; deliberately not configurable. */
     static final Duration STEP_UP = Duration.ofMinutes(5);
 
-    /** The command that prints a fresh VAPID keypair for {@code web.yml}, named in a refusal below. */
+    /** The command that prints a fresh VAPID keypair for the {@code web} group, named in a refusal below. */
     public static final String GENERATE_VAPID_KEYS = "generate-vapid-keys";
 
     private final WebSpec config;
@@ -257,7 +257,7 @@ public final class Web {
         if (publicKey.isBlank() || privateKey.isBlank()) {
             throw new IllegalArgumentException("web-push has only one of public-key/private-key set"
                     + " - both or neither. Run `steward " + GENERATE_VAPID_KEYS + "` and paste"
-                    + " both lines it prints into web.yml.");
+                    + " both lines it prints into the web group.");
         }
         return com.interaso.webpush.VapidKeys.create(publicKey, privateKey);
     }

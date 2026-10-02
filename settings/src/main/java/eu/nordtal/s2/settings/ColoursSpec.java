@@ -7,19 +7,8 @@ import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
-/** {@code colours.yml}: the five {@link eu.nordtal.s2.messages.Tone} colours a reply is painted with. */
-@ConfigSpec(
-        header = {
-            "Tone colours",
-            "",
-            "The five colours a reply can be painted with: GOOD, BAD, WARN, MUTED and NEUTRAL.",
-            "",
-            "EVERY VALUE IS A HEX COLOUR, like #8ba888. An invalid one is reported in the console",
-            "and the default takes its place; it never stops the server. A reload re-reads it.",
-            "",
-            "Every setting can be overridden with an environment variable: this service's",
-            "prefix, then _COLOURS_ and the setting."
-        })
+/** The {@code colours} group: the five {@link eu.nordtal.s2.messages.Tone} colours a reply is painted with. */
+@ConfigSpec
 public interface ColoursSpec {
 
     @Order(1)

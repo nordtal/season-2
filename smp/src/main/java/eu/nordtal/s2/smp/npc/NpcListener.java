@@ -42,7 +42,7 @@ public final class NpcListener implements Listener {
 
     private final ObjectiveEngine engine;
     private final Identities identities;
-    /** {@code config.yml#wheel-extra-spin-percents}, as a supplier for the same reason as the track. */
+    /** {@code config#wheel-extra-spin-percents}, as a supplier for the same reason as the track. */
     private final java.util.function.Supplier<List<Integer>> extraSpinPercents;
 
     private final Messages messages;

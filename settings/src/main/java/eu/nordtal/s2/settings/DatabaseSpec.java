@@ -9,19 +9,8 @@ import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 import eu.nordtal.jcore.config.spec.annotation.Secret;
 
-/** {@code database.yml}: the one PostgreSQL connection pool of a process. */
-@ConfigSpec(
-        header = {
-            "-------------------------------------------------------------------",
-            "  PostgreSQL connection",
-            "-------------------------------------------------------------------",
-            "In production the password belongs in the environment, not in this",
-            "file. Every setting can be overridden with an environment variable:",
-            "this service's prefix, then _DATABASE_ and the setting, like",
-            "NORDTAL_SMP_DATABASE_PASSWORD. compose.yml names each service's.",
-            "",
-            "An overridden value is never written back into this file."
-        })
+/** The {@code database} group: the one PostgreSQL connection pool of a process. */
+@ConfigSpec
 public interface DatabaseSpec {
 
     @Order(1)

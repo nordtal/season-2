@@ -29,13 +29,13 @@ public final class SmpSounds {
         this.problems = problems;
     }
 
-    /** Reads {@code sounds.yml}. */
+    /** Reads the {@code sounds} group. */
     public static SmpSounds of(final SoundsSpec spec, final Consumer<String> problems) {
         return new SmpSounds(parse(spec, problems), problems);
     }
 
     /**
-     * Re-reads an already-reloaded {@code sounds.yml}, after {@code /smp reload}.
+     * Re-reads an already-reloaded {@code sounds} group, after {@code /smp reload}.
      *
      * A category switched off by {@link FeedbackSounds#failed} comes back, and switches off again if it still throws.
      */

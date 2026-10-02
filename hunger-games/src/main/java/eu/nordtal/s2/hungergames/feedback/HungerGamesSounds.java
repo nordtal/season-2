@@ -28,13 +28,13 @@ public final class HungerGamesSounds {
         this.problems = problems;
     }
 
-    /** Reads {@code sounds.yml}. */
+    /** Reads the {@code sounds} group. */
     public static HungerGamesSounds of(final SoundsSpec spec, final Consumer<String> problems) {
         return new HungerGamesSounds(parse(spec, problems), problems);
     }
 
     /**
-     * Re-reads an already-reloaded {@code sounds.yml}, after {@code /hg reload}.
+     * Re-reads an already-reloaded {@code sounds} group, after {@code /hg reload}.
      *
      * A category switched off by {@link FeedbackSounds#failed} comes back, and switches off again if it still throws.
      */

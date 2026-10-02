@@ -77,7 +77,7 @@ docker compose --env-file /etc/nordtal/season-2.env ps
 
 On its first start steward applies the schema, fills every empty volume and only then writes
 the readiness marker the other services wait for. It never upgrades anything that is installed.
-With `bootstrap: false` in `steward.yml` the servers refuse to start until
+With `bootstrap: false` in the `steward` group the servers refuse to start until
 `docker compose run --rm steward bootstrap` has run.
 
 There is no pin and no rollback: every image is `latest`, and a bad release is fixed by a better one.
@@ -249,7 +249,7 @@ behind `caddy`, which also carries voice chat's UDP to whichever proxy answers.
 ## Backups
 
 Everything that cannot be rebuilt is in PostgreSQL and the world volume, and steward backs up
-both. The nightly run is `steward.yml#backup.at`; `/backup now` asks for one. A run counts down,
+both. The nightly run is `steward#backup.at`; `/backup now` asks for one. A run counts down,
 dumps the database with `pg_dump` inside the postgres container (nothing stops for it), stops the
 configured services, tars each volume through `zstd`, applies retention and starts everything again.
 Every archive is read back before it loses its `.partial` suffix.

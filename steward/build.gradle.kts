@@ -257,7 +257,7 @@ dependencies {
     // Compile-only for Schema, which passes the role placeholders: jcore ships Flyway at runtime.
     compileOnly(libs.flyway.core)
 
-    // The one loader, database.yml and checks every process shares.
+    // The one loader, the database group and checks every process shares.
     implementation(project(":settings"))
     implementation(project(":messages"))
 

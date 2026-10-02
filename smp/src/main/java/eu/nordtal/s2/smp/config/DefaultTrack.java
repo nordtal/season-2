@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The track a fresh {@code milestones.yml} is written with; every key of a spec has to appear in its map.
+ * The track the {@code milestones} group defaults to; every key of a spec has to appear in its map.
  *
  * The shape is the decision; the items are examples, and each pot is {@code round((budget ÷ objectives) × 5, to 10)}.
  */

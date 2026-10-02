@@ -142,7 +142,7 @@ public final class Wheel {
             plugin.getLogger()
                     .warning("wheel-prizes names '" + prize.item()
                             + "', which is not a material - the spin is being put back and nothing was given");
-            // The spin goes back: a bad item name in config.yml is an operator's typo, not bad luck.
+            // The spin goes back: a bad item name in the config group is an operator's typo, not bad luck.
             refund.run();
             tell(
                     player,

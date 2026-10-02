@@ -34,7 +34,7 @@ public final class OwnShare {
      * Summarises a player's contributions.
      *
      * @param rows      one per objective of the active milestone, from {@code ownContributions}
-     * @param thresholds {@code config.yml#wheel-extra-spin-percents}, which {@code ObjectiveEngine} pays out against
+     * @param thresholds {@code config#wheel-extra-spin-percents}, which {@code ObjectiveEngine} pays out against
      */
     public static Summary of(final List<OwnContributionRow> rows, final List<Integer> thresholds) {
         final List<Line> lines = new java.util.ArrayList<>(rows.size());

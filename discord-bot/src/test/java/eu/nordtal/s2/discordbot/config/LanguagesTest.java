@@ -130,7 +130,7 @@ class LanguagesTest {
 
     @Test
     void aLanguageThatIsNotConfiguredFallsBackToEnRatherThanToNothing() {
-        // A tag whose entry was removed from access.yml falls back to English.
+        // A tag whose entry was removed from the access group falls back to English.
         assertAll(
                 () -> assertEquals("en", today().forLocale(Locale.FRENCH).tag()),
                 () -> assertEquals("11", today().forLocale(Locale.FRENCH).contributionChannelId()),

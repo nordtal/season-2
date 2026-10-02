@@ -10,18 +10,11 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 import eu.nordtal.jcore.config.spec.annotation.Secret;
 
 /**
- * {@code web.yml}: how the web interface signs people in and what it pushes to them.
+ * The {@code web} group: how the web interface signs people in and what it pushes to them.
  *
  * Every secret arrives as an environment variable, so the file itself holds none.
  */
-@ConfigSpec(
-        header = {
-            "Nordtal Steward, the web interface.",
-            "",
-            "Secrets are environment variables that win over this file and are never written back:",
-            "NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET, NORDTAL_STEWARD_WEB_DISCORD_BOT_TOKEN and",
-            "NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY."
-        })
+@ConfigSpec
 public interface WebSpec {
 
     @Order(1)
@@ -251,7 +244,7 @@ public interface WebSpec {
         @Name("Guild ID")
         @Key("guild-id")
         @Comment({
-            "The guild whose roles are read, a deliberate second copy of the bot's access.yml value:",
+            "The guild whose roles are read, a deliberate second copy of the bot's access group value:",
             "this one decides who reaches the interface, the bot's who reaches the game."
         })
         @Explain(

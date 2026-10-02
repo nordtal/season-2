@@ -99,7 +99,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Wires the season 2 proxy: the login gate, phase routing, play time, the pack station and update handling.
  *
- * A bad {@code database.yml} or {@code gate.yml} fails closed: every login is refused, admins included.
+ * A bad {@code database} group or the {@code gate} group fails closed: every login is refused, admins included.
  */
 @Plugin(
         id = "proxy",
@@ -446,7 +446,7 @@ public final class ProxyPlugin {
         // Also a listener: it tracks who last spoke to whom for /r, dropped when somebody leaves.
         proxy.getEventManager().register(this, privateMessages);
 
-        // The invite is gate.yml's, the same string every login screen already uses.
+        // The invite is the gate group's, the same string every login screen already uses.
         final InfoTexts infoTexts =
                 new InfoTexts(messages, gateConfig.discordInviteUrl(), roster);
 

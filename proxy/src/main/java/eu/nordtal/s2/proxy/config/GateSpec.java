@@ -7,19 +7,8 @@ import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
-/** {@code config/gate.yml}: everything the login gate and the expiry check need that is not a credential. */
-@ConfigSpec(
-        header = {
-            "proxy: the login gate and the mid-session expiry check",
-            "",
-            "Every setting here can be overridden with an environment variable",
-            "named NORDTAL_PROXY_GATE_<PATH>, with '.' and '-' both",
-            "becoming '_':",
-            "",
-            "  link-code-ttl-minutes  ->  NORDTAL_PROXY_GATE_LINK_CODE_TTL_MINUTES",
-            "",
-            "The environment wins over this file and is never written back into it."
-        })
+/** The {@code gate} group: everything the login gate and the expiry check need that is not a credential. */
+@ConfigSpec
 public interface GateSpec {
 
     @Order(1)

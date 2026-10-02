@@ -53,7 +53,7 @@ public final class ManagedMessages {
     }
 
     /**
-     * Posts or edits two messages per configured language, in the order {@code access.yml} lists them.
+     * Posts or edits two messages per configured language, in the order the {@code access} group lists them.
      *
      * Failures are logged per message: one bad channel id must not stop the others.
      */

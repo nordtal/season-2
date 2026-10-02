@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * The price list from {@code access.yml}, and the rule that turns arrived money into a grant.
+ * The price list from the {@code access} group, and the rule that turns arrived money into a grant.
  *
  * A covered order is granted as ordered; a short payment is downgraded to the highest tier it covers.
  */

@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The four refill tiers a fresh {@code config.yml} is written with, basic to overpowered.
+ * The four refill tiers the {@code config} group defaults to, basic to overpowered.
  *
  * Each is one shared chest's contents, one of each material, with no quantities or randomness.
  */

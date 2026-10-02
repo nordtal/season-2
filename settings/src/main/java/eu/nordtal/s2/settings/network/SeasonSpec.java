@@ -8,7 +8,7 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /** The season the network runs, which every message can name as {@code {season.number}} and {@code {season.name}}. */
-@ConfigSpec(header = "network: the season this installation runs")
+@ConfigSpec
 public interface SeasonSpec {
 
     @Order(1)

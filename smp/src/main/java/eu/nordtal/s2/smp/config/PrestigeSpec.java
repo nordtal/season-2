@@ -10,32 +10,11 @@ import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code prestige.yml}: the thirteen crest tiers, when each is reached and the colour a name is drawn in.
+ * The {@code prestige} group: the thirteen crest tiers, when each is reached and the colour a name is drawn in.
  *
  * Hours and colours are sibling blocks with the same keys, so steward pairs them; {@code admin} sits beside both.
  */
-@ConfigSpec(
-        header = {
-            "smp: the prestige crest ladder",
-            "",
-            "Thirteen tiers, each with the online time that reaches it and the colour a name is drawn",
-            "in once it does: chat, the tab list, the nametag and every system line that names them.",
-            "",
-            "THE TWO BLOCKS BELOW HAVE THE SAME THIRTEEN KEYS. 'hours' and 'colours' are one ladder",
-            "written twice; do not add a key to one without adding it to the other.",
-            "",
-            "HOURS are network-wide online time, AFK included. Exactly thirteen values, the first 0,",
-            "rising strictly: the resource pack draws thirteen crests. The tier is derived and never",
-            "stored, so retuning this is an edit and a '/smp reload'.",
-            "",
-            "EVERY COLOUR IS A HEX COLOUR, like #5fbfae. An invalid one is reported in the console and",
-            "the default takes its place; it never stops the server. A bad HOUR does stop the load.",
-            "",
-            "'admin' is not a fourteenth tier. It is the one colour that wins over all thirteen.",
-            "",
-            "Every setting can be overridden with an environment variable named",
-            "NORDTAL_SMP_PRESTIGE_<PATH>, with '.' and '-' both becoming '_'."
-        })
+@ConfigSpec
 public interface PrestigeSpec {
 
     @Order(1)

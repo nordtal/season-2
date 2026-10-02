@@ -20,7 +20,7 @@ import java.util.function.Function;
 /**
  * {@code /discord} and {@code /rules}: two commands that print one line each.
  *
- * The proxy owns them so they work in the waiting room; the invite is {@code gate.yml#discord-invite-url}.
+ * The proxy owns them so they work in the waiting room; the invite is {@code gate#discord-invite-url}.
  */
 public final class InfoTexts {
 

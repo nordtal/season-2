@@ -27,7 +27,7 @@ dependencies {
     // The access API and the message system; JDBI, HikariCP and slf4j come from jcore at runtime.
     implementation(project(":database"))
     implementation(project(":messages"))
-    // The one loader, database.yml and checks every process shares.
+    // The one loader, the database group and checks every process shares.
     implementation(project(":settings"))
 
     implementation(libs.jda)

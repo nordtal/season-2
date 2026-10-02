@@ -9,7 +9,7 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 import java.util.List;
 
 /** How many players the network takes and what they may type, which the proxy enforces and every server reads. */
-@ConfigSpec(header = "network: how many players the network takes, and what a player may type")
+@ConfigSpec
 public interface PlayersSpec {
 
     @Order(1)

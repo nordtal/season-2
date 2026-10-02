@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The lists a fresh {@code config.yml} is written with; placeholders until the spawn is built.
+ * The lists the {@code config} group defaults to; placeholders until the spawn is built.
  *
  * {@code Specs.createUnsafe} applies no defaults, so every key of a spec has to appear in its map.
  */

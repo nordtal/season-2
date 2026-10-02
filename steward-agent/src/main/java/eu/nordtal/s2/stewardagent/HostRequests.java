@@ -1,9 +1,9 @@
 package eu.nordtal.s2.stewardagent;
 
 import eu.nordtal.jcore.persistence.sql.Database;
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.common.time.Waiting;
-import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateRequest;

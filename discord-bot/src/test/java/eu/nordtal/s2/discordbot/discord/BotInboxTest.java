@@ -89,7 +89,7 @@ class BotInboxTest {
             Instant.parse("2026-10-02T00:00:00Z"),
             Instant.parse("2026-11-01T00:00:00Z"));
 
-    private static Request<BotRequest> row(final BotRequest payload, final eu.nordtal.s2.database.Actor actor) {
+    private static Request<BotRequest> row(final BotRequest payload, final eu.nordtal.s2.common.id.Actor actor) {
         return new Request<>(
                 1,
                 BotRequest.TABLE.kindOf(payload),
@@ -105,7 +105,7 @@ class BotInboxTest {
     }
 
     private String answer(final BotRequest payload) {
-        final Outcome outcome = subject.handle(row(payload, eu.nordtal.s2.database.Actor.person(ADMIN)));
+        final Outcome outcome = subject.handle(row(payload, eu.nordtal.s2.common.id.Actor.person(ADMIN)));
         return Json.encode(assertInstanceOf(Outcome.Done.class, outcome).answer());
     }
 
@@ -172,7 +172,7 @@ class BotInboxTest {
     @Test
     void aRowStewardAskedForIsFiledAsTheSystem() {
         subject.handle(
-                row(new BotRequest.Revoke(DiscordId.of("400000000000000002")), eu.nordtal.s2.database.Actor.STEWARD));
+                row(new BotRequest.Revoke(DiscordId.of("400000000000000002")), eu.nordtal.s2.common.id.Actor.STEWARD));
 
         // Steward is an actor kind of its own, never a made-up name in the id column.
         assertEquals(List.of("revoke 400000000000000002 by STEWARD null"), carriedOut);

@@ -3,7 +3,7 @@ package eu.nordtal.s2.settings;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParser;
-import eu.nordtal.s2.database.Actor;
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.setting.SettingStore;
 import java.time.Instant;
 import java.util.ArrayList;

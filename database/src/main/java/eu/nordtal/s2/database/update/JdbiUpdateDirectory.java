@@ -4,8 +4,8 @@ import static eu.nordtal.s2.database.DatabaseMessages.MESSAGES;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.json.Json;
-import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.Outcome;

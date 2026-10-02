@@ -1,7 +1,7 @@
 package eu.nordtal.s2.database.inbox;
 
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.json.Json;
-import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.messages.Refusal;
 import java.time.Instant;
 import java.util.Objects;

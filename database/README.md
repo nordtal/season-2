@@ -29,8 +29,9 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
   bank payment books at most one request, which the unique index on `bunq_payment_id` decides; `Tiers` is the
   rule for what an amount buys.
 - **Time** comes from the caller: every directory that decides by the clock takes an `InstantSource`.
-- **Who asked** for a request is an `Actor`: a person by Discord id, Steward on its own, or the host's
-  installer, stored as `actor_kind` and `actor_id` in every request table and never as a name to parse.
+- **Who asked** for a request is `:common`'s `Actor`: a person by Discord id, Steward on its own, or the host's
+  installer, stored as `actor_kind` and `actor_id` in every table that records who asked (the request tables, the
+  journal and `service_plugin`) and never as a name to parse.
 - **The journal**, `audit_log`, is written only through `Journal.write`, inside the caller's transaction where there is
   one. An `AuditLine` is an action, an `Actor` like a request's, the person it concerns and typed facts under their
   own keys; it never holds a sentence, because the page that shows a line renders it and a sentence cannot be

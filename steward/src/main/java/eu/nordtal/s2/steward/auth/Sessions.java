@@ -1,7 +1,7 @@
 package eu.nordtal.s2.steward.auth;
 
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.id.DiscordId;
-import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.audit.AuditLine;
 import java.security.SecureRandom;

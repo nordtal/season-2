@@ -1,8 +1,8 @@
 package eu.nordtal.s2.steward.api;
 
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.time.Backoff;
 import eu.nordtal.s2.common.time.Waiting;
-import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.DatabaseText;
 import eu.nordtal.s2.database.inbox.HungerGamesRequest;
 import eu.nordtal.s2.database.inbox.Inbox;

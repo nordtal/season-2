@@ -1,7 +1,7 @@
 package eu.nordtal.s2.database.phase;
 
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.database.Actor;
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.messages.Refused;
 import java.time.Clock;
 import java.time.Instant;

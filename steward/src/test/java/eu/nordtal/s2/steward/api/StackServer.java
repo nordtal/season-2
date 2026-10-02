@@ -1,7 +1,7 @@
 package eu.nordtal.s2.steward.api;
 
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.json.Json;
-import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.steward.web.ErrorHandlers;
 import eu.nordtal.s2.stewardagent.AgentStandIn;

@@ -3,7 +3,7 @@ package eu.nordtal.s2.steward.api;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import eu.nordtal.s2.database.Actor;
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.setting.SettingStore;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.ConflictResponse;

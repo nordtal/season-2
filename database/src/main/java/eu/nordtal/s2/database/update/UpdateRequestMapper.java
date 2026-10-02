@@ -1,8 +1,8 @@
 package eu.nordtal.s2.database.update;
 
 import com.google.gson.JsonElement;
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.json.Json;
-import eu.nordtal.s2.database.Actor;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;

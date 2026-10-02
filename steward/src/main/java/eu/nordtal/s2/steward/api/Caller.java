@@ -1,6 +1,6 @@
 package eu.nordtal.s2.steward.api;
 
-import eu.nordtal.s2.database.Actor;
+import eu.nordtal.s2.common.id.Actor;
 import io.javalin.http.Context;
 
 /** Who is asking, as the web's sessions know it; the stack routes hold no session of their own. */

@@ -455,7 +455,7 @@ public final class StackApi implements AutoCloseable {
      *
      * The run takes a fresh backup first, counts down and stops what the archive replaces; this only writes the row.
      */
-    void restore(final io.javalin.http.Context ctx, final eu.nordtal.s2.database.Actor actor) {
+    void restore(final io.javalin.http.Context ctx, final eu.nordtal.s2.common.id.Actor actor) {
         final String name = ctx.pathParam("name");
         final AgentWire.Archive archive = archives().stream()
                 .filter(each -> each.name().equals(name))

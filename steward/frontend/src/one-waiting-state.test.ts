@@ -23,6 +23,11 @@ const NO_WAITING_SHAPE = new Map<string, string>([
       " HealthDot in components/steward/status.tsx draws its own skeleton for it.",
   ],
   [
+    "components/steward/recreate.tsx",
+    "useAskForRun is a mutation, and useAgent only gates the button, whose title says when its state is not" +
+      " known yet. Nothing here waits to draw.",
+  ],
+  [
     "components/steward/console.tsx",
     "useConsole is a mutation. The log is a stream, not a query, and says" +
       ' "Waiting for the log" in its own window until the first line arrives.',

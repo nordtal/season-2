@@ -4,7 +4,6 @@ import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.common.time.Waiting;
-import eu.nordtal.s2.database.DatabaseRole;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.InboxTable;
 import eu.nordtal.s2.database.inbox.Inboxes;
@@ -14,21 +13,18 @@ import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.online.OnlineDirectory;
 import eu.nordtal.s2.database.online.OnlineRoster;
 import eu.nordtal.s2.database.setting.SettingStore;
-import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
-import eu.nordtal.s2.internalapi.agent.ContainerOps;
-import eu.nordtal.s2.internalapi.agent.Snapshots;
 import eu.nordtal.s2.settings.DatabaseSettings;
 import eu.nordtal.s2.settings.DatabaseSpec;
-import eu.nordtal.s2.settings.EnvironmentSettings;
+import eu.nordtal.s2.settings.DatabaseWaiting;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.SettingsException;
 import eu.nordtal.s2.settings.network.NetworkSettings;
 import eu.nordtal.s2.steward.alert.Thresholds;
+import eu.nordtal.s2.steward.api.PluginsForward;
 import eu.nordtal.s2.steward.api.StackApi;
-import eu.nordtal.s2.steward.apply.ApplyResult;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.backup.Schedules;
 import eu.nordtal.s2.steward.bunq.PaymentLoop;
@@ -37,32 +33,22 @@ import eu.nordtal.s2.steward.config.StewardSettings;
 import eu.nordtal.s2.steward.config.StewardSpec;
 import eu.nordtal.s2.steward.config.WebSpec;
 import eu.nordtal.s2.steward.data.Data;
-import eu.nordtal.s2.steward.http.SourceHttp;
 import eu.nordtal.s2.steward.metric.MetricRecorder;
-import eu.nordtal.s2.steward.plan.Change;
-import eu.nordtal.s2.steward.plan.UpdatePlan;
-import eu.nordtal.s2.steward.run.Report;
-import eu.nordtal.s2.steward.run.Runs;
-import eu.nordtal.s2.steward.schema.RunLock;
-import eu.nordtal.s2.steward.schema.Schema;
-import eu.nordtal.s2.steward.schema.ServeLock;
-import eu.nordtal.s2.steward.serve.Runner;
-import eu.nordtal.s2.steward.serve.UpdateServer;
 import eu.nordtal.s2.steward.web.Web;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.util.Locale;
-import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.LoggerFactory;
 
 /**
- * Entry point: {@code report} (the default), {@code migrate}, {@code bootstrap}, {@code serve} and two host commands.
+ * Entry point: {@code serve}, {@code forget-factors} and {@code generate-vapid-keys}.
  *
- * Those are {@code forget-factors} and {@code generate-vapid-keys}; exit code 1 is no report or a failed bootstrap.
+ * Steward is the interface; every run, the schema and every file belong to steward-agent.
  */
 @Slf4j
 public final class Steward {
@@ -79,28 +65,11 @@ public final class Steward {
     /** Where the last installation's settings files are mounted, imported once and then deleted. */
     private static final String DEFAULT_CONFIG_DIR = "config";
 
-    /**
-     * Fills empty volumes on a fresh deployment, which has no schema and so cannot ask for an update.
-     *
-     * It installs only what is missing, so it can never replace a jar under a running server.
-     */
-    private static final String BOOTSTRAP = "bootstrap";
-
-    /** The schema on its own. */
-    private static final String MIGRATE = "migrate";
-
-    /** The run loop, the payment loop, the scheduled clocks and the web interface, for the container's lifetime. */
+    /** The payment loop, the scheduled clocks and the web interface, for the container's lifetime. */
     private static final String SERVE = "serve";
 
     /** Clears a signed-in admin's second factor. Reachable only from a shell on the host. */
     private static final String FORGET = "forget-factors";
-
-    /**
-     * The read-only run, by name.
-     *
-     * {@code docker compose run --rm steward} passes the service's command, so the default is unreachable.
-     */
-    private static final String REPORT = "report";
 
     private Steward() {}
 
@@ -109,136 +78,21 @@ public final class Steward {
                 Path.of(System.getenv().getOrDefault("NORDTAL_STEWARD_CONFIG_DIR", DEFAULT_CONFIG_DIR));
 
         final int status = switch (command(args)) {
-            // The schema on its own, so this works on a host with no release yet.
-            case MIGRATE -> migrate() ? 0 : 1;
-            case SERVE -> serve(configDirectory);
-            case BOOTSTRAP -> bootstrap(configDirectory);
             case FORGET -> ForgetFactors.run(args, databaseConfig(), CLOCK);
             case Web.GENERATE_VAPID_KEYS -> generateVapidKeys();
-            // Retired, and named so it does not fall through to a report that looks like it worked.
-            case "apply" -> {
-                log.error("`apply` is retired. It installed jars underneath running servers. Use"
-                        + " `bootstrap` to fill EMPTY volumes on a fresh deployment, or ask for an"
-                        + " update from Discord or in game - that stops each server before its jars"
-                        + " move and starts it again afterwards.");
-                yield 1;
+            case SERVE, "" -> serve(configDirectory);
+            // Refused rather than served: a second interface beside the running one is never what a typo meant.
+            default -> {
+                log.error(
+                        "`{}` is not one of steward's commands: serve, {} and {}. A run is asked for in the"
+                                + " interface or with `steward-agent request`.",
+                        command(args),
+                        FORGET,
+                        Web.GENERATE_VAPID_KEYS);
+                yield 2;
             }
-            // Named as well as defaulted, since `docker compose run --rm steward` cannot reach the default.
-            case REPORT -> report();
-            default -> report();
         };
         System.exit(status);
-    }
-
-    private static int report() {
-        // The one caller that may run with no database, so its absence is said out loud.
-        final DatabaseSpec databaseConfig = databaseConfig();
-        final Database opened =
-                databaseConfig == null ? null : DatabaseWaiting.openDatabase(databaseConfig, Waiting.on(CLOCK));
-        try {
-            final StewardSpec config = reportConfig(opened);
-            if (config == null) {
-                return 1;
-            }
-            final eu.nordtal.s2.steward.plugin.PluginDirectory plugins = opened == null
-                    ? eu.nordtal.s2.steward.plugin.PluginDirectory.NONE
-                    : eu.nordtal.s2.steward.plugin.PluginDirectory.using(opened.dataSource());
-            if (opened == null) {
-                log.warn("No database, so any plugin added from the interface is missing from this"
-                        + " report. Everything the topology names is in it.");
-            }
-            // stdout, not the logger, so the report can be pasted as is.
-            System.out.println(Report.render(
-                    Runs.resolve(config, plugins, opened == null ? null : SettingStore.using(opened.dataSource()))));
-        } finally {
-            if (opened != null) {
-                opened.close();
-            }
-        }
-        return 0;
-    }
-
-    /**
-     * Resolves, migrates and installs what is missing, on the host, on demand.
-     *
-     * It writes no row into the run inbox, since on a fresh deployment the table does not exist yet.
-     */
-    private static int bootstrap(final Path configDirectory) {
-        final DatabaseSpec databaseConfig = databaseConfig();
-        if (databaseConfig == null) {
-            return 1;
-        }
-
-        final Database opened = DatabaseWaiting.openDatabase(databaseConfig, Waiting.on(CLOCK));
-        if (opened == null) {
-            return 1;
-        }
-        try (Database database = opened) {
-            final Optional<RunLock> lock;
-            try {
-                lock = RunLock.tryAcquire(database.dataSource());
-            } catch (final java.sql.SQLException failure) {
-                log.error("Could not reach the database to take the run lock. Nothing was done.", failure);
-                return 1;
-            }
-            if (lock.isEmpty()) {
-                log.error("Another run is in progress - almost certainly the `steward` service,"
-                        + " working on a request from Discord, from in game or from the web. Nothing was"
-                        + " done. Wait for it to finish and run this again.");
-                return 1;
-            }
-
-            try (RunLock held = lock.get()) {
-                return bootstrapUnderLock(configDirectory, database);
-            }
-        }
-    }
-
-    /** Migrates, then resolves what is missing, prints it and installs it under the bootstrap lock. */
-    private static int bootstrapUnderLock(final Path configDirectory, final Database database) {
-        // Before a single jar moves, so a plugin never meets a schema older than itself; the settings live in it.
-        try {
-            Schema.migrate(database, Schema.passwords(System.getenv()));
-        } catch (final RuntimeException failure) {
-            log.error("The database schema could not be applied. Nothing else was done.", failure);
-            return 1;
-        }
-        final DatabaseSettings settings =
-                StewardSettings.importing(database.dataSource(), configDirectory, SETTINGS_LOG);
-        final StewardSpec config;
-        try {
-            config = StewardSettings.steward(settings).get();
-        } catch (final SettingsException broken) {
-            log.error("Refusing to run on settings that cannot be read: {}", broken.getMessage());
-            return 1;
-        }
-        settings.retireFiles();
-        final SettingStore store = SettingStore.using(database.dataSource());
-        final UpdatePlan resolved =
-                Runs.resolve(config, eu.nordtal.s2.steward.plugin.PluginDirectory.using(database.dataSource()), store);
-        final UpdatePlan plan = resolved.onlyMissing();
-        System.out.println(Report.render(resolved));
-        // Even when not empty, so a report naming only the install does not read as a failure.
-        final int skipped = resolved.changes().stream()
-                        .filter(change -> change.status().isWork())
-                        .toList()
-                        .size()
-                - plan.changes().stream()
-                        .filter(change -> change.status().isWork())
-                        .toList()
-                        .size();
-        if (skipped > 0) {
-            System.out.println("\n" + skipped + " of the entries above "
-                    + (skipped == 1 ? "is an upgrade" : "are upgrades") + " rather than something missing,"
-                    + " and this command does not perform upgrades - only what is absent is"
-                    + " installed below. Ask for an update from Discord or in game: it"
-                    + " stops each server before its jars move, which is the whole"
-                    + " difference.");
-        }
-
-        final ApplyResult result = Runs.apply(config, plan, store);
-        System.out.println(Report.render(result));
-        return result.hasFailures() ? 1 : 0;
     }
 
     private static int serve(final Path configDirectory) {
@@ -246,17 +100,23 @@ public final class Steward {
         if (databaseConfig == null) {
             return 1;
         }
-        final Database opened = DatabaseWaiting.openDatabase(databaseConfig, Waiting.on(CLOCK));
+        final Database opened = DatabaseWaiting.openDatabase(databaseConfig, SERVE, Waiting.on(CLOCK));
         if (opened == null) {
             return 1;
         }
         try (Database database = opened) {
-            return serveWithDatabase(configDirectory, databaseConfig, database);
+            final Configs configs = configsOf(configDirectory, databaseConfig, database);
+            if (configs == null) {
+                return 1;
+            }
+            clearOldRequests(database);
+            markReady();
+            return serveNetwork(configs, database);
         }
     }
 
     /**
-     * The settings {@code serve} runs on, taken once the schema is current.
+     * The settings {@code serve} runs on.
      *
      * @param handle the steward group, so a change in Steward re-arms the two clocks
      * @param config what {@code handle} hands out, which reads through to every reload
@@ -270,57 +130,6 @@ public final class Steward {
             DatabaseSpec database,
             DatabaseSettings settings,
             ZoneId zone) {}
-
-    /** Takes the serve lock and, once held, runs the container's whole lifetime. */
-    private static int serveWithDatabase(
-            final Path configDirectory, final DatabaseSpec databaseConfig, final Database database) {
-        // First: settleOrphans closes every RUNNING row, which is only right while one process claims them.
-        final Optional<ServeLock> serveLock;
-        try {
-            serveLock = ServeLock.acquire(database.dataSource(), Waiting.on(CLOCK));
-        } catch (final java.sql.SQLException failure) {
-            log.error(
-                    "Could not reach the database to take the serve lock, so this container"
-                            + " will not become ready.",
-                    failure);
-            return 1;
-        }
-        if (serveLock.isEmpty()) {
-            log.error("Another steward is already serving this database, and has been"
-                    + " for longer than a redeploy takes to hand over. Refusing to start a"
-                    + " second one: two serve loops settle each other's in-flight requests as"
-                    + " failures and lose the report of whichever was actually working. If you"
-                    + " meant the read-only report, that is `steward report`.");
-            return 1;
-        }
-
-        try (ServeLock held = serveLock.get()) {
-            try {
-                Schema.migrate(database, Schema.passwords(System.getenv()));
-            } catch (final RuntimeException failure) {
-                // A server must not start against an unknown schema.
-                log.error(
-                        "The database schema could not be applied, so this container will not"
-                                + " become ready. Nothing else in the stack starts until it does.",
-                        failure);
-                return 1;
-            }
-            final Configs configs = configsOf(configDirectory, databaseConfig, database);
-            if (configs == null) {
-                return 1;
-            }
-            final StewardSpec config = configs.config();
-            clearOldRequests(database);
-
-            // Fill empty volumes before the marker; a failure here does not stop it.
-            if (config.bootstrap()) {
-                bootstrap(config, database);
-            }
-            markReady();
-
-            return serveNetwork(configs, database);
-        }
-    }
 
     /** Takes both groups out of the database, importing the last installation's files once, or {@code null}. */
     private static @Nullable Configs configsOf(
@@ -373,8 +182,7 @@ public final class Steward {
         if (config.agent().token().isBlank()) {
             // Said once: every container route, every run and the curves need the agent.
             log.warn("agent.token is empty in the steward group, so this container cannot ask"
-                    + " steward-agent for anything: no container page, no log, no backup, and"
-                    + " an update, a restart or a backup refuses before it touches anything."
+                    + " steward-agent for anything: no container page, no log and no plugin list."
                     + " The setup script writes that secret.");
         }
         try (MetricRecorder recorder =
@@ -384,50 +192,30 @@ public final class Steward {
         }
     }
 
-    /** The one client of steward-agent, for the runs, the curves and the web alike. */
+    /** The one client of steward-agent, for the curves and the web alike. */
     private static AgentClient agentOf(final StewardSpec config) {
-        return new AgentClient(
-                new InternalClient(
-                        AgentWire.SERVICE,
-                        config.agent().url(),
-                        config.agent().token(),
-                        Duration.ofSeconds(config.httpTimeoutSeconds())),
-                Waiting.on(CLOCK),
-                Duration.ofSeconds(config.agent().timeoutSeconds()));
+        return new AgentClient(new InternalClient(
+                AgentWire.SERVICE,
+                config.agent().url(),
+                config.agent().token(),
+                Duration.ofSeconds(config.httpTimeoutSeconds())));
     }
 
     private static int serveWithAgent(final Configs configs, final Database database, final AgentClient agent) {
         final StewardSpec config = configs.config();
-        // The database service and the patience are read again for every save, so a settings change counts.
-        final Snapshots backups = agent.snapshots(() -> new AgentClient.Backup(
-                configs.config().backup().databaseService(),
-                DatabaseRole.BACKUP.roleName(),
-                Duration.ofMinutes(Math.max(1, configs.config().backup().patienceMinutes()))));
-
         // The schedules and the season dates tell time in the network's zone.
         final Clock zoned = NetworkTime.clock(configs.zone());
-        // One set of directories, shared by the run loop, the stack routes and the web.
+        // One set of directories, shared by the schedules, the stack routes and the web.
         final Data data = new Data(database, zoned);
-        // Admin-added plugins, shared by the runner's resolve and the API.
-        final eu.nordtal.s2.steward.plugin.PluginDirectory addedPlugins =
-                eu.nordtal.s2.steward.plugin.PluginDirectory.using(database.dataSource());
 
         try (Schedules schedules = new Schedules(data.updates(), config, zoned);
-                StackApi stack = buildStack(config, agent, database, data, addedPlugins, configs.zone())) {
+                StackApi stack = buildStack(config, agent, database, data, configs.zone())) {
             // Started after the marker, so a failure of the interface cannot keep the servers down.
             final Web web = startWeb(configs, stack, agent, data);
             try {
                 // The nightly backup and the optional scheduled update.
                 schedules.arm();
-                return serveWithApi(
-                        configs,
-                        database,
-                        agent,
-                        backups,
-                        data.updates(),
-                        addedPlugins,
-                        () -> reReadOwn(configs, schedules),
-                        web::listen);
+                return serveWithApi(configs, database, () -> reReadOwn(configs, schedules), web::listen);
             } finally {
                 web.stop();
             }
@@ -464,7 +252,6 @@ public final class Steward {
             final AgentClient agent,
             final Database database,
             final Data data,
-            final eu.nordtal.s2.steward.plugin.PluginDirectory addedPlugins,
             final ZoneId zone) {
         // Every process's settings, which its signal re-reads; the proxy's pack among them.
         final SettingStore settings = SettingStore.using(database.dataSource());
@@ -483,23 +270,10 @@ public final class Steward {
                         OnlineDirectory.using(database.dataSource(), CLOCK),
                         OnlineRoster.using(database.dataSource(), CLOCK),
                         CLOCK),
-                // The same resolve a run starts with, so the page can ask what is newest without a run.
-                () -> Runs.resolve(config, addedPlugins, settings),
-                // Its own Modrinth client, living as long as the API.
-                new eu.nordtal.s2.steward.api.PluginsApi(
-                        addedPlugins,
-                        new eu.nordtal.s2.steward.source.Modrinth(SourceHttp.over(SourceHttp.client(
-                                Duration.ofSeconds(config.httpTimeoutSeconds()),
-                                config.githubToken(),
-                                Waiting.on(CLOCK)))),
-                        Path.of(config.volumesRoot()),
-                        eu.nordtal.s2.common.Platform.MINECRAFT,
-                        java.util.Map.of(
-                                eu.nordtal.s2.steward.plan.Topology.PACKETEVENTS, config.packetEventsProject(),
-                                eu.nordtal.s2.steward.plan.Topology.VOICE_CHAT, config.voiceChatProject(),
-                                eu.nordtal.s2.steward.plan.Topology.VOICE_CHAT_PROXY, config.voiceChatProject(),
-                                eu.nordtal.s2.steward.plan.Topology.CORE_PROTECT, config.coreProtectProject()),
-                        CLOCK),
+                // The agent's resolve, so the page can ask what is newest without a run.
+                agent::plan,
+                // The agent's plugin list and search; removing one is a run.
+                new PluginsForward(agent, data.updates()),
                 // The bot's inbox: saving a message asks it to re-read the file.
                 data.bot(),
                 // The servers' inboxes: saving their bundles asks them to re-read them.
@@ -527,14 +301,10 @@ public final class Steward {
         schedules.arm();
     }
 
-    /** The request loop, the payment loop over steward-bunq, and the only process that stops and starts services. */
+    /** The payment loop over steward-bunq and the signals the web and the settings listen on, until SIGTERM. */
     private static int serveWithApi(
             final Configs configs,
             final Database database,
-            final ContainerOps containers,
-            final Snapshots backups,
-            final UpdateDirectory updates,
-            final eu.nordtal.s2.steward.plugin.PluginDirectory addedPlugins,
             final Runnable onSettings,
             final java.util.function.Consumer<SignalHub> alerts) {
         final StewardSpec config = configs.config();
@@ -548,122 +318,20 @@ public final class Steward {
                         databaseConfig.queryTimeoutSeconds(),
                         "steward-signals",
                         log)) {
-            try (UpdateServer server = new UpdateServer(
-                    updates,
-                    new Runner(config, database, containers, backups, updates, Waiting.on(CLOCK), addedPlugins),
-                    CLOCK)) {
-                server.listen(signals);
-                configs.settings().listen(signals, onSettings);
-                if (paymentLoop != null) {
-                    paymentLoop.listen(signals);
-                }
-                alerts.accept(signals);
-                signals.start();
-                // SIGTERM is how a redeploy asks; without this the container is killed after the grace period.
-                Runtime.getRuntime().addShutdownHook(new Thread(server::close, "steward-shutdown"));
-                server.serve();
+            configs.settings().listen(signals, onSettings);
+            if (paymentLoop != null) {
+                paymentLoop.listen(signals);
             }
+            alerts.accept(signals);
+            signals.start();
+            // SIGTERM is how a restart asks; the resources above close on the way out.
+            final CountDownLatch stopping = new CountDownLatch(1);
+            Runtime.getRuntime().addShutdownHook(new Thread(stopping::countDown, "steward-shutdown"));
+            stopping.await();
+        } catch (final InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
         }
         return 0;
-    }
-
-    /**
-     * Installs what has nothing installed, once, before this container reports itself ready.
-     *
-     * A failure only logs, since serve runs on every restart and an outage must not keep the stack down.
-     */
-    private static void bootstrap(final StewardSpec config, final Database database) {
-        final Optional<RunLock> lock;
-        try {
-            lock = RunLock.tryAcquire(database.dataSource());
-        } catch (final java.sql.SQLException failure) {
-            log.error(
-                    "Bootstrap: could not take the run lock, so no missing file was"
-                            + " installed. Any server whose plugins folder is empty will refuse to start"
-                            + " and say so.",
-                    failure);
-            return;
-        }
-        if (lock.isEmpty()) {
-            log.warn("Bootstrap: another run holds the lock, so this start installed"
-                    + " nothing. That run is doing the same work; nothing here needs repeating.");
-            return;
-        }
-
-        try (RunLock held = lock.get()) {
-            bootstrapAtStartupUnderLock(config, database);
-        }
-    }
-
-    /** Resolves what is missing and installs it under the bootstrap lock. */
-    private static void bootstrapAtStartupUnderLock(final StewardSpec config, final Database database) {
-        final SettingStore settings = SettingStore.using(database.dataSource());
-        final UpdatePlan missing;
-        try {
-            missing = Runs.resolve(
-                            config, eu.nordtal.s2.steward.plugin.PluginDirectory.using(database.dataSource()), settings)
-                    .onlyMissing();
-        } catch (final RuntimeException failure) {
-            log.error(
-                    "Bootstrap: nothing could be resolved, so no missing file was installed."
-                            + " Any server whose plugins folder is empty will refuse to start and say"
-                            + " so.",
-                    failure);
-            return;
-        }
-
-        if (!missing.hasMissing()) {
-            if (missing.hasFailures()) {
-                // Nothing checkable is missing, but some artefacts could not be checked at all.
-                log.warn(
-                        "Bootstrap: nothing is missing among the artefacts that could be"
-                                + " checked, but {} could not be checked at all. That is not the same as"
-                                + " a full set of volumes. Nothing was installed:\n{}",
-                        missing.withStatus(Change.Status.UNRESOLVED).size(),
-                        Report.render(missing));
-            } else {
-                log.info("Bootstrap: every volume already holds a jar for everything that"
-                        + " belongs in it, so nothing was installed. This is the normal case on"
-                        + " a restart.");
-            }
-            return;
-        }
-
-        installMissing(config, missing, settings);
-    }
-
-    /** Installs what {@code missing} names, and logs how it went. */
-    private static void installMissing(
-            final StewardSpec config, final UpdatePlan missing, final SettingStore settings) {
-        log.info(
-                "Bootstrap: {} artefact(s) have nothing installed at all. Installing those, and"
-                        + " only those, before this container reports ready.",
-                missing.withStatus(Change.Status.MISSING).size());
-        final ApplyResult result;
-        try {
-            result = Runs.apply(config, missing, settings);
-        } catch (final RuntimeException failure) {
-            log.error(
-                    "Bootstrap: the install failed part way through. Some volumes may still be"
-                            + " empty, and a server whose plugins folder is one of them will refuse to"
-                            + " start and say so.",
-                    failure);
-            return;
-        }
-
-        // The logger, not stdout: this is the container's start-up record.
-        if (result.hasFailures()) {
-            log.error("Bootstrap finished with failures:\n{}", Report.render(result));
-        } else if (result.skippedAnything()) {
-            // A whole service is skipped when its jar could not be resolved.
-            log.warn(
-                    "Bootstrap could not install everything, and what it skipped it skipped"
-                            + " entirely. A server whose plugins folder is still empty will refuse to"
-                            + " start and say so:\n{}",
-                    Report.render(result));
-        } else {
-            log.info("Bootstrap finished:\n{}", Report.render(result));
-        }
     }
 
     /** Writes the readiness marker once the schema is current and keeps it fresh; every service waits for it. */
@@ -687,28 +355,6 @@ public final class Steward {
         return args.length == 0 ? "" : args[0].strip().toLowerCase(Locale.ROOT);
     }
 
-    /** The steward group for the report: from the database where it answers, else from the environment alone. */
-    private static @Nullable StewardSpec reportConfig(final @Nullable Database opened) {
-        try {
-            if (opened != null) {
-                try {
-                    return StewardSettings.steward(StewardSettings.stored(opened.dataSource(), SETTINGS_LOG))
-                            .get();
-                } catch (final RuntimeException noSettingsYet) {
-                    log.warn(
-                            "The database holds no settings yet, so this report runs on the defaults: {}",
-                            noSettingsYet.getMessage());
-                }
-            }
-            return StewardSettings.steward(EnvironmentSettings.of(StewardSettings.ENVIRONMENT))
-                    .get();
-        } catch (final SettingsException broken) {
-            // No stack trace, so the sentence is not missed.
-            log.error("Refusing to run on settings that cannot be read: {}", broken.getMessage());
-            return null;
-        }
-    }
-
     private static @Nullable DatabaseSpec databaseConfig() {
         try {
             return StewardSettings.database().get();
@@ -724,26 +370,5 @@ public final class Steward {
         System.out.println(keys.getX509PublicKey());
         System.out.println(keys.getPkcs8PrivateKey());
         return 0;
-    }
-
-    /** Applies the schema on its own; {@code false} means the run must not continue. */
-    private static boolean migrate() {
-        final DatabaseSpec database = databaseConfig();
-        if (database == null) {
-            return false;
-        }
-        // The pool first, so "not up yet" does not look like a failed migration.
-        final Database opened = DatabaseWaiting.openDatabase(database, Waiting.on(CLOCK));
-        if (opened == null) {
-            return false;
-        }
-        try (Database pool = opened) {
-            Schema.migrate(pool, Schema.passwords(System.getenv()));
-            return true;
-        } catch (final RuntimeException failed) {
-            // Flyway's message names the file and the statement.
-            log.error("The database schema could not be applied. Nothing else was done.", failed);
-            return false;
-        }
     }
 }

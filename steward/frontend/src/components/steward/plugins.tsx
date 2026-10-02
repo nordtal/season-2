@@ -284,13 +284,11 @@ function RemoveButton({ service, plugin, artifact }: { service: string; plugin: 
               disabled={remove.isPending}
               onClick={() =>
                 remove.mutate(artifact, {
-                  onSuccess: (answer) => {
+                  onSuccess: (run) => {
                     setOpen(false)
-                    toast.success(`${plugin.name} removed`, {
-                      description: answer.deleted.length ? answer.deleted.join(", ") : "It had not been installed yet.",
-                    })
+                    toast.success(`Removal entered as run #${run.id}`)
                   },
-                  onError: (error) => toast.error("Not removed", { description: String(error) }),
+                  onError: (error) => toast.error("Removal was not entered", { description: String(error) }),
                 })
               }
             >
@@ -313,10 +311,11 @@ export function removalSentence(plugin: ServicePlugin): string {
     return "It is not installed yet, so only the entry goes. Nothing on the disk is touched."
   }
   const jar = plugin.fileName ?? "The jar"
+  const run = "A run: the server is stopped for it, with a warning to the players first."
   if (!plugin.dataFolder) {
-    return `${jar} is deleted. Its data folder could not be read out of the jar, so nothing else under plugins/ is touched.`
+    return `${run} ${jar} is deleted. Its data folder could not be read out of the jar, so nothing else under plugins/ is touched.`
   }
-  return `${jar} and plugins/${plugin.dataFolder}/ are deleted. That folder holds this plugin's configuration and its data.`
+  return `${run} ${jar} and plugins/${plugin.dataFolder}/ are deleted. That folder holds this plugin's configuration and its data.`
 }
 
 /** Three absent hits, the first screenful of a Modrinth answer. */

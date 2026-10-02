@@ -14,10 +14,10 @@ import com.tngtech.archunit.core.domain.JavaClasses;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/** The order of a run's steps, and which thread writes a heartbeat, as Steward's processes are wired. */
+/** The order of a run's steps, and which thread writes a heartbeat, as steward and steward-agent are wired. */
 class StewardRulesTest {
 
-    private static final String SERVE = "eu.nordtal.s2.steward.serve.";
+    private static final String SERVE = "eu.nordtal.s2.stewardagent.run.";
     private static final String FOLLOWS = "eu.nordtal.s2.internalapi.sse.Follows";
     private static final String AGENT = "eu.nordtal.s2.stewardagent.StewardAgent";
     private static final String AGENT_PACKAGE = "eu.nordtal.s2.stewardagent..";
@@ -62,7 +62,7 @@ class StewardRulesTest {
                 .check(classes);
         noClasses()
                 .that()
-                .resideInAPackage("eu.nordtal.s2.steward..")
+                .resideInAPackage("eu.nordtal.s2..")
                 .and(DescribedPredicate.not(isOrIsNestedIn(SERVE + "Run")))
                 .should()
                 .callMethodWhere(reaches(SERVE + "UpdateRun", "stop"))

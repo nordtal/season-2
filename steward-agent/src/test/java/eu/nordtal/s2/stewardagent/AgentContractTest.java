@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.json.Json;
-import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
@@ -19,7 +18,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -40,7 +38,7 @@ class AgentContractTest {
         // Short, since a Unix socket path has a length limit the default temp directory can exceed.
         scratch = Files.createTempDirectory(Path.of("/tmp"), "agent");
         agent = new AgentStandIn(scratch, 0, config -> {});
-        client = new AgentClient(agent.client(), Waiting.on(Clock.systemUTC()), Duration.ofSeconds(5));
+        client = new AgentClient(agent.client());
     }
 
     @AfterAll
@@ -179,17 +177,6 @@ class AgentContractTest {
             reader.join(Duration.ofSeconds(5));
         }
         assertTrue(lines(events) >= 2, "expected the backlog's line and a live one: " + events);
-    }
-
-    @Test
-    void aRetentionThatWouldDeleteEveryBackupIsRefusedAsTheCallersMistake() {
-        final InternalClient.Failure refused = assertThrows(
-                InternalClient.Failure.class,
-                () -> agent.client()
-                        .post(AgentWire.PRUNE, "{\"daily\":0,\"weekly\":0,\"monthly\":0,\"collapseAfterDays\":0}"));
-
-        assertEquals(400, refused.status());
-        assertTrue(String.valueOf(refused.body()).contains("daily must be at least 1"), refused.body());
     }
 
     @Test

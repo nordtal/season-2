@@ -2,7 +2,7 @@ package eu.nordtal.s2.steward.api;
 
 import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
-import eu.nordtal.s2.steward.plan.Topology;
+import eu.nordtal.s2.internalapi.agent.Topology;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;

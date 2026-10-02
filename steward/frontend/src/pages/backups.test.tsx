@@ -56,6 +56,42 @@ function stewardConfig(over: { secretValue?: string } = {}) {
         value: undefined,
         items: ["MONDAY", "THURSDAY"],
       }),
+      entry({ path: "backup.remote.endpoint", key: "endpoint", label: "Endpoint", value: "" }),
+      entry({ path: "backup.remote.bucket", key: "bucket", label: "Bucket", value: "" }),
+      entry({ path: "backup.remote.prefix", key: "prefix", label: "Prefix", value: "" }),
+      entry({
+        path: "backup.remote.access-key",
+        key: "access-key",
+        label: "Access key",
+        secret: true,
+        filled: true,
+        /** A value steward never sends on a secret, so the test proves this page's own refusal to draw it. */
+        value: over.secretValue,
+      }),
+      entry({
+        path: "backup.remote.secret-key",
+        key: "secret-key",
+        label: "Secret key",
+        secret: true,
+        filled: false,
+        value: undefined,
+      }),
+    ],
+  }
+}
+
+const RUNS_FILE = "steward-agent/runs"
+
+/** steward-agent's `runs` group: the retention a backup run applies. */
+function runsConfig() {
+  return {
+    service: "steward-agent",
+    name: "runs",
+    path: RUNS_FILE,
+    readable: true,
+    writable: true,
+    revision: "rev-9",
+    entries: [
       entry({
         path: "backup.retention.daily",
         key: "daily",
@@ -83,26 +119,6 @@ function stewardConfig(over: { secretValue?: string } = {}) {
         label: "Collapse after",
         value: "3",
         type: "INTEGER",
-      }),
-      entry({ path: "backup.remote.endpoint", key: "endpoint", label: "Endpoint", value: "" }),
-      entry({ path: "backup.remote.bucket", key: "bucket", label: "Bucket", value: "" }),
-      entry({ path: "backup.remote.prefix", key: "prefix", label: "Prefix", value: "" }),
-      entry({
-        path: "backup.remote.access-key",
-        key: "access-key",
-        label: "Access key",
-        secret: true,
-        filled: true,
-        /** A value steward never sends on a secret, so the test proves this page's own refusal to draw it. */
-        value: over.secretValue,
-      }),
-      entry({
-        path: "backup.remote.secret-key",
-        key: "secret-key",
-        label: "Secret key",
-        secret: true,
-        filled: false,
-        value: undefined,
       }),
     ],
   }
@@ -163,6 +179,7 @@ function backend(
   over: {
     config?: unknown
     put?: (body: unknown) => Response
+    putRuns?: (body: unknown) => Response
     runs?: unknown[]
     backups?: unknown[]
     people?: Person[]
@@ -170,7 +187,16 @@ function backend(
 ) {
   return vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
     if (url === "/api/setting-groups") {
-      return json(200, [{ service: "steward", name: "steward", path: FILE, readable: true, writable: true }])
+      return json(200, [
+        { service: "steward", name: "steward", path: FILE, readable: true, writable: true },
+        { service: "steward-agent", name: "runs", path: RUNS_FILE, readable: true, writable: true },
+      ])
+    }
+    if (url === `/api/setting-groups/${RUNS_FILE}`) {
+      if (init?.method === "PUT") {
+        return (over.putRuns ?? (() => json(200, runsConfig())))(JSON.parse(init?.body ?? ""))
+      }
+      return json(200, runsConfig())
     }
     if (url === `/api/setting-groups/${FILE}`) {
       if (init?.method === "PUT") {
@@ -298,7 +324,7 @@ describe("BackupsPage - the destination dialog never draws a secret", () => {
 })
 
 describe("BackupsPage - the schedule dialog carries the retention numbers now (item 9)", () => {
-  it("reads retention out of the same file the destination is saved in", async () => {
+  it("reads retention out of steward-agent's runs group, since the run applies it", async () => {
     vi.stubGlobal("fetch", backend({}))
     draw()
 
@@ -306,6 +332,33 @@ describe("BackupsPage - the schedule dialog carries the retention numbers now (i
 
     const daily = asInput(await screen.findByLabelText("Daily"))
     expect(daily.value).toBe("14")
+  })
+
+  it("saves a retention change into the runs group and leaves steward's own group alone", async () => {
+    let toRuns: unknown
+    let toSteward: unknown
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        put: (body) => {
+          toSteward = body
+          return json(200, stewardConfig())
+        },
+        putRuns: (body) => {
+          toRuns = body
+          return json(200, runsConfig())
+        },
+      }),
+    )
+    draw()
+
+    fireEvent.click(await screen.findByRole("button", { name: "Schedule" }))
+    fireEvent.change(asInput(await screen.findByLabelText("Daily")), { target: { value: "7" } })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    await waitFor(() => expect(toRuns).toBeTruthy())
+    expect(toRuns).toEqual({ revision: "rev-9", changes: { "backup.retention.daily": "7" } })
+    expect(toSteward).toBeUndefined()
   })
 
   it("computes what the numbers mean, rather than only listing them", async () => {

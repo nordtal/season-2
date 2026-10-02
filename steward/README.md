@@ -1,20 +1,17 @@
 # steward
 
-Steward in one process: the web interface and its API, the database schema, the version of
-everything the network runs, the runs that move it, payments, metrics and the nightly backup. It is
-the only process that runs Flyway, so every other service waits for it to become healthy.
+Steward's web interface and its API, payments, metrics, alerts and the clocks that ask for runs.
+It carries out no run itself: a button, a clock or `/update` writes a row into `steward_inbox`, and
+`steward-agent` carries it out. It starts once `steward-agent` is healthy, which is when the schema
+is current.
 
 ```bash
-docker compose up -d steward               # serve: migrate, then the interface and the inbox
-docker compose run --rm steward report     # resolve and report, changes nothing
-docker compose run --rm steward migrate    # apply the schema, nothing else
-docker compose run --rm steward bootstrap  # migrate, then fetch and place the files
+docker compose up -d steward                                           # serve
 docker exec nordtal-s2-steward-1 steward forget-factors <discord-id>   # a lost security key
 docker run --rm ghcr.io/nordtal/steward generate-vapid-keys            # a Web Push keypair
 ```
 
-With no argument it prints the read-only report. `docker compose run` falls through to the service's
-own `command`, so always name the subcommand there.
+Any other word is refused, so a typo never starts a second interface beside the running one.
 
 ## Why one process
 
@@ -26,14 +23,13 @@ Javalin as the rest and pass the same gates: a read needs a signed-in admin with
 (`KEY_HELD`), a change a fresh one (`KEY_FRESH`). The plugin "added by" comes from the session, and a
 long log follow re-checks the session once a second, so a sign-out ends it.
 
-The process on the internet holds no Docker socket. Everything Docker knows comes from
-`steward-agent` through `AgentClient`: the containers and their last sample, logs, the console,
-image drift, the host's numbers and the archives. The runs still write jars into the `/volumes`
-mounts themselves.
+The process on the internet holds no Docker socket and mounts no volume but its own jar folder.
+Everything Docker knows comes from `steward-agent` through `AgentClient`: the containers and their
+last sample, logs, the console, image drift, the host's numbers, the archives and the plan of the
+next update. The managed plugins' list, search and add are passed through to the agent unchanged.
 
-It logs in as the database owner, because it migrates. The role `nordtal_steward` (`DatabaseRole.STEWARD`)
-holds the grants the interface needs and is what steward logs in as once migrating is someone
-else's job.
+It still logs in as the database owner. The role `nordtal_steward` (`DatabaseRole.STEWARD`) holds the
+grants the interface needs and is what steward logs in as once the owner is the migration's alone.
 
 ## Where a version comes from
 
@@ -49,35 +45,21 @@ else's job.
 Every repository is read through `/releases/latest`, which skips drafts and pre-releases. There is no
 pin and no rollback: a bad release is corrected by publishing a better one.
 
-## Rules
-
-- `serve` is not a scheduler. It migrates at startup and then acts only on rows in its inbox, `steward_inbox`.
-- An update stops the services whose jars change, migrates, installs, starts them and waits for
-  healthy. `bootstrap` fills empty slots and restarts nothing. A report writes nothing.
-- Two steward processes cannot serve or move jars at once; both are advisory locks, and the second is
-  refused.
-- Artefacts are staged in `.nordtal-staging` inside the server's volume and move only when all are
-  present. A server moves together or not at all.
-- Nothing it does not account for is deleted, and only after the new jar is in place.
-- A version not tagged for the platform is refused. "Skipped" is distinct from success and failure.
-
 ## What it does
 
-- **Updates.** `/update` in Discord and in game writes a row; `serve` listens on `nordtal_update` and
-  polls every fifteen seconds. A restart is due sixty seconds out, and the proxy counts players down.
-- **Handover.** No process replaces the jar it runs, so an update that brings a newer steward places
-  only that jar, returns the request to the inbox and exits. The new steward migrates and finishes the
-  request, so a release's migrations are applied by that release.
-- **Containers.** It asks `steward-agent` for state, health and the last sample, to stop and start
-  containers and to write into the Minecraft consoles, naming who typed the line. It never touches
-  the socket.
-- **Images.** It checks each service's image against the registry before a run, and reports an image
-  it could not check as unchecked, never as current.
+- **Runs.** Every button that stops something (update, restart, backup, down, start, recreate,
+  deploy, restore, removing a plugin) writes a row into `steward_inbox`; so do the two clocks.
+  `steward-agent` carries it out and writes the report back into the row, which the interface follows
+  on `nordtal_update`. steward is restarted by a run like any other service.
+- **Containers.** It asks `steward-agent` for state, health and the last sample, and to write into
+  the Minecraft consoles, naming who typed the line. It never touches the socket.
+- **Images.** It shows each service's image against the registry, and an image it could not check
+  as unchecked, never as current.
 - **Metrics.** Every 30 seconds it copies the agent's new sampler rounds into `metric_sample`, and
   folds them into hourly means after 30 days.
-- **Backups.** It drives the run; `steward-agent` runs `pg_dump` inside the postgres container and
-  writes the volumes as zstd tars, read back once before the rename from `.partial`. The nightly clock only writes a request row. There is no offsite
-  copy.
+- **Backups.** The nightly clock only writes a request row; `steward-agent` runs `pg_dump` inside
+  the postgres container and writes the volumes as zstd tars. steward lists and downloads them
+  through the agent. There is no offsite copy.
 - **Alerts.** Every alert is a row in `admin_alert`, raised by whoever saw it: steward measures the
   stack every 30 seconds against the `web` group's thresholds and raises a failed run; the bot raises
   what it could not do in Discord or with a payment. Steward routes each row once, to Web Push and to the admin channel through the
@@ -96,7 +78,7 @@ pages.
 
 | group      | environment                  | holds                                                             |
 | ---------- | ---------------------------- | ----------------------------------------------------------------- |
-| `steward`  | `NORDTAL_STEWARD_*`          | sources, backups, the agent's and steward-bunq's addresses        |
+| `steward`  | `NORDTAL_STEWARD_*`          | the clocks, the agent's and steward-bunq's addresses              |
 | `web`      | `NORDTAL_STEWARD_WEB_*`      | the port, the public address, Discord sign-in, WebAuthn, Web Push |
 | `alerts`   | `NORDTAL_STEWARD_ALERTS_*`   | the thresholds steward's measured alerts fire on                  |
 | `database` | `NORDTAL_STEWARD_DATABASE_*` | the connection, from the environment alone                        |
@@ -107,13 +89,9 @@ and one to `alerts` applies at the next reading. The first start finds the last 
 `steward.yml` and `web.yml` in `steward-config`, imports what differs from the defaults and deletes
 them.
 
+Where a run's versions come from is `steward-agent`'s `runs` group.
+
 ## Tests
 
-`./gradlew :steward:test` needs no network. Fixtures in `src/test/resources/fixtures/` were
-recorded from the live GitHub, Modrinth and PaperMC APIs, and `TopologyTest` reads the real
-`compose.yml`.
-
-## Output
-
-The report goes to stdout and every log line to stderr, which is where the one
-`deploy/jvm/logback.xml` every JVM service shares writes them.
+`./gradlew :steward:test` needs no network; its stack tests talk to `AgentStandIn`, the agent's API
+over a fake daemon, through the real client.

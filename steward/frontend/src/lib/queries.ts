@@ -17,7 +17,6 @@ import {
   type ConfigChanges,
   type ConfigDocument,
   type ConfigLocation,
-  type AgentJob,
   type AgentState,
   type Grant,
   type GuildList,
@@ -91,7 +90,6 @@ export const keys = {
   hungerGamesRound: ["hunger-games-round"] as const,
   configs: ["configs"] as const,
   agent: ["agent"] as const,
-  agentJob: (id: string) => ["agent-job", id] as const,
   config: (file: string) => ["config", file] as const,
   guildRoles: ["guild-roles"] as const,
   guildChannels: ["guild-channels"] as const,
@@ -487,38 +485,6 @@ export function useAgent(enabled = true) {
   })
 }
 
-/**
- * Recreates one service's container from the image already on the host, which is not an update.
- *
- * The answer is the job; the caller follows it with `useAgentJob`.
- */
-export function useRecreate() {
-  return useMutation({
-    mutationFn: (service: string) =>
-      api<AgentJob>(`/api/agent/recreate/${encodeURIComponent(service)}`, { method: "POST" }),
-  })
-}
-
-/** One job, polled while it runs. `lines` is compose's own output and arrives with it. */
-export function useAgentJob(id: string | null) {
-  const client = useQueryClient()
-  return useQuery({
-    queryKey: keys.agentJob(id ?? ""),
-    queryFn: async () => {
-      const job = await api<AgentJob>(`/api/agent/jobs/${encodeURIComponent(id ?? "")}`)
-      if (job.state !== "RUNNING") {
-        /** The container is new, so the service queries are refreshed once the job is over. */
-        void client.invalidateQueries({ queryKey: keys.services })
-        void client.invalidateQueries({ queryKey: ["service"] })
-      }
-      return job
-    },
-    enabled: Boolean(id),
-    /** A failed poll stops it, as in `useCommandRun`; the dialog offers to ask again. */
-    refetchInterval: (query) => (!query.state.error && query.state.data?.state === "RUNNING" ? SECOND : false),
-  })
-}
-
 /** What steward found wrong, judged on the server against the one set of thresholds. */
 export function useAlerts(enabled = true) {
   return useQuery({
@@ -703,7 +669,7 @@ export function useAskForRun() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (ask: {
-      kind: "UPDATE" | "BACKUP" | "RESTART" | "DOWN" | "START"
+      kind: "UPDATE" | "BACKUP" | "RESTART" | "DOWN" | "START" | "RECREATE" | "DEPLOY"
       delaySeconds?: number
       /** Which compose services the run is for; left off for the whole network. */
       services?: string[]
@@ -781,18 +747,17 @@ export function useInstallPlugin(service: string) {
   })
 }
 
-/** Removes a plugin: the row, the jar and the data folder. */
+/** Asks for a REMOVE_PLUGIN run: the server is stopped, and the row, the jar and the data folder go. */
 export function useRemovePlugin(service: string) {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (artifact: string) =>
-      api<{ artifact: string; deleted: string[] }>(
+      api<{ id: number; kind: string; artifact: string }>(
         `/api/services/${encodeURIComponent(service)}/plugins/${encodeURIComponent(artifact)}`,
         { method: "DELETE" },
       ),
     onSuccess: () => {
-      void client.invalidateQueries({ queryKey: keys.plugins(service) })
-      void client.invalidateQueries({ queryKey: ["plugin-search", service] })
+      void client.invalidateQueries({ queryKey: ["runs"] })
     },
   })
 }

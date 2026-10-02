@@ -184,7 +184,7 @@ public final class Web {
         this.authFlow = new AuthFlow(config, discord, data, this.sessions, localAdmins);
         this.updates = new Updates(data, ctx -> account(ctx).orElseThrow());
         this.season = new SeasonRoutes(data, ctx -> account(ctx).orElseThrow());
-        this.deployments = new AgentApi(agent, data, ctx -> account(ctx).orElseThrow(), agentOffered);
+        this.deployments = new AgentApi(agent, agentOffered);
         final @Nullable PushSubscriptions localPushSubscriptions =
                 data == null ? null : new PushSubscriptions(data.dataSource());
         final @Nullable AlertPreferences localAlertPreferences =
@@ -409,9 +409,6 @@ public final class Web {
     private void registerAgentRoutes(final JavalinConfig cfg) {
         // Not the update door either: this recreates one container, and only the agent may.
         cfg.routes.get("/api/agent", deployments::state, Gate.KEY_HELD);
-        cfg.routes.post("/api/agent/recreate/{service}", deployments::recreate, Gate.KEY_FRESH);
-        cfg.routes.get("/api/agent/jobs", deployments::jobs, Gate.KEY_HELD);
-        cfg.routes.get("/api/agent/jobs/{id}", deployments::job, Gate.KEY_HELD);
     }
 
     private void registerMetricsRoute(final JavalinConfig cfg) {

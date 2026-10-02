@@ -1,6 +1,5 @@
 package eu.nordtal.s2.steward.web;
 
-import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.steward.alert.Thresholds;
@@ -46,10 +45,8 @@ final class RouteTable {
             }
         };
         // An agent nobody runs: registering a route asks it nothing.
-        final AgentClient agent = new AgentClient(
-                new InternalClient("steward-agent", "http://127.0.0.1:1", "", Duration.ofSeconds(1)),
-                Waiting.on(Clock.systemUTC()),
-                Duration.ofSeconds(1));
+        final AgentClient agent =
+                new AgentClient(new InternalClient("steward-agent", "http://127.0.0.1:1", "", Duration.ofSeconds(1)));
         final StackApi stack = new StackApi(
                 agent,
                 FakeDirectories.updates(),

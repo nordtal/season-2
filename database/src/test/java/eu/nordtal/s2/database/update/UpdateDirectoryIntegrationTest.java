@@ -171,10 +171,6 @@ class UpdateDirectoryIntegrationTest {
             assertTrue(announced(pg), "the claim was not announced");
             assertTrue(updates.progress(first.id(), "{}"));
             assertTrue(announced(pg), "a progress write was not announced");
-            assertTrue(updates.handOver(first.id(), "{}"));
-            assertTrue(announced(pg), "the handover was not announced");
-            assertTrue(updates.claimNext().isPresent());
-            assertTrue(announced(pg), "the second claim was not announced");
             assertTrue(updates.commitCountdown(first.id()));
             assertTrue(announced(pg), "the committed countdown was not announced");
             assertTrue(updates.finish(first.id(), UpdateStatus.DONE, "{}").isPresent());
@@ -480,7 +476,7 @@ class UpdateDirectoryIntegrationTest {
         return switch (kind) {
             case RESTORE ->
                 new eu.nordtal.s2.database.inbox.StewardRequest.Restore(List.of(), "db-20261002T030000Z.dump");
-            case REMOVE_PLUGIN -> new eu.nordtal.s2.database.inbox.StewardRequest.RemovePlugin(List.of("smp"), "a.jar");
+            case REMOVE_PLUGIN -> new eu.nordtal.s2.database.inbox.StewardRequest.RemovePlugin(List.of("smp"), "a");
             default -> kind.request(List.of());
         };
     }

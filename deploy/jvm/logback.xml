@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!-- The one logging configuration of every JVM service; nordtal.jvm-app puts it into each jar. -->
 <configuration>
-    <!-- Stderr, since stdout carries a command's result, such as what `steward report` prints. -->
+    <!-- Stderr, since stdout carries a command's result, such as the id `steward-agent request` prints. -->
     <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
         <target>System.err</target>
         <!-- An encoder, since a layout warns and a warning prints logback's status report on stdout. -->

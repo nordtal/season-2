@@ -46,7 +46,7 @@ A deploy pulls and never builds. The images (`minecraft`, `steward`, `steward-ag
    request succeeds, renews `steward-agent` and brings the stack up. A second run asks only for
    what is missing. On a host with an existing `postgres-data` it asks for `POSTGRES_PASSWORD`
    instead of generating one, since Postgres reads it only on an empty data directory. Each service
-   logs in as a database role of its own, `POSTGRES_<SERVICE>_PASSWORD`; steward creates the
+   logs in as a database role of its own, `POSTGRES_<SERVICE>_PASSWORD`; steward-agent creates the
    roles and sets those passwords at every start, so a new one needs only a restart.
 
 4. **Upload the hand-built worlds**; see [Getting a world into a volume](#getting-a-world-into-a-volume).
@@ -62,7 +62,7 @@ Afterwards the script is `./nordtal.sh` in the installation directory:
 ```
 
 Run it after every release: a new `compose.yml` reaches the host only inside a new
-`steward-agent` image. Every other artefact is moved by steward.
+`steward-agent` image. Every other artefact is moved by steward-agent's runs.
 
 **The environment file** lives at the absolute path `STEWARD_ENV_FILE`, mode 600, outside the
 installation directory, and holds every secret. Edit it in place (`sed -i`); never `mv` a new file
@@ -75,10 +75,10 @@ strings, which fails on `${X:?}` and silently changes everything else:
 docker compose --env-file /etc/nordtal/season-2.env ps
 ```
 
-On its first start steward applies the schema, fills every empty volume and only then writes
+On every start steward-agent applies the schema, fills every empty volume and only then writes
 the readiness marker the other services wait for. It never upgrades anything that is installed.
-With `bootstrap: false` in the `steward` group the servers refuse to start until
-`docker compose run --rm steward bootstrap` has run.
+With `bootstrap: false` in its `runs` group the servers refuse to start until an update run
+(`./nordtal.sh update`) has installed them.
 
 There is no pin and no rollback: every image is `latest`, and a bad release is fixed by a better one.
 
@@ -149,12 +149,12 @@ From the host, when neither is reachable:
 ./nordtal.sh update --start        # release every hold, or one service
 ./nordtal.sh update --in 10        # count down ten minutes first
 ./nordtal.sh update --no-wait      # print the request id and return
-docker compose run --rm steward report      # what would change, changes nothing
-docker compose run --rm steward bootstrap   # migrate, then fill empty slots only
 ```
 
-Each request is a row in `steward_inbox`, steward's inbox; the report is written to its `outcome` column.
-One run is open at a time: the database refuses a second request while one is pending or running.
+`./nordtal.sh update` asks steward-agent through `docker exec`, so a request from the host passes
+the same refusals as a button. Each request is a row in `steward_inbox`, the run inbox; the report
+is written to its `outcome` column. One run is open at a time: the database refuses a second request
+while one is pending or running.
 
 A run downloads everything into a staging directory first, stops the affected servers, migrates,
 moves the jars, recreates any container whose image the registry has moved past, and starts exactly
@@ -162,7 +162,8 @@ what it stopped. A server moves together or not at all. A service that refuses t
 nothing is installed. Checksums are verified where the source has one; GitHub release assets carry
 none. The server jar is the newest `STABLE` build of `SERVER_VERSION` in `compose.yml`.
 
-steward does not renew its own image or `postgres`; those need `./nordtal.sh`.
+A run renews `postgres` and `caddy` like any other service, named in the countdown first.
+steward-agent never renews its own image; that needs `./nordtal.sh`.
 
 ### Replacing one service, from this checkout
 
@@ -243,13 +244,13 @@ docker compose --profile standby up -d proxy-standby
 docker compose --profile standby down proxy-standby
 ```
 
-steward copies the live service's `plugins/` to them after every update. Both proxies sit
+steward-agent copies the live service's `plugins/` to them after every update. Both proxies sit
 behind `caddy`, which also carries voice chat's UDP to whichever proxy answers.
 
 ## Backups
 
-Everything that cannot be rebuilt is in PostgreSQL and the world volume, and steward backs up
-both. The nightly run is `steward#backup.at`; `/backup now` asks for one. A run counts down,
+Everything that cannot be rebuilt is in PostgreSQL and the world volume, and steward-agent backs
+up both. The nightly run is `steward#backup.at`; `/backup now` asks for one. A run counts down,
 dumps the database with `pg_dump` inside the postgres container (nothing stops for it), stops the
 configured services, tars each volume through `zstd`, applies retention and starts everything again.
 Every archive is read back before it loses its `.partial` suffix.
@@ -283,7 +284,7 @@ a player without the mod notices nothing, and no server requires it.
 
 ## Third-party plugins
 
-- **DisplayTags and PacketEvents** are required on `smp`; steward resolves both.
+- **DisplayTags and PacketEvents** are required on `smp`; steward-agent resolves both.
 - **CoreProtect** is optional, with its own SQLite file.
 - **Terralith and Dungeons and Taverns** are the season's terrain, fetched from `SMP_DATAPACK_URLS`
   before the first start; `smp` refuses to start without them.

@@ -4,11 +4,22 @@ plugins {
     `java-test-fixtures`
 }
 
+repositories {
+    maven("https://jitpack.io")
+}
+
 application.mainClass.set("eu.nordtal.s2.stewardagent.StewardAgent")
 
 // ComposeRefusesItselfTest reads the real compose file, so it has to be a declared input.
+// Files outside this module that the topology tests read as text, so an edit to one reruns :steward-agent:test.
 repositoryRootTestInputs {
     reads("compose.yml")
+    reads("deploy/dev.env.example")
+    reads("deploy/jvm/Dockerfile")
+    reads("deploy/minecraft/entrypoint.sh")
+    reads(".dockerignore")
+    reads(".github/workflows/release.yml")
+    reads("smp/src/main/resources/paper-plugin.yml")
 }
 
 dependencies {
@@ -19,9 +30,26 @@ dependencies {
     // The kernel, for the process clock; it depends on the JDK alone.
     implementation(project(":common"))
 
+    // The runs: the inbox, the settings and the schema. jcore carries the config specs and Flyway at runtime.
+    implementation(libs.jcore)
+    // :database takes the driver, JDBI, HikariCP and slf4j compileOnly; the bundle puts them on the runtime path.
+    implementation(project(":database"))
+    implementation(libs.bundles.access.persistence)
+    implementation(libs.postgresql.driver)
+    // JdbiPluginDirectory installs JDBI's PostgresPlugin, which jcore declares at runtime scope only.
+    implementation(libs.jdbi.postgres)
+    // Compile-only for Schema, which passes the role placeholders: jcore ships Flyway at runtime.
+    compileOnly(libs.flyway.core)
+    implementation(project(":settings"))
+
     runtimeOnly(libs.logback.classic)
 
     // The stand-in agent: the real routes over FakeDaemon, behind the real guard.
+    testImplementation(testFixtures(project(":database")))
+    testImplementation(testFixtures(project(":settings")))
+    testImplementation(testFixtures(project(":common")))
+    testImplementation(libs.logback.classic)
+
     testFixturesImplementation(project(":internal-api"))
     testFixturesImplementation(libs.gson)
 

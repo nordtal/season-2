@@ -16,7 +16,7 @@
 #   ./nordtal.sh --address IP          this host's public address, for a host behind NAT
 #   ./nordtal.sh --no-self-update      run this file as it is, without asking GitHub for a newer one
 #
-# `update` only writes a row into steward's inbox and waits for steward's report:
+# `update` asks steward-agent for a run, the way Steward's buttons do, and waits for its report:
 #
 #   ./nordtal.sh update                the whole network: install what is new, restart what needs it
 #   ./nordtal.sh update --restart      restart everything, install nothing
@@ -631,30 +631,15 @@ parse_update_args() {
     fi
 }
 
-# Inserts the row and notifies in one statement, as steward's inbox does. The database refuses a
-# second open run by itself. Concatenation is safe because every value passed a shape check that admits no quote.
-update_insert_sql() {
+# The command run inside steward-agent, one word per line. The agent writes the row with the same
+# refusals as Steward's buttons, so the open run in the inbox stays the one lock and this script
+# never writes SQL of its own. An empty scope is the whole network.
+update_request_words() {
     local kind="$1" scope="$2" minutes="$3"
-    local services_sql="'[]'::jsonb"
-    [[ -n "$scope" ]] && services_sql="to_jsonb(string_to_array('$scope', ','))"
-    cat <<SQL
-WITH inserted AS (
-    INSERT INTO steward_inbox (kind, payload, actor_kind, scheduled_for)
-    VALUES ('$kind', jsonb_build_object('services', $services_sql), 'HOST', now() + make_interval(mins => $minutes))
-    RETURNING id
-), notified AS (
-    SELECT pg_notify('nordtal_update', '') FROM inserted
-)
-SELECT inserted.id FROM inserted, notified;
-SQL
+    printf '%s\n' steward-agent request "$kind" "$scope" "$minutes"
 }
 
-# One line: the status, a tab and the report, empty rather than NULL.
-update_status_sql() {
-    printf "SELECT status, coalesce(outcome #>> '{}', '') FROM steward_inbox WHERE id = %s;\n" "$1"
-}
-
-# Whether a status means steward is finished with this row, one way or another.
+# Whether a status means steward-agent is finished with this row, one way or another.
 update_is_over() {
     case "$1" in
         DONE|FAILED|CANCELLED) return 0 ;;
@@ -669,13 +654,6 @@ fi
 
 # The `update` subcommand, before the self-update, so it never needs the network.
 
-# One psql inside the postgres container, reading its statement from stdin; no password needed.
-update_psql() {
-    local container="$1" user="$2" database="$3"
-    docker exec -i "$container" \
-        psql -v ON_ERROR_STOP=1 -qtAX -F $'\t' -U "$user" -d "$database"
-}
-
 cmd_update() {
     parse_update_args "$@"
 
@@ -683,25 +661,23 @@ cmd_update() {
         || die "$UPDATE_ENV_FILE is not there, so this host has no deployment to update.
        If the environment file is somewhere else: ./nordtal.sh update --env-file PATH"
 
-    # Two names only, since the file also holds secrets.
-    local project user database container
+    # One name only, since the file also holds secrets.
+    local project container
     project="$(env_value "$UPDATE_ENV_FILE" COMPOSE_PROJECT_NAME)"
     project="${project:-$DEFAULT_PROJECT}"
-    user="$(env_value "$UPDATE_ENV_FILE" POSTGRES_USER)"
-    database="$(env_value "$UPDATE_ENV_FILE" POSTGRES_DB)"
-    [[ -n "$user" && -n "$database" ]] \
-        || die "POSTGRES_USER and POSTGRES_DB are not both set in $UPDATE_ENV_FILE"
-    container="${project}-postgres-1"
+    container="${project}-steward-agent-1"
 
     # `docker ps`, never `docker inspect` on a container carrying secrets; a here-string, not a pipe.
     grep -qxF "$container" <<<"$(docker ps --format '{{.Names}}')" \
-        || die "$container is not running, so there is nowhere to write the request.
+        || die "$container is not running, so there is nobody to ask for a run.
        \`docker compose -p $project ps\` says what is up."
 
-    local id
-    id="$(update_insert_sql "$UPDATE_KIND" "$UPDATE_SCOPE" "$UPDATE_DELAY" \
-        | update_psql "$container" "$user" "$database" | sed -n '1p' | tr -d '[:space:]')"
-    [[ "$id" =~ ^[0-9]+$ ]] || die "the database did not answer with a request id (got: '$id')"
+    local id words
+    mapfile -t words < <(update_request_words "$UPDATE_KIND" "$UPDATE_SCOPE" "$UPDATE_DELAY")
+    # The agent prints the id on stdout and a refusal, such as a run already open, on stderr.
+    id="$(docker exec "$container" "${words[@]}" | sed -n '1p' | tr -d '[:space:]')" \
+        || die "steward-agent refused the request; its reason is above"
+    [[ "$id" =~ ^[0-9]+$ ]] || die "steward-agent did not answer with a request id (got: '$id')"
 
     local when=""
     (( UPDATE_DELAY > 0 )) && when=", not before $UPDATE_DELAY minute(s) from now"
@@ -711,17 +687,18 @@ cmd_update() {
         return 0
     fi
 
-    update_wait "$id" "$container" "$user" "$database"
+    update_wait "$id" "$container"
 }
 
-# Follows one request until steward is finished with it, then prints the run's report.
+# Follows one request until steward-agent is finished with it, then prints the run's report.
 update_wait() {
-    local id="$1" container="$2" user="$3" database="$4"
+    local id="$1" container="$2"
     local waited=0 answer status report said=""
 
     log "waiting; Ctrl-C stops WATCHING and never the run itself"
     while :; do
-        answer="$(update_status_sql "$id" | update_psql "$container" "$user" "$database" | sed -n '1p')"
+        # One line: the status, a tab and the report. Nothing at all means the row is gone.
+        answer="$(docker exec "$container" steward-agent status "$id" 2>/dev/null | sed -n '1p' || true)"
         status="${answer%%$'\t'*}"
         report="${answer#*$'\t'}"
         [[ "$status" == "$answer" ]] && report=""
@@ -731,7 +708,7 @@ update_wait() {
             said="$status"
         fi
         if [[ -z "$status" ]]; then
-            die "request $id is no longer in steward_inbox. Somebody deleted the row."
+            die "request $id is no longer in steward_inbox, or steward-agent stopped answering."
         fi
         if update_is_over "$status"; then
             # jq if it is there, the raw JSON line if not.
@@ -746,7 +723,7 @@ update_wait() {
             return 1
         fi
 
-        (( waited += 5 ))
+        (( waited += 10 ))
         if (( waited > UPDATE_TIMEOUT )); then
             # Only the waiting stops; the run carries on.
             warn "request $id is still $status after ${UPDATE_TIMEOUT}s. The run continues without
@@ -754,7 +731,8 @@ update_wait() {
        the run under /operations."
             return 2
         fi
-        sleep 5
+        # Ten seconds, since every look starts a JVM inside the agent.
+        sleep 10
     done
 }
 
@@ -1121,7 +1099,7 @@ else
     set_secret POSTGRES_PASSWORD 24
 fi
 
-# Each service's own database role; steward sets these on the roles at every start, so a new
+# Each service's own database role; steward-agent sets these on the roles at every start, so a new
 # one only needs a restart, unlike POSTGRES_PASSWORD.
 set_secret POSTGRES_DISCORD_BOT_PASSWORD 24
 set_secret POSTGRES_PROXY_PASSWORD 24

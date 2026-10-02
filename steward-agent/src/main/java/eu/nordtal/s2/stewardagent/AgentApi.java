@@ -51,7 +51,7 @@ public final class AgentApi implements AutoCloseable {
                 new Console(docker, project, topology::consoles),
                 sampler,
                 topology);
-        this.backups = new BackupRoutes(docker, project, paths.backupSources(), paths.backups(), clock);
+        this.backups = new BackupRoutes(paths.backups());
         this.bundles = new BundleRoutes(paths.configs(), paths.volumesRoot());
         this.sizes = new VolumeSizes(paths.volumesRoot());
     }

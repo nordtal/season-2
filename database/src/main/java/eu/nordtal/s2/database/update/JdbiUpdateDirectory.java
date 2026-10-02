@@ -171,11 +171,6 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
-    public boolean handOver(final long id, final String result) {
-        return inbox.release(id, answer(result));
-    }
-
-    @Override
     public boolean progress(final long id, final String result) {
         return inbox.progress(id, answer(result));
     }

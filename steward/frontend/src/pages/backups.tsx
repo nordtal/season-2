@@ -59,8 +59,13 @@ export function BackupsPage() {
 
 /** Steward's own group, looked up in `/api/setting-groups` so a group not yet published gets no form. */
 export function useStewardConfig() {
+  return useGroupConfig("steward", "steward")
+}
+
+/** One service's group, looked up in `/api/setting-groups` so a group not yet published gets no form. */
+function useGroupConfig(service: string, name: string) {
   const configs = useConfigs()
-  const file = configs.data?.find((location) => location.service === "steward" && location.name === "steward")
+  const file = configs.data?.find((location) => location.service === service && location.name === name)
   const document = useConfig(file?.path ?? "", Boolean(file))
   return { file: file?.path, document: document.data, pending: configs.isPending || document.isPending }
 }
@@ -337,9 +342,11 @@ function DestinationDialog() {
   )
 }
 
-/** `backup.at` and the four `backup.retention` keys, in the order the dialog draws them. */
-const SCHEDULE_KEYS = [
-  "backup.at",
+/** steward's `backup.at`, the clock that writes the request row. */
+const SCHEDULE_KEYS = ["backup.at"] as const
+
+/** steward-agent's four `backup.retention` keys, in the order the dialog draws them; the run applies them. */
+const RETENTION_KEYS = [
   "backup.retention.daily",
   "backup.retention.weekly",
   "backup.retention.monthly",
@@ -434,15 +441,28 @@ function retentionSentence(daily: number, weekly: number, monthly: number, colla
   return `Keeps ${steps.join(", then ")} - at most ${count(total)} archives per volume. A day with several runs on it ${grace}.`
 }
 
+/** A refused save, named as the stale revision it usually is. */
+function failed(failure: unknown) {
+  toast.error(
+    failure instanceof ApiError && failure.status === 409
+      ? "The file changed while this was open. It has been read again."
+      : String(failure),
+  )
+}
+
 /**
  * The nightly clock and its retention, in a dialog.
  *
+ * The clock is steward's group and the retention steward-agent's `runs` group, so Save writes each one that changed.
  * The weekday badges write the `backup.days` list, kept beside the scalar draft.
  */
 function ScheduleDialog() {
   const { file, document, pending } = useStewardConfig()
   const save = useSaveConfig(file ?? "")
   const { entries, draft, setDraft, changes, changed } = useConfigDraft(document, SCHEDULE_KEYS)
+  const runs = useGroupConfig("steward-agent", "runs")
+  const saveRuns = useSaveConfig(runs.file ?? "")
+  const retention = useConfigDraft(runs.document, RETENTION_KEYS)
 
   /** The picked days; `undefined` until a badge is clicked, so the file's list is drawn. */
   const [pickedDays, setPickedDays] = useState<string[] | undefined>(undefined)
@@ -459,10 +479,13 @@ function ScheduleDialog() {
   const allChanges: ConfigChanges = daysChanged ? { ...changes, [DAYS_KEY]: days } : changes
   const allChanged = changed + (daysChanged ? 1 : 0)
 
-  const daily = intOr(draftValue(entries, draft, "backup.retention.daily"), 14)
-  const weekly = intOr(draftValue(entries, draft, "backup.retention.weekly"), 0)
-  const monthly = intOr(draftValue(entries, draft, "backup.retention.monthly"), 0)
-  const collapseAfterDays = intOr(draftValue(entries, draft, "backup.retention.collapse-after-days"), 3)
+  const kept = (path: string, otherwise: number) =>
+    intOr(draftValue(retention.entries, retention.draft, path), otherwise)
+  const daily = kept("backup.retention.daily", 14)
+  const weekly = kept("backup.retention.weekly", 0)
+  const monthly = kept("backup.retention.monthly", 0)
+  const collapseAfterDays = kept("backup.retention.collapse-after-days", 3)
+  const saving = save.isPending || saveRuns.isPending
 
   return (
     <ResponsiveDialog>
@@ -478,13 +501,10 @@ function ScheduleDialog() {
           <ResponsiveDialogDescription>When a backup runs, and how long it is kept.</ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
-        {pending ? (
+        {pending || runs.pending ? (
           <Loading rows={5} />
         ) : !document || entries.length === 0 ? (
-          <Empty
-            title="Steward's config has no backup.retention section"
-            note="The file in the volume predates it. A steward that has started since the section was added writes it in."
-          />
+          <Empty title="Steward's settings have no backup.at" />
         ) : (
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
@@ -511,7 +531,7 @@ function ScheduleDialog() {
                   id={entry.path}
                   entry={entry}
                   value={draft[entry.path] ?? (entry.secret ? "" : (entry.value ?? ""))}
-                  disabled={!document.writable || save.isPending}
+                  disabled={!document.writable || saving}
                   roles={undefined}
                   channels={undefined}
                   onChange={(value) => setDraft((was) => ({ ...was, [entry.path]: value }))}
@@ -519,31 +539,50 @@ function ScheduleDialog() {
               </div>
             ))}
 
-            <p className="text-sm text-muted-foreground">
-              {retentionSentence(daily, weekly, monthly, collapseAfterDays)}
-            </p>
+            {retention.entries.map((entry) => (
+              <div key={entry.path} className="flex flex-col gap-1.5">
+                <Label htmlFor={entry.path}>{entry.label || entry.key}</Label>
+                <ScalarControl
+                  id={entry.path}
+                  entry={entry}
+                  value={retention.draft[entry.path] ?? entry.value ?? ""}
+                  disabled={!runs.document?.writable || saving}
+                  roles={undefined}
+                  channels={undefined}
+                  onChange={(value) => retention.setDraft((was) => ({ ...was, [entry.path]: value }))}
+                />
+              </div>
+            ))}
+
+            {retention.entries.length > 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {retentionSentence(daily, weekly, monthly, collapseAfterDays)}
+              </p>
+            ) : null}
 
             <div className="flex items-center gap-3">
               <Button
-                disabled={allChanged === 0 || !document.writable || save.isPending}
-                onClick={() =>
-                  save.mutate(
-                    { revision: document.revision, changes: allChanges },
-                    {
-                      onSuccess: () => toast.success("Schedule saved."),
-                      onError: (failure) =>
-                        toast.error(
-                          failure instanceof ApiError && failure.status === 409
-                            ? "The file changed while this was open. It has been read again."
-                            : String(failure),
-                        ),
-                    },
-                  )
-                }
+                disabled={allChanged + retention.changed === 0 || !document.writable || saving}
+                onClick={() => {
+                  if (allChanged > 0) {
+                    save.mutate(
+                      { revision: document.revision, changes: allChanges },
+                      { onSuccess: () => toast.success("Schedule saved."), onError: failed },
+                    )
+                  }
+                  if (retention.changed > 0 && runs.document) {
+                    saveRuns.mutate(
+                      { revision: runs.document.revision, changes: retention.changes },
+                      { onSuccess: () => toast.success("Retention saved."), onError: failed },
+                    )
+                  }
+                }}
               >
                 Save
               </Button>
-              {allChanged > 0 ? <span className="text-sm text-muted-foreground tnum">{allChanged} changed</span> : null}
+              {allChanged + retention.changed > 0 ? (
+                <span className="text-sm text-muted-foreground tnum">{allChanged + retention.changed} changed</span>
+              ) : null}
             </div>
           </div>
         )}

@@ -1,12 +1,32 @@
 package eu.nordtal.s2.stewardagent;
 
+import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.Deployment;
+import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.time.NetworkTime;
+import eu.nordtal.s2.common.time.Waiting;
+import eu.nordtal.s2.database.notify.SignalHub;
+import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.internalapi.InternalServer;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
+import eu.nordtal.s2.settings.DatabaseSettings;
+import eu.nordtal.s2.settings.DatabaseSpec;
+import eu.nordtal.s2.settings.DatabaseWaiting;
+import eu.nordtal.s2.settings.Setting;
+import eu.nordtal.s2.settings.SettingsException;
+import eu.nordtal.s2.stewardagent.backup.LocalSnapshots;
+import eu.nordtal.s2.stewardagent.config.AgentSettings;
+import eu.nordtal.s2.stewardagent.config.RunSpec;
+import eu.nordtal.s2.stewardagent.docker.Containers;
 import eu.nordtal.s2.stewardagent.docker.Docker;
 import eu.nordtal.s2.stewardagent.docker.DockerSocket;
-import io.javalin.http.HttpStatus;
+import eu.nordtal.s2.stewardagent.plugin.PluginDirectory;
+import eu.nordtal.s2.stewardagent.run.Bootstrap;
+import eu.nordtal.s2.stewardagent.run.Runner;
+import eu.nordtal.s2.stewardagent.run.UpdateServer;
+import eu.nordtal.s2.stewardagent.schema.Schema;
+import eu.nordtal.s2.stewardagent.topology.ComposeTopology;
+import io.javalin.Javalin;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
@@ -15,9 +35,9 @@ import java.util.List;
 import java.util.function.Predicate;
 
 /**
- * The one process that holds the Docker socket and the volumes, and the only one allowed to create containers.
+ * The one process that holds the Docker socket and the volumes, migrates the schema and carries out every run.
  *
- * {@code agent up} is the setup script's blocking run; {@code agent serve} is the API steward calls.
+ * {@code serve} runs in the stack, {@code up} deploys for the setup script, {@code request} and {@code status} ask.
  */
 public final class StewardAgent {
 
@@ -40,9 +60,10 @@ public final class StewardAgent {
                 Duration.ofSeconds(30)));
         switch (mode) {
             case "up" -> System.exit(deploy(compose, List.of(), System.out::println, true, docker::hasImage));
-            case "serve" -> serve(server, compose, docker);
+            case "serve" -> System.exit(serve(server, compose, docker));
+            case "request", "status" -> System.exit(HostRequests.run(args));
             default -> {
-                System.err.println("usage: steward-agent [serve|up]");
+                System.err.println("usage: steward-agent [serve|up|request KIND [SERVICES] [MINUTES]|status ID]");
                 System.exit(2);
             }
         }
@@ -105,93 +126,128 @@ public final class StewardAgent {
         return List.copyOf(services);
     }
 
-    private static void serve(final InternalServer server, final Compose compose, final Docker docker)
+    /**
+     * Migrates, serves the API, installs what is missing, reports ready and then carries out runs until stopped.
+     *
+     * @return the exit status: 1 when the database or its schema is not there, since nothing may start without it
+     */
+    private static int serve(final InternalServer server, final Compose compose, final Docker docker)
             throws java.io.IOException {
         // A stale env file shows in the boot log, not on the first deploy.
         compose.assertEnvFileFresh();
         final Clock clock = NetworkTime.clock();
+        final DatabaseSpec databaseConfig;
+        try {
+            databaseConfig = AgentSettings.database().get();
+        } catch (final SettingsException broken) {
+            log.error("Refusing to touch the database on settings that cannot be read: {}", broken.getMessage());
+            return 1;
+        }
+        final Database opened = DatabaseWaiting.openDatabase(databaseConfig, Compose.SELF, Waiting.on(clock));
+        if (opened == null) {
+            return 1;
+        }
+        try (Database database = opened) {
+            try {
+                Schema.migrate(database, Schema.passwords(System.getenv()));
+            } catch (final RuntimeException failure) {
+                // A server must not start against an unknown schema, and every service waits for this one.
+                log.error(
+                        "The database schema could not be applied, so this container will not become ready.", failure);
+                return 1;
+            }
+            final DatabaseSettings settings = AgentSettings.stored(database.dataSource(), log);
+            final Setting<RunSpec> runs;
+            try {
+                runs = AgentSettings.runs(settings);
+            } catch (final SettingsException broken) {
+                log.error("Refusing to carry out runs on settings that cannot be read: {}", broken.getMessage());
+                return 1;
+            }
+            return serveWithDatabase(server, compose, docker, clock, database, databaseConfig, settings, runs);
+        }
+    }
+
+    // The one volumes root is the runs group's, so what a run installs and what the API reads cannot differ.
+    private static AgentApi.Paths pathsOf(final InternalServer server, final RunSpec runs) {
+        return new AgentApi.Paths(
+                Path.of(runs.volumesRoot()),
+                Path.of(server.setting(
+                        "CONFIGS", AgentApi.Paths.DEFAULTS.configs().toString())),
+                Path.of(server.setting(
+                        "BACKUP_SOURCES",
+                        AgentApi.Paths.DEFAULTS.backupSources().toString())),
+                Path.of(server.setting(
+                        "BACKUPS", AgentApi.Paths.DEFAULTS.backups().toString())));
+    }
+
+    private static int serveWithDatabase(
+            final InternalServer server,
+            final Compose compose,
+            final Docker docker,
+            final Clock clock,
+            final Database database,
+            final DatabaseSpec databaseConfig,
+            final DatabaseSettings settings,
+            final Setting<RunSpec> runs) {
         final String project = compose.projectName();
-        final Jobs jobs = new Jobs(clock);
-        final AgentApi api = new AgentApi(
-                docker,
-                project,
-                compose::definitions,
-                new AgentApi.Paths(
-                        Path.of(server.setting("VOLUMES_ROOT", String.valueOf(AgentApi.Paths.DEFAULTS.volumesRoot()))),
-                        Path.of(server.setting(
-                                "CONFIGS", AgentApi.Paths.DEFAULTS.configs().toString())),
-                        Path.of(server.setting(
-                                "BACKUP_SOURCES",
-                                AgentApi.Paths.DEFAULTS.backupSources().toString())),
-                        Path.of(server.setting(
-                                "BACKUPS", AgentApi.Paths.DEFAULTS.backups().toString()))),
-                clock);
+        final AgentApi.Paths paths = pathsOf(server, runs.get());
+        final PluginDirectory plugins = PluginDirectory.using(database.dataSource());
+        final AgentApi api = new AgentApi(docker, project, compose::definitions, paths, clock);
+        final RunRoutes runRoutes = new RunRoutes(runs::get, plugins, database, clock);
         if (!docker.isReachable()) {
             log.warn("No docker socket answers, so every container route answers that the daemon is not answering.");
         }
         api.start();
         // Without its secret it does not start: an open process that can recreate every container is a root shell.
-        final var app = server.serve(AgentWire.PORT, clock, config -> {
+        final Javalin app = server.start(AgentWire.PORT, config -> {
             api.register(config);
-            jobRoutes(config, compose, jobs, docker);
+            runRoutes.register(config);
         });
-        Runtime.getRuntime()
-                .addShutdownHook(new Thread(
-                        () -> {
-                            api.close();
-                            app.stop();
-                        },
-                        "steward-agent-shutdown"));
-    }
-
-    /** Deploy, recreate and the jobs they start; a request that names steward-agent is refused before any job. */
-    static void jobRoutes(
-            final io.javalin.config.JavalinConfig config, final Compose compose, final Jobs jobs, final Docker docker) {
-        config.routes.post(AgentWire.DEPLOY, ctx -> deployRoute(ctx, compose, jobs, docker));
-        config.routes.post(AgentWire.RECREATE, ctx -> recreateRoute(ctx, compose, jobs, docker));
-        config.routes.get(
-                AgentWire.JOBS,
-                ctx -> ctx.json(jobs.all().stream().map(job -> job.wire(false)).toList()));
-        config.routes.get(AgentWire.JOB, ctx -> jobRoute(ctx, jobs));
-
-        // SSE: one direction, and no special reverse proxy rule.
-        config.routes.sse(AgentWire.JOB + "/stream", client -> streamRoute(client, jobs));
-    }
-
-    private static void deployRoute(
-            final io.javalin.http.Context ctx, final Compose compose, final Jobs jobs, final Docker docker) {
-        final AgentWire.Deploy request = InternalServer.body(ctx, AgentWire.Deploy.class);
-        final List<String> services = request == null || request.services() == null ? List.of() : request.services();
-        services.forEach(Compose::refuseSelf);
-        final Jobs.Job job =
-                jobs.start("deploy", services, output -> deploy(compose, services, output, false, docker::hasImage));
-        ctx.status(HttpStatus.ACCEPTED).json(job.wire(false));
-    }
-
-    private static void recreateRoute(
-            final io.javalin.http.Context ctx, final Compose compose, final Jobs jobs, final Docker docker) {
-        final String service = Compose.refuseSelf(ctx.pathParam("service"));
-        final Jobs.Job job = jobs.start(
-                "recreate", List.of(service), output -> recreate(compose, service, output, docker::hasImage));
-        ctx.status(HttpStatus.ACCEPTED).json(job.wire(false));
-    }
-
-    private static void jobRoute(final io.javalin.http.Context ctx, final Jobs jobs) {
-        final Jobs.Job job = jobs.get(ctx.pathParam("id"));
-        if (job == null) {
-            throw new io.javalin.http.NotFoundResponse("no such job");
+        try (api) {
+            // Before the marker and before any run is claimed, so nothing races it.
+            if (runs.get().bootstrap()) {
+                Bootstrap.installMissing(runs.get(), database);
+            }
+            if (!Readiness.onDefaultPath(clock, log::warn).keepBeating()) {
+                log.error("Could not write the readiness marker, so the rest of the stack will not start.");
+            }
+            final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
+            final ComposeTopology topology = new ComposeTopology(
+                    compose::definitions, paths.backupSources().toString(), clock);
+            final LocalStack stack = new LocalStack(docker, new Containers(docker, project), topology, compose);
+            final LocalSnapshots snapshots =
+                    new LocalSnapshots(docker, project, paths.backupSources(), paths.backups(), clock, runs::get);
+            try (SignalHub signals = SignalHub.open(
+                            databaseConfig.jdbcUrl(),
+                            databaseConfig.username(),
+                            databaseConfig.password(),
+                            databaseConfig.queryTimeoutSeconds(),
+                            "steward-agent-signals",
+                            log);
+                    UpdateServer loop = new UpdateServer(
+                            updates,
+                            new Runner(runs.get(), database, stack, snapshots, updates, Waiting.on(clock), plugins),
+                            clock)) {
+                loop.listen(signals);
+                settings.listen(signals, () -> reload(runs));
+                signals.start();
+                // SIGTERM is how a redeploy asks; without this the container is killed after the grace period.
+                Runtime.getRuntime().addShutdownHook(new Thread(loop::close, "steward-agent-shutdown"));
+                loop.serve();
+            }
+        } finally {
+            app.stop();
         }
-        ctx.json(job.wire(true));
+        return 0;
     }
 
-    private static void streamRoute(final io.javalin.http.sse.SseClient client, final Jobs jobs) {
-        final Jobs.Job job = jobs.get(client.ctx().pathParam("id"));
-        if (job == null) {
-            client.close();
-            return;
+    /** Takes the runs group again after a change in Steward; a refused change keeps the values in use. */
+    private static void reload(final Setting<RunSpec> runs) {
+        try {
+            runs.reload();
+        } catch (final SettingsException broken) {
+            log.warn("The runs settings were changed but refused, so the last ones stay: {}", broken.getMessage());
         }
-        client.keepAlive();
-        final Runnable stop = job.follow(line -> client.sendEvent("line", line));
-        client.onClose(stop);
     }
 }

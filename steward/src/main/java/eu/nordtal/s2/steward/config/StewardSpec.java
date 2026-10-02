@@ -11,135 +11,20 @@ import eu.nordtal.jcore.config.spec.annotation.Secret;
 import java.util.List;
 
 /**
- * The {@code steward} group: where every version comes from, and where the files it compares against live.
+ * The {@code steward} group: the bank, the clocks and the agent Steward asks.
  *
- * Every default is the real value; there is no key that pins a release, since the newest published one wins.
+ * Where versions come from is steward-agent's {@code runs} group, since the agent carries out every run.
  */
 @ConfigSpec
 public interface StewardSpec {
 
-    @Order(1)
-    @Name("Season repository")
-    @Key("season-repo")
-    @Comment({
-        "The GitHub repository the season 2 jars and the resource pack come from, as",
-        "owner/name. The newest published release always wins; drafts and pre-releases are skipped."
-    })
-    @Explain("Where season 2's jars and the resource pack come from, always the newest published release.")
-    default String seasonRepo() {
-        return "nordtal/season-2";
-    }
-
-    @Order(2)
-    @Name("Display tags repository")
-    @Key("display-tags-repo")
-    @Comment("Our fork of the Text Display nametag plugin, which smp requires to enable.")
-    @Explain("Required on the SMP server: smp refuses to enable without a release fetched from here.")
-    default String displayTagsRepo() {
-        return "nordtal/papermc-display-tags";
-    }
-
-    @Order(3)
-    @Name("PacketEvents project")
-    @Key("packetevents-project")
-    @Comment({
-        "The Modrinth project id of PacketEvents, which DisplayTags is built on.",
-        "The id, not the slug, since an author can rename a slug."
-    })
-    @Explain("The Modrinth project id, not the slug, since an author can rename a slug.")
-    default String packetEventsProject() {
-        return "HYKaKraK";
-    }
-
-    @Order(5)
-    @Name("Simple Voice Chat project")
-    @Key("voicechat-project")
-    @Comment({
-        "The Modrinth project id of Simple Voice Chat. One id resolves both the paper build",
-        "for the servers and the velocity build for the proxy, and it is the one artefact",
-        "installed from a pre-release; see Modrinth.PRE_RELEASE_EXCEPTIONS."
-    })
-    @Explain(
-            "One Modrinth id resolves both the server and proxy voice builds, and is the one artefact installed from a pre-release.")
-    default String voiceChatProject() {
-        return "9eGKb6K1";
-    }
-
-    @Order(6)
-    @Name("CoreProtect project")
-    @Key("coreprotect-project")
-    @Comment({
-        "The Modrinth project id of CoreProtect, the block logger on smp. Without a build for",
-        "this Minecraft version it resolves as UNSUPPORTED and installs nothing. Blanking it",
-        "does not retire it; editing Topology.SERVICES does."
-    })
-    @Explain(
-            "Resolves UNSUPPORTED rather than failing while there is no build for this version. Retiring it means editing Topology.SERVICES.")
-    default String coreProtectProject() {
-        return "Lu3KuzdV";
-    }
-
-    @Order(7)
-    @Name("Volumes root")
-    @Key("volumes-root")
-    @Comment({
-        "Where the Minecraft volumes are mounted in this container, one directory per compose",
-        "service named after it. A missing directory is reported, never created."
-    })
-    @Explain("A directory that is not mounted here is reported missing rather than invented.")
-    default String volumesRoot() {
-        return "/volumes";
-    }
-
-    @Order(8)
-    @Name("GitHub token")
-    @Key("github-token")
-    @Comment({
-        "Optional. Raises GitHub's unauthenticated limit of 60 requests per hour per IP.",
-        "A fine-grained token with public read access is enough."
-    })
-    @NoExplanationNeeded
-    default String githubToken() {
-        return "";
-    }
-
     @Order(9)
     @Name("HTTP timeout (seconds)")
     @Key("http-timeout-seconds")
-    @Comment({
-        "How long any single API call may take before the run gives up, so the report always",
-        "arrives or says why not."
-    })
-    @Explain(
-            "How long any single API call may wait before the run gives up, since an operator is waiting on the report.")
+    @Comment("How long any single call to steward-agent or steward-bunq may take before Steward gives up.")
+    @Explain("How long any single call to steward-agent or steward-bunq may wait before Steward gives up.")
     default int httpTimeoutSeconds() {
         return 30;
-    }
-
-    @Order(10)
-    @Name("Download timeout (seconds)")
-    @Key("download-timeout-seconds")
-    @Comment({
-        "How long a single jar may take to download during an update run, sized",
-        "for a Paper server jar of about 65 MB."
-    })
-    @Explain("Much larger than http-timeout-seconds, since this bounds downloading a Paper jar of about 65 MB.")
-    default int downloadTimeoutSeconds() {
-        return 600;
-    }
-
-    @Order(12)
-    @Name("Bootstrap")
-    @Key("bootstrap")
-    @Comment({
-        "Whether `steward serve` installs what is missing before it reports ready.",
-        "It only fills an empty volume and never moves an installed jar to a newer version.",
-        "Turned off, the servers refuse to start until `steward bootstrap` has run."
-    })
-    @Explain(
-            "Whether serve installs missing artefacts before reporting ready. It never moves an existing jar to a newer version.")
-    default boolean bootstrap() {
-        return true;
     }
 
     @Order(13)
@@ -179,7 +64,7 @@ public interface StewardSpec {
     @Key("agent")
     @Comment({
         "steward-agent, the one process that reaches Docker and the volumes: container state,",
-        "logs, the console, backups and every stop, start and recreate. Without a token it asks nothing."
+        "logs, the console, the backups and the plan of the next run. Without a token it asks nothing."
     })
     @Explain(
             "Steward's only way to the containers and the volumes. Without a token below, nothing about a container can be shown or done.")
@@ -270,23 +155,9 @@ public interface StewardSpec {
             "Empty means this container never asks. Set NORDTAL_STEWARD_AGENT_TOKEN instead."
         })
         @Secret
-        @Explain(
-                "The secret steward-agent expects. Empty means this container asks it nothing and draws no recreate button.")
+        @Explain("The secret steward-agent expects. Empty means this container asks it nothing.")
         default String token() {
             return "";
-        }
-
-        @Order(3)
-        @Name("Timeout (seconds)")
-        @Key("timeout-seconds")
-        @Comment({
-            "How long one recreate, an image pull plus a forced recreate, may take before it is",
-            "reported unfinished rather than failed."
-        })
-        @Explain(
-                "Bounds a full image pull plus recreate, so it matches download-timeout-seconds rather than the API timeout.")
-        default int timeoutSeconds() {
-            return 600;
         }
     }
 

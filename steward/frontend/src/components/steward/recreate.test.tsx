@@ -4,11 +4,11 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { RecreateButton } from "@/components/steward/recreate"
-import { asButton, asElement } from "@/lib/test-elements"
+import { asButton } from "@/lib/test-elements"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
- * "Recreate", and the rule that a job which cannot be read is never shown as running.
+ * "Recreate", which asks for a run and never touches a container itself.
  *
  * The fake backend answers by URL, since the dialog asks three questions in an order that may change.
  */
@@ -22,13 +22,13 @@ function json({ status = 200, body }: Answer): Response {
   })
 }
 
-/** The agent's three routes. `job` is a function so a test can change its mind mid-dialog. */
+/** The agent's state and the run inbox. */
 function backend(
   over: {
     available?: boolean
     reachable?: boolean
     reason?: string
-    job?: () => Answer
+    ask?: () => Answer
   } = {},
 ) {
   return vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url: string, init?: RequestInit) => {
@@ -41,11 +41,8 @@ function backend(
         },
       })
     }
-    if (url.startsWith("/api/agent/recreate/") && init?.method === "POST") {
-      return json({ body: { id: "j1", kind: "RECREATE", services: ["smp"], state: "RUNNING", started: "now" } })
-    }
-    if (url.startsWith("/api/agent/jobs/")) {
-      return json(over.job?.() ?? { body: { id: "j1", state: "RUNNING", lines: [] } })
+    if (url === "/api/updates" && init?.method === "POST") {
+      return json(over.ask?.() ?? { status: 202, body: { id: 77, kind: "RECREATE", status: "PENDING" } })
     }
     throw new Error(`the dialog asked for ${url}, which this test did not expect`)
   })
@@ -114,14 +111,12 @@ describe("RecreateButton - before anything is pressed", () => {
     expect(button.title).not.toContain("already on this host")
   })
 
-  it("says that nobody in the world is warned, before the button is pressed and not after", async () => {
+  it("says that it is a run with a warning, and opening it asks for nothing", async () => {
     draw(<RecreateButton service="smp" />)
     fireEvent.click(screen.getByRole("button", { name: /Recreate/ }))
 
     const dialog = await screen.findByRole("dialog")
-    expect(dialog.textContent).toContain("no countdown")
-    expect(dialog.textContent).toContain("thrown out")
-    // Opening the dialog must not start a compose run.
+    expect(dialog.textContent).toContain("warned")
     expect(fetched.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false)
   })
 })
@@ -167,110 +162,29 @@ describe("RecreateButton - before /api/agent has answered at all", () => {
   })
 })
 
-describe("RecreateButton - while the job is read", () => {
+describe("RecreateButton - pressed", () => {
   beforeEach(() => {
-    vi.stubGlobal("fetch", backend())
+    fetched = backend()
+    vi.stubGlobal("fetch", fetched)
   })
 
-  it("shows compose's own output rather than a summary of it", async () => {
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        job: () => ({
-          body: {
-            id: "j1",
-            state: "DONE",
-            exitCode: 0,
-            lines: ["Container nordtal-s2-smp-1  Recreated", "Container nordtal-s2-smp-1  Started"],
-          },
-        }),
-      }),
-    )
+  it("asks for a RECREATE run naming this one service", async () => {
+    draw(<RecreateButton service="smp" />)
+    await start()
+
+    await waitFor(() => expect(fetched.mock.calls.some(([url]) => url === "/api/updates")).toBe(true))
+    const [, init] = fetched.mock.calls.find(([url]) => url === "/api/updates") ?? []
+    expect(JSON.parse(typeof init?.body === "string" ? init.body : "")).toEqual({ kind: "RECREATE", services: ["smp"] })
+    expect(fetched.mock.calls.some(([url]) => url.startsWith("/api/agent/"))).toBe(false)
+  })
+
+  it("keeps the dialog open when the inbox refuses, since another run is open", async () => {
+    fetched = backend({ ask: () => ({ status: 409, body: { error: "a run is already open", where: "steward" } }) })
+    vi.stubGlobal("fetch", fetched)
     draw(<RecreateButton service="smp" />)
     const dialog = await start()
 
-    await waitFor(() => expect(dialog.textContent).toContain("Done"))
-    expect(dialog.textContent).toContain("Container nordtal-s2-smp-1  Recreated")
-    expect(dialog.textContent).toContain("Exit code 0")
-  })
-
-  it("says Failed and the code compose came back with", async () => {
-    vi.stubGlobal(
-      "fetch",
-      backend({ job: () => ({ body: { id: "j1", state: "FAILED", exitCode: 1, lines: ["no such service: smp"] } }) }),
-    )
-    draw(<RecreateButton service="smp" />)
-    const dialog = await start()
-
-    await waitFor(() => expect(dialog.textContent).toContain("Failed"))
-    expect(dialog.textContent).toContain("Exit code 1")
-    expect(within(dialog).queryByText("Running")).toBeNull()
-  })
-
-  it("shows the failure, and not Running, when the job cannot be read at all", async () => {
-    /** A job nobody has answered about must not draw the working badge. */
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        job: () => ({ status: 502, body: { error: "steward-agent is not answering.", where: "steward-agent" } }),
-      }),
-    )
-    draw(<RecreateButton service="smp" />)
-    const dialog = await start()
-
-    await waitFor(() => expect(within(dialog).getByRole("alert")).toBeTruthy())
-    expect(within(dialog).getByRole("alert").textContent).toContain("steward-agent is not answering.")
-    expect(within(dialog).queryByText("Running")).toBeNull()
-    // The sentence that tells an operator what a silent agent costs them.
-    expect(within(dialog).getByRole("alert").textContent).toContain("nothing can be")
-  })
-
-  it("offers to ask again rather than leaving the failure as the last word", async () => {
-    let broken = true
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        job: () =>
-          broken
-            ? { status: 502, body: { error: "steward-agent is not answering.", where: "steward-agent" } }
-            : { body: { id: "j1", state: "DONE", exitCode: 0, lines: ["Container nordtal-s2-smp-1  Recreated"] } },
-      }),
-    )
-    draw(<RecreateButton service="smp" />)
-    const dialog = await start()
-
-    await waitFor(() => expect(within(dialog).getByRole("alert")).toBeTruthy())
-    broken = false
-    fireEvent.click(within(dialog).getByRole("button", { name: /Try again/ }))
-
-    await waitFor(() => expect(dialog.textContent).toContain("Done"))
-    expect(within(dialog).queryByRole("alert")).toBeNull()
-  })
-})
-
-describe("RecreateButton - the footer while the job is unreadable", () => {
-  it("lets the operator out again after a poll that failed", async () => {
-    // `running` carries the `!job.error` guard, since `job.data` survives a failed poll.
-    let broken = false
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        job: () =>
-          broken
-            ? { status: 502, body: { error: "steward-agent is not answering.", where: "steward-agent" } }
-            : { body: { id: "j1", state: "RUNNING", lines: ["Container nordtal-s2-smp-1  Recreating"] } },
-      }),
-    )
-    draw(<RecreateButton service="smp" />)
-    const dialog = await start()
-
-    await waitFor(() => expect(dialog.textContent).toContain("Recreating"))
-    broken = true
-    await waitFor(() => expect(within(dialog).queryByRole("alert")).not.toBeNull(), { timeout: 3000 })
-
-    /** Scoped to the footer, since Radix's dismiss icon is also named "Close". */
-    const footer = asElement(dialog.querySelector('[data-slot="dialog-footer"]'))
-    const close = asButton(within(footer).getByRole("button", { name: /Close|Running/ }))
-    expect([close.textContent, close.disabled]).toEqual(["Close", false])
+    await waitFor(() => expect(fetched.mock.calls.some(([url]) => url === "/api/updates")).toBe(true))
+    expect(within(dialog).getByRole("button", { name: "Recreate" })).toBeTruthy()
   })
 })

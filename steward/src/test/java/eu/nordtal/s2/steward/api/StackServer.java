@@ -1,7 +1,6 @@
 package eu.nordtal.s2.steward.api;
 
 import eu.nordtal.s2.common.json.Json;
-import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.steward.web.ErrorHandlers;
@@ -10,7 +9,6 @@ import io.javalin.Javalin;
 import io.javalin.http.Context;
 import io.javalin.json.JavalinGson;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.ZoneId;
 import java.util.List;
 
@@ -40,7 +38,7 @@ final class StackServer {
     /** The API under test over {@code agent}, with a nightly window that never fires. */
     static StackApi api(final AgentStandIn agent) {
         return new StackApi(
-                new AgentClient(agent.client(), Waiting.on(Clock.systemUTC()), Duration.ofSeconds(5)),
+                new AgentClient(agent.client()),
                 FakeDirectories.updates(),
                 FakeDirectories.audit(),
                 new StackApi.Nightly(

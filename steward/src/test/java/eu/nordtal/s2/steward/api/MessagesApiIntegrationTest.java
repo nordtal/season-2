@@ -28,7 +28,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -98,7 +97,7 @@ class MessagesApiIntegrationTest {
                 20,
                 TimeUnit.MILLISECONDS);
         final MessagesApi messages = new MessagesApi(
-                new AgentClient(agent.client(), Waiting.on(Clock.systemUTC()), Duration.ofSeconds(5)),
+                new AgentClient(agent.client()),
                 inbox,
                 service -> {
                     console.add(service);

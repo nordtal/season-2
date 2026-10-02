@@ -431,9 +431,9 @@ if [[ "${ALLOW_NO_PLUGINS:-false}" != "true" ]]; then
     shopt -u nullglob
 
     if (( ${#installed[@]} == 0 )); then
-        die "no plugin jars in ${PLUGINS}. This container does not fetch them any more - steward does. Run it once against this stack:
+        die "no plugin jars in ${PLUGINS}. This container does not fetch them - steward-agent does, at every start of its own. Restart it against this stack:
 
-    docker compose run --rm steward bootstrap
+    docker compose restart steward-agent
 
 Refusing to start: a Minecraft server with no plugins is a server with no season on it, and nothing about it looks wrong until somebody joins. Set ALLOW_NO_PLUGINS=true if a server with no plugins really is what you want."
     fi
@@ -466,9 +466,9 @@ Refusing to start: a Minecraft server with no plugins is a server with no season
 
 Refusing to start. A folder with SOME of the plugins in it is the state that looks fine and is not: a Minecraft server missing its season jar starts, reports healthy, and is discovered by the first player who joins.
 
-The likeliest cause is a steward run that could not reach a source and skipped this whole server - read its log for a line saying so, and run it again once the source answers:
+The likeliest cause is a run that could not reach a source and skipped this whole server - read steward-agent's log for a line saying so, and restart it once the source answers:
 
-    docker compose run --rm steward bootstrap
+    docker compose restart steward-agent
 
 If the plugin IS in the folder under a different filename, its publisher renamed the jar: correct EXPECTED_PLUGINS for this service rather than deleting anything."
         fi

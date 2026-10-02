@@ -15,7 +15,7 @@ WORKDIR /app
 COPY deploy/jvm/entrypoint.sh /app/entrypoint.sh
 ENTRYPOINT ["/app/entrypoint.sh"]
 
-# Configuration in config/: bot.yml, database.yml and access.yml. JAR_DIR is where steward puts its jar.
+# Configuration in config/: bot.yml, database.yml and access.yml. JAR_DIR is where steward-agent puts its jar.
 FROM jvm AS discord-bot
 RUN mkdir -p config lib
 ENV JAR_DIR=/app/lib
@@ -34,10 +34,13 @@ VOLUME ["/app/config"]
 # The docker CLI and compose plugin are static binaries. Mounted, not baked: the Docker socket, the
 # whole privilege of this container, and /app/env, the deployment's secrets, read only by compose.
 # zstd compresses the backup tars; GNU tar is already in the base image.
+# `steward-agent` is a command too, for `docker exec nordtal-s2-steward-agent-1 steward-agent request UPDATE`.
 FROM jvm AS steward-agent
 RUN apt-get update \
     && apt-get install --no-install-recommends -y zstd \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && printf '#!/bin/sh\nexec /app/entrypoint.sh "$@"\n' > /usr/local/bin/steward-agent \
+    && chmod 0755 /usr/local/bin/steward-agent
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=docker-cli /usr/local/libexec/docker/cli-plugins/docker-compose \
      /usr/local/libexec/docker/cli-plugins/docker-compose
@@ -47,7 +50,7 @@ ENV NORDTAL_STEWARD_AGENT_COMPOSE_FILE=/app/compose.yml \
     NORDTAL_STEWARD_AGENT_PROJECT_DIRECTORY=/app \
     NORDTAL_STEWARD_AGENT_PORT=8081
 EXPOSE 8081
-# `serve` for the stack, `up` for the setup script.
+# `serve` for the stack, `up` for the setup script, `request` and `status` for the host.
 CMD ["serve"]
 
 # bunq binds the context to the device and IP that registered it, so it is regenerated after a move.

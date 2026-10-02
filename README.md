@@ -32,8 +32,8 @@ flowchart TB
         subgraph steward["Steward · its own network"]
             direction TB
             CADDY["<b>caddy</b><br/>HTTPS"]:::side
-            UPD["<b>steward</b><br/><i>:steward</i><br/>the interface · schema · jars · backups"]:::app
-            DEP["<b>steward-agent</b><br/><i>:steward-agent</i><br/>the only one that may create containers"]:::app
+            UPD["<b>steward</b><br/><i>:steward</i><br/>the interface · payments · alerts"]:::app
+            DEP["<b>steward-agent</b><br/><i>:steward-agent</i><br/>schema · every run · backups"]:::app
             BANK["<b>steward-bunq</b><br/><i>:steward-bunq</i><br/>the only one that holds the bank key"]:::app
         end
         subgraph servers["Minecraft servers · one image"]
@@ -52,10 +52,11 @@ flowchart TB
     BANK --> bunq(["bunq"]):::ext
     players ~~~ UPD
     CADDY --> UPD
-    UPD -->|"create a container"| DEP
+    UPD -->|"containers, plan, archives"| DEP
     UPD -->|"tabs, payments"| BANK
-    UPD ==>|"schema, then jars"| servers
-    UPD ==> BOT
+    DEP ==>|"schema, then jars"| servers
+    DEP ==> BOT
+    DEP --> PG
     NC -->|"pack"| LIMBO
     NC -->|"phase"| HG
     NC -->|"phase"| SMP
@@ -80,9 +81,11 @@ the table below are compiled into the jars above.
 - A standby instance of a service is its name plus `-standby` and runs the same jar and config.
 - The Steward services sit on their own Docker networks; the Minecraft servers do not, so no plugin
   can reach the deploy API. `postgres` is on both. `steward-agent` and `steward-bunq` each share an
-  internal network with `steward` and nobody else, so only `steward` can call either of them.
-- `steward` faces the internet and holds no Docker socket: `steward-agent` alone does, and steward
-  reaches containers, logs, measurements and archives through its API.
+  internal network with `steward` and nobody else; `steward-agent` also reaches postgres and the
+  release sources through `steward`'s network.
+- `steward` faces the internet and holds no Docker socket: `steward-agent` alone does, carries out
+  every run a row in `steward_inbox` asks for, and serves steward containers, logs, measurements,
+  archives and the plan of the next update.
 - The database is the source of truth for access, language, phase and event state. Discord roles
   follow it.
 
@@ -95,8 +98,8 @@ the table below are compiled into the jars above.
 | `hunger-games`      | Paper           | The start event: registration, teams, border, loot, HUD, winning.                                                |
 | `smp`               | Paper           | The SMP: Nordtal, the farm world, the Nether and the End, milestones, aura, prestige, duels, graves.             |
 | `discord-bot`       | JVM app         | Sells access periods, books bunq payments, mirrors admins.                                                       |
-| `steward`           | JVM app + React | The web interface and its API, the schema, every jar version and run, payments and the nightly backup.           |
-| `steward-agent`     | JVM app         | The only service allowed to create a container. Carries `compose.yml` inside its own image.                      |
+| `steward`           | JVM app + React | The web interface and its API, payments, alerts and the clocks that ask for runs.                                |
+| `steward-agent`     | JVM app         | The schema, every jar version and every run. The only service allowed to create a container.                     |
 | `steward-bunq`      | JVM app         | The only service holding the bank key: creates and cancels tabs, lists payments. Decides nothing.                |
 | `common`            | library         | The shared kernel: platform constants, the phase enum, languages, readiness. No database, no Adventure, no pack. |
 | `database`          | library         | Access, phase, online, audit, the request inboxes, the signal hub and the migration SQL.                         |

@@ -5,6 +5,7 @@ import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.access.PackExemptions;
 import eu.nordtal.s2.database.alert.AlertBook;
+import eu.nordtal.s2.database.game.GameDataStore;
 import eu.nordtal.s2.database.metric.Metric;
 import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.SignalHub;
@@ -129,6 +130,9 @@ public final class Web {
 
     private final Metrics metrics;
 
+    /** What the servers know of the game, which the pickers draw from. */
+    private final GameDataRoutes gameData;
+
     /** The browser's one live stream, which every page's data follows. */
     private final LiveFeed live;
 
@@ -141,7 +145,8 @@ public final class Web {
             Channel.ADMIN,
             Channel.PHASE,
             Channel.SETTINGS,
-            Channel.ALERT);
+            Channel.ALERT,
+            Channel.GAME_DATA);
 
     /** How often {@link AlertMonitor#poll} reads the stack. */
     private static final Duration ALERT_POLL = Duration.ofSeconds(30);
@@ -183,6 +188,7 @@ public final class Web {
         this.announcements = new Announcements(data, ctx -> account(ctx).orElseThrow());
         this.access = new AccessApi(data, ctx -> account(ctx).orElseThrow());
         this.roster = new RosterRoutes(data);
+        this.gameData = new GameDataRoutes(data == null ? null : GameDataStore.using(data.dataSource()));
         this.settings = new Settings(config);
         final @Nullable AdminTree localAdmins = data == null ? null : AdminTree.using(data.dataSource());
         this.admins = localAdmins;
@@ -267,6 +273,7 @@ public final class Web {
                                 clock.instant().minus(Duration.ofMinutes(5)),
                                 clock.instant()));
         live.watch(Topic.ALERTS, alerts::read);
+        live.watch(Topic.GAME_DATA, gameData::changes);
         return live;
     }
 
@@ -539,6 +546,8 @@ public final class Web {
         cfg.routes.get("/api/discord/roles", guild::roles, Gate.KEY_HELD);
         cfg.routes.get("/api/discord/channels", guild::channels, Gate.KEY_HELD);
         cfg.routes.get("/api/settings", settings::get, Gate.KEY_HELD);
+        cfg.routes.get("/api/game-data", gameData::read, Gate.KEY_HELD);
+        cfg.routes.get("/api/game-data/{version}/icons.png", gameData::icons, Gate.KEY_HELD);
     }
 
     private void registerRosterRoutes(final JavalinConfig cfg) {

@@ -14,6 +14,7 @@ import {
   type MessageSaveResult,
   type MessageExamples,
   type PluginDescriptor,
+  type GameData,
 } from "@/lib/api"
 import { live } from "@/lib/live"
 import { SECOND, keys } from "@/lib/query-keys"
@@ -165,5 +166,20 @@ export function useMessageDocuments(paths: string[], enabled: boolean) {
       staleTime: 5 * 60 * SECOND,
       enabled,
     })),
+  })
+}
+
+/**
+ * What the servers know of the game, for the pickers: about a megabyte, so it is read again only when it changes.
+ *
+ * Only the live topic refreshes it, never a timer or a focus.
+ */
+export function useGameData() {
+  return useQuery({
+    queryKey: keys.gameData,
+    queryFn: () => api<GameData>("/api/game-data"),
+    meta: { topics: ["GAME_DATA"] },
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   })
 }

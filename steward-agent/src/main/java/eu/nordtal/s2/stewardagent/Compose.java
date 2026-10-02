@@ -36,6 +36,9 @@ public final class Compose {
      */
     public static final String SELF = AgentWire.SERVICE;
 
+    /** The service that applies the schema from this image and exits, which every database login waits for. */
+    public static final String MIGRATE = "migrate";
+
     private final Path composeFile;
     private final Path envFile;
     private final Path projectDirectory;
@@ -153,6 +156,16 @@ public final class Compose {
         final List<String> command = command(List.of("up", "--detach", "--no-deps"));
         command.addAll(services);
         return run(command, output);
+    }
+
+    /**
+     * Runs the migrate service once more and waits for it, after something replaced the database underneath.
+     *
+     * @return its exit status, 0 only on a current schema
+     */
+    public int migrate(final Consumer<String> output) throws IOException {
+        assertEnvFileFresh();
+        return run(command(List.of("run", "--rm", "--no-deps", "-T", MIGRATE)), output);
     }
 
     /**

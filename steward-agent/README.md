@@ -2,9 +2,11 @@
 
 The one door to Docker and to the volumes, and the process that carries out every run. It holds the
 Docker socket and carries `compose.yml` inside its own image, so a change to the deployment is a new
-image of this service, renewed by the setup script on the host. It is the only process that runs
-Flyway: at every start it migrates, serves its API, installs whatever slot is still empty, reports
-ready and then claims runs from `steward_inbox`. Every other service waits for it to become healthy. `steward` mounts no socket and reaches all of it through
+image of this service, renewed by the setup script on the host. Its image is also
+the `migrate` service, the only process that runs Flyway's `migrate`: it creates every role, applies
+the schema and exits, and every service with a database login waits for it to succeed. `serve`
+serves the API, installs whatever slot is still empty, reports ready and then claims runs from
+`steward_inbox`; the Minecraft services wait for it to become healthy. `steward` mounts no socket and reaches all of it through
 `:internal-api`'s `AgentClient`; `:architecture` refuses `java.net.UnixDomainSocketAddress` anywhere
 else, and any class of this module inside `steward`.
 
@@ -21,7 +23,8 @@ else, and any class of this module inside `steward`.
 ## Run it
 
     steward-agent up                          # the setup script: pull, then up, wait, exit with the code
-    steward-agent serve                       # migrate, the API, then runs (default in the container)
+    steward-agent serve                       # the API, then runs (default in the container)
+    steward-agent migrate                     # the migrate service: roles, schema, exit code
     steward-agent request KIND [a,b] [MIN]    # ask for a run, as a button would; prints its id
     steward-agent status ID                   # the run's status, a tab and its report
 
@@ -45,8 +48,8 @@ server, deletes the added plugin's jar and data folder and starts it again.
 A `RESTORE` puts one archive back. A volume archive stops what mounts the volume, saves the volume as
 it is, then unpacks the archive into it. A dump is preceded by a fresh dump with everything running,
 stops every service of ours that runs on the database, and replaces the `public` schema in one
-transaction, so a failed restore leaves the database as it was. The agent then migrates it to its own
-schema, and the run's row, which the dump did not hold as it is now, is carried across; rows the dump
+transaction, so a failed restore leaves the database as it was. The run then runs the `migrate` service
+against it, and the run's row, which the dump did not hold as it is now, is carried across; rows the dump
 held open are failed. `deploy/restore.sh` remains for the host when steward-agent itself is down.
 
 The run never stops steward-agent. A run that names it is refused, and its own outdated image is
@@ -68,7 +71,7 @@ pin and no rollback: a bad release is corrected by publishing a better one.
 
 ## Rules
 
-- `serve` is not a scheduler. It migrates at startup and then acts only on rows in its inbox, `steward_inbox`.
+- `serve` is not a scheduler. It acts only on rows in its inbox, `steward_inbox`, and never migrates.
 - An update stops the services whose jars change, migrates, installs, starts them and waits for
   healthy. `bootstrap` fills empty slots and restarts nothing. A report writes nothing.
 - Two steward processes cannot serve or move jars at once; both are advisory locks, and the second is

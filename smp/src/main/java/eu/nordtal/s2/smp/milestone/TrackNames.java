@@ -1,20 +1,17 @@
 package eu.nordtal.s2.smp.milestone;
 
+import eu.nordtal.s2.papercommon.game.GameKeys;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Statistic;
-import org.bukkit.entity.EntityType;
 
 /**
  * Refuses a track naming an item, statistic, entity or advancement this server does not have.
  *
- * The hand-in and the statistic poller read names through the same lookups, so a name passed here is found there.
+ * The hand-in and the statistic poller read names through {@link GameKeys} too, so a name passed here is found there.
  */
 public final class TrackNames {
 
@@ -67,42 +64,22 @@ public final class TrackNames {
         return List.copyOf(problems);
     }
 
-    /** Returns the material a track names by its Bukkit name, in any case; empty for an unknown or legacy one. */
-    public static Optional<Material> material(final String name) {
-        final Material material = Material.getMaterial(name.trim().toUpperCase(Locale.ROOT));
-        return material == null || material.isLegacy() ? Optional.empty() : Optional.of(material);
-    }
-
-    /** Returns the statistic a track names by its Bukkit name, in any case. */
-    public static Optional<Statistic> statistic(final String name) {
-        return Arrays.stream(Statistic.values())
-                .filter(statistic -> statistic.name().equalsIgnoreCase(name.trim()))
-                .findFirst();
-    }
-
-    /** Returns the entity type a track names by its Bukkit name, in any case; never {@code UNKNOWN}. */
-    public static Optional<EntityType> entity(final String name) {
-        return Arrays.stream(EntityType.values())
-                .filter(type -> type != EntityType.UNKNOWN && type.name().equalsIgnoreCase(name.trim()))
-                .findFirst();
-    }
-
     private static List<String> itemProblems(final Objective objective, final Server server) {
         final List<String> problems = new ArrayList<>();
         for (final String item : objective.items()) {
-            if (material(item).filter(server::isItem).isEmpty()) {
-                problems.add("wants '" + item + "', which is no item on this server. Items are Bukkit material"
-                        + " names, such as OAK_LOG.");
+            if (GameKeys.material(item).filter(server::isItem).isEmpty()) {
+                problems.add("wants '" + item + "', which is no item on this server. Items are keys, such as"
+                        + " minecraft:oak_log.");
             }
         }
         return problems;
     }
 
     private static List<String> statisticProblems(final Objective objective, final Server server) {
-        final Statistic statistic = statistic(objective.statistic()).orElse(null);
+        final Statistic statistic = GameKeys.statistic(objective.statistic()).orElse(null);
         if (statistic == null) {
             return List.of("counts '" + objective.statistic() + "', which is no statistic on this server."
-                    + " Statistics are Bukkit names, such as MINE_BLOCK.");
+                    + " Statistics are keys, such as minecraft:mine_block.");
         }
         final Statistic.Type type = statistic.getType();
         if (type == Statistic.Type.UNTYPED) {
@@ -127,9 +104,9 @@ public final class TrackNames {
 
     private static boolean isSubject(final Statistic.Type type, final String subject, final Server server) {
         return switch (type) {
-            case BLOCK -> material(subject).filter(server::isBlock).isPresent();
-            case ITEM -> material(subject).filter(server::isItem).isPresent();
-            case ENTITY -> entity(subject).isPresent();
+            case BLOCK -> GameKeys.material(subject).filter(server::isBlock).isPresent();
+            case ITEM -> GameKeys.material(subject).filter(server::isItem).isPresent();
+            case ENTITY -> GameKeys.entity(subject).isPresent();
             case UNTYPED -> false;
         };
     }

@@ -9,6 +9,7 @@ import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 import eu.nordtal.jcore.config.spec.annotation.Protected;
 import eu.nordtal.jcore.config.spec.annotation.Reload;
+import eu.nordtal.s2.settings.Refers;
 import java.util.List;
 
 /**
@@ -152,6 +153,7 @@ public interface AccessSpec {
             "into discord_user.locale; no role at all means English."
         })
         @Explain("The Discord onboarding role that selects this language; no role at all means English.")
+        @Refers(Refers.To.DISCORD_ROLE)
         default String role() {
             return "";
         }
@@ -161,6 +163,7 @@ public interface AccessSpec {
         @Key("contribution-channel")
         @Comment("Carries the buy-access message in this language, and its donation thank-yous.")
         @Explain("Carries the buy-access message in this language, and its donation thank-yous.")
+        @Refers(Refers.To.DISCORD_CHANNEL)
         default String contributionChannel() {
             return "";
         }
@@ -170,6 +173,7 @@ public interface AccessSpec {
         @Key("link-channel")
         @Comment("Carries the account-link message in this language.")
         @Explain("Carries the account-link message in this language.")
+        @Refers(Refers.To.DISCORD_CHANNEL)
         default String linkChannel() {
             return "";
         }
@@ -183,6 +187,7 @@ public interface AccessSpec {
         })
         @Explain(
                 "Carries the hunger games registration message; separate from contribution-channel, since access is not required to play.")
+        @Refers(Refers.To.DISCORD_CHANNEL)
         default String hungerGamesChannel() {
             return "";
         }
@@ -199,6 +204,7 @@ public interface AccessSpec {
         })
         @Explain(
                 "Optional: a channel the bot renames (never posts in) to show this language's current status. Empty means none.")
+        @Refers(value = Refers.To.DISCORD_CHANNEL, optional = true)
         default String statusChannel() {
             return "";
         }
@@ -213,6 +219,7 @@ public interface AccessSpec {
         })
         @Explain(
                 "Optional: a channel the bot posts milestones and season announcements into for this language. Empty means none.")
+        @Refers(value = Refers.To.DISCORD_CHANNEL, optional = true)
         default String announcementChannel() {
             return "";
         }
@@ -230,6 +237,7 @@ public interface AccessSpec {
             "hand holds only until the next reconcile. Use /grant-access."
         })
         @Explain("Bot-managed: granting it by hand only holds until the next reconcile. Use /grant-access instead.")
+        @Refers(Refers.To.DISCORD_ROLE)
         default String access() {
             return "";
         }
@@ -239,6 +247,7 @@ public interface AccessSpec {
         @Key("donor")
         @Comment({"Granted on a donation and never taken away, so handing it out by hand is safe."})
         @Explain("Granted on a donation and never revoked, so it is safe to hand out manually in Discord.")
+        @Refers(Refers.To.DISCORD_ROLE)
         default String donor() {
             return "";
         }
@@ -253,6 +262,7 @@ public interface AccessSpec {
         })
         @Explain(
                 "Follows the admins decided in Steward: the bot adds and removes it, and never reads it as a permission.")
+        @Refers(Refers.To.DISCORD_ROLE)
         default String admin() {
             return "";
         }
@@ -271,6 +281,7 @@ public interface AccessSpec {
         })
         @Explain(
                 "Everything needing a human: unmatchable or expired payments, failed DMs, role errors, and every link or unlink.")
+        @Refers(Refers.To.DISCORD_CHANNEL)
         default String admin() {
             return "";
         }

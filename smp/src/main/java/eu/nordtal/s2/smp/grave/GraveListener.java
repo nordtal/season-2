@@ -100,7 +100,7 @@ public final class GraveListener implements Listener {
     private void applyPenalty(final Player player, final DiscordId discordId, final PlayerDeathEvent event) {
         final String cause = event.getDamageSource() == null
                 ? null
-                : event.getDamageSource().getDamageType().key().value();
+                : event.getDamageSource().getDamageType().key().asString();
         final int delta = penalty.deltaFor(cause, false);
         if (delta == 0) {
             return;

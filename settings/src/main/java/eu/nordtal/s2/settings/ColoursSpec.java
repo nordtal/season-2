@@ -16,6 +16,7 @@ public interface ColoursSpec {
     @Key("good")
     @Comment("Arriving: it worked, it is current, it came back.")
     @Explain("For a reply that arrives: it worked, is current, or came back.")
+    @Refers(Refers.To.COLOUR)
     default String good() {
         return "#8ba888";
     }
@@ -25,6 +26,7 @@ public interface ColoursSpec {
     @Key("bad")
     @Comment("Leaving: it failed. The one tone that has to stand out in a long list.")
     @Explain("For a reply that fails. Needs to stand out in a long list.")
+    @Refers(Refers.To.COLOUR)
     default String bad() {
         return "#a8888b";
     }
@@ -34,6 +36,7 @@ public interface ColoursSpec {
     @Key("warn")
     @Comment("Not a failure, but not what was asked for either: stopped, too late, still waiting.")
     @Explain("Not a failure, but not what was asked for either: stopped, too late, still waiting.")
+    @Refers(Refers.To.COLOUR)
     default String warn() {
         return "#b08a4a";
     }
@@ -43,6 +46,7 @@ public interface ColoursSpec {
     @Key("neutral")
     @Comment("An ordinary reply with nothing to flag. Lighter than muted, so the two stay distinguishable.")
     @Explain("An ordinary reply with nothing to flag.")
+    @Refers(Refers.To.COLOUR)
     default String neutral() {
         return "#c9c9c9";
     }
@@ -52,6 +56,7 @@ public interface ColoursSpec {
     @Key("muted")
     @Comment("Supporting detail under a line that already carries the news.")
     @Explain("Supporting detail under a line that already carries the news.")
+    @Refers(Refers.To.COLOUR)
     default String muted() {
         return "#aaaaaa";
     }

@@ -8,6 +8,7 @@ import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.game.GameKeys;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.config.WheelPrizeSpec;
 import eu.nordtal.s2.smp.db.SmpDao;
@@ -229,7 +230,7 @@ public final class Wheel {
         if (name == null || name.isBlank()) {
             return null;
         }
-        return Material.matchMaterial(name.trim().toUpperCase(Locale.ROOT));
+        return GameKeys.material(name).orElse(null);
     }
 
     /** Runs database work off the main thread from anywhere; a refund lost to a shutdown is logged, not thrown. */

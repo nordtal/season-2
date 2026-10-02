@@ -6,6 +6,7 @@ import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.s2.settings.Refers;
 
 /** One advancement and what it pays. */
 @ConfigSpec
@@ -16,6 +17,7 @@ public interface AdvancementAwardSpec {
     @Key("advancement")
     @Comment("The advancement key, e.g. minecraft:story/mine_diamond.")
     @NoExplanationNeeded
+    @Refers(Refers.To.ADVANCEMENT)
     default String advancement() {
         return "";
     }

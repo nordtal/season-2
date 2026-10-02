@@ -7,6 +7,7 @@ import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.s2.settings.Refers;
 
 /** What each feedback category sounds like on one server, taken while it runs, since it is tuned by ear. */
 @ConfigSpec
@@ -132,6 +133,7 @@ public interface SoundsSpec {
         @Name("Sound")
         @Key("key")
         @NoExplanationNeeded
+        @Refers(Refers.To.SOUND_EVENT)
         default String key() {
             return "";
         }

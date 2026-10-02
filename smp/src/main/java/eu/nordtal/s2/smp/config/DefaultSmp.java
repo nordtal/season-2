@@ -97,51 +97,51 @@ final class DefaultSmp {
     /** The wheel's pool; the common band is about 70 % of spins, uncommon 26 %, rare one in twenty-five. */
     static final List<WheelPrizeSpec> WHEEL_PRIZES = List.of(
             // Common: useful, never decisive. Total weight 700.
-            item("COOKED_BEEF", 32, 120),
-            item("OAK_LOG", 64, 110),
-            item("COAL", 32, 110),
-            item("TORCH", 64, 100),
-            item("STONE_BRICKS", 128, 90),
-            item("OAK_SAPLING", 16, 60),
-            item("BREAD", 32, 60),
-            item("GLASS", 64, 50),
+            item("minecraft:cooked_beef", 32, 120),
+            item("minecraft:oak_log", 64, 110),
+            item("minecraft:coal", 32, 110),
+            item("minecraft:torch", 64, 100),
+            item("minecraft:stone_bricks", 128, 90),
+            item("minecraft:oak_sapling", 16, 60),
+            item("minecraft:bread", 32, 60),
+            item("minecraft:glass", 64, 50),
 
             // Uncommon: pleasant, still ordinary. Total weight 260.
-            item("IRON_INGOT", 32, 70),
-            item("REDSTONE", 64, 50),
-            item("LAPIS_LAZULI", 32, 40),
-            item("ENCHANTED_BOOK", 1, 40),
-            item("GOLDEN_APPLE", 4, 30),
-            item("EXPERIENCE_BOTTLE", 16, 30),
+            item("minecraft:iron_ingot", 32, 70),
+            item("minecraft:redstone", 64, 50),
+            item("minecraft:lapis_lazuli", 32, 40),
+            item("minecraft:enchanted_book", 1, 40),
+            item("minecraft:golden_apple", 4, 30),
+            item("minecraft:experience_bottle", 16, 30),
 
             // Rare: occasionally needed, hated to farm. Total weight 40.
-            item("ANCIENT_DEBRIS", 2, 12),
-            item("SHULKER_SHELL", 2, 10),
-            item("END_CRYSTAL", 2, 8),
-            item("NETHER_STAR", 1, 4),
-            item("ELYTRA", 1, 3),
-            item("TOTEM_OF_UNDYING", 1, 3));
+            item("minecraft:ancient_debris", 2, 12),
+            item("minecraft:shulker_shell", 2, 10),
+            item("minecraft:end_crystal", 2, 8),
+            item("minecraft:nether_star", 1, 4),
+            item("minecraft:elytra", 1, 3),
+            item("minecraft:totem_of_undying", 1, 3));
 
     /** Iron and no enchantments: aim and timing over about a minute. */
     static final List<WheelPrizeSpec> DUEL_LOADOUT_SWORD = List.of(
-            item("IRON_SWORD", 1, 1),
-            item("SHIELD", 1, 1),
-            item("IRON_HELMET", 1, 1),
-            item("IRON_CHESTPLATE", 1, 1),
-            item("IRON_LEGGINGS", 1, 1),
-            item("IRON_BOOTS", 1, 1),
-            item("COOKED_BEEF", 8, 1));
+            item("minecraft:iron_sword", 1, 1),
+            item("minecraft:shield", 1, 1),
+            item("minecraft:iron_helmet", 1, 1),
+            item("minecraft:iron_chestplate", 1, 1),
+            item("minecraft:iron_leggings", 1, 1),
+            item("minecraft:iron_boots", 1, 1),
+            item("minecraft:cooked_beef", 8, 1));
 
     /** Lighter armour than the sword loadout, so a hit matters and a miss costs. */
     static final List<WheelPrizeSpec> DUEL_LOADOUT_BOW = List.of(
             item("BOW", 1, 1),
-            item("ARROW", 64, 1),
-            item("IRON_SWORD", 1, 1),
-            item("LEATHER_HELMET", 1, 1),
-            item("CHAINMAIL_CHESTPLATE", 1, 1),
-            item("LEATHER_LEGGINGS", 1, 1),
-            item("LEATHER_BOOTS", 1, 1),
-            item("COOKED_BEEF", 8, 1));
+            item("minecraft:arrow", 64, 1),
+            item("minecraft:iron_sword", 1, 1),
+            item("minecraft:leather_helmet", 1, 1),
+            item("minecraft:chainmail_chestplate", 1, 1),
+            item("minecraft:leather_leggings", 1, 1),
+            item("minecraft:leather_boots", 1, 1),
+            item("minecraft:cooked_beef", 8, 1));
 
     private DefaultSmp() {}
 

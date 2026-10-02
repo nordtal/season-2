@@ -14,40 +14,48 @@ final class DefaultRefillTiers {
 
     static final List<HungerGamesSpec.RefillTierSpec> LIST = List.of(
             // 0h00: basic farming gear; the shield keeps an early fight from being a free kill.
-            tier(0, List.of("WOODEN_AXE", "STONE_SWORD", "SHIELD", "BREAD", "APPLE", "WHEAT_SEEDS")),
+            tier(
+                    0,
+                    List.of(
+                            "minecraft:wooden_axe",
+                            "minecraft:stone_sword",
+                            "minecraft:shield",
+                            "minecraft:bread",
+                            "minecraft:apple",
+                            "minecraft:wheat_seeds")),
             // 1h00: iron PvP gear.
             tier(
                     60,
                     List.of(
-                            "IRON_SWORD",
-                            "IRON_HELMET",
-                            "IRON_CHESTPLATE",
-                            "IRON_LEGGINGS",
-                            "IRON_BOOTS",
+                            "minecraft:iron_sword",
+                            "minecraft:iron_helmet",
+                            "minecraft:iron_chestplate",
+                            "minecraft:iron_leggings",
+                            "minecraft:iron_boots",
                             "BOW",
-                            "ARROW",
-                            "COOKED_BEEF",
-                            "GOLDEN_CARROT")),
+                            "minecraft:arrow",
+                            "minecraft:cooked_beef",
+                            "minecraft:golden_carrot")),
             // 2h00: diamond gear.
             tier(
                     120,
                     List.of(
-                            "DIAMOND_SWORD",
-                            "DIAMOND_CHESTPLATE",
-                            "CROSSBOW",
-                            "SPECTRAL_ARROW",
-                            "GOLDEN_APPLE",
-                            "SHIELD",
-                            "ENDER_PEARL")),
+                            "minecraft:diamond_sword",
+                            "minecraft:diamond_chestplate",
+                            "minecraft:crossbow",
+                            "minecraft:spectral_arrow",
+                            "minecraft:golden_apple",
+                            "minecraft:shield",
+                            "minecraft:ender_pearl")),
             // 2h30: overpowered, so the last stretch rewards moving between points rather than camping one chest.
             tier(
                     150,
                     List.of(
-                            "NETHERITE_SWORD",
-                            "NETHERITE_CHESTPLATE",
-                            "ENCHANTED_GOLDEN_APPLE",
-                            "TOTEM_OF_UNDYING",
-                            "SPLASH_POTION")));
+                            "minecraft:netherite_sword",
+                            "minecraft:netherite_chestplate",
+                            "minecraft:enchanted_golden_apple",
+                            "minecraft:totem_of_undying",
+                            "minecraft:splash_potion")));
 
     private DefaultRefillTiers() {}
 

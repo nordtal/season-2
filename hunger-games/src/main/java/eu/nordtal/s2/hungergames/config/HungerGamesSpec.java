@@ -8,6 +8,7 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 import eu.nordtal.jcore.config.spec.annotation.Reload;
+import eu.nordtal.s2.settings.Refers;
 import java.util.List;
 
 /** The {@code config} group: everything the hunger games start event needs that is not a database credential. */
@@ -325,11 +326,11 @@ public interface HungerGamesSpec {
         @Name("Items")
         @Key("items")
         @Comment({
-            "Bukkit material names. Every loot chest is cleared and restocked with one of each.",
+            "Item keys. Every loot chest is cleared and restocked with one of each.",
             "An unknown name fails the load."
         })
-        @Explain(
-                "Bukkit material names; every loot chest is cleared and restocked with one of each. An unknown name fails the load.")
+        @Explain("Every loot chest is cleared and restocked with one of each. An unknown item fails the load.")
+        @Refers(Refers.To.ITEM)
         default List<String> items() {
             return List.of("BREAD");
         }

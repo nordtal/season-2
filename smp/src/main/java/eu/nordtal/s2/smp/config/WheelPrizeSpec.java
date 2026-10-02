@@ -6,6 +6,7 @@ import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.s2.settings.Refers;
 
 /** One item with an amount: a prize of the wheel, or a piece of a duel loadout. */
 @ConfigSpec
@@ -14,8 +15,9 @@ public interface WheelPrizeSpec {
     @Order(1)
     @Name("Item")
     @Key("item")
-    @Comment("A Bukkit material name.")
+    @Comment("An item key, such as minecraft:cooked_beef.")
     @NoExplanationNeeded
+    @Refers(Refers.To.ITEM)
     default String item() {
         return "";
     }

@@ -286,11 +286,12 @@ public final class Compose {
         return services;
     }
 
-    private static String refuseSelf(final String service) {
+    /** Throws when {@code service} is steward-agent itself, which only the setup script renews. */
+    static String refuseSelf(final String service) {
         if (SELF.equals(service)) {
             throw new IllegalArgumentException("steward-agent will not recreate itself: the new container would replace"
-                    + " the one running this request, and nobody would ever read the answer. The setup script on the"
-                    + " host renews this service.");
+                    + " the one running this request, and nobody would ever read the answer. deploy/nordtal.sh, the"
+                    + " setup script on the host, renews this service.");
         }
         return service;
     }

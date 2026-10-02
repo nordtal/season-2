@@ -99,11 +99,7 @@ public final class StewardAgent {
             final java.util.Collection<String> all, final List<String> requested, final boolean bootstrap) {
         final List<String> services = requested.isEmpty() ? new ArrayList<>(all) : new ArrayList<>(requested);
         if (!bootstrap) {
-            if (!requested.isEmpty() && services.contains(Compose.SELF)) {
-                throw new IllegalArgumentException(Compose.SELF + " will not recreate itself - the"
-                        + " new container would kill the process writing this report. Renewing it"
-                        + " is what deploy/nordtal.sh does, from a throwaway container.");
-            }
+            requested.forEach(Compose::refuseSelf);
             services.remove(Compose.SELF);
         }
         return List.copyOf(services);
@@ -148,7 +144,8 @@ public final class StewardAgent {
                         "steward-agent-shutdown"));
     }
 
-    private static void jobRoutes(
+    /** Deploy, recreate and the jobs they start; a request that names steward-agent is refused before any job. */
+    static void jobRoutes(
             final io.javalin.config.JavalinConfig config, final Compose compose, final Jobs jobs, final Docker docker) {
         config.routes.post(AgentWire.DEPLOY, ctx -> deployRoute(ctx, compose, jobs, docker));
         config.routes.post(AgentWire.RECREATE, ctx -> recreateRoute(ctx, compose, jobs, docker));
@@ -165,6 +162,7 @@ public final class StewardAgent {
             final io.javalin.http.Context ctx, final Compose compose, final Jobs jobs, final Docker docker) {
         final AgentWire.Deploy request = InternalServer.body(ctx, AgentWire.Deploy.class);
         final List<String> services = request == null || request.services() == null ? List.of() : request.services();
+        services.forEach(Compose::refuseSelf);
         final Jobs.Job job =
                 jobs.start("deploy", services, output -> deploy(compose, services, output, false, docker::hasImage));
         ctx.status(HttpStatus.ACCEPTED).json(job.wire(false));
@@ -172,7 +170,7 @@ public final class StewardAgent {
 
     private static void recreateRoute(
             final io.javalin.http.Context ctx, final Compose compose, final Jobs jobs, final Docker docker) {
-        final String service = ctx.pathParam("service");
+        final String service = Compose.refuseSelf(ctx.pathParam("service"));
         final Jobs.Job job = jobs.start(
                 "recreate", List.of(service), output -> recreate(compose, service, output, docker::hasImage));
         ctx.status(HttpStatus.ACCEPTED).json(job.wire(false));

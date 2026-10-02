@@ -79,8 +79,10 @@ final class Routes {
                 Gate.KEY_FRESH);
     }
 
-    /** Every process's settings: the groups it published, and a save that writes rows. */
+    /** Every process's settings: the groups it published, how each plugin is shown, and a save that writes rows. */
     private static void settingRoutes(final StackApi api, final JavalinConfig config, final Caller caller) {
+        // Each jar's own word on its name, logo and custom editors, which the sidebar groups the settings by.
+        config.routes.get("/api/descriptors", ctx -> ctx.json(api.agent.descriptors()), Gate.KEY_HELD);
         config.routes.get("/api/setting-groups", ctx -> api.settings().list(ctx), Gate.KEY_HELD);
         config.routes.get(
                 "/api/setting-groups/{service}/{name}", ctx -> api.settings().one(ctx), Gate.KEY_HELD);

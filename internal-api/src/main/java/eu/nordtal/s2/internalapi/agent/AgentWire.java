@@ -64,6 +64,9 @@ public final class AgentWire {
      */
     public static final String BUNDLE = BUNDLES + "/{service}";
 
+    /** What every jar of ours on the stack says of itself: a list of {@link Descriptor}. */
+    public static final String DESCRIPTORS = "/api/descriptors";
+
     /** The sampler's rounds taken after {@code ?after=}, an ISO instant, oldest first: a list of {@link Round}. */
     public static final String SAMPLES = "/api/samples";
 
@@ -310,6 +313,20 @@ public final class AgentWire {
      * @param module the plugin's data directory under the service, or the empty string for a standalone jar
      */
     public record BundleRef(String service, String module, boolean writable) {}
+
+    /**
+     * The {@code nordtal-plugin.json} of one jar on one service: whose settings these are and how Steward shows them.
+     *
+     * @param id the service its groups of settings are published under, such as {@code smp}
+     * @param logo the logo as a {@code data:} URL, absent when the jar names none it carries
+     * @param editors the custom editor that draws a group instead of the form built from its schema, by group name
+     */
+    public record Descriptor(
+            String service,
+            String id,
+            String name,
+            @Nullable String logo,
+            Map<String, String> editors) {}
 
     /** One language's text for one key; a {@code null} text resets it to the packaged one. */
     public record TextChange(

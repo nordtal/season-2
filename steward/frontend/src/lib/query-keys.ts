@@ -36,6 +36,7 @@ export const keys = {
   guildRoles: ["guild-roles"] as const,
   guildChannels: ["guild-channels"] as const,
   messageBundles: ["message-bundles"] as const,
+  descriptors: ["descriptors"] as const,
   messageBundle: (path: string) => ["message-bundle", path] as const,
   messageExamples: ["message-examples"] as const,
   glyphs: ["glyphs"] as const,

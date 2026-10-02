@@ -7,6 +7,12 @@ import net.ltgt.gradle.errorprone.errorprone
 plugins {
     id("nordtal.jvm-app")
     alias(libs.plugins.node)
+    id("nordtal.plugin-descriptor")
+}
+
+// How Steward shows this module's settings; steward-agent reads it out of the jar.
+pluginDescriptor {
+    displayName.set("Steward")
 }
 
 application.mainClass.set("eu.nordtal.s2.steward.Steward")

@@ -1,6 +1,12 @@
 plugins {
     id("nordtal.jvm-app")
     id("nordtal.message-spec")
+    id("nordtal.plugin-descriptor")
+}
+
+// How Steward shows this module's settings; steward-agent reads it out of the jar.
+pluginDescriptor {
+    displayName.set("Discord bot")
 }
 
 application.mainClass.set("eu.nordtal.s2.discordbot.AccessBot")

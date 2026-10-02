@@ -23,7 +23,16 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 export type Target = { file: string; id: string; language?: Language; seq: number }
 
 export type FileItem =
-  | { kind: "config"; id: string; label: string; readable: boolean; writable: boolean; location: ConfigLocation }
+  | {
+      kind: "config"
+      id: string
+      label: string
+      readable: boolean
+      writable: boolean
+      location: ConfigLocation
+      /** The custom editor its plugin's descriptor names for it, instead of the form built from its schema. */
+      editor?: string
+    }
   | { kind: "bundle"; id: string; label: string; readable: boolean; writable: boolean; location: MessageBundleLocation }
 
 /** Whether the two-column layout, Tailwind's `lg`, is showing. */

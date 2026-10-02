@@ -3,6 +3,12 @@ import net.ltgt.gradle.errorprone.errorprone
 plugins {
     id("nordtal.paper-plugin")
     id("nordtal.message-spec")
+    id("nordtal.plugin-descriptor")
+}
+
+// How Steward shows this module's settings; steward-agent reads it out of the jar.
+pluginDescriptor {
+    displayName.set("Hunger Games")
 }
 
 // The base runs prepare() and enable() before anything reads HungerGamesPlugin's fields.

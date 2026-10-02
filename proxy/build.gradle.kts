@@ -3,6 +3,12 @@ import net.ltgt.gradle.errorprone.errorprone
 plugins {
     id("nordtal.velocity-plugin")
     id("nordtal.message-spec")
+    id("nordtal.plugin-descriptor")
+}
+
+// How Steward shows this module's settings; steward-agent reads it out of the jar.
+pluginDescriptor {
+    displayName.set("Proxy")
 }
 
 // Names start() as NullAway's initializer, since ProxyPlugin's fields are set there.

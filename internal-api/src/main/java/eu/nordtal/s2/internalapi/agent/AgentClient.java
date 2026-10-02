@@ -91,6 +91,11 @@ public final class AgentClient {
         return Json.decode(http.get(AgentWire.BUNDLES), new TypeToken<List<AgentWire.BundleRef>>() {});
     }
 
+    /** What every jar of ours on the stack says of itself. */
+    public List<AgentWire.Descriptor> descriptors() {
+        return Json.decode(http.get(AgentWire.DESCRIPTORS), new TypeToken<List<AgentWire.Descriptor>>() {});
+    }
+
     /** One bundle, its packaged text and overrides side by side; a {@code 404} failure for one that is not there. */
     public MessageBundle bundle(final String service, final String module) {
         return Json.decode(http.get(bundlePath(service, module)), MessageBundle.class);

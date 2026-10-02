@@ -2,9 +2,9 @@ package eu.nordtal.s2.steward.serve;
 
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.update.UpdateReport;
-import eu.nordtal.s2.steward.ops.ContainerOps;
-import eu.nordtal.s2.steward.ops.ImageResult;
-import eu.nordtal.s2.steward.ops.RedeployResult;
+import eu.nordtal.s2.internalapi.agent.ContainerOps;
+import eu.nordtal.s2.internalapi.agent.ImageResult;
+import eu.nordtal.s2.internalapi.agent.RedeployResult;
 import eu.nordtal.s2.steward.plan.Topology;
 import java.util.ArrayList;
 import java.util.List;

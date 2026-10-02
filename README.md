@@ -81,8 +81,8 @@ the table below are compiled into the jars above.
 - The Steward services sit on their own Docker networks; the Minecraft servers do not, so no plugin
   can reach the deploy API. `postgres` is on both. `steward-agent` and `steward-bunq` each share an
   internal network with `steward` and nobody else, so only `steward` can call either of them.
-- `steward` faces the internet and holds the Docker socket for reading, stopping and starting; only
-  `steward-agent` creates containers.
+- `steward` faces the internet and holds no Docker socket: `steward-agent` alone does, and steward
+  reaches containers, logs, measurements and archives through its API.
 - The database is the source of truth for access, language, phase and event state. Discord roles
   follow it.
 

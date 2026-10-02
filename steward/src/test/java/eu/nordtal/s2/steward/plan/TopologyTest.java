@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.Platform;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.steward.config.BackupSpec;
 import eu.nordtal.s2.steward.config.StewardSpec;
 import java.io.IOException;
@@ -453,12 +454,6 @@ class TopologyTest {
             }
 
             @Override
-            public DockerSpec docker() {
-                // This test is not about the Docker daemon.
-                return new DockerSpec() {};
-            }
-
-            @Override
             public UpdateSpec update() {
                 return new UpdateSpec() {};
             }
@@ -492,13 +487,16 @@ class TopologyTest {
         @SuppressWarnings("unchecked")
         final Map<String, Object> steward = (Map<String, Object>) services.get("steward");
         final List<String> stewardMounts = mountsOf(steward);
+        @SuppressWarnings("unchecked")
+        final List<String> agentMounts = mountsOf((Map<String, Object>) services.get(AgentWire.SERVICE));
 
         for (final Topology.Service service : Topology.SERVICES) {
-            assertPluginsDirectoryIsShared(service, stewardMounts);
+            assertPluginsDirectoryIsShared(service, stewardMounts, agentMounts);
         }
     }
 
-    private void assertPluginsDirectoryIsShared(final Topology.Service service, final List<String> stewardMounts) {
+    private void assertPluginsDirectoryIsShared(
+            final Topology.Service service, final List<String> stewardMounts, final List<String> agentMounts) {
         @SuppressWarnings("unchecked")
         final Map<String, Object> definition = (Map<String, Object>) services.get(service.name());
         assertNotNull(definition, "compose.yml has no " + service.name() + " service");
@@ -526,7 +524,7 @@ class TopologyTest {
                 sourceOf(onSteward),
                 service.name() + ": the server and steward are pointed at two different" + " plugin sources");
 
-        assertPluginsBackupMatchesSpec(service, stewardMounts, onTheServer);
+        assertPluginsBackupMatchesSpec(service, agentMounts, onTheServer);
 
         // The default is a path under NORDTAL_DIR, not bare and relative, which resolves inside the agent image.
         final String fallback = defaultOf(sourceOf(onTheServer));
@@ -548,15 +546,16 @@ class TopologyTest {
 
     // Whether a plugins/ volume is saved is backup.volumes' own decision, asked of the spec, not named here.
     private void assertPluginsBackupMatchesSpec(
-            final Topology.Service service, final List<String> stewardMounts, final String onTheServer) {
+            final Topology.Service service, final List<String> agentMounts, final String onTheServer) {
         final String backupVolume = "nordtal-s2_mc-" + service.name() + "-plugins";
-        final Optional<String> forTheBackup = stewardMounts.stream()
+        final Optional<String> forTheBackup = agentMounts.stream()
                 .filter(mount -> mount.endsWith(":/backup-sources/" + backupVolume + ":ro"))
                 .findFirst();
         if (BACKED_UP.contains(backupVolume)) {
             assertTrue(
                     forTheBackup.isPresent(),
-                    "backup.volumes lists " + backupVolume + " and steward does not mount it, so it is not saved");
+                    "backup.volumes lists " + backupVolume
+                            + " and steward-agent does not mount it, so it is not saved");
             // `:ro` is a third field; sourceOf reads up to the destination, so drop it first.
             final String mount = forTheBackup.orElseThrow();
             assertEquals(

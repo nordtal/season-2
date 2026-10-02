@@ -5,7 +5,7 @@ import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.access.PackExemptions;
-import eu.nordtal.s2.internalapi.InternalClient;
+import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.steward.api.Caller;
 import eu.nordtal.s2.steward.api.StackApi;
 import eu.nordtal.s2.steward.auth.Credentials;
@@ -131,7 +131,7 @@ public final class Web {
             final WebSpec config,
             final DiscordAuth discord,
             final StackApi stack,
-            final InternalClient agent,
+            final AgentClient agent,
             final boolean agentOffered,
             final @Nullable Data data,
             final Clock clock) {
@@ -373,7 +373,6 @@ public final class Web {
     private void registerAgentRoutes(final JavalinConfig cfg) {
         // Not the update door either: this recreates one container, and only the agent may.
         cfg.routes.get("/api/agent", deployments::state, Gate.KEY_HELD);
-        cfg.routes.get("/api/agent/services", deployments::services, Gate.KEY_HELD);
         cfg.routes.post("/api/agent/recreate/{service}", deployments::recreate, Gate.KEY_FRESH);
         cfg.routes.get("/api/agent/jobs", deployments::jobs, Gate.KEY_HELD);
         cfg.routes.get("/api/agent/jobs/{id}", deployments::job, Gate.KEY_HELD);
@@ -479,9 +478,9 @@ public final class Web {
                 Gate.ANYONE);
     }
 
-    /** Open to anyone, so a healthcheck needs no session: this process answers, and whether Docker does. */
+    /** Open to anyone, so a healthcheck needs no session: this process answers, and whether steward-agent does. */
     private void health(final Context ctx) {
-        ctx.json(java.util.Map.of("status", "ok", "docker", stack.dockerReachable()));
+        ctx.json(java.util.Map.of("status", "ok", "agent", stack.agentReachable()));
     }
 
     /** Who is asking, as the stack routes need it: a name for a row, and whether the session still holds. */

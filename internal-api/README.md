@@ -14,10 +14,16 @@ The HTTP wire between `steward` and the services only it may call, `steward-agen
   answered at all.
 - `BankWire` is the bank's half of the wire: the routes and the records that cross it. Amounts are
   integer cents and times ISO instants, so neither end needs the bank's SDK to read them.
+- `agent` is the agent's half: `AgentWire` (the routes and records, documented in
+  [`../steward-agent/README.md`](../steward-agent/README.md)) and `AgentClient`, the only way steward
+  reaches Docker and the volumes. A run sees it as `ContainerOps` and `Snapshots`.
+- `sse.Follows` keeps a long server-sent event stream alive: a heartbeat, a check whether the reader
+  may still read, and every follow ended before Jetty stops. The agent's log streams and steward's
+  relay of them are both one.
 
 The token is a second fence, not the only one. Both services sit on an internal Docker network
 shared with `steward` alone (see `compose.yml`), and `TopologyDeploymentTest` holds that shape.
 
 Why a module of its own: the gate existed in `steward-agent` and was about to be written again for
-`steward-bunq`. `:architecture` keeps it to Javalin, Gson and `:common`, so a service that depends
+`steward-bunq`. `:architecture` keeps it to Javalin, Gson, slf4j and `:common`, so a service that depends
 on it takes nothing else along.

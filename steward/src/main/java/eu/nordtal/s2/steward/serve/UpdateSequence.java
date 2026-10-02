@@ -4,10 +4,10 @@ import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
+import eu.nordtal.s2.internalapi.agent.ImageResult;
+import eu.nordtal.s2.internalapi.agent.RuntimeResult;
+import eu.nordtal.s2.internalapi.agent.Snapshots;
 import eu.nordtal.s2.steward.apply.ApplyResult;
-import eu.nordtal.s2.steward.backup.DatabaseDump;
-import eu.nordtal.s2.steward.ops.ImageResult;
-import eu.nordtal.s2.steward.ops.RuntimeResult;
 import eu.nordtal.s2.steward.plan.PlanReport;
 import eu.nordtal.s2.steward.plan.Topology;
 import eu.nordtal.s2.steward.plan.UpdatePlan;
@@ -197,7 +197,7 @@ final class UpdateSequence {
                 .map(UpdateReport.ServiceLine::service)
                 .filter(service -> !Topology.STEWARD.equals(service))
                 // Same exemption as above: only a backup's report carries a `database` line.
-                .filter(service -> !DatabaseDump.NAME.equals(service))
+                .filter(service -> !Snapshots.DATABASE.equals(service))
                 .filter(service -> !stopped.services().contains(service))
                 .toList();
         if (notStopped.isEmpty()) {

@@ -1,23 +1,22 @@
 package eu.nordtal.s2.steward.api;
 
 import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.Actor;
-import eu.nordtal.s2.steward.docker.Console;
-import eu.nordtal.s2.steward.docker.Docker;
-import eu.nordtal.s2.steward.docker.DockerOps;
-import eu.nordtal.s2.steward.host.HostMetrics;
+import eu.nordtal.s2.internalapi.agent.AgentClient;
+import eu.nordtal.s2.steward.web.ErrorHandlers;
+import eu.nordtal.s2.stewardagent.AgentStandIn;
 import io.javalin.Javalin;
 import io.javalin.http.Context;
 import io.javalin.json.JavalinGson;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.util.List;
 
-/** {@link StackApi}'s routes on a bare Javalin against the real daemon: no gate in front, and a caller who stays. */
+/** {@link StackApi}'s routes and the error shapes over a stand-in agent: no gate in front, and a caller who stays. */
 final class StackServer {
-
-    static final String PROJECT = "nordtal-s2";
 
     /** Signed in for as long as the test runs; the gate in front of these routes is {@code GateTest}'s to check. */
     private static final Caller ALWAYS = new Caller() {
@@ -39,15 +38,10 @@ final class StackServer {
 
     private StackServer() {}
 
-    /** The API under test, with backups and configs in {@code /tmp} and a nightly window that never fires. */
-    static StackApi api(final Docker docker) {
+    /** The API under test over {@code agent}, with configs in {@code /tmp} and a nightly window that never fires. */
+    static StackApi api(final AgentStandIn agent) {
         return new StackApi(
-                docker,
-                new DockerOps(docker, PROJECT),
-                new Console(docker, PROJECT),
-                new HostMetrics(),
-                PROJECT,
-                Path.of("/tmp"),
+                new AgentClient(agent.client(), Waiting.on(Clock.systemUTC()), Duration.ofSeconds(5)),
                 Path.of("/tmp"),
                 FakeDirectories.updates(),
                 FakeDirectories.audit(),
@@ -65,6 +59,7 @@ final class StackServer {
         return Javalin.create(cfg -> {
                     cfg.jsonMapper(new JavalinGson(Json.gson(), true));
                     cfg.startup.showJavalinBanner = false;
+                    ErrorHandlers.install(cfg);
                     api.register(cfg, ALWAYS);
                 })
                 .start(port);

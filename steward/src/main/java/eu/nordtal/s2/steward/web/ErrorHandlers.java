@@ -2,21 +2,22 @@ package eu.nordtal.s2.steward.web;
 
 import eu.nordtal.s2.database.DatabaseText;
 import eu.nordtal.s2.internalapi.InternalClient;
+import eu.nordtal.s2.internalapi.agent.AgentClient;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.messages.Refused;
-import eu.nordtal.s2.steward.docker.DockerException;
 import io.javalin.config.JavalinConfig;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** The exceptions this service turns into a response shape of its own, rather than a bare 500. */
-final class ErrorHandlers {
+public final class ErrorHandlers {
 
     private static final Logger log = LoggerFactory.getLogger(ErrorHandlers.class);
 
     private ErrorHandlers() {}
 
-    static void install(final JavalinConfig cfg) {
+    public static void install(final JavalinConfig cfg) {
         cfg.routes.exception(
                 SecondFactor.SecondFactorMissing.class,
                 (missing, ctx) ->
@@ -39,27 +40,17 @@ final class ErrorHandlers {
                                 "code",
                                 refused.reason().name())));
 
-        // The daemon did not answer or refused: the interface says which, rather than a bare 500.
-        cfg.routes.exception(DockerException.class, (failure, ctx) -> {
-            log.warn("the Docker daemon did not answer: {}", failure.getMessage());
-            ctx.status(502)
-                    .json(Map.of(
-                            "error",
-                            failure.getMessage(),
-                            "where",
-                            "docker",
-                            "detail",
-                            failure.body() == null ? "" : failure.body()));
-        });
-
+        // An internal service refused or did not answer; the agent's own refusal says whether Docker was the cause.
         cfg.routes.exception(InternalClient.Failure.class, (failure, ctx) -> {
             log.warn("{} did not answer: {}", failure.where(), failure.getMessage());
+            final AgentWire.Refusal refusal = AgentClient.refusal(failure)
+                    .orElseGet(() -> new AgentWire.Refusal(String.valueOf(failure.getMessage()), failure.where()));
             ctx.status(failure.status() == 0 ? 502 : failure.status())
                     .json(Map.of(
                             "error",
-                            failure.getMessage(),
+                            refusal.error(),
                             "where",
-                            failure.where(),
+                            refusal.where(),
                             "detail",
                             failure.body() == null ? "" : failure.body()));
         });

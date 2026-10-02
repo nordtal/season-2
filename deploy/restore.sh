@@ -128,7 +128,7 @@ BACKUPS_SOURCE="$(source_for "$BACKUPS_VOLUME" || true)"
        environment file whose COMPOSE_PROJECT_NAME decides the prefix (this run used '$PROJECT')."
 
 # The image that wrote the archives, for the same tar and zstd; every run overrides its entrypoint.
-TOOLS="${STEWARD_IMAGE:-ghcr.io/nordtal/steward:latest}"
+TOOLS="${STEWARD_AGENT_IMAGE:-ghcr.io/nordtal/steward-agent:latest}"
 in_backups() {
     docker run --rm --entrypoint sh \
         -v "$BACKUPS_SOURCE:/backups:ro" "$TOOLS" -c "$1"

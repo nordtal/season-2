@@ -4,6 +4,7 @@ import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.common.time.Waiting;
+import eu.nordtal.s2.database.DatabaseRole;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.InboxTable;
 import eu.nordtal.s2.database.inbox.Inboxes;
@@ -15,33 +16,27 @@ import eu.nordtal.s2.database.online.OnlineRoster;
 import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.internalapi.InternalClient;
+import eu.nordtal.s2.internalapi.agent.AgentClient;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
+import eu.nordtal.s2.internalapi.agent.ContainerOps;
+import eu.nordtal.s2.internalapi.agent.Snapshots;
 import eu.nordtal.s2.settings.DatabaseSettings;
 import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.settings.EnvironmentSettings;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.SettingsException;
 import eu.nordtal.s2.settings.network.NetworkSettings;
-import eu.nordtal.s2.steward.agent.AgentRecreate;
 import eu.nordtal.s2.steward.api.StackApi;
 import eu.nordtal.s2.steward.apply.ApplyResult;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
-import eu.nordtal.s2.steward.backup.Backups;
-import eu.nordtal.s2.steward.backup.DatabaseDump;
 import eu.nordtal.s2.steward.backup.Schedules;
-import eu.nordtal.s2.steward.backup.TarSnapshots;
 import eu.nordtal.s2.steward.bunq.PaymentLoop;
 import eu.nordtal.s2.steward.config.StewardSettings;
 import eu.nordtal.s2.steward.config.StewardSpec;
 import eu.nordtal.s2.steward.config.WebSpec;
 import eu.nordtal.s2.steward.data.Data;
-import eu.nordtal.s2.steward.docker.Console;
-import eu.nordtal.s2.steward.docker.Docker;
-import eu.nordtal.s2.steward.docker.DockerOps;
-import eu.nordtal.s2.steward.docker.DockerSocket;
-import eu.nordtal.s2.steward.host.HostMetrics;
 import eu.nordtal.s2.steward.http.SourceHttp;
-import eu.nordtal.s2.steward.metric.Sampler;
-import eu.nordtal.s2.steward.ops.ContainerOps;
+import eu.nordtal.s2.steward.metric.MetricRecorder;
 import eu.nordtal.s2.steward.plan.Change;
 import eu.nordtal.s2.steward.plan.UpdatePlan;
 import eu.nordtal.s2.steward.run.Report;
@@ -370,71 +365,40 @@ public final class Steward {
 
     private static int serveNetwork(final Configs configs, final Database database) {
         final StewardSpec config = configs.config();
-        // The start page curves, started after the marker so a missing socket never delays the servers.
-        final Docker docker =
-                new Docker(new DockerSocket(Path.of(config.docker().socket()), Duration.ofSeconds(30)));
-        final DockerOps dockerOps = new DockerOps(docker, config.docker().project());
-        final ContainerOps containers = buildContainerOps(config, dockerOps);
-        if (!docker.isReachable()) {
-            // Said once: without the socket an update, a restart or a backup refuses at its first step.
-            log.warn(
-                    "No docker socket at {}, so nothing here can stop or start a"
-                            + " container: an update, a restart or a backup refuses before it"
-                            + " touches anything, every container page answers that the daemon"
-                            + " is not answering, and there is no start page curve. Everything"
-                            + " else works.",
-                    config.docker().socket());
-        }
-        try (Sampler sampler = new Sampler(
-                docker,
-                new HostMetrics(),
-                MetricDirectory.using(database.dataSource()),
-                config.docker().project(),
-                CLOCK)) {
-            if (!config.docker().metrics()) {
-                log.info("Metric sampling is off in the steward group, so the start page will have no curves.");
-            } else if (docker.isReachable()) {
-                sampler.start();
-            }
-            return serveWithSampler(configs, database, docker, dockerOps, containers);
-        }
-    }
-
-    /**
-     * The container ops an update, restart or backup stops and starts services through.
-     *
-     * Recreating needs the steward-agent token; without one, {@link DockerOps} refuses by name.
-     */
-    private static ContainerOps buildContainerOps(final StewardSpec config, final DockerOps dockerOps) {
+        final AgentClient agent = agentOf(config);
         if (config.agent().token().isBlank()) {
+            // Said once: every container route, every run and the curves need the agent.
             log.warn("agent.token is empty in the steward group, so this container cannot ask"
-                    + " steward-agent to recreate a service: an update whose image has"
-                    + " moved stops the old container and starts it again on that same"
-                    + " image, the line stays FAILED, and the web draws no recreate button."
+                    + " steward-agent for anything: no container page, no log, no backup, and"
+                    + " an update, a restart or a backup refuses before it touches anything."
                     + " The setup script writes that secret.");
-            return dockerOps;
         }
-        return new AgentRecreate(
-                dockerOps, agentOf(config), Duration.ofSeconds(config.agent().timeoutSeconds()), Waiting.on(CLOCK));
+        try (MetricRecorder recorder =
+                new MetricRecorder(agent::samples, MetricDirectory.using(database.dataSource()), CLOCK)) {
+            recorder.start();
+            return serveWithAgent(configs, database, agent);
+        }
     }
 
-    /** The one client of steward-agent, for the runs and the web alike. */
-    private static InternalClient agentOf(final StewardSpec config) {
-        return new InternalClient(
-                AgentRecreate.SERVICE,
-                config.agent().url(),
-                config.agent().token(),
-                Duration.ofSeconds(config.httpTimeoutSeconds()));
+    /** The one client of steward-agent, for the runs, the curves and the web alike. */
+    private static AgentClient agentOf(final StewardSpec config) {
+        return new AgentClient(
+                new InternalClient(
+                        AgentWire.SERVICE,
+                        config.agent().url(),
+                        config.agent().token(),
+                        Duration.ofSeconds(config.httpTimeoutSeconds())),
+                Waiting.on(CLOCK),
+                Duration.ofSeconds(config.agent().timeoutSeconds()));
     }
 
-    private static int serveWithSampler(
-            final Configs configs,
-            final Database database,
-            final Docker docker,
-            final DockerOps dockerOps,
-            final ContainerOps containers) {
+    private static int serveWithAgent(final Configs configs, final Database database, final AgentClient agent) {
         final StewardSpec config = configs.config();
-        final Backups backups = buildBackups(config, docker);
+        // The database service and the patience are read again for every save, so a settings change counts.
+        final Snapshots backups = agent.snapshots(() -> new AgentClient.Backup(
+                configs.config().backup().databaseService(),
+                DatabaseRole.BACKUP.roleName(),
+                Duration.ofMinutes(Math.max(1, configs.config().backup().patienceMinutes()))));
 
         // The schedules and the season dates tell time in the network's zone.
         final Clock zoned = NetworkTime.clock(configs.zone());
@@ -445,16 +409,16 @@ public final class Steward {
                 eu.nordtal.s2.steward.plugin.PluginDirectory.using(database.dataSource());
 
         try (Schedules schedules = new Schedules(data.updates(), config, zoned);
-                StackApi stack = buildStack(config, docker, dockerOps, database, data, addedPlugins, configs.zone())) {
+                StackApi stack = buildStack(config, agent, database, data, addedPlugins, configs.zone())) {
             // Started after the marker, so a failure of the interface cannot keep the servers down.
-            final Web web = startWeb(configs, stack, data);
+            final Web web = startWeb(configs, stack, agent, data);
             try {
                 // The nightly backup and the optional scheduled update.
                 schedules.arm();
                 return serveWithApi(
                         configs,
                         database,
-                        containers,
+                        agent,
                         backups,
                         data.updates(),
                         addedPlugins,
@@ -466,7 +430,7 @@ public final class Steward {
     }
 
     /** Builds and starts the web interface on the {@code web} group's port, with the stack routes on it. */
-    private static Web startWeb(final Configs configs, final StackApi stack, final Data data) {
+    private static Web startWeb(final Configs configs, final StackApi stack, final AgentClient agent, final Data data) {
         final WebSpec webConfig = configs.web();
         final StewardSpec config = configs.config();
         if (webConfig.webPush().publicKey().isBlank()) {
@@ -474,7 +438,6 @@ public final class Steward {
                     + " lock screen. Run `steward " + Web.GENERATE_VAPID_KEYS + "` and paste both"
                     + " lines it prints into the web group's web-push section.");
         }
-        final InternalClient agent = agentOf(config);
         final Web web = new Web(
                 webConfig,
                 new DiscordAuth(webConfig.discord(), webConfig.publicUrl()),
@@ -488,30 +451,10 @@ public final class Steward {
         return web;
     }
 
-    /** What a BACKUP run saves with: volumes tarred from read-only mounts, the database dumped in place. */
-    private static Backups buildBackups(final StewardSpec config, final Docker docker) {
-        final String databaseService = config.backup().databaseService();
-        return new Backups(
-                new TarSnapshots(
-                        Path.of(config.backup().sourcesRoot()),
-                        Path.of(config.backup().outputRoot()),
-                        CLOCK,
-                        Duration.ofMinutes(Math.max(1, config.backup().patienceMinutes()))),
-                databaseService == null || databaseService.isBlank()
-                        ? null
-                        : new DatabaseDump(
-                                docker,
-                                config.docker().project(),
-                                databaseService,
-                                config.backup().outputRoot(),
-                                CLOCK));
-    }
-
     /** Builds the stack routes the web serves: services, logs, the console, files, the host and plugins. */
     private static StackApi buildStack(
             final StewardSpec config,
-            final Docker docker,
-            final DockerOps dockerOps,
+            final AgentClient agent,
             final Database database,
             final Data data,
             final eu.nordtal.s2.steward.plugin.PluginDirectory addedPlugins,
@@ -519,12 +462,7 @@ public final class Steward {
         // Every process's settings, which its signal re-reads; the proxy's pack among them.
         final SettingStore settings = SettingStore.using(database.dataSource());
         return new StackApi(
-                docker,
-                dockerOps,
-                new Console(docker, config.docker().project()),
-                new HostMetrics(),
-                config.docker().project(),
-                Path.of(config.backup().outputRoot()),
+                agent,
                 Path.of(config.configsRoot()),
                 Path.of(config.volumesRoot()),
                 data.updates(),
@@ -583,7 +521,7 @@ public final class Steward {
             final Configs configs,
             final Database database,
             final ContainerOps containers,
-            final Backups backups,
+            final Snapshots backups,
             final UpdateDirectory updates,
             final eu.nordtal.s2.steward.plugin.PluginDirectory addedPlugins,
             final Runnable onSettings) {

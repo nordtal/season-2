@@ -1,0 +1,84 @@
+package eu.nordtal.s2.stewardagent;
+
+import eu.nordtal.s2.internalapi.agent.AgentWire;
+import eu.nordtal.s2.stewardagent.backup.BackupRoutes;
+import eu.nordtal.s2.stewardagent.docker.Console;
+import eu.nordtal.s2.stewardagent.docker.Containers;
+import eu.nordtal.s2.stewardagent.docker.Docker;
+import eu.nordtal.s2.stewardagent.logs.LogStreams;
+import eu.nordtal.s2.stewardagent.measure.HostMetrics;
+import eu.nordtal.s2.stewardagent.measure.Sampler;
+import eu.nordtal.s2.stewardagent.topology.ComposeTopology;
+import io.javalin.config.JavalinConfig;
+import java.nio.file.Path;
+import java.time.Clock;
+import org.jspecify.annotations.Nullable;
+
+/**
+ * Every route steward-agent serves but the deployments: the topology, the containers, logs, samples and backups.
+ *
+ * Built from the daemon and the paths alone, so a test can put the real routes over a stand-in daemon.
+ */
+public final class AgentApi implements AutoCloseable {
+
+    private final AgentRoutes routes;
+    private final BackupRoutes backups;
+    private final LogStreams logs;
+    private final Sampler sampler;
+
+    /**
+     * Wires the routes of one compose project.
+     *
+     * @param definitions compose.yml's services, which every label is read from
+     */
+    public AgentApi(
+            final Docker docker,
+            final String project,
+            final ComposeTopology.Definitions definitions,
+            final Paths paths,
+            final Clock clock) {
+        final ComposeTopology topology = new ComposeTopology(definitions, clock);
+        this.sampler = new Sampler(docker, new HostMetrics(), project, clock);
+        this.logs = new LogStreams(docker, project, paths.volumesRoot(), clock);
+        this.routes = new AgentRoutes(
+                docker,
+                new Containers(docker, project),
+                new Console(docker, project, topology::consoles),
+                sampler,
+                topology);
+        this.backups = new BackupRoutes(docker, project, paths.backupSources(), paths.backups(), clock);
+    }
+
+    /**
+     * Where the volumes this process reads are mounted.
+     *
+     * @param volumesRoot the Minecraft data volumes, one directory per service, or {@code null} for none
+     * @param backupSources every volume a backup saves, read-only, one directory per Docker volume name
+     * @param backups where archives are written, mounted at the same path in the database's container
+     */
+    public record Paths(@Nullable Path volumesRoot, Path backupSources, Path backups) {
+
+        /** Where compose.yml mounts them, which a setting of the same name moves. */
+        public static final Paths DEFAULTS =
+                new Paths(Path.of("/volumes"), Path.of("/backup-sources"), Path.of("/backups"));
+    }
+
+    /** Starts the sampler, whose first round is taken at once. */
+    public void start() {
+        sampler.start();
+    }
+
+    public void register(final JavalinConfig config) {
+        routes.register(config);
+        backups.register(config);
+        config.routes.sse(AgentWire.LOGS, logs::follow);
+        config.routes.get(AgentWire.LOG_CAPACITY, logs::capacity);
+    }
+
+    /** Ends the follows first, or Jetty spins on a stream it cannot close, then the sampler. */
+    @Override
+    public void close() {
+        logs.close();
+        sampler.close();
+    }
+}

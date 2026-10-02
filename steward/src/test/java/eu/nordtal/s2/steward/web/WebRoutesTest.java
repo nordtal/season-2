@@ -80,7 +80,7 @@ class WebRoutesTest extends WebTestSupport {
         final JsonObject health = GSON.fromJson(get(browser(), "/api/health").body(), JsonObject.class);
 
         assertEquals("ok", health.get("status").getAsString());
-        assertTrue(health.get("docker").getAsBoolean(), "the stand-in daemon is up");
+        assertTrue(health.get("agent").getAsBoolean(), "the stand-in agent is up");
     }
 
     /**

@@ -2,6 +2,7 @@ package eu.nordtal.s2.stewardagent;
 
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -15,6 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,7 +34,7 @@ public final class Compose {
      *
      * Recreating it would kill the process handling the request; the setup script renews it instead.
      */
-    public static final String SELF = "steward-agent";
+    public static final String SELF = AgentWire.SERVICE;
 
     private final Path composeFile;
     private final Path envFile;
@@ -56,6 +58,11 @@ public final class Compose {
         this.projectDirectory = projectDirectory;
         this.projectName = projectName;
         this.linkCounter = linkCounter;
+    }
+
+    /** The compose project every command names, which is also how the daemon labels its containers. */
+    public String projectName() {
+        return projectName;
     }
 
     /** Counts the hard links of the file at a path, empty when that cannot be determined. */
@@ -163,24 +170,29 @@ public final class Compose {
         return command(List.of("up", "--detach", "--no-deps", "--force-recreate", refuseSelf(service)));
     }
 
-    /** Returns whether this service's image is already on this host, without pulling. */
-    public boolean hasLocalImage(final String service) {
+    /**
+     * Returns whether this service's image is already on this host, without pulling.
+     *
+     * @param isHere asks the daemon about one image reference
+     */
+    public boolean hasLocalImage(final String service, final Predicate<String> isHere) {
         final Optional<String> image = imageOf(service);
-        return image.isPresent() && imageExistsLocally(image.get());
+        return image.isPresent() && isHere.test(image.get());
     }
 
     /**
-     * Pulls one service's image and answers whether the deployment can go on without it.
+     * Pulls one service's image; a failed pull is tolerated when the image is here, as one pushed nowhere is.
      *
-     * A failed pull is tolerated only when the image is already here, which covers images pushed to no registry.
+     * @param isHere asks the daemon about one image reference
      */
-    public PullOutcome pull(final String service, final Consumer<String> output) throws IOException {
+    public PullOutcome pull(final String service, final Consumer<String> output, final Predicate<String> isHere)
+            throws IOException {
         final int code = run(command(List.of("pull", service)), output);
         if (code == 0) {
             return PullOutcome.PULLED;
         }
         final Optional<String> image = imageOf(service);
-        if (image.isPresent() && imageExistsLocally(image.get())) {
+        if (image.isPresent() && isHere.test(image.get())) {
             output.accept("pull failed for " + service + ", but " + image.get()
                     + " is on this host - continuing with the local image");
             log.warn("pull failed for {}; using the local image {}", service, image.get());
@@ -216,21 +228,33 @@ public final class Compose {
         return config(true);
     }
 
+    /**
+     * Returns every service the compose file defines, in any profile, as {@code config} resolves it.
+     *
+     * The labels in it are the topology; steward reads them through {@code /api/topology}.
+     */
+    public JsonObject definitions() throws IOException {
+        return definitions(true);
+    }
+
     private Map<String, String> config(final boolean allProfiles) throws IOException {
-        final StringBuilder json = new StringBuilder();
-        final int code =
-                run(configCommand(allProfiles), line -> json.append(line).append('\n'));
-        if (code != 0) {
-            throw new IOException("docker compose config exited " + code);
-        }
-        final JsonObject root = Json.decode(json.toString(), JsonObject.class);
-        final JsonObject services = root.getAsJsonObject("services");
+        final JsonObject services = definitions(allProfiles);
         final Map<String, String> byName = new LinkedHashMap<>();
         for (final String name : services.keySet()) {
             final JsonObject service = services.getAsJsonObject(name);
             byName.put(name, service.has("image") ? service.get("image").getAsString() : "");
         }
         return byName;
+    }
+
+    private JsonObject definitions(final boolean allProfiles) throws IOException {
+        final StringBuilder json = new StringBuilder();
+        final int code =
+                run(configCommand(allProfiles), line -> json.append(line).append('\n'));
+        if (code != 0) {
+            throw new IOException("docker compose config exited " + code);
+        }
+        return Json.decode(json.toString(), JsonObject.class).getAsJsonObject("services");
     }
 
     /**
@@ -241,18 +265,6 @@ public final class Compose {
         return command(allProfiles ? concat(List.of("--profile", "*"), config) : config);
     }
 
-    /** Returns {@code compose ps} as JSON lines, which the interface draws the service list from. */
-    public String state() throws IOException {
-        final StringBuilder json = new StringBuilder();
-        final int code = run(
-                command(List.of("ps", "--all", "--format", "json")),
-                line -> json.append(line).append('\n'));
-        if (code != 0) {
-            throw new IOException("docker compose ps exited " + code);
-        }
-        return json.toString();
-    }
-
     private Optional<String> imageOf(final String service) {
         try {
             // everyService: "not in this profile selection" is not "has no image".
@@ -260,14 +272,6 @@ public final class Compose {
             return image == null || image.isBlank() ? Optional.empty() : Optional.of(image);
         } catch (IOException e) {
             return Optional.empty();
-        }
-    }
-
-    private boolean imageExistsLocally(final String image) {
-        try {
-            return run(List.of("docker", "image", "inspect", image), line -> {}) == 0;
-        } catch (IOException e) {
-            return false;
         }
     }
 

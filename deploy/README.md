@@ -5,8 +5,8 @@ Season 2's deployment: one `docker compose` stack on one host. The project overv
 
 `compose.yml` and `.env.example` are at the repository root, so every command here runs from there.
 `compose.yml` is baked into `steward-agent`'s image, the one service that creates containers; see
-[`../steward-agent/README.md`](../steward-agent/README.md). steward reads, stops and
-starts containers over the Docker socket.
+[`../steward-agent/README.md`](../steward-agent/README.md). steward holds no Docker socket and
+asks the agent for everything Docker knows.
 
 ```
 compose.yml            services in six profiles: db, bot, mc, steward, devpack (local), standby

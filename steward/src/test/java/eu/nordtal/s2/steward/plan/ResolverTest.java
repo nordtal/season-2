@@ -662,12 +662,6 @@ class ResolverTest {
             }
 
             @Override
-            public DockerSpec docker() {
-                // Defaults: this test is not about the daemon, and nothing here reads it.
-                return new DockerSpec() {};
-            }
-
-            @Override
             public String volumesRoot() {
                 return volumes.toString();
             }

@@ -3,71 +3,63 @@ package eu.nordtal.s2.steward.api;
 import eu.nordtal.s2.database.online.OnlinePlayer;
 import eu.nordtal.s2.database.update.ServiceHold;
 import eu.nordtal.s2.database.update.UpdateDirectory;
-import eu.nordtal.s2.steward.docker.Console;
-import eu.nordtal.s2.steward.docker.Docker;
-import eu.nordtal.s2.steward.docker.DockerException;
-import eu.nordtal.s2.steward.ops.ImageResult;
+import eu.nordtal.s2.internalapi.InternalClient;
+import eu.nordtal.s2.internalapi.agent.AgentClient;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
+import eu.nordtal.s2.internalapi.agent.ImageResult;
 import eu.nordtal.s2.steward.plan.Topology;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /**
  * Builds the rows of {@code /api/services} and {@code /api/services/{name}}.
  *
- * Docker's stats call takes about a second per container, so rows are read in parallel on virtual threads.
+ * Memory and CPU are the agent's last sample, so drawing the table asks Docker for nothing per container.
  */
 final class ServiceRows {
 
-    private final Docker docker;
-    private final String project;
+    private final AgentClient agent;
     private final UpdateDirectory updates;
     private final @Nullable ServicesApi players;
 
-    ServiceRows(
-            final Docker docker,
-            final String project,
-            final UpdateDirectory updates,
-            final @Nullable ServicesApi players) {
-        this.docker = docker;
-        this.project = project;
+    ServiceRows(final AgentClient agent, final UpdateDirectory updates, final @Nullable ServicesApi players) {
+        this.agent = agent;
         this.updates = updates;
         this.players = players;
     }
 
-    /** Every service row, sorted by name, read in parallel. */
+    /** Every service row, sorted by name. */
     List<Map<String, Object>> rows(final ImageResult drift) {
-        final List<Docker.Container> containers = docker.containers(project).stream()
-                .filter(container -> container.service() != null)
-                .toList();
+        final AgentWire.Containers containers = agent.containers();
+        if (!containers.reached()) {
+            // The agent answered and the daemon behind it did not; the interface names the daemon.
+            throw InternalClient.Failure.behind("docker", String.valueOf(containers.message()));
+        }
         // Once for the whole table, so two rows cannot disagree about the same instant.
         final ServicesApi.Online counts = online();
         final Map<String, ServiceHold> holds = holds();
-        final List<Map<String, Object>> all;
-        try (var scope = Executors.newVirtualThreadPerTaskExecutor()) {
-            all = scope
-                    .invokeAll(containers.stream()
-                            .map(container ->
-                                    (Callable<Map<String, Object>>) () -> describe(container, drift, counts, holds))
-                            .toList())
-                    .stream()
-                    .map(ServiceRows::resultOf)
-                    .toList();
-        } catch (final InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("reading the service table was interrupted", e);
+        final Set<String> consoles = consoles();
+        final List<Map<String, Object>> all = new ArrayList<>();
+        for (final AgentWire.Container container : containers.containers()) {
+            all.add(describe(container, drift, counts, holds, consoles));
         }
-        return all.stream()
-                .sorted((left, right) ->
-                        String.valueOf(left.get("service")).compareTo(String.valueOf(right.get("service"))))
-                .toList();
+        return List.copyOf(all);
+    }
+
+    /** The services compose.yml gives a console. */
+    Set<String> consoles() {
+        final Set<String> consoles = new LinkedHashSet<>();
+        for (final AgentWire.Service service : agent.topology().services()) {
+            if (service.console()) {
+                consoles.add(service.name());
+            }
+        }
+        return consoles;
     }
 
     /** The run inbox and {@code service_hold}, taken once for the whole table. */
@@ -79,37 +71,25 @@ final class ServiceRows {
         return holds;
     }
 
-    private static Map<String, Object> resultOf(final Future<Map<String, Object>> future) {
-        try {
-            return future.get();
-        } catch (final InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("reading one service was interrupted", e);
-        } catch (final ExecutionException e) {
-            // describe() turns a Docker failure into `unreadable`, so anything here is a programming error.
-            throw new IllegalStateException("reading one service failed", e.getCause());
-        }
-    }
-
     /**
      * One row.
      *
      * {@code players} and {@code roster} are absent, not zero or empty, for a service the proxy has not reported.
      */
     Map<String, Object> describe(
-            final Docker.Container container,
+            final AgentWire.Container container,
             final ImageResult drift,
             final ServicesApi.Online counts,
-            final Map<String, ServiceHold> holds) {
-        final String service =
-                Objects.requireNonNull(container.service(), "a row is only ever built for a compose service");
+            final Map<String, ServiceHold> holds,
+            final Set<String> consoles) {
+        final String service = container.service();
         final Map<String, Object> row = new LinkedHashMap<>();
         row.put("service", service);
         row.put("containerId", container.id());
         row.put("image", container.image());
         row.put("state", container.state());
         row.put("status", container.status());
-        row.put("hasConsole", Console.has(service));
+        row.put("hasConsole", consoles.contains(service));
         row.put("drift", drift.state(service).name());
         putOnline(row, service, counts);
         putStandby(row, service);
@@ -121,17 +101,15 @@ final class ServiceRows {
             row.put("hold", about);
         }
         if (container.isRunning()) {
-            try {
-                final Docker.Inspection inspection = docker.inspect(container.id());
-                row.put("health", inspection.health());
-                row.put("startedAt", inspection.startedAt());
-                final Docker.Stats stats = docker.stats(container.id());
-                row.put("memoryBytes", stats.memoryBytes());
-                row.put("memoryLimitBytes", stats.memoryLimitBytes());
-                stats.cpuPercent().ifPresent(percent -> row.put("cpuPercent", percent));
-            } catch (final DockerException e) {
-                // One container that will not answer is one row with less in it, never a page that fails to draw.
-                row.put("unreadable", e.getMessage());
+            row.put("health", container.health());
+            row.put("startedAt", container.startedAt());
+            final AgentWire.Reading sample = container.sample();
+            if (sample != null) {
+                row.put("memoryBytes", sample.memoryBytes());
+                row.put("memoryLimitBytes", sample.memoryLimitBytes());
+                if (sample.cpuPercent() != null) {
+                    row.put("cpuPercent", sample.cpuPercent());
+                }
             }
         }
         return row;

@@ -1,5 +1,7 @@
 plugins {
     id("nordtal.jvm-app")
+    // FakeDaemon and the stand-in agent, which steward's tests talk to as well.
+    `java-test-fixtures`
 }
 
 application.mainClass.set("eu.nordtal.s2.stewardagent.StewardAgent")
@@ -19,10 +21,19 @@ dependencies {
 
     runtimeOnly(libs.logback.classic)
 
+    // The stand-in agent: the real routes over FakeDaemon, behind the real guard.
+    testFixturesImplementation(project(":internal-api"))
+    testFixturesImplementation(libs.gson)
+
     compileOnly(libs.lombok)
     annotationProcessor(libs.lombok)
     testCompileOnly(libs.lombok)
     testAnnotationProcessor(libs.lombok)
+}
+
+// Beside build/libs, whose one jar is what the Dockerfile's glob copies into the image.
+tasks.named<Jar>("testFixturesJar") {
+    destinationDirectory.set(layout.buildDirectory.dir("test-fixtures"))
 }
 
 // compose.yml is baked into the image, so Gradle copies it into the build context.

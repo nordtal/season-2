@@ -9,9 +9,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.Deployment;
 import eu.nordtal.s2.internalapi.BankWire;
-import eu.nordtal.s2.steward.agent.AgentRecreate;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.steward.config.BackupSpec;
 import eu.nordtal.s2.steward.config.StewardSpec;
+import eu.nordtal.s2.stewardagent.AgentApi;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
@@ -31,7 +32,7 @@ class TopologyDeploymentTest {
 
     /** Every service that runs one of our jars on the image template; each writes the readiness marker. */
     private static final List<String> JVM_SERVICES =
-            List.of(Topology.DISCORD_BOT, Topology.STEWARD, AgentRecreate.SERVICE, BankWire.SERVICE);
+            List.of(Topology.DISCORD_BOT, Topology.STEWARD, AgentWire.SERVICE, BankWire.SERVICE);
 
     private final Map<String, Object> services = readComposeServices();
 
@@ -198,25 +199,14 @@ class TopologyDeploymentTest {
     void everyVolumeMountedForTheBackupIsAVolumeTheBackupActuallySaves() {
         // The quiet direction: a volume mounted for the backup but never named in backup.volumes is simply never saved.
         final Set<String> saved = Set.copyOf(defaults().backup().volumes());
+        // steward-agent tars them, so the mounts are its own.
         @SuppressWarnings("unchecked")
-        final Map<String, Object> steward = (Map<String, Object>) services.get("steward");
-        final String root = new BackupSpec() {
-                    // backup.remote has no default of its own, so this hands its defaults back by name.
-                    @Override
-                    public RemoteSpec remote() {
-                        return new RemoteSpec() {};
-                    }
-
-                    @Override
-                    public RetentionSpec retention() {
-                        return new RetentionSpec() {};
-                    }
-                }.sourcesRoot()
-                + "/";
+        final Map<String, Object> agent = (Map<String, Object>) services.get(AgentWire.SERVICE);
+        final String root = AgentApi.Paths.DEFAULTS.backupSources() + "/";
 
         // Parsed from the right: a variable-backed default itself contains colons, so the left finds only part of it.
         int checked = 0;
-        for (final String mount : mountsOf(steward)) {
+        for (final String mount : mountsOf(agent)) {
             final String withoutMode =
                     mount.endsWith(":ro") || mount.endsWith(":rw") ? mount.substring(0, mount.lastIndexOf(':')) : mount;
             final String destination = withoutMode.substring(withoutMode.lastIndexOf(':') + 1);
@@ -234,7 +224,7 @@ class TopologyDeploymentTest {
         }
         // Counted too, because a loop that silently skips mounts asserts nothing about the ones it drops.
         final long mounted =
-                mountsOf(steward).stream().filter(mount -> mount.contains(root)).count();
+                mountsOf(agent).stream().filter(mount -> mount.contains(root)).count();
         assertEquals(
                 mounted,
                 checked,
@@ -343,7 +333,7 @@ class TopologyDeploymentTest {
     @Test
     void noServiceButStewardSharesANetworkWithTheAgentOrTheBank() {
         // The agent holds the docker socket and steward-bunq the bank key; steward is the one caller of both.
-        for (final String guarded : List.of(AgentRecreate.SERVICE, BankWire.SERVICE)) {
+        for (final String guarded : List.of(AgentWire.SERVICE, BankWire.SERVICE)) {
             final Set<String> theirs = networksOf(guarded);
             services.keySet().stream()
                     .filter(name -> !name.equals(guarded) && !name.equals(Topology.STEWARD))
@@ -361,7 +351,7 @@ class TopologyDeploymentTest {
     @Test
     void theNetworksThatLeadToTheAgentOrTheBankHaveNoWayOut() {
         // An internal network has no gateway: what joins steward to the agent or to the bank leads nowhere else.
-        final Set<String> guarded = new LinkedHashSet<>(networksOf(AgentRecreate.SERVICE));
+        final Set<String> guarded = new LinkedHashSet<>(networksOf(AgentWire.SERVICE));
         final Set<String> bank = new LinkedHashSet<>(networksOf(BankWire.SERVICE));
         bank.retainAll(networksOf(Topology.STEWARD));
         guarded.addAll(bank);
@@ -418,12 +408,6 @@ class TopologyDeploymentTest {
             }
 
             @Override
-            public DockerSpec docker() {
-                // Defaults: this test is not about the daemon, and nothing here reads it.
-                return new DockerSpec() {};
-            }
-
-            @Override
             public UpdateSpec update() {
                 return new UpdateSpec() {};
             }
@@ -453,18 +437,18 @@ class TopologyDeploymentTest {
     }
 
     @Test
-    void theDatabaseCanWriteItsDumpWhereStewardLaterLooksForIt() {
-        // pg_dump runs inside postgres, so `backup.output-root` is a path in that container, not steward's.
+    void theDatabaseCanWriteItsDumpWhereTheAgentLaterLooksForIt() {
+        // pg_dump runs inside postgres, so the agent's backup directory is a path in that container too.
         final BackupSpec backup = defaults().backup();
-        final String directory = backup.outputRoot();
+        final String directory = AgentApi.Paths.DEFAULTS.backups().toString();
 
-        final String steward = writableMountAt("steward", directory);
+        final String agent = writableMountAt(AgentWire.SERVICE, directory);
         final String database = writableMountAt(backup.databaseService(), directory);
         assertEquals(
-                steward,
+                agent,
                 database,
                 backup.databaseService() + " writes the dump to "
-                        + directory + " out of one volume and steward reads " + directory
+                        + directory + " out of one volume and " + AgentWire.SERVICE + " reads " + directory
                         + " out of another, so the dump is saved where nothing ever looks for it.");
     }
 

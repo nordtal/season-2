@@ -19,7 +19,7 @@ public interface BackupSpec {
     @Key("volumes")
     @Comment({
         "The Docker volumes to snapshot, by their real names as `docker volume ls` prints them,",
-        "each read from <backup.sources-root>/<name>. A name with no mount there is a FAILED line.",
+        "each read by steward-agent from its read-only mount. A name with no mount is a FAILED line.",
         "Leave out postgres-data (dumped instead), the output directory, and anything a start",
         "writes again, such as the proxy and limbo volumes."
     })
@@ -44,30 +44,6 @@ public interface BackupSpec {
     @Explain("Compose service names, taken from Topology so they follow a renamed service.")
     default List<String> stopServices() {
         return List.of(Topology.SMP, Topology.DISCORD_BOT);
-    }
-
-    @Order(3)
-    @Name("Sources root")
-    @Key("sources-root")
-    @Comment({
-        "Where the volumes being saved are mounted read-only, one directory per volume name.",
-        "The compose mount enforces read-only, so a backup can never write to what it saves."
-    })
-    @Explain("Read-only is enforced by the compose mount, not by this setting.")
-    default String sourcesRoot() {
-        return "/backup-sources";
-    }
-
-    @Order(4)
-    @Name("Output root")
-    @Key("output-root")
-    @Comment({
-        "Where the archives and the database dump are written. Never one of the saved volumes,",
-        "or the backups grow by their own contents every night."
-    })
-    @Explain("Must never be one of the volumes listed above, or the backups grow by their own contents every night.")
-    default String outputRoot() {
-        return "/backups";
     }
 
     @Order(5)

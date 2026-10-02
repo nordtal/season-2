@@ -5,22 +5,18 @@ import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.setting.SettingStore;
-import eu.nordtal.s2.database.update.ServiceHold;
 import eu.nordtal.s2.database.update.UpdateDirectory;
+import eu.nordtal.s2.internalapi.InternalClient;
+import eu.nordtal.s2.internalapi.agent.AgentClient;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
+import eu.nordtal.s2.internalapi.agent.ImageResult;
 import eu.nordtal.s2.steward.backup.NightlyClock;
-import eu.nordtal.s2.steward.docker.Console;
-import eu.nordtal.s2.steward.docker.Docker;
-import eu.nordtal.s2.steward.docker.DockerException;
-import eu.nordtal.s2.steward.docker.DockerOps;
-import eu.nordtal.s2.steward.host.HostMetrics;
-import eu.nordtal.s2.steward.host.HostSnapshot;
-import eu.nordtal.s2.steward.ops.ImageResult;
 import eu.nordtal.s2.steward.plan.Change;
 import eu.nordtal.s2.steward.plan.Topology;
 import eu.nordtal.s2.steward.plan.UpdatePlan;
 import eu.nordtal.s2.steward.push.AlertReading;
 import io.javalin.config.JavalinConfig;
-import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
@@ -50,11 +46,8 @@ public final class StackApi implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(StackApi.class);
 
-    final Docker docker;
-    final Console console;
-    private final HostMetrics host;
-    final String project;
-    final Path backups;
+    /** The only way to Docker and the volumes. */
+    final AgentClient agent;
 
     /**
      * What {@code backup.at} and {@code update.at} say, and in which zone.
@@ -129,43 +122,18 @@ public final class StackApi implements AutoCloseable {
     final ActionsApi actions;
     /** The Disk field of one service's page; never part of the service table. */
     private final DiskUsage disk;
-    /** The runs before the container, out of the server's own rotated logs. */
-    final LogArchive archive;
     /** How many lines the console can fill per service, Docker plus archive, capped at the top step. */
     private final Map<String, Refreshed<Integer>> logCapacity = new ConcurrentHashMap<>();
 
     /** The API without player counts, plugins, inboxes or a resolve, as a test against the real daemon needs it. */
     public StackApi(
-            final Docker docker,
-            final DockerOps ops,
-            final Console console,
-            final HostMetrics host,
-            final String project,
-            final Path backups,
+            final AgentClient agent,
             final Path configs,
             final UpdateDirectory updates,
             final AuditDirectory audit,
             final Nightly nightly,
             final Clock clock) {
-        this(
-                docker,
-                ops,
-                console,
-                host,
-                project,
-                backups,
-                configs,
-                null,
-                updates,
-                audit,
-                () -> nightly,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                clock);
+        this(agent, configs, null, updates, audit, () -> nightly, null, null, null, null, null, null, clock);
     }
 
     private final Clock clock;
@@ -188,12 +156,7 @@ public final class StackApi implements AutoCloseable {
      * @param settings every process's settings, or {@code null} without a database, when their routes answer 503
      */
     public StackApi(
-            final Docker docker,
-            final DockerOps ops,
-            final Console console,
-            final HostMetrics host,
-            final String project,
-            final Path backups,
+            final AgentClient agent,
             final Path configs,
             final @Nullable Path volumesRoot,
             final UpdateDirectory updates,
@@ -209,11 +172,7 @@ public final class StackApi implements AutoCloseable {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.managedPlugins = managedPlugins;
         this.settings = settings == null ? null : new SettingsApi(settings);
-        this.docker = docker;
-        this.console = console;
-        this.host = host;
-        this.project = project;
-        this.backups = backups;
+        this.agent = agent;
         this.nightly = nightly;
         final MessagesApi.Reloader reloader = reloads == null
                 ? service -> {
@@ -226,12 +185,10 @@ public final class StackApi implements AutoCloseable {
         // Its own virtual thread per refresh, so a du never waits behind a registry call.
         this.disk = new DiskUsage(
                 volumesRoot, runnable -> Thread.ofVirtual().name("disk-usage").start(runnable));
-        this.archive = new LogArchive(volumesRoot);
-        this.logFollows = new LogFollows(docker, archive, clock);
-        this.serviceRows = new ServiceRows(docker, project, updates, online);
-        // Here rather than at the field, because it reads `ops`, which is a constructor argument.
+        this.logFollows = new LogFollows(agent);
+        this.serviceRows = new ServiceRows(agent, updates, online);
         this.drift = new Refreshed<>(
-                () -> new Drift(ops.images(), clock.instant()), DRIFT_TTL, driftRefresh, clock::instant);
+                () -> new Drift(agent.images(), clock.instant()), DRIFT_TTL, driftRefresh, clock::instant);
         // The same background thread as drift: both are slow calls nobody asked for.
         this.available = resolve == null
                 ? null
@@ -247,9 +204,9 @@ public final class StackApi implements AutoCloseable {
         Routes.register(this, config, caller);
     }
 
-    /** Whether the Docker daemon answers; without it every container route answers 503. */
-    public boolean dockerReachable() {
-        return docker.isReachable();
+    /** Whether steward-agent answers; without it every container route says it could not be reached. */
+    public boolean agentReachable() {
+        return agent.isReachable();
     }
 
     /** Runs the first image comparison in the background, so the first {@code /api/services} need not wait for it. */
@@ -307,39 +264,32 @@ public final class StackApi implements AutoCloseable {
 
     Optional<Map<String, Object>> service(final String name) {
         final ImageResult drift = drift().result();
-        final Map<String, ServiceHold> holds = serviceRows.holds();
-        return docker.containers(project).stream()
-                .filter(container -> name.equals(container.service()))
-                .findFirst()
-                .map(container -> {
-                    final Map<String, Object> row = serviceRows.describe(container, drift, serviceRows.online(), holds);
-                    row.put("digests", docker.repoDigests(container.imageId()));
-                    row.put("hasPlugins", Topology.hasPlugins(name));
-                    disk.of(name).ifPresent(measured -> {
-                        row.put("diskBytes", measured.bytes().getAsLong());
-                        row.put("diskMeasuredAt", measured.at().toString());
-                    });
-                    row.put(
-                            "logCapacity",
-                            logCapacity
-                                    .computeIfAbsent(
-                                            name,
-                                            key -> new Refreshed<>(
-                                                    () -> Archives.capacity(
-                                                            docker,
-                                                            project,
-                                                            archive,
-                                                            key,
-                                                            LOG_CAPACITY_MAX,
-                                                            clock.instant()),
-                                                    LOG_CAPACITY_TTL,
-                                                    runnable -> Thread.ofVirtual()
-                                                            .name("log-capacity")
-                                                            .start(runnable),
-                                                    clock::instant))
-                                    .get());
-                    return row;
-                });
+        return agent.container(name).map(container -> {
+            final Map<String, Object> row = serviceRows.describe(
+                    container, drift, serviceRows.online(), serviceRows.holds(), serviceRows.consoles());
+            row.put("digests", container.digests() == null ? List.of() : container.digests());
+            row.put("hasPlugins", Topology.hasPlugins(name));
+            disk.of(name).ifPresent(measured -> {
+                row.put("diskBytes", measured.bytes().getAsLong());
+                row.put("diskMeasuredAt", measured.at().toString());
+            });
+            row.put("logCapacity", logCapacity(name));
+            return row;
+        });
+    }
+
+    /** Lines the console can offer, Docker's and the archive's, asked of the agent at most every five minutes. */
+    private int logCapacity(final String name) {
+        return logCapacity
+                .computeIfAbsent(
+                        name,
+                        key -> new Refreshed<>(
+                                () -> agent.logCapacity(key, LOG_CAPACITY_MAX),
+                                LOG_CAPACITY_TTL,
+                                runnable ->
+                                        Thread.ofVirtual().name("log-capacity").start(runnable),
+                                clock::instant))
+                .get();
     }
 
     /** {@code backup.at}, {@code backup.days}, the zone they are read in, and the next moment. */
@@ -379,30 +329,60 @@ public final class StackApi implements AutoCloseable {
 
     Map<String, Object> hostNumbers() {
         final Map<String, Object> answer = new LinkedHashMap<>();
+        final AgentWire.Host host;
         try {
-            final HostSnapshot snapshot = host.read();
-            answer.put("load1", snapshot.load1());
-            answer.put("cpus", snapshot.cpus());
-            snapshot.cpuPercent().ifPresent(percent -> answer.put("cpuPercent", percent));
-            answer.put("memoryTotalBytes", snapshot.memoryTotalBytes());
-            answer.put("memoryAvailableBytes", snapshot.memoryAvailableBytes());
-            answer.put("diskTotalBytes", snapshot.diskTotalBytes());
-            answer.put("diskUsedBytes", snapshot.diskUsedBytes());
-        } catch (IOException e) {
-            answer.put("unreadable", "could not read /proc: " + e.getMessage());
+            host = agent.host();
+        } catch (final InternalClient.Failure unreachable) {
+            answer.put("unreadable", AgentClient.sentence(unreachable));
+            return answer;
         }
-        try {
-            final Docker.DiskUsage usage = docker.diskUsage();
-            answer.put("imagesBytes", usage.imagesBytes());
-            answer.put("volumesBytes", usage.volumesBytes());
-        } catch (DockerException e) {
-            answer.put("dockerDiskUnreadable", e.getMessage());
+        final AgentWire.HostNumbers numbers = host.numbers();
+        if (numbers != null) {
+            answer.put("load1", numbers.load1());
+            answer.put("cpus", numbers.cpus());
+            if (numbers.cpuPercent() != null) {
+                answer.put("cpuPercent", numbers.cpuPercent());
+            }
+            answer.put("memoryTotalBytes", numbers.memoryTotalBytes());
+            answer.put("memoryAvailableBytes", numbers.memoryAvailableBytes());
+            answer.put("diskTotalBytes", numbers.diskTotalBytes());
+            answer.put("diskUsedBytes", numbers.diskUsedBytes());
+        } else {
+            answer.put("unreadable", String.valueOf(host.unreadable()));
+        }
+        if (host.dockerDiskUnreadable() == null) {
+            answer.put("imagesBytes", host.imagesBytes());
+            answer.put("volumesBytes", host.volumesBytes());
+        } else {
+            answer.put("dockerDiskUnreadable", host.dockerDiskUnreadable());
         }
         // No container sets a memory limit, so a percentage is a share of the whole machine.
         answer.put(
                 "containerLimits",
                 "No container sets a memory limit, so every percentage here is a share of the whole host.");
         return answer;
+    }
+
+    /** What is actually on the disk, newest first, not what a run reported. */
+    List<AgentWire.Archive> archives() {
+        return agent.archives();
+    }
+
+    /**
+     * Streams one finished archive from the agent to the browser as a download, never buffered.
+     *
+     * The agent refuses a name that is not a finished archive with a 400 and a missing one with a 404.
+     */
+    void download(final io.javalin.http.Context ctx, final String name) {
+        final InputStream body = agent.archive(name);
+        ctx.contentType("application/octet-stream");
+        ctx.header("Content-Disposition", "attachment; filename=\"" + name + "\"");
+        // The length from the list, so the browser can show progress; an archive pruned meanwhile has none.
+        archives().stream()
+                .filter(archive -> archive.name().equals(name))
+                .findFirst()
+                .ifPresent(archive -> ctx.header("Content-Length", String.valueOf(archive.bytes())));
+        ctx.result(body);
     }
 
     /**
@@ -466,8 +446,15 @@ public final class StackApi implements AutoCloseable {
      * The thresholds live in the web group; this reading only says what was found.
      */
     public AlertReading alertReading() {
-        final AlertLevel.Reading reading =
-                AlertLevel.of(serviceTable(), Archives.list(backups), hostNumbers(), clock.instant());
+        final List<Map<String, Object>> archives = new ArrayList<>();
+        for (final AgentWire.Archive archive : archives()) {
+            final Map<String, Object> row = new LinkedHashMap<>();
+            row.put("name", archive.name());
+            row.put("modified", archive.modified().toString());
+            row.put("partial", archive.partial());
+            archives.add(row);
+        }
+        final AlertLevel.Reading reading = AlertLevel.of(serviceTable(), archives, hostNumbers(), clock.instant());
         final List<AlertReading.Trigger> triggers = new ArrayList<>();
         for (final AlertLevel.Trigger trigger : reading.triggers()) {
             triggers.add(new AlertReading.Trigger(
@@ -483,6 +470,11 @@ public final class StackApi implements AutoCloseable {
     static final class ConsoleLine {
         @Nullable
         String command;
+    }
+
+    /** Types one line into a server's console through the agent, which logs who typed it beside the line. */
+    void console(final String service, final String command, final String actor) {
+        agent.console(service, command, actor);
     }
 
     /** Stops every open log follow, then the drift refresh; called before Jetty stops. */

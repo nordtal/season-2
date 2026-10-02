@@ -1,10 +1,10 @@
 package eu.nordtal.s2.steward.serve;
 
 import eu.nordtal.s2.common.time.Waiting;
-import eu.nordtal.s2.steward.ops.ContainerOps;
-import eu.nordtal.s2.steward.ops.RedeployResult;
-import eu.nordtal.s2.steward.ops.RuntimeResult;
-import eu.nordtal.s2.steward.ops.ServiceRuntime;
+import eu.nordtal.s2.internalapi.agent.ContainerOps;
+import eu.nordtal.s2.internalapi.agent.RedeployResult;
+import eu.nordtal.s2.internalapi.agent.RuntimeResult;
+import eu.nordtal.s2.internalapi.agent.ServiceRuntime;
 import eu.nordtal.s2.steward.plan.Topology;
 import java.time.Duration;
 import java.time.Instant;

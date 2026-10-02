@@ -83,6 +83,18 @@ class DockerSocketTest {
         }
     }
 
+    @Test
+    void aStopIsWaitedForUntilDockerHasKilledTheContainerNotJustForTheSocketsTimeout() throws Exception {
+        // Docker answers a stop only after the grace period, so a wait equal to it reports a kill as a refusal.
+        final Path socket = listening(client -> {
+            Thread.sleep(900);
+            write(client, "HTTP/1.1 204 No Content\r\n\r\n");
+            client.shutdownOutput();
+        });
+
+        new Docker(new DockerSocket(socket, Duration.ofMillis(300))).stop("c0ffee", 1);
+    }
+
     /** A unix socket that accepts one connection and hands it to {@code answer}. */
     private Path listening(final Answer answer) throws IOException {
         final Path path = directory.resolve("docker.sock");

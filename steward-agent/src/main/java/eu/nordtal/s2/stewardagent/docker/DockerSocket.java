@@ -68,7 +68,13 @@ public final class DockerSocket {
 
     /** A request whose whole body is read at once; the connection is closed before this returns. */
     public String send(final String method, final String path, final @Nullable String jsonBody) {
-        try (Stream stream = open(method, path, jsonBody, timeout)) {
+        return send(method, path, jsonBody, timeout);
+    }
+
+    /** {@link #send(String, String, String)} for a call Docker itself holds open, such as a stop, past the timeout. */
+    public String send(
+            final String method, final String path, final @Nullable String jsonBody, final Duration deadline) {
+        try (Stream stream = open(method, path, jsonBody, deadline)) {
             final String body = new String(stream.body().readAllBytes(), StandardCharsets.UTF_8);
             if (stream.status() >= 400) {
                 throw new DockerException(

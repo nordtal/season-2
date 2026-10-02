@@ -44,6 +44,11 @@ final class AlertRoutes {
 
     /** {@code GET /api/alerts}. */
     void current(final Context ctx) {
+        ctx.json(read());
+    }
+
+    /** What is wrong now and what was raised lately, as {@code GET /api/alerts} answers. */
+    Map<String, Object> read() {
         if (monitor == null || book == null) {
             throw new ServiceUnavailableResponse("Steward has no database, so it keeps no alerts");
         }
@@ -55,7 +60,7 @@ final class AlertRoutes {
         answer.put("alerts", now.alerts().stream().map(AlertRoutes::shown).toList());
         answer.put(
                 "recent", book.recent(RECENT).stream().map(AlertRoutes::shown).toList());
-        ctx.json(answer);
+        return answer;
     }
 
     /** {@code GET /api/alerts/preferences}: every type with its channels, for the admin who asks. */

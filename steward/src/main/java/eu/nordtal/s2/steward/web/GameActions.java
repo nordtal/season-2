@@ -38,6 +38,11 @@ final class GameActions {
 
     /** {@code GET /api/smp/track}: every milestone with its state and objectives; the page orders them by the file. */
     void track(final Context ctx) {
+        ctx.json(readTrack());
+    }
+
+    /** The whole track as {@code GET /api/smp/track} answers. */
+    Map<String, Object> readTrack() {
         final Map<String, Map<String, Object>> milestones = new LinkedHashMap<>();
         try (Connection connection = dataSource().getConnection();
                 PreparedStatement statement = connection.prepareStatement("""
@@ -79,7 +84,7 @@ final class GameActions {
         } catch (final SQLException failure) {
             throw new IllegalStateException("could not read the SMP's track", failure);
         }
-        ctx.json(Map.of("milestones", new ArrayList<>(milestones.values())));
+        return Map.of("milestones", new ArrayList<>(milestones.values()));
     }
 
     private static void putInstant(
@@ -115,6 +120,11 @@ final class GameActions {
      * The count is players on the roster, not resolved participants.
      */
     void round(final Context ctx) {
+        ctx.json(readRound());
+    }
+
+    /** The open round as {@code GET /api/hunger-games/round} answers. */
+    Map<String, Object> readRound() {
         final Map<String, Object> answer = new LinkedHashMap<>();
         try (Connection connection = dataSource().getConnection();
                 PreparedStatement statement = connection.prepareStatement("""
@@ -131,7 +141,7 @@ final class GameActions {
         } catch (final SQLException failure) {
             throw new IllegalStateException("could not read the hunger games round", failure);
         }
-        ctx.json(answer);
+        return answer;
     }
 
     /**

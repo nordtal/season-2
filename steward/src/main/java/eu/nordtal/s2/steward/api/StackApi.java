@@ -13,6 +13,8 @@ import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.ImageResult;
 import eu.nordtal.s2.steward.alert.StackReading;
 import eu.nordtal.s2.steward.backup.NightlyClock;
+import eu.nordtal.s2.steward.live.LiveFeed;
+import eu.nordtal.s2.steward.live.Topic;
 import io.javalin.config.JavalinConfig;
 import java.io.InputStream;
 import java.time.Clock;
@@ -201,6 +203,16 @@ public final class StackApi implements AutoCloseable {
     /** Puts every route of this API onto {@code config}, behind the gate {@code caller} answers for. */
     public void register(final JavalinConfig config, final Caller caller) {
         Routes.register(this, config, caller);
+    }
+
+    /** Registers the topics only this API can read: the service table, the host, the topology and the settings. */
+    public void watch(final LiveFeed live) {
+        live.watch(Topic.SERVICES, this::serviceTable);
+        live.watch(Topic.HOST, this::hostNumbers);
+        live.watch(Topic.TOPOLOGY, agent::topology);
+        if (settings != null) {
+            live.watch(Topic.SETTINGS, settings::read);
+        }
     }
 
     /** Whether steward-agent answers; without it every container route says it could not be reached. */

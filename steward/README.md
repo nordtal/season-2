@@ -64,6 +64,17 @@ pin and no rollback: a bad release is corrected by publishing a better one.
 - **The journal.** Every route that changes something writes its line through `:database`'s `Journal` with the
   signed-in admin as a structured actor (`DiscordAuth.Account.actor()`, `Sessions.Session.ownLine` for one's own
   keys and browsers) and typed facts. The Access page draws the actor as a profile and the facts by key.
+- **The live stream.** A signed-in browser holds one `GET /api/live` (`KEY_HELD`), an SSE stream of
+  `change` events whose data is `{topic, version}`: a topic of `live.Topic` and a short hash of its new
+  answer, never the answer itself. The browser refetches what the topic covers from the route that owns
+  it, so every answer is shaped in one place. `LiveFeed` re-reads a topic in full from the same reads
+  those routes answer with and announces it when the hash moved. It reads only while somebody listens,
+  and the first read after nobody is recorded silently. The hub rings it on the channels in
+  `Web.LIVE_CHANNELS` and on its minute; the topics only the agent knows (containers, host, topology)
+  are read every ten seconds as well. `nordtal_smp` is not among the channels: play moves the track
+  many times a minute, and every signal also runs a payment pass. A request in a server's or the bot's
+  inbox moves its topic by `Inbox.version()`, so a page waiting for an answer waits on the stream.
+  Logs are not on it: a log is its own follow, relayed from the agent once.
 - **Alerts.** Every alert is a row in `admin_alert`, raised by whoever saw it: steward measures the
   stack every 30 seconds against the `web` group's thresholds and raises a failed run and a payment
   nobody can book, once per bank payment; the bot raises what it could not do in Discord or with a purchase. Steward routes each row once, to Web Push and to the admin channel through the

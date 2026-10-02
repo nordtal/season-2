@@ -311,6 +311,27 @@ class InboxIntegrationTest {
         assertEquals(InboxStatus.DONE, ui.find(asked.id()).orElseThrow().status());
     }
 
+    @Test
+    void theVersionMovesWithEveryWriteAndWithAnExpiryNobodyWrote() throws InterruptedException {
+        final String empty = inbox.version();
+        final Request<BotRequest> asked = inbox.submit(new BotRequest.Revoke(SOMEONE), ADMIN);
+        final String submitted = inbox.version();
+        assertEquals(asked.id(), inbox.claim().orElseThrow().id());
+        final String claimed = inbox.version();
+        inbox.settle(asked.id(), Outcome.done(Map.of("revoked", "1")));
+        final String settled = inbox.version();
+
+        assertEquals(
+                4, new HashSet<>(List.of(empty, submitted, claimed, settled)).size(), "a write left the version alone");
+        assertEquals(settled, inbox.version(), "a read moved the version");
+
+        inbox.submit(new BotRequest.Revoke(SOMEONE), ADMIN, Schedule.within(Duration.ofMillis(300)));
+        final String waiting = inbox.version();
+        TimeUnit.MILLISECONDS.sleep(500);
+        // Nothing wrote the row, yet it reads as expired from now on, so the version has to say so.
+        assertFalse(waiting.equals(inbox.version()), "an expiry left the version alone");
+    }
+
     private static void assertThrowsDenied(final Runnable call) {
         try {
             call.run();

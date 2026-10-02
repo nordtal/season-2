@@ -100,8 +100,8 @@ public final class Topology {
     /** The resource pack: not a jar, not installed anywhere, but a version that has to move. */
     public static final String RESOURCE_PACK = "resource-pack";
 
-    /** The six artefacts a season-2 release publishes as jars, steward's own included. */
-    public static final List<String> SEASON_JARS = List.of(PROXY, LIMBO, HUNGER_GAMES, SMP, DISCORD_BOT, STEWARD);
+    /** The four plugins a season-2 release publishes as jars; the bot and steward are in their images. */
+    public static final List<String> SEASON_JARS = List.of(PROXY, LIMBO, HUNGER_GAMES, SMP);
 
     /** Every plugin Nordtal publishes itself, keyed by filename prefix, in the order the plugins tab lists them. */
     public static final Map<String, String> NORDTAL_PLUGINS = orderedMap(
@@ -114,11 +114,7 @@ public final class Topology {
             LIMBO,
             "Limbo",
             HUNGER_GAMES,
-            "Hunger Games",
-            DISCORD_BOT,
-            "Discord Bot",
-            STEWARD,
-            "Steward");
+            "Hunger Games");
 
     /** The data folder each Nordtal plugin keeps its config in, with the name the plugins tab shows. */
     public static final Map<String, String> NORDTAL_DATA_FOLDERS = orderedMap(
@@ -143,18 +139,6 @@ public final class Topology {
             map.put(pairs[i], pairs[i + 1]);
         }
         return java.util.Collections.unmodifiableMap(map);
-    }
-
-    /**
-     * The two artefacts that are a whole container each, run from a jar in the root of their own volume.
-     *
-     * Steward's own new jar takes effect only at the restart, never during the run.
-     */
-    public static final List<String> STANDALONE_JARS = List.of(DISCORD_BOT, STEWARD);
-
-    /** Whether this artefact is a container's whole jar rather than a plugin or a server jar. */
-    public static boolean isStandalone(final String artifact) {
-        return STANDALONE_JARS.contains(artifact);
     }
 
     /** The four Minecraft services, in the order the report reads best: proxy first, then backends. */

@@ -48,14 +48,6 @@ public record Installation(String service, Path directory, boolean mounted, List
                 service, directory, true, jarsIn(directory.resolve(PLUGINS)), jarsIn(directory.resolve(SERVER_CACHE)));
     }
 
-    /** Reads a directory holding one standalone jar, listed as {@link #plugins()} for {@link #matching(String)}. */
-    public static Installation scanFlat(final String service, final Path directory) throws IOException {
-        if (!Files.isDirectory(directory)) {
-            return absent(service, directory);
-        }
-        return new Installation(service, directory, true, jarsIn(directory), List.of());
-    }
-
     /** The installed jar whose prefix matches {@code fileName}'s, or {@code null}. */
     public @Nullable Jar matching(final String fileName) {
         final String prefix = JarName.prefixOf(fileName);

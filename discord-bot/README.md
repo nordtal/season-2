@@ -38,9 +38,9 @@ To build the image locally, build the jar first; `deploy/jvm/Dockerfile` copies 
 COMPOSE_PROFILES=db,bot docker compose up -d --build
 ```
 
-The container runs the newest `discord-bot-*.jar` in its jar volume, which `steward` fills,
-and falls back to the jar baked into the image only while that volume is empty. The first log line
-names the jar it picked. The whole deployment is described in [../deploy/README.md](../deploy/README.md).
+The container runs the jar baked into its image, which carries the release's version as its tag;
+a new version arrives as a new image. The whole deployment is described in
+[../deploy/README.md](../deploy/README.md).
 
 ## Where things live
 

@@ -29,15 +29,15 @@ final class Stack {
         this.terminal = terminal;
     }
 
-    /** Builds everything, installs the four plugins, builds the two images and brings the stack up. */
+    /** Builds everything, installs the four plugins, builds every image of ours and brings the stack up. */
     void up() {
         compose.requireEnv();
         build(ResetGuard.SERVICES);
-        processes.gradle(":steward:shadowJar");
+        processes.gradle(":imageContexts");
         ResetGuard.SERVICES.forEach(this::install);
-        // Built, never pulled: the migrations a local plugin needs are shaded into the local steward.
-        terminal.log("building the minecraft and steward images");
-        compose.run("build", "steward", "proxy");
+        // Built, never pulled: every image of ours is nordtal/<name>:dev, which no registry has.
+        terminal.log("building every image of ours the selected profiles use");
+        compose.run("build");
         compose.run("up", "-d");
         terminal.log("up. First start downloads Paper, Velocity and the third-party plugins; give it a few");
         terminal.log("minutes and watch with: dev logs");

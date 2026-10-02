@@ -69,10 +69,10 @@ public final class MessageBundles {
      * Every message bundle under the configs mount; one whose jar is not there yet is left out with a warning.
      *
      * @param configsRoot the configs mount
-     * @param volumesRoot the volumes mount, where a standalone jar lives; {@code null} to search the configs mount only
+     * @param images where the jar of a service with no plugins folder is found: the bot's, in its image
      * @return every bundle found, by service then module; empty if {@code configsRoot} does not exist
      */
-    public static List<MessageBundleLocation> discover(final Path configsRoot, final @Nullable Path volumesRoot) {
+    public static List<MessageBundleLocation> discover(final Path configsRoot, final ImageJars images) {
         if (!Files.isDirectory(configsRoot)) {
             return List.of();
         }
@@ -80,7 +80,7 @@ public final class MessageBundles {
             return walk.filter(Files::isDirectory)
                     .filter(path -> !Files.isSymbolicLink(path))
                     .filter(path -> DIRECTORY.equals(path.getFileName().toString()))
-                    .map(path -> locationOf(configsRoot, volumesRoot, path))
+                    .map(path -> locationOf(configsRoot, images, path))
                     .filter(location -> location != null)
                     .sorted(java.util.Comparator.comparing(MessageBundleLocation::service)
                             .thenComparing(MessageBundleLocation::module))
@@ -91,7 +91,7 @@ public final class MessageBundles {
     }
 
     private static @Nullable MessageBundleLocation locationOf(
-            final Path configsRoot, final @Nullable Path volumesRoot, final Path messagesDirectory) {
+            final Path configsRoot, final ImageJars images, final Path messagesDirectory) {
         final Path relative = configsRoot.relativize(messagesDirectory);
         if (relative.getNameCount() < 2) {
             // A messages directory at the mount's root has no service directory to search a jar under.
@@ -106,27 +106,28 @@ public final class MessageBundles {
             module.append(relative.getName(i));
         }
         final String prefix = module.isEmpty() ? service : module.toString();
-        final Path jar = findJar(configsRoot, volumesRoot, service, prefix);
+        final Path jar = findJar(configsRoot, images, service, prefix);
         if (jar == null) {
             LOG.warn(
                     "{}: no jar named like \"{}\" under {}{} - this bundle cannot be shown yet",
                     messagesDirectory,
                     prefix,
                     configsRoot.resolve(service),
-                    volumesRoot == null ? "" : " or " + volumesRoot.resolve(service));
+                    module.isEmpty() ? " or in a running " + service + " container" : "");
             return null;
         }
         return new MessageBundleLocation(
                 service, module.toString(), jar, messagesDirectory, Files.isWritable(messagesDirectory));
     }
 
+    /** A plugin's jar beside its data folder; a whole service's own jar, the bot's, from its image. */
     private static @Nullable Path findJar(
-            final Path configsRoot, final @Nullable Path volumesRoot, final String service, final String prefix) {
+            final Path configsRoot, final ImageJars images, final String service, final String prefix) {
         final Path fromConfigs = jarWithPrefix(configsRoot.resolve(service), prefix);
-        if (fromConfigs != null) {
+        if (fromConfigs != null || !service.equals(prefix)) {
             return fromConfigs;
         }
-        return volumesRoot == null ? null : jarWithPrefix(volumesRoot.resolve(service), prefix);
+        return images.jarOf(service);
     }
 
     /** The one jar directly in {@code directory} (never a subdirectory) whose prefix matches. */

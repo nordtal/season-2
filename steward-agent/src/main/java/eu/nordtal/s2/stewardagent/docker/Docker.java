@@ -277,6 +277,18 @@ public final class Docker {
         socket.send("POST", "/containers/" + id + "/start", null);
     }
 
+    /**
+     * Copies one regular file out of a container into {@code target}, which the daemon sends as a one-entry tar.
+     *
+     * @throws IOException if the stream ends early or the entry is not a regular file
+     */
+    public void copyOut(final String id, final String path, final java.nio.file.Path target) throws IOException {
+        final String query = URLEncoder.encode(path, StandardCharsets.UTF_8);
+        try (DockerSocket.Stream stream = socket.stream("GET", "/containers/" + id + "/archive?path=" + query, null)) {
+            Tar.firstFile(stream.body(), target);
+        }
+    }
+
     /** Runs a command in a container from an argument list, never a shell, and collects what it printed. */
     public ExecResult exec(final String id, final List<String> command) {
         return exec(id, command, null);

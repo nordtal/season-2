@@ -291,9 +291,6 @@ public final class Applier {
     }
 
     private static Path directoryFor(final Path volume, final String artifact) {
-        if (Topology.isStandalone(artifact)) {
-            return volume;
-        }
         return isServerJar(artifact) ? volume.resolve(Installation.SERVER_CACHE) : volume.resolve(Installation.PLUGINS);
     }
 
@@ -303,8 +300,6 @@ public final class Applier {
 
     /**
      * Deletes any jar this artefact's new file supersedes.
-     *
-     * Deleting steward's own running jar is safe only because Linux keeps an unlinked inode alive.
      */
     private static List<String> removeSuperseded(final Path directory, final String installed) throws IOException {
         final List<String> removed = new ArrayList<>();

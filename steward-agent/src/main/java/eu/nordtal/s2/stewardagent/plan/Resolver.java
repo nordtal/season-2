@@ -101,9 +101,6 @@ public final class Resolver {
         final Path root = Path.of(config.volumesRoot());
         compareServices(services, root, newest, failures, unsupported, unreleased, changes, unclaimed);
 
-        for (final String artifact : Topology.STANDALONE_JARS) {
-            changes.add(resolveStandalone(root, artifact, newest, failures, unreleased));
-        }
         changes.add(resolvePack(newest, failures, unreleased));
 
         return new UpdatePlan(
@@ -420,36 +417,6 @@ public final class Resolver {
         return new Change(service, artifact, Change.Status.OUTDATED, present.fileName(), wanted, null);
     }
 
-    /**
-     * The bot and steward: one jar each, in a volume of their own, with no {@code plugins/} folder.
-     *
-     * Steward's new jar takes effect at the next start, which is the restart.
-     */
-    private Change resolveStandalone(
-            final Path root,
-            final String artifact,
-            final Map<String, RemoteFile> newest,
-            final Map<String, String> failures,
-            final Set<String> unreleased) {
-        final Installation installed = scanFlat(artifact, root.resolve(artifact));
-        final RemoteFile wanted = newest.get(artifact);
-        if (wanted == null) {
-            // compare() keeps an installed jar the release did not carry, and fails the rest.
-            return compare(artifact, artifact, installed, newest, failures, Map.of(), unreleased, new HashSet<>());
-        }
-        if (!installed.mounted()) {
-            return new Change(
-                    artifact,
-                    artifact,
-                    Change.Status.MOUNT_MISSING,
-                    null,
-                    wanted,
-                    installed.directory() + " is not mounted in this container");
-        }
-        // No unsupported map: our own release either carries these jars or does not.
-        return compare(artifact, artifact, installed, newest, failures, Map.of(), unreleased, new HashSet<>());
-    }
-
     private Change resolvePack(
             final Map<String, RemoteFile> newest, final Map<String, String> failures, final Set<String> unreleased) {
         final RemoteFile wanted = newest.get(Topology.RESOURCE_PACK);
@@ -501,15 +468,6 @@ public final class Resolver {
                     Topology.PROXY, Topology.RESOURCE_PACK, Change.Status.UP_TO_DATE, state.sha1(), wanted, null);
         }
         return new Change(Topology.PROXY, Topology.RESOURCE_PACK, Change.Status.OUTDATED, state.sha1(), wanted, null);
-    }
-
-    private Installation scanFlat(final String service, final Path directory) {
-        try {
-            return Installation.scanFlat(service, directory);
-        } catch (final IOException failed) {
-            log.warn("Could not read {} for {}: {}", directory, service, failed.getMessage());
-            return Installation.absent(service, directory);
-        }
     }
 
     private Installation scan(final String service, final Path directory) {

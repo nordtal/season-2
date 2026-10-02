@@ -9,8 +9,9 @@
 # This file is baked into steward-agent's image, the only service allowed to create containers.
 # Caddy's config is inline at the foot for the same reason: the agent cannot see host files.
 #
-# Every image is pulled and tagged `latest`; `build:` blocks are for local development. The images
-# are a floor: steward-agent replaces jars in the volumes with the latest release.
+# Every image of ours is the release's, tagged with its version: NORDTAL_RELEASE, which steward-agent
+# sets to its own on every compose command, so the agent's release is the stack's. `build:` blocks are
+# for local development. Only the plugins and Paper/Velocity are files, which runs install.
 #
 # COMPOSE_PROFILES selects the services; production is `db,bot,mc,backup,steward`. `up` and `down`
 # must use the same selection. `standby` is never selected: an update run starts those services
@@ -36,7 +37,7 @@ x-minecraft: &minecraft
   # For local development only; a deploy pulls.
   build:
     context: ./deploy/minecraft
-  image: ${MC_IMAGE:-ghcr.io/nordtal/minecraft:latest}
+  image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/minecraft:${NORDTAL_RELEASE:?the release every image of ours runs - steward-agent and deploy/nordtal.sh pass it}
   restart: unless-stopped
   depends_on:
     # The schema only; see the header on why not the database.
@@ -123,8 +124,7 @@ services:
     profiles: ["bot"]
     # A backup stops it while it saves, so bot-config is not written mid-snapshot.
     labels: { eu.nordtal.backup: stop }
-    # A floor: the entrypoint runs the discord-bot-*.jar in the volume and logs which one.
-    image: ${BOT_IMAGE:-ghcr.io/nordtal/discord-bot:latest}
+    image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/discord-bot:${NORDTAL_RELEASE:?the release every image of ours runs - steward-agent and deploy/nordtal.sh pass it}
     build:
       <<: *jvm-build
       args: { MODULE: discord-bot }
@@ -160,8 +160,6 @@ services:
       NORDTAL_ACCESS_ROLES_ADMIN: ${NORDTAL_ACCESS_ROLES_ADMIN:?set NORDTAL_ACCESS_ROLES_ADMIN in the environment file - deploy/nordtal.sh asks for it}
     volumes:
       - ${BOT_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-config}:/app/config
-      # The jar; steward fills it as /volumes/discord-bot.
-      - ${BOT_JAR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-jar}:/app/lib
     logging: *logging
 
   # Serves a locally built resource pack on loopback; `devpack` is never selected in production.
@@ -336,7 +334,7 @@ services:
     build:
       <<: *jvm-build
       args: { MODULE: steward }
-    image: ${STEWARD_IMAGE:-ghcr.io/nordtal/steward:latest}
+    image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/steward:${NORDTAL_RELEASE:?the release every image of ours runs - steward-agent and deploy/nordtal.sh pass it}
     restart: unless-stopped
     # It reaches Docker and payments only through `agent` and `bank`, which are its alone.
     networks: ["steward", "agent", "bank"]
@@ -387,8 +385,6 @@ services:
     volumes:
       # The last installation's steward.yml and web.yml: the first start imports them into the database and deletes them.
       - ${STEWARD_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-config}:/app/config
-      # Its own jar, which steward-agent installs; the entrypoint starts the newest one.
-      - ${STEWARD_JAR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-jar}:/volumes/steward:ro
     logging: *logging
 
   # steward-agent: the only process allowed to create a container, and the one that migrates and
@@ -398,7 +394,7 @@ services:
     build:
       <<: *jvm-build
       args: { MODULE: steward-agent }
-    image: ${STEWARD_AGENT_IMAGE:-ghcr.io/nordtal/steward-agent:latest}
+    image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/steward-agent:${NORDTAL_RELEASE:?the release every image of ours runs - steward-agent and deploy/nordtal.sh pass it}
     restart: unless-stopped
     # `agent` is steward's way in, `agent-database` reaches postgres alone, `agent-egress` the release sources.
     networks: ["agent", "agent-database", "agent-egress"]
@@ -418,6 +414,10 @@ services:
       COMPOSE_PROFILES: ${COMPOSE_PROFILES:-db,bot,mc,backup,steward}
       # Must match the host's project, or a deploy starts a second, empty stack.
       COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-nordtal-s2}
+      # The release this container was made as. Every compose command it runs inherits both, so the
+      # agent's release is the stack's; the environment of a process outranks the env file.
+      NORDTAL_RELEASE: ${NORDTAL_RELEASE:?the release every image of ours runs - steward-agent and deploy/nordtal.sh pass it}
+      NORDTAL_IMAGES: ${NORDTAL_IMAGES:-ghcr.io/nordtal}
       # A file name inside the directory mounted below, not a path.
       NORDTAL_STEWARD_AGENT_ENV_FILE: /app/env/${STEWARD_ENV_FILE_NAME:?set STEWARD_ENV_FILE_NAME in .env - the file name (not the path) of the environment file, derived from STEWARD_ENV_FILE by deploy/nordtal.sh}
 
@@ -464,8 +464,6 @@ services:
       # Standby plugins/: copies of the live ones after every apply, not backed up.
       - ${PROXY_STANDBY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-standby-plugins}:/volumes/proxy-standby/plugins
       - ${LIMBO_STANDBY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-standby-plugins}:/volumes/limbo-standby/plugins
-      # Jar folders, handled like plugins folders; a new jar takes effect at the service's next start.
-      - ${STEWARD_JAR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-jar}:/volumes/steward
       # Every service's message bundles, one directory per service, read out of the jars and saved beside them.
       # Plugin paths must match the servers' expressions exactly.
       - ${BOT_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-config}:/configs/discord-bot
@@ -473,8 +471,6 @@ services:
       - ${LIMBO_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-plugins}:/configs/limbo
       - ${HUNGER_GAMES_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games-plugins}:/configs/hunger-games
       - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/configs/smp
-      # The bot's jar, also where its bundle sits, since it is in the jar and not beside a plugins folder.
-      - ${BOT_JAR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bot-jar}:/volumes/discord-bot
     logging: *logging
 
   # steward-bunq: the only process that holds the bank key. It decides nothing and keeps nothing but
@@ -484,7 +480,7 @@ services:
     build:
       <<: *jvm-build
       args: { MODULE: steward-bunq }
-    image: ${STEWARD_BUNQ_IMAGE:-ghcr.io/nordtal/steward-bunq:latest}
+    image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/steward-bunq:${NORDTAL_RELEASE:?the release every image of ours runs - steward-agent and deploy/nordtal.sh pass it}
     restart: unless-stopped
     # `bank` is steward's way in, `bank-egress` its own way out to bunq; nobody else is on either.
     networks: ["bank", "bank-egress"]
@@ -515,7 +511,7 @@ services:
     build:
       # Caddy with the layer 4 app built in.
       context: ./deploy/caddy
-    image: ${CADDY_IMAGE:-ghcr.io/nordtal/caddy:latest}
+    image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/caddy:${NORDTAL_RELEASE:?the release every image of ours runs - steward-agent and deploy/nordtal.sh pass it}
     restart: unless-stopped
     # `steward` for the interface, `default` for the proxies.
     networks: ["steward", "default"]
@@ -626,9 +622,6 @@ volumes:
   # Not backed up; losing it means a new certificate and Let's Encrypt's rate limit.
   caddy-data:
   caddy-config:
-  # Refilled by steward-agent's first start, so not backed up.
-  bot-jar:
-  steward-jar:
   # Never copied or backed up: bunq binds it to one device and IP.
   bunq-context:
   mc-proxy:

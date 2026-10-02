@@ -41,16 +41,15 @@ class TopologyDeploymentTest {
     private final Map<String, Object> services = readComposeServices();
 
     @Test
-    void theBotsAndStewardsOwnVolumesAreMountedTooOrNeitherCouldBeUpdated() {
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> agent = (Map<String, Object>) services.get(AgentWire.SERVICE);
-        final String mounts = String.valueOf(agent.get("volumes"));
-
-        for (final String artifact : Topology.STANDALONE_JARS) {
-            assertTrue(
-                    mounts.contains("/volumes/" + artifact),
-                    AgentWire.SERVICE + " does not mount /volumes/" + artifact + ", so it could never move"
-                            + " that jar - which is the whole reason both stopped being images");
+    void noServiceOfOursRunsAJarFromAVolume() throws IOException {
+        // A jar in a volume outlives the image it came with, and nothing but the image may say which version runs.
+        final String entrypoint = Files.readString(findUpwards("deploy/jvm/entrypoint.sh"), StandardCharsets.UTF_8);
+        assertFalse(entrypoint.contains("JAR_DIR"), "deploy/jvm/entrypoint.sh picks a jar from a directory again");
+        for (final String name : JVM_SERVICES) {
+            final String mounts = String.valueOf(((Map<?, ?>) services.get(name)).get("volumes"));
+            assertFalse(
+                    mounts.contains("/app/lib") || mounts.contains("/volumes/" + name),
+                    "'" + name + "' mounts a volume where its own jar could lie: " + mounts);
         }
     }
 
@@ -316,7 +315,7 @@ class TopologyDeploymentTest {
         // A name Topology uses that compose.yml lacks cannot be found or stopped; steward looks itself up too.
         final List<String> asked = new java.util.ArrayList<>();
         Topology.SERVICES.forEach(service -> asked.add(service.name()));
-        asked.addAll(Topology.STANDALONE_JARS);
+        asked.addAll(List.of(Topology.DISCORD_BOT, Topology.STEWARD));
 
         for (final String name : asked.stream().distinct().toList()) {
             assertNotNull(
@@ -497,49 +496,42 @@ class TopologyDeploymentTest {
                                 + " comes up without somebody asking for a run."));
     }
 
+    /** Every image of ours, as compose.yml names it: the one prefix, the repository, then the release. */
+    private static final java.util.regex.Pattern OURS = java.util.regex.Pattern.compile(
+            "\\$\\{NORDTAL_IMAGES:-ghcr\\.io/nordtal}/([a-z-]+):\\$\\{NORDTAL_RELEASE:\\?[^}]+}");
+
     @Test
-    void everyImageOfOursDefaultsToOneTheReleaseWorkflowActuallyPushes() {
-        // A deploy that only pulls never builds, so a tag nothing pushed fails like a private package.
+    void everyImageOfOursIsTheReleaseTheAgentRuns() {
+        // A moving tag lets one service run another release than the agent that carries its schema.
         services.forEach((name, definition) -> {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> service = (Map<String, Object>) definition;
-            final String image = String.valueOf(service.get("image"));
-            if (!image.contains("nordtal/")) {
-                return;
+            final String image = String.valueOf(((Map<?, ?>) definition).get("image"));
+            if (image.contains("nordtal")) {
+                assertTrue(
+                        OURS.matcher(image).matches(),
+                        "compose.yml's '" + name + "' names the image " + image + ". Every image of ours is"
+                                + " ${NORDTAL_IMAGES:-ghcr.io/nordtal}/<name>:${NORDTAL_RELEASE:?...}, so the"
+                                + " release steward-agent runs is the release of everything.");
             }
-            assertTrue(
-                    image.contains(":-ghcr.io/nordtal/"),
-                    "compose.yml's '" + name + "' defaults to the image " + image + ", which is not"
-                            + " a ghcr.io/nordtal reference. A deploy pulls and never builds, so an"
-                            + " image only this host can produce fails the deploy with `denied`.");
-            // The tag is the literal `latest`: nothing pins an image, a bad release is fixed by a better one.
-            assertTrue(
-                    image.endsWith(":latest}"),
-                    "compose.yml's '" + name + "' defaults to " + image + ", which is not `latest`."
-                            + " Nothing pins an image any more; a bad release is fixed by publishing"
-                            + " a better one.");
         });
     }
 
     @Test
-    void theReleaseWorkflowPushesEveryImageComposeYmlExpectsToPull() throws IOException {
-        // A correct default is not the same as release.yml pushing it; the gap looks like a private package `denied`.
+    void theReleaseWorkflowPushesEveryImageComposeYmlNamesUnderTheVersionAlone() throws IOException {
+        // A deploy pulls and never builds, so an image the workflow does not push fails with `denied`.
         final String workflow = Files.readString(findUpwards(".github/workflows/release.yml"), StandardCharsets.UTF_8);
+        assertFalse(workflow.contains(":latest"), "release.yml pushes a moving tag again");
+        assertTrue(
+                workflow.indexOf("Attach the artifacts") > workflow.lastIndexOf("docker/build-push-action"),
+                "release.yml attaches the jars before every image is pushed, and a running agent hands an update"
+                        + " over as soon as the jars are there");
         services.forEach((name, definition) -> {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> service = (Map<String, Object>) definition;
-            final String image = String.valueOf(service.get("image"));
-            if (!image.contains(":-ghcr.io/nordtal/")) {
-                return;
+            final java.util.regex.Matcher ours = OURS.matcher(String.valueOf(((Map<?, ?>) definition).get("image")));
+            if (ours.matches()) {
+                assertTrue(
+                        workflow.contains("ghcr.io/nordtal/" + ours.group(1) + ":${{ env.VERSION }}"),
+                        "compose.yml's '" + name + "' pulls ghcr.io/nordtal/" + ours.group(1)
+                                + ":<release>, and .github/workflows/release.yml pushes no such tag.");
             }
-            // The repository, not the service: one image serves all four Minecraft services.
-            final String repository = image.substring(image.indexOf(":-ghcr.io/nordtal/") + 2, image.lastIndexOf(':'));
-            assertTrue(
-                    workflow.contains(repository + ":latest"),
-                    "compose.yml's '" + name + "' pulls " + repository + ":latest, and"
-                            + " .github/workflows/release.yml pushes no such tag. A deploy pulls and"
-                            + " never builds, so that image exists only where somebody built it by"
-                            + " hand and the deploy fails with `denied` everywhere else.");
         });
     }
 

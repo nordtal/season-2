@@ -314,71 +314,20 @@ class ApplierTest {
     }
 
     @Test
-    void theBotsJarGoesIntoTheRootOfItsOwnVolumeNotIntoAPluginsFolder() throws IOException {
-        Files.createDirectories(volumes.resolve("discord-bot"));
-        Files.writeString(volumes.resolve("discord-bot/discord-bot-0.1.0.jar"), "old");
-
-        final ApplyResult result = apply(
-                new Fake(),
-                plan(new Change(
-                        "discord-bot",
-                        "discord-bot",
-                        Change.Status.OUTDATED,
-                        "discord-bot-0.1.0.jar",
-                        remote("discord-bot", "discord-bot-0.2.0.jar"),
-                        null)));
-
-        assertEquals(
-                ApplyResult.Status.DONE,
-                outcome(result, "discord-bot", "discord-bot").status());
-        assertTrue(Files.exists(volumes.resolve("discord-bot/discord-bot-0.2.0.jar")));
-        assertFalse(
-                Files.exists(volumes.resolve("discord-bot/discord-bot-0.1.0.jar")),
-                "the superseded jar goes, by the same prefix rule as every plugin");
-        assertFalse(
-                Files.exists(volumes.resolve("discord-bot/plugins")),
-                "there is no plugins folder here and none is created");
-    }
-
-    @Test
-    void stewardInstallsItsOwnJarForTheNextStartToPickUp() throws IOException {
-        Files.createDirectories(volumes.resolve("steward"));
-
-        final ApplyResult result = apply(
-                new Fake(),
-                plan(new Change(
-                        "steward",
-                        "steward",
-                        Change.Status.MISSING,
-                        null,
-                        remote("steward", "steward-0.2.0.jar"),
-                        null)));
-
-        assertEquals(
-                ApplyResult.Status.DONE, outcome(result, "steward", "steward").status());
-        assertTrue(
-                Files.exists(volumes.resolve("steward/steward-0.2.0.jar")),
-                "it lands in the volume; the process running right now carries on with the old one"
-                        + " until the restart, which is the only way this module's version moves");
-    }
-
-    @Test
     void aVolumeThatIsNotMountedIsSkippedWholeNeverCreated() {
         final ApplyResult result = apply(
                 new Fake(),
                 plan(new Change(
-                        "discord-bot",
-                        "discord-bot",
+                        "smp",
+                        "smp",
                         Change.Status.MOUNT_MISSING,
                         null,
-                        remote("discord-bot", "discord-bot-0.2.0.jar"),
-                        "/volumes/discord-bot is not mounted in this container")));
+                        remote("smp", "smp-0.2.0.jar"),
+                        "/volumes/smp is not mounted in this container")));
 
-        assertEquals(
-                ApplyResult.Status.SKIPPED,
-                outcome(result, "discord-bot", "discord-bot").status());
+        assertEquals(ApplyResult.Status.SKIPPED, outcome(result, "smp", "smp").status());
         assertFalse(result.changedAnything());
-        assertFalse(Files.exists(volumes.resolve("discord-bot")));
+        assertFalse(Files.exists(volumes.resolve("smp")));
     }
 
     @Test

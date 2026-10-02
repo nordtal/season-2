@@ -1,39 +1,7 @@
 #!/bin/sh
-# Runs the newest jar in JAR_DIR, or the jar baked into the image while the volume is empty or there is
-# none. steward-agent fills the volumes; the baked jar only makes a first deployment possible.
+# Runs the jar baked into the image. The image is the version, tagged with its release; a new version
+# arrives as a new image, never as a file in a volume.
 set -eu
 
-: "${JAR_PREFIX:?JAR_PREFIX must be set in deploy/jvm/Dockerfile}"
-
-BAKED=/app/app.jar
-jar=""
-
-if [ -n "${JAR_DIR:-}" ] && [ -d "$JAR_DIR" ]; then
-    # sort -V, since 0.10.0 is newer than 0.9.0; more than one jar means a swap in progress or a hand edit.
-    jar="$(ls -1 "$JAR_DIR/$JAR_PREFIX"-*.jar 2>/dev/null | sort -V | tail -n 1 || true)"
-    count="$(ls -1 "$JAR_DIR/$JAR_PREFIX"-*.jar 2>/dev/null | wc -l | tr -d ' ')"
-    if [ "${count:-0}" -gt 1 ]; then
-        echo "[entrypoint] WARNING: $count ${JAR_PREFIX} jars in $JAR_DIR. Running the newest;" >&2
-        echo "[entrypoint]          the others are not being used by anything. Delete them." >&2
-    fi
-fi
-
-# Stderr, like every log line: stdout is a command's result, such as the keys `generate-vapid-keys` prints.
-if [ -n "$jar" ]; then
-    echo "[entrypoint] running $jar (from the volume, which is where steward-agent puts it)" >&2
-elif [ -f "$BAKED" ] && [ -z "${JAR_DIR:-}" ]; then
-    # No volume: this image is the version, and a new one arrives as a new image.
-    jar="$BAKED"
-elif [ -f "$BAKED" ]; then
-    echo "[entrypoint] no ${JAR_PREFIX}-*.jar in $JAR_DIR, so this is the jar baked into the image." >&2
-    echo "[entrypoint] That is a first deployment, not an error: steward-agent fills the volume" >&2
-    echo "[entrypoint] when it starts, and the next start of this service runs that jar." >&2
-    jar="$BAKED"
-else
-    echo "[entrypoint] no ${JAR_PREFIX}-*.jar in ${JAR_DIR:-a volume} and no jar baked into this image." >&2
-    echo "[entrypoint] There is nothing to run. This image was built wrong." >&2
-    exit 1
-fi
-
 # exec, so the JVM is PID 1 and receives SIGTERM directly.
-exec java ${JAVA_OPTS:-} -jar "$jar" "$@"
+exec java ${JAVA_OPTS:-} -jar /app/app.jar "$@"

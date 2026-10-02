@@ -59,8 +59,6 @@ jobs:
           cp hunger-games/build/libs/hunger-games-${VERSION}.jar dist/
           cp smp/build/libs/smp-${VERSION}.jar dist/
           cp proxy/build/libs/proxy-${VERSION}.jar dist/
-          cp discord-bot/build/libs/discord-bot-${VERSION}.jar dist/
-          cp steward/build/libs/steward-${VERSION}.jar dist/
           cp resource-pack/build/distributions/nordtal-resource-pack-${VERSION}.zip dist/
           cp resource-pack/build/distributions/nordtal-resource-pack-${VERSION}.zip.sha1 dist/
           ls -la dist
@@ -95,12 +93,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release edit "${{ env.TAG }}" --notes-file "$RUNNER_TEMP/notes.md"
 
-      - name: Attach the artifacts to the release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
-        with:
-          tag_name: ${{ env.TAG }}
-          files: dist/*
-
       - name: Log in to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
@@ -108,8 +100,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Deploys only pull, so every image is pushed, tagged `latest` and the version.
-      # The bot and steward run the jar in their volume; the baked one is the first deploy's.
+      # Every image is pushed under the version alone: a stack runs exactly one release, named by
+      # steward-agent's own tag, and nothing ever pulls a moving tag.
       - name: Build and push the bot image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -119,7 +111,6 @@ jobs:
           push: true
           tags: |
             ghcr.io/nordtal/discord-bot:${{ env.VERSION }}
-            ghcr.io/nordtal/discord-bot:latest
 
       # The bootstrap image a fresh host pulls. The frontend is inside the jar under `web/`, so it has no Node.
       - name: Build and push the steward image
@@ -131,7 +122,6 @@ jobs:
           push: true
           tags: |
             ghcr.io/nordtal/steward:${{ env.VERSION }}
-            ghcr.io/nordtal/steward:latest
 
       # One image for all four Minecraft services, holding a JRE and entrypoint.sh but no Gradle output.
       - name: Build and push the minecraft image
@@ -141,7 +131,6 @@ jobs:
           push: true
           tags: |
             ghcr.io/nordtal/minecraft:${{ env.VERSION }}
-            ghcr.io/nordtal/minecraft:latest
 
       # Caddy with `caddy-l4` for port 25565, built with xcaddy since modules are fixed at build time.
       - name: Build and push the caddy image
@@ -151,7 +140,6 @@ jobs:
           push: true
           tags: |
             ghcr.io/nordtal/caddy:${{ env.VERSION }}
-            ghcr.io/nordtal/caddy:latest
 
       # Carries compose.yml; deploy/nordtal.sh renews it from outside the stack.
       - name: Build and push the steward-agent image
@@ -163,7 +151,6 @@ jobs:
           push: true
           tags: |
             ghcr.io/nordtal/steward-agent:${{ env.VERSION }}
-            ghcr.io/nordtal/steward-agent:latest
 
       # The one image that holds the bank key; steward reaches it over an internal network only.
       - name: Build and push the steward-bunq image
@@ -175,4 +162,11 @@ jobs:
           push: true
           tags: |
             ghcr.io/nordtal/steward-bunq:${{ env.VERSION }}
-            ghcr.io/nordtal/steward-bunq:latest
+
+      # Last: a running agent hands an update to a newer release over once the plugin jars are on it,
+      # so every image that release names has to be in the registry first.
+      - name: Attach the artifacts to the release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: ${{ env.TAG }}
+          files: dist/*

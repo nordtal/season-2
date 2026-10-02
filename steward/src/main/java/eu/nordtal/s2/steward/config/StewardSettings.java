@@ -14,7 +14,6 @@ import eu.nordtal.s2.settings.SettingsException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 import javax.sql.DataSource;
@@ -34,13 +33,6 @@ public final class StewardSettings {
     /** Steward's environment: {@code NORDTAL_STEWARD} for the steward group, {@code NORDTAL_STEWARD_<GROUP>} else. */
     public static final Environment ENVIRONMENT =
             Environment.of("NORDTAL_STEWARD").withMain("steward");
-
-    /**
-     * The value never imported from the last installation's {@code steward.yml}.
-     *
-     * Its volume names differ from the default only by the rename of steward's own volume, which no longer exists.
-     */
-    private static final Set<String> NOT_IMPORTED = Set.of("steward/backup.volumes");
 
     /** {@code owner/name}, the only form the GitHub API takes. */
     private static final Pattern REPO = Pattern.compile("[A-Za-z0-9._-]+/[A-Za-z0-9._-]+");
@@ -82,7 +74,7 @@ public final class StewardSettings {
 
     /** Returns steward's settings, importing the files the last installation left in {@code directory} once. */
     public static DatabaseSettings importing(final DataSource dataSource, final Path directory, final Logger logger) {
-        return stored(dataSource, logger).importingFrom(directory, NOT_IMPORTED);
+        return stored(dataSource, logger).importingFrom(directory, Set.of());
     }
 
     private static void checkSteward(final StewardSpec config) {
@@ -140,31 +132,8 @@ public final class StewardSettings {
         }
     }
 
-    /** Refuses {@code postgres-data} as a backup volume, since a snapshot of a live PGDATA is torn. */
     private static void requireBackup(final BackupSpec backup) {
         Checks.requirePositive("backup.patience-minutes", backup.patienceMinutes());
-        // The forbidden entry is reported before the missing one.
-        for (final String volume : backup.volumes()) {
-            if (volume != null && volume.endsWith("postgres-data")) {
-                throw new IllegalArgumentException("backup.volumes lists '" + volume + "'. A"
-                        + " snapshot of a running PostgreSQL data directory is torn, and it fails"
-                        + " when somebody tries to RESTORE it rather than now - which is the worst"
-                        + " place for it to fail. The pg_dump sidecar writes postgres-dumps; list"
-                        + " that instead. See deploy/README.md#backups.");
-            }
-        }
-        requireTheWorld(backup.volumes());
-    }
-
-    /** Requires the world volume in the list, since it is the one volume that cannot be rebuilt. */
-    private static void requireTheWorld(final List<String> volumes) {
-        if (volumes.stream().noneMatch(volume -> volume != null && volume.endsWith("mc-smp"))) {
-            throw new IllegalArgumentException("backup.volumes does not list the smp world volume"
-                    + " (a name ending in mc-smp), and it is not optional: a backup that saved"
-                    + " everything except the world would still report DONE every night. Nordtal is"
-                    + " the one thing in this deployment that is in no repository and in no"
-                    + " release. See deploy/README.md#backups.");
-        }
     }
 
     private static void requireRepo(final String key, final String value) {

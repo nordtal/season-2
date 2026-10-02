@@ -7,6 +7,9 @@ package eu.nordtal.s2.internalapi.agent;
  */
 public interface ContainerOps {
 
+    /** What compose.yml says about every service, and what a backup saves and stops. */
+    AgentWire.Topology topology();
+
     /** Every service of the project with its container id, status and health. */
     RuntimeResult runtime();
 

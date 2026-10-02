@@ -7,44 +7,11 @@ import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 import eu.nordtal.jcore.config.spec.annotation.Secret;
-import eu.nordtal.s2.steward.plan.Topology;
 import java.util.List;
 
 /** What a {@code BACKUP} run saves and what it stops while it does. */
 @ConfigSpec
 public interface BackupSpec {
-
-    @Order(1)
-    @Name("Volumes")
-    @Key("volumes")
-    @Comment({
-        "The Docker volumes to snapshot, by their real names as `docker volume ls` prints them,",
-        "each read by steward-agent from its read-only mount. A name with no mount is a FAILED line.",
-        "Leave out postgres-data (dumped instead), the output directory, and anything a start",
-        "writes again, such as the proxy and limbo volumes."
-    })
-    @Explain(
-            "The volumes' real names, prefixed by the compose project, not the compose.yml keys. A name with no read-only mount fails loudly.")
-    default List<String> volumes() {
-        return List.of(
-                "nordtal-s2_mc-smp",
-                "nordtal-s2_mc-smp-plugins",
-                "nordtal-s2_mc-hunger-games-plugins",
-                "nordtal-s2_bot-config");
-    }
-
-    @Order(2)
-    @Name("Services to stop")
-    @Key("stop-services")
-    @Comment({
-        "The compose services stopped while the snapshot is taken, since a snapshot of a",
-        "running Paper server is torn. The run stops them itself, after the player countdown.",
-        "The proxy, limbo and hunger-games hold no world worth saving and keep running."
-    })
-    @Explain("Compose service names, taken from Topology so they follow a renamed service.")
-    default List<String> stopServices() {
-        return List.of(Topology.SMP, Topology.DISCORD_BOT);
-    }
 
     @Order(5)
     @Name("Retention")

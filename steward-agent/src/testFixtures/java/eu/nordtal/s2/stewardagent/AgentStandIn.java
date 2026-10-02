@@ -27,9 +27,12 @@ public final class AgentStandIn implements AutoCloseable {
 
     public static final String TOKEN = "agent-token";
 
-    /** compose.yml as the stand-in reads it: {@code smp} with a console, {@code postgres} without. */
+    /** compose.yml as the stand-in reads it: {@code smp} with a console, stopped for a backup, {@code postgres} not. */
     public static final String SERVICES = """
-            {"smp":{"image":"ghcr.io/nordtal/minecraft:latest","labels":{"eu.nordtal.console":"true"}},
+            {"smp":{"image":"ghcr.io/nordtal/minecraft:latest",
+                    "labels":{"eu.nordtal.console":"true","eu.nordtal.backup":"stop"}},
+             "steward-agent":{"image":"ghcr.io/nordtal/steward-agent:latest",
+                    "volumes":[{"type":"bind","source":"/srv/mc-smp","target":"%s/nordtal-s2_mc-smp"}]},
              "postgres":{"image":"postgres:18"}}
             """;
 
@@ -57,12 +60,14 @@ public final class AgentStandIn implements AutoCloseable {
         this.backups = Files.createDirectories(scratch.resolve("backups"));
         this.configs = Files.createDirectories(scratch.resolve("configs"));
         this.volumes = Files.createDirectories(scratch.resolve("volumes"));
-        final JsonObject services = JsonParser.parseString(SERVICES).getAsJsonObject();
+        final Path sources = Files.createDirectories(scratch.resolve("sources"));
+        final JsonObject services =
+                JsonParser.parseString(SERVICES.formatted(sources)).getAsJsonObject();
         this.api = new AgentApi(
                 new Docker(new DockerSocket(daemon.socket(), Duration.ofSeconds(5))),
                 FakeDaemon.PROJECT,
                 () -> services,
-                new AgentApi.Paths(volumes, configs, Files.createDirectories(scratch.resolve("sources")), backups),
+                new AgentApi.Paths(volumes, configs, sources, backups),
                 Clock.systemUTC());
         api.start();
         final String prefix = "NORDTAL_STEWARD_AGENT_";

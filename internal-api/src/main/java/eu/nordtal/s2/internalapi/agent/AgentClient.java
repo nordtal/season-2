@@ -64,7 +64,7 @@ public final class AgentClient implements ContainerOps {
         return http.isReachable();
     }
 
-    /** What compose.yml's labels say about every service. */
+    @Override
     public AgentWire.Topology topology() {
         return Json.decode(http.get(AgentWire.TOPOLOGY), AgentWire.Topology.class);
     }

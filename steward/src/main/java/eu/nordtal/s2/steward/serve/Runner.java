@@ -9,6 +9,7 @@ import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateStatus;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.ContainerOps;
 import eu.nordtal.s2.internalapi.agent.ImageResult;
 import eu.nordtal.s2.internalapi.agent.RuntimeResult;
@@ -301,15 +302,20 @@ public final class Runner implements RequestRunner {
                     UpdateReport.at(UpdateReport.Stage.FAILED).withNote(unreachableMessage(runtime))));
         }
 
-        final List<String> volumes = config.backup().volumes().stream()
-                .filter(volume -> volume != null && !volume.isBlank())
-                .map(String::trim)
-                .toList();
-        if (volumes.isEmpty()) {
-            // Not a quiet success: an emptied volumes list must not take the network down for nothing.
+        // compose.yml says what a backup saves and stops: the agent's mounts and the label eu.nordtal.backup.
+        final AgentWire.Topology topology;
+        try {
+            topology = containers.topology();
+        } catch (final RuntimeException unread) {
             return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote("backup.volumes in the steward group is empty, so there is nothing to save"
-                            + " and nothing was stopped.")));
+                    .withNote("steward-agent did not say what a backup saves, so nothing was stopped and"
+                            + " nothing was saved: " + unread.getMessage())));
+        }
+        if (topology.backupVolumes().isEmpty()) {
+            // Not a quiet success: a compose.yml with no backup mounts must not take the network down for nothing.
+            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                    .withNote("compose.yml mounts no volume for steward-agent to back up, so there is nothing to"
+                            + " save and nothing was stopped.")));
         }
 
         // The same lock an update takes, so a backup never overlaps a run moving jars.
@@ -328,7 +334,7 @@ public final class Runner implements RequestRunner {
                             + " and ask again.")));
         }
         try (RunLock held = lock.get()) {
-            return BackupSequence.runUnderLock(this, request, run, runtime, volumes, progress);
+            return BackupSequence.runUnderLock(this, request, run, runtime, topology, progress);
         }
     }
 

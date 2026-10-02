@@ -125,6 +125,7 @@ so steward and this service compile against one definition. `{service}` is a com
 | `GET /api/bundles`                                | `BundleRef`s: every message bundle a jar carries, before it is opened                     |
 | `GET /api/bundles/{service}?module=`              | one `MessageBundle`, packaged text and overrides side by side                             |
 | `POST /api/bundles/{service}?module=`             | `BundleChanges`; `SavedBundle` with the dropped placeholders, `400` for an undeclared one |
+| `GET /api/descriptors`                            | `Descriptor`s: what each jar of ours says of itself, one per id                           |
 | `GET /api/samples?after=`                         | the sampler's `Round`s after an ISO instant, oldest first; all it holds without one       |
 | `GET /api/backups`                                | `Archive`s, newest first                                                                  |
 | `GET /api/backups/{name}`                         | one finished archive's bytes; `400` for a name that is not one, `404` when it is gone     |
@@ -132,6 +133,11 @@ so steward and this service compile against one definition. `{service}` is a com
 | `GET /api/plugins/{service}`                      | the managed plugins of one server                                                         |
 | `GET /api/plugins/{service}/search?q=`            | Modrinth's answer for that server's platform                                              |
 | `POST /api/plugins/{service}?by=`                 | adds a plugin to the list the next run installs; removing one is a `REMOVE_PLUGIN` run    |
+
+A descriptor is the `nordtal-plugin.json` the `nordtal.plugin-descriptor` convention writes into every
+jar of ours: the id its settings are published under, the name and logo Steward's sidebar shows, and
+per group the custom editor that draws it instead of the form from its schema. A plugin's jar is
+found beside its data under `/configs/<service>`; a service's own jar is copied out of its image.
 
 A refusal is a `Refusal` (`error`, the sentence to show, and `where`): `502` with `where` `docker`
 when the daemon failed, `502` with `compose` when a Compose command did, `400` with

@@ -11,6 +11,7 @@ import { useConfig, useGuildChannels, useGuildRoles, useSaveConfig } from "@/lib
 import { configLeafMatches, configTree, type ConfigLeafValue } from "@/lib/settings-tree"
 import { changed, Control, EnvironmentOverriddenBadge, type Draft } from "@/components/steward/configuration"
 import { explanationOf } from "@/components/steward/config-controls"
+import { customEditor } from "@/components/steward/config-editors"
 import type { PairedBlocks } from "@/components/steward/paired-blocks"
 import { Failure, QueryState } from "@/components/steward/query-state"
 import type { SectionValues } from "@/components/steward/repeatable-cards"
@@ -35,13 +36,14 @@ function isReloadAware(document: ConfigDocument): document is ConfigDocument {
 
 export function ConfigFile({ item, target }: { item: Extract<FileItem, { kind: "config" }>; target: Target | null }) {
   const document = useConfig(item.location.path)
+  const Editor = customEditor(item.editor) ?? ConfigForm
   return (
     <QueryState query={document} rows={8}>
       {(read) => {
         if (!isReloadAware(read)) {
           throw new Error(`${item.location.path}: steward answered a config document with no restartRequired`)
         }
-        return <ConfigForm file={item.id} document={read} target={target} />
+        return <Editor file={item.id} document={read} target={target} />
       }}
     </QueryState>
   )

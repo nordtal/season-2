@@ -370,6 +370,14 @@ export type ConfigDocument = {
   reload?: ReloadOutcome
 }
 
+export type PluginDescriptor = {
+  service: string
+  id: string
+  name: string
+  logo?: string
+  editors: Record<string, string>
+}
+
 export type MessageBundleLocation = {
   service: string
   module: string

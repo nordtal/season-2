@@ -2,6 +2,12 @@ plugins {
     id("nordtal.jvm-app")
     // FakeDaemon and the stand-in agent, which steward's tests talk to as well.
     `java-test-fixtures`
+    id("nordtal.plugin-descriptor")
+}
+
+// How Steward shows this module's settings; steward-agent reads it out of the jar.
+pluginDescriptor {
+    displayName.set("Steward agent")
 }
 
 repositories {

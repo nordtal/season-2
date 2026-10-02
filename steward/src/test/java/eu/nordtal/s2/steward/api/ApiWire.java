@@ -23,6 +23,7 @@ public final class ApiWire {
             PluginsForward.RemovalAsked.class,
             SettingsDocument.Location.class,
             SettingsDocument.Document.class,
+            AgentWire.Descriptor.class,
             MessagesApi.BundleLocation.class,
             MessagesApi.Bundle.class,
             MessagesApi.Saved.class,
@@ -33,6 +34,7 @@ public final class ApiWire {
     /** Records here whose own simple name would say too little or collide. */
     public static final Map<Class<?>, String> NAMES = Map.ofEntries(
             Map.entry(AgentWire.Archive.class, "Backup"),
+            Map.entry(AgentWire.Descriptor.class, "PluginDescriptor"),
             Map.entry(AgentWire.Plugin.class, "ServicePlugin"),
             Map.entry(AgentWire.Plugins.class, "ServicePlugins"),
             Map.entry(AgentWire.Resolve.class, "Available"),

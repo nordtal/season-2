@@ -4,7 +4,7 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { vi } from "vitest"
 
 import { ServiceSettings } from "@/components/steward/settings"
-import type { ConfigEntry, ConfigLocation } from "@/lib/api"
+import type { ConfigEntry, ConfigLocation, PluginDescriptor } from "@/lib/api"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /** The fake backend, the entries and the helpers the configuration form tests share. */
@@ -99,7 +99,10 @@ export function nonNull<T>(value: T | null, what: string): T {
 export const GUILD_UNAVAILABLE = { available: false, reason: "no bot token in this test", entries: [] }
 
 /** One `/api/setting-groups/<path>` answer per fixture file, keyed the way the route is called. */
-export function backend(documents: Record<string, ConfigLocation & Record<string, unknown>>) {
+export function backend(
+  documents: Record<string, ConfigLocation & Record<string, unknown>>,
+  descriptors: PluginDescriptor[] = [],
+) {
   const listing = Object.values(documents).map(({ service, name, path, readable, writable }) => ({
     service,
     name,
@@ -110,6 +113,7 @@ export function backend(documents: Record<string, ConfigLocation & Record<string
   return vi.fn<(url: string) => Promise<Response>>(async (url: string) => {
     if (url === "/api/setting-groups") return json(listing)
     if (url === "/api/messages") return json([])
+    if (url === "/api/descriptors") return json(descriptors)
     if (url === "/api/discord/roles" || url === "/api/discord/channels") return json(GUILD_UNAVAILABLE)
     const found = Object.entries(documents).find(([path]) => url === `/api/setting-groups/${path}`)
     if (found) return json(found[1])

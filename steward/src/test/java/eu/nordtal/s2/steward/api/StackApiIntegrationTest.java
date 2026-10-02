@@ -183,6 +183,30 @@ class StackApiIntegrationTest {
     }
 
     @Test
+    void theDescriptorInAPluginsJarIsPassedThroughWithItsEditors() throws Exception {
+        final Path jar = agent.configs.resolve("smp/smp-0.11.0.jar");
+        java.nio.file.Files.createDirectories(jar.getParent());
+        try (var out = new java.util.jar.JarOutputStream(java.nio.file.Files.newOutputStream(jar))) {
+            out.putNextEntry(new java.util.jar.JarEntry("nordtal-plugin.json"));
+            out.write("{\"id\": \"smp\", \"name\": \"SMP\", \"editors\": {\"milestones\": \"milestones\"}}"
+                    .getBytes(UTF_8));
+            out.closeEntry();
+        }
+        try {
+            final JsonArray descriptors = GSON.fromJson(get("/api/descriptors"), JsonArray.class);
+
+            assertEquals(1, descriptors.size(), descriptors.toString());
+            final JsonObject smp = descriptors.get(0).getAsJsonObject();
+            assertEquals("SMP", smp.get("name").getAsString());
+            assertEquals(
+                    "milestones",
+                    smp.getAsJsonObject("editors").get("milestones").getAsString());
+        } finally {
+            java.nio.file.Files.deleteIfExists(jar);
+        }
+    }
+
+    @Test
     void aServiceNobodyDeploysIsA404NotAnEmptyObject() throws Exception {
         assertEquals(404, raw("/api/services/not-a-service").statusCode());
     }

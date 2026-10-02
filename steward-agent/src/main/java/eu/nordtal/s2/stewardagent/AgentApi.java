@@ -4,6 +4,7 @@ import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.stewardagent.backup.BackupRoutes;
 import eu.nordtal.s2.stewardagent.bundles.BundleRoutes;
 import eu.nordtal.s2.stewardagent.bundles.ImageJars;
+import eu.nordtal.s2.stewardagent.descriptor.PluginDescriptors;
 import eu.nordtal.s2.stewardagent.docker.Console;
 import eu.nordtal.s2.stewardagent.docker.Containers;
 import eu.nordtal.s2.stewardagent.docker.Docker;
@@ -18,7 +19,7 @@ import java.time.Clock;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Every route steward-agent serves but the deployments: the topology, the containers, logs, samples and backups.
+ * Every route steward-agent serves but the deployments: topology, containers, logs, samples, backups, descriptors.
  *
  * Built from the daemon and the paths alone, so a test can put the real routes over a stand-in daemon.
  */
@@ -29,6 +30,7 @@ public final class AgentApi implements AutoCloseable {
     private final LogStreams logs;
     private final Sampler sampler;
     private final BundleRoutes bundles;
+    private final PluginDescriptors descriptors;
     private final VolumeSizes sizes;
     private final ComposeTopology topology;
 
@@ -55,10 +57,15 @@ public final class AgentApi implements AutoCloseable {
                 sampler,
                 topology);
         this.backups = new BackupRoutes(paths.backups());
-        this.bundles = new BundleRoutes(
+        final ImageJars images = ImageJars.fromContainers(
+                docker, project, java.nio.file.Path.of(System.getProperty("java.io.tmpdir"), "image-jars"));
+        this.bundles = new BundleRoutes(paths.configs(), images);
+        this.descriptors = new PluginDescriptors(
                 paths.configs(),
-                ImageJars.fromContainers(
-                        docker, project, java.nio.file.Path.of(System.getProperty("java.io.tmpdir"), "image-jars")));
+                images,
+                () -> topology.read().services().stream()
+                        .map(service -> new PluginDescriptors.Service(service.name(), service.image()))
+                        .toList());
         this.sizes = new VolumeSizes(paths.volumesRoot());
     }
 
@@ -94,6 +101,7 @@ public final class AgentApi implements AutoCloseable {
         config.routes.get(AgentWire.LOG_CAPACITY, logs::capacity);
         config.routes.get(AgentWire.DISK, sizes::route);
         bundles.register(config);
+        config.routes.get(AgentWire.DESCRIPTORS, ctx -> ctx.json(descriptors.read()));
     }
 
     /** Ends the follows first, or Jetty spins on a stream it cannot close, then the sampler. */

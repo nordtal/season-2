@@ -13,6 +13,7 @@ import {
   type MessageChanges,
   type MessageSaveResult,
   type MessageExamples,
+  type PluginDescriptor,
 } from "@/lib/api"
 import { live } from "@/lib/live"
 import { SECOND, keys } from "@/lib/query-keys"
@@ -67,6 +68,16 @@ export function useSaveConfig(file: string) {
         void client.invalidateQueries({ queryKey: keys.config(file) })
       }
     },
+  })
+}
+
+/** What each jar of ours says of itself: its name, its logo and the custom editor of a group, if any. */
+export function useDescriptors(enabled = true) {
+  return useQuery({
+    queryKey: keys.descriptors,
+    queryFn: () => api<PluginDescriptor[]>("/api/descriptors"),
+    staleTime: 5 * 60 * SECOND,
+    enabled,
   })
 }
 

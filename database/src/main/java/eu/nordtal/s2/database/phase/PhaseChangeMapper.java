@@ -9,7 +9,7 @@ import org.jdbi.v3.core.statement.StatementContext;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Maps the single row {@link PhaseDao#switchPhase(String, String, String)} returns.
+ * Maps the single row {@link PhaseDao#switchPhase(String, String, String, String)} returns.
  * Written out, reading the timestamp through {@link OffsetDateTime} so the JVM's zone never enters.
  */
 public final class PhaseChangeMapper implements RowMapper<PhaseChange> {

@@ -227,6 +227,19 @@ class TopologyDeploymentTest {
                 stopped.stream().sorted().toList());
     }
 
+    @Test
+    void aRestoreCanWriteIntoEveryVolumeABackupSaves() {
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> agent = (Map<String, Object>) services.get(AgentWire.SERVICE);
+        final String root = AgentApi.Paths.DEFAULTS.backupSources() + "/";
+        for (final String mount : mountsOf(agent)) {
+            if (destinationOf(mount).startsWith(root)) {
+                // A restore unpacks into the same mount the backup reads, so a read-only one fails only then.
+                assertFalse(mount.endsWith(":ro"), "steward-agent mounts " + destinationOf(mount) + " read-only");
+            }
+        }
+    }
+
     /** The volumes a backup saves: every mount under steward-agent's backup sources, as the agent reads them. */
     private List<String> backupSet() {
         @SuppressWarnings("unchecked")

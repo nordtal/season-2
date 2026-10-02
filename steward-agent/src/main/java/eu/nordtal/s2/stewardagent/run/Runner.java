@@ -161,10 +161,7 @@ public final class Runner implements RequestRunner {
             case RECREATE -> Kinds.remake(this, request, false);
             case DEPLOY -> Kinds.remake(this, request, true);
             case REMOVE_PLUGIN -> Kinds.removePlugin(this, request);
-            case RESTORE ->
-                Kinds.Planned.outcome(Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                        .withNote("This steward-agent does not carry out a " + request.kind()
-                                + " run. Nothing was done."))));
+            case RESTORE -> Kinds.restore(this, request);
         };
     }
 

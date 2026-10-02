@@ -229,6 +229,70 @@ class RunnerTest {
         assertEquals(List.of(), containers.calls);
     }
 
+    @Test
+    void aVolumeRestoreSavesTheVolumeAsItIsFirstThenPutsTheArchiveBackWhileItsServerIsDown() {
+        final UpdateRequest request =
+                claimed(new StewardRequest.Restore(List.of(), "nordtal-s2_mc-smp-20260913T000000Z.tar.zst"));
+
+        final Outcome outcome = runner.run(request, progress::add);
+
+        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
+        assertEquals(
+                List.of(
+                        "stop:smp-container",
+                        "backup:nordtal-s2_mc-smp",
+                        "restore:nordtal-s2_mc-smp-20260913T000000Z.tar.zst",
+                        "start:smp-container"),
+                containers.calls);
+        assertNotNull(directory.find(request.id()).orElseThrow().countdownEnd(), "a restore is announced");
+    }
+
+    @Test
+    void aVolumeRestoreWhoseFreshBackupFailedRestoresNothing() {
+        snapshots.fails("nordtal-s2_mc-smp");
+
+        final Outcome outcome = runner.run(
+                claimed(new StewardRequest.Restore(List.of(), "nordtal-s2_mc-smp-20260913T000000Z.tar.zst")),
+                progress::add);
+
+        assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
+        assertEquals(
+                List.of("stop:smp-container", "backup:nordtal-s2_mc-smp", "start:smp-container"), containers.calls);
+    }
+
+    @Test
+    void aDatabaseRestoreDumpsFirstThenStopsWhatRunsOnTheDatabaseAndCarriesItsOwnRowAcross() {
+        final UpdateRequest request = claimed(new StewardRequest.Restore(List.of(), "nordtal-20260913T000000Z.dump"));
+
+        final Outcome outcome = runner.run(request, progress::add);
+
+        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
+        assertEquals(
+                List.of(
+                        "dump",
+                        "stop:limbo-container",
+                        "stop:smp-container",
+                        "stop:discord-bot-container",
+                        "restore-database:nordtal-20260913T000000Z.dump",
+                        "start:limbo-container",
+                        "start:smp-container",
+                        "start:discord-bot-container"),
+                containers.calls.stream()
+                        .filter(call -> !call.contains("standby"))
+                        .toList());
+        assertEquals(
+                UpdateStatus.RUNNING, directory.find(request.id()).orElseThrow().status());
+    }
+
+    @Test
+    void aRestoreOfAnArchiveThatIsNotThereStopsNothing() {
+        final Outcome outcome =
+                runner.run(claimed(new StewardRequest.Restore(List.of(), "nordtal-s2_mc-smp.tar.zst")), progress::add);
+
+        assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
+        assertEquals(List.of(), containers.calls);
+    }
+
     /** Submits a request of any kind due now and claims it. */
     private UpdateRequest claimed(final StewardRequest request) {
         directory.submit(request, Actor.HOST, Duration.ZERO);

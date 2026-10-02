@@ -26,11 +26,13 @@ public final class LocalSnapshots implements Snapshots {
     private final TarSnapshots tars;
     private final DatabaseDump dump;
     private final Supplier<RunSpec> config;
+    private final Runnable afterDatabaseRestore;
 
     /**
      * Saves into {@code backups}, which the database's container mounts at the same path.
      *
      * @param sourcesRoot where the volumes being saved are mounted, one directory per volume name
+     * @param afterDatabaseRestore what a replaced database needs before anything uses it: fresh connections, the schema
      */
     public LocalSnapshots(
             final Docker docker,
@@ -38,10 +40,12 @@ public final class LocalSnapshots implements Snapshots {
             final Path sourcesRoot,
             final Path backups,
             final Clock clock,
-            final Supplier<RunSpec> config) {
+            final Supplier<RunSpec> config,
+            final Runnable afterDatabaseRestore) {
         this.tars = new TarSnapshots(sourcesRoot, backups, clock);
         this.dump = new DatabaseDump(docker, project, backups.toString(), clock);
         this.config = config;
+        this.afterDatabaseRestore = afterDatabaseRestore;
     }
 
     @Override
@@ -59,8 +63,7 @@ public final class LocalSnapshots implements Snapshots {
 
     @Override
     public SnapshotResult save(final String volume) {
-        final Duration patience = Duration.ofMinutes(config.get().backup().patienceMinutes());
-        return tars.save(volume, patience.compareTo(LEAST_PATIENCE) < 0 ? LEAST_PATIENCE : patience);
+        return tars.save(volume, patience());
     }
 
     @Override
@@ -71,5 +74,38 @@ public final class LocalSnapshots implements Snapshots {
     @Override
     public List<String> prune(final Retention policy) {
         return tars.prune(policy);
+    }
+
+    @Override
+    public java.util.Optional<String> seriesOf(final String archive) {
+        return tars.seriesOf(archive);
+    }
+
+    @Override
+    public SnapshotResult restore(final String archive) {
+        return tars.restore(archive, patience());
+    }
+
+    @Override
+    public SnapshotResult restoreDatabase(final String dump) {
+        final SnapshotResult restored = this.dump.restore(config.get().backup().databaseService(), dump);
+        if (!restored.ok()) {
+            return restored;
+        }
+        try {
+            afterDatabaseRestore.run();
+            return restored;
+        } catch (final RuntimeException failure) {
+            return SnapshotResult.failed(
+                    DATABASE,
+                    restored.took(),
+                    "the dump was restored, and bringing its schema up to this release failed: "
+                            + failure.getMessage());
+        }
+    }
+
+    private Duration patience() {
+        final Duration patience = Duration.ofMinutes(config.get().backup().patienceMinutes());
+        return patience.compareTo(LEAST_PATIENCE) < 0 ? LEAST_PATIENCE : patience;
     }
 }

@@ -73,6 +73,33 @@ final class FakeSnapshots implements Snapshots {
         return Collections.unmodifiableMap(new LinkedHashMap<>(marks));
     }
 
+    /** The names {@code TarSnapshots} and {@code DatabaseDump} write, and nothing else. */
+    @Override
+    public java.util.Optional<String> seriesOf(final String archive) {
+        if (archive.matches("nordtal-\\d{8}T\\d{6}Z\\.dump")) {
+            return java.util.Optional.of(DATABASE);
+        }
+        return archive.matches(".+-\\d{8}T\\d{6}Z\\.tar\\.zst")
+                ? java.util.Optional.of(archive.substring(0, archive.lastIndexOf('-')))
+                : java.util.Optional.empty();
+    }
+
+    @Override
+    public SnapshotResult restore(final String archive) {
+        calls.add("restore:" + archive);
+        return failing.contains("restore")
+                ? SnapshotResult.failed(archive, Duration.ofSeconds(1), "tar exited 2")
+                : SnapshotResult.saved(archive, 1_234_567, Duration.ofSeconds(9), "/backups/" + archive);
+    }
+
+    @Override
+    public SnapshotResult restoreDatabase(final String dump) {
+        calls.add("restore-database:" + dump);
+        return failing.contains("restore")
+                ? SnapshotResult.failed(DATABASE, Duration.ofSeconds(1), "the restore was rolled back")
+                : SnapshotResult.saved(DATABASE, 7_654_321, Duration.ofSeconds(4), "/backups/" + dump);
+    }
+
     @Override
     public List<String> prune(final eu.nordtal.s2.internalapi.agent.Retention policy) {
         calls.add("prune:" + policy.daily());

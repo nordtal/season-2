@@ -85,6 +85,49 @@ public final class DatabaseDump {
         return dumpAndVerify(containerId, role, finalPath, partialPath, started);
     }
 
+    /**
+     * Replaces the database with a dump in the same directory, in one transaction, so a failure changes nothing.
+     *
+     * The schema is dropped first, since a table a later migration added is in no dump and would stay behind.
+     */
+    public SnapshotResult restore(final String service, final String dump) {
+        final Instant started = clock.instant();
+        final String containerId;
+        try {
+            containerId = docker.running(project, service).orElse(null);
+        } catch (DockerException e) {
+            return SnapshotResult.failed(Snapshots.DATABASE, took(started), "could not ask docker: " + e.getMessage());
+        }
+        if (containerId == null) {
+            return SnapshotResult.failed(
+                    Snapshots.DATABASE, took(started), "no running container for " + service + " to restore into");
+        }
+        final String path = directory + "/" + dump;
+        final Docker.ExecResult listed = run(containerId, "pg_restore --list " + quote(path) + " > /dev/null");
+        if (!listed.ok()) {
+            return SnapshotResult.failed(
+                    Snapshots.DATABASE,
+                    took(started),
+                    dump + " is not a readable dump, so the database was not touched: " + firstLine(listed.output()));
+        }
+        // The owner restores, over the socket the image trusts; a lock held elsewhere fails it instead of hanging.
+        final Docker.ExecResult restored = run(
+                containerId,
+                "set -o pipefail; { printf '%s\\n' 'DROP SCHEMA public CASCADE;'"
+                        + " 'CREATE SCHEMA public AUTHORIZATION pg_database_owner;'; pg_restore --file=- "
+                        + quote(path)
+                        + "; } | PGOPTIONS='-c lock_timeout=60s' psql -X -q -o /dev/null -v ON_ERROR_STOP=1"
+                        + " --single-transaction -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\" 2>&1");
+        if (!restored.ok()) {
+            return SnapshotResult.failed(
+                    Snapshots.DATABASE,
+                    took(started),
+                    "the restore was rolled back, so the database is as it was: " + firstLine(restored.output()));
+        }
+        log.info("database restored from {}", dump);
+        return SnapshotResult.saved(Snapshots.DATABASE, Math.max(0, sizeOf(containerId, path)), took(started), path);
+    }
+
     // As root, before the dump: pg_dump runs as `postgres` and the volume's root belongs to root.
     private @Nullable SnapshotResult prepareDirectory(final String containerId, final Instant started) {
         final Docker.ExecResult prepared = docker.exec(

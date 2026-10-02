@@ -503,13 +503,12 @@ class TopologyTest {
             final Topology.Service service, final List<String> agentMounts, final String onTheServer) {
         final String backupVolume = "nordtal-s2_mc-" + service.name() + "-plugins";
         final Optional<String> forTheBackup = agentMounts.stream()
-                .filter(mount -> mount.endsWith(":/backup-sources/" + backupVolume + ":ro"))
+                .filter(mount -> mount.endsWith(":/backup-sources/" + backupVolume))
                 .findFirst();
         // The mount is the backup set, so a plugins volume mounted for it is saved and must be the server's own.
         forTheBackup.ifPresent(mount -> assertEquals(
                 sourceOf(onTheServer),
-                // `:ro` is a third field; sourceOf reads up to the destination, so drop it first.
-                sourceOf(mount.substring(0, mount.length() - ":ro".length())),
+                sourceOf(mount),
                 service.name() + ": the backup reads a different plugin source than the server runs from"));
     }
 

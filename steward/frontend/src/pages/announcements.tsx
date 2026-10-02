@@ -11,20 +11,11 @@ import {
 import { relative } from "@/lib/format"
 import { languageName } from "@/lib/language-names"
 import { useAnnouncements, useCommandRun, useConfig, useGuildChannels, useSendAnnouncement } from "@/lib/queries"
+import { AskThenAct } from "@/components/steward/ask-then-act"
 import { Actor } from "@/components/steward/entity"
 import { RequestOutcome } from "@/components/steward/game-actions"
 import { PageHeader } from "@/components/steward/page-header"
 import { Failure, QueryState, SkeletonText } from "@/components/steward/query-state"
-import {
-  ResponsiveAlertDialog,
-  ResponsiveAlertDialogAction,
-  ResponsiveAlertDialogCancel,
-  ResponsiveAlertDialogContent,
-  ResponsiveAlertDialogDescription,
-  ResponsiveAlertDialogFooter,
-  ResponsiveAlertDialogHeader,
-  ResponsiveAlertDialogTitle,
-} from "@/components/ui/responsive-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -114,43 +105,24 @@ function Compose() {
         </div>
       </CardContent>
 
-      <ResponsiveAlertDialog
+      <AskThenAct
         open={asking}
-        onOpenChange={(open) => {
-          if (!open && !send.isPending) setAsking(false)
-        }}
-      >
-        <ResponsiveAlertDialogContent>
-          <ResponsiveAlertDialogHeader>
-            <ResponsiveAlertDialogTitle>Send this announcement?</ResponsiveAlertDialogTitle>
-            <ResponsiveAlertDialogDescription>
-              {tags.length === 1
-                ? "It is posted in Discord at once."
-                : `One post per language, ${tags.length} in all, in Discord at once.`}
-            </ResponsiveAlertDialogDescription>
-          </ResponsiveAlertDialogHeader>
-          {send.error ? <Failure error={send.error} /> : null}
-          <ResponsiveAlertDialogFooter>
-            <ResponsiveAlertDialogCancel disabled={send.isPending}>Cancel</ResponsiveAlertDialogCancel>
-            <ResponsiveAlertDialogAction
-              disabled={send.isPending}
-              onClick={(event) => {
-                event.preventDefault()
-                const body = Object.fromEntries(tags.map((tag) => [tag, text(tag).trim()]))
-                send.mutate(body, {
-                  onSuccess: (answer) => {
-                    setSent(answer.ids)
-                    setTexts({})
-                    setAsking(false)
-                  },
-                })
-              }}
-            >
-              {send.isPending ? "Sending…" : "Send"}
-            </ResponsiveAlertDialogAction>
-          </ResponsiveAlertDialogFooter>
-        </ResponsiveAlertDialogContent>
-      </ResponsiveAlertDialog>
+        onOpenChange={setAsking}
+        title="Send this announcement?"
+        description={
+          tags.length === 1
+            ? "It is posted in Discord at once."
+            : `One post per language, ${tags.length} in all, in Discord at once.`
+        }
+        action="Send"
+        acting="Sending…"
+        act={() =>
+          send.mutateAsync(Object.fromEntries(tags.map((tag) => [tag, text(tag).trim()]))).then((answer) => {
+            setSent(answer.ids)
+            setTexts({})
+          })
+        }
+      />
     </Card>
   )
 }

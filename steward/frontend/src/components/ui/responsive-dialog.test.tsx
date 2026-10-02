@@ -1,14 +1,7 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import { cleanup, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vitest"
 
 import {
-  ResponsiveAlertDialog,
-  ResponsiveAlertDialogAction,
-  ResponsiveAlertDialogCancel,
-  ResponsiveAlertDialogContent,
-  ResponsiveAlertDialogFooter,
-  ResponsiveAlertDialogHeader,
-  ResponsiveAlertDialogTitle,
   ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogHeader,
@@ -58,64 +51,5 @@ describe("one dialog, two shapes", () => {
 
     window.innerWidth = 1024
     expect(draw().getAttribute("data-slot")).toBe("dialog-title")
-  })
-})
-
-function drawConfirmation(onConfirm: () => void) {
-  render(
-    <ResponsiveAlertDialog open>
-      <ResponsiveAlertDialogContent>
-        <ResponsiveAlertDialogHeader>
-          <ResponsiveAlertDialogTitle>Delete it</ResponsiveAlertDialogTitle>
-        </ResponsiveAlertDialogHeader>
-        <ResponsiveAlertDialogFooter>
-          <ResponsiveAlertDialogCancel>Cancel</ResponsiveAlertDialogCancel>
-          <ResponsiveAlertDialogAction onClick={onConfirm}>Delete</ResponsiveAlertDialogAction>
-        </ResponsiveAlertDialogFooter>
-      </ResponsiveAlertDialogContent>
-    </ResponsiveAlertDialog>,
-  )
-  return screen.getByText("Delete it")
-}
-
-/** The confirmation takes both shapes; flicking a sheet away is an answer, like a click on the overlay. */
-describe("the confirmation takes both shapes as well", () => {
-  it("is an alert dialog on a desktop", () => {
-    window.innerWidth = 1024
-    const title = drawConfirmation(() => {})
-
-    expect(title.closest("[data-slot='alert-dialog-content']")).not.toBeNull()
-    expect(title.closest("[data-slot='drawer-content']")).toBeNull()
-  })
-
-  it("is a bottom sheet on a phone", () => {
-    window.innerWidth = 390
-    const title = drawConfirmation(() => {})
-
-    expect(title.closest("[data-slot='drawer-content']")).not.toBeNull()
-    expect(title.closest("[data-slot='alert-dialog-content']")).toBeNull()
-  })
-
-  it("still runs the action on a phone, which is the whole point of converting it", () => {
-    window.innerWidth = 390
-    let confirmed = 0
-    drawConfirmation(() => {
-      confirmed += 1
-    })
-
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }))
-
-    expect(confirmed).toBe(1)
-  })
-
-  it("keeps both buttons buttons in both shapes", () => {
-    window.innerWidth = 390
-    drawConfirmation(() => {})
-    expect(screen.getByRole("button", { name: "Cancel" })).not.toBeNull()
-    cleanup()
-
-    window.innerWidth = 1024
-    drawConfirmation(() => {})
-    expect(screen.getByRole("button", { name: "Cancel" })).not.toBeNull()
   })
 })

@@ -4,16 +4,8 @@ import { toast } from "sonner"
 
 import { useAgent, useAskForRun } from "@/lib/queries"
 import { lockTitle, touches, useRunLock } from "@/lib/run-lock"
+import { AskThenAct } from "@/components/steward/ask-then-act"
 import { Button } from "@/components/ui/button"
-import {
-  ResponsiveDialog,
-  ResponsiveDialogContent,
-  ResponsiveDialogDescription,
-  ResponsiveDialogFooter,
-  ResponsiveDialogHeader,
-  ResponsiveDialogTitle,
-  ResponsiveDialogTrigger,
-} from "@/components/ui/responsive-dialog"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 /**
@@ -60,67 +52,50 @@ export function RecreateButton({
   if (service === "steward-agent") return null
 
   return (
-    <ResponsiveDialog open={open} onOpenChange={setOpen}>
+    <>
       {!trigger ? null : compact ? (
         <Tooltip>
           <TooltipTrigger asChild>
-            <ResponsiveDialogTrigger asChild>
-              <Button variant={variant} size="icon-xs" disabled={unavailable} aria-label={`Recreate ${service}`}>
-                <ArrowsClockwiseIcon aria-hidden />
-              </Button>
-            </ResponsiveDialogTrigger>
+            <Button
+              variant={variant}
+              size="icon-xs"
+              disabled={unavailable}
+              aria-label={`Recreate ${service}`}
+              onClick={() => setOpen(true)}
+            >
+              <ArrowsClockwiseIcon aria-hidden />
+            </Button>
           </TooltipTrigger>
           {/* A disabled button shows no `title` on hover, so here the tooltip carries the reason. */}
           <TooltipContent>{title}</TooltipContent>
         </Tooltip>
       ) : (
-        <ResponsiveDialogTrigger asChild>
-          <Button
-            variant={variant}
-            size={size}
-            className={className}
-            disabled={unavailable}
-            title={title}
-            aria-label={labelClassName ? "Recreate" : undefined}
-          >
-            <ArrowsClockwiseIcon className="size-3.5" aria-hidden />
-            <span className={labelClassName}>Recreate</span>
-          </Button>
-        </ResponsiveDialogTrigger>
+        <Button
+          variant={variant}
+          size={size}
+          className={className}
+          disabled={unavailable}
+          title={title}
+          aria-label={labelClassName ? "Recreate" : undefined}
+          onClick={() => setOpen(true)}
+        >
+          <ArrowsClockwiseIcon className="size-3.5" aria-hidden />
+          <span className={labelClassName}>Recreate</span>
+        </Button>
       )}
-
-      <ResponsiveDialogContent className="sm:max-w-xl">
-        <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>Recreate {service}?</ResponsiveDialogTitle>
-          <ResponsiveDialogDescription>
-            A run from the image already on this host. Players are warned and moved first.
-          </ResponsiveDialogDescription>
-        </ResponsiveDialogHeader>
-
-        <ResponsiveDialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            disabled={ask.isPending}
-            onClick={() =>
-              ask.mutate(
-                { kind: "RECREATE", services: [service] },
-                {
-                  onSuccess: (run) => {
-                    toast.success(`Recreate entered as run #${run.id}`)
-                    setOpen(false)
-                  },
-                  onError: (error) => toast.error("Recreate was not entered", { description: error.message }),
-                },
-              )
-            }
-          >
-            Recreate
-          </Button>
-        </ResponsiveDialogFooter>
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
+      <AskThenAct
+        open={open}
+        onOpenChange={setOpen}
+        title={`Recreate ${service}?`}
+        description="A run from the image already on this host. Players are warned and moved first."
+        action="Recreate"
+        act={() =>
+          ask
+            .mutateAsync({ kind: "RECREATE", services: [service] })
+            .then((run) => toast.success(`Recreate entered as run #${run.id}`))
+        }
+      />
+    </>
   )
 }
 

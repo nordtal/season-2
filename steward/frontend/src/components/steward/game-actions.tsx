@@ -4,17 +4,8 @@ import { useQueryClient } from "@tanstack/react-query"
 
 import type { CommandRun } from "@/lib/api"
 import { useCommandRun, useGameAction, useHungerGamesRound } from "@/lib/queries"
+import { AskThenAct } from "@/components/steward/ask-then-act"
 import { Failure, QueryState, SkeletonText } from "@/components/steward/query-state"
-import {
-  ResponsiveAlertDialog,
-  ResponsiveAlertDialogAction,
-  ResponsiveAlertDialogCancel,
-  ResponsiveAlertDialogContent,
-  ResponsiveAlertDialogDescription,
-  ResponsiveAlertDialogFooter,
-  ResponsiveAlertDialogHeader,
-  ResponsiveAlertDialogTitle,
-} from "@/components/ui/responsive-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
@@ -131,47 +122,32 @@ export function ActionDialog({
   const waiting = action.isPending || (id !== null && !settled && !run.error)
 
   return (
-    <ResponsiveAlertDialog
+    <AskThenAct
       open={ask !== null}
       onOpenChange={(open) => {
-        if (!open && !waiting) onClose()
+        if (!open) onClose()
       }}
-    >
-      <ResponsiveAlertDialogContent>
-        <ResponsiveAlertDialogHeader>
-          <ResponsiveAlertDialogTitle>{ask?.title}</ResponsiveAlertDialogTitle>
-          <ResponsiveAlertDialogDescription>{ask?.description}</ResponsiveAlertDialogDescription>
-        </ResponsiveAlertDialogHeader>
-        {action.error ? <Failure error={action.error} /> : null}
-        {run.error ? <Failure error={run.error} onRetry={run.refetch} /> : null}
-        {run.data ? <RequestOutcome run={run.data} /> : null}
-        <ResponsiveAlertDialogFooter>
-          {id === null ? (
-            <>
-              <ResponsiveAlertDialogCancel disabled={waiting}>Cancel</ResponsiveAlertDialogCancel>
-              <ResponsiveAlertDialogAction
-                variant="destructive"
-                disabled={waiting}
-                onClick={(event) => {
-                  event.preventDefault()
-                  if (!ask) return
-                  action.mutate({ path: ask.path, body: ask.body }, { onSuccess: (answer) => setId(answer.id) })
-                }}
-              >
-                {waiting ? "Sending…" : ask?.confirm}
-              </ResponsiveAlertDialogAction>
-            </>
-          ) : (
-            <>
-              {run.data && settled && after ? after(run.data) : null}
-              <ResponsiveAlertDialogCancel disabled={waiting}>
-                {waiting ? "Waiting…" : "Close"}
-              </ResponsiveAlertDialogCancel>
-            </>
-          )}
-        </ResponsiveAlertDialogFooter>
-      </ResponsiveAlertDialogContent>
-    </ResponsiveAlertDialog>
+      title={ask?.title}
+      description={ask?.description}
+      action={ask?.confirm}
+      acting="Sending…"
+      destructive
+      act={() => {
+        if (!ask) return Promise.resolve()
+        return action.mutateAsync({ path: ask.path, body: ask.body }).then((answer) => setId(answer.id))
+      }}
+      answered={
+        id === null ? null : (
+          <>
+            {run.error ? <Failure error={run.error} onRetry={run.refetch} /> : null}
+            {run.data ? <RequestOutcome run={run.data} /> : null}
+            {run.data && settled && after ? after(run.data) : null}
+          </>
+        )
+      }
+      busy={waiting}
+      closeLabel={waiting ? "Waiting…" : "Close"}
+    />
   )
 }
 

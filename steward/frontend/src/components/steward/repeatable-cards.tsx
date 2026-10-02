@@ -2,17 +2,8 @@ import { PlusIcon, TrashIcon, WarningCircleIcon } from "@phosphor-icons/react"
 import { useMemo, useState } from "react"
 
 import type { ConfigEntry, GuildList } from "@/lib/api"
+import { AskThenAct } from "@/components/steward/ask-then-act"
 import { ListControl, ScalarControl, explanationOf, isRequiredChannel } from "@/components/steward/config-controls"
-import {
-  ResponsiveAlertDialog,
-  ResponsiveAlertDialogAction,
-  ResponsiveAlertDialogCancel,
-  ResponsiveAlertDialogContent,
-  ResponsiveAlertDialogDescription,
-  ResponsiveAlertDialogFooter,
-  ResponsiveAlertDialogHeader,
-  ResponsiveAlertDialogTitle,
-} from "@/components/ui/responsive-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -243,31 +234,21 @@ export function RepeatableCards({
         </Button>
       </div>
 
-      <ResponsiveAlertDialog open={pendingRemoval !== null} onOpenChange={(open) => open || setPendingRemoval(null)}>
-        <ResponsiveAlertDialogContent>
-          <ResponsiveAlertDialogHeader>
-            <ResponsiveAlertDialogTitle>
-              Remove {pendingRemoval !== null ? `"${titleOf(value[pendingRemoval], pendingRemoval)}"` : "entry"}?
-            </ResponsiveAlertDialogTitle>
-            <ResponsiveAlertDialogDescription className="whitespace-pre-wrap text-left">
-              {listExplanation ?? "This only changes the draft - nothing is written to the file until Save."}
-            </ResponsiveAlertDialogDescription>
-          </ResponsiveAlertDialogHeader>
-          <ResponsiveAlertDialogFooter>
-            <ResponsiveAlertDialogCancel>Keep it</ResponsiveAlertDialogCancel>
-            <ResponsiveAlertDialogAction
-              onClick={() => {
-                if (pendingRemoval !== null) {
-                  onChange(value.filter((_, at) => at !== pendingRemoval))
-                }
-                setPendingRemoval(null)
-              }}
-            >
-              Remove it
-            </ResponsiveAlertDialogAction>
-          </ResponsiveAlertDialogFooter>
-        </ResponsiveAlertDialogContent>
-      </ResponsiveAlertDialog>
+      <AskThenAct
+        open={pendingRemoval !== null}
+        onOpenChange={(open) => open || setPendingRemoval(null)}
+        title={`Remove ${pendingRemoval !== null ? `"${titleOf(value[pendingRemoval], pendingRemoval)}"` : "entry"}?`}
+        description={
+          <span className="whitespace-pre-wrap">
+            {listExplanation ?? "This only changes the draft - nothing is written to the file until Save."}
+          </span>
+        }
+        cancel="Keep it"
+        action="Remove it"
+        act={() => {
+          if (pendingRemoval !== null) onChange(value.filter((_, at) => at !== pendingRemoval))
+        }}
+      />
     </div>
   )
 }

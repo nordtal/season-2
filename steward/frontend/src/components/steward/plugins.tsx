@@ -21,12 +21,12 @@ import {
   useRemovePlugin,
 } from "@/lib/queries"
 import { StewardMark } from "@/app/steward-mark"
+import { AskThenAct } from "@/components/steward/ask-then-act"
 import { Button } from "@/components/ui/button"
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogDescription,
-  ResponsiveDialogFooter,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog"
@@ -277,35 +277,15 @@ function RemoveButton({ service, plugin, artifact }: { service: string; plugin: 
       >
         <TrashIcon aria-hidden />
       </Button>
-      <ResponsiveDialog open={open} onOpenChange={setOpen}>
-        <ResponsiveDialogContent>
-          <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>Remove {plugin.name}?</ResponsiveDialogTitle>
-            <ResponsiveDialogDescription>{removalSentence(plugin)}</ResponsiveDialogDescription>
-          </ResponsiveDialogHeader>
-          <ResponsiveDialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={remove.isPending}
-              onClick={() =>
-                remove.mutate(artifact, {
-                  onSuccess: (run) => {
-                    setOpen(false)
-                    toast.success(`Removal entered as run #${run.id}`)
-                  },
-                  onError: (error) => toast.error("Removal was not entered", { description: String(error) }),
-                })
-              }
-            >
-              Remove
-            </Button>
-          </ResponsiveDialogFooter>
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
+      <AskThenAct
+        open={open}
+        onOpenChange={setOpen}
+        title={`Remove ${plugin.name}?`}
+        description={removalSentence(plugin)}
+        action="Remove"
+        destructive
+        act={() => remove.mutateAsync(artifact).then((run) => toast.success(`Removal entered as run #${run.id}`))}
+      />
     </>
   )
 }

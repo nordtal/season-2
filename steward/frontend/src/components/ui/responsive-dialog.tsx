@@ -3,7 +3,6 @@ import * as React from "react"
 import { useIsMobile } from "@/hooks/use-mobile"
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -142,22 +141,6 @@ export function ResponsiveAlertDialogDescription(props: React.ComponentProps<typ
 export function ResponsiveAlertDialogFooter(props: React.ComponentProps<typeof AlertDialogFooter>) {
   const Footer = useSheet() ? DrawerFooter : AlertDialogFooter
   return <Footer {...props} />
-}
-
-/** The button that does the thing, then closes whichever shell it is in. */
-export function ResponsiveAlertDialogAction({
-  variant = "default",
-  size = "default",
-  ...props
-}: React.ComponentProps<typeof AlertDialogAction>) {
-  if (useSheet()) {
-    return (
-      <Button variant={variant} size={size} asChild>
-        <DrawerClose {...props} />
-      </Button>
-    )
-  }
-  return <AlertDialogAction variant={variant} size={size} {...props} />
 }
 
 /** The button that answers no, outlined and a close in both shapes. */

@@ -7,20 +7,11 @@ import type { Season } from "@/lib/api"
 import { dateTime, relative } from "@/lib/format"
 import { useSeason, useSetPhase, useSetSeasonDate } from "@/lib/queries"
 import { SEASON_PHASES as PHASES, type SeasonPhaseName as PhaseName } from "@/lib/season-phases"
+import { AskThenAct } from "@/components/steward/ask-then-act"
 import { PageHeader } from "@/components/steward/page-header"
 import { NETWORK, ServiceSettings } from "@/components/steward/settings"
 import { Failure, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import {
-  ResponsiveAlertDialog,
-  ResponsiveAlertDialogAction,
-  ResponsiveAlertDialogCancel,
-  ResponsiveAlertDialogContent,
-  ResponsiveAlertDialogDescription,
-  ResponsiveAlertDialogFooter,
-  ResponsiveAlertDialogHeader,
-  ResponsiveAlertDialogTitle,
-} from "@/components/ui/responsive-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -83,21 +74,6 @@ function PhaseCard({ season }: { season?: Season }) {
   const change = useSetPhase()
   const current = PHASES.find((phase) => phase.name === season?.phase)
 
-  function confirm() {
-    if (!asked) return
-    const phase = asked
-    change.mutate(
-      { phase, reason },
-      {
-        onSuccess: () => {
-          toast.success(`Phase is now ${PHASES.find((p) => p.name === phase)?.label ?? phase}.`)
-          setAsked(null)
-          setReason("")
-        },
-      },
-    )
-  }
-
   return (
     <Card>
       <CardHeader>
@@ -157,52 +133,39 @@ function PhaseCard({ season }: { season?: Season }) {
       </CardContent>
 
       {/* The reason is cleared with the dialog, or the next confirmation would send a cancelled one. */}
-      <ResponsiveAlertDialog
+      <AskThenAct
         open={asked !== null}
         onOpenChange={(open) => {
           if (open) return
           setAsked(null)
           setReason("")
         }}
+        title={`Switch the phase to "${PHASES.find((phase) => phase.name === asked)?.label}"?`}
+        description={`${PHASES.find((phase) => phase.name === asked)?.who} The change applies from the next join - players already on the network are not moved.`}
+        action="Switch"
+        acting="Switching…"
+        act={() => {
+          const phase = asked
+          if (!phase) return Promise.resolve()
+          return change
+            .mutateAsync({ phase, reason })
+            .then(() => toast.success(`Phase is now ${PHASES.find((p) => p.name === phase)?.label ?? phase}.`))
+        }}
       >
-        <ResponsiveAlertDialogContent>
-          <ResponsiveAlertDialogHeader>
-            <ResponsiveAlertDialogTitle>
-              Switch the phase to "{PHASES.find((phase) => phase.name === asked)?.label}"?
-            </ResponsiveAlertDialogTitle>
-            <ResponsiveAlertDialogDescription>
-              {PHASES.find((phase) => phase.name === asked)?.who} The change applies from the next join - players
-              already on the network are not moved.
-            </ResponsiveAlertDialogDescription>
-          </ResponsiveAlertDialogHeader>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="phase-reason">Reason</Label>
-            <Input
-              id="phase-reason"
-              value={reason}
-              placeholder="ends up in the journal"
-              onChange={(event) => setReason(event.target.value)}
-            />
-            <p className="text-sm text-muted-foreground">
-              The reason lands in the journal, together with your name. It may stay empty; then it only records who
-              switched.
-            </p>
-          </div>
-          {change.error ? <Failure error={change.error} /> : null}
-          <ResponsiveAlertDialogFooter>
-            <ResponsiveAlertDialogCancel disabled={change.isPending}>Cancel</ResponsiveAlertDialogCancel>
-            <ResponsiveAlertDialogAction
-              onClick={(event) => {
-                event.preventDefault()
-                confirm()
-              }}
-              disabled={change.isPending}
-            >
-              {change.isPending ? "Switching…" : "Switch"}
-            </ResponsiveAlertDialogAction>
-          </ResponsiveAlertDialogFooter>
-        </ResponsiveAlertDialogContent>
-      </ResponsiveAlertDialog>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="phase-reason">Reason</Label>
+          <Input
+            id="phase-reason"
+            value={reason}
+            placeholder="ends up in the journal"
+            onChange={(event) => setReason(event.target.value)}
+          />
+          <p className="text-sm text-muted-foreground">
+            The reason lands in the journal, together with your name. It may stay empty; then it only records who
+            switched.
+          </p>
+        </div>
+      </AskThenAct>
     </Card>
   )
 }
@@ -304,37 +267,21 @@ function DateField({
           </Button>
         ) : null}
       </div>
-      <ResponsiveAlertDialog open={removing} onOpenChange={setRemoving}>
-        <ResponsiveAlertDialogContent>
-          <ResponsiveAlertDialogHeader>
-            <ResponsiveAlertDialogTitle>Remove the {label.toLowerCase()} date?</ResponsiveAlertDialogTitle>
-            <ResponsiveAlertDialogDescription>{removal}</ResponsiveAlertDialogDescription>
-          </ResponsiveAlertDialogHeader>
-          {change.error ? <Failure error={change.error} /> : null}
-          <ResponsiveAlertDialogFooter>
-            <ResponsiveAlertDialogCancel disabled={change.isPending}>Cancel</ResponsiveAlertDialogCancel>
-            <ResponsiveAlertDialogAction
-              variant="destructive"
-              disabled={change.isPending}
-              onClick={(event) => {
-                event.preventDefault()
-                change.mutate(
-                  { which, at: null },
-                  {
-                    onSuccess: () => {
-                      setLocal("")
-                      setRemoving(false)
-                      toast.success(`${label} removed.`)
-                    },
-                  },
-                )
-              }}
-            >
-              {change.isPending ? "Removing…" : "Remove"}
-            </ResponsiveAlertDialogAction>
-          </ResponsiveAlertDialogFooter>
-        </ResponsiveAlertDialogContent>
-      </ResponsiveAlertDialog>
+      <AskThenAct
+        open={removing}
+        onOpenChange={setRemoving}
+        title={`Remove the ${label.toLowerCase()} date?`}
+        description={removal}
+        action="Remove"
+        acting="Removing…"
+        destructive
+        act={() =>
+          change.mutateAsync({ which, at: null }).then(() => {
+            setLocal("")
+            toast.success(`${label} removed.`)
+          })
+        }
+      />
       {waiting ? (
         <SkeletonText className="text-sm" width="long" />
       ) : (

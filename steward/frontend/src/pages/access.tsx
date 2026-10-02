@@ -37,6 +37,7 @@ import {
   useSettle,
   useUnlink,
 } from "@/lib/queries"
+import { AskThenAct } from "@/components/steward/ask-then-act"
 import { Actor, Entity } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
 import { RowActions, type RowAction } from "@/components/steward/row-actions"
@@ -44,15 +45,6 @@ import { Stat } from "@/components/steward/stat"
 import { StatusBadge, type Tone } from "@/components/steward/status"
 import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import {
-  ResponsiveAlertDialog,
-  ResponsiveAlertDialogAction,
-  ResponsiveAlertDialogCancel,
-  ResponsiveAlertDialogContent,
-  ResponsiveAlertDialogDescription,
-  ResponsiveAlertDialogFooter,
-  ResponsiveAlertDialogHeader,
-  ResponsiveAlertDialogTitle,
-  ResponsiveAlertDialogTrigger,
   ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogDescription,
@@ -738,93 +730,86 @@ function GrantDialog({
   const usable = discordId.trim().length > 0 && Number.isFinite(parsedDays) && parsedDays > 0 && parsedDays <= MOST_DAYS
 
   return (
-    <ResponsiveAlertDialog open={open} onOpenChange={onOpenChange}>
-      {open === undefined ? (
-        <ResponsiveAlertDialogTrigger asChild>
+    <AskThenAct
+      open={open}
+      onOpenChange={onOpenChange}
+      trigger={
+        open === undefined ? (
           <Button type="button">
             <UserPlusIcon aria-hidden />
             Grant access
           </Button>
-        </ResponsiveAlertDialogTrigger>
-      ) : null}
-      <ResponsiveAlertDialogContent>
-        <ResponsiveAlertDialogHeader>
-          <ResponsiveAlertDialogTitle>Grant access by hand</ResponsiveAlertDialogTitle>
-          <ResponsiveAlertDialogDescription>
-            The bot writes a period with the source <code className="text-xs">ADMIN</code> - no payment, no bunq tab -
-            gives the role and tells the person by direct message.
-          </ResponsiveAlertDialogDescription>
-        </ResponsiveAlertDialogHeader>
-
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="grant-discord-id">Discord-ID</Label>
-            <Input
-              id="grant-discord-id"
-              value={discordId}
-              onChange={(event) => setDiscordId(event.target.value)}
-              placeholder="e.g. 214906139328839681"
-              className="font-mono"
-              autoComplete="off"
-              spellCheck={false}
-              inputMode="numeric"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="grant-days">Days</Label>
-            <Input
-              id="grant-days"
-              value={days}
-              onChange={(event) => setDays(event.target.value)}
-              type="number"
-              min={1}
-              max={MOST_DAYS}
-              className="w-32"
-              aria-invalid={Number.isFinite(parsedDays) && parsedDays > MOST_DAYS}
-            />
-          </div>
-          <ul className="flex list-disc flex-col gap-1 pl-4 text-sm text-muted-foreground">
-            <li>At most {MOST_DAYS} days. A longer period is two grants.</li>
-            <li>A day is exactly 24 hours, not a calendar day.</li>
-            <li>
-              If a period is already running, the new one is appended - paid time is never lost, and periods are never
-              summed across a gap.
-            </li>
-            <li>If the SMP launch has not been reached, the period starts at that date and not today.</li>
-            <li>
-              If the bot does not know this Discord id yet, the account is created for it. A mistyped id therefore
-              produces a person who does not exist - and no error.
-            </li>
-          </ul>
+        ) : null
+      }
+      title="Grant access by hand"
+      description={
+        <>
+          The bot writes a period with the source <code className="text-xs">ADMIN</code> - no payment, no bunq tab -
+          gives the role and tells the person by direct message.
+        </>
+      }
+      action="Grant"
+      disabled={!usable || grant.isPending}
+      act={() => {
+        grant.mutate(
+          { discordId: discordId.trim(), days: parsedDays },
+          {
+            onSuccess: (written, asked) => {
+              /** The person if opened from their row, otherwise the id that was typed. */
+              toast.success(personToast("Access granted for", asked.discordId), {
+                description: `Valid until ${dateTime(written.until)}. A journal line names you.`,
+              })
+              setDiscordId(person?.discordId ?? "")
+            },
+            onError: (error) => {
+              toast.error("No access was granted", { description: String(error) })
+            },
+          },
+        )
+      }}
+    >
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="grant-discord-id">Discord-ID</Label>
+          <Input
+            id="grant-discord-id"
+            value={discordId}
+            onChange={(event) => setDiscordId(event.target.value)}
+            placeholder="e.g. 214906139328839681"
+            className="font-mono"
+            autoComplete="off"
+            spellCheck={false}
+            inputMode="numeric"
+          />
         </div>
-
-        <ResponsiveAlertDialogFooter>
-          <ResponsiveAlertDialogCancel>Cancel</ResponsiveAlertDialogCancel>
-          <ResponsiveAlertDialogAction
-            disabled={!usable || grant.isPending}
-            onClick={() => {
-              grant.mutate(
-                { discordId: discordId.trim(), days: parsedDays },
-                {
-                  onSuccess: (written, asked) => {
-                    /** The person if opened from their row, otherwise the id that was typed. */
-                    toast.success(personToast("Access granted for", asked.discordId), {
-                      description: `Valid until ${dateTime(written.until)}. A journal line names you.`,
-                    })
-                    setDiscordId(person?.discordId ?? "")
-                  },
-                  onError: (error) => {
-                    toast.error("No access was granted", { description: String(error) })
-                  },
-                },
-              )
-            }}
-          >
-            Grant
-          </ResponsiveAlertDialogAction>
-        </ResponsiveAlertDialogFooter>
-      </ResponsiveAlertDialogContent>
-    </ResponsiveAlertDialog>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="grant-days">Days</Label>
+          <Input
+            id="grant-days"
+            value={days}
+            onChange={(event) => setDays(event.target.value)}
+            type="number"
+            min={1}
+            max={MOST_DAYS}
+            className="w-32"
+            aria-invalid={Number.isFinite(parsedDays) && parsedDays > MOST_DAYS}
+          />
+        </div>
+        <ul className="flex list-disc flex-col gap-1 pl-4 text-sm text-muted-foreground">
+          <li>At most {MOST_DAYS} days. A longer period is two grants.</li>
+          <li>A day is exactly 24 hours, not a calendar day.</li>
+          <li>
+            If a period is already running, the new one is appended - paid time is never lost, and periods are never
+            summed across a gap.
+          </li>
+          <li>If the SMP launch has not been reached, the period starts at that date and not today.</li>
+          <li>
+            If the bot does not know this Discord id yet, the account is created for it. A mistyped id therefore
+            produces a person who does not exist - and no error.
+          </li>
+        </ul>
+      </div>
+    </AskThenAct>
   )
 }
 
@@ -859,85 +844,78 @@ function PlaytimeDialog({
   const seconds = usable ? Math.round(parts[0] * 86_400 + parts[1] * 3_600 + parts[2] * 60) : 0
 
   return (
-    <ResponsiveAlertDialog open={open} onOpenChange={onOpenChange}>
-      <ResponsiveAlertDialogContent>
-        <ResponsiveAlertDialogHeader>
-          <ResponsiveAlertDialogTitle>Set play time</ResponsiveAlertDialogTitle>
-          <ResponsiveAlertDialogDescription>
-            Replaces the counted total for {personName(person)}. The prestige tier follows from it, and there is nothing
-            else to set.
-          </ResponsiveAlertDialogDescription>
-        </ResponsiveAlertDialogHeader>
-
-        <div className="flex flex-col gap-1.5">
-          {/* Three columns even on a phone, since the three are one number read left to right. */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="playtime-days">Days</Label>
-              <Input
-                id="playtime-days"
-                value={days}
-                onChange={(event) => setDays(event.target.value)}
-                type="number"
-                min={0}
-                inputMode="numeric"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="playtime-hours">Hours</Label>
-              <Input
-                id="playtime-hours"
-                value={hours}
-                onChange={(event) => setHours(event.target.value)}
-                type="number"
-                min={0}
-                inputMode="numeric"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="playtime-minutes">Minutes</Label>
-              <Input
-                id="playtime-minutes"
-                value={minutes}
-                onChange={(event) => setMinutes(event.target.value)}
-                type="number"
-                min={0}
-                inputMode="numeric"
-              />
-            </div>
+    <AskThenAct
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Set play time"
+      description={
+        <>
+          Replaces the counted total for {personName(person)}. The prestige tier follows from it, and there is nothing
+          else to set.
+        </>
+      }
+      action="Save"
+      disabled={!usable || write.isPending}
+      act={() => {
+        write.mutate(
+          { discordId: person.discordId, seconds },
+          {
+            onSuccess: () => {
+              toast.success(`Play time set for ${personName(person)}`, {
+                description: `${playtime(seconds)} from now on. A journal line names you.`,
+              })
+            },
+            onError: (error) => {
+              toast.error("The play time was not written", { description: String(error) })
+            },
+          },
+        )
+      }}
+    >
+      <div className="flex flex-col gap-1.5">
+        {/* Three columns even on a phone, since the three are one number read left to right. */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="playtime-days">Days</Label>
+            <Input
+              id="playtime-days"
+              value={days}
+              onChange={(event) => setDays(event.target.value)}
+              type="number"
+              min={0}
+              inputMode="numeric"
+            />
           </div>
-          <p className="text-xs text-muted-foreground">
-            Counted so far: {playtime(person.playtimeSeconds ?? undefined)}
-            {usable ? `, becoming ${playtime(seconds)}` : null}. Anybody online while this is written keeps counting up
-            from the new value.
-          </p>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="playtime-hours">Hours</Label>
+            <Input
+              id="playtime-hours"
+              value={hours}
+              onChange={(event) => setHours(event.target.value)}
+              type="number"
+              min={0}
+              inputMode="numeric"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="playtime-minutes">Minutes</Label>
+            <Input
+              id="playtime-minutes"
+              value={minutes}
+              onChange={(event) => setMinutes(event.target.value)}
+              type="number"
+              min={0}
+              inputMode="numeric"
+            />
+          </div>
         </div>
-
-        <ResponsiveAlertDialogFooter>
-          <ResponsiveAlertDialogCancel>Cancel</ResponsiveAlertDialogCancel>
-          <ResponsiveAlertDialogAction
-            disabled={!usable || write.isPending}
-            onClick={() => {
-              write.mutate(
-                { discordId: person.discordId, seconds },
-                {
-                  onSuccess: () => {
-                    toast.success(`Play time set for ${personName(person)}`, {
-                      description: `${playtime(seconds)} from now on. A journal line names you.`,
-                    })
-                  },
-                  onError: (error) => {
-                    toast.error("The play time was not written", { description: String(error) })
-                  },
-                },
-              )
-            }}
-          >
-            Save
-          </ResponsiveAlertDialogAction>
-        </ResponsiveAlertDialogFooter>
-      </ResponsiveAlertDialogContent>
-    </ResponsiveAlertDialog>
+        <p className="text-xs text-muted-foreground">
+          Counted so far: {playtime(person.playtimeSeconds ?? undefined)}
+          {usable ? `, becoming ${playtime(seconds)}` : null}. Anybody online while this is written keeps counting up
+          from the new value.
+        </p>
+      </div>
+    </AskThenAct>
   )
 }
 
@@ -953,44 +931,38 @@ function UnlinkDialog({
 }) {
   const unlink = useUnlink()
   return (
-    <ResponsiveAlertDialog open={open} onOpenChange={onOpenChange}>
-      <ResponsiveAlertDialogContent>
-        <ResponsiveAlertDialogHeader>
-          <ResponsiveAlertDialogTitle>Unlink?</ResponsiveAlertDialogTitle>
-          <ResponsiveAlertDialogDescription>
-            Breaks the link between this Discord account and its Minecraft account. The paid period is untouched; the
-            person can link a Minecraft account again afterwards.
-          </ResponsiveAlertDialogDescription>
-        </ResponsiveAlertDialogHeader>
-        <ResponsiveAlertDialogFooter>
-          <ResponsiveAlertDialogCancel disabled={unlink.isPending}>Cancel</ResponsiveAlertDialogCancel>
-          <ResponsiveAlertDialogAction
-            variant="destructive"
-            disabled={unlink.isPending}
-            onClick={() => {
-              unlink.mutate(person.discordId, {
-                onSuccess: (result) => {
-                  if (!result.unlinked) {
-                    toast.warning("There was nothing to unlink", {
-                      description: personToast("No Minecraft account was linked to", person.discordId),
-                    })
-                    return
-                  }
-                  toast.success(personToast("Unlinked", person.discordId), {
-                    description: "A journal line names you.",
-                  })
-                },
-                onError: (error) => {
-                  toast.error("Nothing was unlinked", { description: String(error) })
-                },
+    <AskThenAct
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Unlink?"
+      description={
+        <>
+          Breaks the link between this Discord account and its Minecraft account. The paid period is untouched; the
+          person can link a Minecraft account again afterwards.
+        </>
+      }
+      action="Unlink"
+      destructive
+      disabled={unlink.isPending}
+      act={() => {
+        unlink.mutate(person.discordId, {
+          onSuccess: (result) => {
+            if (!result.unlinked) {
+              toast.warning("There was nothing to unlink", {
+                description: personToast("No Minecraft account was linked to", person.discordId),
               })
-            }}
-          >
-            Unlink
-          </ResponsiveAlertDialogAction>
-        </ResponsiveAlertDialogFooter>
-      </ResponsiveAlertDialogContent>
-    </ResponsiveAlertDialog>
+              return
+            }
+            toast.success(personToast("Unlinked", person.discordId), {
+              description: "A journal line names you.",
+            })
+          },
+          onError: (error) => {
+            toast.error("Nothing was unlinked", { description: String(error) })
+          },
+        })
+      }}
+    />
   )
 }
 
@@ -1009,42 +981,34 @@ function PackExemptionDialog({
   const exempted = Boolean(person.packExemptAt)
   const change = exempted ? enforce : exempt
   return (
-    <ResponsiveAlertDialog open={open} onOpenChange={onOpenChange}>
-      <ResponsiveAlertDialogContent>
-        <ResponsiveAlertDialogHeader>
-          <ResponsiveAlertDialogTitle>
-            {exempted
-              ? `Require the resource pack for ${personName(person)} again?`
-              : `Let ${personName(person)} play without the resource pack?`}
-          </ResponsiveAlertDialogTitle>
-          <ResponsiveAlertDialogDescription>
-            {exempted
-              ? "From their next login on, they get the pack like everybody else."
-              : "From their next login on, the network sends them no pack, until an admin requires it again. Their own local pack then shows."}
-          </ResponsiveAlertDialogDescription>
-        </ResponsiveAlertDialogHeader>
-        <ResponsiveAlertDialogFooter>
-          <ResponsiveAlertDialogCancel disabled={change.isPending}>Cancel</ResponsiveAlertDialogCancel>
-          <ResponsiveAlertDialogAction
-            disabled={change.isPending}
-            onClick={() => {
-              change.mutate(person.discordId, {
-                onSuccess: () => {
-                  toast.success(
-                    personToast(exempted ? "Resource pack required" : "Resource pack skipped", person.discordId),
-                  )
-                },
-                onError: (error) => {
-                  toast.error("Nothing was changed", { description: String(error) })
-                },
-              })
-            }}
-          >
-            {exempted ? "Enforce resource pack" : "Skip resource pack"}
-          </ResponsiveAlertDialogAction>
-        </ResponsiveAlertDialogFooter>
-      </ResponsiveAlertDialogContent>
-    </ResponsiveAlertDialog>
+    <AskThenAct
+      open={open}
+      onOpenChange={onOpenChange}
+      title={
+        <>
+          {exempted
+            ? `Require the resource pack for ${personName(person)} again?`
+            : `Let ${personName(person)} play without the resource pack?`}
+        </>
+      }
+      description={
+        exempted
+          ? "From their next login on, they get the pack like everybody else."
+          : "From their next login on, the network sends them no pack, until an admin requires it again. Their own local pack then shows."
+      }
+      action={exempted ? "Enforce resource pack" : "Skip resource pack"}
+      disabled={change.isPending}
+      act={() => {
+        change.mutate(person.discordId, {
+          onSuccess: () => {
+            toast.success(personToast(exempted ? "Resource pack required" : "Resource pack skipped", person.discordId))
+          },
+          onError: (error) => {
+            toast.error("Nothing was changed", { description: String(error) })
+          },
+        })
+      }}
+    />
   )
 }
 
@@ -1060,34 +1024,24 @@ function MakeAdminDialog({
 }) {
   const grant = useGrantAdmin()
   return (
-    <ResponsiveAlertDialog open={open} onOpenChange={onOpenChange}>
-      <ResponsiveAlertDialogContent>
-        <ResponsiveAlertDialogHeader>
-          <ResponsiveAlertDialogTitle>Make {personName(person)} an admin?</ResponsiveAlertDialogTitle>
-          <ResponsiveAlertDialogDescription>
-            Below you. Only you and the admins above you can revoke it.
-          </ResponsiveAlertDialogDescription>
-        </ResponsiveAlertDialogHeader>
-        <ResponsiveAlertDialogFooter>
-          <ResponsiveAlertDialogCancel disabled={grant.isPending}>Cancel</ResponsiveAlertDialogCancel>
-          <ResponsiveAlertDialogAction
-            disabled={grant.isPending}
-            onClick={() => {
-              grant.mutate(person.discordId, {
-                onSuccess: () => {
-                  toast.success(personToast("Admin", person.discordId))
-                },
-                onError: (error) => {
-                  toast.error("Nobody was made an admin", { description: String(error) })
-                },
-              })
-            }}
-          >
-            Make admin
-          </ResponsiveAlertDialogAction>
-        </ResponsiveAlertDialogFooter>
-      </ResponsiveAlertDialogContent>
-    </ResponsiveAlertDialog>
+    <AskThenAct
+      open={open}
+      onOpenChange={onOpenChange}
+      title={<>Make {personName(person)} an admin?</>}
+      description="Below you. Only you and the admins above you can revoke it."
+      action="Make admin"
+      disabled={grant.isPending}
+      act={() => {
+        grant.mutate(person.discordId, {
+          onSuccess: () => {
+            toast.success(personToast("Admin", person.discordId))
+          },
+          onError: (error) => {
+            toast.error("Nobody was made an admin", { description: String(error) })
+          },
+        })
+      }}
+    />
   )
 }
 
@@ -1106,42 +1060,36 @@ function RevokeAdminDialog({
 }) {
   const revoke = useRevokeAdmin()
   return (
-    <ResponsiveAlertDialog open={open} onOpenChange={onOpenChange}>
-      <ResponsiveAlertDialogContent>
-        <ResponsiveAlertDialogHeader>
-          <ResponsiveAlertDialogTitle>Revoke admin from {personName(person)}?</ResponsiveAlertDialogTitle>
-          <ResponsiveAlertDialogDescription>
-            {branch === 0
-              ? "Their open sessions end."
-              : `${count(branch)} ${branch === 1 ? "admin" : "admins"} below them lose it too. Every open session of theirs ends.`}
-          </ResponsiveAlertDialogDescription>
-        </ResponsiveAlertDialogHeader>
-        <ResponsiveAlertDialogFooter>
-          <ResponsiveAlertDialogCancel disabled={revoke.isPending}>Cancel</ResponsiveAlertDialogCancel>
-          <ResponsiveAlertDialogAction
-            variant="destructive"
-            disabled={revoke.isPending}
-            onClick={() => {
-              revoke.mutate(person.discordId, {
-                onSuccess: (result) => {
-                  toast.success(
-                    personToast("No longer admin", person.discordId),
-                    result.removed.length > 1
-                      ? { description: `${count(result.removed.length - 1)} below them as well.` }
-                      : undefined,
-                  )
-                },
-                onError: (error) => {
-                  toast.error("Nothing was revoked", { description: String(error) })
-                },
-              })
-            }}
-          >
-            Revoke admin
-          </ResponsiveAlertDialogAction>
-        </ResponsiveAlertDialogFooter>
-      </ResponsiveAlertDialogContent>
-    </ResponsiveAlertDialog>
+    <AskThenAct
+      open={open}
+      onOpenChange={onOpenChange}
+      title={<>Revoke admin from {personName(person)}?</>}
+      description={
+        <>
+          {branch === 0
+            ? "Their open sessions end."
+            : `${count(branch)} ${branch === 1 ? "admin" : "admins"} below them lose it too. Every open session of theirs ends.`}
+        </>
+      }
+      action="Revoke admin"
+      destructive
+      disabled={revoke.isPending}
+      act={() => {
+        revoke.mutate(person.discordId, {
+          onSuccess: (result) => {
+            toast.success(
+              personToast("No longer admin", person.discordId),
+              result.removed.length > 1
+                ? { description: `${count(result.removed.length - 1)} below them as well.` }
+                : undefined,
+            )
+          },
+          onError: (error) => {
+            toast.error("Nothing was revoked", { description: String(error) })
+          },
+        })
+      }}
+    />
   )
 }
 
@@ -1149,54 +1097,46 @@ function RevokeAdminDialog({
 function SettleAction({ reference }: { reference: string }) {
   const settle = useSettle()
   return (
-    <ResponsiveAlertDialog>
-      <ResponsiveAlertDialogTrigger asChild>
+    <AskThenAct
+      trigger={
         <Button type="button" variant="outline" size="sm" disabled={settle.isPending}>
           <HandCoinsIcon aria-hidden />
           Settle
         </Button>
-      </ResponsiveAlertDialogTrigger>
-      <ResponsiveAlertDialogContent>
-        <ResponsiveAlertDialogHeader>
-          <ResponsiveAlertDialogTitle>Settle?</ResponsiveAlertDialogTitle>
-          <ResponsiveAlertDialogDescription>
-            Marks {reference} paid by hand and writes the access period it bought. Use this only once the money has
-            actually arrived - it books access, it does not check bunq.
-          </ResponsiveAlertDialogDescription>
-        </ResponsiveAlertDialogHeader>
-        <ResponsiveAlertDialogFooter>
-          <ResponsiveAlertDialogCancel>Cancel</ResponsiveAlertDialogCancel>
-          <ResponsiveAlertDialogAction
-            onClick={() => {
-              settle.mutate(reference, {
-                onSuccess: (result) => {
-                  if (result.outcome === "BOOKED") {
-                    toast.success(`${reference} settled`, {
-                      description: `${count(result.days)} days, valid until ${dateTime(
-                        result.until ?? "",
-                      )}. A journal line names you.`,
-                    })
-                  } else if (result.outcome === "NOT_OPEN") {
-                    toast.warning(`${reference} was not open any more`, {
-                      description: `It is ${result.was ?? "settled"} now. Nothing was booked.`,
-                    })
-                  } else {
-                    toast.warning(`There is no payment ${reference}`, {
-                      description: "Nothing was booked.",
-                    })
-                  }
-                },
-                onError: (error) => {
-                  toast.error("Nothing was settled", { description: String(error) })
-                },
+      }
+      title="Settle?"
+      description={
+        <>
+          Marks {reference} paid by hand and writes the access period it bought. Use this only once the money has
+          actually arrived - it books access, it does not check bunq.
+        </>
+      }
+      action="Settle"
+      act={() => {
+        settle.mutate(reference, {
+          onSuccess: (result) => {
+            if (result.outcome === "BOOKED") {
+              toast.success(`${reference} settled`, {
+                description: `${count(result.days)} days, valid until ${dateTime(
+                  result.until ?? "",
+                )}. A journal line names you.`,
               })
-            }}
-          >
-            Settle
-          </ResponsiveAlertDialogAction>
-        </ResponsiveAlertDialogFooter>
-      </ResponsiveAlertDialogContent>
-    </ResponsiveAlertDialog>
+            } else if (result.outcome === "NOT_OPEN") {
+              toast.warning(`${reference} was not open any more`, {
+                description: `It is ${result.was ?? "settled"} now. Nothing was booked.`,
+              })
+            } else {
+              toast.warning(`There is no payment ${reference}`, {
+                description: "Nothing was booked.",
+              })
+            }
+          },
+          onError: (error) => {
+            toast.error("Nothing was settled", { description: String(error) })
+          },
+        })
+      }}
+    />
   )
 }
 
@@ -1217,69 +1157,62 @@ function RevokeDialog({
   const revoke = useRevokeAccess()
 
   return (
-    <ResponsiveAlertDialog open={open} onOpenChange={onOpenChange}>
-      {open === undefined ? (
-        <ResponsiveAlertDialogTrigger asChild>
+    <AskThenAct
+      open={open}
+      onOpenChange={onOpenChange}
+      trigger={
+        open === undefined ? (
           <Button type="button" variant="ghost" size="sm" className="text-destructive">
             <ShieldSlashIcon aria-hidden />
             Revoke
           </Button>
-        </ResponsiveAlertDialogTrigger>
-      ) : null}
-      <ResponsiveAlertDialogContent>
-        <ResponsiveAlertDialogHeader>
-          <ResponsiveAlertDialogTitle>Revoke access?</ResponsiveAlertDialogTitle>
-          <ResponsiveAlertDialogDescription>
-            What is revoked is the <span className="text-foreground">whole remaining run</span> of the person this row
-            names - every period not yet expired at once, not a single one.
-          </ResponsiveAlertDialogDescription>
-        </ResponsiveAlertDialogHeader>
-
-        <div className="flex flex-col gap-3 text-sm">
-          <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-3 py-2 text-warning">
-            <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
-            Anyone playing right now is thrown out: the proxy re-checks every connected player's access regularly and
-            disconnects as soon as it no longer holds - not only at the next login.
-          </p>
-          <p className="text-muted-foreground">
-            Paid time does not come back this way. A later grant starts fresh and does not credit the revoked remainder.
-          </p>
-          <p className="text-muted-foreground">
-            The entry stays and is only marked revoked - which is why a date still stands beside "no access" in the
-            list, instead of the person looking like a stranger.
-          </p>
-        </div>
-
-        <ResponsiveAlertDialogFooter>
-          <ResponsiveAlertDialogCancel>Cancel</ResponsiveAlertDialogCancel>
-          <ResponsiveAlertDialogAction
-            variant="destructive"
-            disabled={revoke.isPending}
-            onClick={() => {
-              revoke.mutate(person.discordId, {
-                onSuccess: (result) => {
-                  /** Zero means the run had already ended or somebody else revoked it. */
-                  if (result.revoked === 0) {
-                    toast.warning("There was nothing to revoke", {
-                      description: personToast("No period was still running for", person.discordId),
-                    })
-                    return
-                  }
-                  toast.success(personToast(`${count(result.revoked)} period(s) revoked for`, person.discordId), {
-                    description: "A journal line names you.",
-                  })
-                },
-                onError: (error) => {
-                  toast.error("Nothing was revoked", { description: String(error) })
-                },
+        ) : null
+      }
+      title="Revoke access?"
+      description={
+        <>
+          What is revoked is the <span className="text-foreground">whole remaining run</span> of the person this row
+          names - every period not yet expired at once, not a single one.
+        </>
+      }
+      action="Revoke"
+      destructive
+      disabled={revoke.isPending}
+      act={() => {
+        revoke.mutate(person.discordId, {
+          onSuccess: (result) => {
+            /** Zero means the run had already ended or somebody else revoked it. */
+            if (result.revoked === 0) {
+              toast.warning("There was nothing to revoke", {
+                description: personToast("No period was still running for", person.discordId),
               })
-            }}
-          >
-            Revoke
-          </ResponsiveAlertDialogAction>
-        </ResponsiveAlertDialogFooter>
-      </ResponsiveAlertDialogContent>
-    </ResponsiveAlertDialog>
+              return
+            }
+            toast.success(personToast(`${count(result.revoked)} period(s) revoked for`, person.discordId), {
+              description: "A journal line names you.",
+            })
+          },
+          onError: (error) => {
+            toast.error("Nothing was revoked", { description: String(error) })
+          },
+        })
+      }}
+    >
+      <div className="flex flex-col gap-3 text-sm">
+        <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-3 py-2 text-warning">
+          <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+          Anyone playing right now is thrown out: the proxy re-checks every connected player's access regularly and
+          disconnects as soon as it no longer holds - not only at the next login.
+        </p>
+        <p className="text-muted-foreground">
+          Paid time does not come back this way. A later grant starts fresh and does not credit the revoked remainder.
+        </p>
+        <p className="text-muted-foreground">
+          The entry stays and is only marked revoked - which is why a date still stands beside "no access" in the list,
+          instead of the person looking like a stranger.
+        </p>
+      </div>
+    </AskThenAct>
   )
 }
 

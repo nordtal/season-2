@@ -139,6 +139,49 @@ export function ReferenceValues({
   )
 }
 
+/** What a setting names, as small icons alone: the first `max`, then how many more; a name where there is no icon. */
+export function ReferenceMarks({
+  reference,
+  values,
+  sibling,
+  max = 3,
+  counted = true,
+}: {
+  reference: ConfigReference
+  values: string[]
+  sibling?: string
+  max?: number
+  /** Whether the values past `max` are counted after the icons. */
+  counted?: boolean
+}) {
+  const { choices, icons, pending } = useChoices(reference, sibling)
+  if (pending) return <Skeleton className="size-5" />
+  const shown = values.slice(0, max)
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1">
+      {shown.map((value, index) => {
+        const choice = choiceFor(choices.choices, value)
+        const name = choice?.name ?? value
+        if (choices.choices.length > 0 && !choice) {
+          return <WarningIcon key={`${value}-${index}`} aria-label={value} className="size-5 shrink-0 text-warning" />
+        }
+        return icons && choice?.icon ? (
+          <span key={`${value}-${index}`} title={name} className="shrink-0">
+            <GameIcon icons={icons} item={choice.icon} size={20} />
+          </span>
+        ) : (
+          <span key={`${value}-${index}`} className="truncate text-xs">
+            {name}
+          </span>
+        )
+      })}
+      {counted && values.length > max ? (
+        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">+{values.length - max}</span>
+      ) : null}
+    </span>
+  )
+}
+
 /**
  * A setting that names something, picked from what the game, the guild or Steward lists.
  *
@@ -403,7 +446,7 @@ function Options({
               onClick={() => onPick(choice)}
             >
               <Mark choice={choice} icons={icons} />
-              <span className="flex min-w-0 flex-col">
+              <span className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate">{choice.name}</span>
                 {choice.description ? (
                   <span className="truncate text-xs text-muted-foreground">{choice.description}</span>
@@ -419,7 +462,7 @@ function Options({
                   {choice.frame}
                 </span>
               ) : null}
-              <span className="ml-auto shrink-0 truncate font-mono text-xs text-muted-foreground max-sm:max-w-[40%]">
+              <span className="max-w-[45%] min-w-0 truncate font-mono text-xs text-muted-foreground max-sm:max-w-[40%]">
                 {choice.id}
               </span>
               {multi ? (

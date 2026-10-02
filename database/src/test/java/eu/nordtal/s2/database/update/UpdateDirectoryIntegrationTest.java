@@ -475,6 +475,16 @@ class UpdateDirectoryIntegrationTest {
         assertTrue(updates.countingDown().isEmpty(), "a countdown that ran out is not counting down");
     }
 
+    /** A request of each kind, the two that name more than their services included. */
+    private static eu.nordtal.s2.database.inbox.StewardRequest asked(final UpdateKind kind) {
+        return switch (kind) {
+            case RESTORE ->
+                new eu.nordtal.s2.database.inbox.StewardRequest.Restore(List.of(), "db-20261002T030000Z.dump");
+            case REMOVE_PLUGIN -> new eu.nordtal.s2.database.inbox.StewardRequest.RemovePlugin(List.of("smp"), "a.jar");
+            default -> kind.request(List.of());
+        };
+    }
+
     /** Checks that every kind that stops servers counts down, asking {@link UpdateKind#stopsServers()} for the list. */
     @Test
     void everythingThatStopsServersCountsDown() {
@@ -483,7 +493,7 @@ class UpdateDirectoryIntegrationTest {
                 continue;
             }
             execute(FRESH_INBOX);
-            final UpdateRequest submitted = updates.submit(kind, Actor.HOST, Duration.ZERO);
+            final UpdateRequest submitted = updates.submit(asked(kind), Actor.HOST, Duration.ZERO);
             assertTrue(updates.claimNext().isPresent());
             assertTrue(updates.startCountdown(submitted.id(), Duration.ofSeconds(30), List.of("smp"))
                     .isPresent());
@@ -507,7 +517,7 @@ class UpdateDirectoryIntegrationTest {
                 continue;
             }
             execute(FRESH_INBOX);
-            final UpdateRequest submitted = updates.submit(kind, Actor.HOST, Duration.ZERO);
+            final UpdateRequest submitted = updates.submit(asked(kind), Actor.HOST, Duration.ZERO);
             assertTrue(updates.claimNext().isPresent());
             assertTrue(updates.startCountdown(submitted.id(), Duration.ofSeconds(30), List.of("smp"))
                     .isPresent());

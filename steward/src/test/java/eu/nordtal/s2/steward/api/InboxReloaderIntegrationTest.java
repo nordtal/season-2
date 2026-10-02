@@ -36,10 +36,12 @@ class InboxReloaderIntegrationTest {
         dataSource = TestDatabase.fresh().dataSource();
     }
 
+    /** Waits for a drain still in flight, which would otherwise answer the next test's request. */
     @AfterEach
-    void stop() {
+    void stop() throws InterruptedException {
         if (smp != null) {
             smp.shutdownNow();
+            assertTrue(smp.awaitTermination(5, TimeUnit.SECONDS), "the SMP stopped");
         }
     }
 

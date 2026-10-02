@@ -3,9 +3,9 @@ import { Link } from "@tanstack/react-router"
 import { cn } from "cn"
 
 import { bytes, count, percent, relative } from "@/lib/format"
-import { summarise } from "@/lib/health"
+import type { Alert } from "@/lib/api"
 import { useNow } from "@/lib/use-now"
-import { useActions, useBackups, useHost, useMetrics, useServices, useSettings } from "@/lib/queries"
+import { useActions, useAlerts, useBackups, useHost, useMetrics, useServices } from "@/lib/queries"
 import { ActionRow } from "@/components/steward/actions"
 import { NetworkPanel } from "@/components/steward/network/view"
 import { OnlineLine, useOnline } from "@/components/steward/online"
@@ -50,17 +50,7 @@ function MetricRow() {
   const cpu = useMetrics("host", "cpu_percent", 6)
   const services = useServices()
   const backups = useBackups()
-  const settings = useSettings()
-
-  const { triggers } = summarise({
-    table: services.data,
-    host: host.data,
-    backups: backups.data,
-    thresholds: settings.data,
-  })
-  /** Nothing has answered yet, so the tile must not report a settled zero on no evidence. */
-  const waiting = services.isPending || host.isPending || backups.isPending || settings.isPending
-  const failed = Boolean(services.error ?? host.error ?? backups.error ?? settings.error)
+  const alerts = useAlerts()
 
   const outdated = (services.data?.services ?? []).filter((service) => service.drift === "OUTDATED")
   const finishedBackups = (backups.data ?? []).filter((backup) => !backup.partial)
@@ -149,40 +139,36 @@ function MetricRow() {
         }
       />
 
-      <IssuesTile triggers={triggers} waiting={waiting} failed={failed} />
+      <IssuesTile
+        alerts={alerts.data?.alerts ?? []}
+        waiting={alerts.isPending || (alerts.data !== undefined && alerts.data.checkedAt === null)}
+        failed={Boolean(alerts.error ?? alerts.data?.unreadable)}
+      />
     </div>
   )
 }
 
 /**
- * The issue count, drawn like `Behind`: a count, and beneath it the names it is about.
+ * The issue count steward judged, drawn like `Behind`: a count, and beneath it the names it is about.
  *
- * A settled `0` appears only once every query has answered; a failed read shows the row's dash.
+ * A settled `0` appears only once steward has read the stack; a failed read shows the row's dash.
  */
-function IssuesTile({
-  triggers,
-  waiting,
-  failed,
-}: {
-  triggers: ReturnType<typeof summarise>["triggers"]
-  waiting: boolean
-  failed: boolean
-}) {
-  if (triggers.length === 0) {
+function IssuesTile({ alerts, waiting, failed }: { alerts: Alert[]; waiting: boolean; failed: boolean }) {
+  if (alerts.length === 0) {
     /** Neither a dash nor a zero: a tile with nothing in it yet. */
-    if (waiting) return <MetricTile label="Issues" value={undefined} hint={WAITING_HINT} />
+    if (waiting && !failed) return <MetricTile label="Issues" value={undefined} hint={WAITING_HINT} />
     if (failed) return <MetricTile label="Issues" value={"\u2013"} tone="warn" hint="could not be read" />
     return <MetricTile label="Issues" value={count(0)} hint="all clear" />
   }
 
-  const worst = triggers[0]
-  const names = triggers.map((trigger) => trigger.subject).join(", ")
-  const note = failed ? "could not read everything" : waiting ? "still reading" : null
+  const worst = alerts[0]
+  const names = alerts.map((alert) => alert.subject).join(", ")
+  const note = failed ? "could not read everything" : null
 
   return (
     <MetricTile
       label="Issues"
-      value={count(triggers.length)}
+      value={count(alerts.length)}
       tone={worst.level === "down" ? "down" : "warn"}
       hint={
         note ? (

@@ -188,7 +188,7 @@ abstract class WebFixture {
                 return WEB_PORT;
             }
 
-            // The traffic light's thresholds, left at the interface's own defaults.
+            // The alerts' thresholds, left at the interface's own defaults.
             @Override
             public AlertSpec alerts() {
                 return new AlertSpec() {};

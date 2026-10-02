@@ -12,13 +12,13 @@ import org.slf4j.LoggerFactory;
  *
  * The library maps both 404 and 410 to {@code SubscriptionState.EXPIRED}, and declares no checked exception to catch.
  */
-final class WebPushSender implements PushSender {
+public final class WebPushSender implements PushSender {
 
     private static final Logger log = LoggerFactory.getLogger(WebPushSender.class);
 
     private final WebPushService service;
 
-    WebPushSender(final String subject, final VapidKeys keys) {
+    public WebPushSender(final String subject, final VapidKeys keys) {
         Objects.requireNonNull(subject, "subject");
         Objects.requireNonNull(keys, "keys");
         this.service = new WebPushService(subject, keys);

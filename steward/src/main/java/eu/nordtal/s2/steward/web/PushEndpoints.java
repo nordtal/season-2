@@ -1,10 +1,9 @@
 package eu.nordtal.s2.steward.web;
 
+import eu.nordtal.s2.database.alert.AlertType;
+import eu.nordtal.s2.steward.alert.AlertRouter;
 import eu.nordtal.s2.steward.auth.Sessions;
 import eu.nordtal.s2.steward.data.Data;
-import eu.nordtal.s2.steward.push.AlertType;
-import eu.nordtal.s2.steward.push.AlertWatch;
-import eu.nordtal.s2.steward.push.PushPreferences;
 import eu.nordtal.s2.steward.push.PushSubscriptions;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
@@ -19,31 +18,28 @@ import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The web push half: browser subscriptions, notification preferences and the VAPID public key.
+ * The web push half: browser subscriptions, a test send and the VAPID public key.
  *
- * {@code vapidKeys} and {@code alertWatch} are null together on a deployment without a VAPID keypair.
+ * Without a VAPID keypair {@code vapidKeys} is null and the router sends no push.
  */
 final class PushEndpoints {
 
     private final Function<Context, Sessions.Session> sessions;
     private final @Nullable Data data;
     private final @Nullable PushSubscriptions pushSubscriptions;
-    private final @Nullable PushPreferences pushPreferences;
-    private final @Nullable AlertWatch alertWatch;
+    private final @Nullable AlertRouter router;
     private final com.interaso.webpush.@Nullable VapidKeys vapidKeys;
 
     PushEndpoints(
             final Function<Context, Sessions.Session> sessions,
             final @Nullable Data data,
             final @Nullable PushSubscriptions pushSubscriptions,
-            final @Nullable PushPreferences pushPreferences,
-            final @Nullable AlertWatch alertWatch,
+            final @Nullable AlertRouter router,
             final com.interaso.webpush.@Nullable VapidKeys vapidKeys) {
         this.sessions = sessions;
         this.data = data;
         this.pushSubscriptions = pushSubscriptions;
-        this.pushPreferences = pushPreferences;
-        this.alertWatch = alertWatch;
+        this.router = router;
         this.vapidKeys = vapidKeys;
     }
 
@@ -53,10 +49,6 @@ final class PushEndpoints {
 
     private PushSubscriptions pushSubscriptions() {
         return Objects.requireNonNull(pushSubscriptions, "web-push is not configured on this deployment yet");
-    }
-
-    private PushPreferences pushPreferences() {
-        return Objects.requireNonNull(pushPreferences, "web-push is not configured on this deployment yet");
     }
 
     /** {@code GET /api/web-push/public-key}: the VAPID public key, encoded for the Push API. */
@@ -99,7 +91,7 @@ final class PushEndpoints {
                         who.signedInDiscordId().value(),
                         who.signedInDiscordId().value(),
                         null,
-                        "subscribed a browser to the traffic light's web push");
+                        "subscribed a browser to the alerts' web push");
         ctx.status(204);
     }
 
@@ -119,7 +111,7 @@ final class PushEndpoints {
                         who.signedInDiscordId().value(),
                         who.signedInDiscordId().value(),
                         null,
-                        "unsubscribed a browser from the traffic light's web push");
+                        "unsubscribed a browser from the alerts' web push");
         ctx.status(204);
     }
 
@@ -143,26 +135,6 @@ final class PushEndpoints {
         ctx.json(listed);
     }
 
-    /** {@code GET /api/web-push/preferences}: the effective value of every alert type for this account. */
-    void preferences(final Context ctx) {
-        final Sessions.Session who = sessions.apply(ctx);
-        final Map<String, Boolean> answer = new LinkedHashMap<>();
-        pushPreferences().of(who.signedInDiscordId()).forEach((type, enabled) -> answer.put(type.key(), enabled));
-        ctx.json(answer);
-    }
-
-    /** {@code PUT /api/web-push/preferences}: one switch, for the account that is signed in. */
-    void setPreference(final Context ctx) {
-        final Sessions.Session who = sessions.apply(ctx);
-        final PushPreferenceBody body = ctx.bodyAsClass(PushPreferenceBody.class);
-        final AlertType type = body == null ? null : AlertType.of(body.type);
-        if (type == null || body.enabled == null) {
-            throw new BadRequestResponse("a notification preference is a known type and an enabled" + " flag");
-        }
-        pushPreferences().set(who.signedInDiscordId(), type, body.enabled);
-        ctx.json(Map.of("type", type.key(), "enabled", body.enabled));
-    }
-
     /**
      * {@code POST /api/web-push/test}: one notification of one type, to one of this account's browsers.
      *
@@ -170,7 +142,7 @@ final class PushEndpoints {
      */
     void test(final Context ctx) {
         final Sessions.Session who = sessions.apply(ctx);
-        if (alertWatch == null) {
+        if (router == null || vapidKeys == null) {
             throw new NotFoundResponse(
                     "web-push is not configured on this deployment yet - see" + " web-push in the web group");
         }
@@ -185,13 +157,13 @@ final class PushEndpoints {
         if (subscription == null) {
             throw new NotFoundResponse("this account has no web push subscription of that endpoint");
         }
-        final AlertWatch.Delivery delivery = alertWatch.sendSample(subscription, type);
-        if (delivery == AlertWatch.Delivery.GONE) {
+        final AlertRouter.Delivery delivery = router.sendSample(subscription, type);
+        if (delivery == AlertRouter.Delivery.GONE) {
             // sendSample already removed the row; a silent 204 would leave the browser waiting.
             throw new NotFoundResponse(
                     "that browser's subscription no longer exists and has been" + " removed - subscribe again on it");
         }
-        if (delivery == AlertWatch.Delivery.FAILED) {
+        if (delivery != AlertRouter.Delivery.SENT) {
             throw new BadRequestResponse(
                     "the push service did not accept it - see the log of" + " steward for what it said");
         }
@@ -203,12 +175,6 @@ final class PushEndpoints {
                         null,
                         "sent a test " + type.key() + " notification to one of its own browsers");
         ctx.status(204);
-    }
-
-    private static final class PushPreferenceBody {
-        private @Nullable String type;
-        /** Boxed, so a missing field is a bad request, not a false. */
-        private @Nullable Boolean enabled;
     }
 
     private static final class PushTestBody {

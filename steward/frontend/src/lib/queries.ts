@@ -42,16 +42,17 @@ import {
   type Season,
   type Service,
   type ServiceTable,
+  type AlertChannelKey,
   type AlertTypeKey,
   type PushDevice,
-  type WebPushPreferences,
+  type AlertPreferences,
+  type Alerts,
   type WebPushPublicKey,
 } from "@/lib/api"
 import { browserHasSecurityKeys, createSecurityKey, whyTheKeyFailed } from "@/lib/webauthn"
 import { holdTheKey } from "@/lib/hold-key"
 import { currentPushEndpoint, subscribeToPush, unsubscribeFromPush } from "@/lib/push"
 import type { CreationOptionsJson } from "@/lib/webauthn"
-import type { Thresholds } from "@/lib/health"
 
 /**
  * One hook per endpoint, with its refresh interval decided here rather than at the call site.
@@ -101,7 +102,8 @@ export const keys = {
   webPushPublicKey: ["web-push-public-key"] as const,
   webPushSubscription: ["web-push-subscription"] as const,
   webPushDevices: ["web-push-devices"] as const,
-  webPushPreferences: ["web-push-preferences"] as const,
+  alerts: ["alerts"] as const,
+  alertPreferences: ["alert-preferences"] as const,
 }
 
 /**
@@ -517,25 +519,21 @@ export function useAgentJob(id: string | null) {
   })
 }
 
-/**
- * The traffic light's two adjustable thresholds, from the `web` group.
- *
- * Kept on the server, since the same traffic light fires into the Discord admin channel.
- */
-export function useSettings(enabled = true) {
+/** What steward found wrong, judged on the server against the one set of thresholds. */
+export function useAlerts(enabled = true) {
   return useQuery({
-    queryKey: keys.settings,
-    queryFn: () => api<Thresholds>("/api/settings"),
-    staleTime: 5 * 60 * SECOND,
+    queryKey: keys.alerts,
+    queryFn: () => api<Alerts>("/api/alerts"),
+    refetchInterval: 30 * SECOND,
     enabled,
   })
 }
 
-/** Where a Minecraft head is composed from, read from the same `/api/settings` cache entry as {@link useSettings}. */
+/** Where a Minecraft head is composed from. */
 export function useAvatarBaseUrl(enabled = true) {
   return useQuery({
     queryKey: keys.settings,
-    queryFn: () => api<Thresholds & { minecraftHeadBaseUrl: string }>("/api/settings"),
+    queryFn: () => api<{ minecraftHeadBaseUrl: string }>("/api/settings"),
     staleTime: 5 * 60 * SECOND,
     enabled,
     select: (settings) => settings.minecraftHeadBaseUrl,
@@ -636,27 +634,27 @@ export function useWebPushDevices(enabled = true) {
   })
 }
 
-/** Which kinds of alert this account wants, each with its effective value, defaults included. */
-export function useWebPushPreferences(enabled = true) {
+/** On which channels this account wants each kind of alert, defaults included. */
+export function useAlertPreferences(enabled = true) {
   return useQuery({
-    queryKey: keys.webPushPreferences,
-    queryFn: () => api<WebPushPreferences>("/api/web-push/preferences"),
+    queryKey: keys.alertPreferences,
+    queryFn: () => api<AlertPreferences>("/api/alerts/preferences"),
     enabled,
   })
 }
 
 /** Sets one switch, writing the answer into the cache so the switch does not spring back during a refetch. */
-export function useSetWebPushPreference() {
+export function useSetAlertPreference() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (choice: { type: AlertTypeKey; enabled: boolean }) =>
-      api<{ type: AlertTypeKey; enabled: boolean }>("/api/web-push/preferences", {
+    mutationFn: (choice: { type: AlertTypeKey; channel: AlertChannelKey; enabled: boolean }) =>
+      api<{ type: AlertTypeKey; channel: AlertChannelKey; enabled: boolean }>("/api/alerts/preferences", {
         method: "PUT",
         body: choice,
       }),
     onSuccess: (saved) =>
-      client.setQueryData(keys.webPushPreferences, (current?: WebPushPreferences) =>
-        current ? { ...current, [saved.type]: saved.enabled } : current,
+      client.setQueryData(keys.alertPreferences, (current?: AlertPreferences) =>
+        current ? { ...current, [saved.type]: { ...current[saved.type], [saved.channel]: saved.enabled } } : current,
       ),
   })
 }

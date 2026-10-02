@@ -4,7 +4,7 @@ import eu.nordtal.s2.steward.config.WebSpec;
 import io.javalin.http.Context;
 import java.util.Map;
 
-/** {@code /api/settings}: the thresholds and the base URL the start page judges by. */
+/** {@code /api/settings}: what the pages need from the web group, which is the base of a Minecraft head. */
 final class Settings {
 
     private final WebSpec config;
@@ -14,11 +14,6 @@ final class Settings {
     }
 
     void get(final Context ctx) {
-        ctx.json(Map.of(
-                "disk", config.alerts().diskPercent(),
-                "memory", config.alerts().memoryPercent(),
-                "backupAgeHours", config.alerts().backupAgeHours(),
-                // The base a Minecraft head URL is composed from.
-                "minecraftHeadBaseUrl", config.avatars().minecraftHeadBaseUrl()));
+        ctx.json(Map.of("minecraftHeadBaseUrl", config.avatars().minecraftHeadBaseUrl()));
     }
 }

@@ -7,9 +7,9 @@ import { OverviewPage } from "@/pages/overview"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
- * The Issues tile: what the page says about how complete the {@link summarise} verdict is.
+ * The Issues tile: what steward judged, and how complete that reading is.
  *
- * Rendered in a real memory router, so a trigger's link to a missing route fails.
+ * Rendered in a real memory router, so a link to a missing route fails.
  */
 
 function json(status: number, body: unknown): Response {
@@ -65,11 +65,21 @@ function dump(hoursAgo: number) {
   }
 }
 
-/** Everything the start page asks for; `settings` is a function so a test can hold it open. */
+/** One alert as `/api/alerts` lists it. */
+function alert(subject: string, level: "warn" | "down") {
+  return { type: "service", level, subject, title: `${subject} is not running`, detail: "", path: "/" }
+}
+
+/** A reading steward finished, with these alerts in it. */
+function reading(alerts: unknown[], unreadable: string | null = null) {
+  return { checkedAt: new Date().toISOString(), unreadable, level: "ok", alerts, recent: [] }
+}
+
+/** Everything the start page asks for; `alerts` is a function so a test can hold it open. */
 function backend(over: {
   services?: unknown[]
   backups?: unknown[]
-  settings?: () => Promise<unknown>
+  alerts?: () => Promise<unknown>
   season?: unknown
 }) {
   return vi.fn<(url: string) => Promise<Response>>(async (url: string) => {
@@ -81,9 +91,7 @@ function backend(over: {
     }
     if (url === "/api/host") return json(200, HOST)
     if (url === "/api/backups") return json(200, over.backups ?? [backup(2), dump(2)])
-    if (url === "/api/settings") {
-      return json(200, await (over.settings?.() ?? Promise.resolve({ disk: 85, memory: 90, backupAgeHours: 36 })))
-    }
+    if (url === "/api/alerts") return json(200, await (over.alerts?.() ?? Promise.resolve(reading([]))))
     /** The other tiles answer emptily, so nothing else can be why a test passes or fails. */
     if (url === "/api/agent") return json(200, { available: true })
     if (url.startsWith("/api/metrics")) return json(200, { points: [] })
@@ -138,7 +146,6 @@ function issuesTile(): HTMLElement | null {
 /** What the tile says altogether, or "" before it renders. */
 const said = () => issuesTile()?.textContent ?? ""
 
-const STILL_READING = /still reading/
 const COULD_NOT_READ = /could not/
 
 afterEach(() => {
@@ -146,94 +153,62 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe("OverviewPage - the Issues tile while /api/settings is still on its way", () => {
-  it("says so beside a tile that already has something to report", async () => {
-    /** An image is behind, so the tile has a count, yet must not look settled while a query is open. */
+describe("OverviewPage - the Issues tile prints what steward judged", () => {
+  it("names every alert's subject and is red when one is", async () => {
     vi.stubGlobal(
       "fetch",
-      backend({
-        services: [service({ service: "bot", drift: "OUTDATED" })],
-        settings: () => new Promise(() => {}),
-      }),
+      backend({ alerts: () => Promise.resolve(reading([alert("smp", "down"), alert("bot", "warn")])) }),
     )
     draw()
 
-    /** The tile prints a trigger's subject, not its sentence. */
-    await waitFor(() => expect(said()).toContain("bot"))
-    expect(said()).toMatch(STILL_READING)
-    // And not the other sentence: nothing failed, it is simply not finished.
+    /** The tile prints an alert's subject, not its title. */
+    await waitFor(() => expect(said()).toContain("smp, bot"))
+    expect(said()).toContain("2")
+    expect(issuesTile()?.innerHTML).toContain("text-destructive")
     expect(said()).not.toMatch(COULD_NOT_READ)
   })
 
-  it("keeps the tile empty while there is nothing to report at all", async () => {
-    /** A settled "0" must never appear before every query has answered. */
-    vi.stubGlobal("fetch", backend({ settings: () => new Promise(() => {}) }))
+  it("keeps the tile empty while steward has not read the stack yet", async () => {
+    /** A settled "0" must never appear before steward has looked. */
+    vi.stubGlobal("fetch", backend({ alerts: () => Promise.resolve({ ...reading([]), checkedAt: null }) }))
     draw()
 
     await waitFor(() => expect(issuesTile()).not.toBeNull())
-    expect(issuesTile()!.querySelector("[data-slot='skeleton-text']")).not.toBeNull()
+    await waitFor(() => expect(issuesTile()!.querySelector("[data-slot='skeleton-text']")).not.toBeNull())
     expect(said()).not.toContain("0")
   })
 
-  it("drops the sentence, and only then, once the thresholds have arrived", async () => {
-    vi.stubGlobal("fetch", backend({ services: [service({ service: "bot", drift: "OUTDATED" })] }))
-    draw()
-
-    await waitFor(() => expect(said()).toContain("bot"))
-    expect(said()).not.toMatch(STILL_READING)
-  })
-
-  it("is judging over less than it should, and the sentence is the only warning of it", async () => {
-    /** While /api/settings is open the tile is yellow over one trigger; the answer adds a red one. */
-    let answer: (value: unknown) => void = noop
-    const held = new Promise<unknown>((resolve) => {
-      answer = resolve
-    })
+  it("says it could not read everything beside what it last knew", async () => {
     vi.stubGlobal(
       "fetch",
-      backend({
-        services: [service({ service: "bot", drift: "OUTDATED" })],
-        backups: [backup(500), dump(1)],
-        settings: () => held,
-      }),
+      backend({ alerts: () => Promise.resolve(reading([alert("bot", "warn")], "the agent did not answer")) }),
     )
     draw()
 
     await waitFor(() => expect(said()).toContain("bot"))
-    expect(said()).toMatch(STILL_READING)
-    expect(issuesTile()?.innerHTML).toContain("text-warning")
-
-    await act(async () => {
-      answer({ disk: 85, memory: 90, backupAgeHours: 36 })
-    })
-
-    await waitFor(() => expect(said()).toContain("nordtal-s2_mc-smp"))
-    expect(said()).toContain("bot")
-    expect(said()).not.toMatch(STILL_READING)
-    expect(issuesTile()?.innerHTML).toContain("text-destructive")
+    expect(said()).toMatch(COULD_NOT_READ)
   })
 
-  it("still says which of the two it is when a query actually failed", async () => {
-    /** `failed` and `waiting` are different sentences, "will not be finished" and "not finished". */
+  it("draws the dash, never a zero, when the alerts could not be asked for", async () => {
     vi.stubGlobal("fetch", async (url: string) => {
-      if (url === "/api/settings") return json(503, { error: "Broken." })
-      return backend({ services: [service({ service: "bot", drift: "OUTDATED" })] })(url)
+      if (url === "/api/alerts") return json(503, { error: "Broken." })
+      return backend({})(url)
     })
     draw()
 
     await waitFor(() => expect(said()).toMatch(COULD_NOT_READ))
-    expect(said()).not.toMatch(STILL_READING)
+    expect(said()).not.toContain("0")
   })
 })
 
 describe("OverviewPage - the tile that replaced the old banner", () => {
   /** The value tells "nothing read yet" from an evidenced "0". */
   it("shows a placeholder while reading, and a settled zero only once a healthy stack answers", async () => {
-    let answerSettings: (value: unknown) => void = noop
+    let answer: (value: unknown) => void = noop
     const held = new Promise<unknown>((resolve) => {
-      answerSettings = resolve
+      answer = resolve
     })
-    vi.stubGlobal("fetch", backend({ settings: () => held }))
+    vi.stubGlobal("fetch", backend({ alerts: () => held }))
     draw()
 
     // Waiting: the tile already exists and already says something, and that something is not "0".
@@ -241,12 +216,11 @@ describe("OverviewPage - the tile that replaced the old banner", () => {
     expect(said()).not.toContain("0")
 
     await act(async () => {
-      answerSettings({ disk: 85, memory: 90, backupAgeHours: 36 })
+      answer(reading([]))
     })
 
-    /** Settled and fine: the evidenced zero, and nothing reading as waiting or failed. */
+    /** Settled and fine: the evidenced zero, and nothing reading as failed. */
     await waitFor(() => expect(said()).toContain("0"))
-    expect(said()).not.toMatch(STILL_READING)
     expect(said()).not.toMatch(COULD_NOT_READ)
   })
 })

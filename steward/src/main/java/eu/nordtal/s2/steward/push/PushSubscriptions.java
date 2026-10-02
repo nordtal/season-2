@@ -42,7 +42,7 @@ public final class PushSubscriptions {
                 dao.forAccount(discordId).size());
     }
 
-    /** Every subscription there is, for {@link AlertWatch}. */
+    /** Every subscription there is, for {@link eu.nordtal.s2.steward.alert.AlertRouter}. */
     public List<Subscription> all() {
         return dao.all();
     }

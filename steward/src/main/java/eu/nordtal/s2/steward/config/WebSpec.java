@@ -73,11 +73,10 @@ public interface WebSpec {
     @Name("Alerts")
     @Key("alerts")
     @Comment({
-        "When the start page's traffic light turns yellow or red. A service that is down and a",
-        "missing backup are further triggers, deliberately not adjustable."
+        "When steward's measured alerts turn yellow or red, on every page, by push and in the admin",
+        "channel. A service that is down and a missing backup always alert, deliberately not adjustable."
     })
-    @Explain(
-            "Only these thresholds are a matter of taste; a stopped service and a missing backup are fixed triggers on the same light.")
+    @Explain("Only these thresholds are a matter of taste; a stopped service and a missing backup always alert.")
     AlertSpec alerts();
 
     @Order(6)
@@ -98,7 +97,7 @@ public interface WebSpec {
     @Name("Web push")
     @Key("web-push")
     @Comment({
-        "Web Push: the traffic light reaching a phone's lock screen. Both keys are a VAPID keypair",
+        "Web Push: the alerts reaching a phone's lock screen. Both keys are a VAPID keypair",
         "generated once per deployment with `steward generate-vapid-keys`; both blank means",
         "not configured, and no subscribe button is drawn."
     })
@@ -161,7 +160,7 @@ public interface WebSpec {
         }
     }
 
-    /** The traffic light's thresholds, kept here rather than in the browser since the light also fires into Discord. */
+    /** The thresholds of steward's measured alerts, the only copy there is. */
     @ConfigSpec
     interface AlertSpec {
 
@@ -187,7 +186,7 @@ public interface WebSpec {
         @Name("Backup age (hours)")
         @Key("backup-age-hours")
         @Comment({
-            "How old the newest finished backup may be before the light turns red. 36 hours leaves",
+            "How old the newest finished backup may be before it alerts red. 36 hours leaves",
             "one missed night visible. It counts files on disk, not runs that reported success."
         })
         @Explain(

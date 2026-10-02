@@ -25,7 +25,7 @@ export default defineConfig({
       "/auth": "http://127.0.0.1:8080",
     },
   },
-  // jsdom is required because the log window's buffer and the traffic light are a hook and a decision that only exist inside React.
+  // jsdom is required because the log window's buffer is a hook that only exists inside React.
   test: {
     environment: "jsdom",
     // Raises Testing Library's async budget; the file says why.

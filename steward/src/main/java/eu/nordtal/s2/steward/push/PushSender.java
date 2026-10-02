@@ -1,7 +1,7 @@
 package eu.nordtal.s2.steward.push;
 
-/** Sends one push to one subscription; the seam {@code AlertWatchTest} stands in front of. */
-interface PushSender {
+/** Sends one push to one subscription; the seam {@code AlertRouterTest} stands in front of. */
+public interface PushSender {
 
     /** What sending answered. */
     enum Result {

@@ -496,11 +496,7 @@ public final class StackApi implements AutoCloseable {
         final List<StackReading.Service> services = new ArrayList<>();
         for (final ServiceRows.Service row : serviceRows.rows(images)) {
             services.add(new StackReading.Service(
-                    row.service(),
-                    row.state(),
-                    row.health(),
-                    Boolean.TRUE.equals(row.standby()) || row.hold() != null,
-                    row.drift() == ImageResult.State.OUTDATED));
+                    row.service(), row.state(), row.health(), row.quiet(), row.drift() == ImageResult.State.OUTDATED));
         }
         final String registryProblem = images.reached()
                 ? null

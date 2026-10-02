@@ -52,6 +52,17 @@ class ServiceRowStandbyFieldTest {
         }
     }
 
+    /** The alert rule's verdict rides on the row, so a page colours a service as the alerts judge it. */
+    @Test
+    void aStoppedStandbyIsNotRedAndAStoppedLiveServiceIs() {
+        for (final String standby : TOPOLOGY.standbys()) {
+            assertFalse(row(standby).has("alert"), standby + " raises no alert, so no page may draw it red");
+        }
+        for (final String live : List.of("proxy", "limbo")) {
+            assertEquals("down", row(live).get("alert").getAsString(), live + " stopped is what the alerts call down");
+        }
+    }
+
     @Test
     void aNameThatMerelyLooksLikeOneIsNotOne() {
         assertFalse(

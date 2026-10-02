@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.api;
 
+import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.online.OnlinePlayer;
 import eu.nordtal.s2.database.update.ServiceHold;
 import eu.nordtal.s2.database.update.UpdateDirectory;
@@ -7,6 +8,8 @@ import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.ImageResult;
+import eu.nordtal.s2.steward.alert.StackAlerts;
+import eu.nordtal.s2.steward.alert.StackReading;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -37,6 +40,7 @@ final class ServiceRows {
      * One row of {@code /api/services}; the last five fields only on {@code /api/services/{name}}.
      *
      * Absent is never zero, empty or false: nobody reported the players, or the service is no standby and not held.
+     * @param alert {@code DOWN} where {@link StackAlerts#down} finds the row red, else absent
      */
     public record Service(
             String service,
@@ -51,6 +55,7 @@ final class ServiceRows {
             @Nullable Boolean standby,
             @Nullable Hold hold,
             @Nullable String health,
+            Alert.@Nullable Level alert,
             @Nullable String startedAt,
             @Nullable Long memoryBytes,
             @Nullable Long memoryLimitBytes,
@@ -60,6 +65,11 @@ final class ServiceRows {
             @Nullable Integer logCapacity,
             @Nullable Long diskBytes,
             @Nullable Instant diskMeasuredAt) {
+
+        /** Whether its stop is meant: a standby, or a service an admin holds down. */
+        boolean quiet() {
+            return meant(standby, hold);
+        }
 
         /** This row with what only the page of one service shows. */
         Service detailed(
@@ -81,6 +91,7 @@ final class ServiceRows {
                     standby,
                     hold,
                     health,
+                    alert,
                     startedAt,
                     memoryBytes,
                     memoryLimitBytes,
@@ -91,6 +102,10 @@ final class ServiceRows {
                     diskBytes,
                     diskMeasuredAt);
         }
+    }
+
+    private static boolean meant(final @Nullable Boolean standby, final @Nullable Object hold) {
+        return Boolean.TRUE.equals(standby) || hold != null;
     }
 
     /** Somebody stopped the service on purpose, and it stays stopped. */
@@ -153,6 +168,10 @@ final class ServiceRows {
         final ServiceHold hold = holds.get(service);
         final boolean running = container.isRunning();
         final AgentWire.@Nullable Reading sample = running ? container.sample() : null;
+        final @Nullable Boolean standby = standby(service, topology);
+        final @Nullable String health = running ? container.health() : null;
+        final boolean down = StackAlerts.down(
+                new StackReading.Service(service, container.state(), health, meant(standby, hold), false));
         return new Service(
                 service,
                 container.id(),
@@ -163,9 +182,10 @@ final class ServiceRows {
                 drift.state(service),
                 counts.counts().get(service),
                 roster(service, counts),
-                standby(service, topology),
+                standby,
                 hold == null ? null : new Hold(hold.since()),
-                running ? container.health() : null,
+                health,
+                down ? Alert.Level.DOWN : null,
                 running ? container.startedAt() : null,
                 sample == null ? null : sample.memoryBytes(),
                 sample == null ? null : sample.memoryLimitBytes(),

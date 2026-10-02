@@ -80,7 +80,10 @@ describe("NavList - the health dot on a service row", () => {
       if (url === "/api/topology") return json(NETWORK_MAP)
       if (url === "/api/services") {
         return json({
-          services: [service({ service: "smp" }), service({ service: "limbo", state: "exited", status: "Exited (1)" })],
+          services: [
+            service({ service: "smp" }),
+            service({ service: "limbo", state: "exited", status: "Exited (1)", alert: "down" }),
+          ],
           drift: { checkedAt: new Date().toISOString(), reached: true, unverifiable: [] },
         })
       }

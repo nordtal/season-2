@@ -53,26 +53,26 @@ public final class StackAlerts {
             return;
         }
         for (final StackReading.Service service : services) {
-            final boolean running = "running".equals(service.state());
-            final String page = "/services/" + service.name();
-            if (!running && !service.quiet()) {
-                alerts.add(alert(
-                        AlertType.SERVICE,
-                        Alert.Level.DOWN,
-                        service.name(),
-                        service.name() + " is not running",
-                        "Docker reports the state " + service.state() + ".",
-                        page));
-            } else if (running && "unhealthy".equals(service.health())) {
-                alerts.add(alert(
-                        AlertType.SERVICE,
-                        Alert.Level.DOWN,
-                        service.name(),
-                        service.name() + " is unhealthy",
-                        "It is running, but its healthcheck fails.",
-                        page));
+            if (!down(service)) {
+                continue;
             }
+            final boolean running = "running".equals(service.state());
+            alerts.add(alert(
+                    AlertType.SERVICE,
+                    Alert.Level.DOWN,
+                    service.name(),
+                    service.name() + (running ? " is unhealthy" : " is not running"),
+                    running
+                            ? "It is running, but its healthcheck fails."
+                            : "Docker reports the state " + service.state() + ".",
+                    "/services/" + service.name()));
         }
+    }
+
+    /** Whether a service is red: stopped without meaning to be, or running with a failing healthcheck. */
+    public static boolean down(final StackReading.Service service) {
+        final boolean running = "running".equals(service.state());
+        return running ? "unhealthy".equals(service.health()) : !service.quiet();
     }
 
     /** An older image, or a registry that did not answer, is yellow: nothing is broken yet. */

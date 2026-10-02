@@ -99,7 +99,12 @@ describe("ServiceHead - a service somebody is holding down", () => {
   })
 
   it("says nothing of the sort about a service that merely stopped", () => {
-    draw(<ServiceHead name="smp" service={service({ state: "exited", status: "Exited (1) 4 minutes ago" })} />)
+    draw(
+      <ServiceHead
+        name="smp"
+        service={service({ state: "exited", status: "Exited (1) 4 minutes ago", alert: "down" })}
+      />,
+    )
 
     expect(screen.queryByText("held down")).toBeNull()
     expect(screen.queryByText("exited")).not.toBeNull()

@@ -29,7 +29,7 @@ describe("HealthDot - quiet by default, loud where a picture needs it", () => {
   })
 
   it("still draws the states that were never silent, either way round", () => {
-    const { rerender } = render(<HealthDot service={{ state: "exited" }} />)
+    const { rerender } = render(<HealthDot service={{ state: "exited", alert: "down" }} />)
     expect(screen.getByLabelText("unhealthy").className).toContain("bg-destructive")
 
     rerender(<HealthDot service={{ state: "running", health: "starting" }} quiet={false} />)
@@ -92,13 +92,27 @@ describe("a held service is not a broken one", () => {
   })
 
   it("leaves a service that fell over looking like one", () => {
-    render(<HealthDot service={{ state: "exited" }} />)
+    render(<HealthDot service={{ state: "exited", alert: "down" }} />)
     expect(screen.getByLabelText("unhealthy").className).toContain("bg-destructive")
   })
 
   it("changes nothing about a held container that is running anyway", () => {
     /** A held service that is up and unhealthy stays red, as steward's alerts judge it. */
-    render(<HealthDot service={{ ...held, state: "running", health: "unhealthy" }} quiet={false} />)
+    render(<HealthDot service={{ ...held, state: "running", health: "unhealthy", alert: "down" }} quiet={false} />)
     expect(screen.getByLabelText("unhealthy").className).toContain("bg-destructive")
+  })
+})
+
+/** Red is the alert rule's verdict, carried on the row, so a stop the rule means is never red here either. */
+describe("a standby is not a broken one", () => {
+  it("draws a stopped standby, which raises no alert, as standby rather than red", () => {
+    render(<HealthDot service={{ state: "exited" }} />)
+    const dot = screen.getByLabelText("standby")
+    expect(dot.className).not.toContain("bg-destructive")
+  })
+
+  it("draws red only where the rule said down, whatever the container's state", () => {
+    render(<HealthDot service={{ state: "running", health: "unhealthy" }} quiet={false} />)
+    expect(screen.queryByLabelText("unhealthy")).toBeNull()
   })
 })

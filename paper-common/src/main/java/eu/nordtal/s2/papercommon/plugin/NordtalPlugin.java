@@ -13,6 +13,8 @@ import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AdminOperators;
+import eu.nordtal.s2.database.game.GameCatalogue;
+import eu.nordtal.s2.database.game.GameDataStore;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.InboxTable;
 import eu.nordtal.s2.database.inbox.Outcome;
@@ -31,6 +33,7 @@ import eu.nordtal.s2.papercommon.chat.SystemLines;
 import eu.nordtal.s2.papercommon.command.Answer;
 import eu.nordtal.s2.papercommon.command.CommandFilter;
 import eu.nordtal.s2.papercommon.command.PaperUser;
+import eu.nordtal.s2.papercommon.game.GameDataExport;
 import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.papercommon.player.Presence;
 import eu.nordtal.s2.papercommon.world.Distances;
@@ -216,6 +219,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
         // An admin's change in Steward is a reload, on the hub's thread like one Steward asks for.
         settings.listen(signals, this::reload);
         signals.start();
+        exportGameData();
 
         // Last, so a marker means every step above ran; async, so a frozen main thread lets it go stale.
         final Readiness readiness = Readiness.onDefaultPath(clock, getLogger()::warning);
@@ -223,6 +227,24 @@ public abstract class NordtalPlugin extends JavaPlugin {
                 .getScheduler()
                 .runTaskTimerAsynchronously(this, readiness::refresh, 0L, Readiness.BEAT.toSeconds() * 20L);
         getLogger().info(getName() + " enabled");
+    }
+
+    /**
+     * Publishes what this server knows of the game for Steward's pickers, read on the first tick and written off it.
+     *
+     * The first tick is after every datapack is loaded; a failed write costs the pickers this server's entries.
+     */
+    private void exportGameData() {
+        getServer().getScheduler().runTask(this, () -> {
+            final GameCatalogue catalogue = GameDataExport.read(getServer(), getLogger()::warning);
+            getServer().getScheduler().runTaskAsynchronously(this, () -> {
+                try {
+                    GameDataStore.using(pool).publish(getName(), catalogue);
+                } catch (final RuntimeException failed) {
+                    getLogger().warning("The game data could not be published: " + failed.getMessage());
+                }
+            });
+        });
     }
 
     /** Opens the pool on the environment's connection and takes every group of this server from the database. */

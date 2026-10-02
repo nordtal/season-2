@@ -47,6 +47,19 @@ public final class AgentWire {
     /** The host's own numbers and Docker's disk use: {@link Host}. */
     public static final String HOST = "/api/host";
 
+    /** How much of the disk one service's volume takes: a {@link Disk}, slow on purpose. */
+    public static final String DISK = "/api/volumes/{service}/disk";
+
+    /** Every message bundle the services' jars carry: a list of {@link BundleRef}. */
+    public static final String BUNDLES = "/api/bundles";
+
+    /**
+     * One {@link MessageBundle}, {@code ?module=} naming the plugin, or none for a standalone jar.
+     *
+     * A POST of {@link BundleChanges} saves the overrides and answers a {@link SavedBundle}.
+     */
+    public static final String BUNDLE = BUNDLES + "/{service}";
+
     /** The sampler's rounds taken after {@code ?after=}, an ISO instant, oldest first: a list of {@link Round}. */
     public static final String SAMPLES = "/api/samples";
 
@@ -169,6 +182,25 @@ public final class AgentWire {
      * @param at when it was taken, which is also what a reader asks after, so a restart of the agent loses nothing
      */
     public record Round(Instant at, @Nullable HostNumbers host, Map<String, Reading> services) {}
+
+    /** A volume's size by {@code du}, or {@code null} when it could not be measured. */
+    public record Disk(@Nullable Long bytes) {}
+
+    /**
+     * One message bundle before its jar is opened.
+     *
+     * @param module the plugin's data directory under the service, or the empty string for a standalone jar
+     */
+    public record BundleRef(String service, String module, boolean writable) {}
+
+    /** One language's text for one key; a {@code null} text resets it to the packaged one. */
+    public record TextChange(
+            String key, String language, @Nullable String text) {}
+
+    public record BundleChanges(List<TextChange> changes) {}
+
+    /** The bundle as it reads after a save, and every dropped placeholder the new text no longer carries. */
+    public record SavedBundle(MessageBundle bundle, List<String> warnings) {}
 
     /** One file in the backup directory; a {@code partial} one is being written or died halfway. */
     public record Archive(String name, long bytes, String human, Instant modified, boolean partial) {}

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.plan;
 
+import eu.nordtal.s2.internalapi.agent.JarName;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;

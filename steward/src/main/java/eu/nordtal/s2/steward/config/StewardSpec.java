@@ -185,18 +185,6 @@ public interface StewardSpec {
             "Steward's only way to the containers and the volumes. Without a token below, nothing about a container can be shown or done.")
     AgentSpec agent();
 
-    @Order(16)
-    @Name("Configs root")
-    @Key("configs-root")
-    @Comment({
-        "Where every service's configuration is mounted in this container, one directory per",
-        "compose service. Only a discovered .yml file can be reached."
-    })
-    @NoExplanationNeeded
-    default String configsRoot() {
-        return "/configs";
-    }
-
     /** Payments: where steward-bunq answers and how often it is asked; purchases are the {@code access} group's. */
     @ConfigSpec
     interface BunqSpec {

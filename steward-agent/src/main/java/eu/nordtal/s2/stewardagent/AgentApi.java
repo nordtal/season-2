@@ -2,12 +2,14 @@ package eu.nordtal.s2.stewardagent;
 
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.stewardagent.backup.BackupRoutes;
+import eu.nordtal.s2.stewardagent.bundles.BundleRoutes;
 import eu.nordtal.s2.stewardagent.docker.Console;
 import eu.nordtal.s2.stewardagent.docker.Containers;
 import eu.nordtal.s2.stewardagent.docker.Docker;
 import eu.nordtal.s2.stewardagent.logs.LogStreams;
 import eu.nordtal.s2.stewardagent.measure.HostMetrics;
 import eu.nordtal.s2.stewardagent.measure.Sampler;
+import eu.nordtal.s2.stewardagent.measure.VolumeSizes;
 import eu.nordtal.s2.stewardagent.topology.ComposeTopology;
 import io.javalin.config.JavalinConfig;
 import java.nio.file.Path;
@@ -25,6 +27,8 @@ public final class AgentApi implements AutoCloseable {
     private final BackupRoutes backups;
     private final LogStreams logs;
     private final Sampler sampler;
+    private final BundleRoutes bundles;
+    private final VolumeSizes sizes;
 
     /**
      * Wires the routes of one compose project.
@@ -47,20 +51,23 @@ public final class AgentApi implements AutoCloseable {
                 sampler,
                 topology);
         this.backups = new BackupRoutes(docker, project, paths.backupSources(), paths.backups(), clock);
+        this.bundles = new BundleRoutes(paths.configs(), paths.volumesRoot());
+        this.sizes = new VolumeSizes(paths.volumesRoot());
     }
 
     /**
      * Where the volumes this process reads are mounted.
      *
-     * @param volumesRoot the Minecraft data volumes, one directory per service, or {@code null} for none
+     * @param volumesRoot the services' volumes, one directory per service, or {@code null} for none
+     * @param configs each service's plugins folder, or the bot's config, where the message overrides live
      * @param backupSources every volume a backup saves, read-only, one directory per Docker volume name
      * @param backups where archives are written, mounted at the same path in the database's container
      */
-    public record Paths(@Nullable Path volumesRoot, Path backupSources, Path backups) {
+    public record Paths(@Nullable Path volumesRoot, Path configs, Path backupSources, Path backups) {
 
         /** Where compose.yml mounts them, which a setting of the same name moves. */
         public static final Paths DEFAULTS =
-                new Paths(Path.of("/volumes"), Path.of("/backup-sources"), Path.of("/backups"));
+                new Paths(Path.of("/volumes"), Path.of("/configs"), Path.of("/backup-sources"), Path.of("/backups"));
     }
 
     /** Starts the sampler, whose first round is taken at once. */
@@ -73,6 +80,8 @@ public final class AgentApi implements AutoCloseable {
         backups.register(config);
         config.routes.sse(AgentWire.LOGS, logs::follow);
         config.routes.get(AgentWire.LOG_CAPACITY, logs::capacity);
+        config.routes.get(AgentWire.DISK, sizes::route);
+        bundles.register(config);
     }
 
     /** Ends the follows first, or Jetty spins on a stream it cannot close, then the sampler. */

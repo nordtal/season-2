@@ -1,11 +1,8 @@
 package eu.nordtal.s2.steward.api;
 
-import eu.nordtal.s2.common.time.NetworkTime;
+import eu.nordtal.s2.internalapi.InternalClient;
+import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.steward.plan.Topology;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
@@ -13,88 +10,54 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.jspecify.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
- * How much of the disk one service's volume takes, by {@code du -sk}, for the Disk field on its page.
+ * How much of the disk one service's volume takes, for the Disk field on its page; steward-agent runs the {@code du}.
  *
- * Only services whose volume is mounted here get a number; after the first, each ask gets the last one and a refresh.
+ * Only the servers' volumes get a number; after the first, each ask gets the last one and a refresh.
  */
 final class DiskUsage {
-
-    private static final Logger log = LoggerFactory.getLogger(DiskUsage.class);
 
     static final Duration TTL = Duration.ofMinutes(5);
 
     /** One measurement: the bytes, or none when {@code du} could not answer, and when it was taken. */
     record Measured(OptionalLong bytes, Instant at) {}
 
-    private final @Nullable Path volumesRoot;
-    private final Function<Path, OptionalLong> measure;
+    private final Function<String, OptionalLong> measure;
     private final Executor background;
     private final Supplier<Instant> clock;
     private final Map<String, Refreshed<Measured>> cache = new ConcurrentHashMap<>();
 
-    DiskUsage(final @Nullable Path volumesRoot, final Executor background) {
-        this(volumesRoot, DiskUsage::du, background, NetworkTime.clock()::instant);
+    DiskUsage(final AgentClient agent, final Executor background, final Supplier<Instant> clock) {
+        this(service -> sizeOf(agent, service), background, clock);
     }
 
-    DiskUsage(
-            final @Nullable Path volumesRoot,
-            final Function<Path, OptionalLong> measure,
-            final Executor background,
-            final Supplier<Instant> clock) {
-        this.volumesRoot = volumesRoot;
+    DiskUsage(final Function<String, OptionalLong> measure, final Executor background, final Supplier<Instant> clock) {
         this.measure = measure;
         this.background = background;
         this.clock = clock;
     }
 
-    /** The last measurement for {@code service}, or empty when it has no volume here. */
+    /** The last measurement for {@code service}, or empty when it has no volume or none could be taken. */
     Optional<Measured> of(final String service) {
-        if (volumesRoot == null || !Topology.hasPlugins(service)) {
-            return Optional.empty();
-        }
-        final Path volume = volumesRoot.resolve(service);
-        if (!Files.isDirectory(volume)) {
+        if (!Topology.hasPlugins(service)) {
             return Optional.empty();
         }
         final Measured measured = cache.computeIfAbsent(
                         service,
                         name -> new Refreshed<>(
-                                () -> new Measured(measure.apply(volume), clock.get()), TTL, background, clock))
+                                () -> new Measured(measure.apply(name), clock.get()), TTL, background, clock))
                 .get();
         return measured.bytes().isPresent() ? Optional.of(measured) : Optional.empty();
     }
 
-    /** {@code du -sk}, in bytes; empty when it fails or takes longer than half a minute. */
-    static OptionalLong du(final Path path) {
+    /** The agent's answer, and none when it has no such volume or did not answer. */
+    private static OptionalLong sizeOf(final AgentClient agent, final String service) {
         try {
-            final Process process = new ProcessBuilder("du", "-sk", path.toString())
-                    .redirectError(ProcessBuilder.Redirect.DISCARD)
-                    .start();
-            if (!process.waitFor(30, TimeUnit.SECONDS)) {
-                process.destroyForcibly();
-                log.warn("du on {} took longer than 30 s and was stopped", path);
-                return OptionalLong.empty();
-            }
-            // du exits 1 when a file vanished under it, which a running server does all the time; the total stands.
-            final String out = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
-            final int tab = out.indexOf('\t');
-            if (tab <= 0) {
-                return OptionalLong.empty();
-            }
-            return OptionalLong.of(Long.parseLong(out.substring(0, tab)) * 1024L);
-        } catch (IOException | NumberFormatException failed) {
-            log.warn("du on {} failed: {}", path, failed.toString());
-            return OptionalLong.empty();
-        } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
+            return agent.disk(service);
+        } catch (final InternalClient.Failure failed) {
             return OptionalLong.empty();
         }
     }

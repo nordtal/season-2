@@ -574,8 +574,9 @@ class TopologyTest {
     void theBundlesTheInterfaceShowsAreTheBundlesTheServicesActuallyRead() {
         // Saving a bundle IS the reload, so a volume spelt differently here shows a form and quietly changes nothing.
         @SuppressWarnings("unchecked")
-        final Map<String, Object> editor = (Map<String, Object>) services.get("steward");
-        assertNotNull(editor, "compose.yml has no steward service");
+        // steward-agent reads and saves them; steward only relays.
+        final Map<String, Object> editor = (Map<String, Object>) services.get(AgentWire.SERVICE);
+        assertNotNull(editor, "compose.yml has no " + AgentWire.SERVICE + " service");
         final List<String> stewardMounts = mountsOf(editor);
 
         // The interface shows a bundle under the compose service name, the same name the server owns it under.
@@ -597,7 +598,7 @@ class TopologyTest {
         final String onTheInterface = stewardMounts.stream()
                 .filter(mount -> mount.endsWith(":/configs/" + service.name()))
                 .findFirst()
-                .orElseThrow(() -> new AssertionError("steward mounts nothing at"
+                .orElseThrow(() -> new AssertionError(AgentWire.SERVICE + " mounts nothing at"
                         + " /configs/" + service.name() + ", so that server's messages are in"
                         + " no form at all."
                         + " A volume that is not mounted is not an error to the page - it lists"
@@ -611,7 +612,7 @@ class TopologyTest {
 
         assertFalse(
                 onTheInterface.endsWith(":ro"),
-                service.name() + "'s bundles are mounted read-only into steward, so the form"
+                service.name() + "'s bundles are mounted read-only into the agent, so the form"
                         + " is drawn and the save fails: every bundle in the stack is editable from the interface.");
     }
 
@@ -626,7 +627,7 @@ class TopologyTest {
         final String onTheInterface = stewardMounts.stream()
                 .filter(mount -> mount.endsWith(":/configs/" + each))
                 .findFirst()
-                .orElseThrow(() -> new AssertionError("steward mounts nothing at"
+                .orElseThrow(() -> new AssertionError(AgentWire.SERVICE + " mounts nothing at"
                         + " /configs/" + each + ", so that service has no form in the"
                         + " interface"));
         assertEquals(

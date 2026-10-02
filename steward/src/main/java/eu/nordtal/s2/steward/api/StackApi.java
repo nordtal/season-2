@@ -17,7 +17,6 @@ import eu.nordtal.s2.steward.plan.UpdatePlan;
 import eu.nordtal.s2.steward.push.AlertReading;
 import io.javalin.config.JavalinConfig;
 import java.io.InputStream;
-import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -128,12 +127,11 @@ public final class StackApi implements AutoCloseable {
     /** The API without player counts, plugins, inboxes or a resolve, as a test against the real daemon needs it. */
     public StackApi(
             final AgentClient agent,
-            final Path configs,
             final UpdateDirectory updates,
             final AuditDirectory audit,
             final Nightly nightly,
             final Clock clock) {
-        this(agent, configs, null, updates, audit, () -> nightly, null, null, null, null, null, null, clock);
+        this(agent, updates, audit, () -> nightly, null, null, null, null, null, null, clock);
     }
 
     private final Clock clock;
@@ -141,8 +139,6 @@ public final class StackApi implements AutoCloseable {
     /**
      * The whole API.
      *
-     * @param volumesRoot where the four Minecraft volumes are mounted, used only to find a standalone module's bundle
-     *     jar; {@code null} skips it
      * @param updates the run inbox, sharing one directory with the run loop
      * @param audit {@code audit_log}, for {@link ActionsApi}
      * @param online where the player counts and the player list come from, or {@code null} without a database
@@ -157,8 +153,6 @@ public final class StackApi implements AutoCloseable {
      */
     public StackApi(
             final AgentClient agent,
-            final Path configs,
-            final @Nullable Path volumesRoot,
             final UpdateDirectory updates,
             final AuditDirectory audit,
             final Supplier<Nightly> nightly,
@@ -179,12 +173,12 @@ public final class StackApi implements AutoCloseable {
                     throw new IllegalArgumentException("Steward has no database to ask " + service + " through.");
                 }
                 : reloads;
-        this.messages = new MessagesApi(configs, volumesRoot, botInbox, reloader, Waiting.on(clock));
+        this.messages = new MessagesApi(agent, botInbox, reloader, Waiting.on(clock));
         // One query over two tables, not a frontend-side merge.
         this.actions = new ActionsApi(updates, audit);
         // Its own virtual thread per refresh, so a du never waits behind a registry call.
         this.disk = new DiskUsage(
-                volumesRoot, runnable -> Thread.ofVirtual().name("disk-usage").start(runnable));
+                agent, runnable -> Thread.ofVirtual().name("disk-usage").start(runnable), clock::instant);
         this.logFollows = new LogFollows(agent);
         this.serviceRows = new ServiceRows(agent, updates, online);
         this.drift = new Refreshed<>(

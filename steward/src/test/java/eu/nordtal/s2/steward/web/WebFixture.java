@@ -74,14 +74,11 @@ abstract class WebFixture {
     /** Kept, so a test can build a second interface against the same database. */
     static WebSpec config;
 
-    static Path configRoot;
-
     /** Holds the daemon's socket and the backups directory, both short paths a Unix socket can bind. */
     static Path scratch;
 
     @BeforeAll
     static void start() throws Exception {
-        writeConfigFixtures();
         scratch = Files.createTempDirectory("steward-web");
         startAgent();
         startFakeDiscord();
@@ -89,31 +86,6 @@ abstract class WebFixture {
         startDatabase();
         web = newWeb();
         web.start(WEB_PORT);
-    }
-
-    private static void writeConfigFixtures() throws Exception {
-        // A stand-in for the config volumes: one directory per service, one with a file inside a data directory.
-        configRoot = Files.createTempDirectory("steward-configs");
-        Files.createDirectories(configRoot.resolve("steward"));
-        Files.writeString(configRoot.resolve("steward/steward.yml"), """
-                # The port.
-                port: 8082
-
-                # The shared secret.
-                token: hunter2
-
-                # What to stop before a backup.
-                stop-services:
-                - smp
-                - limbo
-                """);
-        Files.createDirectories(configRoot.resolve("smp/nordtal-smp"));
-        Files.writeString(configRoot.resolve("smp/nordtal-smp/config.yml"), """
-                # The greeting.
-                motd: |-
-                  Nordtal
-                  Season 2
-                """);
     }
 
     private static void startAgent() throws IOException {
@@ -278,7 +250,6 @@ abstract class WebFixture {
                 new AgentClient(agent.client(), Waiting.on(Clock.systemUTC()), Duration.ofSeconds(5));
         final StackApi stack = new StackApi(
                 client,
-                configRoot,
                 data.updates(),
                 data.audit(),
                 new StackApi.Nightly("04:45", List.of("MONDAY"), "05:15", List.of(), ZoneId.of("Europe/Berlin")),
@@ -327,7 +298,6 @@ abstract class WebFixture {
         if (database != null) {
             database.close();
         }
-        deleteTree(configRoot);
         deleteTree(scratch);
     }
 

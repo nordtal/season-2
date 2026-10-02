@@ -18,6 +18,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 
@@ -39,6 +40,9 @@ public final class AgentClient implements ContainerOps {
 
     /** How long a database dump may take. */
     private static final Duration DUMP_WITHIN = Duration.ofMinutes(30);
+
+    /** {@code du} on a large world; the agent stops it after half a minute. */
+    private static final Duration DISK_WITHIN = Duration.ofSeconds(40);
 
     private final InternalClient http;
     private final Waiting waiting;
@@ -90,6 +94,35 @@ public final class AgentClient implements ContainerOps {
     public List<Round> samples(final @Nullable Instant after) {
         final String query = after == null ? "" : "?after=" + encode(after.toString());
         return Json.decode(http.get(AgentWire.SAMPLES + query), new TypeToken<List<Round>>() {});
+    }
+
+    /** One service's volume size by {@code du}, empty when it has no volume or could not be measured. */
+    public OptionalLong disk(final String service) {
+        final Long bytes = Json.decode(
+                        http.get(AgentWire.of(AgentWire.DISK, service), DISK_WITHIN), AgentWire.Disk.class)
+                .bytes();
+        return bytes == null ? OptionalLong.empty() : OptionalLong.of(bytes);
+    }
+
+    public List<AgentWire.BundleRef> bundles() {
+        return Json.decode(http.get(AgentWire.BUNDLES), new TypeToken<List<AgentWire.BundleRef>>() {});
+    }
+
+    /** One bundle, its packaged text and overrides side by side; a {@code 404} failure for one that is not there. */
+    public MessageBundle bundle(final String service, final String module) {
+        return Json.decode(http.get(bundlePath(service, module)), MessageBundle.class);
+    }
+
+    /** Saves overrides; a {@code 400} failure says which placeholder a text may not use, and nothing is saved. */
+    public AgentWire.SavedBundle saveBundle(
+            final String service, final String module, final List<AgentWire.TextChange> changes) {
+        return Json.decode(
+                http.post(bundlePath(service, module), Json.encode(new AgentWire.BundleChanges(changes))),
+                AgentWire.SavedBundle.class);
+    }
+
+    private static String bundlePath(final String service, final String module) {
+        return AgentWire.of(AgentWire.BUNDLE, encode(service)) + (module.isEmpty() ? "" : "?module=" + encode(module));
     }
 
     public List<Archive> archives() {

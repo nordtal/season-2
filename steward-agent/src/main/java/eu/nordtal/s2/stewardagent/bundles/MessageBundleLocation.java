@@ -1,4 +1,4 @@
-package eu.nordtal.s2.steward.messages;
+package eu.nordtal.s2.stewardagent.bundles;
 
 import java.nio.file.Path;
 
@@ -7,7 +7,7 @@ import java.nio.file.Path;
  *
  * @param service the compose service directory it lives under
  * @param module the plugin's data directory under the service, or the empty string for a standalone jar
- * @param jar the jar holding the packaged text, found by {@link JarName#prefixOf} in configs, then volumes
+ * @param jar the jar holding the packaged text, found by its name prefix in configs, then volumes
  * @param overrideDirectory where {@code en.properties} and {@code de.properties} are read and written
  * @param writable whether a save can be written, which needs the directory writable
  */

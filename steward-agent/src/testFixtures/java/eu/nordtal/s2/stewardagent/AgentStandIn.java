@@ -38,6 +38,12 @@ public final class AgentStandIn implements AutoCloseable {
     /** Where archives are listed from and downloaded out of. */
     public final Path backups;
 
+    /** One directory per service, where the message bundles' jars and override files are looked for. */
+    public final Path configs;
+
+    /** One directory per service's volume, for its size and its rotated logs. */
+    public final Path volumes;
+
     private final AgentApi api;
     private final Javalin server;
 
@@ -49,12 +55,14 @@ public final class AgentStandIn implements AutoCloseable {
     public AgentStandIn(final Path scratch, final int port, final Consumer<JavalinConfig> more) throws IOException {
         this.daemon = new FakeDaemon(scratch);
         this.backups = Files.createDirectories(scratch.resolve("backups"));
+        this.configs = Files.createDirectories(scratch.resolve("configs"));
+        this.volumes = Files.createDirectories(scratch.resolve("volumes"));
         final JsonObject services = JsonParser.parseString(SERVICES).getAsJsonObject();
         this.api = new AgentApi(
                 new Docker(new DockerSocket(daemon.socket(), Duration.ofSeconds(5))),
                 FakeDaemon.PROJECT,
                 () -> services,
-                new AgentApi.Paths(null, Files.createDirectories(scratch.resolve("sources")), backups),
+                new AgentApi.Paths(volumes, configs, Files.createDirectories(scratch.resolve("sources")), backups),
                 Clock.systemUTC());
         api.start();
         final String prefix = "NORDTAL_STEWARD_AGENT_";

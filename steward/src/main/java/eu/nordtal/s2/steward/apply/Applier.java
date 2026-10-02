@@ -1,10 +1,10 @@
 package eu.nordtal.s2.steward.apply;
 
 import eu.nordtal.s2.database.setting.SettingStore;
+import eu.nordtal.s2.internalapi.agent.JarName;
 import eu.nordtal.s2.steward.config.StewardSpec;
 import eu.nordtal.s2.steward.plan.Change;
 import eu.nordtal.s2.steward.plan.Installation;
-import eu.nordtal.s2.steward.plan.JarName;
 import eu.nordtal.s2.steward.plan.Topology;
 import eu.nordtal.s2.steward.plan.UpdatePlan;
 import eu.nordtal.s2.steward.source.Checksum;

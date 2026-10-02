@@ -9,7 +9,6 @@ import eu.nordtal.s2.stewardagent.AgentStandIn;
 import io.javalin.Javalin;
 import io.javalin.http.Context;
 import io.javalin.json.JavalinGson;
-import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.ZoneId;
@@ -38,11 +37,10 @@ final class StackServer {
 
     private StackServer() {}
 
-    /** The API under test over {@code agent}, with configs in {@code /tmp} and a nightly window that never fires. */
+    /** The API under test over {@code agent}, with a nightly window that never fires. */
     static StackApi api(final AgentStandIn agent) {
         return new StackApi(
                 new AgentClient(agent.client(), Waiting.on(Clock.systemUTC()), Duration.ofSeconds(5)),
-                Path.of("/tmp"),
                 FakeDirectories.updates(),
                 FakeDirectories.audit(),
                 new StackApi.Nightly(

@@ -463,8 +463,6 @@ public final class Steward {
         final SettingStore settings = SettingStore.using(database.dataSource());
         return new StackApi(
                 agent,
-                Path.of(config.configsRoot()),
-                Path.of(config.volumesRoot()),
                 data.updates(),
                 data.audit(),
                 () -> new StackApi.Nightly(

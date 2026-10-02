@@ -4,10 +4,10 @@ import type { ReactNode } from "react"
 import { cn } from "cn"
 
 import type { CSSVars } from "@/lib/utils"
-import type { ConfigDocument, ConfigEntry, GuildList } from "@/lib/api"
+import type { ConfigDocument, ConfigEntry } from "@/lib/api"
 import { announceSave } from "@/lib/announce-save"
 import { clearDraft, setDraftValue, useDraft } from "@/lib/drafts"
-import { useConfig, useGuildChannels, useGuildRoles, useSaveConfig } from "@/lib/queries"
+import { useConfig, useSaveConfig } from "@/lib/queries"
 import { configLeafMatches, configTree, type ConfigLeafValue } from "@/lib/settings-tree"
 import { changed, Control, EnvironmentOverriddenBadge, type Draft } from "@/components/steward/configuration"
 import { explanationOf } from "@/components/steward/config-controls"
@@ -78,8 +78,6 @@ function isDraftValueRecord(value: unknown): value is Record<string, DraftValue>
 function ConfigForm({ file, document, target }: { file: string; document: ConfigDocument; target: Target | null }) {
   const draft = useDraft<DraftValue>(file, isDraftValueRecord) as Draft
   const save = useSaveConfig(document.path)
-  const roles = useGuildRoles()
-  const channels = useGuildChannels()
   const nodes = useMemo(() => configTree(document.entries), [document.entries])
   const byPath = useMemo(() => new Map(document.entries.map((entry) => [entry.path, entry])), [document.entries])
 
@@ -118,8 +116,6 @@ function ConfigForm({ file, document, target }: { file: string; document: Config
       writable={writable}
       draft={draft}
       dirty={draftIds.has(entry.path)}
-      roles={roles.data}
-      channels={channels.data}
       highlight={highlight && highlight.id === entry.path ? highlight : null}
       onChange={(value) => set(entry.path, value)}
       onUndo={() => set(entry.path, undefined)}
@@ -181,8 +177,6 @@ function SettingField({
   writable,
   draft,
   dirty,
-  roles,
-  channels,
   highlight,
   onChange,
   onUndo,
@@ -192,8 +186,6 @@ function SettingField({
   writable: boolean
   draft: Draft
   dirty: boolean
-  roles: GuildList | undefined
-  channels: GuildList | undefined
   highlight: Highlight | null
   onChange: (value: DraftValue) => void
   onUndo: () => void
@@ -223,14 +215,7 @@ function SettingField({
           </>
         ) : null}
       </div>
-      <Control
-        entry={entry}
-        draft={draft}
-        disabled={!writable || !entry.editable}
-        roles={roles}
-        channels={channels}
-        onChange={onChange}
-      />
+      <Control entry={entry} draft={draft} disabled={!writable || !entry.editable} onChange={onChange} />
       {explanation ? <p className="whitespace-pre-wrap text-xs text-muted-foreground">{explanation}</p> : null}
     </div>
   )

@@ -434,8 +434,6 @@ function ScheduleDialog() {
                   entry={entry}
                   value={draft[entry.path] ?? entry.value ?? ""}
                   disabled={!document.writable || save.isPending}
-                  roles={undefined}
-                  channels={undefined}
                   onChange={(value) => setDraft((was) => ({ ...was, [entry.path]: value }))}
                 />
               </div>

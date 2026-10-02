@@ -41,7 +41,12 @@ describe("repeatable cards for a SECTIONS entry", () => {
   const file = "discord-bot/access"
   const TEMPLATE: ConfigEntry[] = [
     entry({ path: "tag", key: "tag", label: "Tag" }),
-    entry({ path: "contribution-channel", key: "contribution-channel", label: "Contribution channel" }),
+    entry({
+      path: "contribution-channel",
+      key: "contribution-channel",
+      label: "Contribution channel",
+      refers: { to: "DISCORD_CHANNEL", optional: false },
+    }),
   ]
 
   function languages(sections: ConfigEntry[][]): ConfigEntry {
@@ -105,7 +110,7 @@ describe("repeatable cards for a SECTIONS entry", () => {
     screen.getByText("Entry 3")
   })
 
-  it("gives a channel field inside a card the SnowflakePicker, not a plain text box", async () => {
+  it("gives a channel field inside a card the reference picker, not a plain text box", async () => {
     vi.stubGlobal(
       "fetch",
       backend({
@@ -120,8 +125,8 @@ describe("repeatable cards for a SECTIONS entry", () => {
     draw(<Settings service="discord-bot" />)
     await open("Access")
 
-    /** Without a bot token the picker degrades to a text input that still carries its fallback hint. */
-    expect(await screen.findByText(/Paste the id instead/)).not.toBeNull()
+    /** Without a bot token the picker degrades to a text input under the guild's reason. */
+    expect(await screen.findByText("no bot token in this test")).not.toBeNull()
   })
 
   it("removes a card from the draft only, and writes it on Save - not on the click", async () => {

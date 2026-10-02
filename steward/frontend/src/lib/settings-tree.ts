@@ -1,6 +1,5 @@
 import type { ConfigEntry, MessageEntry } from "@/lib/api"
 import { entryHaystack } from "@/lib/settings-search"
-import { colourValue } from "@/components/steward/config-controls"
 import { sentenceOf } from "@/lib/words"
 import { colourRuns } from "@/components/steward/colour-control"
 import { pairedBlocks, pairedPaths, type PairedBlocks } from "@/components/steward/paired-blocks"
@@ -105,10 +104,7 @@ export function configTree(entries: ConfigEntry[]): TreeNode<ConfigLeafValue>[] 
   const builder = new Builder<ConfigLeafValue>()
   const pairs = pairedBlocks(entries)
   const paired = pairedPaths(pairs)
-  const runs = colourRuns(
-    entries.filter((entry) => entry.kind !== "MAP" && !paired.has(entry.path)),
-    (entry) => colourValue(entry) !== null,
-  )
+  const runs = colourRuns(entries.filter((entry) => entry.kind !== "MAP" && !paired.has(entry.path)))
   const runOf = new Map<string, ConfigEntry[]>()
   for (const run of runs) for (const member of run) runOf.set(member.path, run)
   const labelOf = new Map(entries.filter((entry) => entry.kind === "MAP").map((entry) => [entry.path, entry.label]))

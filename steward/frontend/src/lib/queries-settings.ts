@@ -174,12 +174,13 @@ export function useMessageDocuments(paths: string[], enabled: boolean) {
  *
  * Only the live topic refreshes it, never a timer or a focus.
  */
-export function useGameData() {
+export function useGameData(enabled = true) {
   return useQuery({
     queryKey: keys.gameData,
     queryFn: () => api<GameData>("/api/game-data"),
     meta: { topics: ["GAME_DATA"] },
     staleTime: Infinity,
     refetchOnWindowFocus: false,
+    enabled,
   })
 }

@@ -1,7 +1,7 @@
 import { PlusIcon, TrashIcon, WarningCircleIcon } from "@phosphor-icons/react"
 import { useMemo, useState } from "react"
 
-import type { ConfigEntry, GuildList } from "@/lib/api"
+import type { ConfigEntry } from "@/lib/api"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { ListControl, ScalarControl, explanationOf, isRequiredChannel } from "@/components/steward/config-controls"
 import { Button } from "@/components/ui/button"
@@ -60,8 +60,6 @@ export function RepeatableCards({
   entry,
   value,
   disabled,
-  roles,
-  channels,
   onChange,
   sectionTitle,
   within,
@@ -69,8 +67,6 @@ export function RepeatableCards({
   entry: ConfigEntry
   value: SectionValues[]
   disabled: boolean
-  roles: GuildList | undefined
-  channels: GuildList | undefined
   onChange: (value: SectionValues[]) => void
   /** What to call a card instead of "Entry N"; the caller decides, since the schema knows no titles. */
   sectionTitle?: (section: SectionValues, index: number) => string
@@ -165,7 +161,9 @@ export function RepeatableCards({
                 control = (
                   <ListControl
                     id={id}
+                    entry={field}
                     items={stringsOf(fieldValue)}
+                    sibling={field.refers?.dependsOn ? textOf(section, field.refers.dependsOn) : undefined}
                     disabled={disabled}
                     onChange={(next) => replace(field.key, next)}
                   />
@@ -178,8 +176,6 @@ export function RepeatableCards({
                     entry={{ ...field, ...own, path: id, template: field.template }}
                     value={sectionsOf(fieldValue)}
                     disabled={disabled}
-                    roles={roles}
-                    channels={channels}
                     onChange={(next) => replace(field.key, next)}
                     within={title}
                   />
@@ -191,9 +187,8 @@ export function RepeatableCards({
                     id={id}
                     entry={field}
                     value={text}
+                    sibling={field.refers?.dependsOn ? textOf(section, field.refers.dependsOn) : undefined}
                     disabled={disabled}
-                    roles={roles}
-                    channels={channels}
                     onChange={(next) => replace(field.key, next)}
                   />
                 )

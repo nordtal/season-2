@@ -20,7 +20,7 @@ final class Routes {
         consoleRoute(api, config, caller);
         messageRoutes(api, config);
         settingRoutes(api, config, caller);
-        hostRoutes(api, config);
+        hostRoutes(api, config, caller);
         pluginRoutes(api, config, caller);
         availableRoute(api, config);
     }
@@ -91,8 +91,8 @@ final class Routes {
         config.routes.put("/api/messages/<bundle>", api.messages::save, Gate.KEY_FRESH);
     }
 
-    /** The host numbers, the nightly schedule, the backup list and its download, and the feed. */
-    private static void hostRoutes(final StackApi api, final JavalinConfig config) {
+    /** The host numbers, the nightly schedule, the backup list, its download and its restore, and the feed. */
+    private static void hostRoutes(final StackApi api, final JavalinConfig config, final Caller caller) {
         config.routes.get("/api/host", ctx -> ctx.json(api.hostNumbers()), Gate.KEY_HELD);
 
         // "Tonight" means a moment on this host, not in the browser's zone.
@@ -104,6 +104,9 @@ final class Routes {
         // Streamed, not buffered, since these are hundreds of megabytes; reading a backup is a read.
         config.routes.get(
                 "/api/backups/{name}/download", ctx -> api.download(ctx, ctx.pathParam("name")), Gate.KEY_HELD);
+
+        // A run like every other stop: the body names what it replaces, so a wrong click restores nothing.
+        config.routes.post("/api/backups/{name}/restore", ctx -> api.restore(ctx, caller.actor(ctx)), Gate.KEY_FRESH);
 
         // The newest rows across the run inbox and audit_log, merged.
         config.routes.get("/api/actions", api.actions::list, Gate.KEY_HELD);

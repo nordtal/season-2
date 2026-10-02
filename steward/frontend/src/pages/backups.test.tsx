@@ -207,6 +207,9 @@ function backend(
     if (url === "/api/backups") {
       return json(200, over.backups ?? [backup()])
     }
+    if (url.startsWith("/api/backups/") && init?.method === "POST") {
+      return json(202, { id: 7, kind: "RESTORE", archive: url })
+    }
     if (url.startsWith("/api/updates")) return json(200, over.runs ?? [run()])
     if (url === "/api/schedule") {
       return json(200, { backupAt: "04:45", zone: "Europe/Berlin", nextBackupAt: null })
@@ -571,17 +574,29 @@ describe("BackupsPage - what moved here from Operations", () => {
     expect(await screen.findByRole("button", { name: /back up now/i })).toBeTruthy()
   })
 
-  it("builds the restore command and runs nothing itself", async () => {
-    const fetchMock = backend({})
+  it("asks for a restore run only once what it replaces is typed back", async () => {
+    const fetchMock = backend({ backups: [backup({ restoresInto: "nordtal-s2_mc-smp" })] })
     vi.stubGlobal("fetch", fetchMock)
     draw()
 
     fireEvent.click(await screen.findByRole("button", { name: "Restore" }))
-    expect(await screen.findByText("sudo bash deploy/restore.sh <archive>")).toBeTruthy()
-    // Nothing chosen, nothing to copy.
-    expect(asButton(screen.getByRole("button", { name: "Copy" })).disabled).toBe(true)
-    const posted = fetchMock.mock.calls.filter((call) => call[1]?.method === "POST")
-    expect(posted).toEqual([])
+    fireEvent.keyDown(await screen.findByRole("combobox"), { key: "Enter" })
+    fireEvent.click(await screen.findByRole("option", { name: /nordtal-s2_mc-smp-20260917T044500Z/ }))
+    const dialog = screen.getByRole("dialog")
+    const confirm = within(dialog).getByRole("button", { name: "Restore" })
+    expect(asButton(confirm).disabled).toBe(true)
+
+    fireEvent.change(within(dialog).getByLabelText(/Type/), { target: { value: "nordtal-s2_mc-smp-plugins" } })
+    expect(asButton(confirm).disabled).toBe(true)
+    fireEvent.change(within(dialog).getByLabelText(/Type/), { target: { value: "nordtal-s2_mc-smp" } })
+    fireEvent.click(confirm)
+
+    await waitFor(() => {
+      const posted = fetchMock.mock.calls.filter((call) => call[1]?.method === "POST")
+      expect(posted.map((call) => [call[0], JSON.parse(call[1]?.body ?? "")])).toEqual([
+        ["/api/backups/nordtal-s2_mc-smp-20260917T044500Z.tar.zst/restore", { confirm: "nordtal-s2_mc-smp" }],
+      ])
+    })
   })
 
   it("offers no archive that is still being written", async () => {

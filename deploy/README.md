@@ -266,16 +266,23 @@ but the moment it was taken is uncertain.
 
 ### Restoring
 
+A restore is a run, asked for on Steward's Backups page by choosing the archive and typing what it
+replaces: the volume's name, or `nordtal` for a dump. The run saves what the archive replaces first,
+counts down, stops what runs on it and starts it again. A volume archive **replaces** the volume; a
+dump **replaces** the database in one transaction, which steward-agent then migrates to its own
+schema. Every process's settings are rows in that database, so they come back with the dump.
+
+`deploy/restore.sh` is for a host where steward-agent does not run:
+
 ```bash
 sudo bash deploy/restore.sh --list                                  # what is on the disk
 sudo bash deploy/restore.sh nordtal-s2_mc-smp-<stamp>.tar.zst       # a volume
 sudo bash deploy/restore.sh nordtal-<stamp>.dump                    # the database
 ```
 
-A volume archive **replaces** the volume: the script stops what mounts it, asks for the volume's name
-typed back, unpacks and starts the services again. A dump goes into a new database
-`restore_<stamp>` beside the live one; promoting it is up to you. Every process's settings are rows
-in that database, so they come back with the dump.
+It stops what mounts the volume without a countdown, asks for the volume's name typed back, unpacks
+and starts the services again. A dump goes into a new database `restore_<stamp>` beside the live
+one; promoting it is up to you.
 
 ## Voice chat
 

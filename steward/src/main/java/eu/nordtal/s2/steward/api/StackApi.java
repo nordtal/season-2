@@ -134,6 +134,9 @@ public final class StackApi implements AutoCloseable {
 
     private final Clock clock;
 
+    /** The run inbox, where a restore is asked for like every other run. */
+    private final UpdateDirectory updates;
+
     /**
      * The whole API.
      *
@@ -163,6 +166,7 @@ public final class StackApi implements AutoCloseable {
             final @Nullable SettingStore settings,
             final Clock clock) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
+        this.updates = updates;
         this.managedPlugins = managedPlugins;
         this.settings = settings == null ? null : new SettingsApi(settings);
         this.agent = agent;
@@ -376,6 +380,43 @@ public final class StackApi implements AutoCloseable {
                 .findFirst()
                 .ifPresent(archive -> ctx.header("Content-Length", String.valueOf(archive.bytes())));
         ctx.result(body);
+    }
+
+    /**
+     * Asks for a restore of one finished archive, once the caller has typed what it replaces.
+     *
+     * The run takes a fresh backup first, counts down and stops what the archive replaces; this only writes the row.
+     */
+    void restore(final io.javalin.http.Context ctx, final eu.nordtal.s2.database.Actor actor) {
+        final String name = ctx.pathParam("name");
+        final AgentWire.Archive archive = archives().stream()
+                .filter(each -> each.name().equals(name))
+                .findFirst()
+                .orElseThrow(() -> new io.javalin.http.NotFoundResponse("no such backup: " + name));
+        final String replaces = archive.restoresInto();
+        if (replaces == null) {
+            throw new io.javalin.http.BadRequestResponse(name + " is not a finished backup, so it cannot be restored");
+        }
+        final Confirmation body = ctx.bodyAsClass(Confirmation.class);
+        if (body == null || !replaces.equals(body.confirm)) {
+            throw new io.javalin.http.BadRequestResponse("type " + replaces + " to confirm what this restore replaces");
+        }
+        final eu.nordtal.s2.database.update.UpdateRequest written;
+        try {
+            written = updates.submit(
+                    new eu.nordtal.s2.database.inbox.StewardRequest.Restore(List.of(), name), actor, Duration.ZERO);
+        } catch (final eu.nordtal.s2.messages.Refused refused) {
+            throw new io.javalin.http.ConflictResponse(eu.nordtal.s2.database.DatabaseText.english(
+                    refused.refusal().message()));
+        }
+        log.info("restore of {} asked for as request {}", name, written.id());
+        ctx.status(202).json(Map.of("id", written.id(), "kind", written.kind().name(), "archive", name));
+    }
+
+    /** The body of a restore: what it replaces, typed back. */
+    static final class Confirmation {
+        @Nullable
+        String confirm;
     }
 
     /** `/api/updates/available`'s body: the agent's whole resolve, plus the age of the reading. */

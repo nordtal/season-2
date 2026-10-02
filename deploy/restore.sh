@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 #
-# Restores one backup archive. It runs on the host, since the interface is inside the stack it restores.
+# The emergency restore, for a host where steward-agent does not run. Otherwise a restore is a run
+# asked for on Steward's Backups page: it backs up first, counts down and replaces the database
+# itself. This script stops nothing gracefully and warns nobody.
 #
 #   sudo bash deploy/restore.sh --list                                  what is on the disk
 #   sudo bash deploy/restore.sh nordtal-s2_mc-smp-20260913T031500Z.tar.zst

@@ -58,7 +58,6 @@ import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -374,12 +373,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
      * The action runs on the hub's thread, never the main one, and a request left running by a crash is failed.
      */
     protected final <P> void answer(final InboxTable<P> table, final Function<P, Answer> action) {
-        final Inbox<P> inbox = Inbox.over(pool, table);
-        final int orphans = inbox.settleOrphans(Map.of("error", getName() + " restarted while it ran this"));
-        if (orphans > 0) {
-            getLogger().warning(orphans + " request(s) in " + table + " were left running by the last start");
-        }
-        inbox.listen(hub(), request -> outcome(safely(() -> action.apply(request.payload()))));
+        Inbox.takeOver(pool, table, getName())
+                .listen(hub(), request -> outcome(safely(() -> action.apply(request.payload()))));
     }
 
     /** Returns a subcommand only the console reaches. */

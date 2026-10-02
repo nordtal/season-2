@@ -438,7 +438,7 @@ public final class ProxyPlugin {
             case Reload reload -> reloadMessages(messages)
                     ? Outcome.done(english(messages, ProxyMessages.MESSAGES.admin().reloaded()))
                     : Outcome.failed(english(messages, ProxyMessages.MESSAGES.admin().reloadFailed()));
-        }, logger);
+        });
 
         // The five a player types, as plain Velocity Brigadier, not admin-only.
         final PrivateMessages privateMessages =

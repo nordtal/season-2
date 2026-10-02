@@ -350,11 +350,7 @@ public class AccessBot implements AutoCloseable {
      * Only one bot runs, so a row still running at its start was abandoned by the one before.
      */
     private Runnable openInbox(final BotInbox handler) {
-        final Inbox<BotRequest> inbox = Inbox.over(database.dataSource(), BotRequest.TABLE);
-        final int orphans = inbox.settleOrphans(java.util.Map.of("error", "the bot restarted while carrying this out"));
-        if (orphans > 0) {
-            log.warn("{} request(s) the bot had claimed before it restarted were failed", orphans);
-        }
+        final Inbox<BotRequest> inbox = Inbox.takeOver(database.dataSource(), BotRequest.TABLE, "the bot");
         return () -> inbox.drain(handler);
     }
 

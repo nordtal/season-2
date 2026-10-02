@@ -31,6 +31,9 @@ public final class Docker {
 
     private static final String LABEL_SERVICE = "com.docker.compose.service";
 
+    /** How long past the grace a stop is waited for: the kill and its answer, and still inside steward's own wait. */
+    private static final java.time.Duration KILL_MARGIN = java.time.Duration.ofSeconds(15);
+
     /** How long an exec may take before the connection is closed, so a hang becomes a {@link DockerException}. */
     private static final java.time.Duration EXEC_DEADLINE = java.time.Duration.ofSeconds(15);
 
@@ -253,8 +256,13 @@ public final class Docker {
         }
     }
 
+    /** Asks for a stop and returns once the container is down; Docker answers only after a kill, so it waits longer. */
     public void stop(final String id, final int secondsBeforeKill) {
-        socket.send("POST", "/containers/" + id + "/stop?t=" + secondsBeforeKill, null);
+        socket.send(
+                "POST",
+                "/containers/" + id + "/stop?t=" + secondsBeforeKill,
+                null,
+                java.time.Duration.ofSeconds(secondsBeforeKill).plus(KILL_MARGIN));
     }
 
     public void start(final String id) {

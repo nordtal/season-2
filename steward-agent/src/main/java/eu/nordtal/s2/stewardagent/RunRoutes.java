@@ -20,7 +20,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
@@ -68,8 +67,7 @@ final class RunRoutes {
                 ctx -> ctx.json(PlanView.of(Runs.resolve(this.config.get(), topology.get(), plugins, settings))));
         config.routes.get(AgentWire.PLUGINS, pluginsApi::list);
         config.routes.get(AgentWire.PLUGIN_SEARCH, pluginsApi::search);
-        config.routes.post(
-                AgentWire.PLUGINS, ctx -> pluginsApi.add(ctx, Objects.requireNonNullElse(ctx.queryParam("by"), "")));
+        config.routes.post(AgentWire.PLUGINS, pluginsApi::add);
     }
 
     /** The removal a REMOVE_PLUGIN run carries out while it holds the server stopped. */

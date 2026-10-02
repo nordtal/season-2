@@ -1,5 +1,6 @@
 package eu.nordtal.s2.stewardagent.plugin;
 
+import eu.nordtal.s2.common.id.Actor;
 import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 
@@ -14,7 +15,7 @@ import org.jspecify.annotations.Nullable;
  * @param iconUrl    the thumbnail on Modrinth's CDN, or {@code null}
  * @param pageUrl    the project's page, or {@code null}
  * @param added      when the row was written, on the database's clock
- * @param addedBy    who asked for it, as the interface named them, or {@code null}
+ * @param addedBy    who asked for it
  */
 public record ManagedPlugin(
         String service,
@@ -25,4 +26,4 @@ public record ManagedPlugin(
         @Nullable String iconUrl,
         @Nullable String pageUrl,
         Instant added,
-        @Nullable String addedBy) {}
+        Actor addedBy) {}

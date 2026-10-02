@@ -145,7 +145,8 @@ Modrinth and PaperMC through `agent-egress`, a network nobody else is on.
 
 The console set is the label `eu.nordtal.console: "true"` in `compose.yml`, read through
 `docker compose config`; a line goes to `mc` as one argument, never through a shell, and the log
-names who typed it. The backup set is the agent's own mounts under `/backup-sources`, and the stop
+names who typed it by the `Actor` the wire carries, its kind and Discord id. An added plugin's row holds
+the same actor as `actor_kind` and `actor_id`; steward takes it from the session, never from the browser. The backup set is the agent's own mounts under `/backup-sources`, and the stop
 set the label `eu.nordtal.backup: stop`; `/api/topology` serves both, and steward keeps no list of
 either.
 

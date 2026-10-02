@@ -36,7 +36,8 @@ final class JdbiPluginDirectory implements PluginDirectory {
                 plugin.title(),
                 plugin.iconUrl(),
                 plugin.pageUrl(),
-                plugin.addedBy());
+                plugin.addedBy().kind().name(),
+                plugin.addedBy().id());
     }
 
     @Override

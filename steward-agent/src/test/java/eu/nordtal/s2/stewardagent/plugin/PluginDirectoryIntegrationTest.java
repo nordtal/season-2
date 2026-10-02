@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.id.Actor;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.TestDatabase;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -33,6 +35,8 @@ class PluginDirectoryIntegrationTest {
         dataSource = TestDatabase.fresh().dataSource();
     }
 
+    private static final DiscordId TILL = DiscordId.of("594510749410525200");
+
     @BeforeEach
     void freshTable() {
         execute("TRUNCATE TABLE service_plugin, plugin_file");
@@ -49,7 +53,7 @@ class PluginDirectoryIntegrationTest {
                 "https://cdn.modrinth.com/data/1u6JkXh5/icon.png",
                 "https://modrinth.com/plugin/" + slug,
                 Instant.EPOCH,
-                "till (1)");
+                Actor.person(TILL));
     }
 
     @Test
@@ -86,7 +90,7 @@ class PluginDirectoryIntegrationTest {
         assertEquals("1u6JkXh5", written.projectId());
         assertEquals("worldedit-bukkit", written.filePrefix());
         assertEquals("WorldEdit", written.title());
-        assertEquals("till (1)", written.addedBy());
+        assertEquals(Actor.person(TILL), written.addedBy(), "who added it is the person, not a name to parse");
         // `added` is the column default, so two processes with two clocks cannot disagree about it.
         assertTrue(written.added().isAfter(Instant.EPOCH), "added came from the caller, not from now()");
     }
@@ -132,12 +136,13 @@ class PluginDirectoryIntegrationTest {
 
     @Test
     void anIconAndAPageAreAllowedToBeAbsentNotEveryProjectHasAPicture() {
-        plugins.add(new ManagedPlugin("limbo", "thing", "aaaaaaaa", "thing", "Thing", null, null, Instant.EPOCH, null));
+        plugins.add(new ManagedPlugin(
+                "limbo", "thing", "aaaaaaaa", "thing", "Thing", null, null, Instant.EPOCH, Actor.STEWARD));
 
         final ManagedPlugin written = plugins.all().getFirst();
         assertNull(written.iconUrl());
         assertNull(written.pageUrl());
-        assertNull(written.addedBy());
+        assertEquals(Actor.STEWARD, written.addedBy());
     }
 
     @Test

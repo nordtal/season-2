@@ -540,7 +540,7 @@ public final class StackApi implements AutoCloseable {
     }
 
     /** Types one line into a server's console through the agent, which logs who typed it beside the line. */
-    void console(final String service, final String command, final String actor) {
+    void console(final String service, final String command, final eu.nordtal.s2.common.id.Actor actor) {
         agent.console(service, command, actor);
     }
 

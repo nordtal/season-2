@@ -1,5 +1,6 @@
 package eu.nordtal.s2.stewardagent.plugin;
 
+import eu.nordtal.s2.common.id.Actor;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
@@ -20,6 +21,6 @@ public final class ManagedPluginMapper implements RowMapper<ManagedPlugin> {
                 rs.getString("icon_url"),
                 rs.getString("page_url"),
                 rs.getObject("added", OffsetDateTime.class).toInstant(),
-                rs.getString("added_by"));
+                Actor.of(rs.getString("actor_kind"), rs.getString("actor_id")));
     }
 }

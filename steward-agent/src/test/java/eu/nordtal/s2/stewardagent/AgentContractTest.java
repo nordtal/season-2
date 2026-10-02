@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
@@ -114,11 +115,11 @@ class AgentContractTest {
 
     @Test
     void aConsoleLineReachesTheServerAndARefusalSaysWhichServicesHaveOne() {
-        client.console("smp", "list", "Ally");
+        client.console("smp", "list", Actor.STEWARD);
         assertTrue(agent.daemon.execs.stream().anyMatch(body -> body.contains("[\"mc\",\"list\"]")));
 
         final InternalClient.Failure refused =
-                assertThrows(InternalClient.Failure.class, () -> client.console("postgres", "list", "Ally"));
+                assertThrows(InternalClient.Failure.class, () -> client.console("postgres", "list", Actor.STEWARD));
         assertEquals(400, refused.status());
         assertEquals("postgres has no console. The services with one are smp.", AgentClient.sentence(refused));
     }

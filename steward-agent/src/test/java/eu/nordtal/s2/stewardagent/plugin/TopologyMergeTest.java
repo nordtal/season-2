@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.internalapi.agent.Topology;
 import eu.nordtal.s2.stewardagent.topology.ComposeFile;
 import java.time.Instant;
@@ -21,7 +22,8 @@ class TopologyMergeTest {
     }
 
     private static ManagedPlugin added(final String service, final String slug) {
-        return new ManagedPlugin(service, slug, "AbCdEf01", slug + "-bukkit", slug, null, null, Instant.EPOCH, "till");
+        return new ManagedPlugin(
+                service, slug, "AbCdEf01", slug + "-bukkit", slug, null, null, Instant.EPOCH, Actor.STEWARD);
     }
 
     private static Topology.Service find(final List<Topology.Service> services, final String name) {

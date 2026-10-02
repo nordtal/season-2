@@ -70,6 +70,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V14__a_journal_line_is_typed_values.sql",
                 "58af9e2ad0f73c1f3f6f45653c6d324e706181663525a8920f771668b8c1fa1c");
+        FROZEN.put(
+                "V15__an_added_plugin_records_its_actor.sql",
+                "76995605d1c802e7e7eacbfbf56337b658e82bf4dab8baf3e35426049f2a19e6");
     }
 
     @Test

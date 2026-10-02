@@ -599,16 +599,9 @@ public final class Web {
         ctx.json(java.util.Map.of("status", "ok", "agent", stack.agentReachable()));
     }
 
-    /** Who is asking, as the stack routes need it: a name for a row, and whether the session still holds. */
+    /** Who is asking, as the stack routes need it: the actor a row records, and whether the session still holds. */
     private Caller caller() {
         return new Caller() {
-            @Override
-            public String name(final Context ctx) {
-                final DiscordAuth.Account who =
-                        account(ctx).orElseThrow(() -> new UnauthorizedResponse("sign in first"));
-                return who.name() + " (" + who.id() + ")";
-            }
-
             @Override
             public Actor actor(final Context ctx) {
                 return account(ctx)

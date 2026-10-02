@@ -35,8 +35,8 @@ public final class AgentClient implements ContainerOps {
     /** How long the registry comparison may take, one question per image. */
     private static final Duration IMAGES_WITHIN = Duration.ofMinutes(2);
 
-    /** How long a stop may take: Docker's grace period and the inspect after it. */
-    private static final Duration STOP_WITHIN = Duration.ofSeconds(60);
+    /** How long a stop may take: the service's grace period, the kill, and the inspect after it. */
+    private static final Duration STOP_WITHIN = AgentWire.LONGEST_STOP.plusSeconds(15);
 
     /** How long a database dump may take. */
     private static final Duration DUMP_WITHIN = Duration.ofMinutes(30);

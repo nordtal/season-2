@@ -1,5 +1,6 @@
 package eu.nordtal.s2.stewardagent.docker;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -11,12 +12,16 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -33,6 +38,7 @@ class ContainersStopTest {
 
     private final ExecutorService server = Executors.newCachedThreadPool();
     private final List<AutoCloseable> open = new ArrayList<>();
+    private final List<String> stops = new CopyOnWriteArrayList<>();
 
     @AfterEach
     void closeEverything() {
@@ -98,32 +104,101 @@ class ContainersStopTest {
                         + " has to say what was not read: " + result.message());
     }
 
-    /** A Containers whose daemon accepts the stop and then hangs up on the inspect. */
+    @Test
+    void theStopWaitsTheGraceComposeGaveTheContainer() throws IOException {
+        // compose writes stop_grace_period into the container's StopTimeout; a server saving its world needs all of it.
+        ops(0, 180).stop("smp-container");
+
+        assertEquals(List.of("t=180"), stops);
+    }
+
+    @Test
+    void aContainerWithoutAGraceOfItsOwnGetsDockersDefault() throws IOException {
+        ops(0, null).stop("smp-container");
+
+        assertEquals(List.of("t=" + Docker.DEFAULT_STOP_TIMEOUT), stops);
+    }
+
+    @Test
+    void aGraceLongerThanTheClientWaitsIsCutToWhatItWaits() throws IOException {
+        // Past the client's wait a stop that is still saving would be reported as failed, and the run would go on.
+        ops(0, 3600).stop("smp-container");
+
+        assertEquals(List.of("t=" + Containers.LONGEST_GRACE_SECONDS), stops);
+    }
+
+    @Test
+    void everyGraceInComposeFitsInsideTheClientsWait() throws IOException {
+        final String compose = Files.readString(repositoryRoot().resolve("compose.yml"), StandardCharsets.UTF_8);
+        final Matcher grace =
+                Pattern.compile("stop_grace_period:\\s*(\\d+)(s|m)").matcher(compose);
+        int found = 0;
+        while (grace.find()) {
+            found++;
+            final long seconds = Long.parseLong(grace.group(1)) * ("m".equals(grace.group(2)) ? 60 : 1);
+            assertTrue(
+                    seconds <= Containers.LONGEST_GRACE_SECONDS,
+                    "compose.yml gives a service " + seconds + " s to stop, but a stop through the agent is cut at "
+                            + Containers.LONGEST_GRACE_SECONDS + " s; raise AgentWire.LONGEST_STOP with it");
+        }
+        assertTrue(found > 0, "compose.yml no longer sets any stop_grace_period, so this holds nothing");
+    }
+
+    private static Path repositoryRoot() {
+        Path candidate = Path.of("").toAbsolutePath();
+        while (candidate != null && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {
+            candidate = candidate.getParent();
+        }
+        assertTrue(candidate != null, "no settings.gradle.kts above the working directory");
+        return candidate;
+    }
+
+    /** A Containers whose daemon answers the inspect before the stop, accepts the stop, then hangs up on the next. */
     private Containers deafAfterTheStop() throws IOException {
         return new Containers(
                 new Docker(new DockerSocket(
-                        listening(request -> request.contains("/stop") ? "" : null), Duration.ofSeconds(5))),
+                        listening(request -> {
+                            if (request.contains("/stop")) {
+                                stops.add(request);
+                                return "";
+                            }
+                            return stops.isEmpty() ? inspection("{\"Status\":\"running\"}", 30) : null;
+                        }),
+                        Duration.ofSeconds(5))),
                 "nordtal-s2");
     }
 
     /** A Containers whose daemon accepts the stop and then reports {@code exitCode}. */
     private Containers ops(final Integer exitCode) throws IOException {
+        return ops(exitCode, 30);
+    }
+
+    /** The same, for a container compose created with {@code stopTimeout} seconds of grace, or none. */
+    private Containers ops(final Integer exitCode, final Integer stopTimeout) throws IOException {
         final String state =
                 exitCode == null ? "{\"Status\":\"exited\"}" : "{\"Status\":\"exited\",\"ExitCode\":" + exitCode + "}";
         return new Containers(
                 new Docker(new DockerSocket(
                         listening(request -> {
                             if (request.contains("/stop")) {
+                                final Matcher t =
+                                        Pattern.compile("[?&](t=\\d+)").matcher(request);
+                                stops.add(t.find() ? t.group(1) : "no t");
                                 return "";
                             }
                             if (request.contains("/images/")) {
                                 return "{\"RepoDigests\":[]}";
                             }
-                            return "{\"Id\":\"smp-container\",\"Image\":\"sha256:1\",\"State\":" + state
-                                    + ",\"Config\":{\"Image\":\"nordtal/smp\",\"Tty\":false}}";
+                            return inspection(state, stopTimeout);
                         }),
                         Duration.ofSeconds(5))),
                 "nordtal-s2");
+    }
+
+    private static String inspection(final String state, final Integer stopTimeout) {
+        return "{\"Id\":\"smp-container\",\"Image\":\"sha256:1\",\"State\":" + state
+                + ",\"Config\":{\"Image\":\"nordtal/smp\",\"Tty\":false"
+                + (stopTimeout == null ? "" : ",\"StopTimeout\":" + stopTimeout) + "}}";
     }
 
     /** A unix socket that answers every request, one connection at a time, until the test ends. */

@@ -25,8 +25,9 @@ public final class Containers {
 
     private static final Logger log = LoggerFactory.getLogger(Containers.class);
 
-    /** How long a container gets to stop before Docker kills it. */
-    private static final int STOP_GRACE_SECONDS = 30;
+    /** The longest grace the client's wait leaves room for; a longer {@code stop_grace_period} is cut to it. */
+    static final int LONGEST_GRACE_SECONDS =
+            (int) AgentWire.LONGEST_STOP.minus(Docker.KILL_MARGIN).toSeconds();
 
     private final Docker docker;
     private final String project;
@@ -115,20 +116,22 @@ public final class Containers {
     }
 
     /**
-     * Stops a container, and refuses if Docker had to kill it (exit code 137), since a half-saved world is no backup.
+     * Stops a container within its {@code stop_grace_period}, refusing if Docker had to kill it (exit code 137).
      *
-     * An unreadable inspect gives {@link RedeployResult#unverified}, which {@code Runner.settle} weighs.
+     * The grace is compose's, its one source. An unreadable ending is {@link RedeployResult#unverified}.
      */
     public RedeployResult stop(final String containerId) {
+        final int grace;
         try {
-            docker.stop(containerId, STOP_GRACE_SECONDS);
+            grace = Math.min(docker.inspect(containerId).stopTimeout(), LONGEST_GRACE_SECONDS);
+            docker.stop(containerId, grace);
         } catch (DockerException e) {
             return RedeployResult.refused("stopping " + shortId(containerId) + ": " + e.getMessage());
         }
         try {
             if (docker.inspect(containerId).wasKilled()) {
                 return RedeployResult.refused(shortId(containerId) + " did not shut down within "
-                        + STOP_GRACE_SECONDS + " seconds and was killed (exit 137). Whatever it was"
+                        + grace + " seconds and was killed (exit 137). Whatever it was"
                         + " writing was cut off, so nothing saved from its volumes now counts as a"
                         + " backup");
             }

@@ -9,12 +9,10 @@ import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.health.Shutdown;
 import eu.nordtal.s2.common.id.PlayerId;
-import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AdminOperators;
-import eu.nordtal.s2.database.command.AllowlistDirectory;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.InboxTable;
 import eu.nordtal.s2.database.inbox.Outcome;
@@ -49,6 +47,10 @@ import eu.nordtal.s2.settings.Group;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.Settings;
 import eu.nordtal.s2.settings.SettingsException;
+import eu.nordtal.s2.settings.network.LanguageAndTimeSpec;
+import eu.nordtal.s2.settings.network.NetworkSettings;
+import eu.nordtal.s2.settings.network.PlayersSpec;
+import eu.nordtal.s2.settings.network.SeasonSpec;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
@@ -79,12 +81,16 @@ import org.slf4j.LoggerFactory;
  */
 public abstract class NordtalPlugin extends JavaPlugin {
 
-    private final Clock clock = NetworkTime.clock();
+    // Counts instants until the settings name the zone; replaced once, before anything is shown.
+    private Clock clock = NetworkTime.clock();
 
     private DatabaseSettings settings;
     private Setting<DatabaseSpec> database;
     private Setting<ColoursSpec> colourSettings;
     private Setting<DistancesSpec> distanceSettings;
+    private Setting<PlayersSpec> players;
+    private SeasonSpec season;
+    private LanguageAndTimeSpec languageAndTime;
     private WorldDistances worldDistances;
     private volatile ToneColours colours;
     private Messages messages;
@@ -94,7 +100,6 @@ public abstract class NordtalPlugin extends JavaPlugin {
     private Identities identities;
     private PlayerLocales locales;
     private AdminWatch adminWatch;
-    private CommandFilter commandFilter;
     private @Nullable SignalHub hub;
     private @Nullable BukkitTask heartbeat;
 
@@ -200,14 +205,15 @@ public abstract class NordtalPlugin extends JavaPlugin {
                     }
                 },
                 logger());
-        commandFilter = filterCommands(adminWatch);
+        filterCommands(adminWatch);
+        // Only the proxy enforces the network's limit, so this server takes whoever it sends.
+        listen(new Unbounded());
 
         final SignalHub signals = openHub();
         hub = signals;
         registerCommands();
         enable();
         adminWatch.listen(signals);
-        commandFilter.listen(signals);
         // An admin's change in Steward is a reload, on the hub's thread like one Steward asks for.
         settings.listen(signals, this::reload);
         signals.start();
@@ -233,6 +239,11 @@ public abstract class NordtalPlugin extends JavaPlugin {
         colourSettings = setting(Group.of("colours", ColoursSpec.class).whileRunning());
         colours = ToneColours.parse(Colours.declared(colourSettings.get()), getLogger()::warning);
         distanceSettings = setting(Distances.group(distanceDefaults()));
+        players = setting(NetworkSettings.PLAYERS);
+        // Both are read at start only: the season changes with an installation, bundles and clocks are built once.
+        season = setting(NetworkSettings.SEASON).get();
+        languageAndTime = setting(NetworkSettings.LANGUAGE_AND_TIME).get();
+        clock = NetworkTime.clock(NetworkSettings.zone(languageAndTime));
         prepare();
         settings.retireFiles();
     }
@@ -272,24 +283,21 @@ public abstract class NordtalPlugin extends JavaPlugin {
                         getClass().getClassLoader(),
                         roots,
                         getDataFolder().toPath().resolve("messages"),
-                        Languages.NETWORK.locales())
-                .within(MessageEnvironment.of(getName()));
+                        NetworkSettings.languages(languageAndTime).locales())
+                .within(MessageEnvironment.of(getName(), NetworkSettings.season(season)));
         reportUnknownOverrides(loaded);
         return loaded;
     }
 
-    /** What a non-admin may type here; fails open until an allowlist is published, since the proxy enforces it. */
-    private CommandFilter filterCommands(final AdminWatch admins) {
-        final CommandFilter filter = new CommandFilter(
-                CommandFilter.Source.of(AllowlistDirectory.using(pool)),
-                admins::isAdmin,
-                locales,
-                messages,
-                logger(),
-                this::colours,
-                chime());
-        listen(filter);
-        return filter;
+    /** Hides what a non-admin may not type here; the proxy refuses it either way. */
+    private void filterCommands(final AdminWatch admins) {
+        listen(new CommandFilter(
+                NetworkSettings.allowlist(players.get()), admins::isAdmin, locales, messages, this::colours, chime()));
+    }
+
+    /** Returns the network's limit and allowlist as of their last reload. */
+    public final PlayersSpec players() {
+        return players.get();
     }
 
     @Override
@@ -315,7 +323,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
     }
 
     /**
-     * Re-reads the bundles, the colours, the distances and the plugin's own settings, each on its own.
+     * Re-reads the bundles, the colours, the distances, the network's players and this plugin's settings, each alone.
      *
      * @return what could not be re-read, empty when everything was taken
      */
@@ -341,6 +349,11 @@ public abstract class NordtalPlugin extends JavaPlugin {
                     .runTask(this, () -> worldDistances.apply(getServer().getWorlds()));
         } catch (final SettingsException failure) {
             problems.add("the distances: " + failure.getMessage());
+        }
+        try {
+            players.reload();
+        } catch (final SettingsException failure) {
+            problems.add("the network's players: " + failure.getMessage());
         }
         problems.addAll(reloadOwn());
         problems.forEach(problem -> getLogger().severe("not reloaded, the running values stay: " + problem));

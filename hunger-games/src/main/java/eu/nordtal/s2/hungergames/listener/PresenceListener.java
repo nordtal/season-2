@@ -9,6 +9,7 @@ import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.packrendering.hud.TabList;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
+import eu.nordtal.s2.settings.network.PlayersSpec;
 import java.util.Objects;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -39,13 +40,18 @@ public final class PresenceListener implements Listener {
     /** The shared system lines, held for the join line once the locale has landed. */
     private final SystemLines lines;
 
+    /** The network's limit, which the footer shows: no server has one of its own. */
+    private final PlayersSpec network;
+
     public PresenceListener(
             final Plugin plugin,
             final PlayerLocales locales,
             final PlayerBodies bodies,
             final GameState state,
             final Messages messages,
-            final SystemLines lines) {
+            final SystemLines lines,
+            final PlayersSpec network) {
+        this.network = network;
         this.plugin = plugin;
         this.locales = locales;
         this.bodies = bodies;
@@ -62,7 +68,7 @@ public final class PresenceListener implements Listener {
                     TabList.header(messages, locale, MESSAGES.tab()::header),
                     messages.format(
                             locale,
-                            MESSAGES.tab().footer(Bukkit.getOnlinePlayers().size(), Bukkit.getMaxPlayers())));
+                            MESSAGES.tab().footer(Bukkit.getOnlinePlayers().size(), network.maxPlayers())));
         }
     }
 

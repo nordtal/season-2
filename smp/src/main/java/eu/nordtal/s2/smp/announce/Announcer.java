@@ -1,6 +1,5 @@
 package eu.nordtal.s2.smp.announce;
 
-import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.inbox.BotRequest;
@@ -11,7 +10,6 @@ import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
 import java.time.Duration;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -25,9 +23,6 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
  * Fire and forget on the async executor: the request keeps for an hour, so a bot that was down posts when it is back.
  */
 public final class Announcer {
-
-    /** The languages a line is rendered in. */
-    public static final List<String> LANGUAGES = Languages.NETWORK.tags();
 
     /** How long a request waits for the bot before it is abandoned: a restart, not an outage. */
     public static final Duration KEEP = Duration.ofHours(1);
@@ -80,10 +75,10 @@ public final class Announcer {
     /** Returns the announcement with one plain text per language, visible for the test. */
     BotRequest.Announce render(final Function<Locale, MessageRef> message) {
         final Map<String, String> texts = new LinkedHashMap<>();
-        for (final String tag : LANGUAGES) {
-            final Locale locale = Locales.parse(tag);
+        // The languages the plugin loaded, which are the network's.
+        for (final Locale locale : messages.locales()) {
             texts.put(
-                    tag,
+                    Locales.tag(locale),
                     PlainTextComponentSerializer.plainText()
                             .serialize(MessageRenderer.of(messages).format(locale, message.apply(locale))));
         }

@@ -5,8 +5,8 @@ import static eu.nordtal.s2.database.DatabaseMessages.MESSAGES;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.messages.Refused;
+import java.time.Clock;
 import java.time.Instant;
-import java.time.InstantSource;
 import java.util.Objects;
 import java.util.Optional;
 import javax.sql.DataSource;
@@ -16,9 +16,9 @@ import org.jspecify.annotations.Nullable;
 final class JdbiPhaseDirectory implements PhaseDirectory {
 
     private final PhaseDao dao;
-    private final InstantSource clock;
+    private final Clock clock;
 
-    JdbiPhaseDirectory(final DataSource dataSource, final InstantSource clock) {
+    JdbiPhaseDirectory(final DataSource dataSource, final Clock clock) {
         Objects.requireNonNull(dataSource, "dataSource");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.dao = Jdbis.over(dataSource).onDemand(PhaseDao.class);
@@ -59,13 +59,16 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
         if (at != null && at.isBefore(clock.instant())) {
             throw new Refused(
                     SeasonDateRefusal.IN_THE_PAST,
-                    MESSAGES.season().launchInThePast(SeasonDates.format(at), SeasonDates.CLEAR));
+                    MESSAGES.season().launchInThePast(SeasonDates.format(at, clock.getZone()), SeasonDates.CLEAR));
         }
         final Instant smpStart = dao.smpStart().orElse(null);
         if (at != null && smpStart != null && smpStart.isBefore(at)) {
             throw new Refused(
                     SeasonDateRefusal.OUT_OF_ORDER,
-                    MESSAGES.season().launchAfterSmpStart(SeasonDates.format(at), SeasonDates.format(smpStart)));
+                    MESSAGES.season()
+                            .launchAfterSmpStart(
+                                    SeasonDates.format(at, clock.getZone()),
+                                    SeasonDates.format(smpStart, clock.getZone())));
         }
         return written(dao.setLaunch(at, actor));
     }
@@ -79,13 +82,16 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
         if (at != null && at.isBefore(clock.instant())) {
             throw new Refused(
                     SeasonDateRefusal.IN_THE_PAST,
-                    MESSAGES.season().smpStartInThePast(SeasonDates.format(at), SeasonDates.CLEAR));
+                    MESSAGES.season().smpStartInThePast(SeasonDates.format(at, clock.getZone()), SeasonDates.CLEAR));
         }
         final Instant launch = dao.launch().orElse(null);
         if (at != null && launch != null && at.isBefore(launch)) {
             throw new Refused(
                     SeasonDateRefusal.OUT_OF_ORDER,
-                    MESSAGES.season().smpStartBeforeLaunch(SeasonDates.format(at), SeasonDates.format(launch)));
+                    MESSAGES.season()
+                            .smpStartBeforeLaunch(
+                                    SeasonDates.format(at, clock.getZone()),
+                                    SeasonDates.format(launch, clock.getZone())));
         }
         return written(dao.setSmpStart(at, actor));
     }

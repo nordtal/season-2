@@ -20,6 +20,7 @@ import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.settings.EnvironmentSettings;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.SettingsException;
+import eu.nordtal.s2.settings.network.NetworkSettings;
 import eu.nordtal.s2.steward.agent.AgentRecreate;
 import eu.nordtal.s2.steward.api.StackApi;
 import eu.nordtal.s2.steward.apply.ApplyResult;
@@ -54,6 +55,7 @@ import eu.nordtal.s2.steward.web.Web;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -268,7 +270,8 @@ public final class Steward {
             StewardSpec config,
             WebSpec web,
             DatabaseSpec database,
-            DatabaseSettings settings) {}
+            DatabaseSettings settings,
+            ZoneId zone) {}
 
     /** Takes the serve lock and, once held, runs the container's whole lifetime. */
     private static int serveWithDatabase(
@@ -329,8 +332,14 @@ public final class Steward {
         try {
             final Setting<StewardSpec> handle = StewardSettings.steward(settings);
             final WebSpec web = StewardSettings.web(settings).get();
+            // Steward starts first, so the network's groups are published before any server asks for them.
+            settings.load(NetworkSettings.PLAYERS);
+            settings.load(NetworkSettings.MOTD);
+            settings.load(NetworkSettings.SEASON);
+            final ZoneId zone = NetworkSettings.zone(
+                    settings.load(NetworkSettings.LANGUAGE_AND_TIME).get());
             settings.retireFiles();
-            return new Configs(handle, handle.get(), web, databaseConfig, settings);
+            return new Configs(handle, handle.get(), web, databaseConfig, settings, zone);
         } catch (final SettingsException broken) {
             // No stack trace, so the sentence is not missed.
             log.error("Refusing to serve on settings that cannot be read: {}", broken.getMessage());
@@ -427,14 +436,16 @@ public final class Steward {
         final StewardSpec config = configs.config();
         final Backups backups = buildBackups(config, docker);
 
+        // The schedules and the season dates tell time in the network's zone.
+        final Clock zoned = NetworkTime.clock(configs.zone());
         // One set of directories, shared by the run loop, the stack routes and the web.
-        final Data data = new Data(database, CLOCK);
+        final Data data = new Data(database, zoned);
         // Admin-added plugins, shared by the runner's resolve and the API.
         final eu.nordtal.s2.steward.plugin.PluginDirectory addedPlugins =
                 eu.nordtal.s2.steward.plugin.PluginDirectory.using(database.dataSource());
 
-        try (Schedules schedules = new Schedules(data.updates(), config, CLOCK);
-                StackApi stack = buildStack(config, docker, dockerOps, database, data, addedPlugins)) {
+        try (Schedules schedules = new Schedules(data.updates(), config, zoned);
+                StackApi stack = buildStack(config, docker, dockerOps, database, data, addedPlugins, configs.zone())) {
             // Started after the marker, so a failure of the interface cannot keep the servers down.
             final Web web = startWeb(configs, stack, data);
             try {
@@ -503,7 +514,8 @@ public final class Steward {
             final DockerOps dockerOps,
             final Database database,
             final Data data,
-            final eu.nordtal.s2.steward.plugin.PluginDirectory addedPlugins) {
+            final eu.nordtal.s2.steward.plugin.PluginDirectory addedPlugins,
+            final ZoneId zone) {
         // Every process's settings, which its signal re-reads; the proxy's pack among them.
         final SettingStore settings = SettingStore.using(database.dataSource());
         return new StackApi(
@@ -522,7 +534,7 @@ public final class Steward {
                         config.backup().days(),
                         config.update().at(),
                         config.update().days(),
-                        NetworkTime.ZONE),
+                        zone),
                 // The player counts proxy writes, and the player list next to them.
                 new eu.nordtal.s2.steward.api.ServicesApi(
                         OnlineDirectory.using(database.dataSource(), CLOCK),

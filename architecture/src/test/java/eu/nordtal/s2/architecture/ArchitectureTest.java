@@ -51,6 +51,7 @@ class ArchitectureTest {
             "eu.nordtal.s2.smp.config.SmpSpec",
             "eu.nordtal.s2.settings.ColoursSpec",
             "eu.nordtal.s2.settings.DatabaseSpec",
+            "eu.nordtal.s2.settings.network.PlayersSpec",
             "eu.nordtal.s2.steward.config.WebSpec",
             "eu.nordtal.s2.steward.config.StewardSpec");
 
@@ -284,17 +285,17 @@ class ArchitectureTest {
                 .check(classes);
     }
 
-    /** The proxy publishes the allowlist the backends filter by, gates what players type and routes only its own. */
+    /** The proxy gates what players type by the network's allowlist and routes only its own. */
     @Test
-    void theProxyPublishesTheAllowlistAndGatesWhatPlayersType() {
+    void theProxyGatesWhatPlayersType() {
         classes()
                 .that()
                 .haveFullyQualifiedName("eu.nordtal.s2.proxy.ProxyPlugin")
                 .should()
                 .callMethod(
-                        "eu.nordtal.s2.database.command.AllowlistDirectory",
-                        "publish",
-                        "eu.nordtal.s2.database.command.CommandAllowlist")
+                        "eu.nordtal.s2.settings.network.NetworkSettings",
+                        "allowlist",
+                        "eu.nordtal.s2.settings.network.PlayersSpec")
                 .andShould()
                 .callConstructorWhere(builds("eu.nordtal.s2.proxy.command.CommandGate"))
                 .andShould()
@@ -302,7 +303,7 @@ class ArchitectureTest {
                 .check(classes);
     }
 
-    /** Every Paper plugin filters commands by the published allowlist, since the base builds the filter. */
+    /** Every Paper plugin filters commands by the network's allowlist, since the base builds the filter. */
     @Test
     void thePluginBaseFiltersCommandsByTheAllowlist() {
         classes()
@@ -310,6 +311,26 @@ class ArchitectureTest {
                 .haveFullyQualifiedName("eu.nordtal.s2.papercommon.plugin.NordtalPlugin")
                 .should()
                 .callConstructorWhere(builds("eu.nordtal.s2.papercommon.command.CommandFilter"))
+                .check(classes);
+    }
+
+    /** Settings live in the database: only :settings reads a YAML file, the last installation's, to import it once. */
+    @Test
+    void onlyTheSettingsModuleReadsASettingsFile() {
+        noClasses()
+                .that()
+                .resideOutsideOfPackage("eu.nordtal.s2.settings..")
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName("eu.nordtal.jcore.config.spec.CommentedConfiguration")
+                .orShould()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName("eu.nordtal.jcore.config.ConfigHandle")
+                .orShould()
+                .callMethodWhere(DescribedPredicate.describe(
+                        "a file read through jcore's ConfigLoader",
+                        call -> call.getTargetOwner().getName().equals("eu.nordtal.jcore.config.ConfigLoader")
+                                && !call.getName().equals("gsonBuilder")))
                 .check(classes);
     }
 

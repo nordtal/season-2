@@ -1,11 +1,13 @@
 package eu.nordtal.s2.hungergames.lobby;
 
-import eu.nordtal.s2.common.language.Languages;
+import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
+import java.util.Locale;
 import javax.imageio.ImageIO;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -31,16 +33,19 @@ public final class LobbyMaps {
 
     private final Plugin plugin;
     private final HungerGamesSpec config;
+    private final List<Locale> languages;
 
-    public LobbyMaps(final Plugin plugin, final HungerGamesSpec config) {
+    /** The lobby maps of {@code languages}, the ones the network speaks. */
+    public LobbyMaps(final Plugin plugin, final HungerGamesSpec config, final List<Locale> languages) {
         this.plugin = plugin;
         this.config = config;
+        this.languages = List.copyOf(languages);
     }
 
-    /** Loads {@code lobby/map-<lang>.png} for every bundle language and mounts its slices at the configured origin. */
+    /** Loads {@code lobby/map-<lang>.png} for every network language and mounts its slices at the configured origin. */
     public void render(final World world) {
-        for (final String language : Languages.NETWORK.tags()) {
-            renderLanguage(world, language);
+        for (final Locale language : languages) {
+            renderLanguage(world, Locales.tag(language));
         }
     }
 

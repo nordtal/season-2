@@ -80,6 +80,9 @@ import {
 import { MessagePreview } from "@/components/steward/message-preview"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
+/** The service the network's own settings are published under, the ones every process reads. */
+export const NETWORK = "network"
+
 /**
  * The Settings & Translations tab: the service's config files and bundles in one list, the chosen one as a tree.
  *

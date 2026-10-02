@@ -61,7 +61,7 @@ public final class StackApi implements AutoCloseable {
      *
      * @param at {@code HH:mm} in this container's own time zone, or blank for no nightly backup
      * @param updateAt the same for the scheduled update, blank (the default) for none
-     * @param zone this container's zone, set by compose's {@code TZ}, not the browser's
+     * @param zone the network's default zone, from its settings, not the browser's
      */
     public record Nightly(String at, List<String> days, String updateAt, List<String> updateDays, ZoneId zone) {
 

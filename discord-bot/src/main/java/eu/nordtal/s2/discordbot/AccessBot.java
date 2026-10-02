@@ -45,6 +45,8 @@ import eu.nordtal.s2.messages.context.MessageEnvironment;
 import eu.nordtal.s2.settings.DatabaseSettings;
 import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.settings.SettingsException;
+import eu.nordtal.s2.settings.network.NetworkSettings;
+import eu.nordtal.s2.settings.network.SeasonSpec;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
@@ -128,6 +130,7 @@ public class AccessBot implements AutoCloseable {
             final DatabaseSettings settings = BotSettings.stored(database.dataSource());
             final BotSpec botConfig = BotSettings.bot(settings).get();
             final AccessSpec accessConfig = BotSettings.access(settings).get();
+            final SeasonSpec season = settings.load(NetworkSettings.SEASON).get();
             settings.retireFiles();
 
             // Borrows the bot's pool; closing a borrowed pool is a no-op.
@@ -136,7 +139,7 @@ public class AccessBot implements AutoCloseable {
             // steward's inbox: the bot writes requests and reads answers, never updating them.
             final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
 
-            final CoreServices core = loadCoreServices(accessConfig);
+            final CoreServices core = loadCoreServices(accessConfig, season);
             this.jda = connectJda(botConfig);
 
             final DiscordWiring wiring = wireDiscord(jda, accessConfig, core, phases);
@@ -194,14 +197,14 @@ public class AccessBot implements AutoCloseable {
         return hub;
     }
 
-    private CoreServices loadCoreServices(final AccessSpec accessConfig) {
+    private CoreServices loadCoreServices(final AccessSpec accessConfig, final SeasonSpec season) {
         final Languages languages = Languages.of(accessConfig);
         final Messages messages = Messages.load(
                         AccessBot.class.getClassLoader(),
                         java.util.List.of(MESSAGE_ROOT),
                         BotSettings.messagesDirectory(),
                         languages.locales())
-                .within(MessageEnvironment.of(SERVICE));
+                .within(MessageEnvironment.of(SERVICE, NetworkSettings.season(season)));
         messages.unknownOverrideKeys()
                 .forEach(key -> log.warn(
                         "the message override names {}, which no bundle declares - it is stored"

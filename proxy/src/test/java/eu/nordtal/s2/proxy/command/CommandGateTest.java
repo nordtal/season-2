@@ -4,16 +4,16 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.jcore.config.spec.Specs;
-import eu.nordtal.s2.database.command.CommandAllowlist;
-import eu.nordtal.s2.proxy.config.NetworkSpec;
+import eu.nordtal.s2.settings.network.CommandAllowlist;
+import eu.nordtal.s2.settings.network.PlayersSpec;
 import org.junit.jupiter.api.Test;
 
 /** What the shipped allowlist lets through. */
 class CommandGateTest {
 
-    /** The list exactly as a fresh {@code network.yml} writes it. */
+    /** The list exactly as the network's players group defaults it. */
     private static final CommandAllowlist SHIPPED =
-            CommandAllowlist.parse(Specs.createDefault(NetworkSpec.class).commandAllowlist());
+            CommandAllowlist.parse(Specs.createDefault(PlayersSpec.class).commandAllowlist());
 
     @Test
     void adminCommandsAreNotOnIt() {

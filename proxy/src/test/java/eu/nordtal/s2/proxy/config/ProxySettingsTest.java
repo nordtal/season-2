@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.settings.DatabasePool;
 import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.settings.Environment;
@@ -13,11 +12,8 @@ import eu.nordtal.s2.settings.EnvironmentSettings;
 import eu.nordtal.s2.settings.Group;
 import eu.nordtal.s2.settings.MemorySettingStore;
 import eu.nordtal.s2.settings.SettingsException;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /** Every invalid value in the proxy's own settings is refused by name. */
@@ -260,70 +256,18 @@ class ProxySettingsTest {
     // network
 
     @Test
-    void aFreshNetworkConfigLoadsAndCarriesAMotdForEveryPhase() throws Exception {
+    void aFreshNetworkGroupIsTheMainProxyWithoutATransferAddress() throws Exception {
         final NetworkSpec config = store.checked(
                 "proxy", Group.of("network", NetworkSpec.class).checkedBy(ProxySettings::checkNetwork), values);
 
-        assertEquals(500, config.maxPlayers());
-
-        // The nested MotdSpec needs its own @ConfigSpec to survive the round trip.
-        for (final SeasonPhase phase : SeasonPhase.values()) {
-            assertFalse(motdFor(config, phase).isBlank(), "no MOTD for " + phase);
-        }
+        assertFalse(config.standby());
+        assertEquals("", config.publicAddress());
+        assertEquals(10, config.snapshotRefreshSeconds());
     }
 
     @Test
-    void everyPhaseGetsItsOwnMotdRatherThanOneSharedLine() throws Exception {
-        // Two phases sharing a default would make five keys pointless.
-        final NetworkSpec config = store.checked(
-                "proxy", Group.of("network", NetworkSpec.class).checkedBy(ProxySettings::checkNetwork), values);
-        final Set<String> distinct = new HashSet<>();
-        for (final SeasonPhase phase : SeasonPhase.values()) {
-            distinct.add(motdFor(config, phase));
-        }
-        assertEquals(
-                SeasonPhase.values().length,
-                distinct.size(),
-                "two phases ship the same default MOTD, so one of them is not saying anything");
-    }
-
-    @Test
-    void everyDefaultMotdOpensWithTheOneBrandMark() throws Exception {
-        // One mark, and the phase is what the second line says: a name that changes colour is five marks.
-        final NetworkSpec config = store.checked(
-                "proxy", Group.of("network", NetworkSpec.class).checkedBy(ProxySettings::checkNetwork), values);
-        for (final SeasonPhase phase : SeasonPhase.values()) {
-            final String motd = motdFor(config, phase);
-            assertTrue(motd.startsWith(NetworkSpec.MotdSpec.NORDTAL_BLUE), phase + " opens with its own mark: " + motd);
-            assertFalse(motd.contains("<gradient:"), phase + " colours the name itself: " + motd);
-            assertEquals(
-                    motd.indexOf("nordtal.eu"),
-                    motd.lastIndexOf("nordtal.eu"),
-                    phase + " writes the name out a second time: " + motd);
-        }
-    }
-
-    @Test
-    void theBrandColourIsTheLogosBlueLightened() {
-        // The logo's #24357d off resource-pack/src/pack.png, lightened for the server browser's near-black list.
-        assertEquals("<#4a63d8><bold>nordtal.eu</bold></#4a63d8>", NetworkSpec.MotdSpec.NORDTAL_BLUE);
-    }
-
-    @Test
-    void aFreshNetworkConfigCarriesTheAllowlistOfOurOwnPlayerCommands() throws Exception {
-        // The default is the assertion: this list is what every player on the network can type.
-        final NetworkSpec config = store.checked(
-                "proxy", Group.of("network", NetworkSpec.class).checkedBy(ProxySettings::checkNetwork), values);
-
-        assertEquals(
-                List.of("navigate", "poi", "hg ready", "msg", "whisper", "r", "discord", "rules"),
-                config.commandAllowlist());
-    }
-
-    @Test
-    void aBlankAllowlistEntryIsRejectedBecauseItWouldBeDroppedSilently() throws Exception {
-        // A blank entry has no segments and would match every command.
-        values.put("command-allowlist", List.of("msg", ""));
+    void aRefreshThatNeverComesIsRefused() {
+        values.put("snapshot-refresh-seconds", 0);
 
         final SettingsException error = assertThrows(
                 SettingsException.class,
@@ -331,44 +275,7 @@ class ProxySettingsTest {
                         "proxy",
                         Group.of("network", NetworkSpec.class).checkedBy(ProxySettings::checkNetwork),
                         values));
-        assertTrue(error.getMessage().contains("command-allowlist"), error.getMessage());
-    }
-
-    @Test
-    void anEmptyAllowlistIsAllowedBecauseLockingTheNetworkDownIsALegitimateThingToWant() throws Exception {
-        // An empty allowlist is legitimate and is not refused.
-        values.put("command-allowlist", List.of());
-
-        assertEquals(
-                List.of(),
-                store.checked(
-                                "proxy",
-                                Group.of("network", NetworkSpec.class).checkedBy(ProxySettings::checkNetwork),
-                                values)
-                        .commandAllowlist());
-    }
-
-    @Test
-    void anEmptyMotdIsRejectedRatherThanShownAsAnEmptyServerBrowserEntry() throws Exception {
-        values.put("motd.pre-launch", "");
-
-        final SettingsException error = assertThrows(
-                SettingsException.class,
-                () -> store.checked(
-                        "proxy",
-                        Group.of("network", NetworkSpec.class).checkedBy(ProxySettings::checkNetwork),
-                        values));
-        assertTrue(error.getMessage().contains("motd.pre-launch"), error.getMessage());
-    }
-
-    private static String motdFor(final NetworkSpec config, final SeasonPhase phase) {
-        return switch (phase) {
-            case PRE_LAUNCH -> config.motd().preLaunch();
-            case PRE_EVENT -> config.motd().preEvent();
-            case START_EVENT -> config.motd().startEvent();
-            case SMP -> config.motd().smp();
-            case MAINTENANCE -> config.motd().maintenance();
-        };
+        assertTrue(error.getMessage().contains("snapshot-refresh-seconds"), error.getMessage());
     }
 
     /** Takes the proxy's database settings from an environment holding what {@link #values} names. */

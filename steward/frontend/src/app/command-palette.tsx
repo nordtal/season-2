@@ -29,7 +29,7 @@ import {
   setPendingJump,
   setPendingMessageJump,
 } from "@/lib/settings-search"
-import { bundleFileId } from "@/components/steward/settings"
+import { bundleFileId, NETWORK } from "@/components/steward/settings"
 import { messageName } from "@/lib/settings-tree"
 import { RUN_KIND, RUN_STATUS } from "@/components/steward/status"
 
@@ -239,11 +239,14 @@ export function CommandPalette() {
                       onSelect={() => {
                         setOpen(false)
                         setPendingJump(service, { file: hit.location.path, path: hit.entry.path })
-                        void navigate({
-                          to: "/services/$name",
-                          params: { name: service },
-                          search: { tab: "settings", file: hit.location.path },
-                        })
+                        // The network's own groups sit on the season page, every other on its service's.
+                        void (service === NETWORK
+                          ? navigate({ to: "/season", search: { file: hit.location.path } })
+                          : navigate({
+                              to: "/services/$name",
+                              params: { name: service },
+                              search: { tab: "settings", file: hit.location.path },
+                            }))
                       }}
                       className="min-h-control gap-2.5"
                     >

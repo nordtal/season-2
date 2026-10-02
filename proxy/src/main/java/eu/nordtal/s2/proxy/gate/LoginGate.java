@@ -10,7 +10,7 @@ import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AccessState;
 import eu.nordtal.s2.database.access.LinkCode;
 import eu.nordtal.s2.proxy.config.GateSpec;
-import eu.nordtal.s2.proxy.config.NetworkSpec;
+import eu.nordtal.s2.settings.network.PlayersSpec;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -33,7 +33,7 @@ public final class LoginGate {
     private final LoginRoster roster;
     private final GateMessages messages;
     private final GateSpec config;
-    private final NetworkSpec network;
+    private final PlayersSpec players;
     private final Clock clock;
 
     public LoginGate(
@@ -44,7 +44,7 @@ public final class LoginGate {
             final LoginRoster roster,
             final GateMessages messages,
             final GateSpec config,
-            final NetworkSpec network,
+            final PlayersSpec players,
             final Clock clock) {
         this.logger = logger;
         this.proxy = proxy;
@@ -53,7 +53,7 @@ public final class LoginGate {
         this.roster = roster;
         this.messages = messages;
         this.config = config;
-        this.network = network;
+        this.players = players;
         this.clock = clock;
     }
 
@@ -116,7 +116,7 @@ public final class LoginGate {
      * Checked after the access decision, so an admin can still enter a full network to fix it.
      */
     private void refuseIfFull(final LoginEvent event, final AccessState state) {
-        final int maximum = network.maxPlayers();
+        final int maximum = players.maxPlayers();
         final int online = proxy.getPlayerCount();
         if (online < maximum || state.admin()) {
             return;
@@ -146,7 +146,7 @@ public final class LoginGate {
     private void fallBackToCache(final LoginEvent event, final UUID uuid) {
         if (fallback.mayJoin(uuid)) {
             // The limit still applies to everyone, since the admin flag is what could not be read.
-            final int maximum = network.maxPlayers();
+            final int maximum = players.maxPlayers();
             final int online = proxy.getPlayerCount();
             if (online >= maximum) {
                 event.setResult(ComponentResult.denied(messages.full(fallback.localeOf(uuid), online, maximum)));

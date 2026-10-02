@@ -6,7 +6,6 @@ import com.velocitypowered.api.event.ResultedEvent.ComponentResult;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.LoginEvent;
 import com.velocitypowered.api.event.proxy.ProxyPingEvent;
-import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import java.util.Locale;
 import java.util.Objects;
@@ -33,8 +32,7 @@ public final class MisconfiguredGate {
     public MisconfiguredGate(final Logger logger, final Messages messages) {
         this.logger = Objects.requireNonNull(logger, "logger");
         Objects.requireNonNull(messages, "messages");
-        this.screen = GateMessages.inEveryLanguage(
-                MessageRenderer.of(messages), MESSAGES.gate().misconfigured());
+        this.screen = GateMessages.inEveryLanguage(messages, MESSAGES.gate().misconfigured());
         // English only: a ping carries no player to take a language from.
         this.motd = MiniMessage.miniMessage()
                 .deserialize(messages.format(Locale.ENGLISH, MESSAGES.motd().misconfigured()));

@@ -39,6 +39,11 @@ import eu.nordtal.s2.settings.DatabaseSettings;
 import eu.nordtal.s2.settings.Environment;
 import eu.nordtal.s2.settings.EnvironmentSettings;
 import eu.nordtal.s2.settings.Group;
+import eu.nordtal.s2.settings.Setting;
+import eu.nordtal.s2.settings.network.MotdSpec;
+import eu.nordtal.s2.settings.network.NetworkSettings;
+import eu.nordtal.s2.settings.network.PlayersSpec;
+import eu.nordtal.s2.settings.network.SeasonSpec;
 import eu.nordtal.s2.settings.SettingsException;
 import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.proxy.config.GateSpec;
@@ -58,8 +63,6 @@ import eu.nordtal.s2.proxy.pack.PackMessages;
 import eu.nordtal.s2.proxy.pack.PackOffer;
 import eu.nordtal.s2.proxy.pack.PackStation;
 import eu.nordtal.s2.proxy.pack.WaitingBook;
-import eu.nordtal.s2.database.command.AllowlistDirectory;
-import eu.nordtal.s2.database.command.CommandAllowlist;
 import eu.nordtal.s2.proxy.command.CommandGate;
 import eu.nordtal.s2.proxy.command.InfoTexts;
 import eu.nordtal.s2.proxy.command.PrivateMessages;
@@ -108,11 +111,11 @@ import java.util.concurrent.atomic.AtomicReference;
 )
 public final class ProxyPlugin {
 
-    /** The process every message of this proxy renders for. */
-    private static final MessageEnvironment ENVIRONMENT = MessageEnvironment.of("proxy");
-
     /** The one clock of this process. */
     private final Clock clock = NetworkTime.clock();
+
+    /** The languages of the network's settings, or their defaults while those cannot be read. */
+    private Languages languages = NetworkSettings.defaultLanguages();
 
     private final ProxyServer proxy;
     private final Logger logger;
@@ -139,18 +142,9 @@ public final class ProxyPlugin {
 
     @Subscribe
     public void onProxyInitialize(final ProxyInitializeEvent event) {
-        // {server.name} in every message.
         logger.info("proxy enabled, {} backends registered", proxy.getAllServers().size());
 
         try {
-            // Inside the try since Messages.load can throw on a read-only volume.
-            final Messages messages = Messages.load(getClass().getClassLoader(),
-                    List.of("messages/proxy"),
-                    dataDirectory.resolve("messages"), Languages.NETWORK.locales()).within(ENVIRONMENT);
-            messages.unknownOverrideKeys().forEach(key -> logger.warn(
-                    "the message override names {}, which no bundle declares - it is stored and"
-                            + " never used; check the spelling", key));
-
             final Environment environment = Environment.of("NORDTAL_PROXY").withMain("proxy");
             final DatabaseSpec database = EnvironmentSettings.of(environment)
                     .load(Group.of("database", DatabaseSpec.class).checkedBy(DatabasePool::check)).get();
@@ -166,8 +160,20 @@ public final class ProxyPlugin {
             final NetworkSpec network = settings.load(
                     Group.of("network", NetworkSpec.class).checkedBy(ProxySettings::checkNetwork)).get();
             final ColoursSpec colours = settings.load(Group.of("colours", ColoursSpec.class)).get();
+            final Setting<PlayersSpec> players = settings.load(NetworkSettings.PLAYERS);
+            final Setting<MotdSpec> motd = settings.load(NetworkSettings.MOTD);
+            final SeasonSpec season = settings.load(NetworkSettings.SEASON).get();
+            languages = NetworkSettings.languages(settings.load(NetworkSettings.LANGUAGE_AND_TIME).get());
             settings.retireFiles();
-            start(database, gate, pack, network, colours, messages);
+            // After the settings, which name the languages and the season; it can throw on a read-only volume.
+            final Messages messages = Messages.load(getClass().getClassLoader(),
+                    List.of("messages/proxy"),
+                    dataDirectory.resolve("messages"), languages.locales())
+                    .within(MessageEnvironment.of("proxy", NetworkSettings.season(season)));
+            messages.unknownOverrideKeys().forEach(key -> logger.warn(
+                    "the message override names {}, which no bundle declares - it is stored and"
+                            + " never used; check the spelling", key));
+            start(database, gate, pack, network, colours, messages, settings, players, motd, season);
         } catch (final SettingsException | RuntimeException failure) {
             failClosed(failure);
         }
@@ -175,7 +181,8 @@ public final class ProxyPlugin {
 
     private void start(final DatabaseSpec databaseConfig, final GateSpec gateConfig,
                        final PackSpec packConfig, final NetworkSpec networkConfig,
-                       final ColoursSpec coloursConfig, final Messages messages) {
+                       final ColoursSpec coloursConfig, final Messages messages, final DatabaseSettings settings,
+                       final Setting<PlayersSpec> players, final Setting<MotdSpec> motd, final SeasonSpec season) {
         this.access = AccessDirectory.using(pool, clock);
 
         // The five reply colours, read once here; see ColoursSpec.
@@ -288,6 +295,8 @@ public final class ProxyPlugin {
         this.signals = SignalHub.open(databaseConfig.jdbcUrl(), databaseConfig.username(),
                 databaseConfig.password(), databaseConfig.queryTimeoutSeconds(), "proxy-signals", logger);
         signals.on(Channel.PHASE, "the season phase", phaseWatch::refresh);
+        // The network's limit, allowlist and MOTD, changed in Steward, arrive here without a restart.
+        settings.listen(signals, () -> reloadNetwork(players, motd));
         signals.on(Channel.ADMIN, "the admin roster", refreshAdmins);
         // Latency here would drop the 30 second beat.
         signals.on(Channel.UPDATE, "the restart countdown", () -> {
@@ -306,7 +315,7 @@ public final class ProxyPlugin {
         // the gate
 
         final LoginGate loginGate = new LoginGate(logger, proxy, access, fallback, roster, gateMessages,
-                gateConfig, networkConfig, clock);
+                gateConfig, players.get(), clock);
         final ExpiryWatch expiryWatch = new ExpiryWatch(proxy, logger, access, fallback, gateMessages,
                 Duration.ofMinutes(gateConfig.expiryWarningLeadMinutes()), clock);
 
@@ -322,7 +331,7 @@ public final class ProxyPlugin {
                 .repeat(Duration.ofSeconds(gateConfig.expiryCheckIntervalSeconds()))
                 .schedule();
 
-        // The MOTD and limit, out of network.yml; refreshed on a timer, never on the unauthenticated ping itself.
+        // The numbers behind the MOTD, refreshed on a timer, never on the unauthenticated ping itself.
         final SnapshotStore snapshots = SnapshotStore.using(pool, logger);
         final Duration snapshotInterval = Duration.ofSeconds(networkConfig.snapshotRefreshSeconds());
         snapshots.refresh();
@@ -330,7 +339,7 @@ public final class ProxyPlugin {
                 .delay(snapshotInterval)
                 .repeat(snapshotInterval)
                 .schedule();
-        proxy.getEventManager().register(this, new NetworkPing(proxy, logger, networkConfig, phaseWatch,
+        proxy.getEventManager().register(this, new NetworkPing(proxy, logger, players.get(), motd.get(), season.name(), phaseWatch,
                 snapshots, messages, clock,
                 eu.nordtal.s2.proxy.ping.ServerIcon.load(dataDirectory, logger)));
 
@@ -405,41 +414,24 @@ public final class ProxyPlugin {
             logger.info("THIS IS THE STANDBY PROXY. Arrivals are held in '{}' and transferred back "
                             + "to {} as soon as it answers again; no player counts are written "
                             + "from here, and proxy_inbox is left to the main proxy.", phaseServers.limboStandby(),
-                    publicAddress == null ? "nowhere - network.yml#public-address is empty"
+                    publicAddress == null ? "nowhere - network#public-address is empty"
                             : publicAddress.getHostString() + ":" + publicAddress.getPort());
         } else if (swap.isArmed()) {
             logger.info("An update that moves this proxy will park everybody on {}:{} instead of "
                             + "disconnecting them", standbyAddress.getHostString(),
                     standbyAddress.getPort());
         } else {
-            logger.warn("network.yml#public-address is empty or carries no port, so an update that "
+            logger.warn("network#public-address is empty or carries no port, so an update that "
                     + "moves this proxy will DISCONNECT every connected player. That is the old "
                     + "behaviour and a valid choice; set it to the host:port players type to swap "
                     + "proxies instead.");
         }
 
-        // One list, in network.yml, enforced here and published for the Paper servers. See CommandGate/CommandFilter.
-        final CommandAllowlist allowlist =
-                CommandAllowlist.parse(networkConfig.commandAllowlist());
+        // One list, the network's, enforced here and read by every Paper server too. See CommandGate/CommandFilter.
         proxy.getEventManager().register(this,
-                new CommandGate(roster, allowlist, messages, logger, () -> colours,
+                new CommandGate(roster, NetworkSettings.allowlist(players.get()), messages, logger, () -> colours,
                         eu.nordtal.s2.proxy.feedback.ProxySounds.defaults(logger::warn)));
-        if (allowlist.entries().isEmpty()) {
-            logger.warn("network.yml#command-allowlist is empty: a player who is not an admin can "
-                    + "type no command at all, anywhere on this network. That is a valid setting "
-                    + "and almost certainly not the one that was meant.");
-        } else {
-            logger.info("Players who are not admins may use: {}", allowlist);
-        }
-        try {
-            if (AllowlistDirectory.using(pool).publish(allowlist)) {
-                logger.info("Published the command allowlist for the three Paper backends");
-            }
-        } catch (final RuntimeException failure) {
-            // Not fatal: this proxy's enforcement reads the file, not the row; only the tab-completion filter is lost.
-            logger.warn("Could not publish the command allowlist; the Paper backends will keep "
-                    + "whatever list they last read. This proxy still enforces it.", failure);
-        }
+        logger.info("Players who are not admins may use: {}", players.get().commandAllowlist());
 
         // A reload of this proxy's messages, asked for by steward; the main proxy alone answers it.
         ProxyInbox.open(role, pool, signals, request -> switch (request.payload()) {
@@ -473,9 +465,8 @@ public final class ProxyPlugin {
                 gateConfig.fallbackCacheWindowMinutes(), gateConfig.expiryCheckIntervalSeconds(),
                 flushInterval.toSeconds(), phaseServers.limbo(),
                 sweepInterval.toSeconds());
-        logger.info("The network takes {} players, the browser is told so, and every Paper backend "
-                        + "is set to the same number. MOTD refreshed every {}s.",
-                networkConfig.maxPlayers(), snapshotInterval.toSeconds());
+        logger.info("The network takes {} players, enforced here alone. MOTD refreshed every {}s.",
+                players.get().maxPlayers(), snapshotInterval.toSeconds());
         if (phaseWatch.lastKnown() == SeasonPhase.PRE_LAUNCH) {
             logger.info("The network has not opened yet: only admins get in, everybody else is shown "
                             + "the countdown ({}).",
@@ -485,6 +476,17 @@ public final class ProxyPlugin {
 
         signals.start();
         startHeartbeat();
+    }
+
+    /** Takes the network's limit, allowlist and MOTD again; a refused change keeps what runs. */
+    private void reloadNetwork(final Setting<PlayersSpec> players, final Setting<MotdSpec> motd) {
+        for (final Setting<?> setting : List.of(players, motd)) {
+            try {
+                setting.reload();
+            } catch (final SettingsException refused) {
+                logger.warn("A network setting was not taken, the running one stays: {}", refused.getMessage());
+            }
+        }
     }
 
     /** What the zero beat moves: the backends first, then the network, the order a player travels. */
@@ -515,7 +517,7 @@ public final class ProxyPlugin {
         // Its own bundle, from the classpath with NO override directory: that layer is one thing that can break.
         try {
             final Messages messages = Messages.load(getClass().getClassLoader(),
-                    "messages/proxy", Languages.NETWORK.locales()).within(ENVIRONMENT);
+                    "messages/proxy", languages.locales());
             proxy.getEventManager().register(this, new MisconfiguredGate(logger, messages));
         } catch (final RuntimeException broken) {
             // The packaged bundle is inside the jar; reaching here means it is damaged, so the proxy shuts down.

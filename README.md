@@ -117,7 +117,7 @@ the table below are compiled into the jars above.
 
 - **Commands** are native Brigadier per plugin. An admin command is typed on that server's console; what Steward
   asks for is a typed request in that server's inbox, answered by the same action. Player commands also need
-  the allowlist in `network.yml`.
+  the network's command allowlist, a setting edited in Steward.
 - **Phases** are `PRE_EVENT`, `START_EVENT`, `SMP` and `MAINTENANCE`, one database row every process
   re-reads through its signal hub.
 - **Access** is paid from `SMP` on; the start event is free for linked members. A bunq payment is

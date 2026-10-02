@@ -16,8 +16,8 @@ public record MessageEnvironment(Map<String, MessageContext> globals) {
         globals = Map.copyOf(globals);
     }
 
-    /** Returns the environment of the service called {@code service}, in the season this code belongs to. */
-    public static MessageEnvironment of(final String service) {
-        return new MessageEnvironment(Map.of("server", new ServiceContext(service), "season", SeasonContext.CURRENT));
+    /** Returns the environment of the service called {@code service}, in the season the network's settings name. */
+    public static MessageEnvironment of(final String service, final SeasonContext season) {
+        return new MessageEnvironment(Map.of("server", new ServiceContext(service), "season", season));
     }
 }

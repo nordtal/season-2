@@ -11,9 +11,10 @@ import org.junit.jupiter.api.Test;
 class LanguagesTest {
 
     @Test
-    void theNetworkSpeaksEnglishFirstThenGerman() {
-        assertArrayEquals(new Locale[] {Locale.ENGLISH, Locale.GERMAN}, Languages.NETWORK.locales());
-        assertEquals(List.of(Locale.GERMAN), Languages.NETWORK.others());
+    void theFallbackComesFirstThenTheOthersInOrder() {
+        final Languages languages = new Languages(List.of("en", "de"));
+        assertArrayEquals(new Locale[] {Locale.ENGLISH, Locale.GERMAN}, languages.locales());
+        assertEquals(List.of(Locale.GERMAN), languages.others());
     }
 
     @Test

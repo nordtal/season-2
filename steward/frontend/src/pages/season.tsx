@@ -1,4 +1,5 @@
 import { CalendarDotIcon, FlagIcon, ShieldWarningIcon } from "@phosphor-icons/react"
+import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useState } from "react"
 import { toast } from "sonner"
 
@@ -7,6 +8,7 @@ import { dateTime, relative } from "@/lib/format"
 import { useSeason, useSetPhase, useSetSeasonDate } from "@/lib/queries"
 import { SEASON_PHASES as PHASES, type SeasonPhaseName as PhaseName } from "@/lib/season-phases"
 import { PageHeader } from "@/components/steward/page-header"
+import { NETWORK, ServiceSettings } from "@/components/steward/settings"
 import { Failure, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
@@ -25,13 +27,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
+/** The open network settings group, in the URL like a service's, so Ctrl-K can land on it. */
+export type SeasonSearch = { file?: string }
+
+export function seasonSearch(search: Record<string, unknown>): SeasonSearch {
+  return typeof search.file === "string" && search.file !== "" ? { file: search.file } : {}
+}
+
 /**
- * The season page: the phase, which decides who may join and where, and its two dates.
+ * The season page: the phase, which decides who may join and where, its two dates, and the network's settings.
  *
  * Every process reads the phase from one row, so a switch applies on the next join; that is why it asks twice.
  */
 export function SeasonPage() {
   const season = useSeason()
+  const search = useSearch({ from: "/season" })
+  const navigate = useNavigate({ from: "/season" })
 
   return (
     <div className="flex flex-col gap-6">
@@ -53,6 +64,15 @@ export function SeasonPage() {
           </>
         )}
       </QueryState>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold text-foreground">Network</h2>
+        <ServiceSettings
+          service={NETWORK}
+          file={search.file}
+          onFile={(file, replace) => void navigate({ search: file ? { file } : {}, replace })}
+        />
+      </section>
     </div>
   )
 }

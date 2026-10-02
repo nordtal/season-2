@@ -15,7 +15,6 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -273,71 +272,22 @@ class TopologyTest {
     }
 
     @Test
-    void onePlayerNumberOnTheProxyAndOnEveryPaperBackend() {
-        // Bukkit.getMaxPlayers() is what the tab list shows, so a number set elsewhere still contradicts the browser.
-        final List<String> limits = paperMaxPlayerLimits();
-        assertEquals(
-                1,
-                new LinkedHashSet<>(limits).size(),
-                "the Paper backends are configured from different values: " + limits
-                        + ". They are supposed to be one number, and the smallest of them is the"
-                        + " one that would be hit first.");
-
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> proxy = (Map<String, Object>) services.get("proxy");
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> proxyEnvironment = (Map<String, Object>) proxy.get("environment");
-        final Object advertised = proxyEnvironment.get("NORDTAL_PROXY_NETWORK_MAX_PLAYERS");
-        assertNotNull(
-                advertised,
-                "the proxy is given no max-players, so network.yml's default"
-                        + " decides what the browser is told and .env cannot move it");
-        assertNull(
-                proxyEnvironment.get("NORDTAL_PROXY_NETWORK_BACKEND_LIMIT"),
-                "the proxy is still given backend-limit. NetworkSpec no longer declares that key,"
-                        + " so the overlay never looks the variable up: it would sit in .env"
-                        + " reading like the second player limit and moving nothing at all.");
-
-        assertEquals(
-                String.valueOf(advertised),
-                limits.getFirst(),
-                "the number the browser advertises and the number the backends run on come from"
-                        + " different .env variables: " + advertised + " against " + limits.getFirst()
-                        + ". One of them is what a player is promised and the other is what a tab"
-                        + " list shows them; two variables is how those came to disagree.");
-        assertTrue(
-                String.valueOf(advertised).contains("NETWORK_MAX_PLAYERS"),
-                "the one player number is not NETWORK_MAX_PLAYERS any more: " + advertised
-                        + ". .env.example, deploy/README.md and NetworkSpec all name it.");
-    }
-
-    /** The MAX_PLAYERS value of every Paper backend, asserting BACKEND_MAX_PLAYERS is never set again. */
-    private List<String> paperMaxPlayerLimits() {
-        final List<String> limits = new java.util.ArrayList<>();
-        for (final Topology.Service service : Topology.SERVICES) {
-            if (service.kind() != Topology.Kind.PAPER) {
+    void noServiceIsGivenAPlayerLimit() {
+        // The limit is the network's players setting, which the proxy alone enforces and an admin changes in Steward.
+        for (final Map.Entry<String, Object> service : services.entrySet()) {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> environment =
+                    (Map<String, Object>) ((Map<String, Object>) service.getValue()).get("environment");
+            if (environment == null) {
                 continue;
             }
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> environment = (Map<String, Object>) defined.get("environment");
-
-            assertNull(
-                    environment.get("BACKEND_MAX_PLAYERS"),
-                    service.name() + " sets"
-                            + " BACKEND_MAX_PLAYERS again. The entrypoint no longer reads it, so this is"
-                            + " either dead or - worse - a second player number, which is what made a"
-                            + " backend advertise 3/1000 under a browser promising 500.");
-
-            final Object raw = environment.get("MAX_PLAYERS");
-            assertNotNull(
-                    raw,
-                    service.name() + " sets no MAX_PLAYERS, so it keeps Paper's default"
-                            + " of 20 and refuses the 21st player after the login gate");
-            limits.add(String.valueOf(raw));
+            for (final String variable : environment.keySet()) {
+                assertFalse(
+                        variable.contains("MAX_PLAYERS"),
+                        service.getKey() + " is given " + variable + ", a second player limit beside the network's"
+                                + " setting, which no admin sees in Steward and a change there cannot move.");
+            }
         }
-        return limits;
     }
 
     /** Splits a {@code bind:host:container} mapping on its separating colons, not those inside a default. */

@@ -184,8 +184,6 @@ services:
       SERVER_KIND: velocity
       # Jar name prefixes that must be installed before the proxy starts; a minimum, not an exact set.
       EXPECTED_PLUGINS: ${PROXY_EXPECTED_PLUGINS:-proxy}
-      # jcore override of network.yml. NETWORK_MAX_PLAYERS also caps the three Paper backends.
-      NORDTAL_PROXY_NETWORK_MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       # Fill's family name; TopologyTest holds it against Platform.VELOCITY_FAMILY.
       SERVER_VERSION: "4.0.0"
       HEAP: ${PROXY_HEAP:-1G}
@@ -243,8 +241,6 @@ services:
       SERVER_KIND: paper
       SERVER_VERSION: "26.2"
       EXPECTED_PLUGINS: ${LIMBO_EXPECTED_PLUGINS:-limbo}
-      # Only the tab list; the proxy enforces the limit.
-      MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       HEAP: ${LIMBO_HEAP:-1G}
       JVM_OPTS: ${LIMBO_JVM_OPTS:-}
       # No level name or seed: limbo builds its own empty world.
@@ -279,7 +275,6 @@ services:
       SERVER_VERSION: "26.2"
       # Simple Voice Chat is optional, so it is not required here.
       EXPECTED_PLUGINS: ${HUNGER_GAMES_EXPECTED_PLUGINS:-hunger-games}
-      MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       HEAP: ${HUNGER_GAMES_HEAP:-4G}
       JVM_OPTS: ${HUNGER_GAMES_JVM_OPTS:-}
       # The event world; ComposeWorldTest holds this default against the plugin's.
@@ -311,7 +306,6 @@ services:
       # Required jars by filename prefix; CoreProtect and Simple Voice Chat are optional.
       # TopologyTest holds this list against the optional artefacts.
       EXPECTED_PLUGINS: ${SMP_EXPECTED_PLUGINS:-smp papermc-display-tags packetevents-spigot}
-      MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       HEAP: ${SMP_HEAP:-6G}
       JVM_OPTS: ${SMP_JVM_OPTS:-}
       EULA: ${EULA:?set EULA=true to accept https://aka.ms/MinecraftEULA}

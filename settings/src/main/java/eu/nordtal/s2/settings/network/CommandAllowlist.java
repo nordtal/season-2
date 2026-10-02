@@ -1,4 +1,4 @@
-package eu.nordtal.s2.database.command;
+package eu.nordtal.s2.settings.network;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -40,19 +40,6 @@ public record CommandAllowlist(List<List<String>> entries) {
             }
         }
         return new CommandAllowlist(parsed);
-    }
-
-    /** Returns the list as one string, one entry per line, for the row the proxy publishes it in. */
-    public String serialise() {
-        return entries.stream()
-                .map(entry -> String.join(" ", entry))
-                .reduce((left, right) -> left + "\n" + right)
-                .orElse("");
-    }
-
-    /** The inverse of {@link #serialise()}. */
-    public static CommandAllowlist deserialise(final String stored) {
-        return stored == null || stored.isBlank() ? NOTHING : parse(List.of(stored.split("\n", -1)));
     }
 
     /**

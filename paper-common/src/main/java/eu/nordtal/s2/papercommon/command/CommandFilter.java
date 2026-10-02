@@ -2,10 +2,6 @@ package eu.nordtal.s2.papercommon.command;
 
 import static eu.nordtal.s2.papercommon.PaperCommonMessages.MESSAGES;
 
-import eu.nordtal.s2.database.command.AllowlistDirectory;
-import eu.nordtal.s2.database.command.CommandAllowlist;
-import eu.nordtal.s2.database.notify.Channel;
-import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messagerendering.Tones;
@@ -13,128 +9,56 @@ import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.settings.network.CommandAllowlist;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.command.UnknownCommandEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerCommandSendEvent;
-import org.jspecify.annotations.Nullable;
-import org.slf4j.Logger;
 
 /**
  * The Paper half of the command allowlist: it hides what the proxy refuses from each player's command tree.
  *
- * Until the proxy has published a list it does nothing and warns, since the proxy's own enforcement stands.
+ * The list is the network's players group as of its last reload, so a change in Steward reaches the next command.
  */
 public final class CommandFilter implements Listener {
 
-    /** Where the published list is read from. */
-    @FunctionalInterface
-    public interface Source {
-
-        /** Returns the current list, or empty when no proxy has ever published one. */
-        Optional<CommandAllowlist> read();
-
-        /** Returns the ordinary one: {@code AllowlistDirectory} over the plugin's own pool. */
-        static Source of(final AllowlistDirectory directory) {
-            Objects.requireNonNull(directory, "directory");
-            return directory::published;
-        }
-    }
-
-    private final Source source;
+    private final Supplier<CommandAllowlist> allowlist;
     private final Predicate<UUID> admin;
     private final PlayerLocales locales;
     private final Messages messages;
-    private final Logger logger;
     private final PaperUser.Chime chime;
-    private final java.util.function.Supplier<ToneColours> colours;
-
-    /** The list as of the last successful read, or {@code null} while none has arrived. */
-    private volatile @Nullable CommandAllowlist active;
-
-    /** So that "nothing has been published" warns once, not once per refresh. */
-    private volatile boolean warnedAboutMissingList;
-
-    /** Creates one without a {@link PaperUser.Chime}, so the refusal plays no sound. */
-    public CommandFilter(
-            final Source source,
-            final Predicate<UUID> admin,
-            final PlayerLocales locales,
-            final Messages messages,
-            final Logger logger,
-            final java.util.function.Supplier<ToneColours> colours) {
-        this(source, admin, locales, messages, logger, colours, PaperUser.Chime.silent());
-    }
+    private final Supplier<ToneColours> colours;
 
     /**
-     * @param colours the current tone palette, a supplier so a reload reaches the next refusal
-     * @param chime   how the refusal sounds; {@link PaperUser.Chime#silent()} for a module with no sounds
+     * @param allowlist the network's list as of its last reload
+     * @param colours   the current tone palette, a supplier so a reload reaches the next refusal
+     * @param chime     how the refusal sounds; {@link PaperUser.Chime#silent()} for a module with no sounds
      */
     public CommandFilter(
-            final Source source,
+            final Supplier<CommandAllowlist> allowlist,
             final Predicate<UUID> admin,
             final PlayerLocales locales,
             final Messages messages,
-            final Logger logger,
-            final java.util.function.Supplier<ToneColours> colours,
+            final Supplier<ToneColours> colours,
             final PaperUser.Chime chime) {
-        this.source = Objects.requireNonNull(source, "source");
+        this.allowlist = Objects.requireNonNull(allowlist, "allowlist");
         this.admin = Objects.requireNonNull(admin, "admin");
         this.locales = Objects.requireNonNull(locales, "locales");
         this.messages = Objects.requireNonNull(messages, "messages");
-        this.logger = Objects.requireNonNull(logger, "logger");
         this.colours = Objects.requireNonNull(colours, "colours");
         this.chime = Objects.requireNonNull(chime, "chime");
-    }
-
-    /** Re-reads the list on every signal of {@code signals}; the hub's connect is the first read. */
-    public void listen(final SignalHub signals) {
-        signals.on(Channel.ALLOWLIST, "the command allowlist", this::refresh);
-    }
-
-    /**
-     * Re-reads the whole list; never call this on the main thread.
-     *
-     * A failure keeps the previous list, so an unreachable database neither opens nor closes the server.
-     */
-    public void refresh() {
-        final Optional<CommandAllowlist> read;
-        try {
-            read = source.read();
-        } catch (final RuntimeException failure) {
-            logger.warn("Could not read the command allowlist; the previous one still applies.", failure);
-            return;
-        }
-        if (read.isEmpty()) {
-            if (!warnedAboutMissingList) {
-                warnedAboutMissingList = true;
-                logger.warn("No command allowlist has been published yet, so this server filters"
-                        + " nothing: every vanilla command is visible and typeable here. The proxy"
-                        + " publishes the list from network.yml when it starts, and it enforces the"
-                        + " same list itself in the meantime.");
-            }
-            return;
-        }
-        final CommandAllowlist arrived = read.get();
-        final CommandAllowlist before = active;
-        active = arrived;
-        warnedAboutMissingList = false;
-        if (!arrived.equals(before)) {
-            logger.info("The command allowlist is now: {}", arrived);
-        }
     }
 
     /** Refuses a command the list does not carry, first and by cancelling rather than rewriting. */
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onCommand(final PlayerCommandPreprocessEvent event) {
-        final CommandAllowlist current = active;
-        if (current == null || admin.test(event.getPlayer().getUniqueId()) || current.allows(event.getMessage())) {
+        if (admin.test(event.getPlayer().getUniqueId()) || allowlist.get().allows(event.getMessage())) {
             return;
         }
         event.setCancelled(true);
@@ -172,10 +96,10 @@ public final class CommandFilter implements Listener {
      */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onCommandSend(final PlayerCommandSendEvent event) {
-        final CommandAllowlist current = active;
-        if (current == null || admin.test(event.getPlayer().getUniqueId())) {
+        if (admin.test(event.getPlayer().getUniqueId())) {
             return;
         }
+        final CommandAllowlist current = allowlist.get();
         event.getCommands().removeIf(label -> !current.allowsRoot(label));
     }
 }

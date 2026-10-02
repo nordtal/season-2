@@ -80,11 +80,11 @@ class EntrypointRulesTest {
 
     @Test
     void theSeededVelocityTomlDoesNotCarryAMotdOrAPlayerCount() {
-        // The MOTD and player count belong to proxy's network.yml; a copy here would go stale.
+        // The MOTD and player count are the network's settings; a copy here would go stale.
         assertFalse(
                 script.contains("printf 'motd = "),
                 "the entrypoint seeds a MOTD into velocity.toml again. That file is written once and"
-                        + " never touched, so the copy in it goes stale the first time network.yml"
+                        + " never touched, so the copy in it goes stale the first time the MOTD"
                         + " changes - and nothing says so.");
         assertFalse(
                 script.contains("show-max-players"),
@@ -92,26 +92,20 @@ class EntrypointRulesTest {
                         + " ProxyPingEvent and must have exactly one source");
         assertFalse(
                 script.contains("VELOCITY_MOTD"),
-                "VELOCITY_MOTD names nothing Velocity reads - the MOTD is network.yml's motd, edited in" + " Steward.");
+                "VELOCITY_MOTD names nothing Velocity reads - the MOTD is the network's, edited in Steward.");
     }
 
     @Test
-    void theBackendsAreGivenTheNetworksOwnLimitOutOfOneVariable() {
-        assertTrue(
-                script.contains("set_property \"$DATA/server.properties\" max-players"),
-                "nothing writes max-players, so every backend keeps Paper's default of 20"
-                        + " and the 21st player is refused after the login gate and the pack");
-        assertTrue(
-                script.contains("${MAX_PLAYERS:-}"),
-                "the backends' max-players does not come from MAX_PLAYERS, which compose fills"
-                        + " from the same NETWORK_MAX_PLAYERS the proxy is given");
-        // The variable reference, not the name: a comment in the script may still name it.
+    void noBackendIsGivenALimitOfItsOwn() {
+        // The limit is the network's players setting, which only the proxy enforces.
         assertFalse(
-                script.contains("${BACKEND_MAX_PLAYERS"),
-                "the entrypoint reads BACKEND_MAX_PLAYERS again. That was a SECOND player number,"
-                        + " deliberately out of reach - and it was the one every screen on a backend"
-                        + " could actually reach, so the browser advertised 500 while the tab list"
-                        + " said 3/1000. Retired 2026-09-04; there is one number now.");
+                script.contains("max-players\""),
+                "the entrypoint writes max-players again. A backend's own number is a second limit that"
+                        + " refuses a player after the login gate and the pack, and one no admin sees in Steward.");
+        assertFalse(
+                script.contains("MAX_PLAYERS"),
+                "the entrypoint reads a player limit out of the environment again; the limit is a setting"
+                        + " in the database, which an admin changes without a restart.");
     }
 
     /** The directory holding {@code settings.gradle.kts}, not the nearest file by name. */

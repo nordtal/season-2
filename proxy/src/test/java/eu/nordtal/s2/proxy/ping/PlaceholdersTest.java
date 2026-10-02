@@ -58,9 +58,15 @@ class PlaceholdersTest {
                         "{hg-teams} teams, {hg-state} running",
                         proxy(),
                         SeasonPhase.PRE_EVENT,
+                        "Season 2",
                         500,
                         NetworkSnapshot.EMPTY,
                         "any moment now"));
+    }
+
+    @Test
+    void theSeasonIsItsNameEscapedLikeEveryValue() {
+        assertEquals("Season \\<b>3 is open", apply("{season} is open"));
     }
 
     @Test
@@ -77,7 +83,7 @@ class PlaceholdersTest {
 
         assertEquals(
                 "\\<red>everything after this",
-                Placeholders.apply("{smp-milestone}", proxy(), SeasonPhase.SMP, 500, hostile, ""));
+                Placeholders.apply("{smp-milestone}", proxy(), SeasonPhase.SMP, "Season 2", 500, hostile, ""));
     }
 
     @Test
@@ -100,7 +106,7 @@ class PlaceholdersTest {
     // helpers
 
     private static String apply(final String template) {
-        return Placeholders.apply(template, proxy(), SeasonPhase.SMP, 500, SNAPSHOT, "3 days 4 hours");
+        return Placeholders.apply(template, proxy(), SeasonPhase.SMP, "Season <b>3", 500, SNAPSHOT, "3 days 4 hours");
     }
 
     /** A proxy with seven players online, three on {@code smp} and none in {@code limbo}. */

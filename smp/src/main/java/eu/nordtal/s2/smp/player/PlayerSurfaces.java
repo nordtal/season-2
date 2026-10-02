@@ -6,6 +6,7 @@ import eu.nordtal.displaytags.api.DisplayTagsPlugin;
 import eu.nordtal.displaytags.api.nametag.PlayerNameTag;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.packrendering.hud.TabList;
+import eu.nordtal.s2.settings.network.PlayersSpec;
 import java.util.List;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -25,11 +26,16 @@ public final class PlayerSurfaces {
     private final PlayerComposition composition;
     private final MessageRenderer messages;
 
+    /** The network's limit, which the footer shows: no server has one of its own. */
+    private final PlayersSpec network;
+
     public PlayerSurfaces(
             final Plugin plugin,
             final Identities identities,
             final PlayerComposition composition,
-            final MessageRenderer messages) {
+            final MessageRenderer messages,
+            final PlayersSpec network) {
+        this.network = network;
         this.plugin = plugin;
         this.identities = identities;
         this.composition = composition;
@@ -100,6 +106,6 @@ public final class PlayerSurfaces {
                 TabList.header(messages, identity.locale(), MESSAGES.tab()::header),
                 messages.format(
                         identity.locale(),
-                        MESSAGES.tab().footer(Bukkit.getOnlinePlayers().size(), Bukkit.getMaxPlayers())));
+                        MESSAGES.tab().footer(Bukkit.getOnlinePlayers().size(), network.maxPlayers())));
     }
 }

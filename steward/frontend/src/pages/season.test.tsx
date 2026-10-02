@@ -9,6 +9,9 @@ import { asButton, asElement, asInput } from "@/lib/test-elements"
 
 /** The phase change dialog, and that a reason typed then cancelled never reaches the journal with the next change. */
 
+// The page reads its open group from the URL; outside a router there is none.
+vi.mock("@tanstack/react-router", () => ({ useNavigate: () => vi.fn<() => void>(), useSearch: () => ({}) }))
+
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -22,6 +25,12 @@ const SEASON = {
   smpStart: "2026-10-08T18:00:00Z",
 }
 
+/** One group of the network's and one of a service's, of which the page shows the first. */
+const GROUPS = [
+  { service: "network", name: "players", path: "network/players", readable: true, writable: true },
+  { service: "steward", name: "web", path: "steward/web", readable: true, writable: true },
+]
+
 /** The page's own routes and nothing else. */
 function backend(over: { phase?: () => { status: number; body: unknown } } = {}) {
   return vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
@@ -30,6 +39,8 @@ function backend(over: { phase?: () => { status: number; body: unknown } } = {})
       return json(answer.status, answer.body)
     }
     if (url === "/api/season") return json(200, SEASON)
+    if (url === "/api/setting-groups") return json(200, GROUPS)
+    if (url === "/api/messages") return json(200, [])
     throw new Error(`the page asked for ${url}, which this test did not expect`)
   })
 }
@@ -277,5 +288,15 @@ describe("SeasonPage - a date can be removed again", () => {
 
     await waitFor(() => expect(within(dialog).getByText(/already in SMP/)).toBeTruthy())
     expect(screen.queryByRole("alertdialog")).not.toBeNull()
+  })
+})
+
+describe("SeasonPage - the network's settings", () => {
+  it("lists the network's own groups and no service's", async () => {
+    vi.stubGlobal("fetch", backend())
+    draw(<SeasonPage />)
+
+    expect(await screen.findByText("Players")).not.toBeNull()
+    expect(screen.queryByText("Web")).toBeNull()
   })
 })

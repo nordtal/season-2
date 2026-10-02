@@ -2,7 +2,6 @@ package eu.nordtal.s2.proxy.gate;
 
 import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
 
-import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
@@ -27,10 +26,9 @@ public final class GateMessages {
         this.config = config;
     }
 
-    /** The unlinked screen: English first, German underneath, since the account has no locale yet. */
+    /** The unlinked screen: English first, every other language underneath, since the account has no locale yet. */
     Component notLinked(final String code, final @Nullable Instant launch, final @Nullable Instant now) {
-        Component result =
-                inEveryLanguage(MessageRenderer.of(messages), MESSAGES.gate().notLinked(code));
+        Component result = inEveryLanguage(messages, MESSAGES.gate().notLinked(code));
         if (hasInvite()) {
             result = result.appendNewline()
                     .appendNewline()
@@ -88,7 +86,7 @@ public final class GateMessages {
         return MessageRenderer.of(messages).format(locale, MESSAGES.gate().noServer());
     }
 
-    /** The network is at {@code network.yml#max-players} and this player is not an admin. */
+    /** The network is at the {@code max-players} of its players group and this player is not an admin. */
     Component full(final Locale locale, final int online, final int max) {
         return MessageRenderer.of(messages).format(locale, MESSAGES.gate().full(online, max));
     }
@@ -152,10 +150,12 @@ public final class GateMessages {
         return config.discordInviteUrl() != null && !config.discordInviteUrl().isBlank();
     }
 
-    /** Renders a line in the fallback language with every other network language underneath, grey and italic. */
-    static Component inEveryLanguage(final MessageRenderer renderer, final MessageRef message) {
+    /** Renders a line in the fallback language with every other language loaded underneath, grey and italic. */
+    static Component inEveryLanguage(final Messages messages, final MessageRef message) {
+        final MessageRenderer renderer = MessageRenderer.of(messages);
         Component result = renderer.format(Locales.DEFAULT, message);
-        for (final Locale other : Languages.NETWORK.others()) {
+        for (final Locale other :
+                messages.locales().subList(1, messages.locales().size())) {
             result = result.appendNewline()
                     .append(renderer.format(other, message)
                             .color(NamedTextColor.GRAY)

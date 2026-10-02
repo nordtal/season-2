@@ -6,9 +6,10 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.ServerPing;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.proxy.config.NetworkSpec;
 import eu.nordtal.s2.proxy.launch.LaunchCountdown;
 import eu.nordtal.s2.proxy.phase.PhaseWatch;
+import eu.nordtal.s2.settings.network.MotdSpec;
+import eu.nordtal.s2.settings.network.PlayersSpec;
 import java.time.Clock;
 import java.util.Locale;
 import net.kyori.adventure.text.Component;
@@ -24,7 +25,9 @@ public final class NetworkPing {
 
     private final ProxyServer proxy;
     private final Logger logger;
-    private final NetworkSpec config;
+    private final PlayersSpec players;
+    private final MotdSpec motd;
+    private final String season;
     private final PhaseWatch phases;
     private final SnapshotStore snapshots;
     private final Messages messages;
@@ -34,23 +37,29 @@ public final class NetworkPing {
     public NetworkPing(
             final ProxyServer proxy,
             final Logger logger,
-            final NetworkSpec config,
+            final PlayersSpec players,
+            final MotdSpec motd,
+            final String season,
             final PhaseWatch phases,
             final SnapshotStore snapshots,
             final Messages messages,
             final Clock clock) {
-        this(proxy, logger, config, phases, snapshots, messages, clock, java.util.Optional.empty());
+        this(proxy, logger, players, motd, season, phases, snapshots, messages, clock, java.util.Optional.empty());
     }
 
     /**
      * Takes the icon for every ping.
      *
+     * @param players the network's limit, read on every ping so a change in Steward shows on the next one
+     * @param season  the season's name, for {@code {season}}
      * @param favicon the 64 x 64 icon, or empty for a ping without one
      */
     public NetworkPing(
             final ProxyServer proxy,
             final Logger logger,
-            final NetworkSpec config,
+            final PlayersSpec players,
+            final MotdSpec motd,
+            final String season,
             final PhaseWatch phases,
             final SnapshotStore snapshots,
             final Messages messages,
@@ -59,7 +68,9 @@ public final class NetworkPing {
         this.favicon = java.util.Objects.requireNonNull(favicon, "favicon");
         this.proxy = proxy;
         this.logger = logger;
-        this.config = config;
+        this.players = players;
+        this.motd = motd;
+        this.season = season;
         this.phases = phases;
         this.snapshots = snapshots;
         this.messages = messages;
@@ -69,7 +80,7 @@ public final class NetworkPing {
     @Subscribe
     public void onPing(final ProxyPingEvent event) {
         final ServerPing.Builder ping =
-                event.getPing().asBuilder().description(description()).maximumPlayers(config.maxPlayers());
+                event.getPing().asBuilder().description(description()).maximumPlayers(players.maxPlayers());
         favicon.ifPresent(ping::favicon);
         event.setPing(ping.build());
     }
@@ -81,20 +92,19 @@ public final class NetworkPing {
         final String template = motdFor(phase);
         // English: a ping carries no player whose language could be looked up.
         final String countdown = LaunchCountdown.render(messages, Locale.ENGLISH, known.launch(), clock.instant());
-        final String substituted =
-                Placeholders.apply(template, proxy, phase, config.maxPlayers(), snapshots.current(), countdown);
+        final String substituted = Placeholders.apply(
+                template, proxy, phase, season, players.maxPlayers(), snapshots.current(), countdown);
 
         try {
             return MiniMessage.miniMessage().deserialize(substituted);
         } catch (final RuntimeException malformed) {
             // A mistyped tag must not take the ping down; the unparsed text still reads.
-            logger.warn("network.yml's MOTD for {} is not valid MiniMessage; showing it unparsed", phase, malformed);
+            logger.warn("the MOTD for {} is not valid MiniMessage; showing it unparsed", phase, malformed);
             return Component.text(substituted);
         }
     }
 
     private String motdFor(final SeasonPhase phase) {
-        final NetworkSpec.MotdSpec motd = config.motd();
         return switch (phase) {
             case PRE_LAUNCH -> motd.preLaunch();
             case PRE_EVENT -> motd.preEvent();

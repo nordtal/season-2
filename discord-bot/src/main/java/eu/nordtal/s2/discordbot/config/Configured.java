@@ -70,9 +70,6 @@ public final class Configured {
         if (!isSet(config.roles().donor())) {
             off.add("roles.donor - a donor is recorded in the database but gets no role");
         }
-        if (!isSet(config.roles().adminPing())) {
-            off.add("roles.admin-ping - admin alerts are posted without a mention");
-        }
         if (!isSet(config.channels().admin())) {
             off.add("channels.admin - nothing is posted to an admin channel at all; alerts are "
                     + "logged here instead");

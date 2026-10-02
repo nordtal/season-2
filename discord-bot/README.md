@@ -17,7 +17,7 @@ docker compose run --rm steward migrate
 ## What it needs
 
 - A Discord application with the `GUILD_MEMBERS` privileged intent.
-- The guild id, four role ids, the admin channel id, and per language a role and its channel ids.
+- The guild id, three role ids, the admin channel id, and per language a role and its channel ids.
   None has a usable default; the bot refuses to start until they are set.
 
 ## Configuration

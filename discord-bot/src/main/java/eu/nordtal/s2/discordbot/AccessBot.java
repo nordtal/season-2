@@ -8,6 +8,7 @@ import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AdminTree;
+import eu.nordtal.s2.database.alert.AlertBook;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.network.SnapshotDirectory;
@@ -237,7 +238,7 @@ public class AccessBot implements AutoCloseable {
 
     private DiscordWiring wireDiscord(
             final JDA jda, final AccessSpec accessConfig, final CoreServices core, final PhaseDirectory phases) {
-        final AdminLog admin = new AdminLog(jda, accessConfig, database.jdbi());
+        final AdminLog admin = new AdminLog(jda, accessConfig, database.jdbi(), AlertBook.using(database.dataSource()));
         // A period sold while season_phase.smp_start is NULL starts now rather than at the SMP opening.
         final SeasonStart seasonStart = new SeasonStart(phases, admin);
         final AccessRoles roles =

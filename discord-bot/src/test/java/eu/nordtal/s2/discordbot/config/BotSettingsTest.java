@@ -62,7 +62,6 @@ class BotSettingsTest {
               access: '10'
               donor: '11'
               admin: '14'
-              admin-ping: '15'
             channels:
               admin: '24'
             payment:
@@ -158,16 +157,13 @@ class BotSettingsTest {
     void everyRoleButTheAdminOneMayBeLeftEmptyAndTheBotStillStarts() throws Exception {
         Files.writeString(
                 directory.resolve("access.yml"),
-                access().replace("access: '10'", "access: ''")
-                        .replace("donor: '11'", "donor: ''")
-                        .replace("admin-ping: '15'", "admin-ping: ''"));
+                access().replace("access: '10'", "access: ''").replace("donor: '11'", "donor: ''"));
 
         final AccessSpec config = imported();
 
         assertAll(
                 () -> assertEquals("", config.roles().access()),
                 () -> assertEquals("", config.roles().donor()),
-                () -> assertEquals("", config.roles().adminPing()),
                 () -> assertEquals("14", config.roles().admin()));
     }
 

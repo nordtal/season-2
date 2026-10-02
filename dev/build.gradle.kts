@@ -5,6 +5,11 @@ plugins {
     id("application")
 }
 
+// jcore comes with steward-agent and is published on JitPack only.
+repositories {
+    maven("https://jitpack.io")
+}
+
 application {
     mainClass.set("eu.nordtal.s2.dev.Dev")
 }

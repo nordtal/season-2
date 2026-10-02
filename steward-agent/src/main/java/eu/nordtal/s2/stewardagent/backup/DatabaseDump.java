@@ -119,13 +119,13 @@ public final class DatabaseDump {
                 "set -o pipefail; { printf '%s\\n' 'DROP SCHEMA public CASCADE;'"
                         + " 'CREATE SCHEMA public AUTHORIZATION pg_database_owner;'; pg_restore --file=- "
                         + quote(path)
-                        + "; } | PGOPTIONS='-c lock_timeout=60s' psql -X -q -o /dev/null -v ON_ERROR_STOP=1"
+                        + "; } | PGOPTIONS='-c lock_timeout=60s -c client_min_messages=warning' psql -X -q -o /dev/null -v ON_ERROR_STOP=1"
                         + " --single-transaction -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\" 2>&1");
         if (!restored.ok()) {
             return SnapshotResult.failed(
                     Snapshots.DATABASE,
                     took(started),
-                    "the restore was rolled back, so the database is as it was: " + firstLine(restored.output()));
+                    "the restore was rolled back, so the database is as it was: " + errorLine(restored.output()));
         }
         log.info("database restored from {}", dump);
         return SnapshotResult.saved(Snapshots.DATABASE, Math.max(0, sizeOf(containerId, path)), took(started), path);
@@ -230,6 +230,14 @@ public final class DatabaseDump {
     /** Single quotes, with the one escape that matters; these are our paths, not user input. */
     private static String quote(final String path) {
         return "'" + path.replace("'", "'\\''") + "'";
+    }
+
+    /** The line psql stopped on, which a warning printed before it would otherwise hide. */
+    private static String errorLine(final String output) {
+        return output.lines()
+                .filter(line -> line.startsWith("ERROR:") || line.startsWith("FATAL:"))
+                .findFirst()
+                .orElseGet(() -> firstLine(output));
     }
 
     private static String firstLine(final String output) {

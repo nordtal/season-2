@@ -2,9 +2,9 @@ package eu.nordtal.s2.discordbot.access;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.id.DiscordId;
-import eu.nordtal.s2.database.access.AccessGrant;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
 import eu.nordtal.s2.discordbot.AdminLog;
+import java.time.Instant;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.utils.TimeFormat;
 
@@ -29,8 +29,8 @@ public final class SeasonStart {
         return phase == SeasonPhase.PRE_LAUNCH || phase == SeasonPhase.PRE_EVENT || phase == SeasonPhase.START_EVENT;
     }
 
-    /** Reports one freshly written grant if it was anchored to nothing. */
-    public void warnIfUnanchored(final DiscordId discordId, final AccessGrant grant) {
+    /** Reports one freshly written grant, starting at {@code validFrom}, if it was anchored to nothing. */
+    public void warnIfUnanchored(final DiscordId discordId, final Instant validFrom) {
         try {
             if (phases.smpStart().isPresent() || !beforeTheSmp(phases.currentPhase())) {
                 return;
@@ -45,11 +45,11 @@ public final class SeasonStart {
                 "Granted access to {} while season_phase.smp_start is NULL: the period runs from"
                         + " {} instead of from the SMP opening",
                 discordId,
-                grant.validFrom());
+                validFrom);
         // Expected while testing; before the season opens, somebody sets the date in Steward.
         admin.note(
                 "⚠️ No season start",
-                "<@" + discordId + ">'s access runs from " + TimeFormat.DATE_TIME_SHORT.format(grant.validFrom())
+                "<@" + discordId + ">'s access runs from " + TimeFormat.DATE_TIME_SHORT.format(validFrom)
                         + " instead of the SMP opening. Set the date in Steward under Season.");
     }
 }

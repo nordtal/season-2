@@ -5,7 +5,7 @@ import java.time.Instant;
 /**
  * A purchase somebody has started and not finished, read-only everywhere except the bot.
  *
- * @param reference {@code NT-XXXXXX}, what the payer types and what an admin quotes into {@code /settle}
+ * @param reference {@code NT-XXXXXX}, what the payer types and what an admin books by hand
  * @param days how many days of access were ordered
  * @param amountCents what the tab asks for, in cents, donation included
  * @param donationCents the optional surcharge, {@code 0} when there is none

@@ -32,9 +32,6 @@ public interface AccessDirectory extends AccessReader {
      */
     void setLocale(DiscordId discordId, Locale locale);
 
-    /** Sets the permanent donor flag; the bot only ever sets it to {@code true}. */
-    void setDonor(DiscordId discordId, boolean donor);
-
     /**
      * Sets this account's total play time to exactly {@code seconds}, creating the row if it is missing.
      * This is the one lever that moves the prestige tier.

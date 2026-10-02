@@ -8,6 +8,7 @@ import eu.nordtal.s2.database.metric.MetricDirectory;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.online.OnlineDirectory;
 import eu.nordtal.s2.database.online.OnlineRoster;
+import eu.nordtal.s2.database.payment.Tiers;
 import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
@@ -113,6 +114,7 @@ public final class Steward {
      * @param handle the steward group, so a change in Steward re-arms the two clocks
      * @param config what {@code handle} hands out, which reads through to every reload
      * @param settings where both groups came from, listened to for a change
+     * @param tiers the network's price list at this start, which payments are booked by
      */
     private record Configs(
             Setting<StewardSpec> handle,
@@ -121,7 +123,8 @@ public final class Steward {
             Setting<AlertsSpec> alerts,
             DatabaseSpec database,
             DatabaseSettings settings,
-            ZoneId zone) {}
+            ZoneId zone,
+            Tiers tiers) {}
 
     /** Takes both groups out of the database, importing the last installation's files once, or {@code null}. */
     private static @Nullable Configs configsOf(
@@ -136,10 +139,12 @@ public final class Steward {
             settings.load(NetworkSettings.PLAYERS);
             settings.load(NetworkSettings.MOTD);
             settings.load(NetworkSettings.SEASON);
+            final Tiers tiers =
+                    NetworkSettings.tiers(settings.load(NetworkSettings.PRICES).get());
             final ZoneId zone = NetworkSettings.zone(
                     settings.load(NetworkSettings.LANGUAGE_AND_TIME).get());
             settings.retireFiles();
-            return new Configs(handle, handle.get(), web, alerts, databaseConfig, settings, zone);
+            return new Configs(handle, handle.get(), web, alerts, databaseConfig, settings, zone, tiers);
         } catch (final SettingsException broken) {
             // No stack trace, so the sentence is not missed.
             log.error("Refusing to serve on settings that cannot be read: {}", broken.getMessage());
@@ -281,7 +286,11 @@ public final class Steward {
         final StewardSpec config = configs.config();
         final DatabaseSpec databaseConfig = configs.database();
         try (PaymentLoop paymentLoop = PaymentsStartup.start(
-                        config, database, Waiting.on(CLOCK), Duration.ofSeconds(config.httpTimeoutSeconds()));
+                        config,
+                        configs.tiers(),
+                        database,
+                        Waiting.on(CLOCK),
+                        Duration.ofSeconds(config.httpTimeoutSeconds()));
                 SignalHub signals = SignalHub.open(
                         databaseConfig.jdbcUrl(),
                         databaseConfig.username(),

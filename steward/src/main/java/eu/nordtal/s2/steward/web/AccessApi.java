@@ -8,6 +8,8 @@ import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Request;
 import eu.nordtal.s2.database.inbox.Schedule;
+import eu.nordtal.s2.database.payment.Bookings;
+import eu.nordtal.s2.database.payment.PaymentRequest;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.data.Data;
 import io.javalin.http.BadRequestResponse;
@@ -17,15 +19,16 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Grants, revocations, play time, settling and unlinking, each written into the bot's inbox.
+ * Grants, revocations, play time and unlinking, each written into the bot's inbox, and a booking by hand.
  *
- * Only the bot can carry out all parts of a grant, and it journals what it carries out.
+ * Only the bot can carry out all parts of a grant, and it journals what it carries out. A booking is steward's own.
  */
 final class AccessApi {
 
@@ -74,13 +77,53 @@ final class AccessApi {
         submit(ctx, new BotRequest.Unlink(discordId(bodyOf(ctx))));
     }
 
-    /** {@code POST /api/access/settle} with {@code {reference}}, a payment reference. */
+    /**
+     * {@code POST /api/access/settle} with {@code {reference}}: books an open request by hand, at what it ordered.
+     *
+     * Booked here and now, in the transaction the poll books in too; the bot is told and only reacts.
+     */
     void settle(final Context ctx) {
         final Body ask = bodyOf(ctx);
         if (ask.reference == null || ask.reference.isBlank()) {
             throw new BadRequestResponse("reference is the payment to settle");
         }
-        submit(ctx, new BotRequest.Settle(ask.reference.trim()));
+        final String reference = ask.reference.trim();
+        final Map<String, Object> answer = new LinkedHashMap<>();
+        final Optional<PaymentRequest> found = data().payments().byReference(reference);
+        if (found.isEmpty()) {
+            answer.put("outcome", "UNKNOWN");
+            ctx.json(answer);
+            return;
+        }
+        final DiscordAuth.Account who = accounts.apply(ctx);
+        final Bookings.Booking booking = data().bookings()
+                .book(
+                        found.get().id(),
+                        Bookings.Arrival.byHand(),
+                        order -> Optional.of(order.asOrdered()),
+                        Actor.person(DiscordId.of(who.id())));
+        switch (booking) {
+            case Bookings.Booking.Booked booked -> {
+                log.info("{} booked {} by hand", who.name(), reference);
+                answer.put("outcome", "BOOKED");
+                answer.put("days", booked.told().days());
+                answer.put("until", booked.told().until().toString());
+            }
+            case Bookings.Booking.NotOpen closed -> {
+                answer.put("outcome", "NOT_OPEN");
+                answer.put("days", found.get().days());
+                answer.put(
+                        "was",
+                        data().payments()
+                                .byId(found.get().id())
+                                .map(row -> row.status().name())
+                                .orElse(found.get().status().name()));
+            }
+            // The order itself is the settlement, so there is always one.
+            case Bookings.Booking.BelowMinimum below ->
+                throw new IllegalStateException("a booking by hand books the order");
+        }
+        ctx.json(answer);
     }
 
     /** {@code POST /api/people/{id}/playtime} with {@code {seconds}}, the new total. */

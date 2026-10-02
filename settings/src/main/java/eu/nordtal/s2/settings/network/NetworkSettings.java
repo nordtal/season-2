@@ -3,12 +3,15 @@ package eu.nordtal.s2.settings.network;
 import eu.nordtal.jcore.config.spec.Specs;
 import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.common.language.Locales;
+import eu.nordtal.s2.database.payment.Tier;
+import eu.nordtal.s2.database.payment.Tiers;
 import eu.nordtal.s2.messages.context.SeasonContext;
 import eu.nordtal.s2.settings.Checks;
 import eu.nordtal.s2.settings.Group;
 import java.time.DateTimeException;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -47,7 +50,54 @@ public final class NetworkSettings {
             .checkedBy(NetworkSettings::checkLanguageAndTime)
             .networkWide();
 
+    /** What access costs, which the bot offers and steward books by. */
+    public static final Group<PricesSpec> PRICES = Group.of("prices", PricesSpec.class)
+            .checkedBy(NetworkSettings::checkPrices)
+            .networkWide();
+
     private NetworkSettings() {}
+
+    /** Returns the price list and the rule that turns arrived money into a grant. */
+    public static Tiers tiers(final PricesSpec spec) {
+        return Tiers.of(
+                spec.tiers().stream()
+                        .map(tier -> new Tier(tier.days(), tier.priceCents()))
+                        .toList(),
+                spec.donationCents());
+    }
+
+    /**
+     * Refuses a price list the purchase flow cannot offer.
+     * A tier is identified by its days, so they are unique, and more days cost more.
+     *
+     * @throws IllegalArgumentException naming the first value that is wrong
+     */
+    public static void checkPrices(final PricesSpec spec) {
+        Checks.requirePositive("donation-cents", spec.donationCents());
+        final List<PricesSpec.TierSpec> tiers = spec.tiers();
+        final Set<Integer> days = new HashSet<>();
+        for (int index = 0; index < tiers.size(); index++) {
+            final PricesSpec.TierSpec tier = tiers.get(index);
+            Checks.requirePositive("tiers[" + index + "].days", tier.days());
+            Checks.requirePositive("tiers[" + index + "].price-cents", tier.priceCents());
+            if (!days.add(tier.days())) {
+                throw new IllegalArgumentException("tiers[" + index + "] offers " + tier.days()
+                        + " days, which another tier already offers. Day counts identify a tier and must be unique.");
+            }
+        }
+        final List<PricesSpec.TierSpec> byDays = tiers.stream()
+                .sorted(Comparator.comparingInt(PricesSpec.TierSpec::days))
+                .toList();
+        for (int index = 1; index < byDays.size(); index++) {
+            if (byDays.get(index).priceCents() <= byDays.get(index - 1).priceCents()) {
+                throw new IllegalArgumentException("tiers must get more expensive as they get longer: "
+                        + byDays.get(index).days() + " days costs "
+                        + byDays.get(index).priceCents() + "c but "
+                        + byDays.get(index - 1).days() + " days costs "
+                        + byDays.get(index - 1).priceCents() + "c");
+            }
+        }
+    }
 
     /** Returns the languages a process loads its bundles in, the default first. */
     public static Languages languages(final LanguageAndTimeSpec spec) {

@@ -106,8 +106,8 @@ class DatabaseRoleIntegrationTest {
     /**
      * What steward writes on its own clock.
      *
-     * The curves, the payment poll and its cut-off. Clearing old requests out of every inbox is the owner's, so
-     * steward deletes from none of them.
+     * The curves, the payment poll and its cut-off, and a booking: the access it buys, appended by steward. Clearing
+     * old requests out of every inbox is the owner's, so steward deletes from none of them.
      */
     private static List<Case> stewardsOwnLoops() {
         return List.of(
@@ -123,8 +123,9 @@ class DatabaseRoleIntegrationTest {
                 may(DatabaseRole.STEWARD, "UPDATE payment_request SET status = 'EXPIRED' WHERE false"),
                 may(
                         DatabaseRole.STEWARD,
-                        "INSERT INTO payment_notice (bunq_payment_id, reason, detail) SELECT 1, 'x', '' WHERE false"),
-                mayNot(DatabaseRole.STEWARD, "UPDATE payment_notice SET posted = now() WHERE false"),
+                        "INSERT INTO access_grant (discord_id, valid_from, valid_until, source)"
+                                + " SELECT 'x', now(), now(), 'PURCHASE' WHERE false"),
+                mayNot(DatabaseRole.STEWARD, "DELETE FROM access_grant WHERE false"),
                 mayNot(DatabaseRole.STEWARD, "DELETE FROM smp_inbox WHERE false"),
                 mayNot(DatabaseRole.STEWARD, "DELETE FROM bank_inbox WHERE false"));
     }

@@ -128,11 +128,6 @@ final class JdbiAccessDirectory implements AccessDirectory {
     }
 
     @Override
-    public void setDonor(final DiscordId discordId, final boolean donor) {
-        dao.setDonor(Objects.requireNonNull(discordId, "discordId"), donor);
-    }
-
-    @Override
     public void setPlaytimeSeconds(final DiscordId discordId, final long seconds) {
         if (seconds < 0) {
             throw new IllegalArgumentException("play time is never negative, not " + seconds);
@@ -181,17 +176,7 @@ final class JdbiAccessDirectory implements AccessDirectory {
             final int days,
             final AccessSource source,
             final @Nullable UUID paymentRequestId) {
-        Objects.requireNonNull(discordId, "discordId");
-        Objects.requireNonNull(source, "source");
-        if (days <= 0) {
-            throw new IllegalArgumentException("days must be positive, got: " + days);
-        }
-
-        return jdbi.inTransaction(handle -> {
-            final AccessDao transactional = handle.attach(AccessDao.class);
-            transactional.ensureUser(discordId);
-            return transactional.grantAccess(discordId, days, source.name(), paymentRequestId);
-        });
+        return jdbi.inTransaction(handle -> Grants.append(handle, discordId, days, source, paymentRequestId));
     }
 
     @Override

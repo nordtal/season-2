@@ -3,11 +3,11 @@ package eu.nordtal.s2.discordbot.access.discord;
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.s2.database.payment.Money;
+import eu.nordtal.s2.database.payment.Tier;
+import eu.nordtal.s2.database.payment.Tiers;
 import eu.nordtal.s2.discordbot.Card;
 import eu.nordtal.s2.discordbot.Ids;
 import eu.nordtal.s2.discordbot.ManagedMessageDao;
-import eu.nordtal.s2.discordbot.access.payment.Tier;
-import eu.nordtal.s2.discordbot.access.payment.Tiers;
 import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.discordbot.config.Languages;
 import eu.nordtal.s2.messages.Messages;

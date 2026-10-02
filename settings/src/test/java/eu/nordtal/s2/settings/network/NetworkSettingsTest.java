@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.RepositoryRoot;
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.database.payment.Tier;
 import eu.nordtal.s2.messages.context.SeasonContext;
 import eu.nordtal.s2.settings.Group;
 import eu.nordtal.s2.settings.MemorySettingStore;
@@ -157,6 +158,54 @@ class NetworkSettingsTest {
         values.put("pre-launch", "");
 
         assertRefused(NetworkSettings.MOTD, "pre-launch");
+    }
+
+    // prices
+
+    @Test
+    void theDefaultPriceListIsTheAgreedOne() throws Exception {
+        final var tiers = NetworkSettings.tiers(checked(NetworkSettings.PRICES));
+
+        assertEquals(List.of(30, 60, 90), tiers.all().stream().map(Tier::days).toList());
+        assertEquals(
+                List.of(300, 500, 700),
+                tiers.all().stream().map(Tier::priceCents).toList());
+        assertEquals(500, tiers.donationCents());
+    }
+
+    @Test
+    void aLongerTierThatCostsLessIsRefused() {
+        // A shortfall walks down to the highest tier the amount covers.
+        values.put("tiers", List.of(tier(30, 300), tier(60, 900), tier(90, 700)));
+
+        assertRefused(NetworkSettings.PRICES, "more expensive as they get longer");
+    }
+
+    @Test
+    void twoTiersOfferingTheSameNumberOfDaysAreRefused() {
+        // A purchase button carries a day count, so two tiers sharing one is an ambiguous lookup.
+        values.put("tiers", List.of(tier(30, 300), tier(30, 500)));
+
+        assertRefused(NetworkSettings.PRICES, "Day counts identify a tier");
+    }
+
+    @Test
+    void anEmptyTierListIsANetworkThatHasNotPricedAnythingYet() throws Exception {
+        // Prices are set in the interface after the stack is up, not a precondition of being up.
+        values.put("tiers", List.of());
+
+        assertTrue(NetworkSettings.tiers(checked(NetworkSettings.PRICES)).all().isEmpty());
+    }
+
+    @Test
+    void aDonationOfNothingIsRefused() {
+        values.put("donation-cents", 0);
+
+        assertRefused(NetworkSettings.PRICES, "donation-cents");
+    }
+
+    private static Map<String, Object> tier(final int days, final int priceCents) {
+        return Map.of("days", days, "price-cents", priceCents);
     }
 
     // season

@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.id.PlayerId;
+import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.messages.PlayerLocales;
 import java.sql.Connection;
@@ -213,7 +214,7 @@ class AccessProfileIntegrationTest {
     void anIdentityIsTheLinkTheLanguageBothFlagsAndThePlayTimeInOneRead() {
         directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
         directory.setLocale(DiscordId.of(DISCORD_ID), Locale.GERMAN);
-        directory.setDonor(DiscordId.of(DISCORD_ID), true);
+        Jdbis.over(dataSource).useTransaction(handle -> Grants.markDonor(handle, DiscordId.of(DISCORD_ID)));
         execute("UPDATE discord_user SET admin = true, admin_granted_at = now() WHERE discord_id = '" + DISCORD_ID
                 + "'");
         execute("INSERT INTO player_playtime (discord_id, seconds) VALUES ('" + DISCORD_ID + "', 3600)");

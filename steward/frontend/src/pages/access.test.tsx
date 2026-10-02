@@ -146,8 +146,12 @@ function backend(
       asked.set("a-playtime", "SET_PLAYTIME")
       return json(answer.status, answer.body)
     }
+    if (url === "/api/access/settle") {
+      // steward books it itself and answers at once; the bot only reacts.
+      return json(200, { outcome: "BOOKED", days: 30, until: "2026-10-01T00:00:00Z" })
+    }
     if (url.startsWith("/api/access/") && !url.startsWith("/api/access/requests/")) {
-      // Every write is a request in the bot's inbox, which the bot carries out: 202 and an id to poll.
+      // Every other write is a request in the bot's inbox, which the bot carries out: 202 and an id to poll.
       const kind = url.split("/").pop()!.toUpperCase()
       const id = `a-${kind.toLowerCase()}`
       asked.set(id, kind)
@@ -489,6 +493,7 @@ describe("PaymentsPage - settle as a row action", () => {
   it("sends the row's own reference, with no picker to get wrong", async () => {
     const fetched = backend({ payments: () => [OPEN_PAYMENT] })
     vi.stubGlobal("fetch", fetched)
+    const success = vi.spyOn(toast, "success")
     draw(<PaymentsPage />)
 
     const row = await rowFor("AB12CD")
@@ -496,14 +501,15 @@ describe("PaymentsPage - settle as a row action", () => {
     const dialog = await screen.findByRole("alertdialog")
     fireEvent.click(within(dialog).getByRole("button", { name: "Settle" }))
 
-    // The bot's inbox, not /api/commands: the bot books it and tells the payer.
+    // Booked by steward in one answer, with no bot request to wait for.
     await waitFor(() => {
       const call = fetched.mock.calls.find(([url]) => url === "/api/access/settle")
       expect(call).toBeTruthy()
     })
     const call = fetched.mock.calls.find(([url]) => url === "/api/access/settle")!
     expect(requestBody(call[1])).toEqual({ reference: "AB12CD" })
-    await waitFor(() => expect(fetched.mock.calls.some(([url]) => url === "/api/access/requests/a-settle")).toBe(true))
+    await waitFor(() => expect(success).toHaveBeenCalledWith("AB12CD settled", expect.anything()))
+    expect(fetched.mock.calls.some(([url]) => url.startsWith("/api/access/requests/"))).toBe(false)
   })
 
   // jsdom has no layout, so this checks the class that would cause the wrap.

@@ -64,6 +64,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V12__a_file_names_the_release_that_installed_it.sql",
                 "be9d5bcdbec3681d1df30ea7f1d64d07898e447b2091bb414b7d4cf11288822f");
+        FROZEN.put(
+                "V13__steward_books_a_payment_in_one_transaction.sql",
+                "ecadf24a178b9688313ef944dd24439be37125f989e166d62d7a901ffc28c8c8");
     }
 
     @Test

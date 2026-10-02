@@ -3,11 +3,14 @@ package eu.nordtal.s2.database.inbox;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.notify.Channel;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /** What the bot can be asked to do, since only it holds a Discord session; each record is one kind. */
 public sealed interface BotRequest {
@@ -34,11 +37,45 @@ public sealed interface BotRequest {
         }
     }
 
-    /** Books a payment by hand, named by its reference. */
-    record Settle(String reference) implements BotRequest {
+    /**
+     * Tells a payer what steward booked for them: the roles, the direct messages, the thank-you and the admin note.
+     * The booking itself is done and committed with this row; the bot only reacts.
+     *
+     * @param payment       the request that was booked
+     * @param reference     its {@code NT-XXXXXX}, which the admin note names
+     * @param days          the days granted
+     * @param donationCents what of the payment counts as a donation, zero for none
+     * @param downgraded    whether fewer days were granted than ordered, because less money arrived
+     * @param receivedCents what arrived, or {@code null} for an admin's booking by hand
+     * @param from          when the access period it bought starts
+     * @param until         when it ends
+     */
+    record PaymentBooked(
+            UUID payment,
+            DiscordId person,
+            String reference,
+            int days,
+            int donationCents,
+            boolean downgraded,
+            @Nullable Integer receivedCents,
+            Instant from,
+            Instant until)
+            implements BotRequest {
 
-        public Settle {
+        public PaymentBooked {
+            Objects.requireNonNull(payment, "payment");
+            Objects.requireNonNull(person, "person");
             Objects.requireNonNull(reference, "reference");
+            Objects.requireNonNull(from, "from");
+            Objects.requireNonNull(until, "until");
+            if (days <= 0) {
+                throw new IllegalArgumentException("a booking grants at least one day, got " + days);
+            }
+        }
+
+        /** Returns whether the payment earned the donor role. */
+        public boolean donation() {
+            return donationCents > 0;
         }
     }
 

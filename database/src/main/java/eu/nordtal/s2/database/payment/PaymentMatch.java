@@ -9,6 +9,6 @@ public enum PaymentMatch {
     /** The payment's description carried the request's {@code NT-XXXXXX} reference, with no tab. */
     REFERENCE,
 
-    /** An admin confirmed it with {@code /settle}; there may be no bunq payment behind it. */
+    /** An admin booked it by hand on the Access page; there is no bunq payment behind it. */
     MANUAL
 }

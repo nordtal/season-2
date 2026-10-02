@@ -7,9 +7,6 @@ import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AccessGrant;
 import eu.nordtal.s2.database.access.AccessSource;
 import eu.nordtal.s2.database.access.PlaytimeWording;
-import eu.nordtal.s2.database.payment.PaymentRequest;
-import eu.nordtal.s2.database.payment.PaymentRequestStatus;
-import eu.nordtal.s2.database.payment.PaymentRequests;
 import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.access.SeasonStart;
 import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
@@ -24,7 +21,6 @@ public final class BotAccessEffects implements AccessChanges {
 
     private final AccessDirectory access;
     private final AccessRoles roles;
-    private final PaymentRequests requests;
     private final AdminLog admin;
     private final SeasonStart seasonStart;
     private final Messages messages;
@@ -38,14 +34,12 @@ public final class BotAccessEffects implements AccessChanges {
     public BotAccessEffects(
             final AccessDirectory access,
             final AccessRoles roles,
-            final PaymentRequests requests,
             final AdminLog admin,
             final SeasonStart seasonStart,
             final Messages messages,
             final org.slf4j.Logger log) {
         this.access = access;
         this.roles = roles;
-        this.requests = requests;
         this.admin = admin;
         this.seasonStart = seasonStart;
         this.messages = messages;
@@ -56,7 +50,7 @@ public final class BotAccessEffects implements AccessChanges {
     @Override
     public Instant grant(final DiscordId discordId, final int days, final Actor by) {
         final AccessGrant granted = access.grantAccess(discordId, days, AccessSource.ADMIN, null);
-        seasonStart.warnIfUnanchored(discordId, granted);
+        seasonStart.warnIfUnanchored(discordId, granted.validFrom());
         roles.applyAccessRole(discordId, true);
         roles.dm(
                 discordId,
@@ -104,50 +98,6 @@ public final class BotAccessEffects implements AccessChanges {
                 by.mention() + " → <@" + discordId + "> `"
                         + linked.map(UUID::toString).orElse("?") + "`");
         return true;
-    }
-
-    /** Books a payment by hand, for whoever asked. */
-    @Override
-    public Settled settle(final String reference, final Actor by) {
-        final Optional<PaymentRequest> request = requests.byReference(reference);
-        if (request.isEmpty()) {
-            return new Settled(Settlement.UNKNOWN, null, 0, null);
-        }
-        final PaymentRequest found = request.get();
-        if (found.status() != PaymentRequestStatus.OPEN) {
-            return new Settled(
-                    Settlement.NOT_OPEN, null, found.days(), found.status().name());
-        }
-
-        requests.settleManually(found.id());
-        final AccessGrant granted =
-                access.grantAccess(found.discordId(), found.days(), AccessSource.PURCHASE, found.id());
-        seasonStart.warnIfUnanchored(found.discordId(), granted);
-        roles.applyAccessRole(found.discordId(), true);
-        if (found.donationCents() > 0) {
-            access.setDonor(found.discordId(), true);
-            roles.grantDonorRole(found.discordId());
-        }
-        roles.dm(
-                found.discordId(),
-                messages.format(
-                        roles.localeOf(found.discordId()),
-                        MESSAGES.dm().granted(AccessRoles.timestamp(granted.validUntil()))));
-
-        admin.record(
-                "SETTLE",
-                by.filed(),
-                found.discordId().value(),
-                by.minecraftUuid(),
-                "manual, reference=" + reference + " days=" + found.days());
-        admin.note(
-                "💶 Settled by hand",
-                by.mention() + " `" + reference + "` → <@" + found.discordId() + "> " + found.days() + " days");
-        return new Settled(
-                Settlement.BOOKED,
-                granted.validUntil(),
-                found.days(),
-                found.status().name());
     }
 
     /**

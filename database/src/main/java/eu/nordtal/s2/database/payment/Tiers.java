@@ -1,13 +1,11 @@
-package eu.nordtal.s2.discordbot.access.payment;
+package eu.nordtal.s2.database.payment;
 
-import eu.nordtal.s2.database.payment.PaymentRequest;
-import eu.nordtal.s2.discordbot.config.AccessSpec;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * The price list from the {@code access} group, and the rule that turns arrived money into a grant.
+ * The network's price list, and the rule that turns arrived money into a grant, which steward applies as it books.
  *
  * A covered order is granted as ordered; a short payment is downgraded to the highest tier it covers.
  */
@@ -22,21 +20,7 @@ public final class Tiers {
     }
 
     /**
-     * Reads the price list from the configuration; an empty one offers only the donation.
-     *
-     * @param config the loaded and validated access configuration.
-     * @return the price list.
-     */
-    public static Tiers of(final AccessSpec config) {
-        return of(
-                config.tiers().stream()
-                        .map(tier -> new Tier(tier.days(), tier.priceCents()))
-                        .toList(),
-                config.donationCents());
-    }
-
-    /**
-     * Builds the price list without a config file.
+     * Builds the price list.
      *
      * @param tiers         the tiers, in any order
      * @param donationCents the donation surcharge
@@ -136,6 +120,11 @@ public final class Tiers {
         /** Returns what the payer was asked to pay, from the stored row alone so a price change cannot rewrite it. */
         public int totalCents() {
             return priceCents + donationCents;
+        }
+
+        /** Returns the order granted exactly as it was placed, which is what an admin's booking by hand grants. */
+        public Settlement asOrdered() {
+            return new Settlement(days, priceCents, donationCents, false);
         }
     }
 

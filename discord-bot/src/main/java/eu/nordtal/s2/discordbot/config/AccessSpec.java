@@ -12,9 +12,9 @@ import eu.nordtal.jcore.config.spec.annotation.Reload;
 import java.util.List;
 
 /**
- * The {@code access} group: the product and the guild.
+ * The {@code access} group: the guild, its roles and channels, and the life of a purchase.
  *
- * Every id defaults to empty and the bot refuses to start while one is.
+ * The price list is the network's. Every id defaults to empty and the bot refuses to start while one is.
  */
 @ConfigSpec
 public interface AccessSpec {
@@ -32,42 +32,6 @@ public interface AccessSpec {
     }
 
     @Order(2)
-    @Name("Tiers")
-    @Key("tiers")
-    @Comment({
-        "What can be bought: a number of days and its price in cents per entry.",
-        "More days must cost more, and no two entries may offer the same days.",
-        "A tier is identified by its day count, so changing 'days' retires it.",
-        "",
-        "The list may not be empty. If you have emptied it, this is the shape:",
-        "",
-        "  tiers:",
-        "  - days: 30",
-        "    price-cents: 300",
-        "  - days: 60",
-        "    price-cents: 500"
-    })
-    @Explain(
-            "What can be bought. Entries must be ordered by days ascending with price rising to match; changing 'days' on an entry retires that tier.")
-    default List<TierSpec> tiers() {
-        return DefaultTiers.LIST;
-    }
-
-    @Order(3)
-    @Name("Donation (cents)")
-    @Key("donation-cents")
-    @Comment({
-        "The optional surcharge that grants the permanent donor role, in cents.",
-        "",
-        "Money above the ordered total is a donation once it reaches this amount."
-    })
-    @Explain(
-            "The extra amount that grants the donor role; a surplus of at least this much above the order is a donation.")
-    default int donationCents() {
-        return 500;
-    }
-
-    @Order(4)
     @Name("Roles")
     @Key("roles")
     @Comment({
@@ -77,7 +41,7 @@ public interface AccessSpec {
     @Explain("Role ids that are not specific to a language; a language's own role is on its entry under languages.")
     RolesSpec roles();
 
-    @Order(5)
+    @Order(3)
     @Name("Channels")
     @Key("channels")
     @Comment({
@@ -88,7 +52,7 @@ public interface AccessSpec {
             "Channel ids that are not specific to a language; a language's own channels are on its entry under languages.")
     ChannelsSpec channels();
 
-    @Order(6)
+    @Order(4)
     @Name("Languages")
     @Key("languages")
     @Comment({
@@ -115,14 +79,14 @@ public interface AccessSpec {
         return DefaultLanguages.LIST;
     }
 
-    @Order(7)
+    @Order(5)
     @Name("Payment")
     @Key("payment")
     @Comment("The life cycle of a payment request, and how often the bot re-reads the seam.")
     @Explain("The life cycle of a payment request, and how often the bot re-reads the payment seam.")
     PaymentSpec payment();
 
-    @Order(8)
+    @Order(6)
     @Name("Reminder before expiry (days)")
     @Key("expiry-reminder-lead-days")
     @Comment("How many days before access runs out the reminder DM is sent.")
@@ -131,7 +95,7 @@ public interface AccessSpec {
         return 3;
     }
 
-    @Order(9)
+    @Order(7)
     @Name("Role sync interval (minutes)")
     @Key("role-reconcile-interval-minutes")
     @Comment({
@@ -143,7 +107,7 @@ public interface AccessSpec {
         return 10;
     }
 
-    @Order(10)
+    @Order(8)
     @Name("Link code attempts per hour")
     @Key("link-code-attempts-per-hour")
     @Comment({
@@ -161,29 +125,6 @@ public interface AccessSpec {
 
     @Reload
     void reload();
-
-    /** One purchasable period: a number of days for a price. */
-    @ConfigSpec
-    interface TierSpec {
-
-        @Order(1)
-        @Name("Duration (days)")
-        @Key("days")
-        @Comment("How many days of access this buys. A day is exactly 24 hours.")
-        @NoExplanationNeeded
-        default int days() {
-            return 30;
-        }
-
-        @Order(2)
-        @Name("Price (cents)")
-        @Key("price-cents")
-        @Comment("What it costs, in cents. Integer cents everywhere; never a float.")
-        @NoExplanationNeeded
-        default int priceCents() {
-            return 300;
-        }
-    }
 
     /** One language: its tag, the onboarding role that chooses it, and the channels that carry its messages. */
     @ConfigSpec

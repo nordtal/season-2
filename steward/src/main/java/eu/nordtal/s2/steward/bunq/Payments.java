@@ -1,15 +1,20 @@
 package eu.nordtal.s2.steward.bunq;
 
 import eu.nordtal.s2.database.Actor;
+import eu.nordtal.s2.database.alert.Alert;
+import eu.nordtal.s2.database.alert.AlertBook;
+import eu.nordtal.s2.database.alert.AlertType;
 import eu.nordtal.s2.database.inbox.BankRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.Outcome;
 import eu.nordtal.s2.database.inbox.Request;
+import eu.nordtal.s2.database.payment.Bookings;
 import eu.nordtal.s2.database.payment.Money;
 import eu.nordtal.s2.database.payment.PaymentMatch;
 import eu.nordtal.s2.database.payment.PaymentRequest;
 import eu.nordtal.s2.database.payment.PaymentRequestStatus;
 import eu.nordtal.s2.database.payment.PaymentRequests;
+import eu.nordtal.s2.database.payment.Tiers;
 import eu.nordtal.s2.internalapi.BankWire;
 import java.time.Instant;
 import java.util.Locale;
@@ -21,25 +26,23 @@ import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 
 /**
  * Does everything that has to happen at bunq, driven by the bank's inbox and the {@code payment_request} table.
- * A pass expires, answers the bank's inbox (tabs to make, tabs to cancel), then matches by tab and by reference.
+ * A pass expires, answers the bank's inbox (tabs to make, tabs to cancel), then matches by tab and by reference and
+ * books each match through {@link Bookings}; what cannot be booked is raised as a payment alert.
  */
 @Slf4j
 public final class Payments {
 
-    /** The reason on a {@code payment_notice} for a payment no open request claims; never booked automatically. */
-    private static final String UNMATCHED = "UNMATCHED";
-
-    /** A payment that arrived on a reference belonging to a request that is no longer open. */
-    private static final String EXPIRED_REFERENCE = "EXPIRED_REFERENCE";
-
-    /** Two requests claiming one payment, which means money was attributed to nobody. */
-    private static final String DOUBLE_CLAIM = "DOUBLE_CLAIM";
+    /** Who raises a payment alert, the same name steward's other alerts carry. */
+    private static final String RAISED_BY = "steward";
 
     /** How much of a failure message is worth putting in front of the person who is waiting. */
     private static final int REASON_LIMIT = 400;
 
     private final Bank bunq;
     private final PaymentRequests requests;
+    private final Bookings bookings;
+    private final Tiers tiers;
+    private final AlertBook alerts;
     private final Inbox<BankRequest> inbox;
     private final Instant watermark;
     private final int recentPaymentCount;
@@ -49,6 +52,9 @@ public final class Payments {
      *
      * @param bunq the bank
      * @param requests the seam
+     * @param bookings where a matched payment is booked, in one transaction
+     * @param tiers the price list a payment is booked by
+     * @param alerts where a payment nobody can book is raised, once per bank payment
      * @param inbox the bank's inbox, whose one consumer this is
      * @param watermark payments created before it are ignored, completely and forever
      * @param recentPaymentCount how many recent payments the fallback scan reads per pass
@@ -56,11 +62,17 @@ public final class Payments {
     public Payments(
             final Bank bunq,
             final PaymentRequests requests,
+            final Bookings bookings,
+            final Tiers tiers,
+            final AlertBook alerts,
             final Inbox<BankRequest> inbox,
             final Instant watermark,
             final int recentPaymentCount) {
         this.bunq = bunq;
         this.requests = requests;
+        this.bookings = bookings;
+        this.tiers = tiers;
+        this.alerts = alerts;
         this.inbox = inbox;
         this.watermark = watermark;
         this.recentPaymentCount = recentPaymentCount;
@@ -187,38 +199,34 @@ public final class Payments {
             final String reference = matcher.group();
             final Optional<PaymentRequest> request = requests.byReference(reference);
             if (request.isEmpty()) {
-                requests.noticeOnce(
+                needsALook(
                         paymentId,
-                        UNMATCHED,
                         "Payment " + paymentId + " (" + Money.format(cents) + ") carries reference `" + reference
                                 + "`, which no request has.");
                 continue;
             }
             if (request.get().status() != PaymentRequestStatus.OPEN) {
-                requests.noticeOnce(
+                needsALook(
                         paymentId,
-                        EXPIRED_REFERENCE,
                         "Payment " + paymentId + " (" + Money.format(cents) + ") arrived on `"
                                 + reference + "`, which is " + request.get().status()
-                                + ". Book it by hand with `/settle " + reference + "` if it is genuine.");
+                                + ". Nothing was booked; grant the access by hand if it is genuine.");
                 continue;
             }
             attribute(request.get(), paymentId, cents, PaymentMatch.REFERENCE);
         }
     }
 
-    /** Writes the attribution, and reports a second claim on a payment to the admin channel as unbookable. */
+    /** Books a matched payment, and raises what cannot be booked as an alert for an admin. */
     private void attribute(
             final PaymentRequest request, final long paymentId, final int cents, final PaymentMatch how) {
+        final Bookings.Booking booking;
         try {
-            if (requests.recordMatch(request.id(), paymentId, cents, how)) {
-                log.info(
-                        "Payment {} ({}) attributed to {} by {}",
-                        paymentId,
-                        Money.format(cents),
-                        request.reference(),
-                        how);
-            }
+            booking = bookings.book(
+                    request.id(),
+                    Bookings.Arrival.paid(paymentId, cents, how),
+                    order -> tiers.resolve(cents, order),
+                    Actor.STEWARD);
         } catch (final UnableToExecuteStatementException clash) {
             log.error(
                     "Payment {} is already claimed by another request, so {} was not given it."
@@ -227,12 +235,41 @@ public final class Payments {
                     paymentId,
                     request.reference(),
                     clash);
-            requests.noticeOnce(
+            needsALook(
                     paymentId,
-                    DOUBLE_CLAIM,
                     "Payment " + paymentId + " (" + Money.format(cents) + ") was matched to `"
                             + request.reference() + "` but is already claimed by another request."
-                            + " Nothing was granted for it; book it by hand if it is genuine.");
+                            + " Nothing was granted for it; grant the access by hand if it is genuine.");
+            return;
+        }
+        switch (booking) {
+            case Bookings.Booking.Booked booked ->
+                log.info(
+                        "Payment {} ({}) booked to {} by {}: {} days",
+                        paymentId,
+                        Money.format(cents),
+                        request.reference(),
+                        how,
+                        booked.told().days());
+            // Closed since it was read; the reference scan sees the payment again on a closed request.
+            case Bookings.Booking.NotOpen closed -> {}
+            case Bookings.Booking.BelowMinimum below ->
+                needsALook(
+                        paymentId,
+                        "Payment " + paymentId + " (" + Money.format(cents) + ") on `" + request.reference()
+                                + "` covers no tier, so nothing was booked. The request stays open until it"
+                                + " expires; grant the access by hand if the payer should have it.");
+        }
+    }
+
+    /** Raises a payment an admin has to look at, once for every bank payment however many passes see it. */
+    private void needsALook(final long paymentId, final String detail) {
+        if (alerts.raiseOnce(
+                "payment:" + paymentId,
+                new Alert(
+                        AlertType.PAYMENT, Alert.Level.DOWN, "payment", "A payment needs a look", detail, "/payments"),
+                RAISED_BY)) {
+            log.warn("{}", detail);
         }
     }
 

@@ -12,7 +12,6 @@ import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.Settings;
 import eu.nordtal.s2.settings.SettingsException;
 import java.nio.file.Path;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -33,7 +32,7 @@ public final class BotSettings {
     /** The bot's environment: every group under {@code NORDTAL_<GROUP>}. */
     static final Environment ENVIRONMENT = Environment.of("NORDTAL");
 
-    /** The guild, its roles and channels, the price list and the languages. */
+    /** The guild, its roles and channels, and the languages. */
     static final Group<AccessSpec> ACCESS = Group.of("access", AccessSpec.class).checkedBy(BotSettings::validateAccess);
 
     /** System property for the config directory, which the tests point at a temporary one. */
@@ -112,47 +111,12 @@ public final class BotSettings {
 
         requireSnowflakeIfSet("channels.admin", config.channels().admin());
 
-        validateTiers(config.tiers());
         validateLanguages(config.languages());
 
-        Checks.requirePositive("donation-cents", config.donationCents());
         Checks.requirePositive("expiry-reminder-lead-days", config.expiryReminderLeadDays());
         Checks.requirePositive("link-code-attempts-per-hour", config.linkCodeAttemptsPerHour());
         Checks.requirePositive("role-reconcile-interval-minutes", config.roleReconcileIntervalMinutes());
         Checks.requirePositive("payment.request-ttl-hours", config.payment().requestTtlHours());
-    }
-
-    /** Validates the price list, which may be empty but must rise in price with its day count. */
-    private static void validateTiers(final List<AccessSpec.TierSpec> tiers) {
-        if (tiers == null || tiers.isEmpty()) {
-            return;
-        }
-
-        final Set<Integer> days = new HashSet<>();
-        for (int index = 0; index < tiers.size(); index++) {
-            final AccessSpec.TierSpec tier = tiers.get(index);
-            Checks.requirePositive("tiers[" + index + "].days", tier.days());
-            Checks.requirePositive("tiers[" + index + "].price-cents", tier.priceCents());
-            if (!days.add(tier.days())) {
-                // A tier is identified by its day count, so a duplicate is ambiguous.
-                throw new IllegalArgumentException(
-                        "tiers[" + index + "] offers " + tier.days() + " days, which another tier "
-                                + "already offers. Day counts identify a tier and must be unique.");
-            }
-        }
-
-        final List<AccessSpec.TierSpec> byDays = tiers.stream()
-                .sorted(Comparator.comparingInt(AccessSpec.TierSpec::days))
-                .toList();
-        for (int index = 1; index < byDays.size(); index++) {
-            if (byDays.get(index).priceCents() <= byDays.get(index - 1).priceCents()) {
-                throw new IllegalArgumentException("tiers must get more expensive as they get longer: "
-                        + byDays.get(index).days()
-                        + " days costs " + byDays.get(index).priceCents() + "c but "
-                        + byDays.get(index - 1).days() + " days costs "
-                        + byDays.get(index - 1).priceCents() + "c");
-            }
-        }
     }
 
     /** Validates the language list: non-empty, unique lower case tags, {@code en} present. */

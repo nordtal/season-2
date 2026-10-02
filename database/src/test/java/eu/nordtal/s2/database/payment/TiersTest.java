@@ -1,4 +1,4 @@
-package eu.nordtal.s2.discordbot.access.payment;
+package eu.nordtal.s2.database.payment;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;

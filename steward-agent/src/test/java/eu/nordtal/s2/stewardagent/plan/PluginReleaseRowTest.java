@@ -1,9 +1,9 @@
 package eu.nordtal.s2.stewardagent.plan;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
-import java.util.LinkedHashMap;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -11,29 +11,35 @@ import org.junit.jupiter.api.Test;
 /** Each plugin row names the release that installed its jar, matched by file name, and only where one was noted. */
 class PluginReleaseRowTest {
 
-    private static Map<String, Object> row(final String fileName) {
-        final Map<String, Object> row = new LinkedHashMap<>();
-        row.put("name", fileName);
-        if (!fileName.isEmpty()) {
-            row.put("fileName", fileName);
-        }
-        return row;
+    private static AgentWire.Plugin row(final String fileName) {
+        return new AgentWire.Plugin(
+                fileName,
+                AgentWire.PluginGroup.PREINSTALLED,
+                null,
+                true,
+                false,
+                null,
+                fileName.isEmpty() ? null : fileName,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
     }
 
     @Test
     void aNotedJarCarriesItsReleaseAndOthersCarryNone() {
-        final Map<String, Object> smp = row("smp-0.11.0.jar");
-        final Map<String, Object> byHand = row("worldedit-bukkit-7.3.jar");
-        final Map<String, Object> older = row("smp-0.10.3.jar");
-        final Map<String, Object> absent = row("");
-
-        PluginsApi.noteReleases(
-                List.of(smp, byHand, older, absent),
+        final List<AgentWire.Plugin> noted = PluginsApi.noteReleases(
+                List.of(row("smp-0.11.0.jar"), row("worldedit-bukkit-7.3.jar"), row("smp-0.10.3.jar"), row("")),
                 Map.of("smp-0.11.0.jar", "0.11.0", "voicechat-bukkit-2.6.1.jar", "0.10.3"));
 
-        assertEquals("0.11.0", smp.get("release"));
-        assertFalse(byHand.containsKey("release"));
-        assertFalse(older.containsKey("release"), "a file the note does not name is not its artefact's release");
-        assertFalse(absent.containsKey("release"));
+        assertEquals("0.11.0", noted.get(0).release());
+        assertNull(noted.get(1).release());
+        assertNull(noted.get(2).release(), "a file the note does not name is not its artefact's release");
+        assertNull(noted.get(3).release());
     }
 }

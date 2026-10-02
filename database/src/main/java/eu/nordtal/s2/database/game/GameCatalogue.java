@@ -76,6 +76,7 @@ public record GameCatalogue(
      * @param key the translation key, or none for an entry the game names nowhere, such as a sound
      * @param text the English the server renders the key to, or none without a key
      * @param parent an advancement's parent, none for a root
+     * @param description the English of an advancement's description, as its tooltip shows it
      * @param frame an advancement's frame: {@code task}, {@code goal} or {@code challenge}
      * @param icon the item an advancement shows
      * @param hidden whether an advancement stays hidden until it is made
@@ -86,6 +87,7 @@ public record GameCatalogue(
             @Nullable String key,
             @Nullable String text,
             @Nullable String parent,
+            @Nullable String description,
             @Nullable String frame,
             @Nullable String icon,
             @Nullable Boolean hidden,
@@ -93,7 +95,7 @@ public record GameCatalogue(
 
         /** An entry with a name and nothing of its registry's own. */
         public static Entry named(final String id, final @Nullable String key, final @Nullable String text) {
-            return new Entry(id, key, text, null, null, null, null, null);
+            return new Entry(id, key, text, null, null, null, null, null, null);
         }
     }
 

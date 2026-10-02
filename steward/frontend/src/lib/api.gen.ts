@@ -559,6 +559,7 @@ export type GameEntry = {
   key?: string
   text?: string
   parent?: string
+  description?: string
   frame?: string
   icon?: string
   hidden?: boolean

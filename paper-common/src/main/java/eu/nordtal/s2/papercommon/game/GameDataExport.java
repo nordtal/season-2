@@ -135,6 +135,7 @@ public final class GameDataExport {
                     null,
                     null,
                     null,
+                    null,
                     subject));
         }
         entries.sort(Comparator.comparing(GameCatalogue.Entry::id));
@@ -178,7 +179,7 @@ public final class GameDataExport {
             final String parentId = parent == null ? null : parent.getKey().toString();
             if (display == null) {
                 entries.add(new GameCatalogue.Entry(
-                        advancement.getKey().toString(), null, null, parentId, null, null, null, null));
+                        advancement.getKey().toString(), null, null, parentId, null, null, null, null, null));
                 return;
             }
             final Component title = display.title();
@@ -187,6 +188,7 @@ public final class GameDataExport {
                     title instanceof TranslatableComponent translatable ? translatable.key() : null,
                     PLAIN.serialize(title),
                     parentId,
+                    PLAIN.serialize(display.description()),
                     display.frame().name().toLowerCase(Locale.ROOT),
                     display.icon().getType().getKey().toString(),
                     display.isHidden(),

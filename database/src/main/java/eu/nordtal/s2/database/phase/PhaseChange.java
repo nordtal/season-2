@@ -5,7 +5,7 @@ import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What one call to {@link PhaseDirectory#switchPhase(SeasonPhase, String, String)} did.
+ * What one call to {@link PhaseDirectory#switchPhase(SeasonPhase, eu.nordtal.s2.database.Actor, String)} did.
  *
  * @param previous the phase the row held before, read in the same statement that replaced it
  * @param current  the phase the row holds now

@@ -43,14 +43,14 @@ class SchemaCheckTest {
         final IllegalStateException refused =
                 assertThrows(IllegalStateException.class, () -> SchemaCheck.validate(database.dataSource()));
 
-        assertTrue(refused.getMessage().contains("restart steward-agent"), refused.getMessage());
+        assertTrue(refused.getMessage().contains("docker compose up migrate"), refused.getMessage());
         assertTrue(refused.getMessage().contains("does not apply migrations"), refused.getMessage());
     }
 
     @Test
     @org.junit.jupiter.api.Order(2)
     void aMigratedDatabasePasses() {
-        // The fixture migrates as steward does, placeholders and all.
+        // The fixture migrates as the migrate service does, placeholders and all.
         assertDoesNotThrow(() -> SchemaCheck.validate(TestDatabase.fresh().dataSource()));
     }
 }

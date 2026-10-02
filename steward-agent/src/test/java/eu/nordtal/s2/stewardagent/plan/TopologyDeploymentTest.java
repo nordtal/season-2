@@ -12,6 +12,7 @@ import eu.nordtal.s2.internalapi.BankWire;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.Topology;
 import eu.nordtal.s2.stewardagent.AgentApi;
+import eu.nordtal.s2.stewardagent.Compose;
 import eu.nordtal.s2.stewardagent.config.RunSpec;
 import eu.nordtal.s2.stewardagent.config.RunSpec.BackupSpec;
 import java.io.IOException;
@@ -153,29 +154,44 @@ class TopologyDeploymentTest {
     }
 
     @Test
-    void everyServiceThatReadsTheDatabaseWaitsForTheSchema() {
+    void everyServiceThatLogsInToTheDatabaseWaitsForTheMigrateServiceToSucceed() {
         services.forEach((name, definition) -> {
             @SuppressWarnings("unchecked")
             final Map<String, Object> service = (Map<String, Object>) definition;
-            // steward-agent applies the schema; postgres, pack-host, steward-bunq and caddy read no rows.
-            if (name.equals("postgres")
-                    || name.equals("pack-host")
-                    || name.equals("steward-agent")
-                    || name.equals("steward-bunq")
-                    || name.equals("caddy")) {
+            final Object environment = service.get("environment");
+            if (name.equals(Compose.MIGRATE)
+                    || !(environment instanceof Map<?, ?> variables)
+                    || variables.keySet().stream()
+                            .noneMatch(key -> String.valueOf(key).endsWith("DATABASE_USERNAME"))) {
                 return;
             }
             @SuppressWarnings("unchecked")
             final Map<String, Object> dependsOn = (Map<String, Object>) service.get("depends_on");
-            assertNotNull(
-                    dependsOn,
-                    name + " does not wait for " + AgentWire.SERVICE + ", so it can come up"
-                            + " against a schema older than itself after a redeploy");
             assertTrue(
-                    String.valueOf(dependsOn).contains("service_healthy"),
-                    name + " depends on " + AgentWire.SERVICE + " but not on it being healthy, which waits for"
-                            + " the container to exist rather than for the schema to be current");
+                    dependsOn != null
+                            && dependsOn.get(Compose.MIGRATE) instanceof Map<?, ?> migrate
+                            && "service_completed_successfully".equals(migrate.get("condition")),
+                    name + " logs in to the database without waiting for " + Compose.MIGRATE
+                            + " to succeed, so it can come up against a schema older than itself");
         });
+    }
+
+    @Test
+    void theMigrateServiceRunsOnceFromTheAgentsImageInEverySelection() {
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> migrate = (Map<String, Object>) services.get(Compose.MIGRATE);
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> agent = (Map<String, Object>) services.get(AgentWire.SERVICE);
+        assertNotNull(migrate, "compose.yml has no " + Compose.MIGRATE + " service");
+        assertEquals(agent.get("image"), migrate.get("image"), "the schema is the agent's release's");
+        assertEquals(List.of(Compose.MIGRATE), migrate.get("command"));
+        // Restarted, an exited migration would run on a loop; completed, it is what everything waits for.
+        assertEquals("no", migrate.get("restart"));
+        assertFalse(migrate.containsKey("profiles"), "a selection without the migrate service starts nothing");
+        assertFalse(
+                ((Map<?, ?>) agent.get("environment"))
+                        .keySet().stream().anyMatch(key -> String.valueOf(key).matches(".*DATABASE_[A-Z_]+_PASSWORD")),
+                AgentWire.SERVICE + " carries a role's password, which only the migrate service creates roles with");
     }
 
     @Test
@@ -260,7 +276,7 @@ class TopologyDeploymentTest {
 
     @Test
     void everyServiceLogsInAsItsOwnRoleAndTheMigratorCarriesEveryRolesPassword() throws IOException {
-        // A username that is not the role's name logs in as nobody; a password steward lacks creates no role.
+        // A username that is not the role's name logs in as nobody; a password the migrator lacks creates no role.
         final String compose = Files.readString(findUpwards("compose.yml"), StandardCharsets.UTF_8);
         for (final eu.nordtal.s2.database.DatabaseRole role : eu.nordtal.s2.database.DatabaseRole.values()) {
             if (!role.hasPassword()) {
@@ -269,9 +285,13 @@ class TopologyDeploymentTest {
             assertTrue(
                     compose.contains("DATABASE_USERNAME: " + role.roleName() + "\n"),
                     "no service in compose.yml logs in as " + role.roleName());
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> migrate = (Map<String, Object>) services.get(Compose.MIGRATE);
             assertTrue(
-                    compose.contains(eu.nordtal.s2.stewardagent.schema.Schema.passwordVariable(role) + ": "),
-                    "steward is not handed " + eu.nordtal.s2.stewardagent.schema.Schema.passwordVariable(role));
+                    ((Map<?, ?>) migrate.get("environment"))
+                            .containsKey(eu.nordtal.s2.stewardagent.schema.Schema.passwordVariable(role)),
+                    "the migrate service is not handed "
+                            + eu.nordtal.s2.stewardagent.schema.Schema.passwordVariable(role));
         }
     }
 
@@ -345,7 +365,7 @@ class TopologyDeploymentTest {
     void noServiceButStewardAndTheDatabaseSharesANetworkWithTheAgentOrTheBank() {
         // The agent holds the docker socket and steward-bunq the bank key; steward is the one caller of both.
         final Map<String, Set<String>> allowed = Map.of(
-                AgentWire.SERVICE, Set.of(Topology.STEWARD, DATABASE),
+                AgentWire.SERVICE, Set.of(Topology.STEWARD, DATABASE, Compose.MIGRATE),
                 BankWire.SERVICE, Set.of(Topology.STEWARD));
         allowed.forEach((guarded, partners) -> {
             final Set<String> theirs = networksOf(guarded);

@@ -77,8 +77,9 @@ export NORDTAL_RELEASE="$(docker ps --filter label=com.docker.compose.service=st
 docker compose --env-file /etc/nordtal/season-2.env ps
 ```
 
-On every start steward-agent applies the schema, fills every empty volume and only then writes
-the readiness marker the other services wait for. It never upgrades anything that is installed.
+The `migrate` service applies the schema and exits; every service with a database login waits for
+it to succeed. On every start steward-agent then fills every empty volume and only then writes the
+readiness marker the Minecraft services wait for. It never upgrades anything that is installed.
 With `bootstrap: false` in its `runs` group the servers refuse to start until an update run
 (`./nordtal.sh update`) has installed them.
 
@@ -272,8 +273,8 @@ but the moment it was taken is uncertain.
 A restore is a run, asked for on Steward's Backups page by choosing the archive and typing what it
 replaces: the volume's name, or `nordtal` for a dump. The run saves what the archive replaces first,
 counts down, stops what runs on it and starts it again. A volume archive **replaces** the volume; a
-dump **replaces** the database in one transaction, which steward-agent then migrates to its own
-schema. Every process's settings are rows in that database, so they come back with the dump.
+dump **replaces** the database in one transaction, and the run then runs the `migrate` service to
+bring it to this release's schema. Every process's settings are rows in that database, so they come back with the dump.
 
 `deploy/restore.sh` is for a host where steward-agent does not run:
 

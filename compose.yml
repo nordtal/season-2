@@ -17,8 +17,10 @@
 # must use the same selection. `standby` is never selected: an update run starts those services
 # by name and stops them again.
 #
-# steward-agent has no profile, applies the schema and is the only depends_on target, so nothing
-# starts against an older schema. Nothing depends on postgres, so an external database works.
+# migrate applies the schema from steward-agent's image and exits; every service with a database login
+# waits for it to succeed, so nothing starts against an older schema. The Minecraft services also wait
+# for steward-agent, which installs what they are missing. Neither has a profile. Nothing depends on
+# postgres, so an external database works.
 
 name: nordtal-s2
 
@@ -40,7 +42,9 @@ x-minecraft: &minecraft
   image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/minecraft:${NORDTAL_RELEASE:?the release every image of ours runs - steward-agent and deploy/nordtal.sh pass it}
   restart: unless-stopped
   depends_on:
-    # The schema only; see the header on why not the database.
+    # The schema, and the jars steward-agent installs; see the header on why not the database.
+    migrate:
+      condition: service_completed_successfully
     steward-agent:
       condition: service_healthy
   # The entrypoint must be PID 1 to trap SIGTERM and hold stdout; `init: true` would break both.
@@ -73,9 +77,9 @@ x-minecraft: &minecraft
       max-file: "5"
 
 # The database every client connects to, each under its own variable prefix. NORDTAL_DATABASE_* points
-# the stack at an external PostgreSQL; POSTGRES_* configures the bundled one. steward-agent logs in as
-# the owner, migrates, and first creates every other service's role with the password given here; every
-# other service logs in as its own role, whose name is fixed (DatabaseRole in :database).
+# the stack at an external PostgreSQL; POSTGRES_* configures the bundled one. migrate and steward-agent
+# log in as the owner; migrate first creates every other service's role with the password given here, and
+# every other service logs in as its own role, whose name is fixed (DatabaseRole in :database).
 x-database:
   url: &db-url ${NORDTAL_DATABASE_JDBC_URL:-jdbc:postgresql://postgres:5432/${POSTGRES_DB:-nordtal}}
   username: &db-username ${NORDTAL_DATABASE_USERNAME:-${POSTGRES_USER:-nordtal}}
@@ -130,8 +134,8 @@ services:
     restart: unless-stopped
     depends_on:
       # The bot refuses an unmigrated database.
-      steward-agent:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     # The marker is written once JDA is ready and refreshed by the timer thread, so a wedged timer goes
     # red. The bot listens on nothing, so there is no port check.
     healthcheck:
@@ -338,10 +342,10 @@ services:
     # It reaches Docker and payments only through `agent` and `bank`, which are its alone.
     networks: ["steward", "agent", "bank"]
     command: ["serve"]
-    # The schema is steward-agent's; steward starts against a current one.
+    # Steward starts against a current schema.
     depends_on:
-      steward-agent:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     # Makes http://host.docker.internal:<port> reach the host on Linux too.
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -386,9 +390,32 @@ services:
       - ${STEWARD_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-config}:/app/config
     logging: *logging
 
-  # steward-agent: the only process allowed to create a container, and the one that migrates and
-  # carries out every run. It carries this file in its image and never recreates itself;
-  # deploy/nordtal.sh renews it. No profile: everything else waits for it.
+  # migrate: the one process that applies the schema, from steward-agent's image. It creates every
+  # other service's role with the password given here, migrates as the owner and exits; a restore runs
+  # it again. No profile: everything with a database login waits for it to succeed.
+  migrate:
+    image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/steward-agent:${NORDTAL_RELEASE:?the release every image of ours runs - steward-agent and deploy/nordtal.sh pass it}
+    command: ["migrate"]
+    restart: "no"
+    # postgres alone.
+    networks: ["agent-database"]
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      NORDTAL_STEWARD_AGENT_DATABASE_JDBC_URL: *db-url
+      NORDTAL_STEWARD_AGENT_DATABASE_USERNAME: *db-username
+      NORDTAL_STEWARD_AGENT_DATABASE_PASSWORD: *db-password
+      # The passwords of the roles it creates before migrating.
+      NORDTAL_STEWARD_AGENT_DATABASE_DISCORD_BOT_PASSWORD: *db-discord-bot-password
+      NORDTAL_STEWARD_AGENT_DATABASE_PROXY_PASSWORD: *db-proxy-password
+      NORDTAL_STEWARD_AGENT_DATABASE_LIMBO_PASSWORD: *db-limbo-password
+      NORDTAL_STEWARD_AGENT_DATABASE_HUNGER_GAMES_PASSWORD: *db-hunger-games-password
+      NORDTAL_STEWARD_AGENT_DATABASE_SMP_PASSWORD: *db-smp-password
+      NORDTAL_STEWARD_AGENT_DATABASE_STEWARD_PASSWORD: *db-steward-password
+    logging: *logging
+
+  # steward-agent: the only process allowed to create a container, and the one that carries out every
+  # run. It carries this file in its image and never recreates itself; deploy/nordtal.sh renews it.
+  # No profile: the Minecraft services wait for it.
   steward-agent:
     build:
       <<: *jvm-build
@@ -397,8 +424,11 @@ services:
     restart: unless-stopped
     # `agent` is steward's way in, `agent-database` reaches postgres alone, `agent-egress` the release sources.
     networks: ["agent", "agent-database", "agent-egress"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
-      # The marker is first written once the schema is current and every missing jar is installed.
+      # The marker is first written once every missing jar is installed.
       test: *readiness
       interval: 10s
       timeout: 3s
@@ -420,17 +450,10 @@ services:
       # A file name inside the directory mounted below, not a path.
       NORDTAL_STEWARD_AGENT_ENV_FILE: /app/env/${STEWARD_ENV_FILE_NAME:?set STEWARD_ENV_FILE_NAME in .env - the file name (not the path) of the environment file, derived from STEWARD_ENV_FILE by deploy/nordtal.sh}
 
-      # The database group; the only process that migrates.
+      # The database group, as the owner: clearing old requests out of every inbox is its alone.
       NORDTAL_STEWARD_AGENT_DATABASE_JDBC_URL: *db-url
       NORDTAL_STEWARD_AGENT_DATABASE_USERNAME: *db-username
       NORDTAL_STEWARD_AGENT_DATABASE_PASSWORD: *db-password
-      # The passwords of the roles it creates before migrating.
-      NORDTAL_STEWARD_AGENT_DATABASE_DISCORD_BOT_PASSWORD: *db-discord-bot-password
-      NORDTAL_STEWARD_AGENT_DATABASE_PROXY_PASSWORD: *db-proxy-password
-      NORDTAL_STEWARD_AGENT_DATABASE_LIMBO_PASSWORD: *db-limbo-password
-      NORDTAL_STEWARD_AGENT_DATABASE_HUNGER_GAMES_PASSWORD: *db-hunger-games-password
-      NORDTAL_STEWARD_AGENT_DATABASE_SMP_PASSWORD: *db-smp-password
-      NORDTAL_STEWARD_AGENT_DATABASE_STEWARD_PASSWORD: *db-steward-password
 
       # The runs group; every run follows each repository's latest GitHub release.
       NORDTAL_STEWARD_AGENT_SEASON_REPO: ${SEASON_REPO:-}
@@ -640,7 +663,7 @@ volumes:
 
 # `default` holds the Minecraft services and the bot; `steward` holds steward and Caddy. Postgres is
 # on both, so no plugin can reach steward. `agent` and `bank` each join steward to one service that
-# only steward may reach; neither leads out. `agent-database` joins steward-agent to postgres alone.
+# only steward may reach; neither leads out. `agent-database` joins steward-agent and migrate to postgres alone.
 # Each of the two reaches the internet through an egress network of its own.
 networks:
   default:

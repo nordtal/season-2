@@ -39,9 +39,9 @@ import java.util.List;
 import java.util.function.Predicate;
 
 /**
- * The one process that holds the Docker socket and the volumes, migrates the schema and carries out every run.
+ * The one process that holds the Docker socket and the volumes and carries out every run, and the one that migrates.
  *
- * {@code serve} runs in the stack, {@code up} deploys for the setup script, {@code request} and {@code status} ask.
+ * {@code serve} and {@code migrate} are services, {@code up} deploys for the setup script, the rest ask.
  */
 public final class StewardAgent {
 
@@ -68,9 +68,11 @@ public final class StewardAgent {
         switch (mode) {
             case "up" -> System.exit(deploy(compose, List.of(), System.out::println, true, docker::hasImage));
             case "serve" -> System.exit(serve(server, compose, docker));
+            case Compose.MIGRATE -> System.exit(migrate());
             case "request", "status" -> System.exit(HostRequests.run(args));
             default -> {
-                System.err.println("usage: steward-agent [serve|up|request KIND [SERVICES] [MINUTES]|status ID]");
+                System.err.println(
+                        "usage: steward-agent [serve|migrate|up|request KIND [SERVICES] [MINUTES]|status ID]");
                 System.exit(2);
             }
         }
@@ -134,9 +136,37 @@ public final class StewardAgent {
     }
 
     /**
-     * Migrates, serves the API, installs what is missing, reports ready and then carries out runs until stopped.
+     * Creates every service's role, applies every pending migration and exits, as the migrate service.
      *
-     * @return the exit status: 1 when the database or its schema is not there, since nothing may start without it
+     * @return the exit status, which every service with a database login waits on: 0 only on a current schema
+     */
+    private static int migrate() {
+        final DatabaseSpec databaseConfig;
+        try {
+            databaseConfig = AgentSettings.database().get();
+        } catch (final SettingsException broken) {
+            log.error("Refusing to touch the database on settings that cannot be read: {}", broken.getMessage());
+            return 1;
+        }
+        final Database opened =
+                DatabaseWaiting.openDatabase(databaseConfig, Compose.MIGRATE, Waiting.on(NetworkTime.clock()));
+        if (opened == null) {
+            return 1;
+        }
+        try (Database database = opened) {
+            Schema.migrate(database, Schema.passwords(System.getenv()));
+            return 0;
+        } catch (final RuntimeException failure) {
+            // A server must not start against an unknown schema, and every service waits for this one.
+            log.error("The database schema could not be applied, so nothing that logs in will start.", failure);
+            return 1;
+        }
+    }
+
+    /**
+     * Serves the API, installs what is missing, reports ready and carries out runs; the migrate service migrates.
+     *
+     * @return the exit status: 1 when the database or its settings are not there
      */
     private static int serve(final InternalServer server, final Compose compose, final Docker docker)
             throws java.io.IOException {
@@ -155,14 +185,6 @@ public final class StewardAgent {
             return 1;
         }
         try (Database database = opened) {
-            try {
-                Schema.migrate(database, Schema.passwords(System.getenv()));
-            } catch (final RuntimeException failure) {
-                // A server must not start against an unknown schema, and every service waits for this one.
-                log.error(
-                        "The database schema could not be applied, so this container will not become ready.", failure);
-                return 1;
-            }
             clearOldRequests(database);
             final DatabaseSettings settings = AgentSettings.stored(database.dataSource(), log);
             final Setting<RunSpec> runs;
@@ -198,13 +220,25 @@ public final class StewardAgent {
         }
     }
 
-    /** A replaced database: the pool's connections go, since they cached plans of dropped tables, then the schema. */
-    private static void afterDatabaseRestore(final Database database) {
+    /**
+     * A replaced database: the pool's connections go, since they cached plans of dropped tables, then the schema.
+     *
+     * @throws IllegalStateException if the migrate service could not bring the dump up to this release
+     */
+    private static void afterDatabaseRestore(final Database database, final Compose compose) {
         if (database.dataSource() instanceof com.zaxxer.hikari.HikariDataSource pool
                 && pool.getHikariPoolMXBean() != null) {
             pool.getHikariPoolMXBean().softEvictConnections();
         }
-        Schema.migrate(database, Schema.passwords(System.getenv()));
+        final int status;
+        try {
+            status = compose.migrate(log::info);
+        } catch (final java.io.IOException failure) {
+            throw new IllegalStateException("the migrate service did not run: " + failure.getMessage(), failure);
+        }
+        if (status != 0) {
+            throw new IllegalStateException("the migrate service exited with " + status + "; its log says why");
+        }
     }
 
     // The one volumes root is the runs group's, so what a run installs and what the API reads cannot differ.
@@ -256,7 +290,7 @@ public final class StewardAgent {
                     compose::definitions, paths.backupSources().toString(), clock);
             final LocalStack stack =
                     new LocalStack(docker, new Containers(docker, project, compose::hashes), topology, compose);
-            final LocalSnapshots snapshots = snapshotsOf(docker, project, paths, clock, runs, database);
+            final LocalSnapshots snapshots = snapshotsOf(docker, compose, paths, clock, runs, database);
             try (SignalHub signals = SignalHub.open(
                             databaseConfig.jdbcUrl(),
                             databaseConfig.username(),
@@ -289,22 +323,22 @@ public final class StewardAgent {
         return 0;
     }
 
-    /** The backups and restores, which migrate the database again after a dump has replaced it. */
+    /** The backups and restores, which run the migrate service again after a dump has replaced the database. */
     private static LocalSnapshots snapshotsOf(
             final Docker docker,
-            final String project,
+            final Compose compose,
             final AgentApi.Paths paths,
             final Clock clock,
             final Setting<RunSpec> runs,
             final Database database) {
         return new LocalSnapshots(
                 docker,
-                project,
+                compose.projectName(),
                 paths.backupSources(),
                 paths.backups(),
                 clock,
                 runs::get,
-                () -> afterDatabaseRestore(database));
+                () -> afterDatabaseRestore(database, compose));
     }
 
     /** Takes the runs group again after a change in Steward; a refused change keeps the values in use. */

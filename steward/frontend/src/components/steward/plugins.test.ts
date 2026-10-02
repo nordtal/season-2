@@ -55,6 +55,7 @@ describe("reading the version out of a jar's name", () => {
 
 const change = (over: Partial<AvailableChange>): AvailableChange => ({
   service: "smp",
+  held: false,
   artifact: "chunky",
   status: "UP_TO_DATE",
   work: false,

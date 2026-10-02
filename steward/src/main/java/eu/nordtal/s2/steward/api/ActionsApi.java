@@ -45,7 +45,7 @@ public final class ActionsApi {
     public void list(final Context ctx) {
         final int limit = ctx.queryParamAsClass("limit", Integer.class).getOrDefault(DEFAULT_LIMIT);
         // Through json(), never the records themselves.
-        ctx.json(recent(limit).stream().map(ActionEntry::json).toList());
+        ctx.json(recent(limit).stream().map(ActionEntry::wire).toList());
     }
 
     /**

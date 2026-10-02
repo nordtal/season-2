@@ -153,7 +153,7 @@ class WebRoutesTest extends WebTestSupport {
     void theActiveRunCarriesItsScope() throws Exception {
         settleOpenRuns();
         final JsonObject none = GSON.fromJson(get("/api/updates/active").body(), JsonObject.class);
-        assertTrue(none.has("run") && none.get("run").isJsonNull(), none.toString());
+        assertFalse(none.has("run"), none.toString());
 
         final HttpResponse<String> asked = post("/api/updates", "{\"kind\":\"DOWN\",\"services\":[\"smp\"]}");
         assertEquals(202, asked.statusCode(), asked.body());

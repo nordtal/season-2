@@ -82,9 +82,9 @@ export function euros(cents: number | null | undefined): string {
   return new Intl.NumberFormat(LOCALE, { style: "currency", currency: "EUR" }).format(cents / 100)
 }
 
-/** An instant as the server sends it, where SQL NULL arrives as the string "null". */
+/** An instant as the server sends it, or null when it is absent or no instant. */
 export function parseInstant(value: string | null | undefined): Date | null {
-  if (value == null || value === "null" || value === "") return null
+  if (value == null || value === "") return null
   const parsed = new Date(value)
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }

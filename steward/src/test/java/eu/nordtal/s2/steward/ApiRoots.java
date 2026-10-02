@@ -4,8 +4,6 @@ import com.google.gson.reflect.TypeToken;
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.alert.AlertChannel;
 import eu.nordtal.s2.database.alert.AlertType;
-import eu.nordtal.s2.internalapi.agent.AgentWire;
-import eu.nordtal.s2.internalapi.agent.ImageResult;
 import eu.nordtal.s2.steward.api.ApiWire;
 import eu.nordtal.s2.steward.live.LiveEvent;
 import eu.nordtal.s2.steward.web.WebWire;
@@ -27,18 +25,15 @@ final class ApiRoots {
     static final Map<String, Type> ALIASES = aliases();
 
     /** Types whose own simple name would say too little or collide. */
-    static final Map<Class<?>, String> NAMES = names(Map.of(
-            Alert.Level.class, "AlertLevel",
-            ImageResult.State.class, "ImageState",
-            AgentWire.Archive.class, "Backup",
-            AgentWire.Plugin.class, "ServicePlugin",
-            AgentWire.Plugins.class, "ServicePlugins"));
+    static final Map<Class<?>, String> NAMES = names();
 
     private ApiRoots() {}
 
-    private static Map<Class<?>, String> names(final Map<Class<?>, String> shared) {
-        final Map<Class<?>, String> names = new LinkedHashMap<>(shared);
+    private static Map<Class<?>, String> names() {
+        final Map<Class<?>, String> names = new LinkedHashMap<>();
+        names.put(Alert.Level.class, "AlertLevel");
         names.putAll(WebWire.NAMES);
+        names.putAll(ApiWire.NAMES);
         return Map.copyOf(names);
     }
 

@@ -91,8 +91,8 @@ function Summary() {
       />
       <Stat
         label="Checked"
-        value={available.data ? relative(available.data.checkedAt) : undefined}
-        hint={available.data ? dateTime(available.data.checkedAt) : undefined}
+        value={available.data ? relative(available.data.resolvedAt) : undefined}
+        hint={available.data ? dateTime(available.data.resolvedAt) : undefined}
       />
       <Stat
         label="Next"

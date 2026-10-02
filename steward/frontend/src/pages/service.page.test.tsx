@@ -163,8 +163,6 @@ const openRun = (over: Partial<Run> = {}): Run => ({
   scheduledFor: new Date(Date.now() + 60_000).toISOString(),
   countdownEnd: new Date(Date.now() + 60_000).toISOString(),
   moving: [],
-  started: "null",
-  finished: "null",
   ...over,
 })
 

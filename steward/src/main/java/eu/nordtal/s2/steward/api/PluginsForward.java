@@ -4,6 +4,7 @@ import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.DatabaseText;
 import eu.nordtal.s2.database.inbox.StewardRequest;
 import eu.nordtal.s2.database.update.UpdateDirectory;
+import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.messages.Refused;
@@ -12,7 +13,6 @@ import io.javalin.http.ConflictResponse;
 import io.javalin.http.Context;
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -49,6 +49,9 @@ public final class PluginsForward {
         return row;
     }
 
+    /** {@code DELETE /api/services/{name}/plugins/{artifact}}: the run that removes it, by its id. */
+    public record RemovalAsked(long id, UpdateKind kind, String artifact) {}
+
     /** {@code DELETE /api/services/{name}/plugins/{artifact}}: a REMOVE_PLUGIN run, answered with its row. */
     void remove(final Context ctx, final Actor actor) {
         final String artifact = ctx.pathParam("artifact");
@@ -61,7 +64,7 @@ public final class PluginsForward {
         } catch (final Refused refused) {
             throw new ConflictResponse(DatabaseText.english(refused.refusal().message()));
         }
-        ctx.status(202).json(Map.of("id", written.id(), "kind", written.kind().name(), "artifact", artifact));
+        ctx.status(202).json(new RemovalAsked(written.id(), written.kind(), artifact));
     }
 
     /** The service out of the path, checked since it goes into the agent's URL. */

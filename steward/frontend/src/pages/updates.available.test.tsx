@@ -23,6 +23,7 @@ function json(status: number, body: unknown): Response {
 function change(over: Partial<AvailableChange> & { artifact: string; status: string }): AvailableChange {
   return {
     service: "smp",
+    held: false,
     work: over.status === "OUTDATED" || over.status === "MISSING",
     failure: over.status === "UNRESOLVED" || over.status === "MOUNT_MISSING",
     ...over,
@@ -31,7 +32,6 @@ function change(over: Partial<AvailableChange> & { artifact: string; status: str
 
 function available(over: Partial<Available> = {}): Available {
   return {
-    checkedAt: new Date().toISOString(),
     resolvedAt: new Date().toISOString(),
     seasonPrerelease: false,
     hasWork: true,
@@ -241,7 +241,7 @@ describe("the available card", () => {
       "fetch",
       backend(
         available({
-          checkedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+          resolvedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
           changes: [
             change({
               artifact: "chunky",

@@ -3,6 +3,7 @@ package eu.nordtal.s2.steward.web;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
@@ -14,6 +15,7 @@ import eu.nordtal.s2.steward.data.Data;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -49,27 +51,47 @@ final class Announcements {
                 .bot();
     }
 
+    /**
+     * One language's line of an announcement; {@code result} is what became of it once the bot answered.
+     *
+     * @param id what {@code GET /api/commands/{id}} is asked with
+     */
+    public record Announcement(
+            String id,
+            String language,
+            String text,
+            Actor.Kind actorKind,
+            String actorId,
+            Instant requested,
+            InboxStatus status,
+            @Nullable String result) {}
+
+    /** {@code GET /api/announcements}: the latest, by either sender, newest first. */
+    public record RecentAnnouncements(List<Announcement> recent) {}
+
+    /** {@code POST /api/announcements}: each language's line to follow, by its tag. */
+    public record AnnouncementsAsked(Map<String, String> ids) {}
+
     /** {@code GET /api/announcements}: the latest, by either sender, newest first, one line per language. */
     void recent(final Context ctx) {
-        final List<Map<String, Object>> recent = new ArrayList<>();
+        final List<Announcement> recent = new ArrayList<>();
         for (final Request<BotRequest> row : bot().recent(BotRequest.Announce.class, RECENT)) {
             if (!(row.payload() instanceof BotRequest.Announce announcement)) {
                 continue;
             }
-            announcement.texts().forEach((language, text) -> {
-                final Map<String, Object> line = new LinkedHashMap<>();
-                line.put("id", "announce:" + row.id() + ":" + language);
-                line.put("language", language);
-                line.put("text", text);
-                line.put("actorKind", row.actor().kind().name());
-                line.put("actorId", row.actor().id() == null ? "" : row.actor().id());
-                line.put("requested", row.requested().toString());
-                line.put("status", status(row.status()));
-                result(row, language).ifPresent(result -> line.put("result", result));
-                recent.add(line);
-            });
+            announcement
+                    .texts()
+                    .forEach((language, text) -> recent.add(new Announcement(
+                            "announce:" + row.id() + ":" + language,
+                            language,
+                            text,
+                            row.actor().kind(),
+                            Objects.requireNonNullElse(row.actor().id(), ""),
+                            row.requested(),
+                            status(row.status()),
+                            result(row, language).orElse(null))));
         }
-        ctx.json(Map.of("recent", recent));
+        ctx.json(new RecentAnnouncements(recent));
     }
 
     /**
@@ -86,7 +108,7 @@ final class Announcements {
                         AuditLine.of("ANNOUNCE", who.actor(), Map.of("languages", List.copyOf(checked.keySet()))));
         final Map<String, String> ids = new LinkedHashMap<>();
         checked.keySet().forEach(tag -> ids.put(tag, "announce:" + asked.id() + ":" + tag));
-        ctx.status(202).json(Map.of("ids", ids));
+        ctx.status(202).json(new AnnouncementsAsked(ids));
     }
 
     private static Map<String, String> texts(final Context ctx) {
@@ -122,11 +144,11 @@ final class Announcements {
     }
 
     /** Returns the status the browser knows, in which a line that went nowhere is a failure. */
-    static String status(final InboxStatus status) {
+    static InboxStatus status(final InboxStatus status) {
         return switch (status) {
-            case PENDING, RUNNING, DONE, FAILED, EXPIRED -> status.name();
-            case REFUSED -> InboxStatus.FAILED.name();
-            case CANCELLED -> InboxStatus.EXPIRED.name();
+            case PENDING, RUNNING, DONE, FAILED, EXPIRED -> status;
+            case REFUSED -> InboxStatus.FAILED;
+            case CANCELLED -> InboxStatus.EXPIRED;
         };
     }
 

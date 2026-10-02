@@ -1,10 +1,13 @@
 package eu.nordtal.s2.steward.web;
 
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.DatabaseText;
 import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.update.UpdateKind;
+import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
+import eu.nordtal.s2.database.update.UpdateStatus;
 import eu.nordtal.s2.messages.Refused;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.data.Data;
@@ -13,10 +16,11 @@ import io.javalin.http.ConflictResponse;
 import io.javalin.http.Context;
 import io.javalin.http.NotFoundResponse;
 import java.time.Duration;
-import java.util.LinkedHashMap;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -26,10 +30,6 @@ import org.slf4j.LoggerFactory;
 final class Updates {
 
     private static final Logger log = LoggerFactory.getLogger(Updates.class);
-
-    /** Serializes nulls, so {@code /api/updates/active} can answer "none" as an explicit null. */
-    private static final com.google.gson.Gson ACTIVE_JSON =
-            new com.google.gson.GsonBuilder().serializeNulls().create();
 
     private final @Nullable Data data;
     private final Function<Context, DiscordAuth.Account> accounts;
@@ -49,11 +49,9 @@ final class Updates {
                 .toList());
     }
 
-    /** The one open run, as {@code run: null} when there is none. */
+    /** The one open run, absent when there is none. */
     void active(final Context ctx) {
-        final Map<String, Object> answer = new java.util.HashMap<>();
-        answer.put("run", data().updates().open().map(this::describe).orElse(null));
-        ctx.contentType("application/json").result(ACTIVE_JSON.toJson(answer));
+        ctx.json(new ActiveRun(data().updates().open().map(this::describe).orElse(null)));
     }
 
     void lookup(final Context ctx) {
@@ -129,36 +127,58 @@ final class Updates {
         ctx.json(describe(cancelled.get()));
     }
 
-    /** One request as the interface shows it; a report that cannot be parsed is kept as text. */
-    Map<String, Object> describe(final UpdateRequest request) {
+    /**
+     * One run as the interface shows it; a report that cannot be parsed is kept as {@code resultText}.
+     *
+     * @param scope the services this run is for, where empty is the whole network
+     * @param moving the services the run stops, written when its countdown starts
+     */
+    public record Run(
+            long id,
+            UpdateKind kind,
+            UpdateStatus status,
+            Actor.Kind actorKind,
+            String actorId,
+            List<String> scope,
+            Instant requested,
+            Instant scheduledFor,
+            @Nullable Instant countdownEnd,
+            List<String> moving,
+            @Nullable Instant started,
+            @Nullable Instant finished,
+            @Nullable UpdateReport report,
+            @Nullable Boolean savedSomething,
+            @Nullable String resultText) {}
+
+    /** {@code GET /api/updates/active}: the one open run, absent when there is none. */
+    public record ActiveRun(@Nullable Run run) {}
+
+    /** One request as the interface shows it. */
+    Run describe(final UpdateRequest request) {
         return describe(request, data().updates().scopeOf(request.id()));
     }
 
     /** The same, for a known {@code scope}, where empty is the whole network. */
-    static Map<String, Object> describe(final UpdateRequest request, final List<String> scope) {
-        final Map<String, Object> row = new LinkedHashMap<>();
-        row.put("id", request.id());
-        row.put("kind", request.kind().name());
-        row.put("status", request.status().name());
-        row.put("actorKind", request.actor().kind().name());
-        row.put("actorId", java.util.Objects.requireNonNullElse(request.actor().id(), ""));
-        row.put("scope", scope);
-        row.put("requested", String.valueOf(request.requested()));
-        row.put("scheduledFor", String.valueOf(request.scheduledFor()));
-        row.put("countdownEnd", String.valueOf(request.countdownEnd()));
-        row.put("moving", request.moving());
-        row.put("started", String.valueOf(request.started()));
-        row.put("finished", String.valueOf(request.finished()));
-        if (request.result() != null && !request.result().isBlank()) {
-            UpdateReports.parse(request.result())
-                    .ifPresentOrElse(
-                            report -> {
-                                row.put("report", report);
-                                row.put("savedSomething", report.savedSomething());
-                            },
-                            () -> row.put("resultText", request.result()));
-        }
-        return row;
+    static Run describe(final UpdateRequest request, final List<String> scope) {
+        final String result = request.result();
+        final Optional<UpdateReport> report =
+                result == null || result.isBlank() ? Optional.empty() : UpdateReports.parse(result);
+        return new Run(
+                request.id(),
+                request.kind(),
+                request.status(),
+                request.actor().kind(),
+                java.util.Objects.requireNonNullElse(request.actor().id(), ""),
+                scope,
+                request.requested(),
+                request.scheduledFor(),
+                request.countdownEnd(),
+                request.moving(),
+                request.started(),
+                request.finished(),
+                report.orElse(null),
+                report.map(UpdateReport::savedSomething).orElse(null),
+                report.isPresent() || result == null || result.isBlank() ? null : result);
     }
 
     /** The body of {@code POST /api/updates}. */

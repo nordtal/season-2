@@ -8,8 +8,6 @@ import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
@@ -79,13 +77,18 @@ final class SeasonRoutes {
         ctx.json(read());
     }
 
+    /** {@code GET /api/season}: the phase, and each date once it is announced. */
+    public record Season(
+            SeasonPhase phase,
+            @Nullable Instant launch,
+            @Nullable Instant smpStart) {}
+
     /** The phase and the two dates, as {@code GET /api/season} answers. */
-    Map<String, Object> read() {
-        final Map<String, Object> season = new LinkedHashMap<>();
-        season.put("phase", data().phase().currentPhase().name());
-        data().phase().launch().ifPresent(at -> season.put("launch", at.toString()));
-        data().phase().smpStart().ifPresent(at -> season.put("smpStart", at.toString()));
-        return season;
+    Season read() {
+        return new Season(
+                data().phase().currentPhase(),
+                data().phase().launch().orElse(null),
+                data().phase().smpStart().orElse(null));
     }
 
     /** The body of both season endpoints; each reads the fields it needs. */

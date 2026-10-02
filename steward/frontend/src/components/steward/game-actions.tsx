@@ -164,6 +164,7 @@ export function RequestOutcome({ run }: { run: CommandRun }) {
     REFUSED: "The server refused:",
     FAILED: "The server picked it up and failed at it.",
     EXPIRED: "Nobody picked this up within two minutes: the server is not listening. Nothing was changed.",
+    CANCELLED: "Withdrawn before the server picked it up. Nothing was changed.",
   }
   const tone =
     run.status === "FAILED" || run.status === "EXPIRED"

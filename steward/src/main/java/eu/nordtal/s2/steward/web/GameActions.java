@@ -9,6 +9,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,9 +42,32 @@ final class GameActions {
         ctx.json(readTrack());
     }
 
+    /** {@code GET /api/smp/track}: every milestone the SMP wrote a row for, unlocked first. */
+    public record SmpTrack(List<SmpMilestone> milestones) {}
+
+    /** One milestone; {@code state} is the column's word, {@code LOCKED}, {@code ACTIVE} or {@code UNLOCKED}. */
+    public record SmpMilestone(
+            String key, String state, @Nullable Instant unlocked, List<SmpObjective> objectives) {}
+
+    /** One objective; {@code type} is {@code HAND_IN}, {@code STATISTIC} or {@code ADVANCEMENT}. */
+    public record SmpObjective(
+            String key,
+            String type,
+            long amount,
+            long target,
+            boolean completed,
+            @Nullable Instant completedAt) {}
+
+    /** {@code GET /api/hunger-games/round}: the open round's state and roster size, both absent when none is open. */
+    public record HungerGamesRound(
+            @Nullable String state, @Nullable Long registered) {}
+
+    /** A request written into a server's inbox, which the server answers on its own time. */
+    public record CommandAsked(String id, String status) {}
+
     /** The whole track as {@code GET /api/smp/track} answers. */
-    Map<String, Object> readTrack() {
-        final Map<String, Map<String, Object>> milestones = new LinkedHashMap<>();
+    SmpTrack readTrack() {
+        final Map<String, SmpMilestone> milestones = new LinkedHashMap<>();
         try (Connection connection = dataSource().getConnection();
                 PreparedStatement statement = connection.prepareStatement("""
                      SELECT milestone.key AS milestone, milestone.state, milestone.unlocked,
@@ -55,41 +79,32 @@ final class GameActions {
                               milestone.unlocked, milestone.key, objective.key
                      """);
                 ResultSet rows = statement.executeQuery()) {
-            final Map<String, List<Map<String, Object>>> objectives = new LinkedHashMap<>();
             while (rows.next()) {
                 final String key = rows.getString("milestone");
                 final String state = rows.getString("state");
-                final java.sql.@Nullable Timestamp unlocked = rows.getTimestamp("unlocked");
-                final List<Map<String, Object>> list = objectives.computeIfAbsent(key, fresh -> {
-                    final Map<String, Object> milestone = new LinkedHashMap<>();
-                    milestone.put("key", fresh);
-                    milestone.put("state", state);
-                    putInstant(milestone, "unlocked", unlocked);
-                    final List<Map<String, Object>> created = new ArrayList<>();
-                    milestone.put("objectives", created);
-                    milestones.put(fresh, milestone);
-                    return created;
-                });
+                final @Nullable Instant unlocked = instant(rows.getTimestamp("unlocked"));
+                final SmpMilestone milestone = milestones.computeIfAbsent(
+                        key, fresh -> new SmpMilestone(fresh, state, unlocked, new ArrayList<>()));
                 if (rows.getString("key") == null) continue;
-                final Map<String, Object> objective = new LinkedHashMap<>();
-                objective.put("key", rows.getString("key"));
-                objective.put("type", rows.getString("type"));
-                objective.put("amount", rows.getLong("amount"));
-                objective.put("target", rows.getLong("target"));
-                final java.sql.@Nullable Timestamp completed = rows.getTimestamp("completed");
-                objective.put("completed", completed != null);
-                putInstant(objective, "completedAt", completed);
-                list.add(objective);
+                final @Nullable Instant completed = instant(rows.getTimestamp("completed"));
+                milestone
+                        .objectives()
+                        .add(new SmpObjective(
+                                rows.getString("key"),
+                                rows.getString("type"),
+                                rows.getLong("amount"),
+                                rows.getLong("target"),
+                                completed != null,
+                                completed));
             }
         } catch (final SQLException failure) {
             throw new IllegalStateException("could not read the SMP's track", failure);
         }
-        return Map.of("milestones", new ArrayList<>(milestones.values()));
+        return new SmpTrack(List.copyOf(milestones.values()));
     }
 
-    private static void putInstant(
-            final Map<String, Object> into, final String key, final java.sql.@Nullable Timestamp at) {
-        if (at != null) into.put(key, at.toInstant().toString());
+    private static @Nullable Instant instant(final java.sql.@Nullable Timestamp at) {
+        return at == null ? null : at.toInstant();
     }
 
     /** {@code POST /api/smp/objective} with {@code {key}}, an open objective of the active milestone. */
@@ -124,8 +139,7 @@ final class GameActions {
     }
 
     /** The open round as {@code GET /api/hunger-games/round} answers. */
-    Map<String, Object> readRound() {
-        final Map<String, Object> answer = new LinkedHashMap<>();
+    HungerGamesRound readRound() {
         try (Connection connection = dataSource().getConnection();
                 PreparedStatement statement = connection.prepareStatement("""
                      SELECT game.state, (SELECT count(*) FROM hg_member member
@@ -134,14 +148,12 @@ final class GameActions {
                      WHERE game.state <> 'DECIDED'
                      """);
                 ResultSet rows = statement.executeQuery()) {
-            if (rows.next()) {
-                answer.put("state", rows.getString("state"));
-                answer.put("registered", rows.getLong("registered"));
-            }
+            return rows.next()
+                    ? new HungerGamesRound(rows.getString("state"), rows.getLong("registered"))
+                    : new HungerGamesRound(null, null);
         } catch (final SQLException failure) {
             throw new IllegalStateException("could not read the hunger games round", failure);
         }
-        return answer;
     }
 
     /**
@@ -156,10 +168,7 @@ final class GameActions {
     }
 
     private static void answer(final Context ctx, final String id) {
-        final Map<String, Object> answer = new LinkedHashMap<>();
-        answer.put("id", id);
-        answer.put("status", "PENDING");
-        ctx.status(202).json(answer);
+        ctx.status(202).json(new CommandAsked(id, "PENDING"));
     }
 
     private static JsonObject body(final Context ctx) {

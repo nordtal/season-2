@@ -141,8 +141,7 @@ describe("euros", () => {
 })
 
 describe("parseInstant", () => {
-  it("reads the four characters null as SQL NULL rather than as a date", () => {
-    /** The backend prints a NULL column as the word "null". */
+  it("reads an absent value or a word that is no instant as null", () => {
     expect(parseInstant("null")).toBeNull()
     expect(parseInstant("")).toBeNull()
     expect(parseInstant(null)).toBeNull()

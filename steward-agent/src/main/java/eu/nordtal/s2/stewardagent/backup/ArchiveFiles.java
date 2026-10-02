@@ -96,6 +96,7 @@ final class ArchiveFiles {
                 attributes.size(),
                 SnapshotResult.human(attributes.size()),
                 attributes.lastModifiedTime().toInstant(),
-                name.endsWith(".partial")));
+                name.endsWith(".partial"),
+                TarSnapshots.restoresInto(name).orElse(null)));
     }
 }

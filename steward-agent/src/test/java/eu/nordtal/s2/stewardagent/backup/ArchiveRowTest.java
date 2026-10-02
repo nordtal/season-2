@@ -32,6 +32,25 @@ class ArchiveRowTest {
     }
 
     @Test
+    void aFinishedArchiveSaysWhatARestoreOfItReplacesAndAPartialSaysNothing() throws IOException {
+        assertEquals(
+                "nordtal-s2_mc-smp",
+                ArchiveFiles.row(Files.writeString(backups.resolve("nordtal-s2_mc-smp-20260913T041500Z.tar.zst"), "x"))
+                        .orElseThrow()
+                        .restoresInto());
+        assertEquals(
+                "nordtal",
+                ArchiveFiles.row(Files.writeString(backups.resolve("nordtal-20260913T041500Z.dump"), "x"))
+                        .orElseThrow()
+                        .restoresInto());
+        assertEquals(
+                null,
+                ArchiveFiles.row(Files.writeString(backups.resolve("nordtal-20260913T041500Z.dump.partial"), "x"))
+                        .orElseThrow()
+                        .restoresInto());
+    }
+
+    @Test
     void aPartialIsListedAsOneBecauseADirectoryThatHidesThemIsLying() throws IOException {
         final Path running = Files.writeString(backups.resolve("mc-smp-data-20260913T041500Z.tar.zst.partial"), "half");
 

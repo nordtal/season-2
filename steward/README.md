@@ -90,19 +90,22 @@ pin and no rollback: a bad release is corrected by publishing a better one.
 
 ## Configuration
 
-The connection and every secret come from the environment; everything else is two groups in the
-database, `steward` and `web`, which Steward publishes at start and edits on its settings pages.
+The connection and every secret come from the environment; everything else is three groups in the
+database, `steward`, `web` and `alerts`, which Steward publishes at start and edits on its settings
+pages.
 
-| group      | environment                  | holds                                                                     |
-| ---------- | ---------------------------- | ------------------------------------------------------------------------- |
-| `steward`  | `NORDTAL_STEWARD_*`          | sources, backups, the agent's and steward-bunq's addresses                |
-| `web`      | `NORDTAL_STEWARD_WEB_*`      | the port, the public address, Discord sign-in, WebAuthn, alerts, Web Push |
-| `database` | `NORDTAL_STEWARD_DATABASE_*` | the connection, from the environment alone                                |
+| group      | environment                  | holds                                                             |
+| ---------- | ---------------------------- | ----------------------------------------------------------------- |
+| `steward`  | `NORDTAL_STEWARD_*`          | sources, backups, the agent's and steward-bunq's addresses        |
+| `web`      | `NORDTAL_STEWARD_WEB_*`      | the port, the public address, Discord sign-in, WebAuthn, Web Push |
+| `alerts`   | `NORDTAL_STEWARD_ALERTS_*`   | the thresholds steward's measured alerts fire on                  |
+| `database` | `NORDTAL_STEWARD_DATABASE_*` | the connection, from the environment alone                        |
 
 `StewardSettings` loads and checks them before the web starts, so a wrong address or port stops the
-start rather than the first sign-in. A change to `steward` re-arms both clocks without a restart.
-The first start finds the last installation's `steward.yml` and `web.yml` in `steward-config`,
-imports what differs from the defaults and deletes them.
+start rather than the first sign-in. A change to `steward` re-arms both clocks without a restart,
+and one to `alerts` applies at the next reading. The first start finds the last installation's
+`steward.yml` and `web.yml` in `steward-config`, imports what differs from the defaults and deletes
+them.
 
 ## Tests
 

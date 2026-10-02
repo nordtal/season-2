@@ -26,11 +26,13 @@ import eu.nordtal.s2.settings.EnvironmentSettings;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.SettingsException;
 import eu.nordtal.s2.settings.network.NetworkSettings;
+import eu.nordtal.s2.steward.alert.Thresholds;
 import eu.nordtal.s2.steward.api.StackApi;
 import eu.nordtal.s2.steward.apply.ApplyResult;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.backup.Schedules;
 import eu.nordtal.s2.steward.bunq.PaymentLoop;
+import eu.nordtal.s2.steward.config.AlertsSpec;
 import eu.nordtal.s2.steward.config.StewardSettings;
 import eu.nordtal.s2.steward.config.StewardSpec;
 import eu.nordtal.s2.steward.config.WebSpec;
@@ -264,6 +266,7 @@ public final class Steward {
             Setting<StewardSpec> handle,
             StewardSpec config,
             WebSpec web,
+            Setting<AlertsSpec> alerts,
             DatabaseSpec database,
             DatabaseSettings settings,
             ZoneId zone) {}
@@ -327,6 +330,7 @@ public final class Steward {
         try {
             final Setting<StewardSpec> handle = StewardSettings.steward(settings);
             final WebSpec web = StewardSettings.web(settings).get();
+            final Setting<AlertsSpec> alerts = StewardSettings.alerts(settings);
             // Steward starts first, so the network's groups are published before any server asks for them.
             settings.load(NetworkSettings.PLAYERS);
             settings.load(NetworkSettings.MOTD);
@@ -334,7 +338,7 @@ public final class Steward {
             final ZoneId zone = NetworkSettings.zone(
                     settings.load(NetworkSettings.LANGUAGE_AND_TIME).get());
             settings.retireFiles();
-            return new Configs(handle, handle.get(), web, databaseConfig, settings, zone);
+            return new Configs(handle, handle.get(), web, alerts, databaseConfig, settings, zone);
         } catch (final SettingsException broken) {
             // No stack trace, so the sentence is not missed.
             log.error("Refusing to serve on settings that cannot be read: {}", broken.getMessage());
@@ -422,7 +426,7 @@ public final class Steward {
                         backups,
                         data.updates(),
                         addedPlugins,
-                        () -> reReadOwn(configs.handle(), schedules),
+                        () -> reReadOwn(configs, schedules),
                         web::listen);
             } finally {
                 web.stop();
@@ -439,8 +443,10 @@ public final class Steward {
                     + " lock screen. Run `steward " + Web.GENERATE_VAPID_KEYS + "` and paste both"
                     + " lines it prints into the web group's web-push section.");
         }
+        final AlertsSpec alerts = configs.alerts().get();
         final Web web = new Web(
                 webConfig,
+                () -> new Thresholds(alerts.diskPercent(), alerts.memoryPercent(), alerts.backupAgeHours()),
                 new DiscordAuth(webConfig.discord(), webConfig.publicUrl()),
                 stack,
                 agent,
@@ -503,10 +509,16 @@ public final class Steward {
                 CLOCK);
     }
 
-    /** Takes the steward group again after a change in Steward and re-arms the two clocks from it. */
-    private static void reReadOwn(final Setting<StewardSpec> handle, final Schedules schedules) {
+    /** Takes the live groups again after a change in Steward and re-arms the two clocks from the steward group. */
+    private static void reReadOwn(final Configs configs, final Schedules schedules) {
         try {
-            handle.reload();
+            // Read at the alert monitor's next reading, through the one instance the group hands out.
+            configs.alerts().reload();
+        } catch (final SettingsException broken) {
+            log.warn("The alert thresholds were changed but refused, so the last ones stay: {}", broken.getMessage());
+        }
+        try {
+            configs.handle().reload();
         } catch (final SettingsException broken) {
             // The problem is on the group, where Steward shows it; the values in use stay.
             log.warn("The steward settings were changed but refused, so the last ones stay: {}", broken.getMessage());

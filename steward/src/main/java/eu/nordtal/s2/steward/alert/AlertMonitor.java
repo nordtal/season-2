@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Measures the stack, keeps what is wrong for the pages, and raises an alert whenever a type changes.
  *
- * The first reading only sets the baseline. A failed run is raised once, however often its row is seen.
+ * The first reading only sets the baseline, a failed run is raised once, and the thresholds are asked for anew.
  */
 public final class AlertMonitor {
 
@@ -36,7 +36,7 @@ public final class AlertMonitor {
     private static final Logger log = LoggerFactory.getLogger(AlertMonitor.class);
 
     private final Supplier<StackReading> reading;
-    private final Thresholds thresholds;
+    private final Supplier<Thresholds> thresholds;
     private final AlertBook book;
     private final UpdateDirectory runs;
     private final Clock clock;
@@ -48,7 +48,7 @@ public final class AlertMonitor {
 
     public AlertMonitor(
             final Supplier<StackReading> reading,
-            final Thresholds thresholds,
+            final Supplier<Thresholds> thresholds,
             final AlertBook book,
             final UpdateDirectory runs,
             final Clock clock) {
@@ -89,7 +89,7 @@ public final class AlertMonitor {
     public void poll() {
         final List<Alert> now;
         try {
-            now = StackAlerts.of(reading.get(), thresholds, clock.instant());
+            now = StackAlerts.of(reading.get(), thresholds.get(), clock.instant());
         } catch (final RuntimeException unreadable) {
             final Snapshot before = snapshot;
             snapshot = new Snapshot(before.checkedAt(), String.valueOf(unreadable.getMessage()), before.alerts());

@@ -42,6 +42,7 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -140,6 +141,7 @@ public final class Web {
      */
     public Web(
             final WebSpec config,
+            final Supplier<Thresholds> thresholds,
             final DiscordAuth discord,
             final StackApi stack,
             final AgentClient agent,
@@ -197,7 +199,8 @@ public final class Web {
                 localWebauthn,
                 this.exampleValues);
         final com.interaso.webpush.@Nullable VapidKeys localVapidKeys = vapidKeysOf(config.webPush());
-        final AlertWiring wiring = wireAlerts(config, stack, data, localPushSubscriptions, localVapidKeys, clock);
+        final AlertWiring wiring =
+                wireAlerts(config, thresholds, stack, data, localPushSubscriptions, localVapidKeys, clock);
         this.alertMonitor = wiring.monitor();
         this.alertRouter = wiring.router();
         this.alerts = new AlertRoutes(this::requireSession, wiring.monitor(), data, localAlertPreferences);
@@ -211,6 +214,7 @@ public final class Web {
     /** The one alert path: measured here, raised as rows, routed to push and the admin channel. */
     private AlertWiring wireAlerts(
             final WebSpec config,
+            final Supplier<Thresholds> thresholds,
             final StackApi stack,
             final @Nullable Data data,
             final @Nullable PushSubscriptions localPushSubscriptions,
@@ -231,16 +235,7 @@ public final class Web {
                         ? null
                         : new WebPushSender(config.webPush().subject(), localVapidKeys),
                 config.publicUrl());
-        // The only place the thresholds are read; the web group applies at the next start.
-        final AlertMonitor monitor = new AlertMonitor(
-                stack::stackReading,
-                new Thresholds(
-                        config.alerts().diskPercent(),
-                        config.alerts().memoryPercent(),
-                        config.alerts().backupAgeHours()),
-                book,
-                data.updates(),
-                clock);
+        final AlertMonitor monitor = new AlertMonitor(stack::stackReading, thresholds, book, data.updates(), clock);
         return new AlertWiring(monitor, router);
     }
 

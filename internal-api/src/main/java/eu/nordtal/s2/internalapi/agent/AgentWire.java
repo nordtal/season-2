@@ -1,5 +1,6 @@
 package eu.nordtal.s2.internalapi.agent;
 
+import com.google.gson.annotations.SerializedName;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -300,6 +301,91 @@ public final class AgentWire {
             Instant modified,
             boolean partial,
             @Nullable String restoresInto) {}
+
+    /**
+     * One server's plugins, sorted by name; {@code mounted} is false when the agent cannot see the volume.
+     *
+     * @param loader {@code paper} or {@code velocity}, what a search on this server is filtered to
+     */
+    public record Plugins(String service, String loader, String gameVersion, boolean mounted, List<Plugin> plugins) {}
+
+    /** Which list a plugin belongs in: built here, given by the network, or added by an admin. */
+    public enum PluginGroup {
+        @SerializedName("nordtal")
+        NORDTAL,
+        @SerializedName("preinstalled")
+        PREINSTALLED,
+        @SerializedName("added")
+        ADDED
+    }
+
+    /**
+     * One plugin of a server: a jar on disk, one the network gives that is missing, or one added and not installed.
+     *
+     * @param name the title for an added plugin and any jar Modrinth published, else the jar's filename prefix
+     * @param rank a Nordtal plugin's place in its list, before the alphabet
+     * @param release the release whose run installed the jar, absent for a jar no run noted
+     * @param dataFolder {@code plugins/<dataFolder>/} from the jar's own descriptor, absent when it could not be read
+     * @param artifact an added plugin's Modrinth slug, or a given plugin's artefact id when it is not on disk
+     */
+    public record Plugin(
+            String name,
+            PluginGroup group,
+            @Nullable Integer rank,
+            boolean running,
+            boolean removable,
+            @Nullable String filePrefix,
+            @Nullable String fileName,
+            @Nullable String version,
+            @Nullable String release,
+            @Nullable String dataFolder,
+            @Nullable String artifact,
+            @Nullable String projectId,
+            @Nullable Instant added,
+            @Nullable String addedBy,
+            @Nullable String iconUrl,
+            @Nullable String pageUrl) {
+
+        /** This plugin with the release that installed its jar, or with none. */
+        public Plugin released(final @Nullable String installedBy) {
+            return new Plugin(
+                    name,
+                    group,
+                    rank,
+                    running,
+                    removable,
+                    filePrefix,
+                    fileName,
+                    version,
+                    installedBy,
+                    dataFolder,
+                    artifact,
+                    projectId,
+                    added,
+                    addedBy,
+                    iconUrl,
+                    pageUrl);
+        }
+    }
+
+    /** Modrinth's hits for one query, already filtered to the server's loader and Minecraft version. */
+    public record PluginSearch(String service, String loader, String gameVersion, String query, List<PluginHit> hits) {}
+
+    /**
+     * One search hit; {@code added} is an admin's plugin here already, {@code fixed} one the network gives.
+     *
+     * @param iconUrl on {@code cdn.modrinth.com}, which the browser loads directly
+     */
+    public record PluginHit(
+            String projectId,
+            String slug,
+            String title,
+            @Nullable String description,
+            @Nullable String iconUrl,
+            String pageUrl,
+            long downloads,
+            boolean added,
+            boolean fixed) {}
 
     /** An answer that is not the one asked for, with the sentence to show and where it came from. */
     public record Refusal(String error, String where) {}

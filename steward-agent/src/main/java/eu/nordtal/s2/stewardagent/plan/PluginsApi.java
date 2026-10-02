@@ -1,5 +1,6 @@
 package eu.nordtal.s2.stewardagent.plan;
 
+import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.JarName;
 import eu.nordtal.s2.internalapi.agent.Topology;
 import eu.nordtal.s2.stewardagent.plugin.ManagedPlugin;
@@ -16,9 +17,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -94,145 +95,179 @@ public final class PluginsApi {
         final Map<String, Modrinth.Project> published = identity.identify(given);
 
         final List<String> claimed = new ArrayList<>();
-        final List<Map<String, Object>> rows = new ArrayList<>(installedRows(installed, added, published, claimed));
+        final List<PluginRow> rows = new ArrayList<>(installedRows(installed, added, published, claimed));
         rows.addAll(absentRows(service, installed, published));
         rows.addAll(notYetInstalledRows(added, claimed));
+        rows.sort(Comparator.comparing(row -> row.name.toLowerCase(java.util.Locale.ROOT)));
 
-        rows.sort(Comparator.comparing(row -> String.valueOf(row.get("name")).toLowerCase(java.util.Locale.ROOT)));
-        noteReleases(rows, plugins.releases(service.name()));
-
-        final Map<String, Object> answer = new LinkedHashMap<>();
-        answer.put("service", service.name());
-        answer.put("loader", service.kind().modrinthLoader());
-        answer.put("gameVersion", gameVersion);
-        answer.put("mounted", installed.mounted());
-        answer.put("plugins", rows);
-        ctx.json(answer);
+        ctx.json(new AgentWire.Plugins(
+                service.name(),
+                service.kind().modrinthLoader(),
+                gameVersion,
+                installed.mounted(),
+                noteReleases(rows.stream().map(PluginRow::wire).toList(), plugins.releases(service.name()))));
     }
 
     /** One row per jar in the volume, named and pictured from a row or from Modrinth where either answers. */
-    private List<Map<String, Object>> installedRows(
+    private List<PluginRow> installedRows(
             final Installation installed,
             final List<ManagedPlugin> added,
             final Map<String, Modrinth.Project> published,
             final List<String> claimed) {
-        final List<Map<String, Object>> rows = new ArrayList<>();
+        final List<PluginRow> rows = new ArrayList<>();
         for (final Installation.Jar jar : installed.plugins()) {
             final String prefix = jar.prefix();
             final ManagedPlugin row = ownerOf(jar, added);
             if (row != null) {
                 claimed.add(row.artifact());
             }
-            final Map<String, Object> described = describe(row, prefix, jar, true);
+            final PluginRow described = describe(row, prefix, jar, true);
             final Modrinth.Project project = published.get(jar.fileName());
             if (project != null) {
-                described.put("name", project.title());
-                described.put("projectId", project.projectId());
-                described.put("iconUrl", icon(project.iconUrl()));
-                described.put("pageUrl", project.pageUrl());
+                described.publishedAs(project);
             }
             if (row == null && isNordtal(jar)) {
-                described.put("name", Topology.NORDTAL_PLUGINS.get(prefix));
-                described.put("rank", rankOf(prefix));
+                described.name = String.valueOf(Topology.NORDTAL_PLUGINS.get(prefix));
+                described.rank = rankOf(prefix);
             }
-            described.put("group", row != null ? "added" : isNordtal(jar) ? "nordtal" : "preinstalled");
+            described.group = row != null
+                    ? AgentWire.PluginGroup.ADDED
+                    : isNordtal(jar) ? AgentWire.PluginGroup.NORDTAL : AgentWire.PluginGroup.PREINSTALLED;
             rows.add(described);
         }
         return rows;
     }
 
     /** The plugins the network gives that are absent from disk, marked not running and with no install action. */
-    private List<Map<String, Object>> absentRows(
+    private List<PluginRow> absentRows(
             final Topology.Service service,
             final Installation installed,
             final Map<String, Modrinth.Project> published) {
-        final List<Map<String, Object>> rows = new ArrayList<>();
+        final List<PluginRow> rows = new ArrayList<>();
         final List<String> absent = absentFixed(service, installed.plugins(), published, fixedProjects);
         final Map<String, Modrinth.Project> titles = identity.projects(
                 absent.stream().map(fixedProjects::get).filter(Objects::nonNull).toList());
         for (final String artifact : absent) {
-            final Map<String, Object> described = new LinkedHashMap<>();
             final String nordtal = nordtalPrefixOf(service, artifact);
-            described.put("name", nordtal != null ? Topology.NORDTAL_PLUGINS.get(nordtal) : artifact);
-            described.put("running", false);
-            described.put("removable", false);
-            described.put("artifact", artifact);
+            final PluginRow described = new PluginRow(
+                    nordtal != null ? String.valueOf(Topology.NORDTAL_PLUGINS.get(nordtal)) : artifact,
+                    nordtal != null ? AgentWire.PluginGroup.NORDTAL : AgentWire.PluginGroup.PREINSTALLED);
+            described.artifact = artifact;
             final Modrinth.Project project = titles.get(fixedProjects.getOrDefault(artifact, ""));
             if (project != null) {
-                described.put("name", project.title());
-                described.put("projectId", project.projectId());
-                described.put("iconUrl", icon(project.iconUrl()));
-                described.put("pageUrl", project.pageUrl());
+                described.publishedAs(project);
             }
             if (nordtal != null) {
-                described.put("rank", rankOf(nordtal));
+                described.rank = rankOf(nordtal);
             }
-            described.put("group", nordtal != null ? "nordtal" : "preinstalled");
             rows.add(described);
         }
         return rows;
     }
 
     /** A row nothing on disk answered for is not installed yet, even if its jar was deleted underneath it. */
-    private List<Map<String, Object>> notYetInstalledRows(final List<ManagedPlugin> added, final List<String> claimed) {
-        final List<Map<String, Object>> rows = new ArrayList<>();
+    private List<PluginRow> notYetInstalledRows(final List<ManagedPlugin> added, final List<String> claimed) {
+        final List<PluginRow> rows = new ArrayList<>();
         for (final ManagedPlugin plugin : added) {
             if (!claimed.contains(plugin.artifact())) {
-                final Map<String, Object> described = describe(plugin, plugin.filePrefix(), null, false);
-                described.put("group", "added");
+                final PluginRow described = describe(plugin, plugin.filePrefix(), null, false);
+                described.group = AgentWire.PluginGroup.ADDED;
                 rows.add(described);
             }
         }
         return rows;
     }
 
-    private Map<String, Object> describe(
+    private static PluginRow describe(
             final @Nullable ManagedPlugin plugin,
             final @Nullable String prefix,
             final Installation.@Nullable Jar jar,
             final boolean running) {
-        final Map<String, Object> row = new LinkedHashMap<>();
         // The title when there is a row, else the filename prefix, never the artefact id.
-        row.put("name", plugin != null ? plugin.title() : prefix == null ? jarName(jar) : prefix);
-        row.put("running", running);
+        final PluginRow row = new PluginRow(
+                plugin != null ? plugin.title() : prefix == null ? jarName(jar) : prefix,
+                AgentWire.PluginGroup.PREINSTALLED);
+        row.running = running;
         // What may be deleted is exactly what has a row.
-        row.put("removable", plugin != null);
-        if (prefix != null) {
-            row.put("filePrefix", prefix);
-        }
+        row.removable = plugin != null;
+        row.filePrefix = prefix;
         if (jar != null) {
-            row.put("fileName", jar.fileName());
-            if (jar.version() != null) {
-                row.put("version", jar.version());
-            }
+            row.fileName = jar.fileName();
+            row.version = jar.version();
             // Read before anything is deleted, since the confirmation must name it; no descriptor, no field.
-            final String folder = PluginFolder.nameIn(jar.path());
-            if (folder != null) {
-                row.put("dataFolder", folder);
-            }
+            row.dataFolder = PluginFolder.nameIn(jar.path());
         }
         if (plugin != null) {
-            row.put("artifact", plugin.artifact());
-            row.put("projectId", plugin.projectId());
-            row.put("added", plugin.added().toString());
-            row.put("addedBy", plugin.addedBy());
-            row.put("iconUrl", plugin.iconUrl());
-            row.put("pageUrl", plugin.pageUrl());
+            row.artifact = plugin.artifact();
+            row.projectId = plugin.projectId();
+            row.added = plugin.added();
+            row.addedBy = plugin.addedBy();
+            row.iconUrl = plugin.iconUrl();
+            row.pageUrl = plugin.pageUrl();
         }
         return row;
     }
 
     /**
-     * Puts the release whose run moved each jar into place on its row, by file name.
+     * The rows with the release whose run moved each jar into place, by file name.
      *
-     * A jar nobody noted, such as one copied in by hand or installed before the note existed, gets no field.
+     * A jar nobody noted, such as one copied in by hand or installed before the note existed, gets none.
      */
-    static void noteReleases(final List<Map<String, Object>> rows, final Map<String, String> releases) {
-        for (final Map<String, Object> row : rows) {
-            final String release = releases.get(String.valueOf(row.get("fileName")));
-            if (release != null) {
-                row.put("release", release);
-            }
+    static List<AgentWire.Plugin> noteReleases(final List<AgentWire.Plugin> rows, final Map<String, String> releases) {
+        return rows.stream()
+                .map(row -> row.fileName() == null ? row : row.released(releases.get(row.fileName())))
+                .toList();
+    }
+
+    /** One plugin row while the three sources fill it in; {@link #wire} is what leaves the agent. */
+    private static final class PluginRow {
+        private String name;
+        private AgentWire.PluginGroup group;
+        private @Nullable Integer rank;
+        private boolean running;
+        private boolean removable;
+        private @Nullable String filePrefix;
+        private @Nullable String fileName;
+        private @Nullable String version;
+        private @Nullable String dataFolder;
+        private @Nullable String artifact;
+        private @Nullable String projectId;
+        private @Nullable Instant added;
+        private @Nullable String addedBy;
+        private @Nullable String iconUrl;
+        private @Nullable String pageUrl;
+
+        PluginRow(final String name, final AgentWire.PluginGroup group) {
+            this.name = name;
+            this.group = group;
+        }
+
+        /** Named and pictured as Modrinth publishes it. */
+        void publishedAs(final Modrinth.Project project) {
+            name = project.title();
+            projectId = project.projectId();
+            iconUrl = icon(project.iconUrl());
+            pageUrl = project.pageUrl();
+        }
+
+        AgentWire.Plugin wire() {
+            return new AgentWire.Plugin(
+                    name,
+                    group,
+                    rank,
+                    running,
+                    removable,
+                    filePrefix,
+                    fileName,
+                    version,
+                    null,
+                    dataFolder,
+                    artifact,
+                    projectId,
+                    added,
+                    addedBy,
+                    iconUrl,
+                    pageUrl);
         }
     }
 
@@ -307,32 +342,21 @@ public final class PluginsApi {
         }
 
         final List<ManagedPlugin> added = plugins.on(service.name());
-        final List<Map<String, Object>> rows = new ArrayList<>();
+        final List<AgentWire.PluginHit> rows = new ArrayList<>();
         for (final Modrinth.Hit hit : hits) {
-            final Map<String, Object> row = new LinkedHashMap<>();
-            row.put("projectId", hit.projectId());
-            row.put("slug", hit.slug());
-            row.put("title", hit.title());
-            row.put("description", hit.description());
-            row.put("iconUrl", icon(hit.iconUrl()));
-            row.put("pageUrl", hit.pageUrl());
-            row.put("downloads", hit.downloads());
-            // Both kinds of "already there": added by an admin, or given by the network.
-            row.put("added", added.stream().anyMatch(plugin -> plugin.artifact().equals(hit.slug())));
-            row.put("fixed", service.plugins().contains(Topology.addedArtifact(hit.slug(), service.kind())));
-            rows.add(row);
+            rows.add(new AgentWire.PluginHit(
+                    hit.projectId(),
+                    hit.slug(),
+                    hit.title(),
+                    hit.description(),
+                    icon(hit.iconUrl()),
+                    hit.pageUrl(),
+                    hit.downloads(),
+                    // Both kinds of "already there": added by an admin, or given by the network.
+                    added.stream().anyMatch(plugin -> plugin.artifact().equals(hit.slug())),
+                    service.plugins().contains(Topology.addedArtifact(hit.slug(), service.kind()))));
         }
-        ctx.json(Map.of(
-                "service",
-                service.name(),
-                "loader",
-                service.kind().modrinthLoader(),
-                "gameVersion",
-                gameVersion,
-                "query",
-                query,
-                "hits",
-                rows));
+        ctx.json(new AgentWire.PluginSearch(service.name(), service.kind().modrinthLoader(), gameVersion, query, rows));
     }
 
     /** What a browser may send to {@code POST /api/services/{name}/plugins}. */

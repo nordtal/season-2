@@ -34,13 +34,12 @@ public final class PluginsForward {
 
     /** {@code GET /api/services/{name}/plugins} */
     void list(final Context ctx) {
-        ctx.contentType(JSON).result(agent.plugins(service(ctx)));
+        ctx.json(agent.plugins(service(ctx)));
     }
 
     /** {@code GET /api/services/{name}/plugins/search?q=} */
     void search(final Context ctx) {
-        ctx.contentType(JSON)
-                .result(agent.searchPlugins(service(ctx), Objects.requireNonNullElse(ctx.queryParam("q"), "")));
+        ctx.json(agent.searchPlugins(service(ctx), Objects.requireNonNullElse(ctx.queryParam("q"), "")));
     }
 
     /** {@code POST /api/services/{name}/plugins}: a row the next update run fulfils, answered and returned. */

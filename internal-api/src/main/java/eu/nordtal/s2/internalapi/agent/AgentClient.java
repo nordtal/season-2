@@ -173,14 +173,16 @@ public final class AgentClient {
         return http.get(AgentWire.PLAN, PLAN_WITHIN);
     }
 
-    /** One server's plugins as the agent's JSON. */
-    public String plugins(final String service) {
-        return http.get(AgentWire.of(AgentWire.PLUGINS, encode(service)));
+    /** One server's plugins. */
+    public AgentWire.Plugins plugins(final String service) {
+        return Json.decode(http.get(AgentWire.of(AgentWire.PLUGINS, encode(service))), AgentWire.Plugins.class);
     }
 
-    /** Modrinth's hits for {@code query} on one server, as the agent's JSON. */
-    public String searchPlugins(final String service, final String query) {
-        return http.get(AgentWire.of(AgentWire.PLUGIN_SEARCH, encode(service)) + "?q=" + encode(query));
+    /** Modrinth's hits for {@code query} on one server. */
+    public AgentWire.PluginSearch searchPlugins(final String service, final String query) {
+        return Json.decode(
+                http.get(AgentWire.of(AgentWire.PLUGIN_SEARCH, encode(service)) + "?q=" + encode(query)),
+                AgentWire.PluginSearch.class);
     }
 
     /**

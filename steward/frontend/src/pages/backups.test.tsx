@@ -582,7 +582,7 @@ describe("BackupsPage - what moved here from Operations", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Restore" }))
     fireEvent.keyDown(await screen.findByRole("combobox"), { key: "Enter" })
     fireEvent.click(await screen.findByRole("option", { name: /nordtal-s2_mc-smp-20260917T044500Z/ }))
-    const dialog = screen.getByRole("dialog")
+    const dialog = screen.getByRole("alertdialog")
     const confirm = within(dialog).getByRole("button", { name: "Restore" })
     expect(asButton(confirm).disabled).toBe(true)
 

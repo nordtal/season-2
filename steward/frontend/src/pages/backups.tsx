@@ -8,6 +8,7 @@ import { ApiError } from "@/lib/api"
 import { archived } from "@/lib/backup-name"
 import { bytes, count, dateTime, duration, parseInstant, relative } from "@/lib/format"
 import { useBackups, useConfig, useConfigs, useRestore, useRuns, useSaveConfig, useSchedule } from "@/lib/queries"
+import { AskThenAct } from "@/components/steward/ask-then-act"
 import { ScalarControl } from "@/components/steward/config-controls"
 import { Actor } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
@@ -25,7 +26,6 @@ import {
   ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogDescription,
-  ResponsiveDialogFooter,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
   ResponsiveDialogTrigger,
@@ -611,106 +611,88 @@ function RestoreDialog() {
   const replaces = restorable.find((backup) => backup.name === chosen)?.restoresInto ?? ""
 
   return (
-    <ResponsiveDialog
+    <AskThenAct
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
         setChosen("")
         setTyped("")
       }}
-    >
-      <ResponsiveDialogTrigger asChild>
+      trigger={
         <Button variant="outline" size="sm">
           <ArrowCounterClockwiseIcon />
           Restore
         </Button>
-      </ResponsiveDialogTrigger>
-      <ResponsiveDialogContent>
-        <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>Restore</ResponsiveDialogTitle>
-          <ResponsiveDialogDescription>A run: a backup first, then a countdown.</ResponsiveDialogDescription>
-        </ResponsiveDialogHeader>
-
-        {backups.isPending || backups.error ? (
-          <QueryState query={backups} rows={2}>
-            {() => null}
-          </QueryState>
-        ) : restorable.length === 0 ? (
-          <Empty
-            title="No archive to restore"
-            note={
-              (backups.data ?? []).length > 0
-                ? "Every file still carries the .partial suffix."
-                : "The backup directory is empty."
-            }
-          />
-        ) : (
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="restore-archive">Archive</Label>
-              <Select
-                value={chosen}
-                onValueChange={(value) => {
-                  setChosen(value)
-                  setTyped("")
-                }}
-              >
-                <SelectTrigger id="restore-archive" className="w-full">
-                  <SelectValue placeholder="Choose an archive…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {restorable.map((backup) => (
-                    <SelectItem key={backup.name} value={backup.name}>
-                      {backup.name} ({bytes(backup.bytes)}, {relative(backup.modified)})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {replaces ? (
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="restore-confirm">
-                  Type <span className="font-mono">{replaces}</span>
-                </Label>
-                <Input
-                  id="restore-confirm"
-                  value={typed}
-                  autoComplete="off"
-                  spellCheck={false}
-                  onChange={(event) => setTyped(event.target.value)}
-                />
-              </div>
-            ) : null}
-            <p className="text-xs text-warning">
-              {replaces === "nordtal"
-                ? "The database is replaced - everything written since the backup is gone."
-                : "A volume is overwritten, not added to - everything made since the backup is gone."}
-            </p>
-            <ResponsiveDialogFooter>
-              <Button
-                type="button"
-                variant="destructive"
-                disabled={!replaces || typed !== replaces || restore.isPending}
-                onClick={() =>
-                  restore.mutate(
-                    { archive: chosen, confirm: typed },
-                    {
-                      onSuccess: (run) => {
-                        setOpen(false)
-                        toast.success(`Restore entered as run #${run.id}`)
-                      },
-                      onError: (error) => toast.error("Restore was not entered", { description: String(error) }),
-                    },
-                  )
-                }
-              >
-                Restore
-              </Button>
-            </ResponsiveDialogFooter>
+      }
+      title="Restore"
+      description="A run: a backup first, then a countdown."
+      action="Restore"
+      destructive
+      disabled={!replaces || typed !== replaces}
+      act={() =>
+        restore
+          .mutateAsync({ archive: chosen, confirm: typed })
+          .then((run) => toast.success(`Restore entered as run #${run.id}`))
+      }
+    >
+      {backups.isPending || backups.error ? (
+        <QueryState query={backups} rows={2}>
+          {() => null}
+        </QueryState>
+      ) : restorable.length === 0 ? (
+        <Empty
+          title="No archive to restore"
+          note={
+            (backups.data ?? []).length > 0
+              ? "Every file still carries the .partial suffix."
+              : "The backup directory is empty."
+          }
+        />
+      ) : (
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="restore-archive">Archive</Label>
+            <Select
+              value={chosen}
+              onValueChange={(value) => {
+                setChosen(value)
+                setTyped("")
+              }}
+            >
+              <SelectTrigger id="restore-archive" className="w-full">
+                <SelectValue placeholder="Choose an archive…" />
+              </SelectTrigger>
+              <SelectContent>
+                {restorable.map((backup) => (
+                  <SelectItem key={backup.name} value={backup.name}>
+                    {backup.name} ({bytes(backup.bytes)}, {relative(backup.modified)})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        )}
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
+          {replaces ? (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="restore-confirm">
+                Type <span className="font-mono">{replaces}</span>
+              </Label>
+              <Input
+                id="restore-confirm"
+                value={typed}
+                autoComplete="off"
+                spellCheck={false}
+                onChange={(event) => setTyped(event.target.value)}
+              />
+            </div>
+          ) : null}
+          <p className="text-xs text-warning">
+            {replaces === "nordtal"
+              ? "The database is replaced - everything written since the backup is gone."
+              : "A volume is overwritten, not added to - everything made since the backup is gone."}
+          </p>
+        </div>
+      )}
+    </AskThenAct>
   )
 }
 

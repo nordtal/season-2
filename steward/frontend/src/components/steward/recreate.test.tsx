@@ -63,7 +63,7 @@ function draw(node: ReactNode) {
 /** Open the dialog and press the confirming "Recreate" inside it, not the trigger. */
 async function start() {
   fireEvent.click(screen.getByRole("button", { name: /Recreate/ }))
-  const dialog = await screen.findByRole("dialog")
+  const dialog = await screen.findByRole("alertdialog")
   fireEvent.click(within(dialog).getByRole("button", { name: "Recreate" }))
   return dialog
 }
@@ -115,7 +115,7 @@ describe("RecreateButton - before anything is pressed", () => {
     draw(<RecreateButton service="smp" />)
     fireEvent.click(screen.getByRole("button", { name: /Recreate/ }))
 
-    const dialog = await screen.findByRole("dialog")
+    const dialog = await screen.findByRole("alertdialog")
     expect(dialog.textContent).toContain("warned")
     expect(fetched.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false)
   })

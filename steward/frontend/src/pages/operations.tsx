@@ -21,22 +21,12 @@ import type { ReportChange, ReportLine, Run } from "@/lib/api"
 import { count, dateTime, duration, parseInstant, relative } from "@/lib/format"
 import { useAskForRun, useCancelRun, useRun } from "@/lib/queries"
 import { useRunLock } from "@/lib/run-lock"
+import { AskThenAct } from "@/components/steward/ask-then-act"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
 import { Actor } from "@/components/steward/entity"
 import { RUN_KIND, RunStatus, StatusBadge, type Tone } from "@/components/steward/status"
 import { Empty, Loading, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
-import {
-  ResponsiveAlertDialog,
-  ResponsiveAlertDialogAction,
-  ResponsiveAlertDialogCancel,
-  ResponsiveAlertDialogContent,
-  ResponsiveAlertDialogDescription,
-  ResponsiveAlertDialogFooter,
-  ResponsiveAlertDialogHeader,
-  ResponsiveAlertDialogTitle,
-  ResponsiveAlertDialogTrigger,
-} from "@/components/ui/responsive-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
@@ -293,24 +283,15 @@ export function AskButton({
   const Icon = spec.icon
   const scoped = services !== undefined && services.length > 0
 
-  const submit = () => {
-    ask.mutate(
-      { kind, services },
-      {
-        onSuccess: (run) => {
-          toast.success(`${RUN_KIND[kind]} entered as run #${run.id}`)
-        },
-        onError: (error) => {
-          toast.error(`${RUN_KIND[kind]} was not entered`, { description: error.message })
-        },
-      },
-    )
-  }
+  const submit = () =>
+    ask.mutateAsync({ kind, services }).then((run) => toast.success(`${RUN_KIND[kind]} entered as run #${run.id}`))
 
   return (
-    <ResponsiveAlertDialog open={open} onOpenChange={onOpenChange}>
-      {trigger ? (
-        <ResponsiveAlertDialogTrigger asChild>
+    <AskThenAct
+      open={open}
+      onOpenChange={onOpenChange}
+      trigger={
+        trigger ? (
           <Button
             type="button"
             variant={variant}
@@ -323,34 +304,21 @@ export function AskButton({
             <Icon aria-hidden />
             <span className={labelClassName}>{label ?? RUN_KIND[kind]}</span>
           </Button>
-        </ResponsiveAlertDialogTrigger>
+        ) : null
+      }
+      title={scoped ? `${spec.title} for ${services.join(", ")}` : spec.title}
+      description={spec.what}
+      action="Now"
+      destructive={kind === "RESTART" || kind === "DOWN"}
+      act={submit}
+    >
+      {spec.warning ? (
+        <p className="flex items-start gap-2 text-sm text-warning">
+          <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+          {spec.warning}
+        </p>
       ) : null}
-      <ResponsiveAlertDialogContent>
-        <ResponsiveAlertDialogHeader>
-          <ResponsiveAlertDialogTitle>
-            {scoped ? `${spec.title} for ${services.join(", ")}` : spec.title}
-          </ResponsiveAlertDialogTitle>
-          <ResponsiveAlertDialogDescription>{spec.what}</ResponsiveAlertDialogDescription>
-        </ResponsiveAlertDialogHeader>
-
-        {spec.warning ? (
-          <p className="flex items-start gap-2 text-sm text-warning">
-            <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
-            {spec.warning}
-          </p>
-        ) : null}
-
-        <ResponsiveAlertDialogFooter>
-          <ResponsiveAlertDialogCancel>Cancel</ResponsiveAlertDialogCancel>
-          <ResponsiveAlertDialogAction
-            variant={kind === "RESTART" || kind === "DOWN" ? "destructive" : "default"}
-            onClick={submit}
-          >
-            Now
-          </ResponsiveAlertDialogAction>
-        </ResponsiveAlertDialogFooter>
-      </ResponsiveAlertDialogContent>
-    </ResponsiveAlertDialog>
+    </AskThenAct>
   )
 }
 

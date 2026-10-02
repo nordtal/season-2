@@ -51,3 +51,6 @@ changes spreads `live(...topics)` from `lib/live.ts` into its options: the one s
 minute's reconciliation reads it anyway. Waiting for the bot or a server is waiting for the next
 `REQUESTS` change, never a timer. `nothing-polls.test.ts` holds both rules. Every SSE route is
 followed through `lib/event-stream.ts`, which owns the backoff and the reconnect.
+
+Every confirmation in front of a change is `AskThenAct`: a change that returns a promise keeps the
+dialog open until it settles and shows a refusal inside it.

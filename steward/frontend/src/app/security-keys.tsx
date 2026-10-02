@@ -4,17 +4,10 @@ import { useState } from "react"
 import type { Me, SecurityKey } from "@/lib/api"
 import { relative } from "@/lib/format"
 import { useRegisterKey, useRemoveKey, useRenameKey } from "@/lib/queries"
+import { AskThenAct } from "@/components/steward/ask-then-act"
 import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
 import {
-  ResponsiveAlertDialog,
-  ResponsiveAlertDialogAction,
-  ResponsiveAlertDialogCancel,
-  ResponsiveAlertDialogContent,
-  ResponsiveAlertDialogDescription,
-  ResponsiveAlertDialogFooter,
-  ResponsiveAlertDialogHeader,
-  ResponsiveAlertDialogTitle,
   ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogDescription,
@@ -268,32 +261,24 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
       </ResponsiveDialog>
 
       {/* A question first, since the wrong one of two keys looks like the right one until the name is read. */}
-      <ResponsiveAlertDialog open={state.removing !== null} onOpenChange={(open) => open || state.closeRemoving()}>
-        <ResponsiveAlertDialogContent>
-          <ResponsiveAlertDialogHeader>
-            <ResponsiveAlertDialogTitle>Remove “{state.removing?.label}”?</ResponsiveAlertDialogTitle>
-            <ResponsiveAlertDialogDescription>
-              {state.keys.length === 1
-                ? "It is the only key on this account. Removing it sends you back to the setup" +
-                  " page, where you register a new one - you are not locked out, but you will" +
-                  " need an authenticator to hand before you can use Steward again."
-                : "The other keys on this account keep working. This one stops."}
-            </ResponsiveAlertDialogDescription>
-          </ResponsiveAlertDialogHeader>
-          <ResponsiveAlertDialogFooter>
-            <ResponsiveAlertDialogCancel>Keep it</ResponsiveAlertDialogCancel>
-            <ResponsiveAlertDialogAction
-              onClick={() => {
-                const key = state.removing
-                if (key) remove.mutate(key.id)
-                state.closeRemoving()
-              }}
-            >
-              Remove it
-            </ResponsiveAlertDialogAction>
-          </ResponsiveAlertDialogFooter>
-        </ResponsiveAlertDialogContent>
-      </ResponsiveAlertDialog>
+      <AskThenAct
+        open={state.removing !== null}
+        onOpenChange={(open) => open || state.closeRemoving()}
+        title={`Remove “${state.removing?.label}”?`}
+        description={
+          state.keys.length === 1
+            ? "It is the only key on this account. Removing it sends you back to the setup" +
+              " page, where you register a new one - you are not locked out, but you will" +
+              " need an authenticator to hand before you can use Steward again."
+            : "The other keys on this account keep working. This one stops."
+        }
+        cancel="Keep it"
+        action="Remove it"
+        act={() => {
+          const key = state.removing
+          if (key) remove.mutate(key.id)
+        }}
+      />
     </>
   )
 }

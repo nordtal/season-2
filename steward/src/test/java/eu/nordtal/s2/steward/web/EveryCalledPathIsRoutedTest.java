@@ -178,6 +178,7 @@ class EveryCalledPathIsRoutedTest {
             walk.filter(Files::isRegularFile)
                     // A test's fixture is not a call the browser makes, and a mock may name a path that never existed.
                     .filter(path -> !path.getFileName().toString().contains(".test."))
+                    .filter(path -> !path.getFileName().toString().contains(".fixtures."))
                     .filter(path -> {
                         final String name = path.getFileName().toString();
                         return name.endsWith(".ts") || name.endsWith(".tsx");

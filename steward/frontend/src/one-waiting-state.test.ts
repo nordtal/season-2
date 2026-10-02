@@ -33,6 +33,10 @@ const NO_WAITING_SHAPE = new Map<string, string>([
       ' "Waiting for the log" in its own window until the first line arrives.',
   ],
   ["app/hold-key.tsx", "useHoldKey is a mutation. Nothing here is read."],
+  [
+    "components/steward/group-form.tsx",
+    "Hooks over a settings group and a day picker; the dialogs that call them draw the wait.",
+  ],
   ["app/security-key.tsx", "useRegisterKey is a mutation. Nothing here is read."],
   [
     "app/step-up.tsx",
@@ -49,7 +53,7 @@ const FLAT_BARS_ALLOWED = new Map<string, string>([
       " known which run it is. The card holds its height instead.",
   ],
   [
-    "pages/backups.tsx",
+    "pages/backup-dialogs.tsx",
     "Destination and schedule are forms whose field set comes from steward's own config" +
       " document. A form cannot draw fields it does not know the names of yet.",
   ],

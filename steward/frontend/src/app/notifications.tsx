@@ -7,7 +7,6 @@ import type { AlertChannel, AlertType, ConfigEntry, PushDevice } from "@/lib/api
 import { relative } from "@/lib/format"
 import { pushSupported } from "@/lib/push"
 import {
-  keys,
   useConfig,
   useConfigs,
   useAlertPreferences,
@@ -21,6 +20,7 @@ import {
   useWebPushPublicKey,
   useWebPushSubscription,
 } from "@/lib/queries"
+import { keys } from "@/lib/query-keys"
 import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"

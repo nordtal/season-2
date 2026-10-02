@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/responsive-dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { AskButton, CancelButton, ENDINGS, Notes, StageBadge, cancellable, summaryOf } from "@/pages/operations"
-import { DayPicker, chosenDays, entryAt, useConfigDraft, useStewardConfig } from "@/pages/backups"
+import { DayPicker, chosenDays, entryAt, useConfigDraft, useStewardConfig } from "@/components/steward/group-form"
 
 /**
  * The updates page: a header, three numbers and the lists, built like Backups.

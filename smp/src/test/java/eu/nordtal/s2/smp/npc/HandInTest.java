@@ -34,6 +34,14 @@ class HandInTest {
     }
 
     @Test
+    void anItemKeyWantsTheStackItsBukkitNameNames() {
+        final HandIn.Result result =
+                HandIn.sort(List.of(offered(0, "IRON_INGOT", 4)), Set.of("minecraft:iron_ingot"), 100);
+
+        assertEquals(4, result.accepted());
+    }
+
+    @Test
     void whatItDoesNotWantIsNeverTouched() {
         final HandIn.Result result =
                 HandIn.sort(List.of(offered(0, "DIRT", 64), offered(1, "IRON_INGOT", 8)), WANTED, 100);

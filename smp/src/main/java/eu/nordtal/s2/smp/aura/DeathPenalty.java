@@ -1,6 +1,6 @@
 package eu.nordtal.s2.smp.aura;
 
-import java.util.Locale;
+import eu.nordtal.s2.papercommon.game.GameKeys;
 import java.util.Objects;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
@@ -27,7 +27,7 @@ public final class DeathPenalty {
      *
      * @param ordinary the ordinary penalty, as a positive number of aura
      * @param listed the listed-cause penalty, as a positive number of aura
-     * @param listedCauses the damage-type keys that cost {@code listed}, matched case-insensitively without namespace
+     * @param listedCauses the damage types that cost {@code listed}, as keys or bare minecraft names
      */
     public DeathPenalty(final int ordinary, final int listed, final Set<String> listedCauses) {
         if (ordinary < 0 || listed < 0) {
@@ -39,7 +39,7 @@ public final class DeathPenalty {
         this.listed = listed;
         this.listedCauses = Objects.requireNonNull(listedCauses, "listedCauses").stream()
                 .filter(Objects::nonNull)
-                .map(DeathPenalty::normalise)
+                .map(GameKeys::key)
                 .filter(cause -> !cause.isEmpty())
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
@@ -72,17 +72,11 @@ public final class DeathPenalty {
      * @param damageType the damage type, in any case and with or without a namespace
      */
     public boolean isListed(final @Nullable String damageType) {
-        return damageType != null && listedCauses.contains(normalise(damageType));
+        return damageType != null && listedCauses.contains(GameKeys.key(damageType));
     }
 
     /** Returns the causes as they are matched, for the startup log. */
     public Set<String> listedCauses() {
         return listedCauses;
-    }
-
-    private static String normalise(final String damageType) {
-        final String trimmed = damageType.trim().toLowerCase(Locale.ROOT);
-        final int colon = trimmed.indexOf(':');
-        return colon < 0 ? trimmed : trimmed.substring(colon + 1);
     }
 }

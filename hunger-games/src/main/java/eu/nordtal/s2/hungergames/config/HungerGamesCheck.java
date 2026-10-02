@@ -1,10 +1,10 @@
 package eu.nordtal.s2.hungergames.config;
 
+import eu.nordtal.s2.papercommon.game.GameKeys;
 import eu.nordtal.s2.settings.Checks;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import org.bukkit.Material;
 
 /**
  * What a valid {@code config} group of the hunger games is beyond its types.
@@ -91,7 +91,7 @@ public final class HungerGamesCheck {
                         "refill-tiers: tier at " + tier.delayMinutes() + " minutes has no items");
             }
             for (final String item : tier.items()) {
-                if (Material.matchMaterial(item) == null) {
+                if (GameKeys.material(item).isEmpty()) {
                     throw new IllegalArgumentException("refill-tiers: '" + item + "' is not a known material (tier at "
                             + tier.delayMinutes() + " minutes)");
                 }

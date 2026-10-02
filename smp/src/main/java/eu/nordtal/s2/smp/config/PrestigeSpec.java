@@ -8,6 +8,7 @@ import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.s2.settings.Refers;
 
 /**
  * The {@code prestige} group: the thirteen crest tiers, when each is reached and the colour a name is drawn in.
@@ -22,6 +23,7 @@ public interface PrestigeSpec {
     @Key("admin")
     @Comment("Wins over every prestige tier. Keep it far from every tier's colour, as vanilla RED is.")
     @Explain("Overrides every prestige tier below, rather than being a fourteenth tier of its own.")
+    @Refers(Refers.To.COLOUR)
     default String admin() {
         return "#ff5555";
     }
@@ -179,6 +181,7 @@ public interface PrestigeSpec {
         @Key("tier-01")
         @Comment("Teal, the colour of a crest nobody has worn for long.")
         @NoExplanationNeeded
+        @Refers(Refers.To.COLOUR)
         default String tier01() {
             return "#5fbfae";
         }
@@ -188,6 +191,7 @@ public interface PrestigeSpec {
         @Key("tier-02")
         @Comment("Sky blue.")
         @NoExplanationNeeded
+        @Refers(Refers.To.COLOUR)
         default String tier02() {
             return "#5ea9d6";
         }
@@ -197,6 +201,7 @@ public interface PrestigeSpec {
         @Key("tier-03")
         @Comment("Cornflower.")
         @NoExplanationNeeded
+        @Refers(Refers.To.COLOUR)
         default String tier03() {
             return "#6f93e0";
         }
@@ -206,6 +211,7 @@ public interface PrestigeSpec {
         @Key("tier-04")
         @Comment("Periwinkle.")
         @NoExplanationNeeded
+        @Refers(Refers.To.COLOUR)
         default String tier04() {
             return "#8f83e6";
         }
@@ -215,6 +221,7 @@ public interface PrestigeSpec {
         @Key("tier-05")
         @Comment("Violet.")
         @NoExplanationNeeded
+        @Refers(Refers.To.COLOUR)
         default String tier05() {
             return "#a878e0";
         }
@@ -224,6 +231,7 @@ public interface PrestigeSpec {
         @Key("tier-06")
         @Comment("Orchid.")
         @NoExplanationNeeded
+        @Refers(Refers.To.COLOUR)
         default String tier06() {
             return "#c96fd6";
         }
@@ -233,6 +241,7 @@ public interface PrestigeSpec {
         @Key("tier-07")
         @Comment("Rose.")
         @NoExplanationNeeded
+        @Refers(Refers.To.COLOUR)
         default String tier07() {
             return "#dd6fae";
         }
@@ -242,6 +251,7 @@ public interface PrestigeSpec {
         @Key("tier-08")
         @Comment("Coral.")
         @NoExplanationNeeded
+        @Refers(Refers.To.COLOUR)
         default String tier08() {
             return "#e07d78";
         }
@@ -251,6 +261,7 @@ public interface PrestigeSpec {
         @Key("tier-09")
         @Comment("Orange.")
         @NoExplanationNeeded
+        @Refers(Refers.To.COLOUR)
         default String tier09() {
             return "#e2984f";
         }
@@ -260,6 +271,7 @@ public interface PrestigeSpec {
         @Key("tier-10")
         @Comment("Gold.")
         @NoExplanationNeeded
+        @Refers(Refers.To.COLOUR)
         default String tier10() {
             return "#dbb043";
         }
@@ -269,6 +281,7 @@ public interface PrestigeSpec {
         @Key("tier-11")
         @Comment("Bright gold.")
         @NoExplanationNeeded
+        @Refers(Refers.To.COLOUR)
         default String tier11() {
             return "#e8d35a";
         }
@@ -278,6 +291,7 @@ public interface PrestigeSpec {
         @Key("tier-12")
         @Comment("Radiant gold.")
         @NoExplanationNeeded
+        @Refers(Refers.To.COLOUR)
         default String tier12() {
             return "#f0dc70";
         }
@@ -287,6 +301,7 @@ public interface PrestigeSpec {
         @Key("tier-13")
         @Comment("Legend, the brightest and warmest colour of all fourteen, admin included.")
         @NoExplanationNeeded
+        @Refers(Refers.To.COLOUR)
         default String tier13() {
             return "#fff6d8";
         }

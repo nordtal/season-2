@@ -1,8 +1,8 @@
 package eu.nordtal.s2.smp.npc;
 
+import eu.nordtal.s2.papercommon.game.GameKeys;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -37,7 +37,7 @@ public final class HandIn {
      * Sorts a deposit into what is taken and what stays.
      *
      * @param offered     everything in the deposit screen; empty slots are not listed
-     * @param wanted      the material names the objective accepts, case-insensitively
+     * @param wanted      the items the objective accepts, as keys or Bukkit names
      * @param stillNeeded how much the objective is still short of its target
      */
     public static Result sort(final List<Offered> offered, final Set<String> wanted, final long stillNeeded) {
@@ -67,9 +67,9 @@ public final class HandIn {
         if (material == null || wanted == null || wanted.isEmpty()) {
             return false;
         }
-        final String name = material.trim().toUpperCase(Locale.ROOT);
+        final String key = GameKeys.key(material);
         for (final String want : wanted) {
-            if (want != null && want.trim().toUpperCase(Locale.ROOT).equals(name)) {
+            if (want != null && GameKeys.key(want).equals(key)) {
                 return true;
             }
         }

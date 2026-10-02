@@ -4,6 +4,7 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.papercommon.game.GameKeys;
 import eu.nordtal.s2.smp.feedback.Surface;
 import eu.nordtal.s2.smp.menu.BlankItem;
 import eu.nordtal.s2.smp.menu.SlotGeometry;
@@ -67,7 +68,7 @@ public final class HandInGui implements Surface {
     /** The first wanted item, which {@link TrackNames} checked when the track loaded. */
     private java.util.Optional<Material> sample() {
         return wanted.stream()
-                .map(TrackNames::material)
+                .map(GameKeys::material)
                 .flatMap(java.util.Optional::stream)
                 .findFirst();
     }

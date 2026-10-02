@@ -8,6 +8,7 @@ import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.game.GameKeys;
 import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.aura.AuraReason;
 import eu.nordtal.s2.smp.config.SmpSpec;
@@ -22,7 +23,6 @@ import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -282,7 +282,7 @@ public final class Duels {
                 type == DuelType.SWORD ? config.duelLoadoutSword() : config.duelLoadoutBow();
 
         for (final WheelPrizeSpec entry : loadout) {
-            final Material material = Material.matchMaterial(entry.item().trim().toUpperCase(Locale.ROOT));
+            final Material material = GameKeys.material(entry.item()).orElse(null);
             if (material == null) {
                 plugin.getLogger()
                         .warning("a duel loadout names '" + entry.item()

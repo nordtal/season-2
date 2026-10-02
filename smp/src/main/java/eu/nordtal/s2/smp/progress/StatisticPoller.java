@@ -1,6 +1,7 @@
 package eu.nordtal.s2.smp.progress;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.papercommon.game.GameKeys;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.milestone.Objective;
@@ -138,11 +139,11 @@ public final class StatisticPoller {
     private long readOne(final Player player, final Statistic statistic, final String subject) {
         return switch (statistic.getType()) {
             case BLOCK, ITEM ->
-                TrackNames.material(subject)
+                GameKeys.material(subject)
                         .map(material -> player.getStatistic(statistic, material))
                         .orElse(0);
             case ENTITY ->
-                TrackNames.entity(subject)
+                GameKeys.entity(subject)
                         .map(entity -> player.getStatistic(statistic, entity))
                         .orElse(0);
             case UNTYPED -> player.getStatistic(statistic);
@@ -150,7 +151,7 @@ public final class StatisticPoller {
     }
 
     private @Nullable Statistic statisticOf(final Objective objective) {
-        return TrackNames.statistic(objective.statistic()).orElse(null);
+        return GameKeys.statistic(objective.statistic()).orElse(null);
     }
 
     /** Which milestone is accepting progress, pushed in by the async sweep so {@link #poll} never queries. */

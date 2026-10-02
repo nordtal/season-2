@@ -7,6 +7,7 @@ import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.s2.settings.Refers;
 import java.util.List;
 
 /**
@@ -164,10 +165,11 @@ public interface MilestonesSpec {
         @Name("Items")
         @Key("items")
         @Comment({
-            "HAND_IN only. Bukkit material names, any of which counts.",
+            "HAND_IN only. Item keys, such as minecraft:oak_log, any of which counts.",
             "An unknown one stops the plugin at startup with the name in the message."
         })
-        @Explain("HAND_IN only: Bukkit material names, any of which counts. An unknown name stops the plugin.")
+        @Explain("HAND_IN only: items, any of which counts. An unknown one stops the plugin.")
+        @Refers(Refers.To.ITEM)
         default List<String> items() {
             return List.of();
         }
@@ -175,8 +177,9 @@ public interface MilestonesSpec {
         @Order(6)
         @Name("Statistic")
         @Key("statistic")
-        @Comment("STATISTIC only. A Bukkit statistic name, e.g. MINE_BLOCK, KILL_ENTITY, CRAFT_ITEM.")
-        @Explain("STATISTIC only: a Bukkit statistic name, e.g. MINE_BLOCK.")
+        @Comment("STATISTIC only. A statistic key, e.g. minecraft:mine_block, minecraft:kill_entity.")
+        @Explain("STATISTIC only: the statistic summed across players.")
+        @Refers(Refers.To.STATISTIC)
         default String statistic() {
             return "";
         }
@@ -189,6 +192,7 @@ public interface MilestonesSpec {
             "over. Empty for a statistic that has no substatistic."
         })
         @Explain("STATISTIC only: the materials or entity types the statistic is summed over; may be empty.")
+        @Refers(value = Refers.To.SUBJECT, dependsOn = "statistic")
         default List<String> subjects() {
             return List.of();
         }
@@ -198,6 +202,7 @@ public interface MilestonesSpec {
         @Key("advancement")
         @Comment("ADVANCEMENT only. The advancement key, e.g. minecraft:story/mine_diamond.")
         @Explain("ADVANCEMENT only: the advancement key, e.g. minecraft:story/mine_diamond.")
+        @Refers(Refers.To.ADVANCEMENT)
         default String advancement() {
             return "";
         }

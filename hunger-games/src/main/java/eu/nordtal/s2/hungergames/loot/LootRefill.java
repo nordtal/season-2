@@ -9,6 +9,7 @@ import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.game.GameKeys;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -131,7 +132,7 @@ public final class LootRefill {
             final Inventory inventory = chest.getBlockInventory();
             inventory.clear();
             for (final String materialName : tier.items()) {
-                final Material material = Material.matchMaterial(materialName);
+                final Material material = GameKeys.material(materialName).orElse(null);
                 if (material == null) {
                     LOGGER.warn(
                             "Refill tier at {} minutes has unknown material '{}' - already "

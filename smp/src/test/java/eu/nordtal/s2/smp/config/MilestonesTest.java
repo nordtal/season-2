@@ -62,13 +62,13 @@ class MilestonesTest {
         final var logs = foothold.objective("logs").orElseThrow();
         assertEquals(ObjectiveType.HAND_IN, logs.type());
         assertEquals(2048L, logs.target());
-        assertTrue(logs.items().contains("OAK_LOG"), "the item list came back as " + logs.items());
+        assertTrue(logs.items().contains("minecraft:oak_log"), "the item list came back as " + logs.items());
         assertEquals(9, logs.items().size());
 
         final var coal = foothold.objective("coal").orElseThrow();
         assertEquals(ObjectiveType.STATISTIC, coal.type());
-        assertEquals("MINE_BLOCK", coal.statistic());
-        assertEquals(List.of("COAL_ORE", "DEEPSLATE_COAL_ORE"), coal.subjects());
+        assertEquals("minecraft:mine_block", coal.statistic());
+        assertEquals(List.of("minecraft:coal_ore", "minecraft:deepslate_coal_ore"), coal.subjects());
         assertTrue(coal.items().isEmpty());
     }
 

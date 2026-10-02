@@ -7,6 +7,7 @@ import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.s2.settings.Refers;
 import java.util.List;
 
 /** The {@code config} group: everything about the SMP that is neither the track nor a database credential. */
@@ -274,18 +275,19 @@ public interface SmpSpec {
         "Dying in the End before the dragon falls stays ORDINARY: it is the only way home."
     })
     @Explain("The self-inflicted deaths that cost the higher penalty above. Mobs, the border and starvation are not.")
+    @Refers(Refers.To.DAMAGE_TYPE)
     default List<String> deathCausesListed() {
         return List.of(
-                "lava",
-                "in_fire",
-                "on_fire",
-                "cactus",
-                "drown",
-                "in_wall",
-                "sweet_berry_bush",
-                "hot_floor",
-                "campfire",
-                "stalagmite");
+                "minecraft:lava",
+                "minecraft:in_fire",
+                "minecraft:on_fire",
+                "minecraft:cactus",
+                "minecraft:drown",
+                "minecraft:in_wall",
+                "minecraft:sweet_berry_bush",
+                "minecraft:hot_floor",
+                "minecraft:campfire",
+                "minecraft:stalagmite");
     }
 
     @Order(31)

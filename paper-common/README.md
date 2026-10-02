@@ -8,6 +8,12 @@ What every Nordtal Paper plugin shares, and nothing a single plugin owns.
   the commands a player sees, keeps the readiness marker beating and stops the server when a start
   fails. A plugin contributes its settings, bundles and features through `prepare()`, `enable()` and
   `disable()`, and reacts to a player's language through `languageKnown`.
+- **The game data**: on the first tick after every start, `GameDataExport` reads the server's
+  registries (items, blocks, entity types, advancements without the recipe ones, statistics with the
+  registry they count per entry of, enchantments, biomes, effects, sounds, damage types and their
+  tags), each entry with its translation key and the server's English for it, and publishes them as
+  this server's row of `game_catalogue`, which Steward's pickers draw from. A failed write costs the
+  pickers this server's entries and nothing else.
 - **World distances**: `WorldDistances` sets every world's view and simulation distance through Paper's
   `World` at start, on every reload and for a world loaded later. A value the `distances` group leaves at 0
   comes from the plugin's `distanceDefaults()` (smp: 32 and 10), and where that is unset too, the world

@@ -46,4 +46,17 @@ public interface Snapshots {
      * @return what was removed, for the report
      */
     List<String> prune(Retention policy);
+
+    /**
+     * The series a finished archive in the backups belongs to: its volume, or {@link #DATABASE} for a dump.
+     *
+     * @return empty when there is no such finished archive
+     */
+    java.util.Optional<String> seriesOf(String archive);
+
+    /** Puts a volume archive back into its volume, which every server on it has stopped for. */
+    SnapshotResult restore(String archive);
+
+    /** Replaces the database with a dump in one transaction, then brings its schema up to this release's. */
+    SnapshotResult restoreDatabase(String dump);
 }

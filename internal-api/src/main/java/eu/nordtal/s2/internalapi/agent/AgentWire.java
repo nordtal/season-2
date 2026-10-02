@@ -91,12 +91,25 @@ public final class AgentWire {
      * Every service compose.yml defines, in file order, as its labels describe it, and what a backup saves.
      *
      * @param backupVolumes the volumes mounted under the agent's backup sources, by the name a snapshot carries
+     * @param mountedBy for each of those volumes, the services but the agent that mount the same source
      */
-    public record Topology(List<Service> services, List<String> backupVolumes) {
+    public record Topology(List<Service> services, List<String> backupVolumes, Map<String, List<String>> mountedBy) {
 
         public Topology {
             services = List.copyOf(services);
             backupVolumes = List.copyOf(backupVolumes);
+            // An older agent's answer has no such field.
+            mountedBy = mountedBy == null ? Map.of() : Map.copyOf(mountedBy);
+        }
+
+        /** A topology that does not say which service runs on which volume. */
+        public Topology(final List<Service> services, final List<String> backupVolumes) {
+            this(services, backupVolumes, Map.of());
+        }
+
+        /** The services that run on a saved volume, which a restore of it stops; empty for one nothing mounts. */
+        public List<String> usersOf(final String volume) {
+            return List.copyOf(mountedBy.getOrDefault(volume, List.of()));
         }
 
         /** The services a backup stops while it saves, in file order. */

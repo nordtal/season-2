@@ -9,8 +9,11 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
@@ -84,7 +87,8 @@ public final class ComposeTopology {
     static AgentWire.Topology parse(final JsonObject services, final String backupSources) {
         final String root = backupSources.endsWith("/") ? backupSources : backupSources + "/";
         final List<AgentWire.Service> all = new ArrayList<>();
-        final Set<String> saved = new LinkedHashSet<>();
+        // Saved volume -> the source the agent mounts it from, so the services on the same source can be found.
+        final Map<String, String> saved = new LinkedHashMap<>();
         for (final String name : services.keySet()) {
             final JsonObject service = services.getAsJsonObject(name);
             final JsonObject labels =
@@ -96,16 +100,46 @@ public final class ComposeTopology {
                     text(service, "image"),
                     "true".equals(text(labels, CONSOLE)),
                     "stop".equals(text(labels, BACKUP))));
-            if (service.has("volumes") && service.get("volumes").isJsonArray()) {
-                for (final JsonElement mount : service.getAsJsonArray("volumes")) {
-                    final String target = mount.isJsonObject() ? text(mount.getAsJsonObject(), "target") : null;
-                    if (target != null && target.startsWith(root) && target.length() > root.length()) {
-                        saved.add(target.substring(root.length()));
-                    }
+            for (final JsonObject mount : mounts(service)) {
+                final String target = text(mount, "target");
+                if (target != null && target.startsWith(root) && target.length() > root.length()) {
+                    saved.put(target.substring(root.length()), Objects.requireNonNullElse(text(mount, "source"), ""));
                 }
             }
         }
-        return new AgentWire.Topology(all, List.copyOf(saved));
+        final Map<String, List<String>> mountedBy = new LinkedHashMap<>();
+        saved.forEach((volume, source) -> mountedBy.put(volume, usersOf(services, source)));
+        return new AgentWire.Topology(all, List.copyOf(saved.keySet()), mountedBy);
+    }
+
+    /** The services but the agent with a mount of {@code source}, in file order. */
+    private static List<String> usersOf(final JsonObject services, final String source) {
+        final List<String> users = new ArrayList<>();
+        if (source.isEmpty()) {
+            return users;
+        }
+        for (final String name : services.keySet()) {
+            if (AgentWire.SERVICE.equals(name)) {
+                continue;
+            }
+            if (mounts(services.getAsJsonObject(name)).stream()
+                    .anyMatch(mount -> source.equals(text(mount, "source")))) {
+                users.add(name);
+            }
+        }
+        return users;
+    }
+
+    private static List<JsonObject> mounts(final JsonObject service) {
+        final List<JsonObject> mounts = new ArrayList<>();
+        if (service.has("volumes") && service.get("volumes").isJsonArray()) {
+            for (final JsonElement mount : service.getAsJsonArray("volumes")) {
+                if (mount.isJsonObject()) {
+                    mounts.add(mount.getAsJsonObject());
+                }
+            }
+        }
+        return mounts;
     }
 
     private static @Nullable String text(final JsonObject json, final String key) {

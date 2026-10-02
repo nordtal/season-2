@@ -2,6 +2,7 @@ package eu.nordtal.s2.stewardagent.backup;
 
 import eu.nordtal.s2.internalapi.agent.Retention;
 import eu.nordtal.s2.internalapi.agent.SnapshotResult;
+import eu.nordtal.s2.stewardagent.run.Snapshots;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -148,6 +149,91 @@ public final class TarSnapshots {
             quietlyDelete(partial);
             return SnapshotResult.failed(
                     volume, since(startedAt), "saving " + source + " was interrupted - no archive was written");
+        }
+    }
+
+    /**
+     * The series a finished archive in the backups belongs to: its volume, or {@link Snapshots#DATABASE} for a dump.
+     *
+     * @return empty for a name that is no finished archive, or one that is not there
+     */
+    public Optional<String> seriesOf(final String name) {
+        final Path file;
+        try {
+            file = outputRoot.resolve(name).normalize();
+        } catch (final InvalidPathException notAName) {
+            return Optional.empty();
+        }
+        if (!outputRoot.normalize().equals(file.getParent()) || !Files.isRegularFile(file)) {
+            return Optional.empty();
+        }
+        final Matcher archive = ARCHIVE.matcher(name);
+        if (archive.matches()) {
+            return Optional.of(archive.group("volume"));
+        }
+        return DUMP.matcher(name).matches() ? Optional.of(Snapshots.DATABASE) : Optional.empty();
+    }
+
+    /**
+     * Puts a volume archive back: reads it through, empties the volume and unpacks it, owners and modes kept.
+     *
+     * Every server on the volume has to be stopped; a failure after the emptying leaves the volume incomplete.
+     */
+    public SnapshotResult restore(final String archive, final Duration wall) {
+        final long startedAt = System.nanoTime();
+        final String volume = seriesOf(archive).orElse(null);
+        if (volume == null
+                || Snapshots.DATABASE.equals(volume)
+                || !VOLUME_NAME.matcher(volume).matches()) {
+            return SnapshotResult.failed(
+                    archive, since(startedAt), archive + " is not a volume archive in the backups");
+        }
+        final Path file = outputRoot.resolve(archive);
+        final Path target = sourcesRoot.resolve(volume);
+        if (!Files.isDirectory(target)) {
+            return SnapshotResult.failed(
+                    volume, since(startedAt), "no such directory to restore into: " + target + " - is it mounted?");
+        }
+        try {
+            final String problem = unreadable(file, wall);
+            if (problem != null) {
+                return SnapshotResult.failed(
+                        volume,
+                        since(startedAt),
+                        archive + " could not be read through, so nothing was touched: " + problem);
+            }
+            empty(target);
+            log.info("unpacking {} into {}", archive, target);
+            final Shell unpacked = pipeline(
+                    wall,
+                    null,
+                    List.of(
+                            List.of("zstd", "-dc", "-q", file.toString()),
+                            List.of("tar", "-xpf", "-", "--numeric-owner", "-C", target.toString())));
+            if (unpacked.failed()) {
+                return SnapshotResult.failed(
+                        volume,
+                        since(startedAt),
+                        "unpacking " + archive + " failed and left " + volume + " incomplete: " + unpacked.describe());
+            }
+            return SnapshotResult.saved(volume, Files.size(file), since(startedAt), file.toString());
+        } catch (final IOException failure) {
+            return SnapshotResult.failed(volume, since(startedAt), "restoring " + archive + " failed: " + failure);
+        } catch (final InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return SnapshotResult.failed(volume, since(startedAt), "restoring " + archive + " was interrupted");
+        }
+    }
+
+    /** Deletes everything inside {@code directory} and keeps the directory, which is a mount point. */
+    private static void empty(final Path directory) throws IOException {
+        try (Stream<Path> inside = Files.walk(directory)) {
+            for (final Path path :
+                    inside.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                if (!path.equals(directory)) {
+                    Files.delete(path);
+                }
+            }
         }
     }
 

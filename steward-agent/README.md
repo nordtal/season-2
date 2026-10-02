@@ -42,6 +42,13 @@ Caddy, pack-host and postgres are made again only once the rest is back, and onl
 counts down, since every server's connections go through them. A `REMOVE_PLUGIN` stops its one
 server, deletes the added plugin's jar and data folder and starts it again.
 
+A `RESTORE` puts one archive back. A volume archive stops what mounts the volume, saves the volume as
+it is, then unpacks the archive into it. A dump is preceded by a fresh dump with everything running,
+stops every service of ours that runs on the database, and replaces the `public` schema in one
+transaction, so a failed restore leaves the database as it was. The agent then migrates it to its own
+schema, and the run's row, which the dump did not hold as it is now, is carried across; rows the dump
+held open are failed. `deploy/restore.sh` remains for the host when steward-agent itself is down.
+
 The run never stops steward-agent. A run that names it is refused, and its own outdated image is
 reported for the script on the host to renew.
 
@@ -106,8 +113,8 @@ names the daemon and not the agent.
 
 Every route but `/api/health` needs `X-Steward-Token`, and the service refuses to start without it.
 The gate is `:internal-api`'s, the same one `steward-bunq` runs behind. steward reaches it on the
-internal `agent` network; the agent also sits on `steward`, for postgres and for the way out to
-GitHub, Modrinth and PaperMC, which Caddy shares.
+internal `agent` network. It reaches postgres on the internal `agent-database` network and GitHub,
+Modrinth and PaperMC through `agent-egress`, a network nobody else is on.
 
 The console set is the label `eu.nordtal.console: "true"` in `compose.yml`, read through
 `docker compose config`; a line goes to `mc` as one argument, never through a shell, and the log
@@ -132,7 +139,7 @@ the backup retention and how long a backup waits for a server to stop.
 | `DOCKER_SOCKET`                     | `/var/run/docker.sock` |                                                                 |
 | `CONFIGS`                           | `/configs`             | each service's plugins folder, where the message overrides live |
 | `VOLUMES_ROOT`                      | `/volumes`             | the `runs` group's `volumes-root`: what a run installs into     |
-| `BACKUP_SOURCES`                    | `/backup-sources`      | one read-only mount per volume a backup saves                   |
+| `BACKUP_SOURCES`                    | `/backup-sources`      | one mount per volume a backup saves and a restore writes back   |
 | `BACKUPS`                           | `/backups`             | the archives, the same volume postgres dumps into               |
 
 ## Tests

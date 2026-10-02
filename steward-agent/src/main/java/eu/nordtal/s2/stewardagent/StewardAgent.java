@@ -168,6 +168,15 @@ public final class StewardAgent {
         }
     }
 
+    /** A replaced database: the pool's connections go, since they cached plans of dropped tables, then the schema. */
+    private static void afterDatabaseRestore(final Database database) {
+        if (database.dataSource() instanceof com.zaxxer.hikari.HikariDataSource pool
+                && pool.getHikariPoolMXBean() != null) {
+            pool.getHikariPoolMXBean().softEvictConnections();
+        }
+        Schema.migrate(database, Schema.passwords(System.getenv()));
+    }
+
     // The one volumes root is the runs group's, so what a run installs and what the API reads cannot differ.
     private static AgentApi.Paths pathsOf(final InternalServer server, final RunSpec runs) {
         return new AgentApi.Paths(
@@ -216,8 +225,7 @@ public final class StewardAgent {
             final ComposeTopology topology = new ComposeTopology(
                     compose::definitions, paths.backupSources().toString(), clock);
             final LocalStack stack = new LocalStack(docker, new Containers(docker, project), topology, compose);
-            final LocalSnapshots snapshots =
-                    new LocalSnapshots(docker, project, paths.backupSources(), paths.backups(), clock, runs::get);
+            final LocalSnapshots snapshots = snapshotsOf(docker, project, paths, clock, runs, database);
             try (SignalHub signals = SignalHub.open(
                             databaseConfig.jdbcUrl(),
                             databaseConfig.username(),
@@ -248,6 +256,24 @@ public final class StewardAgent {
             app.stop();
         }
         return 0;
+    }
+
+    /** The backups and restores, which migrate the database again after a dump has replaced it. */
+    private static LocalSnapshots snapshotsOf(
+            final Docker docker,
+            final String project,
+            final AgentApi.Paths paths,
+            final Clock clock,
+            final Setting<RunSpec> runs,
+            final Database database) {
+        return new LocalSnapshots(
+                docker,
+                project,
+                paths.backupSources(),
+                paths.backups(),
+                clock,
+                runs::get,
+                () -> afterDatabaseRestore(database));
     }
 
     /** Takes the runs group again after a change in Steward; a refused change keeps the values in use. */

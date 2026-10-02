@@ -15,6 +15,7 @@ import eu.nordtal.s2.stewardagent.plan.PlanReport;
 import eu.nordtal.s2.stewardagent.plan.UpdatePlan;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 
@@ -449,6 +450,133 @@ final class Kinds {
                 "the plugin was deleted",
                 Runner.Doubt.IS_ONLY_SAID);
         return Planned.plan(held ? plan.stoppingNothing().leavingThemDown() : plan);
+    }
+
+    /**
+     * Puts one archive back, after a fresh backup of what it replaces, while everything that runs on it is down.
+     *
+     * A volume archive stops the services that mount the volume; a dump stops every service on the database.
+     */
+    static Planned restore(final Runner runner, final UpdateRequest request) {
+        final StewardRequest asked = runner.directory.requestOf(request.id()).orElse(null);
+        if (!(asked instanceof StewardRequest.Restore restore)) {
+            return failed("This row does not say which archive to restore. Nothing was stopped.");
+        }
+        final String archive = restore.archive();
+        final String series = runner.backups.seriesOf(archive).orElse(null);
+        if (series == null) {
+            return failed("Nothing was stopped: " + archive + " is not a finished archive in the backups.");
+        }
+        return Snapshots.DATABASE.equals(series)
+                ? restoreDatabase(runner, request, archive)
+                : restoreVolume(runner, archive, series);
+    }
+
+    private static Planned restoreVolume(final Runner runner, final String archive, final String volume) {
+        final AgentWire.Topology topology = runner.containers.topology();
+        if (!topology.backupVolumes().contains(volume)) {
+            return failed("Nothing was stopped: " + volume + " is not a volume compose.yml lets steward-agent"
+                    + " back up, so it cannot put " + archive + " back either.");
+        }
+        final List<String> users = running(runner, topology.usersOf(volume));
+        final Run.Payload put = (steps, stopped) -> {
+            // The volume as it is now, so a restore of the wrong archive is itself undone by a restore.
+            final UpdateReport saved = steps.save(stopped.report(), List.of(volume));
+            if (saved.line(volume).state() != UpdateReport.State.SAVED) {
+                throw new Run.Abort(saved.withNote("NOTHING WAS RESTORED: " + volume + " could not be saved as it"
+                        + " is first, and a restore without that backup could not be taken back."));
+            }
+            return putBack(saved, runner.backups.restore(archive), archive);
+        };
+        return Planned.plan(Run.Plan.of(
+                        stopping(users, "restore", archive),
+                        put,
+                        "NOTHING WAS RESTORED: putting files back under a running server is what this run stops it"
+                                + " for.",
+                        refusal -> "NOTHING WAS STOPPED AND NOTHING WAS RESTORED. " + refusal + ".",
+                        "this restore",
+                        "the archive was put back",
+                        Runner.Doubt.FAILS_THE_RUN)
+                .announced(users.stream().anyMatch(Runner::isMinecraft)));
+    }
+
+    private static Planned restoreDatabase(final Runner runner, final UpdateRequest request, final String dump) {
+        // With everything running, as every backup takes it, and before anything is stopped.
+        final SnapshotResult dumped = runner.backups.saveDatabase();
+        if (!dumped.ok()) {
+            return failed("Nothing was stopped and the database was not touched: the database could not be"
+                    + " saved as it is first. " + dumped.message());
+        }
+        final List<String> users = running(runner, List.copyOf(ForeignImages.RECREATABLE));
+        final UpdateReport planned = stopping(users, "restore", dump)
+                .with(new UpdateReport.ServiceLine(
+                        Snapshots.DATABASE,
+                        UpdateReport.State.SAVED,
+                        List.of(new UpdateReport.Change("backup", null, dumped.message())),
+                        null));
+        final Run.Payload replace = (steps, stopped) -> {
+            // The dump has this run's row as it was then, or not at all; it is carried across and put back.
+            final String row = runner.directory.carry(request.id()).orElse(null);
+            final SnapshotResult restored = runner.backups.restoreDatabase(dump);
+            if (restored.ok() && row != null) {
+                runner.directory.putBack(
+                        row,
+                        "The database was restored from " + dump + ", which held this"
+                                + " run open; it was not carried out after the restore.");
+            }
+            return putBack(stopped.report(), restored, dump);
+        };
+        return Planned.plan(Run.Plan.of(
+                planned,
+                replace,
+                "NOTHING WAS RESTORED: a service writing into the database while it is replaced writes into"
+                        + " the one being thrown away.",
+                refusal -> "NOTHING WAS STOPPED AND NOTHING WAS RESTORED. " + refusal + ".",
+                "this restore",
+                "the database was replaced",
+                Runner.Doubt.FAILS_THE_RUN));
+    }
+
+    /** The archive's own line on the report, and a failed run when it did not go back. */
+    private static Run.Done putBack(final UpdateReport report, final SnapshotResult result, final String archive) {
+        final UpdateReport.ServiceLine line = new UpdateReport.ServiceLine(
+                archive,
+                result.ok() ? UpdateReport.State.INSTALLED : UpdateReport.State.FAILED,
+                List.of(new UpdateReport.Change("restore", null, result.message())),
+                result.ok() ? null : result.message());
+        return new Run.Done(
+                result.ok()
+                        ? report.with(line)
+                        : report.with(line)
+                                .withNote("The restore failed and the backup taken just before it holds what was"
+                                        + " there."),
+                !result.ok());
+    }
+
+    /** Of these services, the ones that run now and are not held, which a restore stops and starts again. */
+    private static List<String> running(final Runner runner, final List<String> services) {
+        final List<String> holds = runner.held();
+        final eu.nordtal.s2.internalapi.agent.RuntimeResult runtime = runner.containers.runtime();
+        return Stream.concat(
+                        Topology.SERVICES.stream().map(Topology.Service::name),
+                        ForeignImages.RECREATABLE.stream().sorted())
+                .distinct()
+                .filter(services::contains)
+                .filter(service -> !holds.contains(service))
+                .filter(service -> runtime.service(service)
+                        .map(state -> "running".equalsIgnoreCase(state.status()))
+                        .orElse(false))
+                .toList();
+    }
+
+    /** A report with one planned line per service, each naming what it is stopped for. */
+    private static UpdateReport stopping(final List<String> services, final String why, final String archive) {
+        UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING);
+        for (final String service : services) {
+            planned = planned.with(new UpdateReport.ServiceLine(
+                    service, UpdateReport.State.PLANNED, List.of(new UpdateReport.Change(why, null, archive)), null));
+        }
+        return planned;
     }
 
     private static Planned failed(final String note) {

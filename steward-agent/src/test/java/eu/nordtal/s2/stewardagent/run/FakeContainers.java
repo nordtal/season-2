@@ -46,7 +46,12 @@ final class FakeContainers implements ContainerOps {
                     "nordtal-s2_mc-smp",
                     "nordtal-s2_mc-smp-plugins",
                     "nordtal-s2_mc-hunger-games-plugins",
-                    "nordtal-s2_bot-config"));
+                    "nordtal-s2_bot-config"),
+            java.util.Map.of(
+                    "nordtal-s2_mc-smp", List.of("smp"),
+                    "nordtal-s2_mc-smp-plugins", List.of("smp"),
+                    "nordtal-s2_mc-hunger-games-plugins", List.of("hunger-games"),
+                    "nordtal-s2_bot-config", List.of("discord-bot")));
 
     @Override
     public AgentWire.Topology topology() {

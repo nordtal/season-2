@@ -5,9 +5,9 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Which server runs which jars, a mirror of {@code compose.yml} that {@code TopologyTest} holds in step.
+ * The names a run joins on: server kinds, artefact ids and the plugins Nordtal publishes.
  *
- * Code, not configuration: each row is a jar that another jar on that service requires.
+ * Which server runs which jars is not here: compose.yml's labels say it, and steward-agent serves them.
  */
 public final class Topology {
 
@@ -28,6 +28,16 @@ public final class Topology {
             return fillProject;
         }
 
+        /** The kind whose {@link #fillProject()} this is, which is how the label {@code eu.nordtal.server} names it. */
+        public static Kind of(final String fillProject) {
+            for (final Kind kind : values()) {
+                if (kind.fillProject.equals(fillProject)) {
+                    return kind;
+                }
+            }
+            throw new IllegalArgumentException("no server kind is called '" + fillProject + "'");
+        }
+
         /** What Modrinth calls this platform, kept apart from {@link #fillProject()} because two vendors name them. */
         public String modrinthLoader() {
             return modrinthLoader;
@@ -35,13 +45,20 @@ public final class Topology {
     }
 
     /**
-     * One compose service with a plugins folder.
+     * One compose service with a plugins folder, as its {@code eu.nordtal.plugins} label describes it.
      *
      * @param name the compose service name, also its directory under {@code volumes-root}
      * @param plugins the artifact ids whose jars belong in its {@code plugins/} folder
      * @param optional the subset of {@code plugins} whose absence must not stop the container
+     * @param prefixes the jar filename prefix of each artifact whose prefix is not its id
      */
-    public record Service(String name, Kind kind, List<String> plugins, List<String> optional) {
+    public record Service(
+            String name, Kind kind, List<String> plugins, List<String> optional, Map<String, String> prefixes) {
+
+        /** A service whose every jar is named after its artifact id. */
+        public Service(final String name, final Kind kind, final List<String> plugins, final List<String> optional) {
+            this(name, kind, plugins, optional, Map.of());
+        }
 
         /** A service every one of whose plugins the entrypoint guard demands. */
         public Service(final String name, final Kind kind, final List<String> plugins) {
@@ -51,19 +68,16 @@ public final class Topology {
         public Service {
             plugins = List.copyOf(plugins);
             optional = List.copyOf(optional);
+            prefixes = Map.copyOf(prefixes);
             if (!plugins.containsAll(optional)) {
                 throw new IllegalArgumentException(name + " marks a plugin optional that it does" + " not run: "
                         + optional + " is not inside " + plugins);
             }
         }
 
-        /**
-         * The plugins {@code EXPECTED_PLUGINS} in {@code compose.yml} has to ask for, which excludes the optional ones.
-         *
-         * An unsupported artefact must never become a server that will not boot.
-         */
-        public List<String> guarded() {
-            return plugins.stream().filter(plugin -> !optional.contains(plugin)).toList();
+        /** The filename prefix of {@code artifact}'s jar on this service, its id unless the label names another. */
+        public String prefixOf(final String artifact) {
+            return prefixes.getOrDefault(artifact, artifact);
         }
     }
 
@@ -128,64 +142,12 @@ public final class Topology {
         return prefix != null && NORDTAL_PLUGINS.containsKey(prefix);
     }
 
-    /** The filename prefix a fixed artefact's jar carries, where that is known up front. */
-    public static @Nullable String nordtalPrefixOf(final String artifact) {
-        if (DISPLAY_TAGS.equals(artifact)) {
-            return "papermc-display-tags";
-        }
-        return NORDTAL_PLUGINS.containsKey(artifact) ? artifact : null;
-    }
-
     private static Map<String, String> orderedMap(final String... pairs) {
         final Map<String, String> map = new java.util.LinkedHashMap<>();
         for (int i = 0; i < pairs.length; i += 2) {
             map.put(pairs[i], pairs[i + 1]);
         }
         return java.util.Collections.unmodifiableMap(map);
-    }
-
-    /** The four Minecraft services, in the order the report reads best: proxy first, then backends. */
-    public static final List<Service> SERVICES = List.of(
-            // The proxy's voice chat half is optional because this container is the network.
-            new Service(PROXY, Kind.VELOCITY, List.of(PROXY, VOICE_CHAT_PROXY), List.of(VOICE_CHAT_PROXY)),
-            new Service(LIMBO, Kind.PAPER, List.of(LIMBO)),
-            // Voice chat runs where people play, not on limbo.
-            new Service(HUNGER_GAMES, Kind.PAPER, List.of(HUNGER_GAMES, VOICE_CHAT), List.of(VOICE_CHAT)),
-            // The only service with required third-party plugins; CoreProtect and voice chat are optional.
-            new Service(
-                    SMP,
-                    Kind.PAPER,
-                    List.of(SMP, DISPLAY_TAGS, PACKETEVENTS, VOICE_CHAT, CORE_PROTECT),
-                    List.of(VOICE_CHAT, CORE_PROTECT)));
-
-    /**
-     * Whether {@code service} is one of the four with a plugins folder, which decides whether the Plugins tab is drawn.
-     *
-     * @param service a compose service name
-     * @return {@code true} for proxy, limbo, hunger-games and smp
-     */
-    public static boolean hasPlugins(final String service) {
-        return SERVICES.stream().anyMatch(candidate -> candidate.name().equals(service));
-    }
-
-    /** What a replacement instance of a service is called: its own name and this. */
-    public static final String STANDBY_SUFFIX = "-standby";
-
-    /**
-     * The services with a {@code -standby} counterpart in {@code compose.yml}, in the order a swap uses them.
-     *
-     * Nothing resolves for a standby: {@code Standbys} copies the live service's {@code plugins/} across.
-     */
-    public static final List<String> SERVICES_WITH_STANDBY = List.of(PROXY, LIMBO);
-
-    /** The compose service name of {@code service}'s standby, whether or not it has one. */
-    public static String standbyOf(final String service) {
-        return service + STANDBY_SUFFIX;
-    }
-
-    /** Every standby compose.yml defines, in the order of {@link #SERVICES_WITH_STANDBY}. */
-    public static List<String> standbyNames() {
-        return SERVICES_WITH_STANDBY.stream().map(Topology::standbyOf).toList();
     }
 
     /**

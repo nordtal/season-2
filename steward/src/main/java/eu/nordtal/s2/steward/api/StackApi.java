@@ -10,7 +10,6 @@ import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.ImageResult;
-import eu.nordtal.s2.internalapi.agent.Topology;
 import eu.nordtal.s2.steward.alert.StackReading;
 import eu.nordtal.s2.steward.backup.NightlyClock;
 import io.javalin.config.JavalinConfig;
@@ -262,14 +261,18 @@ public final class StackApi implements AutoCloseable {
     Optional<Map<String, Object>> service(final String name) {
         final ImageResult drift = drift().result();
         return agent.container(name).map(container -> {
-            final Map<String, Object> row = serviceRows.describe(
-                    container, drift, serviceRows.online(), serviceRows.holds(), serviceRows.consoles());
+            final AgentWire.Topology topology = serviceRows.topology();
+            final Map<String, Object> row =
+                    serviceRows.describe(container, drift, serviceRows.online(), serviceRows.holds(), topology);
             row.put("digests", container.digests() == null ? List.of() : container.digests());
-            row.put("hasPlugins", Topology.hasPlugins(name));
-            disk.of(name).ifPresent(measured -> {
-                row.put("diskBytes", measured.bytes().getAsLong());
-                row.put("diskMeasuredAt", measured.at().toString());
-            });
+            final boolean hasPlugins = topology.hasPlugins(name);
+            row.put("hasPlugins", hasPlugins);
+            if (hasPlugins) {
+                disk.of(name).ifPresent(measured -> {
+                    row.put("diskBytes", measured.bytes().getAsLong());
+                    row.put("diskMeasuredAt", measured.at().toString());
+                });
+            }
             row.put("logCapacity", logCapacity(name));
             return row;
         });

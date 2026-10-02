@@ -1,6 +1,7 @@
 package eu.nordtal.s2.stewardagent.apply;
 
 import eu.nordtal.s2.database.setting.SettingStore;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.JarName;
 import eu.nordtal.s2.internalapi.agent.Topology;
 import eu.nordtal.s2.stewardagent.config.RunSpec;
@@ -41,10 +42,18 @@ public final class Applier {
     /** Where the proxy's pack is set. */
     private final SettingStore settings;
 
-    public Applier(final RunSpec config, final Fetcher fetcher, final SettingStore settings) {
+    /** Which service has which standby, which compose.yml's labels say. */
+    private final AgentWire.Topology topology;
+
+    public Applier(
+            final RunSpec config,
+            final Fetcher fetcher,
+            final SettingStore settings,
+            final AgentWire.Topology topology) {
         this.config = config;
         this.fetcher = fetcher;
         this.settings = settings;
+        this.topology = topology;
     }
 
     public ApplyResult apply(final UpdatePlan plan) {
@@ -75,8 +84,8 @@ public final class Applier {
      *
      * Last, so the copy is of finished files; always, since a standby can be empty while its service is unchanged.
      */
-    private static List<ApplyResult.Outcome> fillStandbys(final Path root, final Set<String> services) {
-        return Standbys.fill(root, services);
+    private List<ApplyResult.Outcome> fillStandbys(final Path root, final Set<String> services) {
+        return Standbys.fill(root, services, topology);
     }
 
     private List<ApplyResult.Outcome> applyService(final Path root, final String service, final List<Change> changes) {

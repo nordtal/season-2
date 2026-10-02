@@ -7,7 +7,6 @@ import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.ImageResult;
-import eu.nordtal.s2.internalapi.agent.Topology;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -43,18 +42,23 @@ final class ServiceRows {
         // Once for the whole table, so two rows cannot disagree about the same instant.
         final ServicesApi.Online counts = online();
         final Map<String, ServiceHold> holds = holds();
-        final Set<String> consoles = consoles();
+        final AgentWire.Topology topology = topology();
         final List<Map<String, Object>> all = new ArrayList<>();
         for (final AgentWire.Container container : containers.containers()) {
-            all.add(describe(container, drift, counts, holds, consoles));
+            all.add(describe(container, drift, counts, holds, topology));
         }
         return List.copyOf(all);
     }
 
+    /** What compose.yml's labels say, taken once for the whole table. */
+    AgentWire.Topology topology() {
+        return agent.topology();
+    }
+
     /** The services compose.yml gives a console. */
-    Set<String> consoles() {
+    static Set<String> consoles(final AgentWire.Topology topology) {
         final Set<String> consoles = new LinkedHashSet<>();
-        for (final AgentWire.Service service : agent.topology().services()) {
+        for (final AgentWire.Service service : topology.services()) {
             if (service.console()) {
                 consoles.add(service.name());
             }
@@ -81,7 +85,7 @@ final class ServiceRows {
             final ImageResult drift,
             final ServicesApi.Online counts,
             final Map<String, ServiceHold> holds,
-            final Set<String> consoles) {
+            final AgentWire.Topology topology) {
         final String service = container.service();
         final Map<String, Object> row = new LinkedHashMap<>();
         row.put("service", service);
@@ -89,10 +93,10 @@ final class ServiceRows {
         row.put("image", container.image());
         row.put("state", container.state());
         row.put("status", container.status());
-        row.put("hasConsole", consoles.contains(service));
+        row.put("hasConsole", consoles(topology).contains(service));
         row.put("drift", drift.state(service).name());
         putOnline(row, service, counts);
-        putStandby(row, service);
+        putStandby(row, service, topology);
         // Same rule as `players`: the key is absent when nobody holds it.
         final ServiceHold hold = holds.get(service);
         if (hold != null) {
@@ -125,8 +129,8 @@ final class ServiceRows {
      *
      * @param service the compose service name this row is about
      */
-    static void putStandby(final Map<String, Object> row, final String service) {
-        if (Topology.standbyNames().contains(service)) {
+    static void putStandby(final Map<String, Object> row, final String service, final AgentWire.Topology topology) {
+        if (topology.standbys().contains(service)) {
             row.put("standby", true);
         }
     }

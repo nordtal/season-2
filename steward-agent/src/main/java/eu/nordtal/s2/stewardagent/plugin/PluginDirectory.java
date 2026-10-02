@@ -48,18 +48,20 @@ public interface PluginDirectory {
     }
 
     /**
-     * The four services with every plugin an admin added folded in.
+     * The servers with every plugin an admin added folded in.
      *
+     * @param servers the servers as compose.yml's labels describe them
      * @param added every row of {@code service_plugin}; unknown services and fixed artefacts are ignored, and all are
      *     optional
-     * @return the same four services, in the same order, each carrying its own extra plugins
+     * @return the same servers, in the same order, each carrying its own extra plugins
      */
-    public static List<Topology.Service> servicesWith(final java.util.Collection<ManagedPlugin> added) {
+    public static List<Topology.Service> servicesWith(
+            final List<Topology.Service> servers, final java.util.Collection<ManagedPlugin> added) {
         if (added.isEmpty()) {
-            return Topology.SERVICES;
+            return servers;
         }
-        final List<Topology.Service> merged = new java.util.ArrayList<>(Topology.SERVICES.size());
-        for (final Topology.Service service : Topology.SERVICES) {
+        final List<Topology.Service> merged = new java.util.ArrayList<>(servers.size());
+        for (final Topology.Service service : servers) {
             final List<String> plugins = new java.util.ArrayList<>(service.plugins());
             final List<String> optional = new java.util.ArrayList<>(service.optional());
             for (final ManagedPlugin plugin : added) {
@@ -76,7 +78,8 @@ public interface PluginDirectory {
             merged.add(
                     plugins.size() == service.plugins().size()
                             ? service
-                            : new Topology.Service(service.name(), service.kind(), plugins, optional));
+                            : new Topology.Service(
+                                    service.name(), service.kind(), plugins, optional, service.prefixes()));
         }
         return List.copyOf(merged);
     }

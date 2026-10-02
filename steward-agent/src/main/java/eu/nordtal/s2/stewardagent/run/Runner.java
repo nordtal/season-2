@@ -9,6 +9,7 @@ import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateStatus;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.RuntimeResult;
 import eu.nordtal.s2.internalapi.agent.Topology;
 import eu.nordtal.s2.stewardagent.config.RunSpec;
@@ -295,13 +296,13 @@ public final class Runner implements RequestRunner {
     /**
      * Which Minecraft services a restart takes round.
      *
+     * @param servers the Minecraft servers, in compose.yml's order
      * @param scope what the request names, empty for the whole network
      * @param holds what somebody is deliberately keeping down, never restarted
-     * @return the services to stop and start again, in {@link Topology}'s own order
+     * @return the services to stop and start again, in {@code servers}' order
      */
-    static List<String> restarted(final List<String> scope, final List<String> holds) {
-        return Topology.SERVICES.stream()
-                .map(Topology.Service::name)
+    static List<String> restarted(final List<String> servers, final List<String> scope, final List<String> holds) {
+        return servers.stream()
                 .filter(service -> !holds.contains(service))
                 .filter(service -> scope.isEmpty() || scope.contains(service))
                 .toList();
@@ -312,9 +313,19 @@ public final class Runner implements RequestRunner {
         return directory.holds().stream().map(ServiceHold::service).toList();
     }
 
-    /** Whether that service is one of the four somebody can be standing on. */
-    static boolean isMinecraft(final String service) {
-        return Topology.SERVICES.stream().anyMatch(one -> one.name().equals(service));
+    /** What compose.yml's labels say about the stack, read once per question. */
+    AgentWire.Topology topology() {
+        return containers.topology();
+    }
+
+    /** The Minecraft servers' names, in compose.yml's order: the proxy first. */
+    List<String> servers() {
+        return topology().servers().stream().map(Topology.Service::name).toList();
+    }
+
+    /** Whether that service is one of the servers somebody can be standing on. */
+    boolean isMinecraft(final String service) {
+        return topology().hasPlugins(service);
     }
 
     /** The services a report says this run is going to stop, without the database dump line. */

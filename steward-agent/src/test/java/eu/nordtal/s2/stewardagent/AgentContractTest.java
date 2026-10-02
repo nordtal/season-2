@@ -13,6 +13,7 @@ import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.LogFollow;
 import eu.nordtal.s2.internalapi.agent.RuntimeResult;
+import eu.nordtal.s2.internalapi.agent.Topology;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -56,10 +57,24 @@ class AgentContractTest {
                 Json.decode(agent.client().get(AgentWire.TOPOLOGY), AgentWire.Topology.class);
         assertEquals(
                 List.of(
-                        new AgentWire.Service("smp", "ghcr.io/nordtal/minecraft:latest", true, true),
+                        new AgentWire.Service(
+                                "smp",
+                                "ghcr.io/nordtal/minecraft:latest",
+                                true,
+                                true,
+                                new Topology.Service(
+                                        "smp",
+                                        Topology.Kind.PAPER,
+                                        List.of("smp", "display-tags", "voicechat"),
+                                        List.of("voicechat"),
+                                        java.util.Map.of("display-tags", "papermc-display-tags")),
+                                null,
+                                AgentWire.Renewal.RUN),
                         new AgentWire.Service("steward-agent", "ghcr.io/nordtal/steward-agent:latest", false, false),
-                        new AgentWire.Service("postgres", "postgres:18", false, false)),
+                        new AgentWire.Service(
+                                "postgres", "postgres:18", false, false, null, null, AgentWire.Renewal.LAST)),
                 topology.services());
+        assertTrue(topology.hasPlugins("smp"), "the server and its plugins reach steward intact");
         // The backup set is the agent's own mounts, and the stop set the label: nothing else names either.
         assertEquals(List.of("nordtal-s2_mc-smp"), topology.backupVolumes());
         assertEquals(List.of("smp"), topology.stoppedForBackup());

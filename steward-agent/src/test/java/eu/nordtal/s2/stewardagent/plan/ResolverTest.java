@@ -17,6 +17,7 @@ import eu.nordtal.s2.stewardagent.source.FakeHttp;
 import eu.nordtal.s2.stewardagent.source.GitHubReleases;
 import eu.nordtal.s2.stewardagent.source.Modrinth;
 import eu.nordtal.s2.stewardagent.source.PaperFill;
+import eu.nordtal.s2.stewardagent.topology.ComposeFile;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -264,7 +265,7 @@ class ResolverTest {
 
     @Test
     void anEmptyButMountedVolumeIsEveryRowMissingAFirstDeploymentNotAFault() throws IOException {
-        for (final Topology.Service service : Topology.SERVICES) {
+        for (final Topology.Service service : ComposeFile.topology().servers()) {
             Files.createDirectories(volumes.resolve(service.name()).resolve("plugins"));
         }
 
@@ -597,6 +598,8 @@ class ResolverTest {
                         new Modrinth(http),
                         new PaperFill(http),
                         Clock.fixed(Instant.parse("2026-09-01T18:00:00Z"), ZoneOffset.UTC),
+                        ComposeFile.topology().servers(),
+                        eu.nordtal.s2.stewardagent.plugin.PluginDirectory.NONE,
                         settings)
                 .resolve();
     }

@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.Topology;
+import eu.nordtal.s2.stewardagent.topology.ComposeFile;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
@@ -35,13 +36,18 @@ class TopologyStandbyTest {
     @Test
     void everyStandbyIsItsModelAgainOnItsOwnVolumes() {
         // A standby has to feel identical to its model, and differ only in the volumes and the published port.
-        for (final String model : Topology.SERVICES_WITH_STANDBY) {
-            assertStandbyMatchesItsModel(model);
+        for (final String standby : ComposeFile.topology().standbys()) {
+            assertStandbyMatchesItsModel(
+                    ComposeFile.topology().services().stream()
+                            .filter(service -> standby.equals(service.name()))
+                            .findFirst()
+                            .orElseThrow()
+                            .standbyOf(),
+                    standby);
         }
     }
 
-    private void assertStandbyMatchesItsModel(final String model) {
-        final String standby = Topology.standbyOf(model);
+    private void assertStandbyMatchesItsModel(final String model, final String standby) {
 
         @SuppressWarnings("unchecked")
         final Map<String, Object> defined = (Map<String, Object>) services.get(standby);
@@ -132,7 +138,7 @@ class TopologyStandbyTest {
 
     @Test
     void theStandbyIsReachedOnASecondPortAndThatIsThePortAClientIsTold() {
-        final String standby = Topology.standbyOf(Topology.PROXY);
+        final String standby = ComposeFile.topology().standbyOf(Topology.PROXY).orElseThrow();
         assertEquals(
                 List.of(),
                 ports(standby),
@@ -209,7 +215,7 @@ class TopologyStandbyTest {
         final Map<String, Object> environment =
                 (Map<String, Object>) ((Map<String, Object>) services.get(Topology.PROXY)).get("environment");
         final String servers = defaultOf(String.valueOf(environment.get("VELOCITY_SERVERS")));
-        final String standby = Topology.standbyOf(Topology.LIMBO);
+        final String standby = ComposeFile.topology().standbyOf(Topology.LIMBO).orElseThrow();
         assertTrue(
                 servers.contains(standby + "=" + standby + ":25565"),
                 "VELOCITY_SERVERS does not register " + standby + ": " + servers + ". Neither"

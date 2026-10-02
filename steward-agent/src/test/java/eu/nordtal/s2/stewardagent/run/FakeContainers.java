@@ -37,11 +37,9 @@ final class FakeContainers implements ContainerOps {
     /** Volumes whose snapshot is refused outright before anything is written. */
     private final java.util.Set<String> backupRefused = new java.util.LinkedHashSet<>();
 
-    /** compose.yml's backup set and stop set as they ship. */
+    /** compose.yml's services as they ship, with the backup set its mounts give. */
     private final AgentWire.Topology topology = new AgentWire.Topology(
-            List.of(
-                    new AgentWire.Service("smp", null, true, true),
-                    new AgentWire.Service("discord-bot", null, false, true)),
+            eu.nordtal.s2.stewardagent.topology.ComposeFile.topology().services(),
             List.of(
                     "nordtal-s2_mc-smp",
                     "nordtal-s2_mc-smp-plugins",

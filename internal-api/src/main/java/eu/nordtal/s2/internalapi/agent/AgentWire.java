@@ -119,16 +119,83 @@ public final class AgentWire {
                     .map(Service::name)
                     .toList();
         }
+
+        /** The Minecraft servers, the services with a plugins folder, in file order: the proxy first. */
+        public List<eu.nordtal.s2.internalapi.agent.Topology.Service> servers() {
+            return services.stream()
+                    .map(Service::server)
+                    .filter(java.util.Objects::nonNull)
+                    .toList();
+        }
+
+        /** Whether {@code service} is one of the servers, which decides whether the Plugins tab is drawn. */
+        public boolean hasPlugins(final String service) {
+            return servers().stream().anyMatch(server -> server.name().equals(service));
+        }
+
+        /** The standby that stands in for {@code service}, if it has one. */
+        public java.util.Optional<String> standbyOf(final String service) {
+            return services.stream()
+                    .filter(one -> service.equals(one.standbyOf()))
+                    .map(Service::name)
+                    .findFirst();
+        }
+
+        /** Every standby, in file order, which is the order a swap starts them in. */
+        public List<String> standbys() {
+            return services.stream()
+                    .filter(one -> one.standbyOf() != null)
+                    .map(Service::name)
+                    .toList();
+        }
+
+        /** The services a run renews at that point, in file order. */
+        public List<String> renewed(final Renewal when) {
+            return services.stream()
+                    .filter(one -> one.renewal() == when)
+                    .map(Service::name)
+                    .toList();
+        }
+    }
+
+    /** When a run makes a service's container again, which the label {@code eu.nordtal.renew} says. */
+    public enum Renewal {
+        /** Stopped by a run, made again from a newer image and started: every image of ours a run may stop. */
+        RUN,
+        /** Made again once everything else is back: an image nobody here builds. */
+        AFTER,
+        /** Made again last of all, since the run's report goes through it: postgres. */
+        LAST
     }
 
     /**
-     * One service of compose.yml.
+     * One service of compose.yml, as its labels describe it.
      *
      * @param image the image reference after interpolation, or {@code null} for a service that only builds
      * @param console whether a line can be typed into it, which the label {@code eu.nordtal.console} says
      * @param stoppedForBackup whether a backup stops it while it saves, which the label {@code eu.nordtal.backup} says
+     * @param server the server it is, from {@code eu.nordtal.server} and {@code eu.nordtal.plugins}, or none
+     * @param standbyOf the service it stands in for, from {@code eu.nordtal.standby-of}, or none
+     * @param renewal when a run makes it again, from {@code eu.nordtal.renew}, or never
      */
-    public record Service(String name, @Nullable String image, boolean console, boolean stoppedForBackup) {}
+    public record Service(
+            String name,
+            @Nullable String image,
+            boolean console,
+            boolean stoppedForBackup,
+            eu.nordtal.s2.internalapi.agent.Topology.@Nullable Service server,
+            @Nullable String standbyOf,
+            @Nullable Renewal renewal) {
+
+        /** A service that is no server and no standby, and that no run makes again. */
+        public Service(
+                final String name,
+                final @Nullable String image,
+                final boolean console,
+                final boolean stoppedForBackup) {
+            this(name, image, console, stoppedForBackup, null, null, null);
+        }
+    }
 
     /**
      * One container, as the service table and a run read it.

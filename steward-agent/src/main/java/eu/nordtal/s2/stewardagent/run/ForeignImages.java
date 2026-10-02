@@ -2,7 +2,6 @@ package eu.nordtal.s2.stewardagent.run;
 
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.update.UpdateReport;
-import eu.nordtal.s2.internalapi.BankWire;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.ImageResult;
 import eu.nordtal.s2.internalapi.agent.RedeployResult;
@@ -11,31 +10,27 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/** The three images this project does not build itself, and what {@link Runner} puts into a plan about all of them. */
+/** What {@link Runner} puts into a plan about every image, and the images it renews once the rest is back. */
 final class ForeignImages {
 
     private ForeignImages() {}
 
     /**
      * Puts what the registries say about the images into the plan, so that a stale image is work.
-     * Never claims steward-agent's own image, which a one-shot renews, the migrate service's, which the install runs,
-     * a service outside {@link Topology}, or an image nobody could check.
-     */
-    static UpdateReport withImages(final UpdateReport planned, final ImageResult images) {
-        return withImages(planned, images, List.of());
-    }
-
-    /**
-     * Adds image rows to a plan.
+     * Never the agent's own, which a one-shot renews, one no label lets a run renew, or one nobody could check.
      *
      * @param scope the services this run is for, empty for the whole network; nothing outside it gets a line
      */
-    static UpdateReport withImages(final UpdateReport planned, final ImageResult images, final List<String> scope) {
+    static UpdateReport withImages(
+            final UpdateReport planned,
+            final ImageResult images,
+            final AgentWire.Topology topology,
+            final List<String> scope) {
+        final List<String> renewedAfter = foreign(topology);
+        final List<String> recreatable = topology.renewed(AgentWire.Renewal.RUN);
         UpdateReport report = planned;
 
         // Named first: an image that could not be compared is UNKNOWN, never silently current.
@@ -66,11 +61,11 @@ final class ForeignImages {
                 // The agent is handed over and renewed last; migrate runs from the install, made new by it.
                 continue;
             }
-            if (FOREIGN_IMAGES.contains(service)) {
+            if (renewedAfter.contains(service)) {
                 // Renewed later by #renewForeign; no line here, since `stop` acts on lines.
                 continue;
             }
-            if (!RECREATABLE.contains(service)) {
+            if (!recreatable.contains(service)) {
                 foreign.add(service);
                 continue;
             }
@@ -90,21 +85,20 @@ final class ForeignImages {
     }
 
     /**
-     * The three images nobody here builds, in renewal order, with postgres last since the report goes through it.
+     * The services renewed once the rest is back, in renewal order: postgres last, as the report goes through it.
      *
      * Each tag pins a major version, which a run must never change: Postgres will not start on another's data.
      */
-    static final List<String> FOREIGN_IMAGES = List.of("caddy", "pack-host", "postgres");
+    static List<String> foreign(final AgentWire.Topology topology) {
+        return Stream.concat(
+                        topology.renewed(AgentWire.Renewal.AFTER).stream(),
+                        topology.renewed(AgentWire.Renewal.LAST).stream())
+                .toList();
+    }
 
-    /** The services a run may pull an image for and recreate: everything it already stops, and nothing else. */
-    static final Set<String> RECREATABLE = Stream.concat(
-                    Topology.SERVICES.stream().map(Topology.Service::name),
-                    Stream.of(Topology.DISCORD_BOT, Topology.STEWARD, BankWire.SERVICE))
-            .collect(Collectors.toUnmodifiableSet());
-
-    /** The foreign images that are {@code OUTDATED}, in {@link #FOREIGN_IMAGES}'s order. */
-    static List<String> staleForeign(final ImageResult images) {
-        return FOREIGN_IMAGES.stream().filter(images::isOutdated).toList();
+    /** Those of {@link #foreign} that are {@code OUTDATED}, in its order. */
+    static List<String> staleForeign(final AgentWire.Topology topology, final ImageResult images) {
+        return foreign(topology).stream().filter(images::isOutdated).toList();
     }
 
     /**

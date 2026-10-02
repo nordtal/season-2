@@ -331,7 +331,7 @@ public final class StewardAgent {
         final AgentApi.Paths paths = pathsOf(server, runs.get());
         final PluginDirectory plugins = PluginDirectory.using(database.dataSource());
         final AgentApi api = new AgentApi(docker, project, compose::definitions, compose::hashes, paths, clock);
-        final RunRoutes runRoutes = new RunRoutes(runs::get, plugins, database, clock);
+        final RunRoutes runRoutes = new RunRoutes(runs::get, plugins, database, clock, api.topology()::read);
         if (!docker.isReachable()) {
             log.warn("No docker socket answers, so every container route answers that the daemon is not answering.");
         }
@@ -344,7 +344,7 @@ public final class StewardAgent {
         try (api) {
             // Before the marker and before any run is claimed, so nothing races it.
             if (runs.get().bootstrap()) {
-                Bootstrap.installMissing(runs.get(), database);
+                Bootstrap.installMissing(runs.get(), database, api.topology()::read);
             }
             if (!Readiness.onDefaultPath(clock, log::warn).keepBeating()) {
                 log.error("Could not write the readiness marker, so the rest of the stack will not start.");

@@ -1,6 +1,5 @@
 package eu.nordtal.s2.stewardagent.plan;
 
-import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -10,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.s2.common.Platform;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.Topology;
+import eu.nordtal.s2.stewardagent.topology.ComposeFile;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
@@ -25,99 +25,71 @@ import org.junit.jupiter.api.TestInstance;
 import org.yaml.snakeyaml.Yaml;
 
 /**
- * Makes a fact {@link Topology} and {@code compose.yml} both hold fail loudly when the two copies drift.
+ * What compose.yml has to hold together: its labels, the entrypoint's view of them, and the mounts they imply.
  *
- * It reads the real compose file, since a fixture would be a third copy.
+ * It reads the real compose file, through the agent's own parser where a label is concerned.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TopologyTest {
 
-    private static final Pattern WHITESPACE = Pattern.compile("\\s+");
+    private static final AgentWire.Topology TOPOLOGY = ComposeFile.topology();
+
+    private static final List<Topology.Service> SERVERS = TOPOLOGY.servers();
 
     private final Map<String, Object> services = readComposeServices();
 
     @Test
-    void everyServiceInTheTopologyIsAServiceInComposeYmlWithTheSameServerKind() {
-        for (final Topology.Service service : Topology.SERVICES) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
-            assertNotNull(defined, "compose.yml has no service '" + service.name() + "'");
-
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> environment = (Map<String, Object>) defined.get("environment");
-            assertNotNull(environment, service.name() + " has no environment block");
-
-            assertEquals(
-                    service.kind().fillProject(),
-                    String.valueOf(environment.get("SERVER_KIND")),
-                    service.name() + " runs a different server than the topology says");
+    void theEntrypointReadsTheKindAndThePluginsTheAgentReads() {
+        // An alias, not a copy: a literal written into the environment again would be a second owner.
+        for (final Topology.Service server : SERVERS) {
+            assertEntrypointReadsLabels(server.name(), server.name());
+        }
+        for (final String standby : TOPOLOGY.standbys()) {
+            assertEntrypointReadsLabels(
+                    standby,
+                    TOPOLOGY.services().stream()
+                            .filter(service -> standby.equals(service.name()))
+                            .findFirst()
+                            .orElseThrow()
+                            .standbyOf());
         }
     }
 
-    @Test
-    void everyPluginTheTopologyGivesAServiceIsOneThatServicesGuardAsksFor() {
-        // Counts, not names: an artefact id is not its filename prefix, so this only checks the plugin is asked for.
-        for (final Topology.Service service : Topology.SERVICES) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
-            assertNotNull(defined, "compose.yml has no service '" + service.name() + "'");
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> environment = (Map<String, Object>) defined.get("environment");
-
-            final Object raw = environment.get("EXPECTED_PLUGINS");
-            assertNotNull(
-                    raw,
-                    service.name() + " has no EXPECTED_PLUGINS, so its entrypoint falls"
-                            + " back to 'the folder is not empty' - the check that let an SMP with no season"
-                            + " on it start and report healthy");
-
-            final List<String> expected =
-                    WHITESPACE.splitAsStream(defaultOf(String.valueOf(raw))).toList();
-            assertEquals(
-                    service.guarded().size(),
-                    expected.size(),
-                    service.name() + " runs " + service.plugins() + " (of which " + service.optional()
-                            + " is optional) but its guard asks for " + expected + ". A plugin added"
-                            + " to the topology and not to compose.yml is one the container will"
-                            + " happily start without.");
-            assertTrue(
-                    expected.contains(service.name()),
-                    service.name() + "'s own season jar is not in its EXPECTED_PLUGINS: " + expected);
-        }
+    private void assertEntrypointReadsLabels(final String name, final String labelled) {
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> environment =
+                (Map<String, Object>) ((Map<String, Object>) services.get(name)).get("environment");
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> labels =
+                (Map<String, Object>) ((Map<String, Object>) services.get(labelled)).get("labels");
+        assertEquals(
+                labels.get("eu.nordtal.server"),
+                environment.get("SERVER_KIND"),
+                name + "'s entrypoint runs a different server than its label says");
+        assertEquals(
+                labels.get("eu.nordtal.plugins"),
+                environment.get("SERVER_PLUGINS"),
+                name + "'s entrypoint guards other plugins than its label names");
     }
 
     @Test
     void anArtefactThatMayHaveNoBuildForThisVersionIsNotOneTheGuardDemands() {
-        // Service#optional exists so an artefact with no build for this version cannot keep the SMP down.
-        final Topology.Service smp = Topology.SERVICES.stream()
-                .filter(service -> service.name().equals(Topology.SMP))
-                .findFirst()
-                .orElseThrow();
+        // `?` exists so an artefact with no build for this version cannot keep the SMP down.
+        final Topology.Service smp = server(Topology.SMP);
 
         assertTrue(
                 smp.plugins().contains(Topology.CORE_PROTECT),
-                "smp no longer carries a CoreProtect row - if that was deliberate, this test and"
-                        + " the artefact go together");
+                "smp no longer carries CoreProtect - if that was deliberate, this test and the artefact go together");
         assertTrue(
                 smp.optional().contains(Topology.CORE_PROTECT),
                 "CoreProtect is guarded again. Until a 26.2 build exists that is an SMP that will"
                         + " not start, every start, for a reason nobody here can act on.");
-        assertFalse(smp.guarded().contains(Topology.CORE_PROTECT), "guarded() ignores optional()");
-
-        // Checked against the guard string itself, not just a count: `${file%-*.jar}` is what an entry would read.
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> environment =
-                (Map<String, Object>) ((Map<String, Object>) services.get(Topology.SMP)).get("environment");
-        final String guard = defaultOf(String.valueOf(environment.get("EXPECTED_PLUGINS")));
-        assertFalse(
-                guard.toLowerCase(java.util.Locale.ROOT).contains("coreprotect"),
-                "smp's EXPECTED_PLUGINS asks for CoreProtect: " + guard);
     }
 
     @Test
     void voiceChatIsOneUdpPortOnTheGuardAndNoServiceOfTheNetworkPublishesOne() {
         // The proxy detects each backend's voice address and forwards it, so only the guard needs to publish it.
-        for (final Topology.Service service : Topology.SERVICES) {
+        for (final Topology.Service service : SERVERS) {
             assertEquals(
                     List.of(),
                     ports(service.name()),
@@ -158,7 +130,7 @@ class TopologyTest {
                         + ". port: -1 means they are the same port, so these cannot differ.");
     }
 
-    /** The guard in front of 25565, deliberately not a {@link Topology} service, so a run never restarts it. */
+    /** The guard in front of 25565, deliberately no server, so a run never restarts it with them. */
     private static final String GUARD = "caddy";
 
     @Test
@@ -200,61 +172,39 @@ class TopologyTest {
     @Test
     void theProxyRunsVoiceChatsProxyHalfAndItIsNotOneTheProxyRefusesToStartWithout() {
         // voicechat-velocity is a pre-release; guarding on it lets its next bad build stop the proxy from starting.
-        final Topology.Service proxy = Topology.SERVICES.stream()
-                .filter(service -> service.name().equals(Topology.PROXY))
-                .findFirst()
-                .orElseThrow();
+        final Topology.Service proxy = server(Topology.PROXY);
 
         assertTrue(
                 proxy.plugins().contains(Topology.VOICE_CHAT_PROXY),
-                "the proxy carries no voicechat-velocity row - without it every backend needs its"
+                "the proxy carries no voicechat-velocity - without it every backend needs its"
                         + " own public UDP port back, and compose.yml publishes none");
         assertTrue(proxy.optional().contains(Topology.VOICE_CHAT_PROXY), "voicechat-velocity is guarded again");
-        assertFalse(proxy.guarded().contains(Topology.VOICE_CHAT_PROXY), "guarded() ignores optional()");
-
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> environment =
-                (Map<String, Object>) ((Map<String, Object>) services.get(Topology.PROXY)).get("environment");
-        final String guard = defaultOf(String.valueOf(environment.get("EXPECTED_PLUGINS")));
-        assertFalse(
-                guard.toLowerCase(java.util.Locale.ROOT).contains("voicechat"),
-                "the proxy's EXPECTED_PLUGINS asks for voice chat: " + guard);
     }
 
     @Test
     void neitherBackendRefusesToStartOverAMissingVoiceChatJar() {
         // Voice chat needs a client mod, so a missing jar costs a quiet evening while a guard entry costs the server.
         for (final String name : List.of(Topology.SMP, Topology.HUNGER_GAMES)) {
-            final Topology.Service service = Topology.SERVICES.stream()
-                    .filter(candidate -> candidate.name().equals(name))
-                    .findFirst()
-                    .orElseThrow();
+            final Topology.Service service = server(name);
 
             assertTrue(service.plugins().contains(Topology.VOICE_CHAT), name + " no longer runs voice chat at all");
-            assertFalse(service.guarded().contains(Topology.VOICE_CHAT), name + " refuses to start without voice chat");
-
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> environment =
-                    (Map<String, Object>) ((Map<String, Object>) services.get(name)).get("environment");
-            // `${file%-*.jar}` on the voicechat jar is what a guard entry would look like.
-            final String guard = defaultOf(String.valueOf(environment.get("EXPECTED_PLUGINS")));
-            assertFalse(
-                    guard.toLowerCase(java.util.Locale.ROOT).contains("voicechat"),
-                    name + "'s EXPECTED_PLUGINS asks for voice chat: " + guard);
+            assertTrue(service.optional().contains(Topology.VOICE_CHAT), name + " refuses to start without voice chat");
         }
     }
 
     @Test
     void theWaitingRoomHasNoVoiceChatAndThatIsHowItStaysSilent() {
         // Simple Voice Chat needs its Bukkit plugin on the server a player stands on; the limbo has never had it.
-        final Topology.Service limbo = Topology.SERVICES.stream()
-                .filter(candidate -> candidate.name().equals(Topology.LIMBO))
-                .findFirst()
-                .orElseThrow();
-
         assertFalse(
-                limbo.plugins().contains(Topology.VOICE_CHAT),
+                server(Topology.LIMBO).plugins().contains(Topology.VOICE_CHAT),
                 "the limbo carries voice chat, so two people waiting can hear each other");
+    }
+
+    private static Topology.Service server(final String name) {
+        return SERVERS.stream()
+                .filter(candidate -> candidate.name().equals(name))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("compose.yml labels no server '" + name + "'"));
     }
 
     /** Every published port of a compose service, as written. */
@@ -312,7 +262,7 @@ class TopologyTest {
         return List.copyOf(parts);
     }
 
-    /** {@code ${SMP_EXPECTED_PLUGINS:-smp …}}, what compose uses when .env says nothing. */
+    /** {@code ${SMP_PLUGINS:-…}}, what compose uses when .env says nothing. */
     private static String defaultOf(final String value) {
         final java.util.regex.Matcher matcher =
                 java.util.regex.Pattern.compile("^\\$\\{[A-Z0-9_]+:-(.*)}$").matcher(value);
@@ -323,7 +273,7 @@ class TopologyTest {
     @Test
     void theServerVersionInComposeYmlIsTheOneCommonDeclaresAsALiteral() {
         // The literal is asserted, not merely required to exist, because a `${...:-26.2}` would pass a shape check.
-        for (final Topology.Service service : Topology.SERVICES) {
+        for (final Topology.Service service : SERVERS) {
             @SuppressWarnings("unchecked")
             final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
             assertNotNull(defined, "compose.yml has no service '" + service.name() + "'");
@@ -425,13 +375,13 @@ class TopologyTest {
     }
 
     @Test
-    void everyServiceTheTopologyKnowsHasItsVolumeMountedIntoTheAgent() {
+    void everyServerHasItsVolumeMountedIntoTheAgent() {
         @SuppressWarnings("unchecked")
         final Map<String, Object> agent = (Map<String, Object>) services.get(AgentWire.SERVICE);
         assertNotNull(agent, "compose.yml has no " + AgentWire.SERVICE + " service");
 
         final String mounts = String.valueOf(agent.get("volumes"));
-        for (final Topology.Service service : Topology.SERVICES) {
+        for (final Topology.Service service : SERVERS) {
             // A server whose volume is not mounted reports as "unknown" for ever. Caught here.
             assertTrue(
                     mounts.contains("/volumes/" + service.name()),
@@ -445,7 +395,7 @@ class TopologyTest {
         @SuppressWarnings("unchecked")
         final List<String> agentMounts = mountsOf((Map<String, Object>) services.get(AgentWire.SERVICE));
 
-        for (final Topology.Service service : Topology.SERVICES) {
+        for (final Topology.Service service : SERVERS) {
             assertPluginsDirectoryIsShared(service, agentMounts);
         }
     }
@@ -522,7 +472,7 @@ class TopologyTest {
         final List<String> stewardMounts = mountsOf(editor);
 
         // The interface shows a bundle under the compose service name, the same name the server owns it under.
-        for (final Topology.Service service : Topology.SERVICES) {
+        for (final Topology.Service service : SERVERS) {
             assertServerConfigMatchesInterface(service, stewardMounts);
         }
 
@@ -638,14 +588,31 @@ class TopologyTest {
     }
 
     @Test
-    void exactlyTheFourMinecraftServicesHavePluginsAndNothingElseDoes() {
-        assertAll(
-                () -> assertTrue(Topology.hasPlugins(Topology.SMP)),
-                () -> assertTrue(Topology.hasPlugins(Topology.PROXY)),
-                () -> assertTrue(Topology.hasPlugins(Topology.LIMBO)),
-                () -> assertTrue(Topology.hasPlugins(Topology.HUNGER_GAMES)),
-                () -> assertFalse(Topology.hasPlugins("postgres")),
-                () -> assertFalse(Topology.hasPlugins(Topology.DISCORD_BOT)),
-                () -> assertFalse(Topology.hasPlugins(Topology.standbyOf(Topology.PROXY))));
+    void exactlyTheFourMinecraftServicesHavePluginsAndTwoOfThemAStandby() {
+        assertEquals(
+                List.of(Topology.PROXY, Topology.LIMBO, Topology.HUNGER_GAMES, Topology.SMP),
+                SERVERS.stream().map(Topology.Service::name).toList(),
+                "the proxy comes first: a report reads best in that order");
+        assertEquals(List.of("proxy-standby", "limbo-standby"), TOPOLOGY.standbys());
+        assertFalse(TOPOLOGY.hasPlugins("proxy-standby"), "a standby's plugins are a copy, never resolved");
+    }
+
+    @Test
+    void aRunRenewsPostgresLastAndNeverTheAgentTheMigrateServiceOrAStandby() {
+        assertEquals(List.of("postgres"), TOPOLOGY.renewed(AgentWire.Renewal.LAST), "the report goes through it");
+        for (final String never : List.of(AgentWire.SERVICE, Topology.MIGRATE, "proxy-standby", "limbo-standby")) {
+            assertNull(
+                    TOPOLOGY.services().stream()
+                            .filter(service -> never.equals(service.name()))
+                            .findFirst()
+                            .orElseThrow()
+                            .renewal(),
+                    never + " carries eu.nordtal.renew, and no run may make it again");
+        }
+        assertTrue(
+                TOPOLOGY.renewed(AgentWire.Renewal.RUN)
+                        .containsAll(
+                                SERVERS.stream().map(Topology.Service::name).toList()),
+                "a server whose image a run may not renew is one an update can never bring to its release");
     }
 }

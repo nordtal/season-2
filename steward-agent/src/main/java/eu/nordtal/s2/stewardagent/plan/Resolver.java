@@ -41,19 +41,13 @@ public final class Resolver {
     /** Where the proxy's pack is read; {@code null} without a database. */
     private final @Nullable SettingStore settings;
 
-    public Resolver(
-            final RunSpec config,
-            final GitHubReleases github,
-            final Modrinth modrinth,
-            final PaperFill fill,
-            final Clock clock,
-            final @Nullable SettingStore settings) {
-        this(config, github, modrinth, fill, clock, eu.nordtal.s2.stewardagent.plugin.PluginDirectory.NONE, settings);
-    }
+    /** The servers as compose.yml's labels describe them, before the added plugins are folded in. */
+    private final List<Topology.Service> servers;
 
     /**
-     * Resolves against the fixed topology plus the plugins an admin added.
+     * Resolves against the servers compose.yml labels plus the plugins an admin added.
      *
+     * @param servers the servers as compose.yml's labels describe them
      * @param plugins merged in by {@code PluginDirectory#servicesWith}; {@code PluginDirectory#NONE} without a database
      * @param settings where the proxy's pack is read; {@code null} leaves the pack unknown
      */
@@ -63,9 +57,11 @@ public final class Resolver {
             final Modrinth modrinth,
             final PaperFill fill,
             final Clock clock,
+            final List<Topology.Service> servers,
             final eu.nordtal.s2.stewardagent.plugin.PluginDirectory plugins,
             final @Nullable SettingStore settings) {
         this.config = config;
+        this.servers = List.copyOf(servers);
         this.github = github;
         this.modrinth = modrinth;
         this.fill = fill;
@@ -130,7 +126,8 @@ public final class Resolver {
             final Map<String, String> failures,
             final Map<String, String> unsupported) {
         final List<eu.nordtal.s2.stewardagent.plugin.ManagedPlugin> added = readAdded();
-        final List<Topology.Service> services = eu.nordtal.s2.stewardagent.plugin.PluginDirectory.servicesWith(added);
+        final List<Topology.Service> services =
+                eu.nordtal.s2.stewardagent.plugin.PluginDirectory.servicesWith(servers, added);
         resolveAdded(newest, failures, unsupported, added, services);
         return services;
     }

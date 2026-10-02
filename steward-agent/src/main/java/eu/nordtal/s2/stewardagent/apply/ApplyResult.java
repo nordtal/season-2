@@ -19,11 +19,22 @@ public record ApplyResult(List<Outcome> outcomes) {
         FAILED
     }
 
+    /** @param file the file a {@code DONE} moved into place, {@code null} otherwise and for the pack */
     public record Outcome(
             @Nullable String service,
             String artifact,
             Status status,
-            @Nullable String detail) {}
+            @Nullable String detail,
+            @Nullable String file) {
+
+        public Outcome(
+                final @Nullable String service,
+                final String artifact,
+                final Status status,
+                final @Nullable String detail) {
+            this(service, artifact, status, detail, null);
+        }
+    }
 
     public boolean changedAnything() {
         return outcomes.stream().anyMatch(outcome -> outcome.status() == Status.DONE);

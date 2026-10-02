@@ -1,7 +1,9 @@
 package eu.nordtal.s2.stewardagent.plugin;
 
 import java.util.List;
+import org.jdbi.v3.sqlobject.config.KeyColumn;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
+import org.jdbi.v3.sqlobject.config.ValueColumn;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
@@ -40,6 +42,28 @@ interface PluginDao {
             @Bind("iconUrl") @Nullable String iconUrl,
             @Bind("pageUrl") @Nullable String pageUrl,
             @Bind("addedBy") @Nullable String addedBy);
+
+    /** Notes the file an artefact runs from now, replacing the one before it. */
+    @SqlUpdate("""
+            INSERT INTO plugin_file (service, artifact, file_name, release)
+            VALUES (:service, :artifact, :fileName, :release)
+            ON CONFLICT (service, artifact) DO UPDATE
+                SET file_name = EXCLUDED.file_name, release = EXCLUDED.release, installed_at = now()
+            """)
+    void installed(
+            @Bind("service") String service,
+            @Bind("artifact") String artifact,
+            @Bind("fileName") String fileName,
+            @Bind("release") String release);
+
+    @SqlQuery("SELECT file_name, release FROM plugin_file WHERE service = :service")
+    @KeyColumn("file_name")
+    @ValueColumn("release")
+    java.util.Map<String, String> releases(@Bind("service") String service);
+
+    /** Drops the note of a removed plugin's file. */
+    @SqlUpdate("DELETE FROM plugin_file WHERE service = :service AND artifact = :artifact")
+    void forget(@Bind("service") String service, @Bind("artifact") String artifact);
 
     /** Returns how many rows went away; zero when it was not added. */
     @SqlUpdate("DELETE FROM service_plugin WHERE service = :service AND artifact = :artifact")

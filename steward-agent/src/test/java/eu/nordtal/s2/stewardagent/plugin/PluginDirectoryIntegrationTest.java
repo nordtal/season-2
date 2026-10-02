@@ -35,7 +35,7 @@ class PluginDirectoryIntegrationTest {
 
     @BeforeEach
     void freshTable() {
-        execute("TRUNCATE TABLE service_plugin");
+        execute("TRUNCATE TABLE service_plugin, plugin_file");
         plugins = PluginDirectory.using(dataSource);
     }
 
@@ -50,6 +50,28 @@ class PluginDirectoryIntegrationTest {
                 "https://modrinth.com/plugin/" + slug,
                 Instant.EPOCH,
                 "till (1)");
+    }
+
+    @Test
+    void aFileNamesTheReleaseThatInstalledItAndANewerFileReplacesItsNote() {
+        plugins.installed("smp", "smp", "smp-0.10.3.jar", "0.10.3");
+        plugins.installed("smp", "voicechat", "voicechat-bukkit-2.6.1.jar", "0.10.3");
+        plugins.installed("smp", "smp", "smp-0.11.0.jar", "0.11.0");
+        plugins.installed("limbo", "limbo", "limbo-0.11.0.jar", "0.11.0");
+
+        assertEquals(
+                java.util.Map.of("smp-0.11.0.jar", "0.11.0", "voicechat-bukkit-2.6.1.jar", "0.10.3"),
+                plugins.releases("smp"));
+    }
+
+    @Test
+    void removingAnAddedPluginForgetsItsFile() {
+        plugins.add(row("smp", "worldedit", "worldedit-bukkit"));
+        plugins.installed("smp", "worldedit", "worldedit-bukkit-7.3.jar", "0.11.0");
+
+        plugins.remove("smp", "worldedit");
+
+        assertEquals(java.util.Map.of(), plugins.releases("smp"));
     }
 
     @Test

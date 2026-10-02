@@ -206,7 +206,8 @@ final class Kinds {
                 throw new Run.Abort(report.withNote("NOTHING WAS INSTALLED. The schema could not be brought to this"
                         + " release, so every server was started again on what it had: " + migrated.message()));
             }
-            final ApplyResult result = Runs.apply(runner.config, runner.topology(), plan, runner.settings());
+            final ApplyResult result =
+                    Runs.apply(runner.config, runner.topology(), plan, runner.settings(), runner.plugins);
             report = report.withNote(Report.render(result));
             for (final String service : state.services()) {
                 // Only where the apply succeeded; marking every stopped service INSTALLED here would be premature.

@@ -48,6 +48,18 @@ public interface PluginDirectory {
     }
 
     /**
+     * Notes the file a run moved into place for one artefact, and the release whose run that was.
+     *
+     * A directory without a database records nothing: the note is for reading, and a run never depends on it.
+     */
+    default void installed(final String service, final String artifact, final String fileName, final String release) {}
+
+    /** Returns the release that installed each file on one service, by file name; empty where none was noted. */
+    default java.util.Map<String, String> releases(final String service) {
+        return java.util.Map.of();
+    }
+
+    /**
      * The servers with every plugin an admin added folded in.
      *
      * @param servers the servers as compose.yml's labels describe them

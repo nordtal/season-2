@@ -54,14 +54,15 @@ public final class Runs {
     /**
      * Fetches everything the plan calls for and moves it into place, restarting nothing.
      *
-     * Migrate first, so a plugin never meets an older schema and a failed migration stops the run early.
+     * Every file moved into place is noted in {@code plugins} with this agent's release, which is the run's.
      */
     public static ApplyResult apply(
             final RunSpec config,
             final AgentWire.Topology topology,
             final UpdatePlan plan,
-            final SettingStore settings) {
-        return new Applier(
+            final SettingStore settings,
+            final eu.nordtal.s2.stewardagent.plugin.PluginDirectory plugins) {
+        final ApplyResult result = new Applier(
                         config,
                         new Downloads(SourceHttp.client(
                                 Duration.ofSeconds(config.downloadTimeoutSeconds()),
@@ -70,5 +71,22 @@ public final class Runs {
                         settings,
                         topology)
                 .apply(plan);
+        record(result, Release.ownVersion(), plugins);
+        return result;
+    }
+
+    /** Notes every file the apply moved into place; nothing without a release, which only a test runs as. */
+    static void record(
+            final ApplyResult result,
+            final @Nullable String release,
+            final eu.nordtal.s2.stewardagent.plugin.PluginDirectory plugins) {
+        if (release == null) {
+            return;
+        }
+        for (final ApplyResult.Outcome outcome : result.outcomes()) {
+            if (outcome.status() == ApplyResult.Status.DONE && outcome.service() != null && outcome.file() != null) {
+                plugins.installed(outcome.service(), outcome.artifact(), outcome.file(), release);
+            }
+        }
     }
 }

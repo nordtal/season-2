@@ -42,5 +42,16 @@ final class JdbiPluginDirectory implements PluginDirectory {
     @Override
     public void remove(final String service, final String artifact) {
         dao.remove(Objects.requireNonNull(service, "service"), Objects.requireNonNull(artifact, "artifact"));
+        dao.forget(service, artifact);
+    }
+
+    @Override
+    public void installed(final String service, final String artifact, final String fileName, final String release) {
+        dao.installed(service, artifact, fileName, release);
+    }
+
+    @Override
+    public java.util.Map<String, String> releases(final String service) {
+        return dao.releases(Objects.requireNonNull(service, "service"));
     }
 }

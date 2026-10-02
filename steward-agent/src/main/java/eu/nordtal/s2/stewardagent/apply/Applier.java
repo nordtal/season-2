@@ -216,7 +216,11 @@ public final class Applier {
                         StandardCopyOption.ATOMIC_MOVE);
                 final List<String> removed = removeSuperseded(destinationDirectory, wanted.fileName());
                 outcomes.add(new ApplyResult.Outcome(
-                        service, change.artifact(), ApplyResult.Status.DONE, describe(change, wanted, removed)));
+                        service,
+                        change.artifact(),
+                        ApplyResult.Status.DONE,
+                        describe(change, wanted, removed),
+                        wanted.fileName()));
             } catch (final IOException failed) {
                 // The one case where a server can be left mixed, so it is said plainly.
                 outcomes.add(new ApplyResult.Outcome(

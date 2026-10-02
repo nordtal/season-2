@@ -61,6 +61,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V11__a_run_can_be_handed_to_a_one_shot.sql",
                 "853ad5f3c3ce00d831b923ab75c9d3e6bacc47caf791df1418b7b6f0a04baa91");
+        FROZEN.put(
+                "V12__a_file_names_the_release_that_installed_it.sql",
+                "be9d5bcdbec3681d1df30ea7f1d64d07898e447b2091bb414b7d4cf11288822f");
     }
 
     @Test

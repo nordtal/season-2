@@ -99,6 +99,10 @@ pin and no rollback: a bad release is corrected by publishing a better one.
 - Artefacts are staged in `.nordtal-staging` inside the server's volume and move only when all are
   present. A server moves together or not at all.
 - Nothing it does not account for is deleted, and only after the new jar is in place.
+- Every file a run or `bootstrap` moves into place is noted in `plugin_file` with the agent's own
+  release, one row per server and artefact. Images carry their release in the tag; the plugins and
+  Paper and Velocity are files, so this note is how Steward's plugins tab names the release that
+  installed each jar. A jar copied in by hand has no note and shows none.
 - A version not tagged for the platform is refused. "Skipped" is distinct from success and failure.
 
 ## The contract

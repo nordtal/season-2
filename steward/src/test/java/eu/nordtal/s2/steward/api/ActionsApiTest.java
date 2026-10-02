@@ -3,7 +3,7 @@ package eu.nordtal.s2.steward.api;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.google.gson.JsonObject;
-import eu.nordtal.s2.database.Actor;
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.audit.AuditEntry;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateRequest;

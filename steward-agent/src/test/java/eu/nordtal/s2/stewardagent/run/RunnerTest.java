@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.jcore.persistence.sql.Database;
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.time.Waiting;
-import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.inbox.StewardRequest;
 import eu.nordtal.s2.database.update.UpdateDirectory;

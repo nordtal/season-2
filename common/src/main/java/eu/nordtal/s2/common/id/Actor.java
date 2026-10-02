@@ -1,11 +1,10 @@
-package eu.nordtal.s2.database;
+package eu.nordtal.s2.common.id;
 
-import eu.nordtal.s2.common.id.DiscordId;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Who asked for a request, stored as {@code actor_kind} and {@code actor_id}, which a {@code CHECK} keeps together.
+ * Who asked for something, stored as {@code actor_kind} and {@code actor_id} and carried as this record on the wire.
  *
  * @param kind   a person, Steward on its own, or somebody on the host
  * @param person the Discord id when {@link Kind#PERSON}, {@code null} otherwise

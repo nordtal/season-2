@@ -1,6 +1,6 @@
 package eu.nordtal.s2.database.update;
 
-import eu.nordtal.s2.database.Actor;
+import eu.nordtal.s2.common.id.Actor;
 import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 

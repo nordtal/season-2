@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.id.DiscordId;
-import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.DatabaseRole;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.TestDatabase;

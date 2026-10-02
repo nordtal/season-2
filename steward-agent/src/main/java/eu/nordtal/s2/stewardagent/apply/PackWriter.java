@@ -1,7 +1,7 @@
 package eu.nordtal.s2.stewardagent.apply;
 
 import com.google.gson.JsonPrimitive;
-import eu.nordtal.s2.database.Actor;
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.stewardagent.plan.PackState;
 import java.util.Map;

@@ -176,7 +176,7 @@ class NightlyClockTest {
                 9L,
                 eu.nordtal.s2.database.update.UpdateKind.UPDATE,
                 eu.nordtal.s2.database.update.UpdateStatus.RUNNING,
-                eu.nordtal.s2.database.Actor.HOST,
+                eu.nordtal.s2.common.id.Actor.HOST,
                 java.time.Instant.now(),
                 java.time.Instant.now(),
                 null,
@@ -222,7 +222,7 @@ class NightlyClockTest {
                                 12L,
                                 (eu.nordtal.s2.database.update.UpdateKind) args[0],
                                 eu.nordtal.s2.database.update.UpdateStatus.PENDING,
-                                (eu.nordtal.s2.database.Actor) args[1],
+                                (eu.nordtal.s2.common.id.Actor) args[1],
                                 java.time.Instant.now(),
                                 java.time.Instant.now(),
                                 null,
@@ -242,7 +242,7 @@ class NightlyClockTest {
 
         assertEquals(1, submitted.size());
         assertEquals(eu.nordtal.s2.database.update.UpdateKind.UPDATE, submitted.get(0)[0]);
-        assertEquals(eu.nordtal.s2.database.Actor.STEWARD, submitted.get(0)[1], "the clock, not a person");
+        assertEquals(eu.nordtal.s2.common.id.Actor.STEWARD, submitted.get(0)[1], "the clock, not a person");
         assertEquals(Duration.ofDays(7), next, "Sunday only: the next one is a week away");
     }
 

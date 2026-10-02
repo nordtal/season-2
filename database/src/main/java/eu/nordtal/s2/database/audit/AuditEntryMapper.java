@@ -1,8 +1,8 @@
 package eu.nordtal.s2.database.audit;
 
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.json.Json;
-import eu.nordtal.s2.database.Actor;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;

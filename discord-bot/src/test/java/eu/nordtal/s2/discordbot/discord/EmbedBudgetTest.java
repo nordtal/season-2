@@ -3,7 +3,7 @@ package eu.nordtal.s2.discordbot.discord;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.database.Actor;
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateRequest;

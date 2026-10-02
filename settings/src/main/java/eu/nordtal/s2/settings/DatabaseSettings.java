@@ -4,7 +4,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import eu.nordtal.jcore.config.spec.ManagedSpecReference;
-import eu.nordtal.s2.database.Actor;
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.setting.SettingStore;

@@ -1,7 +1,7 @@
 package eu.nordtal.s2.steward.web;
 
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.database.Actor;
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.data.Data;
 import io.javalin.http.BadRequestResponse;

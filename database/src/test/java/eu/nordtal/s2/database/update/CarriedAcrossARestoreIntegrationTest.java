@@ -3,7 +3,7 @@ package eu.nordtal.s2.database.update;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.database.Actor;
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.inbox.StewardRequest;
 import java.time.Duration;

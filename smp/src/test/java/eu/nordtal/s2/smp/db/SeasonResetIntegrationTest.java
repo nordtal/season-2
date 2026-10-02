@@ -3,7 +3,7 @@ package eu.nordtal.s2.smp.db;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.database.Actor;
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.DatabaseRole;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.TestDatabase;

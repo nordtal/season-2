@@ -1,8 +1,8 @@
 package eu.nordtal.s2.database.audit;
 
 import com.google.gson.JsonObject;
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.id.DiscordId;
-import eu.nordtal.s2.database.Actor;
 import java.time.Instant;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;

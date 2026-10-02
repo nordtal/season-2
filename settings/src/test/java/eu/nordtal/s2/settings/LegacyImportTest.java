@@ -2,7 +2,7 @@ package eu.nordtal.s2.settings;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import eu.nordtal.s2.database.Actor;
+import eu.nordtal.s2.common.id.Actor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;

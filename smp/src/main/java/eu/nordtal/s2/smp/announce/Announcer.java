@@ -1,7 +1,7 @@
 package eu.nordtal.s2.smp.announce;
 
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.language.Locales;
-import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.Schedule;

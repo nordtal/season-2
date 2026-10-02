@@ -1,9 +1,9 @@
 package eu.nordtal.s2.steward;
 
 import eu.nordtal.jcore.persistence.sql.Database;
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.time.Waiting;
-import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.settings.DatabaseWaiting;

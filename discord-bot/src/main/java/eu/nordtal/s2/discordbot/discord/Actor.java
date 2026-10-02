@@ -12,7 +12,7 @@ import org.jspecify.annotations.Nullable;
  * @param minecraftUuid their Minecraft account, or {@code null} when this surface knows of none.
  */
 public record Actor(
-        eu.nordtal.s2.database.Actor filed,
+        eu.nordtal.s2.common.id.Actor filed,
         String mention,
         @Nullable UUID minecraftUuid) {
 
@@ -22,7 +22,7 @@ public record Actor(
     }
 
     /** Returns whoever a request in the bot's inbox names, with no Minecraft account. */
-    public static Actor asked(final eu.nordtal.s2.database.Actor asker) {
+    public static Actor asked(final eu.nordtal.s2.common.id.Actor asker) {
         return switch (asker.kind()) {
             case PERSON -> new Actor(asker, "<@" + asker.id() + ">", null);
             case STEWARD -> new Actor(asker, "Steward", null);

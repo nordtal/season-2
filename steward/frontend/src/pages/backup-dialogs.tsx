@@ -77,8 +77,6 @@ export function DestinationDialog() {
                   entry={entry}
                   value={draft[entry.path] ?? (entry.secret ? "" : (entry.value ?? ""))}
                   disabled={!document.writable || save.isPending}
-                  roles={undefined}
-                  channels={undefined}
                   onChange={(value) => setDraft((was) => ({ ...was, [entry.path]: value }))}
                 />
               </div>
@@ -240,8 +238,6 @@ export function ScheduleDialog() {
                   entry={entry}
                   value={draft[entry.path] ?? (entry.secret ? "" : (entry.value ?? ""))}
                   disabled={!document.writable || saving}
-                  roles={undefined}
-                  channels={undefined}
                   onChange={(value) => setDraft((was) => ({ ...was, [entry.path]: value }))}
                 />
               </div>
@@ -255,8 +251,6 @@ export function ScheduleDialog() {
                   entry={entry}
                   value={retention.draft[entry.path] ?? entry.value ?? ""}
                   disabled={!runs.document?.writable || saving}
-                  roles={undefined}
-                  channels={undefined}
                   onChange={(value) => retention.setDraft((was) => ({ ...was, [entry.path]: value }))}
                 />
               </div>

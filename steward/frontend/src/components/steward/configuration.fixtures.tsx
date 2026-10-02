@@ -63,18 +63,20 @@ export function entry(over: Partial<ConfigEntry> & { path: string; key: string }
   }
 }
 
+const COLOUR = { to: "COLOUR", optional: false } as const
+
 export function colourEntry(key: string, value: string): ConfigEntry {
-  return entry({ path: key, key, label: key, value })
+  return entry({ path: key, key, label: key, value, refers: COLOUR })
 }
 
 export function ladder(hours: string[], colours: string[]): ConfigEntry[] {
   const keys = ["tier-01", "tier-02", "tier-03"]
   return [
-    entry({ path: "admin", key: "admin", label: "admin", value: "#ff5555" }),
+    entry({ path: "admin", key: "admin", label: "admin", value: "#ff5555", refers: COLOUR }),
     entry({ path: "hours", key: "hours", label: "hours", kind: "MAP", editable: false }),
     ...keys.map((key, at) => entry({ path: `hours.${key}`, key, label: key, type: "INTEGER", value: hours[at] })),
     entry({ path: "colours", key: "colours", label: "colours", kind: "MAP", editable: false }),
-    ...keys.map((key, at) => entry({ path: `colours.${key}`, key, label: key, value: colours[at] })),
+    ...keys.map((key, at) => entry({ path: `colours.${key}`, key, label: key, value: colours[at], refers: COLOUR })),
   ]
 }
 

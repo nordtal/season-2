@@ -2,11 +2,11 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { ColourControl, MINECRAFT_CHAT_BACKGROUND, SAMPLE_TEXT, colourRuns } from "@/components/steward/colour-control"
-import { colourValue } from "@/components/steward/config-controls"
+import { ScalarControl } from "@/components/steward/config-controls"
 import type { ConfigEntry } from "@/lib/api"
 import { asInput } from "@/lib/test-elements"
 
-/** The colour picker, `colourValue`, which offers it by the value's shape, and `colourRuns`, which rows them. */
+/** The colour picker, offered where a spec declares a colour, and `colourRuns`, which rows them. */
 
 /** The preview starts hidden, so every test about it opens it first. */
 const showPreview = () => fireEvent.click(screen.getByRole("button", { name: /preview/i }))
@@ -28,31 +28,36 @@ function field(over: Partial<ConfigEntry> & { key: string; path: string }): Conf
   }
 }
 
+/** A field its spec declares a colour. */
+function colour(over: Partial<ConfigEntry> & { key: string; path: string }): ConfigEntry {
+  return field({ refers: { to: "COLOUR", optional: false }, ...over })
+}
+
 afterEach(cleanup)
 
-describe("colourValue", () => {
-  it("recognises a stored value shaped like #rrggbb", () => {
-    expect(colourValue(field({ key: "good", path: "good", value: "#8ba888" }))).toBe("#8ba888")
-    // Case insensitive: jcore writes lower case, a hand edited file need not.
-    expect(colourValue(field({ key: "good", path: "good", value: "#8BA888" }))).toBe("#8BA888")
-  })
-
-  it("never mistakes an empty value for a colour", () => {
-    /** Both "" and undefined are asserted, so inlining the regex cannot quietly drop the early return. */
-    expect(colourValue(field({ key: "good", path: "good", value: "" }))).toBeNull()
-  })
-
-  it("rejects an ordinary text value, including one that starts with #", () => {
-    expect(colourValue(field({ key: "note", path: "note", value: "just text" }))).toBeNull()
-    /** Seven and five digits are rejected, as well as six. */
-    expect(colourValue(field({ key: "note", path: "note", value: "#1234567" }))).toBeNull()
-    expect(colourValue(field({ key: "note", path: "note", value: "#12345" }))).toBeNull()
-  })
-
-  it("never offers a colour picker in place of a secret, a list, or a read-only row", () => {
-    expect(colourValue(field({ key: "good", path: "good", value: "#8ba888", secret: true }))).toBeNull()
-    expect(colourValue(field({ key: "good", path: "good", value: "#8ba888", kind: "LIST" }))).toBeNull()
-    expect(colourValue(field({ key: "good", path: "good", value: "#8ba888", editable: false }))).toBeNull()
+describe("ColourControl as a setting's control", () => {
+  it("is what a value its spec declares a colour gets, and never one that only looks like one", () => {
+    render(
+      <ScalarControl
+        id="good"
+        entry={colour({ key: "good", path: "good", value: "#8ba888" })}
+        value="#8ba888"
+        disabled={false}
+        onChange={() => {}}
+      />,
+    )
+    screen.getByRole("button", { name: /preview/i })
+    cleanup()
+    render(
+      <ScalarControl
+        id="note"
+        entry={field({ key: "note", path: "note", value: "#8ba888" })}
+        value="#8ba888"
+        disabled={false}
+        onChange={() => {}}
+      />,
+    )
+    expect(screen.queryByRole("button", { name: /preview/i })).toBeNull()
   })
 })
 
@@ -144,19 +149,17 @@ describe("ColourControl", () => {
   })
 })
 
-const isColour = (entry: ConfigEntry) => colourValue(entry) !== null
-
 describe("colourRuns", () => {
   it("groups every colour.yml entry into a single row, one for each of the five tones", () => {
     const entries = [
-      field({ key: "good", path: "good", value: "#8ba888" }),
-      field({ key: "bad", path: "bad", value: "#a8888b" }),
-      field({ key: "warn", path: "warn", value: "#b08a4a" }),
-      field({ key: "neutral", path: "neutral", value: "#c9c9c9" }),
-      field({ key: "muted", path: "muted", value: "#aaaaaa" }),
+      colour({ key: "good", path: "good", value: "#8ba888" }),
+      colour({ key: "bad", path: "bad", value: "#a8888b" }),
+      colour({ key: "warn", path: "warn", value: "#b08a4a" }),
+      colour({ key: "neutral", path: "neutral", value: "#c9c9c9" }),
+      colour({ key: "muted", path: "muted", value: "#aaaaaa" }),
     ]
 
-    const runs = colourRuns(entries, isColour)
+    const runs = colourRuns(entries)
 
     expect(runs).toHaveLength(1)
     expect(runs[0].map((entry) => entry.key)).toEqual(["good", "bad", "warn", "neutral", "muted"])
@@ -165,32 +168,32 @@ describe("colourRuns", () => {
   it("never groups a single colour on its own - a row is at least two", () => {
     const entries = [
       field({ key: "base-url", path: "base-url", value: "http://example" }),
-      field({ key: "good", path: "good", value: "#8ba888" }),
+      colour({ key: "good", path: "good", value: "#8ba888" }),
       field({ key: "timeout", path: "timeout", value: "30" }),
     ]
 
-    expect(colourRuns(entries, isColour)).toHaveLength(0)
+    expect(colourRuns(entries)).toHaveLength(0)
   })
 
   it("a non-colour entry between two colours splits them into two single fields, not one row", () => {
     const entries = [
-      field({ key: "good", path: "good", value: "#8ba888" }),
+      colour({ key: "good", path: "good", value: "#8ba888" }),
       field({ key: "label", path: "label", value: "not a colour" }),
-      field({ key: "bad", path: "bad", value: "#a8888b" }),
+      colour({ key: "bad", path: "bad", value: "#a8888b" }),
     ]
 
-    expect(colourRuns(entries, isColour)).toHaveLength(0)
+    expect(colourRuns(entries)).toHaveLength(0)
   })
 
   it("keeps colours under different parents in separate rows", () => {
     const entries = [
-      field({ key: "good", path: "a.good", value: "#8ba888" }),
-      field({ key: "bad", path: "a.bad", value: "#a8888b" }),
-      field({ key: "good", path: "b.good", value: "#111111" }),
-      field({ key: "bad", path: "b.bad", value: "#222222" }),
+      colour({ key: "good", path: "a.good", value: "#8ba888" }),
+      colour({ key: "bad", path: "a.bad", value: "#a8888b" }),
+      colour({ key: "good", path: "b.good", value: "#111111" }),
+      colour({ key: "bad", path: "b.bad", value: "#222222" }),
     ]
 
-    const runs = colourRuns(entries, isColour)
+    const runs = colourRuns(entries)
 
     expect(runs).toHaveLength(2)
     expect(runs[0].map((entry) => entry.path)).toEqual(["a.good", "a.bad"])
@@ -200,23 +203,23 @@ describe("colourRuns", () => {
   it("groups the thirteen prestige tiers into one row and leaves admin out of it", () => {
     /** The shape of `smp/smp/prestige-colours.yml`: `admin` at the top, thirteen tiers under `prestige`. */
     const entries = [
-      field({ key: "admin", path: "admin", value: "#ff5555" }),
-      field({ key: "tier-01", path: "prestige.tier-01", value: "#5fbfae" }),
-      field({ key: "tier-02", path: "prestige.tier-02", value: "#5ea9d6" }),
-      field({ key: "tier-03", path: "prestige.tier-03", value: "#6f93e0" }),
-      field({ key: "tier-04", path: "prestige.tier-04", value: "#8f83e6" }),
-      field({ key: "tier-05", path: "prestige.tier-05", value: "#a878e0" }),
-      field({ key: "tier-06", path: "prestige.tier-06", value: "#c96fd6" }),
-      field({ key: "tier-07", path: "prestige.tier-07", value: "#dd6fae" }),
-      field({ key: "tier-08", path: "prestige.tier-08", value: "#e07d78" }),
-      field({ key: "tier-09", path: "prestige.tier-09", value: "#e2984f" }),
-      field({ key: "tier-10", path: "prestige.tier-10", value: "#dbb043" }),
-      field({ key: "tier-11", path: "prestige.tier-11", value: "#e8d35a" }),
-      field({ key: "tier-12", path: "prestige.tier-12", value: "#f0dc70" }),
-      field({ key: "tier-13", path: "prestige.tier-13", value: "#fff6d8" }),
+      colour({ key: "admin", path: "admin", value: "#ff5555" }),
+      colour({ key: "tier-01", path: "prestige.tier-01", value: "#5fbfae" }),
+      colour({ key: "tier-02", path: "prestige.tier-02", value: "#5ea9d6" }),
+      colour({ key: "tier-03", path: "prestige.tier-03", value: "#6f93e0" }),
+      colour({ key: "tier-04", path: "prestige.tier-04", value: "#8f83e6" }),
+      colour({ key: "tier-05", path: "prestige.tier-05", value: "#a878e0" }),
+      colour({ key: "tier-06", path: "prestige.tier-06", value: "#c96fd6" }),
+      colour({ key: "tier-07", path: "prestige.tier-07", value: "#dd6fae" }),
+      colour({ key: "tier-08", path: "prestige.tier-08", value: "#e07d78" }),
+      colour({ key: "tier-09", path: "prestige.tier-09", value: "#e2984f" }),
+      colour({ key: "tier-10", path: "prestige.tier-10", value: "#dbb043" }),
+      colour({ key: "tier-11", path: "prestige.tier-11", value: "#e8d35a" }),
+      colour({ key: "tier-12", path: "prestige.tier-12", value: "#f0dc70" }),
+      colour({ key: "tier-13", path: "prestige.tier-13", value: "#fff6d8" }),
     ]
 
-    const runs = colourRuns(entries, isColour)
+    const runs = colourRuns(entries)
 
     expect(runs).toHaveLength(1)
     expect(runs[0]).toHaveLength(13)
@@ -238,14 +241,22 @@ describe("colourRuns", () => {
     expect(runs[0].some((entry) => entry.key === "admin")).toBe(false)
   })
 
-  it("drops a blank member out of the run rather than guessing it is a colour too", () => {
-    /** A colour saved blank splits the run like an unrelated field would, the cost of deciding by value. */
+  it("keeps a blank colour in its run, since the spec and not the value says it is one", () => {
     const entries = [
-      field({ key: "good", path: "good", value: "#8ba888" }),
-      field({ key: "bad", path: "bad", value: "" }),
-      field({ key: "warn", path: "warn", value: "#b08a4a" }),
+      colour({ key: "good", path: "good", value: "#8ba888" }),
+      colour({ key: "bad", path: "bad", value: "" }),
+      colour({ key: "warn", path: "warn", value: "#b08a4a" }),
     ]
 
-    expect(colourRuns(entries, isColour)).toHaveLength(0)
+    expect(colourRuns(entries)).toHaveLength(1)
+  })
+
+  it("never rows a value that only looks like a colour", () => {
+    const entries = [
+      field({ key: "good", path: "good", value: "#8ba888" }),
+      field({ key: "bad", path: "bad", value: "#a8888b" }),
+    ]
+
+    expect(colourRuns(entries)).toHaveLength(0)
   })
 })

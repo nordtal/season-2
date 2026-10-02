@@ -1,7 +1,9 @@
 import { PlusIcon, TrashIcon } from "@phosphor-icons/react"
-import type { ConfigChoices, ConfigEntry, GuildList } from "@/lib/api"
+
+import type { ConfigChoices, ConfigEntry } from "@/lib/api"
+import { isColour } from "@/lib/references"
 import { ColourControl } from "@/components/steward/colour-control"
-import { SnowflakePicker } from "@/components/steward/snowflake-picker"
+import { ReferencePicker } from "@/components/steward/reference-picker"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -28,41 +30,12 @@ export function explanationOf(entry: ConfigEntry): string | null {
 }
 
 /**
- * Which keys hold a Discord id, and whether a role or a channel, decided on the key so an empty field still helps.
+ * Whether an empty value leaves a section incomplete: a Discord channel its spec does not call optional.
  *
- * `guild-id` matches nothing, and `status-channel` stores a channel name, not an id.
- */
-export function discordId(entry: ConfigEntry): "role" | "channel" | null {
-  if (entry.kind !== "SCALAR" || !entry.editable || entry.secret) return null
-  const key = entry.key
-  const path = entry.path
-  if (key === "status-channel") return null
-  if (key === "role" || key.endsWith("-role") || path.startsWith("roles.")) return "role"
-  if (key === "channel" || key.endsWith("-channel") || path.startsWith("channels.")) return "channel"
-  return null
-}
-
-/**
- * Whether an empty channel field is a problem, since a language missing a channel is incomplete.
- *
- * A channel is required unless its schema explanation starts with "OPTIONAL".
+ * A language missing a channel cannot carry its messages; an empty game reference is the game's to judge.
  */
 export function isRequiredChannel(entry: ConfigEntry): boolean {
-  if (discordId(entry) !== "channel") return false
-  return !(explanationOf(entry) ?? "").includes("OPTIONAL")
-}
-
-const HEX_COLOUR = /^#[0-9a-f]{6}$/i
-
-/**
- * The colour a scalar's stored value holds, `#rrggbb`, until the schema gains a colour kind.
- *
- * Reads the file's value, never the draft, so selecting the text to retype it keeps the picker.
- */
-export function colourValue(entry: ConfigEntry): string | null {
-  if (entry.kind !== "SCALAR" || !entry.editable || entry.secret) return null
-  const value = entry.value ?? ""
-  return HEX_COLOUR.test(value) ? value : null
+  return entry.refers?.to === "DISCORD_CHANNEL" && !entry.refers.optional
 }
 
 /** A schema's choices: a strict list is a select only, a suggestion is a select beside free text. */
@@ -110,24 +83,65 @@ function ChoicesControl({
   )
 }
 
-/**
- * One scalar key: a secret, choices, a Discord id, a colour, a boolean or text, in that precedence.
- */
-export function ScalarControl({
+/** The plain text field, also what a reference falls back to while nothing can be listed. */
+function TextControl({
   id,
   entry,
   value,
   disabled,
-  roles,
-  channels,
   onChange,
 }: {
   id: string
   entry: ConfigEntry
   value: string
   disabled: boolean
-  roles: GuildList | undefined
-  channels: GuildList | undefined
+  onChange: (value: string) => void
+}) {
+  /** A value that already spans lines gets a box it fits in. */
+  if (value.includes("\n")) {
+    return (
+      <Textarea
+        id={id}
+        rows={Math.min(16, value.split("\n").length + 1)}
+        disabled={disabled}
+        value={value}
+        spellCheck={false}
+        className="font-mono text-sm max-md:text-base"
+        onChange={(event) => onChange(event.target.value)}
+      />
+    )
+  }
+  return (
+    <Input
+      id={id}
+      disabled={disabled}
+      value={value}
+      inputMode={entry.type === "INTEGER" || entry.type === "DECIMAL" ? "decimal" : undefined}
+      spellCheck={false}
+      className="font-mono text-sm max-md:text-base"
+      onChange={(event) => onChange(event.target.value)}
+    />
+  )
+}
+
+/**
+ * One scalar key: a secret, choices, a reference, a boolean or text, in that precedence.
+ *
+ * `sibling` is the value of the field a reference depends on, such as the statistic a subject is counted by.
+ */
+export function ScalarControl({
+  id,
+  entry,
+  value,
+  disabled,
+  sibling,
+  onChange,
+}: {
+  id: string
+  entry: ConfigEntry
+  value: string
+  disabled: boolean
+  sibling?: string
   onChange: (value: string) => void
 }) {
   /** A secret lives in the host environment alone, so the form says only whether it is set. */
@@ -135,28 +149,28 @@ export function ScalarControl({
     return <Input id={id} type="password" disabled value="" placeholder={entry.filled ? "set" : "not set"} />
   }
 
-  /** Declared choices win over the Discord picker, being more specific than a guess from the name. */
   if (entry.choices) {
     return <ChoicesControl id={id} value={value} choices={entry.choices} disabled={disabled} onChange={onChange} />
   }
 
-  const discord = discordId(entry)
-  if (discord) {
-    return (
-      <SnowflakePicker
-        id={id}
-        value={value}
-        directory={discord === "role" ? roles : channels}
-        what={discord}
-        disabled={disabled}
-        onChange={onChange}
-      />
-    )
+  if (isColour(entry.refers)) {
+    return <ColourControl id={id} value={value} disabled={disabled} onChange={onChange} />
   }
 
-  /** Decided on the stored value, not the draft; see {@link colourValue}. */
-  if (colourValue(entry) !== null) {
-    return <ColourControl id={id} value={value} disabled={disabled} onChange={onChange} />
+  if (entry.refers) {
+    return (
+      <ReferencePicker
+        id={id}
+        label={entry.label}
+        reference={entry.refers}
+        values={value === "" ? [] : [value]}
+        multi={false}
+        sibling={sibling}
+        disabled={disabled}
+        typed={<TextControl id={id} entry={entry} value={value} disabled={disabled} onChange={onChange} />}
+        onChange={(values) => onChange(values[0] ?? "")}
+      />
+    )
   }
 
   if (entry.type === "BOOLEAN") {
@@ -173,32 +187,7 @@ export function ScalarControl({
     )
   }
 
-  /** A value that already spans lines gets a box it fits in. */
-  if (value.includes("\n")) {
-    return (
-      <Textarea
-        id={id}
-        rows={Math.min(16, value.split("\n").length + 1)}
-        disabled={disabled}
-        value={value}
-        spellCheck={false}
-        className="font-mono text-sm max-md:text-base"
-        onChange={(event) => onChange(event.target.value)}
-      />
-    )
-  }
-
-  return (
-    <Input
-      id={id}
-      disabled={disabled}
-      value={value}
-      inputMode={entry.type === "INTEGER" || entry.type === "DECIMAL" ? "decimal" : undefined}
-      spellCheck={false}
-      className="font-mono text-sm max-md:text-base"
-      onChange={(event) => onChange(event.target.value)}
-    />
-  )
+  return <TextControl id={id} entry={entry} value={value} disabled={disabled} onChange={onChange} />
 }
 
 /**
@@ -207,6 +196,39 @@ export function ScalarControl({
  * The whole list is sent with the file's `revision`, so a concurrent save gets a 409.
  */
 export function ListControl({
+  id,
+  entry,
+  items,
+  disabled,
+  sibling,
+  onChange,
+}: {
+  id: string
+  entry: ConfigEntry
+  items: string[]
+  disabled: boolean
+  sibling?: string
+  onChange: (items: string[]) => void
+}) {
+  const rows = <ListRows id={id} items={items} disabled={disabled} onChange={onChange} />
+  if (!entry.refers || isColour(entry.refers)) return rows
+  return (
+    <ReferencePicker
+      id={id}
+      label={entry.label}
+      reference={entry.refers}
+      values={items}
+      multi
+      sibling={sibling}
+      disabled={disabled}
+      typed={rows}
+      onChange={onChange}
+    />
+  )
+}
+
+/** The plain list: one text field per entry. */
+function ListRows({
   id,
   items,
   disabled,

@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react"
 import type { ConfigEntry } from "@/lib/api"
+import { isColour } from "@/lib/references"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group"
 
 /** Minecraft's chat background: black at the default `textBackgroundOpacity` of 0.5. */
@@ -94,14 +95,14 @@ function parentOf(entry: ConfigEntry): string {
 /**
  * Consecutive colour entries sharing a parent, which `colourRuns` draws as one row.
  *
- * A blank member splits the run; `isColour` is a parameter to avoid an import cycle with `config-controls.tsx`.
+ * A colour is what its spec declares one, so a blank member still belongs to the run.
  */
-export function colourRuns(entries: ConfigEntry[], isColour: (entry: ConfigEntry) => boolean): ConfigEntry[][] {
+export function colourRuns(entries: ConfigEntry[]): ConfigEntry[][] {
   const runs: ConfigEntry[][] = []
   let current: ConfigEntry[] = []
 
   for (const entry of entries) {
-    const colour = isColour(entry)
+    const colour = entry.kind === "SCALAR" && entry.editable && !entry.secret && isColour(entry.refers)
     const continuesRun = current.length > 0 && parentOf(entry) === parentOf(current[0])
     if (colour && (current.length === 0 || continuesRun)) {
       current.push(entry)

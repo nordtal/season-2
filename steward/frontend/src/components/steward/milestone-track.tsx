@@ -6,9 +6,9 @@ import type { ConfigDocument, ConfigEntry, SmpMilestone, SmpObjective, SmpTrack 
 import { date } from "@/lib/format"
 import { useConfig, useSmpTrack } from "@/lib/queries"
 import { QueryState, SkeletonText } from "@/components/steward/query-state"
+import { SectionSummary } from "@/components/steward/section-summary"
 import { ActionDialog, keyName } from "@/components/steward/game-actions"
 import type { Ask } from "@/components/steward/game-actions"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -24,130 +24,61 @@ import { Progress } from "@/components/ui/progress"
 /** The track's definition, read through the configuration API for its order and what each step asks for. */
 export const TRACK_FILE = "smp/milestones"
 
-export type TrackTask = SmpObjective & {
-  role?: string
-  items: string[]
-  statistic?: string
-  subjects: string[]
-  advancement?: string
-}
+/** A task's progress and the settings that define it. */
+export type TrackTask = SmpObjective & { fields: ConfigEntry[] }
 
-export type TrackStep = Omit<SmpMilestone, "objectives"> & {
-  unlocks?: string
-  border?: number
-  pot?: number
-  adminUnlocked?: boolean
-  objectives: TrackTask[]
-}
-
-const TYPE: Record<SmpObjective["type"], string> = {
-  HAND_IN: "Hand-in",
-  STATISTIC: "Statistic",
-  ADVANCEMENT: "Advancement",
-}
+/** A step's progress and the settings that define it. */
+export type TrackStep = Omit<SmpMilestone, "objectives"> & { fields: ConfigEntry[]; objectives: TrackTask[] }
 
 /**
- * The database's progress in the file's order, with the file's details on each step.
+ * The database's progress in the file's order, each step with its settings beside it.
  *
- * Without the file the database's order stands; a row the file no longer declares goes last.
+ * Nothing here knows what a milestone holds: the file's list of sections is the track, a section's `key` joins it
+ * to its row as the settings cards title it, and its own list of sections holds the tasks. A section the database
+ * holds no row for is not on the track yet. Without the file the database's order stands; a row the file no longer
+ * declares goes last.
  */
 export function trackSteps(progress: SmpTrack, definition?: ConfigDocument): TrackStep[] {
-  const declared = definition ? sectionsOf(definition.entries, "milestones") : []
   const rows = new Map(progress.milestones.map((milestone) => [milestone.key, milestone]))
   const steps: TrackStep[] = []
-  for (const section of declared) {
-    const key = text(section, "key")
-    if (!key) continue
+  for (const [key, section] of titled(definition?.entries ?? [])) {
     const row = rows.get(key)
+    if (row === undefined) continue
     rows.delete(key)
-    steps.push({
-      key,
-      state: row?.state ?? "LOCKED",
-      unlocked: row?.unlocked,
-      unlocks: text(section, "unlocks"),
-      border: number(section, "border-diameter"),
-      pot: number(section, "objective-pot"),
-      adminUnlocked: text(section, "admin-unlocked") === "true",
-      objectives: tasks(row?.objectives ?? [], sectionsOf(section, "objectives")),
-    })
+    steps.push({ ...row, fields: details(section, row), objectives: tasks(row.objectives, section) })
   }
-  for (const row of rows.values()) steps.push({ ...row, objectives: tasks(row.objectives, []) })
+  for (const row of rows.values()) steps.push({ ...row, fields: [], objectives: tasks(row.objectives, []) })
   return steps
 }
 
-function tasks(progress: SmpObjective[], declared: ConfigEntry[][]): TrackTask[] {
-  const rows = new Map(progress.map((objective) => [objective.key, objective]))
-  const out: TrackTask[] = []
-  for (const section of declared) {
-    const key = text(section, "key")
-    if (!key) continue
-    const row = rows.get(key)
-    rows.delete(key)
-    out.push({
-      key,
-      type: row?.type ?? objectiveType(text(section, "type")),
-      amount: row?.amount ?? 0,
-      target: row?.target ?? number(section, "target") ?? 0,
-      completed: row?.completed ?? false,
-      completedAt: row?.completedAt,
-      role: text(section, "role"),
-      items: list(section, "items"),
-      statistic: text(section, "statistic"),
-      subjects: list(section, "subjects"),
-      advancement: text(section, "advancement"),
-    })
+function tasks(progress: SmpObjective[], section: ConfigEntry[]): TrackTask[] {
+  const declared = titled(section)
+  const ordered = [...declared.keys()]
+  const at = (key: string) => (ordered.includes(key) ? ordered.indexOf(key) : ordered.length)
+  return progress
+    .toSorted((a, b) => at(a.key) - at(b.key))
+    .map((row) => ({ ...row, fields: details(declared.get(row.key) ?? [], row) }))
+}
+
+/** The first list of sections among `entries`, each by its `key`. */
+function titled(entries: ConfigEntry[]): Map<string, ConfigEntry[]> {
+  const sections = entries.find((entry) => entry.kind === "SECTIONS")?.sections ?? []
+  const out = new Map<string, ConfigEntry[]>()
+  for (const section of sections) {
+    const key = section.find((field) => field.key === "key")?.value
+    if (key) out.set(key, section)
   }
-  for (const row of rows.values()) out.push({ ...row, items: [], subjects: [] })
   return out
 }
 
-function objectiveType(value: string | undefined): SmpObjective["type"] {
-  return value === "STATISTIC" || value === "ADVANCEMENT" ? value : "HAND_IN"
-}
-
-function sectionsOf(entries: ConfigEntry[], key: string): ConfigEntry[][] {
-  return entries.find((entry) => entry.key === key)?.sections ?? []
-}
-
-function text(entries: ConfigEntry[], key: string): string | undefined {
-  return entries.find((entry) => entry.key === key)?.value || undefined
-}
-
-function number(entries: ConfigEntry[], key: string): number | undefined {
-  const value = Number(text(entries, key))
-  return Number.isFinite(value) ? value : undefined
-}
-
-function list(entries: ConfigEntry[], key: string): string[] {
-  return entries.find((entry) => entry.key === key)?.items ?? []
-}
-
-/** `OAK_LOG` and `minecraft:story/form_obsidian` as words. */
-function gameName(id: string): string {
-  return keyName(
-    id
-      .slice(id.lastIndexOf("/") + 1)
-      .replace(/^minecraft:/, "")
-      .toLowerCase(),
-  )
+/** A section's settings less what its progress row already says, so nothing is said twice. */
+function details(section: ConfigEntry[], row: object): ConfigEntry[] {
+  return section.filter((field) => !Object.hasOwn(row, field.key))
 }
 
 function share(task: TrackTask): number {
   if (task.completed) return 100
   return task.target > 0 ? Math.min(100, Math.floor((task.amount * 100) / task.target)) : 0
-}
-
-function unlockLine(step: TrackStep): string | undefined {
-  switch (step.unlocks) {
-    case "BORDER":
-      return step.border ? `Border ${step.border.toLocaleString("en")}` : "Border"
-    case "NETHER":
-      return "Nether"
-    case "END":
-      return "End"
-    default:
-      return undefined
-  }
 }
 
 /** The SMP's milestone track, every step at once: across on a wide screen, down on a phone. */
@@ -268,9 +199,7 @@ function Node({ state }: { state: SmpMilestone["state"] }) {
 
 function StepPopover({ step, name, onUnlock }: { step: TrackStep; name: string; onUnlock: () => void }) {
   const [open, setOpen] = useState(false)
-  const unlocks = unlockLine(step)
-  /** "Nether" under "Nether" says nothing twice. */
-  const line = step.state === "UNLOCKED" ? date(step.unlocked) : unlocks === name ? undefined : unlocks
+  const line = step.state === "UNLOCKED" ? date(step.unlocked) : undefined
   const finished = step.objectives.filter((task) => task.completed).length
 
   return (
@@ -291,7 +220,7 @@ function StepPopover({ step, name, onUnlock }: { step: TrackStep; name: string; 
           {line ? <span className="text-xs tabular-nums text-muted-foreground">{line}</span> : null}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" collisionPadding={16} className="w-64">
+      <PopoverContent align="start" collisionPadding={16} className="w-72">
         <PopoverHeader>
           <PopoverTitle>{name}</PopoverTitle>
           <PopoverDescription>
@@ -302,26 +231,10 @@ function StepPopover({ step, name, onUnlock }: { step: TrackStep; name: string; 
                 : "Locked"}
           </PopoverDescription>
         </PopoverHeader>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-          <dt className="text-muted-foreground">Unlocks</dt>
-          <dd>{unlockLine(step) ?? "Nothing"}</dd>
-          {step.pot !== undefined ? (
-            <>
-              <dt className="text-muted-foreground">Aura pot</dt>
-              <dd className="tabular-nums">{step.pot.toLocaleString("en")}</dd>
-            </>
-          ) : null}
-          <dt className="text-muted-foreground">Tasks</dt>
-          <dd className="tabular-nums">
-            {step.objectives.length === 0 ? "None" : `${finished} of ${step.objectives.length}`}
-          </dd>
-          {step.adminUnlocked ? (
-            <>
-              <dt className="text-muted-foreground">Opens</dt>
-              <dd>By an admin</dd>
-            </>
-          ) : null}
-        </dl>
+        <SectionSummary fields={step.fields} />
+        <p className="text-xs tabular-nums text-muted-foreground">
+          {step.objectives.length === 0 ? "No tasks" : `${finished} of ${step.objectives.length} tasks`}
+        </p>
         {step.state === "ACTIVE" ? (
           <Button
             type="button"
@@ -345,15 +258,6 @@ function TaskPopover({ task, active, onAsk }: { task: TrackTask; active: boolean
   const name = keyName(task.key)
   const value = share(task)
   const working = active && !task.completed
-  const what =
-    task.type === "HAND_IN"
-      ? task.items.map(gameName)
-      : task.type === "STATISTIC"
-        ? task.subjects.map(gameName)
-        : task.advancement
-          ? [gameName(task.advancement)]
-          : []
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -376,13 +280,10 @@ function TaskPopover({ task, active, onAsk }: { task: TrackTask; active: boolean
           {working ? <Progress value={value} className="h-0.5" aria-hidden /> : null}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" collisionPadding={16} className="w-64">
+      <PopoverContent align="start" collisionPadding={16} className="w-72">
         <PopoverHeader>
           <PopoverTitle>{name}</PopoverTitle>
-          <div className="flex flex-wrap gap-1">
-            <Badge variant="secondary">{TYPE[task.type] ?? task.type}</Badge>
-            {task.role ? <Badge variant="outline">{keyName(task.role)}</Badge> : null}
-          </div>
+          <PopoverDescription className="font-mono text-xs">{task.type}</PopoverDescription>
         </PopoverHeader>
         <div className="flex flex-col gap-1">
           <Progress value={value} aria-label={`${name} progress`} />
@@ -393,12 +294,7 @@ function TaskPopover({ task, active, onAsk }: { task: TrackTask; active: boolean
             <span>{task.completed ? `Done ${date(task.completedAt)}` : `${value} %`}</span>
           </div>
         </div>
-        {what.length > 0 ? (
-          <p className="line-clamp-3 text-xs text-muted-foreground">
-            {task.type === "STATISTIC" && task.statistic ? `${gameName(task.statistic)}: ` : null}
-            {what.join(", ")}
-          </p>
-        ) : null}
+        <SectionSummary fields={task.fields} />
         {working ? (
           <Button
             type="button"

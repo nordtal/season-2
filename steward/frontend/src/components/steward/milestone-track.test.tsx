@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import type { ConfigDocument, ConfigEntry, SmpTrack } from "@/lib/api"
+import type { ConfigDocument, ConfigEntry, GameData, SmpTrack } from "@/lib/api"
 import { SmpActions, trackSteps } from "@/components/steward/milestone-track"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
@@ -37,22 +37,22 @@ function objective(key: string, type: string, target: number, more: Partial<Reco
   return [
     entry("key", key),
     entry("type", type),
-    entry("role", "gathering"),
+    entry("role", "gathering", { label: "Role" }),
     entry("target", String(target)),
-    entry("items", undefined, { items: more.items ?? [] }),
+    entry("items", undefined, { label: "Items", kind: "LIST", items: more.items ?? [], refers: ITEM }),
   ]
 }
 
 function milestone(key: string, unlocks: string, border: number, objectives: ConfigEntry[][]) {
   return [
     entry("key", key),
-    entry("unlocks", unlocks),
-    entry("border-diameter", String(border)),
-    entry("objective-pot", "30"),
-    entry("admin-unlocked", "false"),
-    entry("objectives", undefined, { sections: objectives }),
+    entry("unlocks", unlocks, { label: "Unlocks" }),
+    entry("border-diameter", String(border), { label: "Border diameter", type: "INTEGER" }),
+    entry("objectives", undefined, { kind: "SECTIONS", sections: objectives }),
   ]
 }
+
+const ITEM = { to: "ITEM", optional: false } as const
 
 const FILE: ConfigDocument = {
   service: "smp",
@@ -66,16 +66,29 @@ const FILE: ConfigDocument = {
   restartRequired: false,
   entries: [
     entry("milestones", undefined, {
+      kind: "SECTIONS",
       sections: [
         milestone("waiting", "BORDER", 20, []),
-        milestone("foothold", "BORDER", 99, [
-          objective("logs", "HAND_IN", 2048, { items: ["OAK_LOG", "SPRUCE_LOG"] }),
+        milestone("foothold", "BORDER", 9900, [
+          objective("logs", "HAND_IN", 2048, { items: ["minecraft:oak_log", "SPRUCE_LOG", "minecraft:gone"] }),
           objective("coal", "STATISTIC", 1500),
         ]),
         milestone("nether", "NETHER", 0, [objective("obsidian", "HAND_IN", 64)]),
       ],
     }),
   ],
+}
+
+const GAME: GameData = {
+  version: "26.2",
+  datapacks: [],
+  registries: {
+    item: [
+      { id: "minecraft:oak_log", text: "Oak Log" },
+      { id: "minecraft:spruce_log", text: "Spruce Log" },
+    ],
+  },
+  tags: {},
 }
 
 /** Alphabetical, as the database answers, so the file's order has to be applied. */
@@ -118,6 +131,7 @@ function backend({ row = { status: "DONE", result: "Objective closed." } }: { ro
       }
       if (url === "/api/smp/track") return json(200, TRACK)
       if (url === "/api/setting-groups/smp/milestones") return json(200, FILE)
+      if (url === "/api/game-data") return json(200, GAME)
       if (url.startsWith("/api/commands/")) return json(200, { id: url.split("/").pop(), ...row })
       throw new Error(`the card asked for ${url}, which this test did not expect`)
     }),
@@ -140,16 +154,16 @@ afterEach(() => {
 })
 
 describe("trackSteps", () => {
-  it("puts the database's progress into the file's order, with the file's details", () => {
+  it("puts the database's progress into the file's order, each step beside its own settings", () => {
     const steps = trackSteps(TRACK, FILE)
 
     expect(steps.map((step) => step.key)).toEqual(["waiting", "foothold", "nether"])
-    expect(steps[1].border).toBe(99)
+    expect(steps[1].fields.map((field) => field.key)).toEqual(["unlocks", "border-diameter"])
     expect(steps[1].objectives.map((task) => [task.key, task.amount])).toEqual([
       ["logs", 512],
       ["coal", 1500],
     ])
-    expect(steps[1].objectives[0].items).toEqual(["OAK_LOG", "SPRUCE_LOG"])
+    expect(steps[1].objectives[0].fields.map((field) => field.key)).toEqual(["role", "items"])
   })
 
   it("keeps the database's order without the file, and a row the file lacks at the end", () => {
@@ -187,7 +201,10 @@ describe("SmpActions", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Logs" }))
     const popover = await screen.findByRole("dialog")
     expect(within(popover).getByText("512 / 2,048")).toBeTruthy()
-    expect(within(popover).getByText(/Oak log, Spruce log/)).toBeTruthy()
+    expect(await within(popover).findByText("Oak Log")).toBeTruthy()
+    expect(within(popover).getByText("Spruce Log")).toBeTruthy()
+    expect(within(popover).getByText("minecraft:gone")).toBeTruthy()
+    expect(within(popover).getByText("gathering")).toBeTruthy()
     fireEvent.click(within(popover).getByRole("button", { name: "Complete" }))
 
     const dialog = await screen.findByRole("alertdialog")
@@ -195,6 +212,18 @@ describe("SmpActions", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Complete" }))
     await waitFor(() => expect(sent).toEqual([{ url: "/api/smp/objective", body: { key: "logs" } }]))
     expect(await within(dialog).findByText("Objective closed.")).toBeTruthy()
+  })
+
+  it("shows a step's settings under their schema labels", async () => {
+    backend()
+    draw(<SmpActions />)
+
+    fireEvent.click(await screen.findByRole("button", { name: /^Foothold/ }))
+    const popover = await screen.findByRole("dialog")
+    expect(within(popover).getByText("Border diameter")).toBeTruthy()
+    expect(within(popover).getByText("9,900")).toBeTruthy()
+    expect(within(popover).getByText("BORDER")).toBeTruthy()
+    expect(within(popover).getByText("1 of 2 tasks")).toBeTruthy()
   })
 
   it("offers nothing to do on a finished task or one of a locked milestone", async () => {

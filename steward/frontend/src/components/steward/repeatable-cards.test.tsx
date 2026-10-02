@@ -5,6 +5,15 @@ import { RepeatableCards, blankSection, sectionsFromEntry } from "@/components/s
 import type { SectionValues } from "@/components/steward/repeatable-cards"
 import type { ConfigEntry } from "@/lib/api"
 import { asButton, asInput } from "@/lib/test-elements"
+import { queryResult } from "@/lib/query-fixtures"
+
+/** No guild can be listed here, so a Discord reference falls back to its typed field. */
+vi.mock("@/lib/queries", () => ({
+  useGameData: () => queryResult(undefined),
+  useGuildRoles: () => queryResult({ available: false, reason: "no bot token in this test", entries: [] }),
+  useGuildChannels: () => queryResult({ available: false, reason: "no bot token in this test", entries: [] }),
+  usePeople: () => queryResult(undefined),
+}))
 
 /** `RepeatableCards` against fixtures of a repeating structure, one card per entry with add and remove. */
 
@@ -64,16 +73,7 @@ describe("RepeatableCards", () => {
       [field({ key: "tag", value: "en" }), field({ key: "role", value: "" })],
       [field({ key: "tag", value: "de" }), field({ key: "role", value: "" })],
     ])
-    render(
-      <RepeatableCards
-        entry={entry}
-        value={sectionsFromEntry(entry)}
-        disabled={false}
-        roles={undefined}
-        channels={undefined}
-        onChange={() => {}}
-      />,
-    )
+    render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
 
     const tags = screen.getAllByLabelText("Tag").map(asInput)
     expect(tags.map((input) => input.value)).toEqual(["en", "de"])
@@ -82,16 +82,7 @@ describe("RepeatableCards", () => {
   it("adds a blank card at the end, built from the template", () => {
     const entry = sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role" })]])
     const onChange = vi.fn<(value: SectionValues[]) => void>()
-    render(
-      <RepeatableCards
-        entry={entry}
-        value={sectionsFromEntry(entry)}
-        disabled={false}
-        roles={undefined}
-        channels={undefined}
-        onChange={onChange}
-      />,
-    )
+    render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={onChange} />)
 
     fireEvent.click(screen.getByRole("button", { name: /Add entry/ }))
 
@@ -107,16 +98,7 @@ describe("RepeatableCards", () => {
       [field({ key: "tag", value: "de" }), field({ key: "role" })],
     ])
     const onChange = vi.fn<(value: SectionValues[]) => void>()
-    render(
-      <RepeatableCards
-        entry={entry}
-        value={sectionsFromEntry(entry)}
-        disabled={false}
-        roles={undefined}
-        channels={undefined}
-        onChange={onChange}
-      />,
-    )
+    render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={onChange} />)
 
     fireEvent.click(screen.getByRole("button", { name: "Remove entry 1" }))
     /** The click only arms the confirmation, so nothing is drafted yet. */
@@ -130,58 +112,35 @@ describe("RepeatableCards", () => {
   it("edits a field within a card by calling onChange with the whole updated list", () => {
     const entry = sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role", value: "" })]])
     const onChange = vi.fn<(value: SectionValues[]) => void>()
-    render(
-      <RepeatableCards
-        entry={entry}
-        value={sectionsFromEntry(entry)}
-        disabled={false}
-        roles={undefined}
-        channels={undefined}
-        onChange={onChange}
-      />,
-    )
+    render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={onChange} />)
 
     fireEvent.change(screen.getByLabelText("Tag"), { target: { value: "fr" } })
 
     expect(onChange).toHaveBeenCalledWith([{ tag: "fr", role: "" }])
   })
 
-  it("puts a channel field through the SnowflakePicker's fallback, not a plain text input", () => {
+  it("puts a channel field through the reference picker, which says why it can only take a typed id", () => {
     const template = [
       field({ key: "tag", label: "Tag" }),
-      field({ key: "contribution-channel", label: "Contribution channel" }),
+      field({
+        key: "contribution-channel",
+        label: "Contribution channel",
+        refers: { to: "DISCORD_CHANNEL", optional: false },
+      }),
     ]
     const entry = sectionsEntry(
       [[field({ key: "tag", value: "en" }), field({ key: "contribution-channel", value: "" })]],
       template,
     )
-    render(
-      <RepeatableCards
-        entry={entry}
-        value={sectionsFromEntry(entry)}
-        disabled={false}
-        roles={undefined}
-        channels={{ available: false, reason: "no bot token in this test", entries: [] }}
-        onChange={() => {}}
-      />,
-    )
+    render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
 
-    /** Without a directory, SnowflakePicker falls back to a text input and keeps its own hint. */
-    expect(screen.getByText(/Paste the id instead/)).toBeTruthy()
+    expect(screen.getByText("no bot token in this test")).toBeTruthy()
+    expect(asInput(screen.getByLabelText("Contribution channel")).value).toBe("")
   })
 
   it("falls back to raw text instead of a card when the schema names no template", () => {
     const entry = sectionsEntry([[field({ key: "tag", value: "en" })]], [])
-    render(
-      <RepeatableCards
-        entry={entry}
-        value={sectionsFromEntry(entry)}
-        disabled={false}
-        roles={undefined}
-        channels={undefined}
-        onChange={() => {}}
-      />,
-    )
+    render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
 
     screen.getByText(/no card fits/i)
     expect(screen.queryByRole("button", { name: /Add entry/ })).toBeNull()
@@ -193,16 +152,7 @@ describe("RepeatableCards - confirming a removal", () => {
   it("does not touch the draft on the trash icon alone - it opens a confirmation first", () => {
     const entry = sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role" })]])
     const onChange = vi.fn<(value: SectionValues[]) => void>()
-    render(
-      <RepeatableCards
-        entry={entry}
-        value={sectionsFromEntry(entry)}
-        disabled={false}
-        roles={undefined}
-        channels={undefined}
-        onChange={onChange}
-      />,
-    )
+    render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={onChange} />)
 
     fireEvent.click(screen.getByRole("button", { name: "Remove entry 1" }))
 
@@ -215,16 +165,7 @@ describe("RepeatableCards - confirming a removal", () => {
       ...sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role" })]]),
       explanation: "'en' must be present - it is the fallback everything degrades to",
     }
-    render(
-      <RepeatableCards
-        entry={entry}
-        value={sectionsFromEntry(entry)}
-        disabled={false}
-        roles={undefined}
-        channels={undefined}
-        onChange={() => {}}
-      />,
-    )
+    render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
 
     fireEvent.click(screen.getByRole("button", { name: "Remove entry 1" }))
 
@@ -234,16 +175,7 @@ describe("RepeatableCards - confirming a removal", () => {
   it("cancelling leaves the draft untouched", () => {
     const entry = sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role" })]])
     const onChange = vi.fn<(value: SectionValues[]) => void>()
-    render(
-      <RepeatableCards
-        entry={entry}
-        value={sectionsFromEntry(entry)}
-        disabled={false}
-        roles={undefined}
-        channels={undefined}
-        onChange={onChange}
-      />,
-    )
+    render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={onChange} />)
 
     fireEvent.click(screen.getByRole("button", { name: "Remove entry 1" }))
     fireEvent.click(screen.getByRole("button", { name: "Keep it" }))
@@ -263,16 +195,7 @@ describe("RepeatableCards - a protected entry", () => {
       ]),
       protectedEntry: { field: "tag", value: "en" },
     }
-    render(
-      <RepeatableCards
-        entry={entry}
-        value={sectionsFromEntry(entry)}
-        disabled={false}
-        roles={undefined}
-        channels={undefined}
-        onChange={() => {}}
-      />,
-    )
+    render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
 
     const protectedButton = asButton(screen.getByRole("button", { name: "Entry 1 cannot be removed" }))
     const removableButton = asButton(screen.getByRole("button", { name: "Remove entry 2" }))
@@ -286,16 +209,7 @@ describe("RepeatableCards - a protected entry", () => {
       ...sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role" })]]),
       protectedEntry: { field: "tag", value: "en" },
     }
-    render(
-      <RepeatableCards
-        entry={entry}
-        value={sectionsFromEntry(entry)}
-        disabled={false}
-        roles={undefined}
-        channels={undefined}
-        onChange={() => {}}
-      />,
-    )
+    render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
 
     fireEvent.click(screen.getByRole("button", { name: "Entry 1 cannot be removed" }))
 
@@ -308,16 +222,7 @@ describe("RepeatableCards - a protected entry", () => {
       ...sectionsEntry([[field({ key: "tag", value: "de" }), field({ key: "role" })]]),
       protectedEntry: { field: "tag", value: "en" },
     }
-    render(
-      <RepeatableCards
-        entry={entry}
-        value={sectionsFromEntry(entry)}
-        disabled={false}
-        roles={undefined}
-        channels={undefined}
-        onChange={() => {}}
-      />,
-    )
+    render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
 
     const button = asButton(screen.getByRole("button", { name: "Remove entry 1" }))
     expect(button.disabled).toBe(false)
@@ -333,8 +238,6 @@ describe("RepeatableCards - a caller-supplied title", () => {
         entry={entry}
         value={sectionsFromEntry(entry)}
         disabled={false}
-        roles={undefined}
-        channels={undefined}
         onChange={() => {}}
         sectionTitle={(section) => `Language: ${typeof section.tag === "string" ? section.tag : ""}`}
       />,
@@ -346,32 +249,23 @@ describe("RepeatableCards - a caller-supplied title", () => {
 
   it("keeps the plain index when no title is supplied", () => {
     const entry = sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role" })]])
-    render(
-      <RepeatableCards
-        entry={entry}
-        value={sectionsFromEntry(entry)}
-        disabled={false}
-        roles={undefined}
-        channels={undefined}
-        onChange={() => {}}
-      />,
-    )
+    render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
 
     expect(screen.getByText("Entry 1")).toBeTruthy()
   })
 })
 
-/** A card says when it misses a required channel, decided by `isRequiredChannel` and not by its section. */
+/** A card says when it misses a channel its spec does not call optional, whatever section it sits in. */
 describe("RepeatableCards - an incomplete card", () => {
   const REQUIRED_CHANNEL = field({
     key: "contribution-channel",
     label: "Contribution channel",
-    explanation: "Carries the buy-access message in this language, and its donation thank-yous.",
+    refers: { to: "DISCORD_CHANNEL", optional: false },
   })
   const OPTIONAL_CHANNEL = field({
     key: "announcement-channel",
     label: "Announcement channel",
-    explanation: "OPTIONAL, like status-channel: empty means this language gets no announcements.",
+    refers: { to: "DISCORD_CHANNEL", optional: true },
   })
 
   it("says so, and names the missing field, when a required channel is blank", () => {
@@ -380,16 +274,7 @@ describe("RepeatableCards - an incomplete card", () => {
       [[field({ key: "tag", value: "en" }), field({ key: "contribution-channel", value: "" })]],
       template,
     )
-    render(
-      <RepeatableCards
-        entry={entry}
-        value={sectionsFromEntry(entry)}
-        disabled={false}
-        roles={undefined}
-        channels={undefined}
-        onChange={() => {}}
-      />,
-    )
+    render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
 
     screen.getByText(/incomplete/i)
     /** Named as the field's label and again in the "missing" sentence. */
@@ -402,16 +287,7 @@ describe("RepeatableCards - an incomplete card", () => {
       [[field({ key: "tag", value: "en" }), field({ key: "contribution-channel", value: "123" })]],
       template,
     )
-    render(
-      <RepeatableCards
-        entry={entry}
-        value={sectionsFromEntry(entry)}
-        disabled={false}
-        roles={undefined}
-        channels={undefined}
-        onChange={() => {}}
-      />,
-    )
+    render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
 
     expect(screen.queryByText(/incomplete/i)).toBeNull()
   })
@@ -422,16 +298,7 @@ describe("RepeatableCards - an incomplete card", () => {
       [[field({ key: "tag", value: "en" }), field({ key: "announcement-channel", value: "" })]],
       template,
     )
-    render(
-      <RepeatableCards
-        entry={entry}
-        value={sectionsFromEntry(entry)}
-        disabled={false}
-        roles={undefined}
-        channels={undefined}
-        onChange={() => {}}
-      />,
-    )
+    render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
 
     expect(screen.queryByText(/incomplete/i)).toBeNull()
   })
@@ -490,16 +357,7 @@ describe("RepeatableCards - sections inside sections", () => {
 
   it("titles every card with its key, at every level", () => {
     const entry = track()
-    render(
-      <RepeatableCards
-        entry={entry}
-        value={sectionsFromEntry(entry)}
-        disabled={false}
-        roles={undefined}
-        channels={undefined}
-        onChange={() => {}}
-      />,
-    )
+    render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
     expect(screen.getByText("foothold")).toBeTruthy()
     expect(screen.getByText("waiting")).toBeTruthy()
     expect(screen.getByText("logs")).toBeTruthy()
@@ -509,16 +367,7 @@ describe("RepeatableCards - sections inside sections", () => {
   it("edits an item of an objective as part of the whole track", () => {
     const entry = track()
     const onChange = vi.fn<(value: SectionValues[]) => void>()
-    render(
-      <RepeatableCards
-        entry={entry}
-        value={sectionsFromEntry(entry)}
-        disabled={false}
-        roles={undefined}
-        channels={undefined}
-        onChange={onChange}
-      />,
-    )
+    render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={onChange} />)
     fireEvent.change(screen.getByDisplayValue("SPRUCE_LOG"), { target: { value: "BIRCH_LOG" } })
     expect(onChange).toHaveBeenCalledWith([
       { key: "foothold", objectives: [{ key: "logs", target: "64", items: ["OAK_LOG", "BIRCH_LOG"] }] },
@@ -529,16 +378,7 @@ describe("RepeatableCards - sections inside sections", () => {
   it("adds an objective to the one milestone it was added to", () => {
     const entry = track()
     const onChange = vi.fn<(value: SectionValues[]) => void>()
-    render(
-      <RepeatableCards
-        entry={entry}
-        value={sectionsFromEntry(entry)}
-        disabled={false}
-        roles={undefined}
-        channels={undefined}
-        onChange={onChange}
-      />,
-    )
+    render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={onChange} />)
     fireEvent.click(screen.getByRole("button", { name: "Add to waiting" }))
     expect(onChange).toHaveBeenCalledWith([
       { key: "foothold", objectives: [{ key: "logs", target: "64", items: ["OAK_LOG", "SPRUCE_LOG"] }] },
@@ -549,14 +389,7 @@ describe("RepeatableCards - sections inside sections", () => {
   it("draws no card inside a card", () => {
     const entry = track()
     const { container } = render(
-      <RepeatableCards
-        entry={entry}
-        value={sectionsFromEntry(entry)}
-        disabled={false}
-        roles={undefined}
-        channels={undefined}
-        onChange={() => {}}
-      />,
+      <RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />,
     )
     expect(container.querySelectorAll('[data-slot="card"] [data-slot="card"]').length).toBe(0)
   })

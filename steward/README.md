@@ -88,6 +88,14 @@ pin and no rollback: a bad release is corrected by publishing a better one.
   from. Three types stay written by hand in `lib/api.ts`: the bodies of a settings save and a
   message save, where a `null` resets a value and an absent key leaves it, which an optional field
   cannot say, and the glyph manifest, which is a file of the pack build rather than an answer.
+- **Game data and pickers.** `GET /api/game-data` serves the union of the servers' catalogues for
+  the newest version with the icon sheet's index; the sheet itself is cached for good per version.
+  The settings form draws one picker per field a schema marks with `refers`, from the catalogue, the
+  guild or the people Steward knows: search over name and id, tags and namespaces as filters,
+  advancements as their tree, a list as chips, an id nothing lists as a warning chip that stays, a
+  bottom sheet on a phone. Where nothing can be listed it falls back to the typed field and says why.
+  The milestone track joins the database's progress to the group's own sections by their `key` and
+  draws each section's settings through the same schema, so nothing in it knows what a milestone holds.
 - **Alerts.** Every alert is a row in `admin_alert`, raised by whoever saw it: steward measures the
   stack every 30 seconds against the `web` group's thresholds and raises a failed run and a payment
   nobody can book, once per bank payment; the bot raises what it could not do in Discord or with a purchase. Steward routes each row once, to Web Push and to the admin channel through the

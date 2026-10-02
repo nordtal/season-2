@@ -1,14 +1,11 @@
 import { WarningIcon } from "@phosphor-icons/react"
 
-import type { ConfigChanges, ConfigEntry, GuildList, ConfigDocument } from "@/lib/api"
+import type { ConfigChanges, ConfigEntry, ConfigDocument } from "@/lib/api"
 import { languageName } from "@/lib/language-names"
 import { ListControl, ScalarControl } from "@/components/steward/config-controls"
 import { type SectionValues, RepeatableCards, sectionsFromEntry } from "@/components/steward/repeatable-cards"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-
-/** Re-exported for `snowflake-picker.test.tsx`; it lives in `config-controls.tsx` to avoid an import cycle. */
-export { discordId } from "@/components/steward/config-controls"
 
 /**
  * The marker for a key an environment variable answers, where a saved value waits until the variable is gone.
@@ -85,21 +82,17 @@ export function Control({
   entry,
   draft,
   disabled,
-  roles,
-  channels,
   onChange,
 }: {
   entry: ConfigEntry
   draft: Draft
   disabled: boolean
-  roles: GuildList | undefined
-  channels: GuildList | undefined
   onChange: (value: string | string[] | SectionValues[]) => void
 }) {
   if (entry.kind === "LIST") {
     const raw = draft[entry.path]
     const items = (isStringArray(raw) ? raw : undefined) ?? entry.items ?? []
-    return <ListControl id={entry.path} items={items} disabled={disabled} onChange={onChange} />
+    return <ListControl id={entry.path} entry={entry} items={items} disabled={disabled} onChange={onChange} />
   }
 
   if (entry.kind === "SECTIONS") {
@@ -110,8 +103,6 @@ export function Control({
         entry={entry}
         value={value}
         disabled={disabled}
-        roles={roles}
-        channels={channels}
         onChange={onChange}
         sectionTitle={sectionTitleFor(entry)}
       />
@@ -122,15 +113,5 @@ export function Control({
   const typed = typeof rawTyped === "string" ? rawTyped : undefined
   const value = typed ?? entry.value ?? ""
 
-  return (
-    <ScalarControl
-      id={entry.path}
-      entry={entry}
-      value={value}
-      disabled={disabled}
-      roles={roles}
-      channels={channels}
-      onChange={onChange}
-    />
-  )
+  return <ScalarControl id={entry.path} entry={entry} value={value} disabled={disabled} onChange={onChange} />
 }

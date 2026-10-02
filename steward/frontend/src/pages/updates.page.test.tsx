@@ -90,7 +90,6 @@ function backend(over: { schedule?: unknown; put?: (body: unknown) => Response; 
     }
     if (url.startsWith("/api/updates/available")) {
       return json(200, {
-        checkedAt: new Date().toISOString(),
         resolvedAt: new Date().toISOString(),
         seasonPrerelease: false,
         hasWork: false,

@@ -24,7 +24,6 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -107,15 +106,12 @@ public final class StackApi implements AutoCloseable {
      */
     private static final Duration AVAILABLE_TTL = Duration.ofHours(6);
 
-    /** One resolve and the moment it was made, for the same reason {@link Drift} is one value. */
-    record Available(String plan, Instant checkedAt) {}
-
     /**
      * The resolve, or {@code null} where this API has no sources to ask.
      *
      * Null rather than an empty plan, which would claim everything is current; the endpoint answers 503.
      */
-    final @Nullable Refreshed<Available> available;
+    final @Nullable Refreshed<AgentWire.Resolve> available;
 
     final MessagesApi messages;
     final ActionsApi actions;
@@ -146,7 +142,7 @@ public final class StackApi implements AutoCloseable {
      * @param updates the run inbox, sharing one directory with the run loop
      * @param audit {@code audit_log}, for {@link ActionsApi}
      * @param online where the player counts and the player list come from, or {@code null} without a database
-     * @param resolve steward-agent's resolve as its JSON, asked again when the cache ages; {@code null} makes the
+     * @param resolve steward-agent's resolve, asked again when the cache ages; {@code null} makes the
      *     endpoint answer 503
      * @param managedPlugins the plugin routes, or {@code null} without a database, when they answer 503
      * @param botInbox the bot's inbox, or {@code null} without a database, when a bot bundle save asks for a
@@ -162,7 +158,7 @@ public final class StackApi implements AutoCloseable {
             final AuditDirectory audit,
             final Supplier<Nightly> nightly,
             final @Nullable ServicesApi online,
-            final @Nullable Supplier<String> resolve,
+            final @Nullable Supplier<AgentWire.Resolve> resolve,
             final @Nullable PluginsForward managedPlugins,
             final @Nullable Inbox<BotRequest> botInbox,
             final MessagesApi.@Nullable Reloader reloads,
@@ -191,13 +187,7 @@ public final class StackApi implements AutoCloseable {
         this.drift = new Refreshed<>(
                 () -> new Drift(agent.images(), clock.instant()), DRIFT_TTL, driftRefresh, clock::instant);
         // The same background thread as drift: both are slow calls nobody asked for.
-        this.available = resolve == null
-                ? null
-                : new Refreshed<>(
-                        () -> new Available(resolve.get(), clock.instant()),
-                        AVAILABLE_TTL,
-                        driftRefresh,
-                        clock::instant);
+        this.available = resolve == null ? null : new Refreshed<>(resolve, AVAILABLE_TTL, driftRefresh, clock::instant);
     }
 
     /** Puts every route of this API onto {@code config}, behind the gate {@code caller} answers for. */
@@ -462,22 +452,16 @@ public final class StackApi implements AutoCloseable {
                     refused.refusal().message()));
         }
         log.info("restore of {} asked for as request {}", name, written.id());
-        ctx.status(202).json(Map.of("id", written.id(), "kind", written.kind().name(), "archive", name));
+        ctx.status(202).json(new RestoreAsked(written.id(), written.kind(), name));
     }
+
+    /** {@code POST /api/backups/{name}/restore}: the run that restores it, by its id. */
+    public record RestoreAsked(long id, eu.nordtal.s2.database.update.UpdateKind kind, String archive) {}
 
     /** The body of a restore: what it replaces, typed back. */
     static final class Confirmation {
         @Nullable
         String confirm;
-    }
-
-    /** `/api/updates/available`'s body: the agent's whole resolve, plus the age of the reading. */
-    Map<String, Object> availability(final Available reading) {
-        final Map<String, Object> answer = new LinkedHashMap<>();
-        answer.put("checkedAt", reading.checkedAt().toString());
-        answer.putAll(eu.nordtal.s2.common.json.Json.decode(
-                reading.plan(), new com.google.gson.reflect.TypeToken<LinkedHashMap<String, Object>>() {}));
-        return answer;
     }
 
     /** What every measured alert is judged on: the service table, the archives on disk and the host's numbers. */

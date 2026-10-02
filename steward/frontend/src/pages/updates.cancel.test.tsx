@@ -38,7 +38,6 @@ function run(over: Partial<Run> = {}): Run {
     requested: new Date().toISOString(),
     // A minute ahead: the countdown steward has not picked up yet.
     scheduledFor: new Date(Date.now() + 60_000).toISOString(),
-    countdownEnd: "null",
     moving: [],
     started: "",
     finished: "",
@@ -55,7 +54,6 @@ function backend(runs: Run[], onCancel?: () => Response): Mock<typeof fetch> {
     }
     if (url.startsWith("/api/updates/available")) {
       return json(200, {
-        checkedAt: new Date().toISOString(),
         resolvedAt: new Date().toISOString(),
         seasonPrerelease: false,
         hasWork: false,

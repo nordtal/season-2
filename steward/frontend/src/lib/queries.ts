@@ -39,6 +39,8 @@ import {
   type ActiveRun,
   type Schedule,
   type Season,
+  type PhaseChange,
+  type DateChange,
   type Service,
   type ServiceTable,
   type AlertPreference,
@@ -813,7 +815,7 @@ export function useSaveConfig(file: string) {
  *
  * Only the bot can apply the role, send the direct message and post the admin note.
  */
-async function askTheBot(path: string, body: unknown): Promise<Record<string, string | undefined>> {
+async function askTheBot(path: string, body: unknown): Promise<Record<string, unknown>> {
   const asked = await api<AccessRequestRun>(path, { method: "POST", body })
   for (;;) {
     const change = nextChange("REQUESTS")
@@ -821,7 +823,8 @@ async function askTheBot(path: string, body: unknown): Promise<Record<string, st
       const row = await api<AccessRequestRun>(`/api/access/requests/${asked.id}`)
       if (row.status === "DONE") return row.result ?? {}
       if (row.status === "FAILED") {
-        throw new Error(row.result?.error ?? "The bot could not carry this out.")
+        const said = row.result?.error
+        throw new Error(typeof said === "string" ? said : "The bot could not carry this out.")
       }
       if (row.status === "EXPIRED") {
         // EXPIRED means the bot never picked the row up, so nothing changed.
@@ -848,7 +851,7 @@ export function useGrantAccess() {
   return useMutation({
     mutationFn: async (grant: { discordId: string; days: number }) => {
       const result = await askTheBot("/api/access/grant", grant)
-      return { until: result.until ?? "" }
+      return { until: typeof result.until === "string" ? result.until : "" }
     },
     onSettled: () => afterAccessChange(client),
   })
@@ -962,7 +965,7 @@ export function useSetPhase() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (change: { phase: string; reason: string }) =>
-      api<Season>("/api/season/phase", { method: "POST", body: change }),
+      api<PhaseChange>("/api/season/phase", { method: "POST", body: change }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: keys.season })
       void client.invalidateQueries({ queryKey: ["journal"] })
@@ -975,7 +978,7 @@ export function useSetSeasonDate() {
   return useMutation({
     /** `at: null` removes the date: "none announced" is a state the countdown reads. */
     mutationFn: (change: { which: "launch" | "smpStart"; at: string | null }) =>
-      api<Season>("/api/season/date", { method: "POST", body: change }),
+      api<DateChange>("/api/season/date", { method: "POST", body: change }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: keys.season })
       void client.invalidateQueries({ queryKey: ["journal"] })

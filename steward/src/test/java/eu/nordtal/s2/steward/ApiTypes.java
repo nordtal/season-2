@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward;
 
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.annotations.SerializedName;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.id.PlayerId;
@@ -204,6 +205,9 @@ public final class ApiTypes {
         }
         if (type == Optional.class) {
             throw new IllegalStateException("Optional has no wire shape; a @Nullable component is an absent field");
+        }
+        if (type == JsonObject.class) {
+            return "Record<string, unknown>";
         }
         if (JsonElement.class.isAssignableFrom(type) || type == Object.class) {
             return "unknown";

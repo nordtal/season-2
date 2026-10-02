@@ -20,19 +20,12 @@ import java.time.Instant;
  */
 public record ActionEntry(String kind, Instant occurred, String extent, Actor actor) {
 
-    /**
-     * This entry in the shape the browser reads, with {@code occurred} as ISO-8601 text.
-     *
-     * @return a map, in the order the fields are declared
-     */
-    public java.util.Map<String, Object> json() {
-        final java.util.Map<String, Object> row = new java.util.LinkedHashMap<>();
-        row.put("kind", kind);
-        row.put("occurred", occurred.toString());
-        row.put("extent", extent);
-        row.put("actorKind", actor.kind().name());
-        row.put("actorId", java.util.Objects.requireNonNullElse(actor.id(), ""));
-        return row;
+    /** One row of {@code GET /api/actions}, with who did it flattened beside it. */
+    public record Action(String kind, Instant occurred, String extent, Actor.Kind actorKind, String actorId) {}
+
+    /** This entry in the shape the browser reads. */
+    public Action wire() {
+        return new Action(kind, occurred, extent, actor.kind(), java.util.Objects.requireNonNullElse(actor.id(), ""));
     }
 
     /**

@@ -1,8 +1,9 @@
 package eu.nordtal.s2.steward.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.Actor;
@@ -10,6 +11,7 @@ import eu.nordtal.s2.database.audit.AuditEntry;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateStatus;
+import eu.nordtal.s2.steward.WireJson;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -121,14 +123,14 @@ class ActionEntryTest {
     void theBrowserReadsTheActorAsAKindAndAnIdThatIsNeverNull() {
         final var person = ActionEntry.of(run(
                         UpdateKind.UPDATE, UpdateStatus.DONE, Actor.person(DiscordId.of("300000000000000077")), null))
-                .json();
-        assertEquals("PERSON", person.get("actorKind"));
-        assertEquals("300000000000000077", person.get("actorId"));
+                .wire();
+        assertEquals(Actor.Kind.PERSON, person.actorKind());
+        assertEquals("300000000000000077", person.actorId());
 
         final var host = ActionEntry.of(run(UpdateKind.UPDATE, UpdateStatus.DONE, Actor.HOST, null))
-                .json();
-        assertEquals("HOST", host.get("actorKind"));
-        assertEquals("", host.get("actorId"));
+                .wire();
+        assertEquals(Actor.Kind.HOST, host.actorKind());
+        assertEquals("", host.actorId());
     }
 
     @Test
@@ -170,13 +172,12 @@ class ActionEntryTest {
     void theMomentLeavesAsTextNotAsTheSecondsAndNanosAnInstantIsMadeOf() {
         final ActionEntry entry =
                 new ActionEntry("UPDATE", Instant.parse("2026-09-17T00:55:04.879Z"), "1/1 successful", Actor.STEWARD);
-        final Object occurred = entry.json().get("occurred");
-        assertInstanceOf(
-                String.class,
-                occurred,
-                "api.ts types this field String and hands it to relative() - an object here is an"
-                        + " invalid date in every row of the feed");
-        assertEquals("2026-09-17T00:55:04.879Z", occurred);
+        final JsonElement occurred =
+                WireJson.gson().toJsonTree(entry.wire()).getAsJsonObject().get("occurred");
+        assertTrue(
+                occurred.isJsonPrimitive() && occurred.getAsJsonPrimitive().isString(),
+                "the page hands this field to relative() - an object here is an invalid date in every row of the feed");
+        assertEquals("2026-09-17T00:55:04.879Z", occurred.getAsString());
     }
 
     private static JsonObject facts(final String... pairs) {

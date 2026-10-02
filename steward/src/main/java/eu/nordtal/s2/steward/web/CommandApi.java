@@ -16,7 +16,6 @@ import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import io.javalin.http.NotFoundResponse;
 import java.time.Duration;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -71,25 +70,34 @@ final class CommandApi {
         return asked.id();
     }
 
+    /**
+     * What became of a request; {@code reason} is why a server refused, when it did.
+     *
+     * Out of time, PENDING means the target is down and RUNNING that it is stuck, so EXPIRED is a diagnosis.
+     */
+    public record CommandRun(
+            String id,
+            InboxStatus status,
+            @Nullable String result,
+            @Nullable String reason) {}
+
     /** {@code GET /api/commands/{id}}: what became of it, the id being what {@link #submit} answered. */
     void outcome(final Context ctx) {
-        final String[] name = ctx.pathParam("id").split(":", -1);
-        final Map<String, Object> answer = new LinkedHashMap<>();
-        answer.put("id", ctx.pathParam("id"));
+        final String id = ctx.pathParam("id");
+        final String[] name = id.split(":", -1);
         try {
             if (name.length == 3 && name[0].equals("announce")) {
-                announced(Long.parseLong(name[1]), name[2], answer);
+                ctx.json(announced(id, Long.parseLong(name[1]), name[2]));
             } else if (name.length == 2 && name[0].equals("smp")) {
-                settled(data().smp(), Long.parseLong(name[1]), ctx, answer);
+                ctx.json(settled(data().smp(), id, Long.parseLong(name[1])));
             } else if (name.length == 2 && name[0].equals("hunger_games")) {
-                settled(data().hungerGames(), Long.parseLong(name[1]), ctx, answer);
+                ctx.json(settled(data().hungerGames(), id, Long.parseLong(name[1])));
             } else {
-                throw new BadRequestResponse(ctx.pathParam("id") + " is not a request.");
+                throw new BadRequestResponse(id + " is not a request.");
             }
         } catch (final NumberFormatException malformed) {
-            throw new BadRequestResponse(ctx.pathParam("id") + " is not a request.");
+            throw new BadRequestResponse(id + " is not a request.");
         }
-        ctx.json(answer);
     }
 
     /**
@@ -97,16 +105,17 @@ final class CommandApi {
      *
      * A refusal also names its reason, which is what the browser branches on.
      */
-    private static <P> void settled(
-            final Inbox<P> inbox, final long id, final Context ctx, final Map<String, Object> answer) {
-        final Request<P> row = inbox.find(id)
-                .orElseThrow(() -> new NotFoundResponse("There is no request " + ctx.pathParam("id") + "."));
-        answer.put("status", row.status().name());
-        row.refusal().ifPresent(refusal -> answer.put("reason", refusal.reason().name()));
+    private static <P> CommandRun settled(final Inbox<P> inbox, final String name, final long id) {
+        final Request<P> row =
+                inbox.find(id).orElseThrow(() -> new NotFoundResponse("There is no request " + name + "."));
         final Optional<String> result = row.status() == InboxStatus.REFUSED
                 ? row.refusal().map(refusal -> DatabaseText.english(refusal.message()))
                 : row.status() == InboxStatus.DONE ? row.outcome(String.class) : failure(row);
-        result.ifPresent(text -> answer.put("result", text));
+        return new CommandRun(
+                name,
+                row.status(),
+                result.orElse(null),
+                row.refusal().map(refusal -> refusal.reason().name()).orElse(null));
     }
 
     /** A failed row's text: the server's own sentence, or the error a throwing handler left. */
@@ -123,12 +132,15 @@ final class CommandApi {
     }
 
     /** One language's line of an announcement: the request's status, and whether that language's text went out. */
-    private void announced(final long id, final String language, final Map<String, Object> answer) {
+    private CommandRun announced(final String name, final long id, final String language) {
         final Request<BotRequest> row = data().bot()
                 .find(id)
                 .filter(found -> found.payload() instanceof BotRequest.Announce)
                 .orElseThrow(() -> new NotFoundResponse("There is no announcement " + id + "."));
-        answer.put("status", Announcements.status(row.status()));
-        Announcements.result(row, language).ifPresent(result -> answer.put("result", result));
+        return new CommandRun(
+                name,
+                Announcements.status(row.status()),
+                Announcements.result(row, language).orElse(null),
+                null);
     }
 }

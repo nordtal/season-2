@@ -3,6 +3,7 @@ package eu.nordtal.s2.steward.api;
 import com.google.gson.JsonElement;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.audit.AuditLine;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.steward.auth.Gate;
 import io.javalin.config.JavalinConfig;
 import io.javalin.http.BadRequestResponse;
@@ -173,7 +174,7 @@ final class Routes {
         config.routes.get(
                 "/api/updates/available",
                 ctx -> {
-                    final Refreshed<StackApi.Available> available = api.available;
+                    final Refreshed<AgentWire.Resolve> available = api.available;
                     if (available == null) {
                         // 503, not an empty plan, since those are different answers.
                         ctx.status(503)
@@ -184,7 +185,7 @@ final class Routes {
                     if (ctx.queryParam("refresh") != null) {
                         available.invalidate();
                     }
-                    ctx.json(api.availability(available.get()));
+                    ctx.json(available.get());
                 },
                 Gate.KEY_HELD);
     }

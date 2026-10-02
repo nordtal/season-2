@@ -41,24 +41,24 @@ describe("cancellable - the window the backend would still take a row back in", 
   })
 
   it("says no to a run that is over, whatever its moment was", () => {
-    for (const status of ["DONE", "FAILED", "CANCELLED"]) {
+    for (const status of ["DONE", "FAILED", "CANCELLED"] as const) {
       expect(cancellable(row({ status, scheduledFor: "2026-09-21T04:00:00Z" }), now)).toBe(false)
     }
   })
 
   it("says no to the kinds that never count down", () => {
     /** The SQL lists none of these kinds, so a Cancel there could only answer "too late". */
-    for (const kind of ["START"]) {
+    for (const kind of ["START"] as const) {
       expect(cancellable(row({ kind }), now)).toBe(false)
     }
-    for (const kind of ["RESTART", "UPDATE", "BACKUP", "DOWN"]) {
+    for (const kind of ["RESTART", "UPDATE", "BACKUP", "DOWN"] as const) {
       expect(cancellable(row({ kind }), now)).toBe(true)
     }
   })
 
   it("says no to a row with no moment at all rather than throwing", () => {
     /** A running row resolves before it counts down, and an unparseable date is never NaN > now either. */
-    expect(cancellable(row({ status: "RUNNING", countdownEnd: "null" }), now)).toBe(false)
+    expect(cancellable(row({ status: "RUNNING", countdownEnd: undefined }), now)).toBe(false)
     expect(cancellable(row({ scheduledFor: "" }), now)).toBe(false)
     expect(cancellable(row({ scheduledFor: "not a time" }), now)).toBe(false)
   })

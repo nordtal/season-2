@@ -1,11 +1,13 @@
 package eu.nordtal.s2.steward.web;
 
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.inbox.BotRequest;
+import eu.nordtal.s2.database.inbox.InboxStatus;
 import eu.nordtal.s2.database.inbox.Request;
 import eu.nordtal.s2.database.inbox.Schedule;
 import eu.nordtal.s2.database.payment.Bookings;
@@ -16,8 +18,7 @@ import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import io.javalin.http.NotFoundResponse;
 import java.time.Duration;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -77,6 +78,29 @@ final class AccessApi {
         submit(ctx, new BotRequest.Unlink(discordId(bodyOf(ctx))));
     }
 
+    /** What a booking by hand came to: booked, not open any more, or no such reference. */
+    public enum SettleOutcome {
+        BOOKED,
+        NOT_OPEN,
+        UNKNOWN
+    }
+
+    /**
+     * {@code POST /api/access/settle}'s answer; {@code days} and {@code until} when booked, {@code was} when not open.
+     */
+    public record Settled(
+            SettleOutcome outcome,
+            @Nullable Integer days,
+            @Nullable Instant until,
+            @Nullable String was) {}
+
+    /** A request in the bot's inbox and, once it answered, what it said; a text answer is {@code {text}}. */
+    public record AccessRequestRun(
+            String id,
+            String kind,
+            InboxStatus status,
+            @Nullable JsonObject result) {}
+
     /**
      * {@code POST /api/access/settle} with {@code {reference}}: books an open request by hand, at what it ordered.
      *
@@ -88,11 +112,9 @@ final class AccessApi {
             throw new BadRequestResponse("reference is the payment to settle");
         }
         final String reference = ask.reference.trim();
-        final Map<String, Object> answer = new LinkedHashMap<>();
         final Optional<PaymentRequest> found = data().payments().byReference(reference);
         if (found.isEmpty()) {
-            answer.put("outcome", "UNKNOWN");
-            ctx.json(answer);
+            ctx.json(new Settled(SettleOutcome.UNKNOWN, null, null, null));
             return;
         }
         final DiscordAuth.Account who = accounts.apply(ctx);
@@ -105,25 +127,25 @@ final class AccessApi {
         switch (booking) {
             case Bookings.Booking.Booked booked -> {
                 log.info("{} booked {} by hand", who.name(), reference);
-                answer.put("outcome", "BOOKED");
-                answer.put("days", booked.told().days());
-                answer.put("until", booked.told().until().toString());
+                ctx.json(new Settled(
+                        SettleOutcome.BOOKED,
+                        booked.told().days(),
+                        booked.told().until(),
+                        null));
             }
-            case Bookings.Booking.NotOpen closed -> {
-                answer.put("outcome", "NOT_OPEN");
-                answer.put("days", found.get().days());
-                answer.put(
-                        "was",
+            case Bookings.Booking.NotOpen closed ->
+                ctx.json(new Settled(
+                        SettleOutcome.NOT_OPEN,
+                        found.get().days(),
+                        null,
                         data().payments()
                                 .byId(found.get().id())
                                 .map(row -> row.status().name())
-                                .orElse(found.get().status().name()));
-            }
+                                .orElse(found.get().status().name())));
             // The order itself is the settlement, so there is always one.
             case Bookings.Booking.BelowMinimum below ->
                 throw new IllegalStateException("a booking by hand books the order");
         }
-        ctx.json(answer);
     }
 
     /** {@code POST /api/people/{id}/playtime} with {@code {seconds}}, the new total. */
@@ -149,13 +171,9 @@ final class AccessApi {
         final Request<BotRequest> row =
                 data().bot().find(id).orElseThrow(() -> new NotFoundResponse("There is no request " + id + "."));
 
-        final Map<String, Object> answer = new LinkedHashMap<>();
-        answer.put("id", String.valueOf(row.id()));
-        answer.put("kind", row.kind());
-        answer.put("status", row.status().name());
         final String outcome = row.outcome();
-        if (outcome != null) answer.put("result", parsed(outcome));
-        ctx.json(answer);
+        ctx.json(new AccessRequestRun(
+                String.valueOf(row.id()), row.kind(), row.status(), outcome == null ? null : parsed(outcome)));
     }
 
     private void submit(final Context ctx, final BotRequest request) {
@@ -164,21 +182,23 @@ final class AccessApi {
                 data().bot().submit(request, Actor.person(DiscordId.of(who.id())), Schedule.within(PATIENCE));
         log.info("{} asked the bot for {}", who.name(), request);
 
-        final Map<String, Object> answer = new LinkedHashMap<>();
-        answer.put("id", String.valueOf(written.id()));
-        answer.put("kind", written.kind());
-        answer.put("status", written.status().name());
-        ctx.status(202).json(answer);
+        ctx.status(202)
+                .json(new AccessRequestRun(String.valueOf(written.id()), written.kind(), written.status(), null));
     }
 
     /** The bot's answer as an object; a row that does not parse is shown as text. */
-    private static Object parsed(final String result) {
+    private static JsonObject parsed(final String result) {
         try {
             final JsonElement element = Json.tree(result);
-            return element.isJsonObject() ? element : Map.of("text", result);
+            if (element.isJsonObject()) {
+                return element.getAsJsonObject();
+            }
         } catch (final JsonSyntaxException notJson) {
-            return Map.of("text", result);
+            // Shown as text, below.
         }
+        final JsonObject text = new JsonObject();
+        text.addProperty("text", result);
+        return text;
     }
 
     private static Body bodyOf(final Context ctx) {

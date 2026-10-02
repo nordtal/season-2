@@ -79,7 +79,6 @@ const PLUGINS = {
 }
 
 const AVAILABLE = {
-  checkedAt: "2026-09-24T00:00:00Z",
   resolvedAt: "2026-09-24T00:00:00Z",
   seasonPrerelease: false,
   hasWork: true,

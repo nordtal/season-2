@@ -50,11 +50,15 @@ public final class WebWire {
             AdminApi.Granted.class,
             AdminTree.Revocation.class,
             PackExemptionApi.Exempted.class,
-            Settings.PageSettings.class);
+            Settings.PageSettings.class,
+            GameDataRoutes.GameData.class);
 
     /** Records here whose own simple name would say too little or collide. */
     public static final Map<Class<?>, String> NAMES = Map.ofEntries(
             Map.entry(Metrics.Curve.class, "Metrics"),
+            Map.entry(GameDataRoutes.Icons.class, "GameIcons"),
+            Map.entry(eu.nordtal.s2.database.game.GameCatalogue.Entry.class, "GameEntry"),
+            Map.entry(eu.nordtal.s2.database.game.GameCatalogue.Tag.class, "GameTag"),
             Map.entry(Announcements.RecentAnnouncements.class, "Announcements"),
             Map.entry(AccessGrant.class, "Grant"),
             Map.entry(PaymentRequest.class, "Payment"),

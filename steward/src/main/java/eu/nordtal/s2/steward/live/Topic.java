@@ -41,7 +41,10 @@ public enum Topic {
     ALERTS(true),
 
     /** What compose.yml's labels say. */
-    TOPOLOGY(true);
+    TOPOLOGY(true),
+
+    /** What the servers exported of the game, and the icons drawn for it. */
+    GAME_DATA(false);
 
     private final boolean timed;
 

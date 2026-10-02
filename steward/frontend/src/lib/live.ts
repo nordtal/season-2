@@ -17,6 +17,7 @@ export type Topic =
   | "METRICS"
   | "ALERTS"
   | "TOPOLOGY"
+  | "GAME_DATA"
 
 /** How often a live query is read regardless, in case the stream missed something. */
 export const RECONCILE = 60_000

@@ -258,6 +258,14 @@ export type PageSettings = {
   minecraftHeadBaseUrl: string
 }
 
+export type GameData = {
+  version?: string
+  datapacks: string[]
+  registries: Record<string, GameEntry[]>
+  tags: Record<string, GameTag[]>
+  icons?: GameIcons
+}
+
 export type ServiceTable = {
   services: Service[]
   drift: DriftReading
@@ -438,6 +446,7 @@ export type Topic =
   | "METRICS"
   | "ALERTS"
   | "TOPOLOGY"
+  | "GAME_DATA"
 
 export type GuildEntry = {
   id: string
@@ -544,6 +553,28 @@ export type GrantOutcome = "GRANTED" | "ACTOR_NOT_ADMIN" | "ALREADY_ADMIN" | "NO
 export type RevokeOutcome = "REVOKED" | "ACTOR_NOT_ADMIN" | "SELF" | "NOT_BELOW"
 
 export type ExemptionOutcome = "CHANGED" | "UNCHANGED" | "ACTOR_NOT_ADMIN" | "UNKNOWN"
+
+export type GameEntry = {
+  id: string
+  key?: string
+  text?: string
+  parent?: string
+  frame?: string
+  icon?: string
+  hidden?: boolean
+  subject?: string
+}
+
+export type GameTag = {
+  id: string
+  values: string[]
+}
+
+export type GameIcons = {
+  url: string
+  columns: number
+  slots: Record<string, number>
+}
 
 export type Service = {
   service: string

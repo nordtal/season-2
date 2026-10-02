@@ -148,29 +148,29 @@ result="$(at_risk_images "$pairs" "$local_digests" "$registry_digests")"
 ok "an image with no RepoDigests is RISK even when the registry answered"
 
 case_begin "local and registry digest agree - silent"
-pairs=$'ghcr.io/nordtal/minecraft:latest\tsmp'
-local_digests=$'ghcr.io/nordtal/minecraft:latest\t["ghcr.io/nordtal/minecraft@sha256:same0000"]'
-registry_digests=$'ghcr.io/nordtal/minecraft:latest\tsha256:same0000'
+pairs=$'ghcr.io/nordtal/minecraft:0.10.3\tsmp'
+local_digests=$'ghcr.io/nordtal/minecraft:0.10.3\t["ghcr.io/nordtal/minecraft@sha256:same0000"]'
+registry_digests=$'ghcr.io/nordtal/minecraft:0.10.3\tsha256:same0000'
 [[ -z "$(at_risk_images "$pairs" "$local_digests" "$registry_digests")" ]] \
     || bad "a matching local and registry digest was still reported"
 ok "an image whose local digest matches what the registry currently serves is silent"
 
 case_begin "local and registry digest disagree - RISK (the containerd-store case)"
 # The containerd store: a local build has a RepoDigest that differs from the registry's.
-pairs=$'ghcr.io/nordtal/discord-bot:latest\tdiscord-bot'
-local_digests=$'ghcr.io/nordtal/discord-bot:latest\t["ghcr.io/nordtal/discord-bot@sha256:a429f360e0c8"]'
-registry_digests=$'ghcr.io/nordtal/discord-bot:latest\tsha256:39d016200b67'
+pairs=$'ghcr.io/nordtal/discord-bot:0.10.3\tdiscord-bot'
+local_digests=$'ghcr.io/nordtal/discord-bot:0.10.3\t["ghcr.io/nordtal/discord-bot@sha256:a429f360e0c8"]'
+registry_digests=$'ghcr.io/nordtal/discord-bot:0.10.3\tsha256:39d016200b67'
 result="$(at_risk_images "$pairs" "$local_digests" "$registry_digests")"
-[[ "$result" == $'RISK\tghcr.io/nordtal/discord-bot:latest\tdiscord-bot' ]] \
+[[ "$result" == $'RISK\tghcr.io/nordtal/discord-bot:0.10.3\tdiscord-bot' ]] \
     || bad "a locally built image with a mismatched registry digest was not reported, got: «$result»"
 ok "a locally built image is RISK when the registry's current digest differs from its own"
 
 case_begin "the registry did not answer - UNKNOWN, neither cleared nor flagged"
 # "Could not compare" is reported apart from "safe".
-pairs=$'ghcr.io/nordtal/steward:latest\tsteward'
-local_digests=$'ghcr.io/nordtal/steward:latest\t["ghcr.io/nordtal/steward@sha256:ea9364be13a9"]'
+pairs=$'ghcr.io/nordtal/steward:0.10.3\tsteward'
+local_digests=$'ghcr.io/nordtal/steward:0.10.3\t["ghcr.io/nordtal/steward@sha256:ea9364be13a9"]'
 result="$(at_risk_images "$pairs" "$local_digests" "")"
-[[ "$result" == $'UNKNOWN\tghcr.io/nordtal/steward:latest\tsteward' ]] \
+[[ "$result" == $'UNKNOWN\tghcr.io/nordtal/steward:0.10.3\tsteward' ]] \
     || bad "a registry that did not answer should be its own line, got: «$result»"
 ok "no registry answer is its own line, not a pass and not an alarm"
 
@@ -448,6 +448,24 @@ for wrong in "" " " SMP "smp," ",smp" "smp,,limbo" "smp limbo" "../smp" "smp;"; 
     update_scope_ok "$wrong" && bad "'$wrong' was accepted as a scope"
 done
 ok "the scope check is steward_inbox_services_check's service name, joined by commas"
+
+
+case_begin "the release is the newest tag, without its v, and the script comes from that tag"
+[[ "$(release_of_tag v0.11.0)" == "0.11.0" ]] || bad "a tag kept its v"
+[[ "$(release_of_tag 0.11.0)" == "0.11.0" ]]  || bad "a bare version changed"
+answer='{"url":"x","tag_name": "v0.11.0","name":"v0.11.0","target_commitish":"main"}'
+[[ "$(tag_name_of <<<"$answer")" == "v0.11.0" ]] || bad "tag_name was not read"
+[[ "$(tag_name_of <<<'{"message":"Not Found"}')" == "" ]] || bad "an answer without a tag gave one"
+[[ "$(self_url_for 0.11.0)" == "https://raw.githubusercontent.com/nordtal/season-2/v0.11.0/deploy/nordtal.sh" ]] \
+    || bad "the script is not fetched from the release's tag"
+[[ "$(self_url_for 0.11.0)" != */main/* ]] || bad "the script is fetched from main"
+ok "tag_name, v stripped, raw file at the tag"
+
+case_begin "a running, healthy agent gets a request; everything else gets up"
+[[ "$(deploy_by false true)" == request ]] || bad "a healthy agent was bypassed"
+[[ "$(deploy_by false false)" == up ]]     || bad "an install or a repair asked an agent that is not there"
+[[ "$(deploy_by true true)" == up ]]       || bad "--build did not deploy the agent it built"
+ok "request, up, --build"
 
 
 if (( failed > 0 )); then

@@ -4,6 +4,10 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/nordtal/season-2/main/deploy/nordtal.sh | bash
 #
+# Whatever copy starts, the run is the newest release's: it asks GitHub which release that is, and
+# runs that release's own copy of this file, which installs that release's images. NORDTAL_RELEASE
+# names another release instead, for an install only.
+#
 # It stays there as ./nordtal.sh, which is how a setting is changed afterwards:
 #
 #   ./nordtal.sh                       the menu: what is set, change one, then deploy
@@ -14,7 +18,11 @@
 #   ./nordtal.sh --env-file PATH       where the environment file belongs on this host
 #                                      (default: /etc/nordtal/season-2.env)
 #   ./nordtal.sh --address IP          this host's public address, for a host behind NAT
-#   ./nordtal.sh --no-self-update      run this file as it is, without asking GitHub for a newer one
+#   ./nordtal.sh --no-self-update      run this file as it is, without fetching the release's copy
+#
+# Where steward-agent already runs and is healthy, a deploy is an update run like any other: it
+# writes the request and waits for the report. Only an install, or a stack whose agent is down or
+# unhealthy, gets the agent's `up` - which is the emergency repair.
 #
 # `update` asks steward-agent for a run, the way Steward's buttons do, and waits for its report:
 #
@@ -26,9 +34,9 @@
 #   ./nordtal.sh update --in 10        let the countdown run for ten minutes first
 #   ./nordtal.sh update --no-wait      print the request id and return, instead of waiting
 #
-# Every run first fetches the current script and runs that, saying which version and where from;
-# without a network it runs the local copy. Run it after every release: a new compose.yml arrives
-# only inside a new steward-agent image, and this script is what renews that container.
+# Every run first fetches the release's copy of this script and runs that, saying which version and
+# where from; without a network it runs the local copy, but it never deploys without knowing the
+# release. A new release reaches a running stack through Steward's update button as well.
 #
 # It asks for what only a person knows, generates the other secrets, and writes them to
 # /etc/nordtal/season-2.env with mode 600, outside the installation directory. It never prints a
@@ -39,10 +47,14 @@ set -Eeuo pipefail
 INSTALL_DIR="$PWD"
 SELF_NAME="nordtal.sh"
 INSTALLED="$INSTALL_DIR/$SELF_NAME"
-SELF_URL="${NORDTAL_SH_URL:-https://raw.githubusercontent.com/nordtal/season-2/main/deploy/nordtal.sh}"
+# Which release is the newest; a run renews itself from that release's tag, never from a branch.
+RELEASES_API="${NORDTAL_RELEASES_API:-https://api.github.com/repos/nordtal/season-2/releases/latest}"
+# Set once the release is known: this file at that tag, and steward-agent at that version.
+SELF_URL=""
+AGENT_IMAGE=""
+IMAGES="${NORDTAL_IMAGES:-ghcr.io/nordtal}"
 
 DEFAULT_ENV_FILE="/etc/nordtal/season-2.env"
-AGENT_IMAGE="ghcr.io/nordtal/steward-agent:latest"
 DEFAULT_PROJECT="nordtal-s2"
 
 # How long to give GitHub before running what is already here.
@@ -440,13 +452,13 @@ from_a_checkout() {
     [[ "$(basename "$here")" == "deploy" && -f "$here/../compose.yml" ]]
 }
 
-# Fetches the current version into $1 with curl or wget.
-fetch_self() {
-    local into="$1"
+# Fetches $1 into the file $2 with curl or wget.
+fetch_url() {
+    local url="$1" into="$2"
     if command -v curl >/dev/null 2>&1; then
-        curl -fsSL --max-time "$SELF_UPDATE_TIMEOUT" "$SELF_URL" -o "$into" 2>/dev/null
+        curl -fsSL --max-time "$SELF_UPDATE_TIMEOUT" "$url" -o "$into" 2>/dev/null
     elif command -v wget >/dev/null 2>&1; then
-        wget -q --timeout="$SELF_UPDATE_TIMEOUT" -O "$into" "$SELF_URL" 2>/dev/null
+        wget -q --timeout="$SELF_UPDATE_TIMEOUT" -O "$into" "$url" 2>/dev/null
     else
         return 1
     fi
@@ -645,6 +657,34 @@ update_is_over() {
     esac
 }
 
+# The version a release tag names: our tags carry a leading v, our images do not.
+release_of_tag() {
+    local tag="$1"
+    printf '%s' "${tag#v}"
+}
+
+# The tag_name out of GitHub's answer for one release, without jq; empty when there is none.
+tag_name_of() {
+    sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sed -n '1p'
+}
+
+# This file as the release carries it.
+self_url_for() {
+    printf 'https://raw.githubusercontent.com/nordtal/season-2/v%s/deploy/nordtal.sh' "$1"
+}
+
+# How a deploy reaches the stack: `request` when a healthy steward-agent runs, which carries out
+# the update like any run; `up` for an install, a repair of an agent that is down, or --build.
+# $1 is whether --build was given, $2 whether the project's agent is running and healthy.
+deploy_by() {
+    local build="$1" agent_healthy="$2"
+    if [[ "$build" == true || "$agent_healthy" != true ]]; then
+        printf 'up'
+    else
+        printf 'request'
+    fi
+}
+
 # Definitions end here; only a genuine `source` returns. Under `curl ... | bash` there is no BASH_SOURCE.
 if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "$0" ]]; then
     return 0
@@ -757,7 +797,7 @@ MENU=true
 usage() {
     local file="${BASH_SOURCE[0]:-}"
     [[ -f "$file" ]] || file="$INSTALLED"
-    [[ -f "$file" ]] || { printf '%s\n' "$SELF_URL" ; return 0; }
+    [[ -f "$file" ]] || { printf '%s\n' "https://github.com/nordtal/season-2/releases/latest" ; return 0; }
     awk 'NR > 1 { if ($0 !~ /^#/) exit; print }' "$file" | sed 's/^# \{0,1\}//'
 }
 
@@ -778,8 +818,36 @@ done
 # Without a terminal nothing is asked: the run has what it needs or names what is missing.
 [[ -t 0 ]] || MENU=false
 
-# 0 · which copy of this file is running
-# The first line of output names the version, since this script may replace itself.
+# 0 · which release, and which copy of this file is running
+# The release decides everything below, so nothing runs without one. A copy renewed from the tag
+# gets it through NORDTAL_RELEASE and does not ask again.
+resolve_release() {
+    if [[ -n "${NORDTAL_RELEASE:-}" ]]; then
+        RELEASE="$(release_of_tag "$NORDTAL_RELEASE")"
+        RELEASE_NAMED="${NORDTAL_RELEASE_NAMED:-true}"
+        return 0
+    fi
+    local answer tag
+    answer="$(mktemp "${TMPDIR:-/tmp}/nordtal-release.XXXXXX")"
+    if fetch_url "$RELEASES_API" "$answer"; then
+        tag="$(tag_name_of <"$answer")"
+    fi
+    rm -f "$answer"
+    [[ -n "${tag:-}" ]] || die "GitHub did not say which release is the newest ($RELEASES_API), and
+       nothing else may decide what this host runs. Try again once it answers, or name the release
+       yourself: NORDTAL_RELEASE=0.11.0 ./nordtal.sh"
+    RELEASE="$(release_of_tag "$tag")"
+    RELEASE_NAMED=false
+}
+RELEASE=""
+RELEASE_NAMED=false
+resolve_release
+# For the renewed copy, which must neither ask again nor take GitHub's answer for a person's.
+export NORDTAL_RELEASE="$RELEASE" NORDTAL_RELEASE_NAMED="$RELEASE_NAMED"
+SELF_URL="${NORDTAL_SH_URL:-$(self_url_for "$RELEASE")}"
+AGENT_IMAGE="$IMAGES/steward-agent:$RELEASE"
+log "release $RELEASE"
+
 ORIGIN="${NORDTAL_SH_ORIGIN:-}"
 SELF_TEMP=""
 
@@ -795,7 +863,7 @@ renew_self() {
 
     local candidate
     candidate="$(mktemp "${TMPDIR:-/tmp}/nordtal.sh.XXXXXX")"
-    if ! fetch_self "$candidate" || ! looks_like_this_script "$candidate"; then
+    if ! fetch_url "$SELF_URL" "$candidate" || ! looks_like_this_script "$candidate"; then
         rm -f "$candidate"
         # Without a network it carries on, unless piped: then there is no copy to run.
         running_from_a_file || die "this script was piped into bash and $SELF_URL could not be
@@ -810,7 +878,7 @@ renew_self() {
     if running_from_a_file \
         && [[ "$(fingerprint "$candidate")" == "$(fingerprint "${BASH_SOURCE[0]}")" ]]; then
         rm -f "$candidate"
-        ORIGIN="this copy, which is what GitHub currently serves"
+        ORIGIN="this copy, which is release $RELEASE's"
         return 0
     fi
 
@@ -819,10 +887,10 @@ renew_self() {
     export NORDTAL_SH_ORIGIN="$SELF_URL, fetched for this run"
     export NORDTAL_SH_TEMP="$candidate"
     if running_from_a_file; then
-        log "a newer version is published ($(fingerprint "$candidate")); running that one instead
-       of this one ($(fingerprint "${BASH_SOURCE[0]}"))"
+        log "release $RELEASE carries another version of this file ($(fingerprint "$candidate"));
+       running that one instead of this one ($(fingerprint "${BASH_SOURCE[0]}"))"
     else
-        log "fetched the current version; running that"
+        log "fetched release $RELEASE's copy; running that"
     fi
     if [[ ! -t 0 ]] && (exec </dev/tty) 2>/dev/null; then
         # Piped in: stdin is the script, so the new copy asks on the terminal.
@@ -1113,7 +1181,7 @@ set_secret STEWARD_BUNQ_TOKEN
 # Minted with `steward generate-vapid-keys`, which needs neither database nor config. A half
 # set pair is replaced whole. The image is pulled only if absent, so a local build survives.
 generate_vapid_keys() {
-    local image="${STEWARD_IMAGE:-ghcr.io/nordtal/steward:latest}"
+    local image="${STEWARD_IMAGE:-$IMAGES/steward:$RELEASE}"
     local pub priv output
     pub="$(env_value "$ENV_FILE" STEWARD_WEB_PUSH_PUBLIC_KEY)"
     priv="$(env_value "$ENV_FILE" STEWARD_WEB_PUSH_PRIVATE_KEY)"
@@ -1320,9 +1388,9 @@ images_at_risk() {
         return 0
     }
     json="$(compose_config_json)" || {
-        warn "no copy of $AGENT_IMAGE on this host yet, so there is no compose.yml to read the"
-        warn "image list out of. Nothing here has been deployed before, which is also why there is"
-        warn "nothing for this check to protect."
+        warn "no copy of $AGENT_IMAGE on this host yet, so there is no compose.yml of release"
+        warn "$RELEASE to read the image list out of. Its images are pinned to $RELEASE, so a local"
+        warn "build is at risk only if it carries that tag."
         return 0
     }
     [[ -n "$json" ]] || return 0
@@ -1396,6 +1464,11 @@ if $CHECK_ONLY; then
     exit 0
 fi
 
+# 5b · Mojang's assets
+# Reserved for the game-data catalogue: the one place this installer asks, once per installation,
+# whether steward-agent may fetch Mojang's client assets under Mojang's EULA, and stores the answer
+# with the installation. Nothing is asked yet.
+
 # 6 · renew steward-agent
 # The one image the stack cannot replace itself; compose.yml is baked into it.
 if $BUILD_AGENT; then
@@ -1421,12 +1494,33 @@ else
 fi
 
 # 7 · the deployment itself
-# A one-off agent runs `up`, which pulls every image before stopping anything. The env
-# directory is mounted, and NORDTAL_STEWARD_AGENT_ENV_FILE names the file inside it.
-log "deploying - this pulls every image before it stops anything"
+# A healthy agent gets a request, and the update run installs the newest release the way Steward's
+# button does: one-shot hand-over, migration while the servers are down, the report in the inbox.
+agent_healthy=false
+grep -qxF "${PROJECT}-steward-agent-1" \
+    <<<"$(docker ps --filter health=healthy --format '{{.Names}}')" && agent_healthy=true
+if [[ "$(deploy_by "$BUILD_AGENT" "$agent_healthy")" == request ]]; then
+    if [[ "$RELEASE_NAMED" == true ]]; then
+        warn "NORDTAL_RELEASE names $RELEASE, and an update run always installs the newest release."
+    fi
+    log "steward-agent runs here, so this deploy is an update run; Steward shows it as well"
+    if cmd_update --env-file "$ENV_FILE"; then
+        log "done. The interface is at https://$STEWARD_NAME"
+        exit 0
+    else
+        exit $?
+    fi
+fi
+
+# Otherwise a throwaway agent runs `up`, which pulls every image before stopping anything; on a
+# stack whose agent is down this is the repair. The env directory is mounted, and
+# NORDTAL_STEWARD_AGENT_ENV_FILE names the file inside it.
+log "deploying release $RELEASE - this pulls every image before it stops anything"
 docker run --rm \
     --name "${PROJECT}-setup" \
     -e "COMPOSE_PROJECT_NAME=$PROJECT" \
+    -e "NORDTAL_RELEASE=$RELEASE" \
+    -e "NORDTAL_IMAGES=$IMAGES" \
     -e "NORDTAL_STEWARD_AGENT_ENV_FILE=/app/env/$(basename "$ENV_FILE")" \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$(dirname "$ENV_FILE"):/app/env:ro" \

@@ -1,4 +1,5 @@
 import type { QueryObserverSuccessResult, UseQueryResult } from "@tanstack/react-query"
+import type { NetworkMap } from "@/lib/api"
 
 /** The URL `fetch` was actually asked for, whichever of its three argument shapes carried it. */
 export function urlOf(input: RequestInfo | URL): string {
@@ -59,4 +60,26 @@ export function queryResult<T>(data: T): UseQueryResult<T> {
     status: "success",
   }
   return result
+}
+
+/** `/api/topology` as `compose.yml`'s labels answer it, in compose's order, which is not the drawn one. */
+export const NETWORK_MAP: NetworkMap = {
+  services: [
+    { name: "postgres", section: "Database", entry: false, reaches: [], storesIn: [] },
+    { name: "discord-bot", section: "Discord", entry: false, reaches: [], storesIn: ["postgres"] },
+    { name: "proxy", section: "Entry", entry: true, reaches: ["smp", "hunger-games", "limbo"], storesIn: ["postgres"] },
+    { name: "limbo", section: "Paper", entry: false, reaches: [], storesIn: ["postgres"] },
+    { name: "hunger-games", section: "Paper", entry: false, reaches: [], storesIn: ["postgres"] },
+    { name: "smp", section: "Paper", entry: false, reaches: [], storesIn: ["postgres"] },
+    {
+      name: "steward",
+      section: "Steward",
+      entry: false,
+      reaches: ["steward-agent", "steward-bunq"],
+      storesIn: ["postgres"],
+    },
+    { name: "steward-agent", section: "Steward", entry: false, reaches: [], storesIn: [] },
+    { name: "steward-bunq", section: "Steward", entry: false, reaches: [], storesIn: [] },
+    { name: "caddy", section: "Entry", entry: true, reaches: ["steward"], storesIn: [] },
+  ],
 }

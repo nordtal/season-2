@@ -3,8 +3,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { CommandPalette } from "@/app/command-palette"
 import { GERMAN_BACKUP_SYNONYM } from "@/app/run-search-terms"
-import { useConfigDocuments, useConfigs, useMessageBundles, useMessageDocuments, useRuns } from "@/lib/queries"
-import { queryResult } from "@/lib/query-fixtures"
+import {
+  useConfigDocuments,
+  useConfigs,
+  useMessageBundles,
+  useMessageDocuments,
+  useRuns,
+  useTopology,
+} from "@/lib/queries"
+import { NETWORK_MAP, queryResult } from "@/lib/query-fixtures"
 import { takePendingJump, takePendingMessageJump } from "@/lib/settings-search"
 import type {
   ConfigEntry,
@@ -27,6 +34,7 @@ vi.mock("@/lib/queries", () => ({
   useConfigDocuments: vi.fn<typeof useConfigDocuments>(),
   useMessageBundles: vi.fn<typeof useMessageBundles>(),
   useMessageDocuments: vi.fn<typeof useMessageDocuments>(),
+  useTopology: vi.fn<typeof useTopology>(),
 }))
 
 beforeEach(() => {
@@ -36,6 +44,7 @@ beforeEach(() => {
   vi.mocked(useConfigDocuments).mockReturnValue([])
   vi.mocked(useMessageBundles).mockReturnValue(queryResult([]))
   vi.mocked(useMessageDocuments).mockReturnValue([])
+  vi.mocked(useTopology).mockReturnValue(queryResult(NETWORK_MAP))
 })
 
 afterEach(() => {
@@ -47,6 +56,7 @@ afterEach(() => {
   vi.mocked(useConfigDocuments).mockReset()
   vi.mocked(useMessageBundles).mockReset()
   vi.mocked(useMessageDocuments).mockReset()
+  vi.mocked(useTopology).mockReset()
 })
 
 /** The palette, identified by the one thing only the open dialog has. */

@@ -31,6 +31,7 @@ final class Routes {
     private static void serviceRoutes(final StackApi api, final JavalinConfig config, final Caller caller) {
         // One round trip per table: state, health, image, uptime, RAM and CPU together.
         config.routes.get("/api/services", ctx -> ctx.json(api.serviceTable()), Gate.KEY_HELD);
+        config.routes.get("/api/topology", ctx -> ctx.json(api.network()), Gate.KEY_HELD);
 
         config.routes.get(
                 "/api/services/{name}",

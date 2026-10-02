@@ -95,7 +95,7 @@ services:
   postgres:
     profiles: ["db"]
     # A run renews its image last of all, since the run's report goes through it.
-    labels: { eu.nordtal.renew: last }
+    labels: { eu.nordtal.renew: last, eu.nordtal.section: Database }
     # On every network a process with a database login is on; see `networks:` at the foot.
     networks: ["default", "steward", "agent-database"]
     # The version the integration tests run against.
@@ -128,7 +128,11 @@ services:
   discord-bot:
     profiles: ["bot"]
     # A backup stops it while it saves, so bot-config is not written mid-snapshot; a run renews it.
-    labels: { eu.nordtal.backup: stop, eu.nordtal.renew: run }
+    labels:
+      eu.nordtal.backup: stop
+      eu.nordtal.renew: run
+      eu.nordtal.section: Discord
+      eu.nordtal.stores-in: postgres
     image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/discord-bot:${NORDTAL_RELEASE:?the release every image of ours runs - steward-agent and deploy/nordtal.sh pass it}
     build:
       <<: *jvm-build
@@ -194,6 +198,10 @@ services:
       eu.nordtal.plugins: &proxy-plugins "proxy voicechat-velocity?"
       eu.nordtal.renew: run
       eu.nordtal.console: "true"
+      eu.nordtal.section: Entry
+      eu.nordtal.entry: "true"
+      eu.nordtal.reaches: smp hunger-games limbo
+      eu.nordtal.stores-in: postgres
     # Holds nothing that cannot be rebuilt, so the OOM killer should take it first.
     oom_score_adj: 500
     # Anchored so proxy-standby reuses this exact node.
@@ -257,6 +265,8 @@ services:
       eu.nordtal.plugins: &limbo-plugins "limbo"
       eu.nordtal.renew: run
       eu.nordtal.console: "true"
+      eu.nordtal.section: Paper
+      eu.nordtal.stores-in: postgres
     # Holds nothing that cannot be rebuilt, so the OOM killer should take it first.
     oom_score_adj: 500
     # Anchored so limbo-standby reuses this exact node.
@@ -300,6 +310,8 @@ services:
       eu.nordtal.plugins: &hunger-games-plugins "hunger-games voicechat?"
       eu.nordtal.renew: run
       eu.nordtal.console: "true"
+      eu.nordtal.section: Paper
+      eu.nordtal.stores-in: postgres
     environment:
       <<: *minecraft-env
       SERVER_KIND: *hunger-games-kind
@@ -331,6 +343,8 @@ services:
       eu.nordtal.renew: run
       eu.nordtal.console: "true"
       eu.nordtal.backup: stop
+      eu.nordtal.section: Paper
+      eu.nordtal.stores-in: postgres
     environment:
       <<: *minecraft-env
       SERVER_KIND: *smp-kind
@@ -358,7 +372,11 @@ services:
   # steward: the web interface and its API, payments, alerts and the clocks that ask for runs. It
   # carries out no run. One-shot commands: `forget-factors` and `generate-vapid-keys`.
   steward:
-    labels: { eu.nordtal.renew: run }
+    labels:
+      eu.nordtal.renew: run
+      eu.nordtal.section: Steward
+      eu.nordtal.reaches: steward-agent steward-bunq
+      eu.nordtal.stores-in: postgres
     build:
       <<: *jvm-build
       args: { MODULE: steward }
@@ -443,6 +461,7 @@ services:
   # to a one-shot from this service at that release, `<project>-steward-agent-run`, which renews it last.
   # No profile: the Minecraft services wait for it.
   steward-agent:
+    labels: { eu.nordtal.section: Steward }
     build:
       <<: *jvm-build
       args: { MODULE: steward-agent }
@@ -525,7 +544,7 @@ services:
   # bunq's session for this device, which bunq binds to the device and IP that registered it.
   steward-bunq:
     profiles: ["steward"]
-    labels: { eu.nordtal.renew: run }
+    labels: { eu.nordtal.renew: run, eu.nordtal.section: Steward }
     build:
       <<: *jvm-build
       args: { MODULE: steward-bunq }
@@ -557,7 +576,11 @@ services:
   caddy:
     # Also in `mc`, because it guards the game port; a run renews it only once the rest is back.
     profiles: ["steward", "mc"]
-    labels: { eu.nordtal.renew: after }
+    labels:
+      eu.nordtal.renew: after
+      eu.nordtal.section: Entry
+      eu.nordtal.entry: "true"
+      eu.nordtal.reaches: steward
     build:
       # Caddy with the layer 4 app built in.
       context: ./deploy/caddy

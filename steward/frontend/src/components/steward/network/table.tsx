@@ -8,19 +8,19 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 
 import { useNetwork } from "./data"
 import { DriftMark, NodeToolbar } from "./node"
-import { SECTIONS, imageTag } from "./topology"
+import { imageTag, type Section } from "./topology"
 
 /**
- * The network on a phone: one row per service carrying the card's facts, grouped by `SECTIONS`.
+ * The network on a phone: one row per service carrying the card's facts, grouped by the topology's sections.
  *
  * The grouping stands in for the edges, since a "connected to" column would read as neither table nor graph.
  */
-export function NetworkTable() {
+export function NetworkTable({ sections }: { sections: readonly Section[] }) {
   const network = useNetwork()
 
   return (
     <div className="flex flex-col gap-4">
-      {SECTIONS.map((section) => (
+      {sections.map((section) => (
         <div key={section.id} className="flex flex-col">
           <h3 className="mb-1 text-xs font-medium tracking-wide text-muted-foreground">{section.title}</h3>
           {section.members.map((id) => {

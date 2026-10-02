@@ -12,7 +12,7 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command"
-import { NAVIGATION } from "@/app/navigation"
+import { useNavigation } from "@/app/navigation"
 import { RUN_KIND_SEARCH_TERMS } from "@/app/run-search-terms"
 import type { ConfigLocation, MessageBundleLocation, Run } from "@/lib/api"
 import { runPath } from "@/lib/run-path"
@@ -70,6 +70,7 @@ export function CommandPalette() {
   /** Controlled only so the Settings group knows what was typed; the other groups use cmdk's filter. */
   const [search, setSearch] = React.useState("")
   const navigate = useNavigate()
+  const groups = useNavigation()
   const runs = useRuns(20, open).data ?? []
 
   /** Every config file's documents, fetched once the palette is open and something is typed. */
@@ -146,7 +147,7 @@ export function CommandPalette() {
       />
       <CommandList className="max-h-[22rem]">
         <CommandEmpty>{reading ? "Still reading the settings…" : "Nothing found."}</CommandEmpty>
-        {NAVIGATION.map((group, index) => (
+        {groups.map((group, index) => (
           <React.Fragment key={group.id}>
             {index > 0 ? <CommandSeparator /> : null}
             <CommandGroup heading={group.label}>

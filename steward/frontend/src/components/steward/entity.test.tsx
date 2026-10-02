@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { Actor, Entity, entityKind } from "@/components/steward/entity"
 import { IDENTIFIER_PATTERN } from "@/components/steward/identity"
+import { NETWORK_MAP } from "@/lib/query-fixtures"
 
 /** The four answers of the entity component: a Discord id, a Minecraft UUID, a service, and a question mark. */
 
@@ -34,6 +35,7 @@ function draw(node: ReactNode) {
     vi.fn(async (url: string) => {
       if (url === "/api/people") return json(200, PEOPLE)
       if (url === "/api/settings") return json(200, { minecraftHeadBaseUrl: "" })
+      if (url === "/api/topology") return json(200, NETWORK_MAP)
       throw new Error(`the entity asked for ${url}, which this test did not expect`)
     }),
   )
@@ -58,13 +60,16 @@ afterEach(() => {
 
 describe("entityKind - what an identifier is, from its shape", () => {
   it("tells the four kinds apart", () => {
-    expect(entityKind(DISCORD_ID)).toBe("discord")
-    expect(entityKind(MC_UUID)).toBe("minecraft")
-    expect(entityKind(MC_UUID.replace(/-/g, ""))).toBe("minecraft")
-    expect(entityKind("smp")).toBe("service")
-    expect(entityKind("steward")).toBe("service")
-    expect(entityKind("host")).toBe("unknown")
-    expect(entityKind("")).toBe("unknown")
+    const services = NETWORK_MAP.services.map((box) => box.name)
+    expect(entityKind(DISCORD_ID, services)).toBe("discord")
+    expect(entityKind(MC_UUID, services)).toBe("minecraft")
+    expect(entityKind(MC_UUID.replace(/-/g, ""), services)).toBe("minecraft")
+    expect(entityKind("smp", services)).toBe("service")
+    expect(entityKind("steward", services)).toBe("service")
+    expect(entityKind("host", services)).toBe("unknown")
+    expect(entityKind("", services)).toBe("unknown")
+    /** A name is a service because the stack serves it, not because it looks like one. */
+    expect(entityKind("smp", [])).toBe("unknown")
   })
 })
 

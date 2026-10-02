@@ -159,6 +159,22 @@ public final class AgentWire {
         }
     }
 
+    /**
+     * Where the network page draws a service and what it is wired to, from four labels of compose.yml.
+     *
+     * @param section the heading it is grouped under, from {@code eu.nordtal.section}
+     * @param entry whether players reach it from outside, from {@code eu.nordtal.entry}
+     * @param reaches the services it sends requests to, from {@code eu.nordtal.reaches}
+     * @param storesIn the services it keeps its data in, from {@code eu.nordtal.stores-in}
+     */
+    public record Wiring(String section, boolean entry, List<String> reaches, List<String> storesIn) {
+
+        public Wiring {
+            reaches = List.copyOf(reaches);
+            storesIn = List.copyOf(storesIn);
+        }
+    }
+
     /** When a run makes a service's container again, which the label {@code eu.nordtal.renew} says. */
     public enum Renewal {
         /** Stopped by a run, made again from a newer image and started: every image of ours a run may stop. */
@@ -178,6 +194,7 @@ public final class AgentWire {
      * @param server the server it is, from {@code eu.nordtal.server} and {@code eu.nordtal.plugins}, or none
      * @param standbyOf the service it stands in for, from {@code eu.nordtal.standby-of}, or none
      * @param renewal when a run makes it again, from {@code eu.nordtal.renew}, or never
+     * @param wiring where the network page draws it and what it is wired to, or none for a service it leaves out
      */
     public record Service(
             String name,
@@ -186,7 +203,20 @@ public final class AgentWire {
             boolean stoppedForBackup,
             eu.nordtal.s2.internalapi.agent.Topology.@Nullable Service server,
             @Nullable String standbyOf,
-            @Nullable Renewal renewal) {
+            @Nullable Renewal renewal,
+            @Nullable Wiring wiring) {
+
+        /** A service the network page does not draw. */
+        public Service(
+                final String name,
+                final @Nullable String image,
+                final boolean console,
+                final boolean stoppedForBackup,
+                final eu.nordtal.s2.internalapi.agent.Topology.@Nullable Service server,
+                final @Nullable String standbyOf,
+                final @Nullable Renewal renewal) {
+            this(name, image, console, stoppedForBackup, server, standbyOf, renewal, null);
+        }
 
         /** A service that is no server and no standby, and that no run makes again. */
         public Service(

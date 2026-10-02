@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 
 import { useNetwork } from "./data"
 import { ServiceNode } from "./node"
-import { DATABASE_CLIENTS, EDGES, type NodeId } from "./topology"
+import type { NodeId, Topology } from "./topology"
 import { type Box, EDGE_COLOR, type Geometry, type Point, Wires, bundle, collapseToGroups } from "./wires"
 
 /**
@@ -175,15 +175,12 @@ function useAvailableWidth(ref: React.RefObject<HTMLElement | null>): number {
   return width
 }
 
-const TRAFFIC = EDGES.filter((edge) => edge.kind === "traffic")
-const DATA = EDGES.filter((edge) => edge.kind === "data")
-
 /**
  * The picture, drawn from its arrangement at the container's width: it stretches, it does not scale.
  *
  * Only below `minWidth` is it scaled down, rather than overflowing.
  */
-export function Field({ plan, id }: { plan: Arrangement; id: string }) {
+export function Field({ plan, topology, id }: { plan: Arrangement; topology: Topology; id: string }) {
   const outer = useRef<HTMLDivElement>(null)
   const available = useAvailableWidth(outer)
   const network = useNetwork()
@@ -195,9 +192,10 @@ export function Field({ plan, id }: { plan: Arrangement; id: string }) {
   const geometry = geometryOf(placed)
 
   /** Resolved through the group map, so the Paper group's foot leaves from its own border. */
-  const sources = collapseToGroups(DATABASE_CLIENTS, geometry)
-  const sink = geometry.boxes.postgres
+  const sources = collapseToGroups(topology.storers, geometry)
+  const sink = topology.sink === undefined ? undefined : geometry.boxes[topology.sink]
   const merged = placed.junction && sink ? bundle(sources, sink, placed.junction) : null
+  const traffic = topology.edges.filter((edge) => edge.kind === "traffic")
 
   return (
     <div ref={outer} className="w-full">
@@ -237,7 +235,7 @@ export function Field({ plan, id }: { plan: Arrangement; id: string }) {
           </div>
         ))}
 
-        <Wires id={id} geometry={geometry} edges={merged ? TRAFFIC : EDGES} bows={placed.bows}>
+        <Wires id={id} geometry={geometry} edges={merged ? traffic : topology.edges} bows={placed.bows}>
           {merged ? (
             <>
               {merged.feet.map((d, index) => (
@@ -271,6 +269,3 @@ export function Field({ plan, id }: { plan: Arrangement; id: string }) {
     </div>
   )
 }
-
-/** Re-exported so a caller can name the edge sets without importing `topology`. */
-export { DATA, TRAFFIC }

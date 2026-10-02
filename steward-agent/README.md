@@ -149,7 +149,8 @@ names who typed it. The backup set is the agent's own mounts under `/backup-sour
 set the label `eu.nordtal.backup: stop`; `/api/topology` serves both, and steward keeps no list of
 either.
 
-The servers are labels too, and nothing in Java mirrors them:
+The servers and the network page's picture are labels too, and nothing in Java or TypeScript mirrors
+them:
 
 | label                   | on                               | says                                                                         |
 | ----------------------- | -------------------------------- | ---------------------------------------------------------------------------- |
@@ -157,6 +158,10 @@ The servers are labels too, and nothing in Java mirrors them:
 | `eu.nordtal.plugins`    | the same                         | `artifact[=jar prefix][?]` per plugin, `?` where it may be missing           |
 | `eu.nordtal.standby-of` | `proxy-standby`, `limbo-standby` | the service it stands in for, whose `plugins/` it gets a copy of             |
 | `eu.nordtal.renew`      | every service a run makes again  | `run` (stopped, renewed, started), `after` (once the rest is back) or `last` |
+| `eu.nordtal.section`    | every service Steward draws      | the heading the network page groups it under; without it, it is not drawn    |
+| `eu.nordtal.entry`      | `proxy`, `caddy`                 | `true`: players reach it from outside                                        |
+| `eu.nordtal.reaches`    | `proxy`, `steward`, `caddy`      | the services it sends requests to, space separated                           |
+| `eu.nordtal.stores-in`  | every service with a login       | the services it keeps its data in, space separated                           |
 
 The Minecraft entrypoint reads `eu.nordtal.server` and `eu.nordtal.plugins` as `SERVER_KIND` and
 `SERVER_PLUGINS`, YAML aliases of the labels, so the guard and the agent read one string. The sampler reads `docker stats` and `/proc` every 30 seconds and keeps the

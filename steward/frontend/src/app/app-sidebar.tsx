@@ -1,8 +1,12 @@
 import { Link, useRouterState } from "@tanstack/react-router"
 
-import { NAVIGATION } from "@/app/navigation"
-import { useServices } from "@/lib/queries"
+import { useNavigation } from "@/app/navigation"
+import { useServices, useTopology } from "@/lib/queries"
 import { HealthDot } from "@/components/steward/status"
+import { SkeletonText } from "@/components/ui/skeleton"
+
+/** Four rows while the services are read, about as many as Paper and the entry have. */
+const WAITING_ROWS = [0, 1, 2, 3]
 
 /**
  * The list of places, held by the desktop's column and the phone's dock alike.
@@ -12,8 +16,10 @@ import { HealthDot } from "@/components/steward/status"
 export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "text" | "surface" }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   /** Decided across the whole navigation, since two entries can match and only the longer is meant. */
-  const active = activeEntryId(pathname, NAVIGATION)
+  const groups = useNavigation()
+  const active = activeEntryId(pathname, groups)
   const services = useServices()
+  const topology = useTopology()
 
   const rowState = (isActive: boolean) =>
     marker === "text"
@@ -26,7 +32,7 @@ export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "
 
   return (
     <nav aria-label="Pages" className="flex flex-col gap-4">
-      {NAVIGATION.map((group) => (
+      {groups.map((group) => (
         <div key={group.id} className="flex flex-col">
           {group.label ? (
             <div className="flex h-7 items-center pl-[calc((var(--control-min-height)-1rem)/2)] text-xs text-muted-foreground">
@@ -34,10 +40,19 @@ export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "
             </div>
           ) : null}
           <ul className="flex flex-col">
+            {/* The service rows are the served topology's, so they wait for it as rows of their own shape. */}
+            {group.id === "services" && topology.isPending
+              ? WAITING_ROWS.map((index) => (
+                  <li key={index} className="flex min-h-control items-center pr-3">
+                    <span className="size-control shrink-0" />
+                    <SkeletonText width="short" className="text-sm" />
+                  </li>
+                ))
+              : null}
             {group.entries.map((entry) => {
               const isActive = entry.id === active
               /**
-               * Only the ten container rows carry a dot, keyed by the service name `navigation.ts` put in the params.
+               * Only the container rows carry a dot, keyed by the service name `navigation.ts` put in the params.
                */
               const service =
                 group.id === "services"

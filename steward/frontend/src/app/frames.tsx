@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { NavList, activeEntryId } from "@/app/app-sidebar"
 import { useCrumbs } from "@/app/breadcrumbs"
 import { Brand, MOTION, NavToggle, SearchButton, Trail } from "@/app/island"
-import { NAVIGATION } from "@/app/navigation"
+import { useNavigation } from "@/app/navigation"
 import { UserMenu } from "@/app/user-menu"
 import type { Me } from "@/lib/api"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -167,8 +167,9 @@ function PhoneFrame({ me, nav }: { me: Me; nav: Nav }) {
 /** The label of the page being shown: its row in the navigation, which is what the dock says. */
 function usePageLabel() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const active = activeEntryId(pathname, NAVIGATION)
-  for (const group of NAVIGATION) {
+  const groups = useNavigation()
+  const active = activeEntryId(pathname, groups)
+  for (const group of groups) {
     // "Overview" is two rows; the second is Operations' own, and the dock says which one it is.
     for (const entry of group.entries)
       if (entry.id === active) return group.label && entry.label === "Overview" ? group.label : entry.label

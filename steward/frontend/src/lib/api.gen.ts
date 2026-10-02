@@ -409,6 +409,10 @@ export type ConsoleSent = {
   where: string
 }
 
+export type NetworkMap = {
+  services: NetworkBox[]
+}
+
 export type AlertType = "service" | "backup" | "disk" | "memory" | "drift" | "run" | "payment" | "bot"
 
 export type AlertChannel = "push" | "discord"
@@ -652,6 +656,14 @@ export type MessageEntry = {
   section: (string | null)[]
   format?: string
   shown?: string
+}
+
+export type NetworkBox = {
+  name: string
+  section: string
+  entry: boolean
+  reaches: string[]
+  storesIn: string[]
 }
 
 export type Resolution = "RAW" | "HOUR"

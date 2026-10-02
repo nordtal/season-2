@@ -15,7 +15,9 @@ import {
   place,
   regionsOf,
 } from "./place"
-import { DATABASE_CLIENTS, EDGES, layoutFaults } from "./topology"
+import { NETWORK_MAP } from "@/lib/query-fixtures"
+
+import { layoutFaults, topologyOf } from "./topology"
 import { type Box, bundle, curve, inside, overlaps, resolvedSources, samplePath } from "./wires"
 
 /**
@@ -27,7 +29,8 @@ const WIDTHS = [372, 410, 560, 720] as const
 
 const LAYOUTS = WIDTHS.map((width) => [`${width}px`, place(PLAN, width)] as const)
 
-const TRAFFIC = EDGES.filter((edge) => edge.kind === "traffic")
+const TOPOLOGY = topologyOf(NETWORK_MAP)
+const TRAFFIC = TOPOLOGY.edges.filter((edge) => edge.kind === "traffic")
 
 /** How far into a card a line may reach before it counts as running through it. */
 const SLACK = -4
@@ -44,8 +47,13 @@ function crossings(d: string, boxes: Record<string, Box>, allowed: string[]): st
 }
 
 describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
-  it("places every service in navigation.ts, exactly once, and the box the traffic comes from", () => {
-    expect(layoutFaults(allSpots(placed).map((spot) => spot.id))).toEqual([])
+  it("places every served service, exactly once, and the box the traffic comes from", () => {
+    expect(
+      layoutFaults(
+        allSpots(placed).map((spot) => spot.id),
+        TOPOLOGY.names,
+      ),
+    ).toEqual([])
   })
 
   it("keeps every card and every group's frame inside the canvas", () => {
@@ -96,7 +104,7 @@ describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
     const junction = placed.junction
     if (!junction) throw new Error("the arrangement names no junction")
     const sink = geometry.boxes.postgres
-    const resolved = resolvedSources(DATABASE_CLIENTS, geometry)
+    const resolved = resolvedSources(TOPOLOGY.storers, geometry)
     const merged = bundle(
       resolved.map((entry) => entry.box),
       sink,
@@ -202,7 +210,7 @@ describe.each(LAYOUTS)("%s", (_name, placed: Placed) => {
     expect(intoPaper).toHaveLength(1)
     expect(intoDeploy).toHaveLength(1)
 
-    const resolved = resolvedSources(DATABASE_CLIENTS, geometry)
+    const resolved = resolvedSources(TOPOLOGY.storers, geometry)
     const keys = resolved.map((entry) => entry.key)
     expect(keys.filter((key) => key === paperGroup)).toHaveLength(1)
     /** Nothing steward calls holds a database connection of its own. */

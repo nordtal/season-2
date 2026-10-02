@@ -19,8 +19,8 @@ const FLAT_BARS = /<Loading\b/
 const NO_WAITING_SHAPE = new Map<string, string>([
   [
     "app/app-sidebar.tsx",
-    "Every label comes from navigation.ts. The one fetched thing is the health dot, and" +
-      " HealthDot in components/steward/status.tsx draws its own skeleton for it.",
+    "Every label but the services' comes from navigation.ts. The service rows wait for /api/topology as" +
+      " skeleton rows of their own shape, and HealthDot in components/steward/status.tsx draws its own.",
   ],
   [
     "components/steward/recreate.tsx",

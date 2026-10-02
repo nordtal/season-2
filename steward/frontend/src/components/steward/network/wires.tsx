@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 
-import { EDGES, type Edge, type EdgeKind } from "./topology"
+import type { Edge, EdgeKind } from "./topology"
 
 /**
  * The lines of the network picture; the cards are only where they end.
@@ -214,13 +214,13 @@ const OPACITY: Record<EdgeKind, number> = { traffic: 0.9, data: 0.5 }
  */
 export function Wires({
   geometry,
-  edges = EDGES,
+  edges,
   bows = {},
   id,
   children,
 }: {
   geometry: Geometry
-  edges?: Edge[]
+  edges: Edge[]
   /** Per-edge detours, keyed `from-to`. See {@link curve}. */
   bows?: Record<string, number>
   /** Unique per draft, because an SVG marker is addressed by a document-wide id. */

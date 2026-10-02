@@ -3,14 +3,20 @@ import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, crea
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { SERVICES } from "@/app/navigation"
 import { Vitals } from "@/components/steward/network/node"
 import { NetworkTable } from "@/components/steward/network/table"
-import { SECTIONS } from "@/components/steward/network/topology"
+import { topologyOf } from "@/components/steward/network/topology"
 import { NetworkPanel } from "@/components/steward/network/view"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { datasetOf } from "@/lib/test-elements"
-import type { Service } from "@/lib/api"
+import type { NetworkMap, Service } from "@/lib/api"
+import { NETWORK_MAP } from "@/lib/query-fixtures"
+
+const { names: SERVICES, sections: SECTIONS } = topologyOf(NETWORK_MAP)
+
+function Table() {
+  return <NetworkTable sections={SECTIONS} />
+}
 
 /**
  * The network view, rendered against a fake `/api/services`.
@@ -60,11 +66,12 @@ function json(body: unknown): Response {
   })
 }
 
-function draw(table: unknown = TABLE, component: () => React.ReactNode = NetworkPanel) {
+function draw(table: unknown = TABLE, component: () => React.ReactNode = NetworkPanel, map: NetworkMap = NETWORK_MAP) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
       if (url === "/api/services") return json(table)
+      if (url === "/api/topology") return json(map)
       /** Every toolbar's `RecreateButton` asks `/api/agent` whether to disable itself. */
       if (url === "/api/agent") return json({ available: true })
       throw new Error(`the view asked for ${url}, which this test did not expect`)
@@ -112,7 +119,7 @@ afterEach(() => {
 })
 
 describe("the network view", () => {
-  it("draws every service in navigation.ts, plus the box the traffic comes from", async () => {
+  it("draws every served service, plus the box the traffic comes from", async () => {
     draw()
     /** Boxes are drawn from `PLAN` before `/api/services` answers, so this waits on a fetched item. */
     await waitFor(() => expect(within(box("smp")).getByLabelText("healthy")).toBeTruthy())
@@ -273,7 +280,7 @@ describe("the view collapses a group's edges into one drawn line each", () => {
  */
 describe("the network on a phone", () => {
   it("draws one row per service, in the sections' order, and no row for players", async () => {
-    draw(TABLE, NetworkTable)
+    draw(TABLE, Table)
     await waitFor(() => expect(within(row("smp")).getByLabelText("healthy")).toBeTruthy())
 
     const drawn = [...document.querySelectorAll("[data-row]")].map((node) => datasetOf(node).row)
@@ -281,12 +288,12 @@ describe("the network on a phone", () => {
     expect(new Set(drawn).size).toBe(drawn.length)
     /** The order is the sections', flattened, since the table deliberately has no "connected to" column. */
     expect(drawn).toEqual(SECTIONS.flatMap((section) => section.members))
-    // `players` is a box in the drawing and not a service; it gets no row. See SECTIONS.
+    // `players` is a box in the drawing and not a service; it gets no row.
     expect(drawn).not.toContain("players")
   })
 
   it("prints a section heading for each group of the plan", async () => {
-    draw(TABLE, NetworkTable)
+    draw(TABLE, Table)
     await waitFor(() => expect(within(row("smp")).getByLabelText("healthy")).toBeTruthy())
 
     for (const section of SECTIONS) {
@@ -295,7 +302,7 @@ describe("the network on a phone", () => {
   })
 
   it("carries the same four facts a card does, and nothing it does not", async () => {
-    draw(TABLE, NetworkTable)
+    draw(TABLE, Table)
     await waitFor(() => expect(within(row("smp")).getByLabelText("healthy")).toBeTruthy())
 
     // Health, tag, count and the two buttons: the card's contents on one line.
@@ -315,5 +322,22 @@ describe("the network on a phone", () => {
     expect(within(row("proxy")).getByLabelText("built on this host")).toBeTruthy()
     expect(within(row("discord-bot")).getByLabelText("image not compared")).toBeTruthy()
     expect(within(row("smp")).queryByLabelText("out of date")).toBeNull()
+  })
+})
+
+/** `PLAN` is drawn by hand, so a service the labels add is one it has never seen. */
+describe("a service the drawing does not know", () => {
+  it("draws the table instead of a picture that leaves it out", async () => {
+    const grown: NetworkMap = {
+      services: [
+        ...NETWORK_MAP.services,
+        { name: "pack-host", section: "Steward", entry: false, reaches: [], storesIn: [] },
+      ],
+    }
+    draw(TABLE, NetworkPanel, grown)
+    await waitFor(() => expect(within(row("smp")).getByLabelText("healthy")).toBeTruthy())
+
+    expect(row("pack-host")).toBeTruthy()
+    expect(document.querySelector("[data-node]")).toBeNull()
   })
 })

@@ -1,33 +1,47 @@
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useTopology } from "@/lib/queries"
 
-import { useNetwork } from "./data"
-import { Field } from "./place"
+import { allSpots, Field, place } from "./place"
 import { PLAN } from "./plan"
 import { NetworkTable } from "./table"
+import { layoutFaults, topologyOf } from "./topology"
 import { QueryState } from "@/components/steward/query-state"
 
+/** Every box `PLAN` places, at any width, since the lanes move and the names do not. */
+const PLANNED = allSpots(place(PLAN, PLAN.minWidth)).map((spot) => spot.id)
+
 /**
- * The start page's network picture, drawn complete from `PLAN` while only each box's fetched values wait.
+ * The start page's network picture, drawn from `PLAN` and `/api/topology` while each box's own values may still wait.
  *
- * Below 640px, per `useIsMobile` rather than a measured width, it is {@link NetworkTable}.
+ * Below 640px, per `useIsMobile` rather than a measured width, it is {@link NetworkTable}, and so it is wherever
+ * the served services and `PLAN` disagree, since a hand drawing cannot place a service it has never seen.
  */
 export function NetworkPanel() {
-  const network = useNetwork()
+  const query = useTopology()
   const narrow = useIsMobile()
 
   return (
     <section className="flex min-w-0 flex-col gap-3">
       <h2 className="text-lg font-semibold text-foreground">Network</h2>
+      {/* The sidebar reads the same query at start, so the bars show on a cold load only. */}
       <QueryState
-        query={network.query}
+        query={query}
+        rows={10}
         isEmpty={(answer) => answer.services.length === 0}
         empty={{
-          title: "No container in the project",
-          note: "steward answered, but no container carries the compose project label.",
+          title: "No service on the map",
+          note: "No container carries a section label.",
         }}
       >
-        {/* `Field` reads `useNetwork` itself, so it draws with or without an answer. */}
-        {() => (narrow ? <NetworkTable /> : <Field plan={PLAN} id="network" />)}
+        {(map) => {
+          const topology = topologyOf(map)
+          const drawable = layoutFaults(PLANNED, topology.names).length === 0
+          return narrow || !drawable ? (
+            <NetworkTable sections={topology.sections} />
+          ) : (
+            <Field plan={PLAN} topology={topology} id="network" />
+          )
+        }}
       </QueryState>
     </section>
   )

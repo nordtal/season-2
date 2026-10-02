@@ -5,16 +5,14 @@ import { cn } from "cn"
 
 import type { CSSVars } from "@/lib/utils"
 import type { ConfigDocument, ConfigEntry } from "@/lib/api"
-import { announceSave } from "@/lib/announce-save"
-import { clearDraft, setDraftValue, useDraft } from "@/lib/drafts"
-import { useConfig, useSaveConfig } from "@/lib/queries"
+import { useConfig } from "@/lib/queries"
 import { configLeafMatches, configTree, type ConfigLeafValue } from "@/lib/settings-tree"
-import { changed, Control, EnvironmentOverriddenBadge, type Draft } from "@/components/steward/configuration"
+import { Control, EnvironmentOverriddenBadge, type Draft } from "@/components/steward/configuration"
+import { type DraftValue, noticeOf, SaveDraft, useGroupDraft } from "@/components/steward/group-draft"
 import { explanationOf } from "@/components/steward/config-controls"
 import { customEditor } from "@/components/steward/config-editors"
 import type { PairedBlocks } from "@/components/steward/paired-blocks"
 import { Failure, QueryState } from "@/components/steward/query-state"
-import type { SectionValues } from "@/components/steward/repeatable-cards"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import {
@@ -49,64 +47,11 @@ export function ConfigFile({ item, target }: { item: Extract<FileItem, { kind: "
   )
 }
 
-type DraftValue = string | string[] | SectionValues[]
-
-function isSectionValues(value: unknown): value is SectionValues {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    Object.values(value).every(
-      (entry) =>
-        typeof entry === "string" ||
-        (Array.isArray(entry) && entry.every((item) => typeof item === "string" || isSectionValues(item))),
-    )
-  )
-}
-
-function isDraftValue(value: unknown): value is DraftValue {
-  return (
-    typeof value === "string" ||
-    (Array.isArray(value) && value.every((item) => typeof item === "string")) ||
-    (Array.isArray(value) && value.every(isSectionValues))
-  )
-}
-
-function isDraftValueRecord(value: unknown): value is Record<string, DraftValue> {
-  return typeof value === "object" && value !== null && Object.values(value).every(isDraftValue)
-}
-
 function ConfigForm({ file, document, target }: { file: string; document: ConfigDocument; target: Target | null }) {
-  const draft = useDraft<DraftValue>(file, isDraftValueRecord) as Draft
-  const save = useSaveConfig(document.path)
+  const { draft, changes, count, set, submit, save } = useGroupDraft(file, document)
   const nodes = useMemo(() => configTree(document.entries), [document.entries])
-  const byPath = useMemo(() => new Map(document.entries.map((entry) => [entry.path, entry])), [document.entries])
-
-  const changes = useMemo(() => changed(document, draft), [document, draft])
-  const count = Object.keys(changes).length
   const draftIds = useMemo(() => new Set(Object.keys(changes)), [changes])
-
   const writable = document.writable
-
-  function set(path: string, value: DraftValue | undefined) {
-    const entry = byPath.get(path)
-    const same =
-      value === undefined ||
-      (entry !== undefined && Object.keys(changed({ ...document, entries: [entry] }, { [path]: value })).length === 0)
-    setDraftValue(file, path, same ? undefined : value)
-  }
-
-  function submit() {
-    const label = count === 1 ? "One setting saved." : `${count} settings saved.`
-    save.mutate(
-      { revision: document.revision, changes },
-      {
-        onSuccess: (saved) => {
-          clearDraft(file)
-          announceSave(label, saved.reload, document.name)
-        },
-      },
-    )
-  }
 
   const field = (entry: ConfigEntry, highlight: Highlight | null, layout: FieldLayout = "full") => (
     <SettingField
@@ -128,15 +73,7 @@ function ConfigForm({ file, document, target }: { file: string; document: Config
       nodes={nodes}
       draftIds={draftIds}
       matches={configLeafMatches}
-      notice={
-        document.problem
-          ? `Refused: ${document.problem}`
-          : !writable
-            ? "Read-only."
-            : document.restartRequired
-              ? "Applies after a restart."
-              : null
-      }
+      notice={noticeOf(document)}
       target={target}
       above={save.error ? <Failure error={save.error} /> : null}
       renderLeaf={(leaf, highlight) =>
@@ -157,13 +94,7 @@ function ConfigForm({ file, document, target }: { file: string; document: Config
           />
         )
       }
-      save={
-        count > 0 && writable ? (
-          <Button type="button" className="pointer-events-auto" disabled={save.isPending} onClick={submit}>
-            {save.isPending ? "Saving…" : `Save ${count}`}
-          </Button>
-        ) : null
-      }
+      save={<SaveDraft count={count} writable={writable} pending={save.isPending} onSave={submit} />}
     />
   )
 }

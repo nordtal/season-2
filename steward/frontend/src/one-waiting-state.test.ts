@@ -39,6 +39,10 @@ const NO_WAITING_SHAPE = new Map<string, string>([
   ],
   ["app/security-key.tsx", "useRegisterKey is a mutation. Nothing here is read."],
   [
+    "components/steward/group-draft.tsx",
+    "useSaveConfig is a mutation. The group it drafts was read by the editor that calls it, which draws the wait.",
+  ],
+  [
     "app/step-up.tsx",
     "useMe is read for one number in a sentence, behind a default of five minutes. There is no" +
       " surface to reserve.",

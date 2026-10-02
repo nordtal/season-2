@@ -158,6 +158,31 @@ class ContainersImagesTest {
                 asked.toString());
     }
 
+    /**
+     * Checks that the one-shot a run is handed to is no service's container.
+     *
+     * {@code compose run} labels it with steward-agent's service; taking it for the agent verifies the wrong one.
+     */
+    @Test
+    void aOneOffContainerIsNoServicesContainer() throws IOException {
+        final String oneOff = container("steward-agent", "older")
+                .replace("\"steward-agent-id\"", "\"one-off-id\"")
+                .replace(
+                        "\"com.docker.compose.config-hash\"",
+                        "\"com.docker.compose.oneoff\":\"True\",\"com.docker.compose.config-hash\"");
+        final Docker docker = new Docker(new DockerSocket(
+                listening(request -> request.contains("/containers/json")
+                        ? "[" + oneOff + "," + container("steward-agent", "current") + "]"
+                        : null),
+                Duration.ofSeconds(5)));
+
+        assertEquals(
+                List.of("steward-agent-id"),
+                docker.containers("nordtal-s2").stream()
+                        .map(Docker.Container::id)
+                        .toList());
+    }
+
     private static String container(final String service, final String hash) {
         return "{\"Id\":\"" + service + "-id\",\"Names\":[\"/nordtal-s2-" + service + "-1\"],"
                 + "\"Image\":\"ghcr.io/nordtal/minecraft:0.10.4\",\"ImageID\":\"sha256:" + "1".repeat(64) + "\","

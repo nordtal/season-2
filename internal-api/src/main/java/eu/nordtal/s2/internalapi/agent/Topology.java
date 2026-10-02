@@ -76,6 +76,9 @@ public final class Topology {
     public static final String DISCORD_BOT = "discord-bot";
     public static final String STEWARD = "steward";
 
+    /** The service that applies the schema from steward-agent's image and exits; an update's install runs it. */
+    public static final String MIGRATE = "migrate";
+
     public static final String DISPLAY_TAGS = "display-tags";
     public static final String PACKETEVENTS = "packetevents";
 

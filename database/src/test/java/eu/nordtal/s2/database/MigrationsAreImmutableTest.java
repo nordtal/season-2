@@ -58,6 +58,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V10__steward_logs_in_as_its_own_role.sql",
                 "be687eab3050c1c2a7cbabe85dfc31974e53ccb5c027dcd1aa13945625efd177");
+        FROZEN.put(
+                "V11__a_run_can_be_handed_to_a_one_shot.sql",
+                "853ad5f3c3ce00d831b923ab75c9d3e6bacc47caf791df1418b7b6f0a04baa91");
     }
 
     @Test

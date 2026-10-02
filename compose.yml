@@ -414,7 +414,8 @@ services:
     logging: *logging
 
   # steward-agent: the only process allowed to create a container, and the one that carries out every
-  # run. It carries this file in its image and never recreates itself; deploy/nordtal.sh renews it.
+  # run. It carries this file in its image and never recreates itself: a run of a newer release goes
+  # to a one-shot from this service at that release, `<project>-steward-agent-run`, which renews it last.
   # No profile: the Minecraft services wait for it.
   steward-agent:
     build:

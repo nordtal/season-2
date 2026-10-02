@@ -131,8 +131,8 @@ the table below are compiled into the jars above.
   `Glyphs` and the font files, and checked against each other on every build.
 - **Update runs** park players on a `-standby` service while the real one is swapped. Caddy hands
   port 25565 to whichever proxy is live.
-- **`compose.yml`** ships inside the `steward-agent` image; [`deploy/nordtal.sh`](deploy/nordtal.sh)
-  renews that image from outside the stack.
+- **`compose.yml`** ships inside the `steward-agent` image. An update to a newer release runs in a
+  one-shot `steward-agent` at that release, which renews the long-running one last.
 
 ## Building
 

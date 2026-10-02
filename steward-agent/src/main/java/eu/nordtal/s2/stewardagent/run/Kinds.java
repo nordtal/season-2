@@ -6,6 +6,7 @@ import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.ImageResult;
+import eu.nordtal.s2.internalapi.agent.RedeployResult;
 import eu.nordtal.s2.internalapi.agent.Retention;
 import eu.nordtal.s2.internalapi.agent.SnapshotResult;
 import eu.nordtal.s2.internalapi.agent.Topology;
@@ -14,6 +15,7 @@ import eu.nordtal.s2.stewardagent.config.RunSpec.BackupSpec;
 import eu.nordtal.s2.stewardagent.plan.PlanReport;
 import eu.nordtal.s2.stewardagent.plan.UpdatePlan;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
@@ -71,16 +73,17 @@ final class Kinds {
                 .filter(service -> !holds.contains(service))
                 .toList();
 
-        // First: an agent installs only the release whose schema it carries, so a newer one renews the agent.
-        final String newer = Release.refusal(plan, Release.ownVersion());
-        if (newer != null) {
-            return Planned.outcome(Outcome.failed(UpdateReports.toJson(
-                    planned.withStage(UpdateReport.Stage.FAILED).withNote(newer))));
+        // First: an agent carries out runs of its own release only, and never recreates itself.
+        final Planned elsewhere = elsewhere(runner, request, plan, planned, images, scope, progress);
+        if (elsewhere != null) {
+            return elsewhere;
         }
         if (!planned.isWork() && foreign.isEmpty()) {
-            // A third answer: nothing to check, no work, no failure, and no countdown.
-            return Planned.outcome(Outcome.done(UpdateReports.toJson(planned.withStage(
-                    plan.hasFailures() ? UpdateReport.Stage.FAILED : UpdateReport.Stage.NOTHING_TO_DO))));
+            // Nothing to check, no work, no failure, no countdown; a one-shot still renews the agent.
+            return runner.oneShot
+                    ? Planned.plan(onlyTheAgent(planned))
+                    : Planned.outcome(Outcome.done(UpdateReports.toJson(planned.withStage(
+                            plan.hasFailures() ? UpdateReport.Stage.FAILED : UpdateReport.Stage.NOTHING_TO_DO))));
         }
 
         final UpdateReport stopped = planned;
@@ -99,12 +102,109 @@ final class Kinds {
                 .renewing(images, foreign, plan.hasFailures()));
     }
 
-    /** Migrates, then moves the plan's files into place, marking each stopped service by how its apply went. */
+    /**
+     * Refuses a release no agent may install here, or hands the run to a one-shot; {@code null} to go ahead here.
+     *
+     * A newer release goes to a one-shot at it, and so does an out-of-date steward-agent, at this release.
+     */
+    private static @Nullable Planned elsewhere(
+            final Runner runner,
+            final UpdateRequest request,
+            final UpdatePlan plan,
+            final UpdateReport planned,
+            final ImageResult images,
+            final List<String> scope,
+            final Consumer<UpdateReport> progress) {
+        final String own = Release.ownVersion();
+        final String tag = plan.seasonTag();
+        switch (Release.of(tag, own)) {
+            case OWN -> {}
+            case NEWER -> {
+                return runner.oneShot
+                        ? refused(
+                                planned,
+                                tag + " was published while this run was handed to steward-agent " + own
+                                        + ". Ask for the update again.")
+                        : handOver(runner, request, planned, Release.version(Objects.requireNonNull(tag)), progress);
+            }
+            case OLDER -> {
+                return refused(
+                        planned,
+                        "The newest release is " + tag + " and steward-agent is " + own
+                                + ", and no schema goes back to an earlier release.");
+            }
+        }
+        if (!runner.oneShot
+                && own != null
+                && images.isOutdated(AgentWire.SERVICE)
+                && (scope.isEmpty() || scope.contains(AgentWire.SERVICE))) {
+            return handOver(runner, request, planned, own, progress);
+        }
+        return null;
+    }
+
+    /** A one-shot's run with only the agent left behind, which it renews last; nobody is moved for it. */
+    private static Run.Plan onlyTheAgent(final UpdateReport planned) {
+        return Run.Plan.of(
+                        planned,
+                        Run.Payload.NONE,
+                        null,
+                        refusal -> refusal,
+                        "this run",
+                        "steward-agent was renewed",
+                        Runner.Doubt.IS_ONLY_SAID)
+                .stoppingNothing();
+    }
+
+    /** A run that ends before anything moved, with the reason as the report's note. */
+    private static Planned refused(final UpdateReport planned, final String why) {
+        return Planned.outcome(Outcome.failed(UpdateReports.toJson(planned.withStage(UpdateReport.Stage.FAILED)
+                .withNote("NOTHING WAS STOPPED AND NOTHING WAS INSTALLED. " + why))));
+    }
+
+    /**
+     * Hands the claimed run to a one-shot steward-agent at {@code release}, writing its name on the row first.
+     *
+     * Nothing has stopped: the one-shot plans again, counts down and carries the whole run out at its own release.
+     */
+    private static Planned handOver(
+            final Runner runner,
+            final UpdateRequest request,
+            final UpdateReport planned,
+            final String release,
+            final Consumer<UpdateReport> progress) {
+        if (!runner.directory.handOver(request.id(), runner.containers.oneShot())) {
+            // No longer RUNNING since the claim, which in practice means cancelled.
+            return Planned.outcome(Runner.cancelled());
+        }
+        final UpdateReport handed = planned.withNote("This run goes to a one-shot steward-agent at release " + release
+                + ", which carries it out and renews the running one last.");
+        progress.accept(handed);
+        final RedeployResult started = runner.containers.handOver(request.id(), release);
+        if (!started.triggered()) {
+            return Planned.outcome(Outcome.failed(UpdateReports.toJson(handed.withStage(UpdateReport.Stage.FAILED)
+                    .withNote("NOTHING WAS STOPPED AND NOTHING WAS INSTALLED. The steward-agent at " + release
+                            + " did not start: " + started.message()))));
+        }
+        log.info("Request {} is handed to {} at release {}", request.id(), runner.containers.oneShot(), release);
+        return Planned.outcome(Outcome.handedOver(UpdateReports.toJson(handed)));
+    }
+
+    /**
+     * Migrates, then moves the plan's files into place, marking each stopped service by how its apply went.
+     *
+     * The migration runs here, with the servers stopped, so none of them meets a schema it was not built for.
+     */
     private static Run.Payload install(
             final Runner runner, final UpdatePlan plan, final Consumer<UpdateReport> progress) {
         return (steps, state) -> {
             UpdateReport report = state.report().withStage(UpdateReport.Stage.INSTALLING);
             progress.accept(report);
+            final RedeployResult migrated = runner.containers.migrate();
+            if (!migrated.triggered()) {
+                throw new Run.Abort(report.withNote("NOTHING WAS INSTALLED. The schema could not be brought to this"
+                        + " release, so every server was started again on what it had: " + migrated.message()));
+            }
             final ApplyResult result = Runs.apply(runner.config, plan, runner.settings());
             report = report.withNote(Report.render(result));
             for (final String service : state.services()) {
@@ -355,7 +455,8 @@ final class Kinds {
         }
         if (scope.contains(AgentWire.SERVICE)) {
             return failed("Nothing was stopped: steward-agent carries this run out, so it cannot make its own"
-                    + " container again. `./nordtal.sh` on the host renews it.");
+                    + " container again. An update hands itself to a one-shot steward-agent whenever this one is"
+                    + " out of date, and that one-shot renews it.");
         }
         final List<String> unknown = scope.stream()
                 .filter(service -> !ForeignImages.RECREATABLE.contains(service))

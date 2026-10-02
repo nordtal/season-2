@@ -3,7 +3,9 @@ package eu.nordtal.s2.stewardagent.run;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.ImageResult;
+import eu.nordtal.s2.internalapi.agent.RedeployResult;
 import eu.nordtal.s2.internalapi.agent.RuntimeResult;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -344,8 +346,10 @@ final class Run {
         }
 
         // Last, once the Minecraft services are healthy again, and postgres last of all.
-        final UpdateReport renewed = ForeignImages.renewForeign(
+        final UpdateReport foreign = ForeignImages.renewForeign(
                 runner.containers, steps, report, plan.foreign(), plan.pulls(), progress, runner.waiting);
+        // Last of all: the one-shot's run is over but for its row, which the agent it makes leaves alone.
+        final UpdateReport renewed = runner.oneShot ? renewAgent(foreign) : foreign;
 
         final UpdateReport finished = Runner.settle(
                 Runner.noteStandbys(renewed, choreography.close()),
@@ -356,6 +360,25 @@ final class Run {
         return finished.stage() == UpdateReport.Stage.FAILED
                 ? Outcome.failed(UpdateReports.toJson(finished))
                 : Outcome.done(UpdateReports.toJson(finished));
+    }
+
+    /** Makes the long-running steward-agent again at this one-shot's release, then waits for it to be healthy. */
+    private UpdateReport renewAgent(final UpdateReport before) {
+        UpdateReport report = before.with(new UpdateReport.ServiceLine(
+                AgentWire.SERVICE,
+                UpdateReport.State.STARTING,
+                List.of(new UpdateReport.Change("image", null, "out of date")),
+                "recreating the container at this release"));
+        progress.accept(report);
+        final RedeployResult result = runner.containers.renewAgent();
+        if (!result.triggered()) {
+            report = report.with(report.line(AgentWire.SERVICE)
+                    .failed("the container could not be recreated: " + result.message()
+                            + ". The one it had is still running at its old release."));
+            progress.accept(report);
+            return report;
+        }
+        return steps.verify(report, List.of(AgentWire.SERVICE), runner.waiting);
     }
 
     /** Starts back and fails the run when a service the plan stops did not stop and the kind refuses to go on. */

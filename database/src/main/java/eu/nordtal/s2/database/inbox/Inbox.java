@@ -11,6 +11,7 @@ import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -245,14 +246,29 @@ public final class Inbox<P> {
      * @return how many there were
      */
     public int settleOrphans(final Object answer) {
-        return count("""
+        return settleOrphans(answer, List.of());
+    }
+
+    /**
+     * Fails every request left running but the spared ones, which another process still carries out.
+     *
+     * @param answer what to write into those rows
+     * @param spared the ids to leave running
+     * @return how many there were
+     */
+    public int settleOrphans(final Object answer, final Collection<Long> spared) {
+        return count(
+                """
                 WITH failed AS (
                     UPDATE <table> SET status = 'FAILED', finished = now(), outcome = cast(:outcome AS jsonb)
-                    WHERE status = 'RUNNING'
+                    WHERE status = 'RUNNING' AND id <> ALL(cast(:spared AS bigint[]))
                     RETURNING id
                 )
                 SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM failed) AS notified
-                """, Map.of("outcome", Json.encode(Objects.requireNonNull(answer, "answer"))));
+                """,
+                Map.of(
+                        "outcome", Json.encode(Objects.requireNonNull(answer, "answer")),
+                        "spared", spared.toArray(Long[]::new)));
     }
 
     /** Returns one row whole, as JSON, so it can outlive the table being replaced by a restore. */
@@ -401,7 +417,7 @@ public final class Inbox<P> {
         Outcome handle(Request<P> request);
     }
 
-    private int count(final String sql, final Map<String, String> bindings) {
+    private int count(final String sql, final Map<String, Object> bindings) {
         return jdbi.withHandle(handle -> {
             final var query = handle.createQuery(sql)
                     .define("table", table.name())

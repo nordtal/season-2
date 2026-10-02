@@ -26,6 +26,7 @@ import eu.nordtal.s2.stewardagent.docker.Docker;
 import eu.nordtal.s2.stewardagent.docker.DockerSocket;
 import eu.nordtal.s2.stewardagent.plugin.PluginDirectory;
 import eu.nordtal.s2.stewardagent.run.Bootstrap;
+import eu.nordtal.s2.stewardagent.run.PluginRemoval;
 import eu.nordtal.s2.stewardagent.run.Runner;
 import eu.nordtal.s2.stewardagent.run.UpdateServer;
 import eu.nordtal.s2.stewardagent.schema.Schema;
@@ -57,7 +58,7 @@ public final class StewardAgent {
         final InternalServer server = new InternalServer(Compose.SELF, System::getenv);
         final String project = System.getenv("COMPOSE_PROJECT_NAME");
         final Compose compose = new Compose(
-                Path.of(server.setting("COMPOSE_FILE", "/app/compose.yml")),
+                Path.of(server.setting("COMPOSE_FILE", Compose.IN_IMAGE)),
                 Path.of(server.setting("ENV_FILE", "/app/env/.env")),
                 Path.of(server.setting("PROJECT_DIRECTORY", "/app")),
                 project == null || project.isBlank() ? Deployment.PROJECT : project);
@@ -69,10 +70,12 @@ public final class StewardAgent {
             case "up" -> System.exit(deploy(compose, List.of(), System.out::println, true, docker::hasImage));
             case "serve" -> System.exit(serve(server, compose, docker));
             case Compose.MIGRATE -> System.exit(migrate());
+            case "run" ->
+                System.exit(args.length == 2 ? runHanded(server, compose, docker, Long.parseLong(args[1])) : 2);
             case "request", "status" -> System.exit(HostRequests.run(args));
             default -> {
                 System.err.println(
-                        "usage: steward-agent [serve|migrate|up|request KIND [SERVICES] [MINUTES]|status ID]");
+                        "usage: steward-agent [serve|migrate|run ID|up|request KIND [SERVICES] [MINUTES]|status ID]");
                 System.exit(2);
             }
         }
@@ -161,6 +164,67 @@ public final class StewardAgent {
             log.error("The database schema could not be applied, so nothing that logs in will start.", failure);
             return 1;
         }
+    }
+
+    /**
+     * Carries out the run the long-running steward-agent handed to this one-shot, then exits.
+     *
+     * @return 0 once the run is settled, whatever it came to; 1 when there was no such run or no database
+     */
+    private static int runHanded(
+            final InternalServer server, final Compose compose, final Docker docker, final long id) {
+        final Clock clock = NetworkTime.clock();
+        final DatabaseSpec databaseConfig;
+        try {
+            databaseConfig = AgentSettings.database().get();
+        } catch (final SettingsException broken) {
+            log.error("Refusing to touch the database on settings that cannot be read: {}", broken.getMessage());
+            return 1;
+        }
+        final Database opened = DatabaseWaiting.openDatabase(databaseConfig, compose.oneShotName(), Waiting.on(clock));
+        if (opened == null) {
+            return 1;
+        }
+        try (Database database = opened) {
+            final Setting<RunSpec> runs;
+            try {
+                runs = AgentSettings.runs(AgentSettings.stored(database.dataSource(), log));
+            } catch (final SettingsException broken) {
+                log.error("Refusing to carry out a run on settings that cannot be read: {}", broken.getMessage());
+                return 1;
+            }
+            final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
+            final Runner runner = runner(server, compose, docker, clock, database, runs, updates, PluginRemoval.NONE)
+                    .asOneShot();
+            final UpdateServer handed = new UpdateServer(updates, runner, docker::isRunning, clock);
+            return handed.carryOutHanded(id, compose.oneShotName()) ? 0 : 1;
+        }
+    }
+
+    /** The one way a run is carried out, for the long-running agent and the one-shot alike. */
+    private static Runner runner(
+            final InternalServer server,
+            final Compose compose,
+            final Docker docker,
+            final Clock clock,
+            final Database database,
+            final Setting<RunSpec> runs,
+            final UpdateDirectory updates,
+            final PluginRemoval removal) {
+        final AgentApi.Paths paths = pathsOf(server, runs.get());
+        final ComposeTopology topology =
+                new ComposeTopology(compose::definitions, paths.backupSources().toString(), clock);
+        final LocalStack stack = new LocalStack(
+                docker, new Containers(docker, compose.projectName(), compose::hashes), topology, compose);
+        return new Runner(
+                runs.get(),
+                database,
+                stack,
+                snapshotsOf(docker, compose, paths, clock, runs, database),
+                updates,
+                Waiting.on(clock),
+                PluginDirectory.using(database.dataSource()),
+                removal);
     }
 
     /**
@@ -286,11 +350,6 @@ public final class StewardAgent {
                 log.error("Could not write the readiness marker, so the rest of the stack will not start.");
             }
             final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
-            final ComposeTopology topology = new ComposeTopology(
-                    compose::definitions, paths.backupSources().toString(), clock);
-            final LocalStack stack =
-                    new LocalStack(docker, new Containers(docker, project, compose::hashes), topology, compose);
-            final LocalSnapshots snapshots = snapshotsOf(docker, compose, paths, clock, runs, database);
             try (SignalHub signals = SignalHub.open(
                             databaseConfig.jdbcUrl(),
                             databaseConfig.username(),
@@ -300,15 +359,8 @@ public final class StewardAgent {
                             log);
                     UpdateServer loop = new UpdateServer(
                             updates,
-                            new Runner(
-                                    runs.get(),
-                                    database,
-                                    stack,
-                                    snapshots,
-                                    updates,
-                                    Waiting.on(clock),
-                                    plugins,
-                                    runRoutes.removal()),
+                            runner(server, compose, docker, clock, database, runs, updates, runRoutes.removal()),
+                            docker::isRunning,
                             clock)) {
                 loop.listen(signals);
                 settings.listen(signals, () -> reload(runs));

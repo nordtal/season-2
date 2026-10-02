@@ -40,4 +40,20 @@ public interface ContainerOps {
      * @param service the compose service name
      */
     RedeployResult recreate(String service);
+
+    /** Runs the migrate service of this compose file and waits for it; triggered only on a current schema. */
+    RedeployResult migrate();
+
+    /** The name of the one-shot container a run of a newer release is handed to, which the run's row records. */
+    String oneShot();
+
+    /**
+     * Starts the one-shot steward-agent at {@code release} on the claimed run {@code id}, and returns once it runs.
+     *
+     * @param release the version, without its {@code v}, whose image and compose file the one-shot is made from
+     */
+    RedeployResult handOver(long id, String release);
+
+    /** Makes the long-running steward-agent again from this compose file, as a one-shot does last. */
+    RedeployResult renewAgent();
 }

@@ -91,7 +91,7 @@ final class FakeDirectory implements UpdateDirectory {
                     return byTime != 0 ? byTime : Long.compare(left.id(), right.id());
                 })
                 .map(row -> {
-                    // The report is kept, as the real claim keeps it: a handed-over run is recognised by it.
+                    // The report is kept, as the real claim keeps it.
                     final UpdateRequest claimed =
                             copy(row, UpdateStatus.RUNNING, row.countdownEnd(), row.moving(), now, null, row.result());
                     rows.put(row.id(), claimed);
@@ -196,11 +196,36 @@ final class FakeDirectory implements UpdateDirectory {
                 .min(Instant::compareTo);
     }
 
+    /** request id -> the one-shot it was handed to. */
+    private final Map<Long, String> runners = new LinkedHashMap<>();
+
     @Override
-    public int settleOrphans(final String failed) {
+    public boolean handOver(final long id, final String runner) {
+        final UpdateRequest row = rows.get(id);
+        if (row == null || row.status() != UpdateStatus.RUNNING) {
+            return false;
+        }
+        runners.put(id, runner);
+        return true;
+    }
+
+    @Override
+    public java.util.Optional<String> runnerOf(final long id) {
+        final UpdateRequest row = rows.get(id);
+        return row == null || row.status() != UpdateStatus.RUNNING
+                ? java.util.Optional.empty()
+                : java.util.Optional.ofNullable(runners.get(id));
+    }
+
+    @Override
+    public int settleOrphans(final String failed, final java.util.function.Predicate<String> stillRunning) {
         int settled = 0;
         for (final UpdateRequest row : List.copyOf(rows.values())) {
             if (row.status() != UpdateStatus.RUNNING) {
+                continue;
+            }
+            final String runner = runners.get(row.id());
+            if (runner != null && stillRunning.test(runner)) {
                 continue;
             }
             // Every kind, a RESTART included, since a redeploy takes steward down mid-call.

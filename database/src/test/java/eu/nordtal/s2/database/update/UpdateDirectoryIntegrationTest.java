@@ -184,7 +184,7 @@ class UpdateDirectoryIntegrationTest {
             updates.submit(UpdateKind.BACKUP, Actor.HOST, Duration.ZERO);
             assertTrue(updates.claimNext().isPresent());
             assertTrue(announced(pg), "the third request was not announced");
-            assertEquals(1, updates.settleOrphans("gone"));
+            assertEquals(1, updates.settleOrphans("gone", runner -> false));
             assertTrue(announced(pg), "settling the orphans was not announced");
         }
     }
@@ -663,14 +663,14 @@ class UpdateDirectoryIntegrationTest {
         final UpdateRequest restart = updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
 
-        assertEquals(1, updates.settleOrphans("Killed mid-run"));
+        assertEquals(1, updates.settleOrphans("Killed mid-run", runner -> false));
 
         final UpdateRequest read = updates.find(restart.id()).orElseThrow();
         assertEquals(UpdateStatus.FAILED, read.status());
         assertEquals("Killed mid-run", read.result());
         assertNotNull(read.finished());
 
-        assertEquals(0, updates.settleOrphans("x"), "and a second start finds nothing to do");
+        assertEquals(0, updates.settleOrphans("x", runner -> false), "and a second start finds nothing to do");
     }
 
     @Test
@@ -678,7 +678,7 @@ class UpdateDirectoryIntegrationTest {
         final UpdateRequest apply = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
 
-        assertEquals(1, updates.settleOrphans("Killed mid-run"));
+        assertEquals(1, updates.settleOrphans("Killed mid-run", runner -> false));
 
         final UpdateRequest read = updates.find(apply.id()).orElseThrow();
         assertEquals(UpdateStatus.FAILED, read.status());
@@ -689,7 +689,7 @@ class UpdateDirectoryIntegrationTest {
     void settlingOrphansLeavesPendingWorkAlone() {
         final UpdateRequest waiting = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
 
-        assertEquals(0, updates.settleOrphans("failed"));
+        assertEquals(0, updates.settleOrphans("failed", runner -> false));
         assertEquals(
                 UpdateStatus.PENDING, updates.find(waiting.id()).orElseThrow().status());
     }

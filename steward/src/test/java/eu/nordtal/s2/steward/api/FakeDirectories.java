@@ -125,7 +125,7 @@ public final class FakeDirectories {
         }
 
         @Override
-        public int settleOrphans(final String failed) {
+        public int settleOrphans(final String failed, final java.util.function.Predicate<String> stillRunning) {
             throw new UnsupportedOperationException("not exercised by this fake");
         }
     }

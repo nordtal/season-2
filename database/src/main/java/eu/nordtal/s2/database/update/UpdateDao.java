@@ -2,6 +2,7 @@ package eu.nordtal.s2.database.update;
 
 import java.util.List;
 import java.util.Optional;
+import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
@@ -161,6 +162,21 @@ interface UpdateDao {
             SELECT cancelled.*, pg_notify('nordtal_update', '') AS notified FROM cancelled
             """)
     Optional<UpdateRequest> cancelCountdown(@Bind("reason") String reason);
+
+    /** Names the container a running request was handed to; zero rows when it is no longer running. */
+    @SqlUpdate("UPDATE steward_inbox SET runner = :runner WHERE id = :id AND status = 'RUNNING'")
+    int handOver(@Bind("id") long id, @Bind("runner") String runner);
+
+    @SqlQuery("SELECT runner FROM steward_inbox WHERE id = :id AND status = 'RUNNING' AND runner IS NOT NULL")
+    Optional<String> runnerOf(@Bind("id") long id);
+
+    /** Returns the running requests handed to a container, with that container's name. */
+    @SqlQuery("SELECT id, runner FROM steward_inbox WHERE status = 'RUNNING' AND runner IS NOT NULL")
+    @RegisterConstructorMapper(Handed.class)
+    List<Handed> handed();
+
+    /** A running request and the container it was handed to. */
+    record Handed(long id, String runner) {}
 
     /** Returns every service being held down, newest first. */
     @SqlQuery("SELECT * FROM service_hold ORDER BY since DESC, service")

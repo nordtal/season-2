@@ -3,6 +3,7 @@ package eu.nordtal.s2.stewardagent;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
+import eu.nordtal.s2.internalapi.agent.Topology;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -32,18 +33,24 @@ public final class Compose {
     /**
      * This service's compose name, refused everywhere a service name is accepted.
      *
-     * Recreating it would kill the process handling the request; the setup script renews it instead.
+     * Recreating it would kill the process handling the request; the one-shot a run is handed to renews it.
      */
     public static final String SELF = AgentWire.SERVICE;
 
+    /** Where steward-agent's image carries this file; a newer release's is copied out of its image from here. */
+    public static final String IN_IMAGE = "/app/compose.yml";
+
     /** The service that applies the schema from this image and exits, which every database login waits for. */
-    public static final String MIGRATE = "migrate";
+    public static final String MIGRATE = Topology.MIGRATE;
 
     private final Path composeFile;
     private final Path envFile;
     private final Path projectDirectory;
     private final String projectName;
     private final LinkCounter linkCounter;
+
+    /** Set on every command over this process's own, so the release a command is for outranks the env file. */
+    private final Map<String, String> environment;
 
     public Compose(final Path composeFile, final Path envFile, final Path projectDirectory, final String projectName) {
         this(composeFile, envFile, projectDirectory, projectName, Compose::posixLinkCount);
@@ -56,6 +63,17 @@ public final class Compose {
             final Path projectDirectory,
             final String projectName,
             final LinkCounter linkCounter) {
+        this(composeFile, envFile, projectDirectory, projectName, linkCounter, Map.of());
+    }
+
+    private Compose(
+            final Path composeFile,
+            final Path envFile,
+            final Path projectDirectory,
+            final String projectName,
+            final LinkCounter linkCounter,
+            final Map<String, String> environment) {
+        this.environment = Map.copyOf(environment);
         this.composeFile = composeFile;
         this.envFile = envFile;
         this.projectDirectory = projectDirectory;
@@ -66,6 +84,42 @@ public final class Compose {
     /** The compose project every command names, which is also how the daemon labels its containers. */
     public String projectName() {
         return projectName;
+    }
+
+    /**
+     * The same project, environment file and directory at another release, read from {@code composeFile}.
+     *
+     * Every image of ours is tagged {@code NORDTAL_RELEASE}, so this is how a newer release's images are named.
+     */
+    public Compose atRelease(final String release) {
+        return atRelease(release, composeFile);
+    }
+
+    /** {@link #atRelease(String)}, read from that release's own compose file. */
+    public Compose atRelease(final String release, final Path composeFile) {
+        return new Compose(
+                composeFile, envFile, projectDirectory, projectName, linkCounter, Map.of("NORDTAL_RELEASE", release));
+    }
+
+    /** The name of the one-shot steward-agent a run is handed to; only one runs at a time. */
+    public String oneShotName() {
+        return projectName + "-" + SELF + "-run";
+    }
+
+    /**
+     * Starts a one-shot steward-agent on the claimed run {@code id}, detached, removed once it exits.
+     *
+     * @return compose's exit status, 0 once the container runs
+     */
+    public int runOneShot(final long id, final Consumer<String> output) throws IOException {
+        assertEnvFileFresh();
+        return run(oneShotCommand(id), output);
+    }
+
+    /** Returns the command line {@link #runOneShot} runs. */
+    List<String> oneShotCommand(final long id) {
+        return command(List.of(
+                "run", "--detach", "--rm", "--no-deps", "--name", oneShotName(), SELF, "run", Long.toString(id)));
     }
 
     /** Counts the hard links of the file at a path, empty when that cannot be determined. */
@@ -159,13 +213,19 @@ public final class Compose {
     }
 
     /**
-     * Runs the migrate service once more and waits for it, after something replaced the database underneath.
+     * Runs the migrate service and waits for it, in an update or after a restore replaced the database.
+     * Through {@code up}, so its container is this release's, which every service's {@code depends_on} reads.
      *
      * @return its exit status, 0 only on a current schema
      */
     public int migrate(final Consumer<String> output) throws IOException {
         assertEnvFileFresh();
-        return run(command(List.of("run", "--rm", "--no-deps", "-T", MIGRATE)), output);
+        return run(migrateCommand(), output);
+    }
+
+    /** Returns the command line {@link #migrate} runs. */
+    List<String> migrateCommand() {
+        return command(List.of("up", "--no-deps", "--abort-on-container-exit", "--exit-code-from", MIGRATE, MIGRATE));
     }
 
     /**
@@ -301,7 +361,8 @@ public final class Compose {
         return command(allProfiles ? concat(List.of("--profile", "*"), config) : config);
     }
 
-    private Optional<String> imageOf(final String service) {
+    /** The image a service of this file names, after interpolation, in whatever profile it sits. */
+    public Optional<String> imageOf(final String service) {
         try {
             // everyService: "not in this profile selection" is not "has no image".
             final String image = everyService().get(service);
@@ -326,8 +387,8 @@ public final class Compose {
     static String refuseSelf(final String service) {
         if (SELF.equals(service)) {
             throw new IllegalArgumentException("steward-agent will not recreate itself: the new container would replace"
-                    + " the one running this request, and nobody would ever read the answer. deploy/nordtal.sh, the"
-                    + " setup script on the host, renews this service.");
+                    + " the one running this request, and nobody would ever read the answer. The one-shot a"
+                    + " run is handed to renews it last.");
         }
         return service;
     }
@@ -335,8 +396,9 @@ public final class Compose {
     /** Runs one command and hands every line to {@code output} as it arrives, stderr included. */
     private int run(final List<String> command, final Consumer<String> output) throws IOException {
         log.info("$ {}", String.join(" ", command));
-        final Process process =
-                new ProcessBuilder(command).redirectErrorStream(true).start();
+        final ProcessBuilder builder = new ProcessBuilder(command).redirectErrorStream(true);
+        builder.environment().putAll(environment);
+        final Process process = builder.start();
         try (BufferedReader reader =
                 new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
             String line;

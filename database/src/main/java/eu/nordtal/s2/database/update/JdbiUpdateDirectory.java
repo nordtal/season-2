@@ -15,6 +15,7 @@ import eu.nordtal.s2.database.inbox.StewardRequest;
 import eu.nordtal.s2.messages.Refused;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -213,8 +214,23 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
-    public int settleOrphans(final String failed) {
-        return inbox.settleOrphans(answer(failed));
+    public int settleOrphans(final String failed, final java.util.function.Predicate<String> stillRunning) {
+        Objects.requireNonNull(stillRunning, "stillRunning");
+        final List<Long> spared = dao.handed().stream()
+                .filter(handed -> stillRunning.test(handed.runner()))
+                .map(UpdateDao.Handed::id)
+                .toList();
+        return inbox.settleOrphans(answer(failed), spared);
+    }
+
+    @Override
+    public boolean handOver(final long id, final String runner) {
+        return dao.handOver(id, Objects.requireNonNull(runner, "runner")) == 1;
+    }
+
+    @Override
+    public Optional<String> runnerOf(final long id) {
+        return dao.runnerOf(id);
     }
 
     @Override

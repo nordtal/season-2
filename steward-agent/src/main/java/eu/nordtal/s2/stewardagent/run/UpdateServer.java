@@ -4,11 +4,14 @@ import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.Doorbell;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.update.UpdateDirectory;
+import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
+import eu.nordtal.s2.database.update.UpdateStatus;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.function.Predicate;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -24,24 +27,34 @@ public final class UpdateServer implements AutoCloseable {
 
     private final UpdateDirectory directory;
     private final RequestRunner runner;
+
+    /** Asks the daemon whether the one-shot a run was handed to still runs. */
+    private final Predicate<String> stillRunning;
+
     private final Doorbell doorbell = new Doorbell();
     private final Duration longestWait;
     private final Clock clock;
 
     private volatile boolean running = true;
 
-    public UpdateServer(final UpdateDirectory directory, final RequestRunner runner, final Clock clock) {
-        this(directory, runner, SignalHub.RECONCILIATION, clock);
+    public UpdateServer(
+            final UpdateDirectory directory,
+            final RequestRunner runner,
+            final Predicate<String> stillRunning,
+            final Clock clock) {
+        this(directory, runner, stillRunning, SignalHub.RECONCILIATION, clock);
     }
 
     /** Package-visible so a test can bound the wait without the hub. */
     UpdateServer(
             final UpdateDirectory directory,
             final RequestRunner runner,
+            final Predicate<String> stillRunning,
             final Duration longestWait,
             final Clock clock) {
         this.directory = directory;
         this.runner = runner;
+        this.stillRunning = stillRunning;
         this.longestWait = longestWait;
         this.clock = clock;
     }
@@ -58,13 +71,11 @@ public final class UpdateServer implements AutoCloseable {
 
     /** Runs until {@link #close()}, blocking the calling thread, which is {@code main}'s. */
     public void serve() {
-        settleOrphans();
         log.info("Serving update requests");
         while (running) {
             try {
                 drain();
                 if (!running) {
-                    // Handed over: returning ends the process, and Docker starts the new jar.
                     return;
                 }
                 doorbell.await(waitFor());
@@ -84,41 +95,72 @@ public final class UpdateServer implements AutoCloseable {
         }
     }
 
-    /** Runs everything that is due, oldest first, until nothing is, since a notification can arrive mid-run. */
+    /**
+     * Settles what nothing carries out any more, then runs everything due, oldest first, until nothing is.
+     *
+     * Until nothing is, since a notification can arrive mid-run.
+     */
     void drain() {
+        // Between runs nothing of this process's own is open, so an open row is a one-shot's or nobody's.
+        settleOrphans();
         Optional<UpdateRequest> claimed = directory.claimNext();
         while (running && claimed.isPresent()) {
-            final UpdateRequest request = claimed.get();
-            log.info("Running request {}: {} asked for by {}", request.id(), request.kind(), request.actor());
-
-            // The row is the progress bar: every stage the run reaches redraws the Discord embed and chat line.
-            final Outcome outcome = runner.run(request, report -> {
-                // A progress write must never decide the run, or a stopped service would stay stopped.
-                try {
-                    if (!directory.progress(request.id(), eu.nordtal.s2.database.update.UpdateReports.toJson(report))) {
-                        // No longer RUNNING, cancelled or settled elsewhere; the run carries on regardless.
-                        log.warn(
-                                "Request {} is no longer RUNNING, so its progress was not"
-                                        + " recorded; the run itself continues",
-                                request.id());
-                    }
-                } catch (final RuntimeException failure) {
-                    log.warn("Could not record progress for request {}; the run continues", request.id(), failure);
-                }
-            });
-
-            // Empty when the row is no longer RUNNING, ordinarily a stopped countdown, so nothing is overwritten.
-            if (directory
-                    .finish(request.id(), outcome.status(), outcome.report())
-                    .isEmpty()) {
-                log.info(
-                        "Request {} was settled by somebody else while it ran - most likely"
-                                + " cancelled during its countdown - so its report was not written",
-                        request.id());
-            } else {
-                log.info("Request {} finished as {}", request.id(), outcome.status());
-            }
+            carryOut(claimed.get());
             claimed = directory.claimNext();
+        }
+    }
+
+    /**
+     * Carries out the run handed to this process, as the one-shot steward-agent, and settles its row.
+     *
+     * @return whether there was such a run: still open, and handed to this one-shot
+     */
+    public boolean carryOutHanded(final long id, final String oneShot) {
+        final Optional<UpdateRequest> handed = directory
+                .find(id)
+                .filter(request -> request.status() == UpdateStatus.RUNNING)
+                .filter(request ->
+                        directory.runnerOf(id).filter(oneShot::equals).isPresent());
+        if (handed.isEmpty()) {
+            log.error("Request {} is not a run handed to {}, so nothing was carried out", id, oneShot);
+            return false;
+        }
+        carryOut(handed.get());
+        return true;
+    }
+
+    /** Runs one claimed request, writing every stage it reaches into its row and settling the row at the end. */
+    private void carryOut(final UpdateRequest request) {
+        log.info("Running request {}: {} asked for by {}", request.id(), request.kind(), request.actor());
+        // The row is the progress bar: every stage the run reaches redraws the Discord embed and chat line.
+        final Outcome outcome = runner.run(request, report -> {
+            // A progress write must never decide the run, or a stopped service would stay stopped.
+            try {
+                if (!directory.progress(request.id(), UpdateReports.toJson(report))) {
+                    // No longer RUNNING, cancelled or settled elsewhere; the run carries on regardless.
+                    log.warn(
+                            "Request {} is no longer RUNNING, so its progress was not"
+                                    + " recorded; the run itself continues",
+                            request.id());
+                }
+            } catch (final RuntimeException failure) {
+                log.warn("Could not record progress for request {}; the run continues", request.id(), failure);
+            }
+        });
+
+        if (outcome.isHandedOver()) {
+            // The one-shot settles the row; until then it is the lock that keeps every other run out.
+            log.info("Request {} is carried out by the one-shot it was handed to", request.id());
+            return;
+        }
+        // Empty when the row is no longer RUNNING, ordinarily a stopped countdown, so nothing is overwritten.
+        if (directory.finish(request.id(), outcome.status(), outcome.report()).isEmpty()) {
+            log.info(
+                    "Request {} was settled by somebody else while it ran - most likely"
+                            + " cancelled during its countdown - so its report was not written",
+                    request.id());
+        } else {
+            log.info("Request {} finished as {}", request.id(), outcome.status());
         }
     }
 
@@ -133,18 +175,19 @@ public final class UpdateServer implements AutoCloseable {
     }
 
     /**
-     * Settles whatever the previous instance of this container left behind as failed.
+     * Fails every open run but one handed to a one-shot that still runs: the steward-agent carrying it out is gone.
      *
-     * Safe only while one agent claims runs: a second claimer needs an exclusion of its own first.
+     * Safe only while one agent claims runs, and only between its runs; a one-shot never calls it.
      */
     private void settleOrphans() {
         try {
             final int settled = directory.settleOrphans(
-                    "steward-agent stopped while this request was running, so it did not finish."
+                    "The steward-agent carrying out this request stopped before it finished."
                             + " Nothing here says how far it got - check the report of the next run"
-                            + " before assuming anything was installed.");
+                            + " before assuming anything was installed.",
+                    stillRunning);
             if (settled > 0) {
-                log.info("Settled {} request(s) left open by the previous instance", settled);
+                log.info("Settled {} request(s) no steward-agent carries out any more", settled);
             }
         } catch (final RuntimeException failure) {
             // Not fatal: the stale rows are cosmetic, and refusing to start over them is worse.

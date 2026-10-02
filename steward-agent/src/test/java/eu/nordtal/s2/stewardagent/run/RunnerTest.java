@@ -13,6 +13,7 @@ import eu.nordtal.s2.database.inbox.StewardRequest;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateReport;
+import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateStatus;
 import eu.nordtal.s2.settings.DatabaseSpec;
@@ -102,6 +103,24 @@ class RunnerTest {
         assertTrue(
                 progress.stream().anyMatch(report -> report.stage() == UpdateReport.Stage.COUNTDOWN),
                 "the feeds see the countdown too: " + progress);
+    }
+
+    /** A one-shot's last act is the long-running agent at its own release, after every server is back. */
+    @Test
+    void aOneShotRenewsTheLongRunningAgentLastOfAll() {
+        final UpdateRequest request = claimed(UpdateKind.RESTART, List.of("smp"));
+
+        final Outcome outcome = runner.asOneShot().run(request, progress::add);
+
+        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
+        assertEquals(List.of("stop:smp-container", "start:smp-container", "renew:steward-agent"), containers.calls);
+        assertEquals(
+                UpdateReport.State.HEALTHY,
+                UpdateReports.parse(outcome.report())
+                        .orElseThrow()
+                        .line("steward-agent")
+                        .state(),
+                outcome.report());
     }
 
     @Test
@@ -205,7 +224,7 @@ class RunnerTest {
         final Outcome outcome = runner.run(claimed(UpdateKind.RECREATE, List.of("steward-agent")), progress::add);
 
         assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
-        assertTrue(outcome.report().contains("nordtal.sh"), outcome.report());
+        assertTrue(outcome.report().contains("one-shot"), outcome.report());
         assertEquals(List.of(), containers.calls);
     }
 

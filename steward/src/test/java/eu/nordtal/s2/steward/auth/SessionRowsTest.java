@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.DatabaseRole;
 import eu.nordtal.s2.database.TestDatabase;
 import java.time.Duration;
 import java.time.Instant;
@@ -26,7 +27,8 @@ class SessionRowsTest {
 
     @BeforeAll
     static void start() {
-        final DataSource source = TestDatabase.fresh().dataSource();
+        // The role steward logs in as, so a statement it was never granted fails here first.
+        final DataSource source = TestDatabase.fresh().dataSourceAs(DatabaseRole.STEWARD);
         sessions = new Sessions(source, Duration.ofDays(30));
     }
 

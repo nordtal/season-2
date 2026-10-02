@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.Actor;
+import eu.nordtal.s2.database.DatabaseRole;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.setting.SettingStore;
 import java.sql.SQLException;
@@ -20,9 +21,15 @@ class ExampleValuesTest {
 
     private static DataSource dataSource;
 
+    /** The owner, for fixtures and for whatever stands in for another service. */
+    private static DataSource owner;
+
     @BeforeAll
     static void start() {
-        dataSource = TestDatabase.fresh().dataSource();
+        final TestDatabase database = TestDatabase.fresh();
+        owner = database.dataSource();
+        // The role steward logs in as, so a statement it was never granted fails here first.
+        dataSource = database.dataSourceAs(DatabaseRole.STEWARD);
     }
 
     @BeforeEach
@@ -85,7 +92,7 @@ class ExampleValuesTest {
     }
 
     private static void sql(final String statement) {
-        try (var connection = dataSource.getConnection();
+        try (var connection = owner.getConnection();
                 var sql = connection.createStatement()) {
             sql.execute(statement);
         } catch (final SQLException failure) {

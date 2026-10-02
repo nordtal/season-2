@@ -74,9 +74,8 @@ x-minecraft: &minecraft
 
 # The database every client connects to, each under its own variable prefix. NORDTAL_DATABASE_* points
 # the stack at an external PostgreSQL; POSTGRES_* configures the bundled one. steward-agent logs in as
-# the owner, migrates, and first creates every other service's role with the password given here; each
-# service logs in as its own role, whose name is fixed (DatabaseRole in :database). steward still logs
-# in as the owner too.
+# the owner, migrates, and first creates every other service's role with the password given here; every
+# other service logs in as its own role, whose name is fixed (DatabaseRole in :database).
 x-database:
   url: &db-url ${NORDTAL_DATABASE_JDBC_URL:-jdbc:postgresql://postgres:5432/${POSTGRES_DB:-nordtal}}
   username: &db-username ${NORDTAL_DATABASE_USERNAME:-${POSTGRES_USER:-nordtal}}
@@ -118,8 +117,8 @@ services:
     logging: *logging
 
   # The Discord bot: no Minecraft dependency and no bank credential. It validates the schema and asks
-  # steward for payment links through a table. The name matches the module, the artefact id and
-  # the jar volume, held equal by TopologyTest; the profile stays `bot`.
+  # steward for payment links through a table. The name matches the module and the artefact id,
+  # held equal by TopologyTest; the profile stays `bot`.
   discord-bot:
     profiles: ["bot"]
     # A backup stops it while it saves, so bot-config is not written mid-snapshot.
@@ -356,8 +355,8 @@ services:
       TZ: ${TZ:-Europe/Berlin}
       # The database group.
       NORDTAL_STEWARD_DATABASE_JDBC_URL: *db-url
-      NORDTAL_STEWARD_DATABASE_USERNAME: *db-username
-      NORDTAL_STEWARD_DATABASE_PASSWORD: *db-password
+      NORDTAL_STEWARD_DATABASE_USERNAME: nordtal_steward
+      NORDTAL_STEWARD_DATABASE_PASSWORD: *db-steward-password
 
       # steward#agent: containers, logs, backups and the plan come from steward-agent's API.
       NORDTAL_STEWARD_AGENT_TOKEN: ${STEWARD_AGENT_TOKEN:?set STEWARD_AGENT_TOKEN in .env - the secret steward and steward-agent share, `openssl rand -hex 32`}

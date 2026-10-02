@@ -23,13 +23,14 @@ Javalin as the rest and pass the same gates: a read needs a signed-in admin with
 (`KEY_HELD`), a change a fresh one (`KEY_FRESH`). The plugin "added by" comes from the session, and a
 long log follow re-checks the session once a second, so a sign-out ends it.
 
-The process on the internet holds no Docker socket and mounts no volume but its own jar folder.
+The process on the internet holds no Docker socket and mounts no volume but the last installation's
+settings files, which its first start imports.
 Everything Docker knows comes from `steward-agent` through `AgentClient`: the containers and their
 last sample, logs, the console, image drift, the host's numbers, the archives and the plan of the
 next update. The managed plugins' list, search and add are passed through to the agent unchanged.
 
-It still logs in as the database owner. The role `nordtal_steward` (`DatabaseRole.STEWARD`) holds the
-grants the interface needs and is what steward logs in as once the owner is the migration's alone.
+It logs in as `nordtal_steward` (`DatabaseRole.STEWARD`), never as the owner. Its tests open the
+database under that role too, so a statement steward was never granted fails in `check`.
 
 ## Where a version comes from
 

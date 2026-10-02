@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.DatabaseRole;
 import eu.nordtal.s2.database.TestDatabase;
 import java.util.List;
 import javax.sql.DataSource;
@@ -20,7 +21,8 @@ class PushSubscriptionsTest {
 
     @BeforeAll
     static void start() {
-        final DataSource source = TestDatabase.fresh().dataSource();
+        // The role steward logs in as, so a statement it was never granted fails here first.
+        final DataSource source = TestDatabase.fresh().dataSourceAs(DatabaseRole.STEWARD);
         subscriptions = new PushSubscriptions(source);
     }
 

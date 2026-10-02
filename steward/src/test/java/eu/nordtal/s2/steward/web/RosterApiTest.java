@@ -15,7 +15,7 @@ class RosterApiTest extends WebTestSupport {
 
     @Test
     void aGameActionIsARowWithTheAskerOnIt() throws Exception {
-        try (var connection = data.dataSource().getConnection();
+        try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var statement = connection.createStatement()) {
             statement.execute("INSERT INTO smp_milestone (key, state, unlocked) VALUES ('r-open', 'ACTIVE', NULL)");
         }
@@ -23,7 +23,7 @@ class RosterApiTest extends WebTestSupport {
         try {
             asked = post("/api/smp/milestone", "{\"key\": \"r-open\"}");
         } finally {
-            try (var connection = data.dataSource().getConnection();
+            try (var connection = WebFixture.postgres.dataSource().getConnection();
                     var statement = connection.createStatement()) {
                 statement.execute("DELETE FROM smp_milestone WHERE key = 'r-open'");
             }
@@ -77,7 +77,7 @@ class RosterApiTest extends WebTestSupport {
      */
     @Test
     void gameActionsAreRowsWithoutACommandName() throws Exception {
-        try (var connection = data.dataSource().getConnection();
+        try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var statement = connection.createStatement()) {
             statement.execute("""
                     INSERT INTO smp_milestone (key, state, unlocked) VALUES
@@ -119,7 +119,7 @@ class RosterApiTest extends WebTestSupport {
                     "UNLOCK_MILESTONE",
                     "{\"key\":\"t-open\"}");
         } finally {
-            try (var connection = data.dataSource().getConnection();
+            try (var connection = WebFixture.postgres.dataSource().getConnection();
                     var statement = connection.createStatement()) {
                 statement.execute("DELETE FROM smp_milestone WHERE key LIKE 't-%'");
             }
@@ -130,7 +130,7 @@ class RosterApiTest extends WebTestSupport {
     @Test
     void theHungerGamesStartIsARowSayingWhetherItWasConfirmed() throws Exception {
         assertEquals("{}", get("/api/hunger-games/round").body());
-        try (var connection = data.dataSource().getConnection();
+        try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var statement = connection.createStatement()) {
             statement.execute("INSERT INTO hg_game (state) VALUES ('REGISTRATION')");
         }
@@ -146,7 +146,7 @@ class RosterApiTest extends WebTestSupport {
                     "START_GAME",
                     "{\"confirmed\":true}");
         } finally {
-            try (var connection = data.dataSource().getConnection();
+            try (var connection = WebFixture.postgres.dataSource().getConnection();
                     var statement = connection.createStatement()) {
                 statement.execute("DELETE FROM hg_game");
             }

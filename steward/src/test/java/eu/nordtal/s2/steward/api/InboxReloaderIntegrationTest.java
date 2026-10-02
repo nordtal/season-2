@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.time.Waiting;
+import eu.nordtal.s2.database.DatabaseRole;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.Outcome;
@@ -29,11 +30,17 @@ class InboxReloaderIntegrationTest {
 
     private static DataSource dataSource;
 
+    /** The owner, for fixtures and for whatever stands in for another service. */
+    private static DataSource owner;
+
     private @Nullable ScheduledExecutorService smp;
 
     @BeforeAll
     static void database() {
-        dataSource = TestDatabase.fresh().dataSource();
+        final TestDatabase database = TestDatabase.fresh();
+        owner = database.dataSource();
+        // The role steward logs in as, so a statement it was never granted fails here first.
+        dataSource = database.dataSourceAs(DatabaseRole.STEWARD);
     }
 
     /** Waits for a drain still in flight, which would otherwise answer the next test's request. */
@@ -47,7 +54,8 @@ class InboxReloaderIntegrationTest {
 
     /** Runs an SMP that drains its inbox every few milliseconds and answers a reload as told. */
     private void smpAnswering(final Function<SmpRequest, Outcome> answer) {
-        final Inbox<SmpRequest> inbox = Inbox.over(dataSource, SmpRequest.TABLE);
+        // The SMP logs in as the owner here, standing in for its own role.
+        final Inbox<SmpRequest> inbox = Inbox.over(owner, SmpRequest.TABLE);
         smp = Executors.newSingleThreadScheduledExecutor();
         final var _ = smp.scheduleWithFixedDelay(
                 () -> inbox.drain(request -> answer.apply(request.payload())), 0, 20, TimeUnit.MILLISECONDS);

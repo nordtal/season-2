@@ -2,6 +2,7 @@ package eu.nordtal.s2.steward.web;
 
 import com.google.gson.Gson;
 import eu.nordtal.jcore.persistence.sql.Database;
+import eu.nordtal.s2.database.DatabaseRole;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.settings.DatabaseSpec;
@@ -192,14 +193,15 @@ abstract class WebFixture {
                         return postgres.jdbcUrl();
                     }
 
+                    // The role steward logs in as, so a statement it was never granted fails here first.
                     @Override
                     public String username() {
-                        return postgres.username();
+                        return DatabaseRole.STEWARD.roleName();
                     }
 
                     @Override
                     public String password() {
-                        return postgres.password();
+                        return DatabaseRole.STEWARD.key();
                     }
                 },
                 "steward-test");

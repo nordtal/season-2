@@ -104,6 +104,26 @@ public final class TestDatabase {
         }
     }
 
+    /**
+     * Migrates this database up to a version, for a test of a database an older release left behind.
+     *
+     * @param placeholders the role names, which an older release may have named differently
+     * @param target a version such as {@code "2"}, or {@code "latest"}
+     */
+    public void migrate(final Map<String, String> placeholders, final String target) {
+        migrate(dataSource, placeholders, target);
+    }
+
+    private static void migrate(final DataSource source, final Map<String, String> placeholders, final String target) {
+        Flyway.configure(TestDatabase.class.getClassLoader())
+                .dataSource(source)
+                .locations("classpath:db/migration")
+                .placeholders(placeholders)
+                .target(target)
+                .load()
+                .migrate();
+    }
+
     /** The password every role gets in the test container: its own key. */
     private static String password(final DatabaseRole role) {
         return role.key();
@@ -126,12 +146,7 @@ public final class TestDatabase {
             } catch (final SQLException failure) {
                 throw new IllegalStateException("could not create the roles V1 grants to", failure);
             }
-            Flyway.configure(TestDatabase.class.getClassLoader())
-                    .dataSource(dataSource(running, TEMPLATE))
-                    .locations("classpath:db/migration")
-                    .placeholders(DatabaseRole.placeholders(DatabaseRole.PREFIX))
-                    .load()
-                    .migrate();
+            migrate(dataSource(running, TEMPLATE), DatabaseRole.placeholders(DatabaseRole.PREFIX), "latest");
             return running;
         }
     }

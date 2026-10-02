@@ -266,10 +266,8 @@ class TopologyDeploymentTest {
             if (!role.hasPassword()) {
                 continue;
             }
-            // Steward logs in as the owner while it is the one that migrates; its role holds the grants for after.
             assertTrue(
-                    role == eu.nordtal.s2.database.DatabaseRole.STEWARD
-                            || compose.contains("DATABASE_USERNAME: " + role.roleName() + "\n"),
+                    compose.contains("DATABASE_USERNAME: " + role.roleName() + "\n"),
                     "no service in compose.yml logs in as " + role.roleName());
             assertTrue(
                     compose.contains(eu.nordtal.s2.stewardagent.schema.Schema.passwordVariable(role) + ": "),

@@ -4,10 +4,6 @@ import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.common.time.Waiting;
-import eu.nordtal.s2.database.inbox.Inbox;
-import eu.nordtal.s2.database.inbox.InboxTable;
-import eu.nordtal.s2.database.inbox.Inboxes;
-import eu.nordtal.s2.database.inbox.StewardRequest;
 import eu.nordtal.s2.database.metric.MetricDirectory;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.online.OnlineDirectory;
@@ -59,9 +55,6 @@ public final class Steward {
     /** The logger the settings name what they refused or ignored in. */
     private static final org.slf4j.Logger SETTINGS_LOG = LoggerFactory.getLogger(StewardSettings.class);
 
-    /** How long a settled request is kept in its inbox. */
-    private static final java.time.Duration REQUEST_RETENTION = java.time.Duration.ofDays(30);
-
     /** Where the last installation's settings files are mounted, imported once and then deleted. */
     private static final String DEFAULT_CONFIG_DIR = "config";
 
@@ -109,7 +102,6 @@ public final class Steward {
             if (configs == null) {
                 return 1;
             }
-            clearOldRequests(database);
             markReady();
             return serveNetwork(configs, database);
         }
@@ -152,27 +144,6 @@ public final class Steward {
             // No stack trace, so the sentence is not missed.
             log.error("Refusing to serve on settings that cannot be read: {}", broken.getMessage());
             return null;
-        }
-    }
-
-    /**
-     * Deletes the settled requests of every inbox but the run inbox older than {@link #REQUEST_RETENTION}.
-     * The runs are kept: they are the history Steward shows. Once at startup, since {@code serve} is not a scheduler.
-     */
-    private static void clearOldRequests(final Database database) {
-        for (final InboxTable<?> table : Inboxes.ALL) {
-            if (table == StewardRequest.TABLE) {
-                continue;
-            }
-            try {
-                final int gone = Inbox.over(database.dataSource(), table).purge(REQUEST_RETENTION);
-                if (gone > 0) {
-                    log.info("Removed {} settled requests from {} older than {}.", gone, table, REQUEST_RETENTION);
-                }
-            } catch (final RuntimeException failure) {
-                // Not fatal: every other service waits for this container.
-                log.warn("Could not clear out old requests from {}; they stay where they are.", table, failure);
-            }
         }
     }
 

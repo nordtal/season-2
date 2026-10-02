@@ -140,7 +140,7 @@ class SignInAndSessionTest extends WebTestSupport {
         final JsonObject withoutAPicture = GSON.fromJson(get("/api/me").body(), JsonObject.class);
         assertFalse(withoutAPicture.has("discordAvatarUrl"), withoutAPicture.toString());
 
-        try (var connection = data.dataSource().getConnection();
+        try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var mirror = connection.prepareStatement(
                         "UPDATE discord_user SET discord_avatar_url = ? WHERE discord_id = '1'")) {
             mirror.setString(1, "https://cdn.discordapp.com/avatars/1/a.png");
@@ -154,7 +154,7 @@ class SignInAndSessionTest extends WebTestSupport {
                     withAPicture.toString());
         } finally {
             // Every other test in this class signs in as "1" and expects the fallback state; this row is the root.
-            try (var connection = data.dataSource().getConnection();
+            try (var connection = WebFixture.postgres.dataSource().getConnection();
                     var clearIt = connection.prepareStatement(
                             "UPDATE discord_user SET discord_avatar_url = NULL WHERE discord_id = '1'")) {
                 clearIt.executeUpdate();
@@ -323,7 +323,7 @@ class SignInAndSessionTest extends WebTestSupport {
 
     private static void seedGuildMembers(final List<String> ids) throws Exception {
         for (final String id : ids) {
-            try (var connection = data.dataSource().getConnection();
+            try (var connection = WebFixture.postgres.dataSource().getConnection();
                     var member = connection.prepareStatement(
                             "INSERT INTO discord_user (discord_id, member_state) VALUES (?, 'MEMBER')")) {
                 member.setString(1, id);
@@ -367,7 +367,7 @@ class SignInAndSessionTest extends WebTestSupport {
 
     private void assertRevokingCascadesAndRefuses() throws Exception {
         // One of them granted below the first, so revoking the first takes both.
-        try (var connection = data.dataSource().getConnection();
+        try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var below = connection.prepareStatement("UPDATE discord_user"
                         + " SET admin_granted_by = '881000000000000001'"
                         + " WHERE discord_id = '881000000000000002'")) {
@@ -394,7 +394,7 @@ class SignInAndSessionTest extends WebTestSupport {
     }
 
     private static void cleanUpAdminGrants() throws Exception {
-        try (var connection = data.dataSource().getConnection();
+        try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var cleanUp = connection.createStatement()) {
             cleanUp.executeUpdate("TRUNCATE admin_grant");
             cleanUp.executeUpdate("UPDATE discord_user SET admin = false, admin_granted_by = NULL,"

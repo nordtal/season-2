@@ -240,7 +240,7 @@ class WebRoutesTest extends WebTestSupport {
                 count("select count(*) from audit_log"),
                 "steward journalled an access change the bot will journal itself");
 
-        try (var connection = data.dataSource().getConnection();
+        try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var statement = connection.createStatement()) {
             statement.execute("delete from bot_inbox");
         }
@@ -248,7 +248,7 @@ class WebRoutesTest extends WebTestSupport {
 
     /** Holds the row one access change wrote: its kind, its payload and the admin who asked. */
     private void assertAsked(final long id, final String[] ask) throws Exception {
-        try (var connection = data.dataSource().getConnection();
+        try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var statement = connection.prepareStatement("select kind, payload = cast(? AS jsonb) AS asked,"
                         + " payload, actor_kind, actor_id from bot_inbox where id = ?")) {
             statement.setString(1, ask[3]);
@@ -272,8 +272,9 @@ class WebRoutesTest extends WebTestSupport {
                         JsonObject.class)
                 .get("id")
                 .getAsLong();
-        // Standing in for the bot: claim everything waiting, and answer this one.
-        data.bot()
+        // Standing in for the bot, as the owner: claim everything waiting, and answer this one.
+        eu.nordtal.s2.database.inbox.Inbox.over(
+                        WebFixture.postgres.dataSource(), eu.nordtal.s2.database.inbox.BotRequest.TABLE)
                 .drain(request -> eu.nordtal.s2.database.inbox.Outcome.done(
                         request.id() == id ? java.util.Map.of("revoked", "2") : null));
 
@@ -283,7 +284,7 @@ class WebRoutesTest extends WebTestSupport {
         assertEquals("2", polled.getAsJsonObject("result").get("revoked").getAsString());
 
         assertEquals(404, get("/api/access/requests/999999999").statusCode());
-        try (var connection = data.dataSource().getConnection();
+        try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var statement = connection.createStatement()) {
             statement.execute("delete from bot_inbox");
         }

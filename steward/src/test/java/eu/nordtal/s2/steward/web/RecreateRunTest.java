@@ -114,7 +114,7 @@ class RecreateRunTest extends WebTestSupport {
                 2,
                 count("select count(*) from bot_inbox where payload ->> 'person' ="
                         + " '555000000000000001' and actor_kind = 'PERSON' and actor_id = '" + snowflake + "'"));
-        try (var connection = data.dataSource().getConnection();
+        try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var statement = connection.createStatement()) {
             statement.execute("delete from bot_inbox where payload ->> 'person' = '555000000000000001'");
         }
@@ -159,7 +159,7 @@ class RecreateRunTest extends WebTestSupport {
     }
 
     private static void forgetRuns() throws Exception {
-        try (var connection = data.dataSource().getConnection();
+        try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var statement = connection.createStatement()) {
             statement.execute("delete from steward_inbox where kind = 'RECREATE'");
         }

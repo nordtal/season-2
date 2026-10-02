@@ -86,10 +86,12 @@ class DatabaseRoleIntegrationTest {
                         DatabaseRole.DISCORD_BOT,
                         "INSERT INTO bank_inbox (kind, payload, actor_kind) VALUES ('CANCEL_TAB', '{}', 'HOST')"),
                 mayNot(DatabaseRole.DISCORD_BOT, "UPDATE bank_inbox SET status = 'DONE' WHERE false"),
-                mayNot(
+                may(
                         DatabaseRole.STEWARD,
                         "INSERT INTO bank_inbox (kind, payload, actor_kind) VALUES ('CANCEL_TAB', '{}', 'HOST')"),
+                may(DatabaseRole.STEWARD, "UPDATE bank_inbox SET status = 'DONE' WHERE false"),
                 mayNot(DatabaseRole.DISCORD_BOT, "SELECT count(*) FROM steward_session")));
+        cases.addAll(stewardsOwnLoops());
         for (final DatabaseRole role : LOGINS) {
             cases.add(may(role, "INSERT INTO audit_log (action) VALUES ('X')"));
             cases.add(mayNot(role, "UPDATE audit_log SET detail = '' WHERE false"));
@@ -98,6 +100,32 @@ class DatabaseRoleIntegrationTest {
         }
         cases.addAll(serverInboxes());
         assertAll(cases.stream().map(DatabaseRoleIntegrationTest::check));
+    }
+
+    /**
+     * What steward writes on its own clock.
+     *
+     * The curves, the payment poll and its cut-off. Clearing old requests out of every inbox is the owner's, so
+     * steward deletes from none of them.
+     */
+    private static List<Case> stewardsOwnLoops() {
+        return List.of(
+                may(
+                        DatabaseRole.STEWARD,
+                        "INSERT INTO metric_sample (subject, metric, resolution, at, value)"
+                                + " SELECT 'host', 'x', 'RAW', now(), 1 WHERE false"),
+                may(DatabaseRole.STEWARD, "DELETE FROM metric_sample WHERE false"),
+                may(
+                        DatabaseRole.STEWARD,
+                        "INSERT INTO payment_gateway (state) SELECT 'ON' WHERE false"
+                                + " ON CONFLICT (id) DO UPDATE SET state = excluded.state"),
+                may(DatabaseRole.STEWARD, "UPDATE payment_request SET status = 'EXPIRED' WHERE false"),
+                may(
+                        DatabaseRole.STEWARD,
+                        "INSERT INTO payment_notice (bunq_payment_id, reason, detail) SELECT 1, 'x', '' WHERE false"),
+                mayNot(DatabaseRole.STEWARD, "UPDATE payment_notice SET posted = now() WHERE false"),
+                mayNot(DatabaseRole.STEWARD, "DELETE FROM smp_inbox WHERE false"),
+                mayNot(DatabaseRole.STEWARD, "DELETE FROM bank_inbox WHERE false"));
     }
 
     /** The bot raises an alert and reads none back; steward routes them and keeps each admin's channels. */
@@ -115,7 +143,7 @@ class DatabaseRoleIntegrationTest {
                 .map(DatabaseRoleIntegrationTest::check));
     }
 
-    /** Every server claims only its own inbox; steward asks the SMP and the Hunger Games, the owner the rest. */
+    /** Every server claims only its own inbox, and steward asks every one of them for a reload. */
     private static List<Case> serverInboxes() {
         return List.of(
                 mayNot(
@@ -126,9 +154,13 @@ class DatabaseRoleIntegrationTest {
                 may(
                         DatabaseRole.STEWARD,
                         "INSERT INTO hunger_games_inbox (kind, payload, actor_kind) VALUES ('START_GAME', '{}', 'HOST')"),
-                mayNot(
+                may(
                         DatabaseRole.STEWARD,
                         "INSERT INTO limbo_inbox (kind, payload, actor_kind) VALUES ('RELOAD', '{}', 'HOST')"),
+                may(
+                        DatabaseRole.STEWARD,
+                        "INSERT INTO proxy_inbox (kind, payload, actor_kind) VALUES ('RELOAD', '{}', 'HOST')"),
+                mayNot(DatabaseRole.STEWARD, "UPDATE limbo_inbox SET status = 'DONE' WHERE false"),
                 mayNot(
                         DatabaseRole.PROXY,
                         "INSERT INTO smp_inbox (kind, payload, actor_kind) VALUES ('RELOAD', '{}', 'HOST')"),

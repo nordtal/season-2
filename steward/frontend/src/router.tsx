@@ -82,6 +82,12 @@ const routes = [
     path: "/designs/charts",
     component: lazyRouteComponent(() => import("@/app/designs/charts-gallery"), "ChartsGalleryPage"),
   }),
+  // The milestones editor's layouts on the real track, loaded apart; goes once one is picked.
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/designs/milestones-config",
+    component: lazyRouteComponent(() => import("@/app/designs/milestones-config"), "MilestonesConfigPage"),
+  }),
   // The translation editors on real bundles, loaded apart; goes once the picked one is in the messages tool.
   createRoute({
     getParentRoute: () => rootRoute,

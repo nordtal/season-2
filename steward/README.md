@@ -96,6 +96,10 @@ pin and no rollback: a bad release is corrected by publishing a better one.
   bottom sheet on a phone. Where nothing can be listed it falls back to the typed field and says why.
   The milestone track joins the database's progress to the group's own sections by their `key` and
   draws each section's settings through the same schema, so nothing in it knows what a milestone holds.
+- **Custom editors.** A plugin's descriptor may name an editor per group; the frontend's registry
+  draws that group with it only when the editor reads the document it got, and with the form built
+  from the schema otherwise. An editor knows the structure it lays out, never a label, a choice or a
+  reference, and saves through the same draft as the form. Proposals for one live under `/designs`.
 - **Alerts.** Every alert is a row in `admin_alert`, raised by whoever saw it: steward measures the
   stack every 30 seconds against the `web` group's thresholds and raises a failed run and a payment
   nobody can book, once per bank payment; the bot raises what it could not do in Discord or with a purchase. Steward routes each row once, to Web Push and to the admin channel through the

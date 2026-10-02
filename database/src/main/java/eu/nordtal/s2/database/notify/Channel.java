@@ -30,7 +30,10 @@ public enum Channel {
     SMP("nordtal_smp"),
 
     /** A stored setting changed; payload its service. steward emits, every process with settings listens. */
-    SETTINGS("nordtal_settings");
+    SETTINGS("nordtal_settings"),
+
+    /** An admin alert was raised. steward and the bot emit, and steward listens and routes it. */
+    ALERT("nordtal_alert");
 
     private final String sqlName;
 

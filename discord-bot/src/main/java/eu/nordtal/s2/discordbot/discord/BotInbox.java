@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiPredicate;
+import java.util.function.Predicate;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -19,13 +20,19 @@ public final class BotInbox implements Inbox.Handler<BotRequest> {
 
     private final AccessChanges effects;
     private final BiPredicate<String, String> announce;
+    private final Predicate<BotRequest.PostAlert> alert;
 
     /**
      * @param announce posts a text into one language's announcement channel and answers whether it went out
+     * @param alert posts an alert into the admin channel and answers whether there was one
      */
-    public BotInbox(final AccessChanges effects, final BiPredicate<String, String> announce) {
+    public BotInbox(
+            final AccessChanges effects,
+            final BiPredicate<String, String> announce,
+            final Predicate<BotRequest.PostAlert> alert) {
         this.effects = Objects.requireNonNull(effects, "effects");
         this.announce = Objects.requireNonNull(announce, "announce");
+        this.alert = Objects.requireNonNull(alert, "alert");
     }
 
     @Override
@@ -65,6 +72,7 @@ public final class BotInbox implements Inbox.Handler<BotRequest> {
                 yield done("unknown", String.join(",", effects.unknownOverrideKeys()));
             }
             case BotRequest.Announce announcement -> Outcome.done(post(announcement));
+            case BotRequest.PostAlert posted -> done("posted", String.valueOf(alert.test(posted)));
         };
     }
 

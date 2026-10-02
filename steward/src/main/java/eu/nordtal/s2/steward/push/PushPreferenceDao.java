@@ -13,9 +13,9 @@ interface PushPreferenceDao {
 
     /** Sets one switch, one row per account and type however often it is tapped. */
     @SqlUpdate("""
-            INSERT INTO steward_push_preference (discord_id, alert_type, enabled, updated_at)
-            VALUES (:discordId, :alertType, :enabled, now())
-            ON CONFLICT (discord_id, alert_type) DO UPDATE SET
+            INSERT INTO steward_alert_preference (discord_id, alert_type, channel, enabled, updated_at)
+            VALUES (:discordId, :alertType, 'PUSH', :enabled, now())
+            ON CONFLICT (discord_id, alert_type, channel) DO UPDATE SET
                 enabled = excluded.enabled,
                 updated_at = now()
             """)
@@ -27,12 +27,12 @@ interface PushPreferenceDao {
     /** One account's own switches. */
     @SqlQuery("""
             SELECT discord_id, alert_type, enabled
-            FROM steward_push_preference
-            WHERE discord_id = :discordId
+            FROM steward_alert_preference
+            WHERE discord_id = :discordId AND channel = 'PUSH'
             """)
     List<PushPreferences.Row> forAccount(@Bind("discordId") DiscordId discordId);
 
     /** Every switch there is, for one sweep of {@code AlertWatch}. */
-    @SqlQuery("SELECT discord_id, alert_type, enabled FROM steward_push_preference")
+    @SqlQuery("SELECT discord_id, alert_type, enabled FROM steward_alert_preference WHERE channel = 'PUSH'")
     List<PushPreferences.Row> all();
 }

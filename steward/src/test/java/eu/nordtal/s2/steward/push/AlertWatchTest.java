@@ -41,7 +41,7 @@ class AlertWatchTest {
         try (var connection = dataSource.getConnection();
                 var statement = connection.createStatement()) {
             statement.execute("TRUNCATE steward_push_subscription");
-            statement.execute("TRUNCATE steward_push_preference");
+            statement.execute("TRUNCATE steward_alert_preference");
         } catch (final java.sql.SQLException failure) {
             throw new RuntimeException(failure);
         }

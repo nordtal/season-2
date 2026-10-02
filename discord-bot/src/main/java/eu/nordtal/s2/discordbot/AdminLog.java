@@ -1,9 +1,14 @@
 package eu.nordtal.s2.discordbot;
 
+import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.alert.Alert;
+import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.Configured;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.MessageEmbed;
@@ -36,6 +41,26 @@ public final class AdminLog {
                         ? "<@&" + config.roles().adminPing() + ">"
                         : null,
                 card(title, text));
+    }
+
+    /** Posts an alert steward routed here, and answers whether there was an admin channel to post it to. */
+    public boolean postAlert(final BotRequest.PostAlert alert) {
+        return send(mentions(alert.mentions()), card(emoji(alert.level()) + " " + alert.title(), alert.detail()));
+    }
+
+    /** The mentions of the admins who want an alert in Discord, or {@code null} when nobody is to be pinged. */
+    static @Nullable String mentions(final List<DiscordId> admins) {
+        return admins.isEmpty()
+                ? null
+                : admins.stream().map(admin -> "<@" + admin + ">").collect(Collectors.joining(" "));
+    }
+
+    static String emoji(final Alert.Level level) {
+        return switch (level) {
+            case DOWN -> "🛑";
+            case WARN -> "⚠️";
+            case OK -> "✅";
+        };
     }
 
     /** Posts a card to be read later, without a mention. */
@@ -115,7 +140,7 @@ public final class AdminLog {
         return channel;
     }
 
-    private void send(final @Nullable String mention, final MessageEmbed embed) {
+    private boolean send(final @Nullable String mention, final MessageEmbed embed) {
         final MessageChannel channel = channel();
         if (channel == null) {
             // At warn: with no admin channel this is the only place the message exists.
@@ -123,7 +148,7 @@ public final class AdminLog {
                     "No admin channel, so this was not posted to Discord: {} {}",
                     embed.getTitle(),
                     embed.getDescription());
-            return;
+            return false;
         }
         (mention == null
                         ? channel.sendMessageEmbeds(embed)
@@ -135,5 +160,6 @@ public final class AdminLog {
                                 embed.getTitle(),
                                 embed.getDescription(),
                                 failure));
+        return true;
     }
 }

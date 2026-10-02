@@ -71,7 +71,7 @@ public final class PushPreferences {
         return answer;
     }
 
-    /** One row of {@code steward_push_preference}. */
+    /** One row of {@code steward_alert_preference}. */
     public record Row(
             @ColumnName("discord_id") DiscordId discordId,
             @ColumnName("alert_type") String alertType,

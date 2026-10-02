@@ -12,6 +12,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
@@ -97,6 +98,21 @@ class DatabaseRoleIntegrationTest {
         }
         cases.addAll(serverInboxes());
         assertAll(cases.stream().map(DatabaseRoleIntegrationTest::check));
+    }
+
+    /** The bot raises an alert and reads none back; steward routes them and keeps each admin's channels. */
+    @Test
+    void theBotRaisesAlertsAndOnlyStewardRoutesThem() {
+        final String raise = "INSERT INTO admin_alert (raised_by, type, level, subject, title, detail, path)"
+                + " VALUES ('x', 'BOT', 'WARN', 'a', 'b', '', '/')";
+        assertAll(Stream.of(
+                        may(DatabaseRole.DISCORD_BOT, raise),
+                        mayNot(DatabaseRole.DISCORD_BOT, "SELECT count(*) FROM admin_alert"),
+                        mayNot(DatabaseRole.SMP, raise),
+                        may(DatabaseRole.STEWARD, "UPDATE admin_alert SET routed = now() WHERE false"),
+                        may(DatabaseRole.STEWARD, "DELETE FROM steward_alert_preference WHERE false"),
+                        mayNot(DatabaseRole.DISCORD_BOT, "SELECT count(*) FROM steward_alert_preference"))
+                .map(DatabaseRoleIntegrationTest::check));
     }
 
     /** Every server claims only its own inbox; steward asks the SMP and the Hunger Games, the owner the rest. */

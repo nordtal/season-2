@@ -13,7 +13,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** {@code steward_push_preference} against a real PostgreSQL, where a missing row is the type's default. */
+/** {@code steward_alert_preference} against a real PostgreSQL, where a missing row is the type's default. */
 class PushPreferencesTest {
 
     private static DataSource dataSource;
@@ -29,7 +29,7 @@ class PushPreferencesTest {
     void freshTable() {
         try (var connection = dataSource.getConnection();
                 var statement = connection.createStatement()) {
-            statement.execute("TRUNCATE steward_push_preference");
+            statement.execute("TRUNCATE steward_alert_preference");
         } catch (final SQLException failure) {
             throw new RuntimeException(failure);
         }
@@ -93,8 +93,8 @@ class PushPreferencesTest {
     void anUnknownTypeIsIgnored() throws SQLException {
         try (var connection = dataSource.getConnection();
                 var statement = connection.createStatement()) {
-            statement.execute("INSERT INTO steward_push_preference (discord_id, alert_type,"
-                    + " enabled, updated_at) VALUES ('42', 'sunspots', true, now())");
+            statement.execute("INSERT INTO steward_alert_preference (discord_id, alert_type,"
+                    + " channel, enabled, updated_at) VALUES ('42', 'sunspots', 'PUSH', true, now())");
         }
 
         // A poll that threw on a row a later release left behind would stop pushing anything at all.

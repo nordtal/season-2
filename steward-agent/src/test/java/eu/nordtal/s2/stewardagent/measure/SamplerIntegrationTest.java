@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 class SamplerIntegrationTest {
 
     @Test
-    void oneRoundCarriesTheHostsNumbersAndOneReadingPerRunningService() {
+    void oneRoundCarriesTheHostsNumbersAndOneReadingPerRunningService() throws InterruptedException {
         final DockerSocket socket = new DockerSocket();
         assumeTrue(socket.isReachable(), "no docker socket - skipping");
         final Docker docker = new Docker(socket);
@@ -30,6 +30,8 @@ class SamplerIntegrationTest {
         try (Sampler sampler = new Sampler(docker, new HostMetrics(), project, Clock.systemUTC())) {
             // Twice: the first round has no previous CPU reading to subtract from.
             sampler.tick(at.minusSeconds(30));
+            // With no containers both ticks fit inside one jiffy, and no time passed means no CPU to report.
+            Thread.sleep(200);
             round = sampler.tick(at);
             assertEquals(1, sampler.after(at.minusSeconds(1)).size(), "only the round after the instant asked for");
         }

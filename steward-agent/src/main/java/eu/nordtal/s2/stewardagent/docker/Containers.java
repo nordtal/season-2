@@ -31,10 +31,31 @@ public final class Containers {
 
     private final Docker docker;
     private final String project;
+    private final Definitions definitions;
+
+    /** Compose's hash of every service's definition as compose.yml and the environment now make it. */
+    @FunctionalInterface
+    public interface Definitions {
+
+        /** Nothing to compare against, which leaves only the registries to tell a stale image. */
+        Definitions NONE = Map::of;
+
+        /**
+         * One hash per service.
+         *
+         * @throws java.io.IOException if compose cannot read its file or its environment
+         */
+        Map<String, String> hashes() throws java.io.IOException;
+    }
 
     public Containers(final Docker docker, final String project) {
+        this(docker, project, Definitions.NONE);
+    }
+
+    public Containers(final Docker docker, final String project, final Definitions definitions) {
         this.docker = docker;
         this.project = project;
+        this.definitions = definitions;
     }
 
     /**
@@ -154,11 +175,12 @@ public final class Containers {
     }
 
     /**
-     * Which services run an image the registry has moved past, by digest.
+     * Which services run a container compose.yml would no longer make, or an image the registry has moved past.
      *
-     * A local build is {@code LOCAL}; a question nobody could answer is {@code UNKNOWN}, never current.
+     * A new tag or env file is {@code OUTDATED} unasked, a local build {@code LOCAL}, no answer {@code UNKNOWN}.
      */
     public ImageResult images() {
+        final Map<String, String> wanted = wantedDefinitions();
         try {
             final Map<String, ImageResult.State> states = new HashMap<>();
             final Set<String> unverifiable = new LinkedHashSet<>();
@@ -166,6 +188,11 @@ public final class Containers {
             final Map<String, ImageCheck> asked = new HashMap<>();
             for (final Docker.Container container : docker.containers(project)) {
                 if (container.service() == null || !container.isRunning()) {
+                    continue;
+                }
+                final String hash = wanted.get(container.service());
+                if (hash != null && !hash.equals(container.configHash())) {
+                    states.put(container.service(), ImageResult.State.OUTDATED);
                     continue;
                 }
                 String reference = container.image();
@@ -194,6 +221,16 @@ public final class Containers {
         } catch (DockerException e) {
             log.warn("could not compare images against their registries", e);
             return ImageResult.unreachable(messageOf(e));
+        }
+    }
+
+    /** The hashes compose makes now, or none when it cannot say, which is logged and leaves the registries. */
+    private Map<String, String> wantedDefinitions() {
+        try {
+            return definitions.hashes();
+        } catch (final java.io.IOException | RuntimeException failed) {
+            log.warn("could not read what compose.yml makes of each service now: {}", failed.getMessage());
+            return Map.of();
         }
     }
 

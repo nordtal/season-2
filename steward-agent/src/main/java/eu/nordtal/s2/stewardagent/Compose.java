@@ -258,6 +258,29 @@ public final class Compose {
     }
 
     /**
+     * Returns compose's hash of each service's definition, which it also labels every container it makes with.
+     *
+     * Compose hashes after interpolation, so a new release's tag and a changed environment file both change it.
+     */
+    public Map<String, String> hashes() throws IOException {
+        final Map<String, String> hashes = new LinkedHashMap<>();
+        final List<String> unreadable = new ArrayList<>();
+        final int code = run(command(List.of("config", "--hash", "*")), line -> {
+            final String trimmed = line.trim();
+            final int space = trimmed.indexOf(' ');
+            if (space > 0 && trimmed.indexOf(' ', space + 1) < 0) {
+                hashes.put(trimmed.substring(0, space), trimmed.substring(space + 1));
+            } else if (!trimmed.isEmpty()) {
+                unreadable.add(line);
+            }
+        });
+        if (code != 0) {
+            throw new IOException("docker compose config --hash exited " + code + ": " + String.join(" ", unreadable));
+        }
+        return hashes;
+    }
+
+    /**
      * Returns the command line {@link #config} runs; {@code --profile "*"} is a top-level flag before the subcommand.
      */
     List<String> configCommand(final boolean allProfiles) {

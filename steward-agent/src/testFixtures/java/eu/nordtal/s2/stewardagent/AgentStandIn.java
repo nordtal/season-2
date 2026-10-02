@@ -5,6 +5,7 @@ import com.google.gson.JsonParser;
 import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.InternalServer;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
+import eu.nordtal.s2.stewardagent.docker.Containers;
 import eu.nordtal.s2.stewardagent.docker.Docker;
 import eu.nordtal.s2.stewardagent.docker.DockerSocket;
 import eu.nordtal.s2.stewardagent.docker.FakeDaemon;
@@ -67,6 +68,7 @@ public final class AgentStandIn implements AutoCloseable {
                 new Docker(new DockerSocket(daemon.socket(), Duration.ofSeconds(5))),
                 FakeDaemon.PROJECT,
                 () -> services,
+                Containers.Definitions.NONE,
                 new AgentApi.Paths(volumes, configs, sources, backups),
                 Clock.systemUTC());
         api.start();

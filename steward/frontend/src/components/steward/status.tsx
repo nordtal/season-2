@@ -265,7 +265,7 @@ export function DriftBadge({ drift, image }: { drift: string; image: string; dig
       )
     case "OUTDATED":
       return (
-        <StatusBadge tone="warn" tipContent="The registry has a newer image than this container.">
+        <StatusBadge tone="warn" tipContent="Out of date: the next update makes it again.">
           outdated
         </StatusBadge>
       )

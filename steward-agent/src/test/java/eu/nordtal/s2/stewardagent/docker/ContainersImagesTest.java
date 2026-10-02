@@ -123,8 +123,55 @@ class ContainersImagesTest {
         assertEquals(ImageResult.State.UNKNOWN, check.state());
     }
 
+    @Test
+    void aContainerComposeYmlWouldNoLongerMakeIsOutdatedWithoutAskingTheRegistry() throws IOException {
+        // A new release's tag or a changed env file changes compose's hash; the registry has nothing to say about it.
+        final String digest = "c36a132e4bfe218c139d1459b70049fe3e4dabf2c28bec2b725da73ce97c2cb4";
+        final List<String> asked = new java.util.concurrent.CopyOnWriteArrayList<>();
+        final Containers ops = ops(
+                request -> {
+                    asked.add(request);
+                    if (request.contains("/containers/json")) {
+                        return "[" + container("smp", "made-from-the-old-release") + "," + container("limbo", "current")
+                                + "]";
+                    }
+                    if (request.contains("/images/")) {
+                        return "{\"RepoDigests\":[\"ghcr.io/nordtal/minecraft@sha256:" + digest + "\"],"
+                                + "\"Identity\":{\"Pull\":[{\"Repository\":\"ghcr.io/nordtal/minecraft\"}]}}";
+                    }
+                    if (request.contains("/distribution/")) {
+                        return "{\"Descriptor\":{\"digest\":\"sha256:" + digest + "\"}}";
+                    }
+                    return null;
+                },
+                () -> java.util.Map.of("smp", "current", "limbo", "current"));
+
+        final ImageResult result = ops.images();
+
+        assertEquals(ImageResult.State.OUTDATED, result.state("smp"), result.toString());
+        assertEquals(ImageResult.State.UP_TO_DATE, result.state("limbo"), result.toString());
+        assertEquals(
+                1,
+                asked.stream()
+                        .filter(request -> request.contains("/distribution/"))
+                        .count(),
+                asked.toString());
+    }
+
+    private static String container(final String service, final String hash) {
+        return "{\"Id\":\"" + service + "-id\",\"Names\":[\"/nordtal-s2-" + service + "-1\"],"
+                + "\"Image\":\"ghcr.io/nordtal/minecraft:0.10.4\",\"ImageID\":\"sha256:" + "1".repeat(64) + "\","
+                + "\"State\":\"running\",\"Status\":\"Up\",\"Labels\":{"
+                + "\"com.docker.compose.project\":\"nordtal-s2\",\"com.docker.compose.service\":\"" + service + "\","
+                + "\"com.docker.compose.config-hash\":\"" + hash + "\"}}";
+    }
+
     /** A Containers whose daemon answers `/images/` and `/distribution/` through {@code answer}. */
     private Containers ops(final Answer answer) throws IOException {
+        return ops(answer, Containers.Definitions.NONE);
+    }
+
+    private Containers ops(final Answer answer, final Containers.Definitions definitions) throws IOException {
         return new Containers(
                 new Docker(new DockerSocket(
                         listening(request -> {
@@ -132,7 +179,8 @@ class ContainersImagesTest {
                             return body;
                         }),
                         Duration.ofSeconds(5))),
-                "nordtal-s2");
+                "nordtal-s2",
+                definitions);
     }
 
     /** A unix socket that answers every request, one connection at a time, until the test ends. */

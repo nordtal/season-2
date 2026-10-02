@@ -44,7 +44,7 @@ final class Kinds {
         }
     }
 
-    /** Resolves, installs what is new and recreates what has a newer image; refuses nothing that stops nobody. */
+    /** Resolves, installs what is new and recreates what is out of date; refuses nothing that stops nobody. */
     static Planned update(final Runner runner, final UpdateRequest request, final Consumer<UpdateReport> progress) {
         progress.accept(UpdateReport.at(UpdateReport.Stage.RESOLVING));
         // After the runtime check, before anything is resolved: it belongs in the plan a person confirms.

@@ -20,7 +20,7 @@ import { INGRESS, imageTag, type NodeId } from "./topology"
 
 /** The words for the drift states; `UP_TO_DATE` draws none. */
 const DRIFT_WORDS: Record<string, string> = {
-  OUTDATED: "a newer image is in the registry",
+  OUTDATED: "out of date",
   LOCAL: "built on this host, ahead of the registry",
   UP_TO_DATE: "the same image the registry has",
   UNKNOWN: "never compared against the registry",
@@ -34,7 +34,7 @@ const DRIFT_WORDS: Record<string, string> = {
 export function DriftMark({ drift }: { drift: string }) {
   switch (drift) {
     case "OUTDATED":
-      return <ArrowUpIcon className="size-3 shrink-0 text-warning" role="img" aria-label="a newer image exists" />
+      return <ArrowUpIcon className="size-3 shrink-0 text-warning" role="img" aria-label="out of date" />
     case "LOCAL":
       return <WrenchIcon className="size-3 shrink-0 text-muted-foreground" role="img" aria-label="built on this host" />
     case "UP_TO_DATE":

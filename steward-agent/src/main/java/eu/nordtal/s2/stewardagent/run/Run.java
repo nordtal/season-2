@@ -80,7 +80,7 @@ final class Run {
      * @param payload what happens while the servers are down
      * @param startsAgain whether what was stopped is started again, which only a take-down leaves out
      * @param alsoStarts services the run starts although it did not stop them, as a release of a hold does
-     * @param images the services to recreate on a newer image as they start
+     * @param images the services to recreate as they start, since their container is out of date
      * @param foreign the images nobody here builds to make again once the rest is back, announced like a stop
      * @param refusedStop the first words of the report when a service did not stop, or {@code null} to carry on
      * @param refusedStandby the report's note when a standby did not come up, from the standby's own sentence

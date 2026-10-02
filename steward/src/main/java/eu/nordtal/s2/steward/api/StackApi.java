@@ -248,24 +248,34 @@ public final class StackApi implements AutoCloseable {
         return managedPlugins;
     }
 
+    /** {@code GET /api/services}: every row, and how old the image comparison is, which is not the age of a row. */
+    public record ServiceTable(List<ServiceRows.Service> services, DriftReading drift) {}
+
+    /**
+     * How the running images compared with the registry, and when.
+     *
+     * @param reason why the images could not be compared at all, absent when they could
+     */
+    public record DriftReading(
+            Instant checkedAt,
+            boolean reached,
+            List<String> unverifiable,
+            @Nullable String reason,
+            @Nullable String message) {}
+
     /** The service table, with the age of the drift comparison beside it. */
-    Map<String, Object> serviceTable() {
+    ServiceTable serviceTable() {
         // Taken once, for the rows and for the sentence about them.
         final Drift drift = drift();
-        final List<Map<String, Object>> rows = serviceRows.rows(drift.result());
-        final Map<String, Object> answer = new LinkedHashMap<>();
-        answer.put("services", rows);
         final ImageResult images = drift.result();
-        final Map<String, Object> about = new LinkedHashMap<>();
-        about.put("checkedAt", drift.checkedAt().toString());
-        about.put("reached", images.reached());
-        about.put("unverifiable", List.copyOf(images.unverifiable()));
-        images.notCheckable().ifPresent(reason -> about.put("reason", reason));
-        if (images.message() != null) {
-            about.put("message", images.message());
-        }
-        answer.put("drift", about);
-        return answer;
+        return new ServiceTable(
+                serviceRows.rows(images),
+                new DriftReading(
+                        drift.checkedAt(),
+                        images.reached(),
+                        images.unverifiable().stream().sorted().toList(),
+                        images.notCheckable().orElse(null),
+                        images.message()));
     }
 
     /** The drift answer as it stands, refreshed in the background rather than on the caller's thread. */
@@ -273,23 +283,19 @@ public final class StackApi implements AutoCloseable {
         return drift.get();
     }
 
-    Optional<Map<String, Object>> service(final String name) {
+    Optional<ServiceRows.Service> service(final String name) {
         final ImageResult drift = drift().result();
         return agent.container(name).map(container -> {
             final AgentWire.Topology topology = serviceRows.topology();
-            final Map<String, Object> row =
-                    serviceRows.describe(container, drift, serviceRows.online(), serviceRows.holds(), topology);
-            row.put("digests", container.digests() == null ? List.of() : container.digests());
             final boolean hasPlugins = topology.hasPlugins(name);
-            row.put("hasPlugins", hasPlugins);
-            if (hasPlugins) {
-                disk.of(name).ifPresent(measured -> {
-                    row.put("diskBytes", measured.bytes().getAsLong());
-                    row.put("diskMeasuredAt", measured.at().toString());
-                });
-            }
-            row.put("logCapacity", logCapacity(name));
-            return row;
+            final Optional<DiskUsage.Measured> measured = hasPlugins ? disk.of(name) : Optional.empty();
+            return ServiceRows.describe(container, drift, serviceRows.online(), serviceRows.holds(), topology)
+                    .detailed(
+                            container.digests() == null ? List.of() : container.digests(),
+                            hasPlugins,
+                            logCapacity(name),
+                            measured.map(each -> each.bytes().getAsLong()).orElse(null),
+                            measured.map(DiskUsage.Measured::at).orElse(null));
         });
     }
 
@@ -307,28 +313,34 @@ public final class StackApi implements AutoCloseable {
                 .get();
     }
 
+    /**
+     * {@code GET /api/schedule}: both nightly clocks as the settings say them, the zone, and their next moments.
+     *
+     * A blank time is no schedule, so {@code backupAt} and {@code updateAt} are absent then, and so is the next moment.
+     */
+    public record Schedule(
+            @Nullable String backupAt,
+            List<String> backupDays,
+            String zone,
+            @Nullable String nextBackupAt,
+            @Nullable String updateAt,
+            List<String> updateDays,
+            @Nullable String nextUpdateAt) {}
+
     /** {@code backup.at}, {@code backup.days}, the zone they are read in, and the next moment. */
-    Map<String, Object> schedule() {
+    Schedule schedule() {
         final Nightly nightly = this.nightly.get();
-        final Map<String, Object> answer = new LinkedHashMap<>();
-        answer.put("backupAt", nightly.at().isBlank() ? null : nightly.at());
-        // The weekdays as the file says them, not as the clock understood them.
-        answer.put("backupDays", nightly.days());
-        answer.put("zone", nightly.zone().getId());
-        answer.put(
-                "nextBackupAt",
-                NightlyClock.next(
-                                nightly.at(),
-                                nightly.days(),
-                                nightly.zone(),
-                                ZonedDateTime.now(clock.withZone(nightly.zone())))
+        final ZonedDateTime now = ZonedDateTime.now(clock.withZone(nightly.zone()));
+        // The weekdays as the settings say them, not as the clock understood them.
+        return new Schedule(
+                nightly.at().isBlank() ? null : nightly.at(),
+                nightly.days(),
+                nightly.zone().getId(),
+                NightlyClock.next(nightly.at(), nightly.days(), nightly.zone(), now)
                         .map(next -> next.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
-                        .orElse(null));
-        // The optional update clock, read the same way; a blank update.at is no schedule.
-        answer.put("updateAt", nightly.updateAt().isBlank() ? null : nightly.updateAt());
-        answer.put("updateDays", nightly.updateDays());
-        answer.put(
-                "nextUpdateAt",
+                        .orElse(null),
+                nightly.updateAt().isBlank() ? null : nightly.updateAt(),
+                nightly.updateDays(),
                 nightly.updateAt().isBlank()
                         ? null
                         : NightlyClock.next(
@@ -336,46 +348,68 @@ public final class StackApi implements AutoCloseable {
                                         nightly.updateAt(),
                                         nightly.updateDays(),
                                         nightly.zone(),
-                                        ZonedDateTime.now(clock.withZone(nightly.zone())))
+                                        now)
                                 .map(next -> next.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
                                 .orElse(null));
-        return answer;
     }
 
-    Map<String, Object> hostNumbers() {
-        final Map<String, Object> answer = new LinkedHashMap<>();
+    /**
+     * {@code GET /api/host}: the machine's numbers, and what Docker's images and volumes take of its disk.
+     *
+     * A part that could not be read is absent, with its sentence in {@code unreadable} or {@code dockerDiskUnreadable}.
+     */
+    public record Host(
+            @Nullable Double load1,
+            @Nullable Integer cpus,
+            @Nullable Double cpuPercent,
+            @Nullable Long memoryTotalBytes,
+            @Nullable Long memoryAvailableBytes,
+            @Nullable Long diskTotalBytes,
+            @Nullable Long diskUsedBytes,
+            @Nullable Long imagesBytes,
+            @Nullable Long volumesBytes,
+            @Nullable String unreadable,
+            @Nullable String dockerDiskUnreadable,
+            String containerLimits) {}
+
+    /** No container sets a memory limit, so a percentage is a share of the whole machine. */
+    private static final String CONTAINER_LIMITS =
+            "No container sets a memory limit, so every percentage here is a share of the whole host.";
+
+    Host hostNumbers() {
         final AgentWire.Host host;
         try {
             host = agent.host();
         } catch (final InternalClient.Failure unreachable) {
-            answer.put("unreadable", AgentClient.sentence(unreachable));
-            return answer;
+            return new Host(
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    AgentClient.sentence(unreachable),
+                    null,
+                    CONTAINER_LIMITS);
         }
         final AgentWire.HostNumbers numbers = host.numbers();
-        if (numbers != null) {
-            answer.put("load1", numbers.load1());
-            answer.put("cpus", numbers.cpus());
-            if (numbers.cpuPercent() != null) {
-                answer.put("cpuPercent", numbers.cpuPercent());
-            }
-            answer.put("memoryTotalBytes", numbers.memoryTotalBytes());
-            answer.put("memoryAvailableBytes", numbers.memoryAvailableBytes());
-            answer.put("diskTotalBytes", numbers.diskTotalBytes());
-            answer.put("diskUsedBytes", numbers.diskUsedBytes());
-        } else {
-            answer.put("unreadable", String.valueOf(host.unreadable()));
-        }
-        if (host.dockerDiskUnreadable() == null) {
-            answer.put("imagesBytes", host.imagesBytes());
-            answer.put("volumesBytes", host.volumesBytes());
-        } else {
-            answer.put("dockerDiskUnreadable", host.dockerDiskUnreadable());
-        }
-        // No container sets a memory limit, so a percentage is a share of the whole machine.
-        answer.put(
-                "containerLimits",
-                "No container sets a memory limit, so every percentage here is a share of the whole host.");
-        return answer;
+        final boolean docker = host.dockerDiskUnreadable() == null;
+        return new Host(
+                numbers == null ? null : numbers.load1(),
+                numbers == null ? null : numbers.cpus(),
+                numbers == null ? null : numbers.cpuPercent(),
+                numbers == null ? null : numbers.memoryTotalBytes(),
+                numbers == null ? null : numbers.memoryAvailableBytes(),
+                numbers == null ? null : numbers.diskTotalBytes(),
+                numbers == null ? null : numbers.diskUsedBytes(),
+                docker ? host.imagesBytes() : null,
+                docker ? host.volumesBytes() : null,
+                numbers == null ? String.valueOf(host.unreadable()) : null,
+                host.dockerDiskUnreadable(),
+                CONTAINER_LIMITS);
     }
 
     /** What is actually on the disk, newest first, not what a run reported. */
@@ -450,13 +484,13 @@ public final class StackApi implements AutoCloseable {
     public StackReading stackReading() {
         final ImageResult images = drift().result();
         final List<StackReading.Service> services = new ArrayList<>();
-        for (final Map<String, Object> row : serviceRows.rows(images)) {
+        for (final ServiceRows.Service row : serviceRows.rows(images)) {
             services.add(new StackReading.Service(
-                    String.valueOf(row.get("service")),
-                    String.valueOf(row.get("state")),
-                    row.get("health") instanceof String health ? health : null,
-                    Boolean.TRUE.equals(row.get("standby")) || row.containsKey("hold"),
-                    "OUTDATED".equals(row.get("drift"))));
+                    row.service(),
+                    row.state(),
+                    row.health(),
+                    Boolean.TRUE.equals(row.standby()) || row.hold() != null,
+                    row.drift() == ImageResult.State.OUTDATED));
         }
         final String registryProblem = images.reached()
                 ? null

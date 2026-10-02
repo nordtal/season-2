@@ -59,7 +59,6 @@ export function Vitals({ service }: { service: Service }) {
           {service.memoryLimitBytes ? ` of ${bytes(service.memoryLimitBytes)}` : ""}
         </span>
       )}
-      {service.unreadable ? <span className="text-warning">{service.unreadable}</span> : null}
     </span>
   )
 }

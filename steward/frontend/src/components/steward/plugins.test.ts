@@ -10,6 +10,7 @@ import type { AvailableChange, ServicePlugin } from "@/lib/api"
  */
 const plugin = (over: Partial<ServicePlugin> = {}): ServicePlugin => ({
   name: "Chunky",
+  group: "added",
   running: true,
   removable: true,
   fileName: "Chunky-Bukkit-1.5.3.jar",

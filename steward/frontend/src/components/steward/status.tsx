@@ -1,6 +1,6 @@
 import { cn } from "cn"
 
-import type { Service } from "@/lib/api"
+import type { ImageState, Service } from "@/lib/api"
 import { dateTime } from "@/lib/format"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -255,7 +255,7 @@ export function AvailableBadge({ status }: { status: string }) {
 }
 
 /** Image drift: UNKNOWN is never silent or green, and LOCAL, being ahead of the registry, is neutral. */
-export function DriftBadge({ drift, image }: { drift: string; image: string; digests?: string[] }) {
+export function DriftBadge({ drift, image }: { drift: ImageState; image?: string; digests?: string[] }) {
   switch (drift) {
     case "UP_TO_DATE":
       return (

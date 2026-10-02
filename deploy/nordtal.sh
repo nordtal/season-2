@@ -223,6 +223,14 @@ looks_like_profiles() {
     [[ "$1" =~ ^[[:space:]]*[a-z0-9-]+([[:space:]]*,[[:space:]]*[a-z0-9-]+)*[[:space:]]*$ ]]
 }
 
+# Whether the installation answered §5b's question: true and false are answers, anything else is not.
+mojang_assets_answered() {
+    case "$(env_value "$1" NORDTAL_MOJANG_ASSETS)" in
+        true|false) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 # Yes, in English spellings only; anything else, silence included, is no.
 answer_is_yes() {
     case "${1,,}" in
@@ -1465,9 +1473,25 @@ if $CHECK_ONLY; then
 fi
 
 # 5b · Mojang's assets
-# Reserved for the game-data catalogue: the one place this installer asks, once per installation,
-# whether steward-agent may fetch Mojang's client assets under Mojang's EULA, and stores the answer
-# with the installation. Nothing is asked yet.
+# Asked once per installation and kept in the env file. On yes, steward-agent fetches each Minecraft
+# version's client jar from Mojang, draws the item icons Steward's pickers show and deletes the jar;
+# only the icons are kept, in the database. Without an answer the pickers show names alone.
+if ! mojang_assets_answered "$ENV_FILE"; then
+    if [[ -t 0 ]]; then
+        printf '\n\033[36m[nordtal]\033[0m %s\n' "May steward-agent download Minecraft's client from Mojang to draw item icons?" >&2
+        printf '        %s\n        > ' "The jar is Mojang's and is deleted once drawn; only the icons stay, for signed-in admins. [y/N]" >&2
+        read -r mojang_answer
+        if answer_is_yes "$mojang_answer"; then
+            set_assignment "$ENV_FILE" NORDTAL_MOJANG_ASSETS true
+            log "NORDTAL_MOJANG_ASSETS=true - steward-agent draws the icons of each version a server runs"
+        else
+            set_assignment "$ENV_FILE" NORDTAL_MOJANG_ASSETS false
+            log "NORDTAL_MOJANG_ASSETS=false - Steward shows names without icons; set it to true in $ENV_FILE to change that"
+        fi
+    else
+        log "NORDTAL_MOJANG_ASSETS is not in $ENV_FILE and there is no terminal to ask on, so Steward shows names without icons"
+    fi
+fi
 
 # 6 · renew steward-agent
 # The one image the stack cannot replace itself; compose.yml is baked into it.

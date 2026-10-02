@@ -140,6 +140,20 @@ public interface RunSpec {
         return true;
     }
 
+    @Order(13)
+    @Name("Mojang assets")
+    @Key("mojang-assets")
+    @Comment({
+        "Whether steward-agent fetches Mojang's client jar for each Minecraft version a server",
+        "runs, to draw the item icons Steward's pickers show. The jar is deleted once drawn;",
+        "only the icons are kept, in the database. The installer asks once and sets",
+        "NORDTAL_MOJANG_ASSETS. Turned off, the pickers show names without icons."
+    })
+    @Explain("Fetches each version's client jar from Mojang to draw item icons, and keeps only the icons.")
+    default boolean mojangAssets() {
+        return false;
+    }
+
     @Order(14)
     @Name("Backup")
     @Key("backup")

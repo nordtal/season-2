@@ -48,6 +48,9 @@ A deploy pulls and never builds. The images (`minecraft`, `steward`, `steward-ag
    instead of generating one, since Postgres reads it only on an empty data directory. Each service
    logs in as a database role of its own, `POSTGRES_<SERVICE>_PASSWORD`; steward-agent creates the
    roles and sets those passwords at every start, so a new one needs only a restart.
+   Once per installation it also asks whether steward-agent may download Minecraft's client from
+   Mojang to draw the item icons in Steward's pickers (`NORDTAL_MOJANG_ASSETS`). The jar is deleted
+   once drawn and only the icons are kept, in the database; on no the pickers show names alone.
 
 4. **Upload the hand-built worlds**; see [Getting a world into a volume](#getting-a-world-into-a-volume).
 5. **Join with a real client.** Nothing on the host proves the login path works.

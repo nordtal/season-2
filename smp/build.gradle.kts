@@ -10,6 +10,8 @@ plugins {
 // How Steward shows this module's settings; steward-agent reads it out of the jar.
 pluginDescriptor {
     displayName.set("SMP")
+    // The track is drawn compactly by Steward's own milestones editor rather than as cards from its schema.
+    editors.put("milestones", "milestones")
 }
 
 // The base runs prepare() and enable() before anything reads SmpPlugin's fields.

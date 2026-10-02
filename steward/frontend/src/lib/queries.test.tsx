@@ -154,9 +154,12 @@ describe("useSaveConfig - the revision travels with the change", () => {
     service: "steward",
     name: "web",
     path: FILE,
+    label: "",
+    live: true,
     readable: true,
     writable: true,
     revision: "rev-2",
+    restartRequired: false,
     entries: [],
   }
 
@@ -193,7 +196,7 @@ describe("useSaveConfig - the revision travels with the change", () => {
   it("drops the cached document on 409, because its revision is provably stale", async () => {
     /** Somebody else was faster, so the stale copy is dropped, not only the error shown. */
     const queryClient = client()
-    queryClient.setQueryData(keys.config(FILE), { ...SAVED, revision: "rev-1" })
+    queryClient.setQueryData(keys.config(FILE), { ...SAVED, revision: "rev-1", restartRequired: false })
     const invalidated = vi.spyOn(queryClient, "invalidateQueries")
 
     const result = await save(queryClient, answer(409, { error: "The file has changed in the meantime." }))

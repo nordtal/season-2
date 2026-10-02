@@ -1,13 +1,10 @@
 package eu.nordtal.s2.steward.api;
 
-import com.google.gson.JsonElement;
-import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.steward.auth.Gate;
 import io.javalin.config.JavalinConfig;
 import io.javalin.http.BadRequestResponse;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -76,8 +73,7 @@ final class Routes {
                             caller.actor(ctx),
                             Map.of("service", ctx.pathParam("name"), "command", body.command.strip())));
                     ctx.status(202)
-                            .json(Map.of(
-                                    "sent", body.command.strip(), "where", "the answer appears in this service's log"));
+                            .json(new ConsoleSent(body.command.strip(), "the answer appears in this service's log"));
                 },
                 Gate.KEY_FRESH);
     }
@@ -147,15 +143,11 @@ final class Routes {
         config.routes.post(
                 "/api/services/{name}/plugins",
                 ctx -> {
-                    final String row = api.plugins().add(ctx, caller.name(ctx));
-                    final Map<String, Object> facts = new LinkedHashMap<>();
-                    facts.put("service", ctx.pathParam("name"));
-                    final JsonElement artifact =
-                            Json.tree(row).getAsJsonObject().get("artifact");
-                    if (artifact != null && artifact.isJsonPrimitive()) {
-                        facts.put("artifact", artifact.getAsString());
-                    }
-                    api.journal(AuditLine.of("ADD_PLUGIN", caller.actor(ctx), facts));
+                    final AgentWire.PluginAdded added = api.plugins().add(ctx, caller.name(ctx));
+                    api.journal(AuditLine.of(
+                            "ADD_PLUGIN",
+                            caller.actor(ctx),
+                            Map.of("service", ctx.pathParam("name"), "artifact", added.artifact())));
                 },
                 Gate.KEY_FRESH);
         config.routes.delete(
@@ -189,4 +181,11 @@ final class Routes {
                 },
                 Gate.KEY_HELD);
     }
+
+    /**
+     * A console line sent to a service.
+     *
+     * @param where where its answer shows, since the console answers into the service's log and not here
+     */
+    public record ConsoleSent(String sent, String where) {}
 }

@@ -28,6 +28,7 @@ function entry(key: string, value?: string, more: Partial<ConfigEntry> = {}): Co
     type: "STRING",
     editable: true,
     secret: false,
+    environmentOverridden: false,
     ...more,
   }
 }
@@ -57,9 +58,12 @@ const FILE: ConfigDocument = {
   service: "smp",
   name: "milestones.yml",
   path: "smp/milestones",
+  label: "",
+  live: true,
   readable: true,
   writable: true,
   revision: "r1",
+  restartRequired: false,
   entries: [
     entry("milestones", undefined, {
       sections: [

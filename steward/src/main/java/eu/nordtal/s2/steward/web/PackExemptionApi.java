@@ -61,7 +61,7 @@ final class PackExemptionApi {
             case CHANGED -> {
                 audit.record(AuditLine.about(action, who.actor(), DiscordId.of(target), Map.of()));
                 log.info("{} {} for {}", who.name(), action, target);
-                ctx.json(Map.of("outcome", outcome.name()));
+                ctx.json(new Exempted(outcome));
             }
             case UNCHANGED -> ctx.status(409).json(Map.of("error", unchanged));
             case ACTOR_NOT_ADMIN -> ctx.status(403).json(Map.of("error", "You are not an admin any more."));
@@ -84,4 +84,7 @@ final class PackExemptionApi {
         }
         return DiscordId.of(value.getAsString().trim());
     }
+
+    /** An exemption or its end that went through; every other outcome answers an error. */
+    public record Exempted(PackExemptions.Outcome outcome) {}
 }

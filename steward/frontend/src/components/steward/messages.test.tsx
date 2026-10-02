@@ -46,7 +46,7 @@ function entry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
 }
 
 /** One `/api/messages/<path>` answer per fixture bundle and one canned PUT answer per path. */
-type Bundle = MessageBundle & { warnings?: string[] }
+type Bundle = MessageBundle & { warnings?: string[]; unknown?: string[] }
 
 function backend(bundles: Record<string, Bundle>, puts: Record<string, (body: unknown) => unknown> = {}) {
   const listing = Object.values(bundles).map((bundle) => {
@@ -186,6 +186,7 @@ describe("saving a line", () => {
             ...location({ path: "smp/smp" }),
             entries: [entry({ key: "greeting", english: "Hello <_sender>", overrideEnglish: "Hello there" })],
             warnings: ["greeting no longer contains <_sender>"],
+            unknown: [],
           }),
         },
       ),
@@ -222,7 +223,8 @@ describe("saving a line", () => {
             ...location({ path: "smp/smp" }),
             entries: [entry({ key: "welcome", english: "Welcome", overrideEnglish: "Howdy" })],
             warnings: [],
-            reload: { status, message, unknown: [] },
+            unknown: [],
+            reload: { status, message },
           }),
         },
       ),
@@ -252,10 +254,10 @@ describe("saving a line", () => {
             ...location({ path: "discord-bot", service: "discord-bot", module: "" }),
             entries: [entry({ key: "dm.granted", english: "You are in", overrideEnglish: "Welcome in" })],
             warnings: [],
+            unknown: ["dm.grantd"],
             reload: {
               status: "APPLIED",
               message: "The bot re-read its messages. It has no key called dm.grantd.",
-              unknown: ["dm.grantd"],
             },
           }),
         },
@@ -289,6 +291,7 @@ describe("saving a line", () => {
               ...location({ path: "smp/smp" }),
               entries: [entry({ key: "welcome", english: "Welcome" })],
               warnings: [],
+              unknown: [],
             }
           },
         },
@@ -349,7 +352,7 @@ function twoKeys() {
             key: "a",
             name: "First",
             english: "<gray>Hello <white>{player}</white></gray>",
-            args: [{ name: "player", component: false }],
+            args: [{ name: "player", component: false, global: false }],
           }),
           entry({ key: "b", name: "Second", english: "two" }),
         ],
@@ -408,7 +411,7 @@ describe("both languages in one save", () => {
         {
           "smp/smp": (body) => {
             bodies.push(body)
-            return { ...location({ path: "smp/smp" }), entries: [], warnings: [] }
+            return { ...location({ path: "smp/smp" }), entries: [], warnings: [], unknown: [] }
           },
         },
       ),
@@ -441,7 +444,7 @@ function withGreeting() {
             key: "greeting",
             name: "Greeting",
             english: "Hello {player}",
-            args: [{ name: "player", component: false }],
+            args: [{ name: "player", component: false, global: false }],
           }),
         ],
       },

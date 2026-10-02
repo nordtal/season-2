@@ -30,13 +30,11 @@ class SettingsDocumentTest {
         return SettingsDocument.of(group, store.overrides(List.of("smp")));
     }
 
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> entry(final SettingsDocument document, final String path) {
-        return ((List<Map<String, Object>>) document.toJson().get("entries"))
-                .stream()
-                        .filter(entry -> path.equals(entry.get("path")))
-                        .findFirst()
-                        .orElseThrow();
+    private static SettingsDocument.Entry entry(final SettingsDocument document, final String path) {
+        return document.document(null).entries().stream()
+                .filter(entry -> path.equals(entry.path()))
+                .findFirst()
+                .orElseThrow();
     }
 
     @Test
@@ -45,17 +43,17 @@ class SettingsDocumentTest {
 
         final SettingsDocument document = document();
 
-        assertEquals("Welcome", entry(document, "motd").get("value"));
-        assertEquals("20", entry(document, "max-players").get("value"));
-        assertEquals(List.of("msg"), entry(document, "allowlist").get("items"));
+        assertEquals("Welcome", entry(document, "motd").value());
+        assertEquals("20", entry(document, "max-players").value());
+        assertEquals(List.of("msg"), entry(document, "allowlist").items());
     }
 
     @Test
     void aSecretIsNeitherShownNorEditable() throws Exception {
-        final Map<String, Object> token = entry(document(), "token");
+        final SettingsDocument.Entry token = entry(document(), "token");
 
-        assertFalse(token.containsKey("value"));
-        assertEquals(false, token.get("editable"));
+        assertNull(token.value());
+        assertFalse(token.editable());
     }
 
     @Test
@@ -98,9 +96,9 @@ class SettingsDocumentTest {
 
     @Test
     void aSaveOnAStaleRevisionWritesNothing() throws Exception {
-        final String read = (String) document().toJson().get("revision");
+        final String read = document().document(null).revision();
         store.set("smp", "example", "motd", "changed in between");
-        final String now = (String) document().toJson().get("revision");
+        final String now = document().document(null).revision();
 
         final boolean written = store.change(
                 "smp",
@@ -111,6 +109,6 @@ class SettingsDocumentTest {
 
         assertNotEquals(read, now);
         assertFalse(written);
-        assertEquals("changed in between", entry(document(), "motd").get("value"));
+        assertEquals("changed in between", entry(document(), "motd").value());
     }
 }

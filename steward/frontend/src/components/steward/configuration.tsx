@@ -1,6 +1,6 @@
 import { WarningIcon } from "@phosphor-icons/react"
 
-import type { ConfigChanges, ConfigEntry, GuildList, ParsedConfigDocument } from "@/lib/api"
+import type { ConfigChanges, ConfigEntry, GuildList, ConfigDocument } from "@/lib/api"
 import { languageName } from "@/lib/language-names"
 import { ListControl, ScalarControl } from "@/components/steward/config-controls"
 import { type SectionValues, RepeatableCards, sectionsFromEntry } from "@/components/steward/repeatable-cards"
@@ -42,7 +42,7 @@ function isSectionValuesArray(value: Draft[string] | undefined): value is Sectio
 }
 
 /** Only the keys that differ from what is stored, so a one word change stays one row. */
-export function changed(document: ParsedConfigDocument, draft: Draft): ConfigChanges {
+export function changed(document: ConfigDocument, draft: Draft): ConfigChanges {
   const changes: ConfigChanges = {}
   for (const entry of document.entries) {
     const value = draft[entry.path]

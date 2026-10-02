@@ -422,6 +422,13 @@ public final class AgentWire {
             @Nullable String fileName,
             @Nullable String note) {}
 
+    /**
+     * A plugin added to one server, which the next run installs.
+     *
+     * @param fileName the file that would arrive, so the page can say it rather than "ok"
+     */
+    public record PluginAdded(String service, String artifact, String filePrefix, String fileName, String version) {}
+
     /** A file in a server's plugins folder that no artefact of the network claims. */
     public record Unclaimed(String service, String fileName) {}
 

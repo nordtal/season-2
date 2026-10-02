@@ -21,6 +21,7 @@ function field(over: Partial<ConfigEntry> & { key: string }): ConfigEntry {
     type: "STRING",
     editable: true,
     secret: false,
+    environmentOverridden: false,
     ...over,
   }
 }

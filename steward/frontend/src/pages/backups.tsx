@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import { ArrowCounterClockwiseIcon, ClockIcon, CloudIcon, DownloadIcon } from "@phosphor-icons/react"
 import { toast } from "sonner"
 
-import type { Backup, ConfigChanges, ConfigEntry, ParsedConfigDocument, Run } from "@/lib/api"
+import type { Backup, ConfigChanges, ConfigEntry, ConfigDocument, Run } from "@/lib/api"
 import { ApiError } from "@/lib/api"
 import { archived } from "@/lib/backup-name"
 import { bytes, count, dateTime, duration, parseInstant, relative } from "@/lib/format"
@@ -73,7 +73,7 @@ function useGroupConfig(service: string, name: string) {
 }
 
 /** One key of that file by its dotted path, or `undefined` when there is none. */
-export function entryAt(document: ParsedConfigDocument | undefined, path: string): ConfigEntry | undefined {
+export function entryAt(document: ConfigDocument | undefined, path: string): ConfigEntry | undefined {
   return document?.entries.find((entry) => entry.path === path)
 }
 
@@ -82,7 +82,7 @@ export function entryAt(document: ParsedConfigDocument | undefined, path: string
  *
  * `keys` must be a stable reference, or the memo is invalidated every render.
  */
-export function useConfigDraft(document: ParsedConfigDocument | undefined, keys: readonly string[]) {
+export function useConfigDraft(document: ConfigDocument | undefined, keys: readonly string[]) {
   const [draft, setDraft] = useState<Record<string, string>>({})
 
   /** The answer to a save is the group as stored, so a write resets the form to it. */

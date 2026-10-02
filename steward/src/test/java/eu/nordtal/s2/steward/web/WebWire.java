@@ -2,12 +2,15 @@ package eu.nordtal.s2.steward.web;
 
 import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.access.AccessGrant;
+import eu.nordtal.s2.database.access.AdminTree;
+import eu.nordtal.s2.database.access.PackExemptions;
 import eu.nordtal.s2.database.access.Person;
 import eu.nordtal.s2.database.audit.AuditEntry;
 import eu.nordtal.s2.database.payment.PaymentRequest;
 import eu.nordtal.s2.database.phase.DateChange;
 import eu.nordtal.s2.database.phase.PhaseChange;
 import eu.nordtal.s2.database.update.UpdateReport;
+import eu.nordtal.s2.steward.auth.WebAuthn;
 import java.util.List;
 import java.util.Map;
 
@@ -39,7 +42,15 @@ public final class WebWire {
             Person.class,
             AccessGrant.class,
             PaymentRequest.class,
-            AuditEntry.class);
+            AuditEntry.class,
+            SecondFactor.KeyRegistered.class,
+            WebAuthn.Held.class,
+            SecondFactor.KeyRenamed.class,
+            SecondFactor.KeyRemoved.class,
+            AdminApi.Granted.class,
+            AdminTree.Revocation.class,
+            PackExemptionApi.Exempted.class,
+            Settings.PageSettings.class);
 
     /** Records here whose own simple name would say too little or collide. */
     public static final Map<Class<?>, String> NAMES = Map.ofEntries(
@@ -54,7 +65,13 @@ public final class WebWire {
             Map.entry(UpdateReport.Change.class, "ReportChange"),
             Map.entry(UpdateReport.State.class, "LineState"),
             Map.entry(UpdateReport.Change.State.class, "ChangeState"),
-            Map.entry(UpdateReport.Stage.class, "ReportStage"));
+            Map.entry(UpdateReport.Stage.class, "ReportStage"),
+            Map.entry(WebAuthn.Held.class, "KeyHeld"),
+            Map.entry(AdminApi.Granted.class, "AdminGranted"),
+            Map.entry(AdminTree.Grant.class, "GrantOutcome"),
+            Map.entry(AdminTree.Revocation.class, "AdminRevoked"),
+            Map.entry(AdminTree.Revocation.Outcome.class, "RevokeOutcome"),
+            Map.entry(PackExemptions.Outcome.class, "ExemptionOutcome"));
 
     private WebWire() {}
 }

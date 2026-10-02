@@ -2,9 +2,17 @@
 
 export type AlertPreferences = Record<AlertType, Record<AlertChannel, boolean>>
 
+export type MessageExamples = Record<string, Record<string, string>>
+
 export type LiveEvent = {
   topic: Topic
   version: string
+}
+
+export type GuildList = {
+  available: boolean
+  reason?: string
+  entries: GuildEntry[]
 }
 
 export type Me = {
@@ -213,6 +221,43 @@ export type JournalEntry = {
   facts: Record<string, unknown>
 }
 
+export type KeyRegistered = {
+  label: string
+  userVerified: boolean
+  backedUp: boolean
+}
+
+export type KeyHeld = {
+  label: string
+  userVerified: boolean
+}
+
+export type KeyRenamed = {
+  label: string
+}
+
+export type KeyRemoved = {
+  removed: string
+  left: number
+}
+
+export type AdminGranted = {
+  outcome: GrantOutcome
+}
+
+export type AdminRevoked = {
+  outcome: RevokeOutcome
+  removed: string[]
+}
+
+export type Exempted = {
+  outcome: ExemptionOutcome
+}
+
+export type PageSettings = {
+  minecraftHeadBaseUrl: string
+}
+
 export type ServiceTable = {
   services: Service[]
   drift: DriftReading
@@ -299,6 +344,71 @@ export type RemovalAsked = {
   artifact: string
 }
 
+export type ConfigLocation = {
+  service: string
+  name: string
+  path: string
+  label: string
+  live: boolean
+  problem?: string
+  readable: boolean
+  writable: boolean
+}
+
+export type ConfigDocument = {
+  service: string
+  name: string
+  path: string
+  label: string
+  live: boolean
+  problem?: string
+  readable: boolean
+  writable: boolean
+  revision: string
+  restartRequired: boolean
+  entries: ConfigEntry[]
+  reload?: ReloadOutcome
+}
+
+export type MessageBundleLocation = {
+  service: string
+  module: string
+  path: string
+  writable: boolean
+}
+
+export type MessageBundle = {
+  service: string
+  module: string
+  path: string
+  writable: boolean
+  entries: MessageEntry[]
+}
+
+export type MessageSaveResult = {
+  service: string
+  module: string
+  path: string
+  writable: boolean
+  entries: MessageEntry[]
+  warnings: string[]
+  unknown: string[]
+  reload: ReloadOutcome
+}
+
+export type PluginAdded = {
+  service: string
+  artifact: string
+  filePrefix: string
+  fileName: string
+  version: string
+}
+
+export type ConsoleSent = {
+  sent: string
+  where: string
+}
+
 export type AlertType = "service" | "backup" | "disk" | "memory" | "drift" | "run" | "payment" | "bot"
 
 export type AlertChannel = "push" | "discord"
@@ -316,6 +426,12 @@ export type Topic =
   | "METRICS"
   | "ALERTS"
   | "TOPOLOGY"
+
+export type GuildEntry = {
+  id: string
+  name: string
+  type?: number
+}
 
 export type SecurityKey = {
   id: string
@@ -411,6 +527,12 @@ export type Actor = {
   person?: string
 }
 
+export type GrantOutcome = "GRANTED" | "ACTOR_NOT_ADMIN" | "ALREADY_ADMIN" | "NOT_A_MEMBER" | "RATE_LIMITED"
+
+export type RevokeOutcome = "REVOKED" | "ACTOR_NOT_ADMIN" | "SELF" | "NOT_BELOW"
+
+export type ExemptionOutcome = "CHANGED" | "UNCHANGED" | "ACTOR_NOT_ADMIN" | "UNKNOWN"
+
 export type Service = {
   service: string
   containerId: string
@@ -492,6 +614,46 @@ export type Unclaimed = {
   fileName: string
 }
 
+export type ConfigEntry = {
+  path: string
+  key: string
+  label: string
+  explanation: string
+  noExplanationNeeded: boolean
+  kind: ConfigShape
+  type: SettingType
+  editable: boolean
+  secret: boolean
+  environmentOverridden: boolean
+  filled: boolean
+  value?: string
+  items?: string[]
+  template?: ConfigEntry[]
+  sections?: ConfigEntry[][]
+  choices?: ConfigChoices
+  protectedEntry?: ConfigProtectedEntry
+}
+
+export type ReloadOutcome = {
+  status: ReloadStatus
+  message: string
+}
+
+export type MessageEntry = {
+  key: string
+  english?: string
+  german?: string
+  overrideEnglish?: string
+  overrideGerman?: string
+  inBundle: boolean
+  name?: string
+  description?: string
+  args: MessageArg[]
+  section: (string | null)[]
+  format?: string
+  shown?: string
+}
+
 export type Resolution = "RAW" | "HOUR"
 
 export type ReportStage =
@@ -536,6 +698,29 @@ export type Hold = {
 }
 
 export type PluginGroup = "nordtal" | "preinstalled" | "added"
+
+export type ConfigShape = "SCALAR" | "LIST" | "MAP" | "SECTIONS"
+
+export type SettingType = "STRING" | "INTEGER" | "DECIMAL" | "BOOLEAN"
+
+export type ConfigChoices = {
+  values: string[]
+  strict: boolean
+}
+
+export type ConfigProtectedEntry = {
+  field: string
+  value: string
+}
+
+export type ReloadStatus = "APPLIED" | "NO_ANSWER" | "RESTART_REQUIRED"
+
+export type MessageArg = {
+  name: string
+  component: boolean
+  type?: string
+  global: boolean
+}
 
 export type LineState = "UNCHANGED" | "PLANNED" | "STOPPED" | "INSTALLED" | "SAVED" | "STARTING" | "HEALTHY" | "FAILED"
 

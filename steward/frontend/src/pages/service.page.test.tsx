@@ -37,7 +37,17 @@ function backend(service: Record<string, unknown>, active: unknown = { run: null
     if (url.startsWith("/api/services/")) return json(200, service)
     if (url === "/api/updates/active") return json(200, active)
     if (url === "/api/setting-groups") {
-      return json(200, [{ service: "smp", name: "config.yml", path: "smp/config.yml", readable: true, writable: true }])
+      return json(200, [
+        {
+          service: "smp",
+          name: "config.yml",
+          path: "smp/config.yml",
+          label: "",
+          live: true,
+          readable: true,
+          writable: true,
+        },
+      ])
     }
     if (url === "/api/messages") return json(200, [])
     if (url === "/api/settings") return json(200, { minecraftHeadBaseUrl: "" })

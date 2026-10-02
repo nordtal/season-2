@@ -191,8 +191,10 @@ public final class AgentClient {
      * @param body the plugin as the interface asked for it, passed on unread
      * @param by who asked, as the interface names them
      */
-    public String addPlugin(final String service, final String body, final String by) {
-        return http.post(AgentWire.of(AgentWire.PLUGINS, encode(service)) + "?by=" + encode(by), body);
+    public AgentWire.PluginAdded addPlugin(final String service, final String body, final String by) {
+        return Json.decode(
+                http.post(AgentWire.of(AgentWire.PLUGINS, encode(service)) + "?by=" + encode(by), body),
+                AgentWire.PluginAdded.class);
     }
 
     /** The failure's sentence: what the agent itself said when it said anything, the client's own words if not. */

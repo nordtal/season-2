@@ -14,7 +14,6 @@ import eu.nordtal.s2.database.inbox.Request;
 import eu.nordtal.s2.database.inbox.Schedule;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
-import eu.nordtal.s2.internalapi.agent.MessageArg;
 import eu.nordtal.s2.internalapi.agent.MessageBundle;
 import eu.nordtal.s2.internalapi.agent.MessageEntry;
 import io.javalin.http.BadRequestResponse;
@@ -23,7 +22,6 @@ import io.javalin.http.ForbiddenResponse;
 import io.javalin.http.NotFoundResponse;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -126,10 +124,17 @@ public final class MessagesApi {
         }
         final AgentWire.SavedBundle saved =
                 agent.saveBundle(location.service(), location.module(), changesOf(bodyOf(ctx.body())));
-        final Map<String, Object> answer = document(location, saved.bundle());
-        answer.put("warnings", saved.warnings());
-        answer.put("reload", reload(location));
-        ctx.json(answer);
+        final Bundle bundle = document(location, saved.bundle());
+        final Reread reread = reload(location);
+        ctx.json(new Saved(
+                bundle.service(),
+                bundle.module(),
+                bundle.path(),
+                bundle.writable(),
+                bundle.entries(),
+                saved.warnings(),
+                reread.unknown(),
+                reread.reload()));
     }
 
     /**
@@ -137,71 +142,56 @@ public final class MessagesApi {
      *
      * Answers {@code RESTART_REQUIRED}, {@code APPLIED} when the service re-read it, or {@code NO_ANSWER}.
      */
-    static Map<String, Object> reload(
+    static Reloading reload(
             final Reloader reloader,
             final String identity,
             final String service,
             final String name,
             final String file) {
-        final Map<String, Object> answer = new LinkedHashMap<>();
         if (!RELOADABLE.contains(identity)) {
-            answer.put("status", "RESTART_REQUIRED");
-            answer.put(
-                    "message",
-                    "Saved. Nothing reloads " + name + " live; "
-                            + (service.isEmpty() ? "it" : service)
-                            + " only reads it again at its next restart, which stays a click of its own.");
-            return answer;
+            return Reloading.restartRequired("Saved. Nothing reloads " + name + " live; "
+                    + (service.isEmpty() ? "it" : service)
+                    + " only reads it again at its next restart, which stays a click of its own.");
         }
         final Optional<Reloaded> reloaded;
         try {
             reloaded = reloader.reload(service);
         } catch (final IllegalArgumentException e) {
             log.warn("{} is reloadable, but {} cannot be asked: {}", file, service, e.getMessage());
-            answer.put("status", "RESTART_REQUIRED");
-            answer.put("message", "Saved. " + e.getMessage());
-            return answer;
+            return Reloading.restartRequired("Saved. " + e.getMessage());
         }
         if (reloaded.isEmpty()) {
             log.warn("{} was saved but {} did not answer the reload", file, service);
-            answer.put("status", "NO_ANSWER");
-            answer.put(
-                    "message",
-                    "Saved, but " + service + " did not answer. The change is on disk and takes effect once that"
-                            + " service reads it again.");
-        } else if (reloaded.get().applied()) {
-            answer.put("status", "APPLIED");
-            answer.put(
-                    "message",
-                    "Saved, and " + service + " re-read it: " + reloaded.get().text());
-        } else {
-            answer.put("status", "NO_ANSWER");
-            answer.put(
-                    "message",
-                    "Saved, but " + service + " did not take all of it: "
-                            + reloaded.get().text());
+            return Reloading.noAnswer("Saved, but " + service + " did not answer. The change is on disk and takes"
+                    + " effect once that service reads it again.");
         }
-        return answer;
+        return reloaded.get().applied()
+                ? Reloading.applied("Saved, and " + service + " re-read it: "
+                        + reloaded.get().text())
+                : Reloading.noAnswer("Saved, but " + service + " did not take all of it: "
+                        + reloaded.get().text());
     }
 
     /**
      * Asks the service that owns a just-saved bundle to re-read it, answered like the static {@code reload}.
      *
-     * The bot's answer adds {@code unknown}: the keys its override file declares that the bundle does not know.
+     * The bot answers with the keys its override file declares that the bundle does not know.
      */
-    private Map<String, Object> reload(final AgentWire.BundleRef location) {
+    private Reread reload(final AgentWire.BundleRef location) {
         if (!RELOADABLE_SERVICE.equals(location.service())) {
-            final Map<String, Object> answer = reload(
-                    reloader, identityOf(location), location.service(), identityOf(location), identityOf(location));
-            answer.put("unknown", List.of());
-            return answer;
+            return new Reread(
+                    reload(
+                            reloader,
+                            identityOf(location),
+                            location.service(),
+                            identityOf(location),
+                            identityOf(location)),
+                    List.of());
         }
         final Inbox<BotRequest> requests = inbox;
         if (requests == null) {
-            return outcome(
-                    "RESTART_REQUIRED",
-                    "Nothing was sent: this deployment has no database" + " to ask the bot through.",
-                    List.of());
+            return Reread.without(Reloading.restartRequired(
+                    "Nothing was sent: this deployment has no database to ask the bot through."));
         }
         final Request<BotRequest> asked = requests.submit(
                 new BotRequest.ReloadMessages(identityOf(location)),
@@ -210,35 +200,27 @@ public final class MessagesApi {
                 Schedule.within(ANSWER_WITHIN));
         final Request<BotRequest> settled = waitFor(requests, asked.id());
         if (settled == null || settled.status() == InboxStatus.EXPIRED) {
-            return outcome(
-                    "NO_ANSWER",
-                    "The bot did not answer, so the text that was saved takes" + " effect the next time it starts.",
-                    List.of());
+            return Reread.without(Reloading.noAnswer(
+                    "The bot did not answer, so the text that was saved takes effect the next time it starts."));
         }
         if (settled.status() != InboxStatus.DONE) {
             log.warn("{} was saved but the bot could not re-read it: {}", identityOf(location), settled.outcome());
-            return outcome(
-                    "NO_ANSWER",
-                    "The bot could not re-read its messages, so the running"
-                            + " ones are unchanged and the saved text takes effect the next time it"
-                            + " starts.",
-                    List.of());
+            return Reread.without(Reloading.noAnswer("The bot could not re-read its messages, so the running ones"
+                    + " are unchanged and the saved text takes effect the next time it starts."));
         }
         final List<String> unknown = unknownIn(settled.outcome());
-        return outcome(
-                "APPLIED",
-                unknown.isEmpty()
-                        ? "The bot re-read its messages."
-                        : "The bot re-read its messages. It has no key called " + String.join(", ", unknown) + ".",
-                unknown);
+        final String said = unknown.isEmpty()
+                ? "The bot re-read its messages."
+                : "The bot re-read its messages. It has no key called " + String.join(", ", unknown) + ".";
+        return new Reread(Reloading.applied(said), unknown);
     }
 
-    private static Map<String, Object> outcome(final String status, final String message, final List<String> unknown) {
-        final Map<String, Object> answer = new LinkedHashMap<>();
-        answer.put("status", status);
-        answer.put("message", message);
-        answer.put("unknown", unknown);
-        return answer;
+    /** A reload's outcome, and the override keys the bot said no bundle knows. */
+    private record Reread(Reloading reload, List<String> unknown) {
+
+        static Reread without(final Reloading reload) {
+            return new Reread(reload, List.of());
+        }
     }
 
     /**
@@ -299,59 +281,39 @@ public final class MessagesApi {
 
     // What goes over the wire
 
-    private static Map<String, Object> describe(final AgentWire.BundleRef location) {
-        final Map<String, Object> row = new LinkedHashMap<>();
-        row.put("service", location.service());
-        row.put("module", location.module());
-        row.put("path", identityOf(location));
-        row.put("writable", location.writable());
-        return row;
+    /**
+     * Where one bundle lives, as the listing names it.
+     *
+     * @param path {@code <service>/<module>}, or {@code <service>} with an empty module for the service's own jar
+     */
+    public record BundleLocation(String service, String module, String path, boolean writable) {}
+
+    /** One bundle, packaged text and override side by side for every key. */
+    public record Bundle(String service, String module, String path, boolean writable, List<MessageEntry> entries) {}
+
+    /**
+     * What a save answers: the bundle as it now reads, every dropped placeholder warning, and the reload.
+     *
+     * @param warnings the placeholders a text no longer carries, none of them blocking the save
+     * @param unknown the override keys the bot knows no text for, where a typo silently does nothing
+     */
+    public record Saved(
+            String service,
+            String module,
+            String path,
+            boolean writable,
+            List<MessageEntry> entries,
+            List<String> warnings,
+            List<String> unknown,
+            Reloading reload) {}
+
+    private static BundleLocation describe(final AgentWire.BundleRef location) {
+        return new BundleLocation(location.service(), location.module(), identityOf(location), location.writable());
     }
 
-    private static Map<String, Object> document(final AgentWire.BundleRef location, final MessageBundle bundle) {
-        final Map<String, Object> answer = new LinkedHashMap<>(describe(location));
-        final List<Map<String, Object>> entries =
-                new ArrayList<>(bundle.entries().size());
-        for (final MessageEntry entry : bundle.entries()) {
-            entries.add(describe(entry));
-        }
-        answer.put("entries", entries);
-        return answer;
-    }
-
-    private static Map<String, Object> describe(final MessageEntry entry) {
-        final Map<String, Object> row = new LinkedHashMap<>();
-        row.put("key", entry.key());
-        // Gson drops a null map entry, so absence is the "no text" signal here.
-        putIfPresent(row, "english", entry.english());
-        putIfPresent(row, "german", entry.german());
-        putIfPresent(row, "overrideEnglish", entry.overrideEnglish());
-        putIfPresent(row, "overrideGerman", entry.overrideGerman());
-        row.put("inBundle", entry.inBundle());
-        putIfPresent(row, "name", entry.name());
-        putIfPresent(row, "description", entry.description());
-        final List<Map<String, Object>> args = new ArrayList<>(entry.args().size());
-        for (final MessageArg arg : entry.args()) {
-            final Map<String, Object> described = new LinkedHashMap<>();
-            described.put("name", arg.name());
-            described.put("component", arg.component());
-            if (arg.type() != null) {
-                described.put("type", arg.type());
-                described.put("global", arg.global());
-            }
-            args.add(described);
-        }
-        row.put("args", args);
-        row.put("section", entry.section());
-        putIfPresent(row, "format", entry.format());
-        putIfPresent(row, "shown", entry.shown());
-        return row;
-    }
-
-    private static void putIfPresent(final Map<String, Object> row, final String key, final @Nullable String value) {
-        if (value != null) {
-            row.put(key, value);
-        }
+    private static Bundle document(final AgentWire.BundleRef location, final MessageBundle bundle) {
+        return new Bundle(
+                location.service(), location.module(), identityOf(location), location.writable(), bundle.entries());
     }
 
     // What comes in

@@ -31,7 +31,7 @@ public record MessageEntry(
         @Nullable String name,
         @Nullable String description,
         List<MessageArg> args,
-        List<String> section,
+        List<@Nullable String> section,
         @Nullable String format,
         @Nullable String shown) {
 

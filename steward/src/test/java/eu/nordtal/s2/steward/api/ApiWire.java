@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.api;
 
+import eu.nordtal.jcore.config.schema.SchemaNode;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.ImageResult;
 import java.util.List;
@@ -19,16 +20,34 @@ public final class ApiWire {
             AgentWire.Resolve.class,
             ActionEntry.Action.class,
             StackApi.RestoreAsked.class,
-            PluginsForward.RemovalAsked.class);
+            PluginsForward.RemovalAsked.class,
+            SettingsDocument.Location.class,
+            SettingsDocument.Document.class,
+            MessagesApi.BundleLocation.class,
+            MessagesApi.Bundle.class,
+            MessagesApi.Saved.class,
+            AgentWire.PluginAdded.class,
+            Routes.ConsoleSent.class);
 
     /** Records here whose own simple name would say too little or collide. */
-    public static final Map<Class<?>, String> NAMES = Map.of(
-            AgentWire.Archive.class, "Backup",
-            AgentWire.Plugin.class, "ServicePlugin",
-            AgentWire.Plugins.class, "ServicePlugins",
-            AgentWire.Resolve.class, "Available",
-            AgentWire.ResolvedChange.class, "AvailableChange",
-            ImageResult.State.class, "ImageState");
+    public static final Map<Class<?>, String> NAMES = Map.ofEntries(
+            Map.entry(AgentWire.Archive.class, "Backup"),
+            Map.entry(AgentWire.Plugin.class, "ServicePlugin"),
+            Map.entry(AgentWire.Plugins.class, "ServicePlugins"),
+            Map.entry(AgentWire.Resolve.class, "Available"),
+            Map.entry(AgentWire.ResolvedChange.class, "AvailableChange"),
+            Map.entry(ImageResult.State.class, "ImageState"),
+            Map.entry(SettingsDocument.Location.class, "ConfigLocation"),
+            Map.entry(SettingsDocument.Document.class, "ConfigDocument"),
+            Map.entry(SettingsDocument.Entry.class, "ConfigEntry"),
+            Map.entry(SettingsDocument.Shape.class, "ConfigShape"),
+            Map.entry(SchemaNode.Choices.class, "ConfigChoices"),
+            Map.entry(SchemaNode.ProtectedEntry.class, "ConfigProtectedEntry"),
+            Map.entry(Reloading.class, "ReloadOutcome"),
+            Map.entry(Reloading.Status.class, "ReloadStatus"),
+            Map.entry(MessagesApi.BundleLocation.class, "MessageBundleLocation"),
+            Map.entry(MessagesApi.Bundle.class, "MessageBundle"),
+            Map.entry(MessagesApi.Saved.class, "MessageSaveResult"));
 
     private ApiWire() {}
 }

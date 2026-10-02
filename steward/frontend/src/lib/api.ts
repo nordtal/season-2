@@ -172,164 +172,16 @@ function messageOf(body: Record<string, unknown>): string | null {
   return null
 }
 
-/** What the endpoints answer: generated from steward's records, and written out below where a route has none yet. */
+/**
+ * What the endpoints answer and read, generated from steward's records.
+ *
+ * Below are the two save bodies, where a null and an absent key mean different things, and the pack's glyph manifest.
+ */
 export type * from "./api.gen"
 
-/** One group of settings a process published, identified by `path` such as `smp/milestones`. */
-export type ConfigLocation = {
-  service: string
-  name: string
-  path: string
-  readable: boolean
-  writable: boolean
-  /** Why the process refused the stored values and runs on its defaults; absent or null while it took them. */
-  problem?: string | null
-}
-
-/**
- * The allowed or suggested values of a setting, from its schema.
- *
- * `strict` closes the list and draws a select; otherwise it suggests beside a free-text field.
- */
-export type ConfigChoices = {
-  values: string[]
-  strict: boolean
-}
-
-/** The one section of a `SECTIONS` entry a save may never remove, from the schema's `@Protected`. */
-export type ConfigProtectedEntry = {
-  field: string
-  value: string
-}
-
-/**
- * One key of a config file, as the form draws it.
- *
- * A secret carries `filled` alone, never `value` or `items`.
- */
-export type ConfigEntry = {
-  path: string
-  key: string
-  label: string
-  /** The schema's short `@Explain` text. Empty when no schema entry covers this key. */
-  explanation: string
-  /** The schema says this needs no explanation, so draw no text rather than empty text. */
-  noExplanationNeeded: boolean
-  filled: boolean
-  /** Absent when `secret`; a scalar's text, with a block scalar's newlines. */
-  value?: string
-  /** Absent when `secret`; the entries of a LIST, empty for every other kind. */
-  items?: string[]
-  /** A sequence of mappings, such as `languages` in the bot's `access` group, drawn as cards. */
-  kind: "SCALAR" | "LIST" | "MAP" | "SECTIONS"
-  type: "STRING" | "INTEGER" | "DECIMAL" | "BOOLEAN"
-  /** False for a nested section, which has no value, and for a list of sections. */
-  editable: boolean
-  secret: boolean
-  /** Whether an environment variable overrides this key, so a saved value waits until the variable is gone. */
-  environmentOverridden?: boolean
-  /** The schema's allowed or suggested values, or absent when it names none. */
-  choices?: ConfigChoices
-  /**
-   * For a `SECTIONS` entry: one section's fields in display order, and the blank template "Add" starts from.
-   *
-   * Absent when the sections have mixed shapes, so the form falls back to raw text.
-   */
-  template?: ConfigEntry[]
-  /** For a `SECTIONS` entry: one field array per existing section, in file order. */
-  sections?: ConfigEntry[][]
-  /** For a `SECTIONS` entry: the section steward refuses to remove, so the option can be greyed out. */
-  protectedEntry?: ConfigProtectedEntry
-}
-
-/**
- * One role or channel of the guild, as the pickers offer it.
- *
- * `type` is Discord's channel type, absent for a role, so a category groups apart from its channels.
- */
-export type GuildEntry = {
-  id: string
-  name: string
-  type: number | null
-}
-
-/**
- * What the guild is made of, or why that could not be answered.
- *
- * Never an error: without it the id can still be typed.
- */
-export type GuildList = {
-  available: boolean
-  reason?: string
-  entries: GuildEntry[]
-}
-
-export type ParsedConfigDocument = ConfigLocation & {
-  /**
-   * The revision the stored values were read at, which the save sends back.
-   *
-   * A write in between makes the save a 409 instead of silently overwriting it.
-   */
-  revision: string
-  entries: ConfigEntry[]
-}
-
-export type ConfigDocument = ParsedConfigDocument
-
-/** What a PUT sends: a string is a scalar, a string array a list, a record array a `SECTIONS` entry. */
-/** A value, a list of values, or a list of sections, which may hold lists of sections again. */
+/** What a settings PUT sends: a scalar's text, a list's entries, or one record per section, nested again. */
 export type ConfigChangeValue = string | string[] | { [key: string]: ConfigChangeValue }[]
 export type ConfigChanges = Record<string, ConfigChangeValue>
-
-/** steward-agent: whether it can be asked. */
-
-/**
- * Where one message bundle lives.
- *
- * `path` is `<service>/<module>`, or `<service>` with an empty `module` for a bundle in the service's own jar.
- */
-export type MessageBundleLocation = {
-  service: string
-  module: string
-  path: string
-  writable: boolean
-}
-
-/**
- * One key of a bundle, packaged text and operator override side by side.
- *
- * An override is absent, not empty, when none applies; `inBundle` is false for a stale override key.
- */
-export type MessageEntry = {
-  key: string
-  english?: string
-  german?: string
-  overrideEnglish?: string
-  overrideGerman?: string
-  inBundle: boolean
-  /** From the jar's `schema.json`; absent for a key the schema does not describe. */
-  name?: string
-  description?: string
-  /** The placeholders the text is filled with: `component` ones are `<name>`, the rest `{name}`. */
-  args: MessageArg[]
-  /** The names of the sections around the key, outermost first. */
-  section: (string | null)[]
-  /** How the text is written: `MINIMESSAGE`, `DISCORD_MARKDOWN` or `PLAIN`. */
-  format?: string
-  /** Where the text is shown, e.g. `CHAT`, `TITLE`, `DISCORD_EMBED`. */
-  shown?: string
-}
-
-/** One placeholder: a role's is dotted (`winner.name`) with a context `type`, a `global` one fits any message. */
-export type MessageArg = {
-  name: string
-  component: boolean
-  type?: string
-  global?: boolean
-}
-
-/** `GET /api/message-examples`: an example value per context type and property, from real data. */
-export type MessageExamples = Record<string, Record<string, string>>
 
 /** One named glyph of the resource pack; `height` and `ascent` are in the pack's own pixels. */
 export type GlyphInfo = {
@@ -356,51 +208,7 @@ export function isGlyphInfoList(value: unknown): value is GlyphInfo[] {
   )
 }
 
-export type MessageBundle = MessageBundleLocation & {
-  entries: MessageEntry[]
-}
-
-/** What a save answers: the bundle as it now reads, plus every dropped placeholder warning, none blocking. */
-export type MessageSaveResult = MessageBundle & {
-  warnings: string[]
-  /**
-   * What became of asking the owning service to re-read the save.
-   *
-   * `unknown` lists override keys the bundle never heard of, where a typo silently does nothing.
-   */
-  reload?: BundleReloadOutcome
-}
-
-/**
- * `ConfigReloadOutcome` for a message bundle, with the same three statuses.
- *
- * `NO_ANSWER` means the row is written but the text is not in force; `message` says why.
- */
-export type BundleReloadOutcome = ConfigReloadOutcome & {
-  unknown: string[]
-}
-
 /** What a PUT to `/api/messages/<path>` sends: both languages of a key; `null` resets one. */
 export type MessageChanges = {
   changes: Record<string, { en?: string | null; de?: string | null }>
-}
-
-/**
- * What became of asking the affected service to pick up a saved change.
- *
- * `APPLIED` and `NO_ANSWER` both asked the service; `RESTART_REQUIRED` asked nothing.
- */
-export type ConfigReloadOutcome = {
-  status: "APPLIED" | "NO_ANSWER" | "RESTART_REQUIRED"
-  message: string
-}
-
-/**
- * `ParsedConfigDocument` widened by two fields.
- *
- * `restartRequired` is on every answer, `reload` only on a PUT's, since only a save asks anything.
- */
-export type ReloadAwareConfigDocument = ParsedConfigDocument & {
-  restartRequired: boolean
-  reload?: ConfigReloadOutcome
 }

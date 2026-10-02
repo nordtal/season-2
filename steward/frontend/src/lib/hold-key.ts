@@ -1,19 +1,14 @@
 import { api } from "@/lib/api"
+import type { KeyHeld } from "@/lib/api.gen"
 import type { RequestOptionsJson } from "@/lib/webauthn"
 import { browserHasSecurityKeys, useSecurityKey, whyTheKeyFailed } from "@/lib/webauthn"
-
-/** What the server says about the key that just answered. */
-export type Held = {
-  label: string
-  userVerified: boolean
-}
 
 /**
  * Holds the security key in one call: two round trips with a browser dialog between them.
  *
  * One function, not two hooks, since the challenge is single use; outside `lib/api.ts` to avoid an import cycle.
  */
-export async function holdTheKey(): Promise<Held> {
+export async function holdTheKey(): Promise<KeyHeld> {
   if (!browserHasSecurityKeys()) {
     throw new Error(
       "This browser cannot use security keys, so it cannot sign in to Steward." +
@@ -29,5 +24,5 @@ export async function holdTheKey(): Promise<Held> {
     // Turns the browser's DOMException into one sentence a person can act on.
     throw new Error(whyTheKeyFailed(refused), { cause: refused })
   }
-  return await api<Held>("/auth/webauthn/authenticate/finish", { method: "POST", body: { credential } })
+  return await api<KeyHeld>("/auth/webauthn/authenticate/finish", { method: "POST", body: { credential } })
 }

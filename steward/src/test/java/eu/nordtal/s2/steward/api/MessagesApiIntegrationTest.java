@@ -249,17 +249,18 @@ class MessagesApiIntegrationTest {
 
         final JsonObject quiet = saveBot();
         assertEquals("APPLIED", quiet.get("status").getAsString(), quiet.toString());
-        assertTrue(quiet.getAsJsonArray("unknown").isEmpty(), quiet.toString());
+        assertEquals("The bot re-read its messages.", quiet.get("message").getAsString(), quiet.toString());
         assertEquals(new BotRequest.ReloadMessages("discord-bot"), asked.get(0).payload());
         assertEquals(Actor.STEWARD, asked.get(0).actor());
 
         bot = request -> Outcome.done(java.util.Map.of("unknown", "dm.grantd,dm.revokd"));
-        final JsonObject typos = saveBot();
+        final JsonObject saved = savedBot();
+        final JsonObject typos = saved.getAsJsonObject("reload");
         assertEquals("APPLIED", typos.get("status").getAsString(), typos.toString());
         assertTrue(typos.get("message").getAsString().contains("dm.grantd"), typos.toString());
         assertEquals(
                 List.of("dm.grantd", "dm.revokd"),
-                typos.getAsJsonArray("unknown").asList().stream()
+                saved.getAsJsonArray("unknown").asList().stream()
                         .map(element -> element.getAsString())
                         .toList());
     }
@@ -342,10 +343,13 @@ class MessagesApiIntegrationTest {
 
     /** Saves one line of the bot's bundle and answers what came back under {@code reload}. */
     private JsonObject saveBot() throws Exception {
+        return savedBot().getAsJsonObject("reload");
+    }
+
+    private JsonObject savedBot() throws Exception {
         return GSON.fromJson(
-                        put("/api/messages/discord-bot", "{\"changes\":{\"dm.granted\":{\"en\":\"You are in now\"}}}"),
-                        JsonObject.class)
-                .getAsJsonObject("reload");
+                put("/api/messages/discord-bot", "{\"changes\":{\"dm.granted\":{\"en\":\"You are in now\"}}}"),
+                JsonObject.class);
     }
 
     /** A bundle for the one service this route can actually reach. */

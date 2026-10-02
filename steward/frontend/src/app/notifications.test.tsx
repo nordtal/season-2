@@ -57,9 +57,12 @@ function alertsFile(values: Record<string, string> = {}) {
     service: "steward",
     name: "alerts",
     path: ALERTS,
+    label: "",
+    live: true,
     readable: true,
     writable: true,
     revision: "rev-1",
+    restartRequired: false,
     entries: [
       entry("disk-percent", "disk-percent", value("disk-percent", "85")),
       entry("memory-percent", "memory-percent", value("memory-percent", "90")),
@@ -81,6 +84,7 @@ function entry(path: string, key: string, value: string) {
     type: "INTEGER",
     editable: true,
     secret: false,
+    environmentOverridden: false,
   }
 }
 
@@ -138,7 +142,7 @@ function backend(
       if (url === `/api/setting-groups/${ALERTS}`) {
         if (method === "PUT") {
           const changes = stringChangesOf(body)
-          return json(200, { ...alertsFile(changes), revision: "rev-2" })
+          return json(200, { ...alertsFile(changes), revision: "rev-2", restartRequired: false })
         }
         return json(200, { ...alertsFile(), writable: over.writable ?? true })
       }

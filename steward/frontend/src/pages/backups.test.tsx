@@ -32,6 +32,7 @@ function entry(over: Record<string, unknown>) {
     type: "STRING",
     editable: true,
     secret: false,
+    environmentOverridden: false,
     ...over,
   }
 }
@@ -42,9 +43,12 @@ function stewardConfig(over: { secretValue?: string } = {}) {
     service: "steward",
     name: "steward",
     path: FILE,
+    label: "",
+    live: true,
     readable: true,
     writable: true,
     revision: "rev-1",
+    restartRequired: false,
     entries: [
       entry({ path: "backup.at", key: "at", label: "At", value: "04:45" }),
       /** A LIST key with two days, so the file's value differs from the default of all seven. */
@@ -64,6 +68,7 @@ function stewardConfig(over: { secretValue?: string } = {}) {
         key: "access-key",
         label: "Access key",
         secret: true,
+        environmentOverridden: false,
         filled: true,
         /** A value steward never sends on a secret, so the test proves this page's own refusal to draw it. */
         value: over.secretValue,
@@ -73,6 +78,7 @@ function stewardConfig(over: { secretValue?: string } = {}) {
         key: "secret-key",
         label: "Secret key",
         secret: true,
+        environmentOverridden: false,
         filled: false,
         value: undefined,
       }),
@@ -88,9 +94,12 @@ function runsConfig() {
     service: "steward-agent",
     name: "runs",
     path: RUNS_FILE,
+    label: "",
+    live: true,
     readable: true,
     writable: true,
     revision: "rev-9",
+    restartRequired: false,
     entries: [
       entry({
         path: "backup.retention.daily",
@@ -188,8 +197,16 @@ function backend(
   return vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
     if (url === "/api/setting-groups") {
       return json(200, [
-        { service: "steward", name: "steward", path: FILE, readable: true, writable: true },
-        { service: "steward-agent", name: "runs", path: RUNS_FILE, readable: true, writable: true },
+        { service: "steward", name: "steward", path: FILE, label: "", live: true, readable: true, writable: true },
+        {
+          service: "steward-agent",
+          name: "runs",
+          path: RUNS_FILE,
+          label: "",
+          live: true,
+          readable: true,
+          writable: true,
+        },
       ])
     }
     if (url === `/api/setting-groups/${RUNS_FILE}`) {

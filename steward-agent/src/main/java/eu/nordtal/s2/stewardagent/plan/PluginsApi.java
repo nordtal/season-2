@@ -404,20 +404,12 @@ public final class PluginsApi {
                 addition.newest().fileName());
 
         ctx.status(201)
-                .json(Map.of(
-                        "service",
+                .json(new AgentWire.PluginAdded(
                         service.name(),
-                        "artifact",
                         addition.slug(),
-                        "filePrefix",
                         addition.prefix(),
-                        // What would arrive, so the interface can say it rather than "ok".
-                        "fileName",
                         addition.newest().fileName(),
-                        "version",
-                        addition.newest().version(),
-                        "running",
-                        false));
+                        addition.newest().version()));
     }
 
     /** What {@link #resolveAddition} found: enough to write the row and answer the request. */

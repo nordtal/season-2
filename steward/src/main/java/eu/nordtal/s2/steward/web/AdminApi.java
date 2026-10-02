@@ -43,7 +43,7 @@ final class AdminApi {
             case GRANTED -> {
                 audit.record(AuditLine.about("GRANT_ADMIN", who.actor(), DiscordId.of(target), Map.of()));
                 log.info("{} made {} an admin", who.name(), target);
-                ctx.json(Map.of("outcome", outcome.name()));
+                ctx.json(new Granted(outcome));
             }
             case ACTOR_NOT_ADMIN -> ctx.status(403).json(Map.of("error", "You are not an admin any more."));
             case ALREADY_ADMIN -> ctx.status(409).json(Map.of("error", "They are an admin already."));
@@ -71,7 +71,7 @@ final class AdminApi {
                 audit.record(
                         AuditLine.about("REVOKE_ADMIN", who.actor(), DiscordId.of(target), Map.of("below", below)));
                 log.info("{} revoked admin from {}", who.name(), revocation.removed());
-                ctx.json(Map.of("outcome", revocation.outcome().name(), "removed", revocation.removed()));
+                ctx.json(revocation);
             }
             case ACTOR_NOT_ADMIN -> ctx.status(403).json(Map.of("error", "You are not an admin any more."));
             case SELF -> ctx.status(409).json(Map.of("error", "Nobody can revoke their own admin."));
@@ -97,4 +97,7 @@ final class AdminApi {
         }
         return DiscordId.of(value.getAsString().trim());
     }
+
+    /** A grant that went through; every other outcome answers an error. */
+    public record Granted(AdminTree.Grant outcome) {}
 }

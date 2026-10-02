@@ -23,6 +23,7 @@ function field(over: Partial<ConfigEntry> & { key: string; path: string }): Conf
     type: "STRING",
     editable: true,
     secret: false,
+    environmentOverridden: false,
     ...over,
   }
 }

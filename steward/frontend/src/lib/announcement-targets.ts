@@ -30,5 +30,5 @@ export function announcementTargets(document: ConfigDocument | undefined): Annou
     .map((section) => ({ tag: field(section, "tag"), channel: field(section, "announcement-channel") }))
     .filter((language) => language.tag !== "")
   if (languages.length === 0) return null
-  return { languages, overridden: entry.environmentOverridden === true }
+  return { languages, overridden: entry.environmentOverridden }
 }

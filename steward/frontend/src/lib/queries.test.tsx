@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ApiError, currentCsrf, rememberCsrf, type ConfigDocument } from "@/lib/api"
 import { RECONCILE } from "@/lib/live"
-import { keys, useCommandRun, useMe, useSaveConfig } from "@/lib/queries"
+import { useCommandRun, useMe, useSaveConfig } from "@/lib/queries"
+import { keys } from "@/lib/query-keys"
 
 /**
  * When a poll stops, and what a save sends.

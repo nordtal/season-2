@@ -1,213 +1,31 @@
-import type { ReactNode } from "react"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { AccessPage, JournalPage, PaymentsPage } from "@/pages/access"
+import { AccessPage } from "@/pages/access"
 import { IDENTIFIER_PATTERN } from "@/components/steward/identity"
-import { TooltipProvider } from "@/components/ui/tooltip"
 import { toast } from "sonner"
 import { asButton } from "@/lib/test-elements"
-import { NETWORK_MAP } from "@/lib/query-fixtures"
+import {
+  ME,
+  actionsOf,
+  assertElement,
+  backend,
+  clickRowAction,
+  draw,
+  manyMatches,
+  openActions,
+  openGrant,
+  person,
+  requestBody,
+  rowFor,
+  toastDescription,
+} from "@/pages/access.fixtures"
 
 /**
  * The Access page: faces for identifiers, search over four fields, and filtering before paging.
  *
- * `unlink` and `settle` are row actions, covered lower down against the same backend fixture.
+ * `unlink` is a row action, covered lower down; `settle` is in `payments.test.tsx`, against the same backend.
  */
-
-function json(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  })
-}
-
-/** Parses a mocked fetch call's JSON body, or undefined when it carried none. */
-function requestBody(init?: RequestInit): unknown {
-  return typeof init?.body === "string" ? JSON.parse(init.body) : undefined
-}
-
-function assertElement(value: Element | null, what: string): HTMLElement {
-  if (!(value instanceof HTMLElement)) throw new Error(`expected ${what}`)
-  return value
-}
-
-async function rowFor(name: string): Promise<HTMLElement> {
-  return assertElement((await screen.findByText(name)).closest("tr"), `a <tr> for ${name}`)
-}
-
-/** Reads a toast's description back as a string, since sonner types it as arbitrary React content. */
-function toastDescription(description: unknown): string {
-  return typeof description === "string" ? description : ""
-}
-
-/** Opens a row's actions popover when it has one, behind a button named "Actions for …". */
-async function openActions(name: string): Promise<HTMLElement> {
-  const row = await rowFor(name)
-  const trigger = within(row).queryByRole("button", { name: /^Actions for/ })
-  if (!trigger) return row
-  fireEvent.click(trigger)
-  return await screen.findByRole("dialog")
-}
-
-/** Every control offered against one person, whether it is inline or inside the popover. */
-async function actionsOf(name: string): Promise<string[]> {
-  const row = await rowFor(name)
-  const trigger = within(row).queryByRole("button", { name: /^Actions for/ })
-  const scope = trigger ? (fireEvent.click(trigger), await screen.findByRole("dialog")) : row
-  return within(scope)
-    .queryAllByRole("button")
-    .map((button) => (button.textContent ?? "").trim())
-    .filter((label) => label !== "")
-}
-
-async function openGrant() {
-  fireEvent.click(await screen.findByRole("button", { name: "Grant access" }))
-  const dialog = await screen.findByRole("alertdialog")
-  fireEvent.change(within(dialog).getByLabelText("Discord-ID"), {
-    target: { value: "214906139328839681" },
-  })
-  return dialog
-}
-
-function person(over: Partial<Record<string, unknown>>): Record<string, unknown> {
-  return {
-    discordId: "100000000000000001",
-    memberState: "MEMBER",
-    donor: false,
-    admin: false,
-    locale: "en",
-    updated: "2026-09-01T00:00:00Z",
-    accessActive: false,
-    ...over,
-  }
-}
-
-const PEOPLE = [
-  person({
-    discordId: "214906139328839681",
-    discordDisplayName: "Ally",
-    discordUsername: "alice",
-    discordUsernameUpdated: "2026-09-10T00:00:00Z",
-    discordDisplayNameUpdated: "2026-09-10T00:00:00Z",
-    minecraftUuid: "11111111-2222-3333-4444-555555555555",
-    mcName: "AliceMC",
-    mcNameUpdated: "2026-09-10T00:00:00Z",
-    linked: "2026-08-01T00:00:00Z",
-    accessActive: true,
-    accessUntil: "2027-01-01T00:00:00Z",
-  }),
-  person({
-    discordId: "300000000000000002",
-    discordUsername: "bob",
-    discordUsernameUpdated: "2026-09-10T00:00:00Z",
-    memberState: "LEFT",
-  }),
-  person({
-    discordId: "400000000000000003",
-    discordUsername: "carol",
-    discordUsernameUpdated: "2026-09-10T00:00:00Z",
-    memberState: "BANNED",
-  }),
-]
-
-/** 21 accounts that all match one search string, to hold the "filter, then page" order. */
-function manyMatches(): Record<string, unknown>[] {
-  return Array.from({ length: 21 }, (_, index) =>
-    person({
-      discordId: `9${String(index).padStart(17, "0")}`,
-      discordUsername: `searchable-${index}`,
-      discordUsernameUpdated: "2026-09-10T00:00:00Z",
-    }),
-  )
-}
-
-/** Who is signed in, in every test here: the root of the admin tree below. */
-const ME = "500000000000000000"
-
-function backend(
-  over: {
-    people?: () => Record<string, unknown>[]
-    payments?: () => Record<string, unknown>[]
-    journal?: () => Record<string, unknown>[]
-    playtimePost?: (url: string, body: unknown) => { status: number; body: unknown }
-    /** What the bot answered, by kind; DONE with an empty result unless a test says otherwise. */
-    answer?: (kind: string) => Record<string, unknown>
-  } = {},
-) {
-  const asked = new Map<string, string>()
-  return vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url, init) => {
-    if (url.endsWith("/playtime") && init?.method === "POST") {
-      const answer = over.playtimePost?.(url, requestBody(init)) ?? {
-        status: 202,
-        body: { id: "a-playtime", kind: "SET_PLAYTIME", status: "PENDING" },
-      }
-      asked.set("a-playtime", "SET_PLAYTIME")
-      return json(answer.status, answer.body)
-    }
-    if (url === "/api/access/settle") {
-      // steward books it itself and answers at once; the bot only reacts.
-      return json(200, { outcome: "BOOKED", days: 30, until: "2026-10-01T00:00:00Z" })
-    }
-    if (url.startsWith("/api/access/") && !url.startsWith("/api/access/requests/")) {
-      // Every other write is a request in the bot's inbox, which the bot carries out: 202 and an id to poll.
-      const kind = url.split("/").pop()!.toUpperCase()
-      const id = `a-${kind.toLowerCase()}`
-      asked.set(id, kind)
-      return json(202, { id, kind, status: "PENDING" })
-    }
-    if (url.startsWith("/api/access/requests/")) {
-      const id = url.split("/").pop()!
-      const kind = asked.get(id) ?? "UNKNOWN"
-      return json(200, over.answer?.(kind) ?? { id, kind, status: "DONE", result: {} })
-    }
-    if (url.startsWith("/api/pack-exemptions/") && init?.method === "POST") {
-      return json(200, { outcome: "CHANGED" })
-    }
-    if (url.startsWith("/api/admins/") && init?.method === "POST") {
-      return json(200, { outcome: url.endsWith("/grant") ? "GRANTED" : "REVOKED", removed: [] })
-    }
-    if (url === "/api/me") return json(200, { signedIn: true, id: ME, webauthn: "READY" })
-    if (url === "/api/people") return json(200, over.people ? over.people() : PEOPLE)
-    if (url === "/api/topology") return json(200, NETWORK_MAP)
-    if (url === "/api/payments") return json(200, over.payments ? over.payments() : [])
-    if (url.startsWith("/api/journal")) return json(200, over.journal ? over.journal() : [])
-    if (url === "/api/settings") {
-      return json(200, { greenDays: 3, yellowDays: 7, minecraftHeadBaseUrl: "https://crafatar.com/avatars" })
-    }
-    throw new Error(`the page asked for ${url}, which this test did not expect`)
-  })
-}
-
-function draw(node: ReactNode) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  })
-  // A router, because Entity draws a service as a link to its page.
-  const root = createRootRoute({ component: () => <>{node}</> })
-  const service = createRoute({ getParentRoute: () => root, path: "/services/$name" })
-  const router = createRouter({
-    routeTree: root.addChildren([service]),
-    history: createMemoryHistory({ initialEntries: ["/"] }),
-  })
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <RouterProvider router={router} />
-      </TooltipProvider>
-    </QueryClientProvider>,
-  )
-}
-
-/** Clicks one of a row's actions, opening its popover first when it has one. */
-async function clickRowAction(name: RegExp) {
-  const trigger = await screen.findByRole("button", { name: /^Actions for/ })
-  fireEvent.click(trigger)
-  const popover = await screen.findByRole("dialog")
-  fireEvent.click(within(popover).getByRole("button", { name }))
-}
 
 afterEach(() => {
   cleanup()
@@ -472,64 +290,6 @@ describe("AccessPage - play time in the list, and overridable", () => {
   })
 })
 
-describe("PaymentsPage - settle as a row action", () => {
-  const OPEN_PAYMENT = {
-    id: "p1",
-    reference: "AB12CD",
-    discordId: "214906139328839681",
-    days: 30,
-    amountCents: 500,
-    donationCents: 0,
-    status: "OPEN",
-    created: "2026-09-01T00:00:00Z",
-    expires: "2026-09-20T00:00:00Z",
-  }
-  it("offers Settle on an open request", async () => {
-    vi.stubGlobal("fetch", backend({ payments: () => [OPEN_PAYMENT] }))
-    draw(<PaymentsPage />)
-
-    const row = await rowFor("AB12CD")
-    expect(within(row).getByRole("button", { name: /settle/i })).toBeTruthy()
-  })
-
-  it("sends the row's own reference, with no picker to get wrong", async () => {
-    const fetched = backend({ payments: () => [OPEN_PAYMENT] })
-    vi.stubGlobal("fetch", fetched)
-    const success = vi.spyOn(toast, "success")
-    draw(<PaymentsPage />)
-
-    const row = await rowFor("AB12CD")
-    fireEvent.click(within(row).getByRole("button", { name: /settle/i }))
-    const dialog = await screen.findByRole("alertdialog")
-    fireEvent.click(within(dialog).getByRole("button", { name: "Settle" }))
-
-    // Booked by steward in one answer, with no bot request to wait for.
-    await waitFor(() => {
-      const call = fetched.mock.calls.find(([url]) => url === "/api/access/settle")
-      expect(call).toBeTruthy()
-    })
-    const call = fetched.mock.calls.find(([url]) => url === "/api/access/settle")!
-    expect(requestBody(call[1])).toEqual({ reference: "AB12CD" })
-    await waitFor(() => expect(success).toHaveBeenCalledWith("AB12CD settled", expect.anything()))
-    expect(fetched.mock.calls.some(([url]) => url.startsWith("/api/access/requests/"))).toBe(false)
-  })
-
-  // jsdom has no layout, so this checks the class that would cause the wrap.
-  it("keeps Tab and Settle on one line instead of letting them wrap", async () => {
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        payments: () => [{ ...OPEN_PAYMENT, shareUrl: "https://bunq.me/xyz" }],
-      }),
-    )
-    draw(<PaymentsPage />)
-
-    const tab = await screen.findByRole("link", { name: /tab/i })
-    const actions = assertElement(tab.parentElement, "the actions container")
-    expect(actions.className).not.toMatch(/flex-wrap/)
-  })
-})
-
 describe("AccessPage - unlink as a row action", () => {
   it("offers Unlink on a linked person", async () => {
     vi.stubGlobal("fetch", backend())
@@ -694,153 +454,6 @@ describe("AccessPage - the generic command card is gone", () => {
 
     await screen.findByText("Ally")
     expect(screen.queryByText("Access commands")).toBeNull()
-  })
-})
-
-/** A line's values may run long, so they wrap while every other cell stays `whitespace-nowrap`. */
-describe("JournalPage - Detail is running text, not a field", () => {
-  it("lets the Detail cell wrap, rather than forcing it onto one unbroken line", async () => {
-    const LONG_DETAIL = "30 days granted by hm.ally from the admin panel; the Minecraft account was linked beforehand"
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        journal: () => [
-          {
-            id: "j1",
-            occurred: "2026-09-18T09:00:00Z",
-            action: "GRANT_ACCESS",
-            actor: { kind: "PERSON", person: "214906139328839681" },
-            subject: "214906139328839681",
-            facts: { detail: LONG_DETAIL },
-          },
-        ],
-      }),
-    )
-    draw(<JournalPage />)
-
-    const cell = assertElement((await screen.findByText(LONG_DETAIL)).closest("td"), "a <td> for the detail")
-    expect(cell.className).not.toMatch(/(^|\s)whitespace-nowrap(\s|$)/)
-  })
-})
-
-/** Somebody the roster no longer knows is named as such, the id still copyable in the popover. */
-const JOURNAL_ENTRIES = () => [
-  {
-    id: "j1",
-    occurred: "2026-09-18T09:00:00Z",
-    action: "GRANT_ACCESS",
-    actor: { kind: "PERSON", person: "214906139328839681" },
-    subject: "300000000000000002",
-    facts: { days: 30, until: "2026-10-18T09:00:00Z" },
-  },
-]
-
-describe("JournalPage - profiles, never user ids", () => {
-  it("draws the names of both people and neither of their ids", async () => {
-    vi.stubGlobal("fetch", backend({ journal: JOURNAL_ENTRIES }))
-    draw(<JournalPage />)
-
-    await screen.findByText("GRANT_ACCESS")
-    expect(await screen.findByText("Ally")).toBeTruthy()
-    expect(screen.getByText("bob")).toBeTruthy()
-    // Typed values by key, never a sentence the writer composed.
-    expect(screen.getByText("days").parentElement?.textContent).toBe("days 30")
-    expect(IDENTIFIER_PATTERN.test(document.body.textContent ?? "")).toBe(false)
-  })
-
-  it("says so rather than going anonymous for somebody the roster does not know", async () => {
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        journal: () => [
-          {
-            id: "j2",
-            occurred: "2026-09-18T09:00:00Z",
-            action: "REVOKE_ACCESS",
-            actor: { kind: "PERSON", person: "999999999999999999" },
-            facts: { grants: 1 },
-          },
-        ],
-      }),
-    )
-    draw(<JournalPage />)
-
-    await screen.findByText("REVOKE_ACCESS")
-    expect(await screen.findByText("no Discord name on record")).toBeTruthy()
-    // Still not the number: the id lives in the popover, next to a button that copies it.
-    expect(IDENTIFIER_PATTERN.test(document.body.textContent ?? "")).toBe(false)
-  })
-
-  it("draws a service a carried line names as a link to that service, and the host as the host", async () => {
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        journal: () => [
-          {
-            id: "j3",
-            occurred: "2026-09-18T09:00:00Z",
-            action: "RECREATE",
-            actor: { kind: "HOST" },
-            facts: { target: "smp" },
-          },
-        ],
-      }),
-    )
-    draw(<JournalPage />)
-
-    const link = await screen.findByRole("link", { name: "smp" })
-    expect(link.getAttribute("href")).toBe("/services/smp")
-    expect(screen.getByText("host").closest("[data-entity='unknown']")).toBeTruthy()
-  })
-
-  it("draws Steward itself when no admin was behind the line", async () => {
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        journal: () => [
-          { id: "j3", occurred: "2026-09-18T09:00:00Z", action: "SETTLE", actor: { kind: "STEWARD" }, facts: {} },
-        ],
-      }),
-    )
-    draw(<JournalPage />)
-
-    await screen.findByText("SETTLE")
-    expect(screen.getByText("Steward")).toBeTruthy()
-  })
-})
-
-/** Every Payments column is a field, so the width at 1440px is kept by folding `Created` and `Donation`. */
-describe("PaymentsPage - the column budget fits the card at 1440px", () => {
-  it("keeps the declared header widths under 1152px (72rem), the measured card width", async () => {
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        payments: () => [
-          {
-            id: "p1",
-            reference: "AB12CD",
-            discordId: "214906139328839681",
-            days: 30,
-            amountCents: 500,
-            donationCents: 0,
-            status: "OPEN",
-            created: "2026-09-01T00:00:00Z",
-            expires: "2026-09-20T00:00:00Z",
-          },
-        ],
-      }),
-    )
-    draw(<PaymentsPage />)
-
-    await screen.findByText("AB12CD")
-    const headers = screen.getAllByRole("columnheader")
-    const remWidths = headers.map((header) => {
-      const match = header.className.match(/w-\[(\d+(?:\.\d+)?)rem\]/)
-      return match ? Number.parseFloat(match[1]) : 0
-    })
-    const total = remWidths.reduce((sum, width) => sum + width, 0)
-
-    expect(total).toBeLessThan(72)
   })
 })
 

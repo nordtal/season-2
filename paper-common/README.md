@@ -14,6 +14,10 @@ What every Nordtal Paper plugin shares, and nothing a single plugin owns.
   tags), each entry with its translation key and the server's English for it, and publishes them as
   this server's row of `game_catalogue`, which Steward's pickers draw from. A failed write costs the
   pickers this server's entries and nothing else.
+- **Game keys**: `GameKeys` is the one reading of a setting that names an item, a block, a
+  statistic or an entity: a namespaced key, with `minecraft:` assumed where none is written and a
+  bare upper-case Bukkit name accepted the same way, never a legacy material. Every plugin binds its
+  settings through it at load, so a value the catalogue offers is one the server takes.
 - **World distances**: `WorldDistances` sets every world's view and simulation distance through Paper's
   `World` at start, on every reload and for a world loaded later. A value the `distances` group leaves at 0
   comes from the plugin's `distanceDefaults()` (smp: 32 and 10), and where that is unset too, the world

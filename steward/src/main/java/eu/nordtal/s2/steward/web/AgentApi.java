@@ -56,7 +56,7 @@ public final class AgentApi {
                     "available",
                     false,
                     "reason",
-                    "agent.token is empty in steward.yml, so this interface cannot ask "
+                    "agent.token is empty in the steward group, so this interface cannot ask "
                             + "steward-agent for anything. The setup script writes that secret."));
             return;
         }
@@ -104,8 +104,9 @@ public final class AgentApi {
 
     private void require() {
         if (!configured) {
-            throw new ServiceUnavailableResponse("agent.token is empty in steward.yml, so nothing can be asked of "
-                    + "steward-agent. The setup script writes that secret.");
+            throw new ServiceUnavailableResponse(
+                    "agent.token is empty in the steward group, so nothing can be asked of "
+                            + "steward-agent. The setup script writes that secret.");
         }
     }
 

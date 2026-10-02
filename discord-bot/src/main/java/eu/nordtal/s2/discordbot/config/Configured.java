@@ -38,11 +38,11 @@ public final class Configured {
         addLanguages(off, config);
 
         if (off.isEmpty()) {
-            log.info("Every Discord id in access.yml is filled in; no feature is switched off.");
+            log.info("Every Discord id in the access group is filled in; no feature is switched off.");
             return;
         }
         log.warn(
-                "{} setting(s) in access.yml are empty, so the features behind them are not "
+                "{} setting(s) in the access group are empty, so the features behind them are not "
                         + "served. Fill them in in Steward, not in a file:\n  {}",
                 off.size(),
                 String.join("\n  ", off));

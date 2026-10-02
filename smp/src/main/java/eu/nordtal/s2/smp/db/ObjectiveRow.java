@@ -1,7 +1,7 @@
 package eu.nordtal.s2.smp.db;
 
 /**
- * One objective's stored progress; its definition lives in {@code milestones.yml}.
+ * One objective's stored progress; its definition lives in the {@code milestones} group.
  *
  * @param completed whether it is finished; a target lowered below the collected amount completes on the next reload
  */

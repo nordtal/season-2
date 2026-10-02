@@ -76,12 +76,12 @@ public final class GateMessages {
         return result;
     }
 
-    /** The {@code MAINTENANCE} fallback for when {@code gate.yml#server-limbo} names no registered server. */
+    /** The {@code MAINTENANCE} fallback for when {@code gate#server-limbo} names no registered server. */
     public Component maintenance(final Locale locale) {
         return MessageRenderer.of(messages).format(locale, MESSAGES.gate().maintenance());
     }
 
-    /** The phase names a server this proxy does not have: {@code gate.yml} disagrees with {@code velocity.toml}. */
+    /** The phase names a server this proxy lacks: the {@code gate} group disagrees with {@code velocity.toml}. */
     public Component noServer(final Locale locale) {
         return MessageRenderer.of(messages).format(locale, MESSAGES.gate().noServer());
     }

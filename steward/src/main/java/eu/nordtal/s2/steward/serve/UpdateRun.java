@@ -112,7 +112,7 @@ final class UpdateRun {
     /**
      * Saves every volume, one at a time, with the servers already stopped.
      *
-     * @param volumes the Docker volume names, from {@code steward.yml#backup.volumes}
+     * @param volumes the Docker volume names, from {@code steward#backup.volumes}
      * @return one line per volume, {@code SAVED} with size and duration, or {@code FAILED}
      */
     UpdateReport save(final UpdateReport stopped, final List<String> volumes) {

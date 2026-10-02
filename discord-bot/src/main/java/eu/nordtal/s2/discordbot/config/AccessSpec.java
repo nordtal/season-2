@@ -12,25 +12,11 @@ import eu.nordtal.jcore.config.spec.annotation.Reload;
 import java.util.List;
 
 /**
- * {@code config/access.yml}: the product and the guild.
+ * The {@code access} group: the product and the guild.
  *
  * Every id defaults to empty and the bot refuses to start while one is.
  */
-@ConfigSpec(
-        header = {
-            "-------------------------------------------------------------------",
-            "  access-bot: the product and the guild",
-            "-------------------------------------------------------------------",
-            "Edited in Steward. The guild id and the admin role come from the",
-            "host's environment (NORDTAL_ACCESS_GUILD_ID, NORDTAL_ACCESS_ROLES_ADMIN),",
-            "which wins over this file and is never written back into it.",
-            "",
-            "An undeclared setting is deleted on the next start, with a copy",
-            "in access.yml.bak; one that looks like a misspelling stops the bot.",
-            "",
-            "The role and channel ids are EMPTY by default and the bot will not",
-            "start until they are filled in."
-        })
+@ConfigSpec
 public interface AccessSpec {
 
     @Order(1)

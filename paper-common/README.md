@@ -3,13 +3,13 @@
 What every Nordtal Paper plugin shares, and nothing a single plugin owns.
 
 - **The plugin base**, `NordtalPlugin`: one start and one stop for smp, hunger-games and limbo. It
-  loads `database.yml`, `colours.yml`, `distances.yml` and the plugin's own settings, opens the pool and the one
+  loads the `database` group, the `colours` group, the `distances` group and the plugin's own settings, opens the pool and the one
   `SignalHub`, holds who everybody is (`Identities`), grants operator from the admin roster, gates
   the commands a player sees, keeps the readiness marker beating and stops the server when a start
   fails. A plugin contributes its settings, bundles and features through `prepare()`, `enable()` and
   `disable()`, and reacts to a player's language through `languageKnown`.
 - **World distances**: `WorldDistances` sets every world's view and simulation distance through Paper's
-  `World` at start, on every reload and for a world loaded later. A value `distances.yml` leaves at 0
+  `World` at start, on every reload and for a world loaded later. A value the `distances` group leaves at 0
   comes from the plugin's `distanceDefaults()` (smp: 32 and 10), and where that is unset too, the world
   keeps, or gets back, the value it had when the base first saw it. Paper accepts 2 to 32; a value
   outside is clamped and named in the log.

@@ -7,16 +7,16 @@ import java.util.Set;
 import org.bukkit.Material;
 
 /**
- * What a valid {@code config.yml} of the hunger games is beyond its types.
+ * What a valid {@code config} group of the hunger games is beyond its types.
  *
- * A reload re-reads only {@code sounds.yml}, so a border parameter never moves mid-game.
+ * A reload re-reads only the {@code sounds} group, so a border parameter never moves mid-game.
  */
 public final class HungerGamesCheck {
 
     private HungerGamesCheck() {}
 
     /**
-     * Refuses a {@code config.yml} no game can be run from.
+     * Refuses a {@code config} group no game can be run from.
      *
      * @throws IllegalArgumentException naming the first value that is wrong
      */

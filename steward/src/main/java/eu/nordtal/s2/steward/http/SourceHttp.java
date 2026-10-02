@@ -50,7 +50,7 @@ public final class SourceHttp {
                         + " and for Modrinth it means the project id is wrong.");
             case 403, 429 ->
                 failure.withHint(" - rate limited. GitHub allows 60 unauthenticated"
-                        + " requests per hour per IP; set github-token in steward.yml if this host"
+                        + " requests per hour per IP; set github-token in the steward group if this host"
                         + " shares its address.");
             default -> failure;
         };

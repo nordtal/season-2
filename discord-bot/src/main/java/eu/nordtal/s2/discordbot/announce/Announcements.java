@@ -33,7 +33,7 @@ public final class Announcements {
     /**
      * Posts a line into one language's announcement channel and waits until Discord took it.
      *
-     * @param languageTag the language, as in {@code access.yml#languages[].tag}
+     * @param languageTag the language, as in {@code access#languages[].tag}
      * @return whether it was posted; {@code false} when that language has no channel or Discord refused
      */
     public boolean post(final String languageTag, final String text) {

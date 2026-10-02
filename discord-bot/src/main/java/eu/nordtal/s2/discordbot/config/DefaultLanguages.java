@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The languages a fresh {@code access.yml} is written with, {@code en} and {@code de}, with empty ids.
+ * The languages the {@code access} group defaults to, {@code en} and {@code de}, with empty ids.
  *
  * {@code createUnsafe} applies no defaults, so every {@code @Key} of {@link AccessSpec.LanguageSpec} is listed.
  */

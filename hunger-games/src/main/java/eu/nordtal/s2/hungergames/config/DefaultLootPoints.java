@@ -5,7 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** The five placeholder loot points a fresh {@code config.yml} is written with, until the event world exists. */
+/** The five placeholder loot points the {@code config} group defaults to, until the event world exists. */
 final class DefaultLootPoints {
 
     static final List<HungerGamesSpec.LootPointSpec> LIST = List.of(

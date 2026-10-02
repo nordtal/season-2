@@ -166,4 +166,4 @@ environment variables; this public repository holds none.
 
 The one outbound call to a third party: Steward draws player heads from
 [mineatar](https://mineatar.io), sending it the `mc_uuid` on each render
-(`web.yml`, `avatars.minecraft-head-base-url`; empty disables it).
+(the `web` group, `avatars.minecraft-head-base-url`; empty disables it).

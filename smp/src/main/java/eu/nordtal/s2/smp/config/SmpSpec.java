@@ -9,18 +9,8 @@ import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 import java.util.List;
 
-/** {@code plugins/smp/config.yml}: everything about the SMP that is neither the track nor a database credential. */
-@ConfigSpec(
-        header = {
-            "-------------------------------------------------------------------",
-            "  smp: the season 2 SMP",
-            "-------------------------------------------------------------------",
-            "The track itself is NOT here: it lives in milestones.yml and is",
-            "reloaded on its own with /smp reload.",
-            "",
-            "Every setting can be overridden with an environment variable named",
-            "NORDTAL_SMP_<PATH>, with '.' and '-' both becoming '_'."
-        })
+/** The {@code config} group: everything about the SMP that is neither the track nor a database credential. */
+@ConfigSpec
 public interface SmpSpec {
 
     @Order(1)
@@ -376,7 +366,7 @@ public interface SmpSpec {
         return DefaultSmp.DUEL_LOADOUT_BOW;
     }
 
-    // Feedback sounds live in the reloadable sounds.yml; see SoundsSpec.
+    // Feedback sounds live in the reloadable the sounds group; see SoundsSpec.
 
     // jcore deletes the retired admin-permissions key rather than leaving a no-op.
 

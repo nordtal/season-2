@@ -10,32 +10,11 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 import java.util.List;
 
 /**
- * {@code plugins/smp/milestones.yml}: the track, reloadable, while the progress lives in the database.
+ * The {@code milestones} group: the track, reloadable, while the progress lives in the database.
  *
  * One record shape serves all three objective types, and the pot is per milestone so its derivation cannot drift.
  */
-@ConfigSpec(
-        header = {
-            "-------------------------------------------------------------------",
-            "  smp: the milestone track",
-            "-------------------------------------------------------------------",
-            "The shared objectives that unlock the world. The PROGRESS lives in",
-            "the database (smp_milestone, smp_objective), matched by key.",
-            "",
-            "RELOAD WITH /smp reload. A reload that would orphan progress is",
-            "REFUSED: renaming a key, deleting one that has progress, or changing",
-            "an objective's type. Lowering the `target` of an objective that has",
-            "not completed is allowed; if its progress already reaches the new",
-            "target, it completes at once and pays its FULL pot.",
-            "",
-            "A track that finishes early gets one more milestone appended, never",
-            "a target that moves overnight.",
-            "",
-            "Border sizes are DIAMETERS.",
-            "",
-            "Every setting can be overridden with an environment variable named",
-            "NORDTAL_SMP_MILESTONES_<PATH>."
-        })
+@ConfigSpec
 public interface MilestonesSpec {
 
     @Order(1)

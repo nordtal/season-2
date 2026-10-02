@@ -2,7 +2,7 @@ package eu.nordtal.s2.messages.feedback;
 
 /**
  * The whole sound vocabulary of the network; a call site picks one of these and nothing else.
- * What each category sounds like is a per-module {@code config.yml} decision.
+ * What each category sounds like is a per-module {@code config} group decision.
  */
 public enum Feedback {
 

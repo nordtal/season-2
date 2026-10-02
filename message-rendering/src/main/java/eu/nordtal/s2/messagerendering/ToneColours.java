@@ -26,7 +26,7 @@ public final class ToneColours {
     }
 
     /**
-     * Parses a module's {@code colours.yml}.
+     * Parses a module's {@code colours} group.
      *
      * @param declared a hex string per tone; a tone it does not carry takes {@link #DEFAULTS} silently
      * @param problems where a value replaced by its default is reported, once each

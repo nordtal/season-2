@@ -13,7 +13,7 @@ public final class SwapAddresses {
     private SwapAddresses() {}
 
     /**
-     * Parses {@code network.yml#public-address}.
+     * Parses {@code network#public-address}.
      *
      * @param address {@code host:port}, or {@code [::1]:port}, or blank
      * @return the address, or empty when it is blank or has no usable port, meaning this deployment does not swap
@@ -53,7 +53,7 @@ public final class SwapAddresses {
      * The standby's address: the same host, the other port.
      *
      * @param address the parsed {@link #publicAddress}
-     * @param standbyPort {@code network.yml#standby-port}
+     * @param standbyPort {@code network#standby-port}
      * @return where to send a player during the swap, or empty when the port is invalid or the live proxy's own
      */
     public static Optional<InetSocketAddress> standbyAddress(final InetSocketAddress address, final int standbyPort) {

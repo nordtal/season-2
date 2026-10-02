@@ -8,28 +8,11 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code config/pack.yml}: the resource pack the proxy offers every player in the waiting room.
+ * The {@code pack} group: the resource pack the proxy offers every player in the waiting room.
  *
  * {@link #sha1()} has no default, since the client refuses a pack whose hash disagrees with its URL.
  */
-@ConfigSpec(
-        header = {
-            "-------------------------------------------------------------------",
-            "  proxy: the resource pack offered in the waiting room",
-            "-------------------------------------------------------------------",
-            "Every login lands on limbo first, is offered this pack there, and is",
-            "connected to the phase's server once the client reports it applied.",
-            "",
-            "The url and the sha1 come from the same GitHub release and change",
-            "together. A sha1 left from an older release fails every download.",
-            "",
-            "Every setting here can be overridden with an environment variable",
-            "named NORDTAL_PROXY_PACK_<PATH>, with '-' becoming '_':",
-            "",
-            "  sha1  ->  NORDTAL_PROXY_PACK_SHA1",
-            "",
-            "The environment wins over this file and is never written back to it."
-        })
+@ConfigSpec
 public interface PackSpec {
 
     @Order(1)

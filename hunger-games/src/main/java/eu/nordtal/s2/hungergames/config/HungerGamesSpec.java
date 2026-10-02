@@ -10,18 +10,8 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 import eu.nordtal.jcore.config.spec.annotation.Reload;
 import java.util.List;
 
-/** {@code config/config.yml}: everything the hunger games start event needs that is not a database credential. */
-@ConfigSpec(
-        header = {
-            "-------------------------------------------------------------------",
-            "  hunger-games: the season 2 start event",
-            "-------------------------------------------------------------------",
-            "The loot point and lobby coordinates are placeholders until the",
-            "hand-built event world exists.",
-            "",
-            "Every setting can be overridden with an environment variable named",
-            "NORDTAL_HUNGER_GAMES_<PATH>, with '.' and '-' both becoming '_'."
-        })
+/** The {@code config} group: everything the hunger games start event needs that is not a database credential. */
+@ConfigSpec
 public interface HungerGamesSpec {
 
     /** The floor below which {@code /hg start} refuses, since the border step divides by one less than it. */

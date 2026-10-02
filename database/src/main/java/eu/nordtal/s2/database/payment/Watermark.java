@@ -24,7 +24,7 @@ public final class Watermark {
     /**
      * Resolves the cut-off, writing the first-start value if there is none yet.
      *
-     * @param configured {@code payment.watermark} from {@code access.yml}, normally blank
+     * @param configured {@code payment.watermark} from the {@code access} group, normally blank
      * @param now        this start, which becomes the cut-off when none is stored
      */
     public static Instant resolve(final Jdbi jdbi, final String configured, final Instant now) {
@@ -40,7 +40,7 @@ public final class Watermark {
 
         if (configured != null && !configured.isBlank()) {
             final Instant override = Instant.parse(configured.trim());
-            log.info("Using the payment watermark from access.yml: {}", override);
+            log.info("Using the payment watermark from the access group: {}", override);
             return override;
         }
 

@@ -7,18 +7,8 @@ import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
-/** {@code distances.yml}: how far around a player a Paper server sends and simulates every world. */
-@ConfigSpec(
-        header = {
-            "View and simulation distance",
-            "",
-            "How many chunks around a player this server sends and simulates, in every world.",
-            "Applied at start and on every reload. 0 leaves the value this server runs with",
-            "anyway; anything else is taken into 2 to 32, the range Paper accepts.",
-            "",
-            "Every setting can be overridden with an environment variable: this service's",
-            "prefix, then _DISTANCES_ and the setting."
-        })
+/** The {@code distances} group: how far around a player a Paper server sends and simulates every world. */
+@ConfigSpec
 public interface DistancesSpec {
 
     @Order(1)

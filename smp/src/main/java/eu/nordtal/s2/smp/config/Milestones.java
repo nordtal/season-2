@@ -44,7 +44,7 @@ public final class Milestones {
         }
     }
 
-    /** Reads the track from {@code milestones.yml}, and everything wrong with it. */
+    /** Reads the track from the {@code milestones} group, and everything wrong with it. */
     public static Result read(final MilestonesSpec spec) {
         Objects.requireNonNull(spec, "spec");
 

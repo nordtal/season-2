@@ -63,7 +63,7 @@ final class PushEndpoints {
     void publicKey(final Context ctx) {
         if (vapidKeys == null) {
             throw new NotFoundResponse(
-                    "web-push is not configured on this deployment yet - see" + " web-push in web.yml");
+                    "web-push is not configured on this deployment yet - see" + " web-push in the web group");
         }
         ctx.json(Map.of(
                 "publicKey",
@@ -172,7 +172,7 @@ final class PushEndpoints {
         final Sessions.Session who = sessions.apply(ctx);
         if (alertWatch == null) {
             throw new NotFoundResponse(
-                    "web-push is not configured on this deployment yet - see" + " web-push in web.yml");
+                    "web-push is not configured on this deployment yet - see" + " web-push in the web group");
         }
         final PushTestBody body = ctx.bodyAsClass(PushTestBody.class);
         final AlertType type = body == null ? null : AlertType.of(body.type);

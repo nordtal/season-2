@@ -8,24 +8,11 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code plugins/limbo/config.yml}: the waiting room's settings.
+ * The {@code config} group: the waiting room's settings.
  *
  * The waiting reason is not here: the proxy sends it on {@code nordtal:limbo}, so the title has one source.
  */
-@ConfigSpec(
-        header = {
-            "-------------------------------------------------------------------",
-            "  limbo: the season 2 waiting room",
-            "-------------------------------------------------------------------",
-            "Every login lands here first and stays until the proxy moves it on.",
-            "The screen shows one title; the proxy sends the reason, and the",
-            "words live in messages/limbo/<language>.properties.",
-            "",
-            "Every setting can be overridden with an environment variable named",
-            "NORDTAL_LIMBO_<SETTING>, with '-' becoming '_', for example",
-            "NORDTAL_LIMBO_WORLD_NAME. The environment wins over this file and is",
-            "never written back to it."
-        })
+@ConfigSpec
 public interface LimboSpec {
 
     @Order(1)

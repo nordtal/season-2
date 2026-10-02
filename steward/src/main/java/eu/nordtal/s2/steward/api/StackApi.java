@@ -71,7 +71,7 @@ public final class StackApi implements AutoCloseable {
         }
     }
 
-    /** Asked on every request, because a save of steward.yml changes it without a restart. */
+    /** Asked on every request, because a save of the steward group changes it without a restart. */
     private final Supplier<Nightly> nightly;
 
     /** The plugin routes, or null without a database, when every route answers 503. */
@@ -463,7 +463,7 @@ public final class StackApi implements AutoCloseable {
     /**
      * Everything that is wrong right now and the three raw measurements, for the push watch to judge.
      *
-     * The thresholds live in web.yml; this reading only says what was found.
+     * The thresholds live in the web group; this reading only says what was found.
      */
     public AlertReading alertReading() {
         final AlertLevel.Reading reading =

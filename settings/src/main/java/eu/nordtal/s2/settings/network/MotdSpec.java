@@ -12,24 +12,7 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
  *
  * Placeholders in braces are substituted before parsing; the proxy's {@code Placeholders} names every one.
  */
-@ConfigSpec(
-        header = {
-            "network: what the server browser shows, per season phase, in MiniMessage",
-            "",
-            "A MOTD is two lines; <newline> starts the second. Placeholders in braces are",
-            "substituted before parsing. An unanswerable one renders as 0, an unknown one is",
-            "left standing.",
-            "",
-            "  everywhere      {season} {online} {max} {phase} {players:<server>}",
-            "  pre-launch      {countdown}   (time to season_phase.launch, days and hours)",
-            "  hunger games    {hg-state} {hg-teams} {hg-teams-alive} {hg-participants}",
-            "                  {hg-alive} {hg-eliminated}",
-            "  smp             {smp-milestone} {smp-milestone-progress} {smp-milestones-done}",
-            "                  {smp-milestones-total} {smp-aura-total} {smp-players}",
-            "",
-            "{players:<server>} takes a server name as velocity.toml spells it, e.g.",
-            "{players:smp}. The three the phases route to are limbo, hunger-games and smp."
-        })
+@ConfigSpec
 public interface MotdSpec {
 
     // A lightened #24357d, readable on the dark server list; NetworkSettingsTest refuses a self-coloured phase.

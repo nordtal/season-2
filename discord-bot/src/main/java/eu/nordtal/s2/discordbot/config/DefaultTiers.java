@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The price list a fresh {@code access.yml} is written with: 30/60/90 days at 3/5/7 €.
+ * The price list the {@code access} group defaults to: 30/60/90 days at 3/5/7 €.
  *
  * {@code createUnsafe} applies no defaults, so every {@code @Key} of {@link AccessSpec.TierSpec} is listed.
  */

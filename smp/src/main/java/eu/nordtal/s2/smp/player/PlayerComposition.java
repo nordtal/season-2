@@ -29,7 +29,7 @@ public final class PlayerComposition {
     private final Supplier<PrestigeColours> colours;
 
     public PlayerComposition(final Supplier<Prestige> prestige, final Supplier<PrestigeColours> colours) {
-        // A supplier: prestige.yml is re-read by /smp reload, so this table is asked for fresh each time.
+        // A supplier: the prestige group is re-read by /smp reload, so this table is asked for fresh each time.
         this.prestige = Objects.requireNonNull(prestige, "prestige");
         this.colours = Objects.requireNonNull(colours, "colours");
     }

@@ -357,7 +357,7 @@ public interface SmpMessages {
 
         Smp.Milestone milestone();
 
-        /** Returns a milestone's shipped name, or empty for one only {@code milestones.yml} knows. */
+        /** Returns a milestone's shipped name, or empty for one only the {@code milestones} group knows. */
         default Optional<MessageRef> milestoneName(final String key) {
             return Optional.ofNullable(
                     switch (key) {

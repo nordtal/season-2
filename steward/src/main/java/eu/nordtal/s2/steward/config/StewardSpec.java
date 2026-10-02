@@ -12,26 +12,11 @@ import eu.nordtal.s2.common.Deployment;
 import java.util.List;
 
 /**
- * {@code config/steward.yml}: where every version comes from, and where the files it compares against live.
+ * The {@code steward} group: where every version comes from, and where the files it compares against live.
  *
  * Every default is the real value; there is no key that pins a release, since the newest published one wins.
  */
-@ConfigSpec(
-        header = {
-            "-------------------------------------------------------------------",
-            "  steward: where the versions come from",
-            "-------------------------------------------------------------------",
-            "Resolves the newest version of everything the network runs and",
-            "compares it with the jars in the volumes, only when asked.",
-            "",
-            "The defaults are the real values for nordtal.eu; change them only",
-            "to point a test deployment elsewhere. Nothing here pins a version.",
-            "",
-            "Every setting can be overridden with an environment variable named",
-            "NORDTAL_STEWARD_<PATH>, with '-' becoming '_', for example",
-            "NORDTAL_STEWARD_SEASON_REPO. The environment wins over this file",
-            "and is never written back to it."
-        })
+@ConfigSpec
 public interface StewardSpec {
 
     @Order(1)
@@ -225,7 +210,7 @@ public interface StewardSpec {
         return "/configs";
     }
 
-    /** Payments: where steward-bunq answers and how often it is asked; purchases are {@code access.yml}'s. */
+    /** Payments: where steward-bunq answers and how often it is asked; purchases are the {@code access} group's. */
     @ConfigSpec
     interface BunqSpec {
 

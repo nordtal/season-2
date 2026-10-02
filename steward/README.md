@@ -74,12 +74,12 @@ pin and no rollback: a bad release is corrected by publishing a better one.
 - **Images.** It checks each service's image against the registry before a run, and reports an image
   it could not check as unchecked, never as current.
 - **Metrics.** Every 30 seconds it writes host and container samples into `metric_sample`, and folds
-  them into hourly means after 30 days (`docker.metrics` in `steward.yml`).
+  them into hourly means after 30 days (`docker.metrics` in the `steward` group).
 - **Backups.** `pg_dump` inside the postgres container, then the volumes as zstd tars read back once
   before the rename from `.partial`. The nightly clock only writes a request row. There is no offsite
   copy.
 - **Payments.** It books them and holds no bank credential: every question to bunq goes to
-  `steward-bunq` (`steward.yml#bunq`, its address and the token they share). At start it asks
+  `steward-bunq` (`steward#bunq`, its address and the token they share). At start it asks
   `steward-bunq` for the account for up to thirty seconds. When it answers, the poll starts and the
   bot learns whether payments are on; when it does not, the log says so at ERROR and payments stay
   off until the next start.

@@ -9,9 +9,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Keeps the nightly backup and the scheduled update clocks in step with {@code steward.yml}.
+ * Keeps the nightly backup and the scheduled update clocks in step with the {@code steward} group.
  *
- * {@link #arm()} runs at start and after every save of steward.yml, rebuilding both clocks.
+ * {@link #arm()} runs at start and after every save of the steward group, rebuilding both clocks.
  */
 public final class Schedules implements AutoCloseable {
 

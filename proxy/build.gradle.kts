@@ -37,7 +37,7 @@ dependencies {
         exclude(group = "org.flywaydb")
     }
 
-    // The one database.yml, colours.yml and pool every Minecraft process shares.
+    // The one database group, the colours group and pool every Minecraft process shares.
     implementation(project(":settings"))
 
     // :settings opens the pool and only compiles against HikariCP; the catalog pins jcore's own version.

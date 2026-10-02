@@ -309,7 +309,7 @@ public final class Runner implements RequestRunner {
         if (volumes.isEmpty()) {
             // Not a quiet success: an emptied volumes list must not take the network down for nothing.
             return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote("backup.volumes in steward.yml is empty, so there is nothing to save"
+                    .withNote("backup.volumes in the steward group is empty, so there is nothing to save"
                             + " and nothing was stopped.")));
         }
 

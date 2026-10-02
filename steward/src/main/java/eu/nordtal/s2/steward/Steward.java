@@ -392,7 +392,7 @@ public final class Steward {
                 config.docker().project(),
                 CLOCK)) {
             if (!config.docker().metrics()) {
-                log.info("Metric sampling is off in steward.yml, so the start page will have no curves.");
+                log.info("Metric sampling is off in the steward group, so the start page will have no curves.");
             } else if (docker.isReachable()) {
                 sampler.start();
             }
@@ -407,7 +407,7 @@ public final class Steward {
      */
     private static ContainerOps buildContainerOps(final StewardSpec config, final DockerOps dockerOps) {
         if (config.agent().token().isBlank()) {
-            log.warn("agent.token is empty in steward.yml, so this container cannot ask"
+            log.warn("agent.token is empty in the steward group, so this container cannot ask"
                     + " steward-agent to recreate a service: an update whose image has"
                     + " moved stops the old container and starts it again on that same"
                     + " image, the line stays FAILED, and the web draws no recreate button."
@@ -465,14 +465,14 @@ public final class Steward {
         }
     }
 
-    /** Builds and starts the web interface on {@code web.yml}'s port, with the stack routes on it. */
+    /** Builds and starts the web interface on the {@code web} group's port, with the stack routes on it. */
     private static Web startWeb(final Configs configs, final StackApi stack, final Data data) {
         final WebSpec webConfig = configs.web();
         final StewardSpec config = configs.config();
         if (webConfig.webPush().publicKey().isBlank()) {
             log.warn("web-push has no VAPID keypair yet, so the traffic light cannot reach a phone's"
                     + " lock screen. Run `steward " + Web.GENERATE_VAPID_KEYS + "` and paste both"
-                    + " lines it prints into web.yml's web-push section.");
+                    + " lines it prints into the web group's web-push section.");
         }
         final InternalClient agent = agentOf(config);
         final Web web = new Web(
@@ -767,7 +767,7 @@ public final class Steward {
         }
     }
 
-    /** Prints a fresh VAPID keypair for {@code web.yml}'s web-push section, public half first. */
+    /** Prints a fresh VAPID keypair for the {@code web} group's web-push section, public half first. */
     private static int generateVapidKeys() {
         final com.interaso.webpush.VapidKeys keys = com.interaso.webpush.VapidKeys.generate();
         System.out.println(keys.getX509PublicKey());

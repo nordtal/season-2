@@ -114,14 +114,14 @@ Reusing a freed code point is safe, since nothing persists a glyph character.
 
 ### `︁0` to `︁F`: language flags
 
-| Char code              | File                                                           | Description                                      | Status |
-| ---------------------- | -------------------------------------------------------------- | ------------------------------------------------ | ------ |
-| `\uFE010`              | ![source](src/assets/nordtal/textures/flags/other.png)         | Other / no language role                         | keep   |
-| `\uFE011`              | ![source](src/assets/nordtal/textures/flags/germany.png)       | Germany                                          | keep   |
-| `\uFE012`              | ![source](src/assets/nordtal/textures/flags/netherlands.png)   | Netherlands                                      | keep   |
-| `\uFE013`              | ![source](src/assets/nordtal/textures/flags/unitedkingdom.png) | United Kingdom                                   | keep   |
-| `\uFE014`              | ![source](src/assets/nordtal/textures/flags/unitedstates.png)  | United States                                    | keep   |
-| `\uFE015` to `\uFE01F` |                                                                | reserved: one per language added to `access.yml` |        |
+| Char code              | File                                                           | Description                                            | Status |
+| ---------------------- | -------------------------------------------------------------- | ------------------------------------------------------ | ------ |
+| `\uFE010`              | ![source](src/assets/nordtal/textures/flags/other.png)         | Other / no language role                               | keep   |
+| `\uFE011`              | ![source](src/assets/nordtal/textures/flags/germany.png)       | Germany                                                | keep   |
+| `\uFE012`              | ![source](src/assets/nordtal/textures/flags/netherlands.png)   | Netherlands                                            | keep   |
+| `\uFE013`              | ![source](src/assets/nordtal/textures/flags/unitedkingdom.png) | United Kingdom                                         | keep   |
+| `\uFE014`              | ![source](src/assets/nordtal/textures/flags/unitedstates.png)  | United States                                          | keep   |
+| `\uFE015` to `\uFE01F` |                                                                | reserved: one per language added to the `access` group |        |
 
 The flag comes from `discord_user.locale`, so a new language needs a flag here too.
 
@@ -167,7 +167,7 @@ The frame of the objective board and the aura leaderboard, which are Text Displa
 
 The frame never draws after the content, because the client alone knows how wide a text line is. A
 row draws its left edge, walks right by the configured width (`boards[].width` in `smp`'s
-`config.yml`, 32 to 240 px), draws the right edge, and walks back. A line longer than that overdraws
+the `config` group, 32 to 240 px), draws the right edge, and walks back. A line longer than that overdraws
 the edge. The frame uses the menu panels' `highlight` and `accent` colours, since it hangs on a dark
 background.
 

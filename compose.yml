@@ -143,16 +143,16 @@ services:
     environment:
       TZ: ${TZ:-Europe/Berlin}
 
-      # database.yml
+      # The database group
       NORDTAL_DATABASE_JDBC_URL: *db-url
       NORDTAL_DATABASE_USERNAME: nordtal_discord_bot
       NORDTAL_DATABASE_PASSWORD: *db-discord-bot-password
 
-      # bot.yml
+      # The bot group
       NORDTAL_BOT_TOKEN: ${NORDTAL_BOT_TOKEN:?set NORDTAL_BOT_TOKEN in .env}
       # The bunq key lives on steward-bunq, not here.
 
-      # access.yml: the guild and the admin role are required; deploy/nordtal.sh asks for both.
+      # The access group: the guild and the admin role are required; deploy/nordtal.sh asks for both.
       NORDTAL_ACCESS_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in the environment file - deploy/nordtal.sh asks for it}
       NORDTAL_ACCESS_ROLES_ADMIN: ${NORDTAL_ACCESS_ROLES_ADMIN:?set NORDTAL_ACCESS_ROLES_ADMIN in the environment file - deploy/nordtal.sh asks for it}
     volumes:
@@ -345,7 +345,7 @@ services:
       start_period: 120s
     environment:
       TZ: ${TZ:-Europe/Berlin}
-      # database.yml; the only process that migrates.
+      # The database group; the only process that migrates.
       NORDTAL_STEWARD_DATABASE_JDBC_URL: *db-url
       NORDTAL_STEWARD_DATABASE_USERNAME: *db-username
       NORDTAL_STEWARD_DATABASE_PASSWORD: *db-password
@@ -357,29 +357,29 @@ services:
       NORDTAL_STEWARD_DATABASE_SMP_PASSWORD: *db-smp-password
       NORDTAL_STEWARD_DATABASE_STEWARD_PASSWORD: *db-steward-password
 
-      # steward.yml; steward always follows each repository's latest GitHub release.
+      # The steward group; steward always follows each repository's latest GitHub release.
       NORDTAL_STEWARD_SEASON_REPO: ${SEASON_REPO:-}
       # Optional; raises GitHub's rate limit.
       NORDTAL_STEWARD_GITHUB_TOKEN: ${STEWARD_GITHUB_TOKEN:-}
 
-      # steward.yml#agent: recreating a container goes through steward-agent's API.
+      # steward#agent: recreating a container goes through steward-agent's API.
       NORDTAL_STEWARD_AGENT_TOKEN: ${STEWARD_AGENT_TOKEN:?set STEWARD_AGENT_TOKEN in .env - the secret steward and steward-agent share, `openssl rand -hex 32`}
 
-      # steward.yml#bunq: payments go through steward-bunq, which alone holds the bank key.
+      # steward#bunq: payments go through steward-bunq, which alone holds the bank key.
       NORDTAL_STEWARD_BUNQ_TOKEN: ${STEWARD_BUNQ_TOKEN:?set STEWARD_BUNQ_TOKEN in .env - the secret steward and steward-bunq share, `openssl rand -hex 32`}
 
-      # web.yml; the address is also the Discord redirect URI and the WebAuthn origin.
+      # The web group; the address is also the Discord redirect URI and the WebAuthn origin.
       NORDTAL_STEWARD_WEB_PUBLIC_URL: ${STEWARD_PUBLIC_URL:-https://${STEWARD_HOST:?set STEWARD_HOST in .env - the name this interface answers on, e.g. steward.dev.nordtal.eu}}
-      # Must cover the host above, or the container refuses to start; blank keeps web.yml.
+      # Must cover the host above, or the container refuses to start; blank keeps the web group.
       NORDTAL_STEWARD_WEB_WEBAUTHN_RELYING_PARTY_ID: ${STEWARD_WEBAUTHN_RP_ID:-}
       # Discord sign-in; empty disables it, and the sign-in page says which value is missing.
       NORDTAL_STEWARD_WEB_DISCORD_CLIENT_ID: ${STEWARD_DISCORD_CLIENT_ID:-}
       NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET: ${STEWARD_DISCORD_CLIENT_SECRET:-}
-      # Seeded from the same variable as the bot's access.yml.
+      # Seeded from the same variable as the bot's access group.
       NORDTAL_STEWARD_WEB_DISCORD_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in the environment file - deploy/nordtal.sh asks for it}
       # Only lists guild roles and channels for the editor's pickers; empty falls back to text fields.
       NORDTAL_STEWARD_WEB_DISCORD_BOT_TOKEN: ${NORDTAL_BOT_TOKEN:-}
-      # Web Push keys from `steward generate-vapid-keys`; blank keeps what web.yml holds.
+      # Web Push keys from `steward generate-vapid-keys`; blank keeps what the web group holds.
       NORDTAL_STEWARD_WEB_WEB_PUSH_PUBLIC_KEY: ${STEWARD_WEB_PUSH_PUBLIC_KEY:-}
       NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY: ${STEWARD_WEB_PUSH_PRIVATE_KEY:-}
     ports:
@@ -412,7 +412,7 @@ services:
       - ${LIMBO_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-plugins}:/configs/limbo
       - ${HUNGER_GAMES_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games-plugins}:/configs/hunger-games
       - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/configs/smp
-      # What steward.yml#backup.volumes saves, read-only. Proxy and limbo hold nothing worth saving.
+      # What steward#backup.volumes saves, read-only. Proxy and limbo hold nothing worth saving.
       # Plugin paths must match the servers' expressions exactly; TopologyTest holds that.
       - ${SMP_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp}:/backup-sources/nordtal-s2_mc-smp:ro
       - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/backup-sources/nordtal-s2_mc-smp-plugins:ro

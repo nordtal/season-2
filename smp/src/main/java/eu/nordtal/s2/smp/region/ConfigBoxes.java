@@ -6,7 +6,7 @@ import eu.nordtal.s2.smp.config.SpawnRegionSpec;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Turns the box lists in {@code config.yml} into {@link Boxes}. */
+/** Turns the box lists in the {@code config} group into {@link Boxes}. */
 public final class ConfigBoxes {
 
     private ConfigBoxes() {}

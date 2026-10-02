@@ -9,7 +9,7 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 import java.util.List;
 
 /** The languages the network speaks and the zone it tells time in, the defaults of a reader without their own. */
-@ConfigSpec(header = "network: the languages the network speaks and the zone it tells time in")
+@ConfigSpec
 public interface LanguageAndTimeSpec {
 
     @Order(1)

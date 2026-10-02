@@ -8,7 +8,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Which backend a player in each phase belongs on.
  *
- * The mapping is fixed; the names come from {@code gate.yml} and may name a server this proxy lacks.
+ * The mapping is fixed; the names come from the {@code gate} group and may name a server this proxy lacks.
  */
 public final class PhaseServers {
 
@@ -24,7 +24,7 @@ public final class PhaseServers {
         this.smp = requireName("smp", smp);
     }
 
-    /** Reads the server names out of the loaded {@code gate.yml}. */
+    /** Reads the server names out of the loaded {@code gate} group. */
     public static PhaseServers from(final GateSpec config) {
         Objects.requireNonNull(config, "config");
         return new PhaseServers(

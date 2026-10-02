@@ -9,24 +9,7 @@ import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /** What each feedback category sounds like on one server, taken while it runs, since it is tuned by ear. */
-@ConfigSpec(
-        header = {
-            "Sounds",
-            "",
-            "What each feedback category sounds like on this server. A plugin plays categories, never",
-            "a sound of its own, so one change here reaches every call site. Open and close share one",
-            "category. A server answers every category, including those it never plays.",
-            "",
-            "A KEY IS A NAMESPACED REGISTRY KEY, NOT A BUKKIT CONSTANT: minecraft:ui.button.click, never",
-            "UI_BUTTON_CLICK. A key may name a sound from our own resource pack.",
-            "",
-            "AN EMPTY KEY SILENCES THAT CATEGORY. A change applies without a restart.",
-            "An unparseable key is reported in the console and silences its category; it never stops the",
-            "server. A key that names no sound plays nothing, as a pack sound does before the pack is in.",
-            "",
-            "Volume above 1 does not get louder, it widens the radius other players hear it from.",
-            "Pitch is playback speed; the client clamps it to 0.5 to 2.0."
-        })
+@ConfigSpec
 public interface SoundsSpec {
 
     @Order(1)

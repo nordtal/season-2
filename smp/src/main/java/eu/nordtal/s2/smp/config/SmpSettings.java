@@ -76,7 +76,7 @@ public final class SmpSettings {
     }
 
     /**
-     * Refuses a {@code config.yml} the season cannot run on.
+     * Refuses a {@code config} group the season cannot run on.
      *
      * @throws IllegalArgumentException naming the first value that is wrong
      */

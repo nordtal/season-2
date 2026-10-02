@@ -3,13 +3,13 @@ package eu.nordtal.s2.settings;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
-/** The connection pool a Minecraft process opens from its {@code database.yml}. */
+/** The connection pool a Minecraft process opens from its {@code database} group. */
 public final class DatabasePool {
 
     private DatabasePool() {}
 
     /**
-     * Refuses a {@code database.yml} no pool can be opened from.
+     * Refuses a {@code database} group no pool can be opened from.
      *
      * @throws IllegalArgumentException naming the first value that is wrong
      */

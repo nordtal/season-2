@@ -10,7 +10,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * The language list from {@code access.yml}, and every rule that reads it.
+ * The language list from the {@code access} group, and every rule that reads it.
  *
  * The configured order is kept end to end; an id may be empty, so callers check {@link Configured#isSet(String)}.
  */
@@ -75,7 +75,7 @@ public final class Languages {
         return new Languages(copy);
     }
 
-    /** Returns every configured language, in the order {@code access.yml} lists them. */
+    /** Returns every configured language, in the order the {@code access} group lists them. */
     public List<Language> all() {
         return ordered;
     }

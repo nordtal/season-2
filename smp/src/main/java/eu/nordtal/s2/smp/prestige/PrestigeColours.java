@@ -43,7 +43,7 @@ public final class PrestigeColours {
     }
 
     /**
-     * Parses the {@code colours} block of {@code prestige.yml}, replacing a bad value with its default.
+     * Parses the {@code colours} block of the {@code prestige} group, replacing a bad value with its default.
      *
      * @param declaredTiers exactly {@link Prestige#TIER_COUNT} hex strings, tier 1 first
      * @param declaredAdmin the admin colour's hex string

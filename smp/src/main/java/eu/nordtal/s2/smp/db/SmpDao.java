@@ -41,7 +41,7 @@ public interface SmpDao {
     /**
      * The keys of every milestone that is finished.
      *
-     * What each unlocked lives in {@code milestones.yml}, checked against these by {@code TrackValidation}.
+     * What each unlocked lives in the {@code milestones} group, checked against these by {@code TrackValidation}.
      */
     @SqlQuery("SELECT key FROM smp_milestone WHERE state = 'UNLOCKED' ORDER BY key")
     List<String> completedMilestoneKeys();

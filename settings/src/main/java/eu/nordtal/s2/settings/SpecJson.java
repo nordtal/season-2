@@ -7,8 +7,12 @@ import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.internal.SpecPaths;
 import eu.nordtal.jcore.config.schema.SchemaNode;
 import eu.nordtal.jcore.config.schema.SchemaWriter;
+import eu.nordtal.jcore.config.spec.SpecProperty;
 import eu.nordtal.jcore.config.spec.Specs;
+import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -65,9 +69,52 @@ final class SpecJson {
         }
     }
 
-    /** Returns the spec's schema tree as JSON text, as Steward draws a group from it. */
+    /** Returns the spec's schema tree as JSON text, as Steward draws a group from it, with what each value names. */
     static String schema(final Class<?> spec) {
-        return GSON.toJson(SchemaWriter.build(spec));
+        final JsonObject tree = GSON.toJsonTree(SchemaWriter.build(spec)).getAsJsonObject();
+        addReferences(spec, tree);
+        return GSON.toJson(tree);
+    }
+
+    /** Puts each {@link Refers} of {@code spec} on its node as {@code refers}, nested specs and list entries too. */
+    private static void addReferences(final Class<?> spec, final JsonObject node) {
+        if (!(node.get("children") instanceof final JsonObject children)) {
+            return;
+        }
+        for (final SpecProperty property : Specs.from(spec).properties().values()) {
+            if (property.isHandledByProxy() || !(children.get(property.key()) instanceof final JsonObject child)) {
+                continue;
+            }
+            final Method getter = property.getter();
+            final Refers refers = getter.getAnnotation(Refers.class);
+            if (refers != null) {
+                final JsonObject declared = new JsonObject();
+                declared.addProperty("to", refers.value().name());
+                if (!refers.dependsOn().isEmpty()) {
+                    declared.addProperty("dependsOn", refers.dependsOn());
+                }
+                declared.addProperty("optional", refers.optional());
+                child.add("refers", declared);
+            }
+            final Class<?> nested = nestedSpec(getter);
+            if (nested != null) {
+                addReferences(nested, child);
+            }
+        }
+    }
+
+    /** Returns the spec a getter holds, alone or as the entries of a list, or {@code null} for a plain value. */
+    private static @Nullable Class<?> nestedSpec(final Method getter) {
+        if (Specs.isConfigSpec(getter.getReturnType())) {
+            return getter.getReturnType();
+        }
+        if (getter.getGenericReturnType() instanceof final ParameterizedType list
+                && Collection.class.isAssignableFrom(getter.getReturnType())
+                && list.getActualTypeArguments()[0] instanceof final Class<?> element
+                && Specs.isConfigSpec(element)) {
+            return element;
+        }
+        return null;
     }
 
     /** Returns the value at a dotted path, or {@code null} when a segment is absent. */

@@ -8,6 +8,7 @@ import eu.nordtal.jcore.config.schema.SchemaNode;
 import eu.nordtal.jcore.config.schema.SettingType;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.setting.SettingStore;
+import eu.nordtal.s2.settings.Refers;
 import io.javalin.http.BadRequestResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -137,7 +138,8 @@ final class SettingsDocument {
                 shown && kind == Shape.SECTIONS ? templateOf(node) : null,
                 shown && kind == Shape.SECTIONS ? sectionsOf(node, path, value) : null,
                 objectAt(node, "choices", SchemaNode.Choices.class),
-                objectAt(node, "protectedEntry", SchemaNode.ProtectedEntry.class));
+                objectAt(node, "protectedEntry", SchemaNode.ProtectedEntry.class),
+                objectAt(node, "refers", Reference.class));
     }
 
     private List<List<Entry>> sectionsOf(final JsonObject node, final String path, final @Nullable JsonElement value) {
@@ -349,6 +351,7 @@ final class SettingsDocument {
      * @param template one section's fields in display order, the blank one "Add" starts from
      * @param sections one field list per section the list holds, in order
      * @param protectedEntry the one section a save may never remove
+     * @param refers what the value names, which Steward offers a picker for
      */
     public record Entry(
             String path,
@@ -367,5 +370,14 @@ final class SettingsDocument {
             @Nullable List<Entry> template,
             @Nullable List<List<Entry>> sections,
             SchemaNode.@Nullable Choices choices,
-            SchemaNode.@Nullable ProtectedEntry protectedEntry) {}
+            SchemaNode.@Nullable ProtectedEntry protectedEntry,
+            @Nullable Reference refers) {}
+
+    /**
+     * What a value names, as its spec declares it with {@link Refers}.
+     *
+     * @param dependsOn the sibling key whose value decides the registry, for {@link Refers.To#SUBJECT}
+     * @param optional whether an empty value is a choice of its own
+     */
+    public record Reference(Refers.To to, @Nullable String dependsOn, boolean optional) {}
 }

@@ -3,6 +3,7 @@ package eu.nordtal.s2.steward.api;
 import eu.nordtal.jcore.config.schema.SchemaNode;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.ImageResult;
+import eu.nordtal.s2.settings.Refers;
 import java.util.List;
 import java.util.Map;
 
@@ -46,6 +47,8 @@ public final class ApiWire {
             Map.entry(SettingsDocument.Shape.class, "ConfigShape"),
             Map.entry(SchemaNode.Choices.class, "ConfigChoices"),
             Map.entry(SchemaNode.ProtectedEntry.class, "ConfigProtectedEntry"),
+            Map.entry(SettingsDocument.Reference.class, "ConfigReference"),
+            Map.entry(Refers.To.class, "ReferenceKind"),
             Map.entry(Reloading.class, "ReloadOutcome"),
             Map.entry(Reloading.Status.class, "ReloadStatus"),
             Map.entry(MessagesApi.BundleLocation.class, "MessageBundleLocation"),

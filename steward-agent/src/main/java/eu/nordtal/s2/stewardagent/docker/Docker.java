@@ -31,6 +31,9 @@ public final class Docker {
 
     private static final String LABEL_SERVICE = "com.docker.compose.service";
 
+    /** What compose hashed the service's definition to when it made this container. */
+    private static final String LABEL_CONFIG_HASH = "com.docker.compose.config-hash";
+
     /** How long past the grace a stop is waited for: the kill and its answer. */
     static final java.time.Duration KILL_MARGIN = java.time.Duration.ofSeconds(15);
 
@@ -69,7 +72,8 @@ public final class Docker {
                     string(json, "Image"),
                     string(json, "ImageID"),
                     string(json, "State"),
-                    string(json, "Status")));
+                    string(json, "Status"),
+                    string(labels, LABEL_CONFIG_HASH)));
         }
         return containers;
     }
@@ -356,7 +360,11 @@ public final class Docker {
                 sum(json, "Containers", "SizeRw"));
     }
 
-    /** One container as the list shows it. {@code service} is null for anything not from compose. */
+    /**
+     * One container as the list shows it. {@code service} is null for anything not from compose.
+     *
+     * @param configHash compose's hash of the definition the container was made from, null for anything else
+     */
     public record Container(
             String id,
             @Nullable String service,
@@ -364,7 +372,8 @@ public final class Docker {
             @Nullable String image,
             @Nullable String imageId,
             @Nullable String state,
-            @Nullable String status) {
+            @Nullable String status,
+            @Nullable String configHash) {
 
         public boolean isRunning() {
             return "running".equalsIgnoreCase(state);

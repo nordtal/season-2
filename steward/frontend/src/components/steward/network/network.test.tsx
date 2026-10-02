@@ -177,13 +177,13 @@ describe("the network view", () => {
     draw()
     await waitFor(() => expect(within(box("smp")).getByLabelText("healthy")).toBeTruthy())
 
-    expect(within(box("hunger-games")).getByLabelText("a newer image exists")).toBeTruthy()
+    expect(within(box("hunger-games")).getByLabelText("out of date")).toBeTruthy()
     expect(within(box("proxy")).getByLabelText("built on this host")).toBeTruthy()
     expect(within(box("discord-bot")).getByLabelText("image not compared")).toBeTruthy()
 
     // Up to date says nothing, the way the sidebar's dot and the Issues tile say nothing.
     const current = within(box("smp"))
-    expect(current.queryByLabelText("a newer image exists")).toBeNull()
+    expect(current.queryByLabelText("out of date")).toBeNull()
     expect(current.queryByLabelText("built on this host")).toBeNull()
     expect(current.queryByLabelText("image not compared")).toBeNull()
   })
@@ -311,9 +311,9 @@ describe("the network on a phone", () => {
       expect(within(row(silent)).queryByTitle("players")).toBeNull()
     }
     // And the same drift marks, from the same component.
-    expect(within(row("hunger-games")).getByLabelText("a newer image exists")).toBeTruthy()
+    expect(within(row("hunger-games")).getByLabelText("out of date")).toBeTruthy()
     expect(within(row("proxy")).getByLabelText("built on this host")).toBeTruthy()
     expect(within(row("discord-bot")).getByLabelText("image not compared")).toBeTruthy()
-    expect(within(row("smp")).queryByLabelText("a newer image exists")).toBeNull()
+    expect(within(row("smp")).queryByLabelText("out of date")).toBeNull()
   })
 })

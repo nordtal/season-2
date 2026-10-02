@@ -35,11 +35,13 @@ public final class AgentApi implements AutoCloseable {
      * Wires the routes of one compose project.
      *
      * @param definitions compose.yml's services, which every label is read from
+     * @param hashes compose's hash of each service's definition, which a container's own label is compared with
      */
     public AgentApi(
             final Docker docker,
             final String project,
             final ComposeTopology.Definitions definitions,
+            final Containers.Definitions hashes,
             final Paths paths,
             final Clock clock) {
         final ComposeTopology topology =
@@ -48,7 +50,7 @@ public final class AgentApi implements AutoCloseable {
         this.logs = new LogStreams(docker, project, paths.volumesRoot(), clock);
         this.routes = new AgentRoutes(
                 docker,
-                new Containers(docker, project),
+                new Containers(docker, project, hashes),
                 new Console(docker, project, topology::consoles),
                 sampler,
                 topology);

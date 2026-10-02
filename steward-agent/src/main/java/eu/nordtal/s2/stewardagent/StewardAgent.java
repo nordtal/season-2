@@ -202,7 +202,7 @@ public final class StewardAgent {
         final String project = compose.projectName();
         final AgentApi.Paths paths = pathsOf(server, runs.get());
         final PluginDirectory plugins = PluginDirectory.using(database.dataSource());
-        final AgentApi api = new AgentApi(docker, project, compose::definitions, paths, clock);
+        final AgentApi api = new AgentApi(docker, project, compose::definitions, compose::hashes, paths, clock);
         final RunRoutes runRoutes = new RunRoutes(runs::get, plugins, database, clock);
         if (!docker.isReachable()) {
             log.warn("No docker socket answers, so every container route answers that the daemon is not answering.");
@@ -224,7 +224,8 @@ public final class StewardAgent {
             final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
             final ComposeTopology topology = new ComposeTopology(
                     compose::definitions, paths.backupSources().toString(), clock);
-            final LocalStack stack = new LocalStack(docker, new Containers(docker, project), topology, compose);
+            final LocalStack stack =
+                    new LocalStack(docker, new Containers(docker, project, compose::hashes), topology, compose);
             final LocalSnapshots snapshots = snapshotsOf(docker, project, paths, clock, runs, database);
             try (SignalHub signals = SignalHub.open(
                             databaseConfig.jdbcUrl(),

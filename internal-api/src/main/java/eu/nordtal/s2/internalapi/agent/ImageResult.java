@@ -27,7 +27,7 @@ public record ImageResult(
     /** What is known about one service's image. */
     public enum State {
 
-        /** The registry has a newer image than the one this container was created from. */
+        /** compose.yml now makes this container differently, or the registry has a newer image under its tag. */
         OUTDATED,
 
         /** Checked, and what is running is what the registry has. */

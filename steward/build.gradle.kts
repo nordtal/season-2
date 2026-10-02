@@ -40,7 +40,6 @@ repositoryRootTestInputs {
     // DiscordAuthTest reads the documented environment beside the setup script.
     reads("deploy/dev.env.example")
 
-
     // DocumentedCommandsTest reads every document that shows a `steward` command.
     reads("steward/README.md")
     reads("deploy/jvm/Dockerfile")

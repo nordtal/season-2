@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import type { ConfigEntry, ParsedConfigDocument } from "@/lib/api"
+import type { ConfigEntry, ConfigDocument } from "@/lib/api"
 import { announcementTargets } from "@/lib/announcement-targets"
 import { AnnouncementsPage } from "@/pages/announcements"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -31,17 +31,21 @@ function field(key: string, value: string): ConfigEntry {
     filled: true,
     editable: true,
     secret: false,
+    environmentOverridden: false,
   }
 }
 
-function accessFile({ en = "111", de = "", overridden = false } = {}): ParsedConfigDocument {
+function accessFile({ en = "111", de = "", overridden = false } = {}): ConfigDocument {
   return {
     service: "discord-bot",
     path: "discord-bot/access",
     name: "access",
+    label: "",
+    live: true,
     readable: true,
     writable: true,
     revision: "r1",
+    restartRequired: false,
     entries: [
       {
         path: "languages",

@@ -44,6 +44,8 @@ function json(body: unknown): Response {
 function location(over: Partial<ConfigLocation> & { path: string; name: string }): ConfigLocation {
   return {
     service: "steward",
+    label: "",
+    live: true,
     readable: true,
     writable: true,
     ...over,
@@ -62,6 +64,7 @@ function entry(over: Partial<ConfigEntry> & { path: string; key: string }): Conf
     type: "STRING",
     editable: true,
     secret: false,
+    environmentOverridden: false,
     ...over,
   }
 }
@@ -175,6 +178,8 @@ describe("the file row", () => {
       service: "smp",
       name,
       path: `smp/${name}`,
+      label: "",
+      live: true,
       readable: true,
       writable: true,
     }))
@@ -279,7 +284,14 @@ describe("searching a file", () => {
     const token = "MTA1NzE4.super-secret-discord-token"
     withEntries([
       /** A secret carrying a value despite the wire contract, which the search must still refuse. */
-      entry({ path: "discord.bot-token", key: "bot-token", label: "Bot token", secret: true, value: token }),
+      entry({
+        path: "discord.bot-token",
+        key: "bot-token",
+        label: "Bot token",
+        secret: true,
+        environmentOverridden: false,
+        value: token,
+      }),
     ])
     draw(<Settings service="steward" />)
     await open("Steward")
@@ -292,7 +304,14 @@ describe("searching a file", () => {
 
   it("still finds that secret entry by its label - only the value is excluded", async () => {
     withEntries([
-      entry({ path: "discord.bot-token", key: "bot-token", label: "Bot token", secret: true, value: "irrelevant" }),
+      entry({
+        path: "discord.bot-token",
+        key: "bot-token",
+        label: "Bot token",
+        secret: true,
+        environmentOverridden: false,
+        value: "irrelevant",
+      }),
     ])
     draw(<Settings service="steward" />)
     await open("Steward")
@@ -384,8 +403,6 @@ describe("headings and explanations", () => {
 
 /**
  * A field an environment variable overrides must not draw as editable, since saving it changes nothing.
- *
- * `environmentOverridden` absent, `true` and `false` all draw differently.
  */
 describe("environment overrides", () => {
   const file = "steward/steward"
@@ -424,15 +441,6 @@ describe("environment overrides", () => {
 
   it("shows nothing when the environment does not override this field", async () => {
     withField({ environmentOverridden: false })
-    draw(<Settings service="steward" />)
-    await open("Steward")
-    await screen.findByText("Base url")
-
-    expect(screen.queryByText("env override")).toBeNull()
-  })
-
-  it("shows nothing when the service never reported which paths the environment overrides - absent is not the same as false", async () => {
-    withField({})
     draw(<Settings service="steward" />)
     await open("Steward")
     await screen.findByText("Base url")
@@ -623,7 +631,9 @@ describe("repeatable cards for a SECTIONS entry", () => {
     const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url, init) => {
       if (url === "/api/messages") return json([])
       if (url === "/api/setting-groups") {
-        return json([{ service: "discord-bot", name: "access", path: file, readable: true, writable: true }])
+        return json([
+          { service: "discord-bot", name: "access", path: file, label: "", live: true, readable: true, writable: true },
+        ])
       }
       if (url === "/api/discord/roles" || url === "/api/discord/channels") return json(GUILD_UNAVAILABLE)
       if (url === `/api/setting-groups/${file}` && init?.method === "PUT") {

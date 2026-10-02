@@ -9,7 +9,6 @@ import io.javalin.http.BadRequestResponse;
 import io.javalin.http.ConflictResponse;
 import io.javalin.http.Context;
 import io.javalin.http.NotFoundResponse;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
@@ -42,7 +41,7 @@ public final class SettingsApi {
 
     /** {@code GET /api/setting-groups/{service}/{name}}: one group as the form draws it. */
     void one(final Context ctx) {
-        ctx.json(documentOf(groupOf(ctx)).toJson());
+        ctx.json(documentOf(groupOf(ctx)).document(null));
     }
 
     /**
@@ -70,9 +69,7 @@ public final class SettingsApi {
         }
         final SettingStore.Group now =
                 store.group(group.service(), group.name()).orElse(group);
-        final Map<String, Object> answer = new LinkedHashMap<>(documentOf(now).toJson());
-        answer.put("reload", outcomeOf(now));
-        ctx.json(answer);
+        ctx.json(documentOf(now).document(outcomeOf(now)));
     }
 
     private SettingStore.Group groupOf(final Context ctx) {
@@ -89,11 +86,11 @@ public final class SettingsApi {
         return SettingsDocument.of(group, stored);
     }
 
-    private static Map<String, Object> outcomeOf(final SettingStore.Group group) {
+    private static Reloading outcomeOf(final SettingStore.Group group) {
         final String who = SettingStore.NETWORK.equals(group.service()) ? "every server" : group.service();
         return group.live()
-                ? Map.of("status", "APPLIED", "message", "Saved, " + who + " takes it at once.")
-                : Map.of("status", "RESTART_REQUIRED", "message", "Saved, " + who + " takes it at its next start.");
+                ? Reloading.applied("Saved, " + who + " takes it at once.")
+                : Reloading.restartRequired("Saved, " + who + " takes it at its next start.");
     }
 
     private static JsonObject bodyOf(final String body) {

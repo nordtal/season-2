@@ -1,9 +1,8 @@
 package eu.nordtal.s2.steward.discord;
 
 import io.javalin.http.Context;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Two routes over {@link DiscordDirectory}: the names of the guild's roles and of its channels.
@@ -29,28 +28,34 @@ public final class DiscordApi {
     private void answer(final Context ctx, final Supplier lookup) {
         final String unavailable = directory.unavailable();
         if (unavailable != null) {
-            ctx.json(Map.of("available", false, "reason", unavailable, "entries", List.of()));
+            ctx.json(new Guild(false, unavailable, List.of()));
             return;
         }
         try {
-            ctx.json(Map.of(
-                    "available",
+            ctx.json(new Guild(
                     true,
-                    "entries",
-                    lookup.get().stream().map(DiscordApi::describe).toList()));
+                    null,
+                    lookup.get().stream()
+                            .map(entry -> new Pick(entry.id(), entry.name(), entry.type()))
+                            .toList()));
         } catch (final DiscordDirectory.DirectoryException failure) {
-            ctx.json(Map.of("available", false, "reason", failure.getMessage(), "entries", List.of()));
+            ctx.json(new Guild(false, failure.getMessage(), List.of()));
         }
     }
 
-    private static Map<String, Object> describe(final DiscordDirectory.Entry entry) {
-        // LinkedHashMap rather than Map.of, since `type` is null for a role and Map.of refuses null.
-        final Map<String, Object> row = new LinkedHashMap<>();
-        row.put("id", entry.id());
-        row.put("name", entry.name());
-        row.put("type", entry.type());
-        return row;
-    }
+    /**
+     * What the guild is made of, or why that could not be answered; without it an id can still be typed.
+     *
+     * @param reason why the guild could not be asked, absent while it could
+     */
+    public record Guild(boolean available, @Nullable String reason, List<Pick> entries) {}
+
+    /**
+     * One role or channel as a picker offers it, in the guild's own order.
+     *
+     * @param type Discord's channel type, absent for a role, so a category groups apart from its channels
+     */
+    public record Pick(String id, String name, @Nullable Integer type) {}
 
     @FunctionalInterface
     private interface Supplier {

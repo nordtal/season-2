@@ -15,6 +15,20 @@ import {
   type Announcements,
   type HungerGamesRound,
   type ConfigChanges,
+  type KeyRegistered,
+  type KeyRenamed,
+  type KeyRemoved,
+  type CommandAsked,
+  type AnnouncementsAsked,
+  type PageSettings,
+  type ConsoleSent,
+  type PluginAdded,
+  type RestoreAsked,
+  type RemovalAsked,
+  type AdminGranted,
+  type AdminRevoked,
+  type Exempted,
+  type Settled,
   type ConfigDocument,
   type ConfigLocation,
   type AgentState,
@@ -33,7 +47,6 @@ import {
   type Person,
   type PluginSearch,
   type ServicePlugins,
-  type ReloadAwareConfigDocument,
   type Available,
   type Run,
   type ActiveRun,
@@ -148,7 +161,7 @@ export function useRegisterKey() {
         /** Rethrown as a plain Error, so the form prints one sentence rather than "NotAllowedError". */
         throw new Error(whyTheKeyFailed(refused), { cause: refused })
       }
-      const registered = await api<{ label: string; backedUp: boolean }>("/auth/webauthn/register/finish", {
+      const registered = await api<KeyRegistered>("/auth/webauthn/register/finish", {
         method: "POST",
         body: { label, credential },
       })
@@ -175,7 +188,7 @@ export function useRenameKey() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, label }: { id: string; label: string }) => {
-      const renamed = await api<{ label: string }>(`/api/keys/${encodeURIComponent(id)}`, {
+      const renamed = await api<KeyRenamed>(`/api/keys/${encodeURIComponent(id)}`, {
         method: "PUT",
         body: { label },
       })
@@ -190,7 +203,7 @@ export function useRemoveKey() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      const removed = await api<{ removed: string; left: number }>(`/api/keys/${encodeURIComponent(id)}`, {
+      const removed = await api<KeyRemoved>(`/api/keys/${encodeURIComponent(id)}`, {
         method: "DELETE",
       })
       await client.invalidateQueries({ queryKey: keys.me })
@@ -410,8 +423,7 @@ export function useHungerGamesRound() {
 export function useGameAction() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: ({ path, body }: { path: string; body: unknown }) =>
-      api<{ id: string }>(path, { method: "POST", body }),
+    mutationFn: ({ path, body }: { path: string; body: unknown }) => api<CommandAsked>(path, { method: "POST", body }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ["journal"] })
     },
@@ -432,7 +444,7 @@ export function useSendAnnouncement() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (texts: Record<string, string>) =>
-      api<{ ids: Record<string, string> }>("/api/announcements", { method: "POST", body: { texts } }),
+      api<AnnouncementsAsked>("/api/announcements", { method: "POST", body: { texts } }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: keys.announcements })
       void client.invalidateQueries({ queryKey: ["journal"] })
@@ -503,7 +515,7 @@ export function useAlerts(enabled = true) {
 export function useAvatarBaseUrl(enabled = true) {
   return useQuery({
     queryKey: keys.settings,
-    queryFn: () => api<{ minecraftHeadBaseUrl: string }>("/api/settings"),
+    queryFn: () => api<PageSettings>("/api/settings"),
     staleTime: 5 * 60 * SECOND,
     enabled,
     select: (settings) => settings.minecraftHeadBaseUrl,
@@ -704,7 +716,7 @@ export function useCancelRun() {
 export function useConsole(service: string) {
   return useMutation({
     mutationFn: (command: string) =>
-      api<{ sent: string; where: string }>(`/api/services/${encodeURIComponent(service)}/console`, {
+      api<ConsoleSent>(`/api/services/${encodeURIComponent(service)}/console`, {
         method: "POST",
         body: { command },
       }),
@@ -740,10 +752,7 @@ export function useInstallPlugin(service: string) {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (hit: { projectId: string; slug: string; title: string; iconUrl?: string }) =>
-      api<{ artifact: string; fileName: string; version: string }>(
-        `/api/services/${encodeURIComponent(service)}/plugins`,
-        { method: "POST", body: hit },
-      ),
+      api<PluginAdded>(`/api/services/${encodeURIComponent(service)}/plugins`, { method: "POST", body: hit }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: keys.plugins(service) })
       // The search rows carry `added`, so they are wrong the moment this succeeds.
@@ -757,7 +766,7 @@ export function useRestore() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: ({ archive, confirm }: { archive: string; confirm: string }) =>
-      api<{ id: number; kind: string; archive: string }>(`/api/backups/${encodeURIComponent(archive)}/restore`, {
+      api<RestoreAsked>(`/api/backups/${encodeURIComponent(archive)}/restore`, {
         method: "POST",
         body: { confirm },
       }),
@@ -772,10 +781,9 @@ export function useRemovePlugin(service: string) {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (artifact: string) =>
-      api<{ id: number; kind: string; artifact: string }>(
-        `/api/services/${encodeURIComponent(service)}/plugins/${encodeURIComponent(artifact)}`,
-        { method: "DELETE" },
-      ),
+      api<RemovalAsked>(`/api/services/${encodeURIComponent(service)}/plugins/${encodeURIComponent(artifact)}`, {
+        method: "DELETE",
+      }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ["runs"] })
     },
@@ -791,7 +799,7 @@ export function useSaveConfig(file: string) {
   const client = useQueryClient()
   return useMutation({
     mutationFn: ({ revision, changes }: { revision: string; changes: ConfigChanges }) =>
-      api<ReloadAwareConfigDocument>(`/api/setting-groups/${encodePath(file)}`, {
+      api<ConfigDocument>(`/api/setting-groups/${encodePath(file)}`, {
         method: "PUT",
         body: { revision, changes },
       }),
@@ -884,8 +892,7 @@ export function useUnlink() {
 export function useGrantAdmin() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (discordId: string) =>
-      api<{ outcome: string }>("/api/admins/grant", { method: "POST", body: { discordId } }),
+    mutationFn: (discordId: string) => api<AdminGranted>("/api/admins/grant", { method: "POST", body: { discordId } }),
     onSettled: () => client.invalidateQueries({ queryKey: keys.people }),
   })
 }
@@ -895,7 +902,7 @@ export function useRevokeAdmin() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (discordId: string) =>
-      api<{ outcome: string; removed: string[] }>("/api/admins/revoke", {
+      api<AdminRevoked>("/api/admins/revoke", {
         method: "POST",
         body: { discordId },
       }),
@@ -908,7 +915,7 @@ export function useExemptFromPack() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (discordId: string) =>
-      api<{ outcome: string }>("/api/pack-exemptions/exempt", { method: "POST", body: { discordId } }),
+      api<Exempted>("/api/pack-exemptions/exempt", { method: "POST", body: { discordId } }),
     onSettled: () => client.invalidateQueries({ queryKey: keys.people }),
   })
 }
@@ -918,17 +925,9 @@ export function useEnforcePack() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (discordId: string) =>
-      api<{ outcome: string }>("/api/pack-exemptions/enforce", { method: "POST", body: { discordId } }),
+      api<Exempted>("/api/pack-exemptions/enforce", { method: "POST", body: { discordId } }),
     onSettled: () => client.invalidateQueries({ queryKey: keys.people }),
   })
-}
-
-/** What a booking by hand answered. */
-interface Settled {
-  outcome?: "BOOKED" | "NOT_OPEN" | "UNKNOWN"
-  days?: number
-  until?: string
-  was?: string
 }
 
 /** Books a payment by hand; `outcome` is `BOOKED`, `NOT_OPEN` (then `was` says what it is) or `UNKNOWN`. */

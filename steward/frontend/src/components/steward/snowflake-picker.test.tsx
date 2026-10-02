@@ -30,8 +30,8 @@ afterEach(cleanup)
 const ROLES: GuildList = {
   available: true,
   entries: [
-    { id: "100000000000000001", name: "Admin", type: null },
-    { id: "100000000000000002", name: "Donor", type: null },
+    { id: "100000000000000001", name: "Admin" },
+    { id: "100000000000000002", name: "Donor" },
   ],
 }
 
@@ -55,6 +55,7 @@ function entry(over: Partial<ConfigEntry>): ConfigEntry {
     type: "STRING",
     editable: true,
     secret: false,
+    environmentOverridden: false,
     ...over,
   }
 }
@@ -192,9 +193,9 @@ describe("discordId", () => {
     const three: GuildList = {
       available: true,
       entries: [
-        { id: "100000000000000001", name: "Admin", type: null },
-        { id: "100000000000000002", name: "Donor", type: null },
-        { id: "100000000000000003", name: "Moderator", type: null },
+        { id: "100000000000000001", name: "Admin" },
+        { id: "100000000000000002", name: "Donor" },
+        { id: "100000000000000003", name: "Moderator" },
       ],
     }
     render(

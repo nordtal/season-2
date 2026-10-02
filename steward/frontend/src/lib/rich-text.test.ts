@@ -4,9 +4,9 @@ import type { MessageArg } from "@/lib/api"
 import { applyStyle, commonStyle, gradientAt, insert, parse, remove, serialize, totalLength } from "@/lib/rich-text"
 
 const ARGS: MessageArg[] = [
-  { name: "invite", component: false },
-  { name: "_sender", component: true },
-  { name: "player.name", component: false, type: "player" },
+  { name: "invite", component: false, global: false },
+  { name: "_sender", component: true, global: false },
+  { name: "player.name", component: false, type: "player", global: false },
 ]
 
 const roundTrip = (text: string, format: "MINIMESSAGE" | "DISCORD_MARKDOWN" | "PLAIN" = "MINIMESSAGE") =>

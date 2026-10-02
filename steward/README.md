@@ -85,7 +85,9 @@ pin and no rollback: a bad release is corrected by publishing a better one.
   `@Nullable` component is an absent field, never a `null`, since the codec drops nulls. `WireJson` is
   the one codec of the routes and names the enums spelled in lowercase, for both sides. No fetch
   functions are generated: the routes are registered by hand, so there is no catalogue to write them
-  from.
+  from. Three types stay written by hand in `lib/api.ts`: the bodies of a settings save and a
+  message save, where a `null` resets a value and an absent key leaves it, which an optional field
+  cannot say, and the glyph manifest, which is a file of the pack build rather than an answer.
 - **Alerts.** Every alert is a row in `admin_alert`, raised by whoever saw it: steward measures the
   stack every 30 seconds against the `web` group's thresholds and raises a failed run and a payment
   nobody can book, once per bank payment; the bot raises what it could not do in Discord or with a purchase. Steward routes each row once, to Web Push and to the admin channel through the

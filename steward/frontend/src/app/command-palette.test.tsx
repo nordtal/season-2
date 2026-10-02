@@ -12,7 +12,7 @@ import type {
   MessageBundle,
   MessageBundleLocation,
   MessageEntry,
-  ParsedConfigDocument,
+  ConfigDocument,
   Run,
 } from "@/lib/api"
 
@@ -90,7 +90,7 @@ async function search(query: string) {
 }
 
 function configLocation(over: Partial<ConfigLocation> & { path: string; name: string }): ConfigLocation {
-  return { service: "steward", readable: true, writable: true, ...over }
+  return { service: "steward", label: "", live: true, readable: true, writable: true, ...over }
 }
 
 function configEntry(over: Partial<ConfigEntry> & { path: string; key: string }): ConfigEntry {
@@ -105,6 +105,7 @@ function configEntry(over: Partial<ConfigEntry> & { path: string; key: string })
     type: "STRING",
     editable: true,
     secret: false,
+    environmentOverridden: false,
     ...over,
   }
 }
@@ -112,7 +113,7 @@ function configEntry(over: Partial<ConfigEntry> & { path: string; key: string })
 /** Wires `useConfigs` and `useConfigDocuments` for one file, paired by index as the palette pairs them. */
 function oneFile(loc: ConfigLocation, entries: ConfigEntry[]) {
   vi.mocked(useConfigs).mockReturnValue(queryResult([loc]))
-  const document: ParsedConfigDocument = { ...loc, revision: "r1", entries }
+  const document: ConfigDocument = { ...loc, revision: "r1", restartRequired: false, entries }
   vi.mocked(useConfigDocuments).mockReturnValue([queryResult(document)])
 }
 
@@ -145,6 +146,7 @@ function accessFileScalar(path: string, key: string, label: string, explanation:
     type: "STRING",
     editable: true,
     secret: false,
+    environmentOverridden: false,
   }
 }
 
@@ -154,6 +156,8 @@ function accessFile() {
     service: "discord-bot",
     name: "access",
     path: "discord-bot/access",
+    label: "",
+    live: true,
     readable: true,
     writable: true,
   }
@@ -181,7 +185,9 @@ function accessFile() {
     ),
   ]
   vi.mocked(useConfigs).mockReturnValue(queryResult([loc]))
-  vi.mocked(useConfigDocuments).mockReturnValue([queryResult({ ...loc, revision: "r1", entries })])
+  vi.mocked(useConfigDocuments).mockReturnValue([
+    queryResult({ ...loc, revision: "r1", restartRequired: false, entries }),
+  ])
 }
 
 /** Every row the palette is currently showing, top to bottom, by its visible text. */
@@ -196,8 +202,8 @@ function twoServicesWithTheSameSetting() {
   const same = configEntry({ path: "agent.base-url", key: "base-url", label: "Base url" })
   vi.mocked(useConfigs).mockReturnValue(queryResult([steward, bot]))
   vi.mocked(useConfigDocuments).mockReturnValue([
-    queryResult({ ...steward, revision: "r1", entries: [same] }),
-    queryResult({ ...bot, revision: "r1", entries: [{ ...same }] }),
+    queryResult({ ...steward, revision: "r1", restartRequired: false, entries: [same] }),
+    queryResult({ ...bot, revision: "r1", restartRequired: false, entries: [{ ...same }] }),
   ])
 }
 
@@ -329,7 +335,14 @@ describe("CommandPalette - finding a setting", () => {
     const token = "super-secret-discord-token"
     oneFile(loc, [
       /** As if a bug sent a secret's value anyway: the client's own guard has to hold. */
-      configEntry({ path: "discord.bot-token", key: "bot-token", label: "Bot token", secret: true, value: token }),
+      configEntry({
+        path: "discord.bot-token",
+        key: "bot-token",
+        label: "Bot token",
+        secret: true,
+        environmentOverridden: false,
+        value: token,
+      }),
     ])
 
     await search(token)
@@ -345,6 +358,7 @@ describe("CommandPalette - finding a setting", () => {
         key: "bot-token",
         label: "Bot token",
         secret: true,
+        environmentOverridden: false,
         value: "irrelevant",
       }),
     ])
@@ -488,6 +502,8 @@ describe("CommandPalette - finding a message bundle key", () => {
       service: "smp",
       name: "steward",
       path: "smp/steward.yml",
+      label: "",
+      live: true,
       readable: true,
       writable: true,
     }
@@ -502,9 +518,12 @@ describe("CommandPalette - finding a message bundle key", () => {
       type: "BOOLEAN",
       editable: true,
       secret: false,
+      environmentOverridden: false,
     }
     vi.mocked(useConfigs).mockReturnValue(queryResult([configLoc]))
-    vi.mocked(useConfigDocuments).mockReturnValue([queryResult({ ...configLoc, revision: "r1", entries: [gravEntry] })])
+    vi.mocked(useConfigDocuments).mockReturnValue([
+      queryResult({ ...configLoc, revision: "r1", restartRequired: false, entries: [gravEntry] }),
+    ])
     oneBundle(bundleLocation({ path: "smp/smp", service: "smp" }), [
       messageEntry({ key: "grave.decay.announce", english: "Grave decay announcement" }),
     ])

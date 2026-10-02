@@ -161,8 +161,21 @@ final class SecondFactor {
         // Registering a key is holding it.
         sessions().markVerified(who.id());
         data().audit().record(who.ownLine("REGISTER_KEY", Map.of("label", key.label())));
-        ctx.json(Map.of("label", key.label(), "userVerified", key.userVerified(), "backedUp", key.backedUp()));
+        ctx.json(new KeyRegistered(key.label(), key.userVerified(), key.backedUp()));
     }
+
+    /**
+     * A security key just registered.
+     *
+     * @param backedUp whether the authenticator says the key is synced, so losing the device does not lose it
+     */
+    public record KeyRegistered(String label, boolean userVerified, boolean backedUp) {}
+
+    /** A key's new name. */
+    public record KeyRenamed(String label) {}
+
+    /** The name of the key removed, and how many the account still holds. */
+    public record KeyRemoved(String removed, int left) {}
 
     /** The body of the WebAuthn finish routes; {@code credential} stays a string. */
     private static final class Answer {
@@ -208,7 +221,7 @@ final class SecondFactor {
         }
         sessions().markVerified(who.id());
         data().audit().record(who.ownLine("HELD_KEY", Map.of("label", held.label(), "unlocked", held.userVerified())));
-        ctx.json(Map.of("label", held.label(), "userVerified", held.userVerified()));
+        ctx.json(held);
     }
 
     /** The credential id out of the path, base64url as {@code /api/me} lists it. */
@@ -234,7 +247,7 @@ final class SecondFactor {
             throw new NotFoundResponse("this account has no key of that id");
         }
         data().audit().record(who.ownLine("RENAME_KEY", Map.of("label", label)));
-        ctx.json(Map.of("label", label));
+        ctx.json(new KeyRenamed(label));
     }
 
     /** {@code DELETE /api/keys/{id}}: removes one key, the last one included. */
@@ -251,6 +264,6 @@ final class SecondFactor {
         }
         final int left = credentials().of(who.signedInDiscordId()).size();
         data().audit().record(who.ownLine("REMOVE_KEY", Map.of("label", label, "left", left)));
-        ctx.json(Map.of("removed", label, "left", left));
+        ctx.json(new KeyRemoved(label, left));
     }
 }

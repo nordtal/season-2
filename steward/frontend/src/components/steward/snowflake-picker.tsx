@@ -125,5 +125,5 @@ export function matchesQuery(entry: GuildEntry, what: "role" | "channel", query:
 /** An id the guild did not list, still offered as itself rather than silently replaced by none. */
 export function withUnknown(entries: GuildEntry[], value: string): GuildEntry[] {
   if (value === "" || entries.some((entry) => entry.id === value)) return entries
-  return [{ id: value, name: "unknown \u2014 not in this guild, or not visible to the bot", type: null }, ...entries]
+  return [{ id: value, name: "unknown \u2014 not in this guild, or not visible to the bot" }, ...entries]
 }

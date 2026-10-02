@@ -27,8 +27,16 @@ const SEASON = {
 
 /** One group of the network's and one of a service's, of which the page shows the first. */
 const GROUPS = [
-  { service: "network", name: "players", path: "network/players", readable: true, writable: true },
-  { service: "steward", name: "web", path: "steward/web", readable: true, writable: true },
+  {
+    service: "network",
+    name: "players",
+    path: "network/players",
+    label: "",
+    live: true,
+    readable: true,
+    writable: true,
+  },
+  { service: "steward", name: "web", path: "steward/web", label: "", live: true, readable: true, writable: true },
 ]
 
 /** The page's own routes and nothing else. */

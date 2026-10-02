@@ -34,6 +34,7 @@ function entry(over: Record<string, unknown>) {
     type: "STRING",
     editable: true,
     secret: false,
+    environmentOverridden: false,
     ...over,
   }
 }
@@ -43,9 +44,12 @@ function stewardConfig() {
     service: "steward",
     name: "steward",
     path: FILE,
+    label: "",
+    live: true,
     readable: true,
     writable: true,
     revision: "rev-1",
+    restartRequired: false,
     entries: [
       entry({ path: "backup.at", key: "at", label: "At", value: "04:45" }),
       entry({ path: "backup.days", key: "days", label: "Days", kind: "LIST", value: undefined, items: ["MONDAY"] }),
@@ -82,7 +86,9 @@ function run(id: number, kind: string) {
 function backend(over: { schedule?: unknown; put?: (body: unknown) => Response; runs?: unknown[] } = {}) {
   return vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
     if (url === "/api/setting-groups") {
-      return json(200, [{ service: "steward", name: "steward", path: FILE, readable: true, writable: true }])
+      return json(200, [
+        { service: "steward", name: "steward", path: FILE, label: "", live: true, readable: true, writable: true },
+      ])
     }
     if (url === `/api/setting-groups/${FILE}`) {
       if (init?.method === "PUT") return (over.put ?? (() => json(200, stewardConfig())))(JSON.parse(init?.body ?? ""))

@@ -26,6 +26,7 @@ function config(over: Partial<ConfigEntry> & { path: string }): ConfigEntry {
     filled: true,
     editable: true,
     secret: false,
+    environmentOverridden: false,
     ...over,
   }
 }

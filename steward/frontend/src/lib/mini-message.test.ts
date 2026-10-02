@@ -38,8 +38,8 @@ describe("previewSegments", () => {
   it("draws the declared placeholders, braced and component, as placeholders", () => {
     expect(
       seen("<white>{world}</white> by <_player>", [
-        { name: "world", component: false },
-        { name: "_player", component: true },
+        { name: "world", component: false, global: false },
+        { name: "_player", component: true, global: false },
       ]),
     ).toEqual(["{world}", " by ||", "{player}"])
   })

@@ -4,6 +4,9 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import eu.nordtal.jcore.config.schema.SchemaNode;
+import eu.nordtal.jcore.config.schema.SettingType;
+import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.setting.SettingStore;
 import io.javalin.http.BadRequestResponse;
 import java.nio.charset.StandardCharsets;
@@ -51,17 +54,16 @@ final class SettingsDocument {
     }
 
     /** Returns what the listing says of one group. */
-    static Map<String, Object> describe(final SettingStore.Group group) {
-        final Map<String, Object> answer = new LinkedHashMap<>();
-        answer.put("service", group.service());
-        answer.put("name", group.name());
-        answer.put("path", group.service() + "/" + group.name());
-        answer.put("label", label(JsonParser.parseString(group.schema()).getAsJsonObject(), group.name()));
-        answer.put("live", group.live());
-        answer.put("problem", group.problem());
-        answer.put("readable", true);
-        answer.put("writable", true);
-        return answer;
+    static Location describe(final SettingStore.Group group) {
+        return new Location(
+                group.service(),
+                group.name(),
+                group.service() + "/" + group.name(),
+                label(JsonParser.parseString(group.schema()).getAsJsonObject(), group.name()),
+                group.live(),
+                group.problem(),
+                true,
+                true);
     }
 
     /** Returns a fingerprint of the stored rows, which a save sends back so a change in between is a conflict. */
@@ -81,18 +83,27 @@ final class SettingsDocument {
         }
     }
 
-    /** Returns the document as the page reads it. */
-    Map<String, Object> toJson() {
-        final Map<String, Object> answer = describe(group);
-        answer.put("revision", revision);
-        answer.put("restartRequired", !group.live());
-        final List<Map<String, Object>> entries = new ArrayList<>();
+    /** Returns the document as the page reads it, with {@code reload} after a save and absent otherwise. */
+    Document document(final @Nullable Reloading reload) {
+        final Location location = describe(group);
+        final List<Entry> entries = new ArrayList<>();
         collect(schema, "", entries);
-        answer.put("entries", entries);
-        return answer;
+        return new Document(
+                location.service(),
+                location.name(),
+                location.path(),
+                location.label(),
+                location.live(),
+                location.problem(),
+                location.readable(),
+                location.writable(),
+                revision,
+                !group.live(),
+                entries,
+                reload);
     }
 
-    private void collect(final JsonObject node, final String prefix, final List<Map<String, Object>> into) {
+    private void collect(final JsonObject node, final String prefix, final List<Entry> into) {
         for (final Map.Entry<String, JsonElement> child : children(node).entrySet()) {
             final String path = prefix.isEmpty() ? child.getKey() : prefix + "." + child.getKey();
             final JsonObject childNode = child.getValue().getAsJsonObject();
@@ -104,75 +115,51 @@ final class SettingsDocument {
     }
 
     /** Returns one entry; {@code value} is what it holds now, absent for a template field. */
-    private Map<String, Object> entry(
-            final String path, final String key, final JsonObject node, final @Nullable JsonElement value) {
-        final String kind = formKindOf(node);
-        final boolean secret = node.has("secret") && node.get("secret").getAsBoolean();
-        final Map<String, Object> entry = new LinkedHashMap<>();
-        entry.put("path", path);
-        entry.put("key", key);
-        entry.put("label", label(node, key));
-        entry.put("explanation", text(node, "explanation"));
-        entry.put(
-                "noExplanationNeeded",
-                node.has("noExplanationNeeded")
-                        && node.get("noExplanationNeeded").getAsBoolean());
-        entry.put("kind", kind);
-        entry.put(
-                "type",
-                node.has("type") && !"SECTIONS".equals(kind) ? node.get("type").getAsString() : "STRING");
+    private Entry entry(final String path, final String key, final JsonObject node, final @Nullable JsonElement value) {
+        final Shape kind = formKindOf(node);
+        final boolean secret = flag(node, "secret");
         // A secret is the environment's, so the form shows only whether it is there.
-        entry.put("editable", !"MAP".equals(kind) && !secret);
-        entry.put("secret", secret);
-        entry.put("environmentOverridden", environment.contains(path));
-        entry.put("filled", secret ? environment.contains(path) : value != null && !isBlank(value));
-        if (!secret) {
-            fill(entry, kind, node, path, value);
-        }
-        if (node.has("choices") && node.get("choices").isJsonObject()) {
-            entry.put("choices", node.get("choices"));
-        }
-        if (node.has("protectedEntry") && node.get("protectedEntry").isJsonObject()) {
-            entry.put("protectedEntry", node.get("protectedEntry"));
-        }
-        return entry;
+        final boolean shown = !secret;
+        return new Entry(
+                path,
+                key,
+                label(node, key),
+                text(node, "explanation"),
+                flag(node, "noExplanationNeeded"),
+                kind,
+                typeOf(node, kind),
+                kind != Shape.MAP && !secret,
+                secret,
+                environment.contains(path),
+                secret ? environment.contains(path) : value != null && !isBlank(value),
+                shown && kind == Shape.SCALAR ? (value == null || value.isJsonNull() ? "" : scalarText(value)) : null,
+                shown && kind == Shape.LIST ? itemsOf(value) : null,
+                shown && kind == Shape.SECTIONS ? templateOf(node) : null,
+                shown && kind == Shape.SECTIONS ? sectionsOf(node, path, value) : null,
+                objectAt(node, "choices", SchemaNode.Choices.class),
+                objectAt(node, "protectedEntry", SchemaNode.ProtectedEntry.class));
     }
 
-    private void fill(
-            final Map<String, Object> entry,
-            final String kind,
-            final JsonObject node,
-            final String path,
-            final @Nullable JsonElement value) {
-        switch (kind) {
-            case "SCALAR" -> entry.put("value", value == null || value.isJsonNull() ? "" : scalarText(value));
-            case "LIST" -> entry.put("items", itemsOf(value));
-            case "SECTIONS" -> {
-                entry.put("template", templateOf(node));
-                final List<List<Map<String, Object>>> sections = new ArrayList<>();
-                if (value instanceof final JsonArray elements) {
-                    for (int index = 0; index < elements.size(); index++) {
-                        sections.add(fieldsOf(node, path + "[" + index + "]", elements.get(index)));
-                    }
-                }
-                entry.put("sections", sections);
-            }
-            default -> {
-                // A section heading holds nothing of its own.
+    private List<List<Entry>> sectionsOf(final JsonObject node, final String path, final @Nullable JsonElement value) {
+        final List<List<Entry>> sections = new ArrayList<>();
+        if (value instanceof final JsonArray elements) {
+            for (int index = 0; index < elements.size(); index++) {
+                sections.add(fieldsOf(node, path + "[" + index + "]", elements.get(index)));
             }
         }
+        return sections;
     }
 
-    private List<Map<String, Object>> templateOf(final JsonObject node) {
-        final List<Map<String, Object>> fields = new ArrayList<>();
+    private List<Entry> templateOf(final JsonObject node) {
+        final List<Entry> fields = new ArrayList<>();
         for (final Map.Entry<String, JsonElement> field : children(node).entrySet()) {
             fields.add(entry(field.getKey(), field.getKey(), field.getValue().getAsJsonObject(), null));
         }
         return fields;
     }
 
-    private List<Map<String, Object>> fieldsOf(final JsonObject node, final String prefix, final JsonElement element) {
-        final List<Map<String, Object>> fields = new ArrayList<>();
+    private List<Entry> fieldsOf(final JsonObject node, final String prefix, final JsonElement element) {
+        final List<Entry> fields = new ArrayList<>();
         final JsonObject object = element.isJsonObject() ? element.getAsJsonObject() : new JsonObject();
         for (final Map.Entry<String, JsonElement> field : children(node).entrySet()) {
             fields.add(entry(
@@ -230,9 +217,27 @@ final class SettingsDocument {
     }
 
     /** The form's kind: a list whose elements are sections is drawn as cards. */
-    private static String formKindOf(final JsonObject node) {
-        final String kind = kindOf(node);
-        return "LIST".equals(kind) && !children(node).isEmpty() ? "SECTIONS" : kind;
+    private static Shape formKindOf(final JsonObject node) {
+        final Shape kind = Shape.valueOf(kindOf(node));
+        return kind == Shape.LIST && !children(node).isEmpty() ? Shape.SECTIONS : kind;
+    }
+
+    /** A list of sections names no type of its own, and a node without one holds text. */
+    private static SettingType typeOf(final JsonObject node, final Shape kind) {
+        final JsonElement type = node.get("type");
+        return type == null || type.isJsonNull() || kind == Shape.SECTIONS
+                ? SettingType.STRING
+                : SettingType.valueOf(type.getAsString());
+    }
+
+    private static boolean flag(final JsonObject node, final String field) {
+        final JsonElement value = node.get(field);
+        return value != null && value.isJsonPrimitive() && value.getAsBoolean();
+    }
+
+    private static <T> @Nullable T objectAt(final JsonObject node, final String field, final Class<T> type) {
+        final JsonElement value = node.get(field);
+        return value != null && value.isJsonObject() ? Json.gson().fromJson(value, type) : null;
     }
 
     private static String label(final JsonObject node, final String fallback) {
@@ -289,4 +294,78 @@ final class SettingsDocument {
         }
         object.add(segments[segments.length - 1], value);
     }
+
+    /** How the form draws a setting: jcore's kinds, with a list of sections apart since it is drawn as cards. */
+    public enum Shape {
+        SCALAR,
+        LIST,
+        MAP,
+        SECTIONS
+    }
+
+    /**
+     * One group of settings a process published, as the listing names it.
+     *
+     * @param problem why the process refused the stored values and runs on its defaults; absent while it took them
+     */
+    public record Location(
+            String service,
+            String name,
+            String path,
+            String label,
+            boolean live,
+            @Nullable String problem,
+            boolean readable,
+            boolean writable) {}
+
+    /**
+     * One group as the form draws it.
+     *
+     * @param revision the fingerprint of the stored rows, which the save sends back so a write in between is a 409
+     * @param reload what became of asking the process to take a save, on a save's answer alone
+     */
+    public record Document(
+            String service,
+            String name,
+            String path,
+            String label,
+            boolean live,
+            @Nullable String problem,
+            boolean readable,
+            boolean writable,
+            String revision,
+            boolean restartRequired,
+            List<Entry> entries,
+            @Nullable Reloading reload) {}
+
+    /**
+     * One key of a group, as the form draws it; a secret carries {@code filled} alone, never its value.
+     *
+     * @param explanation the schema's short text, empty where no schema entry covers the key
+     * @param editable false for a nested section, which has no value, and for a secret
+     * @param environmentOverridden an environment variable overrides the key, so a saved value waits until it is gone
+     * @param value a scalar's text, with a block scalar's newlines
+     * @param items the entries of a list
+     * @param template one section's fields in display order, the blank one "Add" starts from
+     * @param sections one field list per section the list holds, in order
+     * @param protectedEntry the one section a save may never remove
+     */
+    public record Entry(
+            String path,
+            String key,
+            String label,
+            String explanation,
+            boolean noExplanationNeeded,
+            Shape kind,
+            SettingType type,
+            boolean editable,
+            boolean secret,
+            boolean environmentOverridden,
+            boolean filled,
+            @Nullable String value,
+            @Nullable List<String> items,
+            @Nullable List<Entry> template,
+            @Nullable List<List<Entry>> sections,
+            SchemaNode.@Nullable Choices choices,
+            SchemaNode.@Nullable ProtectedEntry protectedEntry) {}
 }

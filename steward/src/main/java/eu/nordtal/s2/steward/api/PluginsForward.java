@@ -7,6 +7,7 @@ import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.messages.Refused;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.ConflictResponse;
@@ -21,8 +22,6 @@ import java.util.Objects;
  * Removing one stops its server, so it is a run like every other stop.
  */
 public final class PluginsForward {
-
-    private static final String JSON = "application/json";
 
     private final AgentClient agent;
     private final UpdateDirectory updates;
@@ -43,10 +42,10 @@ public final class PluginsForward {
     }
 
     /** {@code POST /api/services/{name}/plugins}: a row the next update run fulfils, answered and returned. */
-    String add(final Context ctx, final String by) {
-        final String row = agent.addPlugin(service(ctx), ctx.body(), by);
-        ctx.status(201).contentType(JSON).result(row);
-        return row;
+    AgentWire.PluginAdded add(final Context ctx, final String by) {
+        final AgentWire.PluginAdded added = agent.addPlugin(service(ctx), ctx.body(), by);
+        ctx.status(201).json(added);
+        return added;
     }
 
     /** {@code DELETE /api/services/{name}/plugins/{artifact}}: the run that removes it, by its id. */

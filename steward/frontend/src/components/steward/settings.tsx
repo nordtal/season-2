@@ -22,7 +22,6 @@ import type {
   MessageBundle,
   MessageBundleLocation,
   MessageEntry,
-  ReloadAwareConfigDocument,
 } from "@/lib/api"
 import { announceSave } from "@/lib/announce-save"
 import { clearDraft, setDraftValue, setOpened, useDirtyFiles, useDraft, useOpened } from "@/lib/drafts"
@@ -552,7 +551,7 @@ function isLanguage(value: string): value is Language {
 }
 
 /** Whether `document` carries the two reload fields every GET and PUT of a group sends. */
-function isReloadAware(document: ConfigDocument): document is ReloadAwareConfigDocument {
+function isReloadAware(document: ConfigDocument): document is ConfigDocument {
   return "restartRequired" in document && typeof document.restartRequired === "boolean"
 }
 
@@ -596,15 +595,7 @@ function isDraftValueRecord(value: unknown): value is Record<string, DraftValue>
   return typeof value === "object" && value !== null && Object.values(value).every(isDraftValue)
 }
 
-function ConfigForm({
-  file,
-  document,
-  target,
-}: {
-  file: string
-  document: ReloadAwareConfigDocument
-  target: Target | null
-}) {
+function ConfigForm({ file, document, target }: { file: string; document: ConfigDocument; target: Target | null }) {
   const draft = useDraft<DraftValue>(file, isDraftValueRecord) as Draft
   const save = useSaveConfig(document.path)
   const roles = useGuildRoles()
@@ -857,7 +848,7 @@ function BundleForm({ file, bundle, target }: { file: string; bundle: MessageBun
       {
         onSuccess: (saved) => {
           clearDraft(file)
-          const unknown = saved.reload?.unknown ?? []
+          const unknown = saved.unknown
           setWarnings([...unknown.map((key) => `${key} is in the override file and in no bundle`), ...saved.warnings])
           announceSave(label, saved.reload, bundle.path)
         },

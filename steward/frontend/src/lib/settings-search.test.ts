@@ -6,7 +6,7 @@ import type {
   MessageBundle,
   MessageBundleLocation,
   MessageEntry,
-  ParsedConfigDocument,
+  ConfigDocument,
 } from "@/lib/api"
 import {
   entryHaystack,
@@ -39,16 +39,17 @@ function entry(over: Partial<ConfigEntry> & { path: string; key: string }): Conf
     type: "STRING",
     editable: true,
     secret: false,
+    environmentOverridden: false,
     ...over,
   }
 }
 
 function location(over: Partial<ConfigLocation> & { path: string; name: string }): ConfigLocation {
-  return { service: "steward", readable: true, writable: true, ...over }
+  return { service: "steward", label: "", live: true, readable: true, writable: true, ...over }
 }
 
-function document(path: string, entries: ConfigEntry[]): ParsedConfigDocument {
-  return { ...location({ path, name: path }), revision: "r1", entries }
+function document(path: string, entries: ConfigEntry[]): ConfigDocument {
+  return { ...location({ path, name: path }), revision: "r1", restartRequired: false, entries }
 }
 
 describe("entryHaystack / matchesQuery", () => {
@@ -99,6 +100,7 @@ describe("entryHaystack / matchesQuery", () => {
       key: "bot-token",
       label: "Bot token",
       secret: true,
+      environmentOverridden: false,
       value: token,
     })
 
@@ -112,6 +114,7 @@ describe("entryHaystack / matchesQuery", () => {
       key: "bot-token",
       label: "Bot token",
       secret: true,
+      environmentOverridden: false,
       value: "irrelevant-if-leaked-would-be-bad",
     })
     expect(matchesQuery(secretEntry, "bot token")).toBe(true)
@@ -125,6 +128,7 @@ describe("entryHaystack / matchesQuery", () => {
       label: "Webhooks",
       kind: "LIST",
       secret: true,
+      environmentOverridden: false,
       items: ["https://discord.com/api/webhooks/leak-me-not"],
     })
     expect(matchesQuery(secretEntry, "leak-me-not")).toBe(false)
@@ -277,7 +281,7 @@ describe("searchMessagesAcross", () => {
 })
 
 function configLocation(over: Partial<ConfigLocation> & { path: string; name: string }): ConfigLocation {
-  return { service: "smp", readable: true, writable: true, ...over }
+  return { service: "smp", label: "", live: true, readable: true, writable: true, ...over }
 }
 
 function configEntry(over: Partial<ConfigEntry> & { path: string; key: string }): ConfigEntry {
@@ -292,12 +296,13 @@ function configEntry(over: Partial<ConfigEntry> & { path: string; key: string })
     type: "STRING",
     editable: true,
     secret: false,
+    environmentOverridden: false,
     ...over,
   }
 }
 
-function configDocument(loc: ConfigLocation, entries: ConfigEntry[]): ParsedConfigDocument {
-  return { ...loc, revision: "r1", entries }
+function configDocument(loc: ConfigLocation, entries: ConfigEntry[]): ConfigDocument {
+  return { ...loc, revision: "r1", restartRequired: false, entries }
 }
 
 describe("searchSettingsAndMessages - one list, from two suppliers", () => {

@@ -202,7 +202,7 @@ seed_velocity_config() {
         printf 'online-mode = true\n'
         printf 'player-info-forwarding-mode = "modern"\n'
         printf 'forwarding-secret-file = "forwarding.secret"\n\n'
-        # No motd or show-max-players: proxy's network.yml answers the ping with both.
+        # No motd or show-max-players: the proxy answers the ping with both, out of the network's settings.
         printf '[servers]\n'
         for entry in $VELOCITY_SERVERS; do
             name="${entry%%=*}"
@@ -527,13 +527,6 @@ fetch_datapacks() {
     done
 }
 
-# Enforces max-players from NETWORK_MAX_PLAYERS on every start, so no backend is smaller than the
-# advertised limit. The proxy refuses at login; admins are exempt in FullServerAdmission.
-enforce_player_limit() {
-    [[ -n "${MAX_PLAYERS:-}" ]] || return 0
-    set_property "$DATA/server.properties" max-players "$MAX_PLAYERS"
-}
-
 # Configures a Paper backend behind the proxy: offline mode and modern forwarding.
 prepare_backend() {
     local global="$DATA/config/paper-global.yml"
@@ -574,7 +567,6 @@ if [[ "$SERVER_KIND" == "paper" ]]; then
 
     # Before generation and the datapacks, which go into the level-name folder.
     seed_level_settings
-    enforce_player_limit
 
     if [[ -n "${DATAPACK_URLS:-}" ]]; then
         fetch_datapacks "$DATA/${LEVEL_NAME}/datapacks"

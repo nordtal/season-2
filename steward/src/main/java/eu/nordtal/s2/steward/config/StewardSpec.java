@@ -380,7 +380,7 @@ public interface StewardSpec {
         @Order(1)
         @Name("At")
         @Key("at")
-        @Comment("HH:mm in this container's time zone, or empty for no scheduled update at all.")
+        @Comment("HH:mm in the network's default time zone, or empty for no scheduled update at all.")
         @Explain("Empty means no scheduled update. An admin can always start one by hand.")
         default String at() {
             return "";

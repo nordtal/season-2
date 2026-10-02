@@ -9,6 +9,10 @@ repositories {
     maven("https://jitpack.io")
 }
 
+repositoryRootTestInputs {
+    reads("compose.yml")
+}
+
 dependencies {
     // The colours map onto the message system's tones.
     api(project(":messages"))
@@ -29,6 +33,7 @@ dependencies {
     testImplementation(libs.jcore)
     testImplementation(libs.gson)
     testImplementation(libs.slf4j.api)
+    testImplementation(testFixtures(project(":common")))
     testImplementation(testFixtures(project(":database")))
     testImplementation(libs.bundles.access.persistence)
     testImplementation(libs.postgresql.driver)

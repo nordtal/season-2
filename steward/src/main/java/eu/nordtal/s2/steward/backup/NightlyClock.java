@@ -82,7 +82,7 @@ public final class NightlyClock implements AutoCloseable {
     /**
      * Reads {@code backup.at}.
      *
-     * @param at {@code HH:mm} in this container's timezone, or blank for no nightly backup
+     * @param at {@code HH:mm} in the network's default zone, or blank for no nightly backup
      * @return empty when switched off or unreadable, and unreadable is logged
      */
     public static Optional<NightlyClock> from(
@@ -169,7 +169,7 @@ public final class NightlyClock implements AutoCloseable {
     }
 
     /**
-     * Returns when the next nightly backup would be asked for, in this container's time zone, or empty.
+     * Returns when the next nightly backup would be asked for, in the network's default zone, or empty.
      *
      * The interface uses it so a "tonight" run lands before this clock rather than on top of it.
      */

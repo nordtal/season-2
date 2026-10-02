@@ -381,6 +381,17 @@ describe("CommandPalette - finding a setting", () => {
     }
   })
 
+  it("selecting a hit of the network's settings navigates to the season page, where they are", async () => {
+    const loc = configLocation({ path: "network/players", name: "players", service: "network" })
+    oneFile(loc, [configEntry({ path: "max-players", key: "max-players", label: "Max players" })])
+
+    await search("max players")
+    fireEvent.click(await screen.findByText("Max players"))
+
+    expect(navigateSpy).toHaveBeenCalledWith({ to: "/season", search: { file: "network/players" } })
+    expect(takePendingJump("network")).toEqual({ file: "network/players", path: "max-players" })
+  })
+
   it("selecting a hit navigates to that service's page and hands it a jump", async () => {
     const loc = configLocation({ path: "steward/steward", name: "steward" })
     oneFile(loc, [configEntry({ path: "agent.base-url", key: "base-url", label: "Base url" })])

@@ -91,8 +91,8 @@ The entrypoint writes these only when they are missing, unless noted:
 - proxy `forwarding.secret`: every start, from `VELOCITY_FORWARDING_SECRET`.
 - proxy `accepts-transfers = true` under `[advanced]`: every start, since a proxy swap needs it.
 - each backend's `config/paper-global.yml`: `proxies.velocity.enabled: true`.
-- each backend's `server.properties`: `online-mode=false` and `max-players=$MAX_PLAYERS` every
-  start; `level-name=$LEVEL_NAME` once; `level-seed=$LEVEL_SEED` while the world has no `level.dat`.
+- each backend's `server.properties`: `online-mode=false` every start; `level-name=$LEVEL_NAME` once;
+  `level-seed=$LEVEL_SEED` while the world has no `level.dat`.
 
 **A `level-name` that disagrees with the volume stops the container**, because Paper would start a
 second, empty world beside the real one. Paper's default `world` is the exception: it is replaced,
@@ -100,13 +100,13 @@ unless somebody has played in it.
 
 ## Who limits the players
 
-`NETWORK_MAX_PLAYERS` is what the server browser shows, what the proxy enforces at login, and every
-backend's `max-players`. Admins (`discord_user.admin`) pass a full network. A change needs
-`docker compose restart proxy limbo hunger-games smp`, since each backend writes the value at start.
+The network's `players` setting, edited in Steward, is what the server browser shows and what the
+proxy enforces at login, and nothing else does: a backend lets in whoever the proxy sends, whatever
+its own `max-players` says. Admins (`discord_user.admin`) pass a full network. A change applies
+without a restart.
 
-The MOTD is `network.yml`'s `motd`, one per phase, in MiniMessage, edited in Steward; the file lists
-the placeholders.
-It is read at proxy start, so an edit needs `docker compose restart proxy`.
+The MOTD is the network's `motd` setting, one per phase, in MiniMessage, edited in Steward, which
+lists the placeholders. It applies without a restart too.
 
 ## The forwarding secret
 

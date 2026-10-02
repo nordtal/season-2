@@ -206,7 +206,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         refreshCurrentGame();
 
         // Lobby map slicing, tolerant of missing artwork.
-        new LobbyMaps(this, spec).render(world);
+        new LobbyMaps(this, spec, messages().locales()).render(world);
 
         waiting.startBroadcasting(world, () -> currentGameId);
     }
@@ -217,7 +217,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         // The five system lines; the death line keeps vanilla's own component for killer and weapon.
         final ArenaComposition composition = new ArenaComposition(locales());
         final SystemLines systemLines = systemLines(composition::of);
-        presence = new PresenceListener(this, locales(), bodies, state, messages(), systemLines);
+        presence = new PresenceListener(this, locales(), bodies, state, messages(), systemLines, players());
         listen(presence);
         listen(new CombatListener(
                 this,

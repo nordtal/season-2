@@ -1,13 +1,12 @@
 package eu.nordtal.s2.proxy.config;
 
-import eu.nordtal.s2.database.command.CommandAllowlist;
 import eu.nordtal.s2.settings.Checks;
 import java.util.regex.Pattern;
 
 /**
  * Every rule about what a valid value of the proxy's settings is.
  *
- * A file that still carries a removed key stops the proxy with that key named.
+ * A refused value names its key.
  */
 public final class ProxySettings {
 
@@ -17,7 +16,7 @@ public final class ProxySettings {
     private ProxySettings() {}
 
     /**
-     * Refuses a {@code gate.yml} the proxy cannot run on.
+     * Refuses a gate group the proxy cannot run on.
      *
      * @throws IllegalArgumentException naming the first value that is wrong
      */
@@ -35,46 +34,16 @@ public final class ProxySettings {
     }
 
     /**
-     * Refuses a {@code network.yml} the proxy cannot run on.
+     * Refuses a proxy network group the proxy cannot run on.
      *
      * @throws IllegalArgumentException naming the first value that is wrong
      */
     public static void checkNetwork(final NetworkSpec config) {
-        Checks.requirePositive("max-players", config.maxPlayers());
         Checks.requirePositive("snapshot-refresh-seconds", config.snapshotRefreshSeconds());
-        if (config.commandAllowlist() == null) {
-            throw new IllegalArgumentException("command-allowlist is missing; an absent list is"
-                    + " not the same as an empty one and this proxy will not guess which was"
-                    + " meant");
-        }
-        for (final String entry : config.commandAllowlist()) {
-            // A blank entry would be dropped silently: the file looks like ten entries, the network acts on nine.
-            if (entry == null || entry.isBlank()) {
-                throw new IllegalArgumentException("command-allowlist has a blank entry. Delete"
-                        + " the line rather than emptying it - an empty one allows nothing and"
-                        + " would be silently ignored");
-            }
-            // CommandAllowlist#parse strips a leading slash and namespace, so "/" also normalises to empty.
-            if (!CommandAllowlist.names(entry)) {
-                throw new IllegalArgumentException("command-allowlist entry '" + entry + "' is"
-                        + " nothing once the leading slash and namespace are taken off, so it"
-                        + " allows no command at all. Write the command's path, like"
-                        + " 'hg ready'");
-            }
-        }
-        final NetworkSpec.MotdSpec motd = config.motd();
-        if (motd == null) {
-            throw new IllegalArgumentException("motd is missing; it needs one entry per season phase");
-        }
-        Checks.requireText("motd.pre-launch", motd.preLaunch());
-        Checks.requireText("motd.pre-event", motd.preEvent());
-        Checks.requireText("motd.start-event", motd.startEvent());
-        Checks.requireText("motd.smp", motd.smp());
-        Checks.requireText("motd.maintenance", motd.maintenance());
     }
 
     /**
-     * Refuses a {@code pack.yml} the proxy cannot run on.
+     * Refuses a pack group the proxy cannot run on.
      *
      * @throws IllegalArgumentException naming the first value that is wrong
      */

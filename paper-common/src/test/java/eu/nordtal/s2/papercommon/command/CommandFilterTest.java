@@ -1,26 +1,28 @@
 package eu.nordtal.s2.papercommon.command;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.language.Locales;
-import eu.nordtal.s2.database.command.CommandAllowlist;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.settings.network.CommandAllowlist;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.command.UnknownCommandEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
 
 /** A refused command plays {@link Feedback#REFUSED} as well as its {@code Tone.BAD} colour. */
 class CommandFilterTest {
@@ -42,15 +44,14 @@ class CommandFilterTest {
         }
     }
 
-    private CommandFilter filter(final CommandFilter.Source source, final SpyChime chime) {
-        return new CommandFilter(
-                source, uuid -> false, locales, messages, silentLogger(), () -> ToneColours.DEFAULTS, chime);
+    private CommandFilter filter(final Supplier<CommandAllowlist> allowlist, final SpyChime chime) {
+        return new CommandFilter(allowlist, uuid -> false, locales, messages, () -> ToneColours.DEFAULTS, chime);
     }
 
     @Test
     void unknownCommandPlaysRefused() {
         final SpyChime chime = new SpyChime();
-        final CommandFilter filter = filter(() -> Optional.empty(), chime);
+        final CommandFilter filter = filter(() -> CommandAllowlist.NOTHING, chime);
 
         final UnknownCommandEvent event = new UnknownCommandEvent(
                 commandSourceStack(player()),
@@ -65,7 +66,7 @@ class CommandFilterTest {
     @Test
     void consoleUnknownCommandIsSilent() {
         final SpyChime chime = new SpyChime();
-        final CommandFilter filter = filter(() -> Optional.empty(), chime);
+        final CommandFilter filter = filter(() -> CommandAllowlist.NOTHING, chime);
 
         final UnknownCommandEvent event = new UnknownCommandEvent(
                 commandSourceStack(sender(ConsoleCommandSender.class)),
@@ -78,10 +79,24 @@ class CommandFilterTest {
     }
 
     @Test
+    void aChangedListReachesTheNextCommand() {
+        final AtomicReference<CommandAllowlist> list = new AtomicReference<>(CommandAllowlist.NOTHING);
+        final CommandFilter filter = filter(list::get, new SpyChime());
+        final PlayerCommandPreprocessEvent before = new PlayerCommandPreprocessEvent(player(), "/poi", Set.of());
+        filter.onCommand(before);
+
+        list.set(CommandAllowlist.parse(List.of("poi")));
+        final PlayerCommandPreprocessEvent after = new PlayerCommandPreprocessEvent(player(), "/poi", Set.of());
+        filter.onCommand(after);
+
+        assertTrue(before.isCancelled());
+        assertFalse(after.isCancelled());
+    }
+
+    @Test
     void disallowedCommandPlaysRefused() {
         final SpyChime chime = new SpyChime();
-        final CommandFilter filter = filter(() -> Optional.of(CommandAllowlist.NOTHING), chime);
-        filter.refresh();
+        final CommandFilter filter = filter(() -> CommandAllowlist.NOTHING, chime);
 
         // The 3-arg constructor: the 2-arg form calls player.getServer(), which this proxy cannot answer.
         final PlayerCommandPreprocessEvent event =
@@ -91,17 +106,6 @@ class CommandFilterTest {
 
         assertTrue(event.isCancelled());
         assertEquals(List.of(Feedback.REFUSED), chime.played);
-    }
-
-    private static Logger silentLogger() {
-        return (Logger) Proxy.newProxyInstance(
-                Logger.class.getClassLoader(), new Class<?>[] {Logger.class}, (proxy, method, args) -> {
-                    // refresh() logs on a genuine change; everything else here must stay quiet.
-                    if (method.getReturnType() == void.class) {
-                        return null;
-                    }
-                    throw new UnsupportedOperationException(method.getName());
-                });
     }
 
     private static io.papermc.paper.command.brigadier.CommandSourceStack commandSourceStack(

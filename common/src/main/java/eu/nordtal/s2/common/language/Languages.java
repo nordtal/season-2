@@ -5,14 +5,11 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * The languages the network speaks, as language tags, the fallback first.
+ * The languages the network speaks, as language tags, the fallback first; the network's settings hold the list.
  *
  * @param tags lowercase language tags, the first one {@link Locales#DEFAULT}'s
  */
 public record Languages(List<String> tags) {
-
-    /** The network's languages: every Minecraft process loads and renders these. */
-    public static final Languages NETWORK = new Languages(List.of("en", "de"));
 
     public Languages {
         tags = List.copyOf(tags);

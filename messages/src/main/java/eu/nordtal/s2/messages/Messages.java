@@ -405,6 +405,11 @@ public final class Messages {
         return bundle != null && bundle.containsKey(key);
     }
 
+    /** Returns the languages this process was loaded in, in their order, English first. */
+    public List<Locale> locales() {
+        return locales;
+    }
+
     /** Returns the languages this bundle loaded a file for, always including {@code en}. */
     public Set<String> languages() {
         return byLanguage.keySet();

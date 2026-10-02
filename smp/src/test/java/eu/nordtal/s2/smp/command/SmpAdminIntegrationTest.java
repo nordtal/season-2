@@ -16,6 +16,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Clock;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
@@ -60,7 +61,8 @@ class SmpAdminIntegrationTest {
                 },
                 identities,
                 AccessReader.using(dataSource, Clock.systemUTC()),
-                Logger.getAnonymousLogger());
+                Logger.getAnonymousLogger(),
+                ZoneOffset.UTC);
     }
 
     private static String refusal(final Answer answer) {

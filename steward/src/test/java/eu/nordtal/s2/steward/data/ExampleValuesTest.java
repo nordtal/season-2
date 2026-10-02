@@ -3,10 +3,14 @@ package eu.nordtal.s2.steward.data;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.TestDatabase;
+import eu.nordtal.s2.database.setting.SettingStore;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.Map;
 import javax.sql.DataSource;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,7 +27,8 @@ class ExampleValuesTest {
 
     @BeforeEach
     void emptyTables() {
-        sql("TRUNCATE account_link, discord_user, hg_member, hg_team, hg_game, smp_milestone CASCADE");
+        sql(
+                "TRUNCATE account_link, discord_user, hg_member, hg_team, hg_game, smp_milestone, setting_override CASCADE");
     }
 
     @Test
@@ -35,7 +40,19 @@ class ExampleValuesTest {
         assertEquals(Map.of("name", "Nordlichter"), examples.get("team"));
         assertEquals(Map.of("name", "smp"), examples.get("service"));
         assertEquals(Map.of("name", "frontier"), examples.get("milestone"));
-        assertEquals(Map.of("number", "2"), examples.get("season"));
+        assertEquals(Map.of("number", "2", "name", "Season 2"), examples.get("season"));
+    }
+
+    @Test
+    void theSeasonIsTheOneTheNetworksSettingsName() {
+        final Map<String, @Nullable String> changes = new HashMap<>();
+        changes.put("number", "3");
+        changes.put("name", "\"Staffel Drei\"");
+        SettingStore.using(dataSource).change(SettingStore.NETWORK, "season", changes, Actor.STEWARD, stored -> true);
+
+        assertEquals(
+                Map.of("number", "3", "name", "Staffel Drei"),
+                new ExampleValues(dataSource).of(DiscordId.of("1"), "Ada").get("season"));
     }
 
     @Test

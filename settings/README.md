@@ -1,19 +1,25 @@
 # settings
 
-Where every process's settings come from, and the groups every process shares. A process holds a
-`Settings` and loads one `Setting` per group; `FileSettings` reads each group from a commented YAML
-file (jcore's config system) and lets the environment override any value, `<PREFIX>_<GROUP>_<KEY>`.
-Only this module knows the source is a file, so moving the settings into the database changes this
-module and none of its callers.
+Where every process's settings come from. A process holds a `Settings` and loads one `Setting` per
+`Group`: its name, its jcore `@ConfigSpec`, its `Check`, whether it is taken while the process runs,
+whether it is the network's, and any default of this process that differs from the spec's.
 
-- **Shared groups**: `DatabaseSpec` (`database.yml`) and `ColoursSpec` (`colours.yml`, mapped onto
-  the message tones by `Colours`). `DatabasePool` opens the pool a Minecraft process uses.
-  `DistancesSpec` (`distances.yml`) is the three Paper servers' view and simulation distance, two flat
-  numbers where 0 means unset, so the declared default stays the same for every server and a server's
-  own default lives in its plugin.
-- **Checks**: a group is refused as a whole by its `Check`; `Checks` holds the rules every group
-  shares. A refusal names the file and the key.
-- **Overrides**: beside every file, `EnvOverrideFile` names the keys the environment overrides, so
-  Steward can say that editing them there changes nothing.
+- **Source**: `DatabaseSettings` publishes each group's schema and defaults into `setting_group` at
+  load and composes its values: the spec's defaults, this process's own defaults, the rows an admin
+  stored in `setting_override`, the environment, then the check. Only an admin's changes are rows.
+  `listen` re-reads on the signal hub; a live group's holder keeps one instance whose values change.
+  `EnvironmentSettings` is the bootstrap: the database connection, from the environment alone.
+- **Refusal**: a stored value the check refuses never stops a start. The group runs on its defaults,
+  the reason is recorded on the group, and Steward shows it.
+- **Secrets** (`@Secret`) come from the environment only and are never stored or imported.
+- **Import**: `LegacyFiles` takes each group's YAML file left by the last installation once, every
+  value that differs from the spec's default, as the host, and never over a row. `retireFiles`
+  deletes the files afterwards.
+- **Shared groups**: `DatabaseSpec`, `ColoursSpec` (mapped onto the message tones by `Colours`) and
+  `DistancesSpec`, whose defaults each Paper server sets for itself. `DatabasePool` opens the pool.
+- **The network's groups** (`network/`), stored once under the service `network` and read by every
+  process: `players` (the limit, which only the proxy enforces, and the command allowlist) and `motd`,
+  both taken while running; `season` and `language-and-time` (the default language, the languages and
+  the default time zone), taken at the next start. `CommandAllowlist` is the parsed list.
 
 jcore and HikariCP are `compileOnly`: every consumer already carries them in the version it needs.

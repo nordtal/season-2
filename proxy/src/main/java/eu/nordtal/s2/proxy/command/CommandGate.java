@@ -9,7 +9,6 @@ import com.velocitypowered.api.event.command.PlayerAvailableCommandsEvent;
 import com.velocitypowered.api.event.permission.PermissionsSetupEvent;
 import com.velocitypowered.api.permission.Tristate;
 import com.velocitypowered.api.proxy.Player;
-import eu.nordtal.s2.database.command.CommandAllowlist;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messagerendering.Tones;
@@ -17,6 +16,7 @@ import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
+import eu.nordtal.s2.settings.network.CommandAllowlist;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -49,8 +49,8 @@ public final class CommandGate {
     private final Supplier<ToneColours> colours;
     private final Chime chime;
 
-    /** Read from {@code network.yml}, which this proxy owns, and fixed until restart. */
-    private final CommandAllowlist allowlist;
+    /** The network's list as of its last reload, which a change in Steward reaches without a restart. */
+    private final Supplier<CommandAllowlist> allowlist;
 
     /** Without a {@link Chime}: silent. */
     public CommandGate(
@@ -58,29 +58,19 @@ public final class CommandGate {
         this(roster, allowlist, messages, logger, Chime.silent());
     }
 
-    /** Without a colour supplier: {@link ToneColours#DEFAULTS}. */
+    /** With one fixed list and without a colour supplier: {@link ToneColours#DEFAULTS}. */
     public CommandGate(
             final LoginRoster roster,
             final CommandAllowlist allowlist,
             final Messages messages,
             final Logger logger,
             final Chime chime) {
-        this(roster, allowlist, messages, logger, () -> ToneColours.DEFAULTS, chime);
-    }
-
-    /** Without a {@link Chime}: silent. */
-    public CommandGate(
-            final LoginRoster roster,
-            final CommandAllowlist allowlist,
-            final Messages messages,
-            final Logger logger,
-            final Supplier<ToneColours> colours) {
-        this(roster, allowlist, messages, logger, colours, Chime.silent());
+        this(roster, () -> allowlist, messages, logger, () -> ToneColours.DEFAULTS, chime);
     }
 
     public CommandGate(
             final LoginRoster roster,
-            final CommandAllowlist allowlist,
+            final Supplier<CommandAllowlist> allowlist,
             final Messages messages,
             final Logger logger,
             final Supplier<ToneColours> colours,
@@ -117,7 +107,7 @@ public final class CommandGate {
         if (!(event.getCommandSource() instanceof Player player)) {
             return;
         }
-        if (roster.isAdmin(player.getUniqueId()) || allowlist.allows(event.getCommand())) {
+        if (roster.isAdmin(player.getUniqueId()) || allowlist.get().allows(event.getCommand())) {
             return;
         }
         event.setResult(CommandExecuteEvent.CommandResult.denied());
@@ -139,9 +129,10 @@ public final class CommandGate {
         if (roster.isAdmin(event.getPlayer().getUniqueId())) {
             return;
         }
+        final CommandAllowlist current = allowlist.get();
         final List<String> remove = new ArrayList<>();
         for (final CommandNode<?> child : event.getRootNode().getChildren()) {
-            if (!allowlist.allowsRoot(child.getName())) {
+            if (!current.allowsRoot(child.getName())) {
                 remove.add(child.getName());
             }
         }
@@ -158,10 +149,5 @@ public final class CommandGate {
     /** The player's {@code discord_user.locale} from the roster, never the client's setting; English when unknown. */
     private Locale locale(final Player player) {
         return roster.localeOf(player.getUniqueId());
-    }
-
-    /** What was configured, for the startup log line. */
-    public CommandAllowlist allowlist() {
-        return allowlist;
     }
 }

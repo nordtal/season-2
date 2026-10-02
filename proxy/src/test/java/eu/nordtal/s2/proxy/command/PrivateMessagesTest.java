@@ -16,8 +16,8 @@ import eu.nordtal.s2.database.access.MemberState;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.packrendering.Glyphs;
-import eu.nordtal.s2.proxy.config.NetworkSpec;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
+import eu.nordtal.s2.settings.network.PlayersSpec;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
 import java.time.Duration;
@@ -78,11 +78,9 @@ class PrivateMessagesTest {
     @Test
     void theDefaultAllowlistCarriesThem() {
         // The failure this catches: a command registered but refused by CommandGate, tab-completing yet unusable.
-        final List<String> allowed = new NetworkSpec() {}.commandAllowlist();
+        final List<String> allowed = new PlayersSpec() {}.commandAllowlist();
         for (final String literal : literals()) {
-            assertTrue(
-                    allowed.contains(literal),
-                    "/" + literal + " is registered and network.yml's default list omits it");
+            assertTrue(allowed.contains(literal), "/" + literal + " is registered and the default allowlist omits it");
         }
     }
 

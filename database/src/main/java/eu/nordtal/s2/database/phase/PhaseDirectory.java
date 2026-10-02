@@ -2,8 +2,8 @@ package eu.nordtal.s2.database.phase;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.messages.Refused;
+import java.time.Clock;
 import java.time.Instant;
-import java.time.InstantSource;
 import java.util.Optional;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
@@ -14,8 +14,8 @@ import org.jspecify.annotations.Nullable;
  */
 public interface PhaseDirectory {
 
-    /** Returns a directory over a connection pool the caller owns, refusing past dates by {@code clock}. */
-    static PhaseDirectory using(final DataSource dataSource, final InstantSource clock) {
+    /** Returns a directory over a pool the caller owns, refusing past dates by {@code clock}, named in its zone. */
+    static PhaseDirectory using(final DataSource dataSource, final Clock clock) {
         return new JdbiPhaseDirectory(dataSource, clock);
     }
 

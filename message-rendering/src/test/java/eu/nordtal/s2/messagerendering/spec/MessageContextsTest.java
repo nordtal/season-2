@@ -8,6 +8,7 @@ import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.MessageEnvironment;
 import eu.nordtal.s2.messages.context.PlayerContext;
+import eu.nordtal.s2.messages.context.SeasonContext;
 import eu.nordtal.s2.messages.context.TeamContext;
 import eu.nordtal.s2.messages.spec.Arg;
 import eu.nordtal.s2.messages.spec.Display;
@@ -67,7 +68,7 @@ class MessageContextsTest {
     void serverAndSeasonAreInEveryMessage() {
         assertEquals(
                 "Season 2 on smp: 40%",
-                messages.within(MessageEnvironment.of("smp"))
+                messages.within(MessageEnvironment.of("smp", new SeasonContext(2, "Season 2")))
                         .format(Locale.ENGLISH, fight.bar().progress(40)));
     }
 

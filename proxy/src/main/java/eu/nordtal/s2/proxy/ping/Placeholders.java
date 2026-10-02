@@ -20,12 +20,14 @@ final class Placeholders {
     /**
      * Replaces every recognised placeholder in {@code template}.
      *
+     * @param season    the season's name, for {@code {season}}
      * @param countdown the rendered countdown line, for {@code {countdown}}
      */
     static String apply(
             final String template,
             final ProxyServer proxy,
             final SeasonPhase phase,
+            final String season,
             final int maximum,
             final NetworkSnapshot snapshot,
             final String countdown) {
@@ -49,7 +51,7 @@ final class Placeholders {
                 break;
             }
             final String name = template.substring(index + 1, close);
-            final String value = resolve(name, proxy, phase, maximum, snapshot, countdown);
+            final String value = resolve(name, proxy, phase, season, maximum, snapshot, countdown);
             out.append(value == null ? template.substring(index, close + 1) : escape(value));
             index = close + 1;
         }
@@ -61,6 +63,7 @@ final class Placeholders {
             final String name,
             final ProxyServer proxy,
             final SeasonPhase phase,
+            final String season,
             final int maximum,
             final NetworkSnapshot snapshot,
             final String countdown) {
@@ -73,6 +76,7 @@ final class Placeholders {
                     .orElse("0");
         }
         return switch (name) {
+            case "season" -> season;
             case "online" -> String.valueOf(proxy.getPlayerCount());
             case "max" -> String.valueOf(maximum);
             case "phase" -> phase.name();

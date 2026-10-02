@@ -72,8 +72,8 @@ final class SmpStart {
 
         final PlayerComposition composition =
                 new PlayerComposition(() -> plugin.prestige, () -> plugin.prestigeColours);
-        final PlayerSurfaces surfaces =
-                new PlayerSurfaces(plugin, plugin.identities, composition, new MessageRenderer(plugin.messages()));
+        final PlayerSurfaces surfaces = new PlayerSurfaces(
+                plugin, plugin.identities, composition, new MessageRenderer(plugin.messages()), plugin.players());
 
         final Boards boards = new Boards(plugin, config, plugin.season, plugin.messages(), plugin.locales());
         boards.start();

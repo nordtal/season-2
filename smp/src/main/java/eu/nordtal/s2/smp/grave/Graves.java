@@ -3,7 +3,6 @@ package eu.nordtal.s2.smp.grave;
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.common.id.DiscordId;
-import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PlayerLocales;
@@ -440,7 +439,7 @@ public final class Graves implements InventoryHolder {
         return window;
     }
 
-    /** How the grave head's lore prints the death date, in {@link NetworkTime#ZONE} rather than the JVM default. */
+    /** How the grave head's lore prints the death date, in the zone of the clock rather than the JVM default. */
     private static final DateTimeFormatter GRAVE_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     /**
@@ -463,7 +462,7 @@ public final class Graves implements InventoryHolder {
                                     ? MESSAGES.smp().grave().ownerUnknown()
                                     : MESSAGES.smp().grave().owner(new PlayerContext(name)))
                     .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-            final String date = GRAVE_DATE.format(row.created().atZone(NetworkTime.ZONE));
+            final String date = GRAVE_DATE.format(row.created().atZone(clock.getZone()));
             meta.lore(List.of(renderer.format(locale, MESSAGES.smp().grave().diedAt(date, row.x(), row.y(), row.z()))
                     .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)));
         });

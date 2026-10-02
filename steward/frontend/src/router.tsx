@@ -6,7 +6,7 @@ import { UpdateRunPage } from "@/pages/operations"
 import { UpdatesPage } from "@/pages/updates"
 import { BackupsPage, BackupRunDetailPage } from "@/pages/backups"
 import { ServicePage, serviceSearch } from "@/pages/service"
-import { SeasonPage } from "@/pages/season"
+import { SeasonPage, seasonSearch } from "@/pages/season"
 import { AnnouncementsPage } from "@/pages/announcements"
 import { JournalPage, PaymentsPage, AccessPage } from "@/pages/access"
 import { OverviewPage } from "@/pages/overview"
@@ -63,7 +63,12 @@ const routes = [
     component: BackupRunDetailPage,
   }),
   /** No `/configuration` or `/settings`: files are cards on their service's page, and the account is the popover. */
-  createRoute({ getParentRoute: () => rootRoute, path: "/season", component: SeasonPage }),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/season",
+    component: SeasonPage,
+    validateSearch: seasonSearch,
+  }),
   createRoute({ getParentRoute: () => rootRoute, path: "/announcements", component: AnnouncementsPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/access", component: AccessPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/payments", component: PaymentsPage }),

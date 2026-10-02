@@ -1,4 +1,4 @@
-package eu.nordtal.s2.database.command;
+package eu.nordtal.s2.settings.network;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -88,17 +88,6 @@ class CommandAllowlistTest {
         assertEquals(1, parsed.entries().size());
         assertFalse(
                 parsed.allows("/server smp"), "a blank entry read as 'no segments' would match every command there is");
-    }
-
-    @Test
-    void aListSurvivesTheRoundTripThroughTheRowTheProxyPublishesItIn() {
-        final CommandAllowlist parsed = CommandAllowlist.parse(List.of("/smp status", "msg", "hg ready", "discord"));
-        assertEquals(parsed, CommandAllowlist.deserialise(parsed.serialise()));
-        assertEquals("smp status\nmsg\nhg ready\ndiscord", parsed.serialise());
-        // A missing row and an emptied list are told apart by the caller; both allow nothing here.
-        assertEquals(CommandAllowlist.NOTHING, CommandAllowlist.deserialise(null));
-        assertEquals(CommandAllowlist.NOTHING, CommandAllowlist.deserialise(""));
-        assertEquals(CommandAllowlist.NOTHING, CommandAllowlist.deserialise(CommandAllowlist.NOTHING.serialise()));
     }
 
     @Test

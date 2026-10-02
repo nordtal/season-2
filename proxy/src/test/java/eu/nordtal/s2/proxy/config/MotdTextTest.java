@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.jcore.config.spec.Specs;
+import eu.nordtal.s2.settings.network.MotdSpec;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -20,10 +21,11 @@ import org.junit.jupiter.api.Test;
 class MotdTextTest {
 
     /** The five defaults, read off a real instance as a deployment gets them. */
-    private final NetworkSpec.MotdSpec motd = Specs.createDefault(NetworkSpec.MotdSpec.class);
+    private final MotdSpec motd = Specs.createDefault(MotdSpec.class);
 
     /** Every name {@code Placeholders#resolve} answers, plus its one prefix form. */
     private static final Set<String> RESOLVED = Set.of(
+            "season",
             "online",
             "max",
             "phase",

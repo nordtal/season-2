@@ -20,9 +20,6 @@ public enum Channel {
     /** A run was asked for, moved on or settled. steward, the proxy and the bot's update feed listen. */
     UPDATE("nordtal_update"),
 
-    /** The proxy published a new command allowlist, only on a change. The three Paper servers listen. */
-    ALLOWLIST("nordtal_allowlist"),
-
     /** A {@code payment_request} row was written. steward and discord-bot listen. */
     PAYMENT("nordtal_payment"),
 

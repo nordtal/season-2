@@ -8,7 +8,6 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 import eu.nordtal.jcore.config.spec.annotation.Secret;
-import eu.nordtal.s2.common.Deployment;
 import java.util.List;
 
 /**
@@ -153,18 +152,6 @@ public interface StewardSpec {
     @Explain("How payments reach the bank through steward-bunq. Without a token a season sells nothing.")
     BunqSpec bunq();
 
-    @Order(15)
-    @Name("Docker")
-    @Key("docker")
-    @Comment({
-        "The daemon this service reads for container state, health, image drift, logs, the",
-        "console and metrics. It only reads, stops and starts; creating a container is steward-agent's.",
-        "Without the socket, the drift check and metrics answer that they could not look."
-    })
-    @Explain(
-            "Read, stop and start only; creating a container belongs to steward-agent. Without the socket this reports 'could not look'.")
-    DockerSpec docker();
-
     @Order(14)
     @Name("Backup")
     @Key("backup")
@@ -191,11 +178,11 @@ public interface StewardSpec {
     @Name("Agent")
     @Key("agent")
     @Comment({
-        "steward-agent, the one process allowed to create a container. An update asks its",
-        "HTTP API to pull and recreate a service whose image is out of date. Without a token it asks nothing."
+        "steward-agent, the one process that reaches Docker and the volumes: container state,",
+        "logs, the console, backups and every stop, start and recreate. Without a token it asks nothing."
     })
     @Explain(
-            "Asks steward-agent to recreate a service whose image is stale. Without a token below, it asks nothing at all.")
+            "Steward's only way to the containers and the volumes. Without a token below, nothing about a container can be shown or done.")
     AgentSpec agent();
 
     @Order(16)
@@ -274,50 +261,7 @@ public interface StewardSpec {
         }
     }
 
-    /** Where the daemon is, and which compose project is ours. */
-    @ConfigSpec
-    interface DockerSpec {
-
-        @Order(1)
-        @Name("Socket")
-        @Key("socket")
-        @Comment({
-            "The unix socket of the Docker daemon, as this container sees it. A missing path is",
-            "reported once, and everything that needs the daemon then answers `could not look`."
-        })
-        @Explain("Missing here is not a startup failure: everything needing the daemon then answers 'could not look'.")
-        default String socket() {
-            return "/var/run/docker.sock";
-        }
-
-        @Order(2)
-        @Name("Compose project")
-        @Key("project")
-        @Comment({
-            "The compose project name. Containers are <project>-<service>-1, and this separates",
-            "ours from anything else on the same daemon. It is written down, never guessed."
-        })
-        @Explain(
-                "Written down rather than guessed from labels, so a second copy of the stack cannot change what it matches.")
-        default String project() {
-            return Deployment.PROJECT;
-        }
-
-        @Order(3)
-        @Name("Metrics")
-        @Key("metrics")
-        @Comment({
-            "Whether the 30-second sampler runs. Its table is in the nightly backup, so turning it",
-            "off also makes every snapshot smaller, and the start page has no curves."
-        })
-        @Explain(
-                "The metrics table rides inside the nightly database backup; turning it off shrinks every snapshot and drops the curves.")
-        default boolean metrics() {
-            return true;
-        }
-    }
-
-    /** How this container asks steward-agent to recreate one service. */
+    /** How this container reaches steward-agent, its only way to Docker and the volumes. */
     @ConfigSpec
     interface AgentSpec {
 
@@ -334,12 +278,12 @@ public interface StewardSpec {
         @Name("Token")
         @Key("token")
         @Comment({
-            "The shared secret sent as X-Steward-Token to ask steward-agent for a recreate.",
+            "The shared secret sent as X-Steward-Token with every request to steward-agent.",
             "Empty means this container never asks. Set NORDTAL_STEWARD_AGENT_TOKEN instead."
         })
         @Secret
         @Explain(
-                "The secret steward-agent expects. Empty means this container never asks for a recreate and draws no recreate button.")
+                "The secret steward-agent expects. Empty means this container asks it nothing and draws no recreate button.")
         default String token() {
             return "";
         }

@@ -268,6 +268,8 @@ dependencies {
     testImplementation(libs.logback.classic)
     testImplementation(testFixtures(project(":database")))
     testImplementation(testFixtures(project(":settings")))
+    // The agent's real routes over a stand-in daemon, which the web tests talk to through the typed client.
+    testImplementation(testFixtures(project(":steward-agent")))
     testImplementation(libs.cbor)
 
     // ConfigFilesOwnershipTest needs a file owned by another user, which only an in-memory filesystem gives.

@@ -8,8 +8,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.AppenderBase;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import eu.nordtal.s2.steward.docker.Docker;
-import eu.nordtal.s2.steward.docker.DockerSocket;
+import eu.nordtal.s2.stewardagent.AgentStandIn;
 import io.javalin.Javalin;
 import java.io.InputStream;
 import java.net.URI;
@@ -46,11 +45,10 @@ class FollowEndsTest {
 
     @Test
     void aFollowWhoseBrowserHasGoneStopsRatherThanReadingTheRestAloudToNobody() throws Exception {
-        // Every assumption before the thing it could strand: an assumption aborts rather than running `finally`.
-        final DockerSocket socket = new DockerSocket();
-        assumeTrue(socket.isReachable(), "no docker socket - skipping");
-        final Docker docker = new Docker(socket);
-        final StackApi api = StackServer.api(docker);
+        final java.nio.file.Path scratch =
+                java.nio.file.Files.createTempDirectory(java.nio.file.Path.of("/tmp"), "ends");
+        final AgentStandIn agent = new AgentStandIn(scratch, 0, config -> {});
+        final StackApi api = StackServer.api(agent);
         boolean closedByTheTest = false;
         final Javalin server = StackServer.start(api, PORT);
         try {
@@ -73,7 +71,7 @@ class FollowEndsTest {
                         watch.count() < 5,
                         "a follow that lost its browser, and the shutdown after it, logged " + watch.count()
                                 + " warnings. One per line of the backlog is the shape to look for:"
-                                + " LogFollows asks client.terminated() before it writes, because Javalin"
+                                + " Follows asks client.terminated() before it writes, because Javalin"
                                 + " will not tell it any other way");
             }
         } finally {
@@ -81,6 +79,11 @@ class FollowEndsTest {
             if (!closedByTheTest) {
                 api.close();
                 server.stop();
+            }
+            agent.close();
+            try (var files = java.nio.file.Files.walk(scratch)) {
+                files.sorted(java.util.Comparator.reverseOrder())
+                        .forEach(path -> path.toFile().delete());
             }
         }
     }

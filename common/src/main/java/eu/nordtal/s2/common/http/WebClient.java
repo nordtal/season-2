@@ -166,8 +166,14 @@ public final class WebClient {
     }
 
     public Reply post(final URI uri, final String contentType, final String body) throws IOException {
+        return post(uri, contentType, body, timeout);
+    }
+
+    /** Sends a POST that may take {@code within} to answer. */
+    public Reply post(final URI uri, final String contentType, final String body, final Duration within)
+            throws IOException {
         return send(
-                request(uri, timeout)
+                request(uri, within)
                         .header("Content-Type", contentType)
                         .POST(HttpRequest.BodyPublishers.ofString(body)),
                 uri);

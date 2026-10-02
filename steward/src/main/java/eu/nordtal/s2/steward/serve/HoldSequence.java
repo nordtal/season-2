@@ -3,7 +3,7 @@ package eu.nordtal.s2.steward.serve;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
-import eu.nordtal.s2.steward.ops.RuntimeResult;
+import eu.nordtal.s2.internalapi.agent.RuntimeResult;
 import eu.nordtal.s2.steward.plan.Topology;
 import eu.nordtal.s2.steward.schema.RunLock;
 import java.sql.SQLException;
@@ -42,7 +42,7 @@ final class HoldSequence {
                             + " one could not say what it had done.")));
         }
 
-        final UpdateRun run = new UpdateRun(runner.containers, runner.backups.volumes(), progress);
+        final UpdateRun run = new UpdateRun(runner.containers, runner.backups, progress);
         final RuntimeResult runtime = run.check();
         if (!runtime.reached()) {
             return Outcome.failed(UpdateReports.toJson(
@@ -121,7 +121,7 @@ final class HoldSequence {
                     .withNote("No service is being held down, so there was nothing to start.")));
         }
 
-        final UpdateRun run = new UpdateRun(runner.containers, runner.backups.volumes(), progress);
+        final UpdateRun run = new UpdateRun(runner.containers, runner.backups, progress);
         final RuntimeResult runtime = run.check();
         if (!runtime.reached()) {
             return Outcome.failed(UpdateReports.toJson(

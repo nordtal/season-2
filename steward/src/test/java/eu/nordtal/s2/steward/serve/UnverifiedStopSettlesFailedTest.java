@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.database.update.UpdateReport;
-import eu.nordtal.s2.steward.backup.DatabaseDump;
+import eu.nordtal.s2.internalapi.agent.Snapshots;
 import eu.nordtal.s2.steward.plan.Topology;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -136,7 +136,7 @@ class UnverifiedStopSettlesFailedTest {
     void aFailedLineStillFailsARunWithNoUnverifiedStops() {
         // Most likely to be dropped while rearranging the other two: a dump that did not run is a FAILED line.
         final UpdateReport report = green().with(new UpdateReport.ServiceLine(
-                DatabaseDump.NAME, UpdateReport.State.FAILED, List.of(), "pg_dump exited 1"));
+                Snapshots.DATABASE, UpdateReport.State.FAILED, List.of(), "pg_dump exited 1"));
 
         final UpdateReport settled = Runner.settle(report, List.of(), ARCHIVES, false, FAILS);
 

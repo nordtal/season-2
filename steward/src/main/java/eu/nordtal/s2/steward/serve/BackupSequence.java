@@ -4,11 +4,11 @@ import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
-import eu.nordtal.s2.steward.backup.DatabaseDump;
-import eu.nordtal.s2.steward.backup.Retention;
-import eu.nordtal.s2.steward.backup.SnapshotResult;
+import eu.nordtal.s2.internalapi.agent.Retention;
+import eu.nordtal.s2.internalapi.agent.RuntimeResult;
+import eu.nordtal.s2.internalapi.agent.SnapshotResult;
+import eu.nordtal.s2.internalapi.agent.Snapshots;
 import eu.nordtal.s2.steward.config.BackupSpec;
-import eu.nordtal.s2.steward.ops.RuntimeResult;
 import java.util.List;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
@@ -24,7 +24,7 @@ final class BackupSequence {
         final SnapshotResult dumped = runner.backups.saveDatabase();
         UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING)
                 .with(new UpdateReport.ServiceLine(
-                        DatabaseDump.NAME,
+                        Snapshots.DATABASE,
                         dumped.ok() ? UpdateReport.State.SAVED : UpdateReport.State.FAILED,
                         List.of(new UpdateReport.Change("backup", null, dumped.message())),
                         dumped.ok() ? null : dumped.message()));
@@ -47,7 +47,7 @@ final class BackupSequence {
     static UpdateReport pruneAfterBackup(final Runner runner, final UpdateReport saved) {
         final BackupSpec.RetentionSpec keep = runner.config.backup().retention();
         final Retention policy = new Retention(keep.daily(), keep.weekly(), keep.monthly(), keep.collapseAfterDays());
-        final List<String> pruned = runner.backups.volumes().prune(policy);
+        final List<String> pruned = runner.backups.prune(policy);
         return pruned.isEmpty()
                 ? saved
                 : saved.withNote("kept " + policy.daily() + " daily, " + policy.weekly() + " weekly and "

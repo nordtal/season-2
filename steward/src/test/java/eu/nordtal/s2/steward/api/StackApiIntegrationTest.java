@@ -9,8 +9,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import eu.nordtal.s2.steward.docker.Docker;
-import eu.nordtal.s2.steward.docker.DockerSocket;
+import eu.nordtal.s2.stewardagent.AgentStandIn;
 import io.javalin.Javalin;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -22,34 +21,43 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/** The stack routes served over real HTTP against the real daemon, so status codes and the JSON shape are checked. */
+/** The stack routes over real HTTP against the agent's real routes, so status codes and the JSON shape are checked. */
 class StackApiIntegrationTest {
 
     private static final int PORT = 18082;
     private static final Gson GSON = new Gson();
 
+    private static Path scratch;
+    private static AgentStandIn agent;
     private static StackApi api;
     private static Javalin server;
     private static HttpClient http;
 
     @BeforeAll
-    static void start() {
-        final DockerSocket socket = new DockerSocket();
-        assumeTrue(socket.isReachable(), "no docker socket - skipping");
-        final Docker docker = new Docker(socket);
-        api = StackServer.api(docker);
+    static void start() throws java.io.IOException {
+        // Short, since a Unix socket path has a length limit the default temp directory can exceed.
+        scratch = java.nio.file.Files.createTempDirectory(Path.of("/tmp"), "stack");
+        agent = new AgentStandIn(scratch, 0, config -> {});
+        api = StackServer.api(agent);
         server = StackServer.start(api, PORT);
         http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     }
 
     @AfterAll
-    static void stop() {
+    static void stop() throws java.io.IOException {
         // The follows first: one closed after Jetty stopped loops in Javalin's error handling.
         if (api != null) {
             api.close();
         }
         if (server != null) {
             server.stop();
+        }
+        if (agent != null) {
+            agent.close();
+        }
+        try (var files = java.nio.file.Files.walk(scratch)) {
+            files.sorted(java.util.Comparator.reverseOrder())
+                    .forEach(path -> path.toFile().delete());
         }
     }
 
@@ -63,18 +71,10 @@ class StackApiIntegrationTest {
             assertTrue(first.has(column), column + " is missing from " + first);
         }
 
-        // Only the four Minecraft services carry a console field.
-        boolean sawConsole = false;
-        boolean sawNone = false;
-        for (final var element : services) {
-            final JsonObject row = element.getAsJsonObject();
-            if (row.get("hasConsole").getAsBoolean()) {
-                sawConsole = true;
-            } else {
-                sawNone = true;
-            }
-        }
-        assertTrue(sawConsole && sawNone, "every service answered the same way about its console: " + services);
+        // The console comes from compose.yml's label, which the stand-in agent gives smp.
+        final JsonObject smp = services.get(0).getAsJsonObject();
+        assertEquals("smp", smp.get("service").getAsString());
+        assertTrue(smp.get("hasConsole").getAsBoolean(), "smp carries the console label: " + smp);
     }
 
     @Test
@@ -215,7 +215,7 @@ class StackApiIntegrationTest {
     @Test
     void aFinishedArchiveStreamsBackByteForByteWithTheDownloadHeaders() throws Exception {
         final String name = "downloadsAFinishedArchive-20260913T044507Z.tar.zst";
-        final Path file = Path.of("/tmp", name);
+        final Path file = agent.backups.resolve(name);
         final byte[] body = "not a real archive, just some bytes to compare".getBytes(UTF_8);
         java.nio.file.Files.write(file, body);
         try {

@@ -1,8 +1,10 @@
 package eu.nordtal.s2.internalapi;
 
+import eu.nordtal.s2.common.http.HttpFailure;
 import eu.nordtal.s2.common.http.Reply;
 import eu.nordtal.s2.common.http.WebClient;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.net.URI;
 import java.net.http.HttpTimeoutException;
@@ -44,15 +46,41 @@ public final class InternalClient {
     }
 
     public String get(final String path) {
-        return answered(path, () -> web.get(uri(path), timeout));
+        return get(path, timeout);
+    }
+
+    /** Sends a GET that may take {@code within} to answer, for a question slower than the client's timeout. */
+    public String get(final String path, final Duration within) {
+        return answered(path, within, () -> web.get(uri(path), within));
     }
 
     public String post(final String path, final String json) {
-        return answered(path, () -> web.post(uri(path), "application/json", json));
+        return post(path, json, timeout);
+    }
+
+    /** Sends a POST that may take {@code within} to answer, for work that holds the request while it runs. */
+    public String post(final String path, final String json, final Duration within) {
+        return answered(path, within, () -> web.post(uri(path), "application/json", json, within));
+    }
+
+    /**
+     * Opens a GET whose body is read as it arrives, an event stream or a download, until the caller closes it.
+     *
+     * @param accept the media type asked for, {@code text/event-stream} for events
+     */
+    public InputStream stream(final String path, final String accept) {
+        try {
+            return web.stream(uri(path), timeout, accept);
+        } catch (final HttpFailure refused) {
+            throw new Failure(
+                    service, refused.status(), service + " answered " + refused.status() + " for " + path, null);
+        } catch (final IOException e) {
+            throw failureOf(path, timeout, e);
+        }
     }
 
     /** Sends one request and answers its body, turning every way it can go wrong into a {@link Failure}. */
-    private String answered(final String path, final Exchange exchange) {
+    private String answered(final String path, final Duration within, final Exchange exchange) {
         try {
             final Reply reply = exchange.send();
             if (!reply.ok()) {
@@ -64,14 +92,21 @@ public final class InternalClient {
                         reply.body());
             }
             return reply.body();
-        } catch (final HttpTimeoutException slow) {
-            throw new Failure(
-                    service, 504, service + " did not answer " + path + " within " + timeout.toSeconds() + "s", null);
-        } catch (final InterruptedIOException interrupted) {
-            throw new Failure(service, 503, "interrupted while asking " + service, null);
         } catch (final IOException e) {
-            throw new Failure(service, 502, service + " could not be reached at " + baseUrl + " for " + path, null);
+            throw failureOf(path, within, e);
         }
+    }
+
+    /** Names how a request that never got an answer went wrong: too slow, interrupted, or nobody there. */
+    private Failure failureOf(final String path, final Duration within, final IOException e) {
+        if (e instanceof HttpTimeoutException) {
+            return new Failure(
+                    service, 504, service + " did not answer " + path + " within " + within.toSeconds() + "s", null);
+        }
+        if (e instanceof InterruptedIOException) {
+            return new Failure(service, 503, "interrupted while asking " + service, null);
+        }
+        return new Failure(service, 502, service + " could not be reached at " + baseUrl + " for " + path, null);
     }
 
     /** One request, sent when {@link #answered} asks for it. */
@@ -96,6 +131,11 @@ public final class InternalClient {
             this.where = where;
             this.status = status;
             this.body = body;
+        }
+
+        /** What the service asked reported about the one behind it, such as the daemon, as a 502 naming that one. */
+        public static Failure behind(final String where, final String message) {
+            return new Failure(where, 502, message, null);
         }
 
         /** Which service did not answer; the interface shows it, so it must not be a guess. */

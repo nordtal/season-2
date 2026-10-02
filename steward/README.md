@@ -26,10 +26,10 @@ Javalin as the rest and pass the same gates: a read needs a signed-in admin with
 (`KEY_HELD`), a change a fresh one (`KEY_FRESH`). The plugin "added by" comes from the session, and a
 long log follow re-checks the session once a second, so a sign-out ends it.
 
-What the split bought was that the process on the internet held no Docker socket. That is given up
-for now and comes back when the Docker, file and run code moves into `steward-agent`: steward then
-asks the agent for all of it. Until then steward reads, stops and starts containers through the
-socket, and only `steward-agent` creates one.
+The process on the internet holds no Docker socket. Everything Docker knows comes from
+`steward-agent` through `AgentClient`: the containers and their last sample, logs, the console,
+image drift, the host's numbers and the archives. The runs still write jars into the `/volumes`
+mounts themselves.
 
 It logs in as the database owner, because it migrates. The role `nordtal_steward` (`DatabaseRole.STEWARD`)
 holds the grants the interface needs and is what steward logs in as once migrating is someone
@@ -68,15 +68,15 @@ pin and no rollback: a bad release is corrected by publishing a better one.
 - **Handover.** No process replaces the jar it runs, so an update that brings a newer steward places
   only that jar, returns the request to the inbox and exits. The new steward migrates and finishes the
   request, so a release's migrations are applied by that release.
-- **Containers.** It holds the Docker socket to read state, health and metrics, to stop and start
-  containers and to write into the Minecraft consoles. It never creates a container; that is
-  `steward-agent`'s.
+- **Containers.** It asks `steward-agent` for state, health and the last sample, to stop and start
+  containers and to write into the Minecraft consoles, naming who typed the line. It never touches
+  the socket.
 - **Images.** It checks each service's image against the registry before a run, and reports an image
   it could not check as unchecked, never as current.
-- **Metrics.** Every 30 seconds it writes host and container samples into `metric_sample`, and folds
-  them into hourly means after 30 days (`docker.metrics` in the `steward` group).
-- **Backups.** `pg_dump` inside the postgres container, then the volumes as zstd tars read back once
-  before the rename from `.partial`. The nightly clock only writes a request row. There is no offsite
+- **Metrics.** Every 30 seconds it copies the agent's new sampler rounds into `metric_sample`, and
+  folds them into hourly means after 30 days.
+- **Backups.** It drives the run; `steward-agent` runs `pg_dump` inside the postgres container and
+  writes the volumes as zstd tars, read back once before the rename from `.partial`. The nightly clock only writes a request row. There is no offsite
   copy.
 - **Payments.** It books them and holds no bank credential: every question to bunq goes to
   `steward-bunq` (`steward#bunq`, its address and the token they share). At start it asks
@@ -91,7 +91,7 @@ database, `steward` and `web`, which Steward publishes at start and edits on its
 
 | group      | environment                  | holds                                                                     |
 | ---------- | ---------------------------- | ------------------------------------------------------------------------- |
-| `steward`  | `NORDTAL_STEWARD_*`          | sources, Docker, backups, the agent's and steward-bunq's addresses        |
+| `steward`  | `NORDTAL_STEWARD_*`          | sources, backups, the agent's and steward-bunq's addresses                |
 | `web`      | `NORDTAL_STEWARD_WEB_*`      | the port, the public address, Discord sign-in, WebAuthn, alerts, Web Push |
 | `database` | `NORDTAL_STEWARD_DATABASE_*` | the connection, from the environment alone                                |
 

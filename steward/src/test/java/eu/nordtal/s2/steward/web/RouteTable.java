@@ -1,15 +1,12 @@
 package eu.nordtal.s2.steward.web;
 
+import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.internalapi.InternalClient;
+import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.steward.api.FakeDirectories;
 import eu.nordtal.s2.steward.api.StackApi;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.config.WebSpec;
-import eu.nordtal.s2.steward.docker.Console;
-import eu.nordtal.s2.steward.docker.Docker;
-import eu.nordtal.s2.steward.docker.DockerOps;
-import eu.nordtal.s2.steward.docker.DockerSocket;
-import eu.nordtal.s2.steward.host.HostMetrics;
 import io.javalin.Javalin;
 import io.javalin.http.HandlerType;
 import io.javalin.router.Endpoint;
@@ -22,11 +19,9 @@ import java.util.List;
 /** The routes the real service registers, asked of a running one rather than read out of its source. */
 final class RouteTable {
 
-    private static final String PROJECT = "nordtal-s2";
-
     private RouteTable() {}
 
-    /** Starts the service with no database and no daemon: every route is registered before either is asked. */
+    /** Starts the service with no database and no agent: every route is registered before either is asked. */
     static Javalin start() {
         // Every section at its default; jcore's @ConfigSpec leaves the getters abstract otherwise.
         final WebSpec config = new WebSpec() {
@@ -55,15 +50,13 @@ final class RouteTable {
                 return new WebPushSpec() {};
             }
         };
-        // A socket nobody listens on: registering a route asks the daemon nothing.
-        final Docker docker = new Docker(new DockerSocket(Path.of("/nonexistent/docker.sock"), Duration.ofSeconds(1)));
+        // An agent nobody runs: registering a route asks it nothing.
+        final AgentClient agent = new AgentClient(
+                new InternalClient("steward-agent", "http://127.0.0.1:1", "", Duration.ofSeconds(1)),
+                Waiting.on(Clock.systemUTC()),
+                Duration.ofSeconds(1));
         final StackApi stack = new StackApi(
-                docker,
-                new DockerOps(docker, PROJECT),
-                new Console(docker, PROJECT),
-                new HostMetrics(),
-                PROJECT,
-                Path.of("/nonexistent"),
+                agent,
                 Path.of("/nonexistent"),
                 FakeDirectories.updates(),
                 FakeDirectories.audit(),
@@ -73,7 +66,7 @@ final class RouteTable {
                         config,
                         new DiscordAuth(config.discord(), config.publicUrl()),
                         stack,
-                        new InternalClient("steward-agent", "http://127.0.0.1:1", "", Duration.ofSeconds(1)),
+                        agent,
                         false,
                         null,
                         Clock.systemUTC())

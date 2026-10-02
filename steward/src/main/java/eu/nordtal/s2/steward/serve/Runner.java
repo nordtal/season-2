@@ -9,12 +9,11 @@ import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateStatus;
-import eu.nordtal.s2.steward.backup.Backups;
-import eu.nordtal.s2.steward.backup.DatabaseDump;
+import eu.nordtal.s2.internalapi.agent.ContainerOps;
+import eu.nordtal.s2.internalapi.agent.ImageResult;
+import eu.nordtal.s2.internalapi.agent.RuntimeResult;
+import eu.nordtal.s2.internalapi.agent.Snapshots;
 import eu.nordtal.s2.steward.config.StewardSpec;
-import eu.nordtal.s2.steward.ops.ContainerOps;
-import eu.nordtal.s2.steward.ops.ImageResult;
-import eu.nordtal.s2.steward.ops.RuntimeResult;
 import eu.nordtal.s2.steward.plan.Topology;
 import eu.nordtal.s2.steward.schema.RunLock;
 import java.sql.SQLException;
@@ -42,7 +41,7 @@ public final class Runner implements RequestRunner {
     final StewardSpec config;
     final Database database;
     final ContainerOps containers;
-    final Backups backups;
+    final Snapshots backups;
     final UpdateDirectory directory;
     final Waiting waiting;
 
@@ -79,7 +78,7 @@ public final class Runner implements RequestRunner {
             final StewardSpec config,
             final Database database,
             final ContainerOps containers,
-            final Backups backups,
+            final Snapshots backups,
             final UpdateDirectory directory,
             final Waiting waiting) {
         this(
@@ -96,7 +95,7 @@ public final class Runner implements RequestRunner {
             final StewardSpec config,
             final Database database,
             final ContainerOps containers,
-            final Backups backups,
+            final Snapshots backups,
             final UpdateDirectory directory,
             final Waiting waiting,
             final eu.nordtal.s2.steward.plugin.PluginDirectory plugins) {
@@ -131,7 +130,7 @@ public final class Runner implements RequestRunner {
      * The runtime is read before anything resolves, so a run that cannot stop a server never moves a jar.
      */
     private Outcome update(final UpdateRequest request, final Consumer<UpdateReport> progress) {
-        final UpdateRun run = new UpdateRun(containers, backups.volumes(), progress);
+        final UpdateRun run = new UpdateRun(containers, backups, progress);
 
         final RuntimeResult runtime = run.check();
         if (!runtime.reached()) {
@@ -294,7 +293,7 @@ public final class Runner implements RequestRunner {
      * Every path from the stop ends in a start, so a failed snapshot never leaves the network down.
      */
     private Outcome backup(final UpdateRequest request, final Consumer<UpdateReport> progress) {
-        final UpdateRun run = new UpdateRun(containers, backups.volumes(), progress);
+        final UpdateRun run = new UpdateRun(containers, backups, progress);
 
         final RuntimeResult runtime = run.check();
         if (!runtime.reached()) {
@@ -335,7 +334,7 @@ public final class Runner implements RequestRunner {
 
     /** The same sequence with nothing installed: stop the servers, start them, wait for them. */
     private Outcome restart(final UpdateRequest request, final Consumer<UpdateReport> progress) {
-        final UpdateRun run = new UpdateRun(containers, backups.volumes(), progress);
+        final UpdateRun run = new UpdateRun(containers, backups, progress);
 
         final RuntimeResult runtime = run.check();
         if (!runtime.reached()) {
@@ -404,7 +403,7 @@ public final class Runner implements RequestRunner {
                 .filter(UpdateReport.ServiceLine::isMoving)
                 .map(UpdateReport.ServiceLine::service)
                 .filter(service -> !Topology.STEWARD.equals(service))
-                .filter(service -> !DatabaseDump.NAME.equals(service))
+                .filter(service -> !Snapshots.DATABASE.equals(service))
                 .toList();
     }
 

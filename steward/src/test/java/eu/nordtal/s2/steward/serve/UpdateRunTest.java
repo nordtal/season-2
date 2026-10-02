@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.update.UpdateReport;
-import eu.nordtal.s2.steward.backup.DatabaseDump;
+import eu.nordtal.s2.internalapi.agent.Snapshots;
 import eu.nordtal.s2.steward.plan.Topology;
 import java.time.Duration;
 import java.time.Instant;
@@ -107,7 +107,7 @@ class UpdateRunTest {
         final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
         final UpdateReport planned = planned(Topology.SMP)
                 .with(new UpdateReport.ServiceLine(
-                        DatabaseDump.NAME,
+                        Snapshots.DATABASE,
                         UpdateReport.State.SAVED,
                         List.of(new UpdateReport.Change("backup", null, "saved 790.0 KiB in 0s")),
                         null));
@@ -116,12 +116,12 @@ class UpdateRunTest {
 
         assertEquals(
                 UpdateReport.State.SAVED,
-                stopped.report().line(DatabaseDump.NAME).state(),
+                stopped.report().line(Snapshots.DATABASE).state(),
                 "the dump is finished before this loop begins and its line is already written."
                         + " Turning it FAILED here reports a backup that exists as a backup that"
                         + " does not, which is the one direction that must never happen");
         assertFalse(
-                stopped.services().contains(DatabaseDump.NAME),
+                stopped.services().contains(Snapshots.DATABASE),
                 "nothing was stopped for it and nothing may be started for it either");
     }
 

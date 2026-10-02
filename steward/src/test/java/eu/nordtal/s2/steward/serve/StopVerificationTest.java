@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.database.update.UpdateReport;
-import eu.nordtal.s2.steward.backup.DatabaseDump;
+import eu.nordtal.s2.internalapi.agent.Snapshots;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -18,7 +18,7 @@ class StopVerificationTest {
 
     private static UpdateReport planned(final String... services) {
         UpdateReport report = UpdateReport.at(UpdateReport.Stage.STOPPING)
-                .with(new UpdateReport.ServiceLine(DatabaseDump.NAME, UpdateReport.State.SAVED, List.of(), null));
+                .with(new UpdateReport.ServiceLine(Snapshots.DATABASE, UpdateReport.State.SAVED, List.of(), null));
         for (final String service : services) {
             report = report.with(new UpdateReport.ServiceLine(service, UpdateReport.State.PLANNED, List.of(), null));
         }

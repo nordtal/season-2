@@ -2,22 +2,18 @@ package eu.nordtal.s2.steward.web;
 
 import com.google.gson.Gson;
 import eu.nordtal.jcore.persistence.sql.Database;
+import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.TestDatabase;
-import eu.nordtal.s2.internalapi.InternalClient;
-import eu.nordtal.s2.internalapi.InternalServer;
+import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.settings.DatabaseSpec;
-import eu.nordtal.s2.steward.agent.AgentRecreate;
 import eu.nordtal.s2.steward.api.StackApi;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.auth.TestAuthenticator;
 import eu.nordtal.s2.steward.config.WebSpec;
 import eu.nordtal.s2.steward.data.Data;
-import eu.nordtal.s2.steward.docker.Console;
-import eu.nordtal.s2.steward.docker.Docker;
-import eu.nordtal.s2.steward.docker.DockerOps;
-import eu.nordtal.s2.steward.docker.DockerSocket;
-import eu.nordtal.s2.steward.host.HostMetrics;
 import eu.nordtal.s2.steward.schema.Schema;
+import eu.nordtal.s2.stewardagent.AgentStandIn;
+import eu.nordtal.s2.stewardagent.docker.FakeDaemon;
 import io.javalin.Javalin;
 import io.javalin.json.JavalinGson;
 import java.io.IOException;
@@ -58,10 +54,12 @@ abstract class WebFixture {
     static final java.util.concurrent.atomic.AtomicReference<String> secretDiscordSaw =
             new java.util.concurrent.atomic.AtomicReference<>();
 
-    /** The daemon the stack routes talk to, with one running {@code smp} container. */
+    /** steward-agent's real routes, over the daemon the stack routes reach through it. */
+    static AgentStandIn agent;
+
+    /** The agent's daemon, with one running {@code smp} container. */
     static FakeDaemon daemon;
 
-    static Javalin fakeAgent;
     static Javalin fakeDiscord;
 
     /** What the stand-in agent was last asked to recreate, so a test can read it back. */
@@ -85,8 +83,7 @@ abstract class WebFixture {
     static void start() throws Exception {
         writeConfigFixtures();
         scratch = Files.createTempDirectory("steward-web");
-        daemon = new FakeDaemon(scratch);
-        startFakeAgent();
+        startAgent();
         startFakeDiscord();
         config = buildConfig();
         startDatabase();
@@ -119,38 +116,37 @@ abstract class WebFixture {
                 """);
     }
 
-    private static void startFakeAgent() {
-        // A stand-in for steward-agent behind the real guard, so the secret is checked as it is in the stack.
-        fakeAgent = new InternalServer(AgentRecreate.SERVICE, Map.of("NORDTAL_STEWARD_AGENT_TOKEN", "agent-token")::get)
-                .start(AGENT_PORT, cfg -> {
-                    cfg.routes.get("/api/services", ctx -> ctx.json(Map.of("smp", "ghcr.io/nordtal/minecraft:latest")));
-                    cfg.routes.post("/api/recreate/{service}", ctx -> {
-                        recreated.add(ctx.pathParam("service"));
-                        ctx.status(202)
-                                .json(Map.of(
-                                        "id",
-                                        "job-1",
-                                        "kind",
-                                        "recreate",
-                                        "services",
-                                        List.of(ctx.pathParam("service")),
-                                        "state",
-                                        "RUNNING"));
-                    });
-                    cfg.routes.get(
-                            "/api/jobs/{id}",
-                            ctx -> ctx.json(Map.of(
-                                    "id",
-                                    ctx.pathParam("id"),
-                                    "kind",
-                                    "recreate",
-                                    "state",
-                                    "DONE",
-                                    "exitCode",
-                                    0,
-                                    "lines",
-                                    List.of("Container nordtal-s2-smp-1  Recreated"))));
-                });
+    private static void startAgent() throws IOException {
+        // The real agent routes behind the real guard; only the deployments are stand-ins, since they run compose.
+        agent = new AgentStandIn(scratch, AGENT_PORT, cfg -> {
+            cfg.routes.post("/api/recreate/{service}", ctx -> {
+                recreated.add(ctx.pathParam("service"));
+                ctx.status(202)
+                        .json(Map.of(
+                                "id",
+                                "job-1",
+                                "kind",
+                                "recreate",
+                                "services",
+                                List.of(ctx.pathParam("service")),
+                                "state",
+                                "RUNNING"));
+            });
+            cfg.routes.get(
+                    "/api/jobs/{id}",
+                    ctx -> ctx.json(Map.of(
+                            "id",
+                            ctx.pathParam("id"),
+                            "kind",
+                            "recreate",
+                            "state",
+                            "DONE",
+                            "exitCode",
+                            0,
+                            "lines",
+                            List.of("Container nordtal-s2-smp-1  Recreated"))));
+        });
+        daemon = agent.daemon;
     }
 
     private static void startFakeDiscord() {
@@ -278,14 +274,10 @@ abstract class WebFixture {
      * A new {@link StackApi} each time, since stopping a {@link Web} closes the one it was given.
      */
     static Web newWeb() {
-        final Docker docker = new Docker(new DockerSocket(daemon.socket(), Duration.ofSeconds(5)));
+        final AgentClient client =
+                new AgentClient(agent.client(), Waiting.on(Clock.systemUTC()), Duration.ofSeconds(5));
         final StackApi stack = new StackApi(
-                docker,
-                new DockerOps(docker, FakeDaemon.PROJECT),
-                new Console(docker, FakeDaemon.PROJECT),
-                new HostMetrics(),
-                FakeDaemon.PROJECT,
-                scratch,
+                client,
                 configRoot,
                 data.updates(),
                 data.audit(),
@@ -295,8 +287,7 @@ abstract class WebFixture {
                 config,
                 new DiscordAuth(config.discord(), config.publicUrl(), "http://127.0.0.1:" + DISCORD_PORT),
                 stack,
-                new InternalClient(
-                        "steward-agent", "http://127.0.0.1:" + AGENT_PORT, "agent-token", Duration.ofSeconds(5)),
+                client,
                 true,
                 data,
                 Clock.systemUTC());
@@ -323,15 +314,12 @@ abstract class WebFixture {
         if (web != null) {
             web.stop();
         }
-        if (daemon != null) {
+        if (agent != null) {
             try {
-                daemon.close();
+                agent.close();
             } catch (final IOException ignored) {
                 // A socket file left in a temp directory is not worth failing a test run over.
             }
-        }
-        if (fakeAgent != null) {
-            fakeAgent.stop();
         }
         if (fakeDiscord != null) {
             fakeDiscord.stop();

@@ -1,7 +1,7 @@
 package eu.nordtal.s2.steward.serve;
 
-import eu.nordtal.s2.steward.backup.SnapshotResult;
-import eu.nordtal.s2.steward.backup.Snapshots;
+import eu.nordtal.s2.internalapi.agent.SnapshotResult;
+import eu.nordtal.s2.internalapi.agent.Snapshots;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -40,6 +40,13 @@ final class FakeSnapshots implements Snapshots {
     }
 
     @Override
+    public SnapshotResult saveDatabase() {
+        calls.add("dump");
+        return SnapshotResult.saved(
+                DATABASE, 7_654_321, Duration.ofSeconds(3), "/backups/database-20260913T000000Z.sql.zst");
+    }
+
+    @Override
     public SnapshotResult save(final String volume) {
         calls.add("backup:" + volume);
         if (failing.contains(volume)) {
@@ -68,7 +75,7 @@ final class FakeSnapshots implements Snapshots {
     }
 
     @Override
-    public List<String> prune(final eu.nordtal.s2.steward.backup.Retention policy) {
+    public List<String> prune(final eu.nordtal.s2.internalapi.agent.Retention policy) {
         calls.add("prune:" + policy.daily());
         return List.of();
     }

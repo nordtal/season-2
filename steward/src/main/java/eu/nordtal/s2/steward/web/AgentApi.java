@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward.web;
 
-import eu.nordtal.s2.internalapi.InternalClient;
+import eu.nordtal.s2.internalapi.agent.AgentClient;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.data.Data;
 import io.javalin.http.BadRequestResponse;
@@ -23,10 +24,7 @@ public final class AgentApi {
 
     private static final Logger log = LoggerFactory.getLogger(AgentApi.class);
 
-    /** steward-agent does not recreate itself: the request runs through it and would never come back. */
-    private static final String SELF = "steward-agent";
-
-    private final InternalClient agent;
+    private final AgentClient agent;
 
     private final @Nullable Data data;
 
@@ -35,7 +33,7 @@ public final class AgentApi {
 
     /** {@code configured} is whether a secret was given at all; a stack not set up yet is not a fault. */
     public AgentApi(
-            final InternalClient agent,
+            final AgentClient agent,
             final @Nullable Data data,
             final Function<Context, DiscordAuth.Account> accounts,
             final boolean configured) {
@@ -63,12 +61,6 @@ public final class AgentApi {
         ctx.json(Map.of("available", true, "reachable", agent.isReachable()));
     }
 
-    /** Every service the live compose file defines, with the image each one runs. */
-    public void services(final Context ctx) {
-        require();
-        ctx.contentType("application/json").result(agent.get("/api/services"));
-    }
-
     /** {@code POST /api/agent/recreate/{service}}: accepted, and then it is a job. */
     public void recreate(final Context ctx) {
         require();
@@ -86,20 +78,19 @@ public final class AgentApi {
                         "recreation from the current image requested by " + who.name() + " from the web interface");
         log.info("{} asked steward-agent to recreate {}", who.name(), service);
 
-        final String answer = agent.post("/api/recreate/" + service, "");
-        ctx.status(202).contentType("application/json").result(answer);
+        ctx.status(202).json(agent.startRecreate(service));
     }
 
     /** {@code GET /api/agent/jobs/{id}}: the job with its output so far. */
     public void job(final Context ctx) {
         require();
-        ctx.contentType("application/json").result(agent.get("/api/jobs/" + jobId(ctx)));
+        ctx.json(agent.job(jobId(ctx)));
     }
 
     /** {@code GET /api/agent/jobs}: the jobs this agent has run since it started. */
     public void jobs(final Context ctx) {
         require();
-        ctx.contentType("application/json").result(agent.get("/api/jobs"));
+        ctx.json(agent.jobs());
     }
 
     private void require() {
@@ -116,7 +107,8 @@ public final class AgentApi {
         if (service.isEmpty() || !service.matches("[a-z0-9][a-z0-9_-]{0,62}")) {
             throw new BadRequestResponse("\"" + ctx.pathParam("service") + "\" is not a compose service name");
         }
-        if (service.equals(SELF)) {
+        // The request runs through it, so the answer would never come back.
+        if (service.equals(AgentWire.SERVICE)) {
             throw new BadRequestResponse("steward-agent does not recreate itself: it is the container this request "
                     + "is travelling through, so the answer would never come back. The setup "
                     + "script on the host renews that one.");

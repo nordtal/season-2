@@ -17,7 +17,7 @@ final class Routes {
     /** Wires every route onto {@code config}. */
     static void register(final StackApi api, final JavalinConfig config, final Caller caller) {
         serviceRoutes(api, config, caller);
-        consoleRoute(api, config);
+        consoleRoute(api, config, caller);
         messageRoutes(api, config);
         settingRoutes(api, config, caller);
         hostRoutes(api, config);
@@ -45,15 +45,8 @@ final class Routes {
                         client.close();
                         return;
                     }
-                    final String name = client.ctx().pathParam("name");
-                    final String containerId =
-                            Archives.containerOf(api.docker, api.project, name).orElse(null);
-                    if (containerId == null) {
-                        client.sendEvent("gone", "no running container for " + name);
-                        client.close();
-                        return;
-                    }
-                    api.logFollows.serve(client, containerId, name, () -> caller.stillSignedIn(client.ctx()));
+                    api.logFollows.serve(
+                            client, client.ctx().pathParam("name"), () -> caller.stillSignedIn(client.ctx()));
                 },
                 Gate.KEY_HELD);
     }
@@ -63,7 +56,7 @@ final class Routes {
      *
      * The answer is not in the response: the server prints it on its own console, where every admin sees it.
      */
-    private static void consoleRoute(final StackApi api, final JavalinConfig config) {
+    private static void consoleRoute(final StackApi api, final JavalinConfig config, final Caller caller) {
         config.routes.post(
                 "/api/services/{name}/console",
                 ctx -> {
@@ -71,11 +64,8 @@ final class Routes {
                     if (body == null || body.command == null || body.command.isBlank()) {
                         throw new BadRequestResponse("command is the line to type");
                     }
-                    try {
-                        api.console.send(ctx.pathParam("name"), body.command.strip());
-                    } catch (IllegalArgumentException e) {
-                        throw new BadRequestResponse(e.getMessage());
-                    }
+                    // The agent refuses a service without a console with a 400 that names the ones with one.
+                    api.console(ctx.pathParam("name"), body.command.strip(), caller.name(ctx));
                     ctx.status(202)
                             .json(Map.of(
                                     "sent", body.command.strip(), "where", "the answer appears in this service's log"));
@@ -109,13 +99,11 @@ final class Routes {
         config.routes.get("/api/schedule", ctx -> ctx.json(api.schedule()), Gate.KEY_HELD);
 
         // What is actually on the disk, not what a run reported.
-        config.routes.get("/api/backups", ctx -> ctx.json(Archives.list(api.backups)), Gate.KEY_HELD);
+        config.routes.get("/api/backups", ctx -> ctx.json(api.archives()), Gate.KEY_HELD);
 
         // Streamed, not buffered, since these are hundreds of megabytes; reading a backup is a read.
         config.routes.get(
-                "/api/backups/{name}/download",
-                ctx -> Archives.download(ctx, api.backups, ctx.pathParam("name")),
-                Gate.KEY_HELD);
+                "/api/backups/{name}/download", ctx -> api.download(ctx, ctx.pathParam("name")), Gate.KEY_HELD);
 
         // The newest rows across the run inbox and audit_log, merged.
         config.routes.get("/api/actions", api.actions::list, Gate.KEY_HELD);

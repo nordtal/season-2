@@ -1,5 +1,6 @@
 package eu.nordtal.s2.stewardagent;
 
+import eu.nordtal.s2.internalapi.agent.AgentWire;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -198,18 +199,18 @@ public final class Jobs {
             return List.copyOf(lines);
         }
 
-        public Map<String, Object> summary() {
-            final Map<String, Object> summary = new java.util.LinkedHashMap<>();
-            summary.put("id", id);
-            summary.put("kind", kind);
-            summary.put("services", services);
-            summary.put("state", state.name());
-            summary.put("started", started.toString());
-            if (finished != null) {
-                summary.put("finished", finished.toString());
-                summary.put("exitCode", exitCode);
-            }
-            return summary;
+        /** The job as it crosses the wire, its output only when {@code withLines}. */
+        public AgentWire.Job wire(final boolean withLines) {
+            final Instant ended = finished;
+            return new AgentWire.Job(
+                    id,
+                    kind,
+                    services,
+                    state.name(),
+                    started,
+                    ended,
+                    ended == null ? null : exitCode,
+                    withLines ? lines() : null);
         }
     }
 }

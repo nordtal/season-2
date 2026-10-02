@@ -21,13 +21,9 @@ RUN mkdir -p config lib
 ENV JAR_DIR=/app/lib
 VOLUME ["/app/config", "/app/lib"]
 
-# zstd compresses the backup tars; GNU tar is already in the base image. `steward` is a command too,
-# for `docker exec nordtal-s2-steward-1 steward forget-factors <discord-id>`.
+# `steward` is a command too, for `docker exec nordtal-s2-steward-1 steward forget-factors <discord-id>`.
 FROM jvm AS steward
-RUN apt-get update \
-    && apt-get install --no-install-recommends -y zstd \
-    && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p config \
+RUN mkdir -p config \
     && printf '#!/bin/sh\nexec /app/entrypoint.sh "$@"\n' > /usr/local/bin/steward \
     && chmod 0755 /usr/local/bin/steward
 ENV NORDTAL_STEWARD_CONFIG_DIR=/app/config \
@@ -37,7 +33,11 @@ VOLUME ["/app/config"]
 
 # The docker CLI and compose plugin are static binaries. Mounted, not baked: the Docker socket, the
 # whole privilege of this container, and /app/env, the deployment's secrets, read only by compose.
+# zstd compresses the backup tars; GNU tar is already in the base image.
 FROM jvm AS steward-agent
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y zstd \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=docker-cli /usr/local/libexec/docker/cli-plugins/docker-compose \
      /usr/local/libexec/docker/cli-plugins/docker-compose

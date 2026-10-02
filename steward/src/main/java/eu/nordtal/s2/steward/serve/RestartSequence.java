@@ -3,7 +3,7 @@ package eu.nordtal.s2.steward.serve;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
-import eu.nordtal.s2.steward.ops.RuntimeResult;
+import eu.nordtal.s2.internalapi.agent.RuntimeResult;
 import eu.nordtal.s2.steward.plan.Topology;
 import java.util.List;
 import java.util.function.Consumer;

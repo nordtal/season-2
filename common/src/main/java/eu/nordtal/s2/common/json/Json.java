@@ -13,14 +13,16 @@ import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.id.PlayerId;
 import java.io.IOException;
 import java.io.Reader;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
 /**
  * The one JSON codec: records, lists, maps and plain values to text and back.
- * On Gson, which Paper and Velocity ship, so it is never shaded; a {@code null} component is left out, and an id is
- * written as its text.
+ * On Gson, which Paper and Velocity ship, so it is never shaded; a {@code null} component is left out, and an id, an
+ * instant or a duration is written as its ISO text.
  */
 public final class Json {
 
@@ -29,6 +31,8 @@ public final class Json {
             .registerTypeAdapter(DiscordId.class, new TextAdapter<>(DiscordId::value, DiscordId::of))
             .registerTypeAdapter(
                     PlayerId.class, new TextAdapter<>(PlayerId::toString, text -> PlayerId.of(UUID.fromString(text))))
+            .registerTypeAdapter(Instant.class, new TextAdapter<>(Instant::toString, Instant::parse))
+            .registerTypeAdapter(Duration.class, new TextAdapter<>(Duration::toString, Duration::parse))
             .create();
 
     private Json() {}

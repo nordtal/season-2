@@ -1,6 +1,7 @@
 package eu.nordtal.s2.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static eu.nordtal.s2.architecture.Wiring.callFrom;
 import static eu.nordtal.s2.architecture.Wiring.callInOrder;
 import static eu.nordtal.s2.architecture.Wiring.isListed;
@@ -14,8 +15,9 @@ import org.junit.jupiter.api.Test;
 class StewardRulesTest {
 
     private static final String SERVE = "eu.nordtal.s2.steward.serve.";
-    private static final String LOG_FOLLOWS = "eu.nordtal.s2.steward.api.LogFollows";
+    private static final String FOLLOWS = "eu.nordtal.s2.internalapi.sse.Follows";
     private static final String AGENT = "eu.nordtal.s2.stewardagent.StewardAgent";
+    private static final String AGENT_PACKAGE = "eu.nordtal.s2.stewardagent..";
 
     /** Standbys up, then the warning, then the wait for the players, then the stop: no other order. */
     private static final String[] CHOREOGRAPHY = {
@@ -75,9 +77,9 @@ class StewardRulesTest {
     @Test
     void theHeartbeatTimerHandsTheWriteOnAndSkipsATickStillOnItsWay() {
         classes()
-                .that(isListed(LOG_FOLLOWS))
+                .that(isListed(FOLLOWS))
                 .should(neverCallFrom("serve", "SseClient#sendComment"))
-                .andShould(callFrom("serve", "ScheduledExecutorService#scheduleWithFixedDelay", "LogFollows#beat"))
+                .andShould(callFrom("serve", "ScheduledExecutorService#scheduleWithFixedDelay", "Follows#beat"))
                 .andShould(callInOrder(
                         "beat",
                         "AtomicBoolean#compareAndSet",
@@ -86,6 +88,27 @@ class StewardRulesTest {
                         "AtomicBoolean#set"))
                 .andShould(callFrom("<init>", "Executors#newVirtualThreadPerTaskExecutor"))
                 .andShould(callFrom("<init>", "Executors#newSingleThreadScheduledExecutor"))
+                .check(classes);
+    }
+
+    /** steward holds no socket of the daemon's and none of the agent's classes: the typed client is its one way. */
+    @Test
+    void onlyTheAgentReachesTheDockerSocket() {
+        noClasses()
+                .that()
+                .resideOutsideOfPackage(AGENT_PACKAGE)
+                .should()
+                .dependOnClassesThat()
+                .haveFullyQualifiedName("java.net.UnixDomainSocketAddress")
+                .because("the daemon's socket is mounted into steward-agent alone")
+                .check(classes);
+        noClasses()
+                .that()
+                .resideInAPackage("eu.nordtal.s2.steward..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAPackage(AGENT_PACKAGE)
+                .because("steward reaches Docker and the volumes through AgentClient, so the agent is the one door")
                 .check(classes);
     }
 

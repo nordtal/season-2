@@ -19,8 +19,8 @@ A bank error is a `502` with bunq's own words as the body, so `steward` can show
 
 ## Why it is a process of its own
 
-- **The key has one holder.** `steward` faces the internet and holds the Docker socket; a key in its
-  environment is a key every bug there can leak. `:architecture` refuses `com.bunq` outside this
+- **The key has one holder.** `steward` faces the internet; a key in its environment is a key every
+  bug there can leak. `:architecture` refuses `com.bunq` outside this
   module, and `TopologyDeploymentTest` refuses the key in any other service's environment.
 - **Only `steward` reaches it.** It joins the internal `bank` network, shared with `steward` alone,
   and `bank-egress`, its own way out to bunq. No Minecraft server, no Caddy and no Postgres can

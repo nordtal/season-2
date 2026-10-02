@@ -12,18 +12,15 @@ import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.InboxStatus;
 import eu.nordtal.s2.database.inbox.Request;
 import eu.nordtal.s2.database.inbox.Schedule;
-import eu.nordtal.s2.steward.messages.MessageArg;
-import eu.nordtal.s2.steward.messages.MessageBundle;
-import eu.nordtal.s2.steward.messages.MessageBundleLocation;
-import eu.nordtal.s2.steward.messages.MessageBundles;
-import eu.nordtal.s2.steward.messages.MessageEntry;
+import eu.nordtal.s2.internalapi.agent.AgentClient;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
+import eu.nordtal.s2.internalapi.agent.MessageArg;
+import eu.nordtal.s2.internalapi.agent.MessageBundle;
+import eu.nordtal.s2.internalapi.agent.MessageEntry;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import io.javalin.http.ForbiddenResponse;
-import io.javalin.http.InternalServerErrorResponse;
 import io.javalin.http.NotFoundResponse;
-import java.io.IOException;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -36,7 +33,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** The two routes over the message bundles, which stay files until the messages move into the database. */
+/** The routes over the message bundles, which steward-agent reads out of the jars and saves beside them. */
 public final class MessagesApi {
 
     private static final Logger log = LoggerFactory.getLogger(MessagesApi.class);
@@ -83,8 +80,7 @@ public final class MessagesApi {
 
     private final Waiting waiting;
 
-    private final Path configsRoot;
-    private final @Nullable Path volumesRoot;
+    private final AgentClient agent;
     private final @Nullable Inbox<BotRequest> inbox;
     private final Reloader reloader;
 
@@ -96,32 +92,25 @@ public final class MessagesApi {
      * @param reloader asks a Minecraft service to re-read a saved bundle
      */
     public MessagesApi(
-            final Path configsRoot,
-            final @Nullable Path volumesRoot,
+            final AgentClient agent,
             final @Nullable Inbox<BotRequest> inbox,
             final Reloader reloader,
             final Waiting waiting) {
         this.waiting = waiting;
-        this.configsRoot = configsRoot;
-        this.volumesRoot = volumesRoot;
+        this.agent = agent;
         this.inbox = inbox;
         this.reloader = reloader;
     }
 
     /** {@code GET /api/messages}: every bundle found, without opening a single jar. */
     public void list(final Context ctx) {
-        ctx.json(locations().stream().map(MessagesApi::describe).toList());
+        ctx.json(agent.bundles().stream().map(MessagesApi::describe).toList());
     }
 
     /** {@code GET /api/messages/<bundle>}: one bundle, packaged text and override side by side. */
     public void one(final Context ctx) {
-        final MessageBundleLocation location = locate(ctx);
-        try {
-            ctx.json(document(location, MessageBundles.read(location)));
-        } catch (final IOException e) {
-            log.error("{} could not be read", location.jar(), e);
-            throw new InternalServerErrorResponse(identityOf(location) + " could not be read: " + e.getMessage());
-        }
+        final AgentWire.BundleRef location = locate(ctx);
+        ctx.json(document(location, agent.bundle(location.service(), location.module())));
     }
 
     /**
@@ -130,47 +119,17 @@ public final class MessagesApi {
      * A {@code null} resets a key; a dropped placeholder is a warning, an undeclared one a 400 that writes nothing.
      */
     public void save(final Context ctx) {
-        final MessageBundleLocation location = locate(ctx);
+        final AgentWire.BundleRef location = locate(ctx);
         if (!location.writable()) {
             throw new ForbiddenResponse(identityOf(location) + " is mounted read-only in this"
                     + " container, so this interface cannot save a change to it.");
         }
-        final Map<String, Map<String, String>> byLanguage = changesOf(bodyOf(ctx.body()));
-
-        final MessageBundle before;
-        try {
-            before = MessageBundles.read(location);
-        } catch (final IOException e) {
-            log.error("{} could not be read", location.jar(), e);
-            throw new InternalServerErrorResponse(identityOf(location) + " could not be read: " + e.getMessage());
-        }
-        final List<String> warnings = new ArrayList<>();
-        for (final Map<String, String> changes : byLanguage.values()) {
-            refuseUnknownPlaceholders(before, changes);
-        }
-        byLanguage.forEach((language, changes) -> warnings.addAll(warningsOf(before, language, changes)));
-
-        try {
-            for (final Map.Entry<String, Map<String, String>> language : byLanguage.entrySet()) {
-                MessageBundles.write(location, language.getKey(), language.getValue());
-            }
-        } catch (final IllegalArgumentException e) {
-            throw new BadRequestResponse(e.getMessage());
-        } catch (final IOException e) {
-            log.error("{} could not be written", location.overrideDirectory(), e);
-            throw new InternalServerErrorResponse(identityOf(location) + " could not be written: " + e.getMessage());
-        }
-
-        try {
-            final Map<String, Object> answer = document(location, MessageBundles.read(location));
-            answer.put("warnings", warnings);
-            answer.put("reload", reload(location));
-            ctx.json(answer);
-        } catch (final IOException e) {
-            log.error("{} could not be read back after saving", location.jar(), e);
-            throw new InternalServerErrorResponse(
-                    identityOf(location) + " was saved but could not" + " be read back: " + e.getMessage());
-        }
+        final AgentWire.SavedBundle saved =
+                agent.saveBundle(location.service(), location.module(), changesOf(bodyOf(ctx.body())));
+        final Map<String, Object> answer = document(location, saved.bundle());
+        answer.put("warnings", saved.warnings());
+        answer.put("reload", reload(location));
+        ctx.json(answer);
     }
 
     /**
@@ -230,7 +189,7 @@ public final class MessagesApi {
      *
      * The bot's answer adds {@code unknown}: the keys its override file declares that the bundle does not know.
      */
-    private Map<String, Object> reload(final MessageBundleLocation location) {
+    private Map<String, Object> reload(final AgentWire.BundleRef location) {
         if (!RELOADABLE_SERVICE.equals(location.service())) {
             final Map<String, Object> answer = reload(
                     reloader, identityOf(location), location.service(), identityOf(location), identityOf(location));
@@ -323,84 +282,24 @@ public final class MessagesApi {
         }
     }
 
-    private static void refuseUnknownPlaceholders(final MessageBundle before, final Map<String, String> changes) {
-        final List<String> problems = new ArrayList<>();
-        for (final Map.Entry<String, String> change : changes.entrySet()) {
-            final MessageEntry entry = before.entries().stream()
-                    .filter(candidate -> candidate.key().equals(change.getKey()))
-                    .findFirst()
-                    .orElse(null);
-            if (entry == null) {
-                continue;
-            }
-            final List<String> unknown = MessageBundles.unknownPlaceholders(entry, change.getValue());
-            if (!unknown.isEmpty()) {
-                problems.add(change.getKey() + " has no placeholder " + String.join(", ", unknown)
-                        + (entry.args().isEmpty()
-                                ? "; it takes none."
-                                : "; it takes "
-                                        + String.join(
-                                                ", ",
-                                                entry.args().stream()
-                                                        .map(MessageArg::token)
-                                                        .toList()) + "."));
-            }
-        }
-        if (!problems.isEmpty()) {
-            throw new BadRequestResponse(String.join(" ", problems) + " Nothing was saved.");
-        }
-    }
-
-    /** A dropped placeholder for every changed key that had one, checked against the packaged text. */
-    private static List<String> warningsOf(
-            final MessageBundle before, final String language, final Map<String, String> changes) {
-        final List<String> warnings = new ArrayList<>();
-        for (final Map.Entry<String, String> change : changes.entrySet()) {
-            final String edited = change.getValue();
-            if (edited == null) {
-                // A reset has no new text to check placeholders against.
-                continue;
-            }
-            final MessageEntry entry = before.entries().stream()
-                    .filter(candidate -> candidate.key().equals(change.getKey()))
-                    .findFirst()
-                    .orElse(null);
-            if (entry == null) {
-                continue;
-            }
-            final String original = "de".equals(language) && entry.german() != null ? entry.german() : entry.english();
-            final List<String> missing = MessageBundles.missingPlaceholders(original, edited);
-            if (!missing.isEmpty()) {
-                warnings.add(change.getKey() + " no longer contains " + String.join(", ", missing)
-                        + " - the original had it, and a message this is substituted into may now"
-                        + " draw literally.");
-            }
-        }
-        return warnings;
-    }
-
     // Finding the bundle
 
-    private List<MessageBundleLocation> locations() {
-        return MessageBundles.discover(configsRoot, volumesRoot);
-    }
-
-    private MessageBundleLocation locate(final Context ctx) {
+    private AgentWire.BundleRef locate(final Context ctx) {
         final String asked = ctx.pathParam("bundle");
-        return locations().stream()
+        return agent.bundles().stream()
                 .filter(location -> identityOf(location).equals(asked))
                 .findFirst()
                 .orElseThrow(() -> new NotFoundResponse("There is no message bundle called " + asked + "."));
     }
 
     /** How a bundle is named in a URL: {@code <service>/<module>}, or just {@code <service>}. */
-    private static String identityOf(final MessageBundleLocation location) {
+    private static String identityOf(final AgentWire.BundleRef location) {
         return location.module().isEmpty() ? location.service() : location.service() + "/" + location.module();
     }
 
     // What goes over the wire
 
-    private static Map<String, Object> describe(final MessageBundleLocation location) {
+    private static Map<String, Object> describe(final AgentWire.BundleRef location) {
         final Map<String, Object> row = new LinkedHashMap<>();
         row.put("service", location.service());
         row.put("module", location.module());
@@ -409,7 +308,7 @@ public final class MessagesApi {
         return row;
     }
 
-    private static Map<String, Object> document(final MessageBundleLocation location, final MessageBundle bundle) {
+    private static Map<String, Object> document(final AgentWire.BundleRef location, final MessageBundle bundle) {
         final Map<String, Object> answer = new LinkedHashMap<>(describe(location));
         final List<Map<String, Object>> entries =
                 new ArrayList<>(bundle.entries().size());
@@ -465,16 +364,14 @@ public final class MessagesApi {
         }
     }
 
-    /** The changes split by language, English first; {@code null} resets that language of that key. */
-    private static Map<String, Map<String, String>> changesOf(final JsonObject body) {
+    /** The changes in the order given; a {@code null} text resets that language of that key. */
+    private static List<AgentWire.TextChange> changesOf(final JsonObject body) {
         final JsonElement changes = body.get("changes");
         if (changes == null || !changes.isJsonObject()) {
             throw new BadRequestResponse("`changes` has to be an object of key to {\"en\": text,"
                     + " \"de\": text}, where null resets that language.");
         }
-        final Map<String, Map<String, String>> byLanguage = new LinkedHashMap<>();
-        byLanguage.put("en", new LinkedHashMap<>());
-        byLanguage.put("de", new LinkedHashMap<>());
+        final List<AgentWire.TextChange> all = new ArrayList<>();
         for (final Map.Entry<String, JsonElement> change :
                 changes.getAsJsonObject().entrySet()) {
             if (!change.getValue().isJsonObject()) {
@@ -483,18 +380,19 @@ public final class MessagesApi {
             }
             for (final Map.Entry<String, JsonElement> text :
                     change.getValue().getAsJsonObject().entrySet()) {
-                final Map<String, String> into = byLanguage.get(text.getKey());
-                if (into == null) {
+                if (!"en".equals(text.getKey()) && !"de".equals(text.getKey())) {
                     throw new BadRequestResponse("A language has to be \"en\" or \"de\", not " + text.getKey() + ".");
                 }
                 final JsonElement value = text.getValue();
-                into.put(change.getKey(), value == null || value.isJsonNull() ? null : value.getAsString());
+                all.add(new AgentWire.TextChange(
+                        change.getKey(),
+                        text.getKey(),
+                        value == null || value.isJsonNull() ? null : value.getAsString()));
             }
         }
-        byLanguage.values().removeIf(Map::isEmpty);
-        if (byLanguage.isEmpty()) {
+        if (all.isEmpty()) {
             throw new BadRequestResponse("`changes` is empty - there is nothing to save.");
         }
-        return byLanguage;
+        return all;
     }
 }

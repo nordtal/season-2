@@ -123,6 +123,8 @@ public final class StewardAgent {
                 new AgentApi.Paths(
                         Path.of(server.setting("VOLUMES_ROOT", String.valueOf(AgentApi.Paths.DEFAULTS.volumesRoot()))),
                         Path.of(server.setting(
+                                "CONFIGS", AgentApi.Paths.DEFAULTS.configs().toString())),
+                        Path.of(server.setting(
                                 "BACKUP_SOURCES",
                                 AgentApi.Paths.DEFAULTS.backupSources().toString())),
                         Path.of(server.setting(

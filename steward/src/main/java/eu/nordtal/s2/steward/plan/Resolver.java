@@ -2,6 +2,7 @@ package eu.nordtal.s2.steward.plan;
 
 import eu.nordtal.s2.common.Platform;
 import eu.nordtal.s2.database.setting.SettingStore;
+import eu.nordtal.s2.internalapi.agent.JarName;
 import eu.nordtal.s2.steward.config.StewardSpec;
 import eu.nordtal.s2.steward.source.Checksum;
 import eu.nordtal.s2.steward.source.GitHubReleases;

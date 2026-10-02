@@ -1,7 +1,7 @@
 package eu.nordtal.s2.steward.api;
 
+import eu.nordtal.s2.internalapi.agent.JarName;
 import eu.nordtal.s2.steward.plan.Installation;
-import eu.nordtal.s2.steward.plan.JarName;
 import eu.nordtal.s2.steward.plan.PluginFolder;
 import eu.nordtal.s2.steward.plan.Topology;
 import eu.nordtal.s2.steward.plugin.ManagedPlugin;

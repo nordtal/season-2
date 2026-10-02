@@ -1,4 +1,4 @@
-package eu.nordtal.s2.steward.messages;
+package eu.nordtal.s2.internalapi.agent;
 
 import org.jspecify.annotations.Nullable;
 

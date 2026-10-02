@@ -2,8 +2,8 @@ package eu.nordtal.s2.steward.serve;
 
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
+import eu.nordtal.s2.internalapi.agent.JarName;
 import eu.nordtal.s2.steward.plan.Change;
-import eu.nordtal.s2.steward.plan.JarName;
 import eu.nordtal.s2.steward.plan.Topology;
 import eu.nordtal.s2.steward.plan.UpdatePlan;
 import org.jspecify.annotations.Nullable;

@@ -25,26 +25,30 @@ else, and any class of this module inside `steward`.
 The paths and records are `AgentWire`, the client is `AgentClient`; both live in `:internal-api`,
 so steward and this service compile against one definition. `{service}` is a compose service name.
 
-| Route                                  | Answer                                                                                 |
-| -------------------------------------- | -------------------------------------------------------------------------------------- |
-| `GET /api/health`                      | the only route without the token                                                       |
-| `GET /api/topology`                    | `Topology`: every service in the baked file, its image and its labels' meaning         |
-| `GET /api/containers`                  | `Containers`: every container of the project with the sampler's last `Reading`        |
-| `GET /api/containers/{service}`        | one `Container`, with the registry digests of its image; `404` when there is none      |
-| `POST /api/stop/{id}`, `/api/start/{id}` | `RedeployResult`; a run's stop and start                                             |
-| `GET /api/images`                      | `ImageResult`: each running image against its registry, slow on purpose                |
-| `GET /api/containers/{service}/logs`   | SSE: `line` and `run` events, the backlog first; `end` or `gone` when it stops         |
-| `GET /api/containers/{service}/log-capacity?max=` | `LogCapacity`: how many lines the backlog can fill                          |
-| `POST /api/containers/{service}/console` | `ConsoleLine` (`command`, `actor`); `202`, the answer lands in the log               |
-| `GET /api/host`                        | `Host`: `/proc`, the root filesystem and Docker's disk use                             |
-| `GET /api/samples?after=`              | the sampler's `Round`s after an ISO instant, oldest first; all it holds without one    |
-| `GET /api/backups`                     | `Archive`s, newest first                                                               |
-| `GET /api/backups/{name}`              | one finished archive's bytes; `400` for a name that is not one, `404` when it is gone  |
-| `POST /api/backup/database`, `/volume`, `/mark`, `/prune` | the steps of a backup run, answered by `SnapshotResult`, `Mark` or names |
-| `POST /api/deploy`                     | `{"services": []}`, empty meaning the whole project; answers `202` with a job          |
-| `POST /api/recreate/{service}`         | `up -d --no-deps --force-recreate` from the local image                                |
-| `GET /api/jobs`, `/api/jobs/{id}`      | what ran, and its output                                                               |
-| `GET /api/jobs/{id}/stream`            | the same output as SSE, replayed from the start on connect                             |
+| Route                                                     | Answer                                                                                    |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `GET /api/health`                                         | the only route without the token                                                          |
+| `GET /api/topology`                                       | `Topology`: every service in the baked file, its image and its labels' meaning            |
+| `GET /api/containers`                                     | `Containers`: every container of the project with the sampler's last `Reading`            |
+| `GET /api/containers/{service}`                           | one `Container`, with the registry digests of its image; `404` when there is none         |
+| `POST /api/stop/{id}`, `/api/start/{id}`                  | `RedeployResult`; a run's stop and start                                                  |
+| `GET /api/images`                                         | `ImageResult`: each running image against its registry, slow on purpose                   |
+| `GET /api/containers/{service}/logs`                      | SSE: `line` and `run` events, the backlog first; `end` or `gone` when it stops            |
+| `GET /api/containers/{service}/log-capacity?max=`         | `LogCapacity`: how many lines the backlog can fill                                        |
+| `POST /api/containers/{service}/console`                  | `ConsoleLine` (`command`, `actor`); `202`, the answer lands in the log                    |
+| `GET /api/host`                                           | `Host`: `/proc`, the root filesystem and Docker's disk use                                |
+| `GET /api/volumes/{service}/disk`                         | `Disk`: `du` of that service's volume; `404` for one not mounted here                     |
+| `GET /api/bundles`                                        | `BundleRef`s: every message bundle a jar carries, before it is opened                     |
+| `GET /api/bundles/{service}?module=`                      | one `MessageBundle`, packaged text and overrides side by side                             |
+| `POST /api/bundles/{service}?module=`                     | `BundleChanges`; `SavedBundle` with the dropped placeholders, `400` for an undeclared one |
+| `GET /api/samples?after=`                                 | the sampler's `Round`s after an ISO instant, oldest first; all it holds without one       |
+| `GET /api/backups`                                        | `Archive`s, newest first                                                                  |
+| `GET /api/backups/{name}`                                 | one finished archive's bytes; `400` for a name that is not one, `404` when it is gone     |
+| `POST /api/backup/database`, `/volume`, `/mark`, `/prune` | the steps of a backup run, answered by `SnapshotResult`, `Mark` or names                  |
+| `POST /api/deploy`                                        | `{"services": []}`, empty meaning the whole project; answers `202` with a job             |
+| `POST /api/recreate/{service}`                            | `up -d --no-deps --force-recreate` from the local image                                   |
+| `GET /api/jobs`, `/api/jobs/{id}`                         | what ran, and its output                                                                  |
+| `GET /api/jobs/{id}/stream`                               | the same output as SSE, replayed from the start on connect                                |
 
 A refusal is a `Refusal` (`error`, the sentence to show, and `where`): `502` with `where` `docker`
 when the daemon failed, `502` with `compose` when a Compose command did, `400` with
@@ -64,14 +68,15 @@ already holds, so a restart of either loses nothing.
 A deployment pulls every image before it stops anything. A failed pull is tolerated only when the
 image is already on the host.
 
-| Setting (`NORDTAL_STEWARD_AGENT_*`) | Default                | What                                                    |
-| ----------------------------------- | ---------------------- | ------------------------------------------------------- |
-| `TOKEN`                             | none, required         | the secret steward sends                                |
-| `PORT`                              | `8081`                 |                                                         |
-| `DOCKER_SOCKET`                     | `/var/run/docker.sock` |                                                         |
-| `VOLUMES_ROOT`                      | `/volumes`             | the servers' data, read-only, for the rotated logs      |
-| `BACKUP_SOURCES`                    | `/backup-sources`      | one read-only mount per volume a backup saves           |
-| `BACKUPS`                           | `/backups`             | the archives, the same volume postgres dumps into       |
+| Setting (`NORDTAL_STEWARD_AGENT_*`) | Default                | What                                                                 |
+| ----------------------------------- | ---------------------- | -------------------------------------------------------------------- |
+| `TOKEN`                             | none, required         | the secret steward sends                                             |
+| `PORT`                              | `8081`                 |                                                                      |
+| `DOCKER_SOCKET`                     | `/var/run/docker.sock` |                                                                      |
+| `CONFIGS`                           | `/configs`             | each service's plugins folder, where the message overrides live      |
+| `VOLUMES_ROOT`                      | `/volumes`             | the services' volumes, read-only: rotated logs, sizes, the bot's jar |
+| `BACKUP_SOURCES`                    | `/backup-sources`      | one read-only mount per volume a backup saves                        |
+| `BACKUPS`                           | `/backups`             | the archives, the same volume postgres dumps into                    |
 
 ## Building
 

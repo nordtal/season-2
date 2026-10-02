@@ -10,7 +10,6 @@ import eu.nordtal.s2.steward.config.WebSpec;
 import io.javalin.Javalin;
 import io.javalin.http.HandlerType;
 import io.javalin.router.Endpoint;
-import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.ZoneId;
@@ -57,7 +56,6 @@ final class RouteTable {
                 Duration.ofSeconds(1));
         final StackApi stack = new StackApi(
                 agent,
-                Path.of("/nonexistent"),
                 FakeDirectories.updates(),
                 FakeDirectories.audit(),
                 new StackApi.Nightly("04:45", List.of(), "05:15", List.of(), ZoneId.of("Europe/Berlin")),

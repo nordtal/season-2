@@ -1,4 +1,4 @@
-package eu.nordtal.s2.steward.messages;
+package eu.nordtal.s2.internalapi.agent;
 
 import java.util.ArrayList;
 import java.util.Collections;

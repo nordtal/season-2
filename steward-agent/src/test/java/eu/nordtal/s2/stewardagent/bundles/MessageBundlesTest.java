@@ -1,10 +1,13 @@
-package eu.nordtal.s2.steward.messages;
+package eu.nordtal.s2.stewardagent.bundles;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.internalapi.agent.MessageArg;
+import eu.nordtal.s2.internalapi.agent.MessageBundle;
+import eu.nordtal.s2.internalapi.agent.MessageEntry;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;

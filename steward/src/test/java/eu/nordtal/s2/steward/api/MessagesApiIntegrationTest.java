@@ -14,6 +14,9 @@ import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.Outcome;
 import eu.nordtal.s2.database.inbox.Request;
+import eu.nordtal.s2.internalapi.agent.AgentClient;
+import eu.nordtal.s2.steward.web.ErrorHandlers;
+import eu.nordtal.s2.stewardagent.AgentStandIn;
 import io.javalin.Javalin;
 import io.javalin.json.JavalinGson;
 import java.io.IOException;
@@ -25,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -37,18 +41,17 @@ import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 /** {@link MessagesApi} served over real HTTP, the contract the frontend reads. */
 class MessagesApiIntegrationTest {
 
     private static final Gson GSON = new Gson();
 
-    @TempDir
-    Path configs;
+    /** The stand-in agent's, which reads the bundles; filled per test. */
+    private Path configs;
 
-    @TempDir
-    Path volumes;
+    private Path scratch;
+    private AgentStandIn agent;
 
     private Javalin app;
     private HttpClient http;
@@ -73,7 +76,11 @@ class MessagesApiIntegrationTest {
     }
 
     @BeforeEach
-    void start() {
+    void start() throws IOException {
+        // Short, since a Unix socket path has a length limit the default temp directory can exceed.
+        scratch = Files.createTempDirectory(Path.of("/tmp"), "messages");
+        agent = new AgentStandIn(scratch, 0, config -> {});
+        configs = agent.configs;
         // A bot that claims every few milliseconds; the requests are settled as the test decided.
         botThread = Executors.newSingleThreadScheduledExecutor();
         final var _ = botThread.scheduleWithFixedDelay(
@@ -91,8 +98,7 @@ class MessagesApiIntegrationTest {
                 20,
                 TimeUnit.MILLISECONDS);
         final MessagesApi messages = new MessagesApi(
-                configs,
-                volumes,
+                new AgentClient(agent.client(), Waiting.on(Clock.systemUTC()), Duration.ofSeconds(5)),
                 inbox,
                 service -> {
                     console.add(service);
@@ -103,6 +109,7 @@ class MessagesApiIntegrationTest {
                 Waiting.on(Clock.systemUTC()));
         app = Javalin.create(config -> {
                     config.jsonMapper(new JavalinGson(new Gson(), true));
+                    ErrorHandlers.install(config);
                     config.routes.get("/api/messages", messages::list);
                     config.routes.get("/api/messages/<bundle>", messages::one);
                     config.routes.put("/api/messages/<bundle>", messages::save);
@@ -119,6 +126,15 @@ class MessagesApiIntegrationTest {
         }
         if (botThread != null) {
             botThread.shutdownNow();
+        }
+        try {
+            agent.close();
+            try (var files = Files.walk(scratch)) {
+                files.sorted(java.util.Comparator.reverseOrder())
+                        .forEach(path -> path.toFile().delete());
+            }
+        } catch (final IOException e) {
+            throw new java.io.UncheckedIOException(e);
         }
     }
 

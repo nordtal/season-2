@@ -1,11 +1,14 @@
-package eu.nordtal.s2.steward.messages;
+package eu.nordtal.s2.stewardagent.bundles;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import eu.nordtal.s2.common.json.Json;
-import eu.nordtal.s2.steward.plan.JarName;
+import eu.nordtal.s2.internalapi.agent.JarName;
+import eu.nordtal.s2.internalapi.agent.MessageArg;
+import eu.nordtal.s2.internalapi.agent.MessageBundle;
+import eu.nordtal.s2.internalapi.agent.MessageEntry;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;

@@ -123,6 +123,21 @@ class AgentContractTest {
     }
 
     @Test
+    void aVolumeIsMeasuredByItsServiceAndAPathOutsideTheVolumesIsNot() throws IOException {
+        Files.write(Files.createDirectories(agent.volumes.resolve("smp")).resolve("level.dat"), new byte[64 * 1024]);
+
+        assertTrue(client.disk("smp").orElseThrow() >= 64 * 1024);
+        assertEquals(
+                404,
+                assertThrows(InternalClient.Failure.class, () -> client.disk("postgres"))
+                        .status());
+        assertEquals(
+                404,
+                assertThrows(InternalClient.Failure.class, () -> client.disk(".."))
+                        .status());
+    }
+
+    @Test
     void anArchiveIsListedAndStreamedByItsNameAndOnlyFromInsideTheDirectory() throws IOException {
         final byte[] bytes = "a world".getBytes(StandardCharsets.UTF_8);
         Files.write(agent.backups.resolve("smp-data-20261001T120000Z.tar.zst"), bytes);

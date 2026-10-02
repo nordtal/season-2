@@ -216,4 +216,14 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     public int settleOrphans(final String failed) {
         return inbox.settleOrphans(answer(failed));
     }
+
+    @Override
+    public Optional<String> carry(final long id) {
+        return inbox.carry(id);
+    }
+
+    @Override
+    public void putBack(final String row, final String failed) {
+        inbox.putBack(row, answer(failed));
+    }
 }

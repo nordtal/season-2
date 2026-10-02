@@ -542,7 +542,10 @@ final class Kinds {
         final UpdateReport.ServiceLine line = new UpdateReport.ServiceLine(
                 archive,
                 result.ok() ? UpdateReport.State.INSTALLED : UpdateReport.State.FAILED,
-                List.of(new UpdateReport.Change("restore", null, result.message())),
+                List.of(new UpdateReport.Change(
+                        "restore",
+                        null,
+                        result.ok() ? "restored " + SnapshotResult.human(result.bytes()) : result.message())),
                 result.ok() ? null : result.message());
         return new Run.Done(
                 result.ok()

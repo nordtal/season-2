@@ -245,6 +245,7 @@ class RunnerTest {
                         "start:smp-container"),
                 containers.calls);
         assertNotNull(directory.find(request.id()).orElseThrow().countdownEnd(), "a restore is announced");
+        assertTrue(outcome.report().contains("restored "), "the line says what was restored: " + outcome.report());
     }
 
     @Test

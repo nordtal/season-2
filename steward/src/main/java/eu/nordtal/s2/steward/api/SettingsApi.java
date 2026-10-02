@@ -32,6 +32,14 @@ public final class SettingsApi {
         ctx.json(store.groups().stream().map(SettingsDocument::describe).toList());
     }
 
+    /** Every group and every stored override, which together change whenever a page of settings would. */
+    java.util.List<Object> read() {
+        final java.util.List<SettingStore.Group> groups = store.groups();
+        final java.util.List<String> services =
+                groups.stream().map(SettingStore.Group::service).distinct().toList();
+        return java.util.List.of(groups.stream().map(SettingsDocument::describe).toList(), store.overrides(services));
+    }
+
     /** {@code GET /api/setting-groups/{service}/{name}}: one group as the form draws it. */
     void one(final Context ctx) {
         ctx.json(documentOf(groupOf(ctx)).toJson());

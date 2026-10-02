@@ -1,10 +1,12 @@
 package eu.nordtal.s2.steward.web;
 
 import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.access.PackExemptions;
 import eu.nordtal.s2.database.alert.AlertBook;
+import eu.nordtal.s2.database.metric.Metric;
 import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
@@ -24,6 +26,8 @@ import eu.nordtal.s2.steward.data.Data;
 import eu.nordtal.s2.steward.data.ExampleValues;
 import eu.nordtal.s2.steward.discord.DiscordApi;
 import eu.nordtal.s2.steward.discord.DiscordDirectory;
+import eu.nordtal.s2.steward.live.LiveFeed;
+import eu.nordtal.s2.steward.live.Topic;
 import eu.nordtal.s2.steward.push.PushSubscriptions;
 import eu.nordtal.s2.steward.push.WebPushSender;
 import io.javalin.Javalin;
@@ -35,6 +39,8 @@ import io.javalin.http.staticfiles.Location;
 import io.javalin.json.JavalinGson;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -123,6 +129,20 @@ public final class Web {
 
     private final Metrics metrics;
 
+    /** The browser's one live stream, which every page's data follows. */
+    private final LiveFeed live;
+
+    /** The channels whose signals can change what a page shows; see {@link #listen}. */
+    private static final List<Channel> LIVE_CHANNELS = List.of(
+            Channel.UPDATE,
+            Channel.SERVER,
+            Channel.BOT,
+            Channel.PAYMENT,
+            Channel.ADMIN,
+            Channel.PHASE,
+            Channel.SETTINGS,
+            Channel.ALERT);
+
     /** How often {@link AlertMonitor#poll} reads the stack. */
     private static final Duration ALERT_POLL = Duration.ofSeconds(30);
 
@@ -152,9 +172,7 @@ public final class Web {
         this.stack = stack;
         this.sessions = data == null ? null : new Sessions(data.dataSource(), Duration.ofDays(config.sessionDays()));
         final @Nullable Credentials localCredentials = data == null ? null : new Credentials(data.dataSource());
-        final @Nullable WebAuthn localWebauthn = localCredentials == null
-                ? null
-                : new WebAuthn(config.webauthn().relyingPartyId(), config.publicUrl(), localCredentials);
+        final @Nullable WebAuthn localWebauthn = webAuthnOver(config, localCredentials);
         this.secondFactor =
                 new SecondFactor(this::requireSession, data, localCredentials, this.sessions, localWebauthn, clock);
         this.gatekeeper = new Gatekeeper(this::session, this.secondFactor);
@@ -205,6 +223,51 @@ public final class Web {
         this.alerts = new AlertRoutes(this::requireSession, wiring.monitor(), data, localAlertPreferences);
         this.push =
                 new PushEndpoints(this::requireSession, data, localPushSubscriptions, wiring.router(), localVapidKeys);
+        this.live = watchLive(data, clock);
+    }
+
+    private static @Nullable WebAuthn webAuthnOver(final WebSpec config, final @Nullable Credentials credentials) {
+        return credentials == null
+                ? null
+                : new WebAuthn(config.webauthn().relyingPartyId(), config.publicUrl(), credentials);
+    }
+
+    /** What each topic of the live stream reads: the same reads the routes answer with. */
+    private LiveFeed watchLive(final @Nullable Data data, final Clock clock) {
+        final LiveFeed live = new LiveFeed(Waiting.on(clock));
+        stack.watch(live);
+        if (data == null) {
+            return live;
+        }
+        live.watch(
+                Topic.RUNS,
+                () -> Arrays.asList(
+                        data.updates().recent(20), data.updates().open().orElse(null)));
+        live.watch(
+                Topic.REQUESTS,
+                () -> List.of(
+                        data.smp().version(),
+                        data.hungerGames().version(),
+                        data.bot().version()));
+        live.watch(Topic.JOURNAL, () -> data.audit().recent(1));
+        live.watch(
+                Topic.PEOPLE,
+                () -> List.of(
+                        data.access().people(500),
+                        data.payments().recent(200),
+                        data.payments().allOpen()));
+        live.watch(Topic.SEASON, season::read);
+        live.watch(Topic.GAMES, () -> List.of(games.readTrack(), games.readRound()));
+        live.watch(
+                Topic.METRICS,
+                () -> data.metrics()
+                        .range(
+                                "host",
+                                Metric.LOAD1.key(),
+                                clock.instant().minus(Duration.ofMinutes(5)),
+                                clock.instant()));
+        live.watch(Topic.ALERTS, alerts::read);
+        return live;
     }
 
     private record AlertWiring(
@@ -252,6 +315,10 @@ public final class Web {
         if (monitor != null) {
             hub.on(Channel.UPDATE, "failed runs", () -> timer.execute(monitor::runs));
         }
+        // Not SMP: play moves the track many times a minute, and the hub's minute covers it.
+        for (final Channel channel : LIVE_CHANNELS) {
+            hub.on(channel, "the live stream", live::ring);
+        }
     }
 
     /** Fails the route when this instance has no database. */
@@ -298,6 +365,7 @@ public final class Web {
         app = Javalin.create(cfg -> {
                     configureFrontend(cfg);
                     registerAuthCore(cfg);
+                    registerLiveRoute(cfg);
                     registerSecondFactorAndKeys(cfg);
                     registerWebPushRoutes(cfg);
                     // Before the update routes: its /api/updates/available must come before /api/updates/{id}.
@@ -329,6 +397,7 @@ public final class Web {
             // Same scheduler as the sweep above: one small reading, not a workload of its own.
             final var _ = timer.scheduleWithFixedDelay(alertMonitor::poll, 0, ALERT_POLL.toSeconds(), TimeUnit.SECONDS);
         }
+        live.start();
         discord.whatIsMissing()
                 .ifPresent(missing ->
                         log.warn("Nobody can sign in yet: {} is empty. Everything else is running.", missing));
@@ -376,6 +445,21 @@ public final class Web {
                     ctx.status(204);
                 },
                 Gate.SIGNED_IN);
+    }
+
+    /** One stream for every page: a topic and its new version whenever what a route answers has changed. */
+    private void registerLiveRoute(final JavalinConfig cfg) {
+        cfg.routes.sse(
+                "/api/live",
+                client -> {
+                    final Caller caller = caller();
+                    if (!caller.stillSignedIn(client.ctx())) {
+                        client.close();
+                        return;
+                    }
+                    live.serve(client, () -> caller.stillSignedIn(client.ctx()));
+                },
+                Gate.KEY_HELD);
     }
 
     private void registerSecondFactorAndKeys(final JavalinConfig cfg) {
@@ -585,6 +669,7 @@ public final class Web {
     /** Ends every log follow before Jetty, since a follow closed after Jetty stopped loops in its error handling. */
     public void stop() {
         timer.shutdownNow();
+        live.close();
         stack.close();
         if (app != null) {
             app.stop();

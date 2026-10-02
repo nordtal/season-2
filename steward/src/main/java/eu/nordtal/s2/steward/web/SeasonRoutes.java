@@ -76,11 +76,16 @@ final class SeasonRoutes {
     }
 
     void summary(final Context ctx) {
+        ctx.json(read());
+    }
+
+    /** The phase and the two dates, as {@code GET /api/season} answers. */
+    Map<String, Object> read() {
         final Map<String, Object> season = new LinkedHashMap<>();
         season.put("phase", data().phase().currentPhase().name());
         data().phase().launch().ifPresent(at -> season.put("launch", at.toString()));
         data().phase().smpStart().ifPresent(at -> season.put("smpStart", at.toString()));
-        ctx.json(season);
+        return season;
     }
 
     /** The body of both season endpoints; each reads the fields it needs. */

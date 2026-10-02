@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.InboxStatus;
 import eu.nordtal.s2.database.inbox.Outcome;
@@ -70,10 +71,16 @@ class BotInboxTest {
         }
     };
 
-    private final BotInbox subject = new BotInbox(effects, (tag, text) -> {
-        carriedOut.add("announce " + tag + " " + text);
-        return !tag.equals("fr");
-    });
+    private final BotInbox subject = new BotInbox(
+            effects,
+            (tag, text) -> {
+                carriedOut.add("announce " + tag + " " + text);
+                return !tag.equals("fr");
+            },
+            alert -> {
+                carriedOut.add("alert " + alert.level() + " " + alert.title() + " " + alert.mentions());
+                return true;
+            });
 
     private static Request<BotRequest> row(final BotRequest payload, final eu.nordtal.s2.database.Actor actor) {
         return new Request<>(
@@ -147,6 +154,14 @@ class BotInboxTest {
 
         assertEquals(List.of("announce de Hallo", "announce fr Bonjour"), carriedOut);
         assertEquals("{\"de\":\"POSTED\",\"fr\":\"NOT_POSTED\"}", answer);
+    }
+
+    @Test
+    void anAlertIsPostedWithItsMentionsAndSaysItWentOut() {
+        final String answer = answer(new BotRequest.PostAlert(Alert.Level.WARN, "Disk 91 %", "", List.of(ADMIN)));
+
+        assertEquals(List.of("alert WARN Disk 91 % [400000000000000001]"), carriedOut);
+        assertEquals("{\"posted\":\"true\"}", answer);
     }
 
     @Test

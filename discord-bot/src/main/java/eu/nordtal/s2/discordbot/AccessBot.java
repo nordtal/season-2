@@ -187,7 +187,7 @@ public class AccessBot implements AutoCloseable {
                 status,
                 wiring.processor(),
                 wiring.purchaseFlow(),
-                openInbox(new BotInbox(wiring.inboxEffects(), wiring.announcements()::post)),
+                openInbox(new BotInbox(wiring.inboxEffects(), wiring.announcements()::post, wiring.admin()::postAlert)),
                 wiring.adminRole());
 
         // Last on purpose: a marker on disk means the constructor finished.

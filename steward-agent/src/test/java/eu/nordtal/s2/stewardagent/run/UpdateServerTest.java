@@ -118,6 +118,7 @@ class UpdateServerTest {
                     ran.countDown();
                     return Outcome.done("x");
                 },
+                runner -> false,
                 Duration.ofMinutes(10),
                 fixedClock());
 
@@ -140,8 +141,73 @@ class UpdateServerTest {
         assertFalse(thread.isAlive(), "close() has to end the wait, not only the next drain");
     }
 
+    /** A run handed to a one-shot stays open: the one-shot settles it, and until then it keeps every other run out. */
+    @Test
+    void aRunHandedToAOneShotIsLeftOpenForIt() {
+        final UpdateRequest submitted = directory.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
+
+        server(
+                        (request, progress) -> {
+                            directory.handOver(request.id(), "nordtal-s2-steward-agent-run");
+                            return Outcome.handedOver("handed");
+                        },
+                        "nordtal-s2-steward-agent-run"::equals)
+                .drain();
+
+        assertEquals(
+                UpdateStatus.RUNNING,
+                directory.find(submitted.id()).orElseThrow().status());
+        assertTrue(directory.finished().isEmpty(), directory.finished().toString());
+    }
+
+    /** Once the one-shot is gone without settling its row, the next wake-up fails the row, so the lock is let go. */
+    @Test
+    void aRunWhoseOneShotIsGoneIsFailedAtTheNextWakeUp() {
+        final UpdateRequest submitted = directory.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
+        final java.util.concurrent.atomic.AtomicBoolean alive = new java.util.concurrent.atomic.AtomicBoolean(true);
+        final UpdateServer server = server(
+                (request, progress) -> {
+                    directory.handOver(request.id(), "nordtal-s2-steward-agent-run");
+                    return Outcome.handedOver("handed");
+                },
+                runner -> alive.get());
+        server.drain();
+        server.drain();
+        assertEquals(
+                UpdateStatus.RUNNING,
+                directory.find(submitted.id()).orElseThrow().status());
+
+        alive.set(false);
+        server.drain();
+
+        assertEquals(
+                UpdateStatus.FAILED,
+                directory.find(submitted.id()).orElseThrow().status());
+    }
+
+    /** The one-shot carries out the run handed to it, and only that one, and settles the row itself. */
+    @Test
+    void theOneShotCarriesOutTheRunHandedToItAndSettlesIt() {
+        final UpdateRequest handed = directory.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
+        directory.claimNext();
+        directory.handOver(handed.id(), "nordtal-s2-steward-agent-run");
+        final UpdateServer oneShot = server((request, progress) -> Outcome.done("installed"), runner -> true);
+
+        assertFalse(oneShot.carryOutHanded(handed.id(), "someone-else"), "a run handed to another one-shot");
+        assertTrue(oneShot.carryOutHanded(handed.id(), "nordtal-s2-steward-agent-run"));
+
+        final UpdateRequest row = directory.find(handed.id()).orElseThrow();
+        assertEquals(UpdateStatus.DONE, row.status());
+        assertEquals("installed", row.result());
+        assertFalse(oneShot.carryOutHanded(handed.id(), "nordtal-s2-steward-agent-run"), "a settled run");
+    }
+
     private UpdateServer server(final RequestRunner runner) {
-        return new UpdateServer(directory, runner, POLL, fixedClock());
+        return server(runner, oneShot -> false);
+    }
+
+    private UpdateServer server(final RequestRunner runner, final java.util.function.Predicate<String> stillRunning) {
+        return new UpdateServer(directory, runner, stillRunning, POLL, fixedClock());
     }
 
     private static Clock fixedClock() {

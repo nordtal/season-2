@@ -2,7 +2,7 @@
 
 The one door to Docker and to the volumes, and the process that carries out every run. It holds the
 Docker socket and carries `compose.yml` inside its own image, so a change to the deployment is a new
-image of this service, renewed by the setup script on the host. Its image is also
+image of this service, renewed by the run of that release. Its image is also
 the `migrate` service, the only process that runs Flyway's `migrate`: it creates every role, applies
 the schema and exits, and every service with a database login waits for it to succeed. `serve`
 serves the API, installs whatever slot is still empty, reports ready and then claims runs from
@@ -13,7 +13,8 @@ else, and any class of this module inside `steward`.
 ## What it will not do
 
 - **Recreate itself.** `steward-agent` is refused wherever a service name is accepted, since
-  the new container would kill the process handling the request.
+  the new container would kill the process handling the request. A one-shot renews it.
+- **Run another release.** An update to a newer release goes to a one-shot at that release.
 - **Pull dependencies along.** Every `up` carries `--no-deps`.
 - **Schedule.** A run happens only when a row in `steward_inbox` asks for one: a button in steward,
   `/update` in Discord or in game, a clock in steward, or `steward-agent request` on the host. The
@@ -25,6 +26,7 @@ else, and any class of this module inside `steward`.
     steward-agent up                          # the setup script: pull, then up, wait, exit with the code
     steward-agent serve                       # the API, then runs (default in the container)
     steward-agent migrate                     # the migrate service: roles, schema, exit code
+    steward-agent run ID                      # the one-shot: the run handed to it, then exit
     steward-agent request KIND [a,b] [MIN]    # ask for a run, as a button would; prints its id
     steward-agent status ID                   # the run's status, a tab and its report
 
@@ -52,8 +54,26 @@ transaction, so a failed restore leaves the database as it was. The run then run
 against it, and the run's row, which the dump did not hold as it is now, is carried across; rows the dump
 held open are failed. `deploy/restore.sh` remains for the host when steward-agent itself is down.
 
-The run never stops steward-agent. A run that names it is refused, and its own outdated image is
-reported for the script on the host to renew.
+The run never stops steward-agent. A run that names it is refused.
+
+## Another release
+
+`serve` carries out runs of its own release only. An update whose newest release is later than the
+agent, or that finds the agent's own container out of date, is handed to a one-shot:
+
+1. `serve` writes the one-shot's name, `<project>-steward-agent-run`, into the row's `runner` column.
+   The row stays `RUNNING` and is the lock: the inbox holds one open run.
+2. It pulls `steward-agent` at that release, copies that image's `compose.yml` out and starts the
+   one-shot from it with `compose run --rm`, so the one-shot is made exactly as that release defines
+   the agent. Nothing has stopped yet.
+3. The one-shot (`steward-agent run ID`) plans again at its release, counts down, stops what changes,
+   runs `migrate` with those servers stopped, installs, starts and verifies.
+4. Last it makes the long-running `steward-agent` again at its release and waits for it to be healthy,
+   then settles the row and exits.
+
+The new agent starts while the row is still open and leaves it alone, since its one-shot still runs.
+A row whose one-shot is gone without settling it is failed at the next wake-up, which lets the lock go.
+An older release is refused: no schema goes back.
 
 ## Where a version comes from
 
@@ -72,8 +92,8 @@ pin and no rollback: a bad release is corrected by publishing a better one.
 ## Rules
 
 - `serve` is not a scheduler. It acts only on rows in its inbox, `steward_inbox`, and never migrates.
-- An update stops the services whose jars change, migrates, installs, starts them and waits for
-  healthy. `bootstrap` fills empty slots and restarts nothing. A report writes nothing.
+- An update stops the services whose jars or containers change, runs `migrate`, installs, starts
+  them and waits for healthy. `bootstrap` fills empty slots and restarts nothing. A report writes nothing.
 - Two steward processes cannot serve or move jars at once; both are advisory locks, and the second is
   refused.
 - Artefacts are staged in `.nordtal-staging` inside the server's volume and move only when all are

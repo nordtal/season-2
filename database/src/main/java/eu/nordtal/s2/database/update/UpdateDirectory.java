@@ -211,12 +211,28 @@ public interface UpdateDirectory {
     Optional<Instant> nextDue();
 
     /**
-     * Fails everything left {@code RUNNING}, since only one steward serves; only it calls this, once, at startup.
+     * Fails everything left {@code RUNNING} but a run handed to a container that still runs; once, at startup.
      *
      * @param failed what to write into those rows
+     * @param stillRunning asks the daemon whether the container a run was handed to still runs
      * @return how many there were
      */
-    int settleOrphans(String failed);
+    int settleOrphans(String failed, java.util.function.Predicate<String> stillRunning);
+
+    /**
+     * Hands a running request to a one-shot container, which settles it; the default hands nothing over.
+     *
+     * @param runner the container's name, which {@link #settleOrphans} asks the daemon about
+     * @return whether a running row took the name
+     */
+    default boolean handOver(final long id, final String runner) {
+        return false;
+    }
+
+    /** Returns the container a running request was handed to, or empty; the default knows of none. */
+    default Optional<String> runnerOf(final long id) {
+        return Optional.empty();
+    }
 
     /**
      * Returns one row whole, as JSON, so a database restore can put it back; empty for an unknown id.

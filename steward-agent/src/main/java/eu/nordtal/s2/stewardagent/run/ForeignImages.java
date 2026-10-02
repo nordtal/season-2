@@ -2,6 +2,7 @@ package eu.nordtal.s2.stewardagent.run;
 
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.update.UpdateReport;
+import eu.nordtal.s2.internalapi.BankWire;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.ImageResult;
 import eu.nordtal.s2.internalapi.agent.RedeployResult;
@@ -22,8 +23,8 @@ final class ForeignImages {
 
     /**
      * Puts what the registries say about the images into the plan, so that a stale image is work.
-     *
-     * Never claims steward-agent's own image, a service outside {@link Topology}, or an image nobody could check.
+     * Never claims steward-agent's own image, which a one-shot renews, the migrate service's, which the install runs,
+     * a service outside {@link Topology}, or an image nobody could check.
      */
     static UpdateReport withImages(final UpdateReport planned, final ImageResult images) {
         return withImages(planned, images, List.of());
@@ -61,10 +62,8 @@ final class ForeignImages {
                 continue;
             }
             final String service = entry.getKey();
-            if (AgentWire.SERVICE.equals(service)) {
-                report = report.withNote("steward-agent's own image is out of date. Nothing here"
-                        + " can renew it: the recreate would take this process down in the middle"
-                        + " of its own run. `./nordtal.sh` on the host renews it.");
+            if (AgentWire.SERVICE.equals(service) || Topology.MIGRATE.equals(service)) {
+                // The agent is handed over and renewed last; migrate runs from the install, made new by it.
                 continue;
             }
             if (FOREIGN_IMAGES.contains(service)) {
@@ -100,7 +99,7 @@ final class ForeignImages {
     /** The services a run may pull an image for and recreate: everything it already stops, and nothing else. */
     static final Set<String> RECREATABLE = Stream.concat(
                     Topology.SERVICES.stream().map(Topology.Service::name),
-                    Stream.of(Topology.DISCORD_BOT, Topology.STEWARD))
+                    Stream.of(Topology.DISCORD_BOT, Topology.STEWARD, BankWire.SERVICE))
             .collect(Collectors.toUnmodifiableSet());
 
     /** The foreign images that are {@code OUTDATED}, in {@link #FOREIGN_IMAGES}'s order. */

@@ -29,7 +29,7 @@ class ComposeRefusesItselfTest {
         final IllegalArgumentException refused =
                 assertThrows(IllegalArgumentException.class, () -> compose.recreate(Compose.SELF, line -> {}));
 
-        assertTrue(refused.getMessage().contains("setup script"), refused.getMessage());
+        assertTrue(refused.getMessage().contains("one-shot"), refused.getMessage());
     }
 
     @Test
@@ -78,7 +78,7 @@ class ComposeRefusesItselfTest {
         final IllegalArgumentException refused = assertThrows(
                 IllegalArgumentException.class, () -> StewardAgent.servicesToDeploy(all, List.of(Compose.SELF), false));
 
-        assertTrue(refused.getMessage().contains("nordtal.sh"), refused.getMessage());
+        assertTrue(refused.getMessage().contains("one-shot"), refused.getMessage());
     }
 
     @Test

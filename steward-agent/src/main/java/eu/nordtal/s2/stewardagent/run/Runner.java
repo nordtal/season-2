@@ -46,6 +46,9 @@ public final class Runner implements RequestRunner {
     /** How a plugin removal deletes what it removes; {@link PluginRemoval#NONE} by default. */
     final PluginRemoval removal;
 
+    /** Whether this is the one-shot a run was handed to, which renews the long-running agent last. */
+    final boolean oneShot;
+
     /** Where the proxy's pack is set, built on first use like the occupancy below. */
     private volatile @Nullable SettingStore settings;
 
@@ -119,6 +122,20 @@ public final class Runner implements RequestRunner {
             final Waiting waiting,
             final eu.nordtal.s2.stewardagent.plugin.PluginDirectory plugins,
             final PluginRemoval removal) {
+        this(config, database, containers, backups, directory, waiting, plugins, removal, false);
+    }
+
+    private Runner(
+            final RunSpec config,
+            final Database database,
+            final ContainerOps containers,
+            final Snapshots backups,
+            final UpdateDirectory directory,
+            final Waiting waiting,
+            final eu.nordtal.s2.stewardagent.plugin.PluginDirectory plugins,
+            final PluginRemoval removal,
+            final boolean oneShot) {
+        this.oneShot = oneShot;
         this.plugins = plugins;
         this.removal = removal;
         this.config = config;
@@ -127,6 +144,11 @@ public final class Runner implements RequestRunner {
         this.backups = backups;
         this.directory = directory;
         this.waiting = waiting;
+    }
+
+    /** The same runner as the one-shot a run is handed to. */
+    public Runner asOneShot() {
+        return new Runner(config, database, containers, backups, directory, waiting, plugins, removal, true);
     }
 
     @Override

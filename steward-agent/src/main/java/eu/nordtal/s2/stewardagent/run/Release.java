@@ -1,39 +1,56 @@
 package eu.nordtal.s2.stewardagent.run;
 
-import eu.nordtal.s2.internalapi.agent.Topology;
-import eu.nordtal.s2.stewardagent.plan.UpdatePlan;
-import java.util.Objects;
+import eu.nordtal.s2.stewardagent.source.Versions;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Whether this agent may install a release: only its own, since it carries that release's schema and no other.
+ * Which release a run is for, against the release this agent is: an agent carries out runs of its own release only.
  *
- * A newer release renews steward-agent first, which the host's deployment does; the agent never recreates itself.
+ * A newer release goes to a one-shot steward-agent at that release, which also renews this agent last.
  */
 final class Release {
 
     private Release() {}
 
+    /** How the newest published release stands to this agent's own. */
+    enum Standing {
+
+        /** This agent's release, or one nothing can compare: the run goes ahead here. */
+        OWN,
+
+        /** A later release, which only a steward-agent at that release carries out. */
+        NEWER,
+
+        /** An earlier one: no schema goes back, so nothing installs it. */
+        OLDER
+    }
+
     /**
-     * Returns why an update must not go ahead, or {@code null} when every season jar it installs is this agent's own.
+     * Places the release a plan resolved against this agent's own.
      *
-     * @param own this process's version, or {@code null} when unknown, which refuses nothing
+     * @param tag the release tag, with or without its leading {@code v}; {@code null} when it did not resolve
+     * @param own this process's version; {@code null} from a test, which runs everything as its own
      */
-    static @Nullable String refusal(final UpdatePlan plan, final @Nullable String own) {
-        if (own == null) {
-            return null;
+    static Standing of(final @Nullable String tag, final @Nullable String own) {
+        if (tag == null || own == null) {
+            return Standing.OWN;
         }
-        return plan.changes().stream()
-                .filter(change -> change.status().isWork() && change.wanted() != null)
-                .filter(change -> Topology.SEASON_JARS.contains(change.artifact()))
-                .map(change -> Objects.requireNonNull(change.wanted()).version())
-                .filter(wanted -> !wanted.equals(own))
-                .findFirst()
-                .map(wanted -> "NOTHING WAS STOPPED AND NOTHING WAS INSTALLED. The release is " + wanted
-                        + " and steward-agent is " + own + ", and an agent installs only the release whose"
-                        + " schema it carries. `./nordtal.sh` on the host renews steward-agent; ask again"
-                        + " once it is back.")
-                .orElse(null);
+        final String release = version(tag);
+        if (release.equals(own)) {
+            return Standing.OWN;
+        }
+        try {
+            final int order = Versions.compare(release, own);
+            return order == 0 ? Standing.OWN : order > 0 ? Standing.NEWER : Standing.OLDER;
+        } catch (final NumberFormatException unordered) {
+            // The newest published release is the one to run, whatever its name says about order.
+            return Standing.NEWER;
+        }
+    }
+
+    /** The version a release tag names, without the {@code v} our tags carry. */
+    static String version(final String tag) {
+        return tag.startsWith("v") ? tag.substring(1) : tag;
     }
 
     /**

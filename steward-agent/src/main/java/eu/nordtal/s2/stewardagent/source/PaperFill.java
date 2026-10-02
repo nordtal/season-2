@@ -110,7 +110,7 @@ public final class PaperFill {
 
         String newest = null;
         for (final String version : released) {
-            if (newest == null || compare(version, newest) > 0) {
+            if (newest == null || Versions.compare(version, newest) > 0) {
                 newest = version;
             }
         }
@@ -121,21 +121,5 @@ public final class PaperFill {
                     + " family.");
         }
         return newest;
-    }
-
-    private static final Pattern DOT = Pattern.compile("\\.");
-
-    /** Component by component, as numbers, with a missing component reading as zero. */
-    private static int compare(final String left, final String right) {
-        final String[] mine = DOT.splitAsStream(left).toArray(String[]::new);
-        final String[] theirs = DOT.splitAsStream(right).toArray(String[]::new);
-        for (int i = 0; i < Math.max(mine.length, theirs.length); i++) {
-            final int a = i < mine.length ? Integer.parseInt(mine[i]) : 0;
-            final int b = i < theirs.length ? Integer.parseInt(theirs[i]) : 0;
-            if (a != b) {
-                return Integer.compare(a, b);
-            }
-        }
-        return 0;
     }
 }

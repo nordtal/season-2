@@ -31,6 +31,9 @@ public final class Docker {
 
     private static final String LABEL_SERVICE = "com.docker.compose.service";
 
+    /** {@code True} on a container {@code compose run} made, which is no service's container. */
+    private static final String LABEL_ONEOFF = "com.docker.compose.oneoff";
+
     /** What compose hashed the service's definition to when it made this container. */
     private static final String LABEL_CONFIG_HASH = "com.docker.compose.config-hash";
 
@@ -53,7 +56,7 @@ public final class Docker {
         return socket.isReachable();
     }
 
-    /** Every container of one compose project, running or not. */
+    /** Every container of one compose project, running or not, without the one-off ones {@code compose run} made. */
     public List<Container> containers(final String project) {
         final JsonArray array = Json.decode(socket.send("GET", "/containers/json?all=1", null), JsonArray.class);
         final List<Container> containers = new ArrayList<>();
@@ -62,7 +65,7 @@ public final class Docker {
             final JsonObject labels = json.has("Labels") && json.get("Labels").isJsonObject()
                     ? json.getAsJsonObject("Labels")
                     : new JsonObject();
-            if (!project.equals(string(labels, LABEL_PROJECT))) {
+            if (!project.equals(string(labels, LABEL_PROJECT)) || "True".equals(string(labels, LABEL_ONEOFF))) {
                 continue;
             }
             containers.add(new Container(
@@ -84,6 +87,21 @@ public final class Docker {
                 .filter(container -> service.equals(container.service()) && container.isRunning())
                 .map(Container::id)
                 .findFirst();
+    }
+
+    /** Whether a container of this name exists and runs; {@code false} when the daemon knows no such container. */
+    public boolean isRunning(final String name) {
+        try {
+            final JsonObject json =
+                    Json.decode(socket.send("GET", "/containers/" + name + "/json", null), JsonObject.class);
+            final JsonObject state = json.getAsJsonObject("State");
+            return state != null && state.has("Running") && state.get("Running").getAsBoolean();
+        } catch (final DockerException failure) {
+            if (failure.status() == 404) {
+                return false;
+            }
+            throw failure;
+        }
     }
 
     /** One container in full: its health, when it started, and whether it has a TTY, which decides the log framing. */
@@ -290,6 +308,28 @@ public final class Docker {
         final String query = URLEncoder.encode(path, StandardCharsets.UTF_8);
         try (DockerSocket.Stream stream = socket.stream("GET", "/containers/" + id + "/archive?path=" + query, null)) {
             Tar.firstFile(stream.body(), target);
+        }
+    }
+
+    /**
+     * Copies one regular file out of an image on this host, through a container made for it and removed again.
+     *
+     * @throws IOException if the file is not in the image or the copy breaks off
+     */
+    public void copyOutOfImage(final String imageRef, final String path, final java.nio.file.Path target)
+            throws IOException {
+        final JsonObject request = new JsonObject();
+        request.addProperty("Image", imageRef);
+        final JsonObject created =
+                Json.decode(socket.send("POST", "/containers/create", Json.encode(request)), JsonObject.class);
+        final String id = string(created, "Id");
+        if (id == null) {
+            throw new IOException("the daemon made no container from " + imageRef);
+        }
+        try {
+            copyOut(id, path, target);
+        } finally {
+            socket.send("DELETE", "/containers/" + id + "?force=1", null);
         }
     }
 

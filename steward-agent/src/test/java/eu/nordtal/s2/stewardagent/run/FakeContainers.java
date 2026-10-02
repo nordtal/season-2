@@ -115,6 +115,28 @@ final class FakeContainers implements ContainerOps {
         return made("recreate-local:" + service, service);
     }
 
+    @Override
+    public RedeployResult migrate() {
+        calls.add("migrate");
+        return reachable ? RedeployResult.triggered("exit 0") : RedeployResult.refused("no docker socket");
+    }
+
+    @Override
+    public String oneShot() {
+        return "nordtal-s2-steward-agent-run";
+    }
+
+    @Override
+    public RedeployResult handOver(final long id, final String release) {
+        calls.add("hand-over:" + id + "@" + release);
+        return reachable ? RedeployResult.triggered("running") : RedeployResult.refused("no docker socket");
+    }
+
+    @Override
+    public RedeployResult renewAgent() {
+        return made("renew:steward-agent", "steward-agent");
+    }
+
     private RedeployResult made(final String call, final String service) {
         calls.add(call);
         if (!reachable) {

@@ -167,7 +167,8 @@ nothing is installed. Checksums are verified where the source has one; GitHub re
 none. The server jar is the newest `STABLE` build of `SERVER_VERSION` in `compose.yml`.
 
 A run renews `postgres` and `caddy` like any other service, named in the countdown first.
-steward-agent never renews its own image; that needs `./nordtal.sh`.
+steward-agent never recreates itself: an update to a newer release, or one that finds the agent out of
+date, is carried out by a one-shot steward-agent at that release, which renews the agent last.
 
 ### Replacing one service, from this checkout
 

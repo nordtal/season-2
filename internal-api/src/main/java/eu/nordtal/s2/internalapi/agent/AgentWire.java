@@ -387,6 +387,44 @@ public final class AgentWire {
             boolean added,
             boolean fixed) {}
 
+    /**
+     * What a run would do now, without a run: every artefact with its status, and every file nothing claims.
+     *
+     * @param resolvedAt when the agent asked the sources, which is how old this answer is
+     */
+    public record Resolve(
+            Instant resolvedAt,
+            @Nullable String seasonTag,
+            boolean seasonPrerelease,
+            boolean hasWork,
+            boolean hasFailures,
+            List<ResolvedChange> changes,
+            List<Unclaimed> unclaimed,
+            List<String> notes) {}
+
+    /**
+     * One artefact in a resolve; an unresolved one is unknown, never nothing to do.
+     *
+     * @param service absent for the resource pack, which belongs to no service
+     * @param held work a run would not do, because another row of the same service could not be checked
+     * @param version the version as its publisher states it, for reading and never for comparing
+     * @param fileName the file that would be installed, which is what is compared
+     */
+    public record ResolvedChange(
+            @Nullable String service,
+            String artifact,
+            String status,
+            boolean work,
+            boolean failure,
+            boolean held,
+            @Nullable String installed,
+            @Nullable String version,
+            @Nullable String fileName,
+            @Nullable String note) {}
+
+    /** A file in a server's plugins folder that no artefact of the network claims. */
+    public record Unclaimed(String service, String fileName) {}
+
     /** An answer that is not the one asked for, with the sentence to show and where it came from. */
     public record Refusal(String error, String where) {}
 }

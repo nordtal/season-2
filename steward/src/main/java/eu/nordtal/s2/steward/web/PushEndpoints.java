@@ -8,10 +8,8 @@ import eu.nordtal.s2.steward.push.PushSubscriptions;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import io.javalin.http.NotFoundResponse;
-import java.util.ArrayList;
+import java.time.Instant;
 import java.util.Base64;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
@@ -57,8 +55,7 @@ final class PushEndpoints {
             throw new NotFoundResponse(
                     "web-push is not configured on this deployment yet - see" + " web-push in the web group");
         }
-        ctx.json(Map.of(
-                "publicKey",
+        ctx.json(new WebPushPublicKey(
                 Base64.getUrlEncoder().withoutPadding().encodeToString(vapidKeys.getApplicationServerKey())));
     }
 
@@ -103,24 +100,26 @@ final class PushEndpoints {
         ctx.status(204);
     }
 
+    /** A browser this account subscribed; {@code device} is absent without a User-Agent. */
+    public record PushDevice(
+            String endpoint,
+            @Nullable String device,
+            Instant subscribedAt,
+            @Nullable Instant lastSentAt) {}
+
+    /** {@code GET /api/web-push/public-key}: the VAPID public key, base64url. */
+    public record WebPushPublicKey(String publicKey) {}
+
     /** {@code GET /api/web-push/devices}: every browser of this account, with its endpoint to mark "this device". */
     void devices(final Context ctx) {
         final Sessions.Session who = sessions.apply(ctx);
-        final List<Map<String, Object>> listed = new ArrayList<>();
-        for (final PushSubscriptions.Subscription subscription :
-                pushSubscriptions().of(who.signedInDiscordId())) {
-            final Map<String, Object> one = new LinkedHashMap<>();
-            one.put("endpoint", subscription.endpoint());
-            if (subscription.device() != null) {
-                one.put("device", subscription.device());
-            }
-            one.put("subscribedAt", subscription.createdAt().toString());
-            if (subscription.lastSentAt() != null) {
-                one.put("lastSentAt", subscription.lastSentAt().toString());
-            }
-            listed.add(one);
-        }
-        ctx.json(listed);
+        ctx.json(pushSubscriptions().of(who.signedInDiscordId()).stream()
+                .map(subscription -> new PushDevice(
+                        subscription.endpoint(),
+                        subscription.device(),
+                        subscription.createdAt(),
+                        subscription.lastSentAt()))
+                .toList());
     }
 
     /**

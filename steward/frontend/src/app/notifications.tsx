@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router"
 import { useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 
-import type { AlertChannelKey, AlertTypeKey, ConfigEntry, PushDevice } from "@/lib/api"
+import type { AlertChannel, AlertType, ConfigEntry, PushDevice } from "@/lib/api"
 import { relative } from "@/lib/format"
 import { pushSupported } from "@/lib/push"
 import {
@@ -41,12 +41,12 @@ import { Switch } from "@/components/ui/switch"
 export type NotificationActions = ReturnType<typeof useNotificationActions>
 
 /**
- * The words for {@link AlertTypeKey}.
+ * The words for {@link AlertType}.
  *
  * `label` names what a switch governs; `test` and `tone` are what `AlertRouter#sample` really sends.
  */
 const TYPES: ReadonlyArray<{
-  key: AlertTypeKey
+  key: AlertType
   label: string
   test: string
   tone: "warn" | "down"
@@ -62,7 +62,7 @@ const TYPES: ReadonlyArray<{
 ]
 
 /** The two places an alert can reach an admin besides Steward, as columns. */
-const CHANNELS: ReadonlyArray<{ key: AlertChannelKey; label: string }> = [
+const CHANNELS: ReadonlyArray<{ key: AlertChannel; label: string }> = [
   { key: "push", label: "Push" },
   { key: "discord", label: "Discord" },
 ]
@@ -166,7 +166,7 @@ function ThisDevice({ state }: { state: NotificationActions }) {
   )
 }
 
-/** One switch per {@link AlertTypeKey} and channel, for this account and all of its browsers at once. */
+/** One switch per {@link AlertType} and channel, for this account and all of its browsers at once. */
 function Types({ state }: { state: NotificationActions }) {
   const chosen = state.preferences.data
 

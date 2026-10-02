@@ -52,5 +52,9 @@ minute's reconciliation reads it anyway. Waiting for the bot or a server is wait
 `REQUESTS` change, never a timer. `nothing-polls.test.ts` holds both rules. Every SSE route is
 followed through `lib/event-stream.ts`, which owns the backoff and the reconnect.
 
+The types of what the routes answer come from `lib/api.gen.ts`, which steward's records write (see
+steward's README); `lib/api.ts` re-exports them and is otherwise the client. Never edit the generated
+file by hand.
+
 Every confirmation in front of a change is `AskThenAct`: a change that returns a promise keeps the
 dialog open until it settles and shows a refusal inside it.

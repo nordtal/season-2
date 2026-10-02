@@ -33,6 +33,9 @@ repositoryRootTestInputs {
     // DiscordAuthTest reads the documented environment beside the setup script.
     reads("deploy/dev.env.example")
 
+    // ApiTypesTest compares the generated TypeScript types with the records.
+    reads("steward/frontend/src/lib/api.gen.ts")
+
     // DocumentedCommandsTest reads every document that shows a `steward` command.
     reads("steward/README.md")
     reads("deploy/jvm/Dockerfile")
@@ -206,6 +209,26 @@ val localEnvironment =
                         line.substringAfter('=').removeSurrounding("\"").removeSurrounding("'")
                 }
         }.orElse(emptyMap())
+
+// Tests compile against classes alone: the resources hold the frontend build, which reads the generated types.
+sourceSets.test {
+    compileClasspath = files(sourceSets.main.get().output.classesDirs) + configurations["testCompileClasspath"]
+}
+
+// The frontend's API types, written from the records the routes answer and read; ApiTypesTest holds them.
+tasks.register<JavaExec>("generateApiTypes") {
+    group = "build"
+    description = "Writes frontend/src/lib/api.gen.ts from steward's API records."
+    // Classes only, so the types can be written while the frontend does not build against the old ones.
+    classpath =
+        files(
+            sourceSets["main"].output.classesDirs,
+            sourceSets["test"].output.classesDirs,
+            configurations["testRuntimeClasspath"],
+        )
+    mainClass.set("eu.nordtal.s2.steward.ApiTypes")
+    workingDir = projectDir
+}
 
 tasks.named<JavaExec>("run") {
     environment(localEnvironment.get())

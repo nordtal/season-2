@@ -170,7 +170,7 @@ describe("OverviewPage - the Issues tile prints what steward judged", () => {
 
   it("keeps the tile empty while steward has not read the stack yet", async () => {
     /** A settled "0" must never appear before steward has looked. */
-    vi.stubGlobal("fetch", backend({ alerts: () => Promise.resolve({ ...reading([]), checkedAt: null }) }))
+    vi.stubGlobal("fetch", backend({ alerts: () => Promise.resolve({ ...reading([]), checkedAt: undefined }) }))
     draw()
 
     await waitFor(() => expect(issuesTile()).not.toBeNull())

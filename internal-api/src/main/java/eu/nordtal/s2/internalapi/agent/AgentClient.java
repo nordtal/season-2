@@ -168,9 +168,9 @@ public final class AgentClient {
         }
     }
 
-    /** The resolve as the updates page draws it, as the agent's JSON. */
-    public String plan() {
-        return http.get(AgentWire.PLAN, PLAN_WITHIN);
+    /** The resolve as the updates page draws it. */
+    public AgentWire.Resolve plan() {
+        return Json.decode(http.get(AgentWire.PLAN, PLAN_WITHIN), AgentWire.Resolve.class);
     }
 
     /** One server's plugins. */

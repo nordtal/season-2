@@ -46,8 +46,39 @@ public interface UpdateDirectory {
      *
      * @param services compose service names; empty or {@code null} is the whole network
      */
-    UpdateRequest submit(
-            UpdateKind kind, Actor actor, @Nullable Duration delay, java.util.@Nullable List<String> services);
+    default UpdateRequest submit(
+            final UpdateKind kind,
+            final Actor actor,
+            final @Nullable Duration delay,
+            final java.util.@Nullable List<String> services) {
+        return submit(kind.request(cleaned(services)), actor, delay);
+    }
+
+    /**
+     * The same, for a request of any kind, the ones that name more than their services included.
+     *
+     * @throws Refused with an {@link UpdateRefusal} when another run is open anywhere, or a take-down names a
+     *     held service
+     */
+    UpdateRequest submit(eu.nordtal.s2.database.inbox.StewardRequest request, Actor actor, @Nullable Duration delay);
+
+    /** Returns the request a run was asked as, or empty for an unknown id. */
+    default Optional<eu.nordtal.s2.database.inbox.StewardRequest> requestOf(final long id) {
+        return Optional.empty();
+    }
+
+    /** Returns service names trimmed, without blanks and duplicates, in the order given; {@code null} is none. */
+    static java.util.List<String> cleaned(final java.util.@Nullable List<String> services) {
+        if (services == null) {
+            return java.util.List.of();
+        }
+        return services.stream()
+                .filter(java.util.Objects::nonNull)
+                .map(String::strip)
+                .filter(service -> !service.isEmpty())
+                .distinct()
+                .toList();
+    }
 
     /** Returns which services a run is for, or empty for the whole network and for an unknown id. */
     default java.util.List<String> scopeOf(final long id) {

@@ -58,11 +58,11 @@ final class FakeDirectory implements UpdateDirectory {
 
     @Override
     public UpdateRequest submit(
-            final UpdateKind kind, final Actor actor, final Duration delay, final List<String> services) {
+            final eu.nordtal.s2.database.inbox.StewardRequest asked, final Actor actor, final Duration delay) {
         final long id = nextId++;
         final UpdateRequest request = new UpdateRequest(
                 id,
-                kind,
+                UpdateKind.of(asked),
                 UpdateStatus.PENDING,
                 actor,
                 now,

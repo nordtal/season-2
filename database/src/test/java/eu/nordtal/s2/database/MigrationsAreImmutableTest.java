@@ -52,6 +52,9 @@ class MigrationsAreImmutableTest {
                 "V7__the_allowlist_is_a_network_setting.sql",
                 "0018fffe73e02297107a270a6c9a4af9f33e7c7a7c4424ce7d9e221261283f20");
         FROZEN.put("V8__alerts_have_one_path.sql", "e3e2a23c14bf175f74c576280932acfc489484010eaf10f7bb4173d9fc0d9d4c");
+        FROZEN.put(
+                "V9__every_kind_of_run_is_a_row.sql",
+                "a687d46f12a09a569fbea4e2bce552d6d09db368a1fd3e9acdc0227d5beb589b");
     }
 
     @Test

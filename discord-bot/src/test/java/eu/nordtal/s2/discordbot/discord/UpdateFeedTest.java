@@ -111,7 +111,7 @@ class UpdateFeedTest {
 
         @Override
         public UpdateRequest submit(
-                final UpdateKind kind, final Actor actor, final Duration delay, final List<String> services) {
+                final eu.nordtal.s2.database.inbox.StewardRequest request, final Actor actor, final Duration delay) {
             throw new UnsupportedOperationException();
         }
 

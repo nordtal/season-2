@@ -4,7 +4,6 @@ import eu.nordtal.s2.database.Actor;
 import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.database.audit.AuditEntry;
 import eu.nordtal.s2.database.update.UpdateDirectory;
-import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateStatus;
 import java.time.Duration;
@@ -44,7 +43,7 @@ public final class FakeDirectories {
 
         @Override
         public UpdateRequest submit(
-                final UpdateKind kind, final Actor actor, final Duration delay, final List<String> services) {
+                final eu.nordtal.s2.database.inbox.StewardRequest request, final Actor actor, final Duration delay) {
             throw new UnsupportedOperationException("not exercised by this fake");
         }
 

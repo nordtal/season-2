@@ -78,7 +78,8 @@ public record RunShape(
         }
         return switch (kind) {
             case DOWN -> Occasion.DOWN;
-            case RESTART -> Occasion.RECREATE;
+            // A container that goes round once, whatever it comes back with.
+            case RESTART, RESTORE, RECREATE, DEPLOY, REMOVE_PLUGIN -> Occasion.RECREATE;
             case BACKUP -> Occasion.BACKUP;
             // START never starts a countdown, and is named anyway.
             case UPDATE, START -> Occasion.UPDATE;

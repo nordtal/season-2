@@ -30,14 +30,30 @@ public enum UpdateKind {
     DOWN,
 
     /** Takes the hold off and starts the services again, with no countdown. */
-    START;
+    START,
+
+    /** Takes a fresh backup, counts down, stops what the archive belongs to, puts it back and starts again. */
+    RESTORE,
+
+    /** Counts down and makes the services' containers again from the images on this host. */
+    RECREATE,
+
+    /** Counts down, pulls the services' images and makes their containers again from them. */
+    DEPLOY,
+
+    /** Counts down, stops one server, takes one jar out of its plugins folder and starts it again. */
+    REMOVE_PLUGIN;
 
     /** Returns whether this kind stops servers, which is what a confirmation is asked for. */
     public boolean stopsServers() {
-        return this == UPDATE || this == RESTART || this == BACKUP || this == DOWN;
+        return this != START;
     }
 
-    /** Returns the request of this kind for the services, which the run inbox stores. */
+    /**
+     * Returns the request of this kind for the services, which the run inbox stores.
+     *
+     * @throws IllegalArgumentException for a kind that names more than services: a restore or a plugin removal
+     */
     public StewardRequest request(final List<String> services) {
         return switch (this) {
             case UPDATE -> new StewardRequest.Update(services);
@@ -45,6 +61,10 @@ public enum UpdateKind {
             case BACKUP -> new StewardRequest.Backup(services);
             case DOWN -> new StewardRequest.Down(services);
             case START -> new StewardRequest.Start(services);
+            case RECREATE -> new StewardRequest.Recreate(services);
+            case DEPLOY -> new StewardRequest.Deploy(services);
+            case RESTORE, REMOVE_PLUGIN ->
+                throw new IllegalArgumentException(this + " names more than its services; submit the request itself");
         };
     }
 

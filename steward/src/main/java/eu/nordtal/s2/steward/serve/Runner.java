@@ -118,6 +118,10 @@ public final class Runner implements RequestRunner {
                 case BACKUP -> backup(request, progress);
                 case DOWN -> down(request, progress);
                 case START -> startHeld(request, progress);
+                case RESTORE, RECREATE, DEPLOY, REMOVE_PLUGIN ->
+                    Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                            .withNote("This steward does not carry out a " + request.kind()
+                                    + " run. Nothing was done.")));
             };
         } catch (final RuntimeException failure) {
             log.error("Request {} ({}) failed", request.id(), request.kind(), failure);

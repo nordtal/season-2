@@ -41,15 +41,11 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
      * The database refuses a second open run by its unique index; holds only change while a run is open.
      */
     @Override
-    public UpdateRequest submit(
-            final UpdateKind kind,
-            final Actor actor,
-            final @Nullable Duration delay,
-            final java.util.@Nullable List<String> services) {
-        Objects.requireNonNull(kind, "kind");
+    public UpdateRequest submit(final StewardRequest request, final Actor actor, final @Nullable Duration delay) {
+        Objects.requireNonNull(request, "request");
         Objects.requireNonNull(actor, "actor");
-        final java.util.List<String> scope = cleaned(services);
-        if (kind == UpdateKind.DOWN && !scope.isEmpty()) {
+        final java.util.List<String> scope = request.services();
+        if (request instanceof StewardRequest.Down && !scope.isEmpty()) {
             final java.util.List<String> held = dao.holds().stream()
                     .map(ServiceHold::service)
                     .filter(scope::contains)
@@ -61,7 +57,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
         // Clamped rather than rejected: a delay computed from two disagreeing clocks means now.
         final Duration wait = delay == null || delay.isNegative() ? Duration.ZERO : delay;
         try {
-            return run(inbox.submit(kind.request(scope), actor, Schedule.after(wait)));
+            return run(inbox.submit(request, actor, Schedule.after(wait)));
         } catch (final RuntimeException refused) {
             if (!String.valueOf(refused.getMessage()).contains(ONE_OPEN)) {
                 throw refused;
@@ -111,16 +107,9 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     /** Returns the services with blanks and repeats dropped; empty is the whole network. */
-    static java.util.List<String> cleaned(final java.util.@Nullable List<String> services) {
-        if (services == null) {
-            return java.util.List.of();
-        }
-        return services.stream()
-                .filter(java.util.Objects::nonNull)
-                .map(String::strip)
-                .filter(service -> !service.isEmpty())
-                .distinct()
-                .toList();
+    @Override
+    public Optional<StewardRequest> requestOf(final long id) {
+        return inbox.find(id).map(Request::payload);
     }
 
     @Override

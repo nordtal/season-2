@@ -112,7 +112,7 @@ interface UpdateDao {
      */
     @SqlQuery("""
             SELECT * FROM steward_inbox
-            WHERE kind IN ('RESTART', 'UPDATE', 'BACKUP', 'DOWN')
+            WHERE kind <> 'START'
               AND ((status = 'PENDING' AND scheduled_for > now())
                    OR (status = 'RUNNING' AND countdown_end > now()))
             ORDER BY coalesce(countdown_end, scheduled_for), id
@@ -145,7 +145,7 @@ interface UpdateDao {
                 FROM steward_inbox
                 -- Exactly what countingDown() finds: the button says "Stop the countdown", and a
                 -- countdown it could not stop would be worse than no button.
-                WHERE kind IN ('RESTART', 'UPDATE', 'BACKUP', 'DOWN')
+                WHERE kind <> 'START'
                   AND ((status = 'PENDING' AND scheduled_for > now())
                        OR (status = 'RUNNING' AND countdown_end > now()))
                 ORDER BY coalesce(countdown_end, scheduled_for), id

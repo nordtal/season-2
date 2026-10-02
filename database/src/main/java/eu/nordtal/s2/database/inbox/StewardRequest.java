@@ -51,4 +51,55 @@ public sealed interface StewardRequest {
             services = List.copyOf(services);
         }
     }
+
+    /**
+     * Puts one archive back: a volume archive into its volume, or a database dump into the database.
+     *
+     * @param services empty: the archive itself says which services it stops
+     * @param archive the archive's file name in the backup directory, typed back by whoever asked as a confirmation
+     */
+    record Restore(List<String> services, String archive) implements StewardRequest {
+
+        public Restore {
+            services = List.copyOf(services);
+            if (archive == null || archive.isBlank() || archive.contains("/")) {
+                throw new IllegalArgumentException("a restore names one archive file, not " + archive);
+            }
+        }
+    }
+
+    /** Makes the services' containers again from the images on this host. */
+    record Recreate(List<String> services) implements StewardRequest {
+
+        public Recreate {
+            services = List.copyOf(services);
+        }
+    }
+
+    /** Pulls the services' images and makes their containers again from them. */
+    record Deploy(List<String> services) implements StewardRequest {
+
+        public Deploy {
+            services = List.copyOf(services);
+        }
+    }
+
+    /**
+     * Takes one jar out of a server's plugins folder while that server is stopped.
+     *
+     * @param services the one server
+     * @param file the jar's file name in its plugins folder
+     */
+    record RemovePlugin(List<String> services, String file) implements StewardRequest {
+
+        public RemovePlugin {
+            services = List.copyOf(services);
+            if (services.size() != 1) {
+                throw new IllegalArgumentException("a plugin is removed from exactly one server, not " + services);
+            }
+            if (file == null || !file.endsWith(".jar") || file.contains("/")) {
+                throw new IllegalArgumentException("a plugin is one jar file in the folder, not " + file);
+            }
+        }
+    }
 }

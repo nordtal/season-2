@@ -5,6 +5,7 @@ import eu.nordtal.s2.common.Deployment;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.common.time.Waiting;
+import eu.nordtal.s2.database.game.GameDataStore;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.InboxTable;
 import eu.nordtal.s2.database.inbox.Inboxes;
@@ -24,6 +25,7 @@ import eu.nordtal.s2.stewardagent.config.RunSpec;
 import eu.nordtal.s2.stewardagent.docker.Containers;
 import eu.nordtal.s2.stewardagent.docker.Docker;
 import eu.nordtal.s2.stewardagent.docker.DockerSocket;
+import eu.nordtal.s2.stewardagent.gamedata.GameAssets;
 import eu.nordtal.s2.stewardagent.plugin.PluginDirectory;
 import eu.nordtal.s2.stewardagent.run.Bootstrap;
 import eu.nordtal.s2.stewardagent.run.PluginRemoval;
@@ -361,10 +363,13 @@ public final class StewardAgent {
                             updates,
                             runner(server, compose, docker, clock, database, runs, updates, runRoutes.removal()),
                             docker::isRunning,
-                            clock)) {
+                            clock);
+                    GameAssets icons = gameAssets(database, runs, clock)) {
                 loop.listen(signals);
+                icons.listen(signals);
                 settings.listen(signals, () -> reload(runs));
                 signals.start();
+                icons.start();
                 // SIGTERM is how a redeploy asks; without this the container is killed after the grace period.
                 Runtime.getRuntime().addShutdownHook(new Thread(loop::close, "steward-agent-shutdown"));
                 loop.serve();
@@ -373,6 +378,17 @@ public final class StewardAgent {
             app.stop();
         }
         return 0;
+    }
+
+    /** The icon drawing, which fetches Mojang's client jar only while the runs group's mojang-assets is on. */
+    private static GameAssets gameAssets(final Database database, final Setting<RunSpec> runs, final Clock clock) {
+        return GameAssets.fromMojang(
+                GameDataStore.using(database.dataSource()),
+                Path.of(System.getProperty("java.io.tmpdir"), "game-assets"),
+                Duration.ofSeconds(runs.get().httpTimeoutSeconds()),
+                Duration.ofSeconds(runs.get().downloadTimeoutSeconds()),
+                () -> runs.get().mojangAssets(),
+                clock);
     }
 
     /** The backups and restores, which run the migrate service again after a dump has replaced the database. */

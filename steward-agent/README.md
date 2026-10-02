@@ -92,6 +92,10 @@ pin and no rollback: a bad release is corrected by publishing a better one.
 ## Rules
 
 - `serve` is not a scheduler. It acts only on rows in its inbox, `steward_inbox`, and never migrates.
+  The one other thing it does is draw item icons: when `mojang-assets` is on and a server exported a
+  Minecraft version without icons, it fetches that version's client jar from Mojang, checks its sha1,
+  draws every item at 32 pixels into one sheet in `game_assets` and deletes the jar. A version whose jar
+  could not be fetched waits an hour. Nothing of Mojang's is kept, baked or published.
 - An update stops the services whose jars or containers change, runs `migrate`, installs, starts
   them and waits for healthy. `bootstrap` fills empty slots and restarts nothing. A report writes nothing.
 - Two steward processes cannot serve or move jars at once; both are advisory locks, and the second is
@@ -216,6 +220,9 @@ recorded from the live GitHub, Modrinth and PaperMC APIs, and `TopologyTest` rea
   archives a run acts on.
 - `plan`, `apply`, `source`, `plugin`: resolving what is current, placing it, where versions come
   from, and the managed plugins. `schema`: the migration and the roles.
+- `gamedata`: the icons. `MojangClient` finds and fetches a client jar, `IconPainter` draws one item
+  from its definition and models (`Raster`, `Model`, `Face`, `StandIns` for what the game draws in
+  code), `IconSheet` lays them out, `GameAssets` is the loop.
 - `AgentApi`: every other route, composed in one place: `docker` (the socket, containers, the
   console), `logs`, `measure` (host, sampler), `backup` and `topology`.
 - Test fixtures: `FakeDaemon`, a socket that answers like Docker, and `AgentStandIn`, this API over

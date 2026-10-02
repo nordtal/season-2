@@ -266,6 +266,20 @@ for no in "" n N no nope maybe "y e s" 1 0 accept j ja; do
 done
 ok "six spellings of yes; everything else, silence and German included, is no"
 
+case_begin "the Mojang question is asked until true or false is written down"
+MOJANG="$WORK/mojang.env"
+: > "$MOJANG"
+if mojang_assets_answered "$MOJANG"; then bad "an installation without the variable counted as answered"; fi
+for unanswered in "" "maybe" "yes"; do
+    printf 'NORDTAL_MOJANG_ASSETS=%s\n' "$unanswered" > "$MOJANG"
+    if mojang_assets_answered "$MOJANG"; then bad "«$unanswered» counted as an answer"; fi
+done
+for answered in true false; do
+    printf 'NORDTAL_MOJANG_ASSETS=%s\n' "$answered" > "$MOJANG"
+    mojang_assets_answered "$MOJANG" || bad "«$answered» was asked again"
+done
+ok "absent, empty and anything but true or false ask; true and false do not"
+
 case_begin "a written secret is never on a command line"
 # The value reaches awk through the environment, never the world-readable command line.
 grep -q 'awk -v name=.*-v value=' "$SETUP" && bad "a value is still passed to awk with -v"

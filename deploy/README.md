@@ -16,7 +16,7 @@ deploy/
     entrypoint.sh      PID 1: resolve the jar, seed the config, run tmux, trap SIGTERM
     scripts/console    attach to the server console
     scripts/mc         send one console command, no TTY needed
-  nordtal.sh           the host's installer and menu; renews itself from GitHub
+  nordtal.sh           the host's installer and menu; renews itself from the newest release
   restore.sh           put one archive back: a volume, or a dump into a new database
   dev.env.example      the local stack's settings; see Locally
   *-test.sh            the scripts' checks, run on `check` without Docker
@@ -43,7 +43,7 @@ A deploy pulls and never builds. The images (`minecraft`, `steward`, `steward-ag
    It asks for what only a person knows (`STEWARD_HOST`, `STEWARD_ACME_EMAIL`, the EULA, the bot
    token, the Discord login's client id and secret, the guild, the admin role, and optionally bunq),
    generates the secrets, waits until `STEWARD_HOST` resolves to this host so Caddy's certificate
-   request succeeds, renews `steward-agent` and brings the stack up. A second run asks only for
+   request succeeds, pulls `steward-agent` at the newest release and brings the stack up. A second run asks only for
    what is missing. On a host with an existing `postgres-data` it asks for `POSTGRES_PASSWORD`
    instead of generating one, since Postgres reads it only on an empty data directory. Each service
    logs in as a database role of its own, `POSTGRES_<SERVICE>_PASSWORD`; steward-agent creates the
@@ -61,8 +61,12 @@ Afterwards the script is `./nordtal.sh` in the installation directory:
 ./nordtal.sh --from f       # take the answers from a file
 ```
 
-Run it after every release: a new `compose.yml` reaches the host only inside a new
-`steward-agent` image. Every other artefact is moved by steward-agent's runs.
+Every run first asks GitHub for the newest release and runs that release's own copy of the script,
+fetched from its tag and never from `main`, so the installer is never ahead of the images it
+installs; `NORDTAL_RELEASE=<version>` names another release for an install. Where a healthy
+steward-agent already runs, a deploy is an ordinary update run: the script writes the request and
+waits for the report, exactly like `./nordtal.sh update`. Only an install, or a stack whose agent
+is down or unhealthy, gets a throwaway agent's `up`, which is the emergency repair.
 
 **The environment file** lives at the absolute path `STEWARD_ENV_FILE`, mode 600, outside the
 installation directory, and holds every secret. Edit it in place (`sed -i`); never `mv` a new file

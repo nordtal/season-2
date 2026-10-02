@@ -130,7 +130,11 @@ BACKUPS_SOURCE="$(source_for "$BACKUPS_VOLUME" || true)"
        environment file whose COMPOSE_PROJECT_NAME decides the prefix (this run used '$PROJECT')."
 
 # The image that wrote the archives, for the same tar and zstd; every run overrides its entrypoint.
-TOOLS="${STEWARD_AGENT_IMAGE:-ghcr.io/nordtal/steward-agent:latest}"
+# The project's agent container names it, running or not, since images are tagged by release.
+TOOLS="${STEWARD_AGENT_IMAGE:-$(docker ps -a --filter "label=com.docker.compose.project=$PROJECT" \
+    --filter label=com.docker.compose.service=steward-agent --format '{{.Image}}' | sed -n '1p')}"
+[[ -n "$TOOLS" ]] || die "project '$PROJECT' has no steward-agent container, so nothing says which
+       release's image wrote these archives. Name one: STEWARD_AGENT_IMAGE=ghcr.io/nordtal/steward-agent:<version>"
 in_backups() {
     docker run --rm --entrypoint sh \
         -v "$BACKUPS_SOURCE:/backups:ro" "$TOOLS" -c "$1"

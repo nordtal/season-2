@@ -33,7 +33,10 @@ public enum Channel {
     SETTINGS("nordtal_settings"),
 
     /** An admin alert was raised. steward and the bot emit, and steward listens and routes it. */
-    ALERT("nordtal_alert");
+    ALERT("nordtal_alert"),
+
+    /** A server exported its game data or the agent drew a version's icons. Both emit; steward and the agent listen. */
+    GAME_DATA("nordtal_game_data");
 
     private final String sqlName;
 

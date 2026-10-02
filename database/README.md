@@ -15,6 +15,8 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
   channel, so a lost notification costs a minute and a reconnect re-reads in full; this is the only polling
   left for database state. Work that takes long rings a `Doorbell` for its own thread. `Channel` names who
   emits and who listens on each.
+- **Game data**: `GameDataStore` holds each Paper server's `GameCatalogue` and the icons steward-agent
+  drew per Minecraft version; `GameCatalogue.union` is the one merge of several servers' catalogues.
 - **Inboxes**: a request from one process to another is a row in its consumer's inbox table, and `Inbox` is the one
   implementation over every such table: submit, claim with `SKIP LOCKED`, progress, settle, expire, cancel, each
   announced on the table's channel. A kind is a record of the consumer's sealed payload type, stored as JSON, so no

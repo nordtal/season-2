@@ -73,6 +73,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V15__an_added_plugin_records_its_actor.sql",
                 "76995605d1c802e7e7eacbfbf56337b658e82bf4dab8baf3e35426049f2a19e6");
+        FROZEN.put(
+                "V16__servers_publish_their_game_data.sql",
+                "205a5fb469cd84081c3887bc0a8014b6ce87e80aa5cebacb4ffb92ace91590d5");
     }
 
     @Test

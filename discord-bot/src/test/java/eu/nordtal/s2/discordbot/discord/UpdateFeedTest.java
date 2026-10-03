@@ -165,8 +165,8 @@ class UpdateFeedTest {
 
     private final Rows rows = new Rows();
     private final Board board = new Board();
-    private final DiscordRenderer messages = DiscordRenderer.of(
-            Messages.load(UpdateFeedTest.class.getClassLoader(), "messages/access", Locale.ENGLISH, Locale.GERMAN));
+    private final DiscordRenderer messages = DiscordRenderer.of(Messages.load(
+            UpdateFeedTest.class.getClassLoader(), List.of("messages/access", "messages/admin"), Locale.ENGLISH));
     private final UpdateFeed feed = new UpdateFeed(rows, board, messages, Clock.systemUTC());
 
     @Test
@@ -331,12 +331,14 @@ class UpdateFeedTest {
 
     @Test
     void theAskerIsAMentionForAPersonAndAWordForStewardAndTheHost() {
-        final java.util.function.Function<Actor, String> asker = actor -> UpdateFeed.asker(new UpdateRequest(
-                1L, UpdateKind.UPDATE, UpdateStatus.FAILED, actor, NOW, NOW, null, List.of(), NOW, NOW, null));
+        final java.util.function.Function<Actor, String> asker = actor -> UpdateFeed.asker(
+                new UpdateRequest(
+                        1L, UpdateKind.UPDATE, UpdateStatus.FAILED, actor, NOW, NOW, null, List.of(), NOW, NOW, null),
+                messages);
 
         assertEquals("<@594510749410525200>", asker.apply(TILL), "Discord renders a mention for a person");
         assertEquals("Steward", asker.apply(Actor.STEWARD));
-        assertEquals("host", asker.apply(Actor.HOST));
+        assertEquals("the host", asker.apply(Actor.HOST));
     }
 
     @Test

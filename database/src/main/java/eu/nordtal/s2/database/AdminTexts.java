@@ -2,6 +2,7 @@ package eu.nordtal.s2.database;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.id.Actor;
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.alert.AlertChannel;
 import eu.nordtal.s2.database.alert.AlertType;
@@ -26,7 +27,7 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * What an admin reads of the network, English only: the journal and the alerts, on Steward's page and in Discord.
+ * What an admin reads of the network, English only: the journal, the runs, the alerts and the bot's notes.
  * Written for Discord, whose target escapes each value; a text here carries no markdown, so the page shows it as is.
  */
 @MessageSpec(value = "admin", format = TextFormat.DISCORD_MARKDOWN, shown = Display.DISCORD_EMBED)
@@ -40,6 +41,8 @@ public interface AdminTexts {
     Run run();
 
     Alerts alert();
+
+    Notes note();
 
     /**
      * One line per action, its values typed; the row stores the message, and each reader's target renders it.
@@ -57,6 +60,12 @@ public interface AdminTexts {
 
         @Name("Who did it, a person")
         MessageRef person(@Arg("person") Mention person);
+
+        /** Who did it: a person as their mention, anyone else as the word for their kind. */
+        default MessageRef who(final Actor actor) {
+            final DiscordId person = actor.person();
+            return person == null ? actor(actor.kind()) : person(Mention.of(person));
+        }
 
         @Name("By, as a heading")
         MessageRef by();
@@ -206,6 +215,30 @@ public interface AdminTexts {
 
         @Name("Services that came back")
         MessageRef successful(@Arg("successful") long successful, @Arg("total") long total);
+
+        @Name("A service's state in a run")
+        MessageRef state(@Arg("state") UpdateReport.State state);
+
+        @Name("Run, as a heading")
+        MessageRef heading();
+
+        @Name("Services, as a heading")
+        MessageRef services();
+
+        @Name("Notes, as a heading")
+        MessageRef notes();
+
+        @Name("Duration, as a heading")
+        MessageRef duration();
+
+        @Name("How long a run took")
+        MessageRef took(@Arg("took") Duration took);
+
+        @Name("An artefact with no build for this Minecraft version")
+        MessageRef noBuild();
+
+        @Name("Lines left out")
+        MessageRef more(@Arg("count") int count);
     }
 
     /** An alert: its title and the lines below it, which a lock screen, the admin channel and the page render. */
@@ -350,5 +383,32 @@ public interface AdminTexts {
 
         @Name("Which request, and what bunq said")
         MessageRef refused(@Arg("reference") String reference, @Arg("error") String error);
+    }
+
+    /** A card the bot posts to the admin channel for later, without a mention. */
+    @Name("Notes")
+    interface Notes {
+
+        @Name("Payment booked")
+        MessageRef paymentBooked();
+
+        @Name("What a booked payment bought")
+        MessageRef booked(
+                @Arg("reference") String reference,
+                @Arg("payer") Mention payer,
+                @Arg("days") int days,
+                @Arg("until") Instant until);
+
+        @Name("Too many wrong link codes")
+        MessageRef tooManyCodes();
+
+        @Name("Refused linking for the hour")
+        MessageRef refusedForTheHour(@Arg("person") Mention person);
+
+        @Name("No season start")
+        MessageRef noSeasonStart();
+
+        @Name("Access anchored to the grant")
+        MessageRef runsFromTheGrant(@Arg("person") Mention person, @Arg("from") Instant from);
     }
 }

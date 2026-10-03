@@ -161,11 +161,7 @@ public final class LinkFlow extends ListenerAdapter {
                 case INVALID_CODE -> {
                     wrongGuess = true;
                     if (remaining == 0) {
-                        log.warn("{} has used up its link-code attempts for this hour", discordId);
-                        // One person mistyping a code looks like this too.
-                        admin.note(
-                                "🔒 Too many wrong codes",
-                                event.getUser().getAsMention() + " is refused for the rest of the hour.");
+                        lockedOut(event.getUser());
                     }
                     event.getHook()
                             .editOriginal(
@@ -219,5 +215,11 @@ public final class LinkFlow extends ListenerAdapter {
     /** The member an alert names, with the name Discord shows for them. */
     static Mention member(final User user) {
         return new Mention(DiscordId.of(user.getId()), user.getName());
+    }
+
+    /** Tells the admins a member used up the hour's link codes; one person mistyping looks like this too. */
+    private void lockedOut(final User user) {
+        log.warn("{} has used up its link-code attempts for this hour", user.getId());
+        admin.note("🔒", TEXTS.note().tooManyCodes(), TEXTS.note().refusedForTheHour(member(user)));
     }
 }

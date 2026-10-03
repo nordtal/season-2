@@ -18,7 +18,6 @@ import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.value.Mention;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.HashSet;
 import java.util.List;
@@ -32,7 +31,6 @@ import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.requests.ErrorResponse;
-import net.dv8tion.jda.api.utils.TimeFormat;
 import org.jdbi.v3.core.Jdbi;
 
 /**
@@ -294,11 +292,6 @@ public final class AccessRoles {
         return Configured.isSet(id)
                 ? "<#" + id + ">"
                 : messages.format(locale, MESSAGES.dm().channel());
-    }
-
-    /** Returns a Discord timestamp, shown in each reader's own time zone. */
-    public static String timestamp(final Instant instant) {
-        return TimeFormat.DATE_TIME_SHORT.format(OffsetDateTime.ofInstant(instant, ZoneOffset.UTC));
     }
 
     /**

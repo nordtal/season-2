@@ -69,4 +69,7 @@ journal line the bot writes (a grant, a revocation, a link, an unlink, a play ti
 the row stores the message, and the card in the admin channel is that same message rendered here, its action as the
 title, who did it and whom it concerns as fields. There is no second sentence for the channel, so the journal and
 the card cannot say different things. An alert is the same: the bot raises it as messages of that bundle, and the post
-steward routes back is drawn from them, each value escaped, with the link to its page below.
+steward routes back is drawn from them, each value escaped, with the link to its page below. A note (a booked payment,
+too many wrong link codes, a grant before the season has a start) and the update feed are drawn from the same bundle,
+in English, and who asked for a run is named as the journal names who did something. Only what a member reads is in
+the bot's own bundle, in every language.

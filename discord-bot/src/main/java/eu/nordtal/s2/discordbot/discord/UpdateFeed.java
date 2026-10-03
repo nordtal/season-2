@@ -1,8 +1,7 @@
 package eu.nordtal.s2.discordbot.discord;
 
-import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 
-import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateReport;
@@ -11,15 +10,19 @@ import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.Card;
 import eu.nordtal.s2.discordbot.DiscordRenderer;
+import eu.nordtal.s2.messages.MessageRef;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.function.Function;
+import java.util.function.IntFunction;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import org.jspecify.annotations.Nullable;
@@ -213,16 +216,12 @@ public final class UpdateFeed {
     private MessageEmbed embed(final UpdateRequest request) {
         final UpdateReport report =
                 UpdateReports.parse(request.result()).orElseGet(() -> UpdateReport.at(UpdateReport.Stage.RESOLVING));
-        return fields(report, request, messages, Locales.DEFAULT, true, clock.instant());
+        return fields(report, request, messages, true, clock.instant());
     }
 
     static MessageEmbed fields(
-            final UpdateReport report,
-            final UpdateRequest request,
-            final DiscordRenderer messages,
-            final java.util.Locale locale,
-            final Instant now) {
-        return fields(report, request, messages, locale, false, now);
+            final UpdateReport report, final UpdateRequest request, final DiscordRenderer messages, final Instant now) {
+        return fields(report, request, messages, false, now);
     }
 
     /**
@@ -234,36 +233,30 @@ public final class UpdateFeed {
             final UpdateReport report,
             final UpdateRequest request,
             final DiscordRenderer messages,
-            final java.util.Locale locale,
             final boolean context,
             final Instant now) {
-        final Card card = Card.of(glance(report.stage()) + " "
-                        + messages.format(locale, MESSAGES.update().stage(report.stage())))
+        final Function<MessageRef, String> text = message -> messages.format(Locales.DEFAULT, message);
+        final Card card = Card.of(
+                        glance(report.stage()) + " " + text.apply(TEXTS.run().stage(report.stage())))
                 .timestamp(request.finished() == null ? now : request.finished());
-        final java.util.function.IntFunction<String> more = count ->
-                Card.italic(messages.format(locale, MESSAGES.update().embed().more(count)));
+        final IntFunction<String> more =
+                count -> Card.italic(text.apply(TEXTS.run().more(count)));
 
         if (context) {
-            card.field(
-                            messages.format(locale, MESSAGES.update().embed().run()),
-                            request.kind().name().toLowerCase(java.util.Locale.ROOT))
-                    .field(messages.format(locale, MESSAGES.update().embed().by()), asker(request));
+            card.field(text.apply(TEXTS.run().heading()), text.apply(TEXTS.run().kind(request.kind())))
+                    .field(text.apply(TEXTS.journal().by()), asker(request, messages));
         }
         if (request.finished() != null && request.requested() != null) {
             card.field(
-                    messages.format(locale, MESSAGES.update().embed().duration()),
-                    messages.format(
-                            locale,
-                            MESSAGES.update()
-                                    .embed()
-                                    .elapsed(Duration.between(request.requested(), request.finished()))));
+                    text.apply(TEXTS.run().duration()),
+                    text.apply(TEXTS.run().took(Duration.between(request.requested(), request.finished()))));
         }
 
         // The services get the budget first: which server failed matters more than why.
-        final java.util.List<String> lines = new java.util.ArrayList<>();
-        final java.util.List<String> notes = new java.util.ArrayList<>();
+        final List<String> lines = new ArrayList<>();
+        final List<String> notes = new ArrayList<>();
         for (final UpdateReport.ServiceLine line : report.services()) {
-            lines.add(line(line, messages, locale));
+            lines.add(line(line, text));
             if (line.detail() != null && !line.detail().isBlank()) {
                 notes.add(Card.bold(line.service()) + " " + Card.escape(line.detail()));
             }
@@ -274,36 +267,34 @@ public final class UpdateFeed {
                 notes.add(Card.escape(note.strip()));
             }
         }
-        card.block(messages.format(locale, MESSAGES.update().embed().services()), lines, more);
-        card.block(messages.format(locale, MESSAGES.update().embed().notes()), notes, more);
+        card.block(text.apply(TEXTS.run().services()), lines, more);
+        card.block(text.apply(TEXTS.run().notes()), notes, more);
         return card.build();
     }
 
     /** Renders a service line such as {@code ✅ smp running  smp 0.9.3 → 0.9.4}. */
-    private static String line(
-            final UpdateReport.ServiceLine line, final DiscordRenderer messages, final java.util.Locale locale) {
-        final StringBuilder text = new StringBuilder(marker(line.state()))
+    private static String line(final UpdateReport.ServiceLine line, final Function<MessageRef, String> text) {
+        final StringBuilder shown = new StringBuilder(marker(line.state()))
                 .append(' ')
                 .append(Card.bold(line.service()))
                 .append(' ')
-                .append(Card.italic(messages.format(locale, MESSAGES.update().state(line.state()))));
+                .append(Card.italic(text.apply(TEXTS.run().state(line.state()))));
         for (final UpdateReport.Change change : line.changes()) {
-            text.append("  ")
+            shown.append("  ")
                     .append(Card.escape(change.artefact()))
                     .append(' ')
                     .append(
                             switch (change.state()) {
                                 // No build for this Minecraft version, which stops no server.
                                 case UNSUPPORTED ->
-                                    Card.italic(messages.format(
-                                            locale, MESSAGES.update().embed().noBuild()));
+                                    Card.italic(text.apply(TEXTS.run().noBuild()));
                                 case MOVING ->
                                     change.from() == null
                                             ? Card.bold(change.to())
                                             : Card.arrow(change.from(), change.to());
                             });
         }
-        return text.toString();
+        return shown.toString();
     }
 
     /** Returns the emoji of one service's state, from the same set as {@link #glance}. */
@@ -331,13 +322,8 @@ public final class UpdateFeed {
         };
     }
 
-    /** Who asked for a run: a mention for a person, a word for Steward and the host. */
-    static String asker(final UpdateRequest request) {
-        final Actor actor = request.actor();
-        return switch (actor.kind()) {
-            case PERSON -> "<@" + actor.id() + ">";
-            case STEWARD -> "Steward";
-            case HOST -> "host";
-        };
+    /** Who asked for a run, as the journal names who did something: a mention for a person, a word for the rest. */
+    static String asker(final UpdateRequest request, final DiscordRenderer messages) {
+        return messages.format(Locales.DEFAULT, TEXTS.journal().who(request.actor()));
     }
 }

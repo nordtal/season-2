@@ -5,21 +5,18 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.database.DatabaseJson;
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.alert.AlertChannel;
 import eu.nordtal.s2.database.alert.AlertType;
 import eu.nordtal.s2.messages.MessageJson;
-import eu.nordtal.s2.messages.MessageRef;
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 /**
- * The JSON steward's API speaks: the shared codec, with the enums the browser spells in lowercase.
- *
- * The TypeScript types read {@link #LOWERCASE} too; a message travels as {@link MessageJson} writes it, typed.
+ * The JSON steward's API speaks: {@link DatabaseJson}'s codec, with the enums the browser spells in lowercase.
+ * The TypeScript types read {@link #LOWERCASE} too; a message travels typed, as {@link MessageJson} writes it.
  */
 public final class WireJson {
 
@@ -44,11 +41,10 @@ public final class WireJson {
     }
 
     private static Gson build() {
-        final GsonBuilder builder = Json.gson().newBuilder();
+        final GsonBuilder builder = DatabaseJson.gson().newBuilder();
         for (final Class<? extends Enum<?>> type : LOWERCASE) {
             register(builder, type);
         }
-        builder.registerTypeAdapter(MessageRef.class, new Typed().nullSafe());
         return builder.create();
     }
 
@@ -77,19 +73,6 @@ public final class WireJson {
                 }
             }
             throw new IOException("no " + type.getSimpleName() + " is spelled " + text);
-        }
-    }
-
-    private static final class Typed extends TypeAdapter<MessageRef> {
-
-        @Override
-        public void write(final JsonWriter out, final MessageRef value) {
-            Json.gson().toJson(MessageJson.encode(value), Map.class, out);
-        }
-
-        @Override
-        public MessageRef read(final JsonReader in) {
-            return MessageJson.decode(Json.gson().<Map<?, ?>>fromJson(in, Map.class));
         }
     }
 }

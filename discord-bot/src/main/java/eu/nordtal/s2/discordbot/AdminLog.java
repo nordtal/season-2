@@ -15,6 +15,7 @@ import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.value.Mention;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -80,7 +81,18 @@ public final class AdminLog {
 
     /** Posts an alert steward routed here, and answers whether there was an admin channel to post it to. */
     public boolean postAlert(final BotRequest.PostAlert alert) {
-        return send(mentions(alert.mentions()), card(emoji(alert.level()) + " " + alert.title(), alert.detail()));
+        return send(mentions(alert.mentions()), card(texts, alert));
+    }
+
+    /** Draws an alert: its level's mark and title, the lines below it, and the link to its page. */
+    static MessageEmbed card(final DiscordRenderer texts, final BotRequest.PostAlert alert) {
+        final List<String> lines = new ArrayList<>();
+        alert.detail().forEach(line -> lines.add(texts.format(Locales.DEFAULT, line)));
+        if (alert.link() != null) {
+            lines.add(alert.link());
+        }
+        return card(
+                emoji(alert.level()) + " " + texts.format(Locales.DEFAULT, alert.title()), String.join("\n", lines));
     }
 
     /** The mentions of the admins who want an alert in Discord, or {@code null} when nobody is to be pinged. */
@@ -176,7 +188,7 @@ public final class AdminLog {
         final DiscordId person = actor.person();
         return person == null
                 ? TEXTS.journal().actor(actor.kind())
-                : TEXTS.journal().person(new Mention(person, person.value()));
+                : TEXTS.journal().person(Mention.of(person));
     }
 
     private @Nullable MessageChannel channel() {

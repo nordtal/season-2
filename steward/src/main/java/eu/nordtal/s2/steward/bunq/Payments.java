@@ -1,5 +1,7 @@
 package eu.nordtal.s2.steward.bunq;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.alert.AlertBook;
@@ -9,14 +11,16 @@ import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.Outcome;
 import eu.nordtal.s2.database.inbox.Request;
 import eu.nordtal.s2.database.payment.Bookings;
-import eu.nordtal.s2.database.payment.Money;
 import eu.nordtal.s2.database.payment.PaymentMatch;
 import eu.nordtal.s2.database.payment.PaymentRequest;
 import eu.nordtal.s2.database.payment.PaymentRequestStatus;
 import eu.nordtal.s2.database.payment.PaymentRequests;
 import eu.nordtal.s2.database.payment.Tiers;
 import eu.nordtal.s2.internalapi.BankWire;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.value.Money;
 import java.time.Instant;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -201,16 +205,18 @@ public final class Payments {
             if (request.isEmpty()) {
                 needsALook(
                         paymentId,
-                        "Payment " + paymentId + " (" + Money.format(cents) + ") carries reference `" + reference
-                                + "`, which no request has.");
+                        TEXTS.alert().unknownReference(String.valueOf(paymentId), Money.euroCents(cents), reference));
                 continue;
             }
             if (request.get().status() != PaymentRequestStatus.OPEN) {
                 needsALook(
                         paymentId,
-                        "Payment " + paymentId + " (" + Money.format(cents) + ") arrived on `"
-                                + reference + "`, which is " + request.get().status()
-                                + ". Nothing was booked; grant the access by hand if it is genuine.");
+                        TEXTS.alert()
+                                .notOpen(
+                                        String.valueOf(paymentId),
+                                        Money.euroCents(cents),
+                                        reference,
+                                        request.get().status()));
                 continue;
             }
             attribute(request.get(), paymentId, cents, PaymentMatch.REFERENCE);
@@ -237,17 +243,15 @@ public final class Payments {
                     clash);
             needsALook(
                     paymentId,
-                    "Payment " + paymentId + " (" + Money.format(cents) + ") was matched to `"
-                            + request.reference() + "` but is already claimed by another request."
-                            + " Nothing was granted for it; grant the access by hand if it is genuine.");
+                    TEXTS.alert().claimed(String.valueOf(paymentId), Money.euroCents(cents), request.reference()));
             return;
         }
         switch (booking) {
             case Bookings.Booking.Booked booked ->
                 log.info(
-                        "Payment {} ({}) booked to {} by {}: {} days",
+                        "Payment {} ({} cents) booked to {} by {}: {} days",
                         paymentId,
-                        Money.format(cents),
+                        cents,
                         request.reference(),
                         how,
                         booked.told().days());
@@ -256,20 +260,23 @@ public final class Payments {
             case Bookings.Booking.BelowMinimum below ->
                 needsALook(
                         paymentId,
-                        "Payment " + paymentId + " (" + Money.format(cents) + ") on `" + request.reference()
-                                + "` covers no tier, so nothing was booked. The request stays open until it"
-                                + " expires; grant the access by hand if the payer should have it.");
+                        TEXTS.alert().noTier(String.valueOf(paymentId), Money.euroCents(cents), request.reference()));
         }
     }
 
     /** Raises a payment an admin has to look at, once for every bank payment however many passes see it. */
-    private void needsALook(final long paymentId, final String detail) {
+    private void needsALook(final long paymentId, final MessageRef detail) {
         if (alerts.raiseOnce(
                 "payment:" + paymentId,
                 new Alert(
-                        AlertType.PAYMENT, Alert.Level.DOWN, "payment", "A payment needs a look", detail, "/payments"),
+                        AlertType.PAYMENT,
+                        Alert.Level.DOWN,
+                        "payment",
+                        TEXTS.alert().payment(),
+                        List.of(detail),
+                        "/payments"),
                 RAISED_BY)) {
-            log.warn("{}", detail);
+            log.warn("Payment {} needs a look: {}", paymentId, detail);
         }
     }
 

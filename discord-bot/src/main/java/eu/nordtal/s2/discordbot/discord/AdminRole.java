@@ -1,12 +1,17 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.alert.AlertType;
+import eu.nordtal.s2.database.alert.DiscordRole;
 import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
+import eu.nordtal.s2.messages.value.Mention;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
@@ -49,8 +54,10 @@ public final class AdminRole {
                         AlertType.BOT,
                         Alert.Level.WARN,
                         "admin role",
-                        "The admin role is missing",
-                        "`" + config.roles().admin() + "` does not exist, so it is not kept in step with Steward.",
+                        TEXTS.alert().roleMissing(DiscordRole.ADMIN),
+                        List.of(
+                                TEXTS.alert().noSuchRole(config.roles().admin()),
+                                TEXTS.alert().adminNotKept()),
                         "/access"));
             }
             return;
@@ -65,7 +72,7 @@ public final class AdminRole {
                 guild.removeRoleFromMember(member, role)
                         .queue(
                                 ok -> succeeded(DiscordId.of(member.getId()), "took the admin role from"),
-                                failure -> failed(DiscordId.of(member.getId()), "take the admin role from", failure));
+                                failure -> failed(DiscordId.of(member.getId()), false, failure));
             }
         }
 
@@ -78,7 +85,7 @@ public final class AdminRole {
             guild.addRoleToMember(member, role)
                     .queue(
                             ok -> succeeded(discordId, "gave the admin role to"),
-                            failure -> failed(discordId, "give the admin role to", failure));
+                            failure -> failed(discordId, true, failure));
         }
     }
 
@@ -87,17 +94,17 @@ public final class AdminRole {
         log.info("Admin role: {} {}", what, discordId);
     }
 
-    private void failed(final DiscordId discordId, final String what, final Throwable failure) {
+    private void failed(final DiscordId discordId, final boolean given, final Throwable failure) {
         if (alerted.add(discordId.value())) {
             adminLog.alert(new Alert(
                     AlertType.BOT,
                     Alert.Level.WARN,
                     "admin role",
-                    "The admin role was not changed",
-                    "<@" + discordId + "> " + what + ": " + failure.getMessage(),
+                    TEXTS.alert().roleNotChanged(DiscordRole.ADMIN, given),
+                    List.of(TEXTS.alert().failedFor(Mention.of(discordId), String.valueOf(failure.getMessage()))),
                     "/access"));
         } else {
-            log.debug("Could still not {} {}: {}", what, discordId, failure.getMessage());
+            log.debug("Could still not change the admin role of {}: {}", discordId, failure.getMessage());
         }
     }
 }

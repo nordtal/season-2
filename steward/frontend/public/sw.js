@@ -11,20 +11,6 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim())
 })
 
-// The line below the title: each level in words, read once on a lock screen.
-const STATES = {
-  ok: "all clear",
-  warn: "needs a look",
-  down: "down",
-}
-
-/** The title steward wrote, or one made of the subject and its level for a push that carries none. */
-function titleOf(title, subject, level) {
-  if (title) return title
-  if (!subject) return level === "ok" ? "Steward is clear" : "Steward needs attention"
-  return level === "ok" ? `${subject} is clear` : `${subject} needs attention`
-}
-
 self.addEventListener("push", (event) => {
   let data = {}
   try {
@@ -34,13 +20,14 @@ self.addEventListener("push", (event) => {
   }
   const type = typeof data.type === "string" && data.type ? data.type : "alert"
   const level = typeof data.level === "string" ? data.level : "warn"
-  const title = typeof data.title === "string" ? data.title : ""
-  const subject = typeof data.subject === "string" ? data.subject : ""
+  // Steward renders both lines from the admin bundle; a lock screen renders nothing itself.
+  const title = typeof data.title === "string" && data.title ? data.title : "Steward"
+  const body = typeof data.body === "string" ? data.body : level
   const path = typeof data.path === "string" && data.path ? data.path : "/"
 
   event.waitUntil(
-    self.registration.showNotification(titleOf(title, subject, level), {
-      body: STATES[level] || level,
+    self.registration.showNotification(title, {
+      body,
       icon: "/icon.png",
       badge: "/icon.png",
       // One notification per type, replacing the last of that type, so a flapping service does not stack.

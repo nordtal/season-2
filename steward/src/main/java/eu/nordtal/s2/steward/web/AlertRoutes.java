@@ -9,6 +9,7 @@ import eu.nordtal.s2.database.alert.AlertType;
 import eu.nordtal.s2.database.alert.RaisedAlert;
 import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.database.audit.JournalAction;
+import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.steward.alert.AlertMonitor;
 import eu.nordtal.s2.steward.alert.AlertPreferences;
 import eu.nordtal.s2.steward.auth.Sessions;
@@ -72,8 +73,8 @@ final class AlertRoutes {
             AlertType type,
             Alert.Level level,
             String subject,
-            String title,
-            String detail,
+            MessageRef title,
+            List<MessageRef> detail,
             String path) {}
 
     /** What is wrong now and what was raised lately, as {@code GET /api/alerts} answers. */

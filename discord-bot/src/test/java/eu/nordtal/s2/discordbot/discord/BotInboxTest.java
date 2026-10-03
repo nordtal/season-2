@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
@@ -58,7 +59,7 @@ class BotInboxTest {
                 return !tag.equals("fr");
             },
             alert -> {
-                carriedOut.add("alert " + alert.level() + " " + alert.title() + " " + alert.mentions());
+                carriedOut.add("alert " + alert.level() + " " + alert.title().key() + " " + alert.mentions());
                 return true;
             },
             booked -> carriedOut.add("told " + booked.person() + " " + booked.days()));
@@ -136,9 +137,10 @@ class BotInboxTest {
 
     @Test
     void anAlertIsPostedWithItsMentionsAndSaysItWentOut() {
-        final String answer = answer(new BotRequest.PostAlert(Alert.Level.WARN, "Disk 91 %", "", List.of(ADMIN)));
+        final String answer = answer(new BotRequest.PostAlert(
+                Alert.Level.WARN, TEXTS.alert().disk(91), List.of(), "https://steward.example/", List.of(ADMIN)));
 
-        assertEquals(List.of("alert WARN Disk 91 % [400000000000000001]"), carriedOut);
+        assertEquals(List.of("alert WARN alert.disk [400000000000000001]"), carriedOut);
         assertEquals("{\"posted\":\"true\"}", answer);
     }
 

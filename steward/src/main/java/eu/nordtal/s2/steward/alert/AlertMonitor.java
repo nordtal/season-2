@@ -1,5 +1,7 @@
 package eu.nordtal.s2.steward.alert;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.alert.AlertBook;
 import eu.nordtal.s2.database.alert.AlertType;
@@ -125,13 +127,12 @@ public final class AlertMonitor {
             if (run.status() != UpdateStatus.FAILED) {
                 continue;
             }
-            final String kind = run.kind().name().toLowerCase(Locale.ROOT);
             final Alert alert = new Alert(
                     AlertType.RUN,
                     Alert.Level.DOWN,
-                    kind,
-                    "The " + kind + " run failed",
-                    "Run " + run.id() + ".",
+                    run.kind().name().toLowerCase(Locale.ROOT),
+                    TEXTS.alert().runFailed(run.kind()),
+                    List.of(TEXTS.alert().run(run.id())),
                     "/operations/updates/" + run.id());
             try {
                 if (book.raiseOnce("run:" + run.id(), alert, RAISED_BY)) {
@@ -146,9 +147,9 @@ public final class AlertMonitor {
     private void raise(final Alert alert) {
         try {
             book.raise(alert, RAISED_BY);
-            log.info("{} is now {}: {}", alert.type().key(), alert.level().key(), alert.title());
+            log.info("{} is now {}: {}", alert.type().key(), alert.level().key(), alert.subject());
         } catch (final RuntimeException failure) {
-            log.warn("Could not raise the alert '{}'", alert.title(), failure);
+            log.warn("Could not raise the alert of {} on {}", alert.type().key(), alert.subject(), failure);
         }
     }
 
@@ -177,8 +178,8 @@ public final class AlertMonitor {
                 worst.type(),
                 worst.level(),
                 String.join(", ", subjects),
-                worst.title() + " and " + (all.size() - 1) + " more",
-                String.join("\n", all.stream().map(Alert::title).toList()),
+                TEXTS.alert().several(subjects, all.size()),
+                all.stream().map(Alert::title).toList(),
                 worst.path());
     }
 
@@ -191,6 +192,7 @@ public final class AlertMonitor {
     }
 
     private static Alert cleared(final Alert was) {
-        return new Alert(was.type(), Alert.Level.OK, was.subject(), "All clear: " + was.subject(), "", was.path());
+        return new Alert(
+                was.type(), Alert.Level.OK, was.subject(), TEXTS.alert().clear(was.subject()), was.path());
     }
 }

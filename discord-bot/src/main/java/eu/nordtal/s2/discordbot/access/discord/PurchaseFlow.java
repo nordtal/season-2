@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot.access.discord;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.s2.common.id.DiscordId;
@@ -298,8 +299,8 @@ public final class PurchaseFlow extends ListenerAdapter {
                     AlertType.PAYMENT,
                     Alert.Level.DOWN,
                     "purchase",
-                    "bunq refused a payment link",
-                    "`" + request.reference() + "` `" + request.tabFailed() + "`",
+                    TEXTS.alert().linkRefused(),
+                    List.of(TEXTS.alert().refused(request.reference(), request.tabFailed())),
                     "/payments"));
             edit(hook, messages.format(locale, MESSAGES.purchase().linkSection().refused()));
             return true;
@@ -369,8 +370,8 @@ public final class PurchaseFlow extends ListenerAdapter {
                 AlertType.PAYMENT,
                 Alert.Level.DOWN,
                 "purchase",
-                "A purchase failed",
-                event.getUser().getAsMention() + " " + what + " `" + exception + "`",
+                TEXTS.alert().purchaseFailed(),
+                List.of(TEXTS.alert().failedFor(LinkFlow.member(event.getUser()), String.valueOf(exception))),
                 "/payments"));
         event.getHook()
                 .editOriginal(messages.format(locale, MESSAGES.purchase().failed()))

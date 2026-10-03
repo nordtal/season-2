@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.alert.AlertType;
+import eu.nordtal.s2.steward.AdminPlain;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -48,7 +49,7 @@ class StackAlertsTest {
     }
 
     private static List<String> titles(final List<Alert> alerts) {
-        return alerts.stream().map(Alert::title).toList();
+        return alerts.stream().map(alert -> AdminPlain.of(alert.title())).toList();
     }
 
     @Test
@@ -93,10 +94,10 @@ class StackAlertsTest {
                 freshBackups(),
                 null);
         assertEquals(
-                List.of("smp, proxy run an older image than the registry has", "The images were not compared"),
+                List.of("smp and proxy run an older image than the registry has", "The images were not compared"),
                 titles(alerts));
         assertTrue(alerts.stream().allMatch(alert -> alert.type() == AlertType.DRIFT));
-        assertEquals("timed out", alerts.get(1).detail());
+        assertEquals(List.of("timed out"), AdminPlain.of(alerts.get(1).detail()));
     }
 
     @Test

@@ -3,6 +3,7 @@ package eu.nordtal.s2.database.inbox;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.notify.Channel;
+import eu.nordtal.s2.messages.MessageRef;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -101,14 +102,21 @@ public sealed interface BotRequest {
     /**
      * Posts one alert into the admin channel, mentioning the admins who chose Discord for its type.
      *
+     * @param link     the alert's page in Steward, or {@code null} for a request written before it had one
      * @param mentions empty for an all-clear, which tells without calling anybody
      */
-    record PostAlert(Alert.Level level, String title, String detail, List<DiscordId> mentions) implements BotRequest {
+    record PostAlert(
+            Alert.Level level,
+            MessageRef title,
+            List<MessageRef> detail,
+            @Nullable String link,
+            List<DiscordId> mentions)
+            implements BotRequest {
 
         public PostAlert {
             Objects.requireNonNull(level, "level");
             Objects.requireNonNull(title, "title");
-            Objects.requireNonNull(detail, "detail");
+            detail = List.copyOf(detail);
             mentions = List.copyOf(mentions);
         }
     }

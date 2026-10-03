@@ -12,11 +12,10 @@ import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateStatus;
 import eu.nordtal.s2.messages.MessageRef;
-import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.steward.AdminPlain;
 import eu.nordtal.s2.steward.WireJson;
 import java.time.Instant;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -26,11 +25,8 @@ class ActionEntryTest {
     private static final Instant REQUESTED = Instant.parse("2026-09-16T12:00:00Z");
     private static final Instant FINISHED = Instant.parse("2026-09-16T12:05:00Z");
 
-    /** The bundle the page renders a label and an extent with. */
-    private static final Messages ADMIN = Messages.load(ActionEntryTest.class.getClassLoader(), "messages/admin");
-
     private static String shown(final MessageRef message) {
-        return ADMIN.format(Locale.ENGLISH, message);
+        return AdminPlain.of(message);
     }
 
     private static UpdateRequest run(

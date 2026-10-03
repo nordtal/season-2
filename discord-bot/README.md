@@ -68,4 +68,5 @@ The admin channel reads the admin bundle, `messages/admin` of `:database`, which
 journal line the bot writes (a grant, a revocation, a link, an unlink, a play time) goes through `AdminLog.record`:
 the row stores the message, and the card in the admin channel is that same message rendered here, its action as the
 title, who did it and whom it concerns as fields. There is no second sentence for the channel, so the journal and
-the card cannot say different things.
+the card cannot say different things. An alert is the same: the bot raises it as messages of that bundle, and the post
+steward routes back is drawn from them, each value escaped, with the link to its page below.

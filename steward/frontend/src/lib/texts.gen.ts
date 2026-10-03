@@ -2,6 +2,119 @@
 import type { Arg } from "@/lib/texts"
 
 export type TextArgs = {
+  "alert.admin-not-kept": Record<string, never>
+  "alert.claimed": {
+    payment: Arg["text"]
+    amount: Arg["money"]
+    reference: Arg["text"]
+  }
+  "alert.clear": {
+    subject: Arg["text"]
+  }
+  "alert.disk": {
+    percent: Arg["number"]
+  }
+  "alert.dm": Record<string, never>
+  "alert.docker-state": {
+    state: Arg["text"]
+  }
+  "alert.donor-not-given": {
+    person: Arg["mention"]
+  }
+  "alert.dump-matters": Record<string, never>
+  "alert.failed-for": {
+    person: Arg["mention"]
+    error: Arg["text"]
+  }
+  "alert.health-fails": Record<string, never>
+  "alert.level": {
+    level: Arg["choice"]
+  }
+  "alert.link-failed": Record<string, never>
+  "alert.link-refused": Record<string, never>
+  "alert.memory": {
+    percent: Arg["number"]
+  }
+  "alert.no-archive": Record<string, never>
+  "alert.no-backup": Record<string, never>
+  "alert.no-dump": Record<string, never>
+  "alert.no-limit": Record<string, never>
+  "alert.no-services": Record<string, never>
+  "alert.no-such-role": {
+    id: Arg["text"]
+  }
+  "alert.no-tier": {
+    payment: Arg["text"]
+    amount: Arg["money"]
+    reference: Arg["text"]
+  }
+  "alert.not-compared": Record<string, never>
+  "alert.not-open": {
+    payment: Arg["text"]
+    amount: Arg["money"]
+    reference: Arg["text"]
+    status: Arg["choice"]
+  }
+  "alert.not-running": {
+    service: Arg["text"]
+  }
+  "alert.old-archive": {
+    volume: Arg["text"]
+    hours: Arg["number"]
+  }
+  "alert.old-dump": {
+    hours: Arg["number"]
+  }
+  "alert.older-image": {
+    services: Arg["list"]
+    count: Arg["number"]
+  }
+  "alert.only-started": Record<string, never>
+  "alert.payment": Record<string, never>
+  "alert.permitted-age": {
+    hours: Arg["number"]
+  }
+  "alert.purchase-failed": Record<string, never>
+  "alert.reconcile-idle": Record<string, never>
+  "alert.refused": {
+    reference: Arg["text"]
+    error: Arg["text"]
+  }
+  "alert.role-missing": {
+    role: Arg["choice"]
+  }
+  "alert.role-not-changed": {
+    role: Arg["choice"]
+    given: Arg["choice"]
+  }
+  "alert.roles-not-kept": Record<string, never>
+  "alert.run": {
+    run: Arg["number"]
+  }
+  "alert.run-failed": {
+    kind: Arg["choice"]
+  }
+  "alert.several": {
+    subjects: Arg["list"]
+    count: Arg["number"]
+  }
+  "alert.threshold": {
+    percent: Arg["number"]
+  }
+  "alert.to": {
+    person: Arg["mention"]
+  }
+  "alert.unhealthy": {
+    service: Arg["text"]
+  }
+  "alert.unknown-reference": {
+    payment: Arg["text"]
+    amount: Arg["money"]
+    reference: Arg["text"]
+  }
+  "alert.words": {
+    text: Arg["text"]
+  }
   "journal.action": {
     action: Arg["choice"]
   }

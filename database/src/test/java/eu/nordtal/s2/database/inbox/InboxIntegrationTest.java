@@ -15,6 +15,7 @@ import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Refusal;
 import eu.nordtal.s2.messages.RefusalReason;
+import eu.nordtal.s2.messages.value.Mention;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -170,9 +171,13 @@ class InboxIntegrationTest {
     }
 
     @Test
-    void anAlertKeepsItsLevelAndMentionsThroughTheTable() {
+    void anAlertKeepsItsLevelMessagesAndMentionsThroughTheTable() {
         final BotRequest.PostAlert alert = new BotRequest.PostAlert(
-                Alert.Level.DOWN, "smp is not running", "exited", List.of(SOMEONE, DiscordId.of("400000000000000003")));
+                Alert.Level.DOWN,
+                TEXTS.alert().notRunning("smp"),
+                List.of(TEXTS.alert().dockerState("exited"), TEXTS.alert().to(Mention.of(SOMEONE))),
+                "https://steward.example/services/smp",
+                List.of(SOMEONE, DiscordId.of("400000000000000003")));
         inbox.submit(alert, Actor.STEWARD, Schedule.within(Duration.ofHours(1)));
         assertEquals(alert, inbox.claim().orElseThrow().payload());
     }

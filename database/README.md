@@ -39,9 +39,15 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
   one, the phase and date lines included. An `AuditLine` is a `JournalAction`, an `Actor` like a request's, the person
   it concerns and the line as a message of `AdminTexts`, its values typed; the row stores the message in `MessageJson`'s
   shape and never a sentence, so Steward's page and the bot's admin channel each render it through their own target.
-  `AdminTexts` is the admin bundle, `messages/admin`, English only: the journal and the words for a run, which Steward
-  and the bot share. A value keeps the name the journal's facts gave it before V21, which is what lets the migration
-  carry a typed line over as it was; a line from before typed values keeps its words as `journal.written`.
+  `AdminTexts` is the admin bundle, `messages/admin`, English only: the journal, the words for a run and the alerts,
+  which Steward and the bot share. A value keeps the name the journal's facts gave it before V21, which is what lets
+  the migration carry a typed line over as it was; a line from before typed values keeps its words as
+  `journal.written`.
+- **An alert**, a row of `admin_alert`, is told in the same bundle: its title a message and the lines below it a list
+  of them, so a lock screen, the admin channel and Steward's page render one row three ways. Its subject stays a
+  name, which tells two alerts of a type apart. A row or a bot post from before V22 keeps its words as `alert.words`.
+  `DatabaseJson` is the kernel's codec with a message typed, and the one that writes a message into a row, the
+  journal's, an alert's or an inbox payload; Steward's API is built on it.
 - **The season phase** is one row every process follows on its hub. A switch into `SMP` from before the season stamps
   `fresh_start`, and smp starts its own track over once per stamp whenever it next sees the phase, so a server that
   was down at the switch still starts over and no other process writes smp's tables.

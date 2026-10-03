@@ -1,14 +1,16 @@
 package eu.nordtal.s2.steward.alert;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.alert.AlertType;
+import eu.nordtal.s2.messages.MessageRef;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -48,8 +50,12 @@ public final class StackAlerts {
     /** A service stopped or unhealthy is red unless its stop is meant; no service at all is yellow. */
     private static void services(final List<StackReading.Service> services, final List<Alert> alerts) {
         if (services.isEmpty()) {
-            alerts.add(alert(
-                    AlertType.SERVICE, Alert.Level.WARN, "services", "Docker returned no services", "", UPDATES_PAGE));
+            alerts.add(new Alert(
+                    AlertType.SERVICE,
+                    Alert.Level.WARN,
+                    "services",
+                    TEXTS.alert().noServices(),
+                    UPDATES_PAGE));
             return;
         }
         for (final StackReading.Service service : services) {
@@ -57,14 +63,17 @@ public final class StackAlerts {
                 continue;
             }
             final boolean running = "running".equals(service.state());
-            alerts.add(alert(
+            alerts.add(new Alert(
                     AlertType.SERVICE,
                     Alert.Level.DOWN,
                     service.name(),
-                    service.name() + (running ? " is unhealthy" : " is not running"),
                     running
-                            ? "It is running, but its healthcheck fails."
-                            : "Docker reports the state " + service.state() + ".",
+                            ? TEXTS.alert().unhealthy(service.name())
+                            : TEXTS.alert().notRunning(service.name()),
+                    List.of(
+                            running
+                                    ? TEXTS.alert().healthFails()
+                                    : TEXTS.alert().dockerState(String.valueOf(service.state()))),
                     "/services/" + service.name()));
         }
     }
@@ -82,13 +91,11 @@ public final class StackAlerts {
                 .map(StackReading.Service::name)
                 .toList();
         if (!outdated.isEmpty()) {
-            final String names = String.join(", ", outdated);
-            alerts.add(alert(
+            alerts.add(new Alert(
                     AlertType.DRIFT,
                     Alert.Level.WARN,
-                    names,
-                    names + (outdated.size() == 1 ? " runs" : " run") + " an older image than the registry has",
-                    "",
+                    String.join(", ", outdated),
+                    TEXTS.alert().olderImage(outdated, outdated.size()),
                     UPDATES_PAGE));
         }
         final String problem = reading.registryProblem();
@@ -97,8 +104,8 @@ public final class StackAlerts {
                     AlertType.DRIFT,
                     Alert.Level.WARN,
                     "registry",
-                    "The images were not compared",
-                    problem,
+                    TEXTS.alert().notCompared(),
+                    TEXTS.alert().words(problem),
                     UPDATES_PAGE));
         }
     }
@@ -112,12 +119,12 @@ public final class StackAlerts {
         final List<StackReading.Archive> finished =
                 archives.stream().filter(archive -> !archive.partial()).toList();
         if (finished.isEmpty()) {
-            alerts.add(alert(
+            alerts.add(new Alert(
                     AlertType.BACKUP,
                     Alert.Level.DOWN,
                     "backups",
-                    "There is no finished backup",
-                    archives.isEmpty() ? "" : "Only started ones (.partial).",
+                    TEXTS.alert().noBackup(),
+                    archives.isEmpty() ? List.of() : List.of(TEXTS.alert().onlyStarted()),
                     BACKUPS_PAGE));
             return;
         }
@@ -133,13 +140,13 @@ public final class StackAlerts {
                     AlertType.BACKUP,
                     Alert.Level.DOWN,
                     DUMP,
-                    "There is no database dump",
-                    "The worlds and configurations are saved, the accesses and payments are not.",
+                    TEXTS.alert().noDump(),
+                    TEXTS.alert().dumpMatters(),
                     BACKUPS_PAGE));
         }
         if (newest.size() == (newest.containsKey(DUMP) ? 1 : 0)) {
-            alerts.add(alert(
-                    AlertType.BACKUP, Alert.Level.DOWN, "backups", "There is no volume archive", "", BACKUPS_PAGE));
+            alerts.add(new Alert(
+                    AlertType.BACKUP, Alert.Level.DOWN, "backups", TEXTS.alert().noArchive(), BACKUPS_PAGE));
         }
         newest.forEach((series, at) -> {
             final double hours = Duration.between(at, now).toMillis() / MILLIS_PER_HOUR;
@@ -148,9 +155,10 @@ public final class StackAlerts {
                         AlertType.BACKUP,
                         Alert.Level.DOWN,
                         series,
-                        "The newest " + (DUMP.equals(series) ? DUMP : "archive of " + series) + " is " + (long) hours
-                                + " hours old",
-                        "The permitted age is " + thresholds.backupAgeHours() + " hours.",
+                        DUMP.equals(series)
+                                ? TEXTS.alert().oldDump((long) hours)
+                                : TEXTS.alert().oldArchive(series, (long) hours),
+                        TEXTS.alert().permittedAge(thresholds.backupAgeHours()),
                         BACKUPS_PAGE));
             }
         });
@@ -168,18 +176,20 @@ public final class StackAlerts {
                     AlertType.DISK,
                     Alert.Level.WARN,
                     "disk",
-                    "The disk is " + percent(disk) + " full",
-                    "The threshold is " + thresholds.diskPercent() + " %.",
+                    TEXTS.alert().disk(Math.round(disk)),
+                    TEXTS.alert().threshold(thresholds.diskPercent()),
                     "/"));
         }
         final double memory = share(host.memoryTotal() - host.memoryAvailable(), host.memoryTotal());
         if (memory >= thresholds.memoryPercent()) {
-            alerts.add(alert(
+            alerts.add(new Alert(
                     AlertType.MEMORY,
                     Alert.Level.WARN,
                     "memory",
-                    "Memory is " + percent(memory) + " used",
-                    "The threshold is " + thresholds.memoryPercent() + " %. No container has a limit.",
+                    TEXTS.alert().memory(Math.round(memory)),
+                    List.of(
+                            TEXTS.alert().threshold(thresholds.memoryPercent()),
+                            TEXTS.alert().noLimit()),
                     "/"));
         }
     }
@@ -197,17 +207,14 @@ public final class StackAlerts {
         return whole <= 0 ? 0 : (double) part / whole * 100;
     }
 
-    private static String percent(final double share) {
-        return String.format(Locale.ROOT, "%.0f %%", share);
-    }
-
+    /** An alert with one line below its title. */
     private static Alert alert(
             final AlertType type,
             final Alert.Level level,
             final String subject,
-            final String title,
-            final String detail,
+            final MessageRef title,
+            final MessageRef detail,
             final String path) {
-        return new Alert(type, level, subject, title, detail, path);
+        return new Alert(type, level, subject, title, List.of(detail), path);
     }
 }

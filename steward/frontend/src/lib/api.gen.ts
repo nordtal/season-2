@@ -482,8 +482,8 @@ export type Alert = {
   type: AlertType
   level: AlertLevel
   subject: string
-  title: string
-  detail: string
+  title: MessageRef
+  detail: MessageRef[]
   path: string
 }
 
@@ -494,8 +494,8 @@ export type RecentAlert = {
   type: AlertType
   level: AlertLevel
   subject: string
-  title: string
-  detail: string
+  title: MessageRef
+  detail: MessageRef[]
   path: string
 }
 

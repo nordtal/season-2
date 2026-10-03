@@ -1,7 +1,7 @@
 package eu.nordtal.s2.database.inbox;
 
 import eu.nordtal.s2.common.id.Actor;
-import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.database.DatabaseJson;
 import eu.nordtal.s2.messages.Refusal;
 import java.time.Instant;
 import java.util.Objects;
@@ -41,7 +41,7 @@ public record Request<P>(
 
     /** Returns the answer read as {@code type}, or empty while there is none. */
     public <T> Optional<T> outcome(final Class<T> type) {
-        return outcome == null ? Optional.empty() : Optional.ofNullable(Json.decode(outcome, type));
+        return outcome == null ? Optional.empty() : Optional.ofNullable(DatabaseJson.decode(outcome, type));
     }
 
     /** Returns the refusal a {@link InboxStatus#REFUSED} row carries, or empty for any other. */

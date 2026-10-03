@@ -71,10 +71,6 @@ public interface ReconcileDao {
     @SqlQuery("SELECT discord_id FROM discord_user")
     List<String> allUsers();
 
-    /** Returns the language a Discord account chose, for a DM, which has no Minecraft UUID. */
-    @SqlQuery("SELECT locale FROM discord_user WHERE discord_id = :discordId")
-    java.util.Optional<String> localeOf(@Bind("discordId") DiscordId discordId);
-
     /** Deletes link codes that have run out. */
     @SqlUpdate("DELETE FROM link_code WHERE expires <= now()")
     int deleteExpiredLinkCodes();

@@ -289,7 +289,7 @@ public class AccessBot implements AutoCloseable {
                         admin,
                         new RedemptionLimit(accessConfig.linkCodeAttemptsPerHour(), clock),
                         worker),
-                new RegisterFlow(jda, teams, core.messages(), worker));
+                new RegisterFlow(jda, teams, access, core.messages(), worker));
 
         final BotAccessEffects inboxEffects = new BotAccessEffects(access, roles, admin, seasonStart, core.messages());
         final eu.nordtal.s2.discordbot.announce.Announcements announcements =

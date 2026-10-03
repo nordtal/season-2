@@ -16,14 +16,6 @@ interface AdminFlagDao {
     @SqlQuery("SELECT admin FROM discord_user WHERE discord_id = :discordId")
     Optional<Boolean> isAdmin(@Bind("discordId") DiscordId discordId);
 
-    /**
-     * Returns the language tag this account chose, or empty for no row or no language yet.
-     *
-     * @param discordId the account to ask about
-     */
-    @SqlQuery("SELECT locale FROM discord_user WHERE discord_id = :discordId")
-    Optional<String> localeOf(@Bind("discordId") DiscordId discordId);
-
     /** Folds an account with no row into "not an admin", in one place. */
     static boolean admits(final Optional<Boolean> flag) {
         return flag.orElse(false);

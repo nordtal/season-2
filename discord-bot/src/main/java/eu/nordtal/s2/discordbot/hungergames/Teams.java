@@ -1,9 +1,7 @@
 package eu.nordtal.s2.discordbot.hungergames;
 
 import eu.nordtal.s2.common.id.DiscordId;
-import eu.nordtal.s2.common.language.Locales;
 import java.sql.SQLException;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import org.jdbi.v3.core.Jdbi;
@@ -154,11 +152,6 @@ public final class Teams {
         }
         final UUID teamId = dao.teamIdOfMember(memberId).orElseThrow();
         return AnswerResult.answered(teamId, dao.teamName(teamId).orElseThrow());
-    }
-
-    /** Returns the account's language, English when nothing is known yet. */
-    public Locale localeOf(final DiscordId discordId) {
-        return Locales.parse(dao.localeOf(discordId).orElse(null));
     }
 
     /** Returns the OWNER of a team, to report an answer to an invite back to. */

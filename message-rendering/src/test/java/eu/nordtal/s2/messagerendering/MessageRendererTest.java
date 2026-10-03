@@ -125,6 +125,23 @@ class MessageRendererTest {
     }
 
     @Test
+    void aGameLineKeepsItsArgumentsAndDrawsAPlayerInItAsThisProcessDrawsNames() {
+        final GameContent line = new GameContent(
+                "death.attack.player",
+                "%1$s was slain by %2$s",
+                java.util.List.of(ALEX, GameLines.of(Component.translatable("entity.minecraft.zombie", "Zombie"))));
+        final TranslatableComponent rendered = (TranslatableComponent)
+                find(render("found", Map.of("item", line)), TranslatableComponent.class::isInstance);
+
+        assertNotNull(rendered);
+        assertEquals(2, rendered.arguments().size());
+        assertNotNull(rendered.arguments().get(0).asComponent().hoverEvent(), "the player is drawn by Names");
+        assertEquals(
+                "entity.minecraft.zombie",
+                ((TranslatableComponent) rendered.arguments().get(1).asComponent()).key());
+    }
+
+    @Test
     void aValueInAHoverTextIsAComponentAndNeverMarkup() {
         final Component rendered = render("hover", Map.of("reason", "<red>it is late"));
         final Component hovered = find(rendered, child -> child.hoverEvent() != null);

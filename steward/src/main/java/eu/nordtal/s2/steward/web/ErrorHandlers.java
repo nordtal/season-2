@@ -1,12 +1,17 @@
 package eu.nordtal.s2.steward.web;
 
+import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.database.DatabaseText;
 import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
+import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.Refused;
+import eu.nordtal.s2.steward.texts.RequestRefused;
 import io.javalin.config.JavalinConfig;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,18 +22,25 @@ public final class ErrorHandlers {
 
     private ErrorHandlers() {}
 
-    public static void install(final JavalinConfig cfg) {
-        cfg.routes.exception(
-                SecondFactor.SecondFactorMissing.class,
-                (missing, ctx) ->
-                        ctx.status(403).json(Map.of("error", missing.getMessage(), "code", "SECOND_FACTOR_MISSING")));
-
-        // The interface recovers from this one: it runs the ceremony and retries the request.
-        cfg.routes.exception(
-                SecondFactor.SecondFactorRequired.class,
-                (required, ctx) -> ctx.status(403)
-                        .json(Map.of(
-                                "error", required.getMessage(), "code", "SECOND_FACTOR_REQUIRED", "retryable", true)));
+    /**
+     * Installs the handlers.
+     *
+     * @param texts Steward's bundles with the admins' overrides, which a {@link RequestRefused} is rendered from
+     */
+    public static void install(final JavalinConfig cfg, final Messages texts) {
+        Objects.requireNonNull(texts, "texts");
+        // The page recovers from SECOND_FACTOR_REQUIRED: it runs the ceremony and retries the request.
+        cfg.routes.exception(RequestRefused.class, (refused, ctx) -> {
+            final Map<String, Object> body = new LinkedHashMap<>();
+            body.put("error", texts.format(Locales.DEFAULT, refused.why()));
+            if (refused.code() != null) {
+                body.put("code", refused.code());
+            }
+            if (refused.retryable()) {
+                body.put("retryable", true);
+            }
+            ctx.status(refused.status()).json(body);
+        });
 
         // A refused write is an answer: 409 with the reason to branch on and the sentence to show.
         cfg.routes.exception(

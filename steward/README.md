@@ -97,7 +97,9 @@ pin and no rollback: a bad release is corrected by publishing a better one.
   and formats each value in `en-GB` and the browser's zone. `t(key, values)` is typed by `texts.gen.ts`, and
   `texts.gen.json` is the packaged English the page falls back to; `generateApiTypes` writes both and
   `TextTypesTest` fails while either differs. A label chosen by an enum is a `select` on it, the constant in kebab
-  case (`choice`).
+  case (`choice`). A refusal a person meets is a `texts.RequestRefused`: the status, a message of the bundle and the
+  code the page branches on, rendered with the overrides by the error handlers, so the page shows the error as it
+  comes. What answers a malformed request is read by whoever wrote the client and stays a literal, like a log line.
 - **Game data and pickers.** `GET /api/game-data` serves the union of the servers' catalogues for
   the newest version with the icon sheet's index; the sheet itself is cached for good per version.
   The settings form draws one picker per field a schema marks with `refers`, from the catalogue, the

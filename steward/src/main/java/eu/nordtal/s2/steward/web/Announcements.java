@@ -15,6 +15,8 @@ import eu.nordtal.s2.database.inbox.Request;
 import eu.nordtal.s2.database.inbox.Schedule;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.data.Data;
+import eu.nordtal.s2.steward.texts.RequestRefused;
+import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.time.Duration;
@@ -31,6 +33,9 @@ import org.jspecify.annotations.Nullable;
 
 /** Announcements an admin writes by hand: one request in the bot's inbox with a text per language, as the SMP sends. */
 final class Announcements {
+
+    private static final StewardTexts.Steward.Answer ANSWER =
+            StewardTexts.TEXTS.steward().answer();
 
     /** Discord refuses a longer message. */
     static final int MAX_LENGTH = 2000;
@@ -122,7 +127,7 @@ final class Announcements {
         try {
             body = Json.tree(ctx.body()).getAsJsonObject();
         } catch (final RuntimeException malformed) {
-            throw new BadRequestResponse("The body is not the JSON this endpoint takes.");
+            throw new RequestRefused(400, ANSWER.notJson());
         }
         final JsonElement texts = body.get("texts");
         if (texts == null || !texts.isJsonObject() || texts.getAsJsonObject().isEmpty()) {
@@ -137,7 +142,7 @@ final class Announcements {
             }
             final JsonElement text = entry.getValue();
             if (text == null || !text.isJsonPrimitive() || text.getAsString().isBlank()) {
-                throw new BadRequestResponse("The " + tag + " text is empty.");
+                throw new RequestRefused(400, ANSWER.emptyText(tag));
             }
             final String stripped = text.getAsString().strip();
             if (stripped.length() > MAX_LENGTH) {

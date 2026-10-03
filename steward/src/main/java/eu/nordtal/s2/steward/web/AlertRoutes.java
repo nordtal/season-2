@@ -14,9 +14,10 @@ import eu.nordtal.s2.steward.alert.AlertMonitor;
 import eu.nordtal.s2.steward.alert.AlertPreferences;
 import eu.nordtal.s2.steward.auth.Sessions;
 import eu.nordtal.s2.steward.data.Data;
+import eu.nordtal.s2.steward.texts.RequestRefused;
+import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
-import io.javalin.http.ServiceUnavailableResponse;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,6 +27,9 @@ import org.jspecify.annotations.Nullable;
 
 /** {@code /api/alerts}: what is wrong now and what was raised lately, and each admin's channels per type. */
 final class AlertRoutes {
+
+    private static final StewardTexts.Steward.Answer ANSWER =
+            StewardTexts.TEXTS.steward().answer();
 
     /** How many raised alerts the page lists. */
     static final int RECENT = 20;
@@ -80,7 +84,7 @@ final class AlertRoutes {
     /** What is wrong now and what was raised lately, as {@code GET /api/alerts} answers. */
     Alerts read() {
         if (monitor == null || book == null) {
-            throw new ServiceUnavailableResponse("Steward has no database, so it keeps no alerts");
+            throw new RequestRefused(503, ANSWER.noDatabase(StewardTexts.Kept.ALERTS));
         }
         final AlertMonitor.Snapshot now = monitor.snapshot();
         return new Alerts(
@@ -126,7 +130,7 @@ final class AlertRoutes {
 
     private AlertPreferences preferences() {
         if (preferences == null) {
-            throw new ServiceUnavailableResponse("Steward has no database, so it keeps no preferences");
+            throw new RequestRefused(503, ANSWER.noDatabase(StewardTexts.Kept.PREFERENCES));
         }
         return preferences;
     }

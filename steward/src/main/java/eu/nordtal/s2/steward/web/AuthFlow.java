@@ -10,13 +10,14 @@ import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.auth.Sessions;
 import eu.nordtal.s2.steward.config.WebSpec;
 import eu.nordtal.s2.steward.data.Data;
+import eu.nordtal.s2.steward.texts.RequestRefused;
+import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.http.Context;
 import io.javalin.http.Cookie;
 import io.javalin.http.SameSite;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Base64;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -25,6 +26,9 @@ import org.slf4j.LoggerFactory;
 
 /** The Discord OAuth round trip: sending a browser to Discord and signing it in when it comes back. */
 final class AuthFlow {
+
+    private static final StewardTexts.Steward.Answer ANSWER =
+            StewardTexts.TEXTS.steward().answer();
 
     private static final Logger log = LoggerFactory.getLogger(AuthFlow.class);
 
@@ -62,8 +66,7 @@ final class AuthFlow {
     void login(final Context ctx) {
         final Optional<String> missing = discord.whatIsMissing();
         if (missing.isPresent()) {
-            ctx.status(503).json(Map.of("error", "sign-in is not configured: " + missing.get()));
-            return;
+            throw new RequestRefused(503, ANSWER.signInUnconfigured(missing.get()));
         }
         // A one-time value tied to this browser's session; a callback carrying anything else is not it.
         final String state = random();
@@ -77,27 +80,22 @@ final class AuthFlow {
         final Optional<String> expected = sessions().consumeState(started);
         final String state = ctx.queryParam("state");
         if (expected.isEmpty() || !expected.get().equals(state)) {
-            ctx.status(400)
-                    .json(Map.of("error", "this sign-in did not start in this browser - try again from the start"));
-            return;
+            throw new RequestRefused(400, ANSWER.signInElsewhere());
         }
         final String code = ctx.queryParam("code");
         if (code == null || code.isBlank()) {
-            ctx.status(400).json(Map.of("error", "Discord sent no code"));
-            return;
+            throw new RequestRefused(400, ANSWER.noCode());
         }
         final DiscordAuth.Outcome outcome = discord.signIn(code);
         if (!outcome.ok()) {
-            ctx.status(403).json(Map.of("error", outcome.refusal()));
-            return;
+            throw new RequestRefused(403, Objects.requireNonNull(outcome.refusal(), "a refused sign-in says why"));
         }
         final DiscordAuth.Account who = Objects.requireNonNull(outcome.account());
         // A tree with nobody in it lets the first sign-in claim root.
         final String signingIn = who.id();
         if (admins == null || !(admins().isAdmin(DiscordId.of(signingIn)) || claimRoot(who))) {
             log.info("refused {} ({}): not an admin", who.name(), signingIn);
-            ctx.status(403).json(Map.of("error", who.name() + " is in the guild but is not an admin"));
-            return;
+            throw new RequestRefused(403, ANSWER.notAnAdmin(who.name()));
         }
         // A new session id, so the one the sign-in started in cannot be fixated.
         final String id = sessions().signIn(DiscordId.of(who.id()), who.name(), who.roles());

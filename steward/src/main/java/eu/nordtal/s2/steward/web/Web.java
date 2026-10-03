@@ -409,7 +409,7 @@ public final class Web {
                     registerSeasonDateRoute(cfg);
                     registerSeasonSummaryRoute(cfg);
                     registerFallbackRoutes(cfg);
-                    ErrorHandlers.install(cfg);
+                    ErrorHandlers.install(cfg, texts.messages());
                 })
                 .start(port);
 

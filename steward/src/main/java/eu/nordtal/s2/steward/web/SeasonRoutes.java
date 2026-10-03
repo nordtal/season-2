@@ -4,6 +4,8 @@ import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.data.Data;
+import eu.nordtal.s2.steward.texts.RequestRefused;
+import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.time.Instant;
@@ -14,6 +16,9 @@ import org.jspecify.annotations.Nullable;
 
 /** {@code /api/season}, {@code /api/season/phase} and {@code /api/season/date}. */
 final class SeasonRoutes {
+
+    private static final StewardTexts.Steward.Answer ANSWER =
+            StewardTexts.TEXTS.steward().answer();
 
     private final @Nullable Data data;
     private final Function<Context, DiscordAuth.Account> accounts;
@@ -47,7 +52,7 @@ final class SeasonRoutes {
     void date(final Context ctx) {
         final SeasonChange ask = ctx.bodyAsClass(SeasonChange.class);
         if (ask == null) {
-            throw new BadRequestResponse("The body is empty.");
+            throw new RequestRefused(400, ANSWER.empty());
         }
         // A null `at` is "no date"; a blank string is a field somebody forgot to fill.
         final Instant at;

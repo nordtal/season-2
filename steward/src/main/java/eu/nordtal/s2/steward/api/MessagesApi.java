@@ -12,10 +12,10 @@ import eu.nordtal.s2.internalapi.agent.MessageBundle;
 import eu.nordtal.s2.internalapi.agent.MessageEntry;
 import eu.nordtal.s2.messages.MessageOverride;
 import eu.nordtal.s2.messages.text.MessageCheck;
+import eu.nordtal.s2.steward.texts.RequestRefused;
+import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
-import io.javalin.http.ForbiddenResponse;
-import io.javalin.http.NotFoundResponse;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -32,6 +32,9 @@ import org.jspecify.annotations.Nullable;
  * Every process that loads a bundle re-reads its rows on the signal a save sends, so a save never asks anyone.
  */
 public final class MessagesApi {
+
+    private static final StewardTexts.Steward.Answer ANSWER =
+            StewardTexts.TEXTS.steward().answer();
 
     /** The languages the editor writes. */
     private static final Set<String> LANGUAGES = Set.of("en", "de");
@@ -65,7 +68,7 @@ public final class MessagesApi {
         final MessageOverrideStore store = overrides;
         final AgentWire.BundleRef location = locate(ctx);
         if (store == null) {
-            throw new ForbiddenResponse("Steward has no database to keep an override in.");
+            throw new RequestRefused(403, ANSWER.noDatabase(StewardTexts.Kept.OVERRIDES));
         }
         final List<Change> changes = changesOf(bodyOf(ctx.body()));
         final Map<String, MessageEntry> entries = agent.bundle(location.service(), location.module()).entries().stream()
@@ -213,7 +216,7 @@ public final class MessagesApi {
         return agent.bundles().stream()
                 .filter(location -> identityOf(location).equals(asked))
                 .findFirst()
-                .orElseThrow(() -> new NotFoundResponse("There is no message bundle called " + asked + "."));
+                .orElseThrow(() -> new RequestRefused(404, ANSWER.noBundle(asked)));
     }
 
     /** How a bundle is named in a URL: {@code <service>/<module>}, or just {@code <service>}. */

@@ -9,10 +9,12 @@ import eu.nordtal.s2.database.access.PackExemptions;
 import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.audit.JournalAction;
+import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
+import eu.nordtal.s2.steward.texts.RequestRefused;
+import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
-import java.util.Map;
 import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +25,9 @@ import org.slf4j.LoggerFactory;
  * A change takes effect at the player's next login and is journalled with the admin who clicked.
  */
 final class PackExemptionApi {
+
+    private static final StewardTexts.Steward.Answer ANSWER =
+            StewardTexts.TEXTS.steward().answer();
 
     private static final Logger log = LoggerFactory.getLogger(PackExemptionApi.class);
 
@@ -49,7 +54,7 @@ final class PackExemptionApi {
                 JournalAction.EXEMPT_PACK,
                 who,
                 target,
-                "They play without it already.");
+                ANSWER.exemptAlready());
     }
 
     /** {@code POST /api/pack-exemptions/enforce} with {@code {discordId}}. */
@@ -62,7 +67,7 @@ final class PackExemptionApi {
                 JournalAction.ENFORCE_PACK,
                 who,
                 target,
-                "They get it already.");
+                ANSWER.enforcedAlready());
     }
 
     private void answer(
@@ -71,7 +76,7 @@ final class PackExemptionApi {
             final JournalAction action,
             final DiscordAuth.Account who,
             final String target,
-            final String unchanged) {
+            final MessageRef unchanged) {
         switch (outcome) {
             case CHANGED -> {
                 audit.record(AuditLine.about(
@@ -84,9 +89,9 @@ final class PackExemptionApi {
                 log.info("{} {} for {}", who.name(), action, target);
                 ctx.json(new Exempted(outcome));
             }
-            case UNCHANGED -> ctx.status(409).json(Map.of("error", unchanged));
-            case ACTOR_NOT_ADMIN -> ctx.status(403).json(Map.of("error", "You are not an admin any more."));
-            case UNKNOWN -> ctx.status(404).json(Map.of("error", "Nobody by that Discord id is known."));
+            case UNCHANGED -> throw new RequestRefused(409, unchanged);
+            case ACTOR_NOT_ADMIN -> throw new RequestRefused(403, ANSWER.notAdmin());
+            case UNKNOWN -> throw new RequestRefused(404, ANSWER.unknownPerson());
         }
     }
 
@@ -96,7 +101,7 @@ final class PackExemptionApi {
             final JsonElement body = Json.tree(ctx.body());
             value = body.isJsonObject() ? body.getAsJsonObject().get("discordId") : null;
         } catch (final RuntimeException malformed) {
-            throw new BadRequestResponse("The body is not the JSON this endpoint takes.");
+            throw new RequestRefused(400, ANSWER.notJson());
         }
         if (value == null
                 || !value.isJsonPrimitive()

@@ -13,6 +13,8 @@ import eu.nordtal.s2.steward.alert.StackReading;
 import eu.nordtal.s2.steward.backup.NightlyClock;
 import eu.nordtal.s2.steward.live.LiveFeed;
 import eu.nordtal.s2.steward.live.Topic;
+import eu.nordtal.s2.steward.texts.RequestRefused;
+import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.config.JavalinConfig;
 import java.io.InputStream;
 import java.time.Clock;
@@ -39,6 +41,9 @@ import org.slf4j.LoggerFactory;
  * Stopping and starting are not here; they are rows in the run inbox. Every route sits behind the web's gate.
  */
 public final class StackApi implements AutoCloseable {
+
+    private static final StewardTexts.Steward.Answer ANSWER =
+            StewardTexts.TEXTS.steward().answer();
 
     private static final Logger log = LoggerFactory.getLogger(StackApi.class);
 
@@ -213,7 +218,7 @@ public final class StackApi implements AutoCloseable {
     /** The settings routes, or a 503: without a database there are no settings to show. */
     SettingsApi settings() {
         if (settings == null) {
-            throw new io.javalin.http.ServiceUnavailableResponse("Steward has no database, so it holds no settings");
+            throw new RequestRefused(503, ANSWER.noDatabase(StewardTexts.Kept.SETTINGS));
         }
         return settings;
     }
@@ -221,8 +226,7 @@ public final class StackApi implements AutoCloseable {
     /** The plugin routes, or a 503, since "no plugins" and "cannot read the table" are different answers. */
     PluginsForward plugins() {
         if (managedPlugins == null) {
-            throw new io.javalin.http.ServiceUnavailableResponse(
-                    "Steward has no database, so it cannot say which plugins were added");
+            throw new RequestRefused(503, ANSWER.noDatabase(StewardTexts.Kept.PLUGINS));
         }
         return managedPlugins;
     }

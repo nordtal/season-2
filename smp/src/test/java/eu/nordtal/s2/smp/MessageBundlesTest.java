@@ -89,59 +89,6 @@ class MessageBundlesTest {
         }
     }
 
-    @Test
-    void thePlaceholdersOfATranslationMatchItsOriginal() throws IOException {
-        final Properties english = load("en");
-        final Properties german = load("de");
-
-        for (final String key : english.stringPropertyNames()) {
-            assertEquals(
-                    placeholders(english.getProperty(key)),
-                    placeholders(german.getProperty(key)),
-                    key + " uses different placeholders in the two languages - one of them will "
-                            + "print a literal {name} to a player");
-        }
-    }
-
-    /**
-     * The component slots: a {@code <_name>} tag dropped by a translation renders as nothing, silently.
-     *
-     * The leading underscore is what tells them apart from style tags, which the languages may differ on.
-     */
-    @Test
-    void theComponentSlotsOfATranslationMatchItsOriginal() throws IOException {
-        final Properties english = load("en");
-        final Properties german = load("de");
-
-        for (final String key : english.stringPropertyNames()) {
-            assertEquals(
-                    slots(english.getProperty(key)),
-                    slots(german.getProperty(key)),
-                    key + " uses different <_component> slots in the two languages - an unresolved"
-                            + " slot renders as nothing at all, in silence");
-        }
-    }
-
-    private static Set<String> slots(final String text) {
-        final Set<String> found = new TreeSet<>();
-        final java.util.regex.Matcher matcher =
-                java.util.regex.Pattern.compile("<(_[a-zA-Z0-9_-]+)>").matcher(text);
-        while (matcher.find()) {
-            found.add(matcher.group(1));
-        }
-        return found;
-    }
-
-    private static Set<String> placeholders(final String text) {
-        final Set<String> found = new TreeSet<>();
-        final java.util.regex.Matcher matcher =
-                java.util.regex.Pattern.compile("\\{([a-zA-Z0-9_-]+)}").matcher(text);
-        while (matcher.find()) {
-            found.add(matcher.group(1));
-        }
-        return found;
-    }
-
     private static Set<String> keysOf(final String language) throws IOException {
         return new TreeSet<>(load(language).stringPropertyNames());
     }

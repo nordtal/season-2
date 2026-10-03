@@ -37,7 +37,7 @@ public interface AccessMessages {
 
         @Name("Tier line")
         @Shown(Display.DISCORD_EMBED)
-        MessageRef tierLine(@Arg("days") Object days, @Arg("price") Object price);
+        MessageRef tierLine(@Arg("days") long days, @Arg("price") Object price);
 
         @Name("Donation heading")
         @Shown(Display.DISCORD_EMBED)
@@ -144,10 +144,10 @@ public interface AccessMessages {
 
         @Name("Option")
         @Shown(Display.DISCORD_SELECT)
-        MessageRef option(@Arg("days") Object days, @Arg("price") Object price);
+        MessageRef option(@Arg("days") long days, @Arg("price") Object price);
 
         @Name("Summary")
-        MessageRef summary(@Arg("days") Object days, @Arg("price") Object price);
+        MessageRef summary(@Arg("days") long days, @Arg("price") Object price);
 
         @Name("Link")
         MessageRef link(@Arg("total") Object total, @Arg("url") Object url);
@@ -253,10 +253,10 @@ public interface AccessMessages {
 
             @Name("Short")
             @Key("short")
-            MessageRef shortMessage(@Arg("paid") Object paid, @Arg("days") Object days, @Arg("until") Object until);
+            MessageRef shortMessage(@Arg("paid") Object paid, @Arg("days") long days, @Arg("until") Object until);
 
             @Name("Admin")
-            MessageRef admin(@Arg("days") Object days, @Arg("until") Object until);
+            MessageRef admin(@Arg("days") long days, @Arg("until") Object until);
         }
     }
 

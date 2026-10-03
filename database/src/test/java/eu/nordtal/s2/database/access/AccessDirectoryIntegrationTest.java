@@ -610,7 +610,7 @@ class AccessDirectoryIntegrationTest {
         assertEquals("NT-A1B2C3", pending.reference());
         assertEquals(30, pending.days());
         assertEquals(300, pending.amountCents());
-        assertEquals("3.00", pending.amount());
+        assertEquals(300, pending.amountCents());
         assertNotNull(pending.created());
         assertFalse(
                 pending.hasTab(),

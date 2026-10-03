@@ -33,7 +33,6 @@ final class OverrideCheck {
     static Declaration declaration(final MessageEntry entry) {
         final Map<String, Kind> values = new HashMap<>();
         final Map<String, String> examples = new HashMap<>();
-        final Set<String> untyped = new HashSet<>();
         final Set<String> roles = new HashSet<>();
         final Set<String> actions = new HashSet<>();
         for (final MessageArg arg : entry.args()) {
@@ -42,9 +41,7 @@ final class OverrideCheck {
                 continue;
             }
             final String kind = arg.kind();
-            if (kind == null) {
-                untyped.add(arg.name());
-            } else {
+            if (kind != null) {
                 values.put(arg.name(), Kind.byToken(kind).orElse(Kind.TEXT));
             }
             if (arg.example() != null) {
@@ -60,7 +57,6 @@ final class OverrideCheck {
         final String shown = entry.shown();
         return new Declaration(
                 values,
-                untyped,
                 roles,
                 actions,
                 "MINIMESSAGE".equals(entry.format()),

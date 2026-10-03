@@ -5,8 +5,8 @@ import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.discordbot.AccessMessages;
+import eu.nordtal.s2.discordbot.DiscordRenderer;
 import eu.nordtal.s2.messages.MessageRef;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.DiscordMemberContext;
 import eu.nordtal.s2.messages.context.TeamContext;
 import java.util.List;
@@ -43,14 +43,14 @@ public final class RegisterFlow extends ListenerAdapter {
     private final JDA jda;
     private final Teams teams;
     private final AccessReader access;
-    private final Messages messages;
+    private final DiscordRenderer messages;
     private final ExecutorService executor;
 
     public RegisterFlow(
             final JDA jda,
             final Teams teams,
             final AccessReader access,
-            final Messages messages,
+            final DiscordRenderer messages,
             final ExecutorService executor) {
         this.jda = jda;
         this.teams = teams;
@@ -199,7 +199,10 @@ public final class RegisterFlow extends ListenerAdapter {
                 event.getHook()
                         .editOriginal(messages.format(
                                 locale,
-                                MESSAGES.register().invite().sent(new DiscordMemberContext(partner.getAsMention()))))
+                                MESSAGES.register()
+                                        .invite()
+                                        .sent(new DiscordMemberContext(
+                                                DiscordId.of(partner.getId()), partner.getEffectiveName()))))
                         .queue();
                 // INVITED guarantees these two.
                 dmInvite(partner, Objects.requireNonNull(result.memberId()), Objects.requireNonNull(result.teamName()));
@@ -303,8 +306,8 @@ public final class RegisterFlow extends ListenerAdapter {
 
         teams.ownerOf(teamId).ifPresent(ownerId -> {
             final Locale ownerLocale = access.language(DiscordId.of(ownerId));
-            final DiscordMemberContext player =
-                    new DiscordMemberContext(event.getUser().getAsMention());
+            final DiscordMemberContext player = new DiscordMemberContext(
+                    DiscordId.of(event.getUser().getId()), event.getUser().getEffectiveName());
             final TeamContext team = new TeamContext(teamName);
             final String text = messages.format(
                     ownerLocale,

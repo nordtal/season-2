@@ -3,7 +3,6 @@ package eu.nordtal.s2.discordbot;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -66,8 +65,6 @@ class CardTest {
     void formatting() {
         assertEquals("0.9.3 → **0.9.4**", Card.arrow("0.9.3", "0.9.4"));
         assertEquals("**some\\_player**", Card.bold("some_player"));
-        assertEquals("2 min 14 s", Card.duration(Duration.ofSeconds(134)));
-        assertEquals("14 s", Card.duration(Duration.ofSeconds(14)));
     }
 
     private static void assertLegal(final MessageEmbed embed) {

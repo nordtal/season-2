@@ -8,10 +8,10 @@ import eu.nordtal.s2.database.access.AccessGrant;
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.alert.AlertType;
 import eu.nordtal.s2.discordbot.AdminLog;
+import eu.nordtal.s2.discordbot.DiscordRenderer;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.discordbot.config.Languages;
-import eu.nordtal.s2.messages.Messages;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -45,7 +45,7 @@ public final class AccessRoles {
     private final JDA jda;
     private final AccessSpec config;
     private final AccessDirectory access;
-    private final Messages messages;
+    private final DiscordRenderer messages;
     /** The page in Steward an alert about a member's access opens. */
     private static final String PAGE = "/access";
 
@@ -58,7 +58,7 @@ public final class AccessRoles {
             final JDA jda,
             final AccessSpec config,
             final AccessDirectory access,
-            final Messages messages,
+            final DiscordRenderer messages,
             final AdminLog admin,
             final Jdbi jdbi,
             final Clock clock) {
@@ -222,12 +222,7 @@ public final class AccessRoles {
             dm(
                     deadline.discordId(),
                     messages.format(
-                            locale,
-                            MESSAGES.dm()
-                                    .expiring(
-                                            TimeFormat.RELATIVE.format(deadline.validUntil()),
-                                            timestamp(deadline.validUntil()),
-                                            contributionChannel(locale))));
+                            locale, MESSAGES.dm().expiring(deadline.validUntil(), contributionChannel(locale))));
         }
 
         for (final AccessDeadline deadline : dao.endedWithin(EXPIRED_LOOKBACK_HOURS)) {

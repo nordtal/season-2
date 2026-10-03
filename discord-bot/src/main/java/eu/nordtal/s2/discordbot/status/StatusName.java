@@ -4,7 +4,7 @@ import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.database.network.NetworkSnapshot;
-import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.discordbot.DiscordRenderer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
@@ -36,7 +36,7 @@ public final class StatusName {
      * @param now the instant to measure against
      */
     public static String render(
-            final Messages messages,
+            final DiscordRenderer messages,
             final Locale locale,
             final SeasonPhase phase,
             final NetworkSnapshot snapshot,
@@ -56,7 +56,7 @@ public final class StatusName {
     }
 
     private static String countdown(
-            final Messages messages, final Locale locale, final @Nullable Instant launch, final Instant now) {
+            final DiscordRenderer messages, final Locale locale, final @Nullable Instant launch, final Instant now) {
         if (launch == null) {
             return messages.format(locale, MESSAGES.status().preLaunch().unknown());
         }

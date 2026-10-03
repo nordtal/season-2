@@ -114,6 +114,21 @@ class PlayerTextRulesTest {
     }
 
     @Test
+    void everyDiscordTextGoesThroughTheDiscordTarget() {
+        noClasses()
+                .that()
+                .resideInAPackage("eu.nordtal.s2.discordbot..")
+                .should()
+                .callMethodWhere(DescribedPredicate.describe(
+                        "Messages#format",
+                        call -> call.getTargetOwner().getName().equals(MESSAGES)
+                                && call.getName().equals("format")))
+                .because("the plain target escapes nothing, so a team name with _ turns the rest of a Discord line"
+                        + " italic; DiscordRenderer escapes each value and writes times and members as Discord's own")
+                .check(classes);
+    }
+
+    @Test
     void everyReplyNamesATone() {
         noClasses()
                 .that()

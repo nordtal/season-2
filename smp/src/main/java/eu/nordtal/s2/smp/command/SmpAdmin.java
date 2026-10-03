@@ -121,7 +121,7 @@ public final class SmpAdmin {
                         .access()
                         .linked(
                                 PlayerContext.of(PlayerId.of(player), name),
-                                new DiscordMemberContext(discordId.value())),
+                                new DiscordMemberContext(discordId, discordId.value())),
                 Tone.NEUTRAL);
         if (state.accessActive() && state.accessValidUntil() != null) {
             console.reply(MESSAGES.smp().access().active(state.accessValidUntil()), Tone.GOOD);

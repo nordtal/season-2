@@ -1,6 +1,5 @@
 package eu.nordtal.s2.discordbot;
 
-import java.time.Duration;
 import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
 import java.util.List;
@@ -147,21 +146,9 @@ public final class Card {
         return "*" + escape(text) + "*";
     }
 
-    /** Escapes Discord markdown in text from outside, such as a player name. */
+    /** Escapes Discord markdown in text from outside, such as a player name, as the Discord target does. */
     public static String escape(final String text) {
-        return text.replaceAll("([\\\\*_~`|>])", "\\\\$1");
-    }
-
-    /** Renders a duration as {@code 14 s}, {@code 2 min 14 s} or {@code 1 h 3 min}. */
-    public static String duration(final Duration duration) {
-        final long seconds = Math.max(0, duration.toSeconds());
-        if (seconds < 60) {
-            return seconds + " s";
-        }
-        if (seconds < 3600) {
-            return seconds / 60 + " min " + seconds % 60 + " s";
-        }
-        return seconds / 3600 + " h " + seconds % 3600 / 60 + " min";
+        return DiscordRenderer.escape(text);
     }
 
     private Card add(final String name, final String value, final boolean inline) {

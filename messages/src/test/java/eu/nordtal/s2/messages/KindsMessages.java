@@ -33,6 +33,9 @@ public interface KindsMessages {
     @Name("Start")
     MessageRef starts(@Arg("at") Instant at);
 
+    @Name("Deadline")
+    MessageRef deadline(@Arg("at") Instant at);
+
     @Name("Players")
     MessageRef players(@Arg("names") List<String> names);
 

@@ -8,6 +8,7 @@ import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateStatus;
+import eu.nordtal.s2.discordbot.DiscordRenderer;
 import eu.nordtal.s2.messages.Messages;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -26,8 +27,8 @@ class EmbedBudgetTest {
     /** Discord's limit on a whole embed. */
     private static final int LIMIT = 6000;
 
-    private final Messages messages =
-            Messages.load(EmbedBudgetTest.class.getClassLoader(), "messages/access", Locale.ENGLISH, Locale.GERMAN);
+    private final DiscordRenderer messages = DiscordRenderer.of(
+            Messages.load(EmbedBudgetTest.class.getClassLoader(), "messages/access", Locale.ENGLISH, Locale.GERMAN));
 
     @Test
     void longNotesAndMoreServicesThanFitStillBuildInsideTheLimit() {

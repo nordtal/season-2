@@ -8,9 +8,11 @@ every key (`spec`), the contexts a message can name (`context`), and the refusal
 A process hands its `MessageEnvironment` (which service it is, which season) to its bundles once
 at startup with `Messages.within`; nothing holds it in a static.
 
-Rendering to Adventure components lives in `:message-rendering`, glyphs in `:pack-rendering`. The plain
-target is `Messages.format`, which the bot, Steward and every log line use; there is one parser
-(`MessageText`) and one validator (`MessageCheck`) behind both.
+Every target renders from the same `Messages.Prepared` pieces, which `Messages.prepare` makes for one reader:
+the plain target is `Messages.format` (a console, a log, Steward's push), Minecraft's is `MessageRenderer` in
+`:message-rendering` (glyphs in `:pack-rendering`), and Discord's is the bot's `DiscordRenderer`. There is one
+parser (`MessageText`), one validator (`MessageCheck`) and one formatter of values (`ValueText`) behind all of
+them.
 
 ## Writing a text
 
@@ -23,8 +25,8 @@ else of MessageFormat is. The kinds are a closed set, each rendered once per tar
 | `text`     | a `CharSequence`     |                                                                        |
 | `number`   | any `Number`         | grouped, `plain`; at most two fraction digits                          |
 | `duration` | `Duration`           | `long` (its two largest units), `short` (`2h 5m`), `clock` (`2:05:00`) |
-| `instant`  | `Instant`            | `datetime`, `date`, `time`, in the reader's zone                       |
-| `money`    | `Money`              |                                                                        |
+| `instant`  | `Instant`            | `datetime`, `date`, `time`, `relative`, in the reader's zone           |
+| `money`    | `Money`              | in the reader's language: `€3.00`, `3,00 €`                            |
 | `list`     | a `List`             | `and`, `or`                                                            |
 | `name`     | `DisplayName`        | with the process's name card, `plain` without                          |
 | `mention`  | `Mention`            |                                                                        |
@@ -48,7 +50,10 @@ Steward. Every message also has `server`, `season`, `network` and `viewer`, and 
 true for the reader it is about.
 
 A reader is a `Viewer`: a language, a zone and, in game, the player. An instant is shown in the reader's zone and
-in the network's where they chose none. A value that is missing shows its kind's replacement word from the
+in the network's where they chose none; in Discord it is Discord's own timestamp, which every member reads in
+their own zone, and `relative` is the countdown Discord keeps current (as text it is the moment itself). A value
+of no kind is no value: the build refuses a spec parameter of no kind, and at run time it shows the replacement
+word like a missing one. A value that is missing shows its kind's replacement word from the
 `values` bundle (`someone`, `jemand`) and logs a warning; `{x}` is never printed. `GameContent` is the game's
 own line: a translatable component the client reads in its language, English everywhere else.
 

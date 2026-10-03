@@ -40,7 +40,7 @@ public final class MessageSchema {
      * One argument of a message.
      *
      * @param name    the placeholder, or for a context the role, or for an action its name
-     * @param kind    the kind's token of a single value, or {@code null} for a context, an action or an untyped value
+     * @param kind    the kind's token of a single value, or {@code null} for a context or an action
      * @param context the context type of a role, or {@code null}
      * @param example a single value's example, or {@code null}
      * @param action  whether it is an action a text places with {@code <action:name>}
@@ -168,9 +168,6 @@ public final class MessageSchema {
         }
         if (type == Action.class) {
             return new Arg(name, null, null, null, true);
-        }
-        if (type == Object.class) {
-            return new Arg(name, null, null, null, false);
         }
         final Kind kind = Kind.of(type)
                 .orElseThrow(() -> new IllegalStateException(method + ": " + name + " is a " + type.getSimpleName()
@@ -302,7 +299,6 @@ public final class MessageSchema {
         public Declaration declaration(final Entry entry) {
             final Map<String, Kind> values = new HashMap<>();
             final Map<String, String> examples = new HashMap<>();
-            final Set<String> untyped = new HashSet<>();
             final Set<String> roles = new HashSet<>();
             final Set<String> actions = new HashSet<>();
             for (final Arg arg : entry.args()) {
@@ -316,9 +312,7 @@ public final class MessageSchema {
                 roles.add(arg.name());
                 if (arg.context() != null) {
                     expand(arg.name(), arg.context(), values, examples);
-                } else if (arg.kind() == null) {
-                    untyped.add(arg.name());
-                } else {
+                } else if (arg.kind() != null) {
                     values.put(arg.name(), Kind.byToken(arg.kind()).orElse(Kind.TEXT));
                     if (arg.example() != null) {
                         examples.put(arg.name(), arg.example());
@@ -332,7 +326,6 @@ public final class MessageSchema {
             }
             return new Declaration(
                     values,
-                    untyped,
                     roles,
                     actions,
                     entry.format() == TextFormat.MINIMESSAGE,

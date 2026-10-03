@@ -5,16 +5,16 @@ import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.alert.AlertType;
-import eu.nordtal.s2.database.payment.Money;
 import eu.nordtal.s2.database.payment.PaymentRequest;
 import eu.nordtal.s2.database.payment.PaymentRequestStatus;
 import eu.nordtal.s2.database.payment.PaymentRequests;
 import eu.nordtal.s2.database.payment.Tier;
 import eu.nordtal.s2.database.payment.Tiers;
 import eu.nordtal.s2.discordbot.AdminLog;
+import eu.nordtal.s2.discordbot.DiscordRenderer;
 import eu.nordtal.s2.discordbot.Ids;
 import eu.nordtal.s2.discordbot.access.payment.Purchases;
-import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.value.Money;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -38,7 +38,6 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.callbacks.IDeferrableCallback;
 import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
-import net.dv8tion.jda.api.utils.TimeFormat;
 
 /**
  * The buy-access flow: a button, a day selection, a summary, and a payment link.
@@ -51,7 +50,7 @@ public final class PurchaseFlow extends ListenerAdapter {
     private final Tiers tiers;
     private final Purchases purchases;
     private final PaymentRequests requests;
-    private final Messages messages;
+    private final DiscordRenderer messages;
     private final AccessRoles roles;
     private final AdminLog admin;
     private final ExecutorService executor;
@@ -74,7 +73,7 @@ public final class PurchaseFlow extends ListenerAdapter {
             final Tiers tiers,
             final Purchases purchases,
             final PaymentRequests requests,
-            final Messages messages,
+            final DiscordRenderer messages,
             final AccessRoles roles,
             final AdminLog admin,
             final ExecutorService executor,
@@ -141,7 +140,8 @@ public final class PurchaseFlow extends ListenerAdapter {
         final List<SelectOption> options = new ArrayList<>();
         for (final Tier tier : tiers.all()) {
             options.add(SelectOption.of(
-                    messages.format(locale, MESSAGES.purchase().option(tier.days(), Money.format(tier.priceCents()))),
+                    messages.format(
+                            locale, MESSAGES.purchase().option(tier.days(), Money.euroCents(tier.priceCents()))),
                     String.valueOf(tier.days())));
         }
 
@@ -282,16 +282,14 @@ public final class PurchaseFlow extends ListenerAdapter {
                     hook,
                     messages.format(
                                     locale,
-                                    MESSAGES.purchase().link(Money.format(request.amountCents()), request.shareUrl()))
+                                    MESSAGES.purchase()
+                                            .link(Money.euroCents(request.amountCents()), request.shareUrl()))
                             + "\n"
                             + messages.format(
                                     locale, MESSAGES.purchase().linkSection().reference(request.reference()))
                             + "\n"
                             + messages.format(
-                                    locale,
-                                    MESSAGES.purchase()
-                                            .linkSection()
-                                            .ttl(TimeFormat.RELATIVE.format(request.expires()))));
+                                    locale, MESSAGES.purchase().linkSection().ttl(request.expires())));
             return true;
         }
         if (request.tabFailed() != null) {
@@ -322,16 +320,16 @@ public final class PurchaseFlow extends ListenerAdapter {
                         MESSAGES.purchase()
                                 .summary(
                                         request.days(),
-                                        Money.format(request.amountCents() - request.donationCents()))));
+                                        Money.euroCents(request.amountCents() - request.donationCents()))));
         if (request.donationRequested()) {
             text.append('\n')
                     .append(messages.format(
                             locale,
-                            MESSAGES.purchase().summarySection().donation(Money.format(request.donationCents()))));
+                            MESSAGES.purchase().summarySection().donation(Money.euroCents(request.donationCents()))));
         }
         text.append('\n')
                 .append(messages.format(
-                        locale, MESSAGES.purchase().summarySection().total(Money.format(request.amountCents()))));
+                        locale, MESSAGES.purchase().summarySection().total(Money.euroCents(request.amountCents()))));
 
         final Button donation = request.donationRequested()
                 ? Button.secondary(
@@ -342,7 +340,7 @@ public final class PurchaseFlow extends ListenerAdapter {
                         Ids.DONATION,
                         messages.format(
                                 locale,
-                                MESSAGES.purchase().button().donation().add(Money.format(tiers.donationCents()))));
+                                MESSAGES.purchase().button().donation().add(Money.euroCents(tiers.donationCents()))));
 
         event.getHook()
                 .editOriginal(text.toString())

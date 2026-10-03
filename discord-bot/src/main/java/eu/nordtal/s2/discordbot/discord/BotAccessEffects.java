@@ -9,9 +9,9 @@ import eu.nordtal.s2.database.access.AccessSource;
 import eu.nordtal.s2.database.access.PlaytimeWording;
 import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.discordbot.AdminLog;
+import eu.nordtal.s2.discordbot.DiscordRenderer;
 import eu.nordtal.s2.discordbot.access.SeasonStart;
 import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
-import eu.nordtal.s2.messages.Messages;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
@@ -24,7 +24,7 @@ public final class BotAccessEffects implements AccessChanges {
     private final AccessRoles roles;
     private final AdminLog admin;
     private final SeasonStart seasonStart;
-    private final Messages messages;
+    private final DiscordRenderer messages;
 
     /**
      * Creates the effects.
@@ -36,7 +36,7 @@ public final class BotAccessEffects implements AccessChanges {
             final AccessRoles roles,
             final AdminLog admin,
             final SeasonStart seasonStart,
-            final Messages messages) {
+            final DiscordRenderer messages) {
         this.access = access;
         this.roles = roles;
         this.admin = admin;
@@ -54,7 +54,7 @@ public final class BotAccessEffects implements AccessChanges {
                 discordId,
                 messages.format(
                         roles.localeOf(discordId),
-                        MESSAGES.dm().grantedSection().admin(days, AccessRoles.timestamp(granted.validUntil()))));
+                        MESSAGES.dm().grantedSection().admin(days, granted.validUntil())));
 
         admin.record(new AuditLine(
                 "GRANT_ACCESS",

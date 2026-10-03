@@ -10,8 +10,8 @@ import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.alert.AlertType;
 import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.discordbot.AdminLog;
+import eu.nordtal.s2.discordbot.DiscordRenderer;
 import eu.nordtal.s2.discordbot.Ids;
-import eu.nordtal.s2.messages.Messages;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -44,7 +44,7 @@ public final class LinkFlow extends ListenerAdapter {
 
     private final AccessDirectory access;
     private final AccessRoles roles;
-    private final Messages messages;
+    private final DiscordRenderer messages;
     private final AdminLog admin;
     private final RedemptionLimit limit;
     private final ExecutorService executor;
@@ -52,7 +52,7 @@ public final class LinkFlow extends ListenerAdapter {
     public LinkFlow(
             final AccessDirectory access,
             final AccessRoles roles,
-            final Messages messages,
+            final DiscordRenderer messages,
             final AdminLog admin,
             final RedemptionLimit limit,
             final ExecutorService executor) {

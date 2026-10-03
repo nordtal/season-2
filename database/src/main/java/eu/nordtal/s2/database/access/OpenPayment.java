@@ -13,11 +13,4 @@ import java.time.Instant;
  * @param created when it was started, so an admin can see whether it is stuck or fresh
  */
 public record OpenPayment(
-        String reference, int days, int amountCents, int donationCents, boolean hasTab, Instant created) {
-
-    /** Returns the total as a decimal string with two places, for a message and never for arithmetic. */
-    public String amount() {
-        // Locale.ROOT, because %02d localises its digits.
-        return (amountCents / 100) + "." + String.format(java.util.Locale.ROOT, "%02d", Math.abs(amountCents % 100));
-    }
-}
+        String reference, int days, int amountCents, int donationCents, boolean hasTab, Instant created) {}

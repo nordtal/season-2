@@ -110,7 +110,7 @@ the table below are compiled into the jars above.
 | `internal-api`      | library         | The token-guarded HTTP wire between `steward` and the services only it may call, and the bank's wire records.    |
 | `paper-common`      | library         | What the three Paper plugins share and Velocity cannot use.                                                      |
 | `settings`          | library         | Where every process's settings come from, and the database and colour settings they share.                       |
-| `resource-pack`     | assets          | The pack, its fonts, and the zip + SHA-1 a release ships.                                                        |
+| `resource-pack`     | assets          | The pack, the glyph allocation its fonts are written from, and the zip + SHA-1 a release ships.                  |
 | `architecture`      | tests           | The ArchUnit rules over every module's compiled classes: the dependency lists and the wiring.                    |
 
 `DisplayTags` also runs on this network and ships from
@@ -127,8 +127,8 @@ the table below are compiled into the jars above.
   matched to an open reference and becomes an access period row.
 - **Text** a player reads is translated, German and English, looked up once per join off the main
   thread.
-- **Glyphs** are allocated in [`resource-pack/README.md`](resource-pack/README.md), mirrored by
-  `Glyphs` and the font files, and checked against each other on every build.
+- **Glyphs** are allocated in [`resource-pack/glyphs.json`](resource-pack/glyphs.json), and the build
+  writes the font files, `Glyphs` and the advance tables from it.
 - **Update runs** park players on a `-standby` service while the real one is swapped. Caddy hands
   port 25565 to whichever proxy is live.
 - **`compose.yml`** ships inside the `steward-agent` image. An update to a newer release runs in a

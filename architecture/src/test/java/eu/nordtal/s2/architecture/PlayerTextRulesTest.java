@@ -60,11 +60,8 @@ class PlayerTextRulesTest {
             Map.entry("eu.nordtal.s2.smp.welcome.SeasonWelcome", "the opening frames, pictures and not sentences"),
             Map.entry("eu.nordtal.s2.hungergames.body.PlayerBodies", "a disconnected player's name on their body"),
             Map.entry("eu.nordtal.s2.hungergames.player.ArenaComposition", "a flag glyph and a player name"),
-            Map.entry("eu.nordtal.s2.proxy.ping.NetworkPing", "the MOTD, which parses its own placeholders"),
             Map.entry("eu.nordtal.s2.proxy.command.VelocityUser", "replyLiteral, text that is already the answer"),
-            Map.entry("eu.nordtal.s2.papercommon.command.PaperUser", "replyLiteral, text that is already the answer"),
-            Map.entry("eu.nordtal.s2.proxy.command.PrivateMessages", "a private message's own text, as a slot"),
-            Map.entry("eu.nordtal.s2.proxy.update.Homecoming", "a service's compose name where it has no line"));
+            Map.entry("eu.nordtal.s2.papercommon.command.PaperUser", "replyLiteral, text that is already the answer"));
 
     /** The two users that offer a reply without a tone, which every other caller is measured against. */
     private static final String[] UNTONED_REPLIES = {

@@ -4,7 +4,6 @@ import eu.nordtal.s2.common.time.NetworkTime;
 
 import eu.nordtal.s2.common.language.Languages;
 
-import eu.nordtal.s2.messages.context.MessageEnvironment;
 
 import com.google.inject.Inject;
 import com.velocitypowered.api.command.CommandManager;
@@ -23,8 +22,6 @@ import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
-import eu.nordtal.s2.messagerendering.Tones;
-import eu.nordtal.s2.messages.Tone;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import eu.nordtal.s2.database.online.OnlineDirectory;
 import eu.nordtal.s2.database.online.OnlineRoster;
@@ -40,7 +37,7 @@ import eu.nordtal.s2.settings.Environment;
 import eu.nordtal.s2.settings.EnvironmentSettings;
 import eu.nordtal.s2.settings.Group;
 import eu.nordtal.s2.settings.Setting;
-import eu.nordtal.s2.settings.network.MotdSpec;
+import eu.nordtal.s2.settings.network.LanguageAndTimeSpec;
 import eu.nordtal.s2.settings.network.NetworkSettings;
 import eu.nordtal.s2.settings.network.PlayersSpec;
 import eu.nordtal.s2.settings.network.SeasonSpec;
@@ -163,17 +160,19 @@ public final class ProxyPlugin {
                     settings.load(Group.of("pack", PackSpec.class).checkedBy(ProxySettings::checkPack)).get();
             final NetworkSpec network = settings.load(
                     Group.of("network", NetworkSpec.class).checkedBy(ProxySettings::checkNetwork)).get();
-            final ColoursSpec colours = settings.load(Group.of("colours", ColoursSpec.class)).get();
+            // The reply and tone colours, read once here; see ColoursSpec.
+            final ToneColours colours = ToneColours.parse(
+                    Colours.declared(settings.load(Group.of("colours", ColoursSpec.class)).get()), logger::warn);
             final Setting<PlayersSpec> players = settings.load(NetworkSettings.PLAYERS);
-            final Setting<MotdSpec> motd = settings.load(NetworkSettings.MOTD);
             final SeasonSpec season = settings.load(NetworkSettings.SEASON).get();
-            languages = NetworkSettings.languages(settings.load(NetworkSettings.LANGUAGE_AND_TIME).get());
+            final LanguageAndTimeSpec languageAndTime = settings.load(NetworkSettings.LANGUAGE_AND_TIME).get();
+            languages = NetworkSettings.languages(languageAndTime);
             settings.retireFiles();
             // After the settings, which name the languages and the season.
             final Messages messages = Messages.load(getClass().getClassLoader(), "messages/proxy", languages.locales())
-                    .within(MessageEnvironment.of("proxy", NetworkSettings.season(season)));
+                    .within(NetworkSettings.environment("proxy", season, languageAndTime, colours));
             this.messages = messages;
-            start(database, gate, pack, network, colours, messages, settings, players, motd, season);
+            start(database, gate, pack, network, colours, messages, settings, players);
         } catch (final SettingsException | RuntimeException failure) {
             failClosed(failure);
         }
@@ -181,12 +180,9 @@ public final class ProxyPlugin {
 
     private void start(final DatabaseSpec databaseConfig, final GateSpec gateConfig,
                        final PackSpec packConfig, final NetworkSpec networkConfig,
-                       final ColoursSpec coloursConfig, final Messages messages, final DatabaseSettings settings,
-                       final Setting<PlayersSpec> players, final Setting<MotdSpec> motd, final SeasonSpec season) {
+                       final ToneColours colours, final Messages messages, final DatabaseSettings settings,
+                       final Setting<PlayersSpec> players) {
         this.access = AccessDirectory.using(pool, clock);
-
-        // The five reply colours, read once here; see ColoursSpec.
-        final ToneColours colours = ToneColours.parse(Colours.declared(coloursConfig), logger::warn);
 
         final PhaseDirectory phases = PhaseDirectory.using(pool, clock);
         final GateMessages gateMessages = new GateMessages(messages, gateConfig);
@@ -295,8 +291,8 @@ public final class ProxyPlugin {
         this.signals = SignalHub.open(databaseConfig.jdbcUrl(), databaseConfig.username(),
                 databaseConfig.password(), databaseConfig.queryTimeoutSeconds(), "proxy-signals", logger);
         signals.on(Channel.PHASE, "the season phase", phaseWatch::refresh);
-        // The network's limit, allowlist and MOTD, changed in Steward, arrive here without a restart.
-        settings.listen(signals, () -> reloadNetwork(players, motd));
+        // The network's limit and allowlist, changed in Steward, arrive here without a restart.
+        settings.listen(signals, () -> reloadNetwork(players));
         MessageOverrideStore.using(pool).follow(messages, signals);
         signals.on(Channel.ADMIN, "the admin roster", refreshAdmins);
         // Latency here would drop the 30 second beat.
@@ -340,8 +336,8 @@ public final class ProxyPlugin {
                 .delay(snapshotInterval)
                 .repeat(snapshotInterval)
                 .schedule();
-        proxy.getEventManager().register(this, new NetworkPing(proxy, logger, players.get(), motd.get(), season.name(), phaseWatch,
-                snapshots, messages, clock,
+        proxy.getEventManager().register(this, new NetworkPing(proxy, players.get(), phaseWatch,
+                snapshots, messages, languages.locales()[0], clock,
                 eu.nordtal.s2.proxy.ping.ServerIcon.load(dataDirectory, logger)));
 
         // This proxy knows every connection, so it writes the counts and who is connected.
@@ -436,7 +432,7 @@ public final class ProxyPlugin {
 
         // A reload of this proxy's live settings, asked for by steward; the main proxy alone answers it.
         ProxyInbox.open(role, pool, signals, request -> switch (request.payload()) {
-            case Reload reload -> reloadNetwork(players, motd)
+            case Reload reload -> reloadNetwork(players)
                     ? Outcome.done(english(messages, ProxyMessages.MESSAGES.admin().reloaded()))
                     : Outcome.failed(english(messages, ProxyMessages.MESSAGES.admin().reloadFailed()));
         });
@@ -479,21 +475,18 @@ public final class ProxyPlugin {
     }
 
     /**
-     * Takes the network's limit, allowlist and MOTD again; a refused change keeps what runs.
+     * Takes the network's limit and allowlist again; a refused change keeps what runs.
      *
-     * @return whether every one was taken
+     * @return whether it was taken
      */
-    private boolean reloadNetwork(final Setting<PlayersSpec> players, final Setting<MotdSpec> motd) {
-        boolean taken = true;
-        for (final Setting<?> setting : List.of(players, motd)) {
-            try {
-                setting.reload();
-            } catch (final SettingsException refused) {
-                taken = false;
-                logger.warn("A network setting was not taken, the running one stays: {}", refused.getMessage());
-            }
+    private boolean reloadNetwork(final Setting<PlayersSpec> players) {
+        try {
+            players.reload();
+            return true;
+        } catch (final SettingsException refused) {
+            logger.warn("A network setting was not taken, the running one stays: {}", refused.getMessage());
+            return false;
         }
-        return taken;
     }
 
     /** What the zero beat moves: the backends first, then the network, the order a player travels. */

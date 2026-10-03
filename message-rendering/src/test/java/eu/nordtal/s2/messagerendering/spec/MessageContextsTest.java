@@ -3,9 +3,11 @@ package eu.nordtal.s2.messagerendering.spec;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.Palette;
 import eu.nordtal.s2.messages.context.MessageEnvironment;
 import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.messages.context.SeasonContext;
@@ -20,8 +22,11 @@ import eu.nordtal.s2.messages.spec.MessageSpecs;
 import eu.nordtal.s2.messages.spec.Name;
 import eu.nordtal.s2.messages.spec.Shown;
 import eu.nordtal.s2.messages.spec.TextFormat;
+import java.nio.charset.StandardCharsets;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import org.junit.jupiter.api.Test;
@@ -36,7 +41,7 @@ class MessageContextsTest {
         MessageRef hit(
                 @Arg("attacker") PlayerContext attacker,
                 @Arg("victim") PlayerContext victim,
-                @Arg("damage") Object damage);
+                @Arg("damage") int damage);
 
         @Name("Bar")
         Fight.Bar bar();
@@ -45,7 +50,7 @@ class MessageContextsTest {
         interface Bar {
 
             @Name("Progress")
-            MessageRef progress(@Arg("percent") Object percent);
+            MessageRef progress(@Arg("percent") int percent);
 
             @Name("Button")
             @Shown(Display.DISCORD_BUTTON)
@@ -54,35 +59,37 @@ class MessageContextsTest {
         }
     }
 
+    private static final PlayerContext ADA = player("Ada");
+    private static final PlayerContext BO = player("Bo");
+
     private final Fight fight = MessageSpecs.create(Fight.class);
     private final Messages messages = Messages.load("messages/context-test");
 
     @Test
     void aRoleFillsEveryPropertyOfItsContext() {
-        assertEquals(
-                "Ada hit Bo for 3.",
-                messages.format(Locale.ENGLISH, fight.hit(new PlayerContext("Ada"), new PlayerContext("Bo"), 3)));
+        assertEquals("Ada hit Bo for 3.", messages.format(Locale.ENGLISH, fight.hit(ADA, BO, 3)));
     }
 
     @Test
     void serverAndSeasonAreInEveryMessage() {
         assertEquals(
                 "Season 2 on smp: 40%",
-                messages.within(MessageEnvironment.of("smp", new SeasonContext(2, "Season 2")))
+                messages.within(MessageEnvironment.of(
+                                "smp", new SeasonContext(2, "Season 2"), ZoneId.of("UTC"), Palette.DEFAULTS))
                         .format(Locale.ENGLISH, fight.bar().progress(40)));
     }
 
     @Test
-    void withoutAnEnvironmentTheGlobalRolesStayAsWritten() {
+    void withoutAnEnvironmentTheGlobalRolesReadAsTheirReplacementWords() {
         assertEquals(
-                "Season {season.number} on {server.name}: 40%",
+                "Season something on something: 40%",
                 messages.format(Locale.ENGLISH, fight.bar().progress(40)));
     }
 
     @Test
     void aContextValueIsEscapedLikeAnyOther() {
-        final Component line = MessageRenderer.of(messages)
-                .format(Locale.ENGLISH, fight.hit(new PlayerContext("<red>Ada"), new PlayerContext("Bo"), 1));
+        final Component line =
+                MessageRenderer.of(messages).format(Locale.ENGLISH, fight.hit(player("<red>Ada"), BO, 1));
         assertEquals("<red>Ada hit Bo for 1.", plain(line));
     }
 
@@ -92,9 +99,9 @@ class MessageContextsTest {
         final MessageSchema.Entry hit = entries.get(0);
         assertEquals(
                 List.of(
-                        new MessageSchema.Arg("attacker", false, "player"),
-                        new MessageSchema.Arg("victim", false, "player"),
-                        new MessageSchema.Arg("damage", false, null)),
+                        new MessageSchema.Arg("attacker", null, "player", null, false),
+                        new MessageSchema.Arg("victim", null, "player", null, false),
+                        new MessageSchema.Arg("damage", "number", null, "3", false)),
                 hit.args());
         assertEquals(Display.TITLE, hit.shown());
         assertEquals(TextFormat.MINIMESSAGE, hit.format());
@@ -103,12 +110,16 @@ class MessageContextsTest {
         assertEquals(TextFormat.PLAIN, entries.get(2).format());
 
         final String json = MessageSchema.json(Fight.class);
-        assertTrue(json.contains("{\"name\":\"attacker\",\"component\":false,\"context\":\"player\"}"), json);
+        assertTrue(json.contains("{\"name\":\"attacker\",\"context\":\"player\",\"action\":false}"), json);
         assertTrue(json.contains("\"format\":\"MINIMESSAGE\",\"shown\":\"TITLE\""), json);
-        assertTrue(json.contains("\"player\":{\"name\":\"Player\",\"properties\":[\"name\"]}"), json);
+        assertTrue(
+                json.contains("\"player\":{\"name\":\"Player\",\"attributes\":[{\"name\":\"name\",\"kind\":\"name\","
+                        + "\"example\":\"Alex\"},{\"name\":\"self\",\"kind\":\"choice\",\"example\":\"false\"}]}"),
+                json);
         assertTrue(
                 json.contains("\"globals\":[{\"name\":\"server\",\"context\":\"service\"},"
-                        + "{\"name\":\"season\",\"context\":\"season\"}]"),
+                        + "{\"name\":\"season\",\"context\":\"season\"},{\"name\":\"network\",\"context\":\"network\"},"
+                        + "{\"name\":\"viewer\",\"context\":\"player\"}]"),
                 json);
     }
 
@@ -124,7 +135,7 @@ class MessageContextsTest {
         MessageRef hit(
                 @Arg("attacker") PlayerContext attacker,
                 @Arg("target") PlayerContext target,
-                @Arg("damage") Object damage);
+                @Arg("damage") int damage);
 
         @Name("Bar")
         Drifted.Bar bar();
@@ -132,7 +143,7 @@ class MessageContextsTest {
         interface Bar {
 
             @Name("Progress")
-            MessageRef progress(@Arg("percent") Object percent);
+            MessageRef progress(@Arg("percent") int percent);
 
             @Name("Button")
             MessageRef button(@Arg("team") PlayerContext team);
@@ -143,10 +154,18 @@ class MessageContextsTest {
     void aPropertyTheRoleDoesNotHaveAndAnUnusedRoleAreNamed() {
         final List<String> problems = MessageSpecCheck.problems(Drifted.class);
         assertTrue(
-                problems.contains("hit (en): the text names {victim.name}, which nothing declares"),
+                problems.stream()
+                        .anyMatch(problem ->
+                                problem.startsWith("hit (en): {victim.name} is nothing this message offers")),
                 problems::toString);
-        assertTrue(problems.contains("hit (en): the role target is never used"), problems::toString);
+        assertTrue(
+                problems.contains("hit (en): the text never shows target, which the message is given"),
+                problems::toString);
         assertEquals(2 * 2, problems.size(), problems::toString);
+    }
+
+    private static PlayerContext player(final String name) {
+        return PlayerContext.of(PlayerId.of(UUID.nameUUIDFromBytes(name.getBytes(StandardCharsets.UTF_8))), name);
     }
 
     private static String plain(final Component component) {

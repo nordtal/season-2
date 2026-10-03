@@ -16,7 +16,6 @@ import eu.nordtal.s2.messages.Refused;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import javax.sql.DataSource;
@@ -52,7 +51,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
                     .filter(scope::contains)
                     .toList();
             if (!held.isEmpty()) {
-                throw new Refused(UpdateRefusal.ALREADY_HELD, MESSAGES.update().alreadyHeld(String.join(", ", held)));
+                throw new Refused(UpdateRefusal.ALREADY_HELD, MESSAGES.update().alreadyHeld(List.copyOf(held)));
             }
         }
         // Clamped rather than rejected: a delay computed from two disagreeing clocks means now.
@@ -64,11 +63,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
                 throw refused;
             }
             final UpdateRequest open = dao.open().orElseThrow(() -> refused);
-            throw new Refused(
-                    UpdateRefusal.RUN_OPEN,
-                    MESSAGES.update()
-                            .runOpen(
-                                    open.id(), open.kind(), open.status().name().toLowerCase(Locale.ROOT)));
+            throw new Refused(UpdateRefusal.RUN_OPEN, MESSAGES.update().runOpen(open.id(), open.kind(), open.status()));
         }
     }
 

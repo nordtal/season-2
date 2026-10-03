@@ -86,7 +86,7 @@ function closes(frame: string, closing: string): boolean {
  * Click, hover, gradient and lang tags are dropped and what they wrap is kept.
  */
 export function previewSegments(source: string, args: MessageArg[]): PreviewSegment[] {
-  const placeholders = new Map(args.map((arg) => [tokenOf(arg), arg.name.replace(/^_/, "")]))
+  const placeholders = new Map(args.filter((arg) => !arg.action).map((arg) => [tokenOf(arg), arg.name]))
   const out: PreviewSegment[] = []
   const stack: { name: string; style: PreviewStyle }[] = []
   const style = () => stack[stack.length - 1]?.style ?? {}
@@ -127,10 +127,7 @@ export function previewSegments(source: string, args: MessageArg[]): PreviewSegm
         text(pending)
         pending = ""
         index = end + 1
-        const name = placeholders.get(`<${tag}>`)
-        if (name !== undefined) {
-          out.push({ kind: "placeholder", name })
-        } else if (tag.startsWith("/")) {
+        if (tag.startsWith("/")) {
           const closing = tag.slice(1).split(":")[0]
           const at = findLast(stack, (frame) => closes(frame.name, closing))
           if (at >= 0) stack.length = at

@@ -231,7 +231,7 @@ class UpdateDirectoryIntegrationTest {
         assertEquals(UpdateRefusal.RUN_OPEN, refused.reason());
         assertEquals(first.id(), refused.refusal().message().args().get("id"));
         assertEquals(
-                "Run #" + first.id() + " is still pending (DOWN).",
+                "Run #" + first.id() + " is still pending (down).",
                 DatabaseText.english(refused.refusal().message()));
         assertEquals(1, updates.recent(10).size(), "nothing was written for the second press");
     }

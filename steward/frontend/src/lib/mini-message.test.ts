@@ -35,18 +35,18 @@ describe("previewSegments", () => {
     expect(seen("<b><u>x</u></b>y")).toEqual(["x||bu", "y||"])
   })
 
-  it("draws the declared placeholders, braced and component, as placeholders", () => {
+  it("draws the declared placeholders as placeholders", () => {
     expect(
-      seen("<white>{world}</white> by <_player>", [
-        { name: "world", component: false, global: false },
-        { name: "_player", component: true, global: false },
+      seen("<white>{world}</white> by {player}", [
+        { name: "world", kind: "text", global: false, action: false },
+        { name: "player", kind: "name", global: false, action: false },
       ]),
     ).toEqual(["{world}", " by ||", "{player}"])
   })
 
   it("draws a role's property as one placeholder, dot and all", () => {
     expect(
-      seen("{winner.name} won", [{ name: "winner.name", component: false, type: "player", global: false }]),
+      seen("{winner.name} won", [{ name: "winner.name", kind: "name", type: "player", global: false, action: false }]),
     ).toEqual(["{winner.name}", " won||"])
   })
 

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.messages.Tone;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -28,10 +29,12 @@ class TonesTest {
                         + " with detail under them read as one wall of identical text");
     }
 
-    /** Checks that there are exactly five tones, since a sixth is a decision for the owner. */
+    /** The palette is closed: a tenth tone is a decision, and every packaged text and override may name it. */
     @Test
-    void thereAreExactlyFiveTonesASixthIsADecisionForTheOwner() {
-        assertEquals(5, Tone.values().length);
+    void thePaletteIsTheseNineTones() {
+        assertEquals(
+                List.of("neutral", "good", "bad", "warn", "muted", "accent", "brand", "emphasis", "faint"),
+                Arrays.stream(Tone.values()).map(Tone::tag).toList());
     }
 
     @Test

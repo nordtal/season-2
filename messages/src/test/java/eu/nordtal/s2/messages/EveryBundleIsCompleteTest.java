@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.RepositoryRoot;
+import eu.nordtal.s2.messages.text.MessageText;
+import eu.nordtal.s2.messages.text.Node;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -17,8 +19,6 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
@@ -37,8 +37,6 @@ class EveryBundleIsCompleteTest {
             "proxy/src/main/resources/messages/proxy",
             "paper-common/src/main/resources/messages/paper-common",
             "smp/src/main/resources/messages/smp");
-
-    private static final Pattern PLACEHOLDER = Pattern.compile("\\{([a-z0-9_-]+)}");
 
     @Test
     void theWalkFindsEveryKnownBundle() {
@@ -164,12 +162,25 @@ class EveryBundleIsCompleteTest {
         return properties;
     }
 
+    /** Returns every name a text shows or chooses on, as the parser reads it; tags are left as characters. */
     private static Set<String> placeholders(final String text) {
         final Set<String> names = new TreeSet<>();
-        final Matcher matcher = PLACEHOLDER.matcher(text);
-        while (matcher.find()) {
-            names.add(matcher.group(1));
-        }
+        collect(MessageText.parse(text, false).nodes(), names);
         return names;
+    }
+
+    private static void collect(final List<Node> nodes, final Set<String> into) {
+        for (final Node node : nodes) {
+            switch (node) {
+                case Node.Value value -> into.add(value.name());
+                case Node.Choice choice -> {
+                    into.add(choice.name());
+                    choice.cases().values().forEach(inner -> collect(inner, into));
+                }
+                default -> {
+                    // Literals, a plural's # and tags name nothing.
+                }
+            }
+        }
     }
 }

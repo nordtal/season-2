@@ -6,8 +6,9 @@ import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.s2.messages.Tone;
 
-/** The {@code colours} group: the five {@link eu.nordtal.s2.messages.Tone} colours a reply is painted with. */
+/** The {@code colours} group: the {@link Tone} colours every text is painted with; a tone's default is its own. */
 @ConfigSpec
 public interface ColoursSpec {
 
@@ -18,7 +19,7 @@ public interface ColoursSpec {
     @Explain("For a reply that arrives: it worked, is current, or came back.")
     @Refers(Refers.To.COLOUR)
     default String good() {
-        return "#8ba888";
+        return Tone.GOOD.hex();
     }
 
     @Order(2)
@@ -28,7 +29,7 @@ public interface ColoursSpec {
     @Explain("For a reply that fails. Needs to stand out in a long list.")
     @Refers(Refers.To.COLOUR)
     default String bad() {
-        return "#a8888b";
+        return Tone.BAD.hex();
     }
 
     @Order(3)
@@ -38,7 +39,7 @@ public interface ColoursSpec {
     @Explain("Not a failure, but not what was asked for either: stopped, too late, still waiting.")
     @Refers(Refers.To.COLOUR)
     default String warn() {
-        return "#b08a4a";
+        return Tone.WARN.hex();
     }
 
     @Order(4)
@@ -48,7 +49,7 @@ public interface ColoursSpec {
     @Explain("An ordinary reply with nothing to flag.")
     @Refers(Refers.To.COLOUR)
     default String neutral() {
-        return "#c9c9c9";
+        return Tone.NEUTRAL.hex();
     }
 
     @Order(5)
@@ -58,6 +59,46 @@ public interface ColoursSpec {
     @Explain("Supporting detail under a line that already carries the news.")
     @Refers(Refers.To.COLOUR)
     default String muted() {
-        return "#aaaaaa";
+        return Tone.MUTED.hex();
+    }
+
+    @Order(6)
+    @Name("Accent")
+    @Key("accent")
+    @Comment("A heading, a title, an icon that opens a line.")
+    @Explain("A heading, a title, an icon that opens a line.")
+    @Refers(Refers.To.COLOUR)
+    default String accent() {
+        return Tone.ACCENT.hex();
+    }
+
+    @Order(7)
+    @Name("Brand")
+    @Key("brand")
+    @Comment("The network's own name and links.")
+    @Explain("The network's own name and links.")
+    @Refers(Refers.To.COLOUR)
+    default String brand() {
+        return Tone.BRAND.hex();
+    }
+
+    @Order(8)
+    @Name("Emphasis")
+    @Key("emphasis")
+    @Comment("The word in a line that matters most: a name, a number, a place.")
+    @Explain("The word in a line that matters most: a name, a number, a place.")
+    @Refers(Refers.To.COLOUR)
+    default String emphasis() {
+        return Tone.EMPHASIS.hex();
+    }
+
+    @Order(9)
+    @Name("Faint")
+    @Key("faint")
+    @Comment("Barely there: a hint, a rule, a separator.")
+    @Explain("Barely there: a hint, a rule, a separator.")
+    @Refers(Refers.To.COLOUR)
+    default String faint() {
+        return Tone.FAINT.hex();
     }
 }

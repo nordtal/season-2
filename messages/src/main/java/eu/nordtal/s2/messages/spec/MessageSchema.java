@@ -3,6 +3,10 @@ package eu.nordtal.s2.messages.spec;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.messages.PackagedTexts;
 import eu.nordtal.s2.messages.context.Contexts;
+import eu.nordtal.s2.messages.text.Declaration;
+import eu.nordtal.s2.messages.value.Action;
+import eu.nordtal.s2.messages.value.Example;
+import eu.nordtal.s2.messages.value.Kind;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -13,10 +17,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
 import org.jspecify.annotations.Nullable;
 
@@ -27,26 +34,23 @@ import org.jspecify.annotations.Nullable;
  */
 public final class MessageSchema {
 
-    /** Adventure's component type, by name: a spec in a module without Adventure never loads it. */
-    private static final String COMPONENT = "net.kyori.adventure.text.Component";
-
     private MessageSchema() {}
 
     /**
-     * @param name      the placeholder, or for a context the role
-     * @param component whether it is filled by a Component, written {@code <name>} in the text
-     * @param context   the context type of a role, {@code null} for a single value
+     * One argument of a message.
+     *
+     * @param name    the placeholder, or for a context the role, or for an action its name
+     * @param kind    the kind's token of a single value, or {@code null} for a context, an action or an untyped value
+     * @param context the context type of a role, or {@code null}
+     * @param example a single value's example, or {@code null}
+     * @param action  whether it is an action a text places with {@code <action:name>}
      */
     public record Arg(
             @Nullable String name,
-            boolean component,
-            @Nullable String context) {
-
-        /** A free value, no context. */
-        public Arg(final @Nullable String name, final boolean component) {
-            this(name, component, null);
-        }
-    }
+            @Nullable String kind,
+            @Nullable String context,
+            @Nullable String example,
+            boolean action) {}
 
     /**
      * @param key         the bundle key
@@ -128,12 +132,7 @@ public final class MessageSchema {
                 final Describe describe = method.getAnnotation(Describe.class);
                 final List<Arg> args = new ArrayList<>();
                 for (final Parameter parameter : method.getParameters()) {
-                    final eu.nordtal.s2.messages.spec.Arg arg =
-                            parameter.getAnnotation(eu.nordtal.s2.messages.spec.Arg.class);
-                    args.add(new Arg(
-                            arg == null ? null : arg.value(),
-                            COMPONENT.equals(parameter.getType().getName()),
-                            Contexts.isContext(parameter.getType()) ? Contexts.type(parameter.getType()) : null));
+                    args.add(argOf(method, parameter));
                 }
                 final Format ownFormat = method.getAnnotation(Format.class);
                 final Shown ownShown = method.getAnnotation(Shown.class);
@@ -158,6 +157,26 @@ public final class MessageSchema {
 
     private static Display nearest(final @Nullable Shown method, final @Nullable Shown type, final Display outer) {
         return method != null ? method.value() : type != null ? type.value() : outer;
+    }
+
+    private static Arg argOf(final Method method, final Parameter parameter) {
+        final eu.nordtal.s2.messages.spec.Arg arg = parameter.getAnnotation(eu.nordtal.s2.messages.spec.Arg.class);
+        final String name = arg == null ? null : arg.value();
+        final Class<?> type = parameter.getType();
+        if (Contexts.isContext(type)) {
+            return new Arg(name, null, Contexts.type(type), null, false);
+        }
+        if (type == Action.class) {
+            return new Arg(name, null, null, null, true);
+        }
+        if (type == Object.class) {
+            return new Arg(name, null, null, null, false);
+        }
+        final Kind kind = Kind.of(type)
+                .orElseThrow(() -> new IllegalStateException(method + ": " + name + " is a " + type.getSimpleName()
+                        + ", which is no kind a message can show"));
+        final Example example = parameter.getAnnotation(Example.class);
+        return new Arg(name, kind.token(), null, example == null ? kind.defaultExample() : example.value(), false);
     }
 
     /** Returns the context types a spec's messages name, plus those of the global roles, by key. */
@@ -237,28 +256,133 @@ public final class MessageSchema {
         return line.length();
     }
 
-    /** Returns the schema as the JSON steward reads. */
+    /** Returns the schema as the JSON steward and every process read. */
     public static String json(final Class<?> spec) {
+        return Json.encode(of(spec)) + "\n";
+    }
+
+    /** Returns the schema of a spec. */
+    public static Bundle of(final Class<?> spec) {
         final Map<String, ContextJson> contexts = new LinkedHashMap<>();
         contextTypes(spec)
-                .forEach((type, context) ->
-                        contexts.put(type, new ContextJson(Contexts.name(context), Contexts.properties(context))));
+                .forEach((type, context) -> contexts.put(
+                        type,
+                        new ContextJson(
+                                Contexts.name(context),
+                                Contexts.attributes(context).stream()
+                                        .map(attribute -> new AttributeJson(
+                                                attribute.name(),
+                                                attribute.kind().token(),
+                                                attribute.example()))
+                                        .toList())));
         final List<GlobalJson> globals = Contexts.GLOBAL_ROLES.stream()
                 .map(role ->
                         new GlobalJson(role, Contexts.type(Objects.requireNonNull(Contexts.GLOBALS.get(role), role))))
                 .toList();
-        return Json.encode(new SchemaJson(bundle(spec), entries(spec), contexts, globals)) + "\n";
+        return new Bundle(bundle(spec), entries(spec), contexts, globals);
     }
 
-    /** The shape of {@code schema.json}. */
-    private record SchemaJson(
-            String bundle, List<Entry> messages, Map<String, ContextJson> contexts, List<GlobalJson> globals) {}
+    /** Reads a {@code schema.json}. */
+    public static Bundle decode(final java.io.Reader json) {
+        return Json.decode(json, Bundle.class);
+    }
 
-    /** A context type as the schema lists it. */
-    private record ContextJson(String name, List<String> properties) {}
+    /**
+     * The shape of {@code schema.json}: every message of a bundle, the context types they name and the globals.
+     *
+     * @param bundle   the bundle
+     * @param messages its messages, in the order of the English file
+     * @param contexts each context type by key
+     * @param globals  the roles every message has
+     */
+    public record Bundle(
+            String bundle, List<Entry> messages, Map<String, ContextJson> contexts, List<GlobalJson> globals) {
 
-    /** A role every message has. */
-    private record GlobalJson(String name, String context) {}
+        /** Returns what {@code entry}'s texts may name, as the one validator reads it. */
+        public Declaration declaration(final Entry entry) {
+            final Map<String, Kind> values = new HashMap<>();
+            final Map<String, String> examples = new HashMap<>();
+            final Set<String> untyped = new HashSet<>();
+            final Set<String> roles = new HashSet<>();
+            final Set<String> actions = new HashSet<>();
+            for (final Arg arg : entry.args()) {
+                if (arg.name() == null) {
+                    continue;
+                }
+                if (arg.action()) {
+                    actions.add(arg.name());
+                    continue;
+                }
+                roles.add(arg.name());
+                if (arg.context() != null) {
+                    expand(arg.name(), arg.context(), values, examples);
+                } else if (arg.kind() == null) {
+                    untyped.add(arg.name());
+                } else {
+                    values.put(arg.name(), Kind.byToken(arg.kind()).orElse(Kind.TEXT));
+                    if (arg.example() != null) {
+                        examples.put(arg.name(), arg.example());
+                    }
+                }
+            }
+            for (final GlobalJson global : globals) {
+                if (!roles.contains(global.name())) {
+                    expand(global.name(), global.context(), values, examples);
+                }
+            }
+            return new Declaration(
+                    values,
+                    untyped,
+                    roles,
+                    actions,
+                    entry.format() == TextFormat.MINIMESSAGE,
+                    entry.shown().limit(),
+                    examples);
+        }
+
+        private void expand(
+                final String role,
+                final String type,
+                final Map<String, Kind> values,
+                final Map<String, String> examples) {
+            final ContextJson context = contexts.get(type);
+            if (context == null) {
+                throw new IllegalStateException(
+                        "the role " + role + " has the type " + type + ", which the schema does not describe");
+            }
+            for (final AttributeJson attribute : context.attributes()) {
+                values.put(
+                        role + "." + attribute.name(),
+                        Kind.byToken(attribute.kind()).orElse(Kind.TEXT));
+                examples.put(role + "." + attribute.name(), attribute.example());
+            }
+        }
+    }
+
+    /**
+     * A context type as the schema lists it.
+     *
+     * @param name       the name an admin reads
+     * @param attributes its attributes, a nested context's dotted
+     */
+    public record ContextJson(String name, List<AttributeJson> attributes) {}
+
+    /**
+     * One attribute of a context type.
+     *
+     * @param name    the attribute, dotted for a nested context's
+     * @param kind    its kind's token
+     * @param example what an editor shows for it
+     */
+    public record AttributeJson(String name, String kind, String example) {}
+
+    /**
+     * A role every message has.
+     *
+     * @param name    the role
+     * @param context its context type
+     */
+    public record GlobalJson(String name, String context) {}
 
     /**
      * Writes {@code <output directory>/messages/<bundle>/schema.json}, refusing a spec {@link MessageSpecCheck} faults.
@@ -276,16 +400,5 @@ public final class MessageSchema {
         final Path file = Path.of(args[1], "messages", bundle(spec), "schema.json");
         Files.createDirectories(file.getParent());
         Files.writeString(file, json(spec), StandardCharsets.UTF_8);
-    }
-
-    /** Placeholder names by kind, for {@link MessageSpecCheck}. */
-    static Map<Boolean, List<String>> argsByKind(final Entry entry) {
-        final Map<Boolean, List<String>> byKind = new LinkedHashMap<>();
-        byKind.put(false, new ArrayList<>());
-        byKind.put(true, new ArrayList<>());
-        entry.args()
-                .forEach(arg -> Objects.requireNonNull(byKind.get(arg.component()), "byKind")
-                        .add(arg.name()));
-        return byKind;
     }
 }

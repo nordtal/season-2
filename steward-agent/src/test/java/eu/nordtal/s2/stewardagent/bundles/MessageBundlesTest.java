@@ -114,11 +114,13 @@ class MessageBundlesTest {
 
     private static final String SCHEMA = """
             {"bundle": "smp", "messages": [
-              {"key": "welcome", "name": "Welcome", "args": [], "section": ["Join"]},
+              {"key": "welcome", "name": "Welcome", "args": [], "section": ["Join"],
+               "format": "MINIMESSAGE", "shown": "CHAT"},
               {"key": "duel.won", "name": "Duel won", "description": "Sent to the winner.",
-               "args": [{"name": "opponent", "component": false}, {"name": "_link", "component": true}],
-               "section": ["Duels", null]}
-            ]}
+               "args": [{"name": "opponent", "kind": "name", "example": "Alex", "action": false},
+                        {"name": "rematch", "action": true}],
+               "section": ["Duels", null], "format": "MINIMESSAGE", "shown": "CHAT"}
+            ], "contexts": {}, "globals": []}
             """;
 
     @Test
@@ -127,7 +129,7 @@ class MessageBundlesTest {
                 configs.resolve("smp/smp-0.9.1.jar"),
                 Map.of(
                         "messages/smp/en.properties",
-                        "welcome=Welcome\nduel.won=You beat {opponent} <_link>\na.typo=Oops\n",
+                        "welcome=Welcome\nduel.won=You beat {opponent} <action:rematch>[Again]</action>\na.typo=Oops\n",
                         "messages/smp/schema.json",
                         SCHEMA));
         final MessageBundleLocation location =
@@ -141,7 +143,11 @@ class MessageBundlesTest {
         final MessageEntry won = entry(bundle, "duel.won");
         assertEquals("Duel won", won.name());
         assertEquals("Sent to the winner.", won.description());
-        assertEquals(List.of(new MessageArg("opponent", false), new MessageArg("_link", true)), won.args());
+        assertEquals(
+                List.of(
+                        new MessageArg("opponent", "name", null, false, "Alex", false),
+                        new MessageArg("rematch", null, null, false, null, true)),
+                won.args());
         assertEquals(Arrays.asList("Duels", null), won.section());
         assertNull(entry(bundle, "a.typo").name());
     }
@@ -149,18 +155,22 @@ class MessageBundlesTest {
     private static final String ROLE_SCHEMA = """
             {"bundle": "smp", "messages": [
               {"key": "duel.won", "name": "Duel won", "format": "MINIMESSAGE", "shown": "TITLE",
-               "args": [{"name": "winner", "component": false, "context": "player"},
-                        {"name": "count", "component": false}],
+               "args": [{"name": "winner", "context": "player", "action": false},
+                        {"name": "count", "kind": "number", "example": "3", "action": false}],
                "section": []}
             ],
-             "contexts": {"player": {"name": "Player", "properties": ["name"]},
-                          "service": {"name": "Service", "properties": ["name"]},
-                          "season": {"name": "Season", "properties": ["number"]}},
+             "contexts": {"player": {"name": "Player", "attributes": [
+                              {"name": "name", "kind": "name", "example": "Alex"},
+                              {"name": "self", "kind": "choice", "example": "false"}]},
+                          "service": {"name": "Service", "attributes": [
+                              {"name": "name", "kind": "text", "example": "smp"}]},
+                          "season": {"name": "Season", "attributes": [
+                              {"name": "number", "kind": "number", "example": "2"}]}},
              "globals": [{"name": "server", "context": "service"}, {"name": "season", "context": "season"}]}
             """;
 
     @Test
-    void aRoleBecomesOnePlaceholderPerPropertyOfItsTypeAndEveryMessageGetsTheGlobals() throws IOException {
+    void aRoleBecomesOnePlaceholderPerAttributeOfItsTypeAndEveryMessageGetsTheGlobals() throws IOException {
         writeJar(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 Map.of(
@@ -174,10 +184,11 @@ class MessageBundlesTest {
 
         assertEquals(
                 List.of(
-                        new MessageArg("winner.name", false, "player", false),
-                        new MessageArg("count", false),
-                        new MessageArg("server.name", false, "service", true),
-                        new MessageArg("season.number", false, "season", true)),
+                        new MessageArg("winner.name", "name", "player", false, "Alex", false),
+                        new MessageArg("winner.self", "choice", "player", false, "false", false),
+                        new MessageArg("count", "number", null, false, "3", false),
+                        new MessageArg("server.name", "text", "service", true, "smp", false),
+                        new MessageArg("season.number", "number", "season", true, "2", false)),
                 won.args());
         assertEquals("MINIMESSAGE", won.format());
         assertEquals("TITLE", won.shown());

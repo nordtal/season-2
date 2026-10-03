@@ -1,5 +1,6 @@
 package eu.nordtal.s2.messagerendering;
 
+import eu.nordtal.s2.messages.Palette;
 import eu.nordtal.s2.messages.Tone;
 import java.util.EnumMap;
 import java.util.Map;
@@ -9,11 +10,11 @@ import net.kyori.adventure.text.format.TextColor;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The five {@link Tone} colours, parsed once and then answered from memory.
+ * The {@link Tone} colours, parsed once and then answered from memory.
  *
  * A value that is not a hex colour is reported once through {@code problems} and replaced by the tone's default.
  */
-public final class ToneColours {
+public final class ToneColours implements Palette {
 
     private static final Map<Tone, TextColor> DEFAULT_MAP = defaults();
 
@@ -60,13 +61,16 @@ public final class ToneColours {
         return Objects.requireNonNull(byTone.get(tone == null ? Tone.NEUTRAL : tone), "colour");
     }
 
+    @Override
+    public String hex(final Tone tone) {
+        return of(tone).asHexString();
+    }
+
     private static Map<Tone, TextColor> defaults() {
         final Map<Tone, TextColor> map = new EnumMap<>(Tone.class);
-        map.put(Tone.GOOD, TextColor.fromHexString("#8ba888"));
-        map.put(Tone.BAD, TextColor.fromHexString("#a8888b"));
-        map.put(Tone.WARN, TextColor.fromHexString("#b08a4a"));
-        map.put(Tone.NEUTRAL, TextColor.fromHexString("#c9c9c9"));
-        map.put(Tone.MUTED, TextColor.fromHexString("#aaaaaa"));
+        for (final Tone tone : Tone.values()) {
+            map.put(tone, Objects.requireNonNull(TextColor.fromHexString(tone.hex()), tone.hex()));
+        }
         return map;
     }
 }

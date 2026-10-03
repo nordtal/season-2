@@ -43,10 +43,11 @@ import eu.nordtal.s2.discordbot.hungergames.RegisterMessages;
 import eu.nordtal.s2.discordbot.hungergames.Teams;
 import eu.nordtal.s2.discordbot.status.StatusChannels;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.context.MessageEnvironment;
+import eu.nordtal.s2.messages.Palette;
 import eu.nordtal.s2.settings.DatabaseSettings;
 import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.settings.SettingsException;
+import eu.nordtal.s2.settings.network.LanguageAndTimeSpec;
 import eu.nordtal.s2.settings.network.NetworkSettings;
 import eu.nordtal.s2.settings.network.SeasonSpec;
 import java.time.Clock;
@@ -133,6 +134,8 @@ public class AccessBot implements AutoCloseable {
             final BotSpec botConfig = BotSettings.bot(settings).get();
             final AccessSpec accessConfig = BotSettings.access(settings).get();
             final SeasonSpec season = settings.load(NetworkSettings.SEASON).get();
+            final LanguageAndTimeSpec languageAndTime =
+                    settings.load(NetworkSettings.LANGUAGE_AND_TIME).get();
             final Tiers tiers =
                     NetworkSettings.tiers(settings.load(NetworkSettings.PRICES).get());
             settings.retireFiles();
@@ -143,7 +146,7 @@ public class AccessBot implements AutoCloseable {
             // steward's inbox: the bot writes requests and reads answers, never updating them.
             final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
 
-            final CoreServices core = loadCoreServices(accessConfig, season, tiers);
+            final CoreServices core = loadCoreServices(accessConfig, season, languageAndTime, tiers);
             this.jda = connectJda(botConfig);
 
             final DiscordWiring wiring = wireDiscord(jda, accessConfig, core, phases);
@@ -205,11 +208,16 @@ public class AccessBot implements AutoCloseable {
         return hub;
     }
 
-    private CoreServices loadCoreServices(final AccessSpec accessConfig, final SeasonSpec season, final Tiers tiers) {
+    private CoreServices loadCoreServices(
+            final AccessSpec accessConfig,
+            final SeasonSpec season,
+            final LanguageAndTimeSpec languageAndTime,
+            final Tiers tiers) {
         final Languages languages = Languages.of(accessConfig);
         final Messages messages = Messages.load(
                         AccessBot.class.getClassLoader(), java.util.List.of(MESSAGE_ROOT), languages.locales())
-                .within(MessageEnvironment.of(SERVICE, NetworkSettings.season(season)));
+                // Discord paints no tones.
+                .within(NetworkSettings.environment(SERVICE, season, languageAndTime, Palette.DEFAULTS));
         // The bunq key lives in steward-bunq; whether payments are on is read here as a row.
         Configured.report(accessConfig, tiers, PaymentGateway.state(database.jdbi()));
         final PaymentRequests requests = new PaymentRequests(database.dataSource());

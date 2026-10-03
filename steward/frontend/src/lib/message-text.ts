@@ -10,13 +10,13 @@ export function overrideOf(entry: MessageEntry, language: Language): string | un
   return language === "en" ? entry.overrideEnglish : entry.overrideGerman
 }
 
-/** How a placeholder is written in a text: `{name}`, or `<name>` for one filled by a component. */
+/** How a placeholder is written in a text: `{name}`, or `<action:name>` around the text of an action. */
 export function tokenOf(arg: MessageArg): string {
-  return arg.component ? `<${arg.name}>` : `{${arg.name}}`
+  return arg.action ? `<action:${arg.name}>` : `{${arg.name}}`
 }
 
 /** Steward's `PLACEHOLDER`: what a spec could declare, so what a typo in one looks like. */
-const DECLARABLE = /\{[A-Za-z0-9_.-]+\}|<_[A-Za-z0-9_-]+>/g
+const DECLARABLE = /\{[A-Za-z0-9_.-]+\}/g
 
 /**
  * The placeholders in `text` its key's spec does not declare, in order, as `Placeholders.unknown`.

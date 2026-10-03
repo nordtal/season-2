@@ -5,6 +5,8 @@ import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.database.payment.Tier;
 import eu.nordtal.s2.database.payment.Tiers;
+import eu.nordtal.s2.messages.Palette;
+import eu.nordtal.s2.messages.context.MessageEnvironment;
 import eu.nordtal.s2.messages.context.SeasonContext;
 import eu.nordtal.s2.settings.Checks;
 import eu.nordtal.s2.settings.Group;
@@ -23,19 +25,13 @@ import java.util.function.Supplier;
 /**
  * The groups every process shares, which an admin changes once for the whole network, and what a valid one is.
  *
- * The players and the MOTD are taken while a process runs; the season and the languages at its next start.
+ * The players are taken while a process runs; the season and the languages at its next start.
  */
 public final class NetworkSettings {
 
     /** How many players the network takes and what they may type. */
     public static final Group<PlayersSpec> PLAYERS = Group.of("players", PlayersSpec.class)
             .checkedBy(NetworkSettings::checkPlayers)
-            .whileRunning()
-            .networkWide();
-
-    /** What the server browser shows in each season phase. */
-    public static final Group<MotdSpec> MOTD = Group.of("motd", MotdSpec.class)
-            .checkedBy(NetworkSettings::checkMotd)
             .whileRunning()
             .networkWide();
 
@@ -133,6 +129,18 @@ public final class NetworkSettings {
         return new SeasonContext(spec.number(), spec.name());
     }
 
+    /**
+     * Returns what every message of the service called {@code service} can name, and how it shows times and tones.
+     * The globals are the service itself, the season and the network.
+     */
+    public static MessageEnvironment environment(
+            final String service,
+            final SeasonSpec season,
+            final LanguageAndTimeSpec languageAndTime,
+            final Palette palette) {
+        return MessageEnvironment.of(service, season(season), zone(languageAndTime), palette);
+    }
+
     /** Returns the zone a date is shown and typed in until a reader has one of their own. */
     public static ZoneId zone(final LanguageAndTimeSpec spec) {
         return ZoneId.of(spec.defaultTimeZone());
@@ -156,19 +164,6 @@ public final class NetworkSettings {
                         + "' is nothing once the slash and namespace are taken off; write a path like 'hg ready'");
             }
         }
-    }
-
-    /**
-     * Refuses an empty MOTD, which the server browser would show as an empty entry.
-     *
-     * @throws IllegalArgumentException naming the first value that is wrong
-     */
-    public static void checkMotd(final MotdSpec spec) {
-        Checks.requireText("pre-launch", spec.preLaunch());
-        Checks.requireText("pre-event", spec.preEvent());
-        Checks.requireText("start-event", spec.startEvent());
-        Checks.requireText("smp", spec.smp());
-        Checks.requireText("maintenance", spec.maintenance());
     }
 
     /**

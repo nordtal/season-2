@@ -1,6 +1,11 @@
 plugins {
     id("nordtal.java-base")
     id("java-library")
+    id("nordtal.message-spec")
+}
+
+messageSpec {
+    specClass.set("eu.nordtal.s2.messages.ValueMessages")
 }
 
 // Every message bundle, which the bundle tests read off the file.

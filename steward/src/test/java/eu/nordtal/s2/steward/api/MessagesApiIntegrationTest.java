@@ -117,13 +117,20 @@ class MessagesApiIntegrationTest {
     void savingALineCreatesTheOverrideAndWarnsButStillSavesWhenAPlaceholderIsDropped() throws Exception {
         writeJar(
                 configs.resolve("smp/smp-0.9.1.jar"),
-                java.util.Map.of("messages/smp/en.properties", "greeting=Hello <_sender>\n"));
+                java.util.Map.of(
+                        "messages/smp/en.properties", "greeting=Hello {player}\n",
+                        "messages/smp/schema.json", """
+                        {"bundle": "smp", "messages": [{"key": "greeting", "name": "Greeting",
+                          "args": [{"name": "player", "kind": "text", "example": "Alex", "action": false}],
+                          "section": [], "format": "MINIMESSAGE", "shown": "CHAT"}],
+                         "contexts": {}, "globals": []}
+                        """));
 
         final JsonObject saved = GSON.fromJson(
                 put("/api/messages/smp/smp", "{\"changes\":{\"greeting\":{\"en\":\"Hello there\"}}}"),
                 JsonObject.class);
 
-        assertTrue(saved.getAsJsonArray("warnings").get(0).getAsString().contains("<_sender>"), saved.toString());
+        assertTrue(saved.getAsJsonArray("warnings").get(0).getAsString().contains("player"), saved.toString());
         assertEquals(
                 "Hello there",
                 entry(saved, "greeting").get("overrideEnglish").getAsString(),
@@ -138,7 +145,9 @@ class MessagesApiIntegrationTest {
                         "messages/smp/en.properties", "greeting=Hello {player}\n",
                         "messages/smp/schema.json", """
                         {"bundle": "smp", "messages": [{"key": "greeting", "name": "Greeting",
-                          "args": [{"name": "player", "component": false}], "section": ["Join"]}]}
+                          "args": [{"name": "player", "kind": "text", "example": "Alex", "action": false}],
+                          "section": ["Join"], "format": "MINIMESSAGE", "shown": "CHAT"}],
+                         "contexts": {}, "globals": []}
                         """));
 
         final HttpResponse<String> refused =

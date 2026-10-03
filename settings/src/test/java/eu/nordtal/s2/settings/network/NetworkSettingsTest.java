@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.RepositoryRoot;
-import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.database.payment.Tier;
 import eu.nordtal.s2.messages.context.SeasonContext;
 import eu.nordtal.s2.settings.Group;
@@ -14,11 +13,9 @@ import eu.nordtal.s2.settings.MemorySettingStore;
 import eu.nordtal.s2.settings.SettingsException;
 import java.nio.file.Files;
 import java.time.ZoneId;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
@@ -110,54 +107,6 @@ class NetworkSettingsTest {
         values.put("max-players", 0);
 
         assertRefused(NetworkSettings.PLAYERS, "max-players");
-    }
-
-    // motd
-
-    @Test
-    void everyPhaseGetsItsOwnMotdRatherThanOneSharedLine() throws Exception {
-        // Two phases sharing a default would make five keys pointless.
-        final MotdSpec motd = checked(NetworkSettings.MOTD);
-        final Set<String> distinct = new HashSet<>();
-        for (final SeasonPhase phase : SeasonPhase.values()) {
-            assertFalse(motdFor(motd, phase).isBlank(), "no MOTD for " + phase);
-            distinct.add(motdFor(motd, phase));
-        }
-        assertEquals(SeasonPhase.values().length, distinct.size(), "two phases ship the same default MOTD");
-    }
-
-    @Test
-    void everyDefaultMotdOpensWithTheOneBrandMark() throws Exception {
-        // One mark, and the phase is what the second line says: a name that changes colour is five marks.
-        final MotdSpec motd = checked(NetworkSettings.MOTD);
-        for (final SeasonPhase phase : SeasonPhase.values()) {
-            final String line = motdFor(motd, phase);
-            assertTrue(line.startsWith(MotdSpec.NORDTAL_BLUE), phase + " opens with its own mark: " + line);
-            assertFalse(line.contains("<gradient:"), phase + " colours the name itself: " + line);
-            assertEquals(line.indexOf("nordtal.eu"), line.lastIndexOf("nordtal.eu"), phase + " repeats the name");
-        }
-    }
-
-    @Test
-    void theBrandColourIsTheLogosBlueLightened() {
-        // The logo's #24357d off resource-pack/src/pack.png, lightened for the server browser's near-black list.
-        assertEquals("<#4a63d8><bold>nordtal.eu</bold></#4a63d8>", MotdSpec.NORDTAL_BLUE);
-    }
-
-    @Test
-    void noDefaultMotdSpellsOutTheSeason() throws Exception {
-        // The season is a setting of its own; a MOTD that names it reads {season}.
-        final MotdSpec motd = checked(NetworkSettings.MOTD);
-        for (final SeasonPhase phase : SeasonPhase.values()) {
-            assertFalse(motdFor(motd, phase).contains("Season 2"), phase + " spells the season out");
-        }
-    }
-
-    @Test
-    void anEmptyMotdIsRefusedRatherThanShownAsAnEmptyServerBrowserEntry() {
-        values.put("pre-launch", "");
-
-        assertRefused(NetworkSettings.MOTD, "pre-launch");
     }
 
     // prices
@@ -322,15 +271,5 @@ class NetworkSettingsTest {
     private void assertRefused(final Group<?> group, final String key) {
         final SettingsException refused = assertThrows(SettingsException.class, () -> checked(group));
         assertTrue(refused.getMessage().contains(key), refused.getMessage());
-    }
-
-    private static String motdFor(final MotdSpec motd, final SeasonPhase phase) {
-        return switch (phase) {
-            case PRE_LAUNCH -> motd.preLaunch();
-            case PRE_EVENT -> motd.preEvent();
-            case START_EVENT -> motd.startEvent();
-            case SMP -> motd.smp();
-            case MAINTENANCE -> motd.maintenance();
-        };
     }
 }

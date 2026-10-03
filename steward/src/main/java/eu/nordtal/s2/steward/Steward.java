@@ -137,7 +137,6 @@ public final class Steward {
             final Setting<AlertsSpec> alerts = StewardSettings.alerts(settings);
             // Steward starts first, so the network's groups are published before any server asks for them.
             settings.load(NetworkSettings.PLAYERS);
-            settings.load(NetworkSettings.MOTD);
             settings.load(NetworkSettings.SEASON);
             final Tiers tiers =
                     NetworkSettings.tiers(settings.load(NetworkSettings.PRICES).get());

@@ -1,5 +1,7 @@
 package eu.nordtal.s2.steward.texts;
 
+import eu.nordtal.s2.database.update.UpdateKind;
+import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.internalapi.agent.ImageResult;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.spec.Arg;
@@ -10,6 +12,7 @@ import eu.nordtal.s2.messages.spec.Name;
 import eu.nordtal.s2.messages.spec.TextFormat;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 
 /**
  * Steward's own texts, English only: the page renders them in the browser and an admin may override any of them.
@@ -39,6 +42,8 @@ public interface StewardTexts {
         Alerts alerts();
 
         Journal journal();
+
+        Operations operations();
 
         @Name("Service")
         interface Service {
@@ -308,6 +313,173 @@ public interface StewardTexts {
 
             @Name("How many")
             MessageRef count(@Arg("count") int count, @Arg("limit") int limit);
+        }
+
+        /** The words of a run's page and of asking for one; a run's own words are the admin bundle's. */
+        @Name("Operations page")
+        interface Operations {
+
+            @Name("A stage on the trail")
+            MessageRef step(@Arg("stage") UpdateReport.Stage stage);
+
+            @Name("Report unreadable")
+            MessageRef reportUnreadable();
+
+            @Name("Nothing written yet")
+            MessageRef nothingWritten();
+
+            @Name("Nothing to do")
+            MessageRef nothingToDo();
+
+            @Name("Saved")
+            MessageRef saved(@Arg("count") int count);
+
+            @Name("Moved")
+            MessageRef moved(@Arg("services") int services, @Arg("artefacts") int artefacts);
+
+            @Name("Failed")
+            MessageRef failed(@Arg("count") int count);
+
+            @Name("No line")
+            MessageRef noLine();
+
+            @Name("No change")
+            MessageRef noChange();
+
+            @Name("Ask for a run")
+            MessageRef ask(@Arg("kind") UpdateKind kind);
+
+            @Name("What a run does")
+            MessageRef askWhat(@Arg("kind") UpdateKind kind);
+
+            @Name("What a run costs")
+            MessageRef askWarning(@Arg("kind") UpdateKind kind);
+
+            @Name("For some services")
+            MessageRef scoped(@Arg("ask") String ask, @Arg("services") List<String> services);
+
+            @Name("Now")
+            MessageRef now();
+
+            @Name("Entered")
+            MessageRef entered(@Arg("kind") String kind, @Arg("run") long run);
+
+            @Name("Cancelled")
+            MessageRef cancelled(@Arg("run") long run);
+
+            @Name("Cancelled, said")
+            MessageRef cancelledNote();
+
+            @Name("Not cancelled")
+            MessageRef notCancelled(@Arg("run") long run);
+
+            @Name("Cancel")
+            MessageRef cancel();
+
+            @Name("A run's title")
+            MessageRef run(@Arg("id") String id);
+
+            @Name("A run")
+            MessageRef aRun();
+
+            @Name("All updates")
+            MessageRef allUpdates();
+
+            @Name("Not a run number")
+            MessageRef notANumber();
+
+            @Name("Not a run number, said")
+            MessageRef notANumberNote(@Arg("id") String id);
+
+            @Name("Status")
+            MessageRef status();
+
+            @Name("Requested by")
+            MessageRef requestedBy();
+
+            @Name("No earlier than")
+            MessageRef noEarlierThan();
+
+            @Name("No earlier than, said")
+            MessageRef noEarlierThanHint();
+
+            @Name("Started")
+            MessageRef started();
+
+            @Name("Duration")
+            MessageRef duration();
+
+            @Name("Still running")
+            MessageRef stillRunning();
+
+            @Name("Nothing to do, as a title")
+            MessageRef nothingToDoTitle();
+
+            @Name("Nothing to do, said")
+            MessageRef nothingToDoNote();
+
+            @Name("Saved nothing")
+            MessageRef savedNothing();
+
+            @Name("Saved nothing, said")
+            MessageRef savedNothingNote();
+
+            @Name("Stages")
+            MessageRef stages();
+
+            @Name("Growing")
+            MessageRef growing();
+
+            @Name("Report")
+            MessageRef report();
+
+            @Name("Raw report")
+            MessageRef rawReport();
+
+            @Name("No report")
+            MessageRef noReport();
+
+            @Name("No report, said")
+            MessageRef noReportNote();
+
+            @Name("No line, as a title")
+            MessageRef noLineTitle();
+
+            @Name("No line, said")
+            MessageRef noLineNote();
+
+            @Name("Service")
+            MessageRef service();
+
+            @Name("State")
+            MessageRef state();
+
+            @Name("Changes")
+            MessageRef changes();
+
+            @Name("No build")
+            MessageRef noBuild();
+
+            @Name("New")
+            MessageRef added();
+
+            @Name("Notes")
+            MessageRef notes();
+
+            @Name("Copied")
+            MessageRef copied();
+
+            @Name("Copy")
+            MessageRef copy();
+
+            @Name("Command copied")
+            MessageRef commandCopied();
+
+            @Name("Cannot copy")
+            MessageRef cannotCopy();
+
+            @Name("Cannot copy, said")
+            MessageRef cannotCopyNote();
         }
     }
 

@@ -388,6 +388,89 @@ export type TextArgs = {
   "steward.journal.subject": Record<string, never>
   "steward.journal.title": Record<string, never>
   "steward.journal.when": Record<string, never>
+  "steward.operations.a-run": Record<string, never>
+  "steward.operations.added": Record<string, never>
+  "steward.operations.all-updates": Record<string, never>
+  "steward.operations.ask": {
+    kind: Arg["choice"]
+  }
+  "steward.operations.ask-warning": {
+    kind: Arg["choice"]
+  }
+  "steward.operations.ask-what": {
+    kind: Arg["choice"]
+  }
+  "steward.operations.cancel": Record<string, never>
+  "steward.operations.cancelled": {
+    run: Arg["number"]
+  }
+  "steward.operations.cancelled-note": Record<string, never>
+  "steward.operations.cannot-copy": Record<string, never>
+  "steward.operations.cannot-copy-note": Record<string, never>
+  "steward.operations.changes": Record<string, never>
+  "steward.operations.command-copied": Record<string, never>
+  "steward.operations.copied": Record<string, never>
+  "steward.operations.copy": Record<string, never>
+  "steward.operations.duration": Record<string, never>
+  "steward.operations.entered": {
+    kind: Arg["text"]
+    run: Arg["number"]
+  }
+  "steward.operations.failed": {
+    count: Arg["number"]
+  }
+  "steward.operations.growing": Record<string, never>
+  "steward.operations.moved": {
+    services: Arg["number"]
+    artefacts: Arg["number"]
+  }
+  "steward.operations.no-build": Record<string, never>
+  "steward.operations.no-change": Record<string, never>
+  "steward.operations.no-earlier-than": Record<string, never>
+  "steward.operations.no-earlier-than-hint": Record<string, never>
+  "steward.operations.no-line": Record<string, never>
+  "steward.operations.no-line-note": Record<string, never>
+  "steward.operations.no-line-title": Record<string, never>
+  "steward.operations.no-report": Record<string, never>
+  "steward.operations.no-report-note": Record<string, never>
+  "steward.operations.not-a-number": Record<string, never>
+  "steward.operations.not-a-number-note": {
+    id: Arg["text"]
+  }
+  "steward.operations.not-cancelled": {
+    run: Arg["number"]
+  }
+  "steward.operations.notes": Record<string, never>
+  "steward.operations.nothing-to-do": Record<string, never>
+  "steward.operations.nothing-to-do-note": Record<string, never>
+  "steward.operations.nothing-to-do-title": Record<string, never>
+  "steward.operations.nothing-written": Record<string, never>
+  "steward.operations.now": Record<string, never>
+  "steward.operations.raw-report": Record<string, never>
+  "steward.operations.report": Record<string, never>
+  "steward.operations.report-unreadable": Record<string, never>
+  "steward.operations.requested-by": Record<string, never>
+  "steward.operations.run": {
+    id: Arg["text"]
+  }
+  "steward.operations.saved": {
+    count: Arg["number"]
+  }
+  "steward.operations.saved-nothing": Record<string, never>
+  "steward.operations.saved-nothing-note": Record<string, never>
+  "steward.operations.scoped": {
+    ask: Arg["text"]
+    services: Arg["list"]
+  }
+  "steward.operations.service": Record<string, never>
+  "steward.operations.stages": Record<string, never>
+  "steward.operations.started": Record<string, never>
+  "steward.operations.state": Record<string, never>
+  "steward.operations.status": Record<string, never>
+  "steward.operations.step": {
+    stage: Arg["choice"]
+  }
+  "steward.operations.still-running": Record<string, never>
   "steward.said.announced": {
     posted: Arg["choice"]
     language: Arg["text"]

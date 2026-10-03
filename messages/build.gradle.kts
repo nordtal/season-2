@@ -5,7 +5,7 @@ plugins {
 }
 
 messageSpec {
-    specClass.set("eu.nordtal.s2.messages.ValueMessages")
+    specClasses.add("eu.nordtal.s2.messages.ValueMessages")
 }
 
 // Every message bundle, which the bundle tests read off the file.
@@ -16,6 +16,7 @@ repositoryRootTestInputs {
     readsTree("paper-common/src/main/resources/messages")
     readsTree("proxy/src/main/resources/messages")
     readsTree("smp/src/main/resources/messages")
+    readsTree("steward/src/main/resources/messages")
 }
 
 dependencies {

@@ -17,6 +17,7 @@ const DATE_TIME = new Intl.DateTimeFormat(LOCALE, {
   timeStyle: "short",
 })
 const TIME = new Intl.DateTimeFormat(LOCALE, { timeStyle: "medium" })
+const SHORT_TIME = new Intl.DateTimeFormat(LOCALE, { timeStyle: "short" })
 const DATE_ONLY = new Intl.DateTimeFormat(LOCALE, { dateStyle: "medium" })
 
 const UNITS = ["B", "kB", "MB", "GB", "TB", "PB"] as const
@@ -79,7 +80,13 @@ export function load(value: number | null | undefined): string {
 /** Cents, as the bunq rows carry them. */
 export function euros(cents: number | null | undefined): string {
   if (cents == null || !Number.isFinite(cents)) return "\u2013"
-  return new Intl.NumberFormat(LOCALE, { style: "currency", currency: "EUR" }).format(cents / 100)
+  return money(cents, "EUR")
+}
+
+/** An amount in its currency's smallest unit, as a money value of a text carries it. */
+export function money(minor: number, currency: string): string {
+  const format = new Intl.NumberFormat(LOCALE, { style: "currency", currency })
+  return format.format(minor / 10 ** (format.resolvedOptions().maximumFractionDigits ?? 2))
 }
 
 /** An instant as the server sends it, or null when it is absent or no instant. */
@@ -99,6 +106,12 @@ export function dateTime(value: string | Date | null | undefined): string {
 export function date(value: string | Date | null | undefined): string {
   const parsed = value instanceof Date ? value : parseInstant(value)
   return parsed == null ? "\u2013" : DATE_ONLY.format(parsed)
+}
+
+/** Hours and minutes, for a time of day in a text. */
+export function time(value: string | Date | null | undefined): string {
+  const parsed = value instanceof Date ? value : parseInstant(value)
+  return parsed == null ? "\u2013" : SHORT_TIME.format(parsed)
 }
 
 /** The clock only, for a log line. */

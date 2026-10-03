@@ -6,6 +6,7 @@ import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.access.PackExemptions;
 import eu.nordtal.s2.database.alert.AlertBook;
 import eu.nordtal.s2.database.game.GameDataStore;
+import eu.nordtal.s2.database.message.MessageOverrideStore;
 import eu.nordtal.s2.database.metric.Metric;
 import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.SignalHub;
@@ -31,6 +32,7 @@ import eu.nordtal.s2.steward.live.LiveFeed;
 import eu.nordtal.s2.steward.live.Topic;
 import eu.nordtal.s2.steward.push.PushSubscriptions;
 import eu.nordtal.s2.steward.push.WebPushSender;
+import eu.nordtal.s2.steward.texts.WebTexts;
 import io.javalin.Javalin;
 import io.javalin.config.JavalinConfig;
 import io.javalin.http.Context;
@@ -136,6 +138,11 @@ public final class Web {
     /** The browser's one live stream, which every page's data follows. */
     private final LiveFeed live;
 
+    /** The page's own texts, which the browser renders and an admin's override changes at once. */
+    private final WebTexts texts = WebTexts.load();
+
+    private final @Nullable MessageOverrideStore overrides;
+
     /** The channels whose signals can change what a page shows; see {@link #listen}. */
     private static final List<Channel> LIVE_CHANNELS = List.of(
             Channel.UPDATE,
@@ -198,12 +205,7 @@ public final class Web {
                         Objects.requireNonNull(localAdmins),
                         data.audit(),
                         ctx -> account(ctx).orElseThrow());
-        this.packExemptionApi = data == null
-                ? null
-                : new PackExemptionApi(
-                        PackExemptions.using(data.dataSource()),
-                        data.audit(),
-                        ctx -> account(ctx).orElseThrow());
+        this.packExemptionApi = packExemptionsOf(data);
         this.authFlow = new AuthFlow(config, discord, data, this.sessions, localAdmins);
         this.updates = new Updates(data, ctx -> account(ctx).orElseThrow());
         this.season = new SeasonRoutes(data, ctx -> account(ctx).orElseThrow());
@@ -230,6 +232,16 @@ public final class Web {
         this.push =
                 new PushEndpoints(this::requireSession, data, localPushSubscriptions, wiring.router(), localVapidKeys);
         this.live = watchLive(data, clock);
+        this.overrides = data == null ? null : MessageOverrideStore.using(data.dataSource());
+    }
+
+    private @Nullable PackExemptionApi packExemptionsOf(final @Nullable Data data) {
+        return data == null
+                ? null
+                : new PackExemptionApi(
+                        PackExemptions.using(data.dataSource()),
+                        data.audit(),
+                        ctx -> account(ctx).orElseThrow());
     }
 
     private static @Nullable WebAuthn webAuthnOver(final WebSpec config, final @Nullable Credentials credentials) {
@@ -314,6 +326,10 @@ public final class Web {
      * Each pass reads everything again, so a missed or doubled signal costs nothing.
      */
     public void listen(final SignalHub hub) {
+        final MessageOverrideStore store = overrides;
+        if (store != null) {
+            store.follow(texts.messages(), hub);
+        }
         final AlertRouter router = alertRouter;
         final AlertMonitor monitor = alertMonitor;
         if (router != null) {
@@ -437,6 +453,8 @@ public final class Web {
         cfg.routes.head("/api/health", this::health, Gate.ANYONE);
 
         cfg.routes.get("/api/me", profile::whoAmI, Gate.ANYONE);
+        // Before signing in too: the sign-in page reads its words from it.
+        cfg.routes.get("/api/texts", texts::serve, Gate.ANYONE);
 
         // Runs in front of every matched endpoint and asks it what it requires; see Gate.
         cfg.routes.beforeMatched(gatekeeper::guard);

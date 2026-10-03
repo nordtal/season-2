@@ -254,7 +254,9 @@ class NothingIsGermanTest {
                             + " test was scanning nothing. Fix the path rather than the assertion.");
             try (Stream<Path> walk = Files.walk(directory)) {
                 walk.filter(Files::isRegularFile)
-                        .filter(path -> path.getFileName().toString().endsWith(".java"))
+                        // The sources, and the English-only bundles of Steward's own texts beside them.
+                        .filter(path -> path.getFileName().toString().endsWith(".java")
+                                || path.getFileName().toString().endsWith(".properties"))
                         .filter(path ->
                                 !ABOUT_GERMAN.contains(path.getFileName().toString()))
                         .forEach(files::add);

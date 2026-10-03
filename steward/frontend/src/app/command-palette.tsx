@@ -31,7 +31,7 @@ import {
 } from "@/lib/settings-search"
 import { bundleFileId, NETWORK } from "@/components/steward/settings"
 import { messageName } from "@/lib/settings-tree"
-import { RUN_KIND, RUN_STATUS } from "@/components/steward/status"
+import { runKind, runStatus } from "@/components/steward/status"
 
 /** Four rows while the documents are read. */
 const WAITING_HITS = [0, 1, 2, 3]
@@ -52,8 +52,8 @@ function runSearchValue(run: Run): string {
   return searchValue(
     `run #${run.id}`,
     [
-      RUN_KIND[run.kind] ?? run.kind,
-      RUN_STATUS[run.status] ?? run.status,
+      runKind(run.kind),
+      runStatus(run.status),
       dateTime(run.requested),
       ...(RUN_KIND_SEARCH_TERMS[run.kind] ?? []),
     ].join(" "),
@@ -198,10 +198,10 @@ export function CommandPalette() {
                 >
                   <ClockCounterClockwiseIcon aria-hidden className="text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate">
-                    Run #{run.id} ({RUN_KIND[run.kind] ?? run.kind})
+                    Run #{run.id} ({runKind(run.kind)})
                   </span>
                   <CommandShortcut className="truncate text-muted-foreground/70">
-                    {RUN_STATUS[run.status] ?? run.status} ({relative(run.requested)})
+                    {runStatus(run.status)} ({relative(run.requested)})
                   </CommandShortcut>
                 </CommandItem>
               ))}

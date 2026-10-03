@@ -1,4 +1,4 @@
-// Writes messages/<bundle>/schema.json from the module's message spec, for steward to show.
+// Writes messages/<bundle>/schema.json from each of the module's message specs, for steward to show.
 // The classpath is the resource source directories, since processed resources would be a cycle.
 
 plugins {
@@ -6,8 +6,8 @@ plugins {
 }
 
 interface MessageSpecExtension {
-    /** The fully qualified name of the module's @MessageSpec interface. */
-    val specClass: Property<String>
+    /** The fully qualified names of the module's @MessageSpec interfaces, one per bundle it ships. */
+    val specClasses: ListProperty<String>
 }
 
 val messageSpec = extensions.create<MessageSpecExtension>("messageSpec")
@@ -16,18 +16,18 @@ val main = the<SourceSetContainer>()["main"]
 
 val messageSchema =
     tasks.register<JavaExec>("messageSchema") {
-        description = "Writes messages/<bundle>/schema.json from the module's message spec."
+        description = "Writes messages/<bundle>/schema.json from each of the module's message specs."
         classpath = main.output.classesDirs + files(main.resources.srcDirs) + main.compileClasspath
         mainClass.set("eu.nordtal.s2.messages.spec.MessageSchema")
-        inputs.property("specClass", messageSpec.specClass)
+        inputs.property("specClasses", messageSpec.specClasses)
         inputs.files(main.output.classesDirs, main.resources.srcDirs)
         outputs.dir(schemaDirectory)
         // Locals, not the script's own properties: a lambda reaching the script cannot be cached.
-        val specClass = messageSpec.specClass
+        val specClasses = messageSpec.specClasses
         val output = schemaDirectory
         argumentProviders.add(
             CommandLineArgumentProvider {
-                listOf(specClass.get(), output.get().asFile.path)
+                listOf(output.get().asFile.path) + specClasses.get()
             },
         )
         doFirst { output.get().asFile.deleteRecursively() }

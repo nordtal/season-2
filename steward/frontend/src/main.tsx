@@ -5,6 +5,7 @@ import { RouterProvider } from "@tanstack/react-router"
 
 import { trackAppFrame } from "@/lib/app-frame"
 import { registerServiceWorker } from "@/lib/push"
+import { loadTexts } from "@/lib/texts"
 import { router } from "@/router"
 import "@/index.css"
 
@@ -35,10 +36,13 @@ registerServiceWorker().catch((error: unknown) => {
 const container = document.getElementById("root")
 if (!container) throw new Error("#root is missing from index.html")
 
-createRoot(container).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
-  </StrictMode>,
-)
+/** Drawn once the texts are read, so an admin's override never flashes the packaged text first. */
+void loadTexts().finally(() => {
+  createRoot(container).render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </StrictMode>,
+  )
+})

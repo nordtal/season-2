@@ -19,7 +19,7 @@ import {
 import type { Icon } from "@phosphor-icons/react"
 import type { Action } from "@/lib/api"
 import { dateTime, relative } from "@/lib/format"
-import { RUN_KIND } from "@/components/steward/status"
+import { runKind } from "@/components/steward/status"
 import { Actor } from "@/components/steward/entity"
 import { Skeleton, SkeletonText } from "@/components/ui/skeleton"
 
@@ -30,7 +30,6 @@ const AUDIT_LABEL: Record<string, string> = {
   LINK: "Account linked",
   UNLINK: "Account unlinked",
   SETTLE: "Payment settled",
-  RECREATE: "Service recreated",
   SET_PHASE: "Phase changed",
   REGISTER_KEY: "Security key added",
   REMOVE_KEY: "Security key removed",
@@ -60,7 +59,7 @@ const KIND_ICON: Record<string, Icon> = {
 }
 
 function labelOf(kind: string): string {
-  return RUN_KIND[kind] ?? AUDIT_LABEL[kind] ?? kind
+  return AUDIT_LABEL[kind] ?? runKind(kind)
 }
 
 function iconOf(kind: string): Icon {

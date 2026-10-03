@@ -25,7 +25,7 @@ import { AskThenAct } from "@/components/steward/ask-then-act"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
 import { Actor } from "@/components/steward/entity"
-import { RUN_KIND, RunStatus, StatusBadge, type Tone } from "@/components/steward/status"
+import { RunStatus, StatusBadge, runKind, type Tone } from "@/components/steward/status"
 import { Empty, Loading, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -284,7 +284,7 @@ export function AskButton({
   const scoped = services !== undefined && services.length > 0
 
   const submit = () =>
-    ask.mutateAsync({ kind, services }).then((run) => toast.success(`${RUN_KIND[kind]} entered as run #${run.id}`))
+    ask.mutateAsync({ kind, services }).then((run) => toast.success(`${runKind(kind)} entered as run #${run.id}`))
 
   return (
     <AskThenAct
@@ -299,10 +299,10 @@ export function AskButton({
             className={className}
             disabled={ask.isPending || lock.locked}
             title={lock.title}
-            aria-label={labelClassName ? (label ?? RUN_KIND[kind]) : undefined}
+            aria-label={labelClassName ? (label ?? runKind(kind)) : undefined}
           >
             <Icon aria-hidden />
-            <span className={labelClassName}>{label ?? RUN_KIND[kind]}</span>
+            <span className={labelClassName}>{label ?? runKind(kind)}</span>
           </Button>
         ) : null
       }
@@ -413,7 +413,7 @@ function RunDetail({ run }: { run?: Run }) {
             <span className="flex flex-col text-xs text-muted-foreground">
               {run ? (
                 <>
-                  <span>{RUN_KIND[run.kind] ?? run.kind}</span>
+                  <span>{runKind(run.kind)}</span>
                 </>
               ) : (
                 <>

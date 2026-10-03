@@ -14,7 +14,7 @@ import { Actor } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { Stat } from "@/components/steward/stat"
-import { AvailableBadge, RUN_KIND, RunStatus } from "@/components/steward/status"
+import { AvailableBadge, RunStatus, runKind } from "@/components/steward/status"
 import { Empty, Failure, Loading, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -315,9 +315,7 @@ function Runs() {
                   <TableCell data-label="When">
                     {run ? dateTime(run.started || run.requested) : <SkeletonText width="long" />}
                   </TableCell>
-                  <TableCell data-label="Kind">
-                    {run ? (RUN_KIND[run.kind] ?? run.kind) : <SkeletonText width="medium" />}
-                  </TableCell>
+                  <TableCell data-label="Kind">{run ? runKind(run.kind) : <SkeletonText width="medium" />}</TableCell>
                   <TableCell data-label="Status">
                     {run ? (
                       <div className="flex items-center gap-1.5" onClick={(event) => event.stopPropagation()}>

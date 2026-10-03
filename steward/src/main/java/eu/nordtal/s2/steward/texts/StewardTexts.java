@@ -36,6 +36,10 @@ public interface StewardTexts {
 
         Said said();
 
+        Alerts alerts();
+
+        Journal journal();
+
         @Name("Service")
         interface Service {
 
@@ -231,6 +235,79 @@ public interface StewardTexts {
 
             @Name("A service's own words")
             MessageRef words(@Arg("text") String text);
+        }
+
+        /** The alerts page's own words; an alert itself is told in the admin bundle. */
+        @Name("Alerts page")
+        interface Alerts {
+
+            @Name("Title")
+            MessageRef title();
+
+            @Name("Now")
+            MessageRef now();
+
+            @Name("Recent")
+            MessageRef recent();
+
+            @Name("Nothing wrong")
+            MessageRef allClear();
+
+            @Name("Nothing raised")
+            MessageRef noneRaised();
+
+            @Name("Stack unreadable")
+            MessageRef unreadable();
+
+            @Name("Raised by")
+            MessageRef raisedBy(@Arg("who") String who);
+        }
+
+        /** The journal page's own words; a line of it is told in the admin bundle. */
+        @Name("Journal page")
+        interface Journal {
+
+            @Name("Title")
+            MessageRef title();
+
+            @Name("Entries")
+            MessageRef entries();
+
+            @Name("Every action")
+            MessageRef all();
+
+            @Name("Subject field")
+            MessageRef subject();
+
+            @Name("Subject placeholder")
+            MessageRef exactId();
+
+            @Name("Filter")
+            MessageRef filter();
+
+            @Name("Reset")
+            MessageRef reset();
+
+            @Name("Nothing matches")
+            MessageRef noEntry();
+
+            @Name("When")
+            MessageRef when();
+
+            @Name("Action")
+            MessageRef action();
+
+            @Name("Triggered by")
+            MessageRef actor();
+
+            @Name("Concerns")
+            MessageRef concerns();
+
+            @Name("Detail")
+            MessageRef detail();
+
+            @Name("How many")
+            MessageRef count(@Arg("count") int count, @Arg("limit") int limit);
         }
     }
 

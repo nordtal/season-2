@@ -100,6 +100,8 @@ pin and no rollback: a bad release is corrected by publishing a better one.
   case (`choice`). A refusal a person meets is a `texts.RequestRefused`: the status, a message of the bundle and the
   code the page branches on, rendered with the overrides by the error handlers, so the page shows the error as it
   comes. What answers a malformed request is read by whoever wrote the client and stays a literal, like a log line.
+  A page's own words are a section of their own, one interface per page beside `texts.StewardTexts`, and the words
+  every settings dialog shares are `texts.Forms`.
   What Steward says back as data, a save's effect, an announcement's line or why the guild cannot be listed, is a
   message the page renders; a server's own answer passes through `steward.said.words` until that server words it.
 - **Game data and pickers.** `GET /api/game-data` serves the union of the servers' catalogues for

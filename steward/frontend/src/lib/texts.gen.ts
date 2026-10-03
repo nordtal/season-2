@@ -364,6 +364,87 @@ export type TextArgs = {
   "steward.artifact.status-tip": {
     status: Arg["choice"]
   }
+  "steward.backup-settings.daily": {
+    days: Arg["number"]
+  }
+  "steward.backup-settings.destination": Record<string, never>
+  "steward.backup-settings.destination-note": Record<string, never>
+  "steward.backup-settings.destination-saved": Record<string, never>
+  "steward.backup-settings.monthly": {
+    months: Arg["number"]
+  }
+  "steward.backup-settings.no-at": Record<string, never>
+  "steward.backup-settings.no-days": Record<string, never>
+  "steward.backup-settings.no-night": Record<string, never>
+  "steward.backup-settings.no-remote": Record<string, never>
+  "steward.backup-settings.no-remote-note": Record<string, never>
+  "steward.backup-settings.retention": {
+    steps: Arg["list"]
+    total: Arg["number"]
+    sweep: Arg["choice"]
+    days: Arg["number"]
+  }
+  "steward.backup-settings.retention-saved": Record<string, never>
+  "steward.backup-settings.schedule-note": Record<string, never>
+  "steward.backup-settings.weekly": {
+    weeks: Arg["number"]
+  }
+  "steward.backups.all-partial": Record<string, never>
+  "steward.backups.archive": Record<string, never>
+  "steward.backups.archives": Record<string, never>
+  "steward.backups.back-up-now": Record<string, never>
+  "steward.backups.backup": {
+    id: Arg["text"]
+  }
+  "steward.backups.choose-archive": Record<string, never>
+  "steward.backups.database": Record<string, never>
+  "steward.backups.database-replaced": Record<string, never>
+  "steward.backups.download": Record<string, never>
+  "steward.backups.download-file": {
+    file: Arg["text"]
+  }
+  "steward.backups.empty-directory": Record<string, never>
+  "steward.backups.holds": {
+    subject: Arg["text"]
+    partial: Arg["choice"]
+  }
+  "steward.backups.holds-column": Record<string, never>
+  "steward.backups.initiated-by": Record<string, never>
+  "steward.backups.latest": Record<string, never>
+  "steward.backups.next": Record<string, never>
+  "steward.backups.no-archive": Record<string, never>
+  "steward.backups.no-clock": Record<string, never>
+  "steward.backups.no-run": Record<string, never>
+  "steward.backups.no-run-note": Record<string, never>
+  "steward.backups.no-such-run": Record<string, never>
+  "steward.backups.no-such-run-note": Record<string, never>
+  "steward.backups.none": Record<string, never>
+  "steward.backups.none-finished": Record<string, never>
+  "steward.backups.not-tracked": Record<string, never>
+  "steward.backups.not-tracked-note": Record<string, never>
+  "steward.backups.nothing-to-restore": Record<string, never>
+  "steward.backups.restore": Record<string, never>
+  "steward.backups.restore-note": Record<string, never>
+  "steward.backups.run": Record<string, never>
+  "steward.backups.runs": Record<string, never>
+  "steward.backups.size": Record<string, never>
+  "steward.backups.status": Record<string, never>
+  "steward.backups.storage": Record<string, never>
+  "steward.backups.title": Record<string, never>
+  "steward.backups.took": Record<string, never>
+  "steward.backups.type": Record<string, never>
+  "steward.backups.unknown": Record<string, never>
+  "steward.backups.volume-replaced": Record<string, never>
+  "steward.backups.when": Record<string, never>
+  "steward.backups.written": Record<string, never>
+  "steward.form.changed": {
+    count: Arg["number"]
+  }
+  "steward.form.changed-meanwhile": Record<string, never>
+  "steward.form.days": Record<string, never>
+  "steward.form.save": Record<string, never>
+  "steward.form.schedule": Record<string, never>
+  "steward.form.schedule-saved": Record<string, never>
   "steward.image.drift": {
     drift: Arg["choice"]
   }
@@ -506,15 +587,10 @@ export type TextArgs = {
   "steward.service.unhealthy": Record<string, never>
   "steward.updates.available": Record<string, never>
   "steward.updates.change": Record<string, never>
-  "steward.updates.changed": {
-    count: Arg["number"]
-  }
-  "steward.updates.changed-meanwhile": Record<string, never>
   "steward.updates.check-again": Record<string, never>
   "steward.updates.check-again-failed": Record<string, never>
   "steward.updates.check-again-tip": Record<string, never>
   "steward.updates.checked": Record<string, never>
-  "steward.updates.days": Record<string, never>
   "steward.updates.incomplete": Record<string, never>
   "steward.updates.initiated-by": Record<string, never>
   "steward.updates.kind": Record<string, never>
@@ -534,10 +610,7 @@ export type TextArgs = {
   "steward.updates.result": Record<string, never>
   "steward.updates.run": Record<string, never>
   "steward.updates.runs": Record<string, never>
-  "steward.updates.save": Record<string, never>
-  "steward.updates.schedule": Record<string, never>
   "steward.updates.schedule-note": Record<string, never>
-  "steward.updates.schedule-saved": Record<string, never>
   "steward.updates.service": Record<string, never>
   "steward.updates.source-silent": Record<string, never>
   "steward.updates.state": Record<string, never>

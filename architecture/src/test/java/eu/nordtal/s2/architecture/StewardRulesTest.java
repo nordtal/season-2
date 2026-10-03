@@ -121,7 +121,7 @@ class StewardRulesTest {
                 .check(classes);
     }
 
-    /** Recreate is the button that must not fetch; deploy is the one that does. */
+    /** Recreate never fetches, deploy does, and a standby fetches only an image this host does not have. */
     @Test
     void recreatingNeverPullsAndDeployingDoes() {
         classes()
@@ -129,6 +129,7 @@ class StewardRulesTest {
                 .should(neverCallFrom("recreate", "Compose#pull"))
                 .andShould(callFrom("recreate", "Compose#hasLocalImage", "Compose#recreate"))
                 .andShould(callFrom("deploy", "Compose#pull"))
+                .andShould(callFrom("standby", "Compose#hasLocalImage", "Compose#pull", "Compose#recreate"))
                 .check(classes);
     }
 }

@@ -54,9 +54,7 @@ public final class BotAccessEffects implements AccessChanges {
                 discordId,
                 messages.format(
                         roles.localeOf(discordId),
-                        MESSAGES.dm()
-                                .grantedSection()
-                                .admin(String.valueOf(days), AccessRoles.timestamp(granted.validUntil()))));
+                        MESSAGES.dm().grantedSection().admin(days, AccessRoles.timestamp(granted.validUntil()))));
 
         admin.record(new AuditLine(
                 "GRANT_ACCESS",

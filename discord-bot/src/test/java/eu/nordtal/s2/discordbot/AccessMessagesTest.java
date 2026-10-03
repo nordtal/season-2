@@ -25,6 +25,21 @@ class AccessMessagesTest {
 
     /** A counted "in 3 days" goes stale once sent; a Discord timestamp counts down in the client. */
     @Test
+    void oneDayIsOneDayInBothLanguages() {
+        final eu.nordtal.s2.messages.Messages bundle = eu.nordtal.s2.messages.Messages.load(
+                "messages/access", java.util.Locale.ENGLISH, java.util.Locale.GERMAN);
+        final AccessMessages.Dm.Granted granted = AccessMessages.MESSAGES.dm().grantedSection();
+
+        assertTrue(
+                bundle.format(java.util.Locale.GERMAN, granted.admin(1, "x")).contains("**1 Tag**"),
+                bundle.format(java.util.Locale.GERMAN, granted.admin(1, "x")));
+        assertTrue(
+                bundle.format(java.util.Locale.ENGLISH, granted.admin(1, "x")).contains("**1 day**"));
+        assertTrue(
+                bundle.format(java.util.Locale.GERMAN, granted.admin(30, "x")).contains("**30 Tage**"));
+    }
+
+    @Test
     void noDeadlineIsCountedOutInWords() throws IOException {
         final Pattern counted = Pattern.compile("\\b(days?|hours?|Tagen?|Stunden?)\\b");
         for (final String tag : List.of("en", "de")) {

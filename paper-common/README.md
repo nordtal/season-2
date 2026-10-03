@@ -30,7 +30,7 @@ What every Nordtal Paper plugin shares, and nothing a single plugin owns.
   each identity that differs, which is how smp redraws a nametag after an aura booking or an admin flag. A
   language chosen mid-session therefore arrives within the minute, not at the next login. The language and zone
   every message is rendered in come from here; an account that chose none reads the network's.
-- **Commands**: the base registers the plugin's root (`/smp`, `/hg`, `/limbo`) with `reload`; a plugin adds its own
-  subcommands. Admin subcommands answer the console only, and the inbox answers the same actions, both through one
+- **Commands**: the base registers the plugin's root (`/smp`, `/hg`), and only when the plugin adds subcommands to
+  it; nothing is reloaded by hand, since a settings change reaches every process on the hub. Admin subcommands answer the console only, and the inbox answers the same actions, both through one
   `Answer` (done, refused or failed) that the console reads in English and Steward as text or a refusal.
 - **Chat and replies**: the five system lines and a reply in the player's language with tone and sound.

@@ -65,12 +65,6 @@ public interface PaperCommonMessages {
     @Name("Admin")
     interface Admin {
 
-        @Name("Reloaded")
-        MessageRef reloaded();
-
-        @Name("Not reloaded")
-        MessageRef notReloaded(@Arg("problems") String problems);
-
         @Name("Confirm")
         MessageRef confirm(@Arg("command") String command);
 

@@ -20,9 +20,7 @@ import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import eu.nordtal.s2.database.online.OnlineDirectory;
 import eu.nordtal.s2.database.online.OnlineRoster;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
@@ -66,8 +64,6 @@ import eu.nordtal.s2.proxy.command.PrivateMessages;
 import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.message.MessageOverrideStore;
 import eu.nordtal.s2.database.notify.SignalHub;
-import eu.nordtal.s2.database.inbox.Outcome;
-import eu.nordtal.s2.database.inbox.Reload;
 import eu.nordtal.s2.proxy.phase.PhaseWatch;
 import eu.nordtal.s2.proxy.online.OnlineWriter;
 import eu.nordtal.s2.proxy.ping.NetworkPing;
@@ -410,7 +406,7 @@ public final class ProxyPlugin {
         if (role.isStandby()) {
             logger.info("THIS IS THE STANDBY PROXY. Arrivals are held in '{}' and transferred back "
                             + "to {} as soon as it answers again; no player counts are written "
-                            + "from here, and proxy_inbox is left to the main proxy.", phaseServers.limboStandby(),
+                            + "from here.", phaseServers.limboStandby(),
                     publicAddress == null ? "nowhere - network#public-address is empty"
                             : publicAddress.getHostString() + ":" + publicAddress.getPort());
         } else if (swap.isArmed()) {
@@ -429,13 +425,6 @@ public final class ProxyPlugin {
                 new CommandGate(roster, NetworkSettings.allowlist(players.get()), messages, logger, () -> colours,
                         eu.nordtal.s2.proxy.feedback.ProxySounds.defaults(logger::warn)));
         logger.info("Players who are not admins may use: {}", players.get().commandAllowlist());
-
-        // A reload of this proxy's live settings, asked for by steward; the main proxy alone answers it.
-        ProxyInbox.open(role, pool, signals, request -> switch (request.payload()) {
-            case Reload reload -> reloadNetwork(players)
-                    ? Outcome.done(english(messages, ProxyMessages.MESSAGES.admin().reloaded()))
-                    : Outcome.failed(english(messages, ProxyMessages.MESSAGES.admin().reloadFailed()));
-        });
 
         // The five a player types, as plain Velocity Brigadier, not admin-only.
         final PrivateMessages privateMessages =
@@ -474,18 +463,12 @@ public final class ProxyPlugin {
         startHeartbeat();
     }
 
-    /**
-     * Takes the network's limit and allowlist again; a refused change keeps what runs.
-     *
-     * @return whether it was taken
-     */
-    private boolean reloadNetwork(final Setting<PlayersSpec> players) {
+    /** Takes the network's limit and allowlist again; a refused change keeps what runs. */
+    private void reloadNetwork(final Setting<PlayersSpec> players) {
         try {
             players.reload();
-            return true;
         } catch (final SettingsException refused) {
             logger.warn("A network setting was not taken, the running one stays: {}", refused.getMessage());
-            return false;
         }
     }
 
@@ -557,11 +540,5 @@ public final class ProxyPlugin {
             pool = null;
         }
         access = null;
-    }
-
-    /** Renders a message as English plain text, the way a request's answer is stored. */
-    private static String english(final Messages messages, final eu.nordtal.s2.messages.MessageRef message) {
-        return PlainTextComponentSerializer.plainText()
-                .serialize(MessageRenderer.of(messages).format(Locale.ENGLISH, message));
     }
 }

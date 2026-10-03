@@ -82,6 +82,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V18__a_player_reads_in_a_language_and_zone_of_their_own.sql",
                 "5582cf14c510c3a593a44a4fab8055a510d0a99e4d052071bebf0a15f1c49d19");
+        FROZEN.put(
+                "V19__a_server_is_never_asked_to_reload.sql",
+                "fc25769b00b0ffd55762fd2282faf8e2ccdfb2e4bee52370222e970725a893a2");
     }
 
     @Test

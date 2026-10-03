@@ -9,7 +9,6 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
-import eu.nordtal.s2.database.inbox.Reload;
 import eu.nordtal.s2.database.inbox.SmpRequest;
 import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.papercommon.command.Answer;
@@ -262,7 +261,6 @@ public final class SmpPlugin extends NordtalPlugin {
         // Surfaces are drawn far more often than their data changes, so they re-read only on its signal.
         hub().on(Channel.SMP, "the boards and HUD", this::refreshSurfaceData);
         answer(SmpRequest.TABLE, request -> switch (request) {
-            case Reload reload -> reloadAnswer();
             case SmpRequest.CompleteObjective complete -> admin.completeObjective(complete.key());
             case SmpRequest.UnlockMilestone unlock -> admin.unlockMilestone(unlock.key());
         });

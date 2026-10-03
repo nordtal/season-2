@@ -4,7 +4,7 @@ import eu.nordtal.s2.database.notify.Channel;
 import java.util.Objects;
 
 /** What the SMP can be asked to do by another process; each record is one kind. */
-public sealed interface SmpRequest permits Reload, SmpRequest.CompleteObjective, SmpRequest.UnlockMilestone {
+public sealed interface SmpRequest permits SmpRequest.CompleteObjective, SmpRequest.UnlockMilestone {
 
     /** The SMP's inbox table. */
     InboxTable<SmpRequest> TABLE = InboxTable.of("smp_inbox", Channel.SERVER, SmpRequest.class);

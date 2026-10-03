@@ -19,7 +19,7 @@ import org.bukkit.entity.Player;
  */
 public final class SmpSounds {
 
-    /** Volatile because {@code /smp reload} swaps the whole registry while players are clicking. */
+    /** Volatile because a settings change swaps the whole registry while players are clicking. */
     private volatile FeedbackSounds sounds;
 
     private final Consumer<String> problems;
@@ -35,7 +35,7 @@ public final class SmpSounds {
     }
 
     /**
-     * Re-reads an already-reloaded {@code sounds} group, after {@code /smp reload}.
+     * Re-reads an already-reloaded {@code sounds} group, after the settings signal.
      *
      * A category switched off by {@link FeedbackSounds#failed} comes back, and switches off again if it still throws.
      */

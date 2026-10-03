@@ -48,7 +48,7 @@ public final class ObjectiveEngine {
 
     private final Plugin plugin;
     private final SmpDao dao;
-    /** The milestone track, as a supplier, because {@code /smp reload} replaces it. */
+    /** The milestone track, as a supplier, because a settings change replaces it. */
     private final java.util.function.Supplier<MilestoneTrack> track;
 
     private final SeasonState season;

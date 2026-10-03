@@ -36,7 +36,7 @@ public final class NpcListener implements Listener {
     private final Plugin plugin;
     private final SmpDao dao;
     private final SpawnNpc npc;
-    /** The milestone track, as a supplier, because {@code /smp reload} replaces it mid-season. */
+    /** The milestone track, as a supplier, because a settings change replaces it mid-season. */
     private final java.util.function.Supplier<MilestoneTrack> track;
 
     private final ObjectiveEngine engine;

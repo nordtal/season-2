@@ -31,7 +31,7 @@ public final class StatisticPoller {
     private static final long PERIOD_TICKS = 100L;
 
     private final Plugin plugin;
-    /** The milestone track, as a supplier, because {@code /smp reload} replaces it. */
+    /** The milestone track, as a supplier, because a settings change replaces it. */
     private final java.util.function.Supplier<MilestoneTrack> track;
 
     private final ObjectiveEngine engine;

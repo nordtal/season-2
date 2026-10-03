@@ -27,11 +27,11 @@ public final class PlayerComposition {
 
     private final Supplier<Prestige> prestige;
 
-    /** A supplier, because {@code /smp reload} replaces the colour table. */
+    /** A supplier, because a settings change replaces the colour table. */
     private final Supplier<PrestigeColours> colours;
 
     public PlayerComposition(final Supplier<Prestige> prestige, final Supplier<PrestigeColours> colours) {
-        // A supplier: the prestige group is re-read by /smp reload, so this table is asked for fresh each time.
+        // A supplier: the prestige group is re-read on a settings change, so this table is asked for fresh each time.
         this.prestige = Objects.requireNonNull(prestige, "prestige");
         this.colours = Objects.requireNonNull(colours, "colours");
     }

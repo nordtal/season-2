@@ -362,18 +362,6 @@ public interface ProxyMessages {
 
     Command command();
 
-    Admin admin();
-
-    @Name("Admin")
-    interface Admin {
-
-        @Name("Reloaded")
-        MessageRef reloaded();
-
-        @Name("Reload failed")
-        MessageRef reloadFailed();
-    }
-
     @Name("Command")
     interface Command {
 

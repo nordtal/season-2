@@ -7,13 +7,7 @@ public final class Inboxes {
 
     /** One table per consumer. */
     public static final List<InboxTable<?>> ALL = List.of(
-            StewardRequest.TABLE,
-            BotRequest.TABLE,
-            SmpRequest.TABLE,
-            HungerGamesRequest.TABLE,
-            LimboRequest.TABLE,
-            ProxyRequest.TABLE,
-            BankRequest.TABLE);
+            StewardRequest.TABLE, BotRequest.TABLE, SmpRequest.TABLE, HungerGamesRequest.TABLE, BankRequest.TABLE);
 
     private Inboxes() {}
 }

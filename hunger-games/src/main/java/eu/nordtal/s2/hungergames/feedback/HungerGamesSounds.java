@@ -18,7 +18,7 @@ import org.jspecify.annotations.Nullable;
  */
 public final class HungerGamesSounds {
 
-    /** Volatile because {@code /hg reload} swaps the whole registry mid-game. */
+    /** Volatile because a settings change swaps the whole registry mid-game. */
     private volatile FeedbackSounds sounds;
 
     private final Consumer<String> problems;
@@ -34,7 +34,7 @@ public final class HungerGamesSounds {
     }
 
     /**
-     * Re-reads an already-reloaded {@code sounds} group, after {@code /hg reload}.
+     * Re-reads an already-reloaded {@code sounds} group, after the settings signal.
      *
      * A category switched off by {@link FeedbackSounds#failed} comes back, and switches off again if it still throws.
      */

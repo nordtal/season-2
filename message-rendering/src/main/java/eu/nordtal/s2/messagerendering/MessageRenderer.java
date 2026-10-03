@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.ServiceLoader;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.minimessage.Context;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -40,6 +41,11 @@ public final class MessageRenderer {
 
     /** The tag a value is inserted by; its one argument is the value's index. */
     private static final String VALUE_TAG = "nordtal-value";
+
+    /** Where a list's leading items and its last stand in the joint, characters no bundle text holds. */
+    private static final char REST_MARK = '\u0001';
+
+    private static final char LAST_MARK = '\u0002';
 
     private static final List<GlyphNames> GLYPHS = load(GlyphNames.class);
 
@@ -241,6 +247,7 @@ public final class MessageRenderer {
             return switch (filled.kind()) {
                 case DISPLAY_NAME -> name((DisplayName) value, "plain".equals(filled.style()));
                 case ITEM -> content((GameContent) value);
+                case LIST -> list((List<?>) value, "or".equals(filled.style()));
                 case GLYPH -> {
                     final Component glyph = glyph(((Glyph) value).name());
                     yield glyph == null ? Component.empty() : glyph;
@@ -253,23 +260,66 @@ public final class MessageRenderer {
         private Component content(final GameContent content) {
             final List<Component> filled = new ArrayList<>(content.args().size());
             for (final Object arg : content.args()) {
-                filled.add(
-                        switch (arg) {
-                            case final GameContent inner -> content(inner);
-                            case final DisplayName name -> name(name, false);
-                            default -> {
-                                final Kind kind = Kind.ofValue(arg).orElse(Kind.TEXT);
-                                yield Component.text(ValueText.of(
-                                        kind == Kind.LIST ? Kind.TEXT : kind,
-                                        kind == Kind.LIST ? String.valueOf(arg) : arg,
-                                        null,
-                                        prepared.language(),
-                                        prepared.zone(),
-                                        prepared.words()));
-                            }
-                        });
+                filled.add(item(arg));
             }
             return Component.translatable(content.key(), content.english(), filled);
+        }
+
+        /** A list joined with the reader's words, each item a component of its own kind, so a game name stays one. */
+        private Component list(final List<?> items, final boolean or) {
+            if (items.isEmpty()) {
+                return Component.text(prepared.words().missing(Kind.LIST));
+            }
+            final List<Component> shown = new ArrayList<>(items.size());
+            for (final Object item : items) {
+                shown.add(item(item));
+            }
+            if (shown.size() == 1) {
+                return shown.getFirst();
+            }
+            final Component rest = Component.join(
+                    JoinConfiguration.separator(Component.text(", ")), shown.subList(0, shown.size() - 1));
+            // The joint is the bundle's plain text, so the two parts stand in it as markers and are put back here.
+            final String joint = prepared.words()
+                    .word(
+                            or ? "list.or" : "list.and",
+                            Map.of("rest", String.valueOf(REST_MARK), "last", String.valueOf(LAST_MARK)));
+            final List<Component> parts = new ArrayList<>();
+            final StringBuilder text = new StringBuilder();
+            for (int index = 0; index < joint.length(); index++) {
+                final char c = joint.charAt(index);
+                if (c != REST_MARK && c != LAST_MARK) {
+                    text.append(c);
+                    continue;
+                }
+                if (!text.isEmpty()) {
+                    parts.add(Component.text(text.toString()));
+                    text.setLength(0);
+                }
+                parts.add(c == REST_MARK ? rest : shown.getLast());
+            }
+            if (!text.isEmpty()) {
+                parts.add(Component.text(text.toString()));
+            }
+            return Component.textOfChildren(parts.toArray(Component[]::new));
+        }
+
+        /** One value inside another, a game line's argument or a list's item, as a component of its kind. */
+        private Component item(final Object value) {
+            return switch (value) {
+                case final GameContent inner -> content(inner);
+                case final DisplayName name -> name(name, false);
+                default -> {
+                    final Kind kind = Kind.ofValue(value).orElse(Kind.TEXT);
+                    yield Component.text(ValueText.of(
+                            kind == Kind.LIST ? Kind.TEXT : kind,
+                            kind == Kind.LIST ? String.valueOf(value) : value,
+                            null,
+                            prepared.language(),
+                            prepared.zone(),
+                            prepared.words()));
+                }
+            };
         }
 
         private Component name(final DisplayName name, final boolean plain) {

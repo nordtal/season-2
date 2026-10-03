@@ -3,7 +3,8 @@
 Messages as Adventure components, for Paper and Velocity code only. `MessageRenderer` is the
 Minecraft target of the one message core in `:messages`: it writes the text's own MiniMessage and
 inserts every value as a component of its kind, never as characters spliced into the markup, so
-nothing a player typed can open a tag. A tone tag is painted from the process's palette
+nothing a player typed can open a tag. A list's items and a game line's arguments stay components
+of their own kinds too, so a list of items is still the client's to name. A tone tag is painted from the process's palette
 (`ToneColours`, parsed from its `colours` group), and `<action:name>` becomes a click on the command
 the code bound to that name.
 

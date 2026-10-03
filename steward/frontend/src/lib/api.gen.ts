@@ -775,7 +775,7 @@ export type ConfigReference = {
   optional: boolean
 }
 
-export type ReloadStatus = "APPLIED" | "NO_ANSWER" | "RESTART_REQUIRED"
+export type ReloadStatus = "APPLIED" | "RESTART_REQUIRED"
 
 export type MessageArg = {
   name: string

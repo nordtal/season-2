@@ -552,6 +552,67 @@ export type TextArgs = {
     stage: Arg["choice"]
   }
   "steward.operations.still-running": Record<string, never>
+  "steward.payments.all": Record<string, never>
+  "steward.payments.amount": Record<string, never>
+  "steward.payments.created": {
+    at: Arg["instant"]
+  }
+  "steward.payments.days": Record<string, never>
+  "steward.payments.deadline": Record<string, never>
+  "steward.payments.donation": Record<string, never>
+  "steward.payments.no-payment": {
+    reference: Arg["text"]
+  }
+  "steward.payments.no-request": Record<string, never>
+  "steward.payments.no-request-note": Record<string, never>
+  "steward.payments.no-tab": Record<string, never>
+  "steward.payments.none-with-status": Record<string, never>
+  "steward.payments.none-with-status-note": Record<string, never>
+  "steward.payments.not-open": {
+    reference: Arg["text"]
+  }
+  "steward.payments.not-open-note": {
+    was: Arg["text"]
+  }
+  "steward.payments.not-the-balance": Record<string, never>
+  "steward.payments.nothing-booked": Record<string, never>
+  "steward.payments.nothing-settled": Record<string, never>
+  "steward.payments.open": Record<string, never>
+  "steward.payments.overdue": Record<string, never>
+  "steward.payments.overdue-note": {
+    count: Arg["number"]
+  }
+  "steward.payments.overdue-tip": Record<string, never>
+  "steward.payments.paid": Record<string, never>
+  "steward.payments.past-deadline": {
+    count: Arg["number"]
+  }
+  "steward.payments.person": Record<string, never>
+  "steward.payments.reference": Record<string, never>
+  "steward.payments.requested": Record<string, never>
+  "steward.payments.requested-hint": Record<string, never>
+  "steward.payments.requests": Record<string, never>
+  "steward.payments.settle": Record<string, never>
+  "steward.payments.settle-ask": Record<string, never>
+  "steward.payments.settle-note": {
+    reference: Arg["text"]
+  }
+  "steward.payments.settled": {
+    reference: Arg["text"]
+  }
+  "steward.payments.settled-note": {
+    days: Arg["number"]
+    until: Arg["instant"]
+  }
+  "steward.payments.state": {
+    status: Arg["choice"]
+  }
+  "steward.payments.state-tip": {
+    status: Arg["choice"]
+  }
+  "steward.payments.status": Record<string, never>
+  "steward.payments.tab": Record<string, never>
+  "steward.payments.title": Record<string, never>
   "steward.said.announced": {
     posted: Arg["choice"]
     language: Arg["text"]

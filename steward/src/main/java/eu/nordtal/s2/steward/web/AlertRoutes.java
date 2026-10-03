@@ -1,11 +1,14 @@
 package eu.nordtal.s2.steward.web;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.alert.AlertBook;
 import eu.nordtal.s2.database.alert.AlertChannel;
 import eu.nordtal.s2.database.alert.AlertType;
 import eu.nordtal.s2.database.alert.RaisedAlert;
 import eu.nordtal.s2.database.audit.AuditDirectory;
+import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.steward.alert.AlertMonitor;
 import eu.nordtal.s2.steward.alert.AlertPreferences;
 import eu.nordtal.s2.steward.auth.Sessions;
@@ -114,8 +117,8 @@ final class AlertRoutes {
         preferences().set(who.signedInDiscordId(), type, channel, body.enabled);
         if (audit != null) {
             audit.record(who.ownLine(
-                    "SET_ALERT_PREFERENCE",
-                    Map.of("alert", type.key(), "channel", channel.key(), "enabled", body.enabled)));
+                    JournalAction.SET_ALERT_PREFERENCE,
+                    TEXTS.journal().setAlertPreference(type, channel, body.enabled)));
         }
         ctx.json(new AlertPreference(type, channel, body.enabled));
     }

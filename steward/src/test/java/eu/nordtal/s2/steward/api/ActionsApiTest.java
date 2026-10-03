@@ -2,12 +2,12 @@ package eu.nordtal.s2.steward.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.google.gson.JsonObject;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.audit.AuditEntry;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateStatus;
+import eu.nordtal.s2.messages.MessageRef;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -32,7 +32,8 @@ class ActionsApiTest {
     }
 
     private static AuditEntry audit(final Instant occurred, final String action) {
-        return new AuditEntry(UUID.randomUUID(), occurred, action, Actor.STEWARD, null, null, new JsonObject());
+        return new AuditEntry(
+                UUID.randomUUID(), occurred, action, Actor.STEWARD, null, null, MessageRef.of("journal.link"));
     }
 
     @Test

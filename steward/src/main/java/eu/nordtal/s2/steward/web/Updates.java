@@ -1,8 +1,11 @@
 package eu.nordtal.s2.steward.web;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.DatabaseText;
 import eu.nordtal.s2.database.audit.AuditLine;
+import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
@@ -18,7 +21,6 @@ import io.javalin.http.NotFoundResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -112,13 +114,10 @@ final class Updates {
         }
         data().audit()
                 .record(AuditLine.of(
-                        "CANCEL_RUN",
+                        JournalAction.CANCEL_RUN,
                         who.actor(),
-                        Map.of(
-                                "run",
-                                cancelled.get().id(),
-                                "kind",
-                                cancelled.get().kind().name())));
+                        TEXTS.journal()
+                                .cancelRun(cancelled.get().id(), cancelled.get().kind())));
         log.info(
                 "{} cancelled {} request {}",
                 who.name(),

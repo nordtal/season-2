@@ -85,8 +85,10 @@ class RecreateRunTest extends WebTestSupport {
         assertEquals(
                 2,
                 journalledBy(snowflake, "ANNOUNCE")
-                        .getAsJsonObject("facts")
-                        .getAsJsonArray("languages")
+                        .getAsJsonObject("line")
+                        .getAsJsonObject("args")
+                        .getAsJsonObject("languages")
+                        .getAsJsonArray("value")
                         .size(),
                 "the line names the languages it went out in, never the asker's name");
 

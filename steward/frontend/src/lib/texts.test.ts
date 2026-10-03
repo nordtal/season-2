@@ -59,8 +59,8 @@ describe("the web target", () => {
 
   it("chooses on an enum constant as Java names it", () => {
     expect(choice("REMOVE_PLUGIN")).toBe("remove-plugin")
-    expect(t("steward.run.kind", { kind: choice("REMOVE_PLUGIN") })).toBe("Remove plugin")
-    expect(t("steward.run.kind", { kind: choice("SOMETHING_NEW") })).toBe("something-new")
+    expect(t("run.kind", { kind: choice("REMOVE_PLUGIN") })).toBe("Remove plugin")
+    expect(t("run.kind", { kind: choice("SOMETHING_NEW") })).toBe("something-new")
   })
 
   it("shows an admin's override once Steward serves it, and the key where there is no text at all", () => {

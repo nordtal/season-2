@@ -1,6 +1,9 @@
 package eu.nordtal.s2.steward.web;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import eu.nordtal.s2.database.alert.AlertType;
+import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.steward.alert.AlertRouter;
 import eu.nordtal.s2.steward.auth.Sessions;
 import eu.nordtal.s2.steward.data.Data;
@@ -10,7 +13,6 @@ import io.javalin.http.Context;
 import io.javalin.http.NotFoundResponse;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
@@ -82,7 +84,9 @@ final class PushEndpoints {
                         body.keys.p256dh,
                         body.keys.auth,
                         ctx.header("User-Agent"));
-        data().audit().record(who.ownLine("WEB_PUSH_SUBSCRIBE", Map.of()));
+        data().audit()
+                .record(who.ownLine(
+                        JournalAction.WEB_PUSH_SUBSCRIBE, TEXTS.journal().webPushSubscribe()));
         ctx.status(204);
     }
 
@@ -96,7 +100,9 @@ final class PushEndpoints {
         if (!pushSubscriptions().unsubscribe(who.signedInDiscordId(), body.endpoint)) {
             throw new NotFoundResponse("this account has no web push subscription of that endpoint");
         }
-        data().audit().record(who.ownLine("WEB_PUSH_UNSUBSCRIBE", Map.of()));
+        data().audit()
+                .record(who.ownLine(
+                        JournalAction.WEB_PUSH_UNSUBSCRIBE, TEXTS.journal().webPushUnsubscribe()));
         ctx.status(204);
     }
 
@@ -154,7 +160,8 @@ final class PushEndpoints {
             throw new BadRequestResponse(
                     "the push service did not accept it - see the log of" + " steward for what it said");
         }
-        data().audit().record(who.ownLine("WEB_PUSH_TEST", Map.of("alert", type.key())));
+        data().audit()
+                .record(who.ownLine(JournalAction.WEB_PUSH_TEST, TEXTS.journal().webPushTest(type)));
         ctx.status(204);
     }
 

@@ -1,5 +1,7 @@
 package eu.nordtal.s2.database.payment;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AccessGrant;
@@ -7,10 +9,10 @@ import eu.nordtal.s2.database.access.AccessSource;
 import eu.nordtal.s2.database.access.Grants;
 import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.audit.Journal;
+import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import eu.nordtal.s2.messages.value.Money;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -25,9 +27,6 @@ import org.jspecify.annotations.Nullable;
  * steward is the one caller, for money its poll matched and for an admin's booking by hand alike.
  */
 public final class Bookings {
-
-    /** The journal's action for a booking, by the poll or by hand. */
-    public static final String ACTION = "SETTLE";
 
     private final Jdbi jdbi;
     private final Inbox<BotRequest> bot;
@@ -143,17 +142,20 @@ public final class Bookings {
 
     private static AuditLine journalLine(
             final PaymentRequest request, final Arrival arrival, final Tiers.Settlement settlement, final Actor by) {
-        final Map<String, Object> facts = new LinkedHashMap<>();
-        facts.put("reference", request.reference());
-        facts.put("matchedBy", arrival.matchedBy().name());
-        if (arrival.bunqPaymentId() != null) {
-            facts.put("bunqPayment", arrival.bunqPaymentId());
-            facts.put("receivedCents", arrival.receivedCents());
-        }
-        facts.put("orderedDays", request.days());
-        facts.put("days", settlement.days());
-        facts.put("donationCents", settlement.donationCents());
-        facts.put("downgraded", settlement.downgraded());
-        return AuditLine.about(ACTION, by, request.discordId(), facts);
+        final Money donation = Money.euroCents(settlement.donationCents());
+        return AuditLine.about(
+                JournalAction.SETTLE,
+                by,
+                request.discordId(),
+                arrival.receivedCents() == null
+                        ? TEXTS.journal().settleByHand(request.reference(), settlement.days(), request.days(), donation)
+                        : TEXTS.journal()
+                                .settle(
+                                        request.reference(),
+                                        arrival.matchedBy(),
+                                        settlement.days(),
+                                        request.days(),
+                                        Money.euroCents(arrival.receivedCents()),
+                                        donation));
     }
 }

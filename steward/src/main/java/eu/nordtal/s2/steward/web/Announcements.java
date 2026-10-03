@@ -1,10 +1,13 @@
 package eu.nordtal.s2.steward.web;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.audit.AuditLine;
+import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.InboxStatus;
@@ -105,7 +108,10 @@ final class Announcements {
                         new BotRequest.Announce(checked),
                         who.actor(),
                         Schedule.within(PATIENCE),
-                        AuditLine.of("ANNOUNCE", who.actor(), Map.of("languages", List.copyOf(checked.keySet()))));
+                        AuditLine.of(
+                                JournalAction.ANNOUNCE,
+                                who.actor(),
+                                TEXTS.journal().announce(List.copyOf(checked.keySet()))));
         final Map<String, String> ids = new LinkedHashMap<>();
         checked.keySet().forEach(tag -> ids.put(tag, "announce:" + asked.id() + ":" + tag));
         ctx.status(202).json(new AnnouncementsAsked(ids));

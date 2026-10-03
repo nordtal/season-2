@@ -63,7 +63,9 @@ pin and no rollback: a bad release is corrected by publishing a better one.
   through the agent. There is no offsite copy.
 - **The journal.** Every route that changes something writes its line through `:database`'s `Journal` with the
   signed-in admin as a structured actor (`DiscordAuth.Account.actor()`, `Sessions.Session.ownLine` for one's own
-  keys and browsers) and typed facts. The Access page draws the actor as a profile and the facts by key.
+  keys and browsers) and the line as a message of the admin bundle. The Journal page draws the actor as a profile and
+  renders the line and its action through the web target; the actions feed carries a run's label and extent the same
+  way.
 - **The live stream.** A signed-in browser holds one `GET /api/live` (`KEY_HELD`), an SSE stream of
   `change` events whose data is `{topic, version}`: a topic of `live.Topic` and a short hash of its new
   answer, never the answer itself. The browser refetches what the topic covers from the route that owns

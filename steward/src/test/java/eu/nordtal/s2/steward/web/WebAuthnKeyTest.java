@@ -73,8 +73,10 @@ class WebAuthnKeyTest extends WebTestSupport {
             assertEquals(
                     "YubiKey blau",
                     journalledBy("770000000000000002", "REGISTER_KEY")
-                            .getAsJsonObject("facts")
-                            .get("label")
+                            .getAsJsonObject("line")
+                            .getAsJsonObject("args")
+                            .getAsJsonObject("label")
+                            .get("value")
                             .getAsString());
         } finally {
             memberId.set("1");

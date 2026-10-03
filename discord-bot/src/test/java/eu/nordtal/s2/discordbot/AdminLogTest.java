@@ -1,21 +1,38 @@
 package eu.nordtal.s2.discordbot;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.alert.AlertBook;
 import eu.nordtal.s2.database.alert.AlertType;
 import eu.nordtal.s2.database.alert.RaisedAlert;
+import eu.nordtal.s2.database.audit.AuditLine;
+import eu.nordtal.s2.database.audit.JournalAction;
+import eu.nordtal.s2.messages.Messages;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
+import net.dv8tion.jda.api.entities.MessageEmbed;
 import org.junit.jupiter.api.Test;
 
-/** The bot raises an alert as a row for steward to route, and draws one steward routed back with its mentions. */
+/**
+ * The bot raises alerts as rows, draws the ones steward routes back, and posts its journal lines as cards.
+ *
+ * An alert is a row for steward to route and comes back with its mentions; a journal line is rendered by the admin
+ * bundle.
+ */
 class AdminLogTest {
+
+    private static final DiscordRenderer ADMIN = DiscordRenderer.of(
+            Messages.load(AdminLogTest.class.getClassLoader(), List.of("messages/admin"), Locale.ENGLISH));
 
     private static final Alert DM = new Alert(
             AlertType.BOT, Alert.Level.WARN, "direct message", "A direct message was not delivered", "", "/access");
@@ -93,5 +110,45 @@ class AdminLogTest {
         assertEquals("🛑", AdminLog.emoji(Alert.Level.DOWN));
         assertEquals("⚠️", AdminLog.emoji(Alert.Level.WARN));
         assertEquals("✅", AdminLog.emoji(Alert.Level.OK));
+    }
+
+    @Test
+    void aJournalLineIsItsActionTheLineAndWhoWasInvolved() {
+        final MessageEmbed card = AdminLog.card(
+                ADMIN,
+                new AuditLine(
+                        JournalAction.GRANT_ACCESS,
+                        Actor.STEWARD,
+                        DiscordId.of("400000000000000002"),
+                        UUID.fromString("00000000-0000-0000-0000-000000000001"),
+                        TEXTS.journal().grantAccess(30, Instant.parse("2026-11-02T10:00:00Z"))));
+
+        assertEquals("🎟️ Access granted", card.getTitle());
+        assertEquals("30 days of access, until <t:1793613600:D>.", card.getDescription());
+        assertEquals(
+                List.of(
+                        "By: Steward",
+                        "Concerns: <@400000000000000002>",
+                        "Minecraft: `00000000-0000-0000-0000-000000000001`"),
+                card.getFields().stream()
+                        .map(field -> field.getName() + ": " + field.getValue())
+                        .toList());
+    }
+
+    @Test
+    void aValueInAJournalLineIsEscapedNeverMarkdown() {
+        final MessageEmbed card = AdminLog.card(
+                ADMIN,
+                AuditLine.of(
+                        JournalAction.REGISTER_KEY,
+                        Actor.person(DiscordId.of("400000000000000001")),
+                        TEXTS.journal().registerKey("*bold*")));
+
+        assertEquals("📝 Security key added", card.getTitle());
+        assertEquals("Added the security key \"\\*bold\\*\".", card.getDescription());
+        assertEquals(
+                "By: <@400000000000000001>",
+                card.getFields().getFirst().getName() + ": "
+                        + card.getFields().getFirst().getValue());
     }
 }

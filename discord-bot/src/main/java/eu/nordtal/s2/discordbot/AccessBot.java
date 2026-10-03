@@ -81,6 +81,9 @@ public class AccessBot implements AutoCloseable {
     /** Classpath root of the message bundles, one {@code <tag>.properties} per language. */
     private static final String MESSAGE_ROOT = "messages/access";
 
+    /** The admin texts the bot shares with Steward: the journal, the run words. English only. */
+    private static final String ADMIN_ROOT = "messages/admin";
+
     /** The name {@code {server.name}} reads in this process. */
     private static final String SERVICE = "discord-bot";
 
@@ -218,10 +221,12 @@ public class AccessBot implements AutoCloseable {
             final LanguageAndTimeSpec languageAndTime,
             final Tiers tiers) {
         final Languages languages = Languages.of(accessConfig);
-        final DiscordRenderer messages = DiscordRenderer.of(
-                Messages.load(AccessBot.class.getClassLoader(), java.util.List.of(MESSAGE_ROOT), languages.locales())
-                        // Discord paints no tones.
-                        .within(NetworkSettings.environment(SERVICE, season, languageAndTime, Palette.DEFAULTS)));
+        final DiscordRenderer messages = DiscordRenderer.of(Messages.load(
+                        AccessBot.class.getClassLoader(),
+                        java.util.List.of(MESSAGE_ROOT, ADMIN_ROOT),
+                        languages.locales())
+                // Discord paints no tones.
+                .within(NetworkSettings.environment(SERVICE, season, languageAndTime, Palette.DEFAULTS)));
         // The bunq key lives in steward-bunq; whether payments are on is read here as a row.
         Configured.report(accessConfig, tiers, PaymentGateway.state(database.jdbi()));
         final PaymentRequests requests = new PaymentRequests(database.dataSource());
@@ -247,7 +252,8 @@ public class AccessBot implements AutoCloseable {
 
     private DiscordWiring wireDiscord(
             final JDA jda, final AccessSpec accessConfig, final CoreServices core, final PhaseDirectory phases) {
-        final AdminLog admin = new AdminLog(jda, accessConfig, database.jdbi(), AlertBook.using(database.dataSource()));
+        final AdminLog admin = new AdminLog(
+                jda, accessConfig, database.jdbi(), AlertBook.using(database.dataSource()), core.messages());
         // A period sold while season_phase.smp_start is NULL starts now rather than at the SMP opening.
         final SeasonStart seasonStart = new SeasonStart(phases, admin);
         final AccessRoles roles =

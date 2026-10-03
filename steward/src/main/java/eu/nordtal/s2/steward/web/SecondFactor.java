@@ -1,7 +1,10 @@
 package eu.nordtal.s2.steward.web;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import com.yubico.webauthn.data.ByteArray;
 import com.yubico.webauthn.data.exception.Base64UrlException;
+import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.steward.auth.Credentials;
 import eu.nordtal.s2.steward.auth.Sessions;
 import eu.nordtal.s2.steward.auth.WebAuthn;
@@ -160,7 +163,8 @@ final class SecondFactor {
         }
         // Registering a key is holding it.
         sessions().markVerified(who.id());
-        data().audit().record(who.ownLine("REGISTER_KEY", Map.of("label", key.label())));
+        data().audit()
+                .record(who.ownLine(JournalAction.REGISTER_KEY, TEXTS.journal().registerKey(key.label())));
         ctx.json(new KeyRegistered(key.label(), key.userVerified(), key.backedUp()));
     }
 
@@ -220,7 +224,9 @@ final class SecondFactor {
             return;
         }
         sessions().markVerified(who.id());
-        data().audit().record(who.ownLine("HELD_KEY", Map.of("label", held.label(), "unlocked", held.userVerified())));
+        data().audit()
+                .record(who.ownLine(
+                        JournalAction.HELD_KEY, TEXTS.journal().heldKey(held.label(), held.userVerified())));
         ctx.json(held);
     }
 
@@ -246,7 +252,8 @@ final class SecondFactor {
         if (!credentials().rename(who.signedInDiscordId(), keyIdOf(ctx), label)) {
             throw new NotFoundResponse("this account has no key of that id");
         }
-        data().audit().record(who.ownLine("RENAME_KEY", Map.of("label", label)));
+        data().audit()
+                .record(who.ownLine(JournalAction.RENAME_KEY, TEXTS.journal().renameKey(label)));
         ctx.json(new KeyRenamed(label));
     }
 
@@ -263,7 +270,8 @@ final class SecondFactor {
             throw new NotFoundResponse("this account has no key of that id");
         }
         final int left = credentials().of(who.signedInDiscordId()).size();
-        data().audit().record(who.ownLine("REMOVE_KEY", Map.of("label", label, "left", left)));
+        data().audit()
+                .record(who.ownLine(JournalAction.REMOVE_KEY, TEXTS.journal().removeKey(label, left)));
         ctx.json(new KeyRemoved(label, left));
     }
 }

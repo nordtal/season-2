@@ -1,7 +1,5 @@
 package eu.nordtal.s2.steward.texts;
 
-import eu.nordtal.s2.database.update.UpdateKind;
-import eu.nordtal.s2.database.update.UpdateStatus;
 import eu.nordtal.s2.internalapi.agent.ImageResult;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.spec.Arg;
@@ -28,8 +26,6 @@ public interface StewardTexts {
         Artifact artifact();
 
         Image image();
-
-        Run run();
 
         @Name("Service")
         interface Service {
@@ -80,16 +76,6 @@ public interface StewardTexts {
 
             @Name("Image")
             MessageRef label();
-        }
-
-        @Name("Run")
-        interface Run {
-
-            @Name("Run kind")
-            MessageRef kind(@Arg("kind") UpdateKind kind);
-
-            @Name("Run status")
-            MessageRef status(@Arg("status") UpdateStatus status);
         }
     }
 

@@ -1,19 +1,21 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AccessGrant;
 import eu.nordtal.s2.database.access.AccessSource;
-import eu.nordtal.s2.database.access.PlaytimeWording;
 import eu.nordtal.s2.database.audit.AuditLine;
+import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.DiscordRenderer;
 import eu.nordtal.s2.discordbot.access.SeasonStart;
 import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
+import java.time.Duration;
 import java.time.Instant;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -44,7 +46,7 @@ public final class BotAccessEffects implements AccessChanges {
         this.messages = messages;
     }
 
-    /** Grants access: the row, the role, the direct message and the admin channel line. */
+    /** Grants access: the row, the role, the direct message and the journal line, which the admin channel shows. */
     @Override
     public Instant grant(final DiscordId discordId, final int days, final Actor by) {
         final AccessGrant granted = access.grantAccess(discordId, days, AccessSource.ADMIN, null);
@@ -56,16 +58,8 @@ public final class BotAccessEffects implements AccessChanges {
                         roles.localeOf(discordId),
                         MESSAGES.dm().grantedSection().admin(days, granted.validUntil())));
 
-        admin.record(new AuditLine(
-                "GRANT_ACCESS",
-                by.filed(),
-                discordId,
-                by.minecraftUuid(),
-                Map.of("days", days, "until", granted.validUntil())));
-        admin.note(
-                "🎟️ Access granted",
-                by.mention() + " → <@" + discordId + "> " + days + " days, until "
-                        + AccessRoles.timestamp(granted.validUntil()));
+        admin.record(AuditLine.about(
+                JournalAction.GRANT_ACCESS, by, discordId, TEXTS.journal().grantAccess(days, granted.validUntil())));
         return granted.validUntil();
     }
 
@@ -80,9 +74,8 @@ public final class BotAccessEffects implements AccessChanges {
                     messages.format(roles.localeOf(discordId), MESSAGES.dm().revoked()));
         }
 
-        admin.record(
-                new AuditLine("REVOKE_ACCESS", by.filed(), discordId, by.minecraftUuid(), Map.of("grants", revoked)));
-        admin.note("🚫 Access revoked", by.mention() + " → <@" + discordId + ">, " + revoked + " grants");
+        admin.record(AuditLine.about(
+                JournalAction.REVOKE_ACCESS, by, discordId, TEXTS.journal().revokeAccess(revoked)));
         return revoked;
     }
 
@@ -94,11 +87,12 @@ public final class BotAccessEffects implements AccessChanges {
         if (!access.unlink(discordId)) {
             return false;
         }
-        admin.record(new AuditLine("UNLINK", by.filed(), discordId, linked.orElse(null), Map.of("selfService", false)));
-        admin.note(
-                "✂️ Unlinked",
-                by.mention() + " → <@" + discordId + "> `"
-                        + linked.map(UUID::toString).orElse("?") + "`");
+        admin.record(new AuditLine(
+                JournalAction.UNLINK,
+                by,
+                discordId,
+                linked.orElse(null),
+                TEXTS.journal().unlink(false)));
         return true;
     }
 
@@ -110,8 +104,7 @@ public final class BotAccessEffects implements AccessChanges {
     @Override
     public void setPlaytime(final DiscordId discordId, final long seconds, final Actor by) {
         access.setPlaytimeSeconds(discordId, seconds);
-        admin.record(
-                new AuditLine("SET_PLAYTIME", by.filed(), discordId, by.minecraftUuid(), Map.of("seconds", seconds)));
-        admin.note("⏱️ Play time set", by.mention() + " → <@" + discordId + "> " + PlaytimeWording.of(seconds));
+        admin.record(AuditLine.about(
+                JournalAction.SET_PLAYTIME, by, discordId, TEXTS.journal().setPlaytime(Duration.ofSeconds(seconds))));
     }
 }

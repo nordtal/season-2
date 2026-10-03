@@ -24,7 +24,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * Nothing in steward, steward-agent, steward-bunq, their deploy script or the compose file is German.
+ * Nothing in steward, steward-agent, steward-bunq, the admin texts, their deploy script or the compose file is German.
  *
  * The word list is the German bundle minus the English one, plus {@code language-rules.json}, matched by stem.
  */
@@ -40,6 +40,7 @@ class NothingIsGermanTest {
             "steward-agent/README.md",
             "steward-bunq/README.md",
             "internal-api/README.md",
+            "database/src/main/resources/messages/admin/en.properties",
             "deploy/README.md",
             "compose.yml");
 

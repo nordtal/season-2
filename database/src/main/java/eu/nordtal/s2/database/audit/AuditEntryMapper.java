@@ -3,9 +3,11 @@ package eu.nordtal.s2.database.audit;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.messages.MessageJson;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import org.jdbi.v3.core.mapper.RowMapper;
@@ -28,7 +30,6 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
                 Actor.of(Objects.requireNonNull(rs.getString("actor_kind"), "actor_kind"), rs.getString("actor_id")),
                 DiscordId.ofNullable(rs.getString("subject")),
                 rs.getObject("mc_uuid", UUID.class),
-                Json.tree(Objects.requireNonNull(rs.getString("facts"), "facts"))
-                        .getAsJsonObject());
+                MessageJson.decode(Json.decode(Objects.requireNonNull(rs.getString("line"), "line"), Map.class)));
     }
 }

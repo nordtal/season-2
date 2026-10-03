@@ -41,11 +41,14 @@ class PhaseDirectoryIntegrationTest {
 
     private static final String ADMIN_ID = "300000000000000001";
     private static final Actor ADMIN = Actor.person(DiscordId.of(ADMIN_ID));
-    private static final String LINE = """
-            action || '|' || actor_kind || '|' || coalesce(actor_id, '-') || '|' || (facts ->> 'from') || ' -> '
-                || (facts ->> 'to') || coalesce(' (' || (facts ->> 'reason') || ')', '')""";
-    private static final String CHANGE = "(facts ->> 'from') || ' -> ' || (facts ->> 'to')"
-            + " || coalesce(' (' || (facts ->> 'reason') || ')', '')";
+
+    /** A phase line's change, its choices read back as the constants they name. */
+    private static final String CHANGE = "upper(replace(line -> 'args' -> 'from' ->> 'value', '-', '_')) || ' -> '"
+            + " || upper(replace(line -> 'args' -> 'to' ->> 'value', '-', '_'))"
+            + " || coalesce(' (' || (line -> 'args' -> 'reason' ->> 'value') || ')', '')";
+
+    private static final String LINE =
+            "action || '|' || actor_kind || '|' || coalesce(actor_id, '-') || '|' || " + CHANGE;
     private static DataSource dataSource;
 
     private PhaseDirectory phases;
@@ -356,9 +359,9 @@ class PhaseDirectoryIntegrationTest {
         assertEquals(1, change.accounts());
         assertEquals(
                 List.of("SET_SMP_START|1|true"),
-                query(
-                        "SELECT action || '|' || (facts ->> 'movedGrants') || '|' || (facts -> 'from' IS NULL AND facts -> 'to' IS NOT NULL)"
-                                + " FROM audit_log"),
+                query("SELECT action || '|' || (line -> 'args' -> 'movedGrants' ->> 'value') || '|'"
+                        + " || (line -> 'args' -> 'from' IS NULL AND line -> 'args' -> 'to' IS NOT NULL)"
+                        + " FROM audit_log"),
                 "the journal keeps the moved grants as a number and leaves out the date that was not set");
         assertWithinSeconds(opening, validFrom(DiscordId.of("400000000000000001")), 2);
         assertWithinSeconds(opening.plus(Duration.ofDays(30)), validUntil(DiscordId.of("400000000000000001")), 2);

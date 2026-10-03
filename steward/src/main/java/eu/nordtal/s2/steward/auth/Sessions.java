@@ -4,12 +4,13 @@ import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.audit.AuditLine;
+import eu.nordtal.s2.database.audit.JournalAction;
+import eu.nordtal.s2.messages.MessageRef;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import javax.sql.DataSource;
@@ -177,8 +178,8 @@ public final class Sessions {
         }
 
         /** Returns a journal line about something this person did to their own account. */
-        public AuditLine ownLine(final String action, final Map<String, Object> facts) {
-            return AuditLine.about(action, Actor.person(signedInDiscordId()), signedInDiscordId(), facts);
+        public AuditLine ownLine(final JournalAction action, final MessageRef line) {
+            return AuditLine.about(action, Actor.person(signedInDiscordId()), signedInDiscordId(), line);
         }
 
         public String signedInDisplayName() {

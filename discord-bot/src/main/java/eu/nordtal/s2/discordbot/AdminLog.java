@@ -1,14 +1,23 @@
 package eu.nordtal.s2.discordbot;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.alert.AlertBook;
 import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.audit.Journal;
+import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.Configured;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.value.Mention;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -28,16 +37,31 @@ public final class AdminLog {
 
     static final String RAISED_BY = "discord-bot";
 
+    /** The mark of a journal line in the admin channel; an action not listed here is posted with a pencil. */
+    private static final Map<JournalAction, String> MARKS = Map.of(
+            JournalAction.GRANT_ACCESS, "🎟️",
+            JournalAction.REVOKE_ACCESS, "🚫",
+            JournalAction.LINK, "🔗",
+            JournalAction.UNLINK, "✂️",
+            JournalAction.SET_PLAYTIME, "⏱️");
+
     private final JDA jda;
     private final AccessSpec config;
     private final Jdbi jdbi;
     private final AlertBook alerts;
+    private final DiscordRenderer texts;
 
-    public AdminLog(final JDA jda, final AccessSpec config, final Jdbi jdbi, final AlertBook alerts) {
+    public AdminLog(
+            final JDA jda,
+            final AccessSpec config,
+            final Jdbi jdbi,
+            final AlertBook alerts,
+            final DiscordRenderer texts) {
         this.jda = jda;
         this.config = config;
         this.jdbi = jdbi;
         this.alerts = alerts;
+        this.texts = texts;
     }
 
     /** Raises something an admin must act on; steward routes it to push and back here, and this never throws. */
@@ -113,13 +137,46 @@ public final class AdminLog {
                         failure -> log.error("Could not edit admin-channel message {}", messageId, failure));
     }
 
-    /** Writes one journal line, and never throws: the action it records has already happened. */
+    /**
+     * Writes one journal line and posts it to the admin channel, and never throws.
+     *
+     * The action it records has already happened. The card renders the message the journal stores, so both agree.
+     */
     public void record(final AuditLine line) {
         try {
             jdbi.useHandle(handle -> Journal.write(handle, line));
         } catch (final RuntimeException exception) {
-            log.error("Could not write the audit_log row for {} {}", line.action(), line.facts(), exception);
+            log.error("Could not write the audit_log row for {} {}", line.action(), line.line(), exception);
         }
+        send(null, card(texts, line));
+    }
+
+    /** Draws a journal line: its action as the title, the line, who did it and whom it concerns. */
+    static MessageEmbed card(final DiscordRenderer texts, final AuditLine line) {
+        final Card card = Card.of(MARKS.getOrDefault(line.action(), "📝") + " "
+                        + texts.format(Locales.DEFAULT, TEXTS.journal().action(line.action())))
+                .lead(texts.format(Locales.DEFAULT, line.line()))
+                .field(
+                        texts.format(Locales.DEFAULT, TEXTS.journal().by()),
+                        texts.format(Locales.DEFAULT, actor(line.actor())));
+        final DiscordId subject = line.subject();
+        if (subject != null) {
+            card.field(
+                    texts.format(Locales.DEFAULT, TEXTS.journal().concerns()),
+                    texts.format(Locales.DEFAULT, actor(Actor.person(subject))));
+        }
+        final UUID account = line.mcUuid();
+        if (account != null) {
+            card.field(texts.format(Locales.DEFAULT, TEXTS.journal().minecraft()), "`" + account + "`");
+        }
+        return card.build();
+    }
+
+    private static MessageRef actor(final Actor actor) {
+        final DiscordId person = actor.person();
+        return person == null
+                ? TEXTS.journal().actor(actor.kind())
+                : TEXTS.journal().person(new Mention(person, person.value()));
     }
 
     private @Nullable MessageChannel channel() {

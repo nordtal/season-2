@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.Outcome;
@@ -42,7 +43,7 @@ public final class BotInbox implements Inbox.Handler<BotRequest> {
 
     @Override
     public Outcome handle(final Request<BotRequest> request) {
-        final Actor by = Actor.asked(request.actor());
+        final Actor by = request.actor();
         return switch (request.payload()) {
             case BotRequest.Grant grant -> {
                 final Instant until = effects.grant(grant.person(), grant.days(), by);

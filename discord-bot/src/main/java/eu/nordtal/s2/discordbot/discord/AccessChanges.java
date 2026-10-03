@@ -1,10 +1,11 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.id.DiscordId;
 import java.time.Instant;
 
 /**
- * The access changes as the bot carries them out, for a caller with only an {@link Actor}.
+ * The access changes as the bot carries them out, each filed under the {@link Actor} who asked.
  *
  * It is what {@link BotInbox} dispatches to, so the inbox is testable without JDA.
  */

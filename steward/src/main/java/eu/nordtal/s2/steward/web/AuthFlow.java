@@ -1,8 +1,11 @@
 package eu.nordtal.s2.steward.web;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.audit.AuditLine;
+import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.auth.Sessions;
 import eu.nordtal.s2.steward.config.WebSpec;
@@ -112,7 +115,12 @@ final class AuthFlow {
                 "{} ({}) signed in while nobody was an admin and is now the root of the admin tree",
                 who.name(),
                 who.id());
-        data().audit().record(AuditLine.about("ADMIN_ROOT", who.actor(), DiscordId.of(who.id()), Map.of()));
+        data().audit()
+                .record(AuditLine.about(
+                        JournalAction.ADMIN_ROOT,
+                        who.actor(),
+                        DiscordId.of(who.id()),
+                        TEXTS.journal().adminRoot()));
         return true;
     }
 

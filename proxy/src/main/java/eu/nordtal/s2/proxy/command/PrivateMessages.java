@@ -20,6 +20,7 @@ import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.packrendering.Glyphs;
+import eu.nordtal.s2.packrendering.LanguageFlags;
 import eu.nordtal.s2.proxy.ProxyMessages;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
 import java.util.List;
@@ -186,7 +187,7 @@ public final class PrivateMessages {
      * @param about the other person, whose name, flag and admin tag are shown
      */
     Component line(final Half half, final Locale reader, final Player about, final String text) {
-        final String flag = Glyphs.flagFor(localeOf(about));
+        final String flag = LanguageFlags.of(localeOf(about));
         // A component, so the text never reaches the MiniMessage parser.
         final Component message = Component.text(text);
         final ProxyMessages.Chat.Msg msg = ProxyMessages.MESSAGES.chat().msg();

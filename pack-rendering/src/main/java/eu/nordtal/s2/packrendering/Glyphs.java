@@ -52,28 +52,6 @@ public final class Glyphs {
     public static final String FLAG_UNITED_KINGDOM = cp(0xFE013);
     public static final String FLAG_UNITED_STATES = cp(0xFE014);
 
-    /**
-     * Returns the flag drawn beside a player's name for a language.
-     * {@code en} without a country maps to the United Kingdom, and anything unmapped, null included, to the neutral
-     * flag.
-     */
-    public static String flagFor(final java.util.Locale locale) {
-        if (locale == null) {
-            return FLAG_OTHER;
-        }
-        final String language = locale.getLanguage();
-        if ("de".equals(language)) {
-            return FLAG_GERMANY;
-        }
-        if ("nl".equals(language)) {
-            return FLAG_NETHERLANDS;
-        }
-        if ("en".equals(language)) {
-            return "US".equals(locale.getCountry()) ? FLAG_UNITED_STATES : FLAG_UNITED_KINGDOM;
-        }
-        return FLAG_OTHER;
-    }
-
     // Logo assets, U+FE020..U+FE02F
     public static final String LOGO_HEIGHT_24 = cp(0xFE020);
     public static final String LOGO_HEIGHT_32 = cp(0xFE021);
@@ -442,7 +420,4 @@ public final class Glyphs {
     /** The same six, for the lower card row. */
     public static final List<String> GUI_BAR_FILL_BOTTOM =
             List.of(cp(0xFE218), cp(0xFE219), cp(0xFE21A), cp(0xFE21B), cp(0xFE21C), cp(0xFE21D));
-
-    /** The widths {@link #GUI_BAR_FILL_TOP} draws, in the same order. */
-    public static final List<Integer> GUI_BAR_FILL_WIDTHS = List.of(1, 2, 4, 8, 16, 32);
 }

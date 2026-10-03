@@ -87,6 +87,20 @@ class OverrideCheckTest {
             final @Nullable String shown,
             final List<MessageArg> args) {
         return new MessageEntry(
-                "key", "smp", "text", null, null, null, null, null, true, name, null, args, List.of(), format, shown);
+                "key",
+                "smp",
+                "text",
+                null,
+                List.of("text"),
+                List.of(),
+                null,
+                null,
+                true,
+                name,
+                null,
+                args,
+                List.of(),
+                format,
+                shown);
     }
 }

@@ -85,6 +85,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V19__a_server_is_never_asked_to_reload.sql",
                 "fc25769b00b0ffd55762fd2282faf8e2ccdfb2e4bee52370222e970725a893a2");
+        FROZEN.put(
+                "V20__an_override_keeps_the_text_it_replaced.sql",
+                "e45ee47a8231c142f97e7a9a13f17f4ac02be7b57927dac425f697a39681da12");
     }
 
     @Test

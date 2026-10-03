@@ -10,6 +10,7 @@ import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.messages.MessageOverride;
 import eu.nordtal.s2.messages.PackagedTexts;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.junit.jupiter.api.Test;
@@ -24,8 +25,8 @@ class MessageOverrideStoreIntegrationTest {
         final TestDatabase database = TestDatabase.fresh();
         final MessageOverrideStore steward = MessageOverrideStore.using(database.dataSourceAs(DatabaseRole.STEWARD));
         final String replaced = PackagedTexts.hash(List.of("Hallo {name}!"));
-        steward.change("smp", "tab.footer", "de", List.of("Moin", "Servus"), replaced, ADMIN);
-        steward.change("proxy", "motd", "en", List.of("Hi"), null, Actor.STEWARD);
+        steward.change("smp", "tab.footer", "de", List.of("Moin", "Servus"), List.of("Hallo {name}!"), ADMIN);
+        steward.change("proxy", "motd", "en", List.of("Hi"), List.of(), Actor.STEWARD);
 
         assertEquals(
                 List.of(
@@ -36,13 +37,26 @@ class MessageOverrideStoreIntegrationTest {
     }
 
     @Test
+    void anOverrideKeepsThePackagedTextsItReplacedForStewardToShowOnceTheyChange() {
+        final MessageOverrideStore steward =
+                MessageOverrideStore.using(TestDatabase.fresh().dataSourceAs(DatabaseRole.STEWARD));
+        steward.change("smp", "tab.footer", "de", List.of("Moin", "Servus"), List.of("Hallo", "Hi {name}"), ADMIN);
+        steward.change("proxy", "motd", "de", List.of("Moin"), List.of(), ADMIN);
+
+        assertEquals(
+                Map.of("smp/tab.footer/de", List.of("Hallo", "Hi {name}")),
+                steward.originals(Set.of("smp", "proxy")),
+                "one entry per key and language, not per variant, and none where nothing was replaced");
+    }
+
+    @Test
     void aChangeReplacesTheVariantsAsOneSetAndNoneRemovesTheOverride() {
         final MessageOverrideStore store =
                 MessageOverrideStore.using(TestDatabase.fresh().dataSource());
-        store.change("limbo", "waiting", "en", List.of("a", "b", "c"), null, ADMIN);
-        store.change("limbo", "waiting", "en", List.of("d"), null, ADMIN);
-        store.change("limbo", "waiting", "de", List.of("e"), null, ADMIN);
-        store.change("limbo", "waiting", "de", List.of(), null, ADMIN);
+        store.change("limbo", "waiting", "en", List.of("a", "b", "c"), List.of(), ADMIN);
+        store.change("limbo", "waiting", "en", List.of("d"), List.of(), ADMIN);
+        store.change("limbo", "waiting", "de", List.of("e"), List.of(), ADMIN);
+        store.change("limbo", "waiting", "de", List.of(), List.of(), ADMIN);
 
         assertEquals(
                 List.of(new MessageOverride("limbo", "waiting", "en", 0, "d", null)), store.overrides(Set.of("limbo")));
@@ -55,6 +69,6 @@ class MessageOverrideStoreIntegrationTest {
         assertThrows(
                 UnableToExecuteStatementException.class,
                 () -> MessageOverrideStore.using(database.dataSourceAs(DatabaseRole.SMP))
-                        .change("smp", "tab.footer", "de", List.of("Moin"), null, Actor.HOST));
+                        .change("smp", "tab.footer", "de", List.of("Moin"), List.of(), Actor.HOST));
     }
 }

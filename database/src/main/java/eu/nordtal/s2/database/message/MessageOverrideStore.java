@@ -7,8 +7,8 @@ import eu.nordtal.s2.messages.MessageOverride;
 import eu.nordtal.s2.messages.Messages;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import javax.sql.DataSource;
-import org.jspecify.annotations.Nullable;
 
 /**
  * Where an admin's message overrides are stored, network-wide: one row per bundle, key, language and variant.
@@ -40,10 +40,17 @@ public interface MessageOverrideStore {
     List<MessageOverride> overrides(Collection<String> bundles);
 
     /**
+     * Returns the packaged texts each override of these bundles replaced, by {@code bundle/key/language}.
+     * Steward shows them beside a text a release changed; a key and language whose override replaced none is absent.
+     */
+    Map<String, List<String>> originals(Collection<String> bundles);
+
+    /**
      * Replaces the texts of one key in one language as one set of variants, and signals the bundle.
      *
      * @param texts    the variants in order; empty removes the override, so the packaged texts apply again
-     * @param replaced the {@code PackagedTexts.hash} of the packaged texts the override replaces, {@code null} for none
+     * @param original the packaged texts the override replaces, in order, empty where the language has none; their
+     *                 hash is what tells every process later that a release changed them
      */
-    void change(String bundle, String key, String language, List<String> texts, @Nullable String replaced, Actor actor);
+    void change(String bundle, String key, String language, List<String> texts, List<String> original, Actor actor);
 }

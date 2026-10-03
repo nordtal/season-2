@@ -250,7 +250,7 @@ public final class Messages {
     /**
      * Layers an admin's overrides over the packaged bundles, replacing the rows layered before.
      * A key's rows in a language replace its packaged variants there, a former name's where the current has none;
-     * a row naming no declared key is left out, and one the validator refuses is left out with a warning.
+     * a row naming no declared key is left out, and a stale or refused one is left out with a warning.
      */
     public void override(final List<MessageOverride> rows) {
         final List<MessageOverride> taken = List.copyOf(rows);
@@ -260,12 +260,12 @@ public final class Messages {
     }
 
     private Map<String, Map<String, List<MessageText>>> compose(final List<MessageOverride> rows) {
-        // Bundle/key to language to variant to text, so a key's variants are replaced as one.
-        final Map<String, Map<String, Map<Integer, String>>> stored = new HashMap<>();
+        // Bundle/key to language to variant to row, so a key's variants are replaced as one.
+        final Map<String, Map<String, Map<Integer, MessageOverride>>> stored = new HashMap<>();
         for (final MessageOverride row : rows) {
             stored.computeIfAbsent(row.bundle() + "/" + row.key(), ignored -> new HashMap<>())
                     .computeIfAbsent(row.language(), ignored -> new TreeMap<>())
-                    .put(row.variant(), row.text());
+                    .put(row.variant(), row);
         }
         final Map<String, Map<String, List<MessageText>>> composed = new LinkedHashMap<>();
         for (final Locale locale : locales) {
@@ -283,9 +283,15 @@ public final class Messages {
                 final Set<String> declared = new HashSet<>();
                 shipped.values().forEach(texts -> declared.addAll(texts.keySet()));
                 for (final String key : declared) {
-                    final List<String> taken = overridden(stored, bundle, key, language);
-                    if (taken != null && valid(bundle, key, language, taken)) {
-                        merged.put(key, parsed(bundle, key, taken));
+                    final List<MessageOverride> taken = overridden(stored, bundle, key, language);
+                    if (taken == null) {
+                        continue;
+                    }
+                    final List<String> texts =
+                            taken.stream().map(MessageOverride::text).toList();
+                    if (fresh(bundle, key, language, taken.getFirst(), own == null ? null : own.get(key))
+                            && valid(bundle, key, language, texts)) {
+                        merged.put(key, parsed(bundle, key, texts));
                         any = true;
                     }
                 }
@@ -301,6 +307,28 @@ public final class Messages {
             }
         }
         return Map.copyOf(composed);
+    }
+
+    /**
+     * Whether an override was written over the packaged texts this jar ships.
+     * One a release changed underneath is reported, and the packaged text shows until an admin takes it over again.
+     */
+    private static boolean fresh(
+            final String bundle,
+            final String key,
+            final String language,
+            final MessageOverride row,
+            final @Nullable List<String> packaged) {
+        if (!row.staleOver(packaged)) {
+            return true;
+        }
+        LOGGER.warn(
+                "The override of {}/{} in {} was written over a packaged text this release changed, so the packaged"
+                        + " text shows until an admin takes the override over again",
+                bundle,
+                key,
+                language);
+        return false;
     }
 
     /** Whether an override's texts pass the one validator; a refused one is reported and the packaged text shows. */
@@ -345,9 +373,9 @@ public final class Messages {
         return declaration == null || declaration.markup();
     }
 
-    /** The texts stored for a key in a language, under its name or else a former one, or {@code null}. */
-    private @Nullable List<String> overridden(
-            final Map<String, Map<String, Map<Integer, String>>> stored,
+    /** The rows stored for a key in a language, under its name or else a former one, or {@code null}. */
+    private @Nullable List<MessageOverride> overridden(
+            final Map<String, Map<String, Map<Integer, MessageOverride>>> stored,
             final String bundle,
             final String key,
             final String language) {
@@ -360,8 +388,8 @@ public final class Messages {
                     .forEach(entry -> formerOf(bundle, entry, names));
         }
         for (final String name : names) {
-            final Map<String, Map<Integer, String>> byLanguage = stored.get(name);
-            final Map<Integer, String> variants = byLanguage == null ? null : byLanguage.get(language);
+            final Map<String, Map<Integer, MessageOverride>> byLanguage = stored.get(name);
+            final Map<Integer, MessageOverride> variants = byLanguage == null ? null : byLanguage.get(language);
             if (variants != null && !variants.isEmpty()) {
                 return List.copyOf(variants.values());
             }

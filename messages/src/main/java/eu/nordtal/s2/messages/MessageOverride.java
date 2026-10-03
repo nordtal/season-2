@@ -1,5 +1,6 @@
 package eu.nordtal.s2.messages;
 
+import java.util.List;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
@@ -26,5 +27,15 @@ public record MessageOverride(
         if (variant < 0) {
             throw new IllegalArgumentException("a variant counts from 0, not " + variant);
         }
+    }
+
+    /**
+     * Whether a release changed the packaged texts underneath this override since it was written.
+     *
+     * @param packaged the texts the jar now ships for the key in this language, {@code null} or empty for none
+     */
+    public boolean staleOver(final @Nullable List<String> packaged) {
+        final String now = packaged == null || packaged.isEmpty() ? null : PackagedTexts.hash(packaged);
+        return !Objects.equals(replaced, now);
     }
 }

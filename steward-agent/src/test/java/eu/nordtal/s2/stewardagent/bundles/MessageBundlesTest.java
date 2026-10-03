@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.s2.internalapi.agent.MessageArg;
 import eu.nordtal.s2.internalapi.agent.MessageBundle;
 import eu.nordtal.s2.internalapi.agent.MessageEntry;
-import eu.nordtal.s2.messages.PackagedTexts;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
@@ -225,8 +224,8 @@ class MessageBundlesTest {
         final MessageEntry cheer = entry(bundle, "cheer");
         assertEquals("smp", cheer.bundle());
         assertEquals("Hooray!", cheer.english());
-        assertEquals(PackagedTexts.hash(List.of("Hooray!", "Yay!")), cheer.englishHash());
-        assertNull(cheer.germanHash());
+        assertEquals(List.of("Hooray!", "Yay!"), cheer.englishTexts());
+        assertEquals(List.of(), cheer.germanTexts());
         assertEquals("Mühle", entry(bundle, "mill").german());
         assertEquals("paper-common", entry(bundle, "reload.done").bundle());
     }

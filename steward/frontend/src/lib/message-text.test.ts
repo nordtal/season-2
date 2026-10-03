@@ -7,6 +7,8 @@ const won: MessageEntry = {
   bundle: "smp",
   key: "duel.won",
   inBundle: true,
+  englishTexts: [],
+  germanTexts: [],
   name: "Duel won",
   args: [
     { name: "winner.name", kind: "name", type: "player", global: false, action: false },

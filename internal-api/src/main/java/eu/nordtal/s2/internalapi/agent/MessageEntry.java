@@ -12,8 +12,8 @@ import org.jspecify.annotations.Nullable;
  * @param bundle the packaged bundle the key belongs to, the directory under {@code messages/} in the jar
  * @param english the first English text the jar ships, or {@code null} for a key only an override names
  * @param german the first German text the jar ships, or {@code null} when untranslated (English is used)
- * @param englishHash the hash of every English text the jar ships for the key, which an override records
- * @param germanHash the same for German, or {@code null} when untranslated
+ * @param englishTexts every English text the jar ships for the key, its variants in order, which an override keeps
+ * @param germanTexts the same for German, empty when untranslated
  * @param overrideEnglish the admin's English override, which steward fills in from the database, or {@code null}
  * @param overrideGerman the admin's German override, likewise, or {@code null}
  * @param inBundle whether the jar declares this key
@@ -29,8 +29,8 @@ public record MessageEntry(
         String bundle,
         @Nullable String english,
         @Nullable String german,
-        @Nullable String englishHash,
-        @Nullable String germanHash,
+        List<String> englishTexts,
+        List<String> germanTexts,
         @Nullable String overrideEnglish,
         @Nullable String overrideGerman,
         boolean inBundle,
@@ -42,6 +42,8 @@ public record MessageEntry(
         @Nullable String shown) {
 
     public MessageEntry {
+        englishTexts = List.copyOf(englishTexts);
+        germanTexts = List.copyOf(germanTexts);
         args = List.copyOf(args);
         // A nameless section is null here, which List.copyOf would refuse.
         section = Collections.unmodifiableList(new ArrayList<>(section));
@@ -54,8 +56,8 @@ public record MessageEntry(
                 bundle,
                 this.english,
                 this.german,
-                englishHash,
-                germanHash,
+                englishTexts,
+                germanTexts,
                 english,
                 german,
                 inBundle,
@@ -65,6 +67,11 @@ public record MessageEntry(
                 section,
                 format,
                 shown);
+    }
+
+    /** Every text the jar ships for the key in {@code language}, empty where it ships none. */
+    public List<String> packaged(final String language) {
+        return "de".equals(language) ? germanTexts : "en".equals(language) ? englishTexts : List.of();
     }
 
     /** Whether the jar's schema describes this key, which is what makes its placeholders checkable. */

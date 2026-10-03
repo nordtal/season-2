@@ -18,6 +18,8 @@ import io.javalin.http.ForbiddenResponse;
 import io.javalin.http.NotFoundResponse;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -90,7 +92,7 @@ public final class MessagesApi {
                     change.key(),
                     change.language(),
                     change.text() == null ? List.of() : List.of(change.text()),
-                    "de".equals(change.language()) ? entry.germanHash() : entry.englishHash(),
+                    entry.packaged(change.language()),
                     actor);
         }
         final Bundle bundle = document(location, read(location));
@@ -102,6 +104,81 @@ public final class MessagesApi {
                 bundle.entries(),
                 warnings,
                 Reloading.applied("Saved, and every service that shows it takes it at once.")));
+    }
+
+    /**
+     * {@code GET /api/message-fallbacks}: every override no process shows, so the packaged text shows instead.
+     * Either a release changed the packaged texts it was written over, or the one validator refuses it; saving it
+     * again takes it over.
+     */
+    public void fallbacks(final Context ctx) {
+        final MessageOverrideStore store = overrides;
+        final List<Fallback> found = new ArrayList<>();
+        if (store == null) {
+            ctx.json(found);
+            return;
+        }
+        final Set<String> seen = new HashSet<>();
+        for (final AgentWire.BundleRef location : agent.bundles()) {
+            final Map<String, MessageEntry> entries = new HashMap<>();
+            agent.bundle(location.service(), location.module())
+                    .entries()
+                    .forEach(entry -> entries.putIfAbsent(entry.bundle() + "/" + entry.key(), entry));
+            final Set<String> bundles =
+                    entries.values().stream().map(MessageEntry::bundle).collect(Collectors.toSet());
+            final Map<String, List<MessageOverride>> sets = new LinkedHashMap<>();
+            for (final MessageOverride row : store.overrides(bundles)) {
+                sets.computeIfAbsent(
+                                row.bundle() + "/" + row.key() + "/" + row.language(), ignored -> new ArrayList<>())
+                        .add(row);
+            }
+            final Map<String, List<String>> originals = store.originals(bundles);
+            sets.forEach((name, rows) -> {
+                final MessageOverride first = rows.getFirst();
+                final MessageEntry entry = entries.get(first.bundle() + "/" + first.key());
+                if (entry == null || !seen.add(name)) {
+                    return;
+                }
+                final Fallback fallback =
+                        fallbackOf(identityOf(location), entry, first.language(), rows, originals.get(name));
+                if (fallback != null) {
+                    found.add(fallback);
+                }
+            });
+        }
+        ctx.json(found);
+    }
+
+    private static @Nullable Fallback fallbackOf(
+            final String path,
+            final MessageEntry entry,
+            final String language,
+            final List<MessageOverride> rows,
+            final @Nullable List<String> original) {
+        final List<String> texts = rows.stream().map(MessageOverride::text).toList();
+        final List<String> packaged = entry.packaged(language);
+        final boolean stale = rows.getFirst().staleOver(packaged);
+        final List<String> problems = new ArrayList<>();
+        for (final String text : texts) {
+            for (final MessageCheck.Problem problem : OverrideCheck.problems(entry, text)) {
+                if (problem.error()) {
+                    problems.add(problem.text());
+                }
+            }
+        }
+        if (!stale && problems.isEmpty()) {
+            return null;
+        }
+        return new Fallback(
+                path,
+                entry.bundle(),
+                entry.key(),
+                language,
+                stale ? FallbackReason.STALE : FallbackReason.REFUSED,
+                texts,
+                original,
+                packaged,
+                problems);
     }
 
     /** The jar's bundles with the stored overrides beside the packaged texts, the first variant of each. */
@@ -170,6 +247,34 @@ public final class MessagesApi {
             List<MessageEntry> entries,
             List<String> warnings,
             Reloading reload) {}
+
+    /** Why a process shows the packaged text instead of an override. */
+    public enum FallbackReason {
+        /** A release changed the packaged texts the override was written over. */
+        STALE,
+        /** The one validator refuses the override, which the release's declaration no longer allows. */
+        REFUSED
+    }
+
+    /**
+     * An override set aside, beside what it was written over and what the jar ships now.
+     *
+     * @param path     the bundle as the listing names it, {@code <service>/<module>}
+     * @param override the override's variants, in order
+     * @param original the packaged texts it was written over, {@code null} where none were kept
+     * @param packaged the packaged texts the jar ships now, which every process shows instead
+     * @param problems what the validator refuses, empty for a stale override
+     */
+    public record Fallback(
+            String path,
+            String bundle,
+            String key,
+            String language,
+            FallbackReason reason,
+            List<String> override,
+            @Nullable List<String> original,
+            List<String> packaged,
+            List<String> problems) {}
 
     private BundleLocation describe(final AgentWire.BundleRef location) {
         return new BundleLocation(location.service(), location.module(), identityOf(location), overrides != null);

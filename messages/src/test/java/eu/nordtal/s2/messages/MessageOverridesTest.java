@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -93,7 +94,8 @@ class MessageOverridesTest {
     @Test
     void anOverrideStoredUnderAFormerNameFollowsTheKey() {
         final Messages messages = load();
-        messages.override(List.of(new MessageOverride("old", "welcome", "de", 0, "Servus {name}!", null)));
+        messages.override(
+                List.of(new MessageOverride("old", "welcome", "de", 0, "Servus {name}!", over("greeting", "de"))));
 
         assertEquals("Servus Till!", messages.format(GERMAN, new MessageRef("greeting", Map.of("name", "Till"))));
         assertTrue(messages.bundles().contains("old"), "the rows of the bundle a key moved out of are read too");
@@ -102,7 +104,9 @@ class MessageOverridesTest {
     @Test
     void anOverrideUnderTheCurrentNameWinsOverOneUnderAFormerName() {
         final Messages messages = load();
-        messages.override(List.of(row("hello", "de", 0, "Alt {name}"), row("greeting", "de", 0, "Neu {name}")));
+        messages.override(List.of(
+                new MessageOverride("test", "hello", "de", 0, "Alt {name}", over("greeting", "de")),
+                row("greeting", "de", 0, "Neu {name}")));
 
         assertEquals("Neu Till", messages.format(GERMAN, new MessageRef("greeting", Map.of("name", "Till"))));
     }
@@ -116,14 +120,49 @@ class MessageOverridesTest {
     }
 
     @Test
+    void anOverrideAReleaseChangedTheTextUnderneathFallsBackToThePackagedOne() {
+        final Messages messages = load();
+        messages.override(List.of(new MessageOverride(
+                "test", "greeting", "de", 0, "Moin {name}!", PackagedTexts.hash(List.of("Hallo du, {name}!")))));
+
+        assertEquals(
+                "Hallo Till!",
+                messages.format(GERMAN, new MessageRef("greeting", Map.of("name", "Till"))),
+                "the admin wrote over a text this release no longer ships, so the new text shows until it is taken over");
+    }
+
+    @Test
+    void anOverrideOfAnUntranslatedKeyGoesStaleOnceTheReleaseTranslatesIt() {
+        final Messages messages = load();
+        messages.override(List.of(new MessageOverride("test", "plain", "de", 0, "Schlicht.", null)));
+
+        assertEquals("Keine Parameter hier.", messages.get(GERMAN, "plain"));
+    }
+
+    @Test
+    void anOverrideTheValidatorRefusesFallsBackToThePackagedText() {
+        final Messages messages = load();
+        messages.override(List.of(row("greeting", "de", 0, "Moin {nmae}!")));
+
+        assertEquals("Hallo Till!", messages.format(GERMAN, new MessageRef("greeting", Map.of("name", "Till"))));
+    }
+
+    @Test
     void aRootOutsideTheMessagesDirectoryIsRefused() {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> Messages.load(MessageOverridesTest.class.getClassLoader(), "test", GERMAN));
     }
 
+    /** A row written over the texts the test bundle ships for the key, as Steward writes one. */
     private static MessageOverride row(final String key, final String language, final int variant, final String text) {
-        return new MessageOverride("test", key, language, variant, text, null);
+        return new MessageOverride("test", key, language, variant, text, over(key, language));
+    }
+
+    /** The hash a row records of the texts the test bundle ships for {@code key}, {@code null} where it ships none. */
+    private static @Nullable String over(final String key, final String language) {
+        final List<String> texts = load().packaged("test", key, Locale.forLanguageTag(language));
+        return texts.isEmpty() ? null : PackagedTexts.hash(texts);
     }
 
     private static Messages load() {

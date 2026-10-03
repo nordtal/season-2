@@ -411,6 +411,18 @@ export type MessageSaveResult = {
   reload: ReloadOutcome
 }
 
+export type MessageFallback = {
+  path: string
+  bundle: string
+  key: string
+  language: string
+  reason: MessageFallbackReason
+  override: string[]
+  original?: string[]
+  packaged: string[]
+  problems: string[]
+}
+
 export type PluginAdded = {
   service: string
   artifact: string
@@ -689,8 +701,8 @@ export type MessageEntry = {
   bundle: string
   english?: string
   german?: string
-  englishHash?: string
-  germanHash?: string
+  englishTexts: string[]
+  germanTexts: string[]
   overrideEnglish?: string
   overrideGerman?: string
   inBundle: boolean
@@ -701,6 +713,8 @@ export type MessageEntry = {
   format?: string
   shown?: string
 }
+
+export type MessageFallbackReason = "STALE" | "REFUSED"
 
 export type NetworkBox = {
   name: string

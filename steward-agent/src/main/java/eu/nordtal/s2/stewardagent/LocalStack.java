@@ -74,7 +74,15 @@ final class LocalStack implements ContainerOps {
     @Override
     public RedeployResult recreate(final String service) {
         return composed(
-                "recreate", service, output -> StewardAgent.recreate(compose, service, output, docker::hasImage));
+                "recreate",
+                service,
+                output -> StewardAgent.recreate(compose, service, output, docker::hasImage, false));
+    }
+
+    @Override
+    public RedeployResult standby(final String service) {
+        return composed(
+                "standby", service, output -> StewardAgent.recreate(compose, service, output, docker::hasImage, true));
     }
 
     @Override

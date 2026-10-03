@@ -31,6 +31,9 @@ final class FakeContainers implements ContainerOps {
     /** Services whose deploy or recreate is refused, like a 404 on the project id or a failed pull. */
     private final java.util.Set<String> recreateRefused = new java.util.LinkedHashSet<>();
 
+    /** Services whose image this host does not have, as a one-shot meets the next release's. */
+    private final java.util.Set<String> imageNotHere = new java.util.LinkedHashSet<>();
+
     /** volume -> what it settles as. Absent means "succeeds". */
     private final Map<String, Boolean> backupSucceeds = new LinkedHashMap<>();
 
@@ -85,6 +88,12 @@ final class FakeContainers implements ContainerOps {
         return this;
     }
 
+    /** This host has no image for these yet, so a recreate is refused and only a fetch makes one. */
+    FakeContainers imageNotHere(final String... names) {
+        imageNotHere.addAll(List.of(names));
+        return this;
+    }
+
     /** Services whose container comes up and never passes its healthcheck. */
     private final java.util.Set<String> neverHealthy = new java.util.LinkedHashSet<>();
 
@@ -110,6 +119,18 @@ final class FakeContainers implements ContainerOps {
 
     @Override
     public RedeployResult recreate(final String service) {
+        if (imageNotHere.contains(service)) {
+            calls.add("recreate-local:" + service);
+            return RedeployResult.refused("no image for " + service + " on this host");
+        }
+        return made("recreate-local:" + service, service);
+    }
+
+    @Override
+    public RedeployResult standby(final String service) {
+        if (imageNotHere.remove(service)) {
+            calls.add("fetch:" + service);
+        }
         return made("recreate-local:" + service, service);
     }
 

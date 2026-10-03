@@ -68,6 +68,22 @@ class ChoreographyTest {
     }
 
     @Test
+    void aStandbyWhoseImageThisHostDoesNotHaveYetIsFetchedFirstAsAOneShotMeetsIt() {
+        // A one-shot's compose file names the next release's image, which no container on this host runs yet.
+        final FakeContainers containers =
+                new FakeContainers().running("proxy", "limbo").imageNotHere("limbo-standby");
+        final Choreography choreography = new Choreography(containers, Occupancy.NONE, driven());
+
+        final Choreography.Window window = choreography.open(List.of("limbo"));
+
+        assertTrue(window.opened(), window.refusal());
+        assertEquals(
+                List.of("fetch:limbo-standby", "recreate-local:limbo-standby"),
+                containers.calls,
+                "only a missing image is fetched, and the standby is then made from it");
+    }
+
+    @Test
     void aStandbyThatNeverBecomesHealthyAbortsTheRunWithNothingStopped() {
         final FakeContainers containers =
                 new FakeContainers().running("proxy", "limbo").neverHealthy("limbo-standby");

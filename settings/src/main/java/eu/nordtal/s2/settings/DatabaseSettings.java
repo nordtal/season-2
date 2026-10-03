@@ -30,7 +30,6 @@ public final class DatabaseSettings implements Settings {
     private final Logger logger;
     private final @Nullable LegacyFiles legacy;
     private final Set<String> loaded = ConcurrentHashMap.newKeySet();
-    private volatile List<SettingStore.Value> seen = List.of();
 
     private DatabaseSettings(
             final SettingStore store,
@@ -105,14 +104,12 @@ public final class DatabaseSettings implements Settings {
      * A reconciliation finds nothing changed and calls nothing, so this costs one read a minute.
      */
     public void listen(final SignalHub hub, final Runnable onChange) {
-        seen = store.overrides(services());
-        hub.on(Channel.SETTINGS, "settings", () -> {
-            final List<SettingStore.Value> now = store.overrides(services());
-            if (!now.equals(seen)) {
-                seen = now;
-                onChange.run();
-            }
-        });
+        hub.watch(
+                Channel.SETTINGS,
+                "settings",
+                store.overrides(services()),
+                () -> store.overrides(services()),
+                changed -> onChange.run());
     }
 
     private List<String> services() {

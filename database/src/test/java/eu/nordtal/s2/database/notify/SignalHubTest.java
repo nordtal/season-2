@@ -10,7 +10,9 @@ import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -71,6 +73,30 @@ class SignalHubTest {
 
         assertEquals(4, first.get(), "one refresh for the connect plus one per notification");
         assertEquals(first.get(), second.get(), "two refreshes on one connection have to see exactly the same signals");
+    }
+
+    @Test
+    void aWatchHandsOnOnlyRowsThatDifferFromTheLastOnes() throws Exception {
+        final SignalHub hub = new SignalHub(channels -> FakeChannel.publishing(3), "test", LOGGER, QUIET, BACKOFF);
+        final Deque<String> reads = new ArrayDeque<>(List.of("a", "a", "b", "b"));
+        final List<String> applied = new CopyOnWriteArrayList<>();
+        hub.watch(Channel.MESSAGES, "the rows", null, reads::pop, applied::add);
+
+        runBriefly(hub);
+
+        assertEquals(List.of("a", "b"), applied, "the connect hands on the first read, and a signal only a change");
+    }
+
+    @Test
+    void aWatchThatStartsFromWhatRunsHandsOnNothingUntilItChanges() throws Exception {
+        final SignalHub hub = new SignalHub(channels -> FakeChannel.publishing(1), "test", LOGGER, QUIET, BACKOFF);
+        final Deque<String> reads = new ArrayDeque<>(List.of("a", "b"));
+        final List<String> applied = new CopyOnWriteArrayList<>();
+        hub.watch(Channel.SETTINGS, "the rows", "a", reads::pop, applied::add);
+
+        runBriefly(hub);
+
+        assertEquals(List.of("b"), applied, "what the process already runs with is not handed on again");
     }
 
     @Test

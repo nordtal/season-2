@@ -4,6 +4,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { RecreateButton } from "@/components/steward/recreate"
+import { words } from "@/lib/query-fixtures"
+import type { MessageRef } from "@/lib/texts"
 import { asButton } from "@/lib/test-elements"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
@@ -27,7 +29,7 @@ function backend(
   over: {
     available?: boolean
     reachable?: boolean
-    reason?: string
+    reason?: MessageRef
     ask?: () => Answer
   } = {},
 ) {
@@ -89,7 +91,7 @@ describe("RecreateButton - before anything is pressed", () => {
   })
 
   it("is disabled with the agent's own reason on it when there is no shared secret", async () => {
-    fetched = backend({ available: false, reason: "No shared secret has been set up." })
+    fetched = backend({ available: false, reason: words("No shared secret has been set up.") })
     vi.stubGlobal("fetch", fetched)
     draw(<RecreateButton service="smp" />)
 

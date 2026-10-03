@@ -293,6 +293,7 @@ export type TextArgs = {
   "steward.alerts.recent": Record<string, never>
   "steward.alerts.title": Record<string, never>
   "steward.alerts.unreadable": Record<string, never>
+  "steward.answer.agent-unconfigured": Record<string, never>
   "steward.answer.already-admin": Record<string, never>
   "steward.answer.bot-token-refused": Record<string, never>
   "steward.answer.ceremony-elsewhere": {
@@ -643,6 +644,10 @@ export type TextArgs = {
     stage: Arg["choice"]
   }
   "steward.operations.still-running": Record<string, never>
+  "steward.operations.under-way": {
+    kind: Arg["text"]
+    run: Arg["number"]
+  }
   "steward.payments.all": Record<string, never>
   "steward.payments.amount": Record<string, never>
   "steward.payments.created": {
@@ -910,6 +915,101 @@ export type TextArgs = {
   "steward.said.words": {
     text: Arg["text"]
   }
+  "steward.service-page.add-plugin": Record<string, never>
+  "steward.service-page.added": Record<string, never>
+  "steward.service-page.agent-not-yet": Record<string, never>
+  "steward.service-page.agent-silent": Record<string, never>
+  "steward.service-page.agent-unknown": Record<string, never>
+  "steward.service-page.arrives": {
+    file: Arg["text"]
+  }
+  "steward.service-page.check-updates": Record<string, never>
+  "steward.service-page.close-find": Record<string, never>
+  "steward.service-page.console": Record<string, never>
+  "steward.service-page.cpu": Record<string, never>
+  "steward.service-page.disk": Record<string, never>
+  "steward.service-page.download": Record<string, never>
+  "steward.service-page.find": Record<string, never>
+  "steward.service-page.find-in": Record<string, never>
+  "steward.service-page.given": Record<string, never>
+  "steward.service-page.given-tip": Record<string, never>
+  "steward.service-page.going-offline": Record<string, never>
+  "steward.service-page.group": {
+    group: Arg["choice"]
+  }
+  "steward.service-page.held-back": Record<string, never>
+  "steward.service-page.install": {
+    title: Arg["text"]
+  }
+  "steward.service-page.installed-by": {
+    release: Arg["text"]
+  }
+  "steward.service-page.line-count": {
+    lines: Arg["number"]
+  }
+  "steward.service-page.lines": Record<string, never>
+  "steward.service-page.log-unreachable": Record<string, never>
+  "steward.service-page.more-actions": Record<string, never>
+  "steward.service-page.newest": Record<string, never>
+  "steward.service-page.no-build": Record<string, never>
+  "steward.service-page.no-build-for": {
+    version: Arg["text"]
+  }
+  "steward.service-page.no-volume": Record<string, never>
+  "steward.service-page.not-added": Record<string, never>
+  "steward.service-page.not-installed": Record<string, never>
+  "steward.service-page.not-sent": Record<string, never>
+  "steward.service-page.not-yet-installed": Record<string, never>
+  "steward.service-page.nothing-found": Record<string, never>
+  "steward.service-page.nothing-installed": Record<string, never>
+  "steward.service-page.nothing-on": {
+    loader: Arg["text"]
+    version: Arg["text"]
+  }
+  "steward.service-page.offline": Record<string, never>
+  "steward.service-page.on-modrinth": {
+    title: Arg["text"]
+  }
+  "steward.service-page.plugin-added": {
+    title: Arg["text"]
+  }
+  "steward.service-page.plugins": Record<string, never>
+  "steward.service-page.ram": Record<string, never>
+  "steward.service-page.recreate-note": Record<string, never>
+  "steward.service-page.recreate-service": {
+    service: Arg["text"]
+  }
+  "steward.service-page.recreate-tip": {
+    service: Arg["text"]
+  }
+  "steward.service-page.recreate-title": {
+    service: Arg["text"]
+  }
+  "steward.service-page.remove": Record<string, never>
+  "steward.service-page.remove-jar": {
+    jar: Arg["text"]
+  }
+  "steward.service-page.remove-jar-and-folder": {
+    jar: Arg["text"]
+    folder: Arg["text"]
+  }
+  "steward.service-page.remove-plugin": {
+    name: Arg["text"]
+  }
+  "steward.service-page.remove-title": {
+    name: Arg["text"]
+  }
+  "steward.service-page.search-modrinth": Record<string, never>
+  "steward.service-page.search-placeholder": Record<string, never>
+  "steward.service-page.send": Record<string, never>
+  "steward.service-page.send-line": Record<string, never>
+  "steward.service-page.settings": Record<string, never>
+  "steward.service-page.settings-and-texts": Record<string, never>
+  "steward.service-page.the-jar": Record<string, never>
+  "steward.service-page.uncheckable": Record<string, never>
+  "steward.service-page.up-to-date": Record<string, never>
+  "steward.service-page.update-available": Record<string, never>
+  "steward.service-page.waiting-for-log": Record<string, never>
   "steward.service.docker-state": {
     state: Arg["text"]
   }

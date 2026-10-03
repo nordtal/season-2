@@ -33,7 +33,8 @@ import {
 } from "@/components/ui/responsive-dialog"
 import { Input } from "@/components/ui/input"
 import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
-import { StatusBadge } from "@/components/steward/status"
+import { StatusBadge, runKind } from "@/components/steward/status"
+import { choice, t } from "@/lib/texts"
 
 /**
  * The plugins on one Minecraft server in three lists by origin, and the Modrinth search that adds one.
@@ -58,7 +59,7 @@ export function ServicePlugins({ service }: { service: string }) {
       <div className="flex items-center justify-between gap-2">
         <Button type="button" variant="outline" size="sm" onClick={() => setAdding(true)}>
           <PlusIcon aria-hidden />
-          Add plugin
+          {t("steward.service-page.add-plugin")}
         </Button>
         <Button type="button" variant="outline" size="sm" disabled={refresh.isPending} onClick={() => refresh.mutate()}>
           {refresh.isPending ? (
@@ -66,23 +67,25 @@ export function ServicePlugins({ service }: { service: string }) {
           ) : (
             <ArrowsCounterClockwiseIcon aria-hidden />
           )}
-          Check for updates
+          {t("steward.service-page.check-updates")}
         </Button>
       </div>
 
-      {unchecked ? <p className="text-sm text-muted-foreground">Updates can&apos;t be checked right now.</p> : null}
+      {unchecked ? <p className="text-sm text-muted-foreground">{t("steward.service-page.uncheckable")}</p> : null}
 
       <QueryState query={plugins}>
         {(answer) =>
           answer && !answer.mounted ? (
-            <Empty title="No volume" />
+            <Empty title={t("steward.service-page.no-volume")} />
           ) : answer && answer.plugins.length === 0 ? (
-            <Empty title="Nothing installed" />
+            <Empty title={t("steward.service-page.nothing-installed")} />
           ) : answer ? (
             <div className="flex flex-col gap-4">
               {groupPlugins(answer.plugins).map(([group, rows]) => (
                 <section key={group} className="flex flex-col">
-                  <h3 className="text-xs text-muted-foreground">{GROUP_TITLES[group]}</h3>
+                  <h3 className="text-xs text-muted-foreground">
+                    {t("steward.service-page.group", { group: choice(group) })}
+                  </h3>
                   <ul className="flex flex-col">
                     {rows.map((plugin) => (
                       <PluginRow
@@ -111,8 +114,10 @@ export function ServicePlugins({ service }: { service: string }) {
         {/* The search stays put and only the results scroll, flush to the dialog's edge. */}
         <ResponsiveDialogContent className="gap-0 overflow-hidden p-0 sm:max-w-lg" data-testid="add-plugin">
           <ResponsiveDialogHeader className="px-4 pt-4 pb-3">
-            <ResponsiveDialogTitle>Add plugin</ResponsiveDialogTitle>
-            <ResponsiveDialogDescription className="sr-only">Search Modrinth</ResponsiveDialogDescription>
+            <ResponsiveDialogTitle>{t("steward.service-page.add-plugin")}</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription className="sr-only">
+              {t("steward.service-page.search-modrinth")}
+            </ResponsiveDialogDescription>
           </ResponsiveDialogHeader>
           <Search service={service} loader={plugins.data?.loader} version={plugins.data?.gameVersion} />
         </ResponsiveDialogContent>
@@ -124,12 +129,6 @@ export function ServicePlugins({ service }: { service: string }) {
 type Group = NonNullable<ServicePlugin["group"]>
 
 const GROUP_ORDER: Group[] = ["nordtal", "preinstalled", "added"]
-
-const GROUP_TITLES: Record<Group, string> = {
-  nordtal: "Nordtal",
-  preinstalled: "Preinstalled",
-  added: "Added",
-}
 
 /** Three absent rows: the count an ordinary Paper service here settles at. */
 const WAITING_PLUGINS = [undefined, undefined, undefined]
@@ -158,7 +157,8 @@ export function absence(
 ): string | undefined {
   if (plugin.running) return undefined
   const change = (changes ?? []).find((it) => it.service === service && it.artifact === plugin.artifact)
-  return change?.status === "UNSUPPORTED" ? (gameVersion ? `No ${gameVersion} build` : "No build") : "Not installed"
+  if (change?.status !== "UNSUPPORTED") return t("steward.service-page.not-installed")
+  return noBuild(gameVersion)
 }
 
 /** The version in a jar's name: what follows the last `-` of the stem, as `JarName` reads it. */
@@ -170,6 +170,13 @@ export function versionOf(fileName?: string): string | undefined {
 }
 
 export type PluginStatus = { tone: "idle" | "warn"; text: string }
+
+/** No build of this plugin for the service's Minecraft version, named when it is known. */
+function noBuild(gameVersion: string | undefined): string {
+  return gameVersion
+    ? t("steward.service-page.no-build-for", { version: gameVersion })
+    : t("steward.service-page.no-build")
+}
 
 /** What the update check says about one running plugin, or nothing when it has no answer for it. */
 export function pluginStatus(
@@ -183,15 +190,15 @@ export function pluginStatus(
   if (!change) return undefined
   switch (change.status) {
     case "UP_TO_DATE":
-      return { tone: "idle", text: "up to date" }
+      return { tone: "idle", text: t("steward.service-page.up-to-date") }
     case "OUTDATED": {
-      if (change.held) return { tone: "idle", text: "held back" }
+      if (change.held) return { tone: "idle", text: t("steward.service-page.held-back") }
       const from = plugin.version ?? versionOf(plugin.fileName)
       const to = versionOf(change.fileName) ?? change.version
-      return { tone: "warn", text: from && to ? `${from} → ${to}` : "update available" }
+      return { tone: "warn", text: from && to ? `${from} → ${to}` : t("steward.service-page.update-available") }
     }
     case "UNSUPPORTED":
-      return { tone: "idle", text: gameVersion ? `no ${gameVersion} build` : "no build" }
+      return { tone: "idle", text: noBuild(gameVersion) }
     default:
       return undefined
   }
@@ -220,7 +227,10 @@ function PluginRow({
               <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground tnum">
                 {version ? <span className="truncate">{version}</span> : null}
                 {plugin.release ? (
-                  <span className="shrink-0" title={`Installed by release v${plugin.release}`}>
+                  <span
+                    className="shrink-0"
+                    title={t("steward.service-page.installed-by", { release: plugin.release })}
+                  >
                     v{plugin.release}
                   </span>
                 ) : null}
@@ -276,19 +286,25 @@ function RemoveButton({ service, plugin, artifact }: { service: string; plugin: 
         variant="ghost"
         size="icon"
         onClick={() => setOpen(true)}
-        aria-label={`Remove ${plugin.name}`}
-        title={`Remove ${plugin.name}`}
+        aria-label={t("steward.service-page.remove-plugin", { name: plugin.name })}
+        title={t("steward.service-page.remove-plugin", { name: plugin.name })}
       >
         <TrashIcon aria-hidden />
       </Button>
       <AskThenAct
         open={open}
         onOpenChange={setOpen}
-        title={`Remove ${plugin.name}?`}
+        title={t("steward.service-page.remove-title", { name: plugin.name })}
         description={removalSentence(plugin)}
-        action="Remove"
+        action={t("steward.service-page.remove")}
         destructive
-        act={() => remove.mutateAsync(artifact).then((run) => toast.success(`Removal entered as run #${run.id}`))}
+        act={() =>
+          remove
+            .mutateAsync(artifact)
+            .then((run) =>
+              toast.success(t("steward.operations.entered", { kind: runKind("REMOVE_PLUGIN"), run: run.id })),
+            )
+        }
       />
     </>
   )
@@ -301,14 +317,13 @@ function RemoveButton({ service, plugin, artifact }: { service: string; plugin: 
  */
 export function removalSentence(plugin: ServicePlugin): string {
   if (!plugin.running) {
-    return "It is not installed yet, so only the entry goes. Nothing on the disk is touched."
+    return t("steward.service-page.not-yet-installed")
   }
-  const jar = plugin.fileName ?? "The jar"
-  const run = "A run: the server is stopped for it, with a warning to the players first."
+  const jar = plugin.fileName ?? t("steward.service-page.the-jar")
   if (!plugin.dataFolder) {
-    return `${run} ${jar} is deleted. Its data folder could not be read out of the jar, so nothing else under plugins/ is touched.`
+    return t("steward.service-page.remove-jar", { jar })
   }
-  return `${run} ${jar} and plugins/${plugin.dataFolder}/ are deleted. That folder holds this plugin's configuration and its data.`
+  return t("steward.service-page.remove-jar-and-folder", { jar, folder: plugin.dataFolder })
 }
 
 /** Three absent hits, the first screenful of a Modrinth answer. */
@@ -335,8 +350,8 @@ function Search({ service, loader, version }: { service: string; loader?: string
         <Input
           value={typed}
           onChange={(event) => setTyped(event.target.value)}
-          placeholder="Search Modrinth…"
-          aria-label="Search Modrinth"
+          placeholder={t("steward.service-page.search-placeholder")}
+          aria-label={t("steward.service-page.search-modrinth")}
         />
         {loader && version ? (
           <span className="shrink-0 text-xs text-muted-foreground">
@@ -349,7 +364,10 @@ function Search({ service, loader, version }: { service: string; loader?: string
         <QueryState
           query={results}
           isEmpty={(answer) => answer.hits.length === 0}
-          empty={{ title: "Nothing found", note: `Nothing on ${loader} for ${version}.` }}
+          empty={{
+            title: t("steward.service-page.nothing-found"),
+            note: t("steward.service-page.nothing-on", { loader: loader ?? "", version: version ?? "" }),
+          }}
         >
           {(answer) => (
             <ul className="flex flex-col gap-2">
@@ -394,13 +412,13 @@ function InstallButton({ hit, install }: { hit: PluginHit; install: ReturnType<t
   /** Already added and given by the network are different reasons, so they get different badges. */
   if (hit.fixed) {
     return (
-      <StatusBadge tone="ok" tipContent="The network gives this plugin. It cannot be removed.">
-        given
+      <StatusBadge tone="ok" tipContent={t("steward.service-page.given-tip")}>
+        {t("steward.service-page.given")}
       </StatusBadge>
     )
   }
   if (hit.added) {
-    return <StatusBadge tone="idle">added</StatusBadge>
+    return <StatusBadge tone="idle">{t("steward.service-page.added")}</StatusBadge>
   }
   return (
     <Button
@@ -408,17 +426,17 @@ function InstallButton({ hit, install }: { hit: PluginHit; install: ReturnType<t
       variant="outline"
       size="icon"
       disabled={install.isPending}
-      aria-label={`Install ${hit.title}`}
-      title={`Install ${hit.title}`}
+      aria-label={t("steward.service-page.install", { title: hit.title })}
+      title={t("steward.service-page.install", { title: hit.title })}
       onClick={() =>
         install.mutate(
           { projectId: hit.projectId, slug: hit.slug, title: hit.title, iconUrl: hit.iconUrl },
           {
             onSuccess: (answer) =>
-              toast.success(`${hit.title} added`, {
-                description: `${answer.fileName} arrives with the next update run.`,
+              toast.success(t("steward.service-page.plugin-added", { title: hit.title }), {
+                description: t("steward.service-page.arrives", { file: answer.fileName }),
               }),
-            onError: (error) => toast.error("Not added", { description: String(error) }),
+            onError: (error) => toast.error(t("steward.service-page.not-added"), { description: String(error) }),
           },
         )
       }
@@ -472,8 +490,8 @@ function Link({ url, title }: { url?: string; title: string }) {
       href={url}
       target="_blank"
       rel="noreferrer noopener"
-      aria-label={`${title} on Modrinth`}
-      title={`${title} on Modrinth`}
+      aria-label={t("steward.service-page.on-modrinth", { title })}
+      title={t("steward.service-page.on-modrinth", { title })}
       className="shrink-0 text-muted-foreground hover:text-foreground"
     >
       <ArrowSquareOutIcon aria-hidden />

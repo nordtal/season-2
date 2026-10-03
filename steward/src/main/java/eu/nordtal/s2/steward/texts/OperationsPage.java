@@ -172,4 +172,7 @@ public interface OperationsPage {
 
     @Name("Cannot copy, said")
     MessageRef cannotCopyNote();
+
+    @Name("Under way")
+    MessageRef underWay(@Arg("kind") String kind, @Arg("run") int run);
 }

@@ -31,6 +31,7 @@ import { Sparkline } from "@/components/steward/sparkline"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { choice, t } from "@/lib/texts"
 
 /** What `/services/$name` keeps in its URL. Console is the default and never written. */
 export type ServiceSearch = { tab?: "settings" | "plugins"; file?: string }
@@ -108,19 +109,19 @@ export function ServicePage() {
             <TabsList className="w-full sm:w-fit">
               <TabsTrigger value="console" className="sm:px-3">
                 <TerminalWindowIcon aria-hidden />
-                Console
+                {t("steward.service-page.console")}
               </TabsTrigger>
               {tabs.includes("settings") ? (
                 <TabsTrigger value="settings" className="sm:px-3">
                   <WrenchIcon aria-hidden />
-                  <span className="sm:hidden">Settings</span>
-                  <span className="max-sm:hidden">Settings &amp; Translations</span>
+                  <span className="sm:hidden">{t("steward.service-page.settings")}</span>
+                  <span className="max-sm:hidden">{t("steward.service-page.settings-and-texts")}</span>
                 </TabsTrigger>
               ) : null}
               {tabs.includes("plugins") ? (
                 <TabsTrigger value="plugins" className="sm:px-3">
                   <PlugIcon aria-hidden />
-                  Plugins
+                  {t("steward.service-page.plugins")}
                 </TabsTrigger>
               ) : null}
             </TabsList>
@@ -129,7 +130,7 @@ export function ServicePage() {
             <TabsList className="w-full sm:w-fit">
               <TabsTrigger value="console" className="sm:px-3">
                 <TerminalWindowIcon aria-hidden />
-                Console
+                {t("steward.service-page.console")}
               </TabsTrigger>
             </TabsList>
           )
@@ -188,7 +189,7 @@ function ServiceActions({
   const hold = service === undefined ? undefined : service.hold ? "START" : "DOWN"
   const recreatable = name !== "steward-agent"
   const HoldIcon = hold === "START" ? PlayIcon : PowerIcon
-  const holdLabel = hold === "START" ? "Start" : "Take down"
+  const holdLabel = hold ? t("steward.operations.ask", { kind: choice(hold) }) : ""
 
   /** Until the row arrives each button is a shape, hidden below `sm` like the button it stands for. */
   if (service === undefined) {
@@ -208,7 +209,7 @@ function ServiceActions({
       <AskButton
         kind="UPDATE"
         services={[name]}
-        label="Update"
+        label={t("steward.operations.ask", { kind: "update" })}
         size="sm"
         labelClassName="max-sm:hidden"
         className="max-sm:size-7 max-sm:px-0"
@@ -235,7 +236,13 @@ function ServiceActions({
       {hold || recreatable ? (
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
-            <Button type="button" variant="outline" size="icon-sm" className="sm:hidden" aria-label="More actions">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              className="sm:hidden"
+              aria-label={t("steward.service-page.more-actions")}
+            >
               <DotsThreeIcon aria-hidden />
             </Button>
           </DropdownMenuTrigger>
@@ -249,7 +256,7 @@ function ServiceActions({
             {recreatable ? (
               <DropdownMenuItem disabled={gate.unavailable} onSelect={() => setDialog("recreate")}>
                 <ArrowsClockwiseIcon aria-hidden />
-                Recreate
+                {runKind("RECREATE")}
               </DropdownMenuItem>
             ) : null}
           </DropdownMenuContent>
@@ -300,7 +307,9 @@ export function ServiceHead({
     /* On a phone one compact row, so the console starts right under it; from `sm` the labelled grid. */
     <section className="grid grid-cols-2 gap-x-4 gap-y-5 max-sm:flex max-sm:flex-wrap max-sm:items-center max-sm:gap-y-1 lg:flex lg:items-start lg:gap-x-10">
       <div className="col-span-2 flex flex-col gap-2 max-sm:flex-row max-sm:items-center">
-        <span className="text-xs font-medium font-heading text-muted-foreground max-sm:sr-only">State</span>
+        <span className="text-xs font-medium font-heading text-muted-foreground max-sm:sr-only">
+          {t("steward.operations.state")}
+        </span>
         <div className="flex flex-wrap items-center gap-2">
           {/* The hold is part of the state badge, the same reading the sidebar and network view draw. */}
           {service ? <ServiceState service={service} /> : <Skeleton className="h-5 w-20 rounded-full" />}
@@ -319,20 +328,33 @@ export function ServiceHead({
         </span>
       </div>
       <div className="flex min-w-0 flex-col gap-1.5 lg:w-40">
-        <Stat label="CPU" value={service ? percent(service.cpuPercent) : undefined} {...PHONE_INLINE} />
+        <Stat
+          label={t("steward.service-page.cpu")}
+          value={service ? percent(service.cpuPercent) : undefined}
+          {...PHONE_INLINE}
+        />
         <div className="max-sm:hidden">
           <Sparkline points={cpu.data?.points} />
         </div>
       </div>
       <div className="flex min-w-0 flex-col gap-1.5 lg:w-40">
-        <Stat label="RAM" value={service ? bytes(service.memoryBytes) : undefined} {...PHONE_INLINE} />
+        <Stat
+          label={t("steward.service-page.ram")}
+          value={service ? bytes(service.memoryBytes) : undefined}
+          {...PHONE_INLINE}
+        />
         <div className="max-sm:hidden">
           <Sparkline points={memory.data?.points} />
         </div>
       </div>
       {/* Only services with a volume have a number, since 0 bytes would be a claim; an old one says its age. */}
       {service?.diskBytes === undefined ? null : (
-        <Stat label="Disk" value={bytes(service.diskBytes)} hint={diskAge(service.diskMeasuredAt)} {...PHONE_INLINE} />
+        <Stat
+          label={t("steward.service-page.disk")}
+          value={bytes(service.diskBytes)}
+          hint={diskAge(service.diskMeasuredAt)}
+          {...PHONE_INLINE}
+        />
       )}
     </section>
   )

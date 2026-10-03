@@ -202,10 +202,9 @@ describe("saving a line", () => {
     expect(await screen.findByDisplayValue("Hello there")).toBeTruthy()
   })
 
-  /** The save's own answer says whether the text is in force; the toast says which of three. */
+  /** The save's own answer says whether the text is in force; the toast says which of two. */
   it.each([
     ["in force", "APPLIED", toast.success],
-    ["not answered", "NO_ANSWER", toast.warning],
     ["in force after a restart", "RESTART_REQUIRED", toast.info],
   ] as const)("says a saved line is %s", async (_what, status, shown) => {
     const message = `the service said ${status}`

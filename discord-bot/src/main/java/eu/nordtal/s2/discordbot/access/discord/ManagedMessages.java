@@ -2,15 +2,15 @@ package eu.nordtal.s2.discordbot.access.discord;
 
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
-import eu.nordtal.s2.database.payment.Money;
 import eu.nordtal.s2.database.payment.Tier;
 import eu.nordtal.s2.database.payment.Tiers;
 import eu.nordtal.s2.discordbot.Card;
+import eu.nordtal.s2.discordbot.DiscordRenderer;
 import eu.nordtal.s2.discordbot.Ids;
 import eu.nordtal.s2.discordbot.ManagedMessageDao;
 import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.discordbot.config.Languages;
-import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.value.Money;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,11 +40,15 @@ public final class ManagedMessages {
     private final JDA jda;
     private final Languages languages;
     private final Tiers tiers;
-    private final Messages messages;
+    private final DiscordRenderer messages;
     private final ManagedMessageDao dao;
 
     public ManagedMessages(
-            final JDA jda, final Languages languages, final Tiers tiers, final Messages messages, final Jdbi jdbi) {
+            final JDA jda,
+            final Languages languages,
+            final Tiers tiers,
+            final DiscordRenderer messages,
+            final Jdbi jdbi) {
         this.jda = jda;
         this.languages = languages;
         this.tiers = tiers;
@@ -144,13 +148,14 @@ public final class ManagedMessages {
         final List<String> prices = new ArrayList<>();
         for (final Tier tier : tiers.all()) {
             prices.add(messages.format(
-                    locale, MESSAGES.contribution().tierLine(tier.days(), Money.format(tier.priceCents()))));
+                    locale, MESSAGES.contribution().tierLine(tier.days(), Money.euroCents(tier.priceCents()))));
         }
         return Card.of(messages.format(locale, MESSAGES.contribution().title()))
                 .block(messages.format(locale, MESSAGES.contribution().prices()), prices, count -> "+" + count)
                 .field(
                         messages.format(locale, MESSAGES.contribution().donationHeading()),
-                        messages.format(locale, MESSAGES.contribution().donation(Money.format(tiers.donationCents()))))
+                        messages.format(
+                                locale, MESSAGES.contribution().donation(Money.euroCents(tiers.donationCents()))))
                 .field(
                         messages.format(locale, MESSAGES.contribution().renewHeading()),
                         messages.format(locale, MESSAGES.contribution().renew()))

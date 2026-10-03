@@ -29,7 +29,10 @@ public enum Kind {
     /** A length of time: {@code long} by default, {@code short} as {@code 2h 5m}, {@code clock} as {@code 2:05:00}. */
     DURATION("duration", "PT2H5M"),
 
-    /** A moment, in the reader's time zone: {@code datetime} by default, or {@code date}, {@code time}. */
+    /**
+     * A moment, in the reader's time zone: {@code datetime} by default, or {@code date}, {@code time}.
+     * {@code relative} is Discord's countdown, which every other target shows as {@code datetime}.
+     */
     INSTANT("instant", "2026-10-03T18:40:00Z"),
 
     /** An amount of money in the reader's language. */
@@ -83,7 +86,7 @@ public enum Kind {
         return switch (this) {
             case NUMBER, DISPLAY_NAME -> Set.of("plain");
             case DURATION -> Set.of("long", "short", "clock");
-            case INSTANT -> Set.of("datetime", "date", "time");
+            case INSTANT -> Set.of("datetime", "date", "time", "relative");
             case LIST -> Set.of("and", "or");
             default -> Set.of();
         };

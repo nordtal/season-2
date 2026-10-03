@@ -3,10 +3,10 @@ package eu.nordtal.s2.discordbot.hungergames;
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.s2.discordbot.Card;
+import eu.nordtal.s2.discordbot.DiscordRenderer;
 import eu.nordtal.s2.discordbot.ManagedMessageDao;
 import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.discordbot.config.Languages;
-import eu.nordtal.s2.messages.Messages;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -25,10 +25,10 @@ public final class RegisterMessages {
 
     private final JDA jda;
     private final Languages languages;
-    private final Messages messages;
+    private final DiscordRenderer messages;
     private final ManagedMessageDao dao;
 
-    public RegisterMessages(final JDA jda, final Languages languages, final Messages messages, final Jdbi jdbi) {
+    public RegisterMessages(final JDA jda, final Languages languages, final DiscordRenderer messages, final Jdbi jdbi) {
         this.jda = jda;
         this.languages = languages;
         this.messages = messages;

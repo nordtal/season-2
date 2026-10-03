@@ -100,6 +100,14 @@ class ValueKindsTest {
     }
 
     @Test
+    void aRelativeInstantIsTheMomentItselfOutsideDiscord() {
+        final Instant at = Instant.parse("2026-10-03T18:40:00Z");
+        assertEquals(
+                "Läuft 03.10.2026, 20:40 ab.",
+                messages.format(new Viewer(Locale.GERMAN, BERLIN, null), KINDS.deadline(at)));
+    }
+
+    @Test
     void aListEndsWithTheReadersConjunction() {
         assertEquals("Alex, Sam and Kim joined.", en(KINDS.players(List.of("Alex", "Sam", "Kim"))));
         assertEquals("Alex und Sam sind da.", de(KINDS.players(List.of("Alex", "Sam"))));
@@ -127,5 +135,11 @@ class ValueKindsTest {
         assertEquals("a while left", en(new MessageRef("left", Map.of())));
         assertEquals("noch eine Weile", de(new MessageRef("left", Map.of())));
         assertEquals("jemand hat gewonnen.", de(new MessageRef("won", Map.of())));
+    }
+
+    @Test
+    void aValueOfNoKindReadsAsItsKindsReplacementWordAndNeverAsItsToString() {
+        assertEquals("a while left", en(new MessageRef("left", Map.of("left", new Object()))));
+        assertEquals("It costs an amount.", en(new MessageRef("price", Map.of("price", Thread.currentThread()))));
     }
 }

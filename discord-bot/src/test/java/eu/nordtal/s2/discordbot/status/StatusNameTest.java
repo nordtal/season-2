@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.database.network.NetworkSnapshot;
+import eu.nordtal.s2.discordbot.DiscordRenderer;
 import eu.nordtal.s2.messages.Messages;
 import java.time.Duration;
 import java.time.Instant;
@@ -15,7 +16,8 @@ import org.junit.jupiter.api.Test;
 /** The status channel name in every phase and at every distance from the opening, against the real bundles. */
 class StatusNameTest {
 
-    private static final Messages MESSAGES = Messages.load("messages/access", Locale.ENGLISH, Locale.GERMAN);
+    private static final DiscordRenderer MESSAGES =
+            DiscordRenderer.of(Messages.load("messages/access", Locale.ENGLISH, Locale.GERMAN));
     private static final Instant NOW = Instant.parse("2026-09-03T12:00:00Z");
 
     private static final NetworkSnapshot RUNNING =

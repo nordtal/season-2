@@ -108,7 +108,11 @@ public class AccessBot implements AutoCloseable {
     });
 
     private record CoreServices(
-            Languages languages, Messages messages, Tiers tiers, PaymentRequests requests, Purchases purchases) {}
+            Languages languages,
+            DiscordRenderer messages,
+            Tiers tiers,
+            PaymentRequests requests,
+            Purchases purchases) {}
 
     private record DiscordWiring(
             AdminLog admin,
@@ -214,10 +218,10 @@ public class AccessBot implements AutoCloseable {
             final LanguageAndTimeSpec languageAndTime,
             final Tiers tiers) {
         final Languages languages = Languages.of(accessConfig);
-        final Messages messages = Messages.load(
-                        AccessBot.class.getClassLoader(), java.util.List.of(MESSAGE_ROOT), languages.locales())
-                // Discord paints no tones.
-                .within(NetworkSettings.environment(SERVICE, season, languageAndTime, Palette.DEFAULTS));
+        final DiscordRenderer messages = DiscordRenderer.of(
+                Messages.load(AccessBot.class.getClassLoader(), java.util.List.of(MESSAGE_ROOT), languages.locales())
+                        // Discord paints no tones.
+                        .within(NetworkSettings.environment(SERVICE, season, languageAndTime, Palette.DEFAULTS)));
         // The bunq key lives in steward-bunq; whether payments are on is read here as a row.
         Configured.report(accessConfig, tiers, PaymentGateway.state(database.jdbi()));
         final PaymentRequests requests = new PaymentRequests(database.dataSource());
@@ -316,7 +320,7 @@ public class AccessBot implements AutoCloseable {
             final JDA jda,
             final Languages languages,
             final Tiers tiers,
-            final Messages messages,
+            final DiscordRenderer messages,
             final DiscordWiring wiring) {
         new ManagedMessages(jda, languages, tiers, messages, database.jdbi()).publishAll();
         new RegisterMessages(jda, languages, messages, database.jdbi()).publishAll();
@@ -362,7 +366,7 @@ public class AccessBot implements AutoCloseable {
             final PurchaseFlow purchaseFlow,
             final Runnable drainInbox,
             final AdminRole adminRole,
-            final Messages messages) {
+            final DiscordRenderer messages) {
         final SignalHub hub = SignalHub.open(
                 databaseConfig.jdbcUrl(),
                 databaseConfig.username(),
@@ -381,7 +385,7 @@ public class AccessBot implements AutoCloseable {
         } else {
             log.info("No language has a status-channel; the sidebar status is off");
         }
-        MessageOverrideStore.using(database.dataSource()).follow(messages, hub);
+        MessageOverrideStore.using(database.dataSource()).follow(messages.raw(), hub);
         hub.start();
         return hub;
     }

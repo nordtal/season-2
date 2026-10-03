@@ -4,6 +4,7 @@ import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.messages.context.Contexts;
 import eu.nordtal.s2.messages.context.MessageEnvironment;
 import eu.nordtal.s2.messages.spec.MessageSchema;
+import eu.nordtal.s2.messages.spec.TextFormat;
 import eu.nordtal.s2.messages.text.Declaration;
 import eu.nordtal.s2.messages.text.Filling;
 import eu.nordtal.s2.messages.text.MessageCheck;
@@ -63,6 +64,9 @@ public final class Messages {
     /** Key to what its texts may name, from the bundle that declares it last. */
     private final Map<String, Declaration> declarations;
 
+    /** Key to how its texts are written, from the bundle that declares it last. */
+    private final Map<String, TextFormat> formats;
+
     /** The rows last layered, kept so {@link #within} carries them along. */
     private volatile List<MessageOverride> overrides = List.of();
 
@@ -85,6 +89,7 @@ public final class Messages {
         this.packaged = packaged;
         this.schemas = schemas;
         this.declarations = declarations(bundles, schemas);
+        this.formats = formats(bundles, schemas);
         this.byLanguage = compose(overrides);
         this.overrides = overrides;
     }
@@ -192,6 +197,18 @@ public final class Messages {
             final MessageSchema.Bundle schema = schemas.get(bundle);
             if (schema != null) {
                 schema.messages().forEach(entry -> declared.put(entry.key(), schema.declaration(entry)));
+            }
+        }
+        return Map.copyOf(declared);
+    }
+
+    private static Map<String, TextFormat> formats(
+            final List<String> bundles, final Map<String, MessageSchema.Bundle> schemas) {
+        final Map<String, TextFormat> declared = new HashMap<>();
+        for (final String bundle : bundles) {
+            final MessageSchema.Bundle schema = schemas.get(bundle);
+            if (schema != null) {
+                schema.messages().forEach(entry -> declared.put(entry.key(), entry.format()));
             }
         }
         return Map.copyOf(declared);
@@ -406,10 +423,16 @@ public final class Messages {
      * @param pieces   the text's pieces
      * @param language the language it was chosen in
      * @param zone     the zone its times are shown in
-     * @param markup   whether its tags are MiniMessage's
+     * @param format   how it is written, which tells a target whether its values must be escaped
      * @param words    the words its values are shown with
      */
-    public record Prepared(List<Piece> pieces, Locale language, ZoneId zone, boolean markup, Words words) {}
+    public record Prepared(List<Piece> pieces, Locale language, ZoneId zone, TextFormat format, Words words) {
+
+        /** Returns whether its tags are MiniMessage's. */
+        public boolean markup() {
+            return format == TextFormat.MINIMESSAGE;
+        }
+    }
 
     /** Returns a message prepared for a reader; the one path every target renders from. */
     public Prepared prepare(final Viewer viewer, final MessageRef message) {
@@ -423,7 +446,16 @@ public final class Messages {
                 values,
                 declaration == null ? Map.<String, Kind>of() : declaration.values(),
                 name -> reportMissingValue(message.key(), name));
-        return new Prepared(pieces, language, zone, text.markup(), words(language, zone));
+        return new Prepared(pieces, language, zone, format(message.key(), text), words(language, zone));
+    }
+
+    /** A text read as MiniMessage is MiniMessage; any other is written as its key declares, plain by default. */
+    private TextFormat format(final String key, final MessageText text) {
+        if (text.markup()) {
+            return TextFormat.MINIMESSAGE;
+        }
+        final TextFormat declared = formats.get(key);
+        return declared == null || declared == TextFormat.MINIMESSAGE ? TextFormat.PLAIN : declared;
     }
 
     /** Renders a message as plain text for a reader known only by language. */

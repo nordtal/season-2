@@ -6,9 +6,9 @@ import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.database.network.NetworkSnapshot;
 import eu.nordtal.s2.database.network.SnapshotDirectory;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
+import eu.nordtal.s2.discordbot.DiscordRenderer;
 import eu.nordtal.s2.discordbot.announce.Announcements;
 import eu.nordtal.s2.discordbot.config.Languages;
-import eu.nordtal.s2.messages.Messages;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -33,7 +33,7 @@ public final class StatusChannels {
 
     private final JDA jda;
     private final Languages languages;
-    private final Messages messages;
+    private final DiscordRenderer messages;
     private final PhaseDirectory phases;
     private final SnapshotDirectory snapshots;
     private final Clock clock;
@@ -44,7 +44,7 @@ public final class StatusChannels {
     public StatusChannels(
             final JDA jda,
             final Languages languages,
-            final Messages messages,
+            final DiscordRenderer messages,
             final PhaseDirectory phases,
             final SnapshotDirectory snapshots,
             final Clock clock) {
@@ -59,7 +59,7 @@ public final class StatusChannels {
     public StatusChannels(
             final JDA jda,
             final Languages languages,
-            final Messages messages,
+            final DiscordRenderer messages,
             final PhaseDirectory phases,
             final SnapshotDirectory snapshots,
             final Clock clock,
@@ -118,7 +118,7 @@ public final class StatusChannels {
             return;
         }
         announcements.postAll(language ->
-                messages.format(language.locale(), MESSAGES.announce().phase(phase.name(), previous.name())));
+                messages.format(language.locale(), MESSAGES.announce().phase(phase, previous)));
     }
 
     private static boolean needsCounts(final SeasonPhase phase) {

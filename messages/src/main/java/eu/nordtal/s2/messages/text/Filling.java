@@ -26,7 +26,8 @@ public final class Filling {
      *
      * @param values   placeholder to value, contexts already flattened
      * @param declared placeholder to the kind its message declares; one it lacks takes its value's kind
-     * @param missing  told the name of each placeholder that has no value, which shows its replacement word
+     * @param missing  told the name of each placeholder that has no value or one of no kind, which shows its
+     *                 replacement word
      */
     public static List<Piece> fill(
             final MessageText text,
@@ -63,19 +64,18 @@ public final class Filling {
         }
     }
 
+    /** A value of no kind is no value: it shows the replacement word like a missing one, never its toString. */
     private Piece.Filled filled(final String name, final @Nullable String written, final @Nullable String style) {
         final Object value = values.get(name);
-        if (value == null) {
+        final Kind kind = Kind.ofValue(value).orElse(null);
+        if (kind == null) {
             missing.accept(name);
-            final Kind kind = declared.containsKey(name)
+            final Kind shown = declared.containsKey(name)
                     ? declared.get(name)
                     : written == null ? Kind.TEXT : Kind.byToken(written).orElse(Kind.TEXT);
-            return new Piece.Filled(name, kind, null, style);
+            return new Piece.Filled(name, shown, null, style);
         }
-        final Kind kind = Kind.ofValue(value).orElse(null);
-        return kind == null
-                ? new Piece.Filled(name, Kind.TEXT, String.valueOf(value), style)
-                : new Piece.Filled(name, kind, value, style);
+        return new Piece.Filled(name, kind, value, style);
     }
 
     private List<Node> chosen(final Node.Choice choice) {
@@ -117,10 +117,6 @@ public final class Filling {
                     ? BigDecimal.valueOf(number.doubleValue())
                     : BigDecimal.valueOf(number.longValue());
         }
-        try {
-            return new BigDecimal(String.valueOf(value).strip());
-        } catch (final NumberFormatException notANumber) {
-            return null;
-        }
+        return null;
     }
 }

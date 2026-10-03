@@ -52,3 +52,14 @@ a new version arrives as a new image. The whole deployment is described in
 - `announce/`, `discord/`: announcements, admin commands and the update feed.
 - `config/`: the three config specs and their defaults.
 - `src/main/resources/messages/`: the translations.
+
+## Texts
+
+Every text the bot sends is a message of its bundle, rendered by `DiscordRenderer`, the Discord target of
+the one message system (`:messages`); `Messages.format`, the plain target, is never called here, which
+`:architecture` holds. In a markdown text each value is escaped with JDA's sanitizer, every single character
+and not only pairs, so a team called `Red_Fox**` reads as written; a link is left as it is, since Discord
+would keep the backslash in the address. A moment is Discord's timestamp, `<t:…:f>`, and a member a mention,
+so each reader sees their own zone and nobody's time goes stale in a message that was sent days ago. A text
+Discord shows without markdown (a button, a select, a modal, a channel name) is declared `PLAIN`, and its
+values are placed as they are.

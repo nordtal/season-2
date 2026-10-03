@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot;
 
+import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.context.DiscordMemberContext;
@@ -13,6 +14,10 @@ import eu.nordtal.s2.messages.spec.MessageSpecs;
 import eu.nordtal.s2.messages.spec.Name;
 import eu.nordtal.s2.messages.spec.Shown;
 import eu.nordtal.s2.messages.spec.TextFormat;
+import eu.nordtal.s2.messages.value.Example;
+import eu.nordtal.s2.messages.value.Money;
+import java.time.Duration;
+import java.time.Instant;
 
 /** Every message of the access bundle, one method per key. */
 @MessageSpec("access")
@@ -37,7 +42,7 @@ public interface AccessMessages {
 
         @Name("Tier line")
         @Shown(Display.DISCORD_EMBED)
-        MessageRef tierLine(@Arg("days") long days, @Arg("price") Object price);
+        MessageRef tierLine(@Arg("days") long days, @Arg("price") Money price);
 
         @Name("Donation heading")
         @Shown(Display.DISCORD_EMBED)
@@ -45,7 +50,7 @@ public interface AccessMessages {
 
         @Name("Donation")
         @Shown(Display.DISCORD_EMBED)
-        MessageRef donation(@Arg("amount") Object amount);
+        MessageRef donation(@Arg("amount") Money amount);
 
         @Name("Renew heading")
         @Shown(Display.DISCORD_EMBED)
@@ -57,6 +62,7 @@ public interface AccessMessages {
 
         @Name("Button")
         @Shown(Display.DISCORD_BUTTON)
+        @Format(TextFormat.PLAIN)
         MessageRef button();
     }
 
@@ -75,7 +81,7 @@ public interface AccessMessages {
 
         @Name("Steps")
         @Shown(Display.DISCORD_EMBED)
-        MessageRef steps(@Arg("button") Object button);
+        MessageRef steps(@Arg("button") @Example("Enter my code") String button);
 
         @Name("Switch heading")
         @Shown(Display.DISCORD_EMBED)
@@ -87,6 +93,7 @@ public interface AccessMessages {
 
         @Name("Button")
         @Shown(Display.DISCORD_BUTTON)
+        @Format(TextFormat.PLAIN)
         MessageRef button();
 
         @Name("Success")
@@ -108,6 +115,7 @@ public interface AccessMessages {
 
         @Name("Modal")
         @Shown(Display.DISCORD_MODAL)
+        @Format(TextFormat.PLAIN)
         interface Modal {
 
             @Name("Title")
@@ -140,17 +148,19 @@ public interface AccessMessages {
 
         @Name("Choose")
         @Shown(Display.DISCORD_SELECT)
+        @Format(TextFormat.PLAIN)
         MessageRef choose();
 
         @Name("Option")
         @Shown(Display.DISCORD_SELECT)
-        MessageRef option(@Arg("days") long days, @Arg("price") Object price);
+        @Format(TextFormat.PLAIN)
+        MessageRef option(@Arg("days") long days, @Arg("price") Money price);
 
         @Name("Summary")
-        MessageRef summary(@Arg("days") long days, @Arg("price") Object price);
+        MessageRef summary(@Arg("days") long days, @Arg("price") Money price);
 
         @Name("Link")
-        MessageRef link(@Arg("total") Object total, @Arg("url") Object url);
+        MessageRef link(@Arg("total") Money total, @Arg("url") @Example("https://bunq.me/t/example") String url);
 
         @Name("Gone")
         MessageRef gone();
@@ -168,16 +178,17 @@ public interface AccessMessages {
         interface Summary {
 
             @Name("Donation")
-            MessageRef donation(@Arg("donation") Object donation);
+            MessageRef donation(@Arg("donation") Money donation);
 
             @Name("Total")
-            MessageRef total(@Arg("total") Object total);
+            MessageRef total(@Arg("total") Money total);
         }
 
         Button button();
 
         @Name("Button")
         @Shown(Display.DISCORD_BUTTON)
+        @Format(TextFormat.PLAIN)
         interface Button {
 
             @Name("Confirm")
@@ -192,7 +203,7 @@ public interface AccessMessages {
             interface Donation {
 
                 @Name("Add")
-                MessageRef add(@Arg("amount") Object amount);
+                MessageRef add(@Arg("amount") Money amount);
 
                 @Name("Remove")
                 MessageRef remove();
@@ -206,10 +217,10 @@ public interface AccessMessages {
         interface Link {
 
             @Name("Reference")
-            MessageRef reference(@Arg("reference") Object reference);
+            MessageRef reference(@Arg("reference") @Example("NT-A1B2C3") String reference);
 
             @Name("Expiry")
-            MessageRef ttl(@Arg("until") Object until);
+            MessageRef ttl(@Arg("until") Instant until);
 
             @Name("Pending")
             MessageRef pending();
@@ -218,7 +229,7 @@ public interface AccessMessages {
             MessageRef refused();
 
             @Name("Slow")
-            MessageRef slow(@Arg("reference") Object reference);
+            MessageRef slow(@Arg("reference") @Example("NT-A1B2C3") String reference);
         }
     }
 
@@ -228,16 +239,16 @@ public interface AccessMessages {
     interface Dm {
 
         @Name("Granted")
-        MessageRef granted(@Arg("until") Object until);
+        MessageRef granted(@Arg("until") Instant until);
 
         @Name("Donor")
         MessageRef donor();
 
         @Name("Expiring")
-        MessageRef expiring(@Arg("in") Object in, @Arg("until") Object until, @Arg("channel") Object channel);
+        MessageRef expiring(@Arg("until") Instant until, @Arg("channel") @Example("#contribution") String channel);
 
         @Name("Expired")
-        MessageRef expired(@Arg("channel") Object channel);
+        MessageRef expired(@Arg("channel") @Example("#contribution") String channel);
 
         @Name("Contribution channel")
         MessageRef channel();
@@ -253,10 +264,10 @@ public interface AccessMessages {
 
             @Name("Short")
             @Key("short")
-            MessageRef shortMessage(@Arg("paid") Object paid, @Arg("days") long days, @Arg("until") Object until);
+            MessageRef shortMessage(@Arg("paid") Money paid, @Arg("days") long days, @Arg("until") Instant until);
 
             @Name("Admin")
-            MessageRef admin(@Arg("days") long days, @Arg("until") Object until);
+            MessageRef admin(@Arg("days") long days, @Arg("until") Instant until);
         }
     }
 
@@ -267,7 +278,7 @@ public interface AccessMessages {
     interface Public {
 
         @Name("Donation")
-        MessageRef donation(@Arg("user") DiscordMemberContext user, @Arg("amount") Object amount);
+        MessageRef donation(@Arg("user") DiscordMemberContext user, @Arg("amount") Money amount);
     }
 
     Register register();
@@ -305,10 +316,11 @@ public interface AccessMessages {
 
         @Name("Button")
         @Shown(Display.DISCORD_BUTTON)
+        @Format(TextFormat.PLAIN)
         MessageRef button();
 
         @Name("Success")
-        MessageRef success(@Arg("name") Object name);
+        MessageRef success(@Arg("name") @Example("Red_Fox") String name);
 
         @Name("Invalid name")
         MessageRef invalidName();
@@ -324,12 +336,14 @@ public interface AccessMessages {
 
         @Name("Invite button")
         @Shown(Display.DISCORD_BUTTON)
+        @Format(TextFormat.PLAIN)
         MessageRef inviteButton();
 
         Register.Modal modal();
 
         @Name("Modal")
         @Shown(Display.DISCORD_MODAL)
+        @Format(TextFormat.PLAIN)
         interface Modal {
 
             @Name("Title")
@@ -349,10 +363,12 @@ public interface AccessMessages {
 
             @Name("Picker placeholder")
             @Shown(Display.DISCORD_SELECT)
+            @Format(TextFormat.PLAIN)
             MessageRef pickerPlaceholder();
 
             @Name("Pick")
             @Shown(Display.DISCORD_SELECT)
+            @Format(TextFormat.PLAIN)
             MessageRef pick();
 
             @Name("Sent")
@@ -378,10 +394,12 @@ public interface AccessMessages {
 
             @Name("Accept")
             @Shown(Display.DISCORD_BUTTON)
+            @Format(TextFormat.PLAIN)
             MessageRef accept();
 
             @Name("Decline")
             @Shown(Display.DISCORD_BUTTON)
+            @Format(TextFormat.PLAIN)
             MessageRef decline();
 
             @Name("Accepted")
@@ -409,13 +427,13 @@ public interface AccessMessages {
     interface Status {
 
         @Name("Pre event")
-        MessageRef preEvent(@Arg("teams") Object teams);
+        MessageRef preEvent(@Arg("teams") int teams);
 
         @Name("Start event")
-        MessageRef startEvent(@Arg("teams") Object teams, @Arg("players") Object players);
+        MessageRef startEvent(@Arg("teams") int teams, @Arg("players") int players);
 
         @Name("SMP")
-        MessageRef smp(@Arg("players") Object players);
+        MessageRef smp(@Arg("players") int players);
 
         @Name("Maintenance")
         MessageRef maintenance();
@@ -426,13 +444,13 @@ public interface AccessMessages {
         interface PreLaunch {
 
             @Name("Days")
-            MessageRef days(@Arg("days") Object days, @Arg("hours") Object hours);
+            MessageRef days(@Arg("days") long days, @Arg("hours") int hours);
 
             @Name("Hours")
-            MessageRef hours(@Arg("hours") Object hours);
+            MessageRef hours(@Arg("hours") long hours);
 
             @Name("Minutes")
-            MessageRef minutes(@Arg("minutes") Object minutes);
+            MessageRef minutes(@Arg("minutes") long minutes);
 
             @Name("Imminent")
             MessageRef imminent();
@@ -473,7 +491,10 @@ public interface AccessMessages {
             MessageRef noBuild();
 
             @Name("More")
-            MessageRef more(@Arg("count") Object count);
+            MessageRef more(@Arg("count") int count);
+
+            @Name("Elapsed")
+            MessageRef elapsed(@Arg("took") Duration took);
         }
 
         /** The headline for a stage. */
@@ -608,6 +629,8 @@ public interface AccessMessages {
     interface Announce {
 
         @Name("Phase")
-        MessageRef phase(@Arg("phase") Object phase, @Arg("previous") Object previous);
+        MessageRef phase(
+                @Arg("phase") @Example("smp") SeasonPhase phase,
+                @Arg("previous") @Example("pre-event") SeasonPhase previous);
     }
 }

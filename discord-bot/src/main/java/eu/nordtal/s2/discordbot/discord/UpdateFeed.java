@@ -10,7 +10,7 @@ import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.Card;
-import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.discordbot.DiscordRenderer;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -61,7 +61,7 @@ public final class UpdateFeed {
 
     private final UpdateDirectory updates;
     private final Board board;
-    private final Messages messages;
+    private final DiscordRenderer messages;
 
     /** The highest id already handled; only the tick thread writes it. */
     private volatile long lastSeen;
@@ -77,7 +77,8 @@ public final class UpdateFeed {
 
     private final Clock clock;
 
-    public UpdateFeed(final UpdateDirectory updates, final Board board, final Messages messages, final Clock clock) {
+    public UpdateFeed(
+            final UpdateDirectory updates, final Board board, final DiscordRenderer messages, final Clock clock) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.updates = Objects.requireNonNull(updates, "updates");
         this.board = Objects.requireNonNull(board, "board");
@@ -218,7 +219,7 @@ public final class UpdateFeed {
     static MessageEmbed fields(
             final UpdateReport report,
             final UpdateRequest request,
-            final Messages messages,
+            final DiscordRenderer messages,
             final java.util.Locale locale,
             final Instant now) {
         return fields(report, request, messages, locale, false, now);
@@ -232,7 +233,7 @@ public final class UpdateFeed {
     static MessageEmbed fields(
             final UpdateReport report,
             final UpdateRequest request,
-            final Messages messages,
+            final DiscordRenderer messages,
             final java.util.Locale locale,
             final boolean context,
             final Instant now) {
@@ -251,7 +252,11 @@ public final class UpdateFeed {
         if (request.finished() != null && request.requested() != null) {
             card.field(
                     messages.format(locale, MESSAGES.update().embed().duration()),
-                    Card.duration(Duration.between(request.requested(), request.finished())));
+                    messages.format(
+                            locale,
+                            MESSAGES.update()
+                                    .embed()
+                                    .elapsed(Duration.between(request.requested(), request.finished()))));
         }
 
         // The services get the budget first: which server failed matters more than why.
@@ -276,7 +281,7 @@ public final class UpdateFeed {
 
     /** Renders a service line such as {@code ✅ smp running  smp 0.9.3 → 0.9.4}. */
     private static String line(
-            final UpdateReport.ServiceLine line, final Messages messages, final java.util.Locale locale) {
+            final UpdateReport.ServiceLine line, final DiscordRenderer messages, final java.util.Locale locale) {
         final StringBuilder text = new StringBuilder(marker(line.state()))
                 .append(' ')
                 .append(Card.bold(line.service()))

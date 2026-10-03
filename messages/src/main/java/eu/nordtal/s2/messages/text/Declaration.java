@@ -9,7 +9,6 @@ import java.util.Set;
  * It is the one input of {@link MessageCheck}, at build time, on an admin's save and when a process loads overrides.
  *
  * @param values   every placeholder a text may name, its own and the globals', to its kind
- * @param untyped  placeholders declared without a kind, which any kind may fill; only a bundle not yet typed has them
  * @param roles    the message's own arguments, each a placeholder or a role, which every packaged text uses
  * @param actions  the actions a text may place with {@code <action:name>}
  * @param markup   whether the texts are MiniMessage
@@ -18,7 +17,6 @@ import java.util.Set;
  */
 public record Declaration(
         Map<String, Kind> values,
-        Set<String> untyped,
         Set<String> roles,
         Set<String> actions,
         boolean markup,
@@ -27,7 +25,6 @@ public record Declaration(
 
     public Declaration {
         values = Map.copyOf(values);
-        untyped = Set.copyOf(untyped);
         roles = Set.copyOf(roles);
         actions = Set.copyOf(actions);
         examples = Map.copyOf(examples);

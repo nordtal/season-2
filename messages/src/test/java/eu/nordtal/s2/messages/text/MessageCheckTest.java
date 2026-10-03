@@ -26,7 +26,6 @@ class MessageCheckTest {
                     Kind.TEXT,
                     "open",
                     Kind.CHOICE),
-            Set.of(),
             Set.of("winner", "n"),
             Set.of("accept"),
             true,
@@ -111,8 +110,8 @@ class MessageCheckTest {
 
     @Test
     void aTextLongerThanItsDisplayWithTheExamplesFilledInIsRefused() {
-        final Declaration button = new Declaration(
-                Map.of("n", Kind.NUMBER), Set.of(), Set.of("n"), Set.of(), false, 12, Map.of("n", "300"));
+        final Declaration button =
+                new Declaration(Map.of("n", Kind.NUMBER), Set.of("n"), Set.of(), false, 12, Map.of("n", "300"));
         assertEquals(List.of(), MessageCheck.errors("Buy {n} now", button, Mode.OVERRIDE));
         refused(MessageCheck.errors("Buy {n} right now", button, Mode.OVERRIDE), "characters long");
     }

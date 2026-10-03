@@ -31,12 +31,13 @@ class AccessMessagesTest {
         final AccessMessages.Dm.Granted granted = AccessMessages.MESSAGES.dm().grantedSection();
 
         assertTrue(
-                bundle.format(java.util.Locale.GERMAN, granted.admin(1, "x")).contains("**1 Tag**"),
-                bundle.format(java.util.Locale.GERMAN, granted.admin(1, "x")));
-        assertTrue(
-                bundle.format(java.util.Locale.ENGLISH, granted.admin(1, "x")).contains("**1 day**"));
-        assertTrue(
-                bundle.format(java.util.Locale.GERMAN, granted.admin(30, "x")).contains("**30 Tage**"));
+                bundle.format(java.util.Locale.GERMAN, granted.admin(1, java.time.Instant.EPOCH))
+                        .contains("**1 Tag**"),
+                bundle.format(java.util.Locale.GERMAN, granted.admin(1, java.time.Instant.EPOCH)));
+        assertTrue(bundle.format(java.util.Locale.ENGLISH, granted.admin(1, java.time.Instant.EPOCH))
+                .contains("**1 day**"));
+        assertTrue(bundle.format(java.util.Locale.GERMAN, granted.admin(30, java.time.Instant.EPOCH))
+                .contains("**30 Tage**"));
     }
 
     @Test

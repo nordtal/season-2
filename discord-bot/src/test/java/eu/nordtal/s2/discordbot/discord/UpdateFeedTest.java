@@ -11,6 +11,7 @@ import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateStatus;
+import eu.nordtal.s2.discordbot.DiscordRenderer;
 import eu.nordtal.s2.messages.Messages;
 import java.time.Clock;
 import java.time.Duration;
@@ -164,8 +165,8 @@ class UpdateFeedTest {
 
     private final Rows rows = new Rows();
     private final Board board = new Board();
-    private final Messages messages =
-            Messages.load(UpdateFeedTest.class.getClassLoader(), "messages/access", Locale.ENGLISH, Locale.GERMAN);
+    private final DiscordRenderer messages = DiscordRenderer.of(
+            Messages.load(UpdateFeedTest.class.getClassLoader(), "messages/access", Locale.ENGLISH, Locale.GERMAN));
     private final UpdateFeed feed = new UpdateFeed(rows, board, messages, Clock.systemUTC());
 
     @Test

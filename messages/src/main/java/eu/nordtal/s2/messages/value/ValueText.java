@@ -107,6 +107,7 @@ public final class ValueText {
 
     private static String instant(
             final Instant instant, final @Nullable String style, final Locale locale, final ZoneId zone) {
+        // relative is Discord's own countdown; as text it is the moment itself.
         final DateTimeFormatter format = switch (style == null ? "datetime" : style) {
             case "date" -> DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM);
             case "time" -> DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT);
@@ -150,6 +151,14 @@ public final class ValueText {
             final Kind kind = Kind.ofValue(item).orElse(Kind.TEXT);
             shown.add(kind == Kind.LIST ? String.valueOf(item) : of(kind, item, null, locale, zone, words));
         }
+        return join(shown, or, words);
+    }
+
+    /**
+     * Joins items already shown as text with the reader's words: {@code a, b and c}, or {@code a, b or c}.
+     * Every target that shows a list as text joins it here.
+     */
+    public static String join(final List<String> shown, final boolean or, final Words words) {
         if (shown.isEmpty()) {
             return words.missing(Kind.LIST);
         }

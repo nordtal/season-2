@@ -4,14 +4,14 @@ import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.inbox.BotRequest;
-import eu.nordtal.s2.database.payment.Money;
 import eu.nordtal.s2.discordbot.AdminLog;
+import eu.nordtal.s2.discordbot.DiscordRenderer;
 import eu.nordtal.s2.discordbot.access.SeasonStart;
 import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
 import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.discordbot.config.Languages;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.DiscordMemberContext;
+import eu.nordtal.s2.messages.value.Money;
 import java.util.Locale;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +28,7 @@ public final class BookingReaction {
     private final Languages languages;
     private final AccessRoles roles;
     private final AdminLog admin;
-    private final Messages messages;
+    private final DiscordRenderer messages;
     private final JDA jda;
     private final SeasonStart seasonStart;
 
@@ -36,7 +36,7 @@ public final class BookingReaction {
             final Languages languages,
             final AccessRoles roles,
             final AdminLog admin,
-            final Messages messages,
+            final DiscordRenderer messages,
             final JDA jda,
             final SeasonStart seasonStart) {
         this.languages = languages;
@@ -66,11 +66,11 @@ public final class BookingReaction {
                                 MESSAGES.dm()
                                         .grantedSection()
                                         .shortMessage(
-                                                Money.format(Objects.requireNonNull(
+                                                Money.euroCents(Objects.requireNonNull(
                                                         booked.receivedCents(), "a short payment has an amount")),
                                                 booked.days(),
-                                                AccessRoles.timestamp(booked.until())))
-                        : messages.format(locale, MESSAGES.dm().granted(AccessRoles.timestamp(booked.until()))));
+                                                booked.until()))
+                        : messages.format(locale, MESSAGES.dm().granted(booked.until())));
         if (booked.donation()) {
             roles.dm(payer, messages.format(locale, MESSAGES.dm().donor()));
             announceDonation(payer, booked.donationCents(), locale);
@@ -100,7 +100,9 @@ public final class BookingReaction {
                         locale,
                         MESSAGES.publicSection()
                                 .donation(
-                                        new DiscordMemberContext("<@" + discordId + ">"), Money.format(donationCents))))
+                                        // Discord shows the mention; the id stands in for a name only elsewhere.
+                                        new DiscordMemberContext(discordId, discordId.value()),
+                                        Money.euroCents(donationCents))))
                 .queue(ok -> {}, failure -> log.error("Could not post the donation thank-you", failure));
     }
 }

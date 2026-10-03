@@ -96,24 +96,22 @@ public final class MessageCheck {
     }
 
     private void value(final Node.Value value) {
-        final Kind declared = known(value.name());
-        if (declared == null && !declaration.untyped().contains(value.name())) {
+        final Kind kind = known(value.name());
+        if (kind == null) {
             return;
         }
-        Kind kind = declared;
         if (value.kind() != null) {
             final Kind written = Kind.byToken(value.kind()).orElse(null);
             if (written == null) {
                 error("{" + value.name() + ", " + value.kind() + "} names no kind; the kinds are " + tokens());
                 return;
             }
-            if (declared != null && written != declared) {
-                error("{" + value.name() + "} is a " + declared.token() + ", not a " + written.token());
+            if (written != kind) {
+                error("{" + value.name() + "} is a " + kind.token() + ", not a " + written.token());
                 return;
             }
-            kind = written;
         }
-        if (value.style() != null && kind != null && !kind.styles().contains(value.style())) {
+        if (value.style() != null && !kind.styles().contains(value.style())) {
             error("{" + value.name() + "} has no style " + value.style() + "; a " + kind.token() + " has "
                     + (kind.styles().isEmpty() ? "none" : kind.styles()));
         }
@@ -199,7 +197,7 @@ public final class MessageCheck {
     private @Nullable Kind known(final String name) {
         used.add(name);
         final Kind kind = declaration.values().get(name);
-        if (kind == null && !declaration.untyped().contains(name)) {
+        if (kind == null) {
             error("{" + name + "} is nothing this message offers; it offers " + offered());
         }
         return kind;
@@ -243,7 +241,6 @@ public final class MessageCheck {
 
     private String offered() {
         final TreeSet<String> names = new TreeSet<>(declaration.values().keySet());
-        names.addAll(declaration.untyped());
         return names.isEmpty() ? "nothing" : String.join(", ", names);
     }
 

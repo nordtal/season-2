@@ -51,6 +51,18 @@ class MisconfiguredGateTest {
     }
 
     @Test
+    void theServerListTextIsRenderedWithItsTones() {
+        final Component motd = gate.motd();
+
+        assertTrue(flatten(motd).contains("Misconfigured"), flatten(motd));
+        assertTrue(painted(motd), "the text's tones are lost when it is rendered as plain text first");
+    }
+
+    private static boolean painted(final Component component) {
+        return component.color() != null || component.children().stream().anyMatch(MisconfiguredGateTest::painted);
+    }
+
+    @Test
     void everybodyGetsTheSameScreenAndItIsAlwaysTheSameObject() {
         final Component first = gate.refuse(UUID.randomUUID(), "a-player");
         final Component second = gate.refuse(UUID.randomUUID(), "an-admin");

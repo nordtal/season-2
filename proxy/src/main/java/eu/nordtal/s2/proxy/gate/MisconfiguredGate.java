@@ -6,13 +6,13 @@ import com.velocitypowered.api.event.ResultedEvent.ComponentResult;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.LoginEvent;
 import com.velocitypowered.api.event.proxy.ProxyPingEvent;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.slf4j.Logger;
 
 /**
@@ -34,8 +34,13 @@ public final class MisconfiguredGate {
         Objects.requireNonNull(messages, "messages");
         this.screen = GateMessages.inEveryLanguage(messages, MESSAGES.gate().misconfigured());
         // English only: a ping carries no player to take a language from.
-        this.motd = MiniMessage.miniMessage()
-                .deserialize(messages.format(Locale.ENGLISH, MESSAGES.motd().misconfigured()));
+        this.motd = MessageRenderer.of(messages)
+                .format(Locale.ENGLISH, MESSAGES.motd().misconfigured());
+    }
+
+    /** Returns what the server browser shows while nobody can join. */
+    Component motd() {
+        return motd;
     }
 
     /** What the server browser shows while nobody can join, never the configured MOTD. */

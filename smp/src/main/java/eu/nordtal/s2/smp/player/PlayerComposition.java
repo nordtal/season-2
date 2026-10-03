@@ -1,6 +1,7 @@
 package eu.nordtal.s2.smp.player;
 
 import eu.nordtal.s2.packrendering.Glyphs;
+import eu.nordtal.s2.packrendering.LanguageFlags;
 import eu.nordtal.s2.smp.prestige.Prestige;
 import eu.nordtal.s2.smp.prestige.PrestigeColours;
 import java.util.Locale;
@@ -64,7 +65,7 @@ public final class PlayerComposition {
 
     /** The wearer's language as a flag glyph, not the viewer's. */
     private Component flag(final Locale locale) {
-        return Component.text(Glyphs.flagFor(locale)).decoration(TextDecoration.ITALIC, false);
+        return Component.text(LanguageFlags.of(locale)).decoration(TextDecoration.ITALIC, false);
     }
 
     /** The prestige colour, or the admin colour, which wins. */

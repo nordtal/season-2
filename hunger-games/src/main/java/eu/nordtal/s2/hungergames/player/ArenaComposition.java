@@ -1,7 +1,7 @@
 package eu.nordtal.s2.hungergames.player;
 
 import eu.nordtal.s2.messages.PlayerLocales;
-import eu.nordtal.s2.packrendering.Glyphs;
+import eu.nordtal.s2.packrendering.LanguageFlags;
 import java.util.Objects;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
@@ -34,7 +34,7 @@ public final class ArenaComposition {
      * @param uuid their Minecraft uuid, for the flag
      */
     public Component ofName(final String name, final UUID uuid) {
-        return Component.text(Glyphs.flagFor(locales.of(uuid)))
+        return Component.text(LanguageFlags.of(locales.of(uuid)))
                 .decoration(TextDecoration.ITALIC, false)
                 .append(Component.text(" "))
                 // Uniform light grey, like the SMP's: a coloured name would read as a team here.

@@ -73,6 +73,9 @@ public final class ObjectivePanel {
     /** The widest the fill can be: the 62px track less its own two edge pixels. */
     public static final int BAR_MAX = CARD_WIDTH - 2 * CARD_ICON_DX - 2;
 
+    /** How wide each of {@link Glyphs#GUI_BAR_FILL_TOP}'s glyphs is, in its order: the fill's art is drawn so. */
+    private static final List<Integer> BAR_FILL_WIDTHS = List.of(1, 2, 4, 8, 16, 32);
+
     private static final int BUTTON_WIDTH = SlotGeometry.PITCH - 2 * INSET;
     private static final int PREV_X = SlotGeometry.x(7) + INSET;
     private static final int NEXT_X = SlotGeometry.x(8) + INSET;
@@ -192,8 +195,8 @@ public final class ObjectivePanel {
         }
         final List<String> glyphs = top ? Glyphs.GUI_BAR_FILL_TOP : Glyphs.GUI_BAR_FILL_BOTTOM;
         int at = x;
-        for (int index = Glyphs.GUI_BAR_FILL_WIDTHS.size() - 1; index >= 0; index--) {
-            final int step = Glyphs.GUI_BAR_FILL_WIDTHS.get(index);
+        for (int index = BAR_FILL_WIDTHS.size() - 1; index >= 0; index--) {
+            final int step = BAR_FILL_WIDTHS.get(index);
             if (width >= step) {
                 canvas.overlay(glyphs.get(index), at, step);
                 width -= step;

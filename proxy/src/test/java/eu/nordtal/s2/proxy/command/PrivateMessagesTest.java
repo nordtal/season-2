@@ -16,6 +16,7 @@ import eu.nordtal.s2.database.access.MemberState;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.packrendering.Glyphs;
+import eu.nordtal.s2.packrendering.LanguageFlags;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
 import eu.nordtal.s2.settings.network.PlayersSpec;
 import java.lang.reflect.InvocationHandler;
@@ -95,13 +96,13 @@ class PrivateMessagesTest {
                 flat(commands.line(PrivateMessages.Half.SENT, Locale.ENGLISH, player(TWO, "zwei"), "hello"));
         assertTrue(sent.startsWith("to "), sent);
         assertTrue(
-                sent.contains(Glyphs.flagFor(Locale.GERMAN)),
+                sent.contains(LanguageFlags.of(Locale.GERMAN)),
                 "the flag belongs to the person the line is about, not to the person reading it");
 
         final String received =
                 flat(commands.line(PrivateMessages.Half.RECEIVED, Locale.GERMAN, player(ONE, "eins"), "hello"));
         assertTrue(received.startsWith("von "), received);
-        assertTrue(received.contains(Glyphs.flagFor(Locale.ENGLISH)), received);
+        assertTrue(received.contains(LanguageFlags.of(Locale.ENGLISH)), received);
     }
 
     @Test

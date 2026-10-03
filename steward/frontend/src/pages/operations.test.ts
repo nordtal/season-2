@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import type { Run } from "@/lib/api"
-import { cancellable } from "@/pages/operations"
+import { cancellable, summaryOf } from "@/pages/operations"
 
 function row(over: Partial<Run> = {}): Run {
   return {
@@ -61,5 +61,28 @@ describe("cancellable - the window the backend would still take a row back in", 
     expect(cancellable(row({ status: "RUNNING", countdownEnd: undefined }), now)).toBe(false)
     expect(cancellable(row({ scheduledFor: "" }), now)).toBe(false)
     expect(cancellable(row({ scheduledFor: "not a time" }), now)).toBe(false)
+  })
+})
+
+/** One fact per line, counted in the bundle's words, so a plural is the bundle's and not a ternary here. */
+describe("summaryOf - what a run did, counted", () => {
+  it("counts the services that moved and the files they moved, each in its own number", () => {
+    const report: Run["report"] = {
+      stage: "DONE",
+      services: [
+        { service: "smp", state: "HEALTHY", changes: [{ artefact: "smp", from: "1", to: "2", state: "MOVING" }] },
+        {
+          service: "proxy",
+          state: "FAILED",
+          changes: [
+            { artefact: "proxy", from: "1", to: "2", state: "MOVING" },
+            { artefact: "limbo", from: "1", to: "2", state: "MOVING" },
+          ],
+        },
+      ],
+      notes: [],
+    }
+
+    expect(summaryOf(row({ status: "DONE", report }))).toEqual(["2 services, 3 artefacts", "1 failed"])
   })
 })

@@ -18,9 +18,10 @@ import { Link, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
 
 import type { ReportChange, ReportLine, Run } from "@/lib/api"
-import { count, dateTime, duration, parseInstant, relative } from "@/lib/format"
+import { dateTime, duration, parseInstant, relative } from "@/lib/format"
 import { useAskForRun, useCancelRun, useRun } from "@/lib/queries"
 import { useRunLock } from "@/lib/run-lock"
+import { choice, t } from "@/lib/texts"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
@@ -50,19 +51,9 @@ const TRAIL = [
   "VERIFYING",
 ] as const
 
-const STAGE_LABEL: Record<string, string> = {
-  RESOLVING: "Resolving",
-  PLANNED: "Planned",
-  COUNTDOWN: "Countdown",
-  STOPPING: "Stopping",
-  BACKING_UP: "Backing up",
-  INSTALLING: "Installing",
-  STARTING: "Starting",
-  VERIFYING: "Verifying",
-  DONE: "Done",
-  NOTHING_TO_DO: "Nothing to do",
-  FAILED: "Failed",
-  CANCELLED: "Cancelled",
+/** A stage as the trail names it, shorter than the admin bundle's sentence for it. */
+function stageLabel(stage: string): string {
+  return t("steward.operations.step", { stage: choice(stage) })
 }
 
 /** The four stages a run stops at; `NOTHING_TO_DO` is not a kind of "done". */
@@ -77,24 +68,24 @@ function stageTone(stage: string): Tone {
 }
 
 export function StageBadge({ stage }: { stage: string }) {
-  return <StatusBadge tone={stageTone(stage)}>{STAGE_LABEL[stage] ?? stage}</StatusBadge>
+  return <StatusBadge tone={stageTone(stage)}>{stageLabel(stage)}</StatusBadge>
 }
 
-const LINE_STATE: Record<string, { label: string; tone: Tone }> = {
-  UNCHANGED: { label: "unchanged", tone: "idle" },
-  PLANNED: { label: "waiting", tone: "idle" },
-  STOPPED: { label: "stopped", tone: "warn" },
-  INSTALLED: { label: "installed", tone: "warn" },
-  SAVED: { label: "saved", tone: "ok" },
-  STARTING: { label: "starting", tone: "warn" },
-  HEALTHY: { label: "healthy", tone: "ok" },
-  FAILED: { label: "failed", tone: "down" },
+/** A report line's tone; its word is the admin bundle's, so a state reads the same here and in Discord. */
+const LINE_TONE: Record<string, Tone> = {
+  UNCHANGED: "idle",
+  PLANNED: "idle",
+  STOPPED: "warn",
+  INSTALLED: "warn",
+  SAVED: "ok",
+  STARTING: "warn",
+  HEALTHY: "ok",
+  FAILED: "down",
 }
 
 function LineState({ state }: { state: string }) {
-  const known = LINE_STATE[state]
   /** An unknown state keeps its enum name, so a newer steward is noticed rather than hidden. */
-  return <StatusBadge tone={known?.tone ?? "idle"}>{known?.label ?? state}</StatusBadge>
+  return <StatusBadge tone={LINE_TONE[state] ?? "idle"}>{t("run.state", { state: choice(state) })}</StatusBadge>
 }
 
 /**
@@ -106,7 +97,7 @@ function Change({ change }: { change: ReportChange }) {
   if (change.state === "UNSUPPORTED") {
     return (
       <span className="text-muted-foreground">
-        <code className="text-xs">{change.artefact}</code> - no build for this Minecraft version
+        <code className="text-xs">{change.artefact}</code> - {t("steward.operations.no-build")}
       </span>
     )
   }
@@ -120,7 +111,7 @@ function Change({ change }: { change: ReportChange }) {
           <ArrowRightIcon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
         </>
       ) : (
-        <span className="text-muted-foreground">new:</span>
+        <span className="text-muted-foreground">{t("steward.operations.added")}</span>
       )}
       <span className="tnum">{change.to}</span>
     </span>
@@ -185,63 +176,38 @@ const CANCELLABLE_KINDS = new Set(["RESTART", "UPDATE", "BACKUP", "DOWN"])
 
 /** What a run did, one fact per line, counted out of the report since steward writes no sentence. */
 export function summaryOf(run: Run): string[] {
-  if (run.resultText) return ["report unreadable"]
+  if (run.resultText) return [t("steward.operations.report-unreadable")]
   const report = run.report
-  if (!report) return [run.status === "PENDING" ? "nothing written yet" : "\u2013"]
-  if (report.stage === "NOTHING_TO_DO") return ["nothing to do"]
+  if (!report) return [run.status === "PENDING" ? t("steward.operations.nothing-written") : "\u2013"]
+  if (report.stage === "NOTHING_TO_DO") return [t("steward.operations.nothing-to-do")]
 
   const parts: string[] = []
   const saved = report.services.filter((line) => line.state === "SAVED")
-  if (saved.length > 0) parts.push(`${count(saved.length)} saved`)
+  if (saved.length > 0) parts.push(t("steward.operations.saved", { count: saved.length }))
 
   const moving = report.services.filter((line) => line.changes.some(isMoving))
   if (moving.length > 0) {
     const artefacts = moving.reduce((sum, line) => sum + line.changes.filter(isMoving).length, 0)
-    parts.push(
-      `${count(moving.length)} ${moving.length === 1 ? "service" : "services"}, ` +
-        `${count(artefacts)} ${artefacts === 1 ? "artefact" : "artefacts"}`,
-    )
+    parts.push(t("steward.operations.moved", { services: moving.length, artefacts }))
   }
 
   const failed = report.services.filter((line) => line.state === "FAILED")
-  if (failed.length > 0) parts.push(`${count(failed.length)} failed`)
+  if (failed.length > 0) parts.push(t("steward.operations.failed", { count: failed.length }))
 
   if (parts.length > 0) return parts
-  return [report.services.length === 0 ? "no line in the report" : "no change"]
+  return [report.services.length === 0 ? t("steward.operations.no-line") : t("steward.operations.no-change")]
 }
 
 type Kind = "UPDATE" | "BACKUP" | "RESTART" | "DOWN" | "START"
 
-const ASKS: Record<Kind, { title: string; what: string; warning?: string; icon: typeof ArrowsClockwiseIcon }> = {
-  UPDATE: {
-    title: "Update",
-    what: "Stops what changes, swaps its jars and starts it again.",
-    /** Its own symbol, so it is not mistaken for Recreate beside it on a service page. */
-    icon: ArrowCircleUpIcon,
-  },
-  BACKUP: {
-    title: "Back up",
-    what: "Dumps the database, then packs every volume.",
-    warning: "The network is offline while it packs.",
-    icon: ArchiveIcon,
-  },
-  RESTART: {
-    title: "Restart",
-    what: "Stops the network and starts it again.",
-    warning: "Every player is thrown off.",
-    icon: ArrowCounterClockwiseIcon,
-  },
-  DOWN: {
-    title: "Take down",
-    what: "Counts down and leaves it stopped.",
-    warning: "It stays down until somebody presses Start.",
-    icon: PowerIcon,
-  },
-  START: {
-    title: "Start",
-    what: "Takes the hold off and starts it again.",
-    icon: PlayIcon,
-  },
+/** Each kind's symbol; its title, what it does and what it costs are the bundle's. */
+const ASKS: Record<Kind, typeof ArrowsClockwiseIcon> = {
+  /** Its own symbol, so it is not mistaken for Recreate beside it on a service page. */
+  UPDATE: ArrowCircleUpIcon,
+  BACKUP: ArchiveIcon,
+  RESTART: ArrowCounterClockwiseIcon,
+  DOWN: PowerIcon,
+  START: PlayIcon,
 }
 
 /**
@@ -279,12 +245,15 @@ export function AskButton({
 }) {
   const ask = useAskForRun()
   const lock = useRunLock()
-  const spec = ASKS[kind]
-  const Icon = spec.icon
+  const Icon = ASKS[kind]
+  const title = t("steward.operations.ask", { kind: choice(kind) })
+  const warning = t("steward.operations.ask-warning", { kind: choice(kind) })
   const scoped = services !== undefined && services.length > 0
 
   const submit = () =>
-    ask.mutateAsync({ kind, services }).then((run) => toast.success(`${runKind(kind)} entered as run #${run.id}`))
+    ask
+      .mutateAsync({ kind, services })
+      .then((run) => toast.success(t("steward.operations.entered", { kind: runKind(kind), run: run.id })))
 
   return (
     <AskThenAct
@@ -306,16 +275,16 @@ export function AskButton({
           </Button>
         ) : null
       }
-      title={scoped ? `${spec.title} for ${services.join(", ")}` : spec.title}
-      description={spec.what}
-      action="Now"
+      title={scoped ? t("steward.operations.scoped", { ask: title, services }) : title}
+      description={t("steward.operations.ask-what", { kind: choice(kind) })}
+      action={t("steward.operations.now")}
       destructive={kind === "RESTART" || kind === "DOWN"}
       act={submit}
     >
-      {spec.warning ? (
+      {warning ? (
         <p className="flex items-start gap-2 text-sm text-warning">
           <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
-          {spec.warning}
+          {warning}
         </p>
       ) : null}
     </AskThenAct>
@@ -339,18 +308,18 @@ export function CancelButton({ run }: { run: Run }) {
       onClick={() =>
         cancel.mutate(undefined, {
           onSuccess: (cancelled) => {
-            toast.success(`Run #${cancelled.id} cancelled`, {
-              description: "Nothing was stopped. The row is CANCELLED and names who took it back.",
+            toast.success(t("steward.operations.cancelled", { run: cancelled.id }), {
+              description: t("steward.operations.cancelled-note"),
             })
           },
           onError: (error) => {
-            toast.error(`Run #${run.id} was not cancelled`, { description: error.message })
+            toast.error(t("steward.operations.not-cancelled", { run: run.id }), { description: error.message })
           },
         })
       }
     >
       <XCircleIcon aria-hidden />
-      Cancel
+      {t("steward.operations.cancel")}
     </Button>
   )
 }
@@ -368,22 +337,19 @@ export function UpdateRunPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title={numeric ? `Run #${id}` : "Run"}
+        title={numeric ? t("steward.operations.run", { id }) : t("steward.operations.a-run")}
         actions={
           <Button asChild variant="outline">
             <Link to="/operations/updates">
               <ArrowRightIcon aria-hidden />
-              All updates
+              {t("steward.operations.all-updates")}
             </Link>
           </Button>
         }
       />
 
       {!numeric ? (
-        <Empty
-          title="Not a run number"
-          note={`"${id}" is not a number. A run is addressed by the number of its row.`}
-        />
+        <Empty title={t("steward.operations.not-a-number")} note={t("steward.operations.not-a-number-note", { id })} />
       ) : (
         /** A missing row arrives as a 404 failure, and an answered query always has a body. */
         <QueryState query={run}>{(data) => <RunDetail run={data} />}</QueryState>
@@ -405,7 +371,7 @@ function RunDetail({ run }: { run?: Run }) {
       <Card>
         <CardContent className="flex flex-wrap items-start gap-6 pt-6">
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-medium text-muted-foreground">Status</span>
+            <span className="text-xs font-medium text-muted-foreground">{t("steward.operations.status")}</span>
             <div className="flex items-center gap-2">
               {run ? <RunStatus status={run.status} /> : <Skeleton className="h-5 w-20 rounded-full" />}
               {report ? <StageBadge stage={report.stage} /> : null}
@@ -427,24 +393,24 @@ function RunDetail({ run }: { run?: Run }) {
           <Separator orientation="vertical" className="h-14" />
 
           <Stat
-            label="Requested by"
+            label={t("steward.operations.requested-by")}
             value={run ? <Actor kind={run.actorKind} id={run.actorId} /> : undefined}
             hint={run ? dateTime(run.requested) : undefined}
           />
           <Stat
-            label="No earlier than"
+            label={t("steward.operations.no-earlier-than")}
             value={run ? dateTime(run.scheduledFor) : undefined}
-            hint="steward does not pick the row up before this"
+            hint={t("steward.operations.no-earlier-than-hint")}
           />
           <Stat
-            label="Started"
+            label={t("steward.operations.started")}
             value={run ? dateTime(run.started) : undefined}
             hint={run ? relative(run.started) : undefined}
           />
           <Stat
-            label="Duration"
+            label={t("steward.operations.duration")}
             value={run ? duration(runSeconds(run)) : undefined}
-            hint={!run ? undefined : finished ? dateTime(run.finished) : "still running"}
+            hint={!run ? undefined : finished ? dateTime(run.finished) : t("steward.operations.still-running")}
           />
         </CardContent>
       </Card>
@@ -453,10 +419,8 @@ function RunDetail({ run }: { run?: Run }) {
         <div className="flex items-start gap-3 rounded-md border border-border bg-secondary/40 px-4 py-3" role="status">
           <ProhibitInsetIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
           <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium">Nothing to do.</p>
-            <p className="max-w-prose text-sm text-muted-foreground">
-              Nothing was stopped, nothing swapped and nothing backed up.
-            </p>
+            <p className="text-sm font-medium">{t("steward.operations.nothing-to-do-title")}</p>
+            <p className="max-w-prose text-sm text-muted-foreground">{t("steward.operations.nothing-to-do-note")}</p>
           </div>
         </div>
       ) : null}
@@ -468,8 +432,8 @@ function RunDetail({ run }: { run?: Run }) {
         >
           <ShieldWarningIcon className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden />
           <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium">This run saved nothing.</p>
-            <p className="max-w-prose text-sm text-muted-foreground">No line of the report stands at "saved".</p>
+            <p className="text-sm font-medium">{t("steward.operations.saved-nothing")}</p>
+            <p className="max-w-prose text-sm text-muted-foreground">{t("steward.operations.saved-nothing-note")}</p>
           </div>
         </div>
       ) : null}
@@ -477,14 +441,14 @@ function RunDetail({ run }: { run?: Run }) {
       {report && run ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Stages</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("steward.operations.stages")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <StageTrail stage={report.stage} kind={run.kind} />
             {!finished ? (
               <p className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span className="size-2 animate-pulse rounded-full bg-warning" aria-hidden />
-                The report is re-read every two seconds and grows while you watch.
+                {t("steward.operations.growing")}
               </p>
             ) : null}
           </CardContent>
@@ -493,7 +457,7 @@ function RunDetail({ run }: { run?: Run }) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium">Report</CardTitle>
+          <CardTitle className="text-sm font-medium">{t("steward.operations.report")}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {!run ? (
@@ -503,18 +467,14 @@ function RunDetail({ run }: { run?: Run }) {
             <>
               <p className="flex items-start gap-2 text-sm text-warning">
                 <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
-                The contents of the <code className="text-xs">result</code> column could not be read as a report - an
-                old row, or one from a newer version than this. The raw text is therefore shown here.
+                {t("steward.operations.raw-report")}
               </p>
               <pre className="max-h-96 overflow-auto rounded-md border border-border bg-[#0a0a0a] p-3 font-mono text-xs leading-5 whitespace-pre-wrap">
                 {run.resultText}
               </pre>
             </>
           ) : !report ? (
-            <Empty
-              title="No report yet"
-              note="The result column is empty. Until steward has picked the row up, nobody writes into it."
-            />
+            <Empty title={t("steward.operations.no-report")} note={t("steward.operations.no-report-note")} />
           ) : (
             <>
               <ReportLines lines={report.services} />
@@ -565,7 +525,7 @@ function StageTrail({ stage, kind }: { stage: string; kind: string }) {
               }
             >
               {past && !now ? <CheckIcon className="size-3 shrink-0" aria-hidden /> : null}
-              {STAGE_LABEL[step]}
+              {stageLabel(step)}
             </span>
             {index < TRAIL.length - 1 ? (
               <ArrowRightIcon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
@@ -585,33 +545,28 @@ function StageTrail({ stage, kind }: { stage: string; kind: string }) {
 
 function ReportLines({ lines }: { lines: ReportLine[] }) {
   if (lines.length === 0) {
-    return (
-      <Empty
-        title="No line in the report"
-        note="The report is there but names no service - the run has touched none yet."
-      />
-    )
+    return <Empty title={t("steward.operations.no-line-title")} note={t("steward.operations.no-line-note")} />
   }
   return (
     <Table className="steward-table">
       <TableHeader>
         <TableRow>
-          <TableHead className="w-[14rem]">Service</TableHead>
-          <TableHead className="w-[10rem]">State</TableHead>
-          <TableHead>Changes</TableHead>
+          <TableHead className="w-[14rem]">{t("steward.operations.service")}</TableHead>
+          <TableHead className="w-[10rem]">{t("steward.operations.state")}</TableHead>
+          <TableHead>{t("steward.operations.changes")}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {lines.map((line) => (
           <TableRow key={line.service} className="align-top">
-            <TableCell data-label="Service" className="font-medium">
+            <TableCell data-label={t("steward.operations.service")} className="font-medium">
               {line.service}
             </TableCell>
-            <TableCell data-label="State">
+            <TableCell data-label={t("steward.operations.state")}>
               <LineState state={line.state} />
             </TableCell>
             {/* `whitespace-normal`, so a long list of changes wraps instead of widening the table. */}
-            <TableCell data-label="Changes" className="whitespace-normal">
+            <TableCell data-label={t("steward.operations.changes")} className="whitespace-normal">
               {line.changes.length === 0 && !line.detail ? (
                 <span className="text-muted-foreground">{"\u2013"}</span>
               ) : (
@@ -641,7 +596,7 @@ export function Notes({ notes }: { notes: string[] }) {
   if (notes.length === 0) return null
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-muted-foreground">Notes</span>
+      <span className="text-xs font-medium text-muted-foreground">{t("steward.operations.notes")}</span>
       <ul className="flex flex-col gap-1">
         {notes.map((note) => (
           <li key={note} className="text-sm text-muted-foreground">
@@ -667,16 +622,14 @@ export function CopyButton({ text, disabled }: { text: string; disabled?: boolea
           await navigator.clipboard.writeText(text)
           setCopied(true)
           window.setTimeout(() => setCopied(false), 2000)
-          toast.success("Command copied")
+          toast.success(t("steward.operations.command-copied"))
         } catch {
-          toast.error("Cannot copy", {
-            description: "The clipboard is not available to this page. The command can be selected beside it.",
-          })
+          toast.error(t("steward.operations.cannot-copy"), { description: t("steward.operations.cannot-copy-note") })
         }
       }}
     >
       {copied ? <CheckIcon aria-hidden /> : <CopyIcon aria-hidden />}
-      {copied ? "Copied" : "Copy"}
+      {copied ? t("steward.operations.copied") : t("steward.operations.copy")}
     </Button>
   )
 }

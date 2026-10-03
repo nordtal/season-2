@@ -1,3 +1,5 @@
+import { t } from "@/lib/texts"
+
 /**
  * Converts a WebAuthn ceremony between the server's base64url JSON and the browser's `ArrayBuffer`s.
  *
@@ -125,11 +127,11 @@ export function fromCredential(credential: AttestationCredentialLike): string {
 export async function createSecurityKey(startAnswer: CreationOptionsJson): Promise<string> {
   const publicKey = toCreationOptions(startAnswer)
   if (!isCreationOptions(publicKey)) {
-    throw new Error("The registration options the server sent are missing a field the browser requires.")
+    throw new Error(t("steward.keys.registration-incomplete"))
   }
   const credential = await navigator.credentials.create({ publicKey })
   if (!isAttestationCredential(credential)) {
-    throw new Error("The browser ended the dialog without a key.")
+    throw new Error(t("steward.keys.no-key-returned"))
   }
   return fromCredential(credential)
 }
@@ -158,28 +160,17 @@ export function whyTheKeyFailed(error: unknown): string {
   const name = error instanceof Error ? error.name : ""
   switch (name) {
     case "NotAllowedError":
-      return "The dialog was cancelled, or it waited too long. Nothing was registered - try again."
+      return t("steward.keys.cancelled")
     case "InvalidStateError":
-      return (
-        "That key is already registered on this account. Use a different one, or sign in with" +
-        " the one you are holding."
-      )
+      return t("steward.keys.already-registered")
     case "AbortError":
-      return "The dialog was closed before the key answered. Nothing happened - try again."
+      return t("steward.keys.aborted")
     case "SecurityError":
-      return (
-        "The browser refused because this page's address does not match the domain the key" +
-        " would be registered to. That is a configuration fault on this server, not on your key."
-      )
+      return t("steward.keys.wrong-domain")
     case "NotSupportedError":
-      return (
-        "This authenticator cannot do what Steward asked for. A different key or your phone's" +
-        " own unlock will work."
-      )
+      return t("steward.keys.unsupported")
     default:
-      return error instanceof Error && error.message
-        ? error.message
-        : "The key could not be registered, and the browser did not say why."
+      return error instanceof Error && error.message ? error.message : t("steward.keys.unexplained")
   }
 }
 
@@ -244,11 +235,11 @@ export function fromAssertion(credential: AssertionCredentialLike): string {
 export async function useSecurityKey(startAnswer: RequestOptionsJson): Promise<string> {
   const publicKey = toRequestOptions(startAnswer)
   if (!isRequestOptions(publicKey)) {
-    throw new Error("The sign-in options the server sent are missing a field the browser requires.")
+    throw new Error(t("steward.keys.sign-in-incomplete"))
   }
   const credential = await navigator.credentials.get({ publicKey })
   if (!isAssertionCredential(credential)) {
-    throw new Error("The browser ended the dialog without an answer.")
+    throw new Error(t("steward.keys.no-answer"))
   }
   return fromAssertion(credential)
 }

@@ -15,6 +15,7 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog"
+import { t } from "@/lib/texts"
 
 /**
  * The key question in front of any write, so a stale session costs one tap and the same request goes again.
@@ -44,7 +45,7 @@ export function StepUp() {
       () =>
         new Promise<void>((resolve, reject) => {
           /** A second refusal replaces the first waiter, which is rejected rather than left spinning. */
-          pending.current?.reject(new Error("Another request asked for the key first."))
+          pending.current?.reject(new Error(t("steward.keys.another-first")))
           pending.current = { resolve, reject }
           setFailure(null)
           setAsking(true)
@@ -75,31 +76,27 @@ export function StepUp() {
       open={asking}
       onOpenChange={(open) => {
         if (open || busy) return
-        settle(new Error("Steward needs your security key for this, and the question was closed."))
+        settle(new Error(t("steward.keys.closed")))
       }}
     >
       <ResponsiveDialogContent className="sm:max-w-md">
         <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>Steward needs your security key</ResponsiveDialogTitle>
-          <ResponsiveDialogDescription>
-            This one changes something, so it is asked for. One touch covers everything for the next {minutes} minutes.
-          </ResponsiveDialogDescription>
+          <ResponsiveDialogTitle>{t("steward.keys.step-up-title")}</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>{t("steward.keys.step-up-note", { minutes })}</ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
         {browserHasSecurityKeys() ? null : (
           <Alert variant="destructive">
             <ShieldWarningIcon aria-hidden />
-            <AlertTitle>This browser cannot use security keys.</AlertTitle>
-            <AlertDescription>
-              Open Steward in Safari, Chrome or Firefox directly - not in a private window and not inside another app.
-            </AlertDescription>
+            <AlertTitle>{t("steward.keys.no-keys-here")}</AlertTitle>
+            <AlertDescription>{t("steward.keys.open-directly")}</AlertDescription>
           </Alert>
         )}
 
         {failure ? (
           <Alert variant="destructive">
             <ShieldWarningIcon aria-hidden />
-            <AlertTitle>The key was not accepted.</AlertTitle>
+            <AlertTitle>{t("steward.keys.not-accepted")}</AlertTitle>
             <AlertDescription>{failure}</AlertDescription>
           </Alert>
         ) : null}
@@ -109,13 +106,13 @@ export function StepUp() {
             type="button"
             variant="ghost"
             disabled={busy}
-            onClick={() => settle(new Error("Steward needs your security key for this, and it was not held."))}
+            onClick={() => settle(new Error(t("steward.keys.not-held")))}
           >
-            Not now
+            {t("steward.keys.not-now")}
           </Button>
           <Button type="button" onClick={hold} disabled={busy || !browserHasSecurityKeys()}>
             <FingerprintIcon aria-hidden />
-            {busy ? "Waiting for the key…" : failure ? "Try again" : "Hold your key"}
+            {busy ? t("steward.keys.waiting") : failure ? t("steward.keys.try-again") : t("steward.keys.hold-key")}
           </Button>
         </ResponsiveDialogFooter>
       </ResponsiveDialogContent>

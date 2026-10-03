@@ -48,6 +48,8 @@ public interface StewardTexts {
 
         Forms form();
 
+        KeysPage keys();
+
         PeoplePage people();
 
         PaymentsPage payments();

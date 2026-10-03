@@ -25,4 +25,10 @@ public interface Forms {
 
     @Name("Schedule saved")
     MessageRef scheduleSaved();
+
+    @Name("Cancel")
+    MessageRef cancel();
+
+    @Name("Close")
+    MessageRef close();
 }

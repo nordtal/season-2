@@ -12,6 +12,7 @@ import {
   ResponsiveAlertDialogTitle,
   ResponsiveAlertDialogTrigger,
 } from "@/components/ui/responsive-dialog"
+import { t } from "@/lib/texts"
 
 /**
  * The one confirmation in front of a change: a question, then the change, then either closed or the failure inside.
@@ -27,13 +28,13 @@ export function AskThenAct({
   children,
   action,
   acting,
-  cancel = "Cancel",
+  cancel = t("steward.form.cancel"),
   destructive = false,
   disabled = false,
   act,
   answered,
   busy = false,
-  closeLabel = "Close",
+  closeLabel = t("steward.form.close"),
 }: {
   /** Given, the caller decides when it is open; left off, {@link trigger} opens it. */
   open?: boolean

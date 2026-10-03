@@ -241,11 +241,38 @@ export type TextArgs = {
   "journal.written": {
     detail: Arg["text"]
   }
+  "note.booked": {
+    reference: Arg["text"]
+    payer: Arg["mention"]
+    days: Arg["number"]
+    until: Arg["instant"]
+  }
+  "note.no-season-start": Record<string, never>
+  "note.payment-booked": Record<string, never>
+  "note.refused-for-the-hour": {
+    person: Arg["mention"]
+  }
+  "note.runs-from-the-grant": {
+    person: Arg["mention"]
+    from: Arg["instant"]
+  }
+  "note.too-many-codes": Record<string, never>
+  "run.duration": Record<string, never>
+  "run.heading": Record<string, never>
   "run.kind": {
     kind: Arg["choice"]
   }
+  "run.more": {
+    count: Arg["number"]
+  }
+  "run.no-build": Record<string, never>
+  "run.notes": Record<string, never>
+  "run.services": Record<string, never>
   "run.stage": {
     stage: Arg["choice"]
+  }
+  "run.state": {
+    state: Arg["choice"]
   }
   "run.status": {
     status: Arg["choice"]
@@ -253,6 +280,9 @@ export type TextArgs = {
   "run.successful": {
     successful: Arg["number"]
     total: Arg["number"]
+  }
+  "run.took": {
+    took: Arg["duration"]
   }
   "steward.artifact.status": {
     status: Arg["choice"]

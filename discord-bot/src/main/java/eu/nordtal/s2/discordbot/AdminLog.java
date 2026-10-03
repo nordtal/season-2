@@ -14,7 +14,6 @@ import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.messages.MessageRef;
-import eu.nordtal.s2.messages.value.Mention;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -110,9 +109,14 @@ public final class AdminLog {
         };
     }
 
-    /** Posts a card to be read later, without a mention. */
-    public void note(final String title, final String text) {
-        send(null, card(title, text));
+    /** Posts a card to be read later, without a mention: the mark, the title, and one line below it. */
+    public void note(final String mark, final MessageRef title, final MessageRef line) {
+        send(null, card(texts, mark, title, line));
+    }
+
+    static MessageEmbed card(
+            final DiscordRenderer texts, final String mark, final MessageRef title, final MessageRef line) {
+        return card(mark + " " + texts.format(Locales.DEFAULT, title), texts.format(Locales.DEFAULT, line));
     }
 
     /** Draws one admin-log line; a mention stays outside, since a mention inside an embed pings nobody. */
@@ -170,25 +174,18 @@ public final class AdminLog {
                 .lead(texts.format(Locales.DEFAULT, line.line()))
                 .field(
                         texts.format(Locales.DEFAULT, TEXTS.journal().by()),
-                        texts.format(Locales.DEFAULT, actor(line.actor())));
+                        texts.format(Locales.DEFAULT, TEXTS.journal().who(line.actor())));
         final DiscordId subject = line.subject();
         if (subject != null) {
             card.field(
                     texts.format(Locales.DEFAULT, TEXTS.journal().concerns()),
-                    texts.format(Locales.DEFAULT, actor(Actor.person(subject))));
+                    texts.format(Locales.DEFAULT, TEXTS.journal().who(Actor.person(subject))));
         }
         final UUID account = line.mcUuid();
         if (account != null) {
             card.field(texts.format(Locales.DEFAULT, TEXTS.journal().minecraft()), "`" + account + "`");
         }
         return card.build();
-    }
-
-    private static MessageRef actor(final Actor actor) {
-        final DiscordId person = actor.person();
-        return person == null
-                ? TEXTS.journal().actor(actor.kind())
-                : TEXTS.journal().person(Mention.of(person));
     }
 
     private @Nullable MessageChannel channel() {

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot.access.payment;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.s2.common.id.DiscordId;
@@ -11,6 +12,7 @@ import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
 import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.discordbot.config.Languages;
 import eu.nordtal.s2.messages.context.DiscordMemberContext;
+import eu.nordtal.s2.messages.value.Mention;
 import eu.nordtal.s2.messages.value.Money;
 import java.util.Locale;
 import java.util.Objects;
@@ -77,9 +79,9 @@ public final class BookingReaction {
         }
 
         admin.note(
-                "💶 Payment booked",
-                "`" + booked.reference() + "` → <@" + payer + "> " + booked.days() + " days, until "
-                        + AccessRoles.timestamp(booked.until()));
+                "💶",
+                TEXTS.note().paymentBooked(),
+                TEXTS.note().booked(booked.reference(), Mention.of(payer), booked.days(), booked.until()));
         log.info("Told {} of {}: {} days", payer, booked.reference(), booked.days());
     }
 

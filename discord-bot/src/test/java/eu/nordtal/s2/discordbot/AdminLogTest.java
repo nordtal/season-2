@@ -169,4 +169,21 @@ class AdminLogTest {
         assertEquals(
                 "<@400000000000000001>: \\*gone\\*\nhttps://steward.example/services/smp_1", card.getDescription());
     }
+
+    @Test
+    void aBookedPaymentIsNotedWithItsReferenceEscapedAndItsEndAsADiscordTimestamp() {
+        final MessageEmbed card = AdminLog.card(
+                ADMIN,
+                "💶",
+                TEXTS.note().paymentBooked(),
+                TEXTS.note()
+                        .booked(
+                                "NT_7Q",
+                                Mention.of(DiscordId.of("400000000000000001")),
+                                30,
+                                Instant.parse("2026-11-02T10:00:00Z")));
+
+        assertEquals("💶 Payment booked", card.getTitle());
+        assertEquals("NT\\_7Q for <@400000000000000001>: 30 days, until <t:1793613600:f>", card.getDescription());
+    }
 }

@@ -408,7 +408,6 @@ export type MessageSaveResult = {
   writable: boolean
   entries: MessageEntry[]
   warnings: string[]
-  unknown: string[]
   reload: ReloadOutcome
 }
 
@@ -687,8 +686,11 @@ export type ReloadOutcome = {
 
 export type MessageEntry = {
   key: string
+  bundle: string
   english?: string
   german?: string
+  englishHash?: string
+  germanHash?: string
   overrideEnglish?: string
   overrideGerman?: string
   inBundle: boolean

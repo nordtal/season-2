@@ -114,29 +114,28 @@ pin and no rollback: a bad release is corrected by publishing a better one.
 The paths and records are `AgentWire`, the client is `AgentClient`; both live in `:internal-api`,
 so steward and this service compile against one definition. `{service}` is a compose service name.
 
-| Route                                             | Answer                                                                                    |
-| ------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `GET /api/health`                                 | the only route without the token                                                          |
-| `GET /api/topology`                               | `Topology`: every service in the baked file, its image and its labels' meaning            |
-| `GET /api/containers`                             | `Containers`: every container of the project with the sampler's last `Reading`            |
-| `GET /api/containers/{service}`                   | one `Container`, with the registry digests of its image; `404` when there is none         |
-| `GET /api/images`                                 | `ImageResult`: each running image against its registry, slow on purpose                   |
-| `GET /api/containers/{service}/logs`              | SSE: `line` and `run` events, the backlog first; `end` or `gone` when it stops            |
-| `GET /api/containers/{service}/log-capacity?max=` | `LogCapacity`: how many lines the backlog can fill                                        |
-| `POST /api/containers/{service}/console`          | `ConsoleLine` (`command`, `actor`); `202`, the answer lands in the log                    |
-| `GET /api/host`                                   | `Host`: `/proc`, the root filesystem and Docker's disk use                                |
-| `GET /api/volumes/{service}/disk`                 | `Disk`: `du` of that service's volume; `404` for one not mounted here                     |
-| `GET /api/bundles`                                | `BundleRef`s: every message bundle a jar carries, before it is opened                     |
-| `GET /api/bundles/{service}?module=`              | one `MessageBundle`, packaged text and overrides side by side                             |
-| `POST /api/bundles/{service}?module=`             | `BundleChanges`; `SavedBundle` with the dropped placeholders, `400` for an undeclared one |
-| `GET /api/descriptors`                            | `Descriptor`s: what each jar of ours says of itself, one per id                           |
-| `GET /api/samples?after=`                         | the sampler's `Round`s after an ISO instant, oldest first; all it holds without one       |
-| `GET /api/backups`                                | `Archive`s, newest first                                                                  |
-| `GET /api/backups/{name}`                         | one finished archive's bytes; `400` for a name that is not one, `404` when it is gone     |
-| `GET /api/plan`                                   | what the next update would change, resolved now; changes nothing                          |
-| `GET /api/plugins/{service}`                      | the managed plugins of one server                                                         |
-| `GET /api/plugins/{service}/search?q=`            | Modrinth's answer for that server's platform                                              |
-| `POST /api/plugins/{service}?by=`                 | adds a plugin to the list the next run installs; removing one is a `REMOVE_PLUGIN` run    |
+| Route                                             | Answer                                                                                 |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `GET /api/health`                                 | the only route without the token                                                       |
+| `GET /api/topology`                               | `Topology`: every service in the baked file, its image and its labels' meaning         |
+| `GET /api/containers`                             | `Containers`: every container of the project with the sampler's last `Reading`         |
+| `GET /api/containers/{service}`                   | one `Container`, with the registry digests of its image; `404` when there is none      |
+| `GET /api/images`                                 | `ImageResult`: each running image against its registry, slow on purpose                |
+| `GET /api/containers/{service}/logs`              | SSE: `line` and `run` events, the backlog first; `end` or `gone` when it stops         |
+| `GET /api/containers/{service}/log-capacity?max=` | `LogCapacity`: how many lines the backlog can fill                                     |
+| `POST /api/containers/{service}/console`          | `ConsoleLine` (`command`, `actor`); `202`, the answer lands in the log                 |
+| `GET /api/host`                                   | `Host`: `/proc`, the root filesystem and Docker's disk use                             |
+| `GET /api/volumes/{service}/disk`                 | `Disk`: `du` of that service's volume; `404` for one not mounted here                  |
+| `GET /api/bundles`                                | `BundleRef`s: every message bundle a jar carries, before it is opened                  |
+| `GET /api/bundles/{service}?module=`              | one `MessageBundle`, the packaged texts; Steward keeps the overrides in the database   |
+| `GET /api/descriptors`                            | `Descriptor`s: what each jar of ours says of itself, one per id                        |
+| `GET /api/samples?after=`                         | the sampler's `Round`s after an ISO instant, oldest first; all it holds without one    |
+| `GET /api/backups`                                | `Archive`s, newest first                                                               |
+| `GET /api/backups/{name}`                         | one finished archive's bytes; `400` for a name that is not one, `404` when it is gone  |
+| `GET /api/plan`                                   | what the next update would change, resolved now; changes nothing                       |
+| `GET /api/plugins/{service}`                      | the managed plugins of one server                                                      |
+| `GET /api/plugins/{service}/search?q=`            | Modrinth's answer for that server's platform                                           |
+| `POST /api/plugins/{service}?by=`                 | adds a plugin to the list the next run installs; removing one is a `REMOVE_PLUGIN` run |
 
 A descriptor is the `nordtal-plugin.json` the `nordtal.plugin-descriptor` convention writes into every
 jar of ours: the id its settings are published under, the name and logo Steward's sidebar shows, and
@@ -187,15 +186,15 @@ The connection comes from the environment (`NORDTAL_STEWARD_AGENT_DATABASE_*`, w
 `runs` group in the database, edited in Steward: the release sources, the volumes root, the timeouts,
 the backup retention and how long a backup waits for a server to stop.
 
-| Setting (`NORDTAL_STEWARD_AGENT_*`) | Default                | What                                                            |
-| ----------------------------------- | ---------------------- | --------------------------------------------------------------- |
-| `TOKEN`                             | none, required         | the secret steward sends                                        |
-| `PORT`                              | `8081`                 |                                                                 |
-| `DOCKER_SOCKET`                     | `/var/run/docker.sock` |                                                                 |
-| `CONFIGS`                           | `/configs`             | each service's plugins folder, where the message overrides live |
-| `VOLUMES_ROOT`                      | `/volumes`             | the `runs` group's `volumes-root`: what a run installs into     |
-| `BACKUP_SOURCES`                    | `/backup-sources`      | one mount per volume a backup saves and a restore writes back   |
-| `BACKUPS`                           | `/backups`             | the archives, the same volume postgres dumps into               |
+| Setting (`NORDTAL_STEWARD_AGENT_*`) | Default                | What                                                                |
+| ----------------------------------- | ---------------------- | ------------------------------------------------------------------- |
+| `TOKEN`                             | none, required         | the secret steward sends                                            |
+| `PORT`                              | `8081`                 |                                                                     |
+| `DOCKER_SOCKET`                     | `/var/run/docker.sock` |                                                                     |
+| `CONFIGS`                           | `/configs`             | each service's plugins folder, whose jars carry the message bundles |
+| `VOLUMES_ROOT`                      | `/volumes`             | the `runs` group's `volumes-root`: what a run installs into         |
+| `BACKUP_SOURCES`                    | `/backup-sources`      | one mount per volume a backup saves and a restore writes back       |
+| `BACKUPS`                           | `/backups`             | the archives, the same volume postgres dumps into                   |
 
 ## Tests
 

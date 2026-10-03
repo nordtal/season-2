@@ -58,15 +58,6 @@ public final class BotInbox implements Inbox.Handler<BotRequest> {
                 effects.setPlaytime(playtime.person(), playtime.seconds(), by);
                 yield done("seconds", String.valueOf(playtime.seconds()));
             }
-            case BotRequest.ReloadMessages reload -> {
-                if (!effects.reloadMessages()) {
-                    // A bundle that no longer parses keeps the running one; the surface must say "not applied".
-                    throw new IllegalStateException(
-                            "the message bundles could not be re-read; the running ones are unchanged");
-                }
-                // Names the override keys no bundle declares, which would otherwise do nothing silently.
-                yield done("unknown", String.join(",", effects.unknownOverrideKeys()));
-            }
             case BotRequest.Announce announcement -> Outcome.done(post(announcement));
             case BotRequest.PostAlert posted -> done("posted", String.valueOf(alert.test(posted)));
         };

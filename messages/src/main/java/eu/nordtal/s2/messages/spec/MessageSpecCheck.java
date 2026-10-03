@@ -7,7 +7,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
@@ -19,14 +18,17 @@ public final class MessageSpecCheck {
     /** The same shape {@code Messages#format} substitutes. */
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{([A-Za-z0-9_.-]+)}");
 
+    /** A former name: a key of this bundle, or {@code bundle/key}. */
+    private static final Pattern FORMER = Pattern.compile("([a-z][a-z0-9-]*/)?[A-Za-z0-9][A-Za-z0-9_.-]*");
+
     private MessageSpecCheck() {}
 
     /** Returns one line per problem, empty when spec and bundle agree. */
     public static List<String> problems(final Class<?> spec) {
         final List<String> problems = new ArrayList<>();
         final List<MessageSchema.Entry> entries = MessageSchema.entries(spec);
-        final Properties english = MessageSchema.bundleFile(spec, "en");
-        final Properties german = MessageSchema.bundleFile(spec, "de");
+        final Map<String, List<String>> english = MessageSchema.texts(spec, "en");
+        final Map<String, List<String>> german = MessageSchema.texts(spec, "de");
         if (english.isEmpty()) {
             problems.add("messages/" + MessageSchema.bundle(spec) + "/en.properties is missing or empty");
         }
@@ -68,14 +70,32 @@ public final class MessageSpecCheck {
                 problems.add(key + ": the method has no line in en.properties");
                 continue;
             }
-            check(problems, key, "en", english.getProperty(key), plain, roles, components);
-            if (german.containsKey(key)) {
-                check(problems, key, "de", german.getProperty(key), plain, roles, components);
-            }
+            english.get(key).forEach(text -> check(problems, key, "en", text, plain, roles, components));
+            german.getOrDefault(key, List.of())
+                    .forEach(text -> check(problems, key, "de", text, plain, roles, components));
         }
-        for (final String key : new TreeSet<>(english.stringPropertyNames())) {
+        problems.addAll(formerNames(spec, entries, declared));
+        for (final String key : new TreeSet<>(english.keySet())) {
             if (!declared.contains(key)) {
                 problems.add(key + ": in en.properties, but no method declares it");
+            }
+        }
+        return problems;
+    }
+
+    /** A former name must be one, not a key this bundle still declares. */
+    private static List<String> formerNames(
+            final Class<?> spec, final List<MessageSchema.Entry> entries, final Set<String> declared) {
+        final List<String> problems = new ArrayList<>();
+        final String bundle = MessageSchema.bundle(spec);
+        for (final MessageSchema.Entry entry : entries) {
+            for (final String former : entry.formerly()) {
+                final String own = former.startsWith(bundle + "/") ? former.substring(bundle.length() + 1) : former;
+                if (!FORMER.matcher(former).matches()) {
+                    problems.add(entry.key() + ": @Formerly names " + former + ", which is neither key nor bundle/key");
+                } else if (declared.contains(own)) {
+                    problems.add(entry.key() + ": @Formerly names " + former + ", which this bundle still declares");
+                }
             }
         }
         return problems;

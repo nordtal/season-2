@@ -105,7 +105,7 @@ final class Routes {
         config.routes.put(
                 "/api/messages/<bundle>",
                 ctx -> {
-                    api.messages.save(ctx);
+                    api.messages.save(ctx, caller.actor(ctx));
                     api.journal(AuditLine.of(
                             "SAVE_MESSAGES", caller.actor(ctx), Map.of("bundle", ctx.pathParam("bundle"))));
                 },

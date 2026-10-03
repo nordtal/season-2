@@ -58,9 +58,7 @@ public final class AgentWire {
     public static final String BUNDLES = "/api/bundles";
 
     /**
-     * One {@link MessageBundle}, {@code ?module=} naming the plugin, or none for a standalone jar.
-     *
-     * A POST of {@link BundleChanges} saves the overrides and answers a {@link SavedBundle}.
+     * One {@link MessageBundle}, its packaged texts; {@code ?module=} names the plugin, none a standalone jar.
      */
     public static final String BUNDLE = BUNDLES + "/{service}";
 
@@ -310,9 +308,9 @@ public final class AgentWire {
     /**
      * One message bundle before its jar is opened.
      *
-     * @param module the plugin's data directory under the service, or the empty string for a standalone jar
+     * @param module the plugin's name, as its jar is named, or the empty string for a standalone jar
      */
-    public record BundleRef(String service, String module, boolean writable) {}
+    public record BundleRef(String service, String module) {}
 
     /**
      * The {@code nordtal-plugin.json} of one jar on one service: whose settings these are and how Steward shows them.
@@ -327,15 +325,6 @@ public final class AgentWire {
             String name,
             @Nullable String logo,
             Map<String, String> editors) {}
-
-    /** One language's text for one key; a {@code null} text resets it to the packaged one. */
-    public record TextChange(
-            String key, String language, @Nullable String text) {}
-
-    public record BundleChanges(List<TextChange> changes) {}
-
-    /** The bundle as it reads after a save, and every dropped placeholder the new text no longer carries. */
-    public record SavedBundle(MessageBundle bundle, List<String> warnings) {}
 
     /**
      * One file in the backup directory; a {@code partial} one is being written or died halfway.

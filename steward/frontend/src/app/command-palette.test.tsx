@@ -132,7 +132,7 @@ function bundleLocation(over: Partial<MessageBundleLocation> & { path: string })
 }
 
 function messageEntry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
-  return { inBundle: true, args: [], section: [], ...over }
+  return { bundle: "smp", inBundle: true, args: [], section: [], ...over }
 }
 
 /** Wires `useMessageBundles` and `useMessageDocuments` for one bundle, paired by index like `oneFile`. */

@@ -11,6 +11,7 @@ import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.alert.AlertBook;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
+import eu.nordtal.s2.database.message.MessageOverrideStore;
 import eu.nordtal.s2.database.network.SnapshotDirectory;
 import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.SignalHub;
@@ -194,7 +195,8 @@ public class AccessBot implements AutoCloseable {
                         wiring.announcements()::post,
                         wiring.admin()::postAlert,
                         wiring.bookings()::tell)),
-                wiring.adminRole());
+                wiring.adminRole(),
+                core.messages());
 
         // Last on purpose: a marker on disk means the constructor finished.
         final Readiness readiness = Readiness.onDefaultPath(clock, log::warn);
@@ -206,16 +208,8 @@ public class AccessBot implements AutoCloseable {
     private CoreServices loadCoreServices(final AccessSpec accessConfig, final SeasonSpec season, final Tiers tiers) {
         final Languages languages = Languages.of(accessConfig);
         final Messages messages = Messages.load(
-                        AccessBot.class.getClassLoader(),
-                        java.util.List.of(MESSAGE_ROOT),
-                        BotSettings.messagesDirectory(),
-                        languages.locales())
+                        AccessBot.class.getClassLoader(), java.util.List.of(MESSAGE_ROOT), languages.locales())
                 .within(MessageEnvironment.of(SERVICE, NetworkSettings.season(season)));
-        messages.unknownOverrideKeys()
-                .forEach(key -> log.warn(
-                        "the message override names {}, which no bundle declares - it is stored"
-                                + " and never used; check the spelling",
-                        key));
         // The bunq key lives in steward-bunq; whether payments are on is read here as a row.
         Configured.report(accessConfig, tiers, PaymentGateway.state(database.jdbi()));
         final PaymentRequests requests = new PaymentRequests(database.dataSource());
@@ -297,8 +291,7 @@ public class AccessBot implements AutoCloseable {
                         worker),
                 new RegisterFlow(jda, teams, core.messages(), worker));
 
-        final BotAccessEffects inboxEffects =
-                new BotAccessEffects(access, roles, admin, seasonStart, core.messages(), log);
+        final BotAccessEffects inboxEffects = new BotAccessEffects(access, roles, admin, seasonStart, core.messages());
         final eu.nordtal.s2.discordbot.announce.Announcements announcements =
                 new eu.nordtal.s2.discordbot.announce.Announcements(jda, core.languages(), log);
 
@@ -360,7 +353,8 @@ public class AccessBot implements AutoCloseable {
             final StatusChannels status,
             final PurchaseFlow purchaseFlow,
             final Runnable drainInbox,
-            final AdminRole adminRole) {
+            final AdminRole adminRole,
+            final Messages messages) {
         final SignalHub hub = SignalHub.open(
                 databaseConfig.jdbcUrl(),
                 databaseConfig.username(),
@@ -379,6 +373,7 @@ public class AccessBot implements AutoCloseable {
         } else {
             log.info("No language has a status-channel; the sidebar status is off");
         }
+        MessageOverrideStore.using(database.dataSource()).follow(messages, hub);
         hub.start();
         return hub;
     }

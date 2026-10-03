@@ -32,6 +32,9 @@ public enum Channel {
     /** A stored setting changed; payload its service. steward emits, every process with settings listens. */
     SETTINGS("nordtal_settings"),
 
+    /** A message override changed; payload its bundle. steward emits, every process with bundles listens. */
+    MESSAGES("nordtal_messages"),
+
     /** An admin alert was raised. steward and the bot emit, and steward listens and routes it. */
     ALERT("nordtal_alert"),
 

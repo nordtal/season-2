@@ -98,14 +98,6 @@ public sealed interface BotRequest {
         }
     }
 
-    /** Re-reads every message bundle; {@code bundle} names the one whose override was written. */
-    record ReloadMessages(String bundle) implements BotRequest {
-
-        public ReloadMessages {
-            Objects.requireNonNull(bundle, "bundle");
-        }
-    }
-
     /**
      * Posts one alert into the admin channel, mentioning the admins who chose Discord for its type.
      *

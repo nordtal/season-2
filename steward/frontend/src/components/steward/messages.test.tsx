@@ -38,6 +38,7 @@ function location(over: Partial<MessageBundleLocation> & { path: string }): Mess
 
 function entry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
   return {
+    bundle: "smp",
     inBundle: true,
     args: [],
     section: [],
@@ -46,7 +47,7 @@ function entry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
 }
 
 /** One `/api/messages/<path>` answer per fixture bundle and one canned PUT answer per path. */
-type Bundle = MessageBundle & { warnings?: string[]; unknown?: string[] }
+type Bundle = MessageBundle & { warnings?: string[] }
 
 function backend(bundles: Record<string, Bundle>, puts: Record<string, (body: unknown) => unknown> = {}) {
   const listing = Object.values(bundles).map((bundle) => {
@@ -186,7 +187,6 @@ describe("saving a line", () => {
             ...location({ path: "smp/smp" }),
             entries: [entry({ key: "greeting", english: "Hello <_sender>", overrideEnglish: "Hello there" })],
             warnings: ["greeting no longer contains <_sender>"],
-            unknown: [],
           }),
         },
       ),
@@ -223,7 +223,6 @@ describe("saving a line", () => {
             ...location({ path: "smp/smp" }),
             entries: [entry({ key: "welcome", english: "Welcome", overrideEnglish: "Howdy" })],
             warnings: [],
-            unknown: [],
             reload: { status, message },
           }),
         },
@@ -237,40 +236,6 @@ describe("saving a line", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
 
     await waitFor(() => expect(shown).toHaveBeenCalledWith("One text saved.", { description: message }))
-  })
-
-  it("names a key the override file has and the bundle does not", async () => {
-    vi.stubGlobal(
-      "fetch",
-      backend(
-        {
-          "discord-bot": {
-            ...location({ path: "discord-bot", service: "discord-bot", module: "" }),
-            entries: [entry({ key: "dm.granted", english: "You are in" })],
-          },
-        },
-        {
-          "discord-bot": () => ({
-            ...location({ path: "discord-bot", service: "discord-bot", module: "" }),
-            entries: [entry({ key: "dm.granted", english: "You are in", overrideEnglish: "Welcome in" })],
-            warnings: [],
-            unknown: ["dm.grantd"],
-            reload: {
-              status: "APPLIED",
-              message: "The bot re-read its messages. It has no key called dm.grantd.",
-            },
-          }),
-        },
-      ),
-    )
-    draw(<Settings service="discord-bot" />)
-    await open("Discord Bot Translations")
-    await openKey("Granted")
-    const field = await screen.findByDisplayValue("You are in")
-    fireEvent.change(field, { target: { value: "Welcome in" } })
-    fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
-
-    expect(await screen.findByText(/dm.grantd is in the override file and in no bundle/)).toBeTruthy()
   })
 
   it("resets a key by removing the override, not by copying English into it", async () => {
@@ -291,7 +256,6 @@ describe("saving a line", () => {
               ...location({ path: "smp/smp" }),
               entries: [entry({ key: "welcome", english: "Welcome" })],
               warnings: [],
-              unknown: [],
             }
           },
         },
@@ -411,7 +375,7 @@ describe("both languages in one save", () => {
         {
           "smp/smp": (body) => {
             bodies.push(body)
-            return { ...location({ path: "smp/smp" }), entries: [], warnings: [], unknown: [] }
+            return { ...location({ path: "smp/smp" }), entries: [], warnings: [] }
           },
         },
       ),

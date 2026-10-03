@@ -21,7 +21,6 @@ class CommandGateTest {
         assertFalse(SHIPPED.allows("/smp"));
         assertFalse(SHIPPED.allows("/smp reload"));
         assertFalse(SHIPPED.allows("/hg start"));
-        assertFalse(SHIPPED.allows("/network reload"));
     }
 
     @Test

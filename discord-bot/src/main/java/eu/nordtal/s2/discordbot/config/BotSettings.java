@@ -59,15 +59,6 @@ public final class BotSettings {
 
     private BotSettings() {}
 
-    /**
-     * Returns where an operator's message overrides go.
-     *
-     * @return the override directory, which {@code Messages.load} creates if it is not there
-     */
-    public static Path messagesDirectory() {
-        return directory().resolve("messages");
-    }
-
     private static Path directory() {
         return Path.of(System.getProperty(DIRECTORY_PROPERTY, "config"));
     }

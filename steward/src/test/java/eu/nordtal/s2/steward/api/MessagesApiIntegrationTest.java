@@ -8,13 +8,11 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.common.id.Actor;
-import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.TestDatabase;
-import eu.nordtal.s2.database.inbox.BotRequest;
-import eu.nordtal.s2.database.inbox.Inbox;
-import eu.nordtal.s2.database.inbox.Outcome;
-import eu.nordtal.s2.database.inbox.Request;
+import eu.nordtal.s2.database.message.MessageOverrideStore;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
+import eu.nordtal.s2.messages.MessageOverride;
+import eu.nordtal.s2.messages.PackagedTexts;
 import eu.nordtal.s2.steward.web.ErrorHandlers;
 import eu.nordtal.s2.stewardagent.AgentStandIn;
 import io.javalin.Javalin;
@@ -27,16 +25,10 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Clock;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
+import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
-import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,24 +47,7 @@ class MessagesApiIntegrationTest {
     private Javalin app;
     private HttpClient http;
     private int port;
-    private static Inbox<BotRequest> inbox;
-
-    /** Every request the bot was asked, in order. */
-    private final List<Request<BotRequest>> asked = new java.util.concurrent.CopyOnWriteArrayList<>();
-
-    /** What the bot answers, or {@code null} for a bot that is not running. */
-    private volatile @Nullable Function<Request<BotRequest>, Outcome> bot;
-
-    private @Nullable ScheduledExecutorService botThread;
-    /** Every service asked for a reload; {@link #consoleDown} makes it not answer. */
-    private final List<String> console = new ArrayList<>();
-
-    private boolean consoleDown;
-
-    @org.junit.jupiter.api.BeforeAll
-    static void database() {
-        inbox = Inbox.over(TestDatabase.fresh().dataSource(), BotRequest.TABLE);
-    }
+    private MessageOverrideStore store;
 
     @BeforeEach
     void start() throws IOException {
@@ -80,38 +55,14 @@ class MessagesApiIntegrationTest {
         scratch = Files.createTempDirectory(Path.of("/tmp"), "messages");
         agent = new AgentStandIn(scratch, 0, config -> {});
         configs = agent.configs;
-        // A bot that claims every few milliseconds; the requests are settled as the test decided.
-        botThread = Executors.newSingleThreadScheduledExecutor();
-        final var _ = botThread.scheduleWithFixedDelay(
-                () -> {
-                    if (bot != null) {
-                        // The answer is read per request, so a test that changes it is never answered by the old one.
-                        inbox.drain(request -> {
-                            asked.add(request);
-                            final var answer = bot;
-                            return answer == null ? Outcome.failed(null) : answer.apply(request);
-                        });
-                    }
-                },
-                0,
-                20,
-                TimeUnit.MILLISECONDS);
-        final MessagesApi messages = new MessagesApi(
-                new AgentClient(agent.client()),
-                inbox,
-                service -> {
-                    console.add(service);
-                    return consoleDown
-                            ? java.util.Optional.empty()
-                            : java.util.Optional.of(new MessagesApi.Reloaded(true, "reloaded"));
-                },
-                Waiting.on(Clock.systemUTC()));
+        store = MessageOverrideStore.using(TestDatabase.fresh().dataSource());
+        final MessagesApi messages = new MessagesApi(new AgentClient(agent.client()), store);
         app = Javalin.create(config -> {
                     config.jsonMapper(new JavalinGson(new Gson(), true));
                     ErrorHandlers.install(config);
                     config.routes.get("/api/messages", messages::list);
                     config.routes.get("/api/messages/<bundle>", messages::one);
-                    config.routes.put("/api/messages/<bundle>", messages::save);
+                    config.routes.put("/api/messages/<bundle>", ctx -> messages.save(ctx, Actor.STEWARD));
                 })
                 .start(0);
         port = app.port();
@@ -122,9 +73,6 @@ class MessagesApiIntegrationTest {
     void stop() {
         if (app != null) {
             app.stop();
-        }
-        if (botThread != null) {
-            botThread.shutdownNow();
         }
         try {
             agent.close();
@@ -150,8 +98,7 @@ class MessagesApiIntegrationTest {
                 java.util.Map.of(
                         "messages/smp/en.properties", "welcome=Welcome\n",
                         "messages/smp/de.properties", "welcome=Willkommen\n"));
-        final Path overrides = Files.createDirectories(configs.resolve("smp/smp/messages"));
-        Files.writeString(overrides.resolve("de.properties"), "welcome=Servus\n", StandardCharsets.UTF_8);
+        store.change("smp", "welcome", "de", List.of("Servus"), null, Actor.STEWARD);
 
         final JsonArray list = GSON.fromJson(get("/api/messages"), JsonArray.class);
         assertEquals(1, list.size(), list.toString());
@@ -171,7 +118,6 @@ class MessagesApiIntegrationTest {
         writeJar(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of("messages/smp/en.properties", "greeting=Hello <_sender>\n"));
-        Files.createDirectories(configs.resolve("smp/smp/messages"));
 
         final JsonObject saved = GSON.fromJson(
                 put("/api/messages/smp/smp", "{\"changes\":{\"greeting\":{\"en\":\"Hello there\"}}}"),
@@ -194,16 +140,13 @@ class MessagesApiIntegrationTest {
                         {"bundle": "smp", "messages": [{"key": "greeting", "name": "Greeting",
                           "args": [{"name": "player", "component": false}], "section": ["Join"]}]}
                         """));
-        Files.createDirectories(configs.resolve("smp/smp/messages"));
 
         final HttpResponse<String> refused =
                 send("PUT", "/api/messages/smp/smp", "{\"changes\":{\"greeting\":{\"en\":\"Hello {name}\"}}}");
 
         assertEquals(400, refused.statusCode(), refused.body());
         assertTrue(refused.body().contains("greeting") && refused.body().contains("{name}"), refused.body());
-        assertFalse(
-                Files.exists(configs.resolve("smp/smp/messages/en.properties")),
-                "a refused save must not write anything");
+        assertEquals(List.of(), store.overrides(Set.of("smp")), "a refused save must not write anything");
         final JsonObject greeting = entry(GSON.fromJson(get("/api/messages/smp/smp"), JsonObject.class), "greeting");
         assertEquals("Greeting", greeting.get("name").getAsString());
         assertEquals(
@@ -221,7 +164,6 @@ class MessagesApiIntegrationTest {
         writeJar(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of("messages/smp/en.properties", "welcome=Welcome\n"));
-        Files.createDirectories(configs.resolve("smp/smp/messages"));
         put("/api/messages/smp/smp", "{\"changes\":{\"welcome\":{\"en\":\"Howdy\"}}}");
 
         final JsonObject afterReset = GSON.fromJson(
@@ -234,64 +176,6 @@ class MessagesApiIntegrationTest {
     @Test
     void aBundleThatDoesNotExistIsA404() throws Exception {
         assertEquals(404, raw("/api/messages/no-such-thing").statusCode());
-    }
-
-    /**
-     * The route re-reads the bot's message bundle on demand and reports unknown keys by name.
-     *
-     * Without it, a saved bot message would only take effect at the next restart of the container, with nothing on
-     * the page saying so.
-     */
-    @Test
-    void theBotsBundleIsReReadOnDemandAndUnknownKeysComeBackNamed() throws Exception {
-        botBundle();
-        bot = request -> Outcome.done(java.util.Map.of("unknown", ""));
-
-        final JsonObject quiet = saveBot();
-        assertEquals("APPLIED", quiet.get("status").getAsString(), quiet.toString());
-        assertEquals("The bot re-read its messages.", quiet.get("message").getAsString(), quiet.toString());
-        assertEquals(new BotRequest.ReloadMessages("discord-bot"), asked.get(0).payload());
-        assertEquals(Actor.STEWARD, asked.get(0).actor());
-
-        bot = request -> Outcome.done(java.util.Map.of("unknown", "dm.grantd,dm.revokd"));
-        final JsonObject saved = savedBot();
-        final JsonObject typos = saved.getAsJsonObject("reload");
-        assertEquals("APPLIED", typos.get("status").getAsString(), typos.toString());
-        assertTrue(typos.get("message").getAsString().contains("dm.grantd"), typos.toString());
-        assertEquals(
-                List.of("dm.grantd", "dm.revokd"),
-                saved.getAsJsonArray("unknown").asList().stream()
-                        .map(element -> element.getAsString())
-                        .toList());
-    }
-
-    @Test
-    void aBotThatDidNotReReadIsSaidSoNotReportedAsApplied() throws Exception {
-        botBundle();
-        bot = request -> Outcome.failed(java.util.Map.of("error", "de.properties is not readable"));
-
-        final JsonObject answer = saveBot();
-        assertEquals("NO_ANSWER", answer.get("status").getAsString(), answer.toString());
-    }
-
-    /**
-     * The answer this ticket exists for.
-     *
-     * Until now it was not a wrong answer, it was no answer: the page said "saved" and let the reader assume the line
-     * was in force, and the bot went on sending the old one until somebody restarted the container for an unrelated
-     * reason.
-     */
-    @Test
-    void aBotThatIsNotRunningMeansSavedInForceAfterARestart() throws Exception {
-        botBundle();
-        // The default: the row is written and nobody ever claims it.
-        final JsonObject answer = saveBot();
-        assertEquals("NO_ANSWER", answer.get("status").getAsString(), answer.toString());
-        assertTrue(
-                inbox.recent(BotRequest.ReloadMessages.class, 1).stream()
-                        .anyMatch(row -> row.status() == eu.nordtal.s2.database.inbox.InboxStatus.EXPIRED),
-                "the row is still written - a bot that comes back"
-                        + " inside its patience carries it out, which is the point of a row over a call");
     }
 
     @Test
@@ -307,57 +191,39 @@ class MessagesApiIntegrationTest {
     }
 
     @Test
-    void savingAMinecraftBundleSendsThatPluginsReloadToItsConsole() throws Exception {
-        smpBundle();
+    void aSaveIsARowUnderThePackagedBundleOfItsKeyAndAppliesAtOnce() throws Exception {
+        writeJar(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                java.util.Map.of(
+                        "messages/smp/en.properties", "welcome=Welcome\n",
+                        "messages/paper-common/en.properties", "reload.done=Reloaded\n"));
 
         final JsonObject saved = GSON.fromJson(
-                put("/api/messages/smp/smp", "{\"changes\":{\"welcome\":{\"en\":\"Howdy\"}}}"), JsonObject.class);
+                put("/api/messages/smp/smp", "{\"changes\":{\"reload.done\":{\"en\":\"Done\"}}}"), JsonObject.class);
 
-        final JsonObject reload = saved.getAsJsonObject("reload");
-        assertEquals("APPLIED", reload.get("status").getAsString(), saved.toString());
-        assertEquals(List.of("smp"), console);
-        assertTrue(asked.isEmpty(), "no row belongs on the bot's inbox for a server's bundle");
+        assertEquals("APPLIED", saved.getAsJsonObject("reload").get("status").getAsString(), saved.toString());
+        assertEquals(
+                List.of(new MessageOverride(
+                        "paper-common", "reload.done", "en", 0, "Done", PackagedTexts.hash(List.of("Reloaded")))),
+                store.overrides(Set.of("paper-common")));
     }
 
     @Test
-    void aMinecraftServiceThatIsDownMeansSavedInForceOnceItRunsAgain() throws Exception {
+    void aKeyTheBundleDoesNotDeclareIsRefusedAndNothingIsSaved() throws Exception {
         smpBundle();
-        consoleDown = true;
 
-        final JsonObject saved = GSON.fromJson(
-                put("/api/messages/smp/smp", "{\"changes\":{\"welcome\":{\"en\":\"Howdy\"}}}"), JsonObject.class);
+        final HttpResponse<String> refused =
+                send("PUT", "/api/messages/smp/smp", "{\"changes\":{\"welcom\":{\"en\":\"Hi\"}}}");
 
-        assertEquals("NO_ANSWER", saved.getAsJsonObject("reload").get("status").getAsString(), saved.toString());
-        assertEquals(
-                "Howdy",
-                entry(saved, "welcome").get("overrideEnglish").getAsString(),
-                "a service that did not answer must not undo the save");
+        assertEquals(400, refused.statusCode(), refused.body());
+        assertTrue(refused.body().contains("welcom"), refused.body());
+        assertEquals(List.of(), store.overrides(Set.of("smp")));
     }
 
     private void smpBundle() throws IOException {
         writeJar(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of("messages/smp/en.properties", "welcome=Welcome\n"));
-        Files.createDirectories(configs.resolve("smp/smp/messages"));
-    }
-
-    /** Saves one line of the bot's bundle and answers what came back under {@code reload}. */
-    private JsonObject saveBot() throws Exception {
-        return savedBot().getAsJsonObject("reload");
-    }
-
-    private JsonObject savedBot() throws Exception {
-        return GSON.fromJson(
-                put("/api/messages/discord-bot", "{\"changes\":{\"dm.granted\":{\"en\":\"You are in now\"}}}"),
-                JsonObject.class);
-    }
-
-    /** A bundle for the one service this route can actually reach. */
-    private void botBundle() throws IOException {
-        writeJar(
-                configs.resolve("discord-bot/discord-bot-0.9.3.jar"),
-                java.util.Map.of("messages/access/en.properties", "dm.granted=You are in\n"));
-        Files.createDirectories(configs.resolve("discord-bot/messages"));
     }
 
     private static JsonObject entry(final JsonObject bundle, final String key) {

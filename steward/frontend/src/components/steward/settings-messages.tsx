@@ -98,8 +98,7 @@ function BundleForm({ file, bundle, target }: { file: string; bundle: MessageBun
       {
         onSuccess: (saved) => {
           clearDraft(file)
-          const unknown = saved.unknown
-          setWarnings([...unknown.map((key) => `${key} is in the override file and in no bundle`), ...saved.warnings])
+          setWarnings(saved.warnings)
           announceSave(label, saved.reload, bundle.path)
         },
       },

@@ -31,6 +31,7 @@ class EveryBundleIsCompleteTest {
 
     /** The bundles known to exist, a floor that fails a walk which silently finds nothing. */
     private static final Set<String> KNOWN = Set.of(
+            "database/src/main/resources/messages/database",
             "discord-bot/src/main/resources/messages/access",
             "hunger-games/src/main/resources/messages/hunger-games",
             "limbo/src/main/resources/messages/limbo",
@@ -38,8 +39,9 @@ class EveryBundleIsCompleteTest {
             "paper-common/src/main/resources/messages/paper-common",
             "smp/src/main/resources/messages/smp");
 
-    /** The bundles only admins read, which are English: Steward's page, and nothing else. */
-    private static final Set<String> ENGLISH_ONLY = Set.of("steward/src/main/resources/messages/steward");
+    /** The bundles only admins read, which are English: Steward's page, and the journal and run words it shares. */
+    private static final Set<String> ENGLISH_ONLY =
+            Set.of("steward/src/main/resources/messages/steward", "database/src/main/resources/messages/admin");
 
     @Test
     void theWalkFindsEveryKnownBundle() {

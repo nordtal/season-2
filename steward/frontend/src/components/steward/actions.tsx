@@ -19,24 +19,9 @@ import {
 import type { Icon } from "@phosphor-icons/react"
 import type { Action } from "@/lib/api"
 import { dateTime, relative } from "@/lib/format"
-import { runKind } from "@/components/steward/status"
+import { message } from "@/lib/texts"
 import { Actor } from "@/components/steward/entity"
 import { Skeleton, SkeletonText } from "@/components/ui/skeleton"
-
-/** A journal action with its own label; others show their raw string, since `audit_log.action` has no schema. */
-const AUDIT_LABEL: Record<string, string> = {
-  GRANT_ACCESS: "Access granted",
-  REVOKE_ACCESS: "Access revoked",
-  LINK: "Account linked",
-  UNLINK: "Account unlinked",
-  SETTLE: "Payment settled",
-  SET_PHASE: "Phase changed",
-  REGISTER_KEY: "Security key added",
-  REMOVE_KEY: "Security key removed",
-  FORGET_FACTORS: "Security reset",
-  /** Not "Run CANCELLED", since the journal records a person taking a run back. */
-  CANCEL_RUN: "Run cancelled",
-}
 
 /** One icon per {@link Action.kind}; the run kinds reuse the icons `operations.tsx` draws them with. */
 const KIND_ICON: Record<string, Icon> = {
@@ -56,10 +41,6 @@ const KIND_ICON: Record<string, Icon> = {
   REMOVE_KEY: KeyIcon,
   FORGET_FACTORS: ShieldWarningIcon,
   CANCEL_RUN: XCircleIcon,
-}
-
-function labelOf(kind: string): string {
-  return AUDIT_LABEL[kind] ?? runKind(kind)
 }
 
 function iconOf(kind: string): Icon {
@@ -93,8 +74,8 @@ export function ActionRow({
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         {action ? (
           <>
-            <span className="truncate text-sm font-medium">{labelOf(action.kind)}</span>
-            <span className="truncate text-xs text-muted-foreground">{action.extent}</span>
+            <span className="truncate text-sm font-medium">{message(action.label)}</span>
+            <span className="truncate text-xs text-muted-foreground">{message(action.extent)}</span>
           </>
         ) : (
           <>

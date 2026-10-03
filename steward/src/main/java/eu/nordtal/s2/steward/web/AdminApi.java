@@ -1,11 +1,14 @@
 package eu.nordtal.s2.steward.web;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import com.google.gson.JsonElement;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.database.audit.AuditLine;
+import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
@@ -41,7 +44,11 @@ final class AdminApi {
         final AdminTree.Grant outcome = tree.grant(who.id(), target);
         switch (outcome) {
             case GRANTED -> {
-                audit.record(AuditLine.about("GRANT_ADMIN", who.actor(), DiscordId.of(target), Map.of()));
+                audit.record(AuditLine.about(
+                        JournalAction.GRANT_ADMIN,
+                        who.actor(),
+                        DiscordId.of(target),
+                        TEXTS.journal().grantAdmin()));
                 log.info("{} made {} an admin", who.name(), target);
                 ctx.json(new Granted(outcome));
             }
@@ -68,8 +75,11 @@ final class AdminApi {
             case REVOKED -> {
                 final List<String> below =
                         revocation.removed().subList(1, revocation.removed().size());
-                audit.record(
-                        AuditLine.about("REVOKE_ADMIN", who.actor(), DiscordId.of(target), Map.of("below", below)));
+                audit.record(AuditLine.about(
+                        JournalAction.REVOKE_ADMIN,
+                        who.actor(),
+                        DiscordId.of(target),
+                        TEXTS.journal().revokeAdmin(below, below.size())));
                 log.info("{} revoked admin from {}", who.name(), revocation.removed());
                 ctx.json(revocation);
             }

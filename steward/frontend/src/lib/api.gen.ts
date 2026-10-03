@@ -1,4 +1,5 @@
 /** Steward's API as its Java records declare it; written by `./gradlew :steward:generateApiTypes`. */
+import type { MessageRef } from "@/lib/texts"
 
 export type AlertPreferences = Record<AlertType, Record<AlertChannel, boolean>>
 
@@ -218,7 +219,7 @@ export type JournalEntry = {
   actor: Actor
   subject?: string
   mcUuid?: string
-  facts: Record<string, unknown>
+  line: MessageRef
 }
 
 export type KeyRegistered = {
@@ -335,7 +336,8 @@ export type Available = {
 export type Action = {
   kind: string
   occurred: string
-  extent: string
+  label: MessageRef
+  extent: MessageRef
   actorKind: ActorKind
   actorId: string
 }

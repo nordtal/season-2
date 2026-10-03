@@ -63,3 +63,9 @@ would keep the backslash in the address. A moment is Discord's timestamp, `<t:â€
 so each reader sees their own zone and nobody's time goes stale in a message that was sent days ago. A text
 Discord shows without markdown (a button, a select, a modal, a channel name) is declared `PLAIN`, and its
 values are placed as they are.
+
+The admin channel reads the admin bundle, `messages/admin` of `:database`, which Steward's page renders too. A
+journal line the bot writes (a grant, a revocation, a link, an unlink, a play time) goes through `AdminLog.record`:
+the row stores the message, and the card in the admin channel is that same message rendered here, its action as the
+title, who did it and whom it concerns as fields. There is no second sentence for the channel, so the journal and
+the card cannot say different things.

@@ -524,7 +524,7 @@ public final class StackApi implements AutoCloseable {
         try {
             audit.record(line);
         } catch (final RuntimeException failed) {
-            log.error("Could not write the journal line {} {}", line.action(), line.facts(), failed);
+            log.error("Could not write the journal line {} {}", line.action(), line.line(), failed);
         }
     }
 

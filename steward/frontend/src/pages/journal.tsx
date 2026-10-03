@@ -4,6 +4,7 @@ import { useState } from "react"
 import type { JournalEntry } from "@/lib/api"
 import { count, dateTime } from "@/lib/format"
 import { useJournal } from "@/lib/queries"
+import { choice, message, t } from "@/lib/texts"
 import { Actor, Entity } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
 import { QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
@@ -22,27 +23,9 @@ const WAITING_ENTRIES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
  *
  * Both filters are exact matches, so actions are picked from the rows present and the subject is submitted.
  */
-/** A journal line's values by key; a line from before typed values keeps its one sentence under `detail`. */
-function JournalFacts({ facts }: { facts: Record<string, unknown> }) {
-  const shown = Object.entries(facts).filter(([key]) => key !== "target")
-  if (shown.length === 0) return <>{"\u2013"}</>
-  if (shown.length === 1 && shown[0][0] === "detail") return <>{factText(shown[0][1])}</>
-  return (
-    <span className="flex flex-wrap gap-x-3">
-      {shown.map(([key, value]) => (
-        <span key={key}>
-          <span className="text-foreground">{key}</span> {factText(value)}
-        </span>
-      ))}
-    </span>
-  )
-}
-
-function factText(value: unknown): string {
-  if (Array.isArray(value)) return value.map(factText).join(", ")
-  if (typeof value === "string") return value
-  if (typeof value === "number" || typeof value === "boolean") return String(value)
-  return JSON.stringify(value)
+/** An action as the admin bundle names it; one no longer listed reads as its own name. */
+function actionLabel(action: string): string {
+  return t("journal.action", { action: choice(action) })
 }
 
 export function JournalPage() {
@@ -77,7 +60,7 @@ export function JournalPage() {
                   <SelectItem value="ALL">all</SelectItem>
                   {actions.map((value) => (
                     <SelectItem key={value} value={value}>
-                      {value}
+                      {actionLabel(value)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -181,9 +164,8 @@ export function JournalPage() {
                             <TableCell data-label="When" className="text-muted-foreground tnum" title={entry.occurred}>
                               {dateTime(entry.occurred)}
                             </TableCell>
-                            {/* Printed raw, as the row carries it and as the bot's log names it. */}
-                            <TableCell data-label="Action" className="font-medium">
-                              {entry.action}
+                            <TableCell data-label="Action" className="font-medium" title={entry.action}>
+                              {actionLabel(entry.action)}
                             </TableCell>
                             {/* A profile, never an id; no admin at all is Steward's own mark. */}
                             <TableCell data-label="Triggered by" className="text-muted-foreground">
@@ -194,13 +176,11 @@ export function JournalPage() {
                                 <Entity id={entry.subject} />
                               ) : entry.mcUuid ? (
                                 <Entity id={entry.mcUuid} kind="minecraft" />
-                              ) : typeof entry.facts.target === "string" ? (
-                                <Entity id={entry.facts.target} />
                               ) : null}
                             </TableCell>
-                            {/* The line's values, wrapping where TableCell would not. */}
+                            {/* The line, rendered from its key and typed values, wrapping where TableCell would not. */}
                             <TableCell data-label="Detail" className="text-muted-foreground whitespace-normal">
-                              <JournalFacts facts={entry.facts} />
+                              {message(entry.line)}
                             </TableCell>
                           </TableRow>
                         ))}

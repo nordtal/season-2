@@ -23,11 +23,8 @@ interface PhaseDao {
     Optional<Instant> smpStart();
 
     /**
-     * Switches the phase, writes the audit entry and notifies with no payload, as one statement.
+     * Switches the phase and notifies with no payload, as one statement; the caller journals it in its transaction.
      *
-     * @param actorKind who caused it, as {@code audit_log.actor_kind}
-     * @param actorId   the Discord id when a person caused it
-     * @param reason free text appended to the audit detail in brackets, or {@code null}
      * @return the previous phase, the new phase and when; no row if the singleton is missing
      */
     @SqlQuery("""
@@ -48,16 +45,6 @@ interface PhaseDao {
                          END
                      WHERE id
                      RETURNING phase, updated
-                 ),
-                 audited AS (
-                     INSERT INTO audit_log (action, actor_kind, actor_id, facts)
-                     SELECT 'SET_PHASE',
-                            cast(:actorKind AS varchar(16)),
-                            cast(:actorId AS varchar(32)),
-                            jsonb_strip_nulls(jsonb_build_object(
-                                'from', previous.phase, 'to', switched.phase,
-                                'reason', nullif(cast(:reason AS text), '')))
-                     FROM previous, switched
                  )
             SELECT previous.phase                 AS previous_phase,
                    switched.phase                 AS current_phase,
@@ -67,14 +54,10 @@ interface PhaseDao {
             """)
     @RegisterRowMapper(PhaseChangeMapper.class)
     @Nullable
-    PhaseChange switchPhase(
-            @Bind("phase") String phase,
-            @Bind("actorKind") String actorKind,
-            @Bind("actorId") @Nullable String actorId,
-            @Bind("reason") @Nullable String reason);
+    PhaseChange switchPhase(@Bind("phase") String phase);
 
     /**
-     * Writes {@code launch} with its audit entry and notification, as one statement.
+     * Writes {@code launch} and notifies, as one statement; the caller journals it in the same transaction.
      *
      * @param at the new instant, or {@code null} to clear the date
      * @return the row's value before and after; the two grant counts are always zero
@@ -88,14 +71,6 @@ interface PhaseDao {
                      SET launch = cast(:at AS timestamptz), updated = now()
                      WHERE id
                      RETURNING launch
-                 ),
-                 audited AS (
-                     INSERT INTO audit_log (action, actor_kind, actor_id, facts)
-                     SELECT 'SET_LAUNCH',
-                            cast(:actorKind AS varchar(16)),
-                            cast(:actorId AS varchar(32)),
-                            jsonb_strip_nulls(jsonb_build_object('from', previous.launch, 'to', written.launch))
-                     FROM previous, written
                  )
             SELECT previous.launch                AS previous_at,
                    written.launch                 AS current_at,
@@ -106,13 +81,10 @@ interface PhaseDao {
             """)
     @RegisterRowMapper(DateChangeMapper.class)
     @Nullable
-    DateChange setLaunch(
-            @Bind("at") @Nullable Instant at,
-            @Bind("actorKind") String actorKind,
-            @Bind("actorId") @Nullable String actorId);
+    DateChange setLaunch(@Bind("at") @Nullable Instant at);
 
     /**
-     * Writes {@code smp_start} and moves the paid access anchored to it, with audit and notification.
+     * Writes {@code smp_start} and moves the paid access anchored to it, and notifies; the caller journals it.
      * Per account, the earliest live grant at or after the old date lands on the new one; the rest keep their distance.
      *
      * @param at the new instant, or {@code null} to clear the date, which moves nothing
@@ -157,16 +129,6 @@ interface PhaseDao {
                      SET smp_start = cast(:at AS timestamptz), updated = now()
                      WHERE id
                      RETURNING smp_start
-                 ),
-                 audited AS (
-                     INSERT INTO audit_log (action, actor_kind, actor_id, facts)
-                     SELECT 'SET_SMP_START',
-                            cast(:actorKind AS varchar(16)),
-                            cast(:actorId AS varchar(32)),
-                            jsonb_strip_nulls(jsonb_build_object(
-                                'from', previous.smp_start, 'to', written.smp_start,
-                                'movedGrants', (SELECT count(*) FROM moved)))
-                     FROM previous, written
                  )
             SELECT previous.smp_start                        AS previous_at,
                    written.smp_start                         AS current_at,
@@ -178,8 +140,5 @@ interface PhaseDao {
             """)
     @RegisterRowMapper(DateChangeMapper.class)
     @Nullable
-    DateChange setSmpStart(
-            @Bind("at") @Nullable Instant at,
-            @Bind("actorKind") String actorKind,
-            @Bind("actorId") @Nullable String actorId);
+    DateChange setSmpStart(@Bind("at") @Nullable Instant at);
 }

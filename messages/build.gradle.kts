@@ -10,6 +10,7 @@ messageSpec {
 
 // Every message bundle, which the bundle tests read off the file.
 repositoryRootTestInputs {
+    readsTree("database/src/main/resources/messages")
     readsTree("discord-bot/src/main/resources/messages")
     readsTree("hunger-games/src/main/resources/messages")
     readsTree("limbo/src/main/resources/messages")

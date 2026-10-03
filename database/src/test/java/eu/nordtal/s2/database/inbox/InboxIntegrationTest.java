@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.inbox;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -9,6 +10,7 @@ import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.audit.AuditLine;
+import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Refusal;
@@ -258,19 +260,19 @@ class InboxIntegrationTest {
 
     @Test
     void aJournalledRequestIsWrittenTogetherWithItsLine() throws SQLException {
-        final int before = count("SELECT count(*) FROM audit_log WHERE action = 'INBOX_TEST'");
+        final int before = count("SELECT count(*) FROM audit_log WHERE action = 'REVOKE_ACCESS'");
 
         inbox.submit(
                 new BotRequest.Revoke(SOMEONE),
                 ADMIN,
                 Schedule.NOW,
                 AuditLine.about(
-                        "INBOX_TEST",
+                        JournalAction.REVOKE_ACCESS,
                         Actor.person(DiscordId.of("400000000000000001")),
                         DiscordId.of("400000000000000002"),
-                        Map.of()));
+                        TEXTS.journal().revokeAccess(1)));
 
-        assertEquals(before + 1, count("SELECT count(*) FROM audit_log WHERE action = 'INBOX_TEST'"));
+        assertEquals(before + 1, count("SELECT count(*) FROM audit_log WHERE action = 'REVOKE_ACCESS'"));
         assertEquals(1, count("SELECT count(*) FROM bot_inbox"));
     }
 

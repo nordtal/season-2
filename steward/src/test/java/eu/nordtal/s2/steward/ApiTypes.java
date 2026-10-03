@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.annotations.SerializedName;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.id.PlayerId;
+import eu.nordtal.s2.messages.MessageRef;
 import java.io.IOException;
 import java.lang.reflect.AnnotatedArrayType;
 import java.lang.reflect.AnnotatedParameterizedType;
@@ -52,6 +53,7 @@ public final class ApiTypes {
         final StringBuilder out = new StringBuilder();
         out.append(
                 "/** Steward's API as its Java records declare it; written by `./gradlew :steward:generateApiTypes`. */\n");
+        out.append("import type { MessageRef } from \"@/lib/texts\"\n");
         ApiRoots.ALIASES.forEach((name, type) -> out.append("\nexport type ")
                 .append(name)
                 .append(" = ")
@@ -206,6 +208,9 @@ public final class ApiTypes {
         }
         if (type == Optional.class) {
             throw new IllegalStateException("Optional has no wire shape; a @Nullable component is an absent field");
+        }
+        if (type == MessageRef.class) {
+            return "MessageRef";
         }
         if (type == JsonObject.class) {
             return "Record<string, unknown>";

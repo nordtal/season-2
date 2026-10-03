@@ -1,11 +1,14 @@
 package eu.nordtal.s2.steward.web;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import com.google.gson.JsonElement;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.access.PackExemptions;
 import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.database.audit.AuditLine;
+import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
@@ -40,26 +43,44 @@ final class PackExemptionApi {
     void exempt(final Context ctx) {
         final String target = discordId(ctx).value();
         final DiscordAuth.Account who = accounts.apply(ctx);
-        answer(ctx, exemptions.exempt(who.id(), target), "EXEMPT_PACK", who, target, "They play without it already.");
+        answer(
+                ctx,
+                exemptions.exempt(who.id(), target),
+                JournalAction.EXEMPT_PACK,
+                who,
+                target,
+                "They play without it already.");
     }
 
     /** {@code POST /api/pack-exemptions/enforce} with {@code {discordId}}. */
     void enforce(final Context ctx) {
         final String target = discordId(ctx).value();
         final DiscordAuth.Account who = accounts.apply(ctx);
-        answer(ctx, exemptions.enforce(who.id(), target), "ENFORCE_PACK", who, target, "They get it already.");
+        answer(
+                ctx,
+                exemptions.enforce(who.id(), target),
+                JournalAction.ENFORCE_PACK,
+                who,
+                target,
+                "They get it already.");
     }
 
     private void answer(
             final Context ctx,
             final PackExemptions.Outcome outcome,
-            final String action,
+            final JournalAction action,
             final DiscordAuth.Account who,
             final String target,
             final String unchanged) {
         switch (outcome) {
             case CHANGED -> {
-                audit.record(AuditLine.about(action, who.actor(), DiscordId.of(target), Map.of()));
+                audit.record(AuditLine.about(
+                        action,
+                        who.actor(),
+                        DiscordId.of(target),
+                        action == JournalAction.EXEMPT_PACK
+                                ? TEXTS.journal().exemptPack()
+                                : TEXTS.journal().enforcePack()));
                 log.info("{} {} for {}", who.name(), action, target);
                 ctx.json(new Exempted(outcome));
             }

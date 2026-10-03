@@ -2,46 +2,42 @@ package eu.nordtal.s2.database.audit;
 
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.id.DiscordId;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import eu.nordtal.s2.messages.MessageRef;
 import java.util.Objects;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One journal line before it is written: what happened, who did it, whom it concerns and its typed values.
- * Steward renders the line; nothing here is a sentence.
+ * One journal line before it is written: what happened, who did it, whom it concerns and the line itself.
+ * The line is a message of {@link eu.nordtal.s2.database.AdminTexts}, its values typed; each reader renders it.
  *
- * @param action  a short upper-case constant, e.g. {@code GRANT_ACCESS}
+ * @param action  what the journal files it under and filters by
  * @param actor   who did it: a person, Steward on its own, or the host
  * @param subject the person it concerns, where there is one
  * @param mcUuid  the Minecraft account it concerned, where there is one
- * @param facts   the values that say what happened, by key: ids, numbers, flags, instants and names, never prose
+ * @param line    the line, such as {@code TEXTS.journal().grantAccess(30, until)}
  */
 public record AuditLine(
-        String action,
+        JournalAction action,
         Actor actor,
         @Nullable DiscordId subject,
         @Nullable UUID mcUuid,
-        Map<String, Object> facts) {
+        MessageRef line) {
 
     public AuditLine {
-        if (action == null || action.isBlank()) {
-            throw new IllegalArgumentException("a journal line without an action is not one");
-        }
+        Objects.requireNonNull(action, "action");
         Objects.requireNonNull(actor, "actor");
-        facts = Collections.unmodifiableMap(new LinkedHashMap<>(Objects.requireNonNull(facts, "facts")));
+        Objects.requireNonNull(line, "line");
     }
 
     /** Returns a line about nobody in particular. */
-    public static AuditLine of(final String action, final Actor actor, final Map<String, Object> facts) {
-        return new AuditLine(action, actor, null, null, facts);
+    public static AuditLine of(final JournalAction action, final Actor actor, final MessageRef line) {
+        return new AuditLine(action, actor, null, null, line);
     }
 
     /** Returns a line about one person. */
     public static AuditLine about(
-            final String action, final Actor actor, final DiscordId subject, final Map<String, Object> facts) {
-        return new AuditLine(action, actor, Objects.requireNonNull(subject, "subject"), null, facts);
+            final JournalAction action, final Actor actor, final DiscordId subject, final MessageRef line) {
+        return new AuditLine(action, actor, Objects.requireNonNull(subject, "subject"), null, line);
     }
 }

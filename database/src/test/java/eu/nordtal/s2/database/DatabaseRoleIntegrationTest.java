@@ -97,7 +97,7 @@ class DatabaseRoleIntegrationTest {
         cases.addAll(stewardsOwnLoops());
         for (final DatabaseRole role : LOGINS) {
             cases.add(may(role, "INSERT INTO audit_log (action, actor_kind) VALUES ('X', 'STEWARD')"));
-            cases.add(mayNot(role, "UPDATE audit_log SET facts = '{}' WHERE false"));
+            cases.add(mayNot(role, "UPDATE audit_log SET line = line WHERE false"));
             cases.add(mayNot(role, "DELETE FROM audit_log WHERE false"));
             cases.add(mayNot(role, "SELECT count(*) FROM service_plugin"));
             cases.add(mayNot(role, "SELECT count(*) FROM plugin_file"));

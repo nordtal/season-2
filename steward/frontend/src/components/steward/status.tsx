@@ -238,10 +238,10 @@ export function RunStatus({ status }: { status: string }) {
 
 /** The outcome of a run in {@link RunStatus}'s words, for text such as the command palette's search. */
 export function runStatus(status: string): string {
-  return t("steward.run.status", { status: choice(status) })
+  return t("run.status", { status: choice(status) })
 }
 
 /** What kind of run it was. */
 export function runKind(kind: string): string {
-  return t("steward.run.kind", { kind: choice(kind) })
+  return t("run.kind", { kind: choice(kind) })
 }

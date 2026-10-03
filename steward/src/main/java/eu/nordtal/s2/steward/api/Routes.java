@@ -1,6 +1,9 @@
 package eu.nordtal.s2.steward.api;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import eu.nordtal.s2.database.audit.AuditLine;
+import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.steward.auth.Gate;
 import io.javalin.config.JavalinConfig;
@@ -70,9 +73,9 @@ final class Routes {
                     // The agent refuses a service without a console with a 400 that names the ones with one.
                     api.console(ctx.pathParam("name"), body.command.strip(), caller.actor(ctx));
                     api.journal(AuditLine.of(
-                            "CONSOLE",
+                            JournalAction.CONSOLE,
                             caller.actor(ctx),
-                            Map.of("service", ctx.pathParam("name"), "command", body.command.strip())));
+                            TEXTS.journal().console(ctx.pathParam("name"), body.command.strip())));
                     ctx.status(202)
                             .json(new ConsoleSent(body.command.strip(), "the answer appears in this service's log"));
                 },
@@ -91,9 +94,9 @@ final class Routes {
                 ctx -> {
                     api.settings().save(ctx, caller.actor(ctx));
                     api.journal(AuditLine.of(
-                            "SAVE_SETTINGS",
+                            JournalAction.SAVE_SETTINGS,
                             caller.actor(ctx),
-                            Map.of("service", ctx.pathParam("service"), "group", ctx.pathParam("name"))));
+                            TEXTS.journal().saveSettings(ctx.pathParam("service"), ctx.pathParam("name"))));
                 },
                 Gate.KEY_FRESH);
     }
@@ -108,7 +111,9 @@ final class Routes {
                 ctx -> {
                     api.messages.save(ctx, caller.actor(ctx));
                     api.journal(AuditLine.of(
-                            "SAVE_MESSAGES", caller.actor(ctx), Map.of("bundle", ctx.pathParam("bundle"))));
+                            JournalAction.SAVE_MESSAGES,
+                            caller.actor(ctx),
+                            TEXTS.journal().saveMessages(ctx.pathParam("bundle"))));
                 },
                 Gate.KEY_FRESH);
     }
@@ -149,9 +154,9 @@ final class Routes {
                 ctx -> {
                     final AgentWire.PluginAdded added = api.plugins().add(ctx, caller.actor(ctx));
                     api.journal(AuditLine.of(
-                            "ADD_PLUGIN",
+                            JournalAction.ADD_PLUGIN,
                             caller.actor(ctx),
-                            Map.of("service", ctx.pathParam("name"), "artifact", added.artifact())));
+                            TEXTS.journal().addPlugin(ctx.pathParam("name"), added.artifact())));
                 },
                 Gate.KEY_FRESH);
         config.routes.delete(

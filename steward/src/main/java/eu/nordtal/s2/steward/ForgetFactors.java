@@ -1,10 +1,13 @@
 package eu.nordtal.s2.steward;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.audit.AuditLine;
+import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.settings.DatabaseWaiting;
 import eu.nordtal.s2.steward.auth.Credentials;
@@ -12,7 +15,6 @@ import eu.nordtal.s2.steward.auth.Sessions;
 import eu.nordtal.s2.steward.data.Data;
 import java.time.Clock;
 import java.time.Duration;
-import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /** The host command that clears one account's second factor. */
@@ -59,7 +61,10 @@ final class ForgetFactors {
             // Written after the deletes, so a row never claims something that did not happen.
             data.audit()
                     .record(AuditLine.about(
-                            "FORGET_FACTORS", Actor.HOST, discordId, Map.of("keys", keys, "sessions", signedOut)));
+                            JournalAction.FORGET_FACTORS,
+                            Actor.HOST,
+                            discordId,
+                            TEXTS.journal().forgetFactors(keys, signedOut)));
             System.out.println(
                     "Cleared " + keys + " security key(s) and " + signedOut + " session(s) of " + discordId + ".");
             System.out.println("Its next sign-in will ask for Discord and then register a new key.");

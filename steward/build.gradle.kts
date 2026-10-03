@@ -60,6 +60,7 @@ repositoryRootTestInputs {
     readsTree("steward-agent/src", "steward-bunq/src", "internal-api/src")
     reads("steward-bunq/README.md")
     reads("internal-api/README.md")
+    reads("database/src/main/resources/messages/admin/en.properties")
 
     reads("discord-bot/src/main/resources/messages/access/de.properties")
     reads("discord-bot/src/main/resources/messages/access/en.properties")

@@ -36,10 +36,12 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
   installer, stored as `actor_kind` and `actor_id` in every table that records who asked (the request tables, the
   journal and `service_plugin`) and never as a name to parse.
 - **The journal**, `audit_log`, is written only through `Journal.write`, inside the caller's transaction where there is
-  one. An `AuditLine` is an action, an `Actor` like a request's, the person it concerns and typed facts under their
-  own keys; it never holds a sentence, because the page that shows a line renders it and a sentence cannot be
-  searched, counted or translated. A line from before typed facts keeps its sentence under `detail`, and a command,
-  run or service it named as its subject under `target`.
+  one, the phase and date lines included. An `AuditLine` is a `JournalAction`, an `Actor` like a request's, the person
+  it concerns and the line as a message of `AdminTexts`, its values typed; the row stores the message in `MessageJson`'s
+  shape and never a sentence, so Steward's page and the bot's admin channel each render it through their own target.
+  `AdminTexts` is the admin bundle, `messages/admin`, English only: the journal and the words for a run, which Steward
+  and the bot share. A value keeps the name the journal's facts gave it before V21, which is what lets the migration
+  carry a typed line over as it was; a line from before typed values keeps its words as `journal.written`.
 - **The season phase** is one row every process follows on its hub. A switch into `SMP` from before the season stamps
   `fresh_start`, and smp starts its own track over once per stamp whenever it next sees the phase, so a server that
   was down at the switch still starts over and no other process writes smp's tables.

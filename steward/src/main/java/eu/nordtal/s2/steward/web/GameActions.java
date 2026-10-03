@@ -1,6 +1,9 @@
 package eu.nordtal.s2.steward.web;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import com.google.gson.JsonObject;
+import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.database.inbox.HungerGamesRequest;
 import eu.nordtal.s2.database.inbox.SmpRequest;
 import io.javalin.http.BadRequestResponse;
@@ -117,7 +120,13 @@ final class GameActions {
                 """, key)) {
             throw new BadRequestResponse(key + " is not an open objective of the active milestone.");
         }
-        answer(ctx, commands.submit(ctx, new SmpRequest.CompleteObjective(key), "objective " + key));
+        answer(
+                ctx,
+                commands.submit(
+                        ctx,
+                        new SmpRequest.CompleteObjective(key),
+                        JournalAction.COMPLETE_OBJECTIVE,
+                        TEXTS.journal().completeObjective(key)));
     }
 
     /** {@code POST /api/smp/milestone} with {@code {key}}, the active milestone. */
@@ -126,7 +135,13 @@ final class GameActions {
         if (!exists("SELECT 1 FROM smp_milestone WHERE state = 'ACTIVE' AND key = ?", key)) {
             throw new BadRequestResponse(key + " is not the active milestone.");
         }
-        answer(ctx, commands.submit(ctx, new SmpRequest.UnlockMilestone(key), "milestone " + key));
+        answer(
+                ctx,
+                commands.submit(
+                        ctx,
+                        new SmpRequest.UnlockMilestone(key),
+                        JournalAction.UNLOCK_MILESTONE,
+                        TEXTS.journal().unlockMilestone(key)));
     }
 
     /**
@@ -164,7 +179,13 @@ final class GameActions {
         final boolean confirm = body.has("confirm")
                 && body.get("confirm").isJsonPrimitive()
                 && body.get("confirm").getAsBoolean();
-        answer(ctx, commands.submit(ctx, new HungerGamesRequest.StartGame(confirm), "the hunger games start"));
+        answer(
+                ctx,
+                commands.submit(
+                        ctx,
+                        new HungerGamesRequest.StartGame(confirm),
+                        JournalAction.START_GAME,
+                        TEXTS.journal().startGame()));
     }
 
     private static void answer(final Context ctx, final String id) {

@@ -88,6 +88,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V20__an_override_keeps_the_text_it_replaced.sql",
                 "e45ee47a8231c142f97e7a9a13f17f4ac02be7b57927dac425f697a39681da12");
+        FROZEN.put(
+                "V21__a_journal_line_is_a_message.sql",
+                "fa2fd47beea3188005e80602947d60a6bded4d1cca561bb9988e0551008c0b6d");
     }
 
     @Test

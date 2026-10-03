@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot.access.discord;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.s2.common.id.Actor;
@@ -9,12 +10,12 @@ import eu.nordtal.s2.database.access.LinkRedemption;
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.alert.AlertType;
 import eu.nordtal.s2.database.audit.AuditLine;
+import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.DiscordRenderer;
 import eu.nordtal.s2.discordbot.Ids;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -145,8 +146,11 @@ public final class LinkFlow extends ListenerAdapter {
                     final UUID linked = Objects.requireNonNull(result.mcUuid());
                     limit.clear(discordId);
                     admin.record(new AuditLine(
-                            "LINK", Actor.person(discordId), discordId, linked, Map.of("by", "LINK_CODE")));
-                    admin.note("🔗 Linked", event.getUser().getAsMention() + " → `" + linked + "`");
+                            JournalAction.LINK,
+                            Actor.person(discordId),
+                            discordId,
+                            linked,
+                            TEXTS.journal().link()));
                     event.getHook()
                             .editOriginal(
                                     messages.format(locale, MESSAGES.link().success()))
@@ -199,11 +203,11 @@ public final class LinkFlow extends ListenerAdapter {
             }
 
             admin.record(new AuditLine(
-                    "UNLINK", Actor.person(discordId), discordId, mcUuid.orElse(null), Map.of("selfService", true)));
-            admin.note(
-                    "✂️ Unlinked",
-                    event.getUser().getAsMention() + " `"
-                            + mcUuid.map(UUID::toString).orElse("?") + "`");
+                    JournalAction.UNLINK,
+                    Actor.person(discordId),
+                    discordId,
+                    mcUuid.orElse(null),
+                    TEXTS.journal().unlink(true)));
             event.getHook()
                     .editOriginal(messages.format(locale, MESSAGES.unlink().success()))
                     .queue();

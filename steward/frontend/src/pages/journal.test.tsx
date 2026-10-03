@@ -24,7 +24,7 @@ describe("JournalPage - Detail is running text, not a field", () => {
             action: "GRANT_ACCESS",
             actor: { kind: "PERSON", person: "214906139328839681" },
             subject: "214906139328839681",
-            facts: { detail: LONG_DETAIL },
+            line: { key: "journal.written", args: { detail: { kind: "text", value: LONG_DETAIL } } },
           },
         ],
       }),
@@ -44,7 +44,10 @@ const JOURNAL_ENTRIES = () => [
     action: "GRANT_ACCESS",
     actor: { kind: "PERSON", person: "214906139328839681" },
     subject: "300000000000000002",
-    facts: { days: 30, until: "2026-10-18T09:00:00Z" },
+    line: {
+      key: "journal.grant-access",
+      args: { days: { kind: "number", value: 30 }, until: { kind: "instant", value: "2026-10-18T09:00:00Z" } },
+    },
   },
 ]
 
@@ -53,11 +56,11 @@ describe("JournalPage - profiles, never user ids", () => {
     vi.stubGlobal("fetch", backend({ journal: JOURNAL_ENTRIES }))
     draw(<JournalPage />)
 
-    await screen.findByText("GRANT_ACCESS")
+    await screen.findByText("Access granted")
     expect(await screen.findByText("Ally")).toBeTruthy()
     expect(screen.getByText("bob")).toBeTruthy()
-    // Typed values by key, never a sentence the writer composed.
-    expect(screen.getByText("days").parentElement?.textContent).toBe("days 30")
+    // The admin bundle's line, its values typed: a number counted, a moment in the browser's own zone.
+    expect(screen.getByText(/^30 days of access, until /)).toBeTruthy()
     expect(IDENTIFIER_PATTERN.test(document.body.textContent ?? "")).toBe(false)
   })
 
@@ -71,20 +74,20 @@ describe("JournalPage - profiles, never user ids", () => {
             occurred: "2026-09-18T09:00:00Z",
             action: "REVOKE_ACCESS",
             actor: { kind: "PERSON", person: "999999999999999999" },
-            facts: { grants: 1 },
+            line: { key: "journal.revoke-access", args: { grants: { kind: "number", value: 1 } } },
           },
         ],
       }),
     )
     draw(<JournalPage />)
 
-    await screen.findByText("REVOKE_ACCESS")
+    await screen.findByText("1 grant of access revoked.")
     expect(await screen.findByText("no Discord name on record")).toBeTruthy()
     // Still not the number: the id lives in the popover, next to a button that copies it.
     expect(IDENTIFIER_PATTERN.test(document.body.textContent ?? "")).toBe(false)
   })
 
-  it("draws a service a carried line names as a link to that service, and the host as the host", async () => {
+  it("names an action no longer listed by its own name, and the host as the host", async () => {
     vi.stubGlobal(
       "fetch",
       backend({
@@ -94,16 +97,16 @@ describe("JournalPage - profiles, never user ids", () => {
             occurred: "2026-09-18T09:00:00Z",
             action: "RECREATE",
             actor: { kind: "HOST" },
-            facts: { target: "smp" },
+            line: { key: "journal.written", args: { detail: { kind: "text", value: "smp: recreated" } } },
           },
         ],
       }),
     )
     draw(<JournalPage />)
 
-    const link = await screen.findByRole("link", { name: "smp" })
-    expect(link.getAttribute("href")).toBe("/services/smp")
-    expect(screen.getByText("host").closest("[data-entity='unknown']")).toBeTruthy()
+    await screen.findByText("smp: recreated")
+    expect(screen.getAllByText("recreate").length).toBeGreaterThan(0)
+    expect((await screen.findByText("host")).closest("[data-entity='unknown']")).toBeTruthy()
   })
 
   it("draws Steward itself when no admin was behind the line", async () => {
@@ -111,13 +114,19 @@ describe("JournalPage - profiles, never user ids", () => {
       "fetch",
       backend({
         journal: () => [
-          { id: "j3", occurred: "2026-09-18T09:00:00Z", action: "SETTLE", actor: { kind: "STEWARD" }, facts: {} },
+          {
+            id: "j3",
+            occurred: "2026-09-18T09:00:00Z",
+            action: "SETTLE",
+            actor: { kind: "STEWARD" },
+            line: { key: "journal.written", args: { detail: { kind: "text", value: "settled by the poll loop" } } },
+          },
         ],
       }),
     )
     draw(<JournalPage />)
 
-    await screen.findByText("SETTLE")
+    await screen.findByText("Payment settled")
     expect(screen.getByText("Steward")).toBeTruthy()
   })
 })

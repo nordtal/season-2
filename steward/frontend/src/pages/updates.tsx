@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import type { AvailableChange, ConfigChanges, Run } from "@/lib/api"
 import { ApiError } from "@/lib/api"
 import { LOCALE, count, dateTime, relative } from "@/lib/format"
+import { t } from "@/lib/texts"
 import { versionJump } from "@/lib/version-jump"
 import { useAvailable, useRefreshAvailable, useRuns, useSaveConfig, useSchedule } from "@/lib/queries"
 import { ScalarControl } from "@/components/steward/config-controls"
@@ -41,7 +42,7 @@ export function UpdatesPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Updates"
+        title={t("steward.updates.title")}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <ScheduleDialog />
@@ -50,19 +51,20 @@ export function UpdatesPage() {
               variant="outline"
               size="sm"
               /** Steward holds a reading for six hours; disabled rather than hidden while it asks. */
-              title="Ask the sources again. This takes a moment - it really asks them."
+              title={t("steward.updates.check-again-tip")}
               disabled={refresh.isPending}
               onClick={() =>
                 refresh.mutate(undefined, {
-                  onError: (failure) => toast.error("Could not check again", { description: failure.message }),
+                  onError: (failure) =>
+                    toast.error(t("steward.updates.check-again-failed"), { description: failure.message }),
                 })
               }
             >
               <ArrowsClockwiseIcon aria-hidden className={refresh.isPending ? "animate-spin" : undefined} />
-              Check again
+              {t("steward.updates.check-again")}
             </Button>
-            <AskButton kind="RESTART" label="Restart everything" size="sm" />
-            <AskButton kind="UPDATE" variant="default" label="Update everything" size="sm" />
+            <AskButton kind="RESTART" label={t("steward.updates.restart-everything")} size="sm" />
+            <AskButton kind="UPDATE" variant="default" label={t("steward.updates.update-everything")} size="sm" />
           </div>
         }
       />
@@ -84,23 +86,23 @@ function Summary() {
   return (
     <div className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
       <Stat
-        label="Available"
+        label={t("steward.updates.available")}
         value={waiting === undefined ? undefined : count(waiting)}
         tone={available.data?.hasFailures ? "warn" : undefined}
-        hint={available.data?.hasFailures ? "a source did not answer" : undefined}
+        hint={available.data?.hasFailures ? t("steward.updates.source-silent") : undefined}
       />
       <Stat
-        label="Checked"
+        label={t("steward.updates.checked")}
         value={available.data ? relative(available.data.resolvedAt) : undefined}
         hint={available.data ? dateTime(available.data.resolvedAt) : undefined}
       />
       <Stat
-        label="Next"
+        label={t("steward.updates.next")}
         value={
           schedule.data?.nextUpdateAt
             ? relative(schedule.data.nextUpdateAt)
             : schedule.data
-              ? "not scheduled"
+              ? t("steward.updates.not-scheduled")
               : undefined
         }
         hint={schedule.data?.nextUpdateAt ? `${schedule.data.updateAt} ${schedule.data.zone}` : undefined}
@@ -145,7 +147,7 @@ function Jump({ change }: { change: AvailableChange }) {
 
   const wanted = change.version ?? change.fileName
   if (wanted && !change.installed) {
-    return <Pair from="nothing" to={wanted} exact={change.version !== undefined} />
+    return <Pair from={t("steward.updates.nothing")} to={wanted} exact={change.version !== undefined} />
   }
   return (
     <span className="text-xs" title={change.note}>
@@ -176,14 +178,11 @@ function Available() {
   const refresh = useRefreshAvailable()
 
   return (
-    <Panel title="Available">
+    <Panel title={t("steward.updates.available")}>
       {refresh.error ? <Failure error={refresh.error} /> : null}
       <QueryState
         query={available}
-        empty={{
-          title: "Nothing to install",
-          note: "Every source answered and everything the network runs is what the source says is newest.",
-        }}
+        empty={{ title: t("steward.updates.nothing-to-install"), note: t("steward.updates.nothing-to-install-note") }}
         isEmpty={(plan) => worthShowing(plan.changes).length === 0}
       >
         {(plan) => {
@@ -193,23 +192,23 @@ function Available() {
               {plan?.hasFailures ? (
                 <p className="flex items-start gap-2 text-xs text-destructive">
                   <WarningIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                  A source could not be asked, so this list is incomplete.
+                  {t("steward.updates.incomplete")}
                 </p>
               ) : null}
 
               <Table className="steward-table">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[10rem]">Service</TableHead>
-                    <TableHead>Plugin</TableHead>
-                    <TableHead className="w-[16rem]">Change</TableHead>
-                    <TableHead className="w-[9rem] text-right">State</TableHead>
+                    <TableHead className="w-[10rem]">{t("steward.updates.service")}</TableHead>
+                    <TableHead>{t("steward.updates.plugin")}</TableHead>
+                    <TableHead className="w-[16rem]">{t("steward.updates.change")}</TableHead>
+                    <TableHead className="w-[9rem] text-right">{t("steward.updates.state")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {rows.map((change, index) => (
                     <TableRow key={change ? `${change.service ?? "-"}/${change.artifact}` : index}>
-                      <TableCell data-label="Service" className="font-medium">
+                      <TableCell data-label={t("steward.updates.service")} className="font-medium">
                         {!change ? (
                           <SkeletonText width="medium" />
                         ) : change.service ? (
@@ -221,16 +220,16 @@ function Available() {
                             {change.service}
                           </Link>
                         ) : (
-                          <span className="text-muted-foreground">resource pack</span>
+                          <span className="text-muted-foreground">{t("steward.updates.resource-pack")}</span>
                         )}
                       </TableCell>
-                      <TableCell data-label="Plugin">
+                      <TableCell data-label={t("steward.updates.plugin")}>
                         {change ? change.artifact : <SkeletonText width="long" />}
                       </TableCell>
-                      <TableCell data-label="Change" className="text-muted-foreground">
+                      <TableCell data-label={t("steward.updates.change")} className="text-muted-foreground">
                         {change ? <Jump change={change} /> : <SkeletonText width="long" />}
                       </TableCell>
-                      <TableCell data-label="State" className="text-right">
+                      <TableCell data-label={t("steward.updates.state")} className="text-right">
                         {change ? (
                           <AvailableBadge status={change.status} />
                         ) : (
@@ -244,7 +243,9 @@ function Available() {
 
               {plan && plan.unclaimed.length > 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  Claimed by nothing: {plan.unclaimed.map((one) => `${one.service}/${one.fileName}`).join(", ")}
+                  {t("steward.updates.unclaimed", {
+                    files: plan.unclaimed.map((one) => `${one.service}/${one.fileName}`),
+                  })}
                 </p>
               ) : null}
               {plan ? <Notes notes={plan.notes} /> : null}
@@ -270,25 +271,22 @@ function Runs() {
   const rows = updateRuns(runs.data).slice(0, 8)
 
   return (
-    <Panel title="Runs">
+    <Panel title={t("steward.updates.runs")}>
       <QueryState
         query={runs}
         isEmpty={() => rows.length === 0}
-        empty={{
-          title: "No update run yet",
-          note: "The schedule and the Update everything button both land here once one has run.",
-        }}
+        empty={{ title: t("steward.updates.no-run"), note: t("steward.updates.no-run-note") }}
       >
         {(answer) => (
           <Table className="steward-table">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[5rem]">Run</TableHead>
-                <TableHead className="w-[12rem]">When</TableHead>
-                <TableHead className="w-[7rem]">Kind</TableHead>
-                <TableHead className="w-[12rem]">Status</TableHead>
-                <TableHead>Result</TableHead>
-                <TableHead className="w-[12rem]">Initiated by</TableHead>
+                <TableHead className="w-[5rem]">{t("steward.updates.run")}</TableHead>
+                <TableHead className="w-[12rem]">{t("steward.updates.when")}</TableHead>
+                <TableHead className="w-[7rem]">{t("steward.updates.kind")}</TableHead>
+                <TableHead className="w-[12rem]">{t("steward.updates.status")}</TableHead>
+                <TableHead>{t("steward.updates.result")}</TableHead>
+                <TableHead className="w-[12rem]">{t("steward.updates.initiated-by")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -298,7 +296,7 @@ function Runs() {
                   className={run ? "cursor-pointer" : undefined}
                   onClick={() => run && navigate({ to: "/operations/updates/$id", params: { id: String(run.id) } })}
                 >
-                  <TableCell data-label="Run" className="font-medium tnum">
+                  <TableCell data-label={t("steward.updates.run")} className="font-medium tnum">
                     {run ? (
                       <Link
                         to="/operations/updates/$id"
@@ -312,11 +310,13 @@ function Runs() {
                       <SkeletonText width="short" />
                     )}
                   </TableCell>
-                  <TableCell data-label="When">
+                  <TableCell data-label={t("steward.updates.when")}>
                     {run ? dateTime(run.started || run.requested) : <SkeletonText width="long" />}
                   </TableCell>
-                  <TableCell data-label="Kind">{run ? runKind(run.kind) : <SkeletonText width="medium" />}</TableCell>
-                  <TableCell data-label="Status">
+                  <TableCell data-label={t("steward.updates.kind")}>
+                    {run ? runKind(run.kind) : <SkeletonText width="medium" />}
+                  </TableCell>
+                  <TableCell data-label={t("steward.updates.status")}>
                     {run ? (
                       <div className="flex items-center gap-1.5" onClick={(event) => event.stopPropagation()}>
                         <RunStatus status={run.status} />
@@ -327,13 +327,13 @@ function Runs() {
                       <Skeleton className="h-5 w-20 rounded-full" />
                     )}
                   </TableCell>
-                  <TableCell data-label="Result">
+                  <TableCell data-label={t("steward.updates.result")}>
                     {!run ? (
                       <SkeletonText width="long" />
                     ) : run.report?.stage === "NOTHING_TO_DO" ? (
                       <span className="flex items-center gap-1.5 text-muted-foreground">
                         <ProhibitInsetIcon className="size-3.5 shrink-0" aria-hidden />
-                        nothing to do
+                        {t("steward.operations.nothing-to-do")}
                       </span>
                     ) : (
                       <div className="flex flex-col gap-0.5">
@@ -345,7 +345,7 @@ function Runs() {
                       </div>
                     )}
                   </TableCell>
-                  <TableCell data-label="Initiated by" className="text-muted-foreground">
+                  <TableCell data-label={t("steward.updates.initiated-by")} className="text-muted-foreground">
                     {run ? <Actor kind={run.actorKind} id={run.actorId} /> : <SkeletonText width="medium" />}
                   </TableCell>
                 </TableRow>
@@ -394,33 +394,30 @@ function ScheduleDialog() {
       <ResponsiveDialogTrigger asChild>
         <Button variant="outline" size="sm">
           <ClockIcon />
-          Schedule
+          {t("steward.updates.schedule")}
         </Button>
       </ResponsiveDialogTrigger>
       <ResponsiveDialogContent>
         <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>Schedule</ResponsiveDialogTitle>
-          <ResponsiveDialogDescription>When an update runs on its own. Empty is never.</ResponsiveDialogDescription>
+          <ResponsiveDialogTitle>{t("steward.updates.schedule")}</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>{t("steward.updates.schedule-note")}</ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
         {pending ? (
           <Loading rows={3} />
         ) : !document || entries.length === 0 ? (
-          <Empty
-            title="Steward's config has no update section"
-            note="The file in the volume predates it. A steward that has started since the section was added writes it in."
-          />
+          <Empty title={t("steward.updates.no-section")} note={t("steward.updates.no-section-note")} />
         ) : (
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label>Days</Label>
+              <Label>{t("steward.updates.days")}</Label>
               <DayPicker
                 days={days}
                 disabled={!daysEntry || !document.writable || save.isPending}
                 onChange={setPickedDays}
               />
               {at.trim() !== "" && days.length === 0 ? (
-                <p className="text-xs text-destructive">No day is picked, so no update runs.</p>
+                <p className="text-xs text-destructive">{t("steward.updates.no-day")}</p>
               ) : null}
             </div>
 
@@ -444,20 +441,24 @@ function ScheduleDialog() {
                   save.mutate(
                     { revision: document.revision, changes: allChanges },
                     {
-                      onSuccess: () => toast.success("Schedule saved."),
+                      onSuccess: () => toast.success(t("steward.updates.schedule-saved")),
                       onError: (failure) =>
                         toast.error(
                           failure instanceof ApiError && failure.status === 409
-                            ? "The file changed while this was open. It has been read again."
+                            ? t("steward.updates.changed-meanwhile")
                             : String(failure),
                         ),
                     },
                   )
                 }
               >
-                Save
+                {t("steward.updates.save")}
               </Button>
-              {allChanged > 0 ? <span className="text-sm text-muted-foreground tnum">{allChanged} changed</span> : null}
+              {allChanged > 0 ? (
+                <span className="text-sm text-muted-foreground tnum">
+                  {t("steward.updates.changed", { count: allChanged })}
+                </span>
+              ) : null}
             </div>
           </div>
         )}

@@ -504,4 +504,48 @@ export type TextArgs = {
     state: Arg["choice"]
   }
   "steward.service.unhealthy": Record<string, never>
+  "steward.updates.available": Record<string, never>
+  "steward.updates.change": Record<string, never>
+  "steward.updates.changed": {
+    count: Arg["number"]
+  }
+  "steward.updates.changed-meanwhile": Record<string, never>
+  "steward.updates.check-again": Record<string, never>
+  "steward.updates.check-again-failed": Record<string, never>
+  "steward.updates.check-again-tip": Record<string, never>
+  "steward.updates.checked": Record<string, never>
+  "steward.updates.days": Record<string, never>
+  "steward.updates.incomplete": Record<string, never>
+  "steward.updates.initiated-by": Record<string, never>
+  "steward.updates.kind": Record<string, never>
+  "steward.updates.next": Record<string, never>
+  "steward.updates.no-day": Record<string, never>
+  "steward.updates.no-run": Record<string, never>
+  "steward.updates.no-run-note": Record<string, never>
+  "steward.updates.no-section": Record<string, never>
+  "steward.updates.no-section-note": Record<string, never>
+  "steward.updates.not-scheduled": Record<string, never>
+  "steward.updates.nothing": Record<string, never>
+  "steward.updates.nothing-to-install": Record<string, never>
+  "steward.updates.nothing-to-install-note": Record<string, never>
+  "steward.updates.plugin": Record<string, never>
+  "steward.updates.resource-pack": Record<string, never>
+  "steward.updates.restart-everything": Record<string, never>
+  "steward.updates.result": Record<string, never>
+  "steward.updates.run": Record<string, never>
+  "steward.updates.runs": Record<string, never>
+  "steward.updates.save": Record<string, never>
+  "steward.updates.schedule": Record<string, never>
+  "steward.updates.schedule-note": Record<string, never>
+  "steward.updates.schedule-saved": Record<string, never>
+  "steward.updates.service": Record<string, never>
+  "steward.updates.source-silent": Record<string, never>
+  "steward.updates.state": Record<string, never>
+  "steward.updates.status": Record<string, never>
+  "steward.updates.title": Record<string, never>
+  "steward.updates.unclaimed": {
+    files: Arg["list"]
+  }
+  "steward.updates.update-everything": Record<string, never>
+  "steward.updates.when": Record<string, never>
 }

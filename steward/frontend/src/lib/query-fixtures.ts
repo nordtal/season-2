@@ -1,5 +1,11 @@
 import type { QueryObserverSuccessResult, UseQueryResult } from "@tanstack/react-query"
 import type { NetworkMap } from "@/lib/api"
+import type { MessageRef } from "@/lib/texts"
+
+/** A sentence as Steward passes a service's own words on: the message that shows `text` as it came. */
+export function words(text: string): MessageRef {
+  return { key: "steward.said.words", args: { text: { kind: "text", value: text } } }
+}
 
 /** The URL `fetch` was actually asked for, whichever of its three argument shapes carried it. */
 export function urlOf(input: RequestInfo | URL): string {

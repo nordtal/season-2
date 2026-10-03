@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { HungerGamesActions, keyName } from "@/components/steward/game-actions"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { asButton } from "@/lib/test-elements"
+import { words } from "@/lib/query-fixtures"
 
 /** The smp and hunger-games actions are picked, not typed, named by what they act on, and a late answer is in words. */
 
@@ -34,7 +35,7 @@ function backend({
       if (url === "/api/hunger-games/round") return json(200, answered && roundAfter ? roundAfter : round)
       if (url.startsWith("/api/commands/")) {
         answered = true
-        return json(200, { id: url.split("/").pop(), ...row })
+        return json(200, { id: url.split("/").pop(), ...row, result: row.result && words(row.result) })
       }
       throw new Error(`the card asked for ${url}, which this test did not expect`)
     },

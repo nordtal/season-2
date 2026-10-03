@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import type { ConfigDocument, ConfigEntry, GameData, SmpTrack } from "@/lib/api"
 import { SmpActions, trackSteps } from "@/components/steward/milestone-track"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { words } from "@/lib/query-fixtures"
 
 /** The whole track in the file's order, each task's details and action behind a popover, and no command in sight. */
 
@@ -132,7 +133,8 @@ function backend({ row = { status: "DONE", result: "Objective closed." } }: { ro
       if (url === "/api/smp/track") return json(200, TRACK)
       if (url === "/api/setting-groups/smp/milestones") return json(200, FILE)
       if (url === "/api/game-data") return json(200, GAME)
-      if (url.startsWith("/api/commands/")) return json(200, { id: url.split("/").pop(), ...row })
+      if (url.startsWith("/api/commands/"))
+        return json(200, { id: url.split("/").pop(), ...row, result: row.result && words(row.result) })
       throw new Error(`the card asked for ${url}, which this test did not expect`)
     }),
   )

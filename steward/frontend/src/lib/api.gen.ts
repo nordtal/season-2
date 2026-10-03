@@ -12,7 +12,7 @@ export type LiveEvent = {
 
 export type GuildList = {
   available: boolean
-  reason?: string
+  reason?: MessageRef
   entries: GuildEntry[]
 }
 
@@ -129,7 +129,7 @@ export type CommandAsked = {
 export type CommandRun = {
   id: string
   status: InboxStatus
-  result?: string
+  result?: MessageRef
   reason?: string
 }
 
@@ -284,7 +284,6 @@ export type Host = {
   volumesBytes?: number
   unreadable?: string
   dockerDiskUnreadable?: string
-  containerLimits: string
 }
 
 export type Schedule = {
@@ -545,7 +544,7 @@ export type Announcement = {
   actorId: string
   requested: string
   status: InboxStatus
-  result?: string
+  result?: MessageRef
 }
 
 export type SettleOutcome = "BOOKED" | "NOT_OPEN" | "UNKNOWN"
@@ -695,7 +694,7 @@ export type ConfigEntry = {
 
 export type ReloadOutcome = {
   status: ReloadStatus
-  message: string
+  message: MessageRef
 }
 
 export type MessageEntry = {

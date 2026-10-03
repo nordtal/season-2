@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { ConfigReference, GameData } from "@/lib/api"
-import { queryResult } from "@/lib/query-fixtures"
+import { queryResult, words } from "@/lib/query-fixtures"
 import { ReferencePicker } from "@/components/steward/reference-picker"
 
 /** One picker per reference: search, tags, chips, the unknown id kept, and typing where nothing is listed. */
@@ -25,7 +25,7 @@ let game: GameData | undefined = GAME
 vi.mock("@/lib/queries", () => ({
   useGameData: () => queryResult(game),
   useGuildRoles: () => queryResult({ available: true, entries: [{ id: "11", name: "Admin" }] }),
-  useGuildChannels: () => queryResult({ available: false, reason: "no bot token in this test", entries: [] }),
+  useGuildChannels: () => queryResult({ available: false, reason: words("no bot token in this test"), entries: [] }),
   usePeople: () => queryResult([]),
 }))
 

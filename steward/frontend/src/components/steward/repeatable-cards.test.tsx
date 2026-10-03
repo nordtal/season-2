@@ -5,13 +5,13 @@ import { RepeatableCards, blankSection, sectionsFromEntry } from "@/components/s
 import type { SectionValues } from "@/components/steward/repeatable-cards"
 import type { ConfigEntry } from "@/lib/api"
 import { asButton, asInput } from "@/lib/test-elements"
-import { queryResult } from "@/lib/query-fixtures"
+import { queryResult, words } from "@/lib/query-fixtures"
 
 /** No guild can be listed here, so a Discord reference falls back to its typed field. */
 vi.mock("@/lib/queries", () => ({
   useGameData: () => queryResult(undefined),
-  useGuildRoles: () => queryResult({ available: false, reason: "no bot token in this test", entries: [] }),
-  useGuildChannels: () => queryResult({ available: false, reason: "no bot token in this test", entries: [] }),
+  useGuildRoles: () => queryResult({ available: false, reason: words("no bot token in this test"), entries: [] }),
+  useGuildChannels: () => queryResult({ available: false, reason: words("no bot token in this test"), entries: [] }),
   usePeople: () => queryResult(undefined),
 }))
 

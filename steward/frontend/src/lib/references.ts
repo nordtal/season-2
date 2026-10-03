@@ -1,4 +1,5 @@
 import type { ConfigReference, GameData, GameEntry, GameTag, GuildList, Person, ReferenceKind } from "@/lib/api"
+import { message, t } from "@/lib/texts"
 import { sentenceOf } from "@/lib/words"
 
 /**
@@ -148,7 +149,12 @@ export function gameChoices(game: GameData | undefined, registry: string | null)
 export function guildChoices(list: GuildList | undefined, what: "role" | "channel"): Choices {
   if (!list) return { choices: [], tags: [], tree: false, unavailable: "Loading the guild." }
   if (!list.available)
-    return { choices: [], tags: [], tree: false, unavailable: list.reason ?? "The guild cannot be listed." }
+    return {
+      choices: [],
+      tags: [],
+      tree: false,
+      unavailable: list.reason ? message(list.reason) : t("steward.said.guild-not-listed"),
+    }
   if (what === "role") {
     return { choices: list.entries.map((entry) => ({ id: entry.id, name: entry.name })), tags: [], tree: false }
   }

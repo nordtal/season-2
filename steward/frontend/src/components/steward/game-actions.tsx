@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query"
 
 import type { CommandRun } from "@/lib/api"
 import { useCommandRun, useGameAction, useHungerGamesRound } from "@/lib/queries"
+import { message } from "@/lib/texts"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { Failure, QueryState, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
@@ -174,7 +175,7 @@ export function RequestOutcome({ run }: { run: CommandRun }) {
   return (
     <div role="status" className={`flex flex-col gap-1 rounded-md border px-3 py-2 text-sm ${tone}`}>
       <span>{text[run.status]}</span>
-      {run.result ? <span className="whitespace-pre-wrap">{run.result}</span> : null}
+      {run.result ? <span className="whitespace-pre-wrap">{message(run.result)}</span> : null}
     </div>
   )
 }

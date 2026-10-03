@@ -7,7 +7,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sun.net.httpserver.HttpServer;
+import eu.nordtal.s2.common.language.Locales;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.steward.config.WebSpec;
+import eu.nordtal.s2.steward.texts.WebTexts;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetAddress;
@@ -16,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -25,6 +30,8 @@ import org.junit.jupiter.api.Test;
  * A missing token is named, {@code @everyone} is not offered, the header is {@code Bot}, and the cache holds.
  */
 class DiscordDirectoryTest {
+
+    private static final Messages TEXTS = WebTexts.load().messages();
 
     private HttpServer server;
     private final List<String> authorizations = new ArrayList<>();
@@ -42,17 +49,18 @@ class DiscordDirectoryTest {
         final DiscordDirectory directory =
                 new DiscordDirectory(new Values().withGuildId("1"), "https://discord.invalid", Clock.systemUTC());
 
-        final String reason = directory.unavailable();
+        final String reason = english(directory.unavailable());
 
-        assertNotNull(reason);
         assertTrue(reason.contains("discord.bot-token"), reason);
     }
 
     @Test
     void withoutAGuildItSaysSo() {
-        assertTrue(new DiscordDirectory(new Values().withBotToken("t"), "https://discord.invalid", Clock.systemUTC())
-                .unavailable()
-                .contains("discord.guild-id"));
+        final String reason = english(
+                new DiscordDirectory(new Values().withBotToken("t"), "https://discord.invalid", Clock.systemUTC())
+                        .unavailable());
+
+        assertTrue(reason.contains("discord.guild-id"), reason);
     }
 
     @Test
@@ -100,7 +108,12 @@ class DiscordDirectoryTest {
         final DiscordDirectory.DirectoryException failure =
                 assertThrows(DiscordDirectory.DirectoryException.class, directory::roles);
 
-        assertTrue(failure.getMessage().contains("bot token"), failure.getMessage());
+        assertEquals("Discord refused the bot token. Check discord.bot-token.", english(failure.why()));
+    }
+
+    private static String english(final @Nullable MessageRef message) {
+        assertNotNull(message);
+        return TEXTS.format(Locales.DEFAULT, message);
     }
 
     private DiscordDirectory directoryFor(final String body) throws IOException {

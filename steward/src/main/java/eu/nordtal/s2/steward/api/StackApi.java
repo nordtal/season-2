@@ -378,12 +378,7 @@ public final class StackApi implements AutoCloseable {
             @Nullable Long imagesBytes,
             @Nullable Long volumesBytes,
             @Nullable String unreadable,
-            @Nullable String dockerDiskUnreadable,
-            String containerLimits) {}
-
-    /** No container sets a memory limit, so a percentage is a share of the whole machine. */
-    private static final String CONTAINER_LIMITS =
-            "No container sets a memory limit, so every percentage here is a share of the whole host.";
+            @Nullable String dockerDiskUnreadable) {}
 
     Host hostNumbers() {
         final AgentWire.Host host;
@@ -391,18 +386,7 @@ public final class StackApi implements AutoCloseable {
             host = agent.host();
         } catch (final InternalClient.Failure unreachable) {
             return new Host(
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    AgentClient.sentence(unreachable),
-                    null,
-                    CONTAINER_LIMITS);
+                    null, null, null, null, null, null, null, null, null, AgentClient.sentence(unreachable), null);
         }
         final AgentWire.HostNumbers numbers = host.numbers();
         final boolean docker = host.dockerDiskUnreadable() == null;
@@ -417,8 +401,7 @@ public final class StackApi implements AutoCloseable {
                 docker ? host.imagesBytes() : null,
                 docker ? host.volumesBytes() : null,
                 numbers == null ? String.valueOf(host.unreadable()) : null,
-                host.dockerDiskUnreadable(),
-                CONTAINER_LIMITS);
+                host.dockerDiskUnreadable());
     }
 
     /** What is actually on the disk, newest first, not what a run reported. */

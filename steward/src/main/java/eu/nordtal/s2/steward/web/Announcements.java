@@ -13,6 +13,7 @@ import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.InboxStatus;
 import eu.nordtal.s2.database.inbox.Request;
 import eu.nordtal.s2.database.inbox.Schedule;
+import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.data.Data;
 import eu.nordtal.s2.steward.texts.RequestRefused;
@@ -36,6 +37,8 @@ final class Announcements {
 
     private static final StewardTexts.Steward.Answer ANSWER =
             StewardTexts.TEXTS.steward().answer();
+    private static final StewardTexts.Steward.Said SAID =
+            StewardTexts.TEXTS.steward().said();
 
     /** Discord refuses a longer message. */
     static final int MAX_LENGTH = 2000;
@@ -72,7 +75,7 @@ final class Announcements {
             String actorId,
             Instant requested,
             InboxStatus status,
-            @Nullable String result) {}
+            @Nullable MessageRef result) {}
 
     /** {@code GET /api/announcements}: the latest, by either sender, newest first. */
     public record RecentAnnouncements(List<Announcement> recent) {}
@@ -164,7 +167,7 @@ final class Announcements {
     }
 
     /** Returns what became of one language's line once the bot has answered. */
-    static Optional<String> result(final Request<BotRequest> row, final String language) {
+    static Optional<MessageRef> result(final Request<BotRequest> row, final String language) {
         final @Nullable String posted = row.outcome(Map.class)
                 .map(answer -> answer.get(language))
                 .map(String::valueOf)
@@ -172,9 +175,6 @@ final class Announcements {
         if (posted == null) {
             return Optional.empty();
         }
-        return Optional.of(
-                BotRequest.Announce.POSTED.equals(posted)
-                        ? "Posted to the " + language + " announcement channel."
-                        : "Not posted: " + language + " has no announcement channel the bot can write to.");
+        return Optional.of(SAID.announced(BotRequest.Announce.POSTED.equals(posted), language));
     }
 }

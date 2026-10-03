@@ -9,7 +9,7 @@ import { resetDrafts } from "@/lib/drafts"
 import { setPendingMessageJump } from "@/lib/settings-search"
 import type { MessageBundle, MessageBundleLocation, MessageEntry } from "@/lib/api"
 import { asButton, asTextArea } from "@/lib/test-elements"
-import { changesOf } from "@/lib/query-fixtures"
+import { changesOf, words } from "@/lib/query-fixtures"
 
 vi.mock("sonner", () => ({
   toast: {
@@ -224,7 +224,7 @@ describe("saving a line", () => {
             ...location({ path: "smp/smp" }),
             entries: [entry({ key: "welcome", english: "Welcome", overrideEnglish: "Howdy" })],
             warnings: [],
-            reload: { status, message },
+            reload: { status, message: words(message) },
           }),
         },
       ),

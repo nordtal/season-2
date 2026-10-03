@@ -101,6 +101,7 @@ final class Routes {
     /** The message bundles, on their own routes. */
     private static void messageRoutes(final StackApi api, final JavalinConfig config, final Caller caller) {
         config.routes.get("/api/messages", api.messages::list, Gate.KEY_HELD);
+        config.routes.get("/api/message-fallbacks", api.messages::fallbacks, Gate.KEY_HELD);
         config.routes.get("/api/messages/<bundle>", api.messages::one, Gate.KEY_HELD);
         config.routes.put(
                 "/api/messages/<bundle>",

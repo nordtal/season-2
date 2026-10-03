@@ -28,6 +28,7 @@ public final class ApiWire {
             MessagesApi.BundleLocation.class,
             MessagesApi.Bundle.class,
             MessagesApi.Saved.class,
+            MessagesApi.Fallback.class,
             AgentWire.PluginAdded.class,
             Routes.ConsoleSent.class,
             StackApi.NetworkMap.class);
@@ -53,7 +54,9 @@ public final class ApiWire {
             Map.entry(Reloading.Status.class, "ReloadStatus"),
             Map.entry(MessagesApi.BundleLocation.class, "MessageBundleLocation"),
             Map.entry(MessagesApi.Bundle.class, "MessageBundle"),
-            Map.entry(MessagesApi.Saved.class, "MessageSaveResult"));
+            Map.entry(MessagesApi.Saved.class, "MessageSaveResult"),
+            Map.entry(MessagesApi.Fallback.class, "MessageFallback"),
+            Map.entry(MessagesApi.FallbackReason.class, "MessageFallbackReason"));
 
     private ApiWire() {}
 }

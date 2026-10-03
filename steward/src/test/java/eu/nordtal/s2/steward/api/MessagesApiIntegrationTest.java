@@ -61,6 +61,7 @@ class MessagesApiIntegrationTest {
                     config.jsonMapper(new JavalinGson(new Gson(), true));
                     ErrorHandlers.install(config);
                     config.routes.get("/api/messages", messages::list);
+                    config.routes.get("/api/message-fallbacks", messages::fallbacks);
                     config.routes.get("/api/messages/<bundle>", messages::one);
                     config.routes.put("/api/messages/<bundle>", ctx -> messages.save(ctx, Actor.STEWARD));
                 })
@@ -98,7 +99,7 @@ class MessagesApiIntegrationTest {
                 java.util.Map.of(
                         "messages/smp/en.properties", "welcome=Welcome\n",
                         "messages/smp/de.properties", "welcome=Willkommen\n"));
-        store.change("smp", "welcome", "de", List.of("Servus"), null, Actor.STEWARD);
+        store.change("smp", "welcome", "de", List.of("Servus"), List.of("Willkommen"), Actor.STEWARD);
 
         final JsonArray list = GSON.fromJson(get("/api/messages"), JsonArray.class);
         assertEquals(1, list.size(), list.toString());
@@ -111,6 +112,28 @@ class MessagesApiIntegrationTest {
         assertEquals("Willkommen", welcome.get("german").getAsString());
         assertEquals("Servus", welcome.get("overrideGerman").getAsString());
         assertFalse(welcome.has("overrideEnglish"), "no override means the field is absent: " + welcome);
+    }
+
+    @Test
+    void anOverrideAReleaseChangedUnderneathIsListedWithTheOldOriginalTheNewOneAndItself() throws Exception {
+        writeJar(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                java.util.Map.of(
+                        "messages/smp/en.properties", "welcome=Welcome\nfarewell=Bye\n",
+                        "messages/smp/de.properties", "welcome=Willkommen\n"));
+        store.change("smp", "welcome", "de", List.of("Servus"), List.of("Willkommen alt"), Actor.STEWARD);
+        store.change("smp", "farewell", "en", List.of("Cheers"), List.of("Bye"), Actor.STEWARD);
+
+        final JsonArray fallbacks = GSON.fromJson(get("/api/message-fallbacks"), JsonArray.class);
+
+        assertEquals(
+                1, fallbacks.size(), "the override written over the text the jar still ships is shown: " + fallbacks);
+        final JsonObject stale = fallbacks.get(0).getAsJsonObject();
+        assertEquals("welcome", stale.get("key").getAsString());
+        assertEquals("STALE", stale.get("reason").getAsString());
+        assertEquals("[\"Willkommen alt\"]", stale.get("original").toString());
+        assertEquals("[\"Willkommen\"]", stale.get("packaged").toString());
+        assertEquals("[\"Servus\"]", stale.get("override").toString());
     }
 
     @Test

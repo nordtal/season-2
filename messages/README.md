@@ -75,8 +75,12 @@ An admin's change is never a file. It is rows of `message_override`, one per bun
 and variant, which Steward writes and every process reads: at start and on the signal hub's
 `nordtal_messages`, through the same `SignalHub.watch` that re-reads the settings. A Paper plugin
 therefore reads them off the main thread, and shows the packaged texts until the hub has connected.
-An override's texts replace the packaged ones of that language as a set, and it records the hash
-of the packaged texts it replaced, so a release that changes them can be noticed. A row for a key
+An override's texts replace the packaged ones of that language as a set. It keeps the packaged
+texts it replaced and their hash, and a process sets aside an override whose hash no longer
+matches what its jar ships: the admin wrote it over a text this release changed, so the new text
+shows until an admin takes the override over again by saving it. One the validator refuses at load
+is set aside the same way. Both are logged by every process, and Steward lists them at
+`GET /api/message-fallbacks` with the old original, the new one and the override. A row for a key
 the bundle does not declare is left out.
 
 A renamed key names its former names with `@Formerly` (`key` or `bundle/key`), which the schema

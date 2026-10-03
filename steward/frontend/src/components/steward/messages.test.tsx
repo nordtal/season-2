@@ -40,6 +40,8 @@ function entry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
   return {
     bundle: "smp",
     inBundle: true,
+    englishTexts: [],
+    germanTexts: [],
     args: [],
     section: [],
     ...over,

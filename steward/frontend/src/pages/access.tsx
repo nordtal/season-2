@@ -14,7 +14,8 @@ import { useState } from "react"
 
 import { adminsBelow } from "@/lib/admin-tree"
 import type { Person } from "@/lib/api"
-import { count, date, dateTime, playtime, relative } from "@/lib/format"
+import { playtime } from "@/lib/format"
+import { t } from "@/lib/texts"
 import { useNow } from "@/lib/use-now"
 import { useMe, usePeople } from "@/lib/queries"
 import { Entity } from "@/components/steward/entity"
@@ -59,38 +60,28 @@ function AccessBadge({ person, now }: { person: Person; now: number }) {
 
   if (person.accessActive) {
     return (
-      <StatusBadge
-        tone="ok"
-        tipContent={`An unrevoked period covers right now, until ${dateTime(person.accessUntil)}.`}
-      >
-        active until {date(person.accessUntil)}
+      <StatusBadge tone="ok" tipContent={t("steward.people.active-tip", { until: person.accessUntil ?? "" })}>
+        {t("steward.people.active-until", { until: person.accessUntil ?? "" })}
       </StatusBadge>
     )
   }
   if (until === null) {
     return (
-      <StatusBadge tone="idle" tipContent="No period has ever been written for this account.">
-        never
+      <StatusBadge tone="idle" tipContent={t("steward.people.never-tip")}>
+        {t("steward.people.never")}
       </StatusBadge>
     )
   }
   if (until > now) {
     return (
-      <StatusBadge
-        tone="down"
-        tipContent={
-          "No valid period covers now, although the latest one runs on paper until " +
-          dateTime(person.accessUntil) +
-          ". That means either revoked - or bought before the SMP opened, and therefore not yet begun. Which of the two is shown in this person's periods."
-        }
-      >
-        no access
+      <StatusBadge tone="down" tipContent={t("steward.people.no-access-tip", { until: person.accessUntil ?? "" })}>
+        {t("steward.people.no-access")}
       </StatusBadge>
     )
   }
   return (
-    <StatusBadge tone="idle" tipContent="The latest period has expired.">
-      expired {relative(person.accessUntil, now)}
+    <StatusBadge tone="idle" tipContent={t("steward.people.expired-tip")}>
+      {t("steward.people.expired", { at: person.accessUntil ?? "" })}
     </StatusBadge>
   )
 }
@@ -100,13 +91,9 @@ function LinkBadge({ person }: { person: Person }) {
   return (
     <StatusBadge
       tone={person.accessActive ? "warn" : "idle"}
-      tipContent={
-        person.accessActive
-          ? "Access paid for, but no Minecraft account linked - this person cannot reach the server until they type the code from the login screen into Discord."
-          : "No Minecraft account linked."
-      }
+      tipContent={t("steward.people.not-linked-tip", { paid: person.accessActive })}
     >
-      not linked
+      {t("steward.people.not-linked")}
     </StatusBadge>
   )
 }
@@ -120,14 +107,14 @@ function PeopleTable({ children }: { children: ReactNode }) {
     <Table className="steward-table">
       <TableHeader>
         <TableRow>
-          <TableHead className="w-[16rem]">Person</TableHead>
+          <TableHead className="w-[16rem]">{t("steward.people.person")}</TableHead>
           <TableHead className="w-[20rem]">
             <AccessColumnHead />
           </TableHead>
-          <TableHead className="w-[9rem]">Minecraft</TableHead>
-          <TableHead className="w-[9rem]">Roles</TableHead>
+          <TableHead className="w-[9rem]">{t("steward.people.minecraft")}</TableHead>
+          <TableHead className="w-[9rem]">{t("steward.people.roles")}</TableHead>
           {/* The prestige tier is derived from this number, so it is the one lever an admin has. */}
-          <TableHead className="w-[7rem]">Playtime</TableHead>
+          <TableHead className="w-[7rem]">{t("steward.people.playtime")}</TableHead>
           <TableHead className="w-[15rem]" />
         </TableRow>
       </TableHeader>
@@ -144,25 +131,25 @@ function WaitingPersonRow() {
   return (
     <TableRow>
       {/* Drawn at the declared widths, so the headings do not slide when the roster lands. */}
-      <TableCell data-label="Person" className="font-medium">
+      <TableCell data-label={t("steward.people.person")} className="font-medium">
         <div className="flex items-center gap-2">
           <Skeleton className="size-6 shrink-0 rounded-full" />
           <SkeletonText width="full" className="max-w-[13rem]" />
         </div>
       </TableCell>
-      <TableCell data-label="Access">
+      <TableCell data-label={t("steward.people.access")}>
         <Skeleton className="h-5 w-[15rem] max-w-full rounded-full" />
       </TableCell>
-      <TableCell data-label="Minecraft">
+      <TableCell data-label={t("steward.people.minecraft")}>
         <div className="flex items-center gap-2">
           <Skeleton className="size-5 shrink-0 rounded-sm" />
           <SkeletonText width="full" className="max-w-[6.5rem]" />
         </div>
       </TableCell>
-      <TableCell data-label="Roles">
+      <TableCell data-label={t("steward.people.roles")}>
         <Skeleton className="h-5 w-[7rem] max-w-full rounded-full" />
       </TableCell>
-      <TableCell data-label="Playtime">
+      <TableCell data-label={t("steward.people.playtime")}>
         <SkeletonText width="medium" className="min-w-[3rem]" />
       </TableCell>
       <TableCell />
@@ -209,11 +196,11 @@ export function AccessPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Users" actions={<GrantDialog />} />
+      <PageHeader title={t("steward.people.title")} actions={<GrantDialog />} />
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium">People</CardTitle>
+          <CardTitle className="text-sm font-medium">{t("steward.people.roster")}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {/* Stacked below `sm`, one row above, with `min-w-0` on the input so it can shrink. */}
@@ -224,23 +211,23 @@ export function AccessPage() {
                 value={needle}
                 onChange={(event) => changeNeedle(event.target.value)}
                 /** Short enough for 390px; the long sentence is the accessible name. */
-                placeholder="Filter by name or id"
-                aria-label="Filter people by name, Discord id, or Minecraft account"
+                placeholder={t("steward.people.filter")}
+                aria-label={t("steward.people.filter-name")}
                 className="min-w-0"
                 autoComplete="off"
               />
             </div>
             <div className="flex min-w-0 items-center gap-2">
               <Switch id="only-with-access" checked={onlyWithAccess} onCheckedChange={changeOnlyWithAccess} />
-              <Label htmlFor="only-with-access">with access only</Label>
+              <Label htmlFor="only-with-access">{t("steward.people.with-access")}</Label>
             </div>
           </div>
 
           <QueryState
             query={people}
             empty={{
-              title: "Nobody yet",
-              note: "The bot has not seen a single Discord account yet - or it is not running.",
+              title: t("steward.people.nobody"),
+              note: t("steward.people.nobody-note"),
             }}
             isEmpty={(list: Person[]) => list.length === 0}
           >
@@ -277,12 +264,8 @@ export function AccessPage() {
               if (rows.length === 0) {
                 return (
                   <Empty
-                    title="Nobody matches"
-                    note={
-                      onlyWithAccess
-                        ? 'With this filter and "with access only" nobody is left.'
-                        : "No loaded account contains this string in its name or either id."
-                    }
+                    title={t("steward.people.no-match")}
+                    note={t("steward.people.no-match-note", { withAccess: onlyWithAccess })}
                   />
                 )
               }
@@ -298,41 +281,38 @@ export function AccessPage() {
                   <PeopleTable>
                     {paged.map((person) => (
                       <TableRow key={person.discordId}>
-                        <TableCell data-label="Person" className="font-medium">
+                        <TableCell data-label={t("steward.people.person")} className="font-medium">
                           <div className="flex flex-wrap items-center gap-2">
                             <Entity id={person.discordId} kind="discord" />
                             {/* "Member" is left unsaid; LEFT and BANNED get a badge beside the name. */}
                             {person.memberState !== "MEMBER" ? <MemberBadge state={person.memberState} /> : null}
                           </div>
                         </TableCell>
-                        <TableCell data-label="Access">
+                        <TableCell data-label={t("steward.people.access")}>
                           <AccessBadge person={person} now={now} />
                         </TableCell>
-                        <TableCell data-label="Minecraft">
+                        <TableCell data-label={t("steward.people.minecraft")}>
                           {person.minecraftUuid ? (
                             <Entity id={person.minecraftUuid} kind="minecraft" />
                           ) : (
                             <LinkBadge person={person} />
                           )}
                         </TableCell>
-                        <TableCell data-label="Roles">
+                        <TableCell data-label={t("steward.people.roles")}>
                           <div className="flex items-center gap-1">
                             {person.donor ? (
-                              <StatusBadge
-                                tone="idle"
-                                tipContent="Given once, never taken away - which is why handing the role out in Discord is harmless."
-                              >
-                                Supporter
+                              <StatusBadge tone="idle" tipContent={t("steward.people.supporter-tip")}>
+                                {t("steward.people.supporter")}
                               </StatusBadge>
                             ) : null}
                             {person.admin ? (
                               <StatusBadge tone="idle" tipContent={grantedByText(person, list)}>
-                                Admin
+                                {t("steward.people.admin")}
                               </StatusBadge>
                             ) : null}
                             {person.packExemptAt ? (
                               <StatusBadge tone="warn" tipContent={packExemptText(person, list)}>
-                                No resource pack
+                                {t("steward.people.no-pack")}
                               </StatusBadge>
                             ) : null}
                             {!person.donor && !person.admin && !person.packExemptAt ? (
@@ -340,13 +320,13 @@ export function AccessPage() {
                             ) : null}
                           </div>
                         </TableCell>
-                        <TableCell data-label="Playtime">
+                        <TableCell data-label={t("steward.people.playtime")}>
                           {/* `playtime` draws the dash for somebody who has never been online. */}
                           <span className="text-sm tabular-nums">{playtime(person.playtimeSeconds ?? undefined)}</span>
                         </TableCell>
                         <TableCell>
                           <RowActions
-                            label={`Actions for ${personName(person)}`}
+                            label={t("steward.people.actions-for", { name: personName(person) })}
                             actions={rowActions(person, {
                               onPeriods: () => setSelected(person),
                               onGrant: () => setGranting(person),
@@ -364,7 +344,7 @@ export function AccessPage() {
                   </PeopleTable>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-xs text-muted-foreground">
-                      {count(rows.length)} of {count(list.length)} loaded accounts.
+                      {t("steward.people.shown", { shown: rows.length, loaded: list.length })}
                     </p>
                     {pageCount > 1 ? (
                       <div className="flex items-center gap-2">
@@ -375,10 +355,10 @@ export function AccessPage() {
                           disabled={clampedPage === 0}
                           onClick={() => setPage((current) => Math.max(0, current - 1))}
                         >
-                          Previous
+                          {t("steward.people.previous")}
                         </Button>
                         <span className="text-xs text-muted-foreground tnum">
-                          Page {clampedPage + 1} of {pageCount}
+                          {t("steward.people.page", { page: clampedPage + 1, pages: pageCount })}
                         </span>
                         <Button
                           type="button"
@@ -387,7 +367,7 @@ export function AccessPage() {
                           disabled={clampedPage >= pageCount - 1}
                           onClick={() => setPage((current) => current + 1)}
                         >
-                          Next
+                          {t("steward.people.next")}
                         </Button>
                       </div>
                     ) : null}
@@ -479,7 +459,7 @@ function rowActions(
       node: (
         <Button type="button" variant="ghost" size="sm" onClick={on.onPeriods}>
           <ClockCounterClockwiseIcon aria-hidden />
-          Periods
+          {t("steward.people.periods")}
         </Button>
       ),
     })
@@ -490,7 +470,7 @@ function rowActions(
     node: (
       <Button type="button" variant="ghost" size="sm" onClick={on.onGrant}>
         <UserPlusIcon aria-hidden />
-        Grant
+        {t("steward.people.grant")}
       </Button>
     ),
   })
@@ -500,7 +480,7 @@ function rowActions(
     node: (
       <Button type="button" variant="ghost" size="sm" onClick={on.onPlaytime}>
         <HourglassIcon aria-hidden />
-        Playtime
+        {t("steward.people.playtime")}
       </Button>
     ),
   })
@@ -511,7 +491,7 @@ function rowActions(
       node: (
         <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={on.onRevoke}>
           <ShieldSlashIcon aria-hidden />
-          Revoke
+          {t("steward.people.revoke")}
         </Button>
       ),
     })
@@ -523,7 +503,7 @@ function rowActions(
       node: (
         <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={on.onUnlink}>
           <LinkBreakIcon aria-hidden />
-          Unlink
+          {t("steward.people.unlink")}
         </Button>
       ),
     })
@@ -535,7 +515,7 @@ function rowActions(
       node: (
         <Button type="button" variant="ghost" size="sm" onClick={on.onMakeAdmin}>
           <CrownIcon aria-hidden />
-          Make admin
+          {t("steward.people.make-admin")}
         </Button>
       ),
     })
@@ -547,7 +527,7 @@ function rowActions(
       node: (
         <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={on.onRevokeAdmin}>
           <CrownCrossIcon aria-hidden />
-          Revoke admin
+          {t("steward.people.revoke-admin")}
         </Button>
       ),
     })
@@ -560,7 +540,7 @@ function rowActions(
       node: (
         <Button type="button" variant="ghost" size="sm" onClick={on.onPack}>
           <PackageIcon aria-hidden />
-          {person.packExemptAt ? "Enforce resource pack" : "Skip resource pack"}
+          {t("steward.people.pack", { exempted: Boolean(person.packExemptAt) })}
         </Button>
       ),
     })
@@ -572,16 +552,15 @@ function rowActions(
 /** The exemption badge's tooltip: who let them through without the pack, and when. */
 function packExemptText(person: Person, people: readonly Person[]): string {
   const admin = people.find((other) => other.discordId === person.packExemptBy)
-  const by = admin ? personName(admin) : (person.packExemptBy ?? "an admin")
-  const at = person.packExemptAt ? ` on ${dateTime(person.packExemptAt)}` : ""
-  return `Plays without the resource pack from their next login on. Set by ${by}${at}.`
+  const by = admin ? personName(admin) : (person.packExemptBy ?? t("steward.people.some-admin"))
+  return t("steward.people.no-pack-tip", { by, at: person.packExemptAt ?? "" })
 }
 
 /** The admin badge's tooltip: who granted this one, by the name the roster knows them by. */
 function grantedByText(person: Person, people: readonly Person[]): string {
-  if (!person.adminGrantedBy) return "Root admin"
+  if (!person.adminGrantedBy) return t("steward.people.root-admin")
   const granter = people.find((other) => other.discordId === person.adminGrantedBy)
-  return `Granted by ${granter ? personName(granter) : person.adminGrantedBy}`
+  return t("steward.people.granted-by", { name: granter ? personName(granter) : person.adminGrantedBy })
 }
 
 /** The header of the access column, with the reason its two halves disagree. */
@@ -590,14 +569,10 @@ function AccessColumnHead() {
     <Tooltip>
       <TooltipTrigger asChild>
         <span tabIndex={0} className="underline decoration-dotted underline-offset-4">
-          Access
+          {t("steward.people.access")}
         </span>
       </TooltipTrigger>
-      <TooltipContent className="max-w-xs">
-        Two readings, deliberately not one: whether an unrevoked period covers right now - and when the latest period
-        ends, revoked ones included. Without the second, somebody whose access was taken away would look exactly like
-        somebody who never had any.
-      </TooltipContent>
+      <TooltipContent className="max-w-xs">{t("steward.people.access-tip")}</TooltipContent>
     </Tooltip>
   )
 }

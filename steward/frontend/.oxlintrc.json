@@ -28,7 +28,7 @@
       }
     },
     {
-      "files": ["src/lib/api.gen.ts"],
+      "files": ["src/lib/api.gen.ts", "src/lib/texts.gen.ts"],
       "rules": {
         "max-lines": "off"
       }

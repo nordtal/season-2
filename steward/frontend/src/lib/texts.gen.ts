@@ -613,6 +613,196 @@ export type TextArgs = {
   "steward.payments.status": Record<string, never>
   "steward.payments.tab": Record<string, never>
   "steward.payments.title": Record<string, never>
+  "steward.people.access": Record<string, never>
+  "steward.people.access-tip": Record<string, never>
+  "steward.people.actions-for": {
+    name: Arg["text"]
+  }
+  "steward.people.active-tip": {
+    until: Arg["instant"]
+  }
+  "steward.people.active-until": {
+    until: Arg["instant"]
+  }
+  "steward.people.admin": Record<string, never>
+  "steward.people.appended": Record<string, never>
+  "steward.people.begins": {
+    at: Arg["instant"]
+  }
+  "steward.people.begins-tip": Record<string, never>
+  "steward.people.below-too": {
+    count: Arg["number"]
+  }
+  "steward.people.chain": Record<string, never>
+  "steward.people.counted": {
+    counted: Arg["text"]
+    becoming: Arg["text"]
+    usable: Arg["choice"]
+  }
+  "steward.people.day-is-day": Record<string, never>
+  "steward.people.discord-id": Record<string, never>
+  "steward.people.entry-stays": Record<string, never>
+  "steward.people.expired": {
+    at: Arg["instant"]
+  }
+  "steward.people.expired-tip": Record<string, never>
+  "steward.people.filter": Record<string, never>
+  "steward.people.filter-name": Record<string, never>
+  "steward.people.from-launch": Record<string, never>
+  "steward.people.grant": Record<string, never>
+  "steward.people.grant-access": Record<string, never>
+  "steward.people.grant-note": Record<string, never>
+  "steward.people.grant-title": Record<string, never>
+  "steward.people.granted": Record<string, never>
+  "steward.people.granted-by": {
+    name: Arg["text"]
+  }
+  "steward.people.guild": Record<string, never>
+  "steward.people.hours": Record<string, never>
+  "steward.people.id-example": Record<string, never>
+  "steward.people.journal-names-you": Record<string, never>
+  "steward.people.language": Record<string, never>
+  "steward.people.last-changed": {
+    at: Arg["instant"]
+  }
+  "steward.people.linked-at": {
+    at: Arg["instant"]
+  }
+  "steward.people.make-admin": Record<string, never>
+  "steward.people.make-admin-note": Record<string, never>
+  "steward.people.make-admin-title": {
+    name: Arg["text"]
+  }
+  "steward.people.member": {
+    state: Arg["choice"]
+  }
+  "steward.people.member-tip": {
+    state: Arg["choice"]
+  }
+  "steward.people.minecraft": Record<string, never>
+  "steward.people.minutes": Record<string, never>
+  "steward.people.most-days": {
+    most: Arg["number"]
+  }
+  "steward.people.never": Record<string, never>
+  "steward.people.never-tip": Record<string, never>
+  "steward.people.next": Record<string, never>
+  "steward.people.no-access": Record<string, never>
+  "steward.people.no-access-tip": {
+    until: Arg["instant"]
+  }
+  "steward.people.no-longer-admin": Record<string, never>
+  "steward.people.no-match": Record<string, never>
+  "steward.people.no-match-note": {
+    withAccess: Arg["choice"]
+  }
+  "steward.people.no-pack": Record<string, never>
+  "steward.people.no-pack-tip": {
+    by: Arg["text"]
+    at: Arg["instant"]
+  }
+  "steward.people.no-period": Record<string, never>
+  "steward.people.no-period-note": Record<string, never>
+  "steward.people.no-refund": Record<string, never>
+  "steward.people.nobody": Record<string, never>
+  "steward.people.nobody-note": Record<string, never>
+  "steward.people.none-linked": Record<string, never>
+  "steward.people.none-running": Record<string, never>
+  "steward.people.not-granted": Record<string, never>
+  "steward.people.not-linked": Record<string, never>
+  "steward.people.not-linked-tip": {
+    paid: Arg["choice"]
+  }
+  "steward.people.not-made-admin": Record<string, never>
+  "steward.people.not-revoked": Record<string, never>
+  "steward.people.not-unlinked": Record<string, never>
+  "steward.people.nothing-changed": Record<string, never>
+  "steward.people.nothing-to-revoke": Record<string, never>
+  "steward.people.nothing-to-unlink": Record<string, never>
+  "steward.people.over": Record<string, never>
+  "steward.people.over-tip": Record<string, never>
+  "steward.people.pack": {
+    exempted: Arg["choice"]
+  }
+  "steward.people.pack-changed": {
+    exempted: Arg["choice"]
+  }
+  "steward.people.pack-note": {
+    exempted: Arg["choice"]
+  }
+  "steward.people.pack-title": {
+    exempted: Arg["choice"]
+    name: Arg["text"]
+  }
+  "steward.people.page": {
+    page: Arg["number"]
+    pages: Arg["number"]
+  }
+  "steward.people.periods": Record<string, never>
+  "steward.people.person": Record<string, never>
+  "steward.people.playtime": Record<string, never>
+  "steward.people.playtime-from": {
+    time: Arg["text"]
+  }
+  "steward.people.playtime-not-written": Record<string, never>
+  "steward.people.playtime-note": {
+    name: Arg["text"]
+  }
+  "steward.people.playtime-set": {
+    name: Arg["text"]
+  }
+  "steward.people.playtime-title": Record<string, never>
+  "steward.people.previous": Record<string, never>
+  "steward.people.request": Record<string, never>
+  "steward.people.request-gone": {
+    source: Arg["choice"]
+  }
+  "steward.people.revoke": Record<string, never>
+  "steward.people.revoke-admin": Record<string, never>
+  "steward.people.revoke-admin-note": {
+    branch: Arg["number"]
+  }
+  "steward.people.revoke-admin-title": {
+    name: Arg["text"]
+  }
+  "steward.people.revoke-note": Record<string, never>
+  "steward.people.revoke-title": Record<string, never>
+  "steward.people.revoked": {
+    at: Arg["instant"]
+  }
+  "steward.people.revoked-for": {
+    count: Arg["number"]
+  }
+  "steward.people.revoked-tip": Record<string, never>
+  "steward.people.roles": Record<string, never>
+  "steward.people.root-admin": Record<string, never>
+  "steward.people.roster": Record<string, never>
+  "steward.people.running": Record<string, never>
+  "steward.people.running-tip": Record<string, never>
+  "steward.people.shown": {
+    shown: Arg["number"]
+    loaded: Arg["number"]
+  }
+  "steward.people.some-admin": Record<string, never>
+  "steward.people.source": {
+    source: Arg["choice"]
+  }
+  "steward.people.source-column": Record<string, never>
+  "steward.people.state": Record<string, never>
+  "steward.people.supporter": Record<string, never>
+  "steward.people.supporter-tip": Record<string, never>
+  "steward.people.thrown-out": Record<string, never>
+  "steward.people.title": Record<string, never>
+  "steward.people.unknown-id": Record<string, never>
+  "steward.people.unlink": Record<string, never>
+  "steward.people.unlink-note": Record<string, never>
+  "steward.people.unlink-title": Record<string, never>
+  "steward.people.unlinked": Record<string, never>
+  "steward.people.valid-until": {
+    until: Arg["instant"]
+  }
+  "steward.people.window": Record<string, never>
+  "steward.people.with-access": Record<string, never>
   "steward.said.announced": {
     posted: Arg["choice"]
     language: Arg["text"]

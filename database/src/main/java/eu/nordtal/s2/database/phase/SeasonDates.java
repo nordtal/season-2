@@ -12,7 +12,7 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Parses and formats the two season dates, so both {@code /phase} commands agree on what a date means.
+ * Parses the two season dates, so both {@code /phase} commands agree on what a date means; a message shows them.
  * Dates are in the zone the caller names, the network's default; a clock change's repeated or missing hour is
  * resolved, not refused.
  */
@@ -27,7 +27,6 @@ public final class SeasonDates {
     // STRICT, hence 'uuuu' not 'yyyy': SMART would clamp February 30 to the month's end instead of refusing it.
     private static final DateTimeFormatter TYPED =
             DateTimeFormatter.ofPattern(PATTERN.replace('y', 'u'), Locale.ROOT).withResolverStyle(ResolverStyle.STRICT);
-    private static final DateTimeFormatter SHOWN = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm z", Locale.ROOT);
 
     private SeasonDates() {}
 
@@ -50,15 +49,5 @@ public final class SeasonDates {
     /** Returns whether this is the word that clears a date rather than a date. */
     public static boolean isClear(final @Nullable String text) {
         return text != null && CLEAR.equalsIgnoreCase(text.strip());
-    }
-
-    /** Returns a date in {@code zone}, the one it is typed in, or {@code "not set"} for {@code null}. */
-    public static String format(final @Nullable Instant when, final ZoneId zone) {
-        return format(when, "not set", zone);
-    }
-
-    /** Formats a date in {@code zone} with the caller's own word for a missing one, such as a translated text. */
-    public static String format(final @Nullable Instant when, final String unset, final ZoneId zone) {
-        return when == null ? unset : SHOWN.format(when.atZone(zone));
     }
 }

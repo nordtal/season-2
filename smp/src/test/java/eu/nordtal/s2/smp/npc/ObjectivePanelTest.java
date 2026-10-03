@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.packrendering.Glyphs;
+import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.menu.MenuFont;
 import eu.nordtal.s2.smp.menu.MenuTitle;
 import eu.nordtal.s2.smp.menu.PanelWalk;
@@ -13,6 +15,7 @@ import eu.nordtal.s2.smp.menu.SlotGeometry;
 import eu.nordtal.s2.smp.milestone.ObjectiveType;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Properties;
 import java.util.Set;
 import net.kyori.adventure.text.Component;
@@ -24,6 +27,8 @@ import org.junit.jupiter.api.Test;
  * The bar matters most: its width is computed, so it is the one thing that can be wrong by a little.
  */
 class ObjectivePanelTest {
+
+    private static final Messages BUNDLE = Messages.load("messages/smp", Locale.ENGLISH, Locale.GERMAN);
 
     private static final List<ObjectivePanel.Card> FOUR = List.of(
             new ObjectivePanel.Card(Glyphs.GUI_ROW_ICON_HAND_IN, "Logs", "1240/2048", 0.605, false),
@@ -364,7 +369,9 @@ class ObjectivePanelTest {
         final String font = Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.SHARE_ROW);
         for (final String language : new String[] {"en", "de"}) {
             final Properties bundle = PanelWalk.bundle(language);
-            final String withSpins = bundle.getProperty("smp.objectives.share").replace("{spins}", "999");
+            final String withSpins = BUNDLE.format(
+                    Locale.forLanguageTag(language),
+                    SmpMessages.MESSAGES.smp().objectives().share(999));
             final String none = bundle.getProperty("smp.objectives.share-none");
             for (final String share : new String[] {withSpins, none}) {
                 for (final boolean hasNext : new boolean[] {false, true}) {

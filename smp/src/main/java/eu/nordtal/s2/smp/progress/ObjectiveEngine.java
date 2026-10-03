@@ -7,7 +7,6 @@ import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
-import eu.nordtal.s2.packrendering.Glyphs;
 import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.aura.AuraPayout;
@@ -277,7 +276,7 @@ public final class ObjectiveEngine {
             for (final Player player : Bukkit.getOnlinePlayers()) {
                 final var locale = identities.languageOf(player.getUniqueId());
                 player.sendMessage(MessageRenderer.of(messages)
-                        .format(locale, MESSAGES.smp().objective().completed(Glyphs.ICON_ANNOUNCE, objectiveKey)));
+                        .format(locale, MESSAGES.smp().objective().completed(objectiveKey)));
             }
         });
     }
@@ -306,7 +305,7 @@ public final class ObjectiveEngine {
             final MilestoneContext name = new MilestoneContext(MilestoneNames.of(messages, locale, milestoneKey));
 
             player.sendMessage(
-                    renderer.format(locale, MESSAGES.smp().milestone().completed(Glyphs.ICON_ANNOUNCE, name)));
+                    renderer.format(locale, MESSAGES.smp().milestone().completed(name)));
             player.showTitle(Title.title(
                     renderer.format(locale, MESSAGES.smp().ceremony().title(name)),
                     renderer.format(locale, MESSAGES.smp().ceremony().subtitle()),

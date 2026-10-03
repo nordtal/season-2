@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { t } from "@/lib/texts"
 
 /** The sign-in mask, a whole page since signed out every other API call answers 401. */
 export function SignInPage({ me, loading }: { me?: Me; loading?: boolean }) {
@@ -19,11 +20,11 @@ export function SignInPage({ me, loading }: { me?: Me; loading?: boolean }) {
             <div className="flex items-center gap-3">
               <StewardMark className="size-8" />
               <div className="flex flex-col">
-                <span className="text-sm font-semibold tracking-tight">Nordtal Steward</span>
-                <span className="text-sm text-muted-foreground">Season 2</span>
+                <span className="text-sm font-semibold tracking-tight">{t("steward.keys.brand")}</span>
+                <span className="text-sm text-muted-foreground">{t("steward.keys.season")}</span>
               </div>
             </div>
-            <CardTitle>Sign in</CardTitle>
+            <CardTitle>{t("steward.keys.sign-in")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             {loading ? (
@@ -31,14 +32,14 @@ export function SignInPage({ me, loading }: { me?: Me; loading?: boolean }) {
             ) : missing ? (
               <Alert variant="destructive">
                 <ShieldWarningIcon aria-hidden />
-                <AlertTitle>Nobody can sign in here right now.</AlertTitle>
-                <AlertDescription>{missing}</AlertDescription>
+                <AlertTitle>{t("steward.keys.nobody-can-sign-in")}</AlertTitle>
+                <AlertDescription>{t("steward.keys.not-set", { setting: missing })}</AlertDescription>
               </Alert>
             ) : (
               <Button asChild size="lg" className="w-full">
                 <a href="/auth/login">
                   <DiscordMark />
-                  Sign in with Discord
+                  {t("steward.keys.with-discord")}
                 </a>
               </Button>
             )}

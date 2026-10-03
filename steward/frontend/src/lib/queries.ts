@@ -43,6 +43,7 @@ import { holdTheKey } from "@/lib/hold-key"
 import { live, RECONCILE, type Topic } from "@/lib/live"
 import type { CreationOptionsJson } from "@/lib/webauthn"
 import { SECOND, keys } from "@/lib/query-keys"
+import { t } from "@/lib/texts"
 
 /**
  * One hook per endpoint, with the live topics it follows decided here rather than at the call site.
@@ -78,10 +79,7 @@ export function useRegisterKey() {
   return useMutation({
     mutationFn: async (label: string) => {
       if (!browserHasSecurityKeys()) {
-        throw new Error(
-          "This browser cannot use security keys, so it cannot sign in to Steward." +
-            " Every current browser can; one in a private window or an old WebView may not.",
-        )
+        throw new Error(t("steward.keys.browser-cannot"))
       }
       const started = await api<CreationOptionsJson>("/auth/webauthn/register/start", { method: "POST" })
       let credential: string

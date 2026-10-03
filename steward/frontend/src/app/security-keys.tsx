@@ -2,7 +2,6 @@ import { FingerprintIcon, KeyIcon, PencilIcon, PlusIcon, TrashIcon } from "@phos
 import { useState } from "react"
 
 import type { Me, SecurityKey } from "@/lib/api"
-import { relative } from "@/lib/format"
 import { useRegisterKey, useRemoveKey, useRenameKey } from "@/lib/queries"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { Skeleton, SkeletonText } from "@/components/steward/query-state"
@@ -17,6 +16,7 @@ import {
 } from "@/components/ui/responsive-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { t } from "@/lib/texts"
 
 /** The key list's state and its three dialogs, kept above the popover so an open dialog outlives it. */
 export type SecurityKeyActions = ReturnType<typeof useSecurityKeyActions>
@@ -83,10 +83,10 @@ export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-muted-foreground">Security keys</span>
+        <span className="text-xs text-muted-foreground">{t("steward.keys.heading")}</span>
         <Button type="button" variant="ghost" size="sm" onClick={() => state.startAdding()}>
           <PlusIcon aria-hidden />
-          Add
+          {t("steward.keys.add")}
         </Button>
       </div>
 
@@ -103,7 +103,7 @@ export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
           ))}
         </ul>
       ) : keys.length === 0 ? (
-        <p className="px-1 py-2 text-sm text-muted-foreground">No key is registered.</p>
+        <p className="px-1 py-2 text-sm text-muted-foreground">{t("steward.keys.no-key")}</p>
       ) : (
         <ul className="flex flex-col">
           {keys.map((key) => (
@@ -113,15 +113,15 @@ export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
                 <span className="truncate text-sm">{key.label}</span>
                 <span className="truncate text-xs text-muted-foreground">
                   {key.lastUsedAt
-                    ? `last used ${relative(key.lastUsedAt)}`
-                    : `registered ${relative(key.registeredAt)}`}
+                    ? t("steward.keys.last-used", { at: key.lastUsedAt })
+                    : t("steward.keys.registered", { at: key.registeredAt })}
                 </span>
               </div>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label={`Rename ${key.label}`}
+                aria-label={t("steward.keys.rename", { key: key.label })}
                 onClick={() => state.startRenaming(key)}
               >
                 <PencilIcon aria-hidden />
@@ -130,7 +130,7 @@ export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label={`Remove ${key.label}`}
+                aria-label={t("steward.keys.remove", { key: key.label })}
                 onClick={() => state.startRemoving(key)}
               >
                 <TrashIcon aria-hidden />
@@ -147,10 +147,7 @@ export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
       ) : null}
 
       {onlyOneAndItIsPhysical ? (
-        <p className="px-1 text-xs text-muted-foreground">
-          This one key is not backed up anywhere. A second one means nobody has to run a command on the host if it is
-          lost.
-        </p>
+        <p className="px-1 text-xs text-muted-foreground">{t("steward.keys.not-backed-up")}</p>
       ) : null}
     </div>
   )
@@ -168,7 +165,7 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
             className="flex flex-col gap-4"
             onSubmit={(event) => {
               event.preventDefault()
-              add.mutate(state.label.trim() || "My second key", {
+              add.mutate(state.label.trim() || t("steward.keys.second-key"), {
                 onSuccess: () => {
                   state.closeAdding()
                   state.setLabel("")
@@ -177,19 +174,19 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
             }}
           >
             <ResponsiveDialogHeader>
-              <ResponsiveDialogTitle>Add a security key</ResponsiveDialogTitle>
+              <ResponsiveDialogTitle>{t("steward.keys.add-title")}</ResponsiveDialogTitle>
               <ResponsiveDialogDescription>
-                Registered to {state.relyingPartyId}, so it keeps working when Steward moves to its production address.
+                {t("steward.keys.add-note", { domain: state.relyingPartyId })}
               </ResponsiveDialogDescription>
             </ResponsiveDialogHeader>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="new-key-label">What do you call this one?</Label>
+              <Label htmlFor="new-key-label">{t("steward.keys.call-this-one")}</Label>
               <Input
                 id="new-key-label"
                 value={state.label}
                 onChange={(event) => state.setLabel(event.target.value)}
-                placeholder="My second key"
+                placeholder={t("steward.keys.second-key")}
                 maxLength={64}
                 autoComplete="off"
                 autoFocus
@@ -204,11 +201,11 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
 
             <ResponsiveDialogFooter className="gap-2 sm:gap-2">
               <Button type="button" variant="ghost" onClick={state.closeAdding}>
-                Cancel
+                {t("steward.form.cancel")}
               </Button>
               <Button type="submit" disabled={add.isPending}>
                 <FingerprintIcon aria-hidden />
-                {add.isPending ? "Waiting for the key…" : "Register"}
+                {add.isPending ? t("steward.keys.waiting") : t("steward.keys.register")}
               </Button>
             </ResponsiveDialogFooter>
           </form>
@@ -227,14 +224,12 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
             }}
           >
             <ResponsiveDialogHeader>
-              <ResponsiveDialogTitle>Rename this key</ResponsiveDialogTitle>
-              <ResponsiveDialogDescription>
-                The name is how you tell two identical keys apart before removing one.
-              </ResponsiveDialogDescription>
+              <ResponsiveDialogTitle>{t("steward.keys.rename-title")}</ResponsiveDialogTitle>
+              <ResponsiveDialogDescription>{t("steward.keys.rename-note")}</ResponsiveDialogDescription>
             </ResponsiveDialogHeader>
 
             <Input
-              aria-label={`New name for ${state.renaming?.label ?? ""}`}
+              aria-label={t("steward.keys.new-name", { key: state.renaming?.label ?? "" })}
               value={state.newLabel}
               onChange={(event) => state.setNewLabel(event.target.value)}
               maxLength={64}
@@ -250,10 +245,10 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
 
             <ResponsiveDialogFooter className="gap-2 sm:gap-2">
               <Button type="button" variant="ghost" onClick={state.closeRenaming}>
-                Cancel
+                {t("steward.form.cancel")}
               </Button>
               <Button type="submit" disabled={rename.isPending || !state.newLabel.trim()}>
-                Save
+                {t("steward.form.save")}
               </Button>
             </ResponsiveDialogFooter>
           </form>
@@ -264,16 +259,10 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
       <AskThenAct
         open={state.removing !== null}
         onOpenChange={(open) => open || state.closeRemoving()}
-        title={`Remove “${state.removing?.label}”?`}
-        description={
-          state.keys.length === 1
-            ? "It is the only key on this account. Removing it sends you back to the setup" +
-              " page, where you register a new one - you are not locked out, but you will" +
-              " need an authenticator to hand before you can use Steward again."
-            : "The other keys on this account keep working. This one stops."
-        }
-        cancel="Keep it"
-        action="Remove it"
+        title={t("steward.keys.remove-title", { key: state.removing?.label ?? "" })}
+        description={t("steward.keys.remove-note", { only: state.keys.length === 1 })}
+        cancel={t("steward.keys.keep-it")}
+        action={t("steward.keys.remove-it")}
         act={() => {
           const key = state.removing
           if (key) remove.mutate(key.id)

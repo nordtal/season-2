@@ -437,10 +437,12 @@ export type TextArgs = {
   "steward.backups.volume-replaced": Record<string, never>
   "steward.backups.when": Record<string, never>
   "steward.backups.written": Record<string, never>
+  "steward.form.cancel": Record<string, never>
   "steward.form.changed": {
     count: Arg["number"]
   }
   "steward.form.changed-meanwhile": Record<string, never>
+  "steward.form.close": Record<string, never>
   "steward.form.days": Record<string, never>
   "steward.form.save": Record<string, never>
   "steward.form.schedule": Record<string, never>
@@ -469,6 +471,95 @@ export type TextArgs = {
   "steward.journal.subject": Record<string, never>
   "steward.journal.title": Record<string, never>
   "steward.journal.when": Record<string, never>
+  "steward.keys.aborted": Record<string, never>
+  "steward.keys.add": Record<string, never>
+  "steward.keys.add-note": {
+    domain: Arg["text"]
+  }
+  "steward.keys.add-title": Record<string, never>
+  "steward.keys.already-registered": Record<string, never>
+  "steward.keys.another-first": Record<string, never>
+  "steward.keys.back-to-status": Record<string, never>
+  "steward.keys.brand": Record<string, never>
+  "steward.keys.browser-cannot": Record<string, never>
+  "steward.keys.call-it": Record<string, never>
+  "steward.keys.call-this-one": Record<string, never>
+  "steward.keys.cancelled": Record<string, never>
+  "steward.keys.closed": Record<string, never>
+  "steward.keys.did-not-work": Record<string, never>
+  "steward.keys.finds-every": Record<string, never>
+  "steward.keys.heading": Record<string, never>
+  "steward.keys.hold-key": Record<string, never>
+  "steward.keys.hold-note": Record<string, never>
+  "steward.keys.hold-title": Record<string, never>
+  "steward.keys.keep-it": Record<string, never>
+  "steward.keys.last-used": {
+    at: Arg["instant"]
+  }
+  "steward.keys.my-iphone": Record<string, never>
+  "steward.keys.my-key": Record<string, never>
+  "steward.keys.my-mac": Record<string, never>
+  "steward.keys.my-phone": Record<string, never>
+  "steward.keys.new-name": {
+    key: Arg["text"]
+  }
+  "steward.keys.no-answer": Record<string, never>
+  "steward.keys.no-key": Record<string, never>
+  "steward.keys.no-key-returned": Record<string, never>
+  "steward.keys.no-keys-here": Record<string, never>
+  "steward.keys.no-keys-note": Record<string, never>
+  "steward.keys.nobody-can-sign-in": Record<string, never>
+  "steward.keys.not-accepted": Record<string, never>
+  "steward.keys.not-backed-up": Record<string, never>
+  "steward.keys.not-found": Record<string, never>
+  "steward.keys.not-held": Record<string, never>
+  "steward.keys.not-now": Record<string, never>
+  "steward.keys.not-registered": Record<string, never>
+  "steward.keys.not-set": {
+    setting: Arg["text"]
+  }
+  "steward.keys.open-directly": Record<string, never>
+  "steward.keys.register": Record<string, never>
+  "steward.keys.register-this": Record<string, never>
+  "steward.keys.registered": {
+    at: Arg["instant"]
+  }
+  "steward.keys.registration-incomplete": Record<string, never>
+  "steward.keys.remove": {
+    key: Arg["text"]
+  }
+  "steward.keys.remove-it": Record<string, never>
+  "steward.keys.remove-note": {
+    only: Arg["choice"]
+  }
+  "steward.keys.remove-title": {
+    key: Arg["text"]
+  }
+  "steward.keys.rename": {
+    key: Arg["text"]
+  }
+  "steward.keys.rename-note": Record<string, never>
+  "steward.keys.rename-title": Record<string, never>
+  "steward.keys.season": Record<string, never>
+  "steward.keys.second-key": Record<string, never>
+  "steward.keys.setup-title": Record<string, never>
+  "steward.keys.sign-in": Record<string, never>
+  "steward.keys.sign-in-incomplete": Record<string, never>
+  "steward.keys.sign-out-instead": Record<string, never>
+  "steward.keys.signed-in-as": {
+    name: Arg["text"]
+  }
+  "steward.keys.step-up-note": {
+    minutes: Arg["number"]
+  }
+  "steward.keys.step-up-title": Record<string, never>
+  "steward.keys.try-again": Record<string, never>
+  "steward.keys.unexplained": Record<string, never>
+  "steward.keys.unsupported": Record<string, never>
+  "steward.keys.use-key": Record<string, never>
+  "steward.keys.waiting": Record<string, never>
+  "steward.keys.with-discord": Record<string, never>
+  "steward.keys.wrong-domain": Record<string, never>
   "steward.operations.a-run": Record<string, never>
   "steward.operations.added": Record<string, never>
   "steward.operations.all-updates": Record<string, never>

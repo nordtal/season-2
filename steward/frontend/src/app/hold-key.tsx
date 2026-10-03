@@ -7,6 +7,7 @@ import { StewardMark } from "@/app/steward-mark"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { t } from "@/lib/texts"
 
 /**
  * Signed in with a key not yet held this session; the whole window, and the only way past is the key.
@@ -25,40 +26,35 @@ export function HoldKeyPage({ me }: { me: Me }) {
             <div className="flex items-center gap-3">
               <StewardMark className="size-8" />
               <div className="flex flex-col">
-                <span className="text-sm font-semibold tracking-tight">Nordtal Steward</span>
-                <span className="text-sm text-muted-foreground">Season 2</span>
+                <span className="text-sm font-semibold tracking-tight">{t("steward.keys.brand")}</span>
+                <span className="text-sm text-muted-foreground">{t("steward.keys.season")}</span>
                 <span className="text-sm text-muted-foreground">
-                  Signed in as <span className="text-foreground">{me.name ?? "an admin"}</span>
+                  {t("steward.keys.signed-in-as", { name: me.name ?? t("steward.people.some-admin") })}
                 </span>
               </div>
             </div>
-            <CardTitle>Hold your security key</CardTitle>
+            <CardTitle>{t("steward.keys.hold-title")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             {supported ? null : (
               <Alert variant="destructive">
                 <ShieldWarningIcon aria-hidden />
-                <AlertTitle>This browser cannot use security keys.</AlertTitle>
-                <AlertDescription>
-                  Every current browser can. A private window, an in-app browser or an old WebView may not - open
-                  Steward in Safari, Chrome or Firefox directly.
-                </AlertDescription>
+                <AlertTitle>{t("steward.keys.no-keys-here")}</AlertTitle>
+                <AlertDescription>{t("steward.keys.no-keys-note")}</AlertDescription>
               </Alert>
             )}
 
-            <p className="text-sm text-muted-foreground">
-              Please provide your security key in order to sign into your Nordtal admin account.
-            </p>
+            <p className="text-sm text-muted-foreground">{t("steward.keys.hold-note")}</p>
 
             <Button type="button" size="lg" disabled={!supported || hold.isPending} onClick={() => hold.mutate()}>
               <FingerprintIcon aria-hidden />
-              {hold.isPending ? "Waiting for the key…" : "Use my key"}
+              {hold.isPending ? t("steward.keys.waiting") : t("steward.keys.use-key")}
             </Button>
 
             {hold.error ? (
               <Alert variant="destructive">
                 <ShieldWarningIcon aria-hidden />
-                <AlertTitle>That did not work.</AlertTitle>
+                <AlertTitle>{t("steward.keys.did-not-work")}</AlertTitle>
                 <AlertDescription>{hold.error.message}</AlertDescription>
               </Alert>
             ) : null}
@@ -74,7 +70,7 @@ export function HoldKeyPage({ me }: { me: Me }) {
               }}
             >
               <SignOutIcon aria-hidden />
-              Sign out instead
+              {t("steward.keys.sign-out-instead")}
             </Button>
           </CardContent>
         </Card>

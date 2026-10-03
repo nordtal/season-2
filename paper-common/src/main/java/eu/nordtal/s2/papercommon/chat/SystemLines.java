@@ -2,10 +2,13 @@ package eu.nordtal.s2.papercommon.chat;
 
 import static eu.nordtal.s2.papercommon.PaperCommonMessages.MESSAGES;
 
+import eu.nordtal.s2.common.id.PlayerId;
+import eu.nordtal.s2.messagerendering.GameLines;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
+import eu.nordtal.s2.messagerendering.Names;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.packrendering.Glyphs;
+import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.papercommon.player.Identities;
 import io.papermc.paper.advancement.AdvancementDisplay;
 import io.papermc.paper.event.player.AsyncChatEvent;
@@ -30,27 +33,16 @@ import org.bukkit.event.player.PlayerQuitEvent;
  */
 public final class SystemLines implements Listener {
 
-    /**
-     * Draws a player in a line about them, the one thing that differs between servers.
-     *
-     * Called on the main thread and on Paper's chat thread, so it reads from a cache, never a database.
-     */
-    @FunctionalInterface
-    public interface Composition {
-
-        /**
-         * @param player whoever the line is about, not whoever reads it
-         * @return their name as this server draws it, already styled
-         */
-        Component of(Player player);
-    }
-
-    private final Composition composition;
+    private final Names names;
     private final Messages messages;
     private final Identities identities;
 
-    public SystemLines(final Composition composition, final Messages messages, final Identities identities) {
-        this.composition = Objects.requireNonNull(composition, "composition");
+    /**
+     * @param names how this server draws a player a line is about, which differs between servers; called on the main
+     *     thread and on Paper's chat thread, so it reads from a cache, never a database
+     */
+    public SystemLines(final Names names, final Messages messages, final Identities identities) {
+        this.names = Objects.requireNonNull(names, "names");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.identities = Objects.requireNonNull(identities, "identities");
     }
@@ -62,10 +54,10 @@ public final class SystemLines implements Listener {
      */
     @EventHandler(ignoreCancelled = true)
     public void onChat(final AsyncChatEvent event) {
-        final Component sender = composition.of(event.getPlayer());
-        final MessageRenderer renderer = MessageRenderer.of(messages);
+        final PlayerContext sender = context(event.getPlayer());
+        final MessageRenderer renderer = renderer();
         event.renderer((source, displayName, message, viewer) ->
-                renderer.format(localeOf(viewer), MESSAGES.system().chat().line(sender, Glyphs.SEPARATOR, message)));
+                renderer.format(localeOf(viewer), MESSAGES.system().chat().line(sender, GameLines.text(message))));
     }
 
     /** Suppresses the vanilla line; {@link #announceJoin(Player)} sends the replacement. */
@@ -80,7 +72,7 @@ public final class SystemLines implements Listener {
      * Called from each module's {@code languageKnown}, one tick after join, once every join handler ran.
      */
     public void announceJoin(final Player player) {
-        broadcast(MESSAGES.system().join(Glyphs.ICON_JOIN, composition.of(player)), viewer -> true);
+        broadcast(MESSAGES.system().join(context(player)), viewer -> true);
     }
 
     /** Announces a quit at {@code LOWEST}, before {@code JoinGate#onQuit} forgets the flag and the crest. */
@@ -88,9 +80,8 @@ public final class SystemLines implements Listener {
     public void onQuit(final PlayerQuitEvent event) {
         event.quitMessage(null);
         final Player leaving = event.getPlayer();
-        final Component who = composition.of(leaving);
         // Not to the person leaving: they are already on a disconnect screen.
-        broadcast(MESSAGES.system().leave(Glyphs.ICON_LEAVE, who), viewer -> !viewer.equals(leaving));
+        broadcast(MESSAGES.system().leave(context(leaving)), viewer -> !viewer.equals(leaving));
     }
 
     @EventHandler
@@ -100,7 +91,7 @@ public final class SystemLines implements Listener {
             return;
         }
         event.deathMessage(null);
-        broadcast(MESSAGES.system().death(Glyphs.ICON_DEATH, vanilla), viewer -> true);
+        broadcast(MESSAGES.system().death(GameLines.of(vanilla)), viewer -> true);
     }
 
     @EventHandler
@@ -115,23 +106,32 @@ public final class SystemLines implements Listener {
         }
         event.message(null);
         broadcast(
-                MESSAGES.system()
-                        .advancement(Glyphs.ICON_ADVANCEMENT, composition.of(event.getPlayer()), display.title()),
+                MESSAGES.system().advancement(context(event.getPlayer()), GameLines.of(display.title())),
                 viewer -> true);
     }
 
     /**
      * Announces one system line from outside a Bukkit event, such as an offline hunger games kill.
      *
-     * @param message a message from the caller's own spec, its {@code icon} one of {@link Glyphs}' icons
+     * @param message a message from the caller's own spec
      */
     public void announce(final MessageRef message) {
         broadcast(message, viewer -> true);
     }
 
+    /** A player as a line names them. */
+    private static PlayerContext context(final Player player) {
+        return PlayerContext.of(PlayerId.of(player.getUniqueId()), player.getName());
+    }
+
+    /** A renderer that draws every player a line names the way this server draws them. */
+    private MessageRenderer renderer() {
+        return MessageRenderer.of(messages, names);
+    }
+
     /** Renders {@code message} once per reader, in that reader's language. */
     private void broadcast(final MessageRef message, final Predicate<Player> to) {
-        final MessageRenderer renderer = MessageRenderer.of(messages);
+        final MessageRenderer renderer = renderer();
         for (final Player viewer : Bukkit.getOnlinePlayers()) {
             if (!to.test(viewer)) {
                 continue;

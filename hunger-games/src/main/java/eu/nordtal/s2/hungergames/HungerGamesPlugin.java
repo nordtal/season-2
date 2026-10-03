@@ -213,9 +213,8 @@ public final class HungerGamesPlugin extends NordtalPlugin {
     /** Registers the freeze, presence, system line and combat listeners. */
     private void wireListeners() {
         listen(new FreezeListener(manager));
-        // The five system lines; the death line keeps vanilla's own component for killer and weapon.
-        final ArenaComposition composition = new ArenaComposition(identities());
-        final SystemLines systemLines = systemLines(composition::of);
+        // The five system lines; the death line keeps the game's own line for killer and weapon.
+        final SystemLines systemLines = systemLines(new ArenaComposition(identities()));
         presence = new PresenceListener(this, identities(), bodies, state, messages(), systemLines, players());
         listen(presence);
         listen(new CombatListener(
@@ -227,7 +226,6 @@ public final class HungerGamesPlugin extends NordtalPlugin {
                 winTracker,
                 sounds,
                 systemLines,
-                composition,
                 this::onGameDecided,
                 clock()));
     }
@@ -273,15 +271,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
             console.reply(MESSAGES.hg().admin().readyHeader(), Tone.NEUTRAL);
             // The admin is looking for who is NOT ready yet, so the tone carries the answer.
             byTeam.forEach((team, ready) -> console.reply(
-                    MESSAGES.hg()
-                            .admin()
-                            .readyLine(
-                                    new TeamContext(team),
-                                    console.phrase(
-                                            ready
-                                                    ? MESSAGES.hg().admin().ready()
-                                                    : MESSAGES.hg().admin().notReady())),
-                    ready ? Tone.GOOD : Tone.MUTED));
+                    MESSAGES.hg().admin().readyLine(new TeamContext(team), ready), ready ? Tone.GOOD : Tone.MUTED));
         });
         return Command.SINGLE_SUCCESS;
     }

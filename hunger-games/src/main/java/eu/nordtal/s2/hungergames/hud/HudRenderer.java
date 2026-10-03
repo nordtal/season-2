@@ -164,24 +164,17 @@ public final class HudRenderer {
         if (nextRefillAt == null) {
             return messages.format(locale, MESSAGES.hg().hud().lootNone());
         }
-        final long secondsLeft =
-                Math.max(0, Duration.between(clock.instant(), nextRefillAt).toSeconds());
-        return messages.format(locale, MESSAGES.hg().hud().loot(formatDuration(secondsLeft)));
+        return messages.format(locale, MESSAGES.hg().hud().loot(Duration.between(clock.instant(), nextRefillAt)));
     }
 
     private String borderLine(final java.util.Locale locale) {
         if (!state.isShrinking()) {
             return messages.format(locale, MESSAGES.hg().hud().borderStable());
         }
-        final long secondsLeft = state.shrinkEndsAt() == null
-                ? 0
-                : Math.max(
-                        0,
-                        Duration.between(clock.instant(), state.shrinkEndsAt()).toSeconds());
+        final Instant endsAt = state.shrinkEndsAt();
+        final Duration left = endsAt == null ? Duration.ZERO : Duration.between(clock.instant(), endsAt);
         final double distance = Math.max(0, (border.currentSize() - state.shrinkTarget()) / 2.0);
-        return messages.format(
-                locale,
-                MESSAGES.hg().hud().borderShrinking(formatDuration(secondsLeft), String.valueOf(Math.round(distance))));
+        return messages.format(locale, MESSAGES.hg().hud().borderShrinking(left, Math.round(distance)));
     }
 
     private String nearestPlayerArrow(final Player player) {
@@ -235,11 +228,5 @@ public final class HudRenderer {
         final int index = Bearing.arrowIndex(
                 playerLocation.getX(), playerLocation.getZ(), playerLocation.getYaw(), nearest.x(), nearest.z());
         return Glyphs.BOSSBAR_ARROWS.get(index);
-    }
-
-    private static String formatDuration(final long totalSeconds) {
-        final long minutes = totalSeconds / 60;
-        final long seconds = totalSeconds % 60;
-        return String.format("%d:%02d", minutes, seconds);
     }
 }

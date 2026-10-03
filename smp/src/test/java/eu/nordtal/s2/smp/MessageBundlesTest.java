@@ -28,14 +28,19 @@ class MessageBundlesTest {
             Messages.load(MessageBundlesTest.class.getClassLoader(), ROOT, Locale.ENGLISH, Locale.GERMAN);
 
     /**
-     * The one message carrying a {@code <lang:...>} tag still renders it as a translated item name, not literal text.
+     * The wheel's prize arrives as a translated item name, not literal text.
      */
     @Test
     void theWheelNamesItsPrizeInTheClientsOwnLanguage() {
         for (final Locale locale : java.util.List.of(Locale.ENGLISH, Locale.GERMAN)) {
             final net.kyori.adventure.text.Component rendered = eu.nordtal.s2.messagerendering.MessageRenderer.of(
                             messages)
-                    .format(locale, "smp.wheel.won", "amount", 3, "item", "block.minecraft.stone");
+                    .format(
+                            locale,
+                            SmpMessages.MESSAGES
+                                    .smp()
+                                    .wheel()
+                                    .won(3, eu.nordtal.s2.messages.value.GameContent.of("block.minecraft.stone")));
             final java.util.List<net.kyori.adventure.text.Component> parts = new java.util.ArrayList<>();
             flatten(rendered, parts);
             assertTrue(

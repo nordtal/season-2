@@ -2,6 +2,7 @@ package eu.nordtal.s2.hungergames.listener;
 
 import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
+import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.hungergames.GameState;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.hungergames.border.BorderController;
@@ -11,9 +12,8 @@ import eu.nordtal.s2.hungergames.db.RosterEntry;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.hungergames.game.Ceremony;
 import eu.nordtal.s2.hungergames.game.WinTracker;
-import eu.nordtal.s2.hungergames.player.ArenaComposition;
+import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
-import eu.nordtal.s2.packrendering.Glyphs;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
 import java.time.Clock;
 import java.time.Instant;
@@ -24,7 +24,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
@@ -60,8 +59,6 @@ public final class CombatListener implements Listener {
     /** The kill feed for a body's death, which vanilla does not announce. */
     private final SystemLines systemLines;
 
-    private final ArenaComposition composition;
-
     private final Clock clock;
 
     public CombatListener(
@@ -73,7 +70,6 @@ public final class CombatListener implements Listener {
             final WinTracker winTracker,
             final HungerGamesSounds sounds,
             final SystemLines systemLines,
-            final ArenaComposition composition,
             final Consumer<Ceremony.Decision> onGameDecided,
             final Clock clock) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
@@ -85,7 +81,6 @@ public final class CombatListener implements Listener {
         this.winTracker = winTracker;
         this.sounds = sounds;
         this.systemLines = systemLines;
-        this.composition = composition;
         this.onGameDecided = onGameDecided;
     }
 
@@ -136,13 +131,16 @@ public final class CombatListener implements Listener {
 
     /** The kill feed line for a body's death, named off the marker since its owner is offline. */
     private void announceBodyDeath(final Entity marker, final UUID owner, final @Nullable UUID killerUuid) {
-        final Component victim = composition.ofName(marker.getName(), owner);
+        final PlayerContext victim = PlayerContext.of(PlayerId.of(owner), marker.getName());
         final Player killer = killerUuid == null ? null : plugin.getServer().getPlayer(killerUuid);
         if (killer == null) {
-            systemLines.announce(MESSAGES.hg().death().body(Glyphs.ICON_DEATH, victim));
+            systemLines.announce(MESSAGES.hg().death().body(victim));
             return;
         }
-        systemLines.announce(MESSAGES.hg().death().bodySection().by(Glyphs.ICON_DEATH, victim, composition.of(killer)));
+        systemLines.announce(MESSAGES.hg()
+                .death()
+                .bodySection()
+                .by(victim, PlayerContext.of(PlayerId.of(killer.getUniqueId()), killer.getName())));
     }
 
     private void handleDeath(final UUID victimMcUuid, final @Nullable UUID killerMcUuid) {
@@ -207,10 +205,10 @@ public final class CombatListener implements Listener {
         // Written ahead of the ceremony: a game left un-DECIDED is what the partial unique index refuses beside it.
         dao.decideGame(gameId, decided.winnerMemberId());
 
-        final Map<UUID, String> names = new HashMap<>();
+        final Map<UUID, PlayerContext> names = new HashMap<>();
         for (final RosterEntry entry : roster) {
-            if (entry.mcName() != null) {
-                names.put(entry.memberId(), entry.mcName());
+            if (entry.mcUuid() != null && entry.mcName() != null) {
+                names.put(entry.memberId(), PlayerContext.of(PlayerId.of(entry.mcUuid()), entry.mcName()));
             }
         }
         return new Ceremony.Decision(decided, winnerMcUuid, dao.activeMembersOf(gameId), dao.killCounts(gameId), names);

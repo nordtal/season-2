@@ -9,7 +9,7 @@ import eu.nordtal.s2.messages.spec.MessageSpec;
 import eu.nordtal.s2.messages.spec.MessageSpecs;
 import eu.nordtal.s2.messages.spec.Name;
 import eu.nordtal.s2.messages.spec.Shown;
-import net.kyori.adventure.text.Component;
+import eu.nordtal.s2.proxy.ping.ServerListContext;
 
 /** Every message of the proxy bundle, one method per key. */
 @MessageSpec("proxy")
@@ -24,7 +24,7 @@ public interface ProxyMessages {
     interface Gate {
 
         @Name("Not linked")
-        MessageRef notLinked(@Arg("code") Object code);
+        MessageRef notLinked(@Arg("code") String code);
 
         @Name("Not member")
         MessageRef notMember();
@@ -54,10 +54,10 @@ public interface ProxyMessages {
         MessageRef restarting();
 
         @Name("Full")
-        MessageRef full(@Arg("online") Object online, @Arg("max") Object max);
+        MessageRef full(@Arg("online") long online, @Arg("max") long max);
 
         @Name("Countdown")
-        MessageRef countdown(@Arg("countdown") Object countdown);
+        MessageRef countdown(@Arg("countdown") String countdown);
 
         @Key("not-linked")
         NotLinked notLinkedSection();
@@ -66,7 +66,7 @@ public interface ProxyMessages {
         interface NotLinked {
 
             @Name("Invite")
-            MessageRef invite(@Arg("invite") Object invite);
+            MessageRef invite(@Arg("invite") String invite);
         }
 
         @Key("not-member")
@@ -76,7 +76,7 @@ public interface ProxyMessages {
         interface NotMember {
 
             @Name("Invite")
-            MessageRef invite(@Arg("invite") Object invite);
+            MessageRef invite(@Arg("invite") String invite);
         }
 
         @Key("no-access")
@@ -86,7 +86,7 @@ public interface ProxyMessages {
         interface NoAccess {
 
             @Name("Invite")
-            MessageRef invite(@Arg("invite") Object invite);
+            MessageRef invite(@Arg("invite") String invite);
         }
 
         Expiry expiry();
@@ -95,7 +95,7 @@ public interface ProxyMessages {
         interface Expiry {
 
             @Name("Warning")
-            MessageRef warning(@Arg("minutes") Object minutes);
+            MessageRef warning(@Arg("minutes") long minutes);
 
             @Name("Expired")
             MessageRef expired();
@@ -152,13 +152,13 @@ public interface ProxyMessages {
     interface Restart {
 
         @Name("Tick")
-        MessageRef tick(@Arg("seconds") Object seconds);
+        MessageRef tick(@Arg("seconds") long seconds);
 
         @Name("Cancelled")
-        MessageRef cancelled(@Arg("occasion") Component occasion);
+        MessageRef cancelled(@Arg("occasion") String occasion);
 
         @Name("Failed")
-        MessageRef failed(@Arg("occasion") Component occasion);
+        MessageRef failed(@Arg("occasion") String occasion);
 
         @Name("Voice")
         MessageRef voice();
@@ -169,19 +169,19 @@ public interface ProxyMessages {
         interface RestartCountdown {
 
             @Name("Update")
-            MessageRef update(@Arg("what") Component what, @Arg("seconds") Object seconds);
+            MessageRef update(@Arg("what") String what, @Arg("seconds") long seconds);
 
             @Name("Recreate")
-            MessageRef recreate(@Arg("what") Component what, @Arg("seconds") Object seconds);
+            MessageRef recreate(@Arg("what") String what, @Arg("seconds") long seconds);
 
             @Name("Backup")
-            MessageRef backup(@Arg("what") Component what, @Arg("seconds") Object seconds);
+            MessageRef backup(@Arg("what") String what, @Arg("seconds") long seconds);
 
             @Name("Down")
-            MessageRef down(@Arg("what") Component what, @Arg("seconds") Object seconds);
+            MessageRef down(@Arg("what") String what, @Arg("seconds") long seconds);
 
             @Name("Maintenance")
-            MessageRef maintenance(@Arg("seconds") Object seconds);
+            MessageRef maintenance(@Arg("seconds") long seconds);
         }
 
         Fate fate();
@@ -247,16 +247,16 @@ public interface ProxyMessages {
         interface Now {
 
             @Name("Update")
-            MessageRef update(@Arg("what") Component what);
+            MessageRef update(@Arg("what") String what);
 
             @Name("Recreate")
-            MessageRef recreate(@Arg("what") Component what);
+            MessageRef recreate(@Arg("what") String what);
 
             @Name("Backup")
-            MessageRef backup(@Arg("what") Component what);
+            MessageRef backup(@Arg("what") String what);
 
             @Name("Down")
-            MessageRef down(@Arg("what") Component what);
+            MessageRef down(@Arg("what") String what);
 
             @Name("Maintenance")
             MessageRef maintenance();
@@ -270,10 +270,10 @@ public interface ProxyMessages {
     interface Return {
 
         @Name("Waiting room")
-        MessageRef waitingRoom(@Arg("what") Component what);
+        MessageRef waitingRoom(@Arg("what") String what);
 
         @Name("Countdown")
-        MessageRef countdown(@Arg("seconds") Object seconds);
+        MessageRef countdown(@Arg("seconds") long seconds);
 
         @Name("Now")
         MessageRef now();
@@ -285,13 +285,13 @@ public interface ProxyMessages {
     interface NetworkCountdown {
 
         @Name("Days")
-        MessageRef days(@Arg("days") Object days, @Arg("hours") Object hours);
+        MessageRef days(@Arg("days") long days, @Arg("hours") long hours);
 
         @Name("Hours")
-        MessageRef hours(@Arg("hours") Object hours, @Arg("minutes") Object minutes);
+        MessageRef hours(@Arg("hours") long hours, @Arg("minutes") long minutes);
 
         @Name("Minutes")
-        MessageRef minutes(@Arg("minutes") Object minutes);
+        MessageRef minutes(@Arg("minutes") long minutes);
 
         @Name("Imminent")
         MessageRef imminent();
@@ -305,6 +305,21 @@ public interface ProxyMessages {
     @Name("Server list text")
     @Shown(Display.SERVER_LIST)
     interface Motd {
+
+        @Name("Before the opening")
+        MessageRef preLaunch(@Arg("list") ServerListContext list);
+
+        @Name("Before the event")
+        MessageRef preEvent(@Arg("list") ServerListContext list);
+
+        @Name("Event")
+        MessageRef startEvent(@Arg("list") ServerListContext list);
+
+        @Name("SMP")
+        MessageRef smp(@Arg("list") ServerListContext list);
+
+        @Name("Maintenance")
+        MessageRef maintenance();
 
         @Name("Misconfigured")
         MessageRef misconfigured();
@@ -328,17 +343,17 @@ public interface ProxyMessages {
 
             @Name("Sent")
             MessageRef sent(
-                    @Arg("flag") Object flag,
+                    @Arg("flag") String flag,
                     @Arg("partner") PlayerContext partner,
-                    @Arg("admin") Object admin,
-                    @Arg("_message") Component message);
+                    @Arg("admin") String admin,
+                    @Arg("message") String message);
 
             @Name("Received")
             MessageRef received(
-                    @Arg("flag") Object flag,
+                    @Arg("flag") String flag,
                     @Arg("partner") PlayerContext partner,
-                    @Arg("admin") Object admin,
-                    @Arg("_message") Component message);
+                    @Arg("admin") String admin,
+                    @Arg("message") String message);
 
             @Name("Self")
             MessageRef self();
@@ -377,10 +392,10 @@ public interface ProxyMessages {
         interface Help {
 
             @Name("Usage")
-            MessageRef usage(@Arg("usage") Object usage);
+            MessageRef usage(@Arg("usage") String usage);
 
             @Name("What")
-            MessageRef what(@Arg("what") Object what);
+            MessageRef what(@Arg("what") String what);
         }
 
         DescribeMessages describe();
@@ -405,9 +420,9 @@ public interface ProxyMessages {
     interface InfoCommands {
 
         @Name("Discord")
-        MessageRef discord(@Arg("invite") Object invite);
+        MessageRef discord(@Arg("invite") String invite);
 
         @Name("Rules")
-        MessageRef rules(@Arg("invite") Object invite);
+        MessageRef rules(@Arg("invite") String invite);
     }
 }

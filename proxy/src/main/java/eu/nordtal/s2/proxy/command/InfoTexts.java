@@ -25,10 +25,10 @@ import java.util.function.Function;
 public final class InfoTexts {
 
     /** What {@code /discord} prints. */
-    public static final Function<Object, MessageRef> DISCORD_TEXT = ProxyMessages.MESSAGES.info()::discord;
+    public static final Function<String, MessageRef> DISCORD_TEXT = ProxyMessages.MESSAGES.info()::discord;
 
     /** What {@code /rules} prints. */
-    public static final Function<Object, MessageRef> RULES_TEXT = ProxyMessages.MESSAGES.info()::rules;
+    public static final Function<String, MessageRef> RULES_TEXT = ProxyMessages.MESSAGES.info()::rules;
 
     private final Messages messages;
     private final String invite;
@@ -45,13 +45,13 @@ public final class InfoTexts {
         return List.of(command("discord", DISCORD_TEXT), command("rules", RULES_TEXT));
     }
 
-    private BrigadierCommand command(final String literal, final Function<Object, MessageRef> text) {
+    private BrigadierCommand command(final String literal, final Function<String, MessageRef> text) {
         return new BrigadierCommand(
                 BrigadierCommand.literalArgumentBuilder(literal).executes(context -> print(context, text)));
     }
 
     /** Prints the line from this module's bundle, whose value carries a clickable link. */
-    private int print(final CommandContext<CommandSource> context, final Function<Object, MessageRef> text) {
+    private int print(final CommandContext<CommandSource> context, final Function<String, MessageRef> text) {
         if (!(context.getSource() instanceof Player player)) {
             // GAME and not CONSOLE: a clickable link is not what an operator wants from a console.
             context.getSource()

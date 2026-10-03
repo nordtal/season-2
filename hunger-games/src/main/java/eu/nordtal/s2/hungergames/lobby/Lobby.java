@@ -8,13 +8,13 @@ import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.db.RosterEntry;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.value.Action;
 import eu.nordtal.s2.papercommon.player.Identities;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.event.ClickEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -28,6 +28,9 @@ import org.jspecify.annotations.Nullable;
  * Ready state starts nothing by itself; it informs the admin's decision.
  */
 public final class Lobby {
+
+    /** What the lobby broadcast's button runs. */
+    private static final Action READY = new Action("/hg ready");
 
     private final Plugin plugin;
     private final HungerGamesDao dao;
@@ -85,13 +88,8 @@ public final class Lobby {
 
         for (final Player player : world.getPlayers()) {
             final Locale locale = identities.languageOf(player.getUniqueId());
-            // No .color(): the colour is in the bundle, and a set one would win over it and never change.
-            final Component link = MessageRenderer.of(messages)
-                    .format(locale, MESSAGES.hg().lobby().readyLink())
-                    .clickEvent(ClickEvent.runCommand("/hg ready"));
-            // A slot, not an append: hg.lobby.broadcast ends in "{link}", and an append would print it literally.
             final Component message = MessageRenderer.of(messages)
-                    .format(locale, MESSAGES.hg().lobby().broadcast(readyTeams, totalTeams, link));
+                    .format(locale, MESSAGES.hg().lobby().broadcast(readyTeams, totalTeams, READY));
             player.sendMessage(message);
         }
     }

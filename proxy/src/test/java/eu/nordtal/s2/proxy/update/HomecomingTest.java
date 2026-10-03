@@ -5,12 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.proxy.PhaseServers;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -100,32 +95,4 @@ class HomecomingTest {
     }
 
     // the lines
-
-    @Test
-    void theReturnHasItsOwnLines() throws IOException {
-        final Properties english = load("en");
-        final Properties german = load("de");
-
-        for (final String key : new String[] {"return.waiting-room", "return.countdown", "return.now"}) {
-            assertTrue(english.containsKey(key), "no English line for " + key);
-            assertTrue(german.containsKey(key), "no German line for " + key);
-        }
-        assertTrue(
-                english.getProperty("return.countdown").contains("{seconds}"),
-                "a countdown that does not name the number is a line that never changes");
-        assertTrue(
-                english.getProperty("return.waiting-room").contains("<what>"),
-                "the line out of the waiting room names the server it is about");
-    }
-
-    private static Properties load(final String language) throws IOException {
-        final Properties properties = new Properties();
-        try (InputStream stream = HomecomingTest.class
-                .getClassLoader()
-                .getResourceAsStream("messages/proxy/" + language + ".properties")) {
-            assertTrue(stream != null, "no bundle for " + language);
-            properties.load(new InputStreamReader(stream, StandardCharsets.UTF_8));
-        }
-        return properties;
-    }
 }

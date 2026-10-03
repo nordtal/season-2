@@ -1,11 +1,15 @@
 package eu.nordtal.s2.papercommon;
 
 import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.messages.spec.Arg;
+import eu.nordtal.s2.messages.spec.Display;
 import eu.nordtal.s2.messages.spec.MessageSpec;
 import eu.nordtal.s2.messages.spec.MessageSpecs;
 import eu.nordtal.s2.messages.spec.Name;
-import net.kyori.adventure.text.Component;
+import eu.nordtal.s2.messages.spec.Shown;
+import eu.nordtal.s2.messages.value.Example;
+import eu.nordtal.s2.messages.value.GameContent;
 
 /** Every message of the paper-common bundle, one method per key. */
 @MessageSpec("paper-common")
@@ -17,6 +21,17 @@ public interface PaperCommonMessages {
     SystemMessages system();
 
     Login login();
+
+    Tab tab();
+
+    @Name("Tab list")
+    @Shown(Display.TAB_LIST)
+    interface Tab {
+
+        /** The one header of every server, since the client keeps it across a server change. */
+        @Name("Header")
+        MessageRef header();
+    }
 
     CommandMessages command();
 
@@ -32,16 +47,16 @@ public interface PaperCommonMessages {
         interface Help {
 
             @Name("Header")
-            MessageRef header(@Arg("command") Object command);
+            MessageRef header(@Arg("command") String command);
 
             @Name("Line")
-            MessageRef line(@Arg("usage") Object usage, @Arg("what") Object what);
+            MessageRef line(@Arg("usage") String usage, @Arg("what") String what);
 
             @Name("Usage")
-            MessageRef usage(@Arg("usage") Object usage);
+            MessageRef usage(@Arg("usage") String usage);
 
             @Name("What")
-            MessageRef what(@Arg("what") Object what);
+            MessageRef what(@Arg("what") String what);
         }
     }
 
@@ -54,10 +69,10 @@ public interface PaperCommonMessages {
         MessageRef reloaded();
 
         @Name("Not reloaded")
-        MessageRef notReloaded(@Arg("problems") Object problems);
+        MessageRef notReloaded(@Arg("problems") String problems);
 
         @Name("Confirm")
-        MessageRef confirm(@Arg("command") Object command);
+        MessageRef confirm(@Arg("command") String command);
 
         @Name("Failed")
         MessageRef failed();
@@ -74,17 +89,19 @@ public interface PaperCommonMessages {
     interface SystemMessages {
 
         @Name("Join")
-        MessageRef join(@Arg("icon") Object icon, @Arg("_player") Component player);
+        MessageRef join(@Arg("player") PlayerContext player);
 
         @Name("Leave")
-        MessageRef leave(@Arg("icon") Object icon, @Arg("_player") Component player);
+        MessageRef leave(@Arg("player") PlayerContext player);
 
+        /** The game's own death line, so each client reads it in its own language. */
         @Name("Death")
-        MessageRef death(@Arg("icon") Object icon, @Arg("_death") Component death);
+        MessageRef death(@Arg("death") @Example("death.attack.generic") GameContent death);
 
         @Name("Advancement")
         MessageRef advancement(
-                @Arg("icon") Object icon, @Arg("_player") Component player, @Arg("_advancement") Component advancement);
+                @Arg("player") PlayerContext player,
+                @Arg("advancement") @Example("advancements.story.mine_diamond.title") GameContent advancement);
 
         Chat chat();
 
@@ -92,10 +109,7 @@ public interface PaperCommonMessages {
         interface Chat {
 
             @Name("Line")
-            MessageRef line(
-                    @Arg("_sender") Component sender,
-                    @Arg("separator") Object separator,
-                    @Arg("_message") Component message);
+            MessageRef line(@Arg("sender") PlayerContext sender, @Arg("message") @Example("Hello!") String message);
         }
     }
 }

@@ -3,6 +3,7 @@ package eu.nordtal.s2.smp.command;
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AccessState;
 import eu.nordtal.s2.database.access.OpenPayment;
@@ -96,17 +97,18 @@ public final class SmpAdmin {
     public Answer changeAura(final UUID player, final String name, final int delta) {
         final Optional<DiscordId> discordId = identities.discordIdOf(player).or(() -> dao.discordIdOf(player));
         if (discordId.isEmpty()) {
-            return Answer.failed(MESSAGES.smp().admin().targetUnlinked(new PlayerContext(name)));
+            return Answer.failed(MESSAGES.smp().admin().targetUnlinked(PlayerContext.of(PlayerId.of(player), name)));
         }
         try {
             dao.addAura(discordId.get(), delta, AuraReason.ADMIN.stored(), "by the console");
         } catch (final RuntimeException failure) {
             // Its own answer: the transaction may have committed although its answer was lost.
             logger.log(java.util.logging.Level.WARNING, "the aura change for " + name + " failed", failure);
-            return Answer.failed(MESSAGES.smp().admin().auraUnknown(new PlayerContext(name), delta));
+            return Answer.failed(
+                    MESSAGES.smp().admin().auraUnknown(PlayerContext.of(PlayerId.of(player), name), delta));
         }
         logger.info("the console changed " + name + "'s aura by " + delta);
-        return Answer.done(MESSAGES.smp().admin().auraChanged(new PlayerContext(name), delta));
+        return Answer.done(MESSAGES.smp().admin().auraChanged(PlayerContext.of(PlayerId.of(player), name), delta));
     }
 
     /** Tells the console whether somebody is linked, has access and is halfway through buying it. */
@@ -115,11 +117,15 @@ public final class SmpAdmin {
         final DiscordId discordId = state.discordId();
         if (discordId == null) {
             // An unlinked account should not have got past the proxy at all.
-            console.reply(MESSAGES.smp().access().unlinked(new PlayerContext(name)), Tone.BAD);
+            console.reply(MESSAGES.smp().access().unlinked(PlayerContext.of(PlayerId.of(player), name)), Tone.BAD);
             return;
         }
         console.reply(
-                MESSAGES.smp().access().linked(new PlayerContext(name), new DiscordMemberContext(discordId.value())),
+                MESSAGES.smp()
+                        .access()
+                        .linked(
+                                PlayerContext.of(PlayerId.of(player), name),
+                                new DiscordMemberContext(discordId.value())),
                 Tone.NEUTRAL);
         if (state.accessActive() && state.accessValidUntil() != null) {
             console.reply(

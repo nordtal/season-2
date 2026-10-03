@@ -2,6 +2,7 @@ package eu.nordtal.s2.smp.board;
 
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
+import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
@@ -208,11 +209,17 @@ public final class Boards {
                             ? MESSAGES.smp()
                                     .board()
                                     .aura()
-                                    .row(place, new PlayerContext(nameOf(row.mcUuid())), row.aura())
+                                    .row(
+                                            place,
+                                            PlayerContext.of(PlayerId.of(row.mcUuid()), nameOf(row.mcUuid())),
+                                            row.aura())
                             : MESSAGES.smp()
                                     .board()
                                     .aura()
-                                    .rowZero(place, new PlayerContext(nameOf(row.mcUuid())), row.aura())));
+                                    .rowZero(
+                                            place,
+                                            PlayerContext.of(PlayerId.of(row.mcUuid()), nameOf(row.mcUuid())),
+                                            row.aura())));
             place++;
         }
         return BoardFrame.render(width, title, lines);

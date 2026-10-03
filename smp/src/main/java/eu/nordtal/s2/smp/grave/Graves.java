@@ -3,6 +3,7 @@ package eu.nordtal.s2.smp.grave;
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.PlayerContext;
@@ -16,7 +17,7 @@ import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.feedback.WorldEffects;
 import java.time.Clock;
 import java.time.Duration;
-import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -290,11 +291,11 @@ public final class Graves implements InventoryHolder {
      */
     private Component hologramText(final GraveRow row, final Duration timeLeft) {
         final Locale locale = row.ownerUuid() == null ? Locale.ENGLISH : identities.languageOf(row.ownerUuid());
-        final MessageRenderer renderer = MessageRenderer.of(messages);
-        if (timeLeft.compareTo(HOLOGRAM_FINAL_STRETCH) < 0) {
-            return renderer.format(locale, MESSAGES.smp().grave().hologramSeconds(timeLeft.toSeconds()));
-        }
-        return renderer.format(locale, MESSAGES.smp().grave().hologram(timeLeft.toHours(), timeLeft.toMinutesPart()));
+        // Whole minutes outside the final stretch, since the text is redrawn once a minute there.
+        final Duration shown =
+                timeLeft.compareTo(HOLOGRAM_FINAL_STRETCH) < 0 ? timeLeft : timeLeft.truncatedTo(ChronoUnit.MINUTES);
+        return MessageRenderer.of(messages)
+                .format(locale, MESSAGES.smp().grave().hologram(shown));
     }
 
     /** Once a minute normally, once a second inside {@link #HOLOGRAM_FINAL_STRETCH}. */
@@ -436,9 +437,6 @@ public final class Graves implements InventoryHolder {
         return window;
     }
 
-    /** How the grave head's lore prints the death date, in the zone of the clock rather than the JVM default. */
-    private static final DateTimeFormatter GRAVE_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-
     /**
      * The dead player's own head, with when and where they died in the lore.
      *
@@ -446,22 +444,22 @@ public final class Graves implements InventoryHolder {
      */
     private ItemStack head(final GraveRow row, final MessageRenderer renderer, final Locale locale) {
         final ItemStack head = new ItemStack(Material.PLAYER_HEAD);
-        final String name = row.ownerUuid() == null
-                ? null
-                : Bukkit.getOfflinePlayer(row.ownerUuid()).getName();
+        final UUID owner = row.ownerUuid();
+        final String name =
+                owner == null ? null : Bukkit.getOfflinePlayer(owner).getName();
         head.editMeta(meta -> {
-            if (meta instanceof SkullMeta skull && row.ownerUuid() != null) {
-                skull.setOwningPlayer(Bukkit.getOfflinePlayer(row.ownerUuid()));
+            if (meta instanceof SkullMeta skull && owner != null) {
+                skull.setOwningPlayer(Bukkit.getOfflinePlayer(owner));
             }
             meta.displayName(renderer.format(
                             locale,
-                            name == null
+                            owner == null || name == null
                                     ? MESSAGES.smp().grave().ownerUnknown()
-                                    : MESSAGES.smp().grave().owner(new PlayerContext(name)))
+                                    : MESSAGES.smp().grave().owner(PlayerContext.of(PlayerId.of(owner), name)))
                     .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-            final String date = GRAVE_DATE.format(row.created().atZone(clock.getZone()));
-            meta.lore(List.of(renderer.format(locale, MESSAGES.smp().grave().diedAt(date, row.x(), row.y(), row.z()))
-                    .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)));
+            meta.lore(List.of(
+                    renderer.format(locale, MESSAGES.smp().grave().diedAt(row.created(), row.x(), row.y(), row.z()))
+                            .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)));
         });
         return head;
     }

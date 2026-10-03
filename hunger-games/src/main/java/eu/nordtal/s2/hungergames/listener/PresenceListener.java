@@ -6,7 +6,7 @@ import eu.nordtal.s2.hungergames.GameState;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.packrendering.hud.TabList;
+import eu.nordtal.s2.papercommon.PaperCommonMessages;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
 import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.settings.network.PlayersSpec;
@@ -65,7 +65,7 @@ public final class PresenceListener implements Listener {
         for (final Player online : Bukkit.getOnlinePlayers()) {
             final java.util.Locale locale = identities.languageOf(online.getUniqueId());
             online.sendPlayerListHeaderAndFooter(
-                    TabList.header(messages, locale, MESSAGES.tab()::header),
+                    messages.format(locale, PaperCommonMessages.MESSAGES.tab().header()),
                     messages.format(
                             locale,
                             MESSAGES.tab().footer(Bukkit.getOnlinePlayers().size(), network.maxPlayers())));

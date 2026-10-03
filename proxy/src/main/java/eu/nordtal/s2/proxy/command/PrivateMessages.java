@@ -12,6 +12,7 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messages.MessageRef;
@@ -188,17 +189,23 @@ public final class PrivateMessages {
      */
     Component line(final Half half, final Locale reader, final Player about, final String text) {
         final String flag = LanguageFlags.of(localeOf(about));
-        // A component, so the text never reaches the MiniMessage parser.
-        final Component message = Component.text(text);
         final ProxyMessages.Chat.Msg msg = ProxyMessages.MESSAGES.chat().msg();
         return MessageRenderer.of(messages)
                 .format(
                         reader,
                         switch (half) {
                             case SENT ->
-                                msg.sent(flag, new PlayerContext(about.getUsername()), adminTag(about), message);
+                                msg.sent(
+                                        flag,
+                                        PlayerContext.of(PlayerId.of(about.getUniqueId()), about.getUsername()),
+                                        adminTag(about),
+                                        text);
                             case RECEIVED ->
-                                msg.received(flag, new PlayerContext(about.getUsername()), adminTag(about), message);
+                                msg.received(
+                                        flag,
+                                        PlayerContext.of(PlayerId.of(about.getUniqueId()), about.getUsername()),
+                                        adminTag(about),
+                                        text);
                         });
     }
 

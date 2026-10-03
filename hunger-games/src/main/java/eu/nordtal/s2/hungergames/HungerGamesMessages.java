@@ -10,7 +10,8 @@ import eu.nordtal.s2.messages.spec.MessageSpec;
 import eu.nordtal.s2.messages.spec.MessageSpecs;
 import eu.nordtal.s2.messages.spec.Name;
 import eu.nordtal.s2.messages.spec.Shown;
-import net.kyori.adventure.text.Component;
+import eu.nordtal.s2.messages.value.Action;
+import java.time.Duration;
 
 /**
  * Every message of the hunger-games bundle, one method per key.
@@ -34,29 +35,23 @@ public interface HungerGamesMessages {
         interface Admin {
 
             @Name("Started")
-            MessageRef started(@Arg("count") Object count);
+            MessageRef started(@Arg("count") int count);
 
             @Name("Ready status header")
             MessageRef readyHeader();
 
             @Name("Ready status line")
-            MessageRef readyLine(@Arg("team") TeamContext team, @Arg("status") Object status);
-
-            @Name("Ready")
-            MessageRef ready();
-
-            @Name("Not ready")
-            MessageRef notReady();
+            MessageRef readyLine(@Arg("team") TeamContext team, @Arg("ready") boolean ready);
         }
 
         @Name("Start")
         interface Start {
 
             @Name("Countdown")
-            MessageRef countdown(@Arg("seconds") Object seconds);
+            MessageRef countdown(@Arg("seconds") long seconds);
 
             @Name("Released")
-            MessageRef released(@Arg("seconds") Object seconds);
+            MessageRef released(@Arg("seconds") long seconds);
         }
 
         Lobby lobby();
@@ -65,10 +60,7 @@ public interface HungerGamesMessages {
         interface Lobby {
 
             @Name("Broadcast")
-            MessageRef broadcast(@Arg("ready") Object ready, @Arg("total") Object total, @Arg("_link") Component link);
-
-            @Name("Ready link")
-            MessageRef readyLink();
+            MessageRef broadcast(@Arg("ready") long ready, @Arg("total") long total, @Arg("confirm") Action confirm);
 
             @Name("Ready set")
             MessageRef readySet();
@@ -98,7 +90,7 @@ public interface HungerGamesMessages {
             MessageRef refill();
 
             @Name("Point lost")
-            MessageRef pointLost(@Arg("label") Object label);
+            MessageRef pointLost(@Arg("label") String label);
         }
 
         Border border();
@@ -107,7 +99,7 @@ public interface HungerGamesMessages {
         interface Border {
 
             @Name("Shrink started")
-            MessageRef shrinkStarted(@Arg("target") Object target, @Arg("seconds") Object seconds);
+            MessageRef shrinkStarted(@Arg("target") long target, @Arg("seconds") long seconds);
 
             @Name("Passive shrink started")
             MessageRef passiveShrinkStarted();
@@ -119,16 +111,16 @@ public interface HungerGamesMessages {
         interface Win {
 
             @Name("Player")
-            MessageRef player(@Arg("icon") Object icon, @Arg("winner") PlayerContext winner);
+            MessageRef player(@Arg("winner") PlayerContext winner);
 
             @Name("Tie broken")
             MessageRef tieBroken(
                     @Arg("winner") PlayerContext winner,
-                    @Arg("winnerKills") Object winnerKills,
-                    @Arg("loserKills") Object loserKills);
+                    @Arg("winnerKills") int winnerKills,
+                    @Arg("loserKills") int loserKills);
 
             @Name("No winner")
-            MessageRef noWinner(@Arg("kills") Object kills);
+            MessageRef noWinner(@Arg("kills") int kills);
 
             @Name("Same team final two")
             MessageRef sameTeamFinalTwo();
@@ -146,7 +138,7 @@ public interface HungerGamesMessages {
             MessageRef noWinner();
 
             @Name("Kills")
-            MessageRef kills(@Arg("player") PlayerContext player, @Arg("kills") Object kills);
+            MessageRef kills(@Arg("player") PlayerContext player, @Arg("kills") int kills);
 
             @Name("Footer")
             MessageRef footer();
@@ -159,16 +151,16 @@ public interface HungerGamesMessages {
         interface Hud {
 
             @Name("Players")
-            MessageRef players(@Arg("alive") Object alive, @Arg("dead") Object dead);
+            MessageRef players(@Arg("alive") int alive, @Arg("dead") int dead);
 
             @Name("Loot")
-            MessageRef loot(@Arg("time") Object time);
+            MessageRef loot(@Arg("time") Duration time);
 
             @Name("Loot none")
             MessageRef lootNone();
 
             @Name("Border shrinking")
-            MessageRef borderShrinking(@Arg("time") Object time, @Arg("distance") Object distance);
+            MessageRef borderShrinking(@Arg("time") Duration time, @Arg("distance") long distance);
 
             @Name("Border stable")
             MessageRef borderStable();
@@ -180,7 +172,7 @@ public interface HungerGamesMessages {
         interface Death {
 
             @Name("Body")
-            MessageRef body(@Arg("icon") Object icon, @Arg("_player") Component player);
+            MessageRef body(@Arg("player") PlayerContext player);
 
             @Key("body")
             Body bodySection();
@@ -189,8 +181,7 @@ public interface HungerGamesMessages {
             interface Body {
 
                 @Name("By")
-                MessageRef by(
-                        @Arg("icon") Object icon, @Arg("_player") Component player, @Arg("_killer") Component killer);
+                MessageRef by(@Arg("player") PlayerContext player, @Arg("killer") PlayerContext killer);
             }
         }
     }
@@ -201,10 +192,7 @@ public interface HungerGamesMessages {
     @Shown(Display.TAB_LIST)
     interface Tab {
 
-        @Name("Header")
-        MessageRef header(@Arg("logo") Object logo);
-
         @Name("Footer")
-        MessageRef footer(@Arg("online") Object online, @Arg("max") Object max);
+        MessageRef footer(@Arg("online") int online, @Arg("max") int max);
     }
 }

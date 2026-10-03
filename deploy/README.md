@@ -116,8 +116,8 @@ proxy enforces at login, and nothing else does: a backend lets in whoever the pr
 its own `max-players` says. Admins (`discord_user.admin`) pass a full network. A change applies
 without a restart.
 
-The MOTD is the network's `motd` setting, one per phase, in MiniMessage, edited in Steward, which
-lists the placeholders. It applies without a restart too.
+The MOTD is the proxy bundle's `motd` section, one message per phase, which an admin overrides on
+Steward's messages page like any other text, with the values it lists. It applies without a restart too.
 
 ## The forwarding secret
 

@@ -9,7 +9,7 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
  * The proxy's own place in the network: whether it is the standby, where players reach it, how often numbers are read.
- * The limit, the allowlist and the MOTD are the network's, in {@code eu.nordtal.s2.settings.network}.
+ * The limit and the allowlist are the network's, in {@code eu.nordtal.s2.settings.network}; the MOTD is a message.
  */
 @ConfigSpec
 public interface NetworkSpec {
@@ -18,7 +18,7 @@ public interface NetworkSpec {
     @Name("Snapshot refresh (seconds)")
     @Key("snapshot-refresh-seconds")
     @Comment({
-        "How often the numbers behind the MOTD placeholders are re-read from the database.",
+        "How often the numbers the MOTD shows are re-read from the database.",
         "A ping never touches the database, and a failed refresh keeps the previous numbers."
     })
     @Explain("How often the MOTD's live numbers are refreshed from the database; a ping itself never touches it.")

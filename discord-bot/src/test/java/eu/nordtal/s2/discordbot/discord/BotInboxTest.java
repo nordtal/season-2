@@ -2,7 +2,6 @@ package eu.nordtal.s2.discordbot.discord;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.json.Json;
@@ -24,9 +23,6 @@ class BotInboxTest {
 
     /** Every call, in order, as text. */
     private final List<String> carriedOut = new ArrayList<>();
-
-    private boolean reloadSucceeds = true;
-    private List<String> unknownKeys = List.of();
 
     private final AccessChanges effects = new AccessChanges() {
 
@@ -51,17 +47,6 @@ class BotInboxTest {
         @Override
         public void setPlaytime(final DiscordId discordId, final long seconds, final Actor by) {
             carriedOut.add("playtime " + discordId + " " + seconds + " by " + filed(by));
-        }
-
-        @Override
-        public boolean reloadMessages() {
-            carriedOut.add("reload");
-            return reloadSucceeds;
-        }
-
-        @Override
-        public List<String> unknownOverrideKeys() {
-            return unknownKeys;
         }
     };
 
@@ -134,19 +119,6 @@ class BotInboxTest {
         assertEquals("{\"until\":\"2026-10-20T00:00:00Z\"}", answer(new BotRequest.Grant(someone, 30)));
         assertEquals("{\"revoked\":\"2\"}", answer(new BotRequest.Revoke(someone)));
         assertEquals("{\"told\":\"400000000000000002\"}", answer(BOOKED));
-    }
-
-    /** A reload answers with the keys nobody declares, and throws when the bundle no longer parses. */
-    @Test
-    void aReloadNamesTheKeysNobodyDeclaresAndAFailedOneThrows() {
-        assertEquals("{\"unknown\":\"\"}", answer(new BotRequest.ReloadMessages("access")));
-
-        unknownKeys = List.of("dm.grantd", "dm.revokd");
-        assertEquals("{\"unknown\":\"dm.grantd,dm.revokd\"}", answer(new BotRequest.ReloadMessages("access")));
-
-        reloadSucceeds = false;
-        // The inbox fails a request whose handler throws: reporting it as done is how a saved change does nothing.
-        assertThrows(IllegalStateException.class, () -> answer(new BotRequest.ReloadMessages("access")));
     }
 
     @Test

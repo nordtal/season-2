@@ -13,7 +13,6 @@ import eu.nordtal.s2.discordbot.access.SeasonStart;
 import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
 import eu.nordtal.s2.messages.Messages;
 import java.time.Instant;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -26,26 +25,23 @@ public final class BotAccessEffects implements AccessChanges {
     private final AdminLog admin;
     private final SeasonStart seasonStart;
     private final Messages messages;
-    private final org.slf4j.Logger log;
 
     /**
-     * Creates the effects over both views of the same bundle files.
+     * Creates the effects.
      *
-     * @param messages this bot's layered bundle
+     * @param messages this bot's bundle, with the overrides the database holds
      */
     public BotAccessEffects(
             final AccessDirectory access,
             final AccessRoles roles,
             final AdminLog admin,
             final SeasonStart seasonStart,
-            final Messages messages,
-            final org.slf4j.Logger log) {
+            final Messages messages) {
         this.access = access;
         this.roles = roles;
         this.admin = admin;
         this.seasonStart = seasonStart;
         this.messages = messages;
-        this.log = log;
     }
 
     /** Grants access: the row, the role, the direct message and the admin channel line. */
@@ -119,21 +115,5 @@ public final class BotAccessEffects implements AccessChanges {
         admin.record(
                 new AuditLine("SET_PLAYTIME", by.filed(), discordId, by.minecraftUuid(), Map.of("seconds", seconds)));
         admin.note("⏱️ Play time set", by.mention() + " → <@" + discordId + "> " + PlaytimeWording.of(seconds));
-    }
-
-    @Override
-    public boolean reloadMessages() {
-        try {
-            messages.reload();
-            return true;
-        } catch (final RuntimeException failure) {
-            log.error("the messages could not be reloaded, the running ones are unchanged", failure);
-            return false;
-        }
-    }
-
-    @Override
-    public List<String> unknownOverrideKeys() {
-        return List.copyOf(messages.unknownOverrideKeys());
     }
 }

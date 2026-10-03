@@ -48,7 +48,7 @@ public final class AgentStandIn implements AutoCloseable {
     /** Where archives are listed from and downloaded out of. */
     public final Path backups;
 
-    /** One directory per service, where the message bundles' jars and override files are looked for. */
+    /** One directory per service, where the message bundles' jars are looked for. */
     public final Path configs;
 
     /** One directory per service's volume, for its size and its rotated logs. */

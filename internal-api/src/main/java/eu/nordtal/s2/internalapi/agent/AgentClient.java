@@ -96,17 +96,9 @@ public final class AgentClient {
         return Json.decode(http.get(AgentWire.DESCRIPTORS), new TypeToken<List<AgentWire.Descriptor>>() {});
     }
 
-    /** One bundle, its packaged text and overrides side by side; a {@code 404} failure for one that is not there. */
+    /** One jar's bundles, their packaged texts; a {@code 404} failure for one that is not there. */
     public MessageBundle bundle(final String service, final String module) {
         return Json.decode(http.get(bundlePath(service, module)), MessageBundle.class);
-    }
-
-    /** Saves overrides; a {@code 400} failure says which placeholder a text may not use, and nothing is saved. */
-    public AgentWire.SavedBundle saveBundle(
-            final String service, final String module, final List<AgentWire.TextChange> changes) {
-        return Json.decode(
-                http.post(bundlePath(service, module), Json.encode(new AgentWire.BundleChanges(changes))),
-                AgentWire.SavedBundle.class);
     }
 
     private static String bundlePath(final String service, final String module) {

@@ -4,6 +4,7 @@ import type { MessageEntry } from "@/lib/api"
 import { unknownPlaceholders } from "@/lib/message-text"
 
 const won: MessageEntry = {
+  bundle: "smp",
   key: "duel.won",
   inBundle: true,
   name: "Duel won",

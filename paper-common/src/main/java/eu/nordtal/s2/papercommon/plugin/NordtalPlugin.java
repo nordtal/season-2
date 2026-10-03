@@ -18,6 +18,7 @@ import eu.nordtal.s2.database.game.GameDataStore;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.InboxTable;
 import eu.nordtal.s2.database.inbox.Outcome;
+import eu.nordtal.s2.database.message.MessageOverrideStore;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
@@ -152,7 +153,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
         return Distances.NONE;
     }
 
-    /** Re-reads this plugin's own settings for a reload, after the base re-read the bundles and the colours. */
+    /** Re-reads this plugin's own settings for a reload, after the base re-read the colours. */
     protected List<String> reloadOwn() {
         return List.of();
     }
@@ -218,6 +219,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
         adminWatch.listen(signals);
         // An admin's change in Steward is a reload, on the hub's thread like one Steward asks for.
         settings.listen(signals, this::reload);
+        // The hub reads the overrides as it connects, off the main thread; until then the packaged texts show.
+        MessageOverrideStore.using(pool).follow(messages, signals);
         signals.start();
         exportGameData();
 
@@ -300,14 +303,11 @@ public abstract class NordtalPlugin extends JavaPlugin {
     private Messages loadMessages() {
         final List<String> roots = new ArrayList<>(List.of("messages/database", "messages/paper-common"));
         roots.addAll(bundles());
-        final Messages loaded = Messages.load(
+        return Messages.load(
                         getClass().getClassLoader(),
                         roots,
-                        getDataFolder().toPath().resolve("messages"),
                         NetworkSettings.languages(languageAndTime).locales())
                 .within(MessageEnvironment.of(getName(), NetworkSettings.season(season)));
-        reportUnknownOverrides(loaded);
-        return loaded;
     }
 
     /** Hides what a non-admin may not type here; the proxy refuses it either way. */
@@ -344,18 +344,12 @@ public abstract class NordtalPlugin extends JavaPlugin {
     }
 
     /**
-     * Re-reads the bundles, the colours, the distances, the network's players and this plugin's settings, each alone.
+     * Re-reads the colours, the distances, the network's players and this plugin's settings, each alone.
      *
      * @return what could not be re-read, empty when everything was taken
      */
     public final List<String> reload() {
         final List<String> problems = new ArrayList<>();
-        try {
-            messages.reload();
-            reportUnknownOverrides(messages);
-        } catch (final RuntimeException failure) {
-            problems.add("the messages: " + failure.getMessage());
-        }
         try {
             colourSettings.reload();
             colours = ToneColours.parse(Colours.declared(colourSettings.get()), getLogger()::warning);
@@ -569,13 +563,6 @@ public abstract class NordtalPlugin extends JavaPlugin {
     /** Returns this plugin's slf4j logger, which jcore and the database module log through. */
     public final Logger logger() {
         return LoggerFactory.getLogger(getClass());
-    }
-
-    private void reportUnknownOverrides(final Messages bundles) {
-        bundles.unknownOverrideKeys()
-                .forEach(key -> getLogger()
-                        .warning("the message override names " + key
-                                + ", which no bundle declares: it is stored and never used; check the spelling"));
     }
 
     /** Thrown only through {@link #fatal}, so nothing after {@code throw fatal(...)} runs. */

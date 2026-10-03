@@ -250,11 +250,8 @@ public final class Steward {
                 agent::plan,
                 // The agent's plugin list and search; removing one is a run.
                 new PluginsForward(agent, data.updates()),
-                // The bot's inbox: saving a message asks it to re-read the file.
-                data.bot(),
-                // The servers' inboxes: saving their bundles asks them to re-read them.
-                new eu.nordtal.s2.steward.api.InboxReloader(
-                        database.dataSource(), eu.nordtal.s2.common.time.Waiting.on(CLOCK)),
+                // The overrides every process re-reads on the signal a save sends.
+                eu.nordtal.s2.database.message.MessageOverrideStore.using(database.dataSource()),
                 settings,
                 CLOCK);
     }

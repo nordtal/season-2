@@ -67,6 +67,7 @@ import eu.nordtal.s2.proxy.command.CommandGate;
 import eu.nordtal.s2.proxy.command.InfoTexts;
 import eu.nordtal.s2.proxy.command.PrivateMessages;
 import eu.nordtal.s2.database.notify.Channel;
+import eu.nordtal.s2.database.message.MessageOverrideStore;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.inbox.Outcome;
 import eu.nordtal.s2.database.inbox.Reload;
@@ -117,6 +118,9 @@ public final class ProxyPlugin {
     /** The languages of the network's settings, or their defaults while those cannot be read. */
     private Languages languages = NetworkSettings.defaultLanguages();
 
+    /** The proxy's one bundle, once the settings named its languages; the refusal screen reuses it. */
+    private Messages messages;
+
     private final ProxyServer proxy;
     private final Logger logger;
     private final Path dataDirectory;
@@ -165,14 +169,10 @@ public final class ProxyPlugin {
             final SeasonSpec season = settings.load(NetworkSettings.SEASON).get();
             languages = NetworkSettings.languages(settings.load(NetworkSettings.LANGUAGE_AND_TIME).get());
             settings.retireFiles();
-            // After the settings, which name the languages and the season; it can throw on a read-only volume.
-            final Messages messages = Messages.load(getClass().getClassLoader(),
-                    List.of("messages/proxy"),
-                    dataDirectory.resolve("messages"), languages.locales())
+            // After the settings, which name the languages and the season.
+            final Messages messages = Messages.load(getClass().getClassLoader(), "messages/proxy", languages.locales())
                     .within(MessageEnvironment.of("proxy", NetworkSettings.season(season)));
-            messages.unknownOverrideKeys().forEach(key -> logger.warn(
-                    "the message override names {}, which no bundle declares - it is stored and"
-                            + " never used; check the spelling", key));
+            this.messages = messages;
             start(database, gate, pack, network, colours, messages, settings, players, motd, season);
         } catch (final SettingsException | RuntimeException failure) {
             failClosed(failure);
@@ -297,6 +297,7 @@ public final class ProxyPlugin {
         signals.on(Channel.PHASE, "the season phase", phaseWatch::refresh);
         // The network's limit, allowlist and MOTD, changed in Steward, arrive here without a restart.
         settings.listen(signals, () -> reloadNetwork(players, motd));
+        MessageOverrideStore.using(pool).follow(messages, signals);
         signals.on(Channel.ADMIN, "the admin roster", refreshAdmins);
         // Latency here would drop the 30 second beat.
         signals.on(Channel.UPDATE, "the restart countdown", () -> {
@@ -433,9 +434,9 @@ public final class ProxyPlugin {
                         eu.nordtal.s2.proxy.feedback.ProxySounds.defaults(logger::warn)));
         logger.info("Players who are not admins may use: {}", players.get().commandAllowlist());
 
-        // A reload of this proxy's messages, asked for by steward; the main proxy alone answers it.
+        // A reload of this proxy's live settings, asked for by steward; the main proxy alone answers it.
         ProxyInbox.open(role, pool, signals, request -> switch (request.payload()) {
-            case Reload reload -> reloadMessages(messages)
+            case Reload reload -> reloadNetwork(players, motd)
                     ? Outcome.done(english(messages, ProxyMessages.MESSAGES.admin().reloaded()))
                     : Outcome.failed(english(messages, ProxyMessages.MESSAGES.admin().reloadFailed()));
         });
@@ -452,8 +453,7 @@ public final class ProxyPlugin {
 
         final CommandManager commands = proxy.getCommandManager();
         final List<com.velocitypowered.api.command.BrigadierCommand> registered =
-                new java.util.ArrayList<>(List.of(networkCommand(messages, () -> colours)));
-        registered.addAll(privateMessages.commands());
+                new java.util.ArrayList<>(privateMessages.commands());
         registered.addAll(infoTexts.commands());
         registered.forEach(command -> commands.register(
                 commands.metaBuilder(command).plugin(this).build(), command));
@@ -478,15 +478,22 @@ public final class ProxyPlugin {
         startHeartbeat();
     }
 
-    /** Takes the network's limit, allowlist and MOTD again; a refused change keeps what runs. */
-    private void reloadNetwork(final Setting<PlayersSpec> players, final Setting<MotdSpec> motd) {
+    /**
+     * Takes the network's limit, allowlist and MOTD again; a refused change keeps what runs.
+     *
+     * @return whether every one was taken
+     */
+    private boolean reloadNetwork(final Setting<PlayersSpec> players, final Setting<MotdSpec> motd) {
+        boolean taken = true;
         for (final Setting<?> setting : List.of(players, motd)) {
             try {
                 setting.reload();
             } catch (final SettingsException refused) {
+                taken = false;
                 logger.warn("A network setting was not taken, the running one stays: {}", refused.getMessage());
             }
         }
+        return taken;
     }
 
     /** What the zero beat moves: the backends first, then the network, the order a player travels. */
@@ -514,11 +521,11 @@ public final class ProxyPlugin {
                 + "Fix the configuration and restart the proxy.");
         logger.error("{}", failure.getMessage(), failure);
 
-        // Its own bundle, from the classpath with NO override directory: that layer is one thing that can break.
+        // The bundle when the failure came after it, else the packaged one: the screen needs no database.
         try {
-            final Messages messages = Messages.load(getClass().getClassLoader(),
-                    "messages/proxy", languages.locales());
-            proxy.getEventManager().register(this, new MisconfiguredGate(logger, messages));
+            final Messages shown = messages != null ? messages
+                    : Messages.load(getClass().getClassLoader(), "messages/proxy", languages.locales());
+            proxy.getEventManager().register(this, new MisconfiguredGate(logger, shown));
         } catch (final RuntimeException broken) {
             // The packaged bundle is inside the jar; reaching here means it is damaged, so the proxy shuts down.
             logger.error("proxy cannot even load its own packaged messages, so it cannot "
@@ -559,42 +566,9 @@ public final class ProxyPlugin {
         access = null;
     }
 
-    /** {@code /network reload}: re-reads this proxy's message bundles; only the console reaches it. */
-    private com.velocitypowered.api.command.BrigadierCommand networkCommand(
-            final Messages messages, final java.util.function.Supplier<ToneColours> colours) {
-        return new com.velocitypowered.api.command.BrigadierCommand(
-                com.velocitypowered.api.command.BrigadierCommand.literalArgumentBuilder("network")
-                        .requires(source -> source instanceof com.velocitypowered.api.proxy.ConsoleCommandSource)
-                        .then(com.velocitypowered.api.command.BrigadierCommand.literalArgumentBuilder("reload")
-                                .executes(context -> {
-                                    final boolean reloaded = reloadMessages(messages);
-                                    context.getSource().sendMessage(Tones.paint(
-                                            MessageRenderer.of(messages).format(Locale.ENGLISH, reloaded
-                                                    ? ProxyMessages.MESSAGES.admin().reloaded()
-                                                    : ProxyMessages.MESSAGES.admin().reloadFailed()),
-                                            reloaded ? Tone.GOOD : Tone.BAD,
-                                            colours.get()));
-                                    return com.mojang.brigadier.Command.SINGLE_SUCCESS;
-                                })));
-    }
-
     /** Renders a message as English plain text, the way a request's answer is stored. */
     private static String english(final Messages messages, final eu.nordtal.s2.messages.MessageRef message) {
         return PlainTextComponentSerializer.plainText()
                 .serialize(MessageRenderer.of(messages).format(Locale.ENGLISH, message));
-    }
-
-    /** Re-reads this proxy's message bundles; the running ones stay when that fails. */
-    private boolean reloadMessages(final Messages messages) {
-        try {
-            messages.reload();
-            messages.unknownOverrideKeys().forEach(key -> logger.warn(
-                    "the message override names {}, which no bundle declares - it is stored and"
-                            + " never used; check the spelling", key));
-            return true;
-        } catch (final RuntimeException failure) {
-            logger.error("the messages could not be reloaded, the running ones are unchanged", failure);
-            return false;
-        }
     }
 }

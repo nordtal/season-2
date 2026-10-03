@@ -9,31 +9,27 @@ import eu.nordtal.s2.internalapi.agent.JarName;
 import eu.nordtal.s2.internalapi.agent.MessageArg;
 import eu.nordtal.s2.internalapi.agent.MessageBundle;
 import eu.nordtal.s2.internalapi.agent.MessageEntry;
+import eu.nordtal.s2.messages.PackagedTexts;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.jspecify.annotations.Nullable;
@@ -41,9 +37,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Reads the message bundles a module ships in its jar, merged with what an operator has overridden on disk.
+ * Reads the message bundles a module ships in its jar, for the editor; an admin's overrides are rows in the database.
  *
- * The jar holds the packaged text; overrides merge per key across every root, as {@code Messages} does.
+ * One jar packages several bundles, its own and those of the shared modules shaded into it.
  */
 public final class MessageBundles {
 
@@ -54,21 +50,12 @@ public final class MessageBundles {
     /** The schema a root's message spec writes into the jar at build time. */
     private static final Pattern SCHEMA_ENTRY = Pattern.compile("messages/([^/]+)/schema\\.json");
 
-    /** A placeholder as a spec declares it: {@code {name}} for text, {@code <_name>} for a legacy tag. */
-    private static final Pattern DECLARABLE = Pattern.compile("\\{([A-Za-z0-9_.-]+)}|<(_[A-Za-z0-9_-]+)>");
-
-    /** A placeholder in either form; plain MiniMessage formatting tags such as {@code <bold>} are not matched. */
-    private static final Pattern PLACEHOLDER = Pattern.compile("\\{[A-Za-z0-9_.-]+}|<_[A-Za-z0-9_-]+>");
-
-    /** The directory a module's saved translations live in, beside the files a module writes itself. */
-    static final String DIRECTORY = "messages";
-
     private MessageBundles() {}
 
     /**
-     * Every message bundle under the configs mount; one whose jar is not there yet is left out with a warning.
+     * Every jar that packages message bundles: a plugin's in a service's plugins folder, or the service's own.
      *
-     * @param configsRoot the configs mount
+     * @param configsRoot the configs mount, one directory per service
      * @param images where the jar of a service with no plugins folder is found: the bot's, in its image
      * @return every bundle found, by service then module; empty if {@code configsRoot} does not exist
      */
@@ -76,161 +63,150 @@ public final class MessageBundles {
         if (!Files.isDirectory(configsRoot)) {
             return List.of();
         }
-        try (Stream<Path> walk = Files.walk(configsRoot)) {
-            return walk.filter(Files::isDirectory)
-                    .filter(path -> !Files.isSymbolicLink(path))
-                    .filter(path -> DIRECTORY.equals(path.getFileName().toString()))
-                    .map(path -> locationOf(configsRoot, images, path))
-                    .filter(location -> location != null)
-                    .sorted(java.util.Comparator.comparing(MessageBundleLocation::service)
-                            .thenComparing(MessageBundleLocation::module))
-                    .toList();
+        final List<MessageBundleLocation> found = new ArrayList<>();
+        try (DirectoryStream<Path> services = Files.newDirectoryStream(configsRoot, Files::isDirectory)) {
+            for (final Path directory : services) {
+                found.addAll(locationsIn(directory, images));
+            }
         } catch (final IOException e) {
             throw new UncheckedIOException("Cannot list the message bundles under " + configsRoot, e);
         }
+        found.sort(Comparator.comparing(MessageBundleLocation::service).thenComparing(MessageBundleLocation::module));
+        return found;
     }
 
-    private static @Nullable MessageBundleLocation locationOf(
-            final Path configsRoot, final ImageJars images, final Path messagesDirectory) {
-        final Path relative = configsRoot.relativize(messagesDirectory);
-        if (relative.getNameCount() < 2) {
-            // A messages directory at the mount's root has no service directory to search a jar under.
-            return null;
-        }
-        final String service = relative.getName(0).toString();
-        final StringBuilder module = new StringBuilder();
-        for (int i = 1; i < relative.getNameCount() - 1; i++) {
-            if (!module.isEmpty()) {
-                module.append('/');
-            }
-            module.append(relative.getName(i));
-        }
-        final String prefix = module.isEmpty() ? service : module.toString();
-        final Path jar = findJar(configsRoot, images, service, prefix);
-        if (jar == null) {
-            LOG.warn(
-                    "{}: no jar named like \"{}\" under {}{} - this bundle cannot be shown yet",
-                    messagesDirectory,
-                    prefix,
-                    configsRoot.resolve(service),
-                    module.isEmpty() ? " or in a running " + service + " container" : "");
-            return null;
-        }
-        return new MessageBundleLocation(
-                service, module.toString(), jar, messagesDirectory, Files.isWritable(messagesDirectory));
-    }
-
-    /** A plugin's jar beside its data folder; a whole service's own jar, the bot's, from its image. */
-    private static @Nullable Path findJar(
-            final Path configsRoot, final ImageJars images, final String service, final String prefix) {
-        final Path fromConfigs = jarWithPrefix(configsRoot.resolve(service), prefix);
-        if (fromConfigs != null || !service.equals(prefix)) {
-            return fromConfigs;
-        }
-        return images.jarOf(service);
-    }
-
-    /** The one jar directly in {@code directory} (never a subdirectory) whose prefix matches. */
-    private static @Nullable Path jarWithPrefix(final Path directory, final String prefix) {
-        if (!Files.isDirectory(directory)) {
-            return null;
-        }
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory, "*.jar")) {
-            for (final Path candidate : stream) {
-                if (prefix.equals(JarName.prefixOf(candidate.getFileName().toString()))) {
-                    return candidate;
+    /** The jars directly in one service's directory that package bundles, else the service's own from its image. */
+    private static List<MessageBundleLocation> locationsIn(final Path directory, final ImageJars images)
+            throws IOException {
+        final String service = directory.getFileName().toString();
+        final List<MessageBundleLocation> found = new ArrayList<>();
+        boolean anyJar = false;
+        try (DirectoryStream<Path> jars = Files.newDirectoryStream(directory, "*.jar")) {
+            for (final Path jar : jars) {
+                anyJar = true;
+                final String prefix = JarName.prefixOf(jar.getFileName().toString());
+                if (prefix != null && Files.isRegularFile(jar) && packagesBundles(jar)) {
+                    found.add(new MessageBundleLocation(service, prefix, jar));
                 }
             }
-        } catch (final IOException e) {
-            throw new UncheckedIOException("Cannot list " + directory, e);
         }
-        return null;
+        if (!anyJar) {
+            final Path own = images.jarOf(service);
+            if (own != null && packagesBundles(own)) {
+                found.add(new MessageBundleLocation(service, "", own));
+            }
+        }
+        return found;
+    }
+
+    /** Whether a jar carries a packaged bundle; one that cannot be opened is left out with a warning. */
+    private static boolean packagesBundles(final Path jar) {
+        try (ZipFile zip = new ZipFile(jar.toFile())) {
+            return zip.stream()
+                    .anyMatch(entry -> BUNDLE_ENTRY.matcher(entry.getName()).matches());
+        } catch (final IOException e) {
+            LOG.warn("{} cannot be opened to look for message bundles: {}", jar, e.toString());
+            return false;
+        }
     }
 
     /**
-     * Opens {@code location}'s jar and override directory and merges them into one bundle.
+     * Opens {@code location}'s jar and reads every bundle it packages into one form.
      *
-     * @param location where to read from
-     * @return the bundle, the schema's keys in its order, then the rest sorted
-     * @throws IOException if the jar or an override file cannot be read
+     * @return the bundle, each bundle's schema keys in its order, then the rest sorted
+     * @throws IOException if the jar cannot be read
+     * @throws IllegalStateException if a packaged file numbers its variants with a gap
      */
     public static MessageBundle read(final MessageBundleLocation location) throws IOException {
         final Packaged packaged = readPackaged(location);
         final Map<String, SchemaEntry> described = new LinkedHashMap<>();
-        packaged.schemas().values().forEach(list -> list.forEach(entry -> described.putIfAbsent(entry.key(), entry)));
-
-        final Map<String, String> overrideEnglish = readOverride(location.overrideDirectory(), "en");
-        final Map<String, String> overrideGerman = readOverride(location.overrideDirectory(), "de");
-        final List<MessageEntry> entries = entriesOf(packaged, described, overrideEnglish, overrideGerman);
-        return new MessageBundle(location.service(), location.module(), location.writable(), entries);
+        final Map<String, String> bundleOf = new HashMap<>();
+        packaged.schemas()
+                .forEach((bundle, list) -> list.forEach(entry -> {
+                    described.putIfAbsent(entry.key(), entry);
+                    bundleOf.putIfAbsent(entry.key(), bundle);
+                }));
+        final Set<String> undescribed = new TreeSet<>();
+        packaged.texts()
+                .forEach((bundle, languages) -> languages
+                        .values()
+                        .forEach(texts -> texts.keySet().forEach(key -> {
+                            bundleOf.putIfAbsent(key, bundle);
+                            if (!described.containsKey(key)) {
+                                undescribed.add(key);
+                            }
+                        })));
+        final List<String> keys = new ArrayList<>(described.keySet());
+        keys.addAll(undescribed);
+        final List<MessageEntry> entries = new ArrayList<>(keys.size());
+        for (final String key : keys) {
+            // A described key the jar has no text for still belongs to the bundle whose schema names it.
+            final String bundle = java.util.Objects.requireNonNull(bundleOf.get(key), key);
+            final Map<String, Map<String, List<String>>> languages =
+                    packaged.texts().getOrDefault(bundle, Map.of());
+            final List<String> english = languages.getOrDefault("en", Map.of()).get(key);
+            final List<String> german = languages.getOrDefault("de", Map.of()).get(key);
+            entries.add(entryOf(key, bundle, english, german, described.get(key)));
+        }
+        return new MessageBundle(location.service(), location.module(), entries);
     }
 
+    private static MessageEntry entryOf(
+            final String key,
+            final String bundle,
+            final @Nullable List<String> english,
+            final @Nullable List<String> german,
+            final @Nullable SchemaEntry schema) {
+        return new MessageEntry(
+                key,
+                bundle,
+                english == null ? null : english.getFirst(),
+                german == null ? null : german.getFirst(),
+                english == null ? null : PackagedTexts.hash(english),
+                german == null ? null : PackagedTexts.hash(german),
+                null,
+                null,
+                english != null || german != null,
+                schema == null ? null : schema.name(),
+                schema == null ? null : schema.description(),
+                schema == null ? List.of() : schema.args(),
+                schema == null ? List.of() : schema.section(),
+                schema == null ? null : schema.format(),
+                schema == null ? null : schema.shown());
+    }
+
+    /**
+     * Every packaged text and schema of one jar.
+     *
+     * @param texts bundle to language to key to its variants
+     * @param schemas bundle to its described keys, sorted by bundle so the order does not follow the jar's
+     */
     private record Packaged(
-            Map<String, String> english, Map<String, String> german, Map<String, List<SchemaEntry>> schemas) {}
+            Map<String, Map<String, Map<String, List<String>>>> texts, Map<String, List<SchemaEntry>> schemas) {}
 
     /** Opens the jar once and reads every packaged bundle and schema it carries. */
     private static Packaged readPackaged(final MessageBundleLocation location) throws IOException {
-        final Map<String, String> packagedEnglish = new HashMap<>();
-        final Map<String, String> packagedGerman = new HashMap<>();
-        // Sorted, so entry order does not depend on the jar's directory order.
+        final Map<String, Map<String, Map<String, List<String>>>> texts = new TreeMap<>();
         final Map<String, List<SchemaEntry>> schemas = new TreeMap<>();
         try (ZipFile jar = new ZipFile(location.jar().toFile())) {
             final Enumeration<? extends ZipEntry> entries = jar.entries();
             while (entries.hasMoreElements()) {
                 final ZipEntry entry = entries.nextElement();
                 final Matcher schema = SCHEMA_ENTRY.matcher(entry.getName());
+                final Matcher bundle = BUNDLE_ENTRY.matcher(entry.getName());
                 if (schema.matches()) {
                     try (InputStream in = jar.getInputStream(entry)) {
                         schemas.put(schema.group(1), readSchema(location, entry.getName(), in));
                     }
-                    continue;
-                }
-                final Matcher matcher = BUNDLE_ENTRY.matcher(entry.getName());
-                if (!matcher.matches()) {
-                    continue;
-                }
-                final Map<String, String> target = "en".equals(matcher.group(2)) ? packagedEnglish : packagedGerman;
-                try (InputStream in = jar.getInputStream(entry)) {
-                    target.putAll(readProperties(in));
+                } else if (bundle.matches()) {
+                    try (InputStream in = jar.getInputStream(entry)) {
+                        texts.computeIfAbsent(bundle.group(1), ignored -> new HashMap<>())
+                                .put(bundle.group(2), PackagedTexts.read(in, entry.getName()));
+                    }
                 }
             }
         }
-        return new Packaged(packagedEnglish, packagedGerman, schemas);
-    }
-
-    /** The schema's order first, then everything it does not describe, sorted; one {@link MessageEntry} per key. */
-    private static List<MessageEntry> entriesOf(
-            final Packaged packaged,
-            final Map<String, SchemaEntry> described,
-            final Map<String, String> overrideEnglish,
-            final Map<String, String> overrideGerman) {
-        final Set<String> undescribed = new TreeSet<>();
-        undescribed.addAll(packaged.english().keySet());
-        undescribed.addAll(packaged.german().keySet());
-        undescribed.addAll(overrideEnglish.keySet());
-        undescribed.addAll(overrideGerman.keySet());
-        undescribed.removeAll(described.keySet());
-        final List<String> keys = new ArrayList<>(described.keySet());
-        keys.addAll(undescribed);
-
-        final List<MessageEntry> entries = new ArrayList<>(keys.size());
-        for (final String key : keys) {
-            final SchemaEntry schema = described.get(key);
-            entries.add(new MessageEntry(
-                    key,
-                    packaged.english().get(key),
-                    packaged.german().get(key),
-                    overrideEnglish.get(key),
-                    overrideGerman.get(key),
-                    packaged.english().containsKey(key) || packaged.german().containsKey(key),
-                    schema == null ? null : schema.name(),
-                    schema == null ? null : schema.description(),
-                    schema == null ? List.of() : schema.args(),
-                    schema == null ? List.of() : schema.section(),
-                    schema == null ? null : schema.format(),
-                    schema == null ? null : schema.shown()));
-        }
-        return entries;
+        return new Packaged(texts, schemas);
     }
 
     private record SchemaEntry(
@@ -359,186 +335,5 @@ public final class MessageBundles {
     private static @Nullable String stringOf(final JsonObject object, final String field) {
         final JsonElement value = object.get(field);
         return value == null || value.isJsonNull() ? null : value.getAsString();
-    }
-
-    /** {@code <directory>/<language>.properties}, or an empty map when there is no override yet. */
-    private static Map<String, String> readOverride(final Path directory, final String language) throws IOException {
-        final Path file = directory.resolve(language + ".properties");
-        if (!Files.isRegularFile(file)) {
-            return Map.of();
-        }
-        try (InputStream in = Files.newInputStream(file)) {
-            return readProperties(in);
-        }
-    }
-
-    /** A {@code .properties} stream, read as UTF-8 through a {@link Reader} so an umlaut stays literal. */
-    private static Map<String, String> readProperties(final InputStream in) throws IOException {
-        final Properties properties = new Properties();
-        try (Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
-            properties.load(reader);
-        }
-        final Map<String, String> map = new HashMap<>(properties.size());
-        properties.forEach((key, value) -> map.put(String.valueOf(key), String.valueOf(value)));
-        return map;
-    }
-
-    /**
-     * Writes changes to one language's override file, rewriting it whole and sorted since it holds no comments.
-     *
-     * @param location the bundle
-     * @param language {@code "en"} or {@code "de"}
-     * @param changes key to new value; a {@code null} value removes the key rather than writing an empty string
-     * @throws IllegalArgumentException if {@code language} is anything but {@code "en"} or {@code "de"}
-     * @throws IOException if the directory or the file cannot be written
-     */
-    public static void write(
-            final MessageBundleLocation location, final String language, final Map<String, String> changes)
-            throws IOException {
-        if (!"en".equals(language) && !"de".equals(language)) {
-            throw new IllegalArgumentException("language has to be \"en\" or \"de\", not \"" + language + "\"");
-        }
-        Files.createDirectories(location.overrideDirectory());
-        final Path file = location.overrideDirectory().resolve(language + ".properties");
-        final Map<String, String> content = new TreeMap<>(readOverride(location.overrideDirectory(), language));
-        changes.forEach((key, value) -> {
-            if (value == null) {
-                content.remove(key);
-            } else {
-                content.put(key, value);
-            }
-        });
-        writeAtomically(file, content);
-    }
-
-    private static void writeAtomically(final Path file, final Map<String, String> sortedContent) throws IOException {
-        final StringBuilder text = new StringBuilder();
-        for (final Map.Entry<String, String> entry : sortedContent.entrySet()) {
-            text.append(escapeKey(entry.getKey()))
-                    .append('=')
-                    .append(escapeValue(entry.getValue()))
-                    .append('\n');
-        }
-
-        final Path directory = file.toAbsolutePath().getParent();
-        Path temp = null;
-        try {
-            temp = Files.createTempFile(directory, ".", ".tmp");
-            Files.writeString(temp, text.toString(), StandardCharsets.UTF_8);
-            try {
-                Files.move(temp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            } catch (final AtomicMoveNotSupportedException e) {
-                Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING);
-            }
-            temp = null;
-        } finally {
-            if (temp != null) {
-                Files.deleteIfExists(temp);
-            }
-        }
-    }
-
-    /** Escapes a key for the {@code .properties} format that {@link Properties#load(Reader)} reads back. */
-    private static String escapeKey(final String key) {
-        final StringBuilder out = new StringBuilder(key.length() + 8);
-        for (int i = 0; i < key.length(); i++) {
-            final char c = key.charAt(i);
-            switch (c) {
-                case '\\' -> out.append("\\\\");
-                case ' ' -> out.append("\\ ");
-                case ':' -> out.append("\\:");
-                case '=' -> out.append("\\=");
-                case '\n' -> out.append("\\n");
-                case '\r' -> out.append("\\r");
-                case '\t' -> out.append("\\t");
-                default -> out.append(c);
-            }
-        }
-        return out.toString();
-    }
-
-    /**
-     * Escapes a backslash, a newline, a carriage return, a tab and a leading space, and nothing else.
-     *
-     * Never {@code \\uXXXX}: the file is written and read as UTF-8, which keeps "Mühle" from becoming "MÃ¼hle".
-     */
-    private static String escapeValue(final String value) {
-        final StringBuilder out = new StringBuilder(value.length() + 8);
-        boolean leading = true;
-        for (int i = 0; i < value.length(); i++) {
-            final char c = value.charAt(i);
-            if (c == ' ' && leading) {
-                out.append("\\ ");
-                continue;
-            }
-            leading = false;
-            switch (c) {
-                case '\\' -> out.append("\\\\");
-                case '\n' -> out.append("\\n");
-                case '\r' -> out.append("\\r");
-                case '\t' -> out.append("\\t");
-                default -> out.append(c);
-            }
-        }
-        return out.toString();
-    }
-
-    /**
-     * The placeholders {@code edited} uses that {@code entry}'s schema does not declare, each once, in order.
-     *
-     * Only {@code {name}} and {@code <_name>} are checked, and an entry the schema does not describe never is.
-     */
-    public static List<String> unknownPlaceholders(final MessageEntry entry, final @Nullable String edited) {
-        if (!entry.described() || edited == null || edited.isEmpty()) {
-            return List.of();
-        }
-        final Set<String> declared = new HashSet<>();
-        for (final MessageArg arg : entry.args()) {
-            declared.add(arg.token());
-        }
-        final List<String> unknown = new ArrayList<>();
-        final Matcher matcher = DECLARABLE.matcher(edited);
-        while (matcher.find()) {
-            final String token = matcher.group();
-            if (!declared.contains(token) && !unknown.contains(token)) {
-                unknown.add(token);
-            }
-        }
-        return unknown;
-    }
-
-    /** Every placeholder token in {@code text}, in the order it appears; {@code null} reads as none. */
-    public static List<String> placeholdersOf(final @Nullable String text) {
-        if (text == null || text.isEmpty()) {
-            return List.of();
-        }
-        final List<String> found = new ArrayList<>();
-        final Matcher matcher = PLACEHOLDER.matcher(text);
-        while (matcher.find()) {
-            found.add(matcher.group());
-        }
-        return found;
-    }
-
-    /**
-     * The placeholders {@code original} names that {@code edited} no longer does, for a warning on save.
-     *
-     * @param original the packaged text the operator started from
-     * @param edited what is about to be saved
-     * @return the missing tokens, each once, in {@code original}'s order; empty if none are missing
-     */
-    public static List<String> missingPlaceholders(final @Nullable String original, final @Nullable String edited) {
-        final List<String> before = placeholdersOf(original);
-        if (before.isEmpty()) {
-            return List.of();
-        }
-        final Set<String> after = new HashSet<>(placeholdersOf(edited));
-        final List<String> missing = new ArrayList<>();
-        for (final String token : before) {
-            if (!after.contains(token) && !missing.contains(token)) {
-                missing.add(token);
-            }
-        }
-        return missing;
     }
 }

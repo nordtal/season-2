@@ -1,10 +1,10 @@
 package eu.nordtal.s2.messages.spec;
 
 import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.messages.PackagedTexts;
 import eu.nordtal.s2.messages.context.Contexts;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
@@ -17,7 +17,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Properties;
 import java.util.TreeMap;
 import org.jspecify.annotations.Nullable;
 
@@ -57,6 +56,7 @@ public final class MessageSchema {
      * @param section     the names of the sections around it, outermost first
      * @param format      how it is written
      * @param shown       where it is shown
+     * @param formerly    the names it had before, {@code key} in this bundle or {@code bundle/key}
      */
     public record Entry(
             String key,
@@ -65,7 +65,8 @@ public final class MessageSchema {
             List<Arg> args,
             List<String> section,
             TextFormat format,
-            Display shown) {}
+            Display shown,
+            List<String> formerly) {}
 
     /** Returns the bundle a spec describes. */
     public static String bundle(final Class<?> spec) {
@@ -135,6 +136,7 @@ public final class MessageSchema {
                 }
                 final Format ownFormat = method.getAnnotation(Format.class);
                 final Shown ownShown = method.getAnnotation(Shown.class);
+                final Formerly formerly = method.getAnnotation(Formerly.class);
                 into.add(new Entry(
                         prefix + MessageSpecs.segment(method),
                         name == null ? null : name.value(),
@@ -142,7 +144,8 @@ public final class MessageSchema {
                         List.copyOf(args),
                         List.copyOf(section),
                         ownFormat == null ? format : ownFormat.value(),
-                        ownShown == null ? shown : ownShown.value()));
+                        ownShown == null ? shown : ownShown.value(),
+                        formerly == null ? List.of() : List.of(formerly.value())));
             }
         }
     }
@@ -191,21 +194,10 @@ public final class MessageSchema {
         return type == null ? null : type.value();
     }
 
-    static Properties english(final Class<?> spec) {
-        return bundleFile(spec, "en");
-    }
-
-    static Properties bundleFile(final Class<?> spec, final String language) {
-        final String resource = "messages/" + bundle(spec) + "/" + language + ".properties";
-        final Properties properties = new Properties();
-        try (InputStream in = spec.getClassLoader().getResourceAsStream(resource)) {
-            if (in != null) {
-                properties.load(new InputStreamReader(in, StandardCharsets.UTF_8));
-            }
-        } catch (final IOException e) {
-            throw new UncheckedIOException("cannot read " + resource, e);
-        }
-        return properties;
+    /** One language of the spec's bundle, key to its variants; empty when the bundle has no such file. */
+    static Map<String, List<String>> texts(final Class<?> spec, final String language) {
+        final Map<String, List<String>> texts = PackagedTexts.read(spec.getClassLoader(), bundle(spec), language);
+        return texts == null ? Map.of() : texts;
     }
 
     /** The keys of the English file in the order they are written. */
@@ -226,7 +218,7 @@ public final class MessageSchema {
                     continue;
                 }
                 final int end = firstSeparator(trimmed);
-                keys.add(trimmed.substring(0, end).strip());
+                keys.add(PackagedTexts.keyOf(trimmed.substring(0, end).strip()));
             }
         } catch (final IOException e) {
             throw new UncheckedIOException("cannot read " + resource, e);

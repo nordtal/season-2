@@ -76,6 +76,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V16__servers_publish_their_game_data.sql",
                 "205a5fb469cd84081c3887bc0a8014b6ce87e80aa5cebacb4ffb92ace91590d5");
+        FROZEN.put(
+                "V17__message_overrides_live_in_the_database.sql",
+                "a9289056b9c6988297d9ca91d2460ae061688eda7d46cd6ea59602c9ea534236");
     }
 
     @Test

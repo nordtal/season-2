@@ -15,11 +15,11 @@ export function tokenOf(arg: MessageArg): string {
   return arg.component ? `<${arg.name}>` : `{${arg.name}}`
 }
 
-/** Steward's `DECLARABLE`: what a spec could declare, so what a typo in one looks like. */
+/** Steward's `PLACEHOLDER`: what a spec could declare, so what a typo in one looks like. */
 const DECLARABLE = /\{[A-Za-z0-9_.-]+\}|<_[A-Za-z0-9_-]+>/g
 
 /**
- * The placeholders in `text` its key's spec does not declare, in order, as `MessageBundles.unknownPlaceholders`.
+ * The placeholders in `text` its key's spec does not declare, in order, as `Placeholders.unknown`.
  *
  * Steward refuses a save that has one. A key no spec describes is never checked.
  */

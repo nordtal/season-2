@@ -21,14 +21,4 @@ public interface AccessChanges {
 
     /** Writes somebody's total play time, in seconds. */
     void setPlaytime(DiscordId discordId, long seconds, Actor by);
-
-    /**
-     * Re-reads the message bundles, keeping the running ones on failure.
-     *
-     * @return {@code true} when the re-read succeeded
-     */
-    boolean reloadMessages();
-
-    /** Returns the override keys the bundles do not declare, after a reload. */
-    java.util.List<String> unknownOverrideKeys();
 }

@@ -1,10 +1,8 @@
 package eu.nordtal.s2.steward.api;
 
-import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.database.audit.AuditLine;
-import eu.nordtal.s2.database.inbox.BotRequest;
-import eu.nordtal.s2.database.inbox.Inbox;
+import eu.nordtal.s2.database.message.MessageOverrideStore;
 import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.internalapi.InternalClient;
@@ -128,7 +126,7 @@ public final class StackApi implements AutoCloseable {
             final AuditDirectory audit,
             final Nightly nightly,
             final Clock clock) {
-        this(agent, updates, audit, () -> nightly, null, null, null, null, null, null, clock);
+        this(agent, updates, audit, () -> nightly, null, null, null, null, null, clock);
     }
 
     private final Clock clock;
@@ -145,11 +143,8 @@ public final class StackApi implements AutoCloseable {
      * @param resolve steward-agent's resolve, asked again when the cache ages; {@code null} makes the
      *     endpoint answer 503
      * @param managedPlugins the plugin routes, or {@code null} without a database, when they answer 503
-     * @param botInbox the bot's inbox, or {@code null} without a database, when a bot bundle save asks for a
-     *     restart
+     * @param messageOverrides the admins' message overrides, or {@code null} without a database, when a save is refused
      * @param nightly the schedule as it stands right now, changed with the steward settings
-     * @param reloads asks a server to re-read a saved bundle, or {@code null} without a database, when a save asks for
-     *     a restart
      * @param settings every process's settings, or {@code null} without a database, when their routes answer 503
      */
     public StackApi(
@@ -160,8 +155,7 @@ public final class StackApi implements AutoCloseable {
             final @Nullable ServicesApi online,
             final @Nullable Supplier<AgentWire.Resolve> resolve,
             final @Nullable PluginsForward managedPlugins,
-            final @Nullable Inbox<BotRequest> botInbox,
-            final MessagesApi.@Nullable Reloader reloads,
+            final @Nullable MessageOverrideStore messageOverrides,
             final @Nullable SettingStore settings,
             final Clock clock) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
@@ -170,12 +164,7 @@ public final class StackApi implements AutoCloseable {
         this.settings = settings == null ? null : new SettingsApi(settings);
         this.agent = agent;
         this.nightly = nightly;
-        final MessagesApi.Reloader reloader = reloads == null
-                ? service -> {
-                    throw new IllegalArgumentException("Steward has no database to ask " + service + " through.");
-                }
-                : reloads;
-        this.messages = new MessagesApi(agent, botInbox, reloader, Waiting.on(clock));
+        this.messages = new MessagesApi(agent, messageOverrides);
         // One query over two tables, not a frontend-side merge.
         this.actions = new ActionsApi(updates, audit);
         this.audit = audit;

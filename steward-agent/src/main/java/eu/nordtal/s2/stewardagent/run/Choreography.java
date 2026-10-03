@@ -81,8 +81,8 @@ final class Choreography {
         }
 
         for (final String standby : wanted) {
-            // recreate, not deploy: the standby must come up on its live service's image, often one built here.
-            final RedeployResult made = containers.recreate(standby);
+            // Never a pull over an image that is here: the standby must run its live service's, often one built here.
+            final RedeployResult made = containers.standby(standby);
             if (!made.triggered()) {
                 return refuse(standby + " could not be started: " + made.message());
             }

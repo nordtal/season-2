@@ -35,11 +35,18 @@ public interface ContainerOps {
     RedeployResult deploy(String service);
 
     /**
-     * Makes one service's container again from the image on this host, without pulling; also how a standby starts.
+     * Makes one service's container again from the image on this host, without pulling.
      *
      * @param service the compose service name
      */
     RedeployResult recreate(String service);
+
+    /**
+     * Makes a standby's container from the image on this host, fetching that image only when it is missing.
+     *
+     * @param service the standby's compose service name, whose image a one-shot's compose file may name first
+     */
+    RedeployResult standby(String service);
 
     /** Runs the migrate service of this compose file and waits for it; triggered only on a current schema. */
     RedeployResult migrate();

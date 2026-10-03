@@ -4,7 +4,7 @@ import { toast } from "sonner"
 
 import type { ConfigChanges } from "@/lib/api"
 import { ApiError } from "@/lib/api"
-import { count } from "@/lib/format"
+import { t } from "@/lib/texts"
 import { useSaveConfig } from "@/lib/queries"
 import { ScalarControl } from "@/components/steward/config-controls"
 import { Empty, Loading } from "@/components/steward/query-state"
@@ -54,19 +54,19 @@ export function DestinationDialog() {
       <ResponsiveDialogTrigger asChild>
         <Button variant="outline" size="sm">
           <CloudIcon />
-          Destination
+          {t("steward.backup-settings.destination")}
         </Button>
       </ResponsiveDialogTrigger>
       <ResponsiveDialogContent>
         <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>Destination</ResponsiveDialogTitle>
-          <ResponsiveDialogDescription>Where a copy goes that is not on this disk.</ResponsiveDialogDescription>
+          <ResponsiveDialogTitle>{t("steward.backup-settings.destination")}</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>{t("steward.backup-settings.destination-note")}</ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
         {pending ? (
           <Loading rows={3} />
         ) : !document || entries.length === 0 ? (
-          <Empty title="No backup.remote section" note="Steward has not published it yet." />
+          <Empty title={t("steward.backup-settings.no-remote")} note={t("steward.backup-settings.no-remote-note")} />
         ) : (
           <div className="flex flex-col gap-4">
             {entries.map((entry) => (
@@ -89,20 +89,24 @@ export function DestinationDialog() {
                   save.mutate(
                     { revision: document.revision, changes },
                     {
-                      onSuccess: () => toast.success("Destination saved."),
+                      onSuccess: () => toast.success(t("steward.backup-settings.destination-saved")),
                       onError: (failure) =>
                         toast.error(
                           failure instanceof ApiError && failure.status === 409
-                            ? "It changed while this was open. It has been read again."
+                            ? t("steward.form.changed-meanwhile")
                             : String(failure),
                         ),
                     },
                   )
                 }
               >
-                Save
+                {t("steward.form.save")}
               </Button>
-              {changed > 0 ? <span className="text-sm text-muted-foreground tnum">{changed} changed</span> : null}
+              {changed > 0 ? (
+                <span className="text-sm text-muted-foreground tnum">
+                  {t("steward.form.changed", { count: changed })}
+                </span>
+              ) : null}
             </div>
           </div>
         )}
@@ -136,23 +140,21 @@ function intOr(value: string, otherwise: number): number {
  * At most daily + weekly + monthly are kept; same-day runs collapse after the grace period.
  */
 function retentionSentence(daily: number, weekly: number, monthly: number, collapseAfterDays: number): string {
-  const steps = [`the last ${count(daily)} day${daily === 1 ? "" : "s"} in full`]
-  if (weekly > 0) steps.push(`one a week for ${count(weekly)} more week${weekly === 1 ? "" : "s"}`)
-  if (monthly > 0) steps.push(`one a month for ${count(monthly)} more month${monthly === 1 ? "" : "s"}`)
-  const total = daily + weekly + monthly
-  const grace =
-    collapseAfterDays === 0
-      ? "collapses to the last run of that day on the very next sweep"
-      : `collapses to the last run of that day after ${count(collapseAfterDays)} day${collapseAfterDays === 1 ? "" : "s"}`
-  return `Keeps ${steps.join(", then ")} - at most ${count(total)} archives per volume. A day with several runs on it ${grace}.`
+  const steps = [t("steward.backup-settings.daily", { days: daily })]
+  if (weekly > 0) steps.push(t("steward.backup-settings.weekly", { weeks: weekly }))
+  if (monthly > 0) steps.push(t("steward.backup-settings.monthly", { months: monthly }))
+  return t("steward.backup-settings.retention", {
+    steps,
+    total: daily + weekly + monthly,
+    sweep: collapseAfterDays === 0,
+    days: collapseAfterDays,
+  })
 }
 
 /** A refused save, named as the stale revision it usually is. */
 function failed(failure: unknown) {
   toast.error(
-    failure instanceof ApiError && failure.status === 409
-      ? "The file changed while this was open. It has been read again."
-      : String(failure),
+    failure instanceof ApiError && failure.status === 409 ? t("steward.form.changed-meanwhile") : String(failure),
   )
 }
 
@@ -198,35 +200,32 @@ export function ScheduleDialog() {
       <ResponsiveDialogTrigger asChild>
         <Button variant="outline" size="sm">
           <ClockIcon />
-          Schedule
+          {t("steward.form.schedule")}
         </Button>
       </ResponsiveDialogTrigger>
       <ResponsiveDialogContent>
         <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>Schedule</ResponsiveDialogTitle>
-          <ResponsiveDialogDescription>When a backup runs, and how long it is kept.</ResponsiveDialogDescription>
+          <ResponsiveDialogTitle>{t("steward.form.schedule")}</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>{t("steward.backup-settings.schedule-note")}</ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
         {pending || runs.pending ? (
           <Loading rows={5} />
         ) : !document || entries.length === 0 ? (
-          <Empty title="Steward's settings have no backup.at" />
+          <Empty title={t("steward.backup-settings.no-at")} />
         ) : (
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label>Days</Label>
+              <Label>{t("steward.form.days")}</Label>
               <DayPicker
                 days={days}
                 disabled={!daysEntry || !document.writable || save.isPending}
                 onChange={setPickedDays}
               />
               {!daysEntry ? (
-                <p className="text-xs text-muted-foreground">
-                  Steward's config has no backup.days yet. A steward that has started since the key was added writes it
-                  in.
-                </p>
+                <p className="text-xs text-muted-foreground">{t("steward.backup-settings.no-days")}</p>
               ) : days.length === 0 ? (
-                <p className="text-xs text-destructive">No night is picked, so no backup runs.</p>
+                <p className="text-xs text-destructive">{t("steward.backup-settings.no-night")}</p>
               ) : null}
             </div>
 
@@ -269,21 +268,23 @@ export function ScheduleDialog() {
                   if (allChanged > 0) {
                     save.mutate(
                       { revision: document.revision, changes: allChanges },
-                      { onSuccess: () => toast.success("Schedule saved."), onError: failed },
+                      { onSuccess: () => toast.success(t("steward.form.schedule-saved")), onError: failed },
                     )
                   }
                   if (retention.changed > 0 && runs.document) {
                     saveRuns.mutate(
                       { revision: runs.document.revision, changes: retention.changes },
-                      { onSuccess: () => toast.success("Retention saved."), onError: failed },
+                      { onSuccess: () => toast.success(t("steward.backup-settings.retention-saved")), onError: failed },
                     )
                   }
                 }}
               >
-                Save
+                {t("steward.form.save")}
               </Button>
               {allChanged + retention.changed > 0 ? (
-                <span className="text-sm text-muted-foreground tnum">{allChanged + retention.changed} changed</span>
+                <span className="text-sm text-muted-foreground tnum">
+                  {t("steward.form.changed", { count: allChanged + retention.changed })}
+                </span>
               ) : null}
             </div>
           </div>

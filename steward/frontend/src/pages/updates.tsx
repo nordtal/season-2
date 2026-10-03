@@ -394,12 +394,12 @@ function ScheduleDialog() {
       <ResponsiveDialogTrigger asChild>
         <Button variant="outline" size="sm">
           <ClockIcon />
-          {t("steward.updates.schedule")}
+          {t("steward.form.schedule")}
         </Button>
       </ResponsiveDialogTrigger>
       <ResponsiveDialogContent>
         <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>{t("steward.updates.schedule")}</ResponsiveDialogTitle>
+          <ResponsiveDialogTitle>{t("steward.form.schedule")}</ResponsiveDialogTitle>
           <ResponsiveDialogDescription>{t("steward.updates.schedule-note")}</ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
@@ -410,7 +410,7 @@ function ScheduleDialog() {
         ) : (
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label>{t("steward.updates.days")}</Label>
+              <Label>{t("steward.form.days")}</Label>
               <DayPicker
                 days={days}
                 disabled={!daysEntry || !document.writable || save.isPending}
@@ -441,22 +441,22 @@ function ScheduleDialog() {
                   save.mutate(
                     { revision: document.revision, changes: allChanges },
                     {
-                      onSuccess: () => toast.success(t("steward.updates.schedule-saved")),
+                      onSuccess: () => toast.success(t("steward.form.schedule-saved")),
                       onError: (failure) =>
                         toast.error(
                           failure instanceof ApiError && failure.status === 409
-                            ? t("steward.updates.changed-meanwhile")
+                            ? t("steward.form.changed-meanwhile")
                             : String(failure),
                         ),
                     },
                   )
                 }
               >
-                {t("steward.updates.save")}
+                {t("steward.form.save")}
               </Button>
               {allChanged > 0 ? (
                 <span className="text-sm text-muted-foreground tnum">
-                  {t("steward.updates.changed", { count: allChanged })}
+                  {t("steward.form.changed", { count: allChanged })}
                 </span>
               ) : null}
             </div>

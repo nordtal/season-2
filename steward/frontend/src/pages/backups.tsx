@@ -7,12 +7,13 @@ import type { Backup, Run } from "@/lib/api"
 import { archived } from "@/lib/backup-name"
 import { bytes, count, dateTime, duration, parseInstant, relative } from "@/lib/format"
 import { useBackups, useRestore, useRuns, useSchedule } from "@/lib/queries"
+import { t } from "@/lib/texts"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { Actor } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { Stat } from "@/components/steward/stat"
-import { RunStatus } from "@/components/steward/status"
+import { RunStatus, runKind } from "@/components/steward/status"
 import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -32,13 +33,13 @@ export function BackupsPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Backups"
+        title={t("steward.backups.title")}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <DestinationDialog />
             <ScheduleDialog />
             <RestoreDialog />
-            <AskButton kind="BACKUP" variant="default" label="Back up now" size="sm" />
+            <AskButton kind="BACKUP" variant="default" label={t("steward.backups.back-up-now")} size="sm" />
           </div>
         }
       />
@@ -68,22 +69,26 @@ function Summary() {
   return (
     <div className="grid grid-cols-2 gap-x-4 gap-y-5 lg:grid-cols-3">
       <Stat
-        label="Latest backup"
-        value={newest ? relative(newest.modified) : backups.data ? "none" : "\u2013"}
+        label={t("steward.backups.latest")}
+        value={newest ? relative(newest.modified) : backups.data ? t("steward.backups.none") : "\u2013"}
         tone={backups.data && !newest ? "down" : undefined}
-        hint={newest ? newest.human : backups.data ? "no finished backup" : "\u2013"}
+        hint={newest ? newest.human : backups.data ? t("steward.backups.none-finished") : "\u2013"}
       />
       {/* Neutral rather than warn, since "not tracked" is a fact about the feature, not an alarm. */}
-      <Stat label="Storage available" value="not tracked" hint="steward does not query the Storage Box yet" />
       <Stat
-        label="Next"
+        label={t("steward.backups.storage")}
+        value={t("steward.backups.not-tracked")}
+        hint={t("steward.backups.not-tracked-note")}
+      />
+      <Stat
+        label={t("steward.backups.next")}
         value={schedule.data?.nextBackupAt ? relative(schedule.data.nextBackupAt) : "\u2013"}
         hint={
           schedule.data?.nextBackupAt
             ? `${at ?? schedule.data.backupAt} ${schedule.data.zone}`
             : schedule.isPending
               ? "\u2013"
-              : "no nightly clock"
+              : t("steward.backups.no-clock")
         }
       />
     </div>
@@ -118,25 +123,22 @@ function Runs() {
   const rows = backupRuns(runs.data).slice(0, 8)
 
   return (
-    <Panel title="Runs">
+    <Panel title={t("steward.backups.runs")}>
       <QueryState
         query={runs}
         isEmpty={() => rows.length === 0}
-        empty={{
-          title: "No backup run yet",
-          note: "Steward's clock and the Back up now button both land here once one has run.",
-        }}
+        empty={{ title: t("steward.backups.no-run"), note: t("steward.backups.no-run-note") }}
       >
         {(answer) => (
           <Table className="steward-table">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[5rem]">Run</TableHead>
-                <TableHead className="w-[12rem]">When</TableHead>
-                <TableHead className="w-[9rem]">Status</TableHead>
-                <TableHead className="w-[7rem] text-right">Archives</TableHead>
-                <TableHead className="w-[7rem] text-right">Took</TableHead>
-                <TableHead>Initiated by</TableHead>
+                <TableHead className="w-[5rem]">{t("steward.backups.run")}</TableHead>
+                <TableHead className="w-[12rem]">{t("steward.backups.when")}</TableHead>
+                <TableHead className="w-[9rem]">{t("steward.backups.status")}</TableHead>
+                <TableHead className="w-[7rem] text-right">{t("steward.backups.archives")}</TableHead>
+                <TableHead className="w-[7rem] text-right">{t("steward.backups.took")}</TableHead>
+                <TableHead>{t("steward.backups.initiated-by")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -148,7 +150,7 @@ function Runs() {
                     className={run ? "cursor-pointer" : undefined}
                     onClick={() => run && navigate({ to: "/operations/backups/$id", params: { id: String(run.id) } })}
                   >
-                    <TableCell data-label="Run" className="font-medium tnum">
+                    <TableCell data-label={t("steward.backups.run")} className="font-medium tnum">
                       {run ? (
                         <Link
                           to="/operations/backups/$id"
@@ -162,13 +164,13 @@ function Runs() {
                         <SkeletonText width="short" />
                       )}
                     </TableCell>
-                    <TableCell data-label="When">
+                    <TableCell data-label={t("steward.backups.when")}>
                       {run ? dateTime(run.started || run.requested) : <SkeletonText width="long" />}
                     </TableCell>
-                    <TableCell data-label="Status">
+                    <TableCell data-label={t("steward.backups.status")}>
                       {run ? <RunStatus status={run.status} /> : <Skeleton className="h-5 w-20 rounded-full" />}
                     </TableCell>
-                    <TableCell data-label="Archives" className="text-right tnum">
+                    <TableCell data-label={t("steward.backups.archives")} className="text-right tnum">
                       {archives ? (
                         archives.total === 0 ? (
                           "\u2013"
@@ -179,10 +181,10 @@ function Runs() {
                         <SkeletonText width="short" className="ml-auto" />
                       )}
                     </TableCell>
-                    <TableCell data-label="Took" className="text-right tnum">
+                    <TableCell data-label={t("steward.backups.took")} className="text-right tnum">
                       {run ? ran(run) : <SkeletonText width="short" className="ml-auto" />}
                     </TableCell>
-                    <TableCell data-label="Initiated by" className="text-muted-foreground">
+                    <TableCell data-label={t("steward.backups.initiated-by")} className="text-muted-foreground">
                       {!run ? <SkeletonText width="medium" /> : <Actor kind={run.actorKind} id={run.actorId} />}
                     </TableCell>
                   </TableRow>
@@ -224,18 +226,18 @@ function RestoreDialog() {
       trigger={
         <Button variant="outline" size="sm">
           <ArrowCounterClockwiseIcon />
-          Restore
+          {t("steward.backups.restore")}
         </Button>
       }
-      title="Restore"
-      description="A run: a backup first, then a countdown."
-      action="Restore"
+      title={t("steward.backups.restore")}
+      description={t("steward.backups.restore-note")}
+      action={t("steward.backups.restore")}
       destructive
       disabled={!replaces || typed !== replaces}
       act={() =>
         restore
           .mutateAsync({ archive: chosen, confirm: typed })
-          .then((run) => toast.success(`Restore entered as run #${run.id}`))
+          .then((run) => toast.success(t("steward.operations.entered", { kind: runKind("RESTORE"), run: run.id })))
       }
     >
       {backups.isPending || backups.error ? (
@@ -244,17 +246,15 @@ function RestoreDialog() {
         </QueryState>
       ) : restorable.length === 0 ? (
         <Empty
-          title="No archive to restore"
+          title={t("steward.backups.nothing-to-restore")}
           note={
-            (backups.data ?? []).length > 0
-              ? "Every file still carries the .partial suffix."
-              : "The backup directory is empty."
+            (backups.data ?? []).length > 0 ? t("steward.backups.all-partial") : t("steward.backups.empty-directory")
           }
         />
       ) : (
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="restore-archive">Archive</Label>
+            <Label htmlFor="restore-archive">{t("steward.backups.archive")}</Label>
             <Select
               value={chosen}
               onValueChange={(value) => {
@@ -263,7 +263,7 @@ function RestoreDialog() {
               }}
             >
               <SelectTrigger id="restore-archive" className="w-full">
-                <SelectValue placeholder="Choose an archive…" />
+                <SelectValue placeholder={t("steward.backups.choose-archive")} />
               </SelectTrigger>
               <SelectContent>
                 {restorable.map((backup) => (
@@ -277,7 +277,7 @@ function RestoreDialog() {
           {replaces ? (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="restore-confirm">
-                Type <span className="font-mono">{replaces}</span>
+                {t("steward.backups.type")} <span className="font-mono">{replaces}</span>
               </Label>
               <Input
                 id="restore-confirm"
@@ -289,9 +289,7 @@ function RestoreDialog() {
             </div>
           ) : null}
           <p className="text-xs text-warning">
-            {replaces === "nordtal"
-              ? "The database is replaced - everything written since the backup is gone."
-              : "A volume is overwritten, not added to - everything made since the backup is gone."}
+            {replaces === "nordtal" ? t("steward.backups.database-replaced") : t("steward.backups.volume-replaced")}
           </p>
         </div>
       )}
@@ -323,8 +321,9 @@ function archivesOf(run: Run, backups: Backup[]): Backup[] {
 /** What one file is, from its name, with `.partial` said plainly. */
 function holds(backup: Backup): string {
   const what = archived(backup.name)
-  const subject = what.kind === "database" ? "database" : (what.subject ?? "unknown")
-  return backup.partial ? `${subject}, partial` : subject
+  const subject =
+    what.kind === "database" ? t("steward.backups.database") : (what.subject ?? t("steward.backups.unknown"))
+  return t("steward.backups.holds", { subject, partial: backup.partial })
 }
 
 /** Three waiting archives, the usual number for one run. */
@@ -340,65 +339,71 @@ export function BackupRunDetailPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={`Backup #${id}`} />
+      <PageHeader title={t("steward.backups.backup", { id })} />
 
       <QueryState
         query={runs}
         isEmpty={() => !run}
         empty={{
-          title: "No such run",
-          note: "It may be older than this page's own window.",
+          title: t("steward.backups.no-such-run"),
+          note: t("steward.backups.no-such-run-note"),
         }}
       >
         {(answer) => (
           <>
             <div className="grid grid-cols-2 gap-x-4 gap-y-5 lg:grid-cols-4">
               {/* The four figures keep their places while the run is looked up. */}
-              <Stat label="Status" value={run ? <RunStatus status={run.status} /> : undefined} />
-              <Stat label="When" value={run ? dateTime(run.started || run.requested) : undefined} />
-              <Stat label="Took" value={run ? ran(run) : undefined} />
-              <Stat label="Archives" value={answer && backups.data ? count(files.length) : undefined} />
+              <Stat label={t("steward.backups.status")} value={run ? <RunStatus status={run.status} /> : undefined} />
+              <Stat
+                label={t("steward.backups.when")}
+                value={run ? dateTime(run.started || run.requested) : undefined}
+              />
+              <Stat label={t("steward.backups.took")} value={run ? ran(run) : undefined} />
+              <Stat
+                label={t("steward.backups.archives")}
+                value={answer && backups.data ? count(files.length) : undefined}
+              />
             </div>
 
-            <Panel title="Archives">
+            <Panel title={t("steward.backups.archives")}>
               {answer && backups.data && files.length === 0 ? (
-                <Empty title="No archive matched this run's own window" />
+                <Empty title={t("steward.backups.no-archive")} />
               ) : (
                 <Table className="steward-table">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Archive</TableHead>
-                      <TableHead className="w-[9rem]">Holds</TableHead>
-                      <TableHead className="w-[12rem]">Written</TableHead>
-                      <TableHead className="w-[8rem] text-right">Size</TableHead>
+                      <TableHead>{t("steward.backups.archive")}</TableHead>
+                      <TableHead className="w-[9rem]">{t("steward.backups.holds-column")}</TableHead>
+                      <TableHead className="w-[12rem]">{t("steward.backups.written")}</TableHead>
+                      <TableHead className="w-[8rem] text-right">{t("steward.backups.size")}</TableHead>
                       <TableHead className="w-[3rem]" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {(answer && backups.data ? files : WAITING_ARCHIVES).map((backup, index) => (
                       <TableRow key={backup?.name ?? index}>
-                        <TableCell data-label="Archive">
+                        <TableCell data-label={t("steward.backups.archive")}>
                           {backup ? (
                             <code className="text-xs">{backup.name}</code>
                           ) : (
                             <SkeletonText className="text-xs" width="long" />
                           )}
                         </TableCell>
-                        <TableCell data-label="Holds">
+                        <TableCell data-label={t("steward.backups.holds-column")}>
                           {backup ? holds(backup) : <SkeletonText width="medium" />}
                         </TableCell>
-                        <TableCell data-label="Written">
+                        <TableCell data-label={t("steward.backups.written")}>
                           {backup ? dateTime(backup.modified) : <SkeletonText width="long" />}
                         </TableCell>
-                        <TableCell data-label="Size" className="text-right tnum">
+                        <TableCell data-label={t("steward.backups.size")} className="text-right tnum">
                           {backup ? bytes(backup.bytes) : <SkeletonText width="short" className="ml-auto" />}
                         </TableCell>
-                        <TableCell data-label="Download">
+                        <TableCell data-label={t("steward.backups.download")}>
                           {!backup || backup.partial ? null : (
                             <a
                               href={`/api/backups/${encodeURIComponent(backup.name)}/download`}
                               download={backup.name}
-                              aria-label={`Download ${backup.name}`}
+                              aria-label={t("steward.backups.download-file", { file: backup.name })}
                               className="inline-flex text-muted-foreground hover:text-foreground"
                             >
                               <DownloadIcon className="size-4" />

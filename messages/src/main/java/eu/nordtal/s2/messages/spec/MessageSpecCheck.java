@@ -89,7 +89,7 @@ public final class MessageSpecCheck {
         final List<String> problems = new ArrayList<>();
         final String bundle = MessageSchema.bundle(spec);
         for (final MessageSchema.Entry entry : entries) {
-            for (final String former : entry.formerly()) {
+            for (final String former : Objects.requireNonNullElse(entry.formerly(), List.<String>of())) {
                 final String own = former.startsWith(bundle + "/") ? former.substring(bundle.length() + 1) : former;
                 if (!FORMER.matcher(former).matches()) {
                     problems.add(entry.key() + ": @Formerly names " + former + ", which is neither key nor bundle/key");

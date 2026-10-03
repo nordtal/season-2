@@ -56,7 +56,8 @@ public final class MessageSchema {
      * @param section     the names of the sections around it, outermost first
      * @param format      how it is written
      * @param shown       where it is shown
-     * @param formerly    the names it had before, {@code key} in this bundle or {@code bundle/key}
+     * @param formerly    the names it had before, {@code key} in this bundle or {@code bundle/key}; {@code null},
+     *                    and absent from the JSON, for a key never renamed
      */
     public record Entry(
             String key,
@@ -66,7 +67,7 @@ public final class MessageSchema {
             List<String> section,
             TextFormat format,
             Display shown,
-            List<String> formerly) {}
+            @Nullable List<String> formerly) {}
 
     /** Returns the bundle a spec describes. */
     public static String bundle(final Class<?> spec) {
@@ -145,7 +146,7 @@ public final class MessageSchema {
                         List.copyOf(section),
                         ownFormat == null ? format : ownFormat.value(),
                         ownShown == null ? shown : ownShown.value(),
-                        formerly == null ? List.of() : List.of(formerly.value())));
+                        formerly == null ? null : List.of(formerly.value())));
             }
         }
     }

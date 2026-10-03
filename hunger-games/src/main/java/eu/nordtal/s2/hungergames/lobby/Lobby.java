@@ -8,7 +8,7 @@ import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.db.RosterEntry;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
+import eu.nordtal.s2.papercommon.player.Identities;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -33,7 +33,7 @@ public final class Lobby {
     private final HungerGamesDao dao;
     private final HungerGamesSpec config;
     private final Messages messages;
-    private final PlayerLocales locales;
+    private final Identities identities;
 
     private @Nullable BukkitTask broadcastTask;
 
@@ -42,12 +42,12 @@ public final class Lobby {
             final HungerGamesDao dao,
             final HungerGamesSpec config,
             final Messages messages,
-            final PlayerLocales locales) {
+            final Identities identities) {
         this.plugin = plugin;
         this.dao = dao;
         this.config = config;
         this.messages = messages;
-        this.locales = locales;
+        this.identities = identities;
     }
 
     /** Starts the periodic ready-check broadcast. Call once, from {@code onEnable}. */
@@ -84,7 +84,7 @@ public final class Lobby {
                 .count();
 
         for (final Player player : world.getPlayers()) {
-            final Locale locale = locales.of(player.getUniqueId());
+            final Locale locale = identities.languageOf(player.getUniqueId());
             // No .color(): the colour is in the bundle, and a set one would win over it and never change.
             final Component link = MessageRenderer.of(messages)
                     .format(locale, MESSAGES.hg().lobby().readyLink())

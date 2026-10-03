@@ -1,7 +1,7 @@
 package eu.nordtal.s2.smp.travel;
 
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.feedback.WorldEffects;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
@@ -35,7 +35,7 @@ public final class BalloonListener implements Listener {
     private final java.util.function.Supplier<MilestoneTrack> track;
 
     private final Messages messages;
-    private final PlayerLocales locales;
+    private final Identities identities;
     private final SmpSounds sounds;
     private final WorldEffects effects;
 
@@ -48,7 +48,7 @@ public final class BalloonListener implements Listener {
             final SeasonState season,
             final java.util.function.Supplier<MilestoneTrack> track,
             final Messages messages,
-            final PlayerLocales locales,
+            final Identities identities,
             final SmpSounds sounds,
             final WorldEffects effects) {
         this.balloons = balloons;
@@ -56,7 +56,7 @@ public final class BalloonListener implements Listener {
         this.season = season;
         this.track = track;
         this.messages = messages;
-        this.locales = locales;
+        this.identities = identities;
         this.sounds = sounds;
         this.effects = effects;
     }
@@ -108,7 +108,7 @@ public final class BalloonListener implements Listener {
             return;
         }
         player.openInventory(
-                new BalloonGui(messages, locales, worlds, season, track.get(), sounds, effects, player, role.get())
+                new BalloonGui(messages, identities, worlds, season, track.get(), sounds, effects, player, role.get())
                         .getInventory());
     }
 }

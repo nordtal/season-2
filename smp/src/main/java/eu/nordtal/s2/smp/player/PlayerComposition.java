@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.player;
 
+import eu.nordtal.s2.database.access.PlayerIdentity;
 import eu.nordtal.s2.packrendering.Glyphs;
 import eu.nordtal.s2.packrendering.LanguageFlags;
 import eu.nordtal.s2.smp.prestige.Prestige;
@@ -36,8 +37,8 @@ public final class PlayerComposition {
     }
 
     /** All six, for the tab list. */
-    public Component tabList(final String name, final Identity identity) {
-        return flag(identity.locale())
+    public Component tabList(final String name, final PlayerIdentity identity) {
+        return flag(identity.language())
                 .append(Component.text(" "))
                 .append(name(name, identity))
                 .append(badges(identity))
@@ -47,8 +48,8 @@ public final class PlayerComposition {
     }
 
     /** Everything except the aura, for the nametag DisplayTags renders. */
-    public Component nameTag(final String name, final Identity identity) {
-        return flag(identity.locale())
+    public Component nameTag(final String name, final PlayerIdentity identity) {
+        return flag(identity.language())
                 .append(Component.text(" "))
                 .append(name(name, identity))
                 .append(badges(identity))
@@ -56,8 +57,8 @@ public final class PlayerComposition {
     }
 
     /** Flag, name and crest, for a chat line. */
-    public Component chatPrefix(final String name, final Identity identity) {
-        return flag(identity.locale())
+    public Component chatPrefix(final String name, final PlayerIdentity identity) {
+        return flag(identity.language())
                 .append(Component.text(" "))
                 .append(name(name, identity))
                 .append(crest(identity));
@@ -69,22 +70,22 @@ public final class PlayerComposition {
     }
 
     /** The prestige colour, or the admin colour, which wins. */
-    private Component name(final String name, final Identity identity) {
+    private Component name(final String name, final PlayerIdentity identity) {
         return Component.text(name).color(nameColour(identity)).decoration(TextDecoration.ITALIC, false);
     }
 
-    /** Returns the admin colour when {@link Identity#admin()} is set, otherwise the prestige tier's colour. */
-    private TextColor nameColour(final Identity identity) {
+    /** Returns the admin colour when {@link PlayerIdentity#admin()} is set, otherwise the prestige tier's colour. */
+    private TextColor nameColour(final PlayerIdentity identity) {
         final PrestigeColours palette = colours.get();
         return identity.admin() ? palette.admin() : palette.tier(tierOf(identity));
     }
 
     /** Returns the tier {@link #crest} also draws. */
-    private int tierOf(final Identity identity) {
+    private int tierOf(final PlayerIdentity identity) {
         return prestige.get().tierOf(identity.playtimeSeconds());
     }
 
-    private Component badges(final Identity identity) {
+    private Component badges(final PlayerIdentity identity) {
         Component out = Component.empty();
         if (identity.admin()) {
             out = out.append(Component.text(" " + Glyphs.TAG_ADMIN));
@@ -96,7 +97,7 @@ public final class PlayerComposition {
     }
 
     /** The crest for however long somebody has been here, never empty since tiers start at 1. */
-    private Component crest(final Identity identity) {
+    private Component crest(final PlayerIdentity identity) {
         final int tier = tierOf(identity);
         return Component.text(" " + Glyphs.PRESTIGE_CRESTS.get(tier - 1)).decoration(TextDecoration.ITALIC, false);
     }

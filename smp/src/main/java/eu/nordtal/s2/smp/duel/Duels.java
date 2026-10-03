@@ -6,9 +6,9 @@ import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.game.GameKeys;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.aura.AuraReason;
 import eu.nordtal.s2.smp.config.SmpSpec;
@@ -16,7 +16,6 @@ import eu.nordtal.s2.smp.config.WheelPrizeSpec;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.feedback.WorldEffects;
-import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.world.WorldRole;
 import eu.nordtal.s2.smp.world.Worlds;
 import java.time.Clock;
@@ -53,7 +52,6 @@ public final class Duels {
     private final Worlds worlds;
     private final Identities identities;
     private final Messages messages;
-    private final PlayerLocales locales;
     private final SmpSounds sounds;
     private final WorldEffects effects;
     private final ArenaSlots slots;
@@ -99,7 +97,6 @@ public final class Duels {
             final Worlds worlds,
             final Identities identities,
             final Messages messages,
-            final PlayerLocales locales,
             final SmpSounds sounds,
             final WorldEffects effects,
             final Clock clock) {
@@ -110,7 +107,6 @@ public final class Duels {
         this.worlds = worlds;
         this.identities = identities;
         this.messages = messages;
-        this.locales = locales;
         this.sounds = sounds;
         this.effects = effects;
         this.slots = new ArenaSlots(config.concurrentDuelLimit(), config.duelArenaBaseY(), config.duelArenaSpacing());
@@ -323,11 +319,11 @@ public final class Duels {
                     remaining > 0
                             ? MessageRenderer.of(messages)
                                     .format(
-                                            locales.of(player.getUniqueId()),
+                                            identities.languageOf(player.getUniqueId()),
                                             MESSAGES.smp().duel().countdown(remaining))
                             : MessageRenderer.of(messages)
                                     .format(
-                                            locales.of(player.getUniqueId()),
+                                            identities.languageOf(player.getUniqueId()),
                                             MESSAGES.smp().duel().go()));
             // Four evenly spaced ticks, 3-2-1-Go: the last lands on the moment the fight starts.
             sounds.play(player, Feedback.COUNTDOWN_TICK);
@@ -381,7 +377,7 @@ public final class Duels {
             state.restore(player, spawn());
         }
         final MessageRenderer renderer = MessageRenderer.of(messages);
-        final java.util.Locale locale = locales.of(playerId);
+        final java.util.Locale locale = identities.languageOf(playerId);
         final SmpMessages.Smp.Duel lines = MESSAGES.smp().duel();
         final int stake = config.duelStake();
         player.sendMessage(renderer.format(
@@ -428,8 +424,6 @@ public final class Duels {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             dao.addAura(DiscordId.of(winner), stake, AuraReason.DUEL_WIN.stored(), type);
             dao.addAura(DiscordId.of(loser), -stake, AuraReason.DUEL_LOSS.stored(), type);
-            dao.auraOf(DiscordId.of(winner)).ifPresent(value -> identities.recordAura(winnerId, value));
-            dao.auraOf(DiscordId.of(loser)).ifPresent(value -> identities.recordAura(loserId, value));
         });
     }
 
@@ -525,7 +519,7 @@ public final class Duels {
      * A {@code null} feedback is ordinary: only moments that change what the player can do get one.
      */
     private void tell(final Player player, final MessageRef message, final @Nullable Feedback feedback) {
-        player.sendMessage(MessageRenderer.of(messages).format(locales.of(player.getUniqueId()), message));
+        player.sendMessage(MessageRenderer.of(messages).format(identities.languageOf(player.getUniqueId()), message));
         if (feedback != null) {
             sounds.play(player, feedback);
         }

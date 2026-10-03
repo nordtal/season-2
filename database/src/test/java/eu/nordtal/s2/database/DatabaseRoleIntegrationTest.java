@@ -57,6 +57,9 @@ class DatabaseRoleIntegrationTest {
                         DatabaseRole.PROXY,
                         "INSERT INTO steward_session (id, csrf, created_at, expires_at) VALUES ('x', 'y', now(), now())"),
                 may(DatabaseRole.LIMBO, "SELECT count(*) FROM discord_user"),
+                // Every server reads a player's aura with the rest of who they are.
+                may(DatabaseRole.LIMBO, "SELECT count(*) FROM smp_player"),
+                may(DatabaseRole.HUNGER_GAMES, "SELECT count(*) FROM smp_player"),
                 mayNot(DatabaseRole.LIMBO, "INSERT INTO discord_user (discord_id) VALUES ('1')"),
                 may(
                         DatabaseRole.SMP,

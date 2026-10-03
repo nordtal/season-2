@@ -5,8 +5,8 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.db.PoiRow;
 import eu.nordtal.s2.smp.feedback.Surface;
 import eu.nordtal.s2.smp.menu.BlankItem;
@@ -43,12 +43,18 @@ public final class NavigateGui implements Surface {
 
     public NavigateGui(
             final Messages messages,
-            final PlayerLocales locales,
+            final Identities identities,
             final Navigation navigation,
             final Player viewer,
             final Optional<NavigationTarget> lastDeath,
             final List<PoiRow> pois) {
-        this(messages, locales.of(viewer.getUniqueId()), navigation, build(viewer, lastDeath, pois), 0, viewer);
+        this(
+                messages,
+                identities.languageOf(viewer.getUniqueId()),
+                navigation,
+                build(viewer, lastDeath, pois),
+                0,
+                viewer);
     }
 
     private NavigateGui(

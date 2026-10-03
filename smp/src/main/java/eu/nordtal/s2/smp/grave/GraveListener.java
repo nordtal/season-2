@@ -5,13 +5,12 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.aura.AuraReason;
 import eu.nordtal.s2.smp.aura.DeathPenalty;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
-import eu.nordtal.s2.smp.player.Identities;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -43,7 +42,6 @@ public final class GraveListener implements Listener {
     private final DeathPenalty penalty;
     private final Predicate<Player> inArena;
     private final Messages messages;
-    private final PlayerLocales locales;
     private final SmpSounds sounds;
 
     public GraveListener(
@@ -54,7 +52,6 @@ public final class GraveListener implements Listener {
             final DeathPenalty penalty,
             final Predicate<Player> inArena,
             final Messages messages,
-            final PlayerLocales locales,
             final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
@@ -63,7 +60,6 @@ public final class GraveListener implements Listener {
         this.penalty = penalty;
         this.inArena = inArena;
         this.messages = messages;
-        this.locales = locales;
         this.sounds = sounds;
     }
 
@@ -106,15 +102,11 @@ public final class GraveListener implements Listener {
             return;
         }
         final AuraReason reason = penalty.reasonFor(cause);
-        final Locale locale = locales.of(player.getUniqueId());
+        final Locale locale = identities.languageOf(player.getUniqueId());
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             dao.addAura(discordId, delta, reason.stored(), cause);
-            final Integer now = dao.auraOf(discordId).orElse(null);
             Bukkit.getScheduler().runTask(plugin, () -> {
-                if (now != null) {
-                    identities.recordAura(player.getUniqueId(), now);
-                }
                 if (player.isOnline()) {
                     player.sendMessage(MessageRenderer.of(messages)
                             .format(locale, MESSAGES.smp().aura().death(Math.abs(delta))));

@@ -3,6 +3,7 @@ package eu.nordtal.s2.database.access;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.id.PlayerId;
 import java.time.InstantSource;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -43,18 +44,18 @@ public interface AccessReader {
     AccessState accessState(UUID mcUuid);
 
     /**
-     * Returns the player's language, English when unknown.
+     * Returns the language a Discord account reads, the network's default where it chose none.
      *
-     * Never throws: a missing translation must not break a disconnect screen.
+     * The same column {@link #identities} reads, for an account that may have no Minecraft account linked.
      */
-    Locale locale(UUID mcUuid);
+    Locale language(DiscordId discordId);
 
     /**
-     * Returns who an account is, in one round trip; an account nobody linked is {@link PlayerIdentity#unknown}.
+     * Returns who each of these accounts is, in one round trip; an account nobody linked is left out.
      *
      * Blocking, so never on a server's main thread; it throws when the database cannot answer.
      */
-    PlayerIdentity identity(PlayerId player);
+    List<PlayerIdentity> identities(Collection<PlayerId> players);
 
     /** Returns whether the permanent donor flag is set, {@code false} for an unknown user. */
     boolean isDonor(DiscordId discordId);

@@ -6,7 +6,6 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.database.inbox.HungerGamesRequest;
 import eu.nordtal.s2.database.inbox.Reload;
 import eu.nordtal.s2.database.inbox.ServerRefusal;
@@ -188,20 +187,20 @@ public final class HungerGamesPlugin extends NordtalPlugin {
     /** Builds the border, loot, HUD, lobby, ceremony and manager, and starts the lobby broadcast. */
     private void wireGameSystems(final HungerGamesSpec spec) {
         final BorderController borderController =
-                new BorderController(this, world, spec, messages(), locales(), sounds, clock());
+                new BorderController(this, world, spec, messages(), identities(), sounds, clock());
         border = borderController;
         final LootRefill refill =
-                new LootRefill(this, world, spec, borderController, messages(), locales(), sounds, clock());
+                new LootRefill(this, world, spec, borderController, messages(), identities(), sounds, clock());
         loot = refill;
         // winTracker before hud: the HUD reads the living count off it on every redraw.
-        winTracker = new WinTracker(dao, messages(), locales(), sounds, clock());
+        winTracker = new WinTracker(dao, messages(), identities(), sounds, clock());
         hud = new HudRenderer(
-                this, world, spec, messages(), locales(), borderController, state, winTracker, refill, clock());
-        final Lobby waiting = new Lobby(this, dao, spec, messages(), locales());
+                this, world, spec, messages(), identities(), borderController, state, winTracker, refill, clock());
+        final Lobby waiting = new Lobby(this, dao, spec, messages(), identities());
         lobby = waiting;
-        ceremony = new Ceremony(messages(), locales(), sounds);
+        ceremony = new Ceremony(messages(), identities(), sounds);
         manager = new HungerGamesManager(
-                this, dao, spec, messages(), locales(), bodies, state, borderController, sounds, clock());
+                this, dao, spec, messages(), identities(), bodies, state, borderController, sounds, clock());
 
         refreshCurrentGame();
 
@@ -215,9 +214,9 @@ public final class HungerGamesPlugin extends NordtalPlugin {
     private void wireListeners() {
         listen(new FreezeListener(manager));
         // The five system lines; the death line keeps vanilla's own component for killer and weapon.
-        final ArenaComposition composition = new ArenaComposition(locales());
+        final ArenaComposition composition = new ArenaComposition(identities());
         final SystemLines systemLines = systemLines(composition::of);
-        presence = new PresenceListener(this, locales(), bodies, state, messages(), systemLines, players());
+        presence = new PresenceListener(this, identities(), bodies, state, messages(), systemLines, players());
         listen(presence);
         listen(new CombatListener(
                 this,
@@ -293,7 +292,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         final PaperUser user = PaperUser.of(
                 this,
                 player,
-                locales().of(player.getUniqueId()),
+                identities().languageOf(player.getUniqueId()),
                 false,
                 java.util.Optional::<eu.nordtal.s2.common.id.DiscordId>empty,
                 messages(),
@@ -302,7 +301,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         final UUID gameId = currentGameId;
         final Lobby waiting = Objects.requireNonNull(lobby);
         Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
-            final var discordId = identities().discordIdOf(PlayerId.of(player.getUniqueId()));
+            final var discordId = identities().discordIdOf(player.getUniqueId());
             final boolean marked =
                     gameId != null && discordId.isPresent() && waiting.markReady(gameId, discordId.get());
             user.reply(

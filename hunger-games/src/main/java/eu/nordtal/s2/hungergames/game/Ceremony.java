@@ -8,10 +8,10 @@ import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.packrendering.Glyphs;
+import eu.nordtal.s2.papercommon.player.Identities;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -30,12 +30,12 @@ public final class Ceremony {
     private static final Logger LOGGER = LoggerFactory.getLogger(Ceremony.class);
 
     private final Messages messages;
-    private final PlayerLocales locales;
+    private final Identities identities;
     private final HungerGamesSounds sounds;
 
-    public Ceremony(final Messages messages, final PlayerLocales locales, final HungerGamesSounds sounds) {
+    public Ceremony(final Messages messages, final Identities identities, final HungerGamesSounds sounds) {
         this.messages = messages;
-        this.locales = locales;
+        this.identities = identities;
         this.sounds = sounds;
     }
 
@@ -77,7 +77,7 @@ public final class Ceremony {
 
     /** One line for everybody; {@code BIG_SUCCESS} for the winner and {@code NETWORK_EVENT} for everybody else. */
     private void announce(final Player player, final Decision decision) {
-        final Locale locale = locales.of(player.getUniqueId());
+        final Locale locale = identities.languageOf(player.getUniqueId());
         for (final MessageRef line : lines(decision)) {
             player.sendMessage(MessageRenderer.of(messages).format(locale, line));
         }

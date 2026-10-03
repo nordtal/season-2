@@ -79,8 +79,7 @@ class AdvancementCreditIntegrationTest {
                 Messages.load(AdvancementCreditIntegrationTest.class.getClassLoader(), "messages/smp", Locale.ENGLISH);
         final Announcer announcer = new Announcer(
                 Inbox.over(dataSource, BotRequest.TABLE), messages, Runnable::run, (message, failure) -> {});
-        engine = new ObjectiveEngine(
-                null, dao, () -> track, null, null, null, messages, null, null, null, null, announcer);
+        engine = new ObjectiveEngine(null, dao, () -> track, null, null, null, messages, null, null, null, announcer);
 
         online.clear();
         held.clear();

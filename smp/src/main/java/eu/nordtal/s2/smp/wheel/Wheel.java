@@ -6,15 +6,14 @@ import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.game.GameKeys;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.config.WheelPrizeSpec;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.db.Spins;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
-import eu.nordtal.s2.smp.player.Identities;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -44,7 +43,6 @@ public final class Wheel {
     private final SmpSpec config;
     private final Identities identities;
     private final Messages messages;
-    private final PlayerLocales locales;
     private final SmpSounds sounds;
     private final Random random = new Random();
 
@@ -56,7 +54,6 @@ public final class Wheel {
             final SmpSpec config,
             final Identities identities,
             final Messages messages,
-            final PlayerLocales locales,
             final SmpSounds sounds,
             final Clock clock) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
@@ -65,14 +62,13 @@ public final class Wheel {
         this.config = config;
         this.identities = identities;
         this.messages = messages;
-        this.locales = locales;
         this.sounds = sounds;
     }
 
     /** Spins once for a player, if they have a spin. Safe to call from the main thread. */
     public void spin(final Player player) {
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
-        final Locale locale = locales.of(player.getUniqueId());
+        final Locale locale = identities.languageOf(player.getUniqueId());
         if (discordId.isEmpty()) {
             player.sendMessage(MessageRenderer.of(messages)
                     .format(locale, MESSAGES.smp().error().noAccountLink()));
@@ -115,7 +111,7 @@ public final class Wheel {
     /** Tells a player what they have without spending anything. */
     public void describe(final Player player) {
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
-        final Locale locale = locales.of(player.getUniqueId());
+        final Locale locale = identities.languageOf(player.getUniqueId());
         if (discordId.isEmpty()) {
             return;
         }

@@ -1,6 +1,7 @@
 package eu.nordtal.s2.database.access;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.common.language.Locales;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -21,7 +22,7 @@ public final class PersonMapper implements RowMapper<Person> {
                 rs.getString("member_state"),
                 rs.getBoolean("donor"),
                 rs.getBoolean("admin"),
-                rs.getString("locale"),
+                Locales.tag(Locales.parse(rs.getString("locale"))),
                 Objects.requireNonNull(instant(rs, "updated"), "updated"),
                 rs.getObject("mc_uuid", UUID.class),
                 instant(rs, "linked"),

@@ -6,9 +6,9 @@ import eu.nordtal.s2.hungergames.GameState;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.packrendering.hud.TabList;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.settings.network.PlayersSpec;
 import java.util.Objects;
 import org.bukkit.Bukkit;
@@ -26,18 +26,18 @@ import org.bukkit.plugin.Plugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Wires {@link PlayerLocales} and the bodies that replace players who quit mid-game. */
+/** Draws the tab list for whoever joins and leaves, and puts a body in place of a player who quits mid-game. */
 public final class PresenceListener implements Listener {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PresenceListener.class);
 
     private final Plugin plugin;
-    private final PlayerLocales locales;
+    private final Identities identities;
     private final PlayerBodies bodies;
     private final GameState state;
     private final MessageRenderer messages;
 
-    /** The shared system lines, held for the join line once the locale has landed. */
+    /** The shared system lines, held for the join line. */
     private final SystemLines lines;
 
     /** The network's limit, which the footer shows: no server has one of its own. */
@@ -45,7 +45,7 @@ public final class PresenceListener implements Listener {
 
     public PresenceListener(
             final Plugin plugin,
-            final PlayerLocales locales,
+            final Identities identities,
             final PlayerBodies bodies,
             final GameState state,
             final Messages messages,
@@ -53,7 +53,7 @@ public final class PresenceListener implements Listener {
             final PlayersSpec network) {
         this.network = network;
         this.plugin = plugin;
-        this.locales = locales;
+        this.identities = identities;
         this.bodies = bodies;
         this.state = state;
         this.messages = new MessageRenderer(messages);
@@ -63,7 +63,7 @@ public final class PresenceListener implements Listener {
     /** Rewrites the tab list header and footer, which carries the player count, for everybody online. */
     private void refreshTabList() {
         for (final Player online : Bukkit.getOnlinePlayers()) {
-            final java.util.Locale locale = locales.of(online.getUniqueId());
+            final java.util.Locale locale = identities.languageOf(online.getUniqueId());
             online.sendPlayerListHeaderAndFooter(
                     TabList.header(messages, locale, MESSAGES.tab()::header),
                     messages.format(
@@ -88,11 +88,10 @@ public final class PresenceListener implements Listener {
         }
     }
 
-    /** Draws what a joined player reads once their language is held, and says they arrived. */
+    /** Draws what a joined player reads once every join handler ran, and says they arrived. */
     public void languageKnown(final Player player) {
-        // Only now: a tab list drawn earlier would stay English until the player relogs.
         refreshTabList();
-        // Said once, here rather than in the join handler, so it never renders in English.
+        // Said once, here rather than in a join handler, after Paper's own join handling.
         lines.announceJoin(player);
     }
 

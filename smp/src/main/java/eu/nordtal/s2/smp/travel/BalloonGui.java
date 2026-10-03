@@ -4,9 +4,9 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.config.SpawnPointSpec;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.feedback.Surface;
@@ -39,7 +39,7 @@ import org.bukkit.inventory.ItemStack;
 public final class BalloonGui implements Surface {
 
     private final Messages messages;
-    private final PlayerLocales locales;
+    private final Identities identities;
     private final Worlds worlds;
     private final SeasonState season;
     private final MilestoneTrack track;
@@ -52,7 +52,7 @@ public final class BalloonGui implements Surface {
 
     public BalloonGui(
             final Messages messages,
-            final PlayerLocales locales,
+            final Identities identities,
             final Worlds worlds,
             final SeasonState season,
             final MilestoneTrack track,
@@ -61,7 +61,7 @@ public final class BalloonGui implements Surface {
             final Player viewer,
             final WorldRole here) {
         this.messages = messages;
-        this.locales = locales;
+        this.identities = identities;
         this.worlds = worlds;
         this.season = season;
         this.track = track;
@@ -70,7 +70,7 @@ public final class BalloonGui implements Surface {
         this.here = here;
         this.entries = BalloonMenu.of(here, season.unlocked());
 
-        final Locale locale = locales.of(viewer.getUniqueId());
+        final Locale locale = identities.languageOf(viewer.getUniqueId());
         this.inventory = Bukkit.createInventory(this, BalloonMenu.ROWS * 9, TravelPanel.title(entries));
         draw(locale);
     }
@@ -133,7 +133,7 @@ public final class BalloonGui implements Surface {
 
     /** Handles a click on {@code slot}, returning whether the player was sent somewhere. */
     public boolean click(final Player player, final int slot) {
-        final Locale locale = locales.of(player.getUniqueId());
+        final Locale locale = identities.languageOf(player.getUniqueId());
         final Optional<BalloonMenu.Entry> clicked = BalloonMenu.at(entries, slot);
         if (clicked.isEmpty()) {
             return false;

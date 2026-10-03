@@ -8,11 +8,11 @@ import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.game.WinTracker;
 import eu.nordtal.s2.hungergames.loot.LootRefill;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.packrendering.Glyphs;
 import eu.nordtal.s2.packrendering.hud.Bearing;
 import eu.nordtal.s2.packrendering.hud.BossBarLine;
 import eu.nordtal.s2.packrendering.hud.BossBarLine.Pill;
+import eu.nordtal.s2.papercommon.player.Identities;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -43,7 +43,7 @@ public final class HudRenderer {
     private final World world;
     private final HungerGamesSpec config;
     private final Messages messages;
-    private final PlayerLocales locales;
+    private final Identities identities;
     private final BorderController border;
     private final GameState state;
 
@@ -66,7 +66,7 @@ public final class HudRenderer {
             final World world,
             final HungerGamesSpec config,
             final Messages messages,
-            final PlayerLocales locales,
+            final Identities identities,
             final BorderController border,
             final GameState state,
             final WinTracker wins,
@@ -77,7 +77,7 @@ public final class HudRenderer {
         this.world = world;
         this.config = config;
         this.messages = messages;
-        this.locales = locales;
+        this.identities = identities;
         this.border = border;
         this.state = state;
         this.wins = wins;
@@ -123,7 +123,7 @@ public final class HudRenderer {
     }
 
     private void renderFor(final Player player) {
-        final java.util.Locale locale = locales.of(player.getUniqueId());
+        final java.util.Locale locale = identities.languageOf(player.getUniqueId());
         final BossBar playersBar = playersBars.computeIfAbsent(player.getUniqueId(), key -> BossBarLine.bar());
         final BossBar lootBar = lootBars.computeIfAbsent(player.getUniqueId(), key -> BossBarLine.bar());
         final BossBar borderBar = borderBars.computeIfAbsent(player.getUniqueId(), key -> BossBarLine.bar());

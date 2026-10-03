@@ -5,9 +5,9 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.ExpiredGrave;
 import eu.nordtal.s2.smp.db.GraveRow;
@@ -53,9 +53,8 @@ public final class Graves implements InventoryHolder {
 
     private final Plugin plugin;
     private final SmpDao dao;
-    private final eu.nordtal.s2.smp.player.Identities identities;
+    private final Identities identities;
     private final Messages messages;
-    private final PlayerLocales locales;
     private final SmpSounds sounds;
     private final WorldEffects effects;
     private final SmpSpec config;
@@ -84,9 +83,8 @@ public final class Graves implements InventoryHolder {
     public Graves(
             final Plugin plugin,
             final SmpDao dao,
-            final eu.nordtal.s2.smp.player.Identities identities,
+            final Identities identities,
             final Messages messages,
-            final PlayerLocales locales,
             final SmpSounds sounds,
             final WorldEffects effects,
             final SmpSpec config,
@@ -96,7 +94,6 @@ public final class Graves implements InventoryHolder {
         this.dao = dao;
         this.identities = identities;
         this.messages = messages;
-        this.locales = locales;
         this.sounds = sounds;
         this.effects = effects;
         this.config = config;
@@ -289,10 +286,10 @@ public final class Graves implements InventoryHolder {
     /**
      * The hologram's text for {@code timeLeft} remaining, in the dead player's own language.
      *
-     * One language serves every viewer; {@link PlayerLocales#of} falls back to English for an offline owner.
+     * One language serves every viewer; {@link Identities#languageOf} falls back to English for an offline owner.
      */
     private Component hologramText(final GraveRow row, final Duration timeLeft) {
-        final Locale locale = row.ownerUuid() == null ? Locale.ENGLISH : locales.of(row.ownerUuid());
+        final Locale locale = row.ownerUuid() == null ? Locale.ENGLISH : identities.languageOf(row.ownerUuid());
         final MessageRenderer renderer = MessageRenderer.of(messages);
         if (timeLeft.compareTo(HOLOGRAM_FINAL_STRETCH) < 0) {
             return renderer.format(locale, MESSAGES.smp().grave().hologramSeconds(timeLeft.toSeconds()));
@@ -388,7 +385,7 @@ public final class Graves implements InventoryHolder {
         if (row == null) {
             return;
         }
-        final Locale locale = locales.of(player.getUniqueId());
+        final Locale locale = identities.languageOf(player.getUniqueId());
 
         // The window this grave already has, if somebody else is in it.
         final Inventory inventory = shown.computeIfAbsent(graveId, id -> window(row, locale));
@@ -626,7 +623,7 @@ public final class Graves implements InventoryHolder {
                     player.giveExp(experience);
                     player.sendMessage(MessageRenderer.of(messages)
                             .format(
-                                    locales.of(player.getUniqueId()),
+                                    identities.languageOf(player.getUniqueId()),
                                     MESSAGES.smp().grave().experience(experience)));
                     sounds.play(player, Feedback.SMALL_SUCCESS);
                 }

@@ -42,12 +42,10 @@ public final class PresenceListener implements Listener {
         Bukkit.getScheduler().runTask(plugin, surfaces::refreshAll);
     }
 
-    /** Redraws a joined player's surfaces once their language is held, and says they arrived. */
+    /** Redraws a joined player's surfaces once every join handler ran, and says they arrived. */
     public void languageKnown(final Player player) {
         surfaces.refresh(player);
-        // Here, not in a join handler, so the line never renders in English.
         lines.announceJoin(player);
-        // Same reason for the opening moment; PlayerJoinEvent would give every player English.
         languageReady.accept(player);
     }
 

@@ -4,8 +4,8 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.milestone.Unlock;
 import eu.nordtal.s2.smp.state.SeasonState;
@@ -34,7 +34,7 @@ public final class PortalGate implements Listener {
     private final Worlds worlds;
     private final SeasonState season;
     private final Messages messages;
-    private final PlayerLocales locales;
+    private final Identities identities;
     private final SmpSounds sounds;
 
     public PortalGate(
@@ -42,13 +42,13 @@ public final class PortalGate implements Listener {
             final Worlds worlds,
             final SeasonState season,
             final Messages messages,
-            final PlayerLocales locales,
+            final Identities identities,
             final SmpSounds sounds) {
         this.plugin = plugin;
         this.worlds = worlds;
         this.season = season;
         this.messages = messages;
-        this.locales = locales;
+        this.identities = identities;
         this.sounds = sounds;
     }
 
@@ -71,7 +71,7 @@ public final class PortalGate implements Listener {
         if (event.getEntity() instanceof Player player) {
             player.sendMessage(MessageRenderer.of(messages)
                     .format(
-                            locales.of(player.getUniqueId()),
+                            identities.languageOf(player.getUniqueId()),
                             MESSAGES.smp().portal().netherLocked()));
             sounds.play(player, Feedback.REFUSED);
         }
@@ -106,7 +106,7 @@ public final class PortalGate implements Listener {
         event.getPlayer()
                 .sendMessage(MessageRenderer.of(messages)
                         .format(
-                                locales.of(event.getPlayer().getUniqueId()),
+                                identities.languageOf(event.getPlayer().getUniqueId()),
                                 MESSAGES.smp().portal().endInactive()));
         sounds.play(event.getPlayer(), Feedback.REFUSED);
     }
@@ -124,7 +124,7 @@ public final class PortalGate implements Listener {
             event.getPlayer()
                     .sendMessage(MessageRenderer.of(messages)
                             .format(
-                                    locales.of(event.getPlayer().getUniqueId()),
+                                    identities.languageOf(event.getPlayer().getUniqueId()),
                                     MESSAGES.smp().portal().netherLocked()));
             sounds.play(event.getPlayer(), Feedback.REFUSED);
         }

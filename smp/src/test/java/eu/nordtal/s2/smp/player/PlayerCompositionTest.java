@@ -6,10 +6,13 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.id.PlayerId;
+import eu.nordtal.s2.database.access.PlayerIdentity;
 import eu.nordtal.s2.packrendering.Glyphs;
 import eu.nordtal.s2.smp.prestige.Prestige;
 import eu.nordtal.s2.smp.prestige.PrestigeColours;
 import java.util.Locale;
+import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.TextColor;
@@ -33,7 +36,7 @@ class PlayerCompositionTest {
                 new java.util.concurrent.atomic.AtomicReference<>(Prestige.defaults());
         final PlayerComposition live = new PlayerComposition(ladder::get, () -> PrestigeColours.DEFAULTS);
         // Two hours of play time: tier 2 on the shipped ladder (0, 2, 5, ...).
-        final Identity player = new Identity(Locale.GERMAN, false, false, 0, 2 * 3600L);
+        final PlayerIdentity player = identity(Locale.GERMAN, false, false, 0, 2 * 3600L);
         final TextColor before = colourOfName(live.chatPrefix("Alice", player), "Alice");
 
         // The same edit steward makes: tier 3's hour requirement drops, so a player stands a tier higher untouched.
@@ -53,8 +56,8 @@ class PlayerCompositionTest {
         return PlainTextComponentSerializer.plainText().serialize(component);
     }
 
-    private static Identity ordinary() {
-        return new Identity(Locale.GERMAN, false, false, 42, 0L);
+    private static PlayerIdentity ordinary() {
+        return identity(Locale.GERMAN, false, false, 42, 0L);
     }
 
     /** Finds the colour set on the child whose own text is exactly {@code name}, null if it set none. */
@@ -73,7 +76,7 @@ class PlayerCompositionTest {
 
     @Test
     void theTabListCarriesAllSix() {
-        final Identity identity = new Identity(Locale.GERMAN, true, true, 42, 0L);
+        final PlayerIdentity identity = identity(Locale.GERMAN, true, true, 42, 0L);
         final String line = plain(composition.tabList("Alex", identity));
 
         assertTrue(line.contains(Glyphs.FLAG_GERMANY), "the flag");
@@ -98,7 +101,7 @@ class PlayerCompositionTest {
 
     @Test
     void chatCarriesTheFlagTheNameAndTheCrestAndNothingElse() {
-        final Identity identity = new Identity(Locale.GERMAN, true, true, 42, 0L);
+        final PlayerIdentity identity = identity(Locale.GERMAN, true, true, 42, 0L);
         final String prefix = plain(composition.chatPrefix("Alex", identity));
 
         assertTrue(prefix.contains(Glyphs.FLAG_GERMANY));
@@ -123,25 +126,25 @@ class PlayerCompositionTest {
         assertTrue(fresh.contains(Glyphs.PRESTIGE_CRESTS.get(0)));
 
         final long manyHours = Prestige.defaults().secondsFor(Prestige.TIER_COUNT);
-        final Identity veteran = new Identity(Locale.GERMAN, false, false, 0, manyHours);
+        final PlayerIdentity veteran = identity(Locale.GERMAN, false, false, 0, manyHours);
         assertTrue(plain(composition.nameTag("Alex", veteran))
                 .contains(Glyphs.PRESTIGE_CRESTS.get(Prestige.TIER_COUNT - 1)));
     }
 
     @Test
     void theFlagIsTheWearersLanguageAndFallsBackRatherThanVanishing() {
-        assertTrue(plain(composition.chatPrefix("A", new Identity(Locale.ENGLISH, false, false, 0, 0L)))
+        assertTrue(plain(composition.chatPrefix("A", identity(Locale.ENGLISH, false, false, 0, 0L)))
                 .contains(Glyphs.FLAG_UNITED_KINGDOM));
-        assertTrue(plain(composition.chatPrefix("A", new Identity(Locale.FRENCH, false, false, 0, 0L)))
+        assertTrue(plain(composition.chatPrefix("A", identity(Locale.FRENCH, false, false, 0, 0L)))
                 .contains(Glyphs.FLAG_OTHER));
     }
 
     /** Two identities differing only in play time must not share a name colour. */
     @Test
     void twoDifferentPrestigeTiersAreColouredDifferently() {
-        final Identity tierOne = new Identity(Locale.GERMAN, false, false, 0, 0L);
-        final Identity tierThirteen =
-                new Identity(Locale.GERMAN, false, false, 0, Prestige.defaults().secondsFor(Prestige.TIER_COUNT));
+        final PlayerIdentity tierOne = identity(Locale.GERMAN, false, false, 0, 0L);
+        final PlayerIdentity tierThirteen =
+                identity(Locale.GERMAN, false, false, 0, Prestige.defaults().secondsFor(Prestige.TIER_COUNT));
 
         final TextColor colourOne = colourOfName(composition.chatPrefix("Alice", tierOne), "Alice");
         final TextColor colourThirteen = colourOfName(composition.chatPrefix("Bob", tierThirteen), "Bob");
@@ -158,8 +161,8 @@ class PlayerCompositionTest {
     /** Every tier gets the hex {@code prestige.yml} declares for it, on every surface the name is drawn on. */
     @Test
     void everySurfacePaintsTheSameTierTheSameColour() {
-        final Identity tierFive =
-                new Identity(Locale.GERMAN, false, false, 0, Prestige.defaults().secondsFor(5));
+        final PlayerIdentity tierFive =
+                identity(Locale.GERMAN, false, false, 0, Prestige.defaults().secondsFor(5));
         final TextColor expected = PrestigeColours.DEFAULTS.tier(5);
 
         assertEquals(expected, colourOfName(composition.chatPrefix("Cara", tierFive), "Cara"));
@@ -170,8 +173,8 @@ class PlayerCompositionTest {
     /** The admin colour wins over the tier on every surface, even at tier 13. */
     @Test
     void theAdminColourWinsOverTheProminentTier() {
-        final Identity adminAtTopTier =
-                new Identity(Locale.GERMAN, true, false, 0, Prestige.defaults().secondsFor(Prestige.TIER_COUNT));
+        final PlayerIdentity adminAtTopTier =
+                identity(Locale.GERMAN, true, false, 0, Prestige.defaults().secondsFor(Prestige.TIER_COUNT));
 
         final TextColor colour = colourOfName(composition.tabList("Root", adminAtTopTier), "Root");
 
@@ -182,5 +185,15 @@ class PlayerCompositionTest {
                 "an admin at the top tier still showed the tier's own colour, so the admin override"
                         + " is being treated as if it were a fourteenth tier rather than winning"
                         + " over all thirteen");
+    }
+
+    private static PlayerIdentity identity(
+            final Locale language,
+            final boolean admin,
+            final boolean donor,
+            final int aura,
+            final long playtimeSeconds) {
+        return new PlayerIdentity(
+                PlayerId.of(UUID.randomUUID()), null, null, language, null, admin, donor, aura, playtimeSeconds);
     }
 }

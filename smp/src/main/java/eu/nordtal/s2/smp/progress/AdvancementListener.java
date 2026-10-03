@@ -5,14 +5,13 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.aura.AuraReason;
 import eu.nordtal.s2.smp.config.AdvancementAwardSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
-import eu.nordtal.s2.smp.player.Identities;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -37,7 +36,6 @@ public final class AdvancementListener implements Listener {
     private final ObjectiveEngine engine;
     private final Identities identities;
     private final Messages messages;
-    private final PlayerLocales locales;
     private final SmpSounds sounds;
 
     /** The curated award list, flattened once at construction. */
@@ -50,14 +48,12 @@ public final class AdvancementListener implements Listener {
             final Identities identities,
             final SmpSpec config,
             final Messages messages,
-            final PlayerLocales locales,
             final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
         this.engine = engine;
         this.identities = identities;
         this.messages = messages;
-        this.locales = locales;
         this.sounds = sounds;
         for (final AdvancementAwardSpec award : config.advancementAwards()) {
             awards.put(award.advancement().toLowerCase(Locale.ROOT), award.aura());
@@ -85,7 +81,7 @@ public final class AdvancementListener implements Listener {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             if (award != null && award > 0) {
                 dao.addAura(discordId.get(), award, AuraReason.ADVANCEMENT.stored(), key);
-                final Locale locale = locales.of(player.getUniqueId());
+                final Locale locale = identities.languageOf(player.getUniqueId());
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     if (player.isOnline()) {
                         player.sendMessage(MessageRenderer.of(messages)

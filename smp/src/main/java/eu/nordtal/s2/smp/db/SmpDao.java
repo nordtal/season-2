@@ -26,9 +26,6 @@ public interface SmpDao {
     @SqlQuery("SELECT mc_uuid FROM account_link WHERE discord_id = :discordId")
     Optional<UUID> mcUuidOf(@Bind("discordId") DiscordId discordId);
 
-    @SqlQuery("SELECT locale FROM discord_user WHERE discord_id = :discordId")
-    Optional<String> localeOf(@Bind("discordId") DiscordId discordId);
-
     /** Whether this account holds the Discord admin flag, mirrored into {@code discord_user} by the bot. */
     @SqlQuery("""
             SELECT usr.admin

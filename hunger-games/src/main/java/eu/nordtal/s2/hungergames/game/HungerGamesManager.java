@@ -15,9 +15,9 @@ import eu.nordtal.s2.hungergames.db.RosterEntry;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.context.TeamContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.player.Identities;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -46,7 +46,7 @@ public final class HungerGamesManager {
     private final HungerGamesDao dao;
     private final HungerGamesSpec config;
     private final Messages messages;
-    private final PlayerLocales locales;
+    private final Identities identities;
     private final PlayerBodies bodies;
     private final GameState state;
     private final BorderController border;
@@ -62,7 +62,7 @@ public final class HungerGamesManager {
             final HungerGamesDao dao,
             final HungerGamesSpec config,
             final Messages messages,
-            final PlayerLocales locales,
+            final Identities identities,
             final PlayerBodies bodies,
             final GameState state,
             final BorderController border,
@@ -73,7 +73,7 @@ public final class HungerGamesManager {
         this.dao = dao;
         this.config = config;
         this.messages = messages;
-        this.locales = locales;
+        this.identities = identities;
         this.bodies = bodies;
         this.state = state;
         this.border = border;
@@ -152,7 +152,7 @@ public final class HungerGamesManager {
                 // Deliberately silent: the tower teleport in the same tick already played TRAVEL.
                 online.sendMessage(MessageRenderer.of(messages)
                         .format(
-                                locales.of(participant.mcUuid()),
+                                identities.languageOf(participant.mcUuid()),
                                 MESSAGES.hg().team().demoted(new TeamContext(participant.teamName()))));
             }
         }
@@ -177,7 +177,7 @@ public final class HungerGamesManager {
                                     if (online != null) {
                                         online.sendMessage(MessageRenderer.of(messages)
                                                 .format(
-                                                        locales.of(participant.mcUuid()),
+                                                        identities.languageOf(participant.mcUuid()),
                                                         MESSAGES.hg().start().countdown(remaining)));
                                         sounds.play(online, Feedback.COUNTDOWN_TICK);
                                     }
@@ -259,7 +259,7 @@ public final class HungerGamesManager {
                 online.setAllowFlight(false);
                 online.sendMessage(MessageRenderer.of(messages)
                         .format(
-                                locales.of(participant.mcUuid()),
+                                identities.languageOf(participant.mcUuid()),
                                 MESSAGES.hg().start().released(config.pvpProtectionSeconds())));
                 sounds.play(online, Feedback.COUNTDOWN_TICK);
             }

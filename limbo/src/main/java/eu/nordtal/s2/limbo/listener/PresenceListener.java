@@ -6,7 +6,6 @@ import eu.nordtal.s2.limbo.waiting.WaitingRoom;
 import eu.nordtal.s2.limbo.world.WaitingWorld;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.packrendering.hud.TabList;
 import eu.nordtal.s2.papercommon.player.Identities;
 import io.papermc.paper.event.player.AsyncChatEvent;
@@ -38,7 +37,6 @@ public final class PresenceListener implements Listener {
     private final WaitingWorld world;
     private final WaitingRoom room;
     private final LimboChannel channel;
-    private final PlayerLocales locales;
     private final MessageRenderer messages;
 
     /** Who everybody here is, held since pre-login; read here, never queried. */
@@ -49,21 +47,19 @@ public final class PresenceListener implements Listener {
             final WaitingWorld world,
             final WaitingRoom room,
             final LimboChannel channel,
-            final PlayerLocales locales,
             final Messages messages,
             final Identities identities) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.world = Objects.requireNonNull(world, "world");
         this.room = Objects.requireNonNull(room, "room");
         this.channel = Objects.requireNonNull(channel, "channel");
-        this.locales = Objects.requireNonNull(locales, "locales");
         this.identities = Objects.requireNonNull(identities, "identities");
         this.messages = new MessageRenderer(Objects.requireNonNull(messages, "messages"));
     }
 
     /** Draws this player's tab list; the footer shows no count, since the list holds only their own name. */
     public void sendTabList(final Player player) {
-        final java.util.Locale locale = locales.of(player.getUniqueId());
+        final java.util.Locale locale = identities.languageOf(player.getUniqueId());
         player.sendPlayerListHeaderAndFooter(
                 TabList.header(messages, locale, LimboMessages.MESSAGES.tab()::header),
                 messages.format(locale, LimboMessages.MESSAGES.tab().footer()));

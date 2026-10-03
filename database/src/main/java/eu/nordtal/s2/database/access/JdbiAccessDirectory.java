@@ -7,6 +7,7 @@ import eu.nordtal.s2.database.Jdbis;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.InstantSource;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -58,21 +59,17 @@ final class JdbiAccessDirectory implements AccessDirectory {
     }
 
     @Override
-    public PlayerIdentity identity(final PlayerId player) {
-        return dao.identity(player.value()).orElseGet(() -> PlayerIdentity.unknown(player));
+    public List<PlayerIdentity> identities(final Collection<PlayerId> players) {
+        if (players.isEmpty()) {
+            return List.of();
+        }
+        return dao.identities(players.stream().map(PlayerId::value).toArray(UUID[]::new));
     }
 
     @Override
-    public Locale locale(final UUID mcUuid) {
-        if (mcUuid == null) {
-            return Locales.DEFAULT;
-        }
-        try {
-            return Locales.parse(dao.localeOf(mcUuid).orElse(null));
-        } catch (final RuntimeException exception) {
-            // Never throws: a disconnect screen has to render when the database is unreachable.
-            return Locales.DEFAULT;
-        }
+    public Locale language(final DiscordId discordId) {
+        Objects.requireNonNull(discordId, "discordId");
+        return Locales.parse(dao.languageOf(discordId).orElse(null));
     }
 
     @Override

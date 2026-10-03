@@ -7,8 +7,8 @@ import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.player.Identities;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -39,7 +39,7 @@ public final class WinTracker {
 
     private final HungerGamesDao dao;
     private final Messages messages;
-    private final PlayerLocales locales;
+    private final Identities identities;
     private final HungerGamesSounds sounds;
 
     /** The living members of the current game; a member is removed on death. */
@@ -53,13 +53,13 @@ public final class WinTracker {
     public WinTracker(
             final HungerGamesDao dao,
             final Messages messages,
-            final PlayerLocales locales,
+            final Identities identities,
             final HungerGamesSounds sounds,
             final Clock clock) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.dao = dao;
         this.messages = messages;
-        this.locales = locales;
+        this.identities = identities;
         this.sounds = sounds;
     }
 
@@ -167,7 +167,7 @@ public final class WinTracker {
         for (final Player player : world.getPlayers()) {
             player.sendMessage(MessageRenderer.of(messages)
                     .format(
-                            locales.of(player.getUniqueId()),
+                            identities.languageOf(player.getUniqueId()),
                             MESSAGES.hg().win().sameTeamFinalTwo()));
             // NETWORK_EVENT: about two other people, who are the least likely to be reading chat.
             sounds.play(player, Feedback.NETWORK_EVENT);

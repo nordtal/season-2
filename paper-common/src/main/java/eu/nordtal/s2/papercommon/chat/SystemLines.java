@@ -5,8 +5,8 @@ import static eu.nordtal.s2.papercommon.PaperCommonMessages.MESSAGES;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.packrendering.Glyphs;
+import eu.nordtal.s2.papercommon.player.Identities;
 import io.papermc.paper.advancement.AdvancementDisplay;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import java.util.Locale;
@@ -47,12 +47,12 @@ public final class SystemLines implements Listener {
 
     private final Composition composition;
     private final Messages messages;
-    private final PlayerLocales locales;
+    private final Identities identities;
 
-    public SystemLines(final Composition composition, final Messages messages, final PlayerLocales locales) {
+    public SystemLines(final Composition composition, final Messages messages, final Identities identities) {
         this.composition = Objects.requireNonNull(composition, "composition");
         this.messages = Objects.requireNonNull(messages, "messages");
-        this.locales = Objects.requireNonNull(locales, "locales");
+        this.identities = Objects.requireNonNull(identities, "identities");
     }
 
     /**
@@ -77,7 +77,7 @@ public final class SystemLines implements Listener {
     /**
      * Announces a join once the player's locale has loaded.
      *
-     * Called from each module's locale callback, since a line sent at join would be English for the joining player.
+     * Called from each module's {@code languageKnown}, one tick after join, once every join handler ran.
      */
     public void announceJoin(final Player player) {
         broadcast(MESSAGES.system().join(Glyphs.ICON_JOIN, composition.of(player)), viewer -> true);
@@ -136,7 +136,7 @@ public final class SystemLines implements Listener {
             if (!to.test(viewer)) {
                 continue;
             }
-            final Locale locale = locales.of(viewer.getUniqueId());
+            final Locale locale = identities.languageOf(viewer.getUniqueId());
             viewer.sendMessage(renderer.format(locale, message));
         }
     }
@@ -144,7 +144,7 @@ public final class SystemLines implements Listener {
     /** Returns the reader's language, or English for an audience that is not a player. */
     private Locale localeOf(final net.kyori.adventure.audience.Audience viewer) {
         return viewer instanceof Player player
-                ? locales.of(player.getUniqueId())
+                ? identities.languageOf(player.getUniqueId())
                 : eu.nordtal.s2.common.language.Locales.DEFAULT;
     }
 }

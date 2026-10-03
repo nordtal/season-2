@@ -6,7 +6,7 @@ import eu.nordtal.s2.limbo.world.WaitingWorld;
 import eu.nordtal.s2.limboprotocol.WaitReason;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
+import eu.nordtal.s2.papercommon.player.Identities;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
@@ -32,7 +32,7 @@ public final class WaitingRoom {
     private final Plugin plugin;
     private final LimboSpec config;
     private final Messages messages;
-    private final PlayerLocales locales;
+    private final Identities identities;
     private final WaitingWorld world;
 
     private final Map<UUID, WaitReason> shown = new ConcurrentHashMap<>();
@@ -43,12 +43,12 @@ public final class WaitingRoom {
             final Plugin plugin,
             final LimboSpec config,
             final Messages messages,
-            final PlayerLocales locales,
+            final Identities identities,
             final WaitingWorld world) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.config = Objects.requireNonNull(config, "config");
         this.messages = Objects.requireNonNull(messages, "messages");
-        this.locales = Objects.requireNonNull(locales, "locales");
+        this.identities = Objects.requireNonNull(identities, "identities");
         this.world = Objects.requireNonNull(world, "world");
     }
 
@@ -87,7 +87,7 @@ public final class WaitingRoom {
     private void show(final Player player, final WaitReason reason, final boolean fade) {
         shown.put(player.getUniqueId(), reason);
 
-        final Locale locale = locales.of(player.getUniqueId());
+        final Locale locale = identities.languageOf(player.getUniqueId());
         final Duration stay = Duration.ofSeconds(config.titleRefreshSeconds() * 2L);
         final Title.Times times = fade
                 ? Title.Times.times(Duration.ofMillis(300), stay, Duration.ofMillis(200))

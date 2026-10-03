@@ -5,9 +5,9 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.messages.context.PlayerContext;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.config.BoardSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;
@@ -55,7 +55,7 @@ public final class Boards {
     private final SmpSpec config;
     private final SeasonState season;
     private final Messages messages;
-    private final PlayerLocales locales;
+    private final Identities identities;
 
     private final Map<UUID, Map<BoardKind, TextDisplay>> displays = new HashMap<>();
 
@@ -68,12 +68,12 @@ public final class Boards {
             final SmpSpec config,
             final SeasonState season,
             final Messages messages,
-            final PlayerLocales locales) {
+            final Identities identities) {
         this.plugin = plugin;
         this.config = config;
         this.season = season;
         this.messages = messages;
-        this.locales = locales;
+        this.identities = identities;
     }
 
     public void start() {
@@ -128,7 +128,7 @@ public final class Boards {
                         player.getUniqueId(), key -> new EnumMap<>(BoardKind.class))
                 .computeIfAbsent(kind, key -> spawn(player, at));
 
-        display.text(text(kind, locales.of(player.getUniqueId()), spec.width()));
+        display.text(text(kind, identities.languageOf(player.getUniqueId()), spec.width()));
     }
 
     private TextDisplay spawn(final Player owner, final Location at) {

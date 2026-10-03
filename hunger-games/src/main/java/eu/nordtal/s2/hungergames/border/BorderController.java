@@ -7,8 +7,8 @@ import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.player.Identities;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
@@ -32,7 +32,7 @@ public final class BorderController {
     private final World world;
     private final HungerGamesSpec config;
     private final Messages messages;
-    private final PlayerLocales locales;
+    private final Identities identities;
     private final HungerGamesSounds sounds;
 
     private @Nullable BukkitTask quietPeriodChecker;
@@ -44,7 +44,7 @@ public final class BorderController {
             final World world,
             final HungerGamesSpec config,
             final Messages messages,
-            final PlayerLocales locales,
+            final Identities identities,
             final HungerGamesSounds sounds,
             final Clock clock) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
@@ -52,7 +52,7 @@ public final class BorderController {
         this.world = world;
         this.config = config;
         this.messages = messages;
-        this.locales = locales;
+        this.identities = identities;
         this.sounds = sounds;
     }
 
@@ -134,7 +134,7 @@ public final class BorderController {
         for (final Player player : world.getPlayers()) {
             player.sendMessage(MessageRenderer.of(messages)
                     .format(
-                            locales.of(player.getUniqueId()),
+                            identities.languageOf(player.getUniqueId()),
                             MESSAGES.hg()
                                     .border()
                                     .shrinkStarted(String.valueOf(Math.round(target)), String.valueOf(seconds))));
@@ -146,7 +146,7 @@ public final class BorderController {
         for (final Player player : world.getPlayers()) {
             player.sendMessage(MessageRenderer.of(messages)
                     .format(
-                            locales.of(player.getUniqueId()),
+                            identities.languageOf(player.getUniqueId()),
                             MESSAGES.hg().border().passiveShrinkStarted()));
             sounds.play(player, Feedback.COUNTDOWN_TICK);
         }

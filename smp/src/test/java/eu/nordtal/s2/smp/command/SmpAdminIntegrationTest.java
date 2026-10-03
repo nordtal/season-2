@@ -6,12 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.access.AccessReader;
-import eu.nordtal.s2.database.access.PlayerIdentity;
 import eu.nordtal.s2.database.inbox.ServerRefusal;
 import eu.nordtal.s2.papercommon.command.Answer;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.db.SmpDao;
-import eu.nordtal.s2.smp.player.Identities;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -44,8 +43,7 @@ class SmpAdminIntegrationTest {
     void freshTrack() {
         execute("TRUNCATE TABLE smp_milestone CASCADE");
         final SmpDao dao = Jdbis.over(dataSource).onDemand(SmpDao.class);
-        final Identities identities =
-                new Identities(new eu.nordtal.s2.papercommon.player.Identities(PlayerIdentity::unknown), dao);
+        final Identities identities = new Identities(players -> List.of());
         admin = new SmpAdmin(
                 dao,
                 new SmpAdmin.Track() {

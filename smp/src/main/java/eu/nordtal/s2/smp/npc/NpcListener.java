@@ -5,14 +5,13 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
-import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.progress.ObjectiveEngine;
 import java.util.List;
 import java.util.Locale;
@@ -46,7 +45,6 @@ public final class NpcListener implements Listener {
     private final java.util.function.Supplier<List<Integer>> extraSpinPercents;
 
     private final Messages messages;
-    private final PlayerLocales locales;
     private final SmpSounds sounds;
 
     public NpcListener(
@@ -58,7 +56,6 @@ public final class NpcListener implements Listener {
             final Identities identities,
             final java.util.function.Supplier<List<Integer>> extraSpinPercents,
             final Messages messages,
-            final PlayerLocales locales,
             final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
@@ -68,7 +65,6 @@ public final class NpcListener implements Listener {
         this.identities = identities;
         this.extraSpinPercents = extraSpinPercents;
         this.messages = messages;
-        this.locales = locales;
         this.sounds = sounds;
     }
 
@@ -82,7 +78,7 @@ public final class NpcListener implements Listener {
     }
 
     private void openObjectives(final Player player) {
-        final Locale locale = locales.of(player.getUniqueId());
+        final Locale locale = identities.languageOf(player.getUniqueId());
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             final Optional<String> activeKey = dao.activeMilestoneKey();
             if (activeKey.isEmpty()) {
@@ -145,7 +141,7 @@ public final class NpcListener implements Listener {
                     sounds.play(player, Feedback.SELECT);
                     player.openInventory(new HandInGui(
                                     messages,
-                                    locales.of(player.getUniqueId()),
+                                    identities.languageOf(player.getUniqueId()),
                                     entry.objective(),
                                     entry.row().amount(),
                                     entry.row().target())
@@ -173,7 +169,7 @@ public final class NpcListener implements Listener {
 
     /** The one moment items change hands, applying what {@link HandIn} decided and crediting it. */
     private void confirm(final Player player, final HandInGui gui) {
-        final Locale locale = locales.of(player.getUniqueId());
+        final Locale locale = identities.languageOf(player.getUniqueId());
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
         if (discordId.isEmpty()) {
             player.sendMessage(MessageRenderer.of(messages)

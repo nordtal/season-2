@@ -91,8 +91,4 @@ interface HungerGamesDao {
             WHERE id = :memberId AND discord_id = :discordId AND state = 'INVITED'
             """)
     int decline(@Bind("memberId") UUID memberId, @Bind("discordId") DiscordId discordId);
-
-    /** Read directly, since the Discord half has no Minecraft UUID for {@code PlayerLocales}. */
-    @SqlQuery("SELECT locale FROM discord_user WHERE discord_id = :discordId")
-    Optional<String> localeOf(@Bind("discordId") DiscordId discordId);
 }

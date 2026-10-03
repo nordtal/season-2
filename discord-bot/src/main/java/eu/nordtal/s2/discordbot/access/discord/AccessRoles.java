@@ -3,7 +3,6 @@ package eu.nordtal.s2.discordbot.access.discord;
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.s2.common.id.DiscordId;
-import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AccessGrant;
 import eu.nordtal.s2.database.alert.Alert;
@@ -257,7 +256,7 @@ public final class AccessRoles {
 
     /** Returns the language this Discord account chose, or English. */
     public Locale localeOf(final DiscordId discordId) {
-        return Locales.parse(dao.localeOf(discordId).orElse(null));
+        return access.language(discordId);
     }
 
     /** Sends a direct message, and raises an alert when it bounces. */

@@ -2,10 +2,13 @@ package eu.nordtal.s2.database;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.id.Actor;
+import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.alert.AlertChannel;
 import eu.nordtal.s2.database.alert.AlertType;
+import eu.nordtal.s2.database.alert.DiscordRole;
 import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.database.payment.PaymentMatch;
+import eu.nordtal.s2.database.payment.PaymentRequestStatus;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateStatus;
@@ -23,7 +26,7 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * What an admin reads of the network, English only: the journal, on Steward's page and in the admin channel.
+ * What an admin reads of the network, English only: the journal and the alerts, on Steward's page and in Discord.
  * Written for Discord, whose target escapes each value; a text here carries no markdown, so the page shows it as is.
  */
 @MessageSpec(value = "admin", format = TextFormat.DISCORD_MARKDOWN, shown = Display.DISCORD_EMBED)
@@ -35,6 +38,8 @@ public interface AdminTexts {
     Journal journal();
 
     Run run();
+
+    Alerts alert();
 
     /**
      * One line per action, its values typed; the row stores the message, and each reader's target renders it.
@@ -201,5 +206,149 @@ public interface AdminTexts {
 
         @Name("Services that came back")
         MessageRef successful(@Arg("successful") long successful, @Arg("total") long total);
+    }
+
+    /** An alert: its title and the lines below it, which a lock screen, the admin channel and the page render. */
+    @Name("Alerts")
+    interface Alerts {
+
+        @Name("Level")
+        MessageRef level(@Arg("level") Alert.Level level);
+
+        @Name("Words as they came: a program's answer, or a line from before typed alerts")
+        MessageRef words(@Arg("text") String text);
+
+        @Name("All clear")
+        MessageRef clear(@Arg("subject") String subject);
+
+        @Name("Several of one type at once")
+        MessageRef several(@Arg("subjects") List<String> subjects, @Arg("count") int count);
+
+        @Name("A run failed")
+        MessageRef runFailed(@Arg("kind") UpdateKind kind);
+
+        @Name("Which run")
+        MessageRef run(@Arg("run") long run);
+
+        @Name("No services")
+        MessageRef noServices();
+
+        @Name("A service is not running")
+        MessageRef notRunning(@Arg("service") String service);
+
+        @Name("A service is unhealthy")
+        MessageRef unhealthy(@Arg("service") String service);
+
+        @Name("Failing healthcheck")
+        MessageRef healthFails();
+
+        @Name("Docker's word")
+        MessageRef dockerState(@Arg("state") String state);
+
+        @Name("Older images")
+        MessageRef olderImage(@Arg("services") List<String> services, @Arg("count") int count);
+
+        @Name("Images not compared")
+        MessageRef notCompared();
+
+        @Name("No finished backup")
+        MessageRef noBackup();
+
+        @Name("Only started backups")
+        MessageRef onlyStarted();
+
+        @Name("No database dump")
+        MessageRef noDump();
+
+        @Name("What a missing dump means")
+        MessageRef dumpMatters();
+
+        @Name("No volume archive")
+        MessageRef noArchive();
+
+        @Name("An old dump")
+        MessageRef oldDump(@Arg("hours") long hours);
+
+        @Name("An old archive")
+        MessageRef oldArchive(@Arg("volume") String volume, @Arg("hours") long hours);
+
+        @Name("The permitted age")
+        MessageRef permittedAge(@Arg("hours") long hours);
+
+        @Name("A full disk")
+        MessageRef disk(@Arg("percent") long percent);
+
+        @Name("Used memory")
+        MessageRef memory(@Arg("percent") long percent);
+
+        @Name("The threshold")
+        MessageRef threshold(@Arg("percent") long percent);
+
+        @Name("No memory limit")
+        MessageRef noLimit();
+
+        @Name("A payment needs a look")
+        MessageRef payment();
+
+        @Name("An unknown reference")
+        MessageRef unknownReference(
+                @Arg("payment") String payment, @Arg("amount") Money amount, @Arg("reference") String reference);
+
+        @Name("A request no longer open")
+        MessageRef notOpen(
+                @Arg("payment") String payment,
+                @Arg("amount") Money amount,
+                @Arg("reference") String reference,
+                @Arg("status") PaymentRequestStatus status);
+
+        @Name("A payment claimed twice")
+        MessageRef claimed(
+                @Arg("payment") String payment, @Arg("amount") Money amount, @Arg("reference") String reference);
+
+        @Name("A payment below every tier")
+        MessageRef noTier(
+                @Arg("payment") String payment, @Arg("amount") Money amount, @Arg("reference") String reference);
+
+        @Name("A missing role")
+        MessageRef roleMissing(@Arg("role") DiscordRole role);
+
+        @Name("No such role")
+        MessageRef noSuchRole(@Arg("id") String id);
+
+        @Name("No access role kept")
+        MessageRef rolesNotKept();
+
+        @Name("The reconcile does nothing")
+        MessageRef reconcileIdle();
+
+        @Name("No donor role given")
+        MessageRef donorNotGiven(@Arg("person") Mention person);
+
+        @Name("The admin role not kept")
+        MessageRef adminNotKept();
+
+        @Name("A role not changed")
+        MessageRef roleNotChanged(@Arg("role") DiscordRole role, @Arg("given") boolean given);
+
+        @Name("Who, and what went wrong")
+        MessageRef failedFor(@Arg("person") Mention person, @Arg("error") String error);
+
+        @Name("A direct message not delivered")
+        MessageRef dm();
+
+        @Name("To whom")
+        MessageRef to(@Arg("person") Mention person);
+
+        @Name("A link failed")
+        MessageRef linkFailed();
+
+        @Name("A purchase failed")
+        MessageRef purchaseFailed();
+
+        @Name("bunq refused a payment link")
+        MessageRef linkRefused();
+
+        @Name("Which request, and what bunq said")
+        MessageRef refused(@Arg("reference") String reference, @Arg("error") String error);
     }
 }

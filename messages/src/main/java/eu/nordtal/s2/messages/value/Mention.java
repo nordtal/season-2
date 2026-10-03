@@ -15,4 +15,9 @@ public record Mention(DiscordId member, String name) {
         Objects.requireNonNull(member, "member");
         Objects.requireNonNull(name, "name");
     }
+
+    /** A member known by id alone, named by it, for a line written without waiting for Discord. */
+    public static Mention of(final DiscordId member) {
+        return new Mention(member, member.value());
+    }
 }

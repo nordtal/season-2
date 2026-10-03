@@ -1,7 +1,6 @@
 package eu.nordtal.s2.database.audit;
 
-import eu.nordtal.s2.common.json.Json;
-import eu.nordtal.s2.messages.MessageJson;
+import eu.nordtal.s2.database.DatabaseJson;
 import java.util.Objects;
 import org.jdbi.v3.core.Handle;
 
@@ -25,7 +24,7 @@ public final class Journal {
                 .bind("actorId", line.actor().id())
                 .bind("subject", line.subject() == null ? null : line.subject().value())
                 .bind("mcUuid", line.mcUuid())
-                .bind("line", Json.encode(MessageJson.encode(line.line())))
+                .bind("line", DatabaseJson.encode(line.line()))
                 .execute();
     }
 }

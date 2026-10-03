@@ -2,6 +2,7 @@ package eu.nordtal.s2.database.inbox;
 
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.database.DatabaseJson;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.audit.Journal;
@@ -156,7 +157,7 @@ public final class Inbox<P> {
         return handle.createQuery(SUBMIT)
                 .define("table", table.name())
                 .bind("kind", table.kindOf(payload))
-                .bind("payload", Json.encode(payload))
+                .bind("payload", DatabaseJson.encode(payload))
                 .bind("actorKind", actor.kind().name())
                 .bind("actorId", actor.id())
                 .bind("delay", seconds(schedule.delay()))
@@ -217,7 +218,7 @@ public final class Inbox<P> {
                 .bind("from", from.name())
                 .bind("to", to.name())
                 .bind("settles", to.settled())
-                .bind("outcome", answer == null ? null : Json.encode(answer))
+                .bind("outcome", answer == null ? null : DatabaseJson.encode(answer))
                 .bind("channel", table.channel().sqlName())
                 .map(this::map)
                 .findOne());
@@ -267,7 +268,7 @@ public final class Inbox<P> {
                 SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM failed) AS notified
                 """,
                 Map.of(
-                        "outcome", Json.encode(Objects.requireNonNull(answer, "answer")),
+                        "outcome", DatabaseJson.encode(Objects.requireNonNull(answer, "answer")),
                         "spared", spared.toArray(Long[]::new)));
     }
 
@@ -290,7 +291,7 @@ public final class Inbox<P> {
      */
     public void putBack(final String row, final Object answer) {
         Objects.requireNonNull(row, "row");
-        final String outcome = Json.encode(Objects.requireNonNull(answer, "answer"));
+        final String outcome = DatabaseJson.encode(Objects.requireNonNull(answer, "answer"));
         jdbi.useTransaction(handle -> {
             handle.createUpdate("""
                             UPDATE <table> SET status = 'FAILED', finished = now(), outcome = cast(:outcome AS jsonb)
@@ -451,7 +452,7 @@ public final class Inbox<P> {
         return new Request<>(
                 row.getLong("id"),
                 kind,
-                table.payloads().cast(Json.decode(row.getString("payload"), type)),
+                table.payloads().cast(DatabaseJson.decode(row.getString("payload"), type)),
                 InboxStatus.valueOf(row.getString("status")),
                 Actor.of(row.getString("actor_kind"), row.getString("actor_id")),
                 Objects.requireNonNull(instant(row.getTimestamp("requested")), "requested"),

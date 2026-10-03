@@ -1,14 +1,17 @@
 package eu.nordtal.s2.database.alert;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.DatabaseRole;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.Notifications;
 import eu.nordtal.s2.database.notify.PostgresNotifications;
+import eu.nordtal.s2.messages.value.Mention;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -24,10 +27,18 @@ class AlertBookIntegrationTest {
 
     private static TestDatabase database;
 
-    private static final Alert DM =
-            new Alert(AlertType.BOT, Alert.Level.WARN, "DM", "DM not delivered", "<@100000000000000001>", "/access");
+    private static final Alert DM = new Alert(
+            AlertType.BOT,
+            Alert.Level.WARN,
+            "DM",
+            TEXTS.alert().dm(),
+            List.of(
+                    TEXTS.alert().to(Mention.of(DiscordId.of("100000000000000001"))),
+                    TEXTS.alert().words("Hi")),
+            "/access");
 
-    private static final Alert RUN = new Alert(AlertType.RUN, Alert.Level.DOWN, "update", "update failed", "", "/");
+    private static final Alert RUN =
+            new Alert(AlertType.SERVICE, Alert.Level.DOWN, "smp", TEXTS.alert().notRunning("smp"), "/");
 
     @BeforeAll
     static void startDatabase() {

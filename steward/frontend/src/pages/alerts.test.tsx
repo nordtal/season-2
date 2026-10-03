@@ -17,8 +17,8 @@ const READING: Alerts = {
       type: "service",
       level: "down",
       subject: "smp",
-      title: "smp is not running",
-      detail: "Docker reports the state exited.",
+      title: { key: "alert.not-running", args: { service: { kind: "text", value: "smp" } } },
+      detail: [{ key: "alert.docker-state", args: { state: { kind: "text", value: "exited" } } }],
       path: "/services/smp",
     },
   ],
@@ -30,8 +30,8 @@ const READING: Alerts = {
       type: "disk",
       level: "warn",
       subject: "disk",
-      title: "The disk is 91 % full",
-      detail: "",
+      title: { key: "alert.disk", args: { percent: { kind: "number", value: 91 } } },
+      detail: [],
       path: "/",
     },
   ],
@@ -69,11 +69,12 @@ afterEach(() => {
 })
 
 describe("AlertsPage", () => {
-  it("lists what is wrong now, each linking where it can be fixed", async () => {
+  it("lists what is wrong now, each linking where it can be fixed, in the admin bundle's words", async () => {
     draw(READING)
     const link = await screen.findByRole("link", { name: "smp is not running" })
     expect(link.getAttribute("href")).toBe("/services/smp")
     expect(screen.getByText("Docker reports the state exited.")).toBeTruthy()
+    expect(screen.getByText("down")).toBeTruthy()
   })
 
   it("lists every alert raised lately, with when and by whom", async () => {

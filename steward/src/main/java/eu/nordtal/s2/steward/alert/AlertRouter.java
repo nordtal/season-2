@@ -1,16 +1,22 @@
 package eu.nordtal.s2.steward.alert;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.alert.AlertBook;
 import eu.nordtal.s2.database.alert.AlertChannel;
 import eu.nordtal.s2.database.alert.AlertType;
+import eu.nordtal.s2.database.alert.DiscordRole;
 import eu.nordtal.s2.database.alert.RaisedAlert;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.Schedule;
+import eu.nordtal.s2.database.update.UpdateKind;
+import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.steward.push.PushSender;
 import eu.nordtal.s2.steward.push.PushSubscriptions;
 import java.time.Duration;
@@ -42,10 +48,13 @@ public final class AlertRouter {
     private final @Nullable PushSubscriptions subscriptions;
     private final @Nullable PushSender sender;
     private final String publicUrl;
+    private final Messages texts;
 
     /**
      * @param sender null without a VAPID keypair, which leaves the admin channel as the only way out
      * @param publicUrl Steward's own address, which a post in the admin channel links to
+     * @param texts the admin texts with their overrides, which a push is rendered from, since a lock screen renders
+     *     nothing itself
      */
     public AlertRouter(
             final AlertBook book,
@@ -54,7 +63,8 @@ public final class AlertRouter {
             final Inbox<BotRequest> bot,
             final @Nullable PushSubscriptions subscriptions,
             final @Nullable PushSender sender,
-            final String publicUrl) {
+            final String publicUrl,
+            final Messages texts) {
         this.book = Objects.requireNonNull(book, "book");
         this.preferences = Objects.requireNonNull(preferences, "preferences");
         this.admins = Objects.requireNonNull(admins, "admins");
@@ -62,6 +72,7 @@ public final class AlertRouter {
         this.subscriptions = subscriptions;
         this.sender = sender;
         this.publicUrl = publicUrl.endsWith("/") ? publicUrl.substring(0, publicUrl.length() - 1) : publicUrl;
+        this.texts = Objects.requireNonNull(texts, "texts");
     }
 
     /** Routes every alert not yet routed; a failure is logged, since the next signal tries again. */
@@ -133,19 +144,22 @@ public final class AlertRouter {
         if (wanting.isEmpty()) {
             return;
         }
-        final String link = publicUrl + alert.path();
-        final String detail = alert.detail().isBlank() ? link : alert.detail() + "\n" + link;
         try {
             bot.submit(
                     new BotRequest.PostAlert(
                             alert.level(),
                             alert.title(),
-                            detail,
+                            alert.detail(),
+                            publicUrl + alert.path(),
                             alert.level() == Alert.Level.OK ? List.of() : wanting),
                     Actor.STEWARD,
                     Schedule.within(BOT_PATIENCE));
         } catch (final RuntimeException failure) {
-            log.warn("Could not ask the bot to post the alert '{}'", alert.title(), failure);
+            log.warn(
+                    "Could not ask the bot to post the alert of {} on {}",
+                    alert.type().key(),
+                    alert.subject(),
+                    failure);
         }
     }
 
@@ -158,13 +172,13 @@ public final class AlertRouter {
         }
     }
 
-    /** The push body {@code sw.js} reads. */
-    static String payloadOf(final Alert alert) {
+    /** The push body {@code sw.js} reads: the title and the level in words, rendered here as plain text. */
+    String payloadOf(final Alert alert) {
         final Map<String, Object> body = new LinkedHashMap<>();
         body.put("type", alert.type().key());
         body.put("level", alert.level().key());
-        body.put("title", alert.title());
-        body.put("subject", alert.subject());
+        body.put("title", texts.format(Locales.DEFAULT, alert.title()));
+        body.put("body", texts.format(Locales.DEFAULT, TEXTS.alert().level(alert.level())));
         body.put("path", alert.path());
         return Json.encode(body);
     }
@@ -172,25 +186,31 @@ public final class AlertRouter {
     /** A real-looking alert of that type, to show what one looks like. */
     static Alert sample(final AlertType type) {
         return switch (type) {
-            case SERVICE -> sampleOf(type, Alert.Level.DOWN, "smp", "smp is not running", "/services/smp");
+            case SERVICE ->
+                new Alert(type, Alert.Level.DOWN, "smp", TEXTS.alert().notRunning("smp"), "/services/smp");
             case BACKUP ->
-                sampleOf(type, Alert.Level.DOWN, "database dump", "There is no database dump", "/operations/backups");
-            case DISK -> sampleOf(type, Alert.Level.WARN, "disk", "The disk is 91 % full", "/");
-            case MEMORY -> sampleOf(type, Alert.Level.WARN, "memory", "Memory is 93 % used", "/");
+                new Alert(type, Alert.Level.DOWN, "database dump", TEXTS.alert().noDump(), "/operations/backups");
+            case DISK -> new Alert(type, Alert.Level.WARN, "disk", TEXTS.alert().disk(91), "/");
+            case MEMORY ->
+                new Alert(type, Alert.Level.WARN, "memory", TEXTS.alert().memory(93), "/");
             case DRIFT ->
-                sampleOf(type, Alert.Level.WARN, "registry", "The images were not compared", "/operations/updates");
-            case RUN -> sampleOf(type, Alert.Level.DOWN, "update", "The update run failed", "/operations/updates");
-            case PAYMENT -> sampleOf(type, Alert.Level.DOWN, "payment", "A payment needs a look", "/payments");
-            case BOT -> sampleOf(type, Alert.Level.WARN, "access role", "The access role was not given", "/access");
+                new Alert(type, Alert.Level.WARN, "registry", TEXTS.alert().notCompared(), "/operations/updates");
+            case RUN ->
+                new Alert(
+                        type,
+                        Alert.Level.DOWN,
+                        "update",
+                        TEXTS.alert().runFailed(UpdateKind.UPDATE),
+                        "/operations/updates");
+            case PAYMENT ->
+                new Alert(type, Alert.Level.DOWN, "payment", TEXTS.alert().payment(), "/payments");
+            case BOT ->
+                new Alert(
+                        type,
+                        Alert.Level.WARN,
+                        "access role",
+                        TEXTS.alert().roleNotChanged(DiscordRole.ACCESS, true),
+                        "/access");
         };
-    }
-
-    private static Alert sampleOf(
-            final AlertType type,
-            final Alert.Level level,
-            final String subject,
-            final String title,
-            final String path) {
-        return new Alert(type, level, subject, title, "", path);
     }
 }

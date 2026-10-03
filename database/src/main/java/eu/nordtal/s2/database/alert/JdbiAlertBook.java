@@ -1,6 +1,9 @@
 package eu.nordtal.s2.database.alert;
 
+import com.google.gson.reflect.TypeToken;
+import eu.nordtal.s2.database.DatabaseJson;
 import eu.nordtal.s2.database.Jdbis;
+import eu.nordtal.s2.messages.MessageRef;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
@@ -14,6 +17,8 @@ import org.jspecify.annotations.Nullable;
 
 /** The only implementation of {@link AlertBook}; it borrows the pool it is given and owns nothing. */
 final class JdbiAlertBook implements AlertBook {
+
+    private static final TypeToken<List<MessageRef>> LINES = new TypeToken<>() {};
 
     private static final String COLUMNS = "id, raised, raised_by, type, level, subject, title, detail, path";
 
@@ -42,13 +47,14 @@ final class JdbiAlertBook implements AlertBook {
         // Only a raise with a source names the conflict, which would ask the bot's role for more than INSERT.
         final int written = handle.createUpdate("""
                         INSERT INTO admin_alert (raised_by, type, level, subject, title, detail, path, source)
-                        VALUES (:raisedBy, :type, :level, :subject, :title, :detail, :path, :source)""" + (source == null ? "" : " ON CONFLICT (source) DO NOTHING"))
+                        VALUES (:raisedBy, :type, :level, :subject, cast(:title AS jsonb), cast(:detail AS jsonb), :path,
+                                :source)""" + (source == null ? "" : " ON CONFLICT (source) DO NOTHING"))
                 .bind("raisedBy", raisedBy)
                 .bind("type", alert.type().name())
                 .bind("level", alert.level().name())
                 .bind("subject", alert.subject())
-                .bind("title", alert.title())
-                .bind("detail", alert.detail())
+                .bind("title", DatabaseJson.encode(alert.title()))
+                .bind("detail", DatabaseJson.encode(alert.detail()))
                 .bind("path", alert.path())
                 .bind("source", source)
                 .execute();
@@ -98,8 +104,8 @@ final class JdbiAlertBook implements AlertBook {
                         AlertType.valueOf(rows.getString("type")),
                         Alert.Level.valueOf(rows.getString("level")),
                         rows.getString("subject"),
-                        rows.getString("title"),
-                        rows.getString("detail"),
+                        DatabaseJson.decode(rows.getString("title"), MessageRef.class),
+                        DatabaseJson.decode(rows.getString("detail"), LINES),
                         rows.getString("path")));
     }
 }

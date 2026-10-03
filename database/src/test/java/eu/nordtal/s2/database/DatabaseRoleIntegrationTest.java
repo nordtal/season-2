@@ -137,7 +137,7 @@ class DatabaseRoleIntegrationTest {
     @Test
     void theBotRaisesAlertsAndOnlyStewardRoutesThem() {
         final String raise = "INSERT INTO admin_alert (raised_by, type, level, subject, title, detail, path)"
-                + " VALUES ('x', 'BOT', 'WARN', 'a', 'b', '', '/')";
+                + " VALUES ('x', 'BOT', 'WARN', 'a', '{\"key\": \"alert.dm\", \"args\": {}}', '[]', '/')";
         assertAll(Stream.of(
                         may(DatabaseRole.DISCORD_BOT, raise),
                         mayNot(DatabaseRole.DISCORD_BOT, "SELECT count(*) FROM admin_alert"),

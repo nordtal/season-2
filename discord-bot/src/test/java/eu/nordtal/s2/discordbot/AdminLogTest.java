@@ -13,7 +13,9 @@ import eu.nordtal.s2.database.alert.AlertType;
 import eu.nordtal.s2.database.alert.RaisedAlert;
 import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.audit.JournalAction;
+import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.value.Mention;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -35,7 +37,7 @@ class AdminLogTest {
             Messages.load(AdminLogTest.class.getClassLoader(), List.of("messages/admin"), Locale.ENGLISH));
 
     private static final Alert DM = new Alert(
-            AlertType.BOT, Alert.Level.WARN, "direct message", "A direct message was not delivered", "", "/access");
+            AlertType.BOT, Alert.Level.WARN, "direct message", TEXTS.alert().dm(), "/access");
 
     /** A book that keeps what is raised, or refuses every raise as a database that is gone would. */
     private static final class Book implements AlertBook {
@@ -150,5 +152,21 @@ class AdminLogTest {
                 "By: <@400000000000000001>",
                 card.getFields().getFirst().getName() + ": "
                         + card.getFields().getFirst().getValue());
+    }
+
+    @Test
+    void aRoutedAlertIsItsMarkTitleLinesAndLinkWithEveryValueEscaped() {
+        final MessageEmbed card = AdminLog.card(
+                ADMIN,
+                new BotRequest.PostAlert(
+                        Alert.Level.DOWN,
+                        TEXTS.alert().notRunning("smp_1"),
+                        List.of(TEXTS.alert().failedFor(Mention.of(DiscordId.of("400000000000000001")), "*gone*")),
+                        "https://steward.example/services/smp_1",
+                        List.of()));
+
+        assertEquals("🛑 smp\\_1 is not running", card.getTitle());
+        assertEquals(
+                "<@400000000000000001>: \\*gone\\*\nhttps://steward.example/services/smp_1", card.getDescription());
     }
 }

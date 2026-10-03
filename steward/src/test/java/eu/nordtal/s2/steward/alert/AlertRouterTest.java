@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.alert;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -13,6 +14,7 @@ import eu.nordtal.s2.database.alert.AlertType;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.Request;
+import eu.nordtal.s2.steward.AdminPlain;
 import eu.nordtal.s2.steward.push.PushSender;
 import eu.nordtal.s2.steward.push.PushSubscriptions;
 import java.util.ArrayList;
@@ -71,11 +73,18 @@ class AlertRouterTest {
                 bot,
                 subscriptions,
                 sender,
-                "https://steward.example/");
+                "https://steward.example/",
+                AdminPlain.bundle());
     }
 
     private static Alert alert(final AlertType type, final Alert.Level level) {
-        return new Alert(type, level, "smp", "smp is not running", "", "/services/smp");
+        return new Alert(
+                type,
+                level,
+                "smp",
+                TEXTS.alert().notRunning("smp"),
+                List.of(TEXTS.alert().dockerState("exited")),
+                "/services/smp");
     }
 
     private List<BotRequest.PostAlert> posted() {
@@ -101,6 +110,7 @@ class AlertRouterTest {
         final String payload = sender.sent.getFirst().payload();
         assertTrue(payload.contains("\"level\":\"down\""), payload);
         assertTrue(payload.contains("\"title\":\"smp is not running\""), payload);
+        assertTrue(payload.contains("\"body\":\"down\""), payload);
     }
 
     @Test
@@ -139,7 +149,11 @@ class AlertRouterTest {
         final List<BotRequest.PostAlert> posts = posted();
         assertEquals(1, posts.size());
         assertEquals(List.of(FIRST), posts.getFirst().mentions());
-        assertEquals("https://steward.example/services/smp", posts.getFirst().detail());
+        assertEquals("https://steward.example/services/smp", posts.getFirst().link());
+        assertEquals("smp is not running", AdminPlain.of(posts.getFirst().title()));
+        assertEquals(
+                List.of("Docker reports the state exited."),
+                AdminPlain.of(posts.getFirst().detail()));
 
         preferences.set(SECOND, AlertType.SERVICE, AlertChannel.DISCORD, true);
         book.raise(alert(AlertType.SERVICE, Alert.Level.DOWN), "steward");

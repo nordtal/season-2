@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot.access.discord;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.s2.common.id.DiscordId;
@@ -7,11 +8,14 @@ import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AccessGrant;
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.alert.AlertType;
+import eu.nordtal.s2.database.alert.DiscordRole;
 import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.DiscordRenderer;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.discordbot.config.Languages;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.value.Mention;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -96,13 +100,11 @@ public final class AccessRoles {
         final Role role =
                 guild == null ? null : guild.getRoleById(config.roles().access());
         if (guild == null || role == null) {
-            admin.alert(new Alert(
-                    AlertType.BOT,
-                    Alert.Level.WARN,
+            admin.alert(roleMissing(
                     "access role",
-                    "The access role is missing",
-                    "`" + config.roles().access() + "` does not exist. Nobody's role is kept.",
-                    PAGE));
+                    DiscordRole.ACCESS,
+                    config.roles().access(),
+                    TEXTS.alert().rolesNotKept()));
             return;
         }
 
@@ -114,16 +116,14 @@ public final class AccessRoles {
                                 guild.addRoleToMember(member, role)
                                         .queue(
                                                 ok -> log.info("Gave the access role to {}", discordId),
-                                                failure -> admin.alert(roleNotChanged(
-                                                        "The access role was not given",
-                                                        "<@" + discordId + "> " + failure.getMessage())));
+                                                failure -> admin.alert(
+                                                        roleNotChanged(DiscordRole.ACCESS, true, discordId, failure)));
                             } else if (!active && has) {
                                 guild.removeRoleFromMember(member, role)
                                         .queue(
                                                 ok -> log.info("Took the access role from {}", discordId),
-                                                failure -> admin.alert(roleNotChanged(
-                                                        "The access role was not taken",
-                                                        "<@" + discordId + "> " + failure.getMessage())));
+                                                failure -> admin.alert(
+                                                        roleNotChanged(DiscordRole.ACCESS, false, discordId, failure)));
                             }
                         },
                         failure -> log.debug("{} is not a member of the guild, so no access role to set", discordId));
@@ -139,21 +139,17 @@ public final class AccessRoles {
         final Role role =
                 guild == null ? null : guild.getRoleById(config.roles().donor());
         if (guild == null || role == null) {
-            admin.alert(new Alert(
-                    AlertType.BOT,
-                    Alert.Level.WARN,
+            admin.alert(roleMissing(
                     "donor role",
-                    "The donor role is missing",
-                    "`" + config.roles().donor() + "` does not exist, so <@" + discordId
-                            + "> did not get it. The donor flag is set either way.",
-                    PAGE));
+                    DiscordRole.DONOR,
+                    config.roles().donor(),
+                    TEXTS.alert().donorNotGiven(Mention.of(discordId))));
             return;
         }
         guild.addRoleToMember(net.dv8tion.jda.api.entities.UserSnowflake.fromId(discordId.value()), role)
                 .queue(
                         ok -> log.info("Gave the donor role to {}", discordId),
-                        failure -> admin.alert(roleNotChanged(
-                                "The donor role was not given", "<@" + discordId + "> " + failure.getMessage())));
+                        failure -> admin.alert(roleNotChanged(DiscordRole.DONOR, true, discordId, failure)));
     }
 
     /** Adds the access role to everyone a grant covers and removes it from everyone else. */
@@ -167,13 +163,11 @@ public final class AccessRoles {
         }
         final Role role = guild.getRoleById(config.roles().access());
         if (role == null) {
-            admin.alert(new Alert(
-                    AlertType.BOT,
-                    Alert.Level.WARN,
+            admin.alert(roleMissing(
                     "access role",
-                    "The access role is missing",
-                    "`" + config.roles().access() + "` does not exist. The reconcile does nothing.",
-                    PAGE));
+                    DiscordRole.ACCESS,
+                    config.roles().access(),
+                    TEXTS.alert().reconcileIdle()));
             return;
         }
 
@@ -186,8 +180,7 @@ public final class AccessRoles {
                         .queue(
                                 ok -> log.info("Reconcile: took the access role from {}", member.getId()),
                                 failure -> admin.alert(roleNotChanged(
-                                        "The access role was not taken",
-                                        member.getAsMention() + " " + failure.getMessage())));
+                                        DiscordRole.ACCESS, false, DiscordId.of(member.getId()), failure)));
             }
         }
 
@@ -201,8 +194,7 @@ public final class AccessRoles {
             guild.addRoleToMember(member, role)
                     .queue(
                             ok -> log.info("Reconcile: gave the access role to {}", discordId),
-                            failure -> admin.alert(roleNotChanged(
-                                    "The access role was not given", "<@" + discordId + "> " + failure.getMessage())));
+                            failure -> admin.alert(roleNotChanged(DiscordRole.ACCESS, true, discordId, failure)));
         }
     }
 
@@ -262,17 +254,38 @@ public final class AccessRoles {
                                 .queue(
                                         ok -> log.debug("DMed {}", discordId),
                                         // Usually closed direct messages.
-                                        failure -> admin.alert(dmNotDelivered("<@" + discordId + ">\n" + text))),
-                        failure -> admin.alert(dmNotDelivered("<@" + discordId + "> " + failure.getMessage())));
+                                        failure -> admin.alert(dmNotDelivered(List.of(
+                                                TEXTS.alert().to(Mention.of(discordId)),
+                                                TEXTS.alert().words(text))))),
+                        failure -> admin.alert(dmNotDelivered(List.of(TEXTS.alert()
+                                .failedFor(Mention.of(discordId), String.valueOf(failure.getMessage()))))));
     }
 
-    private static Alert roleNotChanged(final String title, final String detail) {
-        return new Alert(AlertType.BOT, Alert.Level.WARN, "role", title, detail, PAGE);
-    }
-
-    private static Alert dmNotDelivered(final String detail) {
+    private static Alert roleMissing(
+            final String subject, final DiscordRole role, final String id, final MessageRef consequence) {
         return new Alert(
-                AlertType.BOT, Alert.Level.WARN, "direct message", "A direct message was not delivered", detail, PAGE);
+                AlertType.BOT,
+                Alert.Level.WARN,
+                subject,
+                TEXTS.alert().roleMissing(role),
+                List.of(TEXTS.alert().noSuchRole(id), consequence),
+                PAGE);
+    }
+
+    private static Alert roleNotChanged(
+            final DiscordRole role, final boolean given, final DiscordId discordId, final Throwable failure) {
+        return new Alert(
+                AlertType.BOT,
+                Alert.Level.WARN,
+                "role",
+                TEXTS.alert().roleNotChanged(role, given),
+                List.of(TEXTS.alert().failedFor(Mention.of(discordId), String.valueOf(failure.getMessage()))),
+                PAGE);
+    }
+
+    private static Alert dmNotDelivered(final List<MessageRef> detail) {
+        return new Alert(
+                AlertType.BOT, Alert.Level.WARN, "direct message", TEXTS.alert().dm(), detail, PAGE);
     }
 
     /** Returns the contribution channel of a language as a mention, or its name when none is configured. */

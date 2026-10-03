@@ -1,17 +1,20 @@
 package eu.nordtal.s2.database.alert;
 
+import eu.nordtal.s2.messages.MessageRef;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
 /**
- * One thing an admin should hear of, in the words every channel shows.
+ * One thing an admin should hear of, told in messages of the admin bundle, which each channel renders for its reader.
  *
- * @param subject a word or a few, such as {@code smp} or {@code disk}, for a list of names
+ * @param subject what it is about, such as {@code smp} or {@code disk}: a name, which tells two alerts of a type apart
  * @param title one line, for a lock screen and the admin channel
- * @param detail the admin channel's longer text, Discord markdown allowed; may be empty
+ * @param detail the lines below it; may be empty
  * @param path the page in Steward that can act on it
  */
-public record Alert(AlertType type, Level level, String subject, String title, String detail, String path) {
+public record Alert(
+        AlertType type, Level level, String subject, MessageRef title, List<MessageRef> detail, String path) {
 
     /** How bad it is; {@link #OK} clears what an earlier alert of the same type raised. */
     public enum Level {
@@ -30,13 +33,16 @@ public record Alert(AlertType type, Level level, String subject, String title, S
         Objects.requireNonNull(level, "level");
         Objects.requireNonNull(subject, "subject");
         Objects.requireNonNull(title, "title");
-        Objects.requireNonNull(detail, "detail");
+        detail = List.copyOf(detail);
         Objects.requireNonNull(path, "path");
-        if (title.isBlank()) {
-            throw new IllegalArgumentException("an alert has a title");
-        }
         if (!path.startsWith("/")) {
             throw new IllegalArgumentException("an alert's path is a page in Steward, got '" + path + "'");
         }
+    }
+
+    /** An alert whose title says it all. */
+    public Alert(
+            final AlertType type, final Level level, final String subject, final MessageRef title, final String path) {
+        this(type, level, subject, title, List.of(), path);
     }
 }

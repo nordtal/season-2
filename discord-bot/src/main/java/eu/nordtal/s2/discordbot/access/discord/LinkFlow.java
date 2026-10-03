@@ -14,6 +14,7 @@ import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.discordbot.AdminLog;
 import eu.nordtal.s2.discordbot.DiscordRenderer;
 import eu.nordtal.s2.discordbot.Ids;
+import eu.nordtal.s2.messages.value.Mention;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -24,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.components.label.Label;
 import net.dv8tion.jda.api.components.textinput.TextInput;
 import net.dv8tion.jda.api.components.textinput.TextInputStyle;
+import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
@@ -113,8 +115,8 @@ public final class LinkFlow extends ListenerAdapter {
                         AlertType.BOT,
                         Alert.Level.DOWN,
                         "link",
-                        "A link failed",
-                        event.getUser().getAsMention() + " `" + exception + "`",
+                        TEXTS.alert().linkFailed(),
+                        List.of(TEXTS.alert().failedFor(member(event.getUser()), String.valueOf(exception))),
                         "/access"));
                 event.getHook()
                         .editOriginal(messages.format(locale, MESSAGES.link().failed()))
@@ -212,5 +214,10 @@ public final class LinkFlow extends ListenerAdapter {
                     .editOriginal(messages.format(locale, MESSAGES.unlink().success()))
                     .queue();
         });
+    }
+
+    /** The member an alert names, with the name Discord shows for them. */
+    static Mention member(final User user) {
+        return new Mention(DiscordId.of(user.getId()), user.getName());
     }
 }

@@ -14,6 +14,7 @@ import eu.nordtal.s2.database.alert.RaisedAlert;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateStatus;
+import eu.nordtal.s2.steward.AdminPlain;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -75,7 +76,7 @@ class AlertMonitorTest {
     private List<String> raised() {
         return book.claimUnrouted().stream()
                 .map(RaisedAlert::alert)
-                .map(alert -> alert.type().key() + " " + alert.level().key() + " " + alert.title())
+                .map(alert -> alert.type().key() + " " + alert.level().key() + " " + AdminPlain.of(alert.title()))
                 .toList();
     }
 
@@ -129,7 +130,12 @@ class AlertMonitorTest {
         final List<RaisedAlert> alerts = book.claimUnrouted();
         assertEquals(1, alerts.size());
         assertEquals("smp, proxy", alerts.getFirst().alert().subject());
-        assertEquals("smp is not running and 1 more", alerts.getFirst().alert().title());
+        assertEquals(
+                "2 at once: smp and proxy",
+                AdminPlain.of(alerts.getFirst().alert().title()));
+        assertEquals(
+                List.of("smp is not running", "proxy is not running"),
+                AdminPlain.of(alerts.getFirst().alert().detail()));
     }
 
     @Test
@@ -168,7 +174,8 @@ class AlertMonitorTest {
         assertEquals(1, alerts.size());
         final Alert alert = alerts.getFirst().alert();
         assertEquals(AlertType.RUN, alert.type());
-        assertEquals("The update run failed", alert.title());
+        assertEquals("The update run failed", AdminPlain.of(alert.title()));
+        assertEquals(List.of("Run " + failed + "."), AdminPlain.of(alert.detail()));
         assertEquals("/operations/updates/" + failed, alert.path());
         assertNotNull(alerts.getFirst().raised());
     }

@@ -113,7 +113,9 @@ pin and no rollback: a bad release is corrected by publishing a better one.
 - **Alerts.** Every alert is a row in `admin_alert`, raised by whoever saw it: steward measures the
   stack every 30 seconds against the `web` group's thresholds and raises a failed run and a payment
   nobody can book, once per bank payment; the bot raises what it could not do in Discord or with a purchase. Steward routes each row once, to Web Push and to the admin channel through the
-  bot's inbox, per alert type and per admin. The browser only displays `GET /api/alerts`.
+  bot's inbox, per alert type and per admin. An alert is messages of the admin bundle: a push carries its title and
+  level rendered here, in plain text, since a lock screen renders nothing; the bot renders the post for Discord, and
+  the browser renders `GET /api/alerts` itself.
 - **Payments.** It books them and holds no bank credential. A booking is one transaction in
   `:database`'s `Bookings`: the request is paid, the access appended, the donor flag set, the journal
   line written and the bot told through its inbox, or none of it. The poll books what it matched at the

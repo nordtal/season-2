@@ -68,7 +68,14 @@ function dump(hoursAgo: number) {
 
 /** One alert as `/api/alerts` lists it. */
 function alert(subject: string, level: "warn" | "down") {
-  return { type: "service", level, subject, title: `${subject} is not running`, detail: "", path: "/" }
+  return {
+    type: "service",
+    level,
+    subject,
+    title: { key: "alert.not-running", args: { service: { kind: "text", value: subject } } },
+    detail: [],
+    path: "/",
+  }
 }
 
 /** A reading steward finished, with these alerts in it. */

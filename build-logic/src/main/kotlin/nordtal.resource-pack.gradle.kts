@@ -1,11 +1,11 @@
-// Assembles src/ and the fonts generated from templates/ into one pack, zips it with its SHA-1, which the
+// Assembles src/ and the fonts generated from glyphs.json into one pack, zips it with its SHA-1, which the
 // client checks, and installs it into a local Minecraft instance.
 
 import eu.nordtal.s2.build.CheckNoDashPunctuation
 import eu.nordtal.s2.build.CheckNoTrackerIds
 import eu.nordtal.s2.build.CheckPack
 import eu.nordtal.s2.build.CheckSourcesTracked
-import eu.nordtal.s2.build.GenerateRowFonts
+import eu.nordtal.s2.build.GenerateGlyphs
 import eu.nordtal.s2.build.InstallPack
 import eu.nordtal.s2.build.MinecraftInstanceChooser
 import eu.nordtal.s2.build.Sha1File
@@ -15,16 +15,33 @@ plugins {
 }
 
 val packSource = layout.projectDirectory.dir("src")
-val templates = layout.projectDirectory.dir("templates")
 
-// The six chest-row fonts are row 0 at six heights; pitch and count mirror SlotGeometry and MenuTitle.
-val generateRowFonts =
-    tasks.register<GenerateRowFonts>("generateRowFonts") {
-        template.set(templates.file("gui_row.json"))
-        rows.set(6)
-        pitch.set(18)
-        target.set(layout.buildDirectory.dir("generated/row-fonts"))
+// The one allocation file: the fonts, Glyphs, the advance tables and Steward's glyph menu are all written from it.
+val generatedGlyphs = layout.buildDirectory.dir("generated/glyphs")
+val generateGlyphs =
+    tasks.register<GenerateGlyphs>("generateGlyphs") {
+        allocation.set(layout.projectDirectory.file("glyphs.json"))
+        assets.set(packSource.dir("assets"))
+        className.set("eu.nordtal.s2.packrendering.Glyphs")
+        // The paths BossBarAdvances and MenuFont read the tables from.
+        advanceTables.put("nordtal:bossbar", "nordtal/hud/bossbar-advances.properties")
+        advanceTables.put("nordtal:gui_r0", "nordtal/menu/gui-row-advances.properties")
+        fontDirectory.set(generatedGlyphs.map { it.dir("pack") })
+        javaDirectory.set(generatedGlyphs.map { it.dir("java") })
+        resourceDirectory.set(generatedGlyphs.map { it.dir("resources") })
+        manifestDirectory.set(generatedGlyphs.map { it.dir("manifest") })
     }
+
+// For :pack-rendering, which compiles Glyphs and ships the advance tables, and for Steward's translation editor.
+configurations.consumable("glyphJava") {
+    outgoing.artifact(generateGlyphs.flatMap { it.javaDirectory })
+}
+configurations.consumable("glyphResources") {
+    outgoing.artifact(generateGlyphs.flatMap { it.resourceDirectory })
+}
+configurations.consumable("glyphManifest") {
+    outgoing.artifact(generateGlyphs.flatMap { it.manifestDirectory })
+}
 
 // The pack as the client receives it; everything that reads the pack reads this, never src/.
 val assembledPack = layout.buildDirectory.dir("pack")
@@ -33,7 +50,7 @@ val assemblePack =
         group = "build"
         description = "Assembles src/ and the generated fonts into the resource pack."
         from(packSource)
-        from(generateRowFonts)
+        from(generateGlyphs.flatMap { it.fontDirectory })
         into(assembledPack)
     }
 
@@ -82,7 +99,7 @@ val repositoryRootDirectory = rootProject.layout.projectDirectory
 
 val checkSourcesTracked =
     tasks.register<CheckSourcesTracked>("checkSourcesTracked") {
-        sourceDirectories.from(packSource, templates)
+        sourceDirectories.from(packSource)
         repositoryRoot.set(repositoryRootDirectory)
     }
 

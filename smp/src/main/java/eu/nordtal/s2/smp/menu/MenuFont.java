@@ -85,8 +85,8 @@ public final class MenuFont {
         final Properties properties = new Properties();
         try (InputStream stream = MenuFont.class.getResourceAsStream(RESOURCE)) {
             if (stream == null) {
-                throw new IllegalStateException(RESOURCE + " is missing from the classpath - :common's"
-                        + " generateMenuAdvances task writes it");
+                throw new IllegalStateException(RESOURCE + " is missing from the classpath: :resource-pack's"
+                        + " generateGlyphs task writes it");
             }
             try (Reader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
                 properties.load(reader);

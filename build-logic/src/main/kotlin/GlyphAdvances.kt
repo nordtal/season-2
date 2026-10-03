@@ -49,7 +49,7 @@ object GlyphAdvances {
     }
 
     /** Resolves `namespace:path/to.png` against the pack's `assets`; no colon means `minecraft`. */
-    private fun texture(
+    fun texture(
         assets: File,
         id: String,
     ): File {

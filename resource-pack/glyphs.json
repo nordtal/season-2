@@ -1,0 +1,1325 @@
+{
+  "fonts": [
+    {
+      "font": "minecraft:default",
+      "about": "Ordinary text: the tab list, chat, nametags and the Text Display boards. A message names a glyph here as <glyph:name>.",
+      "blocks": [
+        {
+          "range": "FE000-FE00F",
+          "title": "Player badges",
+          "height": 7,
+          "ascent": 7,
+          "glyphs": [
+            {
+              "code": "FE000",
+              "constant": "BADGE_DONOR_STAR",
+              "name": "donor-star",
+              "texture": "nordtal:badges/donor_star.png",
+              "status": "final candidate",
+              "about": "Donor star, from the permanent donor role, 7 by 7."
+            },
+            {
+              "code": "FE004",
+              "constant": "TAG_ADMIN",
+              "name": "admin",
+              "texture": "nordtal:tags/a.png",
+              "status": "keep",
+              "about": "Admin short tag A, 9 by 7."
+            }
+          ]
+        },
+        {
+          "range": "FE010-FE01F",
+          "title": "Language flags",
+          "about": "One per language of the access group, chosen from discord_user.locale, so a new language needs a flag here too.",
+          "height": 7,
+          "ascent": 7,
+          "status": "keep",
+          "glyphs": [
+            {
+              "code": "FE010",
+              "constant": "FLAG_OTHER",
+              "name": "flag-other",
+              "texture": "nordtal:flags/other.png",
+              "about": "Any other language, or none."
+            },
+            {
+              "code": "FE011",
+              "constant": "FLAG_GERMANY",
+              "name": "flag-germany",
+              "texture": "nordtal:flags/germany.png",
+              "about": "Germany."
+            },
+            {
+              "code": "FE012",
+              "constant": "FLAG_NETHERLANDS",
+              "name": "flag-netherlands",
+              "texture": "nordtal:flags/netherlands.png",
+              "about": "The Netherlands."
+            },
+            {
+              "code": "FE013",
+              "constant": "FLAG_UNITED_KINGDOM",
+              "name": "flag-united-kingdom",
+              "texture": "nordtal:flags/unitedkingdom.png",
+              "about": "The United Kingdom."
+            },
+            {
+              "code": "FE014",
+              "constant": "FLAG_UNITED_STATES",
+              "name": "flag-united-states",
+              "texture": "nordtal:flags/unitedstates.png",
+              "about": "The United States."
+            }
+          ]
+        },
+        {
+          "range": "FE020-FE02F",
+          "title": "Brand",
+          "status": "keep",
+          "glyphs": [
+            {
+              "code": "FE020",
+              "constant": "LOGO_HEIGHT_24",
+              "name": "logo",
+              "texture": "nordtal:assets/logo.png",
+              "height": 24,
+              "ascent": 0,
+              "about": "The long logo, 24 pixels high on the baseline."
+            },
+            {
+              "code": "FE021",
+              "constant": "LOGO_HEIGHT_32",
+              "name": "logo-large",
+              "texture": "nordtal:assets/logo.png",
+              "height": 32,
+              "ascent": 25,
+              "about": "The long logo, 32 pixels high, raised to ascent 25."
+            }
+          ]
+        },
+        {
+          "range": "FE030-FE03F",
+          "title": "Prestige crests",
+          "about": "Thirteen tiers of one coat of arms, derived from player_playtime.seconds when drawn; height 9 and ascent 8 fill a text row without touching the lines above and below.",
+          "height": 9,
+          "ascent": 8,
+          "status": "placeholder",
+          "glyphs": [
+            {
+              "code": "FE030",
+              "constant": "PRESTIGE_CREST_01",
+              "name": "crest-1",
+              "list": "PRESTIGE_CRESTS",
+              "texture": "nordtal:prestige/crest_01.png",
+              "about": "Prestige crest, tier 1."
+            },
+            {
+              "code": "FE031",
+              "constant": "PRESTIGE_CREST_02",
+              "name": "crest-2",
+              "list": "PRESTIGE_CRESTS",
+              "texture": "nordtal:prestige/crest_02.png",
+              "about": "Prestige crest, tier 2."
+            },
+            {
+              "code": "FE032",
+              "constant": "PRESTIGE_CREST_03",
+              "name": "crest-3",
+              "list": "PRESTIGE_CRESTS",
+              "texture": "nordtal:prestige/crest_03.png",
+              "about": "Prestige crest, tier 3."
+            },
+            {
+              "code": "FE033",
+              "constant": "PRESTIGE_CREST_04",
+              "name": "crest-4",
+              "list": "PRESTIGE_CRESTS",
+              "texture": "nordtal:prestige/crest_04.png",
+              "about": "Prestige crest, tier 4."
+            },
+            {
+              "code": "FE034",
+              "constant": "PRESTIGE_CREST_05",
+              "name": "crest-5",
+              "list": "PRESTIGE_CRESTS",
+              "texture": "nordtal:prestige/crest_05.png",
+              "about": "Prestige crest, tier 5."
+            },
+            {
+              "code": "FE035",
+              "constant": "PRESTIGE_CREST_06",
+              "name": "crest-6",
+              "list": "PRESTIGE_CRESTS",
+              "texture": "nordtal:prestige/crest_06.png",
+              "about": "Prestige crest, tier 6."
+            },
+            {
+              "code": "FE036",
+              "constant": "PRESTIGE_CREST_07",
+              "name": "crest-7",
+              "list": "PRESTIGE_CRESTS",
+              "texture": "nordtal:prestige/crest_07.png",
+              "about": "Prestige crest, tier 7."
+            },
+            {
+              "code": "FE037",
+              "constant": "PRESTIGE_CREST_08",
+              "name": "crest-8",
+              "list": "PRESTIGE_CRESTS",
+              "texture": "nordtal:prestige/crest_08.png",
+              "about": "Prestige crest, tier 8."
+            },
+            {
+              "code": "FE038",
+              "constant": "PRESTIGE_CREST_09",
+              "name": "crest-9",
+              "list": "PRESTIGE_CRESTS",
+              "texture": "nordtal:prestige/crest_09.png",
+              "about": "Prestige crest, tier 9."
+            },
+            {
+              "code": "FE039",
+              "constant": "PRESTIGE_CREST_10",
+              "name": "crest-10",
+              "list": "PRESTIGE_CRESTS",
+              "texture": "nordtal:prestige/crest_10.png",
+              "about": "Prestige crest, tier 10."
+            },
+            {
+              "code": "FE03A",
+              "constant": "PRESTIGE_CREST_11",
+              "name": "crest-11",
+              "list": "PRESTIGE_CRESTS",
+              "texture": "nordtal:prestige/crest_11.png",
+              "about": "Prestige crest, tier 11."
+            },
+            {
+              "code": "FE03B",
+              "constant": "PRESTIGE_CREST_12",
+              "name": "crest-12",
+              "list": "PRESTIGE_CRESTS",
+              "texture": "nordtal:prestige/crest_12.png",
+              "about": "Prestige crest, tier 12."
+            },
+            {
+              "code": "FE03C",
+              "constant": "PRESTIGE_CREST_13",
+              "name": "crest-13",
+              "list": "PRESTIGE_CRESTS",
+              "texture": "nordtal:prestige/crest_13.png",
+              "about": "Prestige crest, tier 13."
+            }
+          ]
+        },
+        {
+          "range": "FE080-FE08F",
+          "title": "System-line icons",
+          "about": "The markers in front of chat, join, leave, death, advancement and announcement lines, drawn white because the client multiplies a glyph by its text colour.",
+          "height": 7,
+          "ascent": 7,
+          "status": "placeholder",
+          "glyphs": [
+            {
+              "code": "FE080",
+              "constant": "SEPARATOR",
+              "name": "separator",
+              "texture": "nordtal:system/separator.png",
+              "status": "final candidate",
+              "about": "The rule between a player's name and what they said, 3 by 7: a hairline, not a character."
+            },
+            {
+              "code": "FE081",
+              "constant": "ICON_JOIN",
+              "name": "join",
+              "texture": "nordtal:system/join.png",
+              "about": "Joined, 7 by 7: a triangle pointing in."
+            },
+            {
+              "code": "FE082",
+              "constant": "ICON_LEAVE",
+              "name": "leave",
+              "texture": "nordtal:system/leave.png",
+              "about": "Left, 7 by 7: the same triangle, mirrored."
+            },
+            {
+              "code": "FE083",
+              "constant": "ICON_DEATH",
+              "name": "death",
+              "texture": "nordtal:system/death.png",
+              "about": "Death, 7 by 7: a headstone, because the season answers a death with a grave."
+            },
+            {
+              "code": "FE084",
+              "constant": "ICON_ADVANCEMENT",
+              "name": "advancement",
+              "texture": "nordtal:system/advancement.png",
+              "about": "Advancement, 7 by 7: a spark with four points, so it cannot be read as the donor star beside it."
+            },
+            {
+              "code": "FE085",
+              "constant": "ICON_ANNOUNCE",
+              "name": "announce",
+              "texture": "nordtal:system/announce.png",
+              "about": "In front of a line the whole server is told, such as a milestone, an objective or a restart, 7 by 7: a horn."
+            }
+          ]
+        }
+      ],
+      "lists": [
+        {
+          "constant": "PRESTIGE_CRESTS",
+          "about": "All thirteen prestige crests, tier 1 first, indexed by tier minus one."
+        }
+      ]
+    },
+    {
+      "font": "nordtal:board",
+      "constant": "FONT_BOARD",
+      "about": "The frame of the objective board and the aura leaderboard, which are Text Display entities, drawn by BoardFrame in smp.",
+      "spaces": [
+        { "code": "FF001", "advance": -1, "constant": "BOARD_SPACE_MINUS_1" },
+        { "code": "FF002", "advance": -2, "constant": "BOARD_SPACE_MINUS_2" },
+        { "code": "FF004", "advance": -4, "constant": "BOARD_SPACE_MINUS_4" },
+        { "code": "FF008", "advance": -8, "constant": "BOARD_SPACE_MINUS_8" },
+        { "code": "FF016", "advance": -16, "constant": "BOARD_SPACE_MINUS_16" },
+        { "code": "FF032", "advance": -32, "constant": "BOARD_SPACE_MINUS_32" },
+        { "code": "FF064", "advance": -64, "constant": "BOARD_SPACE_MINUS_64" },
+        { "code": "FF128", "advance": -128, "constant": "BOARD_SPACE_MINUS_128" },
+        { "code": "FFF01", "advance": 1, "constant": "BOARD_SPACE_PLUS_1" },
+        { "code": "FFF02", "advance": 2, "constant": "BOARD_SPACE_PLUS_2" },
+        { "code": "FFF04", "advance": 4, "constant": "BOARD_SPACE_PLUS_4" },
+        { "code": "FFF08", "advance": 8, "constant": "BOARD_SPACE_PLUS_8" },
+        { "code": "FFF16", "advance": 16, "constant": "BOARD_SPACE_PLUS_16" },
+        { "code": "FFF32", "advance": 32, "constant": "BOARD_SPACE_PLUS_32" }
+      ],
+      "blocks": [
+        {
+          "range": "FE040-FE05F",
+          "title": "Frame",
+          "about": "Every line is centred in its cell, so the same edges serve as top and bottom.",
+          "height": 9,
+          "ascent": 8,
+          "status": "final candidate",
+          "glyphs": [
+            {
+              "code": "FE040",
+              "constant": "BOARD_CORNER_TOP_LEFT",
+              "texture": "nordtal:ui/board/corner_tl.png",
+              "about": "Corner, top left."
+            },
+            {
+              "code": "FE041",
+              "constant": "BOARD_CORNER_TOP_RIGHT",
+              "texture": "nordtal:ui/board/corner_tr.png",
+              "about": "Corner, top right."
+            },
+            {
+              "code": "FE042",
+              "constant": "BOARD_CORNER_BOTTOM_LEFT",
+              "texture": "nordtal:ui/board/corner_bl.png",
+              "about": "Corner, bottom left."
+            },
+            {
+              "code": "FE043",
+              "constant": "BOARD_CORNER_BOTTOM_RIGHT",
+              "texture": "nordtal:ui/board/corner_br.png",
+              "about": "Corner, bottom right."
+            },
+            {
+              "code": "FE044",
+              "constant": "BOARD_EDGE_H_1",
+              "texture": "nordtal:ui/board/edge_h_1.png",
+              "about": "Horizontal edge, 1 pixel."
+            },
+            {
+              "code": "FE045",
+              "constant": "BOARD_EDGE_H_2",
+              "texture": "nordtal:ui/board/edge_h_2.png",
+              "about": "Horizontal edge, 2 pixels."
+            },
+            {
+              "code": "FE046",
+              "constant": "BOARD_EDGE_H_4",
+              "texture": "nordtal:ui/board/edge_h_4.png",
+              "about": "Horizontal edge, 4 pixels."
+            },
+            {
+              "code": "FE047",
+              "constant": "BOARD_EDGE_H_8",
+              "texture": "nordtal:ui/board/edge_h_8.png",
+              "about": "Horizontal edge, 8 pixels."
+            },
+            {
+              "code": "FE048",
+              "constant": "BOARD_EDGE_H_16",
+              "texture": "nordtal:ui/board/edge_h_16.png",
+              "about": "Horizontal edge, 16 pixels."
+            },
+            {
+              "code": "FE049",
+              "constant": "BOARD_EDGE_H_32",
+              "texture": "nordtal:ui/board/edge_h_32.png",
+              "about": "Horizontal edge, 32 pixels."
+            },
+            {
+              "code": "FE04A",
+              "constant": "BOARD_EDGE_H_64",
+              "texture": "nordtal:ui/board/edge_h_64.png",
+              "about": "Horizontal edge, 64 pixels."
+            },
+            {
+              "code": "FE04B",
+              "constant": "BOARD_EDGE_H_128",
+              "texture": "nordtal:ui/board/edge_h_128.png",
+              "about": "Horizontal edge, 128 pixels."
+            },
+            {
+              "code": "FE04C",
+              "constant": "BOARD_EDGE_V_LEFT",
+              "texture": "nordtal:ui/board/edge_v_l.png",
+              "about": "Vertical edge, left."
+            },
+            {
+              "code": "FE04D",
+              "constant": "BOARD_EDGE_V_RIGHT",
+              "texture": "nordtal:ui/board/edge_v_r.png",
+              "about": "Vertical edge, right."
+            },
+            {
+              "code": "FE04E",
+              "constant": "BOARD_DIVIDER_1",
+              "texture": "nordtal:ui/board/divider_1.png",
+              "about": "Divider, 1 pixel: a rule inside the board, apart from the edge so it can look different."
+            },
+            {
+              "code": "FE04F",
+              "constant": "BOARD_DIVIDER_2",
+              "texture": "nordtal:ui/board/divider_2.png",
+              "about": "Divider, 2 pixels: a rule inside the board, apart from the edge so it can look different."
+            },
+            {
+              "code": "FE050",
+              "constant": "BOARD_DIVIDER_4",
+              "texture": "nordtal:ui/board/divider_4.png",
+              "about": "Divider, 4 pixels: a rule inside the board, apart from the edge so it can look different."
+            },
+            {
+              "code": "FE051",
+              "constant": "BOARD_DIVIDER_8",
+              "texture": "nordtal:ui/board/divider_8.png",
+              "about": "Divider, 8 pixels: a rule inside the board, apart from the edge so it can look different."
+            },
+            {
+              "code": "FE052",
+              "constant": "BOARD_DIVIDER_16",
+              "texture": "nordtal:ui/board/divider_16.png",
+              "about": "Divider, 16 pixels: a rule inside the board, apart from the edge so it can look different."
+            },
+            {
+              "code": "FE053",
+              "constant": "BOARD_DIVIDER_32",
+              "texture": "nordtal:ui/board/divider_32.png",
+              "about": "Divider, 32 pixels: a rule inside the board, apart from the edge so it can look different."
+            },
+            {
+              "code": "FE054",
+              "constant": "BOARD_DIVIDER_64",
+              "texture": "nordtal:ui/board/divider_64.png",
+              "about": "Divider, 64 pixels: a rule inside the board, apart from the edge so it can look different."
+            },
+            {
+              "code": "FE055",
+              "constant": "BOARD_DIVIDER_128",
+              "texture": "nordtal:ui/board/divider_128.png",
+              "about": "Divider, 128 pixels: a rule inside the board, apart from the edge so it can look different."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "font": "nordtal:bossbar",
+      "constant": "FONT_BOSSBAR",
+      "numbering": "own",
+      "about": "The boss bar HUDs only: the vanilla bar is made invisible and the visible one is composed from these glyphs.",
+      "spaces": [
+        { "code": "FF001", "advance": -1, "constant": "BOSSBAR_SPACE_MINUS_1" },
+        { "code": "FF002", "advance": -2, "constant": "BOSSBAR_SPACE_MINUS_2" },
+        { "code": "FF004", "advance": -4, "constant": "BOSSBAR_SPACE_MINUS_4" },
+        { "code": "FF008", "advance": -8, "constant": "BOSSBAR_SPACE_MINUS_8" },
+        { "code": "FF016", "advance": -16, "constant": "BOSSBAR_SPACE_MINUS_16" },
+        { "code": "FF032", "advance": -32, "constant": "BOSSBAR_SPACE_MINUS_32" },
+        { "code": "FF064", "advance": -64, "constant": "BOSSBAR_SPACE_MINUS_64" },
+        { "code": "FF128", "advance": -128, "constant": "BOSSBAR_SPACE_MINUS_128" },
+        { "code": "FFF01", "advance": 1, "constant": "BOSSBAR_SPACE_PLUS_1" },
+        { "code": "FFF02", "advance": 2, "constant": "BOSSBAR_SPACE_PLUS_2" },
+        { "code": "20", "advance": 3, "constant": "BOSSBAR_SPACE_PLUS_3" },
+        { "code": "FFF04", "advance": 4, "constant": "BOSSBAR_SPACE_PLUS_4" },
+        { "code": "FFF08", "advance": 8, "constant": "BOSSBAR_SPACE_PLUS_8" },
+        { "code": "FFF16", "advance": 16, "constant": "BOSSBAR_SPACE_PLUS_16" },
+        { "code": "FFF32", "advance": 32, "constant": "BOSSBAR_SPACE_PLUS_32" }
+      ],
+      "blocks": [
+        {
+          "range": "FE000-FE128",
+          "title": "Bar background",
+          "about": "One rounded pill per piece of information: the left cap, a body of segments, the right cap. A segment's code point is its width in decimal, and the client adds a pixel after each, which BossBarWidth steps back over.",
+          "height": 14,
+          "ascent": 6,
+          "glyphs": [
+            {
+              "code": "FE000",
+              "constant": "BOSSBAR_BG_END",
+              "texture": "nordtal:ui/bossbar/bg/end.png",
+              "about": "The right cap, 4 pixels."
+            },
+            {
+              "code": "FE001",
+              "constant": "BOSSBAR_BG_1",
+              "texture": "nordtal:ui/bossbar/bg/1.png",
+              "about": "A body segment, 1 pixel."
+            },
+            {
+              "code": "FE002",
+              "constant": "BOSSBAR_BG_2",
+              "texture": "nordtal:ui/bossbar/bg/2.png",
+              "about": "A body segment, 2 pixels."
+            },
+            {
+              "code": "FE004",
+              "constant": "BOSSBAR_BG_4",
+              "texture": "nordtal:ui/bossbar/bg/4.png",
+              "about": "A body segment, 4 pixels."
+            },
+            {
+              "code": "FE008",
+              "constant": "BOSSBAR_BG_8",
+              "texture": "nordtal:ui/bossbar/bg/8.png",
+              "about": "A body segment, 8 pixels."
+            },
+            {
+              "code": "FE016",
+              "constant": "BOSSBAR_BG_16",
+              "texture": "nordtal:ui/bossbar/bg/16.png",
+              "about": "A body segment, 16 pixels."
+            },
+            {
+              "code": "FE032",
+              "constant": "BOSSBAR_BG_32",
+              "texture": "nordtal:ui/bossbar/bg/32.png",
+              "about": "A body segment, 32 pixels."
+            },
+            {
+              "code": "FE064",
+              "constant": "BOSSBAR_BG_64",
+              "texture": "nordtal:ui/bossbar/bg/64.png",
+              "about": "A body segment, 64 pixels."
+            },
+            {
+              "code": "FE0FF",
+              "constant": "BOSSBAR_BG_START",
+              "texture": "nordtal:ui/bossbar/bg/start.png",
+              "about": "The left cap, 4 pixels."
+            },
+            {
+              "code": "FE128",
+              "constant": "BOSSBAR_BG_128",
+              "texture": "nordtal:ui/bossbar/bg/128.png",
+              "about": "A body segment, 128 pixels."
+            }
+          ]
+        },
+        {
+          "title": "ASCII override",
+          "about": "Printable ASCII, box drawing and a few symbols on the bar's baseline; it carries the digits, so the HUD needs no digit glyphs.",
+          "texture": "nordtal:font/ascii.png",
+          "height": 8,
+          "ascent": 3,
+          "chars": [
+            "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+            "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+            " !\"#$%&'()*+,-./",
+            "0123456789:;<=>?",
+            "@ABCDEFGHIJKLMNO",
+            "PQRSTUVWXYZ[\\]^_",
+            "`abcdefghijklmno",
+            "pqrstuvwxyz{|}~\u0000",
+            "\u0000ü\u0000\u0000ä\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000Ä\u0000",
+            "\u0000\u0000\u0000\u0000ö\u0000\u0000\u0000\u0000ÖÜ\u0000£\u0000\u0000ƒ",
+            "\u0000\u0000\u0000\u0000\u0000\u0000ªº\u0000\u0000¬\u0000\u0000\u0000«»",
+            "░▒▓│┤╡╢╖╕╣║╗╝╜╛┐",
+            "└┴┬├─┼╞╟╚╔╩╦╠═╬╧",
+            "╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀",
+            "\u0000ß\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000∅∈\u0000",
+            "≡±≥≤⌠⌡÷≈°∙\u0000√ⁿ²■\u0000"
+          ]
+        },
+        {
+          "range": "FEF00-FEF0F",
+          "title": "Status icons",
+          "height": 10,
+          "ascent": 4,
+          "glyphs": [
+            {
+              "code": "FEF00",
+              "constant": "BOSSBAR_ICON_COMPASS",
+              "texture": "nordtal:ui/bossbar/icons/compass.png",
+              "status": "final candidate",
+              "about": "Compass, 10 by 10: a red needle."
+            },
+            {
+              "code": "FEF01",
+              "constant": "BOSSBAR_ICON_FBLUE",
+              "texture": "nordtal:ui/bossbar/icons/fblue.png",
+              "status": "keep",
+              "about": "Land flag, blue, 8 by 10: inside a player's preserved area. Drawn in season 1."
+            },
+            {
+              "code": "FEF02",
+              "constant": "BOSSBAR_ICON_FGREEN",
+              "texture": "nordtal:ui/bossbar/icons/fgreen.png",
+              "status": "keep",
+              "about": "Land flag, green, 8 by 10: permanent land the reset leaves alone. Drawn in season 1."
+            },
+            {
+              "code": "FEF03",
+              "constant": "BOSSBAR_ICON_FRED",
+              "texture": "nordtal:ui/bossbar/icons/fred.png",
+              "status": "keep",
+              "about": "Land flag, red, 8 by 10: a reset zone. Drawn in season 1."
+            },
+            {
+              "code": "FEF04",
+              "constant": "BOSSBAR_ICON_FWHITE",
+              "texture": "nordtal:ui/bossbar/icons/fwhite.png",
+              "status": "keep",
+              "about": "Land flag, white, 8 by 10: the server-protected spawn area. Drawn in season 1."
+            },
+            {
+              "code": "FEF05",
+              "constant": "BOSSBAR_ICON_DIM_OVERWORLD",
+              "texture": "nordtal:ui/bossbar/icons/dim_overworld.png",
+              "status": "final candidate",
+              "about": "Dimension Nordtal, the overworld, 10 by 10: a mountain with a snow cap."
+            },
+            {
+              "code": "FEF07",
+              "constant": "BOSSBAR_ICON_DIM_NETHER",
+              "texture": "nordtal:ui/bossbar/icons/dim_nether.png",
+              "status": "final candidate",
+              "about": "Dimension Nether, 10 by 10: a flame."
+            },
+            {
+              "code": "FEF08",
+              "constant": "BOSSBAR_ICON_DIM_END",
+              "texture": "nordtal:ui/bossbar/icons/dim_end.png",
+              "status": "final candidate",
+              "about": "Dimension End, 10 by 10: an ender eye."
+            },
+            {
+              "code": "FEF09",
+              "constant": "BOSSBAR_ICON_ALIVE",
+              "texture": "nordtal:ui/bossbar/icons/status_alive.png",
+              "status": "final candidate",
+              "about": "Players alive, 10 by 10: a heart."
+            },
+            {
+              "code": "FEF0A",
+              "constant": "BOSSBAR_ICON_DEATHS",
+              "texture": "nordtal:ui/bossbar/icons/status_deaths.png",
+              "status": "final candidate",
+              "about": "Deaths, 10 by 10: a skull."
+            },
+            {
+              "code": "FEF0B",
+              "constant": "BOSSBAR_ICON_LOOT_POINT",
+              "texture": "nordtal:ui/bossbar/icons/status_loot.png",
+              "status": "final candidate",
+              "about": "Loot point, 10 by 10: a chest."
+            },
+            {
+              "code": "FEF0C",
+              "constant": "BOSSBAR_ICON_BORDER",
+              "texture": "nordtal:ui/bossbar/icons/status_border.png",
+              "status": "final candidate",
+              "about": "World border, 10 by 10: a dashed square."
+            }
+          ]
+        },
+        {
+          "range": "FEF10-FEF1F",
+          "title": "Bearing arrows",
+          "about": "Sixteen clockwise steps of 22.5 degrees, rasterized from the angle so they agree exactly, for /navigate, the hunger games' nearest player and the nearest loot point.",
+          "height": 10,
+          "ascent": 4,
+          "status": "final candidate",
+          "glyphs": [
+            {
+              "code": "FEF10",
+              "constant": "BOSSBAR_ARROW_000_0",
+              "list": "BOSSBAR_ARROWS",
+              "texture": "nordtal:ui/bossbar/arrows/arrow_000_0.png",
+              "about": "Bearing 0 degrees."
+            },
+            {
+              "code": "FEF11",
+              "constant": "BOSSBAR_ARROW_022_5",
+              "list": "BOSSBAR_ARROWS",
+              "texture": "nordtal:ui/bossbar/arrows/arrow_022_5.png",
+              "about": "Bearing 22.5 degrees."
+            },
+            {
+              "code": "FEF12",
+              "constant": "BOSSBAR_ARROW_045_0",
+              "list": "BOSSBAR_ARROWS",
+              "texture": "nordtal:ui/bossbar/arrows/arrow_045_0.png",
+              "about": "Bearing 45 degrees."
+            },
+            {
+              "code": "FEF13",
+              "constant": "BOSSBAR_ARROW_067_5",
+              "list": "BOSSBAR_ARROWS",
+              "texture": "nordtal:ui/bossbar/arrows/arrow_067_5.png",
+              "about": "Bearing 67.5 degrees."
+            },
+            {
+              "code": "FEF14",
+              "constant": "BOSSBAR_ARROW_090_0",
+              "list": "BOSSBAR_ARROWS",
+              "texture": "nordtal:ui/bossbar/arrows/arrow_090_0.png",
+              "about": "Bearing 90 degrees."
+            },
+            {
+              "code": "FEF15",
+              "constant": "BOSSBAR_ARROW_112_5",
+              "list": "BOSSBAR_ARROWS",
+              "texture": "nordtal:ui/bossbar/arrows/arrow_112_5.png",
+              "about": "Bearing 112.5 degrees."
+            },
+            {
+              "code": "FEF16",
+              "constant": "BOSSBAR_ARROW_135_0",
+              "list": "BOSSBAR_ARROWS",
+              "texture": "nordtal:ui/bossbar/arrows/arrow_135_0.png",
+              "about": "Bearing 135 degrees."
+            },
+            {
+              "code": "FEF17",
+              "constant": "BOSSBAR_ARROW_157_5",
+              "list": "BOSSBAR_ARROWS",
+              "texture": "nordtal:ui/bossbar/arrows/arrow_157_5.png",
+              "about": "Bearing 157.5 degrees."
+            },
+            {
+              "code": "FEF18",
+              "constant": "BOSSBAR_ARROW_180_0",
+              "list": "BOSSBAR_ARROWS",
+              "texture": "nordtal:ui/bossbar/arrows/arrow_180_0.png",
+              "about": "Bearing 180 degrees."
+            },
+            {
+              "code": "FEF19",
+              "constant": "BOSSBAR_ARROW_202_5",
+              "list": "BOSSBAR_ARROWS",
+              "texture": "nordtal:ui/bossbar/arrows/arrow_202_5.png",
+              "about": "Bearing 202.5 degrees."
+            },
+            {
+              "code": "FEF1A",
+              "constant": "BOSSBAR_ARROW_225_0",
+              "list": "BOSSBAR_ARROWS",
+              "texture": "nordtal:ui/bossbar/arrows/arrow_225_0.png",
+              "about": "Bearing 225 degrees."
+            },
+            {
+              "code": "FEF1B",
+              "constant": "BOSSBAR_ARROW_247_5",
+              "list": "BOSSBAR_ARROWS",
+              "texture": "nordtal:ui/bossbar/arrows/arrow_247_5.png",
+              "about": "Bearing 247.5 degrees."
+            },
+            {
+              "code": "FEF1C",
+              "constant": "BOSSBAR_ARROW_270_0",
+              "list": "BOSSBAR_ARROWS",
+              "texture": "nordtal:ui/bossbar/arrows/arrow_270_0.png",
+              "about": "Bearing 270 degrees."
+            },
+            {
+              "code": "FEF1D",
+              "constant": "BOSSBAR_ARROW_292_5",
+              "list": "BOSSBAR_ARROWS",
+              "texture": "nordtal:ui/bossbar/arrows/arrow_292_5.png",
+              "about": "Bearing 292.5 degrees."
+            },
+            {
+              "code": "FEF1E",
+              "constant": "BOSSBAR_ARROW_315_0",
+              "list": "BOSSBAR_ARROWS",
+              "texture": "nordtal:ui/bossbar/arrows/arrow_315_0.png",
+              "about": "Bearing 315 degrees."
+            },
+            {
+              "code": "FEF1F",
+              "constant": "BOSSBAR_ARROW_337_5",
+              "list": "BOSSBAR_ARROWS",
+              "texture": "nordtal:ui/bossbar/arrows/arrow_337_5.png",
+              "about": "Bearing 337.5 degrees."
+            }
+          ]
+        },
+        {
+          "range": "FEF20-FEF2F",
+          "title": "Reserved for a larger digit set",
+          "glyphs": []
+        }
+      ],
+      "lists": [
+        {
+          "constant": "BOSSBAR_ARROWS",
+          "about": "All sixteen bearing arrows, clockwise from straight ahead; a bearing in degrees indexes it with Math.floorMod(Math.round(bearing / 22.5), 16)."
+        }
+      ]
+    },
+    {
+      "font": "nordtal:gui",
+      "constant": "FONT_GUI",
+      "about": "The menu panels, drawn out of a chest inventory's title on ascent 13 and as tall as the window, so they cover the vanilla background.",
+      "spaces": [
+        { "code": "FF001", "advance": -1, "constant": "GUI_SPACE_MINUS_1" },
+        { "code": "FF801", "advance": 1, "constant": "GUI_SPACE_PLUS_1" },
+        { "code": "FF002", "advance": -2, "constant": "GUI_SPACE_MINUS_2" },
+        { "code": "FF802", "advance": 2, "constant": "GUI_SPACE_PLUS_2" },
+        { "code": "FF004", "advance": -4, "constant": "GUI_SPACE_MINUS_4" },
+        { "code": "FF804", "advance": 4, "constant": "GUI_SPACE_PLUS_4" },
+        { "code": "FF008", "advance": -8, "constant": "GUI_SPACE_MINUS_8" },
+        { "code": "FF808", "advance": 8, "constant": "GUI_SPACE_PLUS_8" },
+        { "code": "FF016", "advance": -16, "constant": "GUI_SPACE_MINUS_16" },
+        { "code": "FF816", "advance": 16, "constant": "GUI_SPACE_PLUS_16" },
+        { "code": "FF032", "advance": -32, "constant": "GUI_SPACE_MINUS_32" },
+        { "code": "FF832", "advance": 32, "constant": "GUI_SPACE_PLUS_32" },
+        { "code": "FF064", "advance": -64, "constant": "GUI_SPACE_MINUS_64" },
+        { "code": "FF864", "advance": 64, "constant": "GUI_SPACE_PLUS_64" },
+        { "code": "FF128", "advance": -128, "constant": "GUI_SPACE_MINUS_128" },
+        { "code": "FF928", "advance": 128, "constant": "GUI_SPACE_PLUS_128" }
+      ],
+      "blocks": [
+        {
+          "range": "FE060-FE065",
+          "title": "Chest panels",
+          "ascent": 13,
+          "status": "placeholder",
+          "glyphs": [
+            {
+              "code": "FE060",
+              "constant": "GUI_PANEL_1",
+              "list": "GUI_PANELS",
+              "texture": "nordtal:ui/gui/panel_1.png",
+              "height": 132,
+              "about": "The 1-row chest panel, 176 by 132."
+            },
+            {
+              "code": "FE061",
+              "constant": "GUI_PANEL_2",
+              "list": "GUI_PANELS",
+              "texture": "nordtal:ui/gui/panel_2.png",
+              "height": 150,
+              "about": "The 2-row chest panel, 176 by 150."
+            },
+            {
+              "code": "FE062",
+              "constant": "GUI_PANEL_3",
+              "list": "GUI_PANELS",
+              "texture": "nordtal:ui/gui/panel_3.png",
+              "height": 168,
+              "about": "The 3-row chest panel, 176 by 168."
+            },
+            {
+              "code": "FE063",
+              "constant": "GUI_PANEL_4",
+              "list": "GUI_PANELS",
+              "texture": "nordtal:ui/gui/panel_4.png",
+              "height": 186,
+              "about": "The 4-row chest panel, 176 by 186."
+            },
+            {
+              "code": "FE064",
+              "constant": "GUI_PANEL_5",
+              "list": "GUI_PANELS",
+              "texture": "nordtal:ui/gui/panel_5.png",
+              "height": 204,
+              "about": "The 5-row chest panel, 176 by 204."
+            },
+            {
+              "code": "FE065",
+              "constant": "GUI_PANEL_6",
+              "list": "GUI_PANELS",
+              "texture": "nordtal:ui/gui/panel_6.png",
+              "height": 222,
+              "about": "The 6-row chest panel, 176 by 222."
+            }
+          ]
+        },
+        {
+          "range": "FE066-FE06A",
+          "title": "The travel panel and its overlays",
+          "about": "An overlay is declared once per card row, with the ascent that lands it there.",
+          "status": "final candidate",
+          "glyphs": [
+            {
+              "code": "FE066",
+              "constant": "GUI_TRAVEL_PANEL",
+              "texture": "nordtal:ui/gui/travel.png",
+              "height": 222,
+              "ascent": 13,
+              "about": "The balloon's panel: a 6-row window with the three world cards baked in, each 68 by 50 at x 9 or 99 and y 19 or 73."
+            },
+            {
+              "code": "FE067",
+              "constant": "GUI_TRAVEL_LOCKED_TOP",
+              "texture": "nordtal:ui/gui/travel_locked.png",
+              "height": 50,
+              "ascent": -6,
+              "about": "Locked: a translucent shade with a padlock, the size of one card, on the upper card row."
+            },
+            {
+              "code": "FE068",
+              "constant": "GUI_TRAVEL_LOCKED_BOTTOM",
+              "texture": "nordtal:ui/gui/travel_locked.png",
+              "height": 50,
+              "ascent": -60,
+              "about": "Locked, on the lower card row."
+            },
+            {
+              "code": "FE069",
+              "constant": "GUI_TRAVEL_HERE_TOP",
+              "texture": "nordtal:ui/gui/travel_here.png",
+              "height": 50,
+              "ascent": -6,
+              "about": "You are here: a white frame 2 pixels wide, transparent inside, on the upper card row."
+            },
+            {
+              "code": "FE06A",
+              "constant": "GUI_TRAVEL_HERE_BOTTOM",
+              "texture": "nordtal:ui/gui/travel_here.png",
+              "height": 50,
+              "ascent": -60,
+              "about": "You are here, on the lower card row."
+            }
+          ]
+        },
+        {
+          "range": "FE06B-FE07F",
+          "title": "Chest panels without recesses",
+          "about": "For list menus, whose plates span a whole row; the player's inventory keeps its recesses.",
+          "ascent": 13,
+          "status": "placeholder",
+          "glyphs": [
+            {
+              "code": "FE06B",
+              "constant": "GUI_PANEL_PLAIN_1",
+              "list": "GUI_PANELS_PLAIN",
+              "texture": "nordtal:ui/gui/panel_1_plain.png",
+              "height": 132,
+              "about": "The 1-row chest panel without the chest area's slot recesses, 176 by 132."
+            },
+            {
+              "code": "FE06C",
+              "constant": "GUI_PANEL_PLAIN_2",
+              "list": "GUI_PANELS_PLAIN",
+              "texture": "nordtal:ui/gui/panel_2_plain.png",
+              "height": 150,
+              "about": "The 2-row chest panel without the chest area's slot recesses, 176 by 150."
+            },
+            {
+              "code": "FE06D",
+              "constant": "GUI_PANEL_PLAIN_3",
+              "list": "GUI_PANELS_PLAIN",
+              "texture": "nordtal:ui/gui/panel_3_plain.png",
+              "height": 168,
+              "about": "The 3-row chest panel without the chest area's slot recesses, 176 by 168."
+            },
+            {
+              "code": "FE06E",
+              "constant": "GUI_PANEL_PLAIN_4",
+              "list": "GUI_PANELS_PLAIN",
+              "texture": "nordtal:ui/gui/panel_4_plain.png",
+              "height": 186,
+              "about": "The 4-row chest panel without the chest area's slot recesses, 176 by 186."
+            },
+            {
+              "code": "FE06F",
+              "constant": "GUI_PANEL_PLAIN_5",
+              "list": "GUI_PANELS_PLAIN",
+              "texture": "nordtal:ui/gui/panel_5_plain.png",
+              "height": 204,
+              "about": "The 5-row chest panel without the chest area's slot recesses, 176 by 204."
+            },
+            {
+              "code": "FE070",
+              "constant": "GUI_PANEL_PLAIN_6",
+              "list": "GUI_PANELS_PLAIN",
+              "texture": "nordtal:ui/gui/panel_6_plain.png",
+              "height": 222,
+              "about": "The 6-row chest panel without the chest area's slot recesses, 176 by 222."
+            }
+          ]
+        },
+        {
+          "range": "FE200-FE2FF",
+          "title": "Menu surfaces",
+          "about": "Art spanning more than one chest row; art that can land on two rows is declared once per row, with the ascent that lands it there.",
+          "status": "placeholder",
+          "glyphs": [
+            {
+              "code": "FE200",
+              "constant": "GUI_CARD_TOP",
+              "texture": "nordtal:ui/gui/objective_card.png",
+              "height": 32,
+              "ascent": -24,
+              "about": "An objective card, 68 by 32, with the progress bar's track at (3, 14), on the upper card row at y 37."
+            },
+            {
+              "code": "FE201",
+              "constant": "GUI_CARD_BOTTOM",
+              "texture": "nordtal:ui/gui/objective_card.png",
+              "height": 32,
+              "ascent": -60,
+              "about": "The same card on the lower card row, at y 73."
+            },
+            {
+              "code": "FE202",
+              "constant": "GUI_CARD_DONE_TOP",
+              "texture": "nordtal:ui/gui/objective_card_done.png",
+              "height": 32,
+              "ascent": -24,
+              "about": "The green wash over a finished card, bar included, on the upper card row."
+            },
+            {
+              "code": "FE203",
+              "constant": "GUI_CARD_DONE_BOTTOM",
+              "texture": "nordtal:ui/gui/objective_card_done.png",
+              "height": 32,
+              "ascent": -60,
+              "about": "The same wash, on the lower card row."
+            },
+            {
+              "code": "FE204",
+              "constant": "GUI_HANDIN_TRAY",
+              "texture": "nordtal:ui/gui/handin_tray.png",
+              "height": 54,
+              "ascent": -4,
+              "about": "The hand-in screen's tray, 162 by 54: one sunken surface over three chest rows, because any cell accepts items."
+            },
+            {
+              "code": "FE205",
+              "list": "GUI_GRAVE_SLAB",
+              "texture": "nordtal:ui/gui/grave_slab_1.png",
+              "height": 18,
+              "ascent": -4,
+              "about": "The grave's slab for 1 row: a recess per slot, because each stack is taken on its own."
+            },
+            {
+              "code": "FE206",
+              "list": "GUI_GRAVE_SLAB",
+              "texture": "nordtal:ui/gui/grave_slab_2.png",
+              "height": 36,
+              "ascent": -4,
+              "about": "The grave's slab for 2 rows: a recess per slot, because each stack is taken on its own."
+            },
+            {
+              "code": "FE207",
+              "list": "GUI_GRAVE_SLAB",
+              "texture": "nordtal:ui/gui/grave_slab_3.png",
+              "height": 54,
+              "ascent": -4,
+              "about": "The grave's slab for 3 rows: a recess per slot, because each stack is taken on its own."
+            },
+            {
+              "code": "FE208",
+              "list": "GUI_GRAVE_SLAB",
+              "texture": "nordtal:ui/gui/grave_slab_4.png",
+              "height": 72,
+              "ascent": -4,
+              "about": "The grave's slab for 4 rows: a recess per slot, because each stack is taken on its own."
+            },
+            {
+              "code": "FE209",
+              "list": "GUI_GRAVE_SLAB",
+              "texture": "nordtal:ui/gui/grave_slab_5.png",
+              "height": 90,
+              "ascent": -4,
+              "about": "The grave's slab for 5 rows: a recess per slot, because each stack is taken on its own."
+            },
+            {
+              "code": "FE20A",
+              "constant": "GUI_WHEEL_RING",
+              "texture": "nordtal:ui/gui/wheel_ring.png",
+              "height": 204,
+              "ascent": 13,
+              "about": "The wheel's panel, 176 by 204: a band round twelve prize cells, a hub, and a white frame on the winning cell."
+            },
+            {
+              "code": "FE210",
+              "list": "GUI_BAR_FILL_TOP",
+              "texture": "nordtal:ui/gui/bar_fill_1.png",
+              "height": 3,
+              "ascent": -39,
+              "about": "The progress bar's fill, 1 pixel, on the upper card row."
+            },
+            {
+              "code": "FE211",
+              "list": "GUI_BAR_FILL_TOP",
+              "texture": "nordtal:ui/gui/bar_fill_2.png",
+              "height": 3,
+              "ascent": -39,
+              "about": "The progress bar's fill, 2 pixels, on the upper card row."
+            },
+            {
+              "code": "FE212",
+              "list": "GUI_BAR_FILL_TOP",
+              "texture": "nordtal:ui/gui/bar_fill_4.png",
+              "height": 3,
+              "ascent": -39,
+              "about": "The progress bar's fill, 4 pixels, on the upper card row."
+            },
+            {
+              "code": "FE213",
+              "list": "GUI_BAR_FILL_TOP",
+              "texture": "nordtal:ui/gui/bar_fill_8.png",
+              "height": 3,
+              "ascent": -39,
+              "about": "The progress bar's fill, 8 pixels, on the upper card row."
+            },
+            {
+              "code": "FE214",
+              "list": "GUI_BAR_FILL_TOP",
+              "texture": "nordtal:ui/gui/bar_fill_16.png",
+              "height": 3,
+              "ascent": -39,
+              "about": "The progress bar's fill, 16 pixels, on the upper card row."
+            },
+            {
+              "code": "FE215",
+              "list": "GUI_BAR_FILL_TOP",
+              "texture": "nordtal:ui/gui/bar_fill_32.png",
+              "height": 3,
+              "ascent": -39,
+              "about": "The progress bar's fill, 32 pixels, on the upper card row."
+            },
+            {
+              "code": "FE218",
+              "list": "GUI_BAR_FILL_BOTTOM",
+              "texture": "nordtal:ui/gui/bar_fill_1.png",
+              "height": 3,
+              "ascent": -75,
+              "about": "The progress bar's fill, 1 pixel, on the lower card row."
+            },
+            {
+              "code": "FE219",
+              "list": "GUI_BAR_FILL_BOTTOM",
+              "texture": "nordtal:ui/gui/bar_fill_2.png",
+              "height": 3,
+              "ascent": -75,
+              "about": "The progress bar's fill, 2 pixels, on the lower card row."
+            },
+            {
+              "code": "FE21A",
+              "list": "GUI_BAR_FILL_BOTTOM",
+              "texture": "nordtal:ui/gui/bar_fill_4.png",
+              "height": 3,
+              "ascent": -75,
+              "about": "The progress bar's fill, 4 pixels, on the lower card row."
+            },
+            {
+              "code": "FE21B",
+              "list": "GUI_BAR_FILL_BOTTOM",
+              "texture": "nordtal:ui/gui/bar_fill_8.png",
+              "height": 3,
+              "ascent": -75,
+              "about": "The progress bar's fill, 8 pixels, on the lower card row."
+            },
+            {
+              "code": "FE21C",
+              "list": "GUI_BAR_FILL_BOTTOM",
+              "texture": "nordtal:ui/gui/bar_fill_16.png",
+              "height": 3,
+              "ascent": -75,
+              "about": "The progress bar's fill, 16 pixels, on the lower card row."
+            },
+            {
+              "code": "FE21D",
+              "list": "GUI_BAR_FILL_BOTTOM",
+              "texture": "nordtal:ui/gui/bar_fill_32.png",
+              "height": 3,
+              "ascent": -75,
+              "about": "The progress bar's fill, 32 pixels, on the lower card row."
+            }
+          ]
+        }
+      ],
+      "lists": [
+        { "constant": "GUI_PANELS", "about": "The six panels, one row first, indexed by row count minus one." },
+        {
+          "constant": "GUI_PANELS_PLAIN",
+          "about": "The six panels without recesses, one row first, indexed by row count minus one."
+        },
+        {
+          "constant": "GUI_GRAVE_SLAB",
+          "about": "The grave's slab, one glyph per row count from one to five; five is the most, because a player carries at most forty-one stacks and row six is the footer."
+        },
+        {
+          "constant": "GUI_BAR_FILL_TOP",
+          "about": "The progress bar's fill in powers of two, narrowest first, on the upper card row; the track is baked into the card, so an empty bar draws nothing."
+        },
+        { "constant": "GUI_BAR_FILL_BOTTOM", "about": "The same six, on the lower card row." }
+      ]
+    },
+    {
+      "font": "nordtal:gui_r{row}",
+      "rows": 6,
+      "pitch": 18,
+      "constant": "FONT_GUI_ROWS",
+      "about": "Everything drawn on a chest row: a list entry's plate, its icon, its label. One font per chest row from the top, because a font's ascent is a glyph's only vertical control; row r draws every bitmap 18 r pixels lower than row 0.",
+      "spaces": [
+        { "code": "20", "advance": 3 },
+        { "code": "FF001", "advance": -1 },
+        { "code": "FF801", "advance": 1 },
+        { "code": "FF002", "advance": -2 },
+        { "code": "FF802", "advance": 2 },
+        { "code": "FF004", "advance": -4 },
+        { "code": "FF804", "advance": 4 },
+        { "code": "FF008", "advance": -8 },
+        { "code": "FF808", "advance": 8 },
+        { "code": "FF016", "advance": -16 },
+        { "code": "FF816", "advance": 16 },
+        { "code": "FF032", "advance": -32 },
+        { "code": "FF832", "advance": 32 },
+        { "code": "FF064", "advance": -64 },
+        { "code": "FF864", "advance": 64 },
+        { "code": "FF128", "advance": -128 },
+        { "code": "FF928", "advance": 128 }
+      ],
+      "blocks": [
+        {
+          "range": "FE100-FE10F",
+          "title": "Row plates",
+          "height": 14,
+          "ascent": -6,
+          "status": "placeholder",
+          "glyphs": [
+            {
+              "code": "FE100",
+              "constant": "GUI_ROW_PILL",
+              "texture": "nordtal:ui/gui/row_pill.png",
+              "about": "A list entry's plate, 158 by 14: the nine cells of its row, inset 2."
+            },
+            {
+              "code": "FE101",
+              "constant": "GUI_ROW_FRAME",
+              "texture": "nordtal:ui/gui/row_frame.png",
+              "about": "The active marker, 158 by 14: a hollow white frame 2 pixels wide, drawn last on its row."
+            },
+            {
+              "code": "FE102",
+              "constant": "GUI_ROW_BUTTON_WIDE",
+              "texture": "nordtal:ui/gui/row_button_wide.png",
+              "about": "A refusing button plate, 52 by 14 over three cells, as in the stop of /navigate."
+            },
+            {
+              "code": "FE103",
+              "constant": "GUI_ROW_BUTTON_SMALL",
+              "texture": "nordtal:ui/gui/row_button_small.png",
+              "about": "A square button plate, 14 by 14: one slot cell inset 2."
+            },
+            {
+              "code": "FE104",
+              "constant": "GUI_ROW_BUTTON_SMALL_OFF",
+              "texture": "nordtal:ui/gui/row_button_small_off.png",
+              "about": "The same, greyed: a page button with no page behind it."
+            },
+            {
+              "code": "FE105",
+              "constant": "GUI_ROW_PILL_DARK",
+              "texture": "nordtal:ui/gui/row_pill_dark.png",
+              "about": "The plate in a darker grey, 158 by 14, for a heading row that is not clickable."
+            },
+            {
+              "code": "FE106",
+              "constant": "GUI_ROW_BUTTON_CONFIRM",
+              "texture": "nordtal:ui/gui/row_button_confirm.png",
+              "about": "An affirming gold button plate, 50 by 14 over three cells, for a click that cannot be undone."
+            },
+            {
+              "code": "FE107",
+              "constant": "GUI_ROW_BUTTON_TAKE",
+              "texture": "nordtal:ui/gui/row_button_take.png",
+              "about": "The same, 68 by 14 over four cells, as in the grave's take everything."
+            },
+            {
+              "code": "FE108",
+              "constant": "GUI_ROW_PILL_SHORT",
+              "texture": "nordtal:ui/gui/row_pill_short.png",
+              "about": "The entry plate at 122 by 14, for a row that carries controls on its right."
+            }
+          ]
+        },
+        {
+          "range": "FE110-FE1FF",
+          "title": "Row icons",
+          "about": "One sheet of 8 by 8 pictograms, drawn white and tinted by the component. Hand-in, statistic, advancement and done are an objective's state, so exactly one is drawn per card.",
+          "texture": "nordtal:ui/gui/row_icons.png",
+          "height": 8,
+          "ascent": -9,
+          "status": "placeholder",
+          "glyphs": [
+            { "code": "FE110", "constant": "GUI_ROW_ICON_SPAWN", "about": "A house: a world's spawn." },
+            { "code": "FE111", "constant": "GUI_ROW_ICON_DEATH", "about": "A skull: where you last died." },
+            {
+              "code": "FE112",
+              "constant": "GUI_ROW_ICON_POI",
+              "about": "A map pin: a point of interest a player made."
+            },
+            { "code": "FE113", "constant": "GUI_ROW_ICON_STOP", "about": "A cross: stop." },
+            { "code": "FE114", "constant": "GUI_ROW_ICON_PREV", "about": "A left arrow: the previous page." },
+            { "code": "FE115", "constant": "GUI_ROW_ICON_NEXT", "about": "A right arrow: the next page." },
+            {
+              "code": "FE116",
+              "constant": "GUI_ROW_ICON_HAND_IN",
+              "about": "A hand: a hand-in objective, the one kind you can click."
+            },
+            {
+              "code": "FE117",
+              "constant": "GUI_ROW_ICON_STATISTIC",
+              "about": "A pickaxe: a statistic objective, which counts itself."
+            },
+            {
+              "code": "FE118",
+              "constant": "GUI_ROW_ICON_ADVANCEMENT",
+              "about": "A medal: an advancement objective, earned somewhere else entirely."
+            },
+            {
+              "code": "FE119",
+              "constant": "GUI_ROW_ICON_DONE",
+              "about": "A tick: a finished objective, whichever kind it was."
+            },
+            {
+              "code": "FE11A",
+              "constant": "GUI_ROW_ICON_AURA",
+              "about": "An experience orb: the objective menu's share line."
+            }
+          ]
+        },
+        {
+          "title": "The five-pixel sheet",
+          "about": "A to Z, 0 to 9, punctuation, the German letters, a dot, and two blocks for a text bar, all capitals: MenuFont folds lower case onto them.",
+          "texture": "nordtal:ui/gui/row_text.png",
+          "height": 5,
+          "ascent": -10,
+          "chars": ["ABCDEFGH", "IJKLMNOP", "QRSTUVWX", "YZ012345", "6789.,:/", "-+%()!?'", "\"ÄÖÜß∙█░"]
+        }
+      ]
+    }
+  ]
+}

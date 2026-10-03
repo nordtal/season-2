@@ -1,5 +1,3 @@
-import eu.nordtal.s2.build.GenerateGlyphAdvances
-
 plugins {
     id("nordtal.java-base")
     id("java-library")
@@ -7,19 +5,26 @@ plugins {
     id("java-test-fixtures")
 }
 
-// The boss bar pills are sized from this advance table, derived from the assembled pack on every build and never
-// committed.
-val assembledPack = configurations.resolvable("packForAdvances") { extendsFrom(configurations["resourcePack"]) }
+// Glyphs and the advance tables the HUD and the menus are sized from, which :resource-pack writes from glyphs.json on
+// every build; none of it is committed.
+val glyphJava = configurations.dependencyScope("glyphJava")
+val glyphJavaFiles = configurations.resolvable("glyphJavaFiles") { extendsFrom(glyphJava.get()) }
+val glyphResources = configurations.dependencyScope("glyphResources")
+val glyphResourceFiles = configurations.resolvable("glyphResourceFiles") { extendsFrom(glyphResources.get()) }
 
-val bossbarAdvances =
-    tasks.register<GenerateGlyphAdvances>("generateBossbarAdvances") {
-        pack.from(assembledPack)
-        font.set("nordtal/font/bossbar.json")
-        target.set(layout.buildDirectory.file("generated/advances/nordtal/hud/bossbar-advances.properties"))
+// Into this module's own build directory, which the conventions' checks recognise as generated code.
+val glyphSources =
+    tasks.register<Sync>("glyphSources") {
+        from(glyphJavaFiles)
+        into(layout.buildDirectory.dir("generated/sources/glyphs/java"))
     }
 
 sourceSets.main {
-    resources.srcDir(files(layout.buildDirectory.dir("generated/advances")).builtBy(bossbarAdvances))
+    java.srcDir(glyphSources)
+}
+
+tasks.named<ProcessResources>("processResources") {
+    from(glyphResourceFiles)
 }
 
 // Files outside this module that the HUD and pack tests read.
@@ -30,6 +35,9 @@ repositoryRootTestInputs {
 }
 
 dependencies {
+    "glyphJava"(project(":resource-pack", "glyphJava"))
+    "glyphResources"(project(":resource-pack", "glyphResources"))
+
     // The assembled pack, which the tests read through the nordtal.pack system property.
     "resourcePack"(project(":resource-pack", "pack"))
 

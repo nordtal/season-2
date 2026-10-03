@@ -10,7 +10,6 @@
     "**/*.sql",
     "**/package-lock.json",
     "resource-pack/src/**",
-    "resource-pack/templates/**",
     "**/src/test/resources/**"
   ]
 }

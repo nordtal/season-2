@@ -173,7 +173,7 @@ public final class Homecoming {
      *
      * Always read in English, since every locale falls back to English and would otherwise lose the name.
      */
-    public static Component serviceName(final Messages messages, final Locale locale, final String service) {
+    public static String serviceName(final Messages messages, final Locale locale, final String service) {
         final ProxyMessages.Restart.What names = MESSAGES.restart().what();
         final MessageRef name = switch (service) {
             case "smp" -> names.smp();
@@ -182,8 +182,6 @@ public final class Homecoming {
             case "proxy" -> names.proxy();
             default -> null;
         };
-        return name == null
-                ? Component.text(service)
-                : MessageRenderer.of(messages).format(locale, name);
+        return name == null ? service : messages.format(locale, name);
     }
 }

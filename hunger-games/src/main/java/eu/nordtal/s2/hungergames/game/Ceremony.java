@@ -3,6 +3,7 @@ package eu.nordtal.s2.hungergames.game;
 import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
@@ -10,7 +11,6 @@ import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
-import eu.nordtal.s2.packrendering.Glyphs;
 import eu.nordtal.s2.papercommon.player.Identities;
 import java.util.ArrayList;
 import java.util.List;
@@ -53,7 +53,7 @@ public final class Ceremony {
             @Nullable UUID winnerMcUuid,
             List<HgMember> members,
             Map<UUID, Integer> kills,
-            Map<UUID, String> names) {}
+            Map<UUID, PlayerContext> names) {}
 
     /**
      * Teleports everyone in the world back to the lobby and announces the result in each player's language.
@@ -101,7 +101,7 @@ public final class Ceremony {
                             player(decision, outcome.winnerMemberId()), outcome.winnerKills(), outcome.loserKills()));
         } else if (outcome.winnerMemberId() != null) {
             // The one line with an icon; the glyph is a parameter since Glyphs names code points.
-            lines.add(MESSAGES.hg().win().player(Glyphs.ICON_ANNOUNCE, player(decision, outcome.winnerMemberId())));
+            lines.add(MESSAGES.hg().win().player(player(decision, outcome.winnerMemberId())));
         } else if (outcome.tie()) {
             lines.add(MESSAGES.hg().win().noWinner(outcome.winnerKills()));
         } else {
@@ -125,15 +125,18 @@ public final class Ceremony {
      * Only a member who never logged in has no name on record, and such a member cannot have played.
      */
     private static PlayerContext player(final Decision decision, final UUID memberId) {
-        final String name = decision.names().get(memberId);
-        if (name != null) {
-            return new PlayerContext(name);
+        final PlayerContext named = decision.names().get(memberId);
+        if (named != null) {
+            return named;
         }
-        return new PlayerContext(decision.members().stream()
-                .filter(member -> member.id().equals(memberId))
-                .map(HgMember::discordId)
-                .findFirst()
-                .orElse(DiscordId.of(memberId.toString()))
-                .value());
+        // The member id stands in for an account nobody has, so no hover card and no reader is them.
+        return PlayerContext.of(
+                PlayerId.of(memberId),
+                decision.members().stream()
+                        .filter(member -> member.id().equals(memberId))
+                        .map(HgMember::discordId)
+                        .findFirst()
+                        .orElse(DiscordId.of(memberId.toString()))
+                        .value());
     }
 }

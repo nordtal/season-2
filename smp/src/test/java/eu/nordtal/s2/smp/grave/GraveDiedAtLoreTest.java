@@ -4,32 +4,34 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.smp.SmpMessages;
+import java.time.Instant;
 import java.util.Locale;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import org.junit.jupiter.api.Test;
 
-/** The grave head's lore prints "Died dd/mm/yyyy at x y z", checked through the real bundle in both languages. */
+/** The grave head's lore prints the day of death and the place, checked through the real bundle in both languages. */
 class GraveDiedAtLoreTest {
 
     private static final Messages MESSAGES =
             Messages.load(GraveDiedAtLoreTest.class.getClassLoader(), "messages/smp", Locale.ENGLISH, Locale.GERMAN);
     private static final MessageRenderer RENDERER = MessageRenderer.of(MESSAGES);
+    private static final SmpMessages.Smp.Grave DIED = SmpMessages.MESSAGES.smp().grave();
+    private static final Instant AT = Instant.parse("2026-09-17T10:00:00Z");
 
     @Test
     void english() {
         assertEquals(
-                "Died 17/09/2026 at 100 64 -200",
-                plain(RENDERER.format(
-                        Locale.ENGLISH, "smp.grave.died-at", "date", "17/09/2026", "x", 100, "y", 64, "z", -200)));
+                "Died Sep 17, 2026 at 100 64 -200",
+                plain(RENDERER.format(Locale.ENGLISH, DIED.diedAt(AT, 100, 64, -200))));
     }
 
     @Test
     void german() {
         assertEquals(
-                "Gestorben am 17/09/2026 bei 100 64 -200",
-                plain(RENDERER.format(
-                        Locale.GERMAN, "smp.grave.died-at", "date", "17/09/2026", "x", 100, "y", 64, "z", -200)));
+                "Gestorben am 17.09.2026 bei 100 64 -200",
+                plain(RENDERER.format(Locale.GERMAN, DIED.diedAt(AT, 100, 64, -200))));
     }
 
     /** The old hint key is replaced, not kept alongside the new line: it must be gone, not merely unused. */

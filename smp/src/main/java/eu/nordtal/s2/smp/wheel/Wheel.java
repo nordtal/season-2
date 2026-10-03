@@ -7,6 +7,7 @@ import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.messages.value.GameContent;
 import eu.nordtal.s2.papercommon.game.GameKeys;
 import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.config.SmpSpec;
@@ -208,7 +209,7 @@ public final class Wheel {
                 .values()
                 .forEach(left -> player.getWorld().dropItemNaturally(dropAt, left));
         player.sendMessage(MessageRenderer.of(messages)
-                .format(locale, MESSAGES.smp().wheel().won(count, material.translationKey())));
+                .format(locale, MESSAGES.smp().wheel().won(count, GameContent.of(material.translationKey()))));
     }
 
     /** One icon per prize, in pool order, with a barrier for a material that does not resolve. */

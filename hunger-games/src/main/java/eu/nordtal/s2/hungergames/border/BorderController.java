@@ -135,9 +135,7 @@ public final class BorderController {
             player.sendMessage(MessageRenderer.of(messages)
                     .format(
                             identities.languageOf(player.getUniqueId()),
-                            MESSAGES.hg()
-                                    .border()
-                                    .shrinkStarted(String.valueOf(Math.round(target)), String.valueOf(seconds))));
+                            MESSAGES.hg().border().shrinkStarted(Math.round(target), seconds)));
             sounds.play(player, Feedback.COUNTDOWN_TICK);
         }
     }

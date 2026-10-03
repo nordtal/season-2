@@ -45,30 +45,13 @@ public final class LaunchCountdown {
         return messages.format(locale, MESSAGES.countdown().minutes(remaining.toMinutes()));
     }
 
-    /**
-     * The countdown wrapped in {@code gate.countdown}, or the "no date announced" line, which is already a sentence.
-     *
-     * @param messages the bundle
-     * @param locale   the language
-     * @param launch   the opening instant, or {@code null}
-     * @param now      the instant to measure against
-     * @return one sentence
-     */
-    public static String sentence(
-            final Messages messages, final Locale locale, final @Nullable Instant launch, final Instant now) {
-        if (launch == null) {
-            return messages.format(locale, MESSAGES.gate().countdownSection().unknown());
-        }
-        return messages.format(locale, MESSAGES.gate().countdown(render(messages, locale, launch, now)));
-    }
-
-    /**
-     * The same sentence as a component, for the disconnect screens.
-     *
-     * Composes first and parses once, so either key may carry tags; every substituted value is a computed number.
-     */
+    /** The countdown wrapped in {@code gate.countdown}, or the "no date announced" line, for the disconnect screens. */
     public static Component component(
             final Messages messages, final Locale locale, final @Nullable Instant launch, final Instant now) {
-        return MessageRenderer.parse(sentence(messages, locale, launch, now));
+        final MessageRenderer renderer = MessageRenderer.of(messages);
+        if (launch == null) {
+            return renderer.format(locale, MESSAGES.gate().countdownSection().unknown());
+        }
+        return renderer.format(locale, MESSAGES.gate().countdown(render(messages, locale, launch, now)));
     }
 }

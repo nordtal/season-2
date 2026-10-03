@@ -13,7 +13,10 @@ import eu.nordtal.s2.messages.spec.MessageSpecs;
 import eu.nordtal.s2.messages.spec.Name;
 import eu.nordtal.s2.messages.spec.Shown;
 import eu.nordtal.s2.messages.spec.TextFormat;
+import eu.nordtal.s2.messages.value.GameContent;
 import eu.nordtal.s2.smp.world.WorldRole;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 
 /** Every message of the smp bundle, one method per key. */
@@ -464,7 +467,7 @@ public interface SmpMessages {
             MessageRef ownerUnknown();
 
             @Name("Died at")
-            MessageRef diedAt(@Arg("date") Object date, @Arg("x") Object x, @Arg("y") Object y, @Arg("z") Object z);
+            MessageRef diedAt(@Arg("at") Instant at, @Arg("x") int x, @Arg("y") int y, @Arg("z") int z);
 
             @Name("Experience tooltip")
             MessageRef experienceTooltip();
@@ -480,11 +483,7 @@ public interface SmpMessages {
 
             @Name("Hologram")
             @Shown(Display.HOLOGRAM)
-            MessageRef hologram(@Arg("hours") Object hours, @Arg("minutes") Object minutes);
-
-            @Name("Hologram seconds")
-            @Shown(Display.HOLOGRAM)
-            MessageRef hologramSeconds(@Arg("seconds") Object seconds);
+            MessageRef hologram(@Arg("left") Duration left);
 
             @Name("Experience line")
             MessageRef experienceLine(@Arg("experience") Object experience);
@@ -561,7 +560,7 @@ public interface SmpMessages {
 
             @Name("Won")
             @Shown(Display.CHAT)
-            MessageRef won(@Arg("amount") Object amount, @Arg("item") Object item);
+            MessageRef won(@Arg("amount") int amount, @Arg("item") GameContent item);
 
             @Name("None")
             @Shown(Display.CHAT)
@@ -774,10 +773,7 @@ public interface SmpMessages {
     @Shown(Display.TAB_LIST)
     interface Tab {
 
-        @Name("Header")
-        MessageRef header(@Arg("logo") Object logo);
-
         @Name("Footer")
-        MessageRef footer(@Arg("online") Object online, @Arg("max") Object max);
+        MessageRef footer(@Arg("online") int online, @Arg("max") int max);
     }
 }

@@ -84,8 +84,8 @@ final class SmpStart {
     record Presence(SystemLines systemLines, BukkitCinematics cinematics, SeasonWelcome welcome) {}
 
     static Presence wirePresenceInputs(final SmpPlugin plugin, final SmpSpec config, final Surfaces surfaces) {
-        final SystemLines systemLines = plugin.systemLines(player -> surfaces.composition()
-                .chatPrefix(player.getName(), plugin.identities().of(player.getUniqueId())));
+        final SystemLines systemLines = plugin.systemLines((name, reader) -> surfaces.composition()
+                .chatPrefix(name.name(), plugin.identities().of(name.player())));
 
         // Paper disables plugins before saving players, so a blindness would otherwise be saved too.
         final BukkitCinematics cinematics = new BukkitCinematics(plugin, plugin.sounds::play);

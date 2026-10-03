@@ -2,7 +2,6 @@ package eu.nordtal.s2.limbo;
 
 import eu.nordtal.s2.limboprotocol.WaitReason;
 import eu.nordtal.s2.messages.MessageRef;
-import eu.nordtal.s2.messages.spec.Arg;
 import eu.nordtal.s2.messages.spec.Display;
 import eu.nordtal.s2.messages.spec.Key;
 import eu.nordtal.s2.messages.spec.MessageSpec;
@@ -76,9 +75,6 @@ public interface LimboMessages {
     @Name("Tab list")
     @Shown(Display.TAB_LIST)
     interface Tab {
-
-        @Name("Header")
-        MessageRef header(@Arg("logo") Object logo);
 
         @Name("Footer")
         MessageRef footer();

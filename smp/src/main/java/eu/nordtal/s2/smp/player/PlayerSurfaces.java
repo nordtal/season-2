@@ -6,7 +6,7 @@ import eu.nordtal.displaytags.api.DisplayTagsPlugin;
 import eu.nordtal.displaytags.api.nametag.PlayerNameTag;
 import eu.nordtal.s2.database.access.PlayerIdentity;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
-import eu.nordtal.s2.packrendering.hud.TabList;
+import eu.nordtal.s2.papercommon.PaperCommonMessages;
 import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.settings.network.PlayersSpec;
 import java.util.List;
@@ -115,7 +115,8 @@ public final class PlayerSurfaces {
      */
     private void sendTabListFrame(final Player player, final PlayerIdentity identity) {
         player.sendPlayerListHeaderAndFooter(
-                TabList.header(messages, identity.language(), MESSAGES.tab()::header),
+                messages.format(
+                        identity.language(), PaperCommonMessages.MESSAGES.tab().header()),
                 messages.format(
                         identity.language(),
                         MESSAGES.tab().footer(Bukkit.getOnlinePlayers().size(), network.maxPlayers())));

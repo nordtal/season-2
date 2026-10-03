@@ -4,11 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.db.MemberState;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.context.PlayerContext;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -39,7 +41,9 @@ class CeremonyTest {
             MemberState.ACCEPTED,
             true);
 
-    private static final Map<UUID, String> NAMES = Map.of(IDA.id(), "IdaMines", OLE.id(), "OleBuilds");
+    private static final Map<UUID, PlayerContext> NAMES = Map.of(
+            IDA.id(), PlayerContext.of(PlayerId.of(new UUID(0L, 1L)), "IdaMines"),
+            OLE.id(), PlayerContext.of(PlayerId.of(new UUID(0L, 2L)), "OleBuilds"));
 
     @Test
     void aWinAndItsKillsNameTheMinecraftAccounts() {
@@ -48,7 +52,7 @@ class CeremonyTest {
 
         assertTrue(text.contains("IdaMines has won"), text);
         assertTrue(text.contains("IdaMines - 3 kills"), text);
-        assertTrue(text.contains("OleBuilds - 1 kills"), text);
+        assertTrue(text.contains("OleBuilds - 1 kill\n"), text);
         assertNoIdentifier(text);
     }
 

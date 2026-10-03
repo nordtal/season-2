@@ -8,6 +8,8 @@ import eu.nordtal.s2.messages.Messages;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -77,12 +79,11 @@ class LaunchCountdownTest {
     @Test
     void theSentenceFormWrapsACountdownButNotTheNoDateLine() {
         // Wrapping would double the sentence; contains, since a tag opens the line.
-        final String counting =
-                LaunchCountdown.sentence(MESSAGES, Locale.ENGLISH, NOW.plus(Duration.ofMinutes(20)), NOW);
+        final String counting = sentence(Locale.ENGLISH, NOW.plus(Duration.ofMinutes(20)));
         assertTrue(counting.contains("The network opens in"), counting);
         assertTrue(counting.contains("20 minutes"), counting);
 
-        final String unknown = LaunchCountdown.sentence(MESSAGES, Locale.ENGLISH, null, NOW);
+        final String unknown = sentence(Locale.ENGLISH, null);
         assertFalse(unknown.contains("The network opens in"), unknown);
     }
 
@@ -92,8 +93,13 @@ class LaunchCountdownTest {
         assertEquals(
                 "42 Minuten", LaunchCountdown.render(MESSAGES, Locale.GERMAN, NOW.plus(Duration.ofMinutes(42)), NOW));
         assertEquals("jedem Moment", LaunchCountdown.render(MESSAGES, Locale.GERMAN, NOW, NOW));
-        assertTrue(LaunchCountdown.sentence(MESSAGES, Locale.GERMAN, NOW.plus(Duration.ofMinutes(42)), NOW)
-                .contains("Das Netzwerk öffnet"));
+        assertTrue(sentence(Locale.GERMAN, NOW.plus(Duration.ofMinutes(42))).contains("Das Netzwerk öffnet"));
+    }
+
+    /** The disconnect screen's sentence, as its words. */
+    private static String sentence(final Locale locale, final java.time.@Nullable Instant launch) {
+        return PlainTextComponentSerializer.plainText()
+                .serialize(LaunchCountdown.component(MESSAGES, locale, launch, NOW));
     }
 
     private static String render(final Duration remaining) {

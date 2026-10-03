@@ -306,7 +306,7 @@ public final class RestartWatch {
         };
     }
 
-    static MessageRef countdown(final RunShape.Occasion occasion, final Component what, final long seconds) {
+    static MessageRef countdown(final RunShape.Occasion occasion, final String what, final long seconds) {
         final ProxyMessages.Restart.RestartCountdown lines = MESSAGES.restart().countdown();
         return switch (occasion) {
             case UPDATE -> lines.update(what, seconds);
@@ -317,7 +317,7 @@ public final class RestartWatch {
         };
     }
 
-    static MessageRef now(final RunShape.Occasion occasion, final Component what) {
+    static MessageRef now(final RunShape.Occasion occasion, final String what) {
         final ProxyMessages.Restart.Now lines = MESSAGES.restart().now();
         return switch (occasion) {
             case UPDATE -> lines.update(what);
@@ -343,28 +343,26 @@ public final class RestartWatch {
     }
 
     /** The service a run is about as a player would name it, or "the network" for more than one. */
-    private Component what(final Locale locale, final RunShape current) {
+    private String what(final Locale locale, final RunShape current) {
         final String only = current.onlyService();
         if (only == null) {
-            return MessageRenderer.of(messages)
-                    .format(locale, MESSAGES.restart().what().network());
+            return messages.format(locale, MESSAGES.restart().what().network());
         }
         return Homecoming.serviceName(messages, locale, only);
     }
 
     /** The occasion as a noun, for the lines that say it is off. */
-    private Component occasion(final Locale locale, final RunShape current) {
+    private String occasion(final Locale locale, final RunShape current) {
         final ProxyMessages.Restart.Occasion occasions = MESSAGES.restart().occasion();
-        return MessageRenderer.of(messages)
-                .format(
-                        locale,
-                        switch (current.occasion()) {
-                            case UPDATE -> occasions.update();
-                            case RECREATE -> occasions.recreate();
-                            case BACKUP -> occasions.backup();
-                            case DOWN -> occasions.down();
-                            case MAINTENANCE -> occasions.maintenance();
-                        });
+        return messages.format(
+                locale,
+                switch (current.occasion()) {
+                    case UPDATE -> occasions.update();
+                    case RECREATE -> occasions.recreate();
+                    case BACKUP -> occasions.backup();
+                    case DOWN -> occasions.down();
+                    case MAINTENANCE -> occasions.maintenance();
+                });
     }
 
     /** Renders a line for everybody in their own locale from {@link LoginRoster}, English when it has none. */

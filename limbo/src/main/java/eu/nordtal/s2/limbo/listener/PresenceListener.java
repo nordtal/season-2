@@ -6,7 +6,7 @@ import eu.nordtal.s2.limbo.waiting.WaitingRoom;
 import eu.nordtal.s2.limbo.world.WaitingWorld;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.packrendering.hud.TabList;
+import eu.nordtal.s2.papercommon.PaperCommonMessages;
 import eu.nordtal.s2.papercommon.player.Identities;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import io.papermc.paper.event.player.AsyncPlayerSpawnLocationEvent;
@@ -61,7 +61,7 @@ public final class PresenceListener implements Listener {
     public void sendTabList(final Player player) {
         final java.util.Locale locale = identities.languageOf(player.getUniqueId());
         player.sendPlayerListHeaderAndFooter(
-                TabList.header(messages, locale, LimboMessages.MESSAGES.tab()::header),
+                messages.format(locale, PaperCommonMessages.MESSAGES.tab().header()),
                 messages.format(locale, LimboMessages.MESSAGES.tab().footer()));
     }
 

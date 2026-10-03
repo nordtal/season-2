@@ -22,11 +22,11 @@ import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
+import eu.nordtal.s2.messagerendering.Names;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.Tone;
-import eu.nordtal.s2.messages.context.MessageEnvironment;
 import eu.nordtal.s2.papercommon.access.AdminWatch;
 import eu.nordtal.s2.papercommon.access.BukkitOps;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
@@ -287,7 +287,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
                         getClass().getClassLoader(),
                         roots,
                         NetworkSettings.languages(languageAndTime).locales())
-                .within(MessageEnvironment.of(getName(), NetworkSettings.season(season)));
+                .within(NetworkSettings.environment(
+                        getName(), season, languageAndTime, tone -> colours().hex(tone)));
     }
 
     /** Hides what a non-admin may not type here; the proxy refuses it either way. */
@@ -485,8 +486,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
      * Builds and registers the five lines players read about each other (said, joined, left, died, earned).
      * A server where players see each other calls it once from {@link #enable()}.
      */
-    public final SystemLines systemLines(final SystemLines.Composition composition) {
-        final SystemLines lines = new SystemLines(composition, messages, identities);
+    public final SystemLines systemLines(final Names names) {
+        final SystemLines lines = new SystemLines(names, messages, identities);
         listen(lines);
         return lines;
     }

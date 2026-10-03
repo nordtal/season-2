@@ -59,13 +59,4 @@ public final class OwnShare {
         }
         return (mine * 100.0) / target;
     }
-
-    /**
-     * The percentage as a player reads it: one decimal, in their own language.
-     *
-     * One decimal, because whole numbers would round 1.6 % and 2.4 % either side of the 2 % threshold to the same 2.
-     */
-    public static String format(final double percent, final java.util.Locale locale) {
-        return String.format(locale, "%.1f", percent);
-    }
 }

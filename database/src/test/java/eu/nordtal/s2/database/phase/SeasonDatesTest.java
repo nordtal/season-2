@@ -8,7 +8,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import org.junit.jupiter.api.Test;
 
-/** Tests the date format both {@code /phase} commands share, whose offset is derived from the date. */
+/** Tests the date both {@code /phase} commands read, whose offset is derived from the date. */
 class SeasonDatesTest {
 
     private static final ZoneId BERLIN = ZoneId.of("Europe/Berlin");
@@ -64,28 +64,11 @@ class SeasonDatesTest {
     }
 
     @Test
-    void noDateIsShownAsWordsRatherThanAsNothing() {
-        assertEquals("not set", SeasonDates.format(null, BERLIN));
-    }
-
-    @Test
-    void aDateIsShownBackInTheZoneItWasTypedIn() {
-        final String shown =
-                SeasonDates.format(SeasonDates.parse("2026-10-01 18:00", BERLIN).orElseThrow(), BERLIN);
-
-        assertTrue(
-                shown.startsWith("2026-10-01 18:00"),
-                "the wall-clock time that was typed has to come back, was: " + shown);
-        // The offset rather than a zone abbreviation, which would need locale knowledge.
-        assertTrue(shown.endsWith("GMT+02:00"), "the offset has to be named, was: " + shown);
-    }
-
-    @Test
-    void aDateIsTypedAndShownInTheZoneTheNetworkNames() {
+    void aDateIsTypedInTheZoneTheNetworkNames() {
         final ZoneId helsinki = ZoneId.of("Europe/Helsinki");
-        final Instant typed = SeasonDates.parse("2026-10-01 18:00", helsinki).orElseThrow();
 
-        assertEquals(Instant.parse("2026-10-01T15:00:00Z"), typed);
-        assertTrue(SeasonDates.format(typed, BERLIN).startsWith("2026-10-01 17:00"));
+        assertEquals(
+                Instant.parse("2026-10-01T15:00:00Z"),
+                SeasonDates.parse("2026-10-01 18:00", helsinki).orElseThrow());
     }
 }

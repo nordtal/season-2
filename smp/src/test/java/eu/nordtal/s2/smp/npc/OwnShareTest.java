@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.smp.db.OwnContributionRow;
 import java.util.List;
-import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
 /** The share line's arithmetic, which is the whole of what the spawn NPC's bottom row says. */
@@ -90,14 +89,5 @@ class OwnShareTest {
                 0,
                 OwnShare.of(List.of(new OwnContributionRow("a", 100, 100)), List.of())
                         .spins());
-    }
-
-    @Test
-    void oneDecimalInTheReadersLanguage() {
-        // One decimal: a whole number would round 2.4 and 1.6 both to "2", though one of them is not paid at all.
-        assertEquals("4.2", OwnShare.format(4.24, Locale.ENGLISH));
-        assertEquals("4,2", OwnShare.format(4.24, Locale.GERMAN));
-        assertEquals("100.0", OwnShare.format(100.0, Locale.ENGLISH));
-        assertEquals("0.0", OwnShare.format(0.0, Locale.ENGLISH));
     }
 }

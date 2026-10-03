@@ -170,7 +170,7 @@ public final class ObjectiveGui implements Surface {
         if (share.empty()) {
             return messages.format(locale, MESSAGES.smp().objectives().shareNone());
         }
-        return messages.format(locale, MESSAGES.smp().objectives().share(String.valueOf(share.spins())));
+        return messages.format(locale, MESSAGES.smp().objectives().share(share.spins()));
     }
 
     private void fill() {
@@ -225,9 +225,8 @@ public final class ObjectiveGui implements Surface {
         share.lines().stream()
                 .filter(line -> line.key().equals(definition.key()))
                 .findFirst()
-                .ifPresent(line -> lore.add(renderer.format(
-                        locale,
-                        MESSAGES.smp().objectives().yourShare(OwnShare.format(line.percent(), locale), line.spins()))));
+                .ifPresent(line -> lore.add(
+                        renderer.format(locale, MESSAGES.smp().objectives().yourShare(line.percent(), line.spins()))));
         if (row.completed()) {
             lore.add(renderer.format(locale, MESSAGES.smp().objectives().done()));
         } else if (definition.type() == ObjectiveType.HAND_IN) {
@@ -263,9 +262,7 @@ public final class ObjectiveGui implements Surface {
             if (definition == null) {
                 continue;
             }
-            lore.add(renderer.format(
-                    locale,
-                    MESSAGES.smp().objectives().shareLine(name(definition), OwnShare.format(line.percent(), locale))));
+            lore.add(renderer.format(locale, MESSAGES.smp().objectives().shareLine(name(definition), line.percent())));
         }
         lore.add(renderer.format(locale, MESSAGES.smp().objectives().shareSpins(share.spins())));
         return lore;

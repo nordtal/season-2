@@ -14,6 +14,7 @@ import eu.nordtal.s2.messages.spec.Name;
 import eu.nordtal.s2.messages.spec.Shown;
 import eu.nordtal.s2.messages.spec.TextFormat;
 import eu.nordtal.s2.messages.value.GameContent;
+import eu.nordtal.s2.messages.value.Money;
 import eu.nordtal.s2.smp.world.WorldRole;
 import java.time.Duration;
 import java.time.Instant;
@@ -77,17 +78,17 @@ public interface SmpMessages {
             MessageRef lockedHint();
 
             @Name("Card")
-            MessageRef card(@Arg("world") Object world);
+            MessageRef card(@Arg("world") String world);
 
             @Name("Card locked")
-            MessageRef cardLocked(@Arg("world") Object world);
+            MessageRef cardLocked(@Arg("world") String world);
 
             @Name("Locked unknown")
             MessageRef lockedUnknown();
 
             @Name("Travelled")
             @Shown(Display.CHAT)
-            MessageRef travelled(@Arg("world") Object world);
+            MessageRef travelled(@Arg("world") String world);
 
             @Name("Unavailable")
             @Shown(Display.CHAT)
@@ -124,10 +125,10 @@ public interface SmpMessages {
         interface Access {
 
             @Name("Active")
-            MessageRef active(@Arg("until") Object until);
+            MessageRef active(@Arg("until") Instant until);
 
             @Name("Expired")
-            MessageRef expired(@Arg("since") Object since);
+            MessageRef expired(@Arg("since") Instant since);
 
             @Name("Linked")
             MessageRef linked(@Arg("player") PlayerContext player, @Arg("discord") DiscordMemberContext discord);
@@ -140,14 +141,14 @@ public interface SmpMessages {
 
             @Name("Payment")
             MessageRef payment(
-                    @Arg("reference") Object reference,
-                    @Arg("days") Object days,
-                    @Arg("amount") Object amount,
-                    @Arg("since") Object since);
+                    @Arg("reference") String reference,
+                    @Arg("days") long days,
+                    @Arg("amount") Money amount,
+                    @Arg("since") Instant since);
 
             @Name("Payment unstarted")
             MessageRef paymentUnstarted(
-                    @Arg("reference") Object reference, @Arg("days") Object days, @Arg("since") Object since);
+                    @Arg("reference") String reference, @Arg("days") long days, @Arg("since") Instant since);
 
             @Name("Unlinked")
             MessageRef unlinked(@Arg("player") PlayerContext player);
@@ -159,13 +160,13 @@ public interface SmpMessages {
         interface Admin {
 
             @Name("Aura changed")
-            MessageRef auraChanged(@Arg("player") PlayerContext player, @Arg("delta") Object delta);
+            MessageRef auraChanged(@Arg("player") PlayerContext player, @Arg("delta") long delta);
 
             @Name("Aura unknown")
-            MessageRef auraUnknown(@Arg("player") PlayerContext player, @Arg("delta") Object delta);
+            MessageRef auraUnknown(@Arg("player") PlayerContext player, @Arg("delta") long delta);
 
             @Name("Milestone unlocked")
-            MessageRef milestoneUnlocked(@Arg("key") Object key);
+            MessageRef milestoneUnlocked(@Arg("key") String key);
 
             @Name("Player offline")
             MessageRef playerOffline();
@@ -174,7 +175,7 @@ public interface SmpMessages {
             MessageRef targetUnlinked(@Arg("player") PlayerContext player);
 
             @Name("Objective completed")
-            MessageRef objectiveCompleted(@Arg("key") Object key, @Arg("milestone") MilestoneContext milestone);
+            MessageRef objectiveCompleted(@Arg("key") String key, @Arg("milestone") MilestoneContext milestone);
         }
 
         @Name("Error")
@@ -191,10 +192,10 @@ public interface SmpMessages {
         interface Hud {
 
             @Name("Milestone")
-            MessageRef milestone(@Arg("milestone") MilestoneContext milestone, @Arg("percent") Object percent);
+            MessageRef milestone(@Arg("milestone") MilestoneContext milestone, @Arg("percent") double percent);
 
             @Name("Distance")
-            MessageRef distance(@Arg("blocks") Object blocks);
+            MessageRef distance(@Arg("blocks") long blocks);
 
             @Name("Navigate other world")
             MessageRef navigateOtherWorld();
@@ -218,7 +219,7 @@ public interface SmpMessages {
 
             @Name("Started")
             @Shown(Display.CHAT)
-            MessageRef started(@Arg("target") Object target);
+            MessageRef started(@Arg("target") String target);
 
             @Name("World spawn")
             MessageRef worldSpawn();
@@ -227,10 +228,10 @@ public interface SmpMessages {
             MessageRef lastDeath();
 
             @Name("At")
-            MessageRef at(@Arg("world") Object world, @Arg("x") Object x, @Arg("y") Object y, @Arg("z") Object z);
+            MessageRef at(@Arg("world") String world, @Arg("x") long x, @Arg("y") long y, @Arg("z") long z);
 
             @Name("Target")
-            MessageRef target(@Arg("target") Object target);
+            MessageRef target(@Arg("target") String target);
 
             @Name("Click")
             MessageRef click();
@@ -248,13 +249,13 @@ public interface SmpMessages {
             MessageRef stopButton();
 
             @Name("Distance")
-            MessageRef distance(@Arg("blocks") Object blocks);
+            MessageRef distance(@Arg("blocks") long blocks);
 
             @Name("Other world")
             MessageRef otherWorld();
 
             @Name("Page")
-            MessageRef page(@Arg("page") Object page, @Arg("pages") Object pages);
+            MessageRef page(@Arg("page") long page, @Arg("pages") long pages);
         }
 
         Smp.Poi poi();
@@ -263,22 +264,22 @@ public interface SmpMessages {
         interface Poi {
 
             @Name("Added")
-            MessageRef added(@Arg("name") Object name);
+            MessageRef added(@Arg("name") String name);
 
             @Name("Removed")
-            MessageRef removed(@Arg("name") Object name);
+            MessageRef removed(@Arg("name") String name);
 
             @Name("Duplicate")
-            MessageRef duplicate(@Arg("name") Object name);
+            MessageRef duplicate(@Arg("name") String name);
 
             @Name("Not found")
-            MessageRef notFound(@Arg("name") Object name);
+            MessageRef notFound(@Arg("name") String name);
 
             @Name("Not yours")
             MessageRef notYours();
 
             @Name("Bad name")
-            MessageRef badName(@Arg("max") Object max);
+            MessageRef badName(@Arg("max") long max);
         }
 
         Board board();
@@ -303,17 +304,17 @@ public interface SmpMessages {
 
                 @Name("Row")
                 MessageRef row(
-                        @Arg("objective") Object objective,
-                        @Arg("bar") Object bar,
-                        @Arg("amount") Object amount,
-                        @Arg("target") Object target);
+                        @Arg("objective") String objective,
+                        @Arg("bar") String bar,
+                        @Arg("amount") long amount,
+                        @Arg("target") long target);
 
                 @Name("Row done")
                 MessageRef rowDone(
-                        @Arg("objective") Object objective,
-                        @Arg("bar") Object bar,
-                        @Arg("amount") Object amount,
-                        @Arg("target") Object target);
+                        @Arg("objective") String objective,
+                        @Arg("bar") String bar,
+                        @Arg("amount") long amount,
+                        @Arg("target") long target);
             }
 
             Board.Aura aura();
@@ -328,12 +329,11 @@ public interface SmpMessages {
                 MessageRef empty();
 
                 @Name("Row")
-                MessageRef row(
-                        @Arg("place") Object place, @Arg("player") PlayerContext player, @Arg("aura") Object aura);
+                MessageRef row(@Arg("place") long place, @Arg("player") PlayerContext player, @Arg("aura") long aura);
 
                 @Name("Row zero")
                 MessageRef rowZero(
-                        @Arg("place") Object place, @Arg("player") PlayerContext player, @Arg("aura") Object aura);
+                        @Arg("place") long place, @Arg("player") PlayerContext player, @Arg("aura") long aura);
             }
         }
 
@@ -343,10 +343,10 @@ public interface SmpMessages {
         interface Aura {
 
             @Name("Death")
-            MessageRef death(@Arg("aura") Object aura);
+            MessageRef death(@Arg("aura") long aura);
 
             @Name("Advancement")
-            MessageRef advancement(@Arg("aura") Object aura);
+            MessageRef advancement(@Arg("aura") long aura);
         }
 
         Smp.Objective objective();
@@ -355,7 +355,7 @@ public interface SmpMessages {
         interface Objective {
 
             @Name("Completed")
-            MessageRef completed(@Arg("icon") Object icon, @Arg("objective") Object objective);
+            MessageRef completed(@Arg("objective") String objective);
         }
 
         Smp.Milestone milestone();
@@ -404,7 +404,7 @@ public interface SmpMessages {
             MessageRef frontier();
 
             @Name("Completed")
-            MessageRef completed(@Arg("icon") Object icon, @Arg("milestone") MilestoneContext milestone);
+            MessageRef completed(@Arg("milestone") MilestoneContext milestone);
         }
 
         Announce announce();
@@ -458,7 +458,7 @@ public interface SmpMessages {
             MessageRef title();
 
             @Name("Experience")
-            MessageRef experience(@Arg("experience") Object experience);
+            MessageRef experience(@Arg("experience") long experience);
 
             @Name("Owner")
             MessageRef owner(@Arg("player") PlayerContext player);
@@ -473,7 +473,7 @@ public interface SmpMessages {
             MessageRef experienceTooltip();
 
             @Name("Experience hint")
-            MessageRef experienceHint(@Arg("experience") Object experience);
+            MessageRef experienceHint(@Arg("experience") long experience);
 
             @Name("Take all")
             MessageRef takeAll();
@@ -486,7 +486,7 @@ public interface SmpMessages {
             MessageRef hologram(@Arg("left") Duration left);
 
             @Name("Experience line")
-            MessageRef experienceLine(@Arg("experience") Object experience);
+            MessageRef experienceLine(@Arg("experience") long experience);
 
             @Name("Take all button")
             MessageRef takeAllButton();
@@ -504,16 +504,16 @@ public interface SmpMessages {
             MessageRef queued();
 
             @Name("Countdown")
-            MessageRef countdown(@Arg("seconds") Object seconds);
+            MessageRef countdown(@Arg("seconds") long seconds);
 
             @Name("Go")
             MessageRef go();
 
             @Name("Won")
-            MessageRef won(@Arg("aura") Object aura);
+            MessageRef won(@Arg("aura") long aura);
 
             @Name("Lost")
-            MessageRef lost(@Arg("aura") Object aura);
+            MessageRef lost(@Arg("aura") long aura);
 
             @Name("Interrupted")
             MessageRef interrupted();
@@ -530,7 +530,7 @@ public interface SmpMessages {
 
                 @Name("Subtitle")
                 @Shown(Display.SUBTITLE)
-                MessageRef subtitle(@Arg("aura") Object aura);
+                MessageRef subtitle(@Arg("aura") long aura);
             }
 
             @Key("lost")
@@ -545,7 +545,7 @@ public interface SmpMessages {
 
                 @Name("Subtitle")
                 @Shown(Display.SUBTITLE)
-                MessageRef subtitle(@Arg("aura") Object aura);
+                MessageRef subtitle(@Arg("aura") long aura);
             }
         }
 
@@ -574,10 +574,10 @@ public interface SmpMessages {
             MessageRef brokenPrize();
 
             @Name("Hub")
-            MessageRef hub(@Arg("spins") Object spins);
+            MessageRef hub(@Arg("spins") long spins);
 
             @Name("Hub hint")
-            MessageRef hubHint(@Arg("percent") Object percent);
+            MessageRef hubHint(@Arg("percent") double percent);
 
             @Name("Again")
             MessageRef again();
@@ -598,13 +598,13 @@ public interface SmpMessages {
             MessageRef againNoneHint();
 
             @Name("Spins left")
-            MessageRef spinsLeft(@Arg("spins") Object spins);
+            MessageRef spinsLeft(@Arg("spins") long spins);
 
             @Name("Rule top")
             MessageRef ruleTop();
 
             @Name("Rule bottom")
-            MessageRef ruleBottom(@Arg("percent") Object percent);
+            MessageRef ruleBottom(@Arg("percent") double percent);
 
             @Name("Again button")
             MessageRef againButton();
@@ -620,7 +620,7 @@ public interface SmpMessages {
                 MessageRef one();
 
                 @Name("Many")
-                MessageRef many(@Arg("extras") Object extras);
+                MessageRef many(@Arg("extras") long extras);
             }
 
             @Key("available")
@@ -634,7 +634,7 @@ public interface SmpMessages {
                 MessageRef one();
 
                 @Name("Many")
-                MessageRef many(@Arg("count") Object count);
+                MessageRef many(@Arg("count") long count);
             }
         }
 
@@ -660,40 +660,40 @@ public interface SmpMessages {
             MessageRef countsItself();
 
             @Name("Item")
-            MessageRef item(@Arg("objective") Object objective);
+            MessageRef item(@Arg("objective") String objective);
 
             @Name("Item done")
-            MessageRef itemDone(@Arg("objective") Object objective);
+            MessageRef itemDone(@Arg("objective") String objective);
 
             @Name("Progress")
-            MessageRef progress(@Arg("bar") Object bar, @Arg("amount") Object amount, @Arg("target") Object target);
+            MessageRef progress(@Arg("bar") String bar, @Arg("amount") long amount, @Arg("target") long target);
 
             @Name("Items")
-            MessageRef items(@Arg("items") Object items);
+            MessageRef items(@Arg("items") String items);
 
             @Name("Heading")
             MessageRef heading(@Arg("milestone") MilestoneContext milestone);
 
             @Name("Heading hint")
-            MessageRef headingHint(@Arg("done") Object done, @Arg("total") Object total);
+            MessageRef headingHint(@Arg("done") long done, @Arg("total") long total);
 
             @Name("Your share")
-            MessageRef yourShare(@Arg("percent") Object percent, @Arg("spins") Object spins);
+            MessageRef yourShare(@Arg("percent") double percent, @Arg("spins") long spins);
 
             @Name("Share tooltip")
             MessageRef shareTooltip();
 
             @Name("Share line")
-            MessageRef shareLine(@Arg("objective") Object objective, @Arg("percent") Object percent);
+            MessageRef shareLine(@Arg("objective") String objective, @Arg("percent") double percent);
 
             @Name("Share spins")
-            MessageRef shareSpins(@Arg("spins") Object spins);
+            MessageRef shareSpins(@Arg("spins") long spins);
 
             @Name("Share empty hint")
             MessageRef shareEmptyHint();
 
             @Name("Share")
-            MessageRef share(@Arg("spins") Object spins);
+            MessageRef share(@Arg("spins") long spins);
 
             @Name("Share none")
             MessageRef shareNone();
@@ -721,17 +721,17 @@ public interface SmpMessages {
             MessageRef confirm();
 
             @Name("Needed")
-            MessageRef needed(@Arg("amount") Object amount, @Arg("items") Object items);
+            MessageRef needed(@Arg("amount") long amount, @Arg("items") String items);
 
             @Name("Still needed")
-            MessageRef stillNeeded(@Arg("amount") Object amount);
+            MessageRef stillNeeded(@Arg("amount") long amount);
 
             @Name("Confirm button")
             MessageRef confirmButton();
 
             @Name("Accepted")
             @Shown(Display.CHAT)
-            MessageRef accepted(@Arg("amount") Object amount);
+            MessageRef accepted(@Arg("amount") long amount);
 
             @Name("Nothing wanted")
             @Shown(Display.CHAT)

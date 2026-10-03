@@ -67,7 +67,7 @@ export type Metrics = {
 
 export type AgentState = {
   available: boolean
-  reason?: string
+  reason?: MessageRef
   reachable?: boolean
 }
 

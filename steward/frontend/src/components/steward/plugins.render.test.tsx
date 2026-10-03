@@ -186,7 +186,7 @@ describe("ServicePlugins", () => {
     expect(screen.getAllByText("up to date")).toHaveLength(1)
     // Not on the disk, said as such, with Modrinth's picture and name.
     const coreprotect = screen.getByText("CoreProtect").closest("li")!
-    expect(within(coreprotect).getByText("Not installed")).toBeTruthy()
+    expect(within(coreprotect).getByText("not installed")).toBeTruthy()
     expect(coreprotect.querySelector("img")).toBeTruthy()
     expect(screen.queryByText(/pre-booked/i)).toBeNull()
   })
@@ -229,7 +229,7 @@ describe("ServicePlugins", () => {
     draw()
 
     const coreprotect = (await screen.findByText("CoreProtect")).closest("li")!
-    expect(within(coreprotect).getByText("No 26.2 build")).toBeTruthy()
+    expect(within(coreprotect).getByText("no 26.2 build")).toBeTruthy()
   })
 
   it("offers removal only for what somebody added, and Modrinth only for Modrinth plugins", async () => {

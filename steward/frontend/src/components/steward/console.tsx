@@ -18,6 +18,7 @@ import type { LogEntry } from "@/lib/use-log-stream"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
+import { t } from "@/lib/texts"
 
 /**
  * The Console tab's window: toolbar, the line into the server, and the log newest on top.
@@ -57,7 +58,7 @@ export function ServiceConsole({
 
   return (
     <section
-      aria-label="Console"
+      aria-label={t("steward.service-page.console")}
       className="relative flex h-[65svh] flex-col overflow-hidden rounded-xl bg-[#0a0a0a] font-mono text-[0.6875rem] leading-5 text-white/85 sm:text-xs lg:h-[36rem]"
     >
       <div className="flex h-8 shrink-0 items-center gap-1 border-b border-white/5 px-1.5">
@@ -71,8 +72,8 @@ export function ServiceConsole({
               onKeyDown={(event) => {
                 if (event.key === "Escape") closeFind()
               }}
-              placeholder="Find"
-              aria-label="Find in the console"
+              placeholder={t("steward.service-page.find")}
+              aria-label={t("steward.service-page.find-in")}
               className="min-w-0 flex-1 bg-transparent font-sans text-xs text-white outline-none placeholder:text-white/35 max-md:text-base"
               spellCheck={false}
             />
@@ -84,7 +85,7 @@ export function ServiceConsole({
               variant="ghost"
               size="icon-xs"
               onClick={closeFind}
-              aria-label="Close find"
+              aria-label={t("steward.service-page.close-find")}
               className="text-white/60 hover:bg-white/10 hover:text-white"
             >
               <XIcon aria-hidden />
@@ -97,8 +98,8 @@ export function ServiceConsole({
               variant="ghost"
               size="icon-xs"
               onClick={() => setFinding(true)}
-              aria-label="Find"
-              title="Find"
+              aria-label={t("steward.service-page.find")}
+              title={t("steward.service-page.find")}
               className="text-white/60 hover:bg-white/10 hover:text-white"
             >
               <ListMagnifyingGlassIcon aria-hidden />
@@ -109,7 +110,7 @@ export function ServiceConsole({
         <Select value={String(limit)} onValueChange={(value) => setLimit(Number(value))}>
           <SelectTrigger
             size="sm"
-            aria-label="Lines"
+            aria-label={t("steward.service-page.lines")}
             className="h-6 gap-1 border-0 bg-transparent px-1.5 font-sans text-xs text-white/60 shadow-none hover:bg-white/10 hover:text-white dark:bg-transparent dark:hover:bg-white/10"
           >
             <SelectValue />
@@ -117,7 +118,7 @@ export function ServiceConsole({
           <SelectContent position="popper" align="end">
             {steps.map((step) => (
               <SelectItem key={step} value={String(step)}>
-                {step.toLocaleString("en")} lines
+                {t("steward.service-page.line-count", { lines: step })}
               </SelectItem>
             ))}
           </SelectContent>
@@ -128,8 +129,8 @@ export function ServiceConsole({
           size="icon-xs"
           onClick={() => download(name, shown)}
           disabled={!shown.some((entry) => entry.kind === "line")}
-          aria-label="Download"
-          title="Download"
+          aria-label={t("steward.service-page.download")}
+          title={t("steward.service-page.download")}
           className="text-white/60 hover:bg-white/10 hover:text-white"
         >
           <DownloadSimpleIcon aria-hidden />
@@ -144,12 +145,14 @@ export function ServiceConsole({
           className="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center font-sans"
         >
           <PowerIcon className="mb-1 size-5 text-white/60" aria-hidden />
-          <p className="text-sm text-white/85">{offline === "going" ? "Going offline" : "Offline"}</p>
+          <p className="text-sm text-white/85">
+            {offline === "going" ? t("steward.service-page.going-offline") : t("steward.service-page.offline")}
+          </p>
         </div>
       ) : stream.failure ? (
         <div role="alert" className="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center font-sans">
           <WarningCircleIcon className="mb-1 size-5 text-white/60" aria-hidden />
-          <p className="text-sm text-white/85">Can't reach the log.</p>
+          <p className="text-sm text-white/85">{t("steward.service-page.log-unreachable")}</p>
           <p className="text-xs text-white/40">{stream.failure}</p>
         </div>
       ) : (
@@ -268,7 +271,7 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
   if (rows.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center font-sans text-xs text-white/35">
-        Waiting for the log…
+        {t("steward.service-page.waiting-for-log")}
       </div>
     )
   }
@@ -326,8 +329,8 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
         <button
           type="button"
           onClick={() => box.current?.scrollTo({ top: 0, behavior: "smooth" })}
-          aria-label="Back to the newest line"
-          title="Back to the newest line"
+          aria-label={t("steward.service-page.newest")}
+          title={t("steward.service-page.newest")}
           className="absolute top-2 right-3 flex size-8 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20"
         >
           <ArrowUpIcon className="size-4" aria-hidden />
@@ -363,7 +366,7 @@ function ConsoleLine({ name }: { name: string }) {
             setCommand("")
           },
           onError: (error) => {
-            toast.error("The line was not sent", { description: String(error) })
+            toast.error(t("steward.service-page.not-sent"), { description: String(error) })
           },
         })
       }}
@@ -389,7 +392,7 @@ function ConsoleLine({ name }: { name: string }) {
           }
         }}
         placeholder="list"
-        aria-label="Send a line to the server console"
+        aria-label={t("steward.service-page.send-line")}
         className="min-w-0 flex-1 bg-transparent text-white outline-none placeholder:text-white/25 max-md:text-base"
         autoComplete="off"
         autoCapitalize="off"
@@ -401,8 +404,8 @@ function ConsoleLine({ name }: { name: string }) {
         variant="ghost"
         size="icon-xs"
         disabled={!command.trim() || send.isPending}
-        aria-label="Send"
-        title="Send"
+        aria-label={t("steward.service-page.send")}
+        title={t("steward.service-page.send")}
         className="text-white hover:bg-white/10 hover:text-white"
       >
         <KeyReturnIcon aria-hidden />

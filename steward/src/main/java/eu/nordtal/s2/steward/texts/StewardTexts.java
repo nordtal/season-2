@@ -48,6 +48,8 @@ public interface StewardTexts {
 
         Forms form();
 
+        ServicePage servicePage();
+
         KeysPage keys();
 
         PeoplePage people();
@@ -224,6 +226,9 @@ public interface StewardTexts {
 
             @Name("Rate limited")
             MessageRef rateLimited();
+
+            @Name("Agent not configured")
+            MessageRef agentUnconfigured();
         }
 
         /** What Steward tells a person who did something, as data the page renders. */

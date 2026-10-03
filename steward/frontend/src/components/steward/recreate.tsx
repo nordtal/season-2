@@ -7,6 +7,8 @@ import { lockTitle, touches, useRunLock } from "@/lib/run-lock"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { runKind } from "@/components/steward/status"
+import { message, t } from "@/lib/texts"
 
 /**
  * Asks for a RECREATE run of one service: its container is made again from the image already on this host.
@@ -60,7 +62,7 @@ export function RecreateButton({
               variant={variant}
               size="icon-xs"
               disabled={unavailable}
-              aria-label={`Recreate ${service}`}
+              aria-label={t("steward.service-page.recreate-service", { service })}
               onClick={() => setOpen(true)}
             >
               <ArrowsClockwiseIcon aria-hidden />
@@ -76,23 +78,23 @@ export function RecreateButton({
           className={className}
           disabled={unavailable}
           title={title}
-          aria-label={labelClassName ? "Recreate" : undefined}
+          aria-label={labelClassName ? runKind("RECREATE") : undefined}
           onClick={() => setOpen(true)}
         >
           <ArrowsClockwiseIcon className="size-3.5" aria-hidden />
-          <span className={labelClassName}>Recreate</span>
+          <span className={labelClassName}>{runKind("RECREATE")}</span>
         </Button>
       )}
       <AskThenAct
         open={open}
         onOpenChange={setOpen}
-        title={`Recreate ${service}?`}
-        description="A run from the image already on this host. Players are warned and moved first."
-        action="Recreate"
+        title={t("steward.service-page.recreate-title", { service })}
+        description={t("steward.service-page.recreate-note")}
+        action={runKind("RECREATE")}
         act={() =>
           ask
             .mutateAsync({ kind: "RECREATE", services: [service] })
-            .then((run) => toast.success(`Recreate entered as run #${run.id}`))
+            .then((run) => toast.success(t("steward.operations.entered", { kind: runKind("RECREATE"), run: run.id })))
         }
       />
     </>
@@ -116,13 +118,13 @@ export function useRecreateGate(service: string): { unavailable: boolean; title:
   const title =
     lock.title ??
     (agent.data?.available === false
-      ? agent.data.reason
+      ? agent.data.reason && message(agent.data.reason)
       : unreachable
-        ? "steward-agent is configured but not answering."
+        ? t("steward.service-page.agent-silent")
         : agent.isError
-          ? "The state of steward-agent is unknown: /api/agent did not answer."
+          ? t("steward.service-page.agent-unknown")
           : agent.data?.available === true
-            ? `Recreate the container for ${service} from the image already on this host.`
-            : "The state of steward-agent is not known yet.")
+            ? t("steward.service-page.recreate-tip", { service })
+            : t("steward.service-page.agent-not-yet"))
   return { unavailable, title }
 }

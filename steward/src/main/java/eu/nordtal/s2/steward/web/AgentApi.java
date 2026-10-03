@@ -1,6 +1,8 @@
 package eu.nordtal.s2.steward.web;
 
 import eu.nordtal.s2.internalapi.agent.AgentClient;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.http.Context;
 import org.jspecify.annotations.Nullable;
 
@@ -23,17 +25,13 @@ public final class AgentApi {
     /** Whether steward can ask the agent; {@code reason} only when it cannot, {@code reachable} only when it can. */
     public record AgentState(
             boolean available,
-            @Nullable String reason,
+            @Nullable MessageRef reason,
             @Nullable Boolean reachable) {}
 
     /** Whether the button may be drawn, so a page can decide before anybody clicks. */
     public void state(final Context ctx) {
         if (!configured) {
-            ctx.json(new AgentState(
-                    false,
-                    "agent.token is empty in the steward group, so this interface cannot ask "
-                            + "steward-agent for anything. The setup script writes that secret.",
-                    null));
+            ctx.json(new AgentState(false, StewardTexts.TEXTS.steward().answer().agentUnconfigured(), null));
             return;
         }
         ctx.json(new AgentState(true, null, agent.isReachable()));

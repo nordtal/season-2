@@ -465,20 +465,19 @@ class AccessDirectoryIntegrationTest {
     }
 
     @Test
-    void localeOfAnUnknownUuidIsEnglishAndNeverThrows() {
-        assertEquals(Locale.ENGLISH, directory.locale(UUID.randomUUID()));
-        assertEquals(Locale.ENGLISH, directory.locale(null));
+    void theLanguageOfAnUnknownAccountIsTheNetworksDefault() {
+        assertEquals(Locale.ENGLISH, directory.language(DiscordId.of("999999999999999999")));
     }
 
     @Test
-    void localeFollowsTheLinkedDiscordUser() {
+    void anAccountReadsTheNetworksDefaultUntilItChoosesALanguage() {
         directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
-        assertEquals(Locale.ENGLISH, directory.locale(MC_UUID), "the column defaults to 'en'");
+        assertEquals(Locale.ENGLISH, directory.language(DiscordId.of(DISCORD_ID)), "no language is NULL, not 'en'");
 
         directory.setLocale(DiscordId.of(DISCORD_ID), Locale.GERMANY);
         assertEquals(
                 Locale.GERMAN,
-                directory.locale(MC_UUID),
+                directory.language(DiscordId.of(DISCORD_ID)),
                 "only the language is stored, so de-DE and de-AT are one bundle");
     }
 

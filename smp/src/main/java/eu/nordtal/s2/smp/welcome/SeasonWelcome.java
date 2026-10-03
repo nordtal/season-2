@@ -2,10 +2,10 @@ package eu.nordtal.s2.smp.welcome;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.config.FirstJoinSpawnSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.SmpDao;
-import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.stage.BukkitCinematics;
 import eu.nordtal.s2.smp.stage.Cinematic;
 import eu.nordtal.s2.smp.world.LandingSite;
@@ -60,7 +60,7 @@ public final class SeasonWelcome {
         this.worlds = worlds;
     }
 
-    /** Called once per join, on the main thread, after the player's language has landed. */
+    /** Called once per join, on the main thread, one tick after join once every join handler ran. */
     public void onLanguageReady(final Player player) {
         final UUID uuid = player.getUniqueId();
         // Identities is filled at pre-login by the plugin base, so this is a map read.

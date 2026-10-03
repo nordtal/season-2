@@ -3,12 +3,12 @@ package eu.nordtal.s2.smp.hud;
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.packrendering.Glyphs;
 import eu.nordtal.s2.packrendering.hud.Bearing;
 import eu.nordtal.s2.packrendering.hud.BossBarLine;
 import eu.nordtal.s2.packrendering.hud.BossBarLine.Pill;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.milestone.MilestoneNames;
 import eu.nordtal.s2.smp.navigate.Navigation;
 import eu.nordtal.s2.smp.navigate.NavigationTarget;
@@ -49,7 +49,7 @@ public final class SmpHud {
     private final SeasonState season;
     private final Navigation navigation;
     private final Messages messages;
-    private final PlayerLocales locales;
+    private final Identities identities;
 
     private final Map<UUID, BossBar> statusBars = new HashMap<>();
     private final Map<UUID, BossBar> navigateBars = new HashMap<>();
@@ -68,13 +68,13 @@ public final class SmpHud {
             final SeasonState season,
             final Navigation navigation,
             final Messages messages,
-            final PlayerLocales locales) {
+            final Identities identities) {
         this.plugin = plugin;
         this.worlds = worlds;
         this.season = season;
         this.navigation = navigation;
         this.messages = messages;
-        this.locales = locales;
+        this.identities = identities;
     }
 
     public void start() {
@@ -122,7 +122,7 @@ public final class SmpHud {
     }
 
     private void renderFor(final Player player) {
-        final Locale locale = locales.of(player.getUniqueId());
+        final Locale locale = identities.languageOf(player.getUniqueId());
 
         final BossBar status = statusBars.computeIfAbsent(player.getUniqueId(), key -> BossBarLine.bar());
         BossBarLine.show(status, statusLine(player, locale));

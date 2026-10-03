@@ -1,9 +1,9 @@
 package eu.nordtal.s2.smp.navigate;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
-import eu.nordtal.s2.smp.player.Identities;
 import java.util.Objects;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;

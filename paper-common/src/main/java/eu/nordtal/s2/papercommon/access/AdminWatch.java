@@ -8,7 +8,6 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Consumer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.IllegalPluginAccessException;
@@ -25,7 +24,6 @@ public final class AdminWatch implements AutoCloseable {
     private final Plugin plugin;
     private final AccessReader access;
     private final AdminOperators operators;
-    private final Consumer<Set<UUID>> also;
     private final Logger logger;
 
     /** The admin set as of the last refresh, read by Brigadier's {@code requires} on the main thread. */
@@ -37,20 +35,13 @@ public final class AdminWatch implements AutoCloseable {
      * @param plugin    the owning plugin, for the scheduler
      * @param access    where the admin set is read from
      * @param operators what grants and removes operator
-     * @param also      anything else this plugin caches about admins, applied on the main thread; {@code set -> { }}
-     *     when none
      * @param logger    the plugin logger
      */
     public AdminWatch(
-            final Plugin plugin,
-            final AccessReader access,
-            final AdminOperators operators,
-            final Consumer<Set<UUID>> also,
-            final Logger logger) {
+            final Plugin plugin, final AccessReader access, final AdminOperators operators, final Logger logger) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.access = Objects.requireNonNull(access, "access");
         this.operators = Objects.requireNonNull(operators, "operators");
-        this.also = Objects.requireNonNull(also, "also");
         this.logger = Objects.requireNonNull(logger, "logger");
     }
 
@@ -103,8 +94,6 @@ public final class AdminWatch implements AutoCloseable {
         final Set<UUID> before = operators.held();
         operators.refresh(snapshot, online);
         final Set<UUID> after = operators.held();
-
-        also.accept(snapshot);
 
         if (!before.equals(after)) {
             final Set<UUID> gained = new HashSet<>(after);

@@ -8,7 +8,6 @@ import com.mojang.brigadier.context.CommandContext;
 import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.health.Shutdown;
-import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AccessReader;
@@ -19,13 +18,13 @@ import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.InboxTable;
 import eu.nordtal.s2.database.inbox.Outcome;
 import eu.nordtal.s2.database.message.MessageOverrideStore;
+import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.context.MessageEnvironment;
 import eu.nordtal.s2.papercommon.access.AdminWatch;
@@ -101,7 +100,6 @@ public abstract class NordtalPlugin extends JavaPlugin {
     private Jdbi jdbi;
     private AccessReader access;
     private Identities identities;
-    private PlayerLocales locales;
     private AdminWatch adminWatch;
     private @Nullable SignalHub hub;
     private @Nullable BukkitTask heartbeat;
@@ -137,11 +135,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
         return false;
     }
 
-    /** Runs on the main thread once a joined player's language is held, the moment to draw what they read. */
+    /** Runs on the main thread one tick after a player joined, once every join handler ran: the moment to greet. */
     protected void languageKnown(final Player player) {}
-
-    /** Runs on the main thread when an online player gained or lost the admin flag. */
-    protected void adminsChanged() {}
 
     /** Returns how this plugin sounds a refusal; silent unless it has sounds. */
     protected PaperUser.Chime chime() {
@@ -183,31 +178,14 @@ public abstract class NordtalPlugin extends JavaPlugin {
 
         jdbi = Jdbis.over(pool);
         access = AccessReader.using(pool, clock);
-        identities = new Identities(access::identity);
-        locales = new PlayerLocales(id -> identities.of(PlayerId.of(id)).locale());
+        identities = new Identities(access::identities);
 
         // ops.json survives a crash, so an admin left in it is swept before any join is handled.
         final AdminOperators operators = BukkitOps.create();
         operators.sweep();
         listen(new Presence(
-                this,
-                identities,
-                locales,
-                operators,
-                messages,
-                refusesWithoutIdentity(),
-                this::languageKnown,
-                logger()));
-        adminWatch = new AdminWatch(
-                this,
-                access,
-                operators,
-                admins -> {
-                    if (identities.recordAdmins(admins)) {
-                        adminsChanged();
-                    }
-                },
-                logger());
+                this, identities, operators, messages, refusesWithoutIdentity(), this::languageKnown, logger()));
+        adminWatch = new AdminWatch(this, access, operators, logger());
         filterCommands(adminWatch);
         // Only the proxy enforces the network's limit, so this server takes whoever it sends.
         listen(new Unbounded());
@@ -217,6 +195,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
         registerCommands();
         enable();
         adminWatch.listen(signals);
+        // Every signal runs every refresh, so an aura booked on smp's channel lands here too.
+        signals.on(Channel.ADMIN, "who the players are", identities::reread);
         // An admin's change in Steward is a reload, on the hub's thread like one Steward asks for.
         settings.listen(signals, this::reload);
         // The hub reads the overrides as it connects, off the main thread; until then the packaged texts show.
@@ -313,7 +293,12 @@ public abstract class NordtalPlugin extends JavaPlugin {
     /** Hides what a non-admin may not type here; the proxy refuses it either way. */
     private void filterCommands(final AdminWatch admins) {
         listen(new CommandFilter(
-                NetworkSettings.allowlist(players.get()), admins::isAdmin, locales, messages, this::colours, chime()));
+                NetworkSettings.allowlist(players.get()),
+                admins::isAdmin,
+                identities,
+                messages,
+                this::colours,
+                chime()));
     }
 
     /** Returns the network's limit and allowlist as of their last reload. */
@@ -501,7 +486,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
      * A server where players see each other calls it once from {@link #enable()}.
      */
     public final SystemLines systemLines(final SystemLines.Composition composition) {
-        final SystemLines lines = new SystemLines(composition, messages, locales);
+        final SystemLines lines = new SystemLines(composition, messages, identities);
         listen(lines);
         return lines;
     }
@@ -539,11 +524,6 @@ public abstract class NordtalPlugin extends JavaPlugin {
     /** Returns who everybody online is. */
     public final Identities identities() {
         return identities;
-    }
-
-    /** Returns every online player's language. */
-    public final PlayerLocales locales() {
-        return locales;
     }
 
     /** Returns the admin roster as last read. */

@@ -4,10 +4,9 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
-import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.region.Boxes;
 import java.util.Objects;
 import org.bukkit.Location;
@@ -40,19 +39,13 @@ public final class ProtectionListener implements Listener {
     private final Boxes regions;
     private final Identities identities;
     private final Messages messages;
-    private final PlayerLocales locales;
     private final SmpSounds sounds;
 
     public ProtectionListener(
-            final Boxes regions,
-            final Identities identities,
-            final Messages messages,
-            final PlayerLocales locales,
-            final SmpSounds sounds) {
+            final Boxes regions, final Identities identities, final Messages messages, final SmpSounds sounds) {
         this.regions = regions;
         this.identities = identities;
         this.messages = messages;
-        this.locales = locales;
         this.sounds = sounds;
     }
 
@@ -166,7 +159,7 @@ public final class ProtectionListener implements Listener {
         }
         player.sendActionBar(MessageRenderer.of(messages)
                 .format(
-                        locales.of(player.getUniqueId()),
+                        identities.languageOf(player.getUniqueId()),
                         MESSAGES.smp().protect().denied()));
         sounds.play(player, Feedback.REFUSED);
         return true;

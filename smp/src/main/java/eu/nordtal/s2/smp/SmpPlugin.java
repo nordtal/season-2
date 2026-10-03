@@ -43,8 +43,6 @@ import eu.nordtal.s2.smp.milestone.TrackNames;
 import eu.nordtal.s2.smp.milestone.TrackValidation;
 import eu.nordtal.s2.smp.navigate.Navigation;
 import eu.nordtal.s2.smp.npc.SpawnNpc;
-import eu.nordtal.s2.smp.player.Identities;
-import eu.nordtal.s2.smp.player.PlayerSurfaces;
 import eu.nordtal.s2.smp.player.PresenceListener;
 import eu.nordtal.s2.smp.prestige.Prestige;
 import eu.nordtal.s2.smp.prestige.PrestigeColours;
@@ -109,7 +107,6 @@ public final class SmpPlugin extends NordtalPlugin {
     Worlds worlds;
     private Boxes balloons;
     final SeasonState season = new SeasonState();
-    Identities identities;
 
     @Nullable
     SmpHud hud;
@@ -138,7 +135,6 @@ public final class SmpPlugin extends NordtalPlugin {
     @Nullable
     BalloonDisplay balloonDisplay;
 
-    private PlayerSurfaces surfaces;
     private PresenceListener presence;
 
     @Override
@@ -234,7 +230,6 @@ public final class SmpPlugin extends NordtalPlugin {
         final SmpSpec spec = config.get();
         final Boxes regions = ConfigBoxes.spawnRegions(spec);
         dao = jdbi().onDemand(SmpDao.class);
-        identities = new Identities(identities(), dao);
         // Everything below this line touches the database, so it happens off the main thread.
         Bukkit.getScheduler().runTaskAsynchronously(this, this::loadSeasonState);
 
@@ -244,7 +239,6 @@ public final class SmpPlugin extends NordtalPlugin {
 
         final SmpStart.Surfaces wired = SmpStart.wireEffectsAndSurfaces(this, spec);
         boards = wired.boards();
-        surfaces = wired.surfaces();
         final SmpStart.Presence inputs = SmpStart.wirePresenceInputs(this, spec, wired);
         cinematics = inputs.cinematics();
         presence = SmpStart.registerPresenceListeners(this, spec, wired, inputs);
@@ -280,11 +274,6 @@ public final class SmpPlugin extends NordtalPlugin {
     @Override
     protected void languageKnown(final Player player) {
         presence.languageKnown(player);
-    }
-
-    @Override
-    protected void adminsChanged() {
-        surfaces.refreshAll();
     }
 
     private void loadMilestoneTrack() {
@@ -395,8 +384,8 @@ public final class SmpPlugin extends NordtalPlugin {
 
     void registerCommands(final SmpSounds sounds) {
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
-            final NavigateCommand commands = new NavigateCommand(
-                    this, dao, navigation, identities, messages(), locales(), sounds, this::colours);
+            final NavigateCommand commands =
+                    new NavigateCommand(this, dao, navigation, identities(), messages(), sounds, this::colours);
             event.registrar().register(commands.navigate());
             event.registrar().register(commands.poi());
         });
@@ -418,7 +407,7 @@ public final class SmpPlugin extends NordtalPlugin {
                         engine.unlockMilestone(milestone, null);
                     }
                 },
-                identities,
+                identities(),
                 access(),
                 getLogger(),
                 clock().getZone());

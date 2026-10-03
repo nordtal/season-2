@@ -2,6 +2,7 @@ package eu.nordtal.s2.database.access;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
@@ -255,23 +256,20 @@ interface AccessDao {
     Optional<AccessState> accessState(@Bind("mcUuid") UUID mcUuid);
 
     @SqlQuery("""
-            SELECT link.mc_uuid, link.discord_id, usr.locale, usr.admin, usr.donor,
-                   coalesce(playtime.seconds, 0) AS playtime_seconds
+            SELECT link.mc_uuid, link.discord_id, link.mc_name, usr.locale, usr.time_zone, usr.admin, usr.donor,
+                   coalesce(smp.aura, 0) AS aura, coalesce(playtime.seconds, 0) AS playtime_seconds
             FROM account_link link
                      JOIN discord_user usr ON usr.discord_id = link.discord_id
                      LEFT JOIN player_playtime playtime ON playtime.discord_id = link.discord_id
-            WHERE link.mc_uuid = :mcUuid
+                     LEFT JOIN smp_player smp ON smp.discord_id = link.discord_id
+            WHERE link.mc_uuid = ANY(:mcUuids)
             """)
     @RegisterRowMapper(PlayerIdentityMapper.class)
-    Optional<PlayerIdentity> identity(@Bind("mcUuid") UUID mcUuid);
+    List<PlayerIdentity> identities(@Bind("mcUuids") UUID[] mcUuids);
 
-    @SqlQuery("""
-            SELECT usr.locale
-            FROM account_link link
-                     JOIN discord_user usr ON usr.discord_id = link.discord_id
-            WHERE link.mc_uuid = :mcUuid
-            """)
-    Optional<String> localeOf(@Bind("mcUuid") UUID mcUuid);
+    /** Returns the language a Discord account chose, empty where it chose none or is unknown. */
+    @SqlQuery("SELECT locale FROM discord_user WHERE discord_id = :discordId AND locale IS NOT NULL")
+    Optional<String> languageOf(@Bind("discordId") DiscordId discordId);
 
     /**
      * Issues a code for one Minecraft account, or returns the one already live.

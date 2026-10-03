@@ -12,13 +12,14 @@ import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.TestDatabase;
-import eu.nordtal.s2.messages.PlayerLocales;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import javax.sql.DataSource;
@@ -172,63 +173,63 @@ class AccessProfileIntegrationTest {
     }
 
     @Test
-    void playerLocalesReadsTheLanguageFromTheDatabaseAtJoin() {
-        directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
-        directory.setLocale(DiscordId.of(DISCORD_ID), Locale.GERMAN);
-
-        // The wiring every module uses: the access directory is the LocaleSource.
-        final PlayerLocales locales = new PlayerLocales(directory::locale);
-
-        assertEquals(Locale.GERMAN, locales.join(MC_UUID));
-        assertEquals(Locale.GERMAN, locales.of(MC_UUID));
-    }
-
-    @Test
-    void playerLocalesHoldsTheLanguageForTheSessionAndPicksAChangeUpOnTheNextJoin() {
-        directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
-        directory.setLocale(DiscordId.of(DISCORD_ID), Locale.GERMAN);
-
-        final PlayerLocales locales = new PlayerLocales(directory::locale);
-        locales.join(MC_UUID);
-
-        // The player picks the English role in Discord; the bot mirrors it.
-        directory.setLocale(DiscordId.of(DISCORD_ID), Locale.ENGLISH);
-        assertEquals(
-                Locale.GERMAN,
-                locales.of(MC_UUID),
-                "docs/i18n.md: a language changed mid-session takes effect on the next join, which is "
-                        + "the trade for not re-querying on every message");
-
-        locales.quit(MC_UUID);
-        assertEquals(Locale.ENGLISH, locales.join(MC_UUID));
-    }
-
-    @Test
-    void playerLocalesFallsBackToEnglishForAnAccountNobodyHasLinked() {
-        final PlayerLocales locales = new PlayerLocales(directory::locale);
-
-        assertEquals(Locale.ENGLISH, locales.join(UUID.randomUUID()));
-    }
-
-    @Test
-    void anIdentityIsTheLinkTheLanguageBothFlagsAndThePlayTimeInOneRead() {
+    void anIdentityIsTheLinkTheNameTheLanguageTheZoneBothFlagsTheAuraAndThePlayTimeInOneRead() {
         directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
         directory.setLocale(DiscordId.of(DISCORD_ID), Locale.GERMAN);
         Jdbis.over(dataSource).useTransaction(handle -> Grants.markDonor(handle, DiscordId.of(DISCORD_ID)));
-        execute("UPDATE discord_user SET admin = true, admin_granted_at = now() WHERE discord_id = '" + DISCORD_ID
-                + "'");
+        execute("UPDATE discord_user SET admin = true, admin_granted_at = now(), time_zone = 'America/New_York'"
+                + " WHERE discord_id = '" + DISCORD_ID + "'");
+        execute("UPDATE account_link SET mc_name = 'Steve' WHERE mc_uuid = '" + MC_UUID + "'");
         execute("INSERT INTO player_playtime (discord_id, seconds) VALUES ('" + DISCORD_ID + "', 3600)");
+        execute("INSERT INTO smp_player (discord_id, aura) VALUES ('" + DISCORD_ID + "', 42)");
 
         assertEquals(
-                new PlayerIdentity(PlayerId.of(MC_UUID), DiscordId.of(DISCORD_ID), Locale.GERMAN, true, true, 3600L),
-                directory.identity(PlayerId.of(MC_UUID)));
+                List.of(new PlayerIdentity(
+                        PlayerId.of(MC_UUID),
+                        DiscordId.of(DISCORD_ID),
+                        "Steve",
+                        Locale.GERMAN,
+                        ZoneId.of("America/New_York"),
+                        true,
+                        true,
+                        42,
+                        3600L)),
+                directory.identities(List.of(PlayerId.of(MC_UUID))));
     }
 
     @Test
-    void anAccountNobodyLinkedIsAnUnknownIdentityWithNoPlayTime() {
+    void anAccountThatChoseNoLanguageReadsTheNetworksAndItsZoneIsTheNetworks() {
+        directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
+
+        final PlayerIdentity identity =
+                directory.identities(List.of(PlayerId.of(MC_UUID))).getFirst();
+
+        assertEquals(Locale.ENGLISH, identity.language());
+        assertEquals(ZoneId.of("Europe/Berlin"), identity.timeZoneOr(ZoneId.of("Europe/Berlin")));
+    }
+
+    @Test
+    void aZoneThatIsNoZoneIsRefusedByTheSchema() {
+        directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
+
+        final SQLException refused = assertThrows(
+                SQLException.class,
+                () -> executeChecked(
+                        "UPDATE discord_user SET time_zone = 'not a zone' WHERE discord_id = '" + DISCORD_ID + "'"));
+        assertTrue(refused.getMessage().contains("discord_user_time_zone_check"), refused.getMessage());
+    }
+
+    @Test
+    void severalAccountsAreReadInOneCallAndAnAccountNobodyLinkedIsLeftOut() {
+        directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
         final PlayerId nobody = PlayerId.of(UUID.randomUUID());
 
-        assertEquals(PlayerIdentity.unknown(nobody), directory.identity(nobody));
+        final List<PlayerIdentity> read = directory.identities(List.of(PlayerId.of(MC_UUID), nobody));
+
+        assertEquals(
+                List.of(PlayerId.of(MC_UUID)),
+                read.stream().map(PlayerIdentity::player).toList());
+        assertEquals(List.of(), directory.identities(List.of()));
     }
 
     @Test

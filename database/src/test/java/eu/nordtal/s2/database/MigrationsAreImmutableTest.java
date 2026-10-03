@@ -79,6 +79,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V17__message_overrides_live_in_the_database.sql",
                 "a9289056b9c6988297d9ca91d2460ae061688eda7d46cd6ea59602c9ea534236");
+        FROZEN.put(
+                "V18__a_player_reads_in_a_language_and_zone_of_their_own.sql",
+                "5582cf14c510c3a593a44a4fab8055a510d0a99e4d052071bebf0a15f1c49d19");
     }
 
     @Test

@@ -2,12 +2,12 @@ package eu.nordtal.s2.smp.progress;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.papercommon.game.GameKeys;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.milestone.Objective;
 import eu.nordtal.s2.smp.milestone.ObjectiveType;
 import eu.nordtal.s2.smp.milestone.TrackNames;
-import eu.nordtal.s2.smp.player.Identities;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;

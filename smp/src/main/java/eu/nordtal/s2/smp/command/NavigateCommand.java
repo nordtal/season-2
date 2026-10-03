@@ -12,11 +12,11 @@ import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.PaperCommonMessages;
 import eu.nordtal.s2.papercommon.command.PaperUser;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.db.PoiRow;
 import eu.nordtal.s2.smp.db.SmpDao;
@@ -24,7 +24,6 @@ import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.navigate.NavigateGui;
 import eu.nordtal.s2.smp.navigate.Navigation;
 import eu.nordtal.s2.smp.navigate.NavigationTarget;
-import eu.nordtal.s2.smp.player.Identities;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import java.util.List;
@@ -51,7 +50,6 @@ public final class NavigateCommand {
     private final Navigation navigation;
     private final Identities identities;
     private final Messages messages;
-    private final PlayerLocales locales;
     private final SmpSounds sounds;
     private final java.util.function.Supplier<ToneColours> colours;
 
@@ -61,7 +59,6 @@ public final class NavigateCommand {
             final Navigation navigation,
             final Identities identities,
             final Messages messages,
-            final PlayerLocales locales,
             final SmpSounds sounds,
             final java.util.function.Supplier<ToneColours> colours) {
         this.plugin = plugin;
@@ -69,7 +66,6 @@ public final class NavigateCommand {
         this.navigation = navigation;
         this.identities = identities;
         this.messages = messages;
-        this.locales = locales;
         this.sounds = sounds;
         this.colours = colours;
     }
@@ -149,7 +145,7 @@ public final class NavigateCommand {
         return PaperUser.of(
                 plugin,
                 player,
-                locales.of(player.getUniqueId()),
+                identities.languageOf(player.getUniqueId()),
                 identities.of(player.getUniqueId()).admin(),
                 () -> identities.discordIdOf(player.getUniqueId()),
                 messages,
@@ -173,7 +169,7 @@ public final class NavigateCommand {
                     return;
                 }
                 player.openInventory(
-                        new NavigateGui(messages, locales, navigation, player, lastDeath, pois).getInventory());
+                        new NavigateGui(messages, identities, navigation, player, lastDeath, pois).getInventory());
             });
         });
         return Command.SINGLE_SUCCESS;
@@ -181,7 +177,7 @@ public final class NavigateCommand {
 
     private int addPoi(final CommandContext<CommandSourceStack> context) {
         final Player player = (Player) context.getSource().getSender();
-        final Locale locale = locales.of(player.getUniqueId());
+        final Locale locale = identities.languageOf(player.getUniqueId());
         final String name = StringArgumentType.getString(context, "name").trim();
 
         if (name.isEmpty() || name.length() > MAX_POI_NAME) {
@@ -231,7 +227,7 @@ public final class NavigateCommand {
 
     private int removePoi(final CommandContext<CommandSourceStack> context) {
         final Player player = (Player) context.getSource().getSender();
-        final Locale locale = locales.of(player.getUniqueId());
+        final Locale locale = identities.languageOf(player.getUniqueId());
         final String name = StringArgumentType.getString(context, "name").trim();
         final boolean admin = identities.of(player.getUniqueId()).admin();
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());

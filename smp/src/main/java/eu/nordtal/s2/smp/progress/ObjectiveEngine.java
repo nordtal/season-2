@@ -5,10 +5,10 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.packrendering.Glyphs;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.aura.AuraPayout;
 import eu.nordtal.s2.smp.aura.AuraReason;
@@ -24,7 +24,6 @@ import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.milestone.Objective;
 import eu.nordtal.s2.smp.milestone.ObjectiveProgress;
 import eu.nordtal.s2.smp.milestone.Unlock;
-import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.state.SeasonState;
 import eu.nordtal.s2.smp.wheel.PrizeDraw;
 import eu.nordtal.s2.smp.world.Worlds;
@@ -57,7 +56,6 @@ public final class ObjectiveEngine {
     private final Worlds worlds;
     private final Identities identities;
     private final Messages messages;
-    private final PlayerLocales locales;
     private final SmpSpec config;
     private final SmpSounds sounds;
     private final WorldEffects effects;
@@ -75,7 +73,6 @@ public final class ObjectiveEngine {
             final Worlds worlds,
             final Identities identities,
             final Messages messages,
-            final PlayerLocales locales,
             final SmpSpec config,
             final SmpSounds sounds,
             final WorldEffects effects,
@@ -88,7 +85,6 @@ public final class ObjectiveEngine {
         this.worlds = worlds;
         this.identities = identities;
         this.messages = messages;
-        this.locales = locales;
         this.config = config;
         this.sounds = sounds;
         this.effects = effects;
@@ -279,7 +275,7 @@ public final class ObjectiveEngine {
     private void announceObjective(final String objectiveKey) {
         Bukkit.getScheduler().runTask(plugin, () -> {
             for (final Player player : Bukkit.getOnlinePlayers()) {
-                final var locale = locales.of(player.getUniqueId());
+                final var locale = identities.languageOf(player.getUniqueId());
                 player.sendMessage(MessageRenderer.of(messages)
                         .format(locale, MESSAGES.smp().objective().completed(Glyphs.ICON_ANNOUNCE, objectiveKey)));
             }
@@ -306,7 +302,7 @@ public final class ObjectiveEngine {
         });
         final MessageRenderer renderer = MessageRenderer.of(messages);
         for (final Player player : Bukkit.getOnlinePlayers()) {
-            final var locale = locales.of(player.getUniqueId());
+            final var locale = identities.languageOf(player.getUniqueId());
             final MilestoneContext name = new MilestoneContext(MilestoneNames.of(messages, locale, milestoneKey));
 
             player.sendMessage(

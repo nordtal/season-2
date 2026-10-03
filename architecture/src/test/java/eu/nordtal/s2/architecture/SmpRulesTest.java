@@ -312,7 +312,7 @@ class SmpRulesTest {
                 .that(isListed(PRESENCE))
                 .should(callInOrder("languageKnown", "SystemLines#announceJoin", "Consumer#accept"))
                 .andShould(neverCallFrom("onJoin", "Consumer#accept"))
-                .because("at join every player is still English")
+                .because("the join line and the opening moment run once every join handler ran")
                 .check(classes);
     }
 

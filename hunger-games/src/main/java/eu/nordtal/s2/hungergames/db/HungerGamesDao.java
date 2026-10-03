@@ -85,9 +85,6 @@ public interface HungerGamesDao {
     @SqlQuery("SELECT discord_id FROM account_link WHERE mc_uuid = :mcUuid")
     Optional<DiscordId> discordIdOf(@Bind("mcUuid") UUID mcUuid);
 
-    @SqlQuery("SELECT locale FROM discord_user WHERE discord_id = :discordId")
-    Optional<String> localeOf(@Bind("discordId") DiscordId discordId);
-
     /** Whether the account behind this Minecraft UUID holds the admin flag, {@code discord_user.admin}. */
     @SqlQuery("""
             SELECT usr.admin

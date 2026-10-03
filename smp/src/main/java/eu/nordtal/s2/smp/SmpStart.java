@@ -51,7 +51,7 @@ final class SmpStart {
 
     static HudAndAnnouncer startHudAndAnnouncer(final SmpPlugin plugin) {
         final SmpHud hud = new SmpHud(
-                plugin, plugin.worlds, plugin.season, plugin.navigation, plugin.messages(), plugin.locales());
+                plugin, plugin.worlds, plugin.season, plugin.navigation, plugin.messages(), plugin.identities());
         hud.start();
 
         // Discord announcements: one request in the bot's inbox with every language, fire and forget.
@@ -73,9 +73,10 @@ final class SmpStart {
         final PlayerComposition composition =
                 new PlayerComposition(() -> plugin.prestige, () -> plugin.prestigeColours);
         final PlayerSurfaces surfaces = new PlayerSurfaces(
-                plugin, plugin.identities, composition, new MessageRenderer(plugin.messages()), plugin.players());
+                plugin, plugin.identities(), composition, new MessageRenderer(plugin.messages()), plugin.players());
+        plugin.identities().whenChanged(surfaces::changed);
 
-        final Boards boards = new Boards(plugin, config, plugin.season, plugin.messages(), plugin.locales());
+        final Boards boards = new Boards(plugin, config, plugin.season, plugin.messages(), plugin.identities());
         boards.start();
         return new Surfaces(effects, composition, surfaces, boards);
     }
@@ -83,14 +84,14 @@ final class SmpStart {
     record Presence(SystemLines systemLines, BukkitCinematics cinematics, SeasonWelcome welcome) {}
 
     static Presence wirePresenceInputs(final SmpPlugin plugin, final SmpSpec config, final Surfaces surfaces) {
-        final SystemLines systemLines = plugin.systemLines(player ->
-                surfaces.composition().chatPrefix(player.getName(), plugin.identities.of(player.getUniqueId())));
+        final SystemLines systemLines = plugin.systemLines(player -> surfaces.composition()
+                .chatPrefix(player.getName(), plugin.identities().of(player.getUniqueId())));
 
         // Paper disables plugins before saving players, so a blindness would otherwise be saved too.
         final BukkitCinematics cinematics = new BukkitCinematics(plugin, plugin.sounds::play);
         plugin.getServer().getPluginManager().registerEvents(cinematics, plugin);
         final SeasonWelcome welcome =
-                new SeasonWelcome(plugin, plugin.dao, plugin.identities, cinematics, config, plugin.worlds);
+                new SeasonWelcome(plugin, plugin.dao, plugin.identities(), cinematics, config, plugin.worlds);
         return new Presence(systemLines, cinematics, welcome);
     }
 
@@ -102,7 +103,7 @@ final class SmpStart {
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(
-                        new NavigateListener(plugin, plugin.dao, plugin.navigation, plugin.identities, plugin.sounds),
+                        new NavigateListener(plugin, plugin.dao, plugin.navigation, plugin.identities(), plugin.sounds),
                         plugin);
         return listener;
     }
@@ -116,19 +117,18 @@ final class SmpStart {
                 () -> plugin.track,
                 plugin.season,
                 plugin.worlds,
-                plugin.identities,
+                plugin.identities(),
                 plugin.messages(),
-                plugin.locales(),
                 config,
                 plugin.sounds,
                 effects,
                 plugin.announcer);
-        final StatisticPoller poller = new StatisticPoller(plugin, () -> plugin.track, engine, plugin.identities);
+        final StatisticPoller poller = new StatisticPoller(plugin, () -> plugin.track, engine, plugin.identities());
         poller.start();
         final GateHolders gates = new GateHolders(
                 () -> plugin.track,
                 GateHolders.Server.running(),
-                plugin.identities::discordIdOf,
+                plugin.identities()::discordIdOf,
                 task -> Bukkit.getScheduler().runTask(plugin, task),
                 task -> Bukkit.getScheduler().runTaskAsynchronously(plugin, task),
                 engine);
@@ -142,9 +142,8 @@ final class SmpStart {
         final Graves graves = new Graves(
                 plugin,
                 plugin.dao,
-                plugin.identities,
+                plugin.identities(),
                 plugin.messages(),
-                plugin.locales(),
                 plugin.sounds,
                 effects,
                 config,
@@ -159,9 +158,8 @@ final class SmpStart {
                 plugin.dao,
                 config,
                 plugin.worlds,
-                plugin.identities,
+                plugin.identities(),
                 plugin.messages(),
-                plugin.locales(),
                 plugin.sounds,
                 effects,
                 plugin.clock());
@@ -169,14 +167,7 @@ final class SmpStart {
         final DeathPenalty penalty = new DeathPenalty(
                 config.deathPenalty(), config.deathPenaltyListed(), java.util.Set.copyOf(config.deathCausesListed()));
         final Wheel wheel = new Wheel(
-                plugin,
-                plugin.dao,
-                config,
-                plugin.identities,
-                plugin.messages(),
-                plugin.locales(),
-                plugin.sounds,
-                plugin.clock());
+                plugin, plugin.dao, config, plugin.identities(), plugin.messages(), plugin.sounds, plugin.clock());
         return new Activities(penalty, wheel, graves, duels);
     }
 
@@ -188,10 +179,9 @@ final class SmpStart {
                                 plugin,
                                 plugin.dao,
                                 plugin.engine,
-                                plugin.identities,
+                                plugin.identities(),
                                 config,
                                 plugin.messages(),
-                                plugin.locales(),
                                 plugin.sounds),
                         plugin);
         plugin.getServer()
@@ -201,11 +191,10 @@ final class SmpStart {
                                 plugin,
                                 plugin.dao,
                                 activities.graves(),
-                                plugin.identities,
+                                plugin.identities(),
                                 activities.penalty(),
                                 activities.duels()::isInArena,
                                 plugin.messages(),
-                                plugin.locales(),
                                 plugin.sounds),
                         plugin);
         plugin.getServer()
@@ -229,10 +218,9 @@ final class SmpStart {
                                 npc,
                                 () -> plugin.track,
                                 plugin.engine,
-                                plugin.identities,
+                                plugin.identities(),
                                 config::wheelExtraSpinPercents,
                                 plugin.messages(),
-                                plugin.locales(),
                                 plugin.sounds),
                         plugin);
         // Only keeps the figure standing against damage.
@@ -250,9 +238,7 @@ final class SmpStart {
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(
-                        new ProtectionListener(
-                                regions, plugin.identities, plugin.messages(), plugin.locales(), plugin.sounds),
-                        plugin);
+                        new ProtectionListener(regions, plugin.identities(), plugin.messages(), plugin.sounds), plugin);
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(
@@ -262,7 +248,7 @@ final class SmpStart {
                                 plugin.season,
                                 () -> plugin.track,
                                 plugin.messages(),
-                                plugin.locales(),
+                                plugin.identities(),
                                 plugin.sounds,
                                 effects),
                         plugin);
@@ -277,7 +263,7 @@ final class SmpStart {
                                 plugin.worlds,
                                 plugin.season,
                                 plugin.messages(),
-                                plugin.locales(),
+                                plugin.identities(),
                                 plugin.sounds),
                         plugin);
 

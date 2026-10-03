@@ -4,8 +4,10 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.displaytags.api.DisplayTagsPlugin;
 import eu.nordtal.displaytags.api.nametag.PlayerNameTag;
+import eu.nordtal.s2.database.access.PlayerIdentity;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.packrendering.hud.TabList;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.settings.network.PlayersSpec;
 import java.util.List;
 import net.kyori.adventure.text.Component;
@@ -44,7 +46,7 @@ public final class PlayerSurfaces {
 
     /** Redraws one player everywhere they appear, on the main thread. */
     public void refresh(final Player player) {
-        final Identity identity = identities.of(player.getUniqueId());
+        final PlayerIdentity identity = identities.of(player.getUniqueId());
         player.playerListName(composition.tabList(player.getName(), identity));
 
         // Longest online first: the tab list's own alphabetical sort says nothing about anybody.
@@ -53,6 +55,16 @@ public final class PlayerSurfaces {
         sendTabListFrame(player, identity);
 
         applyNameTag(player, identity);
+    }
+
+    /** Redraws a player whose identity changed, on the main thread, if they are still online. */
+    public void changed(final PlayerIdentity identity) {
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            final Player player = Bukkit.getPlayer(identity.player().value());
+            if (player != null) {
+                refresh(player);
+            }
+        });
     }
 
     public void refreshAll() {
@@ -64,7 +76,7 @@ public final class PlayerSurfaces {
      *
      * A tag created at join is replaced by DisplayTags' own lines; {@code onNameTagCreate} is the seam that holds.
      */
-    private void applyNameTag(final Player player, final Identity identity) {
+    private void applyNameTag(final Player player, final PlayerIdentity identity) {
         final DisplayTagsPlugin displayTags = DisplayTagsPlugin.get();
         if (displayTags == null) {
             // DisplayTags is declared required, so its absence is a failed enable.
@@ -90,7 +102,7 @@ public final class PlayerSurfaces {
     }
 
     /** Hands the composition to DisplayTags as MiniMessage, which is the format it parses. */
-    private void write(final PlayerNameTag tag, final Player player, final Identity identity) {
+    private void write(final PlayerNameTag tag, final Player player, final PlayerIdentity identity) {
         final Component line = composition.nameTag(player.getName(), identity);
         tag.getData().setLines(List.of(MiniMessage.miniMessage().serialize(line)));
         tag.updateForViewers();
@@ -101,11 +113,11 @@ public final class PlayerSurfaces {
      *
      * The logo comes in as a placeholder from {@link Glyphs}, never a private-use character in a properties file.
      */
-    private void sendTabListFrame(final Player player, final Identity identity) {
+    private void sendTabListFrame(final Player player, final PlayerIdentity identity) {
         player.sendPlayerListHeaderAndFooter(
-                TabList.header(messages, identity.locale(), MESSAGES.tab()::header),
+                TabList.header(messages, identity.language(), MESSAGES.tab()::header),
                 messages.format(
-                        identity.locale(),
+                        identity.language(),
                         MESSAGES.tab().footer(Bukkit.getOnlinePlayers().size(), network.maxPlayers())));
     }
 }

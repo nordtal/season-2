@@ -216,6 +216,7 @@ class ArchitectureTest {
 
     @Test
     void noPaperPluginWaitsForTheDatabase() {
+        // Pre-login runs on Paper's login thread and a hub refresh on the hub's: the two that may block.
         noClasses()
                 .that()
                 .resideInAnyPackage(
@@ -223,8 +224,17 @@ class ArchitectureTest {
                         "eu.nordtal.s2.hungergames..",
                         "eu.nordtal.s2.smp..",
                         "eu.nordtal.s2.papercommon..")
+                .and()
+                .doNotHaveFullyQualifiedName("eu.nordtal.s2.papercommon.player.Presence")
                 .should()
-                .callMethod("eu.nordtal.s2.messages.PlayerLocales", "join", "java.util.UUID")
+                .callMethod("eu.nordtal.s2.papercommon.player.Identities", "load", "eu.nordtal.s2.common.id.PlayerId")
+                .orShould()
+                .callMethod("eu.nordtal.s2.papercommon.player.Identities", "reread")
+                .check(classes);
+        classes()
+                .that()
+                .haveFullyQualifiedName("eu.nordtal.s2.papercommon.player.Presence")
+                .should(Wiring.callOnlyFrom("onPreLogin", "Identities#load"))
                 .check(classes);
     }
 

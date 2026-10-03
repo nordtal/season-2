@@ -14,10 +14,10 @@ import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.papercommon.command.Answer;
 import eu.nordtal.s2.papercommon.command.PaperUser;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.aura.AuraReason;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.db.SmpDao;
-import eu.nordtal.s2.smp.player.Identities;
 import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
@@ -101,11 +101,10 @@ public final class SmpAdmin {
         try {
             dao.addAura(discordId.get(), delta, AuraReason.ADMIN.stored(), "by the console");
         } catch (final RuntimeException failure) {
-            // Its own answer: the aura row may be booked although reading the new total failed.
+            // Its own answer: the transaction may have committed although its answer was lost.
             logger.log(java.util.logging.Level.WARNING, "the aura change for " + name + " failed", failure);
             return Answer.failed(MESSAGES.smp().admin().auraUnknown(new PlayerContext(name), delta));
         }
-        dao.auraOf(discordId.get()).ifPresent(now -> identities.recordAura(player, now));
         logger.info("the console changed " + name + "'s aura by " + delta);
         return Answer.done(MESSAGES.smp().admin().auraChanged(new PlayerContext(name), delta));
     }

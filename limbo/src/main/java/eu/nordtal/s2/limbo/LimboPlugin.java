@@ -59,12 +59,12 @@ public final class LimboPlugin extends NordtalPlugin {
 
     @Override
     protected void enable() {
-        room = new WaitingRoom(this, config.get(), messages(), locales(), world);
+        room = new WaitingRoom(this, config.get(), messages(), identities(), world);
         room.start();
         final LimboChannel speaking = new LimboChannel(this, room);
         speaking.register();
         channel = speaking;
-        presence = new PresenceListener(this, world, room, speaking, locales(), messages(), identities());
+        presence = new PresenceListener(this, world, room, speaking, messages(), identities());
         listen(presence);
         answer(LimboRequest.TABLE, request -> switch (request) {
             case Reload reload -> reloadAnswer();

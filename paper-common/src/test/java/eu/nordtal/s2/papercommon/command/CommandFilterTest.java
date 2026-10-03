@@ -7,8 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.settings.network.CommandAllowlist;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
@@ -31,7 +31,7 @@ class CommandFilterTest {
 
     private final Messages messages =
             Messages.load(getClass().getClassLoader(), "messages/paper-common", Locales.DEFAULT);
-    private final PlayerLocales locales = new PlayerLocales(uuid -> Locales.DEFAULT);
+    private final Identities identities = new Identities(players -> List.of());
 
     /** Records every play() call rather than making a sound. */
     private static final class SpyChime implements PaperUser.Chime {
@@ -45,7 +45,7 @@ class CommandFilterTest {
     }
 
     private CommandFilter filter(final Supplier<CommandAllowlist> allowlist, final SpyChime chime) {
-        return new CommandFilter(allowlist, uuid -> false, locales, messages, () -> ToneColours.DEFAULTS, chime);
+        return new CommandFilter(allowlist, uuid -> false, identities, messages, () -> ToneColours.DEFAULTS, chime);
     }
 
     @Test

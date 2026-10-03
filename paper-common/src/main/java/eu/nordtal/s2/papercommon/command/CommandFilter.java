@@ -6,9 +6,9 @@ import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messagerendering.Tones;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.PlayerLocales;
 import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.settings.network.CommandAllowlist;
 import java.util.Objects;
 import java.util.UUID;
@@ -30,7 +30,7 @@ public final class CommandFilter implements Listener {
 
     private final Supplier<CommandAllowlist> allowlist;
     private final Predicate<UUID> admin;
-    private final PlayerLocales locales;
+    private final Identities identities;
     private final Messages messages;
     private final PaperUser.Chime chime;
     private final Supplier<ToneColours> colours;
@@ -43,13 +43,13 @@ public final class CommandFilter implements Listener {
     public CommandFilter(
             final Supplier<CommandAllowlist> allowlist,
             final Predicate<UUID> admin,
-            final PlayerLocales locales,
+            final Identities identities,
             final Messages messages,
             final Supplier<ToneColours> colours,
             final PaperUser.Chime chime) {
         this.allowlist = Objects.requireNonNull(allowlist, "allowlist");
         this.admin = Objects.requireNonNull(admin, "admin");
-        this.locales = Objects.requireNonNull(locales, "locales");
+        this.identities = Objects.requireNonNull(identities, "identities");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.colours = Objects.requireNonNull(colours, "colours");
         this.chime = Objects.requireNonNull(chime, "chime");
@@ -84,7 +84,9 @@ public final class CommandFilter implements Listener {
     private net.kyori.adventure.text.Component refusal(final UUID player) {
         return Tones.paint(
                 MessageRenderer.of(messages)
-                        .format(locales.of(player), MESSAGES.command().unknown()),
+                        .format(
+                                identities.languageOf(player),
+                                MESSAGES.command().unknown()),
                 Tone.BAD,
                 colours.get());
     }

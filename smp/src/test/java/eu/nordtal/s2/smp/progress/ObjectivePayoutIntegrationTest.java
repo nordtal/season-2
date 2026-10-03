@@ -119,7 +119,6 @@ class ObjectivePayoutIntegrationTest {
                 null,
                 null,
                 messages,
-                null,
                 new SmpSpec() {},
                 null,
                 null,

@@ -8,6 +8,12 @@ plugins {
     id("nordtal.jvm-app")
     alias(libs.plugins.node)
     id("nordtal.plugin-descriptor")
+    id("nordtal.message-spec")
+}
+
+// Steward's own texts, English only, which the browser renders and an admin may override.
+messageSpec {
+    specClasses.add("eu.nordtal.s2.steward.texts.StewardTexts")
 }
 
 // How Steward shows this module's settings; steward-agent reads it out of the jar.
@@ -39,8 +45,10 @@ repositoryRootTestInputs {
     // DiscordAuthTest reads the documented environment beside the setup script.
     reads("deploy/dev.env.example")
 
-    // ApiTypesTest compares the generated TypeScript types with the records.
+    // ApiTypesTest compares the generated TypeScript types with the records, TextTypesTest the texts with the bundle.
     reads("steward/frontend/src/lib/api.gen.ts")
+    reads("steward/frontend/src/lib/texts.gen.ts")
+    reads("steward/frontend/src/lib/texts.gen.json")
 
     // DocumentedCommandsTest reads every document that shows a `steward` command.
     reads("steward/README.md")
@@ -216,10 +224,11 @@ sourceSets.test {
     compileClasspath = files(mainClasses) + configurations["testCompileClasspath"]
 }
 
-// The frontend's API types, written from the records the routes answer and read; ApiTypesTest holds them.
+// The frontend's API types and its packaged texts, written from the records and the bundles; ApiTypesTest and
+// TextTypesTest hold them.
 tasks.register<JavaExec>("generateApiTypes") {
     group = "build"
-    description = "Writes frontend/src/lib/api.gen.ts from steward's API records."
+    description = "Writes frontend/src/lib/api.gen.ts and texts.gen.ts from steward's API records and bundles."
     // Classes only, so the types can be written while the frontend does not build against the old ones.
     classpath =
         files(

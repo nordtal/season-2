@@ -10,6 +10,7 @@
     "**/*.sql",
     "**/package-lock.json",
     "resource-pack/src/**",
-    "**/src/test/resources/**"
+    "**/src/test/resources/**",
+    "steward/frontend/src/lib/texts.gen.json"
   ]
 }

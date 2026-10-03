@@ -23,7 +23,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * Checks that every message bundle in the repository has every key in both languages.
+ * Checks that every message bundle in the repository has every key in both languages, but the English-only ones.
  *
  * A missing German key falls back to English silently, so the tree is walked to cover new modules without a line here.
  */
@@ -38,19 +38,22 @@ class EveryBundleIsCompleteTest {
             "paper-common/src/main/resources/messages/paper-common",
             "smp/src/main/resources/messages/smp");
 
+    /** The bundles only admins read, which are English: Steward's page, and nothing else. */
+    private static final Set<String> ENGLISH_ONLY = Set.of("steward/src/main/resources/messages/steward");
+
     @Test
     void theWalkFindsEveryKnownBundle() {
         assertTrue(
-                bundles().keySet().containsAll(KNOWN),
+                bundles().keySet().containsAll(KNOWN) && bundles().keySet().containsAll(ENGLISH_ONLY),
                 "the walk does not find every known bundle. Missing: "
-                        + missingFrom(bundles().keySet()));
+                        + missingFrom(bundles().keySet()) + " or one of " + ENGLISH_ONLY);
     }
 
     @Test
     void aBundleShipsBothLanguagesBecauseGermanIsNotAFallback() {
         final Map<String, Set<String>> incomplete = new TreeMap<>();
         bundles().forEach((name, languages) -> {
-            if (!languages.equals(Set.of("en", "de"))) {
+            if (!languages.equals(ENGLISH_ONLY.contains(name) ? Set.of("en") : Set.of("en", "de"))) {
                 incomplete.put(name, languages);
             }
         });
@@ -61,7 +64,7 @@ class EveryBundleIsCompleteTest {
     @Test
     void everyKeyExistsInBothLanguages() {
         final Map<String, Set<String>> untranslated = new TreeMap<>();
-        for (final String name : bundles().keySet()) {
+        for (final String name : translated()) {
             final Set<String> english = keysOf(name, "en");
             final Set<String> german = keysOf(name, "de");
 
@@ -87,7 +90,7 @@ class EveryBundleIsCompleteTest {
     @Test
     void aTranslationUsesTheSamePlaceholdersAsItsOriginal() {
         final Map<String, String> wrong = new TreeMap<>();
-        for (final String name : bundles().keySet()) {
+        for (final String name : translated()) {
             final Properties english = load(name, "en");
             final Properties german = load(name, "de");
 
@@ -138,6 +141,13 @@ class EveryBundleIsCompleteTest {
         } catch (final IOException e) {
             throw new UncheckedIOException("cannot list " + directory, e);
         }
+    }
+
+    /** Every bundle that ships German, which is every one but the English-only ones. */
+    private static Set<String> translated() {
+        final Set<String> translated = new TreeSet<>(bundles().keySet());
+        translated.removeAll(ENGLISH_ONLY);
+        return translated;
     }
 
     private static Set<String> missingFrom(final Set<String> found) {

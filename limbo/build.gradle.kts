@@ -43,5 +43,5 @@ dependencies {
 }
 
 messageSpec {
-    specClass.set("eu.nordtal.s2.limbo.LimboMessages")
+    specClasses.add("eu.nordtal.s2.limbo.LimboMessages")
 }

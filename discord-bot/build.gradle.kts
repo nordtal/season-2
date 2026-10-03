@@ -55,5 +55,5 @@ dependencies {
 }
 
 messageSpec {
-    specClass.set("eu.nordtal.s2.discordbot.AccessMessages")
+    specClasses.add("eu.nordtal.s2.discordbot.AccessMessages")
 }

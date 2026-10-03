@@ -518,6 +518,17 @@ public final class Messages {
         }
     }
 
+    /**
+     * Returns every key's parsed texts in a language as they read now, overrides layered, English where it has none.
+     * A receiver that renders in its own target, the browser, is handed these.
+     */
+    public Map<String, List<MessageText>> texts(final Locale locale) {
+        final Map<String, List<MessageText>> texts =
+                new TreeMap<>(byLanguage.getOrDefault(Locales.tag(Locales.DEFAULT), Map.of()));
+        texts.putAll(byLanguage.getOrDefault(Locales.tag(locale), Map.of()));
+        return texts;
+    }
+
     /** Returns whether that language has its own translation for the key, not counting the English fallback. */
     public boolean hasTranslation(final Locale locale, final String key) {
         final Map<String, List<MessageText>> bundle = byLanguage.get(Locales.tag(locale));

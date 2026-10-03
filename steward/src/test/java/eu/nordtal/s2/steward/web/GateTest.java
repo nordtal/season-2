@@ -90,7 +90,7 @@ class GateTest {
                         + String.join("\n  ", loose));
     }
 
-    /** Reading is at least {@link Gate#KEY_HELD}, with the four routes a signed-out browser needs. */
+    /** Reading is at least {@link Gate#KEY_HELD}, with the five routes a signed-out browser needs. */
     @Test
     void theOnlyReadsOutsideTheKeyAreTheDoorItself() {
         final Set<String> allowed = Set.of(
@@ -98,6 +98,8 @@ class GateTest {
                 "GET /api/health",
                 // The one route whose answer IS "you are not signed in".
                 "GET /api/me",
+                // The page's own words, which its script ships anyway, so the sign-in page reads them too.
+                "GET /api/texts",
                 // The two halves of the Discord redirect.
                 "GET /auth/login",
                 "GET /auth/callback",

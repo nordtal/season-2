@@ -1,6 +1,6 @@
 import type { Run } from "@/lib/api"
 import { useActiveRun } from "@/lib/queries"
-import { RUN_KIND } from "@/components/steward/status"
+import { runKind } from "@/components/steward/status"
 
 /**
  * One run in the network at a time: while one is open, buttons that would start another are locked.
@@ -14,7 +14,7 @@ export function useRunLock(): { run: Run | null; locked: boolean; title: string 
 }
 
 export function lockTitle(run: Run): string {
-  return `${RUN_KIND[run.kind] ?? run.kind} #${run.id} is under way. One run at a time.`
+  return `${runKind(run.kind)} #${run.id} is under way. One run at a time.`
 }
 
 /** Whether a run stops or starts this service. An empty scope is the whole network. */

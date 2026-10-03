@@ -1,7 +1,7 @@
 import { cn } from "cn"
 
 import type { ImageState, Service } from "@/lib/api"
-import { dateTime } from "@/lib/format"
+import { choice, t } from "@/lib/texts"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -83,8 +83,8 @@ export function ServiceState({ service }: { service: ServiceHealth }) {
   if (state !== "running") {
     if (tone === "down") {
       return (
-        <StatusBadge tone="down" tipContent={`Docker reports the state "${state}".`}>
-          {STATES[state] ?? state}
+        <StatusBadge tone="down" tipContent={t("steward.service.docker-state", { state })}>
+          {t("steward.service.state", { state })}
         </StatusBadge>
       )
     }
@@ -92,40 +92,38 @@ export function ServiceState({ service }: { service: ServiceHealth }) {
     return (
       <StatusBadge
         tone="idle"
-        tipContent={(hold ? `Held down since ${dateTime(hold.since)}. ` : "") + `Docker reports the state "${state}".`}
+        tipContent={
+          hold
+            ? t("steward.service.held-since", { since: hold.since, state })
+            : t("steward.service.docker-state", { state })
+        }
       >
-        {hold ? "held down" : "standby"}
+        {t("steward.service.state", { state: hold ? "held" : "standby" })}
       </StatusBadge>
     )
   }
   if (tone === "down") {
     return (
-      <StatusBadge tone="down" tipContent="The container is running, but its healthcheck is failing.">
-        unhealthy
+      <StatusBadge tone="down" tipContent={t("steward.service.unhealthy")}>
+        {t("steward.service.state", { state: "unhealthy" })}
       </StatusBadge>
     )
   }
   if (tone === "warn") {
     return (
-      <StatusBadge tone="warn" tipContent="The healthcheck has not reached a verdict yet.">
-        starting
+      <StatusBadge tone="warn" tipContent={t("steward.service.starting")}>
+        {t("steward.service.state", { state: "starting" })}
       </StatusBadge>
     )
   }
   return (
-    <StatusBadge tone="ok" tipContent={health ? `Healthcheck: ${health}.` : "Running. No healthcheck."}>
-      running
+    <StatusBadge
+      tone="ok"
+      tipContent={health ? t("steward.service.health", { health }) : t("steward.service.no-health")}
+    >
+      {t("steward.service.state", { state: "running" })}
     </StatusBadge>
   )
-}
-
-const STATES: Record<string, string> = {
-  created: "created",
-  restarting: "restarting",
-  removing: "removing",
-  paused: "paused",
-  exited: "exited",
-  dead: "dead",
 }
 
 const DOT_TONE: Record<Tone, string> = {
@@ -136,11 +134,12 @@ const DOT_TONE: Record<Tone, string> = {
   idle: "border border-muted-foreground/60 bg-muted-foreground/30",
 }
 
-const DOT_WORD: Record<Tone, string> = {
+/** The state word each tone says, which `steward.service.state` turns into the reader's word. */
+const DOT_STATE: Record<Tone, string> = {
   ok: "healthy",
   warn: "starting",
   down: "unhealthy",
-  idle: "held down",
+  idle: "held",
 }
 
 /**
@@ -163,8 +162,8 @@ export function HealthDot({
     return (
       <Skeleton
         role="img"
-        aria-label="Not read yet."
-        title="Not read yet."
+        aria-label={t("steward.service.not-read")}
+        title={t("steward.service.not-read")}
         className={cn("size-2 shrink-0 rounded-full", className)}
       />
     )
@@ -172,7 +171,7 @@ export function HealthDot({
 
   const tone = serviceTone(service)
   if (tone === "ok" && quiet) return null
-  const word = tone === "idle" && !held(service) ? "standby" : DOT_WORD[tone]
+  const word = t("steward.service.state", { state: tone === "idle" && !held(service) ? "standby" : DOT_STATE[tone] })
 
   return (
     <span
@@ -184,137 +183,65 @@ export function HealthDot({
   )
 }
 
+/** The tone of each resolve status; anything else could not be asked, which is never green. */
+const AVAILABLE_TONE: Record<string, Tone> = {
+  UP_TO_DATE: "ok",
+  OUTDATED: "warn",
+  MISSING: "warn",
+  UNSUPPORTED: "idle",
+}
+
 /**
  * One artefact's resolve status, in four answers kept apart.
  *
  * "could not ask" must never look like "up to date", since a silent source looks like one with no change.
  */
 export function AvailableBadge({ status }: { status: string }) {
-  switch (status) {
-    case "UP_TO_DATE":
-      return (
-        <StatusBadge tone="ok" tipContent="What is installed is what the source says is newest.">
-          up to date
-        </StatusBadge>
-      )
-    case "OUTDATED":
-      return (
-        <StatusBadge tone="warn" tipContent="A newer file exists. A run would install it.">
-          outdated
-        </StatusBadge>
-      )
-    case "MISSING":
-      return (
-        <StatusBadge
-          tone="warn"
-          tipContent={
-            "Nothing with this file name is installed. On a fresh volume that is normal; on a" +
-            " running server it is either new, or a publisher who renamed the jar."
-          }
-        >
-          not installed
-        </StatusBadge>
-      )
-    case "UNSUPPORTED":
-      return (
-        <StatusBadge
-          tone="idle"
-          tipContent={
-            "The source answered and has no build of this for the Minecraft version the network" +
-            " runs. Nothing is installed and nothing failed. It stays on this list, so the day a" +
-            " build appears the next run picks it up."
-          }
-        >
-          unsupported
-        </StatusBadge>
-      )
-    case "MOUNT_MISSING":
-      return (
-        <StatusBadge tone="down" tipContent="The volume is not mounted in steward, so nothing can be said about it.">
-          no volume
-        </StatusBadge>
-      )
-    default:
-      return (
-        <StatusBadge
-          tone="down"
-          tipContent="The source could not be asked. This is not the same as nothing having changed."
-        >
-          could not ask
-        </StatusBadge>
-      )
-  }
+  return (
+    <StatusBadge
+      tone={AVAILABLE_TONE[status] ?? "down"}
+      tipContent={t("steward.artifact.status-tip", { status: choice(status) })}
+    >
+      {t("steward.artifact.status", { status: choice(status) })}
+    </StatusBadge>
+  )
 }
+
+const DRIFT_TONE: Record<string, Tone> = { UP_TO_DATE: "ok", OUTDATED: "warn" }
 
 /** Image drift: UNKNOWN is never silent or green, and LOCAL, being ahead of the registry, is neutral. */
 export function DriftBadge({ drift, image }: { drift: ImageState; image?: string; digests?: string[] }) {
-  switch (drift) {
-    case "UP_TO_DATE":
-      return (
-        <StatusBadge tone="ok" tipContent="The running image carries the digest the registry names.">
-          up to date
-        </StatusBadge>
-      )
-    case "OUTDATED":
-      return (
-        <StatusBadge tone="warn" tipContent="Out of date: the next update makes it again.">
-          outdated
-        </StatusBadge>
-      )
-    case "LOCAL":
-      return (
-        <StatusBadge
-          tone="idle"
-          tipContent={
-            <div className="flex w-full min-w-0 flex-col sm:w-auto sm:min-w-64">
-              <span className="text-xs font-medium font-heading text-muted-foreground">Image</span>
-              <span className="truncate text-sm">{image}</span>
-            </div>
-          }
-        >
-          local build
-        </StatusBadge>
-      )
-    default:
-      return (
-        <StatusBadge
-          tone="idle"
-          tipContent={
-            "Not compared - either the registry did not answer, or this container's exact image" +
-            " is no longer on file locally (its tag was rebuilt without recreating it). That is" +
-            ' not "up to date".'
-          }
-        >
-          unchecked
-        </StatusBadge>
-      )
-  }
+  return (
+    <StatusBadge
+      tone={DRIFT_TONE[drift] ?? "idle"}
+      tipContent={
+        drift === "LOCAL" ? (
+          <div className="flex w-full min-w-0 flex-col sm:w-auto sm:min-w-64">
+            <span className="text-xs font-medium font-heading text-muted-foreground">{t("steward.image.label")}</span>
+            <span className="truncate text-sm">{image}</span>
+          </div>
+        ) : (
+          t("steward.image.drift-tip", { drift: choice(drift) })
+        )
+      }
+    >
+      {t("steward.image.drift", { drift: choice(drift) })}
+    </StatusBadge>
+  )
 }
 
 /** The status of a run, as its row in steward's inbox carries it. */
 export function RunStatus({ status }: { status: string }) {
   const tone: Tone = status === "DONE" ? "ok" : status === "FAILED" ? "down" : status === "RUNNING" ? "warn" : "idle"
-  return <StatusBadge tone={tone}>{RUN_STATUS[status] ?? status}</StatusBadge>
+  return <StatusBadge tone={tone}>{runStatus(status)}</StatusBadge>
 }
 
 /** The outcome of a run in {@link RunStatus}'s words, for text such as the command palette's search. */
-export const RUN_STATUS: Record<string, string> = {
-  PENDING: "waiting",
-  RUNNING: "running",
-  DONE: "done",
-  FAILED: "failed",
-  CANCELLED: "cancelled",
+export function runStatus(status: string): string {
+  return t("steward.run.status", { status: choice(status) })
 }
 
 /** What kind of run it was. */
-export const RUN_KIND: Record<string, string> = {
-  UPDATE: "Update",
-  BACKUP: "Backup",
-  RESTART: "Restart",
-  DOWN: "Take down",
-  START: "Start",
-  RECREATE: "Recreate",
-  DEPLOY: "Deploy",
-  RESTORE: "Restore",
-  REMOVE_PLUGIN: "Remove plugin",
+export function runKind(kind: string): string {
+  return t("steward.run.kind", { kind: choice(kind) })
 }

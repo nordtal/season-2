@@ -1,0 +1,106 @@
+[
+  { "text": "Nothing to do", "nodes": ["Nothing to do"], "args": {}, "plain": "Nothing to do" },
+  {
+    "text": "{who} joined",
+    "nodes": [{ "v": "who" }, " joined"],
+    "args": { "who": { "kind": "text", "value": "<b>Ann</b>" } },
+    "plain": "<b>Ann</b> joined"
+  },
+  { "text": "{who} left", "nodes": [{ "v": "who" }, " left"], "args": {}, "plain": "something left" },
+  { "text": "{who, name} left", "nodes": [{ "v": "who", "k": "name" }, " left"], "args": {}, "plain": "someone left" },
+  {
+    "text": "{n, plural, =0 {no runs} one {# run} other {# runs}}",
+    "nodes": [{ "c": "n", "plural": true, "cases": { "=0": ["no runs"], "one": [{ "pound": "n" }, " run"], "other": [{ "pound": "n" }, " runs"] } }],
+    "args": { "n": { "kind": "number", "value": 0 } },
+    "plain": "no runs"
+  },
+  {
+    "text": "{n, plural, =0 {no runs} one {# run} other {# runs}}",
+    "nodes": [{ "c": "n", "plural": true, "cases": { "=0": ["no runs"], "one": [{ "pound": "n" }, " run"], "other": [{ "pound": "n" }, " runs"] } }],
+    "args": { "n": { "kind": "number", "value": 1 } },
+    "plain": "1 run"
+  },
+  {
+    "text": "{n, plural, =0 {no runs} one {# run} other {# runs}}",
+    "nodes": [{ "c": "n", "plural": true, "cases": { "=0": ["no runs"], "one": [{ "pound": "n" }, " run"], "other": [{ "pound": "n" }, " runs"] } }],
+    "args": { "n": { "kind": "number", "value": 1200.456 } },
+    "plain": "1,200.46 runs"
+  },
+  {
+    "text": "{state, select, done {Finished} other {Open}}",
+    "nodes": [{ "c": "state", "plural": false, "cases": { "done": ["Finished"], "other": ["Open"] } }],
+    "args": { "state": { "kind": "choice", "value": "done" } },
+    "plain": "Finished"
+  },
+  {
+    "text": "{state, select, done {Finished} other {Open}}",
+    "nodes": [{ "c": "state", "plural": false, "cases": { "done": ["Finished"], "other": ["Open"] } }],
+    "args": {},
+    "plain": "Open"
+  },
+  {
+    "text": "Run #{id, number, plain}",
+    "nodes": ["Run #", { "v": "id", "k": "number", "s": "plain" }],
+    "args": { "id": { "kind": "number", "value": 1200 } },
+    "plain": "Run #1200"
+  },
+  {
+    "text": "took {d}",
+    "nodes": ["took ", { "v": "d" }],
+    "args": { "d": { "kind": "duration", "value": 3725 } },
+    "plain": "took 1 hour and 2 minutes"
+  },
+  {
+    "text": "took {d, duration, short}",
+    "nodes": ["took ", { "v": "d", "k": "duration", "s": "short" }],
+    "args": { "d": { "kind": "duration", "value": 90061 } },
+    "plain": "took 1d 1h"
+  },
+  {
+    "text": "took {d, duration, clock}",
+    "nodes": ["took ", { "v": "d", "k": "duration", "s": "clock" }],
+    "args": { "d": { "kind": "duration", "value": 3725 } },
+    "plain": "took 1:02:05"
+  },
+  {
+    "text": "for {names}",
+    "nodes": ["for ", { "v": "names" }],
+    "args": {
+      "names": {
+        "kind": "list",
+        "value": [
+          { "kind": "text", "value": "smp" },
+          { "kind": "text", "value": "proxy" },
+          { "kind": "text", "value": "limbo" }
+        ]
+      }
+    },
+    "plain": "for smp, proxy and limbo"
+  },
+  {
+    "text": "{names, list, or}",
+    "nodes": [{ "v": "names", "k": "list", "s": "or" }],
+    "args": { "names": { "kind": "list", "value": [{ "kind": "text", "value": "smp" }, { "kind": "number", "value": 2 }] } },
+    "plain": "smp or 2"
+  },
+  { "text": "{names}", "nodes": [{ "v": "names" }], "args": { "names": { "kind": "list", "value": [] } }, "plain": "nothing" },
+  { "text": "{ok}", "nodes": [{ "v": "ok" }], "args": { "ok": { "kind": "choice", "value": true } }, "plain": "yes" },
+  {
+    "text": "{player} by {member}",
+    "nodes": [{ "v": "player" }, " by ", { "v": "member" }],
+    "args": {
+      "player": { "kind": "name", "value": { "player": "0b5e4d4e-6b4f-4f43-9b62-3c3bfb5d3f10", "name": "Ann" } },
+      "member": { "kind": "mention", "value": { "member": "123456789012345678", "name": "Bo" } }
+    },
+    "plain": "Ann by @Bo"
+  },
+  {
+    "text": "{item}{badge}",
+    "nodes": [{ "v": "item" }, { "v": "badge" }],
+    "args": {
+      "item": { "kind": "item", "value": { "key": "item.minecraft.diamond", "english": "Diamond" } },
+      "badge": { "kind": "glyph", "value": "admin" }
+    },
+    "plain": "Diamond"
+  }
+]

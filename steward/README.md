@@ -88,6 +88,14 @@ pin and no rollback: a bad release is corrected by publishing a better one.
   from. Three types stay written by hand in `lib/api.ts`: the bodies of a settings save and a
   message save, where a `null` resets a value and an absent key leaves it, which an optional field
   cannot say, and the glyph manifest, which is a file of the pack build rather than an answer.
+- **Its own texts.** Every word the page shows is a key of the `steward` bundle, English only, declared by
+  `texts.StewardTexts` and overridable like any other. `GET /api/texts` serves every key's variants as parsed
+  trees, overrides layered, and is open before sign-in, since the sign-in page reads its words from it too; the
+  page draws once they are read. `lib/texts.ts` is the web target: it fills a tree into text nodes, never markup,
+  and formats each value in `en-GB` and the browser's zone. `t(key, values)` is typed by `texts.gen.ts`, and
+  `texts.gen.json` is the packaged English the page falls back to; `generateApiTypes` writes both and
+  `TextTypesTest` fails while either differs. A label chosen by an enum is a `select` on it, the constant in kebab
+  case (`choice`).
 - **Game data and pickers.** `GET /api/game-data` serves the union of the servers' catalogues for
   the newest version with the icon sheet's index; the sheet itself is cached for good per version.
   The settings form draws one picker per field a schema marks with `refers`, from the catalogue, the

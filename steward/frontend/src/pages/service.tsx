@@ -23,7 +23,7 @@ import { RecreateButton, useRecreateGate } from "@/components/steward/recreate"
 import { ServiceOnlineLine } from "@/components/steward/online"
 import { AskButton, CancelButton, ENDINGS, StageBadge, cancellable } from "@/pages/operations"
 import { runPath } from "@/lib/run-path"
-import { DriftBadge, RUN_KIND, RunStatus, ServiceState } from "@/components/steward/status"
+import { DriftBadge, RunStatus, ServiceState, runKind } from "@/components/steward/status"
 import type { Run } from "@/lib/api"
 import { touches, useRunLock } from "@/lib/run-lock"
 import { QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
@@ -267,7 +267,7 @@ export function ActiveRunLine({ run, name }: { run: Run | null; name: string }) 
   return (
     <div role="status" className="flex flex-wrap items-center gap-2 text-sm">
       <Link {...runPath(run)} className="font-medium underline-offset-4 hover:text-primary hover:underline">
-        {RUN_KIND[run.kind] ?? run.kind} #{run.id}
+        {runKind(run.kind)} #{run.id}
       </Link>
       {elsewhere ? <span className="text-muted-foreground">{run.scope.join(", ")}</span> : null}
       {stage ? <StageBadge stage={stage} /> : <RunStatus status={run.status} />}

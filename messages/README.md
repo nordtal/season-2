@@ -10,9 +10,10 @@ at startup with `Messages.within`; nothing holds it in a static.
 
 Every target renders from the same `Messages.Prepared` pieces, which `Messages.prepare` makes for one reader:
 the plain target is `Messages.format` (a console, a log, Steward's push), Minecraft's is `MessageRenderer` in
-`:message-rendering` (glyphs in `:pack-rendering`), and Discord's is the bot's `DiscordRenderer`. There is one
-parser (`MessageText`), one validator (`MessageCheck`) and one formatter of values (`ValueText`) behind all of
-them.
+`:message-rendering` (glyphs in `:pack-rendering`), Discord's is the bot's `DiscordRenderer`, and the web's is
+Steward's browser (`steward/frontend/src/lib/texts.ts`). There is one parser (`MessageText`), one validator
+(`MessageCheck`) and one formatter of values (`ValueText`) behind all of them; the browser walks that parser's tree
+and formats as `ValueText` does, which the shared vectors hold.
 
 ## Writing a text
 
@@ -56,6 +57,20 @@ of no kind is no value: the build refuses a spec parameter of no kind, and at ru
 word like a missing one. A value that is missing shows its kind's replacement word from the
 `values` bundle (`someone`, `jemand`) and logs a warning; `{x}` is never printed. `GameContent` is the game's
 own line: a translatable component the client reads in its language, English everywhere else.
+
+## A message as data
+
+`MessageJson` writes a message as `{"key", "args"}`, each value `{"kind", "value"}`: a duration in seconds, an
+instant as its ISO text, money as `{"minor", "currency"}`, a list as typed values, a name as `{"player", "name"}`,
+a mention as `{"member", "name"}`, an item as `{"key", "english", "args"}`, a choice as its boolean or word. It
+builds maps and lists, which the one codec in `:common` writes and reads; this module touches no JSON library. A
+row that stores a message stores that, and a target renders it when somebody reads it.
+
+`NodeJson` is a parsed text as the browser walks it, so no second parser exists: a literal is a string, a value
+`{"v", "k", "s"}`, a choice `{"c", "plural", "cases"}`, a plural's `#` `{"pound"}`, a tag `{"tag", "shape",
+"args"}`. `MessageJson.texts` is every key's variants as such trees, overrides layered. The vectors in
+`src/test/resources/web-target.json` give a text, its tree, its values and the plain text it shows;
+`WebTargetVectorsTest` holds this side to them and the frontend's `texts.test.ts` the browser's.
 
 ## The check
 

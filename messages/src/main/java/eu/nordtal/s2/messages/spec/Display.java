@@ -26,7 +26,11 @@ public enum Display {
     /** A channel's name, which Discord keeps to 100 characters and no formatting. */
     DISCORD_CHANNEL(100),
     /** A slash command's name, description or option. */
-    DISCORD_COMMAND(100);
+    DISCORD_COMMAND(100),
+    /** Steward's own page, which the browser renders in its own zone. */
+    STEWARD,
+    /** A web push notification, rendered on the server as plain text. */
+    PUSH;
 
     private final int limit;
 

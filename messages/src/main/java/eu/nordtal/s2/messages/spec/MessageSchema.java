@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -378,20 +379,22 @@ public final class MessageSchema {
     public record GlobalJson(String name, String context) {}
 
     /**
-     * Writes {@code <output directory>/messages/<bundle>/schema.json}, refusing a spec {@link MessageSpecCheck} faults.
+     * Writes {@code <output directory>/messages/<bundle>/schema.json} per spec, refusing a spec the check faults.
      */
     public static void main(final String[] args) throws Exception {
-        if (args.length != 2) {
-            throw new IllegalArgumentException("usage: MessageSchema <spec class> <output directory>");
+        if (args.length < 2) {
+            throw new IllegalArgumentException("usage: MessageSchema <output directory> <spec class>...");
         }
-        final Class<?> spec = Class.forName(args[0]);
-        final List<String> problems = MessageSpecCheck.problems(spec);
-        if (!problems.isEmpty()) {
-            throw new IllegalStateException(
-                    spec.getName() + " disagrees with its bundle:\n  " + String.join("\n  ", problems));
+        for (final String name : Arrays.asList(args).subList(1, args.length)) {
+            final Class<?> spec = Class.forName(name);
+            final List<String> problems = MessageSpecCheck.problems(spec);
+            if (!problems.isEmpty()) {
+                throw new IllegalStateException(
+                        spec.getName() + " disagrees with its bundle:\n  " + String.join("\n  ", problems));
+            }
+            final Path file = Path.of(args[0], "messages", bundle(spec), "schema.json");
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, json(spec), StandardCharsets.UTF_8);
         }
-        final Path file = Path.of(args[1], "messages", bundle(spec), "schema.json");
-        Files.createDirectories(file.getParent());
-        Files.writeString(file, json(spec), StandardCharsets.UTF_8);
     }
 }

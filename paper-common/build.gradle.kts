@@ -35,5 +35,5 @@ dependencies {
 }
 
 messageSpec {
-    specClass.set("eu.nordtal.s2.papercommon.PaperCommonMessages")
+    specClasses.add("eu.nordtal.s2.papercommon.PaperCommonMessages")
 }

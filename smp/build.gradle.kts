@@ -57,5 +57,5 @@ dependencies {
 }
 
 messageSpec {
-    specClass.set("eu.nordtal.s2.smp.SmpMessages")
+    specClasses.add("eu.nordtal.s2.smp.SmpMessages")
 }

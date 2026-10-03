@@ -57,5 +57,5 @@ dependencies {
 }
 
 messageSpec {
-    specClass.set("eu.nordtal.s2.hungergames.HungerGamesMessages")
+    specClasses.add("eu.nordtal.s2.hungergames.HungerGamesMessages")
 }

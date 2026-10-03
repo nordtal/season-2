@@ -287,6 +287,11 @@ class WebAuthnKeyTest extends WebTestSupport {
         assertEquals("SECOND_FACTOR_REQUIRED", body.get("code").getAsString(), refused.body());
         // `retryable` tells the interface to open the dialog and retry, rather than draw a red box.
         assertTrue(body.get("retryable").getAsBoolean(), refused.body());
+        // The sentence is the bundle's, rendered with its typed value, not a literal of the route.
+        assertEquals(
+                "This is one of the things Steward asks for the key before doing, and it has not been held in the last"
+                        + " 5 minutes.",
+                body.get("error").getAsString());
 
         // Holding it again lets the same request through: "one tap, not two" as the server sees it.
         holdTheKey(browser, authenticator);

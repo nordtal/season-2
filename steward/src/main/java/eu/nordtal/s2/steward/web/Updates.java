@@ -14,6 +14,8 @@ import eu.nordtal.s2.database.update.UpdateStatus;
 import eu.nordtal.s2.messages.Refused;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.data.Data;
+import eu.nordtal.s2.steward.texts.RequestRefused;
+import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.ConflictResponse;
 import io.javalin.http.Context;
@@ -30,6 +32,9 @@ import org.slf4j.LoggerFactory;
 
 /** The {@code /api/updates} family: asking for a run, cancelling one, and reading rows back. */
 final class Updates {
+
+    private static final StewardTexts.Steward.Answer ANSWER =
+            StewardTexts.TEXTS.steward().answer();
 
     private static final Logger log = LoggerFactory.getLogger(Updates.class);
 
@@ -110,7 +115,7 @@ final class Updates {
         final var cancelled =
                 data().updates().cancelCountdown("Cancelled in Steward by " + who.name() + " (" + who.id() + ")");
         if (cancelled.isEmpty()) {
-            throw new ConflictResponse("too late - the countdown has already run out");
+            throw new RequestRefused(409, ANSWER.tooLate());
         }
         data().audit()
                 .record(AuditLine.of(

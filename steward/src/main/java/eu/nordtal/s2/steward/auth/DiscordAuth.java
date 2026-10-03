@@ -8,7 +8,9 @@ import eu.nordtal.s2.common.http.WebClient;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.steward.config.WebSpec;
+import eu.nordtal.s2.steward.texts.StewardTexts;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.URI;
@@ -19,7 +21,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -31,6 +32,9 @@ import org.slf4j.LoggerFactory;
  * Identity comes first and the role check after, so a refusal can name the person and the missing role.
  */
 public final class DiscordAuth {
+
+    private static final StewardTexts.Steward.Answer REFUSED =
+            StewardTexts.TEXTS.steward().answer();
 
     private static final Logger log = LoggerFactory.getLogger(DiscordAuth.class);
 
@@ -121,13 +125,13 @@ public final class DiscordAuth {
     public Outcome signIn(final String code) {
         final Optional<String> missing = whatIsMissing();
         if (missing.isPresent()) {
-            return Outcome.refused("this interface is not configured for sign-in yet: " + missing.get() + " is empty");
+            return Outcome.refused(REFUSED.signInUnconfigured(missing.get()));
         }
         final String accessToken;
         try {
             accessToken = exchange(code);
         } catch (AuthException e) {
-            return Outcome.refused(Objects.toString(e.getMessage(), e.getClass().getSimpleName()));
+            return Outcome.refused(e.why());
         }
 
         final JsonObject user;
@@ -137,10 +141,7 @@ public final class DiscordAuth {
             member = getJson("/users/@me/guilds/" + config.guildId() + "/member", accessToken);
         } catch (AuthException e) {
             // A 404 here is somebody not in the guild, not an outage.
-            return Outcome.refused(
-                    e.status() == 404
-                            ? "you are not a member of the Nordtal guild"
-                            : Objects.toString(e.getMessage(), e.getClass().getSimpleName()));
+            return Outcome.refused(e.status() == 404 ? REFUSED.notInGuild() : e.why());
         }
 
         final List<String> roles = new ArrayList<>();
@@ -168,15 +169,11 @@ public final class DiscordAuth {
         form.put("redirect_uri", redirectUri);
         final Reply response = send(() -> web.postForm(URI.create(api + "/oauth2/token"), form));
         if (response.status() != 200) {
-            throw new AuthException(
-                    response.status(),
-                    "Discord refused the sign-in (" + response.status() + "). The usual cause "
-                            + "is a redirect URI that is not registered on the application: this one sends "
-                            + redirectUri);
+            throw new AuthException(response.status(), REFUSED.signInRefused(response.status(), redirectUri));
         }
         final JsonObject json = Json.decode(response.body(), JsonObject.class);
         if (json == null || !json.has("access_token")) {
-            throw new AuthException(502, "Discord's answer carried no access token");
+            throw new AuthException(502, REFUSED.noAccessToken());
         }
         return json.get("access_token").getAsString();
     }
@@ -184,7 +181,8 @@ public final class DiscordAuth {
     private JsonObject getJson(final String path, final String accessToken) {
         final Reply response = send(() -> web.bearer(accessToken).get(URI.create(api + path)));
         if (response.status() != 200) {
-            throw new AuthException(response.status(), "Discord answered " + response.status() + " for " + path);
+            log.warn("Discord answered {} for {}", response.status(), path);
+            throw new AuthException(response.status(), REFUSED.discordAnswered(response.status()));
         }
         return Json.decode(response.body(), JsonObject.class);
     }
@@ -194,9 +192,9 @@ public final class DiscordAuth {
         try {
             return exchange.send();
         } catch (final InterruptedIOException e) {
-            throw new AuthException(503, "interrupted while talking to Discord");
+            throw new AuthException(503, REFUSED.interrupted());
         } catch (final IOException e) {
-            throw new AuthException(502, "Discord could not be reached: " + e.getMessage());
+            throw new AuthException(502, REFUSED.discordUnreachable(String.valueOf(e.getMessage())));
         }
     }
 
@@ -221,13 +219,13 @@ public final class DiscordAuth {
 
     /** Signed in, or refused with a reason a person can act on. */
     public record Outcome(
-            @Nullable Account account, @Nullable String refusal) {
+            @Nullable Account account, @Nullable MessageRef refusal) {
 
         public static Outcome signedIn(final Account account) {
             return new Outcome(account, null);
         }
 
-        public static Outcome refused(final String why) {
+        public static Outcome refused(final MessageRef why) {
             return new Outcome(null, why);
         }
 
@@ -240,13 +238,20 @@ public final class DiscordAuth {
 
         private final int status;
 
-        AuthException(final int status, final String message) {
-            super(message);
+        private final transient MessageRef why;
+
+        AuthException(final int status, final MessageRef why) {
+            super(why.key(), null, false, false);
             this.status = status;
+            this.why = why;
         }
 
         int status() {
             return status;
+        }
+
+        MessageRef why() {
+            return why;
         }
     }
 }

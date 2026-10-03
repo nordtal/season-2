@@ -10,10 +10,11 @@ import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
+import eu.nordtal.s2.steward.texts.RequestRefused;
+import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +25,9 @@ import org.slf4j.LoggerFactory;
  * The Discord admin role follows on its own through {@code nordtal_admin}.
  */
 final class AdminApi {
+
+    private static final StewardTexts.Steward.Answer ANSWER =
+            StewardTexts.TEXTS.steward().answer();
 
     private static final Logger log = LoggerFactory.getLogger(AdminApi.class);
 
@@ -52,17 +56,10 @@ final class AdminApi {
                 log.info("{} made {} an admin", who.name(), target);
                 ctx.json(new Granted(outcome));
             }
-            case ACTOR_NOT_ADMIN -> ctx.status(403).json(Map.of("error", "You are not an admin any more."));
-            case ALREADY_ADMIN -> ctx.status(409).json(Map.of("error", "They are an admin already."));
-            case NOT_A_MEMBER ->
-                ctx.status(409).json(Map.of("error", "Only a member of the Discord server can be made an admin."));
-            case RATE_LIMITED ->
-                ctx.status(429)
-                        .json(
-                                Map.of(
-                                        "error",
-                                        AdminTree.GRANTS_PER_HOUR
-                                                + " admins were granted in the last hour, by all admins together. Try again later."));
+            case ACTOR_NOT_ADMIN -> throw new RequestRefused(403, ANSWER.notAdmin());
+            case ALREADY_ADMIN -> throw new RequestRefused(409, ANSWER.alreadyAdmin());
+            case NOT_A_MEMBER -> throw new RequestRefused(409, ANSWER.notAMember());
+            case RATE_LIMITED -> throw new RequestRefused(429, ANSWER.grantsPerHour(AdminTree.GRANTS_PER_HOUR));
         }
     }
 
@@ -83,12 +80,9 @@ final class AdminApi {
                 log.info("{} revoked admin from {}", who.name(), revocation.removed());
                 ctx.json(revocation);
             }
-            case ACTOR_NOT_ADMIN -> ctx.status(403).json(Map.of("error", "You are not an admin any more."));
-            case SELF -> ctx.status(409).json(Map.of("error", "Nobody can revoke their own admin."));
-            case NOT_BELOW ->
-                ctx.status(403)
-                        .json(Map.of(
-                                "error", "You can only revoke admins you granted, or who were granted below you."));
+            case ACTOR_NOT_ADMIN -> throw new RequestRefused(403, ANSWER.notAdmin());
+            case SELF -> throw new RequestRefused(409, ANSWER.self());
+            case NOT_BELOW -> throw new RequestRefused(403, ANSWER.notBelow());
         }
     }
 
@@ -98,7 +92,7 @@ final class AdminApi {
             final JsonElement body = Json.tree(ctx.body());
             value = body.isJsonObject() ? body.getAsJsonObject().get("discordId") : null;
         } catch (final RuntimeException malformed) {
-            throw new BadRequestResponse("The body is not the JSON this endpoint takes.");
+            throw new RequestRefused(400, ANSWER.notJson());
         }
         if (value == null
                 || !value.isJsonPrimitive()

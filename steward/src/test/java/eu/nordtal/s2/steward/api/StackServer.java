@@ -3,6 +3,7 @@ package eu.nordtal.s2.steward.api;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
+import eu.nordtal.s2.steward.texts.WebTexts;
 import eu.nordtal.s2.steward.web.ErrorHandlers;
 import eu.nordtal.s2.stewardagent.AgentStandIn;
 import io.javalin.Javalin;
@@ -50,7 +51,7 @@ final class StackServer {
         return Javalin.create(cfg -> {
                     cfg.jsonMapper(new JavalinGson(Json.gson(), true));
                     cfg.startup.showJavalinBanner = false;
-                    ErrorHandlers.install(cfg);
+                    ErrorHandlers.install(cfg, WebTexts.load().messages());
                     api.register(cfg, ALWAYS);
                 })
                 .start(port);

@@ -14,9 +14,10 @@ import eu.nordtal.s2.database.inbox.SmpRequest;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.data.Data;
+import eu.nordtal.s2.steward.texts.RequestRefused;
+import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
-import io.javalin.http.NotFoundResponse;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
@@ -30,6 +31,9 @@ import org.slf4j.LoggerFactory;
  * A request is named to the browser as {@code <target>:<id>}, or {@code announce:<id>:<language>} for one line.
  */
 final class CommandApi {
+
+    private static final StewardTexts.Steward.Answer ANSWER =
+            StewardTexts.TEXTS.steward().answer();
 
     private static final Logger log = LoggerFactory.getLogger(CommandApi.class);
 
@@ -110,8 +114,7 @@ final class CommandApi {
      * A refusal also names its reason, which is what the browser branches on.
      */
     private static <P> CommandRun settled(final Inbox<P> inbox, final String name, final long id) {
-        final Request<P> row =
-                inbox.find(id).orElseThrow(() -> new NotFoundResponse("There is no request " + name + "."));
+        final Request<P> row = inbox.find(id).orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(name)));
         final Optional<String> result = row.status() == InboxStatus.REFUSED
                 ? row.refusal().map(refusal -> DatabaseText.english(refusal.message()))
                 : row.status() == InboxStatus.DONE ? row.outcome(String.class) : failure(row);
@@ -140,7 +143,7 @@ final class CommandApi {
         final Request<BotRequest> row = data().bot()
                 .find(id)
                 .filter(found -> found.payload() instanceof BotRequest.Announce)
-                .orElseThrow(() -> new NotFoundResponse("There is no announcement " + id + "."));
+                .orElseThrow(() -> new RequestRefused(404, ANSWER.noAnnouncement(id)));
         return new CommandRun(
                 name,
                 Announcements.status(row.status()),

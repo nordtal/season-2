@@ -5,8 +5,10 @@ import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.spec.Arg;
 import eu.nordtal.s2.messages.spec.Display;
 import eu.nordtal.s2.messages.spec.MessageSpec;
+import eu.nordtal.s2.messages.spec.MessageSpecs;
 import eu.nordtal.s2.messages.spec.Name;
 import eu.nordtal.s2.messages.spec.TextFormat;
+import java.time.Duration;
 import java.time.Instant;
 
 /**
@@ -15,6 +17,9 @@ import java.time.Instant;
  */
 @MessageSpec(value = "steward", format = TextFormat.PLAIN, shown = Display.STEWARD)
 public interface StewardTexts {
+
+    /** The texts; stateless, so one instance serves every caller. */
+    StewardTexts TEXTS = MessageSpecs.create(StewardTexts.class);
 
     Steward steward();
 
@@ -26,6 +31,8 @@ public interface StewardTexts {
         Artifact artifact();
 
         Image image();
+
+        Answer answer();
 
         @Name("Service")
         interface Service {
@@ -77,6 +84,122 @@ public interface StewardTexts {
             @Name("Image")
             MessageRef label();
         }
+
+        /** Why Steward refuses a request a person sent; the error it answers carries the text rendered. */
+        @Name("Answer")
+        interface Answer {
+
+            @Name("No longer an admin")
+            MessageRef notAdmin();
+
+            @Name("Already an admin")
+            MessageRef alreadyAdmin();
+
+            @Name("Not a member of the guild")
+            MessageRef notAMember();
+
+            @Name("Too many grants this hour")
+            MessageRef grantsPerHour(@Arg("count") int count);
+
+            @Name("Revoking oneself")
+            MessageRef self();
+
+            @Name("Not granted below")
+            MessageRef notBelow();
+
+            @Name("Exempt already")
+            MessageRef exemptAlready();
+
+            @Name("Enforced already")
+            MessageRef enforcedAlready();
+
+            @Name("Nobody by that id")
+            MessageRef unknownPerson();
+
+            @Name("No database")
+            MessageRef noDatabase(@Arg("kept") Kept kept);
+
+            @Name("No sources")
+            MessageRef noSources();
+
+            @Name("No such request")
+            MessageRef noRequest(@Arg("request") String request);
+
+            @Name("No such announcement")
+            MessageRef noAnnouncement(@Arg("announcement") long announcement);
+
+            @Name("No such bundle")
+            MessageRef noBundle(@Arg("bundle") String bundle);
+
+            @Name("Not the JSON taken")
+            MessageRef notJson();
+
+            @Name("Empty body")
+            MessageRef empty();
+
+            @Name("Empty announcement text")
+            MessageRef emptyText(@Arg("language") String language);
+
+            @Name("Countdown over")
+            MessageRef tooLate();
+
+            @Name("Key not held")
+            MessageRef keyNotHeld();
+
+            @Name("Key not held lately")
+            MessageRef keyNotRecent(@Arg("within") Duration within);
+
+            @Name("No key")
+            MessageRef noKey();
+
+            @Name("Key first")
+            MessageRef keyFirst();
+
+            @Name("Ceremony from elsewhere")
+            MessageRef ceremonyElsewhere(@Arg("registration") boolean registration);
+
+            @Name("No such key")
+            MessageRef noSuchKey();
+
+            @Name("Sign-in not configured")
+            MessageRef signInUnconfigured(@Arg("missing") String missing);
+
+            @Name("Sign-in from elsewhere")
+            MessageRef signInElsewhere();
+
+            @Name("No code")
+            MessageRef noCode();
+
+            @Name("Not in the guild")
+            MessageRef notInGuild();
+
+            @Name("In the guild, not an admin")
+            MessageRef notAnAdmin(@Arg("name") String name);
+
+            @Name("Discord refused the sign-in")
+            MessageRef signInRefused(@Arg("status") int status, @Arg("uri") String uri);
+
+            @Name("No access token")
+            MessageRef noAccessToken();
+
+            @Name("Discord answered")
+            MessageRef discordAnswered(@Arg("status") int status);
+
+            @Name("Discord unreachable")
+            MessageRef discordUnreachable(@Arg("error") String error);
+
+            @Name("Interrupted")
+            MessageRef interrupted();
+        }
+    }
+
+    /** What Steward keeps in its database, named when it has none. */
+    enum Kept {
+        ALERTS,
+        PREFERENCES,
+        SETTINGS,
+        PLUGINS,
+        OVERRIDES
     }
 
     /** The words a service's badge and dot say: Docker's own states, and the ones its health is folded into. */

@@ -6,9 +6,10 @@ import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.steward.auth.Gate;
+import eu.nordtal.s2.steward.texts.RequestRefused;
+import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.config.JavalinConfig;
 import io.javalin.http.BadRequestResponse;
-import java.util.Map;
 
 /**
  * Every route {@link StackApi} serves, each with the {@link Gate} it needs.
@@ -178,9 +179,8 @@ final class Routes {
                     final Refreshed<AgentWire.Resolve> available = api.available;
                     if (available == null) {
                         // 503, not an empty plan, since those are different answers.
-                        ctx.status(503)
-                                .json(Map.of("error", "Steward has no sources configured, so nothing can be resolved"));
-                        return;
+                        throw new RequestRefused(
+                                503, StewardTexts.TEXTS.steward().answer().noSources());
                     }
                     // Asked again on purpose right after publishing: a parameter that throws the cache away.
                     if (ctx.queryParam("refresh") != null) {

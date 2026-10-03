@@ -6,6 +6,8 @@ import com.google.gson.JsonObject;
 import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.database.inbox.HungerGamesRequest;
 import eu.nordtal.s2.database.inbox.SmpRequest;
+import eu.nordtal.s2.steward.texts.RequestRefused;
+import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.sql.Connection;
@@ -27,6 +29,9 @@ import org.jspecify.annotations.Nullable;
  * The track is read from {@code smp_milestone} and {@code smp_objective}, as the running server holds it.
  */
 final class GameActions {
+
+    private static final StewardTexts.Steward.Answer ANSWER =
+            StewardTexts.TEXTS.steward().answer();
 
     private final @Nullable DataSource dataSource;
     private final CommandApi commands;
@@ -196,7 +201,7 @@ final class GameActions {
         try {
             return eu.nordtal.s2.common.json.Json.tree(ctx.body()).getAsJsonObject();
         } catch (final RuntimeException malformed) {
-            throw new BadRequestResponse("The body is not the JSON this endpoint takes.");
+            throw new RequestRefused(400, ANSWER.notJson());
         }
     }
 

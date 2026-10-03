@@ -14,9 +14,10 @@ import eu.nordtal.s2.database.payment.Bookings;
 import eu.nordtal.s2.database.payment.PaymentRequest;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.data.Data;
+import eu.nordtal.s2.steward.texts.RequestRefused;
+import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
-import io.javalin.http.NotFoundResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
@@ -32,6 +33,9 @@ import org.slf4j.LoggerFactory;
  * Only the bot can carry out all parts of a grant, and it journals what it carries out. A booking is steward's own.
  */
 final class AccessApi {
+
+    private static final StewardTexts.Steward.Answer ANSWER =
+            StewardTexts.TEXTS.steward().answer();
 
     private static final Logger log = LoggerFactory.getLogger(AccessApi.class);
 
@@ -169,7 +173,7 @@ final class AccessApi {
             throw new BadRequestResponse(ctx.pathParam("id") + " is not a request id.");
         }
         final Request<BotRequest> row =
-                data().bot().find(id).orElseThrow(() -> new NotFoundResponse("There is no request " + id + "."));
+                data().bot().find(id).orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(String.valueOf(id))));
 
         final String outcome = row.outcome();
         ctx.json(new AccessRequestRun(
@@ -206,9 +210,9 @@ final class AccessApi {
         try {
             body = ctx.bodyAsClass(Body.class);
         } catch (final RuntimeException malformed) {
-            throw new BadRequestResponse("The body is not the JSON this endpoint takes.");
+            throw new RequestRefused(400, ANSWER.notJson());
         }
-        if (body == null) throw new BadRequestResponse("The body is empty.");
+        if (body == null) throw new RequestRefused(400, ANSWER.empty());
         return body;
     }
 

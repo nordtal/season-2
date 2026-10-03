@@ -284,6 +284,67 @@ export type TextArgs = {
   "run.took": {
     took: Arg["duration"]
   }
+  "steward.answer.already-admin": Record<string, never>
+  "steward.answer.ceremony-elsewhere": {
+    registration: Arg["choice"]
+  }
+  "steward.answer.discord-answered": {
+    status: Arg["number"]
+  }
+  "steward.answer.discord-unreachable": {
+    error: Arg["text"]
+  }
+  "steward.answer.empty": Record<string, never>
+  "steward.answer.empty-text": {
+    language: Arg["text"]
+  }
+  "steward.answer.enforced-already": Record<string, never>
+  "steward.answer.exempt-already": Record<string, never>
+  "steward.answer.grants-per-hour": {
+    count: Arg["number"]
+  }
+  "steward.answer.interrupted": Record<string, never>
+  "steward.answer.key-first": Record<string, never>
+  "steward.answer.key-not-held": Record<string, never>
+  "steward.answer.key-not-recent": {
+    within: Arg["duration"]
+  }
+  "steward.answer.no-access-token": Record<string, never>
+  "steward.answer.no-announcement": {
+    announcement: Arg["number"]
+  }
+  "steward.answer.no-bundle": {
+    bundle: Arg["text"]
+  }
+  "steward.answer.no-code": Record<string, never>
+  "steward.answer.no-database": {
+    kept: Arg["choice"]
+  }
+  "steward.answer.no-key": Record<string, never>
+  "steward.answer.no-request": {
+    request: Arg["text"]
+  }
+  "steward.answer.no-sources": Record<string, never>
+  "steward.answer.no-such-key": Record<string, never>
+  "steward.answer.not-a-member": Record<string, never>
+  "steward.answer.not-admin": Record<string, never>
+  "steward.answer.not-an-admin": {
+    name: Arg["text"]
+  }
+  "steward.answer.not-below": Record<string, never>
+  "steward.answer.not-in-guild": Record<string, never>
+  "steward.answer.not-json": Record<string, never>
+  "steward.answer.self": Record<string, never>
+  "steward.answer.sign-in-elsewhere": Record<string, never>
+  "steward.answer.sign-in-refused": {
+    status: Arg["number"]
+    uri: Arg["text"]
+  }
+  "steward.answer.sign-in-unconfigured": {
+    missing: Arg["text"]
+  }
+  "steward.answer.too-late": Record<string, never>
+  "steward.answer.unknown-person": Record<string, never>
   "steward.artifact.status": {
     status: Arg["choice"]
   }

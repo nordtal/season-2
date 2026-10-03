@@ -2,7 +2,7 @@ import { MagnifyingGlassIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 
 import type { JournalEntry } from "@/lib/api"
-import { count, dateTime } from "@/lib/format"
+import { dateTime } from "@/lib/format"
 import { useJournal } from "@/lib/queries"
 import { choice, message, t } from "@/lib/texts"
 import { Actor, Entity } from "@/components/steward/entity"
@@ -14,6 +14,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+
+/** How many entries the journal route hands out unless asked for more. */
+const JOURNAL_LIMIT = 200
 
 /** Ten rows of nothing while the record is read. */
 const WAITING_ENTRIES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -29,6 +32,13 @@ function actionLabel(action: string): string {
 }
 
 export function JournalPage() {
+  const columns = {
+    when: t("steward.journal.when"),
+    action: t("steward.journal.action"),
+    actor: t("steward.journal.actor"),
+    concerns: t("steward.journal.concerns"),
+    detail: t("steward.journal.detail"),
+  }
   /** The unfiltered query, for the options; it shares its key with the filtered one while no filter is set. */
   const all = useJournal("", "")
   const [action, setAction] = useState("")
@@ -39,16 +49,16 @@ export function JournalPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Journal" />
+      <PageHeader title={t("steward.journal.title")} />
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium">Entries</CardTitle>
+          <CardTitle className="text-sm font-medium">{t("steward.journal.entries")}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-auto">
-              <Label htmlFor="journal-action">Action</Label>
+              <Label htmlFor="journal-action">{t("steward.journal.action")}</Label>
               <Select
                 value={action === "" ? "ALL" : action}
                 onValueChange={(value) => setAction(value === "ALL" ? "" : value)}
@@ -57,7 +67,7 @@ export function JournalPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ALL">all</SelectItem>
+                  <SelectItem value="ALL">{t("steward.journal.all")}</SelectItem>
                   {actions.map((value) => (
                     <SelectItem key={value} value={value}>
                       {actionLabel(value)}
@@ -76,12 +86,12 @@ export function JournalPage() {
               }}
             >
               <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-auto">
-                <Label htmlFor="journal-subject">Discord id concerned</Label>
+                <Label htmlFor="journal-subject">{t("steward.journal.subject")}</Label>
                 <Input
                   id="journal-subject"
                   value={typed}
                   onChange={(event) => setTyped(event.target.value)}
-                  placeholder="exact id…"
+                  placeholder={t("steward.journal.exact-id")}
                   className="w-full font-mono sm:w-64"
                   autoComplete="off"
                   spellCheck={false}
@@ -89,7 +99,7 @@ export function JournalPage() {
               </div>
               <Button type="submit" variant="outline">
                 <MagnifyingGlassIcon aria-hidden />
-                Filter
+                {t("steward.journal.filter")}
               </Button>
               {subject ? (
                 <Button
@@ -100,24 +110,15 @@ export function JournalPage() {
                     setTyped("")
                   }}
                 >
-                  Reset
+                  {t("steward.journal.reset")}
                 </Button>
               ) : null}
             </form>
           </div>
 
-          {actions.length === 0 && !all.isPending && !all.error ? (
-            <p className="text-xs text-muted-foreground">
-              The selector above lists only actions that occur in the loaded entries - none occurs yet.
-            </p>
-          ) : null}
-
           <QueryState
             query={entries}
-            empty={{
-              title: "No entry",
-              note: 'Nothing in the record matches these filters. Both compare exactly, not partially - a typo in the id looks exactly like "nothing happened".',
-            }}
+            empty={{ title: t("steward.journal.no-entry") }}
             isEmpty={(list: JournalEntry[]) => list.length === 0}
           >
             {(list) => (
@@ -125,53 +126,57 @@ export function JournalPage() {
                 <Table className="steward-table">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[13rem]">When</TableHead>
-                      <TableHead className="w-[12rem]">Action</TableHead>
-                      <TableHead className="w-[16rem]">Triggered by</TableHead>
-                      <TableHead className="w-[14rem]">Concerns</TableHead>
-                      <TableHead>Detail</TableHead>
+                      <TableHead className="w-[13rem]">{columns.when}</TableHead>
+                      <TableHead className="w-[12rem]">{columns.action}</TableHead>
+                      <TableHead className="w-[16rem]">{columns.actor}</TableHead>
+                      <TableHead className="w-[14rem]">{columns.concerns}</TableHead>
+                      <TableHead>{columns.detail}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {list === undefined
                       ? WAITING_ENTRIES.map((index) => (
                           <TableRow key={index}>
-                            <TableCell data-label="When">
+                            <TableCell data-label={columns.when}>
                               <SkeletonText width="long" />
                             </TableCell>
-                            <TableCell data-label="Action">
+                            <TableCell data-label={columns.action}>
                               <SkeletonText width="medium" />
                             </TableCell>
-                            <TableCell data-label="Triggered by">
+                            <TableCell data-label={columns.actor}>
                               <div className="flex items-center gap-2">
                                 <Skeleton className="size-6 shrink-0 rounded-full" />
                                 <SkeletonText width="long" className="max-w-[8rem]" />
                               </div>
                             </TableCell>
-                            <TableCell data-label="Concerns">
+                            <TableCell data-label={columns.concerns}>
                               <div className="flex items-center gap-2">
                                 <Skeleton className="size-6 shrink-0 rounded-full" />
                                 <SkeletonText width="long" className="max-w-[7rem]" />
                               </div>
                             </TableCell>
-                            <TableCell data-label="Detail">
+                            <TableCell data-label={columns.detail}>
                               <SkeletonText width="full" />
                             </TableCell>
                           </TableRow>
                         ))
                       : list.map((entry) => (
                           <TableRow key={entry.id}>
-                            <TableCell data-label="When" className="text-muted-foreground tnum" title={entry.occurred}>
+                            <TableCell
+                              data-label={columns.when}
+                              className="text-muted-foreground tnum"
+                              title={entry.occurred}
+                            >
                               {dateTime(entry.occurred)}
                             </TableCell>
-                            <TableCell data-label="Action" className="font-medium" title={entry.action}>
+                            <TableCell data-label={columns.action} className="font-medium" title={entry.action}>
                               {actionLabel(entry.action)}
                             </TableCell>
                             {/* A profile, never an id; no admin at all is Steward's own mark. */}
-                            <TableCell data-label="Triggered by" className="text-muted-foreground">
+                            <TableCell data-label={columns.actor} className="text-muted-foreground">
                               <Actor kind={entry.actor.kind} id={entry.actor.person ?? ""} />
                             </TableCell>
-                            <TableCell data-label="Concerns" className="text-muted-foreground">
+                            <TableCell data-label={columns.concerns} className="text-muted-foreground">
                               {entry.subject ? (
                                 <Entity id={entry.subject} />
                               ) : entry.mcUuid ? (
@@ -179,7 +184,7 @@ export function JournalPage() {
                               ) : null}
                             </TableCell>
                             {/* The line, rendered from its key and typed values, wrapping where TableCell would not. */}
-                            <TableCell data-label="Detail" className="text-muted-foreground whitespace-normal">
+                            <TableCell data-label={columns.detail} className="text-muted-foreground whitespace-normal">
                               {message(entry.line)}
                             </TableCell>
                           </TableRow>
@@ -190,10 +195,7 @@ export function JournalPage() {
                   {list === undefined ? (
                     <SkeletonText className="w-64" />
                   ) : (
-                    <>
-                      {count(list.length)} entries. This query hands out no more than 200 - paging through the whole
-                      record is not something the API knows yet.
-                    </>
+                    t("steward.journal.count", { count: list.length, limit: JOURNAL_LIMIT })
                   )}
                 </p>
               </>

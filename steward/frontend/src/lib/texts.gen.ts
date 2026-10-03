@@ -284,6 +284,15 @@ export type TextArgs = {
   "run.took": {
     took: Arg["duration"]
   }
+  "steward.alerts.all-clear": Record<string, never>
+  "steward.alerts.none-raised": Record<string, never>
+  "steward.alerts.now": Record<string, never>
+  "steward.alerts.raised-by": {
+    who: Arg["text"]
+  }
+  "steward.alerts.recent": Record<string, never>
+  "steward.alerts.title": Record<string, never>
+  "steward.alerts.unreadable": Record<string, never>
   "steward.answer.already-admin": Record<string, never>
   "steward.answer.bot-token-refused": Record<string, never>
   "steward.answer.ceremony-elsewhere": {
@@ -362,6 +371,23 @@ export type TextArgs = {
     drift: Arg["choice"]
   }
   "steward.image.label": Record<string, never>
+  "steward.journal.action": Record<string, never>
+  "steward.journal.actor": Record<string, never>
+  "steward.journal.all": Record<string, never>
+  "steward.journal.concerns": Record<string, never>
+  "steward.journal.count": {
+    count: Arg["number"]
+    limit: Arg["number"]
+  }
+  "steward.journal.detail": Record<string, never>
+  "steward.journal.entries": Record<string, never>
+  "steward.journal.exact-id": Record<string, never>
+  "steward.journal.filter": Record<string, never>
+  "steward.journal.no-entry": Record<string, never>
+  "steward.journal.reset": Record<string, never>
+  "steward.journal.subject": Record<string, never>
+  "steward.journal.title": Record<string, never>
+  "steward.journal.when": Record<string, never>
   "steward.said.announced": {
     posted: Arg["choice"]
     language: Arg["text"]

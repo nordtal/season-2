@@ -14,23 +14,23 @@ export function AlertsPage() {
   const alerts = useAlerts()
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Alerts" />
+      <PageHeader title={t("steward.alerts.title")} />
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-start">
         <Card>
           <CardHeader>
-            <CardTitle>Now</CardTitle>
+            <CardTitle>{t("steward.alerts.now")}</CardTitle>
           </CardHeader>
           <CardContent>
             <QueryState
               query={alerts}
               rows={2}
               isEmpty={(data) => data.alerts.length === 0 && data.unreadable === undefined}
-              empty={{ title: "All clear." }}
+              empty={{ title: t("steward.alerts.all-clear") }}
             >
               {(data) => (
                 <ul className="flex flex-col divide-y divide-border">
                   {data.unreadable ? (
-                    <AlertLine level="warn" title="The stack could not be read" lines={[data.unreadable]} />
+                    <AlertLine level="warn" title={t("steward.alerts.unreadable")} lines={[data.unreadable]} />
                   ) : null}
                   {data.alerts.map((alert) => (
                     <AlertLine
@@ -48,14 +48,14 @@ export function AlertsPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Recent</CardTitle>
+            <CardTitle>{t("steward.alerts.recent")}</CardTitle>
           </CardHeader>
           <CardContent>
             <QueryState
               query={alerts}
               rows={4}
               isEmpty={(data) => data.recent.length === 0}
-              empty={{ title: "Nothing raised yet." }}
+              empty={{ title: t("steward.alerts.none-raised") }}
             >
               {(data) => (
                 <ul className="flex flex-col divide-y divide-border">
@@ -117,7 +117,7 @@ function AlertLine({
           <time dateTime={raised.raised} title={dateTime(raised.raised)} className="tabular-nums">
             {relative(raised.raised)}
           </time>{" "}
-          by {raised.raisedBy}
+          {t("steward.alerts.raised-by", { who: raised.raisedBy })}
         </p>
       ) : null}
     </li>

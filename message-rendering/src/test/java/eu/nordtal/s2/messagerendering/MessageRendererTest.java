@@ -64,6 +64,26 @@ class MessageRendererTest {
         component.children().forEach(child -> flatten(child, out));
     }
 
+    /** Flattens a component as a client without the translations would show it, a game name by its fallback. */
+    private static String shown(final Component component) {
+        final StringBuilder out = new StringBuilder();
+        if (component instanceof final TextComponent text) {
+            out.append(text.content());
+        } else if (component instanceof final TranslatableComponent translatable) {
+            out.append(translatable.fallback());
+        }
+        component.children().forEach(child -> out.append(shown(child)));
+        return out.toString();
+    }
+
+    private static int count(final Component component, final java.util.function.Predicate<Component> test) {
+        int found = test.test(component) ? 1 : 0;
+        for (final Component child : component.children()) {
+            found += count(child, test);
+        }
+        return found;
+    }
+
     private static @Nullable Component find(
             final Component component, final java.util.function.Predicate<Component> test) {
         if (test.test(component)) {
@@ -122,6 +142,21 @@ class MessageRendererTest {
         assertNotNull(item);
         assertEquals("item.minecraft.diamond_sword", ((TranslatableComponent) item).key());
         assertEquals("Diamond Sword", ((TranslatableComponent) item).fallback());
+    }
+
+    @Test
+    void aListOfGameContentKeepsEveryItemTranslatable() {
+        final Component rendered = render(
+                "wanted",
+                Map.of(
+                        "items",
+                        java.util.List.of(
+                                GameContent.of("item.minecraft.oak_log"),
+                                GameContent.of("item.minecraft.birch_log"),
+                                GameContent.of("item.minecraft.spruce_log"))));
+
+        assertEquals("Still needed: Oak Log, Birch Log and Spruce Log", shown(rendered));
+        assertEquals(3, count(rendered, TranslatableComponent.class::isInstance), "each item is the client's to name");
     }
 
     @Test

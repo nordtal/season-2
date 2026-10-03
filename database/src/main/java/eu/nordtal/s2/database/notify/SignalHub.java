@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
@@ -95,6 +97,32 @@ public final class SignalHub implements AutoCloseable {
                 Objects.requireNonNull(channel, "channel"),
                 Objects.requireNonNull(what, "what"),
                 Objects.requireNonNull(task, "task")));
+    }
+
+    /**
+     * Registers a re-read of rows that hands them on only when they differ from the last ones handed on or seen.
+     * Every process layers stored rows over what it ships this way; a quiet reconciliation reads and calls nothing.
+     *
+     * @param seen  what the process already runs with, or {@code null} to hand on the first read
+     * @param read  the rows, read in full; a read that throws leaves {@code seen} as it was
+     * @param apply takes rows that changed, on the hub's thread
+     */
+    public <T> void watch(
+            final Channel channel,
+            final String what,
+            final @Nullable T seen,
+            final Supplier<T> read,
+            final Consumer<T> apply) {
+        Objects.requireNonNull(read, "read");
+        Objects.requireNonNull(apply, "apply");
+        final AtomicReference<@Nullable T> last = new AtomicReference<>(seen);
+        on(channel, what, () -> {
+            final T now = read.get();
+            if (!now.equals(last.get())) {
+                apply.accept(now);
+                last.set(now);
+            }
+        });
     }
 
     /** Returns the channels this hub listens on: the union of every registration. */

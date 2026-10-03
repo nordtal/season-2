@@ -109,30 +109,34 @@ public final class StewardAgent {
         return bootstrap ? compose.bootstrap(services, output) : compose.up(services, output);
     }
 
-    /**
-     * Recreates one container from the image already here, never pulling over it.
-     *
-     * @param fetchesMissing whether an image this host does not have is pulled first, as a standby's is
-     */
+    /** Recreates one container from the image already here, never pulling. */
     static int recreate(
             final Compose compose,
             final String service,
             final java.util.function.Consumer<String> output,
-            final Predicate<String> isHere,
-            final boolean fetchesMissing)
+            final Predicate<String> isHere)
             throws Exception {
         if (!compose.hasLocalImage(service, isHere)) {
-            if (!fetchesMissing) {
-                output.accept("no image for " + service + " on this host, and recreate does not fetch "
-                        + "one. Deploy " + service + " instead - that is the button that pulls. "
-                        + "Nothing has been stopped.");
-                return 1;
-            }
-            if (compose.pull(service, output, isHere) == Compose.PullOutcome.FAILED) {
-                output.accept("no image for " + service + ", from the registry or from this host. "
-                        + "Nothing has been stopped.");
-                return 1;
-            }
+            output.accept("no image for " + service + " on this host, and recreate does not fetch "
+                    + "one. Deploy " + service + " instead - that is the button that pulls. "
+                    + "Nothing has been stopped.");
+            return 1;
+        }
+        return compose.recreate(service, output);
+    }
+
+    /** Makes a standby from the image already here, and pulls that image first only when this host has none. */
+    static int standby(
+            final Compose compose,
+            final String service,
+            final java.util.function.Consumer<String> output,
+            final Predicate<String> isHere)
+            throws Exception {
+        if (!compose.hasLocalImage(service, isHere)
+                && compose.pull(service, output, isHere) == Compose.PullOutcome.FAILED) {
+            output.accept("no image for " + service + ", from the registry or from this host. "
+                    + "Nothing has been stopped.");
+            return 1;
         }
         return compose.recreate(service, output);
     }

@@ -2,6 +2,7 @@ package eu.nordtal.s2.papercommon.game;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import eu.nordtal.s2.messages.value.GameContent;
 import java.util.Optional;
 import org.bukkit.Material;
 import org.bukkit.Statistic;
@@ -26,6 +27,12 @@ class GameKeysTest {
         assertEquals(Optional.of(Material.OAK_LOG), GameKeys.material("OAK_LOG"));
         assertEquals(Optional.empty(), GameKeys.material("nordtal:oak_log"));
         assertEquals(Optional.empty(), GameKeys.material("oak_logs"));
+    }
+
+    /** A known item's translation key needs a server's registries, so only the fallback is held here. */
+    @Test
+    void anItemNoServerKnowsShowsItsKey() {
+        assertEquals(new GameContent("nordtal:relic", "nordtal:relic"), GameKeys.item("nordtal:Relic"));
     }
 
     @Test

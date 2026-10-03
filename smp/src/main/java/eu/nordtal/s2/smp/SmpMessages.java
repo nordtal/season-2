@@ -18,6 +18,7 @@ import eu.nordtal.s2.messages.value.Money;
 import eu.nordtal.s2.smp.world.WorldRole;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 /** Every message of the smp bundle, one method per key. */
@@ -669,7 +670,7 @@ public interface SmpMessages {
             MessageRef progress(@Arg("bar") String bar, @Arg("amount") long amount, @Arg("target") long target);
 
             @Name("Items")
-            MessageRef items(@Arg("items") String items);
+            MessageRef items(@Arg("items") List<GameContent> items);
 
             @Name("Heading")
             MessageRef heading(@Arg("milestone") MilestoneContext milestone);
@@ -721,7 +722,7 @@ public interface SmpMessages {
             MessageRef confirm();
 
             @Name("Needed")
-            MessageRef needed(@Arg("amount") long amount, @Arg("items") String items);
+            MessageRef needed(@Arg("amount") long amount, @Arg("items") List<GameContent> items);
 
             @Name("Still needed")
             MessageRef stillNeeded(@Arg("amount") long amount);

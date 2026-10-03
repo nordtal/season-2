@@ -6,6 +6,7 @@ import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.MilestoneContext;
+import eu.nordtal.s2.papercommon.game.GameKeys;
 import eu.nordtal.s2.smp.board.ProgressBar;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.feedback.Surface;
@@ -235,7 +236,8 @@ public final class ObjectiveGui implements Surface {
                     locale,
                     MESSAGES.smp()
                             .objectives()
-                            .items(String.join(", ", definition.items() == null ? List.of() : definition.items()))));
+                            .items((definition.items() == null ? List.<String>of() : definition.items())
+                                    .stream().map(GameKeys::item).toList())));
         } else {
             lore.add(renderer.format(locale, MESSAGES.smp().objectives().countsItself()));
         }

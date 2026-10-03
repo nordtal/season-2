@@ -4,6 +4,7 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.value.GameContent;
 import eu.nordtal.s2.papercommon.game.GameKeys;
 import eu.nordtal.s2.smp.feedback.Surface;
 import eu.nordtal.s2.smp.menu.BlankItem;
@@ -61,8 +62,13 @@ public final class HandInGui implements Surface {
                 MessageRenderer.of(messages)
                         .format(locale, MESSAGES.smp().handin().confirm()),
                 List.of(MessageRenderer.of(messages)
-                        .format(locale, MESSAGES.smp().handin().needed(stillNeeded, String.join(", ", wanted)))));
+                        .format(locale, MESSAGES.smp().handin().needed(stillNeeded, wantedItems()))));
         HandInPanel.CONFIRM_SLOTS.forEach(slot -> inventory.setItem(slot, confirm));
+    }
+
+    /** The wanted items, which the client names in its reader's language. */
+    private List<GameContent> wantedItems() {
+        return wanted.stream().map(GameKeys::item).toList();
     }
 
     /** The first wanted item, which {@link TrackNames} checked when the track loaded. */
@@ -80,7 +86,7 @@ public final class HandInGui implements Surface {
                     .format(locale, MESSAGES.smp().handin().wanted())
                     .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
             meta.lore(List.of(MessageRenderer.of(messages)
-                    .format(locale, MESSAGES.smp().handin().needed(stillNeeded, String.join(", ", wanted)))
+                    .format(locale, MESSAGES.smp().handin().needed(stillNeeded, wantedItems()))
                     .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)));
         });
         return stack;

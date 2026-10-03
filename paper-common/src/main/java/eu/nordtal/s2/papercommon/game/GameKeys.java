@@ -1,5 +1,6 @@
 package eu.nordtal.s2.papercommon.game;
 
+import eu.nordtal.s2.messages.value.GameContent;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Optional;
@@ -33,6 +34,13 @@ public final class GameKeys {
         final Material material =
                 Material.getMaterial(key.substring(MINECRAFT.length()).toUpperCase(Locale.ROOT));
         return material == null || material.isLegacy() ? Optional.empty() : Optional.of(material);
+    }
+
+    /** Returns the item a setting names as game content, which the client names in its reader's language. */
+    public static GameContent item(final String name) {
+        return material(name)
+                .map(material -> GameContent.of(material.translationKey()))
+                .orElseGet(() -> new GameContent(key(name), key(name)));
     }
 
     /** Returns the statistic a setting names. */

@@ -45,6 +45,8 @@ public interface StewardTexts {
 
         Operations operations();
 
+        Updates updates();
+
         @Name("Service")
         interface Service {
 
@@ -480,6 +482,131 @@ public interface StewardTexts {
 
             @Name("Cannot copy, said")
             MessageRef cannotCopyNote();
+        }
+
+        /** The updates page's own words. */
+        @Name("Updates page")
+        interface Updates {
+
+            @Name("Title")
+            MessageRef title();
+
+            @Name("Check again, said")
+            MessageRef checkAgainTip();
+
+            @Name("Could not check again")
+            MessageRef checkAgainFailed();
+
+            @Name("Check again")
+            MessageRef checkAgain();
+
+            @Name("Restart everything")
+            MessageRef restartEverything();
+
+            @Name("Update everything")
+            MessageRef updateEverything();
+
+            @Name("Available")
+            MessageRef available();
+
+            @Name("A source silent")
+            MessageRef sourceSilent();
+
+            @Name("Checked")
+            MessageRef checked();
+
+            @Name("Next")
+            MessageRef next();
+
+            @Name("Not scheduled")
+            MessageRef notScheduled();
+
+            @Name("Nothing installed yet")
+            MessageRef nothing();
+
+            @Name("Nothing to install")
+            MessageRef nothingToInstall();
+
+            @Name("Nothing to install, said")
+            MessageRef nothingToInstallNote();
+
+            @Name("Incomplete")
+            MessageRef incomplete();
+
+            @Name("Service")
+            MessageRef service();
+
+            @Name("Plugin")
+            MessageRef plugin();
+
+            @Name("Change")
+            MessageRef change();
+
+            @Name("State")
+            MessageRef state();
+
+            @Name("The resource pack")
+            MessageRef resourcePack();
+
+            @Name("Claimed by nothing")
+            MessageRef unclaimed(@Arg("files") List<String> files);
+
+            @Name("Runs")
+            MessageRef runs();
+
+            @Name("No run yet")
+            MessageRef noRun();
+
+            @Name("No run yet, said")
+            MessageRef noRunNote();
+
+            @Name("Run")
+            MessageRef run();
+
+            @Name("When")
+            MessageRef when();
+
+            @Name("Kind")
+            MessageRef kind();
+
+            @Name("Status")
+            MessageRef status();
+
+            @Name("Result")
+            MessageRef result();
+
+            @Name("Initiated by")
+            MessageRef initiatedBy();
+
+            @Name("Schedule")
+            MessageRef schedule();
+
+            @Name("Schedule, said")
+            MessageRef scheduleNote();
+
+            @Name("No update section")
+            MessageRef noSection();
+
+            @Name("No update section, said")
+            MessageRef noSectionNote();
+
+            @Name("Days")
+            MessageRef days();
+
+            @Name("No day")
+            MessageRef noDay();
+
+            @Name("Schedule saved")
+            MessageRef scheduleSaved();
+
+            @Name("Changed meanwhile")
+            MessageRef changedMeanwhile();
+
+            @Name("Save")
+            MessageRef save();
+
+            @Name("Changed")
+            MessageRef changed(@Arg("count") int count);
         }
     }
 

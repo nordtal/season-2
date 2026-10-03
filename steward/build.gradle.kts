@@ -176,15 +176,9 @@ tasks.named("check") {
     dependsOn(viteTest, oxfmtCheck, oxlint, checkFrontendComments)
 }
 
-// The glyphs a message can name, for the translation editor's menu, served under /glyphs/.
-val glyphManifest =
-    tasks.register<eu.nordtal.s2.build.GlyphManifest>("glyphManifest") {
-        group = "build"
-        description = "Writes the named glyphs of minecraft:default with their textures."
-        names.set(rootProject.layout.projectDirectory.file("pack-rendering/src/main/resources/eu/nordtal/s2/packrendering/glyph-names.txt"))
-        assets.set(rootProject.layout.projectDirectory.dir("resource-pack/src/assets"))
-        target.set(layout.buildDirectory.dir("glyphs"))
-    }
+// The glyphs a message can name, with their textures, for the translation editor's menu, served under /glyphs/.
+val glyphManifest = configurations.dependencyScope("glyphManifest")
+val glyphManifestFiles = configurations.resolvable("glyphManifestFiles") { extendsFrom(glyphManifest.get()) }
 
 // Emptying web/ first makes the jar hold exactly the last Vite build, since Vite hashes its file names.
 tasks.named<ProcessResources>("processResources") {
@@ -193,7 +187,7 @@ tasks.named<ProcessResources>("processResources") {
     from(viteBuild) {
         into("web")
     }
-    from(glyphManifest) {
+    from(glyphManifestFiles) {
         into("web/glyphs")
     }
 }
@@ -242,6 +236,8 @@ tasks.named<JavaExec>("run") {
 }
 
 dependencies {
+    "glyphManifest"(project(":resource-pack", "glyphManifest"))
+
     // NullAway's annotations name checker-qual's TypeUseLocation; without it javac warns and -Werror fails.
     compileOnly("org.checkerframework:checker-qual:4.2.3")
     testCompileOnly("org.checkerframework:checker-qual:4.2.3")

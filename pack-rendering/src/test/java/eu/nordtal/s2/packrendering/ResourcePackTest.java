@@ -9,8 +9,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.UncheckedIOException;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,7 +25,7 @@ import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 
 /**
- * Holds {@link Glyphs}, the font files and the pack's PNGs to each other.
+ * Holds the fonts the build writes to the pack's PNGs, and to the texts drawn in them.
  *
  * Every way they drift is invisible until a client renders it; whether the art is any good is not checked.
  */
@@ -65,27 +63,6 @@ class ResourcePackTest {
             "smp/src/main/resources/messages/smp/de.properties",
             "hunger-games/src/main/resources/messages/hunger-games/en.properties",
             "hunger-games/src/main/resources/messages/hunger-games/de.properties");
-
-    @Test
-    void everyGlyphsConstantIsDeclaredByTheFontItsNameSaysItBelongsTo() {
-        final List<String> missing = new ArrayList<>();
-        forEachGlyph((name, value) -> {
-            final FontFile font = fontFor(name);
-            if (value.codePointCount(0, value.length()) != 1) {
-                return;
-            }
-            if (!font.covers(value.codePointAt(0))) {
-                missing.add(
-                        "Glyphs.%s = U+%04X is not declared in %s".formatted(name, value.codePointAt(0), font.id()));
-            }
-        });
-        assertEquals(
-                List.of(),
-                missing,
-                "Glyphs, the font files and resource-pack/README.md's allocation table are three"
-                        + " mirrors of one table - a constant missing from its font draws a"
-                        + " missing-glyph box, and nothing else says so");
-    }
 
     @Test
     void everyBitmapProviderNamesATextureThatExists() {
@@ -161,20 +138,6 @@ class ResourcePackTest {
                 orphans,
                 "art nothing can reach is art nobody will ever see - it is"
                         + " a chars entry somebody forgot, not a spare cell");
-    }
-
-    @Test
-    void theSixRowFontsDeclareTheSameCharactersOneRowApart() {
-        final Set<Integer> first = GUI_ROW_FONTS.get(0).declared();
-        for (int row = 1; row < GUI_ROW_FONTS.size(); row++) {
-            assertEquals(
-                    new TreeSet<>(first),
-                    new TreeSet<>(GUI_ROW_FONTS.get(row).declared()),
-                    Glyphs.FONT_GUI_ROWS.get(row) + " declares a different set of characters from"
-                            + " nordtal:gui_r0. The six are one font drawn at six heights - a"
-                            + " character in five of them is a row that renders on five rows and"
-                            + " draws a missing-glyph box on the sixth");
-        }
     }
 
     @Test
@@ -328,51 +291,6 @@ class ResourcePackTest {
         } catch (final IOException e) {
             throw new UncheckedIOException("cannot read " + file, e);
         }
-    }
-
-    /** Feeds every {@code String} constant of {@link Glyphs}, and every table entry, to the consumer. */
-    private static void forEachGlyph(final java.util.function.BiConsumer<String, String> consumer) {
-        for (final Field field : Glyphs.class.getDeclaredFields()) {
-            if (!Modifier.isStatic(field.getModifiers()) || !Modifier.isPublic(field.getModifiers())) {
-                continue;
-            }
-            // The font keys are namespaced ids, not code points; BossBarFontTest checks those.
-            if (field.getName().startsWith("FONT_")) {
-                continue;
-            }
-            try {
-                final Object value = field.get(null);
-                if (value instanceof String text) {
-                    consumer.accept(field.getName(), text);
-                } else if (value instanceof List<?> list) {
-                    for (int i = 0; i < list.size(); i++) {
-                        if (list.get(i) instanceof String text) {
-                            consumer.accept(field.getName() + "[" + i + "]", text);
-                        }
-                    }
-                }
-            } catch (final IllegalAccessException e) {
-                throw new IllegalStateException("cannot read Glyphs." + field.getName(), e);
-            }
-        }
-    }
-
-    /** The font a constant belongs to, taken from its name as {@link Glyphs} groups them. */
-    private static FontFile fontFor(final String constant) {
-        if (constant.startsWith("BOSSBAR_")) {
-            return BOSSBAR_FONT;
-        }
-        if (constant.startsWith("BOARD_")) {
-            return BOARD_FONT;
-        }
-        // GUI_ROW_* before GUI_*: row glyphs live in the row fonts, not in nordtal:gui.
-        if (constant.startsWith("GUI_ROW_")) {
-            return GUI_ROW_FONTS.get(0);
-        }
-        if (constant.startsWith("GUI_")) {
-            return GUI_FONT;
-        }
-        return DEFAULT_FONT;
     }
 
     private static boolean hasPixels(

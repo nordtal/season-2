@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import eu.nordtal.s2.common.RepositoryRoot;
 import eu.nordtal.s2.packrendering.Glyphs;
 import eu.nordtal.s2.smp.milestone.Unlock;
 import eu.nordtal.s2.smp.world.WorldRole;
@@ -31,8 +32,7 @@ import org.junit.jupiter.api.Test;
  */
 class TravelPanelTest {
 
-    private static final Path ROOT = repositoryRoot();
-    private static final Path ASSETS = ROOT.resolve("resource-pack/src/assets/nordtal");
+    private static final Path ASSETS = RepositoryRoot.pack().resolve("assets/nordtal");
 
     /** The three cards' colours (fill, outline, highlight), as the panel PNG paints them. */
     private static final Map<WorldRole, List<Integer>> COLOURS = Map.of(
@@ -165,18 +165,6 @@ class TravelPanelTest {
 
     private static int rgb(final int r, final int g, final int b) {
         return (r << 16) | (g << 8) | b;
-    }
-
-    private static Path repositoryRoot() {
-        Path at = Path.of("").toAbsolutePath();
-        while (at != null && !Files.isRegularFile(at.resolve("settings.gradle.kts"))) {
-            at = at.getParent();
-        }
-        if (at == null) {
-            throw new IllegalStateException(
-                    "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
-        }
-        return at;
     }
 
     private static String readText(final Path path) {

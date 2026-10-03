@@ -1,4 +1,3 @@
-import eu.nordtal.s2.build.GenerateGlyphAdvances
 import net.ltgt.gradle.errorprone.errorprone
 
 plugins {
@@ -21,25 +20,8 @@ tasks.withType<JavaCompile>().configureEach {
     }
 }
 
-// The menus size their rows from this advance table, derived from the assembled pack on every build and never
-// committed.
-val assembledPack = configurations.resolvable("packForAdvances") { extendsFrom(configurations["resourcePack"]) }
-
-val menuAdvances =
-    tasks.register<GenerateGlyphAdvances>("generateMenuAdvances") {
-        pack.from(assembledPack)
-        font.set("nordtal/font/gui_r0.json")
-        target.set(layout.buildDirectory.file("generated/advances/gui-row-advances.properties"))
-    }
-
-// Into the processed resources, not a source directory: messageSchema reads the source directories.
-tasks.named<ProcessResources>("processResources") {
-    from(menuAdvances) { into("nordtal/menu") }
-}
-
 // Files outside every source set that tests read; undeclared, an edit would leave :smp:test UP-TO-DATE.
 repositoryRootTestInputs {
-    readsTree("resource-pack/src/assets")
     reads("compose.yml")
     reads("deploy/minecraft/entrypoint.sh")
 }
@@ -50,7 +32,7 @@ repositories {
 }
 
 dependencies {
-    // The assembled resource pack: the menu advance table and PanelWalk's chest-row fonts only exist there.
+    // The assembled resource pack: the fonts the menu tests measure against only exist there.
     "resourcePack"(project(":resource-pack", "pack"))
 
     testImplementation(testFixtures(project(":common")))

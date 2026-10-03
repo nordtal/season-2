@@ -23,7 +23,7 @@ public interface SeasonSpec {
     @Order(2)
     @Name("Name")
     @Key("name")
-    @Comment("The season's name as the server browser shows it, in {season} of every MOTD.")
+    @Comment("The season's name as every message shows it in {season.name}, the MOTD included.")
     @Explain("The season's name as the server browser shows it.")
     default String name() {
         return "Season 2";

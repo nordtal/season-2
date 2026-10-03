@@ -58,7 +58,7 @@ class SmpRulesTest {
         classes = Codebase.classes();
     }
 
-    /** {@code /smp reload} replaces the field, so every long-lived reader is handed a way to read it, not a track. */
+    /** A settings change replaces the field, so every long-lived reader is handed a way to read it, not a track. */
     @Test
     void everyReaderOfTheTrackSeesAReload() {
         for (final String reader : TRACK_READERS) {
@@ -68,8 +68,8 @@ class SmpRulesTest {
                         .toList();
                 assertTrue(
                         parameters.contains("java.util.function.Supplier") && !parameters.contains(TRACK),
-                        reader + " is handed a track rather than a way to read the current one, so /smp reload"
-                                + " would report success and leave it on the definitions the server started with");
+                        reader + " is handed a track rather than a way to read the current one, so a settings"
+                                + " change would leave it on the definitions the server started with");
             }
         }
         classes()

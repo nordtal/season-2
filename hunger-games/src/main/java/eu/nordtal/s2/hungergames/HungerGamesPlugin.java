@@ -7,7 +7,6 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.database.inbox.HungerGamesRequest;
-import eu.nordtal.s2.database.inbox.Reload;
 import eu.nordtal.s2.database.inbox.ServerRefusal;
 import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
@@ -65,10 +64,10 @@ public final class HungerGamesPlugin extends NordtalPlugin {
 
     private Setting<HungerGamesSpec> config;
 
-    /** Its own group, so a reload can re-read it mid-game, unlike {@link #config}. */
+    /** Its own group, so the settings signal can re-read it mid-game, unlike {@link #config}. */
     private Setting<SoundsSpec> soundSettings;
 
-    /** Held so a reload can swap what it answers; every listener has this one instance. */
+    /** Held so the settings signal can swap what it answers; every listener has this one instance. */
     private HungerGamesSounds sounds;
 
     private World world;
@@ -151,7 +150,6 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         wireGameSystems(config.get());
         wireListeners();
         answer(HungerGamesRequest.TABLE, request -> switch (request) {
-            case Reload reload -> reloadAnswer();
             case HungerGamesRequest.StartGame start -> startGame(start.confirmed());
         });
         final PhaseDirectory phases = PhaseDirectory.using(pool(), clock());

@@ -1,7 +1,5 @@
 package eu.nordtal.s2.limbo;
 
-import eu.nordtal.s2.database.inbox.LimboRequest;
-import eu.nordtal.s2.database.inbox.Reload;
 import eu.nordtal.s2.limbo.config.LimboCheck;
 import eu.nordtal.s2.limbo.config.LimboSpec;
 import eu.nordtal.s2.limbo.listener.PresenceListener;
@@ -66,9 +64,6 @@ public final class LimboPlugin extends NordtalPlugin {
         channel = speaking;
         presence = new PresenceListener(this, world, room, speaking, messages(), identities());
         listen(presence);
-        answer(LimboRequest.TABLE, request -> switch (request) {
-            case Reload reload -> reloadAnswer();
-        });
         getLogger()
                 .info("waiting world '" + config.get().worldName() + "', title refreshed every "
                         + config.get().titleRefreshSeconds() + "s, speaking " + LimboProtocol.CHANNEL);

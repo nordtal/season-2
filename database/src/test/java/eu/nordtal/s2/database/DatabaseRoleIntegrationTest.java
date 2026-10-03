@@ -148,31 +148,29 @@ class DatabaseRoleIntegrationTest {
                 .map(DatabaseRoleIntegrationTest::check));
     }
 
-    /** Every server claims only its own inbox, and steward asks every one of them for a reload. */
+    /** Every server with an inbox claims only its own, and steward writes into each. */
     private static List<Case> serverInboxes() {
         return List.of(
                 mayNot(
                         DatabaseRole.SMP,
-                        "INSERT INTO hunger_games_inbox (kind, payload, actor_kind) VALUES ('RELOAD', '{}', 'HOST')"),
+                        "INSERT INTO hunger_games_inbox (kind, payload, actor_kind) VALUES ('START_GAME', '{}', 'HOST')"),
                 may(DatabaseRole.SMP, "UPDATE smp_inbox SET status = 'DONE' WHERE false"),
                 mayNot(DatabaseRole.SMP, "UPDATE hunger_games_inbox SET status = 'DONE' WHERE false"),
+                may(DatabaseRole.HUNGER_GAMES, "UPDATE hunger_games_inbox SET status = 'DONE' WHERE false"),
                 may(
                         DatabaseRole.STEWARD,
                         "INSERT INTO hunger_games_inbox (kind, payload, actor_kind) VALUES ('START_GAME', '{}', 'HOST')"),
                 may(
                         DatabaseRole.STEWARD,
-                        "INSERT INTO limbo_inbox (kind, payload, actor_kind) VALUES ('RELOAD', '{}', 'HOST')"),
-                may(
-                        DatabaseRole.STEWARD,
-                        "INSERT INTO proxy_inbox (kind, payload, actor_kind) VALUES ('RELOAD', '{}', 'HOST')"),
-                mayNot(DatabaseRole.STEWARD, "UPDATE limbo_inbox SET status = 'DONE' WHERE false"),
+                        "INSERT INTO smp_inbox (kind, payload, actor_kind)"
+                                + " VALUES ('UNLOCK_MILESTONE', '{\"key\":\"a\"}', 'HOST')"),
+                mayNot(DatabaseRole.STEWARD, "UPDATE smp_inbox SET status = 'DONE' WHERE false"),
                 mayNot(
                         DatabaseRole.PROXY,
-                        "INSERT INTO smp_inbox (kind, payload, actor_kind) VALUES ('RELOAD', '{}', 'HOST')"),
-                may(DatabaseRole.PROXY, "UPDATE proxy_inbox SET status = 'DONE' WHERE false"),
+                        "INSERT INTO smp_inbox (kind, payload, actor_kind) VALUES ('UNLOCK_MILESTONE', '{}', 'HOST')"),
                 mayNot(
                         DatabaseRole.LIMBO,
-                        "INSERT INTO proxy_inbox (kind, payload, actor_kind) VALUES ('RELOAD', '{}', 'HOST')"));
+                        "INSERT INTO hunger_games_inbox (kind, payload, actor_kind) VALUES ('START_GAME', '{}', 'HOST')"));
     }
 
     private static Executable check(final Case c) {

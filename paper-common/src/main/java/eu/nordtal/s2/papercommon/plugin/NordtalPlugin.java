@@ -118,7 +118,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
         return false;
     }
 
-    /** Adds this plugin's subcommands to its root, below the {@code reload} the base adds. */
+    /** Adds this plugin's subcommands to its root. */
     protected void commands(final LiteralArgumentBuilder<CommandSourceStack> root) {}
 
     /** Loads this plugin's own settings and refuses what must hold before its features start, worlds say. */
@@ -197,7 +197,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
         adminWatch.listen(signals);
         // Every signal runs every refresh, so an aura booked on smp's channel lands here too.
         signals.on(Channel.ADMIN, "who the players are", identities::reread);
-        // An admin's change in Steward is a reload, on the hub's thread like one Steward asks for.
+        // An admin's change in Steward reaches this process as a reload, on the hub's thread.
         settings.listen(signals, this::reload);
         // The hub reads the overrides as it connects, off the main thread; until then the packaged texts show.
         MessageOverrideStore.using(pool).follow(messages, signals);
@@ -269,14 +269,15 @@ public abstract class NordtalPlugin extends JavaPlugin {
                 logger());
     }
 
-    /** Registers this plugin's command root with {@code reload}, and whatever {@link #commands} adds below it. */
+    /** Registers this plugin's command root with whatever {@link #commands} adds below it; an empty root stays out. */
     private void registerCommands() {
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             final LiteralArgumentBuilder<CommandSourceStack> root =
                     Commands.literal(commandRoot()).requires(source -> playersUseCommandRoot() || isConsole(source));
-            root.then(console("reload").executes(context -> run(context, this::reloadAnswer)));
             commands(root);
-            event.registrar().register(root.build());
+            if (!root.getArguments().isEmpty()) {
+                event.registrar().register(root.build());
+            }
         });
     }
 
@@ -359,14 +360,6 @@ public abstract class NordtalPlugin extends JavaPlugin {
         problems.addAll(reloadOwn());
         problems.forEach(problem -> getLogger().severe("not reloaded, the running values stay: " + problem));
         return List.copyOf(problems);
-    }
-
-    /** Returns the answer to a reload: that everything was re-read, or what was not. */
-    public final Answer reloadAnswer() {
-        final List<String> problems = reload();
-        return problems.isEmpty()
-                ? Answer.done(MESSAGES.admin().reloaded())
-                : Answer.failed(MESSAGES.admin().notReloaded(String.join("; ", problems)));
     }
 
     /**

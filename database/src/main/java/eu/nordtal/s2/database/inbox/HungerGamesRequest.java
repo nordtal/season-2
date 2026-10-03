@@ -3,7 +3,7 @@ package eu.nordtal.s2.database.inbox;
 import eu.nordtal.s2.database.notify.Channel;
 
 /** What the Hunger Games server can be asked to do by another process; each record is one kind. */
-public sealed interface HungerGamesRequest permits Reload, HungerGamesRequest.StartGame {
+public sealed interface HungerGamesRequest permits HungerGamesRequest.StartGame {
 
     /** The Hunger Games server's inbox table. */
     InboxTable<HungerGamesRequest> TABLE =

@@ -31,7 +31,7 @@ public final class BalloonListener implements Listener {
     private final Boxes balloons;
     private final Worlds worlds;
     private final SeasonState season;
-    /** The milestone track as a supplier, because {@code /smp reload} replaces it. */
+    /** The milestone track as a supplier, because a settings change replaces it. */
     private final java.util.function.Supplier<MilestoneTrack> track;
 
     private final Messages messages;

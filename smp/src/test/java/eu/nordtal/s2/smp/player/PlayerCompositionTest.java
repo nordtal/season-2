@@ -48,7 +48,7 @@ class PlayerCompositionTest {
                 before,
                 after,
                 "the hours moved into the reloadable file so that a saved change is visible after"
-                        + " /smp reload; a composition that captured the table would still draw"
+                        + " a settings change; a composition that captured the table would still draw"
                         + " tier 2");
     }
 

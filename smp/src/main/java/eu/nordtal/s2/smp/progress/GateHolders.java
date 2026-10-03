@@ -73,7 +73,7 @@ public final class GateHolders implements Listener {
     /**
      * Creates the count.
      *
-     * @param track the milestone track, as a supplier, because {@code /smp reload} replaces it
+     * @param track the milestone track, as a supplier, because a settings change replaces it
      * @param discordIds whose Discord account an online player's credit goes to; read on the main thread
      */
     public GateHolders(

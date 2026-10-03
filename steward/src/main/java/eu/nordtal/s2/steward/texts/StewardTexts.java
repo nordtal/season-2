@@ -48,6 +48,8 @@ public interface StewardTexts {
 
         Forms form();
 
+        PaymentsPage payments();
+
         BackupDialogs backupSettings();
 
         @Name("Service")

@@ -106,7 +106,7 @@ public final class MessagesApi {
                 bundle.writable(),
                 bundle.entries(),
                 warnings,
-                Reloading.applied("Saved, and every service that shows it takes it at once.")));
+                Reloading.applied(StewardTexts.TEXTS.steward().said().message())));
     }
 
     /**

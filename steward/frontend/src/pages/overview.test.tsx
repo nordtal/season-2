@@ -28,7 +28,6 @@ const HOST = {
   memoryAvailableBytes: 4_000_000_000,
   diskTotalBytes: 100_000_000_000,
   diskUsedBytes: 40_000_000_000,
-  containerLimits: "none",
 }
 
 function service(over: Record<string, unknown> = {}) {

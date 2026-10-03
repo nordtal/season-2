@@ -6,7 +6,9 @@ import com.google.gson.JsonObject;
 import eu.nordtal.s2.common.http.Reply;
 import eu.nordtal.s2.common.http.WebClient;
 import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.steward.config.WebSpec;
+import eu.nordtal.s2.steward.texts.StewardTexts;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.URI;
@@ -31,6 +33,10 @@ public final class DiscordDirectory {
 
     private static final Duration CONNECT = Duration.ofSeconds(5);
     private static final Duration ANSWER = Duration.ofSeconds(10);
+    private static final StewardTexts.Steward.Answer REFUSED =
+            StewardTexts.TEXTS.steward().answer();
+    private static final StewardTexts.Steward.Said SAID =
+            StewardTexts.TEXTS.steward().said();
 
     /** How long one answer is reused: long enough to draw a page, short enough to feel live. */
     static final Duration TTL = Duration.ofSeconds(60);
@@ -53,14 +59,12 @@ public final class DiscordDirectory {
     }
 
     /** Why this cannot answer, or {@code null} when it can. */
-    public @Nullable String unavailable() {
+    public @Nullable MessageRef unavailable() {
         if (config.guildId().isBlank()) {
-            return "discord.guild-id is not set, so there is no guild to list.";
+            return SAID.noGuildId();
         }
         if (config.botToken().isBlank()) {
-            return "discord.bot-token is not set. Steward needs the bot's token - read-only, and "
-                    + "only for this - to ask Discord what the guild's roles and channels are "
-                    + "called. Without it the ids still work; they just have to be typed.";
+            return SAID.noBotToken();
         }
         return null;
     }
@@ -119,9 +123,9 @@ public final class DiscordDirectory {
         try {
             response = web.get(URI.create(api + path));
         } catch (final InterruptedIOException exception) {
-            throw new DirectoryException(503, "interrupted while talking to Discord");
+            throw new DirectoryException(503, REFUSED.interrupted());
         } catch (final IOException exception) {
-            throw new DirectoryException(502, "Discord could not be reached: " + exception.getMessage());
+            throw new DirectoryException(502, REFUSED.discordUnreachable(String.valueOf(exception.getMessage())));
         }
         if (response.status() != 200) {
             // The body is not passed on, since an error is the one place a token could leak.
@@ -129,13 +133,11 @@ public final class DiscordDirectory {
             throw new DirectoryException(
                     502,
                     switch (response.status()) {
-                        case 401 -> "Discord refused the bot token. Check discord.bot-token.";
-                        case 403 -> "The bot is in the guild but may not read it.";
-                        case 404 ->
-                            "Discord does not know that guild. Check discord.guild-id, and "
-                                    + "that the bot has been invited to it.";
-                        case 429 -> "Discord is rate limiting this. Try again in a moment.";
-                        default -> "Discord answered " + response.status() + ".";
+                        case 401 -> REFUSED.botTokenRefused();
+                        case 403 -> REFUSED.guildUnreadable();
+                        case 404 -> REFUSED.unknownGuild();
+                        case 429 -> REFUSED.rateLimited();
+                        default -> REFUSED.discordAnswered(response.status());
                     });
         }
         return Json.decode(response.body(), JsonArray.class);
@@ -147,18 +149,24 @@ public final class DiscordDirectory {
 
     private record Cached(List<Entry> entries, Instant at) {}
 
-    /** Discord did not answer, or answered no, with the status the browser should see. */
+    /** Discord did not answer, or answered no, with the status the browser should see and why, as a message. */
     public static final class DirectoryException extends RuntimeException {
 
         private final int status;
+        private final transient MessageRef why;
 
-        DirectoryException(final int status, final String message) {
-            super(message);
+        DirectoryException(final int status, final MessageRef why) {
+            super(why.key());
             this.status = status;
+            this.why = why;
         }
 
         public int status() {
             return status;
+        }
+
+        public MessageRef why() {
+            return why;
         }
     }
 }

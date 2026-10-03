@@ -5,6 +5,7 @@ import { vi } from "vitest"
 
 import { ServiceSettings } from "@/components/steward/settings"
 import type { ConfigEntry, ConfigLocation, PluginDescriptor } from "@/lib/api"
+import { words } from "@/lib/query-fixtures"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /** The fake backend, the entries and the helpers the configuration form tests share. */
@@ -98,7 +99,7 @@ export function nonNull<T>(value: T | null, what: string): T {
   return value
 }
 
-export const GUILD_UNAVAILABLE = { available: false, reason: "no bot token in this test", entries: [] }
+export const GUILD_UNAVAILABLE = { available: false, reason: words("no bot token in this test"), entries: [] }
 
 /** One `/api/setting-groups/<path>` answer per fixture file, keyed the way the route is called. */
 export function backend(

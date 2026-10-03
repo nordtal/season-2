@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import type { GameData } from "@/lib/api"
+import { words } from "@/lib/query-fixtures"
 import { choiceFor, gameChoices, gameKey, guildChoices, namespacesOf, registryOf } from "@/lib/references"
 
 /** The catalogue read as choices: keys, names, icons, the advancement tree, and nothing refused. */
@@ -114,7 +115,7 @@ describe("guildChoices", () => {
   })
 
   it("passes on why the guild cannot be listed", () => {
-    expect(guildChoices({ available: false, reason: "no bot token", entries: [] }, "role").unavailable).toBe(
+    expect(guildChoices({ available: false, reason: words("no bot token"), entries: [] }, "role").unavailable).toBe(
       "no bot token",
     )
   })

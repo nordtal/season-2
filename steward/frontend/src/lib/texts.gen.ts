@@ -285,6 +285,7 @@ export type TextArgs = {
     took: Arg["duration"]
   }
   "steward.answer.already-admin": Record<string, never>
+  "steward.answer.bot-token-refused": Record<string, never>
   "steward.answer.ceremony-elsewhere": {
     registration: Arg["choice"]
   }
@@ -303,6 +304,7 @@ export type TextArgs = {
   "steward.answer.grants-per-hour": {
     count: Arg["number"]
   }
+  "steward.answer.guild-unreadable": Record<string, never>
   "steward.answer.interrupted": Record<string, never>
   "steward.answer.key-first": Record<string, never>
   "steward.answer.key-not-held": Record<string, never>
@@ -334,6 +336,7 @@ export type TextArgs = {
   "steward.answer.not-below": Record<string, never>
   "steward.answer.not-in-guild": Record<string, never>
   "steward.answer.not-json": Record<string, never>
+  "steward.answer.rate-limited": Record<string, never>
   "steward.answer.self": Record<string, never>
   "steward.answer.sign-in-elsewhere": Record<string, never>
   "steward.answer.sign-in-refused": {
@@ -344,6 +347,7 @@ export type TextArgs = {
     missing: Arg["text"]
   }
   "steward.answer.too-late": Record<string, never>
+  "steward.answer.unknown-guild": Record<string, never>
   "steward.answer.unknown-person": Record<string, never>
   "steward.artifact.status": {
     status: Arg["choice"]
@@ -358,6 +362,22 @@ export type TextArgs = {
     drift: Arg["choice"]
   }
   "steward.image.label": Record<string, never>
+  "steward.said.announced": {
+    posted: Arg["choice"]
+    language: Arg["text"]
+  }
+  "steward.said.guild-not-listed": Record<string, never>
+  "steward.said.message": Record<string, never>
+  "steward.said.no-bot-token": Record<string, never>
+  "steward.said.no-guild-id": Record<string, never>
+  "steward.said.setting": {
+    network: Arg["choice"]
+    service: Arg["text"]
+    live: Arg["choice"]
+  }
+  "steward.said.words": {
+    text: Arg["text"]
+  }
   "steward.service.docker-state": {
     state: Arg["text"]
   }

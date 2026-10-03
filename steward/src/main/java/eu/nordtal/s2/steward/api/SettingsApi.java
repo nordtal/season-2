@@ -5,6 +5,8 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.setting.SettingStore;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.ConflictResponse;
 import io.javalin.http.Context;
@@ -87,10 +89,11 @@ public final class SettingsApi {
     }
 
     private static Reloading outcomeOf(final SettingStore.Group group) {
-        final String who = SettingStore.NETWORK.equals(group.service()) ? "every server" : group.service();
-        return group.live()
-                ? Reloading.applied("Saved, " + who + " takes it at once.")
-                : Reloading.restartRequired("Saved, " + who + " takes it at its next start.");
+        final MessageRef said = StewardTexts.TEXTS
+                .steward()
+                .said()
+                .setting(SettingStore.NETWORK.equals(group.service()), group.service(), group.live());
+        return group.live() ? Reloading.applied(said) : Reloading.restartRequired(said);
     }
 
     private static JsonObject bodyOf(final String body) {

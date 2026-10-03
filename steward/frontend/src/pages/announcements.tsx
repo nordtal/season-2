@@ -9,6 +9,7 @@ import {
   type AnnouncementTargets,
 } from "@/lib/announcement-targets"
 import { relative } from "@/lib/format"
+import { message } from "@/lib/texts"
 import { languageName } from "@/lib/language-names"
 import { useAnnouncements, useCommandRun, useConfig, useGuildChannels, useSendAnnouncement } from "@/lib/queries"
 import { AskThenAct } from "@/components/steward/ask-then-act"
@@ -214,7 +215,7 @@ function RecentLine({ line }: { line: Announcement }) {
         ) : null}
       </div>
       <p className="whitespace-pre-wrap break-words text-sm">{line.text}</p>
-      {line.result ? <p className="text-xs text-muted-foreground">{line.result}</p> : null}
+      {line.result ? <p className="text-xs text-muted-foreground">{message(line.result)}</p> : null}
     </li>
   )
 }

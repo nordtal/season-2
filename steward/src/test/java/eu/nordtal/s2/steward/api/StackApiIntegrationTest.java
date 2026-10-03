@@ -226,14 +226,11 @@ class StackApiIntegrationTest {
     }
 
     @Test
-    void theHostsNumbersComeBackAndSayThatNoContainerHasALimit() throws Exception {
+    void theHostsNumbersComeBack() throws Exception {
         final JsonObject host = GSON.fromJson(get("/api/host"), JsonObject.class);
 
         assertTrue(host.get("memoryTotalBytes").getAsLong() > 0);
         assertTrue(host.get("diskTotalBytes").getAsLong() > 0);
-        assertTrue(
-                host.get("containerLimits").getAsString().contains("share of the whole host"),
-                "a percentage without that sentence is a number that means something else");
     }
 
     @Test

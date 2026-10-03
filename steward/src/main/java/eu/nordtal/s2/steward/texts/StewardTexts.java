@@ -34,6 +34,8 @@ public interface StewardTexts {
 
         Answer answer();
 
+        Said said();
+
         @Name("Service")
         interface Service {
 
@@ -190,6 +192,45 @@ public interface StewardTexts {
 
             @Name("Interrupted")
             MessageRef interrupted();
+
+            @Name("Bot token refused")
+            MessageRef botTokenRefused();
+
+            @Name("Guild not readable")
+            MessageRef guildUnreadable();
+
+            @Name("Unknown guild")
+            MessageRef unknownGuild();
+
+            @Name("Rate limited")
+            MessageRef rateLimited();
+        }
+
+        /** What Steward tells a person who did something, as data the page renders. */
+        @Name("Said")
+        interface Said {
+
+            @Name("A setting saved")
+            MessageRef setting(
+                    @Arg("network") boolean network, @Arg("service") String service, @Arg("live") boolean live);
+
+            @Name("A message saved")
+            MessageRef message();
+
+            @Name("An announcement's line")
+            MessageRef announced(@Arg("posted") boolean posted, @Arg("language") String language);
+
+            @Name("No guild id")
+            MessageRef noGuildId();
+
+            @Name("No bot token")
+            MessageRef noBotToken();
+
+            @Name("The guild not listed")
+            MessageRef guildNotListed();
+
+            @Name("A service's own words")
+            MessageRef words(@Arg("text") String text);
         }
     }
 

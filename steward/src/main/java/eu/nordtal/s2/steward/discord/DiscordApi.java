@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.discord;
 
+import eu.nordtal.s2.messages.MessageRef;
 import io.javalin.http.Context;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
@@ -26,7 +27,7 @@ public final class DiscordApi {
     }
 
     private void answer(final Context ctx, final Supplier lookup) {
-        final String unavailable = directory.unavailable();
+        final MessageRef unavailable = directory.unavailable();
         if (unavailable != null) {
             ctx.json(new Guild(false, unavailable, List.of()));
             return;
@@ -39,7 +40,7 @@ public final class DiscordApi {
                             .map(entry -> new Pick(entry.id(), entry.name(), entry.type()))
                             .toList()));
         } catch (final DiscordDirectory.DirectoryException failure) {
-            ctx.json(new Guild(false, failure.getMessage(), List.of()));
+            ctx.json(new Guild(false, failure.why(), List.of()));
         }
     }
 
@@ -48,7 +49,7 @@ public final class DiscordApi {
      *
      * @param reason why the guild could not be asked, absent while it could
      */
-    public record Guild(boolean available, @Nullable String reason, List<Pick> entries) {}
+    public record Guild(boolean available, @Nullable MessageRef reason, List<Pick> entries) {}
 
     /**
      * One role or channel as a picker offers it, in the guild's own order.

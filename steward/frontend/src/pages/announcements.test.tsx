@@ -8,6 +8,7 @@ import { announcementTargets } from "@/lib/announcement-targets"
 import { AnnouncementsPage } from "@/pages/announcements"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { asButton, asTextArea } from "@/lib/test-elements"
+import { words } from "@/lib/query-fixtures"
 
 /** One form writes every language, nothing is sent until each has its text, and each line's destination is shown. */
 
@@ -78,7 +79,7 @@ const RECENT = {
       actorId: "123456",
       requested: new Date().toISOString(),
       status: "DONE",
-      result: "Posted.",
+      result: words("Posted."),
     },
     {
       id: "8",
@@ -107,7 +108,7 @@ function backend(file: unknown = accessFile()) {
         return json(200, { available: true, entries: [{ id: "111", name: "announcements", type: 0 }] })
       }
       if (url.startsWith("/api/commands/")) {
-        return json(200, { id: url.split("/").pop(), status: "DONE", result: "Posted." })
+        return json(200, { id: url.split("/").pop(), status: "DONE", result: words("Posted.") })
       }
       throw new Error(`the page asked for ${url}, which this test did not expect`)
     }),

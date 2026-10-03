@@ -86,7 +86,7 @@ final class CommandApi {
     public record CommandRun(
             String id,
             InboxStatus status,
-            @Nullable String result,
+            @Nullable MessageRef result,
             @Nullable String reason) {}
 
     /** {@code GET /api/commands/{id}}: what became of it, the id being what {@link #submit} answered. */
@@ -109,7 +109,7 @@ final class CommandApi {
     }
 
     /**
-     * A server's request: its status, and its answer as English text, a refusal worded by the database bundle.
+     * A server's request: its status, and its answer in its own words, a refusal worded by the database bundle.
      *
      * A refusal also names its reason, which is what the browser branches on.
      */
@@ -121,7 +121,7 @@ final class CommandApi {
         return new CommandRun(
                 name,
                 row.status(),
-                result.orElse(null),
+                result.map(StewardTexts.TEXTS.steward().said()::words).orElse(null),
                 row.refusal().map(refusal -> refusal.reason().name()).orElse(null));
     }
 

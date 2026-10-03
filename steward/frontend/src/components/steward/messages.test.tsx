@@ -179,14 +179,14 @@ describe("saving a line", () => {
         {
           "smp/smp": {
             ...location({ path: "smp/smp" }),
-            entries: [entry({ key: "greeting", english: "Hello <_sender>" })],
+            entries: [entry({ key: "greeting", english: "Hello {sender}" })],
           },
         },
         {
           "smp/smp": () => ({
             ...location({ path: "smp/smp" }),
-            entries: [entry({ key: "greeting", english: "Hello <_sender>", overrideEnglish: "Hello there" })],
-            warnings: ["greeting no longer contains <_sender>"],
+            entries: [entry({ key: "greeting", english: "Hello {sender}", overrideEnglish: "Hello there" })],
+            warnings: ["greeting no longer contains {sender}"],
           }),
         },
       ),
@@ -194,11 +194,11 @@ describe("saving a line", () => {
     draw(<Settings service="smp" />)
     await open("SMP Translations")
     await openKey("Greeting")
-    const field = await screen.findByDisplayValue("Hello <_sender>")
+    const field = await screen.findByDisplayValue("Hello {sender}")
     fireEvent.change(field, { target: { value: "Hello there" } })
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
 
-    expect(await screen.findByText(/no longer contains <_sender>/)).toBeTruthy()
+    expect(await screen.findByText(/no longer contains {sender}/)).toBeTruthy()
     expect(await screen.findByDisplayValue("Hello there")).toBeTruthy()
   })
 
@@ -316,7 +316,7 @@ function twoKeys() {
             key: "a",
             name: "First",
             english: "<gray>Hello <white>{player}</white></gray>",
-            args: [{ name: "player", component: false, global: false }],
+            args: [{ name: "player", kind: "text", global: false, action: false }],
           }),
           entry({ key: "b", name: "Second", english: "two" }),
         ],
@@ -408,7 +408,7 @@ function withGreeting() {
             key: "greeting",
             name: "Greeting",
             english: "Hello {player}",
-            args: [{ name: "player", component: false, global: false }],
+            args: [{ name: "player", kind: "text", global: false, action: false }],
           }),
         ],
       },

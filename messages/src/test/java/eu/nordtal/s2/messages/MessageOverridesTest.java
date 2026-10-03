@@ -8,6 +8,7 @@ import eu.nordtal.s2.messages.context.MessageEnvironment;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -25,7 +26,7 @@ class MessageOverridesTest {
         final Messages messages = load();
         messages.override(List.of(row("greeting", "de", 0, "Moin {name}!")));
 
-        assertEquals("Moin Till!", messages.format(GERMAN, "greeting", "name", "Till"));
+        assertEquals("Moin Till!", messages.format(GERMAN, new MessageRef("greeting", Map.of("name", "Till"))));
     }
 
     @Test
@@ -55,7 +56,7 @@ class MessageOverridesTest {
         messages.override(List.of(row("greeting", "de", 0, "Moin {name}!")));
         messages.override(List.of());
 
-        assertEquals("Hallo Till!", messages.format(GERMAN, "greeting", "name", "Till"));
+        assertEquals("Hallo Till!", messages.format(GERMAN, new MessageRef("greeting", Map.of("name", "Till"))));
     }
 
     @Test
@@ -94,7 +95,7 @@ class MessageOverridesTest {
         final Messages messages = load();
         messages.override(List.of(new MessageOverride("old", "welcome", "de", 0, "Servus {name}!", null)));
 
-        assertEquals("Servus Till!", messages.format(GERMAN, "greeting", "name", "Till"));
+        assertEquals("Servus Till!", messages.format(GERMAN, new MessageRef("greeting", Map.of("name", "Till"))));
         assertTrue(messages.bundles().contains("old"), "the rows of the bundle a key moved out of are read too");
     }
 
@@ -103,7 +104,7 @@ class MessageOverridesTest {
         final Messages messages = load();
         messages.override(List.of(row("hello", "de", 0, "Alt {name}"), row("greeting", "de", 0, "Neu {name}")));
 
-        assertEquals("Neu Till", messages.format(GERMAN, "greeting", "name", "Till"));
+        assertEquals("Neu Till", messages.format(GERMAN, new MessageRef("greeting", Map.of("name", "Till"))));
     }
 
     @Test

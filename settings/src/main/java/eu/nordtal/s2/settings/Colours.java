@@ -21,6 +21,10 @@ public final class Colours {
                         case WARN -> spec.warn();
                         case NEUTRAL -> spec.neutral();
                         case MUTED -> spec.muted();
+                        case ACCENT -> spec.accent();
+                        case BRAND -> spec.brand();
+                        case EMPHASIS -> spec.emphasis();
+                        case FAINT -> spec.faint();
                     });
         }
         return declared;

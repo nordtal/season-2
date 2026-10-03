@@ -1,17 +1,16 @@
 package eu.nordtal.s2.stewardagent.bundles;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
-import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.internalapi.agent.JarName;
 import eu.nordtal.s2.internalapi.agent.MessageArg;
 import eu.nordtal.s2.internalapi.agent.MessageBundle;
 import eu.nordtal.s2.internalapi.agent.MessageEntry;
 import eu.nordtal.s2.messages.PackagedTexts;
+import eu.nordtal.s2.messages.spec.MessageSchema;
+import eu.nordtal.s2.messages.text.Declaration;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
@@ -21,7 +20,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -221,20 +219,15 @@ public final class MessageBundles {
     /** One {@code schema.json}; one that cannot be parsed is logged and read as empty, so the texts still show. */
     private static List<SchemaEntry> readSchema(
             final MessageBundleLocation location, final String name, final InputStream in) throws IOException {
-        final String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
         try {
-            final JsonObject root = Json.tree(text).getAsJsonObject();
-            final Map<String, List<String>> properties = contextProperties(root);
-            final List<MessageArg> globals = globalsOf(root, properties);
+            final MessageSchema.Bundle schema = MessageSchema.decode(
+                    new InputStreamReader(new ByteArrayInputStream(in.readAllBytes()), StandardCharsets.UTF_8));
             final List<SchemaEntry> answer = new ArrayList<>();
-            for (final JsonElement element : root.getAsJsonArray("messages")) {
-                answer.add(schemaEntryOf(element.getAsJsonObject(), properties, globals));
+            for (final MessageSchema.Entry entry : schema.messages()) {
+                answer.add(schemaEntryOf(schema, entry));
             }
             return answer;
-        } catch (final JsonParseException
-                | IllegalStateException
-                | NullPointerException
-                | UnsupportedOperationException e) {
+        } catch (final RuntimeException e) {
             LOG.warn(
                     "{}: {} is not a message schema steward can read, so its names are left out: {}",
                     location.jar(),
@@ -244,96 +237,64 @@ public final class MessageBundles {
         }
     }
 
-    /** The globals, expanded once: every message may use them, none has to. */
-    private static List<MessageArg> globalsOf(final JsonObject root, final Map<String, List<String>> properties) {
-        final List<MessageArg> globals = new ArrayList<>();
-        final JsonArray declaredGlobals = root.getAsJsonArray("globals");
-        if (declaredGlobals != null) {
-            for (final JsonElement global : declaredGlobals) {
-                final JsonObject object = global.getAsJsonObject();
-                expand(
-                        object.get("name").getAsString(),
-                        object.get("context").getAsString(),
-                        properties,
-                        true,
-                        globals);
-            }
-        }
-        return globals;
-    }
-
-    private static SchemaEntry schemaEntryOf(
-            final JsonObject message, final Map<String, List<String>> properties, final List<MessageArg> globals) {
+    /**
+     * One message's placeholders as the editor offers them, from the one validator's {@link Declaration}.
+     * They are its own arguments, each role's attributes, the globals it does not name itself and its actions.
+     */
+    private static SchemaEntry schemaEntryOf(final MessageSchema.Bundle schema, final MessageSchema.Entry entry) {
+        final Declaration declaration = schema.declaration(entry);
+        final Map<String, String> typeOfRole = new HashMap<>();
+        entry.args().stream()
+                .filter(arg -> arg.name() != null && arg.context() != null)
+                .forEach(arg -> typeOfRole.put(arg.name(), arg.context()));
+        schema.globals().stream()
+                .filter(global -> !typeOfRole.containsKey(global.name()))
+                .forEach(global -> typeOfRole.put(global.name(), global.context()));
         final List<MessageArg> args = new ArrayList<>();
-        final Set<String> roles = new HashSet<>();
-        for (final JsonElement arg : message.getAsJsonArray("args")) {
-            final JsonObject object = arg.getAsJsonObject();
-            final String argName = object.get("name").getAsString();
-            final String context = stringOf(object, "context");
-            if (context == null) {
-                args.add(new MessageArg(argName, object.get("component").getAsBoolean()));
+        for (final MessageSchema.Arg arg : entry.args()) {
+            final String argName = arg.name();
+            if (argName == null) {
+                continue;
+            }
+            if (arg.action()) {
+                args.add(new MessageArg(argName, null, null, false, null, true));
+            } else if (arg.context() == null) {
+                args.add(new MessageArg(argName, arg.kind(), null, false, arg.example(), false));
             } else {
-                roles.add(argName);
-                expand(argName, context, properties, false, args);
+                attributes(argName, declaration, typeOfRole, false, args);
             }
         }
-        // A message naming the global's role has filled it already.
-        for (final MessageArg global : globals) {
-            if (!roles.contains(global.name().substring(0, global.name().indexOf('.')))) {
-                args.add(global);
+        for (final MessageSchema.GlobalJson global : schema.globals()) {
+            if (entry.args().stream().noneMatch(arg -> global.name().equals(arg.name()))) {
+                attributes(global.name(), declaration, typeOfRole, true, args);
             }
-        }
-        final List<String> section = new ArrayList<>();
-        for (final JsonElement part : message.getAsJsonArray("section")) {
-            section.add(part.isJsonNull() ? null : part.getAsString());
         }
         return new SchemaEntry(
-                message.get("key").getAsString(),
-                stringOf(message, "name"),
-                stringOf(message, "description"),
+                entry.key(),
+                entry.name(),
+                entry.description(),
                 args,
-                section,
-                stringOf(message, "format"),
-                stringOf(message, "shown"));
+                entry.section(),
+                entry.format().name(),
+                entry.shown().name());
     }
 
-    /** Each context type's properties, by type; empty for a schema written before types existed. */
-    private static Map<String, List<String>> contextProperties(final JsonObject root) {
-        final Map<String, List<String>> answer = new HashMap<>();
-        final JsonObject contexts = root.getAsJsonObject("contexts");
-        if (contexts == null) {
-            return answer;
-        }
-        for (final Map.Entry<String, JsonElement> type : contexts.entrySet()) {
-            final List<String> names = new ArrayList<>();
-            type.getValue()
-                    .getAsJsonObject()
-                    .getAsJsonArray("properties")
-                    .forEach(property -> names.add(property.getAsString()));
-            answer.put(type.getKey(), names);
-        }
-        return answer;
-    }
-
-    /** One placeholder per property of {@code type}, {@code role.property}, into {@code into}. */
-    private static void expand(
+    /** One placeholder per attribute of {@code role}, {@code role.attribute}, in the declaration's order. */
+    private static void attributes(
             final String role,
-            final String type,
-            final Map<String, List<String>> properties,
+            final Declaration declaration,
+            final Map<String, String> typeOfRole,
             final boolean global,
             final List<MessageArg> into) {
-        final List<String> names = properties.get(type);
-        if (names == null) {
-            throw new IllegalStateException(
-                    "the role " + role + " has the type " + type + ", which the schema does not describe");
-        }
-        for (final String property : names) {
-            into.add(new MessageArg(role + "." + property, false, type, global));
-        }
-    }
-
-    private static @Nullable String stringOf(final JsonObject object, final String field) {
-        final JsonElement value = object.get(field);
-        return value == null || value.isJsonNull() ? null : value.getAsString();
+        declaration.values().entrySet().stream()
+                .filter(value -> value.getKey().startsWith(role + "."))
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(value -> into.add(new MessageArg(
+                        value.getKey(),
+                        value.getValue().token(),
+                        typeOfRole.get(role),
+                        global,
+                        declaration.examples().get(value.getKey()),
+                        false)));
     }
 }

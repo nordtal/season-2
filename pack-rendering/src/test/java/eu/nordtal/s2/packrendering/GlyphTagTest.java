@@ -3,8 +3,10 @@ package eu.nordtal.s2.packrendering;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import eu.nordtal.s2.messagerendering.MessageRenderer;
+import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
 import java.util.Locale;
+import java.util.Map;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
@@ -16,7 +18,7 @@ class GlyphTagTest {
 
     @Test
     void aGlyphTagNamesAGlyphAndDrawsItInTheDefaultFont() {
-        final Component rendered = RENDER.get(Locale.ENGLISH, "glyph");
+        final Component rendered = RENDER.format(Locale.ENGLISH, new MessageRef("glyph", Map.of()));
         final Component glyph = rendered.children().getFirst();
 
         assertEquals(Glyphs.TAG_ADMIN, ((TextComponent) glyph).content());

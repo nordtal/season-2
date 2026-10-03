@@ -779,9 +779,11 @@ export type ReloadStatus = "APPLIED" | "NO_ANSWER" | "RESTART_REQUIRED"
 
 export type MessageArg = {
   name: string
-  component: boolean
+  kind?: string
   type?: string
   global: boolean
+  example?: string
+  action: boolean
 }
 
 export type LineState = "UNCHANGED" | "PLANNED" | "STOPPED" | "INSTALLED" | "SAVED" | "STARTING" | "HEALTHY" | "FAILED"

@@ -4,9 +4,9 @@ import type { MessageArg } from "@/lib/api"
 import { applyStyle, commonStyle, gradientAt, insert, parse, remove, serialize, totalLength } from "@/lib/rich-text"
 
 const ARGS: MessageArg[] = [
-  { name: "invite", component: false, global: false },
-  { name: "_sender", component: true, global: false },
-  { name: "player.name", component: false, type: "player", global: false },
+  { name: "invite", kind: "text", global: false, action: false },
+  { name: "sender", kind: "name", global: false, action: false },
+  { name: "player.name", kind: "name", type: "player", global: false, action: false },
 ]
 
 const roundTrip = (text: string, format: "MINIMESSAGE" | "DISCORD_MARKDOWN" | "PLAIN" = "MINIMESSAGE") =>
@@ -24,7 +24,7 @@ describe("a MiniMessage text", () => {
   it("writes back the same text it was read from, where that text was already minimal", () => {
     for (const text of [
       "<gray>The Discord</gray><newline><click:open_url:'{invite}'><#4a63d8><underlined>{invite}</underlined></#4a63d8></click>",
-      "<_sender> <#4e5668>|</#4e5668> <gradient:#ff0000:gold>rainbow <bold>ish</bold></gradient>",
+      "{sender} <#4e5668>|</#4e5668> <gradient:#ff0000:gold>rainbow <bold>ish</bold></gradient>",
       "<hover:show_text:'<red>it\\'s <glyph:admin></red>'>admin</hover> <italic:false>plain</italic>",
       "a \\<b> c",
       "<rainbow>kept</rainbow>",

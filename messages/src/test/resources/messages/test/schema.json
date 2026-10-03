@@ -1,1 +1,1 @@
-{"bundle":"test","messages":[{"key":"greeting","formerly":["test/hello","old/welcome"]},{"key":"plain"}]}
+{"bundle":"test","messages":[{"key":"greeting","name":"Greeting","args":[{"name":"name","kind":"text","example":"Till","action":false}],"section":[],"format":"MINIMESSAGE","shown":"CHAT","formerly":["test/hello","old/welcome"]},{"key":"plain","name":"Plain","args":[],"section":[],"format":"MINIMESSAGE","shown":"CHAT"}],"contexts":{},"globals":[]}

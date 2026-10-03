@@ -17,14 +17,29 @@ public enum Display {
     KICK_SCREEN,
     /** The multiplayer server list. */
     SERVER_LIST,
-    DISCORD_MESSAGE,
-    DISCORD_EMBED,
-    DISCORD_BUTTON,
-    DISCORD_MODAL,
+    DISCORD_MESSAGE(2000),
+    DISCORD_EMBED(4096),
+    DISCORD_BUTTON(80),
+    DISCORD_MODAL(45),
     /** A select menu: its placeholder or one of its options. */
-    DISCORD_SELECT,
+    DISCORD_SELECT(100),
     /** A channel's name, which Discord keeps to 100 characters and no formatting. */
-    DISCORD_CHANNEL,
+    DISCORD_CHANNEL(100),
     /** A slash command's name, description or option. */
-    DISCORD_COMMAND
+    DISCORD_COMMAND(100);
+
+    private final int limit;
+
+    Display() {
+        this(0);
+    }
+
+    Display(final int limit) {
+        this.limit = limit;
+    }
+
+    /** Returns how many characters the platform shows here, {@code 0} where it sets no limit. */
+    public int limit() {
+        return limit;
+    }
 }

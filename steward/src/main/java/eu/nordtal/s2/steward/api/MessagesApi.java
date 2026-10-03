@@ -8,10 +8,10 @@ import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.message.MessageOverrideStore;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
-import eu.nordtal.s2.internalapi.agent.MessageArg;
 import eu.nordtal.s2.internalapi.agent.MessageBundle;
 import eu.nordtal.s2.internalapi.agent.MessageEntry;
 import eu.nordtal.s2.messages.MessageOverride;
+import eu.nordtal.s2.messages.text.MessageCheck;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import io.javalin.http.ForbiddenResponse;
@@ -56,8 +56,8 @@ public final class MessagesApi {
 
     /**
      * {@code PUT /api/messages/<bundle>}: writes both languages' overrides as rows, at once for every process.
-     *
-     * A {@code null} resets a key; a dropped placeholder is a warning, an undeclared one a 400 that writes nothing.
+     * A {@code null} resets a key; what the one validator warns about is answered, what it refuses is a 400 that
+     * writes nothing.
      */
     public void save(final Context ctx, final Actor actor) {
         final MessageOverrideStore store = overrides;
@@ -75,8 +75,10 @@ public final class MessagesApi {
             if (entry == null) {
                 throw new BadRequestResponse(identityOf(location) + " has no message " + change.key() + ".");
             }
-            problems.addAll(unknownIn(entry, change.text()));
-            warnings.addAll(droppedFrom(entry, change));
+            for (final MessageCheck.Problem problem : OverrideCheck.problems(entry, change.text())) {
+                (problem.error() ? problems : warnings)
+                        .add(entry.key() + " (" + change.language() + "): " + problem.text() + ".");
+            }
         }
         if (!problems.isEmpty()) {
             throw new BadRequestResponse(String.join(" ", problems) + " Nothing was saved.");
@@ -125,37 +127,6 @@ public final class MessagesApi {
                                 first.get(entry.bundle() + "/" + entry.key() + "/en"),
                                 first.get(entry.bundle() + "/" + entry.key() + "/de")))
                         .toList());
-    }
-
-    private static List<String> unknownIn(final MessageEntry entry, final @Nullable String text) {
-        final List<String> unknown = Placeholders.unknown(entry, text);
-        if (unknown.isEmpty()) {
-            return List.of();
-        }
-        return List.of(entry.key() + " has no placeholder " + String.join(", ", unknown)
-                + (entry.args().isEmpty()
-                        ? "; it takes none."
-                        : "; it takes "
-                                + String.join(
-                                        ", ",
-                                        entry.args().stream()
-                                                .map(MessageArg::token)
-                                                .toList())
-                                + "."));
-    }
-
-    /** A warning when the new text lost a placeholder the packaged text had; a reset has nothing to check. */
-    private static List<String> droppedFrom(final MessageEntry entry, final Change change) {
-        if (change.text() == null) {
-            return List.of();
-        }
-        final String original =
-                "de".equals(change.language()) && entry.german() != null ? entry.german() : entry.english();
-        final List<String> missing = Placeholders.missing(original, change.text());
-        return missing.isEmpty()
-                ? List.of()
-                : List.of(entry.key() + " no longer contains " + String.join(", ", missing)
-                        + " - the original had it, and a message this is substituted into may now draw literally.");
     }
 
     // Finding the bundle

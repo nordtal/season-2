@@ -9,8 +9,8 @@ const won: MessageEntry = {
   inBundle: true,
   name: "Duel won",
   args: [
-    { name: "winner.name", component: false, type: "player", global: false },
-    { name: "server.name", component: false, type: "service", global: true },
+    { name: "winner.name", kind: "name", type: "player", global: false, action: false },
+    { name: "server.name", kind: "text", type: "service", global: true, action: false },
   ],
   section: [],
 }

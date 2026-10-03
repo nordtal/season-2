@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
@@ -18,9 +19,11 @@ import eu.nordtal.s2.messages.spec.MessageSpecs;
 import eu.nordtal.s2.messages.spec.Name;
 import eu.nordtal.s2.messages.spec.Shown;
 import eu.nordtal.s2.messages.spec.TextFormat;
+import eu.nordtal.s2.messages.value.DisplayName;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import org.junit.jupiter.api.Test;
@@ -31,7 +34,7 @@ class MessageSpecsTest {
     interface TestMessages {
 
         @Name("Greeting")
-        MessageRef greeting(@Arg("player") Object player);
+        MessageRef greeting(@Arg("player") String player);
 
         @Name("Duel")
         Duel duel();
@@ -45,7 +48,7 @@ class MessageSpecsTest {
         interface Duel {
 
             @Name("Won")
-            MessageRef won(@Arg("opponent") Object opponent);
+            MessageRef won(@Arg("opponent") String opponent);
 
             @Name("Lost")
             MessageRef lost();
@@ -87,10 +90,7 @@ class MessageSpecsTest {
         interface Chat {
 
             @Name("Line")
-            MessageRef line(
-                    @Arg("_sender") Component sender,
-                    @Arg("separator") Object separator,
-                    @Arg("_message") Component message);
+            MessageRef line(@Arg("sender") DisplayName sender, @Arg("message") String message);
         }
     }
 
@@ -135,13 +135,13 @@ class MessageSpecsTest {
         assertEquals(List.of("Screens", "Update"), entries.get(6).section());
         assertEquals(
                 List.of(
-                        new MessageSchema.Arg("_sender", true),
-                        new MessageSchema.Arg("separator", false),
-                        new MessageSchema.Arg("_message", true)),
+                        new MessageSchema.Arg("sender", "name", null, "Alex", false),
+                        new MessageSchema.Arg("message", "text", null, "Nordtal", false)),
                 entries.get(8).args());
         assertTrue(MessageSchema.json(TestMessages.class)
                 .contains(
-                        "{\"key\":\"greeting\",\"name\":\"Greeting\",\"args\":[{\"name\":\"player\",\"component\":false}],"
+                        "{\"key\":\"greeting\",\"name\":\"Greeting\",\"args\":[{\"name\":\"player\",\"kind\":\"text\","
+                                + "\"example\":\"Nordtal\",\"action\":false}],"
                                 + "\"section\":[],\"format\":\"MINIMESSAGE\",\"shown\":\"CHAT\"}"));
     }
 
@@ -153,16 +153,15 @@ class MessageSpecsTest {
     @MessageSpec("spec-test")
     interface Drifted {
 
-        MessageRef greeting(@Arg("name") Object player);
+        MessageRef greeting(@Arg("name") String player);
 
         @Name("Lost")
         @Key("duel.lost")
-        MessageRef lost(@Arg("opponent") Object opponent);
+        MessageRef lost(@Arg("opponent") String opponent);
 
         @Name("Chat line")
         @Key("chat.line")
-        MessageRef line(
-                @Arg("_sender") Component sender, @Arg("separator") Object separator, @Arg("_other") Component other);
+        MessageRef line(@Arg("sender") DisplayName sender, @Arg("other") String other);
     }
 
     @Test
@@ -170,13 +169,16 @@ class MessageSpecsTest {
         final List<String> problems = MessageSpecCheck.problems(Drifted.class);
         assertTrue(problems.contains("greeting: no @Name"), problems::toString);
         assertTrue(
-                problems.contains("greeting (en): the text names [player], the method declares [name]"),
+                problems.stream().anyMatch(problem -> problem.startsWith("greeting (en): {player} is nothing")),
                 problems::toString);
         assertTrue(
-                problems.contains("duel.lost (de): the text names [], the method declares [opponent]"),
+                problems.contains("greeting (en): the text never shows name, which the message is given"),
                 problems::toString);
         assertTrue(
-                problems.contains("chat.line (en): the method declares <_other>, the text never uses it"),
+                problems.contains("duel.lost (de): the text never shows opponent, which the message is given"),
+                problems::toString);
+        assertTrue(
+                problems.contains("chat.line (en): the text never shows other, which the message is given"),
                 problems::toString);
         assertTrue(problems.contains("duel.won: in en.properties, but no method declares it"), problems::toString);
     }
@@ -199,11 +201,11 @@ class MessageSpecsTest {
     }
 
     @Test
-    void theRendererFillsComponentsAsTagsAndEscapesTheRest() {
+    void theRendererInsertsEveryValueAndEscapesTheText() {
         final MessageRenderer renderer = MessageRenderer.of(Messages.load("messages/spec-test"));
         final Component line = renderer.format(
-                Locale.GERMAN, messages.chat().line(Component.text("Ada"), "<red>|", Component.text("hi")));
-        assertEquals("Ada <red>| hi", plain(line));
+                Locale.GERMAN, messages.chat().line(new DisplayName(PlayerId.of(new UUID(0, 1)), "Ada"), "<red>| hi"));
+        assertEquals("Ada: <red>| hi", plain(line));
     }
 
     private static String plain(final Component component) {

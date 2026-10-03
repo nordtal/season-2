@@ -22,8 +22,9 @@ class MessagesTest {
     void picksTheRequestedLanguage() {
         final Messages messages = messages();
 
-        assertEquals("Hallo Till!", messages.format(Locale.GERMAN, "greeting", "name", "Till"));
-        assertEquals("Hello Till!", messages.format(Locale.ENGLISH, "greeting", "name", "Till"));
+        assertEquals("Hallo Till!", messages.format(Locale.GERMAN, new MessageRef("greeting", Map.of("name", "Till"))));
+        assertEquals(
+                "Hello Till!", messages.format(Locale.ENGLISH, new MessageRef("greeting", Map.of("name", "Till"))));
     }
 
     @Test
@@ -47,8 +48,8 @@ class MessagesTest {
     void fallsBackToEnglishForALanguageWithNoBundleAtAll() {
         final Messages messages = messages();
 
-        assertEquals("Hello Till!", messages.format(Locale.FRENCH, "greeting", "name", "Till"));
-        assertEquals("Hello Till!", messages.format(null, "greeting", "name", "Till"));
+        assertEquals("Hello Till!", messages.format(Locale.FRENCH, new MessageRef("greeting", Map.of("name", "Till"))));
+        assertEquals("Hello Till!", messages.format((Locale) null, new MessageRef("greeting", Map.of("name", "Till"))));
         assertEquals(java.util.Set.of("en", "de"), messages.languages());
     }
 
@@ -67,20 +68,22 @@ class MessagesTest {
     }
 
     @Test
-    void anUnknownPlaceholderIsLeftInPlaceRatherThanBlanked() {
-        assertEquals("Left {alone} and Till.", messages().format(Locale.ENGLISH, "braces", "name", "Till"));
-    }
-
-    @Test
-    void aParameterValueContainingBracesIsNotRescanned() {
-        // A player calling themselves {alone} must not be able to expand into another parameter.
+    void aValueNobodyGaveShowsItsKindsReplacementWordAndNeverItsPlaceholder() {
         assertEquals(
-                "Left {alone} and {alone}.", messages().format(Locale.ENGLISH, "braces", Map.of("name", "{alone}")));
+                "Left something and Till.",
+                messages().format(Locale.ENGLISH, new MessageRef("braces", Map.of("name", "Till"))));
+        assertEquals(
+                "Bleibt etwas und Till.",
+                messages().format(Locale.GERMAN, new MessageRef("braces", Map.of("name", "Till"))),
+                "the replacement word is the reader's language's, from the values bundle");
     }
 
     @Test
-    void anOddNumberOfFormatArgumentsIsAProgrammingError() {
-        assertThrows(IllegalArgumentException.class, () -> messages().format(Locale.ENGLISH, "greeting", "name"));
+    void aValueContainingBracesIsNeverReadAsAPlaceholder() {
+        // A player calling themselves {alone} must not be able to expand into another value.
+        assertEquals(
+                "Left something and {alone}.",
+                messages().format(Locale.ENGLISH, new MessageRef("braces", Map.of("name", "{alone}"))));
     }
 
     @Test

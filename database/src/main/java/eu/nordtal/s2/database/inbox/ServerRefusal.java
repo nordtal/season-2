@@ -38,13 +38,18 @@ public enum ServerRefusal implements RefusalReason {
                 this,
                 switch (this) {
                     case NO_ACTIVE_MILESTONE -> words.noActiveMilestone();
-                    case NO_SUCH_OBJECTIVE -> words.noSuchObjective(args[0]);
-                    case MILESTONE_NOT_ACTIVE -> words.milestoneNotActive(args[0], args[1]);
-                    case WRONG_PHASE -> words.wrongPhase(args[0]);
+                    case NO_SUCH_OBJECTIVE -> words.noSuchObjective(String.valueOf(args[0]));
+                    case MILESTONE_NOT_ACTIVE ->
+                        words.milestoneNotActive(String.valueOf(args[0]), String.valueOf(args[1]));
+                    case WRONG_PHASE -> words.wrongPhase(String.valueOf(args[0]));
                     case NO_GAME -> words.noGame();
-                    case WRONG_STATE -> words.wrongState(args[0]);
-                    case BELOW_HARD_MINIMUM -> words.belowHardMinimum(args[0], args[1]);
-                    case BELOW_SOFT_MINIMUM -> words.belowSoftMinimum(args[0], args[1]);
+                    case WRONG_STATE -> words.wrongState(String.valueOf(args[0]));
+                    case BELOW_HARD_MINIMUM -> words.belowHardMinimum(count(args[0]), count(args[1]));
+                    case BELOW_SOFT_MINIMUM -> words.belowSoftMinimum(count(args[0]), count(args[1]));
                 });
+    }
+
+    private static long count(final Object value) {
+        return ((Number) value).longValue();
     }
 }

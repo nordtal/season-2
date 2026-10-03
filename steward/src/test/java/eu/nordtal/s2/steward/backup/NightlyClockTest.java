@@ -193,7 +193,7 @@ class NightlyClockTest {
                                 eu.nordtal.s2.database.update.UpdateRefusal.RUN_OPEN,
                                 eu.nordtal.s2.database.DatabaseMessages.MESSAGES
                                         .update()
-                                        .runOpen(open.id(), open.kind(), "pending"));
+                                        .runOpen(open.id(), open.kind(), open.status()));
                     }
                     throw new AssertionError("the clock asked the database: " + method.getName());
                 });

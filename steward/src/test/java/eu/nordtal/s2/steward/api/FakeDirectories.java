@@ -116,7 +116,7 @@ public final class FakeDirectories {
         }
 
         @Override
-        public Optional<UpdateRequest> cancelCountdown(final String reason) {
+        public Optional<UpdateRequest> cancelCountdown() {
             throw new UnsupportedOperationException("not exercised by this fake");
         }
 

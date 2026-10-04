@@ -138,7 +138,7 @@ interface UpdateDao {
     /**
      * Withdraws the running countdown; {@code SKIP LOCKED} makes a cancel racing the commit answer empty.
      *
-     * @param reason what goes into the outcome, naming who cancelled
+     * The report it held, if any, moves to {@code CANCELLED}; who cancelled is the journal's line.
      */
     @SqlQuery("""
             WITH cancellable AS (
@@ -155,13 +155,17 @@ interface UpdateDao {
             ),
             cancelled AS (
                 UPDATE steward_inbox
-                SET status = 'CANCELLED', finished = now(), outcome = to_jsonb(cast(:reason AS text))
+                SET status = 'CANCELLED', finished = now(),
+                    outcome = CASE WHEN jsonb_typeof(outcome) = 'object'
+                                   THEN jsonb_set(outcome, '{stage}', '"CANCELLED"')
+                                   ELSE jsonb_build_object('stage', 'CANCELLED', 'services', '[]'::jsonb,
+                                                           'notes', '[]'::jsonb) END
                 WHERE id IN (SELECT id FROM cancellable)
                 RETURNING *
             )
             SELECT cancelled.*, pg_notify('nordtal_update', '') AS notified FROM cancelled
             """)
-    Optional<UpdateRequest> cancelCountdown(@Bind("reason") String reason);
+    Optional<UpdateRequest> cancelCountdown();
 
     /** Names the container a running request was handed to; zero rows when it is no longer running. */
     @SqlUpdate("UPDATE steward_inbox SET runner = :runner WHERE id = :id AND status = 'RUNNING'")

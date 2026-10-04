@@ -7,6 +7,7 @@ import { NotificationsDialog, useNotificationActions } from "@/app/notifications
 import { SecurityKeyDialogs, SecurityKeyList, useSecurityKeyActions } from "@/app/security-keys"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { t } from "@/lib/texts"
 
 /** The signed-in person's picture, falling back to initials, since `discordAvatarUrl` is often not on record. */
 export function UserAvatar({ me, url, className }: { me: Me | undefined; url?: string; className?: string }) {
@@ -62,7 +63,7 @@ export function UserMenu({
         <PopoverTrigger asChild>
           <button
             type="button"
-            aria-label={me?.name ? `Account of ${me.name}` : "Account"}
+            aria-label={me?.name ? t("steward.shell.account-of", { name: me.name }) : t("steward.shell.account")}
             className={`flex size-control shrink-0 items-center justify-center rounded-full transition-colors duration-150 ease-out focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${plain ? "hover:opacity-80" : "border border-border bg-card hover:border-input focus-visible:border-ring"}`}
           >
             <UserAvatar me={me} url={me?.discordAvatarUrl} className="size-8" />
@@ -74,8 +75,10 @@ export function UserMenu({
           <div className="flex items-center gap-2">
             <UserAvatar me={me} url={me?.discordAvatarUrl} className="size-8" />
             <div className="flex min-w-0 flex-col">
-              <span className="truncate text-sm font-medium">{me?.name ?? "unknown"}</span>
-              <span className="truncate font-mono text-xs text-muted-foreground">Discord {me?.id ?? "\u2013"}</span>
+              <span className="truncate text-sm font-medium">{me?.name ?? t("steward.shell.unknown")}</span>
+              <span className="truncate font-mono text-xs text-muted-foreground">
+                {t("steward.shell.discord", { id: me?.id ?? "\u2013" })}
+              </span>
             </div>
           </div>
 
@@ -89,7 +92,7 @@ export function UserMenu({
             onClick={() => notifications.setOpen(true)}
           >
             <GearIcon aria-hidden />
-            Notifications
+            {t("steward.notifications.title")}
           </Button>
 
           <Button
@@ -103,7 +106,7 @@ export function UserMenu({
             }}
           >
             <SignOutIcon aria-hidden />
-            Sign out
+            {t("steward.shell.sign-out")}
           </Button>
         </PopoverContent>
       </Popover>

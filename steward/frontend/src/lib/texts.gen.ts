@@ -452,6 +452,20 @@ export type TextArgs = {
   "steward.form.saving": Record<string, never>
   "steward.form.schedule": Record<string, never>
   "steward.form.schedule-saved": Record<string, never>
+  "steward.identity.copy": {
+    what: Arg["text"]
+  }
+  "steward.identity.discord-id": Record<string, never>
+  "steward.identity.minecraft-uuid": Record<string, never>
+  "steward.identity.never-joined": Record<string, never>
+  "steward.identity.never-observed": Record<string, never>
+  "steward.identity.no-avatar": Record<string, never>
+  "steward.identity.no-discord": Record<string, never>
+  "steward.identity.no-discord-name": Record<string, never>
+  "steward.identity.no-head": Record<string, never>
+  "steward.identity.no-minecraft": Record<string, never>
+  "steward.identity.no-minecraft-name": Record<string, never>
+  "steward.identity.no-name": Record<string, never>
   "steward.image.drift": {
     drift: Arg["choice"]
   }
@@ -1145,6 +1159,44 @@ export type TextArgs = {
     state: Arg["choice"]
   }
   "steward.service.unhealthy": Record<string, never>
+  "steward.shell.account": Record<string, never>
+  "steward.shell.account-of": {
+    name: Arg["text"]
+  }
+  "steward.shell.discord": {
+    id: Arg["text"]
+  }
+  "steward.shell.jump": Record<string, never>
+  "steward.shell.navigation": Record<string, never>
+  "steward.shell.note": {
+    page: Arg["choice"]
+  }
+  "steward.shell.nothing-found": Record<string, never>
+  "steward.shell.page": {
+    page: Arg["choice"]
+  }
+  "steward.shell.run-hit": {
+    run: Arg["number"]
+    kind: Arg["text"]
+  }
+  "steward.shell.run-when": {
+    status: Arg["text"]
+    requested: Arg["instant"]
+  }
+  "steward.shell.runs": Record<string, never>
+  "steward.shell.search": Record<string, never>
+  "steward.shell.search-label": Record<string, never>
+  "steward.shell.search-pages": Record<string, never>
+  "steward.shell.search-placeholder": Record<string, never>
+  "steward.shell.service-note": {
+    name: Arg["text"]
+  }
+  "steward.shell.settings": Record<string, never>
+  "steward.shell.sign-out": Record<string, never>
+  "steward.shell.steward": Record<string, never>
+  "steward.shell.still-reading": Record<string, never>
+  "steward.shell.stuck": Record<string, never>
+  "steward.shell.unknown": Record<string, never>
   "steward.updates.available": Record<string, never>
   "steward.updates.change": Record<string, never>
   "steward.updates.check-again": Record<string, never>

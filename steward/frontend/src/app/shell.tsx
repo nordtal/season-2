@@ -15,6 +15,7 @@ import { Failure } from "@/components/steward/query-state"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { t } from "@/lib/texts"
 
 export { breadcrumbsFor } from "@/app/breadcrumbs"
 
@@ -75,15 +76,12 @@ function DoorIsStuck({ error, onRetry }: { error: unknown; onRetry: () => void }
         <div className="flex items-center gap-3">
           <StewardMark className="size-8" />
           <div className="flex flex-col">
-            <span className="text-sm font-semibold tracking-tight">Nordtal Steward</span>
-            <span className="text-sm text-muted-foreground">Season 2</span>
+            <span className="text-sm font-semibold tracking-tight">{t("steward.keys.brand")}</span>
+            <span className="text-sm text-muted-foreground">{t("steward.keys.season")}</span>
           </div>
         </div>
         <Failure error={error} onRetry={onRetry} />
-        <p className="text-center text-sm text-muted-foreground">
-          This is not an expired session. You stay signed in - the interface only knows who you are again once this
-          request gets through.
-        </p>
+        <p className="text-center text-sm text-muted-foreground">{t("steward.shell.stuck")}</p>
       </div>
     </div>
   )

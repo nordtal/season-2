@@ -16,7 +16,7 @@ import { useNavigation } from "@/app/navigation"
 import { RUN_KIND_SEARCH_TERMS } from "@/app/run-search-terms"
 import type { ConfigLocation, MessageBundleLocation, Run } from "@/lib/api"
 import { runPath } from "@/lib/run-path"
-import { dateTime, relative } from "@/lib/format"
+import { dateTime } from "@/lib/format"
 import { useConfigDocuments, useConfigs, useMessageBundles, useMessageDocuments, useRuns } from "@/lib/queries"
 import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import {
@@ -32,6 +32,7 @@ import {
 import { bundleFileId, NETWORK } from "@/components/steward/settings"
 import { messageName } from "@/lib/settings-tree"
 import { runKind, runStatus } from "@/components/steward/status"
+import { t } from "@/lib/texts"
 
 /** Four rows while the documents are read. */
 const WAITING_HITS = [0, 1, 2, 3]
@@ -130,9 +131,9 @@ export function CommandPalette() {
     <CommandDialog
       open={open}
       onOpenChange={setOpen}
-      title="Search"
-      description="Jump to a page"
-      label="Search pages, runs, settings"
+      title={t("steward.shell.search")}
+      description={t("steward.shell.jump")}
+      label={t("steward.shell.search-label")}
       // A substring match ranking a name above a mention; the text is in `keywords`, as `value` is the identity.
       filter={(value, query, keywords) => rankValue(keywords?.join("\n") ?? value, query)}
       // The dialog half only: on a phone the sheet is the full width at the bottom edge.
@@ -143,10 +144,10 @@ export function CommandPalette() {
         autoFocus
         value={search}
         onValueChange={setSearch}
-        placeholder="Search pages, runs, settings…"
+        placeholder={t("steward.shell.search-placeholder")}
       />
       <CommandList className="max-h-[22rem]">
-        <CommandEmpty>{reading ? "Still reading the settings…" : "Nothing found."}</CommandEmpty>
+        <CommandEmpty>{reading ? t("steward.shell.still-reading") : t("steward.shell.nothing-found")}</CommandEmpty>
         {groups.map((group, index) => (
           <React.Fragment key={group.id}>
             {index > 0 ? <CommandSeparator /> : null}
@@ -184,7 +185,7 @@ export function CommandPalette() {
         {runs.length > 0 ? (
           <>
             <CommandSeparator />
-            <CommandGroup heading="Runs">
+            <CommandGroup heading={t("steward.shell.runs")}>
               {runs.map((run) => (
                 <CommandItem
                   key={`run-${run.id}`}
@@ -198,10 +199,10 @@ export function CommandPalette() {
                 >
                   <ClockCounterClockwiseIcon aria-hidden className="text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate">
-                    Run #{run.id} ({runKind(run.kind)})
+                    {t("steward.shell.run-hit", { run: run.id, kind: runKind(run.kind) })}
                   </span>
                   <CommandShortcut className="truncate text-muted-foreground/70">
-                    {runStatus(run.status)} ({relative(run.requested)})
+                    {t("steward.shell.run-when", { status: runStatus(run.status), requested: run.requested })}
                   </CommandShortcut>
                 </CommandItem>
               ))}
@@ -214,7 +215,7 @@ export function CommandPalette() {
           <>
             <CommandSeparator />
             <div className="p-1">
-              <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Settings</div>
+              <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">{t("steward.shell.settings")}</div>
               {WAITING_HITS.map((index) => (
                 <div key={index} className="flex min-h-control items-center gap-2.5 px-2">
                   <Skeleton className="size-4 shrink-0 rounded-sm" />
@@ -228,7 +229,7 @@ export function CommandPalette() {
           <>
             <CommandSeparator />
             {/* Config and message hits together; either opens its file on the Settings & Translations tab. */}
-            <CommandGroup heading="Settings">
+            <CommandGroup heading={t("steward.shell.settings")}>
               {settingsHits.slice(0, MAX_SETTINGS_HITS).map((hit) => {
                 const service = hit.location.service || "steward"
                 if (hit.kind === "config") {

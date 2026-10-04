@@ -5,6 +5,7 @@ import { StewardMark } from "@/app/steward-mark"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Skeleton } from "@/components/ui/skeleton"
+import { t } from "@/lib/texts"
 
 /**
  * The one display of a person, and the only place a Discord id or a Minecraft UUID may be drawn.
@@ -83,7 +84,7 @@ export function PersonIdentity(props: PersonIdentityProps) {
     return (
       <span className={"inline-flex min-w-0 items-center gap-2 " + (props.className ?? "")}>
         <StewardMark className="size-5 shrink-0" />
-        <span className="truncate text-sm text-foreground">Steward</span>
+        <span className="truncate text-sm text-foreground">{t("steward.shell.steward")}</span>
       </span>
     )
   }
@@ -99,11 +100,11 @@ export function PersonIdentity(props: PersonIdentityProps) {
       )}
       {minecraft ? (
         <span className={"truncate text-sm " + (props.mcName ? "text-foreground" : "text-muted-foreground italic")}>
-          {props.mcName ?? "no name yet"}
+          {props.mcName ?? t("steward.identity.no-name")}
         </span>
       ) : (
         <span className={"truncate text-sm " + (name.text ? "text-foreground" : "text-muted-foreground italic")}>
-          {name.text ?? "no Discord name on record"}
+          {name.text ?? t("steward.identity.no-discord-name")}
         </span>
       )}
     </>
@@ -134,17 +135,17 @@ export function PersonIdentity(props: PersonIdentityProps) {
         <div className="flex items-center gap-2">
           <DiscordAvatar url={props.discordAvatarUrl} name={name.text} size="size-8" />
           <div className="flex min-w-0 flex-col">
-            <span className="truncate text-sm font-medium">{name.text ?? "no Discord name on record"}</span>
+            <span className="truncate text-sm font-medium">{name.text ?? t("steward.identity.no-discord-name")}</span>
             {name.text ? null : (
-              <span className="text-xs text-muted-foreground">Never observed, or no longer a guild member.</span>
+              <span className="text-xs text-muted-foreground">{t("steward.identity.never-observed")}</span>
             )}
           </div>
         </div>
 
         {props.discordId ? (
-          <CopyableId label="Discord-ID" value={props.discordId} />
+          <CopyableId label={t("steward.identity.discord-id")} value={props.discordId} />
         ) : (
-          <p className="text-xs text-muted-foreground">No Discord account on record.</p>
+          <p className="text-xs text-muted-foreground">{t("steward.identity.no-discord")}</p>
         )}
 
         {props.mcUuid ? (
@@ -152,16 +153,20 @@ export function PersonIdentity(props: PersonIdentityProps) {
             <div className="flex items-center gap-2 border-t border-border pt-3">
               <MinecraftHead mcUuid={props.mcUuid} baseUrl={props.avatarBaseUrl} size="size-8" rounded="rounded-md" />
               <div className="flex min-w-0 flex-col">
-                <span className="truncate text-sm font-medium">{props.mcName ?? "no Minecraft name on record"}</span>
+                <span className="truncate text-sm font-medium">
+                  {props.mcName ?? t("steward.identity.no-minecraft-name")}
+                </span>
                 {props.mcName ? null : (
-                  <span className="text-xs text-muted-foreground">Linked, but never seen joining yet.</span>
+                  <span className="text-xs text-muted-foreground">{t("steward.identity.never-joined")}</span>
                 )}
               </div>
             </div>
-            <CopyableId label="Minecraft-UUID" value={props.mcUuid} />
+            <CopyableId label={t("steward.identity.minecraft-uuid")} value={props.mcUuid} />
           </>
         ) : (
-          <p className="border-t border-border pt-3 text-xs text-muted-foreground">No Minecraft account linked.</p>
+          <p className="border-t border-border pt-3 text-xs text-muted-foreground">
+            {t("steward.identity.no-minecraft")}
+          </p>
         )}
       </PopoverContent>
     </Popover>
@@ -187,7 +192,7 @@ function CopyableId({ label, value }: { label: string; value: string }) {
           type="button"
           variant="outline"
           size="icon-xs"
-          aria-label={`Copy ${label}`}
+          aria-label={t("steward.identity.copy", { what: label })}
           onClick={async () => {
             const ok = await copyToClipboard(value)
             if (ok) {
@@ -221,7 +226,7 @@ function DiscordAvatar({ url, name, size = "size-5" }: { url?: string; name: str
   return (
     <span
       className={`${size} inline-flex shrink-0 items-center justify-center rounded-full border border-border bg-secondary text-muted-foreground`}
-      title={name ? undefined : "No avatar on record."}
+      title={name ? undefined : t("steward.identity.no-avatar")}
     >
       <UserIcon aria-hidden className="size-3.5" />
     </span>
@@ -273,7 +278,7 @@ export function MinecraftHead({
   return (
     <span
       className={`${size} inline-flex shrink-0 items-center justify-center ${rounded} border border-border bg-secondary text-muted-foreground`}
-      title="No head image available right now."
+      title={t("steward.identity.no-head")}
     >
       <QuestionIcon aria-hidden className="size-3" />
     </span>

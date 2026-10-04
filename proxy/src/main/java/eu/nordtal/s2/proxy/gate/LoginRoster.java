@@ -4,20 +4,36 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessState;
+import eu.nordtal.s2.database.access.PlayerCard;
+import eu.nordtal.s2.database.access.Prestige;
+import eu.nordtal.s2.messagerendering.NameCards;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 /**
- * What the login query said about each connected, linked player: Discord id, language, admin flag and pack exemption.
+ * What the login query said about each connected, linked player: id, language, flags, exemption and play time.
  *
  * The {@code /phase} requirement and the play-time writer read it instead of querying.
  */
 public final class LoginRoster {
 
-    public record Session(DiscordId discordId, Locale locale, boolean admin, boolean packExempt) {}
+    /** One player's login, of which only the admin flag changes while they stay. */
+    public record Session(
+            DiscordId discordId,
+            Locale locale,
+            boolean admin,
+            boolean donor,
+            boolean packExempt,
+            long playtimeSeconds) {
+
+        Session withAdmin(final boolean flag) {
+            return new Session(discordId, locale, flag, donor, packExempt, playtimeSeconds);
+        }
+    }
 
     private final ConcurrentHashMap<UUID, Session> sessions = new ConcurrentHashMap<>();
 
@@ -28,7 +44,15 @@ public final class LoginRoster {
         if (state.linked()) {
             final DiscordId discordId =
                     Objects.requireNonNull(state.discordId(), "linked() guarantees discordId is set");
-            sessions.put(mcUuid, new Session(discordId, state.locale(), state.admin(), state.packExempt()));
+            sessions.put(
+                    mcUuid,
+                    new Session(
+                            discordId,
+                            state.locale(),
+                            state.admin(),
+                            state.donor(),
+                            state.packExempt(),
+                            state.playtimeSeconds()));
         } else {
             sessions.remove(mcUuid);
         }
@@ -37,6 +61,18 @@ public final class LoginRoster {
     /** What the login query said about {@code mcUuid}, if it is still connected. */
     public Optional<Session> of(final UUID mcUuid) {
         return mcUuid == null ? Optional.empty() : Optional.ofNullable(sessions.get(mcUuid));
+    }
+
+    /**
+     * Returns the card of each player connected here: flags and play time as of their login, the crest as of now.
+     * A player not connected through this proxy, or not linked, has none.
+     */
+    public NameCards cards(final Supplier<Prestige> prestige) {
+        Objects.requireNonNull(prestige, "prestige");
+        return name -> of(name.player().value())
+                .map(session -> PlayerCard.of(
+                        name, session.admin(), session.donor(), session.playtimeSeconds(), prestige.get()))
+                .orElse(null);
     }
 
     /** Whether the login query found the admin flag set; {@code false} for anyone unknown. */
@@ -67,10 +103,7 @@ public final class LoginRoster {
             final boolean admin = adminDiscordIds.contains(session.discordId().value());
             if (admin != session.admin()) {
                 // replace(), not put(): a player who disconnected meanwhile must not be put back.
-                if (sessions.replace(
-                        entry.getKey(),
-                        session,
-                        new Session(session.discordId(), session.locale(), admin, session.packExempt()))) {
+                if (sessions.replace(entry.getKey(), session, session.withAdmin(admin))) {
                     changed++;
                 }
             }

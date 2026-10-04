@@ -9,7 +9,6 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.proxy.ProxyMessages;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
 import java.util.List;
@@ -30,12 +29,12 @@ public final class InfoTexts {
     /** What {@code /rules} prints. */
     public static final Function<String, MessageRef> RULES_TEXT = ProxyMessages.MESSAGES.info()::rules;
 
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final String invite;
     private final LoginRoster roster;
 
-    public InfoTexts(final Messages messages, final String invite, final LoginRoster roster) {
-        this.messages = Objects.requireNonNull(messages, "messages");
+    public InfoTexts(final MessageRenderer renderer, final String invite, final LoginRoster roster) {
+        this.renderer = Objects.requireNonNull(renderer, "renderer");
         this.invite = Objects.requireNonNull(invite, "invite");
         this.roster = Objects.requireNonNull(roster, "roster");
     }
@@ -55,12 +54,11 @@ public final class InfoTexts {
         if (!(context.getSource() instanceof Player player)) {
             // GAME and not CONSOLE: a clickable link is not what an operator wants from a console.
             context.getSource()
-                    .sendMessage(MessageRenderer.of(messages)
-                            .format(Locale.ENGLISH, MESSAGES.command().notFromConsole()));
+                    .sendMessage(
+                            renderer.format(Locale.ENGLISH, MESSAGES.command().notFromConsole()));
             return Command.SINGLE_SUCCESS;
         }
-        player.sendMessage(
-                MessageRenderer.of(messages).format(roster.localeOf(player.getUniqueId()), text.apply(invite)));
+        player.sendMessage(renderer.format(roster.localeOf(player.getUniqueId()), text.apply(invite)));
         return Command.SINGLE_SUCCESS;
     }
 }

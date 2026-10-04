@@ -2,12 +2,18 @@ package eu.nordtal.s2.proxy.gate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.database.access.AccessState;
 import eu.nordtal.s2.database.access.MemberState;
+import eu.nordtal.s2.database.access.PlayerCard;
+import eu.nordtal.s2.database.access.Prestige;
+import eu.nordtal.s2.messagerendering.NameCards;
+import eu.nordtal.s2.messages.value.DisplayName;
 import java.util.Locale;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -90,12 +96,40 @@ class LoginRosterTest {
                         false,
                         false,
                         true,
+                        0L,
                         Locale.ENGLISH,
                         SeasonPhase.SMP,
                         null));
         assertTrue(roster.isPackExempt(PLAYER));
         roster.refreshAdmins(java.util.Set.of(DISCORD_ID));
         assertTrue(roster.isPackExempt(PLAYER), "refreshing the admin flag dropped the exemption");
+    }
+
+    @Test
+    void aConnectedPlayerHasTheCardOfTheirLoginAndAnAdminRefreshReachesIt() {
+        final Prestige prestige = Prestige.defaults();
+        final NameCards cards = roster.cards(() -> prestige);
+        roster.remember(
+                PLAYER,
+                new AccessState(
+                        PLAYER,
+                        DiscordId.of(DISCORD_ID),
+                        MemberState.MEMBER,
+                        true,
+                        null,
+                        true,
+                        false,
+                        false,
+                        7200L,
+                        Locale.ENGLISH,
+                        SeasonPhase.SMP,
+                        null));
+        final DisplayName name = new DisplayName(PlayerId.of(PLAYER), "Alex");
+
+        assertEquals(PlayerCard.of(name, false, true, 7200L, prestige), cards.card(name));
+        roster.refreshAdmins(java.util.Set.of(DISCORD_ID));
+        assertEquals(PlayerCard.of(name, true, true, 7200L, prestige), cards.card(name));
+        assertNull(cards.card(new DisplayName(PlayerId.of(STRANGER), "Sam")), "not connected here");
     }
 
     @Test
@@ -113,6 +147,7 @@ class LoginRosterTest {
                 false,
                 admin,
                 false,
+                0L,
                 locale,
                 SeasonPhase.SMP,
                 null);

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import java.time.Duration;
 import java.time.Instant;
@@ -99,7 +100,7 @@ class LaunchCountdownTest {
     /** The disconnect screen's sentence, as its words. */
     private static String sentence(final Locale locale, final java.time.@Nullable Instant launch) {
         return PlainTextComponentSerializer.plainText()
-                .serialize(LaunchCountdown.component(MESSAGES, locale, launch, NOW));
+                .serialize(LaunchCountdown.component(MessageRenderer.of(MESSAGES), locale, launch, NOW));
     }
 
     private static String render(final Duration remaining) {

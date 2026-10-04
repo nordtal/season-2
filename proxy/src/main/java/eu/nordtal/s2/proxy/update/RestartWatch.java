@@ -11,7 +11,6 @@ import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateStatus;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.proxy.PhaseServers;
 import eu.nordtal.s2.proxy.ProxyMessages;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
@@ -47,7 +46,7 @@ public final class RestartWatch {
     private final Logger logger;
     private final UpdateDirectory updates;
     private final LoginRoster roster;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final PhaseServers servers;
     private final Clock clock;
 
@@ -77,7 +76,7 @@ public final class RestartWatch {
             final Logger logger,
             final UpdateDirectory updates,
             final LoginRoster roster,
-            final Messages messages,
+            final MessageRenderer renderer,
             final PhaseServers servers,
             final Clock clock) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
@@ -85,7 +84,7 @@ public final class RestartWatch {
         this.logger = Objects.requireNonNull(logger, "logger");
         this.updates = Objects.requireNonNull(updates, "updates");
         this.roster = Objects.requireNonNull(roster, "roster");
-        this.messages = Objects.requireNonNull(messages, "messages");
+        this.renderer = Objects.requireNonNull(renderer, "renderer");
         this.servers = Objects.requireNonNull(servers, "servers");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
@@ -253,14 +252,13 @@ public final class RestartWatch {
                         locale,
                         countdown(current.occasion(), what(locale, current), announcement.seconds()),
                         fateOf(current, player))));
-                title(locale -> MessageRenderer.of(messages)
-                        .format(locale, MESSAGES.restart().tick(announcement.seconds())));
+                title(locale -> renderer.format(locale, MESSAGES.restart().tick(announcement.seconds())));
                 if (!saidVoice) {
                     saidVoice = true;
                     each((player, locale) -> {
                         if (losesVoice(current, player)) {
-                            player.sendMessage(MessageRenderer.of(messages)
-                                    .format(locale, MESSAGES.restart().voice()));
+                            player.sendMessage(
+                                    renderer.format(locale, MESSAGES.restart().voice()));
                         }
                     });
                 }
@@ -268,19 +266,15 @@ public final class RestartWatch {
             case NOW -> {
                 each((player, locale) -> player.sendMessage(
                         line(locale, now(current.occasion(), what(locale, current)), fateOf(current, player))));
-                title(locale ->
-                        MessageRenderer.of(messages).format(locale, now(current.occasion(), what(locale, current))));
+                title(locale -> renderer.format(locale, now(current.occasion(), what(locale, current))));
             }
             // No chat line: the number alone, in the middle of the screen, once a second.
             case TICK ->
-                title(locale -> MessageRenderer.of(messages)
-                        .format(locale, MESSAGES.restart().tick(announcement.seconds())));
+                title(locale -> renderer.format(locale, MESSAGES.restart().tick(announcement.seconds())));
             case CANCELLED ->
-                broadcast(locale -> MessageRenderer.of(messages)
-                        .format(locale, MESSAGES.restart().cancelled(occasion(locale, current))));
+                broadcast(locale -> renderer.format(locale, MESSAGES.restart().cancelled(occasion(locale, current))));
             case FAILED ->
-                broadcast(locale -> MessageRenderer.of(messages)
-                        .format(locale, MESSAGES.restart().failed(occasion(locale, current))));
+                broadcast(locale -> renderer.format(locale, MESSAGES.restart().failed(occasion(locale, current))));
         }
     }
 
@@ -290,19 +284,13 @@ public final class RestartWatch {
      * {@link RunShape.Fate#NOTHING} adds no second half.
      */
     private Component line(final Locale locale, final MessageRef announcement, final RunShape.Fate fate) {
-        final Component head = MessageRenderer.of(messages).format(locale, announcement);
+        final Component head = renderer.format(locale, announcement);
         final ProxyMessages.Restart.Fate fates = MESSAGES.restart().fate();
         return switch (fate) {
             case NOTHING -> head;
-            case RECONNECT ->
-                head.append(Component.space())
-                        .append(MessageRenderer.of(messages).format(locale, fates.reconnect()));
-            case WAITING_ROOM ->
-                head.append(Component.space())
-                        .append(MessageRenderer.of(messages).format(locale, fates.waitingRoom()));
-            case DISCONNECT ->
-                head.append(Component.space())
-                        .append(MessageRenderer.of(messages).format(locale, fates.disconnect()));
+            case RECONNECT -> head.append(Component.space()).append(renderer.format(locale, fates.reconnect()));
+            case WAITING_ROOM -> head.append(Component.space()).append(renderer.format(locale, fates.waitingRoom()));
+            case DISCONNECT -> head.append(Component.space()).append(renderer.format(locale, fates.disconnect()));
         };
     }
 
@@ -346,23 +334,24 @@ public final class RestartWatch {
     private String what(final Locale locale, final RunShape current) {
         final String only = current.onlyService();
         if (only == null) {
-            return messages.format(locale, MESSAGES.restart().what().network());
+            return renderer.raw().format(locale, MESSAGES.restart().what().network());
         }
-        return Homecoming.serviceName(messages, locale, only);
+        return Homecoming.serviceName(renderer.raw(), locale, only);
     }
 
     /** The occasion as a noun, for the lines that say it is off. */
     private String occasion(final Locale locale, final RunShape current) {
         final ProxyMessages.Restart.Occasion occasions = MESSAGES.restart().occasion();
-        return messages.format(
-                locale,
-                switch (current.occasion()) {
-                    case UPDATE -> occasions.update();
-                    case RECREATE -> occasions.recreate();
-                    case BACKUP -> occasions.backup();
-                    case DOWN -> occasions.down();
-                    case MAINTENANCE -> occasions.maintenance();
-                });
+        return renderer.raw()
+                .format(
+                        locale,
+                        switch (current.occasion()) {
+                            case UPDATE -> occasions.update();
+                            case RECREATE -> occasions.recreate();
+                            case BACKUP -> occasions.backup();
+                            case DOWN -> occasions.down();
+                            case MAINTENANCE -> occasions.maintenance();
+                        });
     }
 
     /** Renders a line for everybody in their own locale from {@link LoginRoster}, English when it has none. */

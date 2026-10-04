@@ -13,6 +13,7 @@ import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessState;
 import eu.nordtal.s2.database.access.MemberState;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.packrendering.Glyphs;
@@ -50,7 +51,7 @@ class PrivateMessagesTest {
     private final Messages messages = Messages.load("messages/proxy", Locale.ENGLISH, Locale.GERMAN);
     private final LoginRoster roster = new LoginRoster();
     private final PrivateMessages commands =
-            new PrivateMessages(noProxy(), roster, messages, () -> ToneColours.DEFAULTS, LOGGER);
+            new PrivateMessages(noProxy(), roster, MessageRenderer.of(messages), () -> ToneColours.DEFAULTS, LOGGER);
 
     // the tree
 
@@ -226,6 +227,7 @@ class PrivateMessagesTest {
                 false,
                 admin,
                 false,
+                0L,
                 locale,
                 SeasonPhase.SMP,
                 null);

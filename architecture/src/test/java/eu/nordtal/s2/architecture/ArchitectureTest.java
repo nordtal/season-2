@@ -334,18 +334,21 @@ class ArchitectureTest {
                 .check(classes);
     }
 
-    /** A Paper server renders through its base's one renderer, which draws every name with the server's own card. */
+    /** A server and the proxy render through their base's one renderer, which draws every name with its card. */
     @Test
-    void onlyThePluginBaseBuildsARendererOnAPaperServer() {
+    void onlyThePluginBaseBuildsARenderer() {
         noClasses()
                 .that()
                 .resideInAnyPackage(
                         "eu.nordtal.s2.limbo..",
                         "eu.nordtal.s2.hungergames..",
                         "eu.nordtal.s2.smp..",
-                        "eu.nordtal.s2.papercommon..")
+                        "eu.nordtal.s2.papercommon..",
+                        "eu.nordtal.s2.proxy..")
                 .and()
                 .doNotHaveFullyQualifiedName("eu.nordtal.s2.papercommon.plugin.NordtalPlugin")
+                .and()
+                .doNotHaveFullyQualifiedName("eu.nordtal.s2.proxy.ProxyPlugin")
                 .should()
                 .accessTargetWhere(BUILDS_A_RENDERER)
                 .check(classes);

@@ -47,11 +47,10 @@ public final class LaunchCountdown {
 
     /** The countdown wrapped in {@code gate.countdown}, or the "no date announced" line, for the disconnect screens. */
     public static Component component(
-            final Messages messages, final Locale locale, final @Nullable Instant launch, final Instant now) {
-        final MessageRenderer renderer = MessageRenderer.of(messages);
+            final MessageRenderer renderer, final Locale locale, final @Nullable Instant launch, final Instant now) {
         if (launch == null) {
             return renderer.format(locale, MESSAGES.gate().countdownSection().unknown());
         }
-        return renderer.format(locale, MESSAGES.gate().countdown(render(messages, locale, launch, now)));
+        return renderer.format(locale, MESSAGES.gate().countdown(render(renderer.raw(), locale, launch, now)));
     }
 }

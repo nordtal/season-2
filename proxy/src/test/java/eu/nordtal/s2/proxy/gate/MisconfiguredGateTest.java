@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import java.util.Locale;
 import java.util.UUID;
@@ -29,7 +30,7 @@ class MisconfiguredGateTest {
     @BeforeEach
     void freshGate() {
         messages = Messages.load("messages/proxy", Locale.ENGLISH, Locale.GERMAN);
-        gate = new MisconfiguredGate(LOGGER, messages);
+        gate = new MisconfiguredGate(LOGGER, MessageRenderer.of(messages));
     }
 
     @Test

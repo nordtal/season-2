@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.velocitypowered.api.event.command.CommandExecuteEvent;
 import com.velocitypowered.api.proxy.Player;
 import eu.nordtal.s2.common.language.Locales;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
@@ -41,8 +42,8 @@ class CommandGateChimeTest {
     @Test
     void refusalPlaysRefused() {
         final SpyChime chime = new SpyChime();
-        final CommandGate gate =
-                new CommandGate(new LoginRoster(), CommandAllowlist.NOTHING, messages, silentLogger(), chime);
+        final CommandGate gate = new CommandGate(
+                new LoginRoster(), CommandAllowlist.NOTHING, MessageRenderer.of(messages), silentLogger(), chime);
 
         final CommandExecuteEvent event = new CommandExecuteEvent(player(), "spawn");
         gate.onCommandExecute(event);
@@ -59,7 +60,8 @@ class CommandGateChimeTest {
     @Test
     void theOldConstructorIsSilentByDefault() {
         // No SpyChime here: the four-argument constructor.
-        final CommandGate gate = new CommandGate(new LoginRoster(), CommandAllowlist.NOTHING, messages, silentLogger());
+        final CommandGate gate = new CommandGate(
+                new LoginRoster(), CommandAllowlist.NOTHING, MessageRenderer.of(messages), silentLogger());
         final CommandExecuteEvent event = new CommandExecuteEvent(player(), "spawn");
         gate.onCommandExecute(event);
         assertTrue(event.getResult() == CommandExecuteEvent.CommandResult.denied());

@@ -300,7 +300,6 @@ export type TextArgs = {
   "steward.announcements.none": Record<string, never>
   "steward.announcements.recent": Record<string, never>
   "steward.announcements.send": Record<string, never>
-  "steward.announcements.sending": Record<string, never>
   "steward.announcements.where": {
     languages: Arg["number"]
   }
@@ -480,6 +479,71 @@ export type TextArgs = {
   "steward.form.saving": Record<string, never>
   "steward.form.schedule": Record<string, never>
   "steward.form.schedule-saved": Record<string, never>
+  "steward.form.sending": Record<string, never>
+  "steward.form.waiting": Record<string, never>
+  "steward.game.active": Record<string, never>
+  "steward.game.all-milestones": Record<string, never>
+  "steward.game.complete": Record<string, never>
+  "steward.game.complete-ask": {
+    name: Arg["text"]
+  }
+  "steward.game.complete-note": {
+    amount: Arg["number"]
+    target: Arg["number"]
+  }
+  "steward.game.counting-down": Record<string, never>
+  "steward.game.done-at": {
+    at: Arg["text"]
+  }
+  "steward.game.keep": Record<string, never>
+  "steward.game.locked": Record<string, never>
+  "steward.game.milestone": Record<string, never>
+  "steward.game.milestones": Record<string, never>
+  "steward.game.move-down": {
+    name: Arg["text"]
+  }
+  "steward.game.move-up": {
+    name: Arg["text"]
+  }
+  "steward.game.no-round": Record<string, never>
+  "steward.game.no-track": Record<string, never>
+  "steward.game.objective": Record<string, never>
+  "steward.game.outcome": {
+    status: Arg["choice"]
+  }
+  "steward.game.progress": {
+    name: Arg["text"]
+  }
+  "steward.game.registered": {
+    count: Arg["number"]
+  }
+  "steward.game.remove-ask": {
+    name: Arg["text"]
+  }
+  "steward.game.remove-it": Record<string, never>
+  "steward.game.round": Record<string, never>
+  "steward.game.running": Record<string, never>
+  "steward.game.start": {
+    anyway: Arg["choice"]
+  }
+  "steward.game.start-ask": {
+    anyway: Arg["choice"]
+  }
+  "steward.game.start-note": Record<string, never>
+  "steward.game.start-round": Record<string, never>
+  "steward.game.tasks": {
+    finished: Arg["number"]
+    total: Arg["number"]
+  }
+  "steward.game.track": Record<string, never>
+  "steward.game.unlock": Record<string, never>
+  "steward.game.unlock-ask": {
+    name: Arg["text"]
+  }
+  "steward.game.unlock-note": Record<string, never>
+  "steward.game.unlocked": {
+    at: Arg["text"]
+  }
   "steward.identity.copy": {
     what: Arg["text"]
   }

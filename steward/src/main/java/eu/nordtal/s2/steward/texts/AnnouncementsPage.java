@@ -20,9 +20,6 @@ public interface AnnouncementsPage {
     @Name("Where")
     MessageRef where(@Arg("languages") int languages);
 
-    @Name("Sending")
-    MessageRef sending();
-
     @Name("Host channel")
     MessageRef hostChannel();
 

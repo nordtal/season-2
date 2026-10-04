@@ -19,6 +19,7 @@ import {
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog"
 import { cn } from "@/lib/utils"
+import { t } from "@/lib/texts"
 
 /** The milestone marks drawn as an icon before their number; the rest show their value. */
 const MARK_ICON: Partial<Record<(typeof MARKED)[number], Icon>> = {
@@ -243,7 +244,7 @@ export function ObjectiveSheet({
   onClose: () => void
 }) {
   const [asking, setAsking] = useState(false)
-  const name = objective ? text(objective, KEY.id) || "Objective" : ""
+  const name = objective ? text(objective, KEY.id) || t("steward.game.objective") : ""
   return (
     <>
       <ResponsiveDialog open={objective !== null} onOpenChange={(open) => open || onClose()}>
@@ -265,10 +266,10 @@ export function ObjectiveSheet({
           <ResponsiveDialogFooter className="flex-row justify-between gap-2">
             <Button type="button" variant="ghost" disabled={disabled} onClick={() => setAsking(true)}>
               <TrashIcon aria-hidden />
-              Remove
+              {t("steward.form.remove")}
             </Button>
             <Button type="button" onClick={onClose}>
-              Done
+              {t("steward.form.done")}
             </Button>
           </ResponsiveDialogFooter>
         </ResponsiveDialogContent>
@@ -276,9 +277,9 @@ export function ObjectiveSheet({
       <AskThenAct
         open={asking}
         onOpenChange={setAsking}
-        title={`Remove ${name}?`}
-        cancel="Keep it"
-        action="Remove it"
+        title={t("steward.game.remove-ask", { name })}
+        cancel={t("steward.game.keep")}
+        action={t("steward.game.remove-it")}
         act={() => {
           onRemove()
           onClose()
@@ -310,7 +311,7 @@ export function MilestoneActions({
         type="button"
         variant="ghost"
         size="icon-sm"
-        aria-label={`Move ${name} up`}
+        aria-label={t("steward.game.move-up", { name })}
         disabled={disabled || index === 0}
         onClick={() => onMove(index - 1)}
       >
@@ -320,7 +321,7 @@ export function MilestoneActions({
         type="button"
         variant="ghost"
         size="icon-sm"
-        aria-label={`Move ${name} down`}
+        aria-label={t("steward.game.move-down", { name })}
         disabled={disabled || index === count - 1}
         onClick={() => onMove(index + 1)}
       >
@@ -328,13 +329,19 @@ export function MilestoneActions({
       </Button>
       <AskThenAct
         trigger={
-          <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove ${name}`} disabled={disabled}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t("steward.settings.remove", { what: name })}
+            disabled={disabled}
+          >
             <TrashIcon aria-hidden />
           </Button>
         }
-        title={`Remove ${name}?`}
-        cancel="Keep it"
-        action="Remove it"
+        title={t("steward.game.remove-ask", { name })}
+        cancel={t("steward.game.keep")}
+        action={t("steward.game.remove-it")}
         act={onRemove}
       />
     </span>

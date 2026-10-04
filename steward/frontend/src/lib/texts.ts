@@ -1,7 +1,8 @@
 /**
  * The web target: every text Steward's page shows, rendered in the browser from the trees Steward parsed.
  *
- * The parser and the validator are Java's. `messages/src/test/resources/web-target.json` holds both sides to one result.
+ * Steward parsed them; the validator is Java's. `messages/src/test/resources/web-target.json` holds both sides to one
+ * result.
  */
 import { api } from "@/lib/api"
 import { LOCALE, date, dateTime, money, parseInstant, relative, time } from "@/lib/format"

@@ -66,11 +66,15 @@ a mention as `{"member", "name"}`, an item as `{"key", "english", "args"}`, a ch
 builds maps and lists, which the one codec in `:common` writes and reads; this module touches no JSON library. A
 row that stores a message stores that, and a target renders it when somebody reads it.
 
-`NodeJson` is a parsed text as the browser walks it, so no second parser exists: a literal is a string, a value
-`{"v", "k", "s"}`, a choice `{"c", "plural", "cases"}`, a plural's `#` `{"pound"}`, a tag `{"tag", "shape",
-"args"}`. `MessageJson.texts` is every key's variants as such trees, overrides layered. The vectors in
-`src/test/resources/web-target.json` give a text, its tree, its values and the plain text it shows;
-`WebTargetVectorsTest` holds this side to them and the frontend's `texts.test.ts` the browser's.
+`NodeJson` is a parsed text as the browser walks it: a literal is a string, a value `{"v", "k", "s"}`, a choice
+`{"c", "plural", "cases"}`, a plural's `#` `{"pound"}`, a tag `{"tag", "shape", "args"}`. `MessageJson.texts` is
+every key's variants as such trees, overrides layered, so Steward's own texts arrive parsed. The one place the
+browser reads a text itself is Steward's translation editor, which has to while an admin types: its
+`lib/message-tree.ts` is this parser line by line, and nothing else in the frontend reads message syntax. The
+vectors in `src/test/resources/web-target.json` give a text, its tree, its values and the plain text it shows, some
+with MiniMessage tags (`"markup": true`); `WebTargetVectorsTest` holds this side to them, the frontend's
+`message-tree.test.ts` the browser's parser and `texts.test.ts` its rendering. Whether a text is right stays this
+module's `MessageCheck`, which the editor asks Steward for.
 
 ## The check
 

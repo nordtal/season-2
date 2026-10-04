@@ -39,7 +39,7 @@ class WebTargetVectorsTest {
         final List<String> wrong = new ArrayList<>();
         for (final JsonElement element : vectors()) {
             final JsonObject vector = element.getAsJsonObject();
-            final MessageText text = MessageText.parse(vector.get("text").getAsString(), false);
+            final MessageText text = MessageText.parse(vector.get("text").getAsString(), markup(vector));
             final JsonElement tree = Json.tree(Json.encode(NodeJson.of(text.nodes())));
             if (!tree.equals(vector.get("nodes"))) {
                 wrong.add(vector.get("text").getAsString() + " parses to " + tree);
@@ -53,7 +53,7 @@ class WebTargetVectorsTest {
         final List<String> wrong = new ArrayList<>();
         for (final JsonElement element : vectors()) {
             final JsonObject vector = element.getAsJsonObject();
-            final MessageText text = MessageText.parse(vector.get("text").getAsString(), false);
+            final MessageText text = MessageText.parse(vector.get("text").getAsString(), markup(vector));
             final Map<String, Object> args = MessageJson.decodeArgs(asRead(vector.get("args")));
             final String shown =
                     PlainText.of(Filling.fill(text, args, Map.of(), name -> {}), Locale.ENGLISH, ZoneOffset.UTC, WORDS);
@@ -79,6 +79,11 @@ class WebTargetVectorsTest {
                     Json.tree(Json.encode(MessageJson.encodeArgs(MessageJson.decodeArgs(asRead(args))))),
                     args.toString());
         }
+    }
+
+    /** Whether the vector is a text with MiniMessage tags, as a Minecraft text is; Steward's own have none. */
+    private static boolean markup(final JsonObject vector) {
+        return vector.has("markup") && vector.get("markup").getAsBoolean();
     }
 
     /** The arguments as Steward or a row hands them over: read back by the one codec into maps. */

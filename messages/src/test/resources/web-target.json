@@ -114,5 +114,55 @@
       "badge": { "kind": "glyph", "value": "admin" }
     },
     "plain": "Diamond"
+  },
+  {
+    "text": "<good>Saved</good> {n} files",
+    "markup": true,
+    "nodes": [{ "tag": "good", "shape": "OPEN", "args": [] }, "Saved", { "tag": "good", "shape": "CLOSE", "args": [] }, " ", { "v": "n" }, " files"],
+    "args": {},
+    "plain": "Saved something files"
+  },
+  {
+    "text": "<hover:show_text:'Joined {at, instant, date}'><glyph:logo/>{who}</hover>",
+    "markup": true,
+    "nodes": [
+      { "tag": "hover", "shape": "OPEN", "args": [["show_text"], ["Joined ", { "v": "at", "k": "instant", "s": "date" }]] },
+      { "tag": "glyph", "shape": "SELF_CLOSING", "args": [["logo"]] },
+      { "v": "who" },
+      { "tag": "hover", "shape": "CLOSE", "args": [] }
+    ],
+    "args": { "who": { "kind": "text", "value": "Ann" } },
+    "plain": "Ann"
+  },
+  {
+    "text": "One<newline>two \\< three <four",
+    "markup": true,
+    "nodes": ["One", { "tag": "newline", "shape": "OPEN", "args": [] }, "two < three <four"],
+    "args": {},
+    "plain": "One\ntwo < three <four"
+  },
+  {
+    "text": "<click:run_command:/spawn><action:confirm>Go</action></click>",
+    "markup": true,
+    "nodes": [
+      { "tag": "click", "shape": "OPEN", "args": [["run_command"], ["/spawn"]] },
+      { "tag": "action", "shape": "OPEN", "args": [["confirm"]] },
+      "Go",
+      { "tag": "action", "shape": "CLOSE", "args": [] },
+      { "tag": "click", "shape": "CLOSE", "args": [] }
+    ],
+    "args": {},
+    "plain": "Go"
+  },
+  {
+    "text": "<good>{n, plural, one {# file} other {# files \\# {who}}}</good>",
+    "markup": true,
+    "nodes": [
+      { "tag": "good", "shape": "OPEN", "args": [] },
+      { "c": "n", "plural": true, "cases": { "one": [{ "pound": "n" }, " file"], "other": [{ "pound": "n" }, " files # ", { "v": "who" }] } },
+      { "tag": "good", "shape": "CLOSE", "args": [] }
+    ],
+    "args": { "n": { "kind": "number", "value": 2 } },
+    "plain": "2 files # something"
   }
 ]

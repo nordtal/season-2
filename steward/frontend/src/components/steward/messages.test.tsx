@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { toast } from "sonner"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -37,13 +37,15 @@ function json(body: unknown): Response {
 
 /** A bundle's place, and no key a preview reaches unless a test names one. */
 function location(
-  over: Partial<MessageBundleLocation> & { path: string },
-): MessageBundleLocation & Pick<MessageBundle, "previews"> {
+  over: Partial<MessageBundleLocation & Pick<MessageBundle, "languages" | "colours">> & { path: string },
+): MessageBundleLocation & Pick<MessageBundle, "previews" | "languages" | "colours"> {
   return {
     service: "smp",
     module: "smp",
     writable: true,
     previews: {},
+    languages: [],
+    colours: {},
     ...over,
   }
 }
@@ -369,6 +371,39 @@ function twoKeys() {
     }),
   )
 }
+
+describe("the network's languages and the service's colours", () => {
+  const fixture = {
+    "smp/smp": {
+      ...location({ path: "smp/smp", languages: ["de", "nl"], colours: { good: "#123456" } }),
+      entries: [entry({ texts: { en: ["<good>Welcome</good>"] }, key: "welcome", format: "MINIMESSAGE" })],
+    },
+  }
+
+  it("offers a language the network speaks before any jar ships it", async () => {
+    vi.stubGlobal("fetch", backend(fixture))
+    draw(<Settings service="smp" />)
+    await open("SMP Translations")
+    await openKey("Welcome")
+
+    expect(await screen.findByRole("tab", { name: /NL/ })).toBeTruthy()
+  })
+
+  it("draws a tone in the colour the service's settings give it", async () => {
+    vi.stubGlobal("fetch", backend(fixture))
+    draw(<Settings service="smp" />)
+    await open("SMP Translations")
+
+    const row = await screen.findByRole("button", { name: "Welcome" })
+    await waitFor(() =>
+      expect(
+        within(row)
+          .getAllByText("Welcome")
+          .map((span) => span.style.color),
+      ).toContain("rgb(18, 52, 86)"),
+    )
+  })
+})
 
 describe("one key open at a time", () => {
   it("draws each key as its name and a rendered line, with no field until it is opened", async () => {

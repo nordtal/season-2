@@ -10,6 +10,7 @@ import eu.nordtal.s2.database.inbox.ServerRefusal;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.spec.Display;
 import eu.nordtal.s2.papercommon.command.Answer;
 import java.lang.reflect.Proxy;
@@ -17,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -46,7 +48,14 @@ class PreviewsTest {
     private final Previews previews = new Previews(uuid -> uuid.equals(ALEX.value()) ? alex : null, RENDERER);
 
     private static MessagePreview preview(final Display shown) {
-        return new MessagePreview(CONFIRM, "en", "Type <bad>{command}</bad>", shown);
+        return new MessagePreview(CONFIRM, "en", "Type <bad>{command}</bad>", shown, Map.of());
+    }
+
+    /** The colour the value of the one chat line shown so far is drawn in. */
+    private String colourOfTheValue() {
+        final Component line = (Component) calls.getFirst()[1];
+        final List<Component> parts = line.children();
+        return Objects.requireNonNull(parts.getLast().color()).asHexString().toLowerCase(Locale.ROOT);
     }
 
     private static String plain(final Object component) {
@@ -79,5 +88,22 @@ class PreviewsTest {
 
         assertEquals(ServerRefusal.NOT_HERE, ((Answer.Refused) answer).refusal().reason());
         assertTrue(calls.isEmpty());
+    }
+
+    /** A key of another service, the proxy's on the SMP, is painted as that service paints it. */
+    @Test
+    void aToneIsPaintedInTheColourOfTheKeysOwnService() {
+        previews.show(
+                ALEX,
+                new MessagePreview(CONFIRM, "en", "Type <bad>{command}</bad>", Display.CHAT, Map.of("bad", "#123456")));
+
+        assertEquals("#123456", colourOfTheValue());
+    }
+
+    @Test
+    void aPreviewWithoutColoursIsPaintedInThisServersOwn() {
+        previews.show(ALEX, preview(Display.CHAT));
+
+        assertEquals(Tone.BAD.hex(), colourOfTheValue());
     }
 }

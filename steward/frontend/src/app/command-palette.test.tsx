@@ -138,7 +138,7 @@ function messageEntry(over: Partial<MessageEntry> & { key: string }): MessageEnt
 /** Wires `useMessageBundles` and `useMessageDocuments` for one bundle, paired by index like `oneFile`. */
 function oneBundle(loc: MessageBundleLocation, entries: MessageEntry[]) {
   vi.mocked(useMessageBundles).mockReturnValue(queryResult([loc]))
-  const document: MessageBundle = { ...loc, entries, previews: {} }
+  const document: MessageBundle = { ...loc, entries, previews: {}, languages: [], colours: {} }
   vi.mocked(useMessageDocuments).mockReturnValue([queryResult(document)])
 }
 

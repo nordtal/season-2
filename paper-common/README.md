@@ -36,7 +36,8 @@ What every Nordtal Paper plugin shares, and nothing a single plugin owns.
 - **Previews**: `Previews` shows an admin's player the text they are trying for a key, rendered by the same
   `renderer()` as the key's own text: a title, a subtitle or an action bar where the key is one, a chat line for
   every other place, since a menu or a sidebar would have to be opened to show it. A key of a bundle this plugin
-  does not load is read as MiniMessage, the format of every in-game key.
+  does not load is read as MiniMessage, the format of every in-game key. Its tones are painted in the colours the
+  preview carries, those of the key's own service, so the proxy's key looks on the SMP as it does on the proxy.
 - **Chat and replies**: the five system lines and a reply in the player's language with tone and sound.
   Everything goes through the base's one `renderer()`. It draws every name the way the plugin hands to
   `composeNames` in `enable()` (smp: the flag, the prestige colour and the crest; hunger-games: the flag and a

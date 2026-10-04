@@ -123,15 +123,29 @@ public final class MessageRenderer {
      * @throws eu.nordtal.s2.messages.text.MessageSyntaxException when the text cannot be read
      */
     public Component format(final Viewer viewer, final MessageRef message, final String text) {
-        return render(messages.prepare(viewer, message, text), message, true);
+        return format(viewer, message, text, messages.environment().palette());
+    }
+
+    /**
+     * Renders a text an admin is trying for a message's key, its tones painted from {@code palette}.
+     *
+     * @throws eu.nordtal.s2.messages.text.MessageSyntaxException when the text cannot be read
+     */
+    public Component format(final Viewer viewer, final MessageRef message, final String text, final Palette palette) {
+        return render(messages.prepare(viewer, message, text), message, true, palette);
     }
 
     /** Renders a message, its names with their cards unless it is a card itself, which never draws a card. */
     private Component format(final Viewer viewer, final MessageRef message, final boolean carded) {
-        return render(messages.prepare(viewer, message), message, carded);
+        return render(
+                messages.prepare(viewer, message),
+                message,
+                carded,
+                messages.environment().palette());
     }
 
-    private Component render(final Messages.Prepared prepared, final MessageRef message, final boolean carded) {
+    private Component render(
+            final Messages.Prepared prepared, final MessageRef message, final boolean carded, final Palette palette) {
         if (!prepared.markup()) {
             return Component.text(
                     PlainText.of(prepared.pieces(), prepared.language(), prepared.zone(), prepared.words()));
@@ -142,10 +156,7 @@ public final class MessageRenderer {
         return MiniMessage.miniMessage()
                 .deserialize(
                         writing.markup.toString(),
-                        TagResolver.resolver(
-                                writing.values(),
-                                new Tones(messages.environment().palette()),
-                                GLYPH_TAG));
+                        TagResolver.resolver(writing.values(), new Tones(palette), GLYPH_TAG));
     }
 
     /** Returns the card of {@code name} for the reader {@code prepared} is for, or {@code null} where there is none. */

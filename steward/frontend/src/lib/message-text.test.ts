@@ -24,4 +24,9 @@ describe("languagesOf", () => {
     expect(languagesOf([shipped, written])).toEqual(["en", "de", "fr"])
     expect(languagesOf([])).toEqual(["en"])
   })
+
+  it("offers a language the network speaks before any jar ships it or an admin wrote it", () => {
+    const shipped = { ...won, texts: { fr: ["Salut"], en: ["Hi"] } }
+    expect(languagesOf([shipped], ["de", "nl", "en"])).toEqual(["en", "de", "fr", "nl"])
+  })
 })

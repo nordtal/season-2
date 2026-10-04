@@ -20,6 +20,7 @@ import eu.nordtal.s2.messages.spec.Display;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -139,7 +140,11 @@ class BotInboxTest {
     @Test
     void aPreviewIsSentToTheAdminAndRefusedWhereDiscordDeliversNothing() {
         final MessagePreview preview = new MessagePreview(
-                DatabaseMessages.MESSAGES.announcement().words("Hallo"), "de", "**{text}**", Display.DISCORD_MESSAGE);
+                DatabaseMessages.MESSAGES.announcement().words("Hallo"),
+                "de",
+                "**{text}**",
+                Display.DISCORD_MESSAGE,
+                Map.of());
 
         final Outcome sent = subject.handle(row(new BotRequest.PreviewMessage(ADMIN, preview), Actor.person(ADMIN)));
         final Outcome bounced =

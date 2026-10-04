@@ -7,6 +7,7 @@ import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.inbox.MessagePreview;
 import eu.nordtal.s2.database.message.MessageOverrideStore;
+import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.MessageArg;
@@ -18,6 +19,10 @@ import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.spec.Display;
 import eu.nordtal.s2.messages.text.MessageCheck;
 import eu.nordtal.s2.messages.value.Kind;
+import eu.nordtal.s2.settings.Colours;
+import eu.nordtal.s2.settings.DatabaseSettings;
+import eu.nordtal.s2.settings.SettingsException;
+import eu.nordtal.s2.settings.network.NetworkSettings;
 import eu.nordtal.s2.steward.texts.RequestRefused;
 import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
@@ -51,11 +56,20 @@ public final class MessagesApi {
 
     private final AgentClient agent;
     private final @Nullable MessageOverrideStore overrides;
+    private final @Nullable SettingStore settings;
 
-    /** @param overrides where the overrides are kept, or {@code null} without a database, which makes a save refused */
-    public MessagesApi(final AgentClient agent, final @Nullable MessageOverrideStore overrides) {
+    /**
+     * @param overrides where the overrides are kept, or {@code null} without a database, which makes a save refused
+     * @param settings  where the network's languages and each service's colours are read, or {@code null} for the
+     *     defaults
+     */
+    public MessagesApi(
+            final AgentClient agent,
+            final @Nullable MessageOverrideStore overrides,
+            final @Nullable SettingStore settings) {
         this.agent = agent;
         this.overrides = overrides;
+        this.settings = settings;
     }
 
     /** {@code GET /api/messages}: every bundle found, without opening a single jar. */
@@ -117,6 +131,8 @@ public final class MessagesApi {
                 bundle.writable(),
                 bundle.entries(),
                 bundle.previews(),
+                bundle.languages(),
+                bundle.colours(),
                 warnings,
                 Reloading.applied(StewardTexts.TEXTS.steward().said().message())));
     }
@@ -147,7 +163,8 @@ public final class MessagesApi {
         if (!LANGUAGE.matcher(language).matches()) {
             throw new BadRequestResponse("A language is a lowercase tag like \"en\", not " + language + ".");
         }
-        final MessageEntry entry = entryOf(locate(textOf(body, "bundle")), key);
+        final AgentWire.BundleRef location = locate(textOf(body, "bundle"));
+        final MessageEntry entry = entryOf(location, key);
         if (OverrideCheck.problems(entry, text).stream().anyMatch(MessageCheck.Problem::error)) {
             throw new RequestRefused(400, ANSWER.previewRefused(key, language));
         }
@@ -157,7 +174,8 @@ public final class MessagesApi {
                 exampleOf(entry, values != null && values.isJsonObject() ? values.getAsJsonObject() : new JsonObject()),
                 language,
                 text,
-                shown);
+                shown,
+                coloursOf(location.service()));
     }
 
     /**
@@ -368,7 +386,9 @@ public final class MessagesApi {
     /**
      * One bundle, packaged text and override side by side for every key.
      *
-     * @param previews where a preview of each key reaches the admin who asks for one; a key none reaches is absent
+     * @param previews  where a preview of each key reaches the admin who asks for one; a key none reaches is absent
+     * @param languages the network's languages as its settings name them now, the default first
+     * @param colours   each tone's colour by its tag, as the service's {@code colours} settings name it now
      */
     public record Bundle(
             String service,
@@ -376,7 +396,9 @@ public final class MessagesApi {
             String path,
             boolean writable,
             List<MessageEntry> entries,
-            Map<String, PreviewTarget> previews) {}
+            Map<String, PreviewTarget> previews,
+            List<String> languages,
+            Map<String, String> colours) {}
 
     /** Where an admin's preview of a key reaches them. */
     public enum PreviewTarget {
@@ -403,6 +425,8 @@ public final class MessagesApi {
             boolean writable,
             List<MessageEntry> entries,
             Map<String, PreviewTarget> previews,
+            List<String> languages,
+            Map<String, String> colours,
             List<Warning> warnings,
             Reloading reload) {}
 
@@ -464,7 +488,42 @@ public final class MessagesApi {
                 identityOf(location),
                 overrides != null,
                 bundle.entries(),
-                previews);
+                previews,
+                languages(),
+                coloursOf(location.service()));
+    }
+
+    /** The network's languages as its settings name them now, the default first; the defaults without a database. */
+    private List<String> languages() {
+        final SettingStore store = settings;
+        if (store != null) {
+            try {
+                return NetworkSettings.languages(DatabaseSettings.current(
+                                store, SettingStore.NETWORK, NetworkSettings.LANGUAGE_AND_TIME))
+                        .tags();
+            } catch (final SettingsException unreadable) {
+                // Even the defaults refused: the editor still offers the defaults.
+            }
+        }
+        return NetworkSettings.defaultLanguages().tags();
+    }
+
+    /** Each tone's colour by its tag, in the palette's order, as the {@code colours} of {@code service} say. */
+    private Map<String, String> coloursOf(final String service) {
+        final Map<String, String> colours = new LinkedHashMap<>();
+        for (final Tone tone : Tone.values()) {
+            colours.put(tone.tag(), tone.hex());
+        }
+        final SettingStore store = settings;
+        if (store != null) {
+            try {
+                Colours.declared(DatabaseSettings.current(store, service, Colours.GROUP))
+                        .forEach((tone, hex) -> colours.put(tone.tag(), hex));
+            } catch (final SettingsException unreadable) {
+                // Even the defaults refused: every tone keeps its own.
+            }
+        }
+        return colours;
     }
 
     // What comes in

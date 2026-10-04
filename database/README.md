@@ -34,9 +34,9 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
   refusal of one is a `ServerRefusal` worded in this module's bundle, so Steward can say it without the server's.
 - **A preview** is the one kind every consumer of a text shares: `PREVIEW_MESSAGE` in the SMP's, the Hunger Games
   server's and the bot's inbox, each carrying a `MessagePreview`, the text an admin is trying for one key with its
-  typed example values and where the key is shown. It shows the text to that admin alone and saves nothing, so it
-  has no journal line; a server refuses it with `NOT_HERE` once the player has left, the bot with `NOT_DELIVERED`
-  when Discord delivers no direct message.
+  typed example values, where the key is shown and the colours of the key's own service. It shows the text to that
+  admin alone and saves nothing, so it has no journal line; a server refuses it with `NOT_HERE` once the player has
+  left, the bot with `NOT_DELIVERED` when Discord delivers no direct message.
 - **A payment is booked** by `Bookings`, in one transaction over the locked request: paid, the access it buys
   appended through `Grants`, the donor flag, the journal line and the bot's `PAYMENT_BOOKED`, all or nothing. A
   bank payment books at most one request, which the unique index on `bunq_payment_id` decides; `Tiers` is the

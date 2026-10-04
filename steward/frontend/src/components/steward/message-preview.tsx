@@ -9,10 +9,21 @@ import { useGlyphs, useMessageSyntax } from "@/lib/queries"
  *
  * White is drawn in the page's foreground; a text the parser cannot read is shown as it is written.
  */
-export function MessagePreview({ text, format, className }: { text: string; format?: string; className?: string }) {
+export function MessagePreview({
+  text,
+  format,
+  colours,
+  className,
+}: {
+  text: string
+  format?: string
+  /** The tones in the colours of the text's own service; the defaults when absent. */
+  colours?: Record<string, string>
+  className?: string
+}) {
   const syntax = useMessageSyntax()
   const glyphs = useGlyphs()
-  const tones = useMemo(() => syntax.data?.tones ?? {}, [syntax.data])
+  const tones = useMemo(() => colours ?? syntax.data?.tones ?? {}, [colours, syntax.data])
   const runs = useMemo(() => parse(text, formatOf(format), Object.keys(tones)), [text, format, tones])
   if (runs === null) return <span className={cn("block truncate font-mono", className)}>{text}</span>
   return (

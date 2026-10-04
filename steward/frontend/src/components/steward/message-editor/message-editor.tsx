@@ -45,8 +45,10 @@ export type MessageEditorProps = {
   entry: MessageEntry
   /** The bundle's path, as the routes name it. */
   bundle: string
-  /** The bundle's languages, English first. */
+  /** The bundle's languages, English first, every one the network speaks among them. */
   languages: Language[]
+  /** Each tone's colour by tag, as the settings of the bundle's service name it. */
+  colours: Record<string, string>
   writable: boolean
   draft: MessageDraft | undefined
   highlight: Highlight | null
@@ -69,6 +71,7 @@ export function MessageEditor({
   entry,
   bundle,
   languages,
+  colours,
   writable,
   draft,
   highlight,
@@ -85,7 +88,11 @@ export function MessageEditor({
   const syntax = useMessageSyntax()
   const glyphs = useGlyphs()
   const examples = useMessageExamples()
-  const tones = useMemo(() => syntax.data?.tones ?? {}, [syntax.data])
+  // The service's own colours, so a tone reads as its players see it.
+  const tones = useMemo(
+    () => (Object.keys(colours).length > 0 ? colours : (syntax.data?.tones ?? {})),
+    [colours, syntax.data],
+  )
   const toneTags = useMemo(() => Object.keys(tones), [tones])
   const kinds = syntax.data?.kinds ?? {}
   const format = formatOf(entry.format)

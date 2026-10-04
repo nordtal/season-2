@@ -28,9 +28,9 @@ export function shownOf(entry: MessageEntry, language: Language): string[] {
   return overrideOf(entry, language) ?? packagedOf(entry, language)
 }
 
-/** The languages of some keys, English first: every one a jar ships or an admin wrote. */
-export function languagesOf(entries: MessageEntry[]): Language[] {
-  const all = new Set<Language>([ENGLISH])
+/** The languages of some keys, English first: every one the network speaks, a jar ships or an admin wrote. */
+export function languagesOf(entries: MessageEntry[], network: readonly Language[] = []): Language[] {
+  const all = new Set<Language>([ENGLISH, ...network])
   for (const entry of entries) {
     for (const language of Object.keys(entry.texts)) all.add(language)
     for (const language of Object.keys(entry.overrides)) all.add(language)

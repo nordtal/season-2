@@ -400,6 +400,8 @@ export type MessageBundle = {
   writable: boolean
   entries: MessageEntry[]
   previews: Record<string, MessagePreviewTarget>
+  languages: string[]
+  colours: Record<string, string>
 }
 
 export type MessageSaveResult = {
@@ -409,6 +411,8 @@ export type MessageSaveResult = {
   writable: boolean
   entries: MessageEntry[]
   previews: Record<string, MessagePreviewTarget>
+  languages: string[]
+  colours: Record<string, string>
   warnings: Warning[]
   reload: ReloadOutcome
 }

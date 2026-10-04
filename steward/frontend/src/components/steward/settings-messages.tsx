@@ -56,7 +56,7 @@ function BundleForm({ file, bundle, target }: { file: string; bundle: MessageBun
   const [warnings, setWarnings] = useState<Warning[]>([])
   const nodes = useMemo(() => messageTree(bundle.entries), [bundle.entries])
   const byKey = useMemo(() => new Map(bundle.entries.map((entry) => [entry.key, entry])), [bundle.entries])
-  const languages = useMemo(() => languagesOf(bundle.entries), [bundle.entries])
+  const languages = useMemo(() => languagesOf(bundle.entries, bundle.languages), [bundle.entries, bundle.languages])
   const fallenBack = useMemo(() => {
     const found = new Map<string, MessageFallback[]>()
     for (const fallback of fallbacks.data ?? []) {
@@ -150,6 +150,7 @@ function BundleForm({ file, bundle, target }: { file: string; bundle: MessageBun
           entry={leaf.value}
           bundle={bundle.path}
           languages={languages}
+          colours={bundle.colours}
           open={openKey === leaf.value.key}
           onOpen={(open) => setOpenKey(open ? leaf.value.key : null)}
           writable={bundle.writable}
@@ -176,7 +177,7 @@ function MessageRow({
   open: boolean
   onOpen: (open: boolean) => void
 }) {
-  const { entry, draft, highlight, fallbacks } = editor
+  const { entry, draft, highlight, fallbacks, colours } = editor
   const name = messageName(entry)
   const typed = draft?.[ENGLISH]
   const text = (typed === undefined ? shownOf(entry, ENGLISH) : (typed ?? packagedOf(entry, ENGLISH)))[0] ?? ""
@@ -201,7 +202,12 @@ function MessageRow({
       >
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-sm">{name}</span>
-          <MessagePreview text={text} format={entry.format} className="text-xs text-muted-foreground" />
+          <MessagePreview
+            text={text}
+            format={entry.format}
+            colours={colours}
+            className="text-xs text-muted-foreground"
+          />
         </span>
         {!entry.inBundle ? (
           <Badge variant="outline" className="shrink-0 text-muted-foreground">

@@ -216,7 +216,8 @@ class InboxIntegrationTest {
                                 Map.of("player.name", new DisplayName(alex, "Alex"), "count", new BigDecimal("3"))),
                         "de",
                         "<good>{player.name}</good> hat {count}",
-                        Display.TITLE));
+                        Display.TITLE,
+                        Map.of("good", "#123456")));
         final Inbox<SmpRequest> smp = Inbox.over(database.dataSource(), SmpRequest.TABLE);
         execute("DELETE FROM smp_inbox");
         smp.submit(preview, ADMIN);

@@ -171,7 +171,7 @@ public final class StackApi implements AutoCloseable {
         this.settings = settings == null ? null : new SettingsApi(settings);
         this.agent = agent;
         this.nightly = nightly;
-        this.messages = new MessagesApi(agent, messageOverrides);
+        this.messages = new MessagesApi(agent, messageOverrides, settings);
         // One query over two tables, not a frontend-side merge.
         this.actions = new ActionsApi(updates, audit);
         this.audit = audit;

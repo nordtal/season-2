@@ -7,8 +7,13 @@ import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.database.inbox.MessagePreview;
 import eu.nordtal.s2.database.inbox.ServerRefusal;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
+import eu.nordtal.s2.messagerendering.ToneColours;
+import eu.nordtal.s2.messages.Palette;
+import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.Viewer;
 import eu.nordtal.s2.papercommon.command.Answer;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
@@ -42,8 +47,11 @@ public final class Previews {
         if (reader == null) {
             return Answer.refused(ServerRefusal.NOT_HERE.with());
         }
-        final Component text =
-                renderer.format(Viewer.of(Locales.parse(preview.language())), preview.message(), preview.text());
+        final Viewer viewer = Viewer.of(Locales.parse(preview.language()));
+        // Painted as the key's own service paints it, which need not be this server.
+        final Component text = preview.colours().isEmpty()
+                ? renderer.format(viewer, preview.message(), preview.text())
+                : renderer.format(viewer, preview.message(), preview.text(), paletteOf(preview.colours()));
         switch (preview.shown()) {
             case TITLE -> reader.showTitle(Title.title(text, Component.empty()));
             case SUBTITLE -> reader.showTitle(Title.title(Component.empty(), text));
@@ -51,5 +59,17 @@ public final class Previews {
             default -> reader.sendMessage(text);
         }
         return Answer.done(MESSAGES.admin().previewShown());
+    }
+
+    /** The tones by their tags as a palette; a tone missing or unreadable keeps its default. */
+    private static Palette paletteOf(final Map<String, String> colours) {
+        final Map<Tone, String> declared = new EnumMap<>(Tone.class);
+        for (final Tone tone : Tone.values()) {
+            final String hex = colours.get(tone.tag());
+            if (hex != null) {
+                declared.put(tone, hex);
+            }
+        }
+        return ToneColours.parse(declared, unreadable -> {});
     }
 }

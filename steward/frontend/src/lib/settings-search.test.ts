@@ -194,7 +194,7 @@ function bundleLocation(over: Partial<MessageBundleLocation> & { path: string })
 }
 
 function bundle(loc: MessageBundleLocation, entries: MessageEntry[]): MessageBundle {
-  return { ...loc, entries, previews: {} }
+  return { ...loc, entries, previews: {}, languages: [], colours: {} }
 }
 
 describe("messageEntryHaystack / matchesMessageQuery", () => {

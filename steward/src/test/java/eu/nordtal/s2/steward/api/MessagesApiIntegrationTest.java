@@ -11,6 +11,7 @@ import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.inbox.MessagePreview;
 import eu.nordtal.s2.database.message.MessageOverrideStore;
+import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.messages.MessageOverride;
 import eu.nordtal.s2.messages.Messages;
@@ -56,6 +57,7 @@ class MessagesApiIntegrationTest {
     private HttpClient http;
     private int port;
     private MessageOverrideStore store;
+    private SettingStore settings;
 
     /** What the last {@code POST /api/message-preview} read, which the web would ask for. */
     private MessagePreview previewed;
@@ -66,8 +68,10 @@ class MessagesApiIntegrationTest {
         scratch = Files.createTempDirectory(Path.of("/tmp"), "messages");
         agent = new AgentStandIn(scratch, 0, config -> {});
         configs = agent.configs;
-        store = MessageOverrideStore.using(TestDatabase.fresh().dataSource());
-        final MessagesApi messages = new MessagesApi(new AgentClient(agent.client()), store);
+        final javax.sql.DataSource database = TestDatabase.fresh().dataSource();
+        store = MessageOverrideStore.using(database);
+        settings = SettingStore.using(database);
+        final MessagesApi messages = new MessagesApi(new AgentClient(agent.client()), store, settings);
         app = Javalin.create(config -> {
                     config.jsonMapper(new JavalinGson(new Gson(), true));
                     ErrorHandlers.install(config, WebTexts.load().messages(), Messages.load("messages/database"));
@@ -304,6 +308,39 @@ class MessagesApiIntegrationTest {
                 "{\"bundle\": \"smp/smp\", \"key\": \"greeting\", \"language\": \"en\", \"text\": \"Hi {name}\"}");
         assertEquals(400, refused.statusCode(), refused.body());
         assertTrue(refused.body().contains("greeting"), refused.body());
+    }
+
+    /** A language the network setting adds is offered before any bundle ships it, and tones are the service's own. */
+    @Test
+    void aBundleNamesTheNetworksLanguagesAndItsServicesColoursAndAPreviewCarriesThem() throws Exception {
+        writeJar(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                java.util.Map.of(
+                        "messages/smp/en.properties", "greeting=Hello\n",
+                        "messages/smp/schema.json", """
+                        {"bundle": "smp", "messages": [
+                          {"key": "greeting", "name": "Greeting", "section": [], "format": "MINIMESSAGE",
+                           "shown": "CHAT", "args": []}],
+                         "contexts": {}, "globals": []}
+                        """));
+        settings.change(
+                SettingStore.NETWORK,
+                "language-and-time",
+                java.util.Map.of("languages", "[\"de\", \"en\", \"nl\"]"),
+                Actor.STEWARD,
+                current -> true);
+        settings.change("smp", "colours", java.util.Map.of("bad", "\"#123456\""), Actor.STEWARD, current -> true);
+
+        final JsonObject bundle = GSON.fromJson(get("/api/messages/smp/smp"), JsonObject.class);
+        assertEquals(GSON.fromJson("[\"en\", \"de\", \"nl\"]", JsonArray.class), bundle.getAsJsonArray("languages"));
+        assertEquals("#123456", bundle.getAsJsonObject("colours").get("bad").getAsString());
+        assertEquals(
+                Tone.GOOD.hex(), bundle.getAsJsonObject("colours").get("good").getAsString());
+
+        send("POST", "/api/message-preview", """
+                {"bundle": "smp/smp", "key": "greeting", "language": "nl", "text": "<bad>Hallo</bad>"}
+                """);
+        assertEquals("#123456", previewed.colours().get("bad"));
     }
 
     @Test

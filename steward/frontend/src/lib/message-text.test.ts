@@ -11,8 +11,8 @@ const won: MessageEntry = {
   overrides: {},
   name: "Duel won",
   args: [
-    { name: "winner.name", kind: "name", type: "player", global: false, action: false },
-    { name: "server.name", kind: "text", type: "service", global: true, action: false },
+    { name: "winner.name", kind: "name", type: "player", global: false, action: false, exampleWords: {} },
+    { name: "server.name", kind: "text", type: "service", global: true, action: false, exampleWords: {} },
   ],
   section: [],
 }

@@ -96,7 +96,9 @@ export function MessageEditor({
   const toneTags = useMemo(() => Object.keys(tones), [tones])
   const kinds = syntax.data?.kinds ?? {}
   const format = formatOf(entry.format)
-  const fill = (name: string) => exampleOf(name, entry.args, examples.data)
+  // A nested message reads as its words here; the server renders the key itself, so it is sent the key.
+  const fill = (name: string) => exampleOf(name, entry.args, examples.data, language)
+  const sent = (name: string) => exampleOf(name, entry.args, examples.data)
 
   const seenSeq = useRef<number | undefined | typeof UNSEEN>(UNSEEN)
   if (seenSeq.current !== highlight?.seq) {
@@ -121,7 +123,7 @@ export function MessageEditor({
   const checked = useDebounced(typed === undefined ? null : text, CHECK_DELAY)
   const check = useMessageCheck(bundle, entry.key, checked)
   const problems = typed === undefined ? [] : (check.data ?? [])
-  const send = usePreview(bundle, entry, language, text, fill)
+  const send = usePreview(bundle, entry, language, text, sent)
   const sendLabel =
     preview === "GAME" ? t("steward.message-editor.show-in-game") : t("steward.message-editor.send-in-discord")
 
@@ -410,8 +412,8 @@ function useRuns(
 }
 
 /**
- * The text as it stands, sent to the admin alone where the key is shown, with the values the preview shows; what
- * became of the request follows. A value every message has is the receiving process's own.
+ * The text as it stands, sent to the admin alone where the key is shown, with the values `fill` gives; what became
+ * of the request follows. A value every message has is the receiving process's own.
  */
 function usePreview(bundle: string, entry: MessageEntry, language: Language, text: string, fill: Fill) {
   const action = useGameAction()

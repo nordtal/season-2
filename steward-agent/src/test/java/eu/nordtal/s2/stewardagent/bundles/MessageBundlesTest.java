@@ -193,6 +193,48 @@ class MessageBundlesTest {
         assertEquals("TITLE", won.shown());
     }
 
+    private static final String NESTING_SCHEMA = """
+            {"bundle": "proxy", "messages": [
+              {"key": "restart.countdown.update", "name": "Update countdown", "format": "MINIMESSAGE",
+               "shown": "CHAT", "section": [],
+               "args": [{"name": "what", "kind": "message", "example": "restart.what.network", "action": false},
+                        {"name": "count", "kind": "number", "example": "10", "action": false}]}
+            ], "contexts": {}, "globals": []}
+            """;
+
+    @Test
+    void aValueThatIsAMessageCarriesItsExampleKeysWordsFromAnyBundleOfTheJar() throws IOException {
+        writeJar(
+                configs.resolve("proxy/proxy-0.9.1.jar"),
+                Map.of(
+                        "messages/proxy/en.properties",
+                        "restart.countdown.update={what} is being updated in {count} seconds\n",
+                        "messages/proxy/schema.json",
+                        NESTING_SCHEMA,
+                        "messages/restart/en.properties",
+                        "restart.what.network=The network\n",
+                        "messages/restart/de.properties",
+                        "restart.what.network=Das Netzwerk\n"));
+        final MessageEntry update = entry(
+                MessageBundles.read(
+                        new MessageBundleLocation("proxy", "proxy", configs.resolve("proxy/proxy-0.9.1.jar"))),
+                "restart.countdown.update");
+
+        assertEquals(
+                List.of(
+                        new MessageArg(
+                                "what",
+                                "message",
+                                null,
+                                false,
+                                "restart.what.network",
+                                false,
+                                Map.of("en", "The network", "de", "Das Netzwerk")),
+                        new MessageArg("count", "number", null, false, "10", false)),
+                update.args(),
+                "the editor previews the nested message as its words and still sends the server its key");
+    }
+
     @Test
     void aKeyMissingFromTheGermanBundleIsARealGapNotSilentlyFilledWithEnglish() throws IOException {
         writeJar(

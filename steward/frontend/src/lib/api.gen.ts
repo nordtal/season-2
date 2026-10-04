@@ -818,6 +818,7 @@ export type MessageArg = {
   global: boolean
   example?: string
   action: boolean
+  exampleWords: Record<string, string>
 }
 
 export type LineState = "UNCHANGED" | "PLANNED" | "STOPPED" | "INSTALLED" | "SAVED" | "STARTING" | "HEALTHY" | "FAILED"

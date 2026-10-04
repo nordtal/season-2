@@ -124,8 +124,9 @@ pin and no rollback: a bad release is corrected by publishing a better one.
   as it is written (B), the source coloured from the marks of the one parser in `lib/message-tree.ts`; A builds on
   that parser too (`lib/rich-text.ts`) and is offered only while the text reads. The tools above the field offer
   exactly what the key's format allows: its values with their examples (the server's live ones per context type
-  from `GET /api/message-examples`, else the schema's), glyphs, tones and colours, a value's style, hover, click
-  and the key's actions. Whether a text is right is only ever `MessageCheck`: the editor asks
+  from `GET /api/message-examples`, else the schema's; a value that is itself a message reads as the words its
+  example key has in the language being edited, else in English, which the agent reads from the same jar as
+  `exampleWords`), glyphs, tones and colours, a value's style, hover, click and the key's actions. Whether a text is right is only ever `MessageCheck`: the editor asks
   `GET /api/message-check` once typing pauses and shows what it says, and the save refuses what it errs on. The bundle
   names the network's languages (`languages`), which the editor offers before any jar ships one, and each tone's
   colour as the settings of the bundle's service give it (`colours`), which the preview draws with; both are read
@@ -133,7 +134,8 @@ pin and no rollback: a bad release is corrected by publishing a better one.
   with what it was written over and what the jar has now; taking it over saves it as it stands. The send button
   asks for a preview of the text as it stands (`POST /api/message-preview`, answered like a game action): a key
   shown in Discord comes as a direct message from the bot, any other to the admin's linked player on the server
-  the roster has them on, each filled with the examples the editor shows and painted in the service's colours. The bundle names which keys a preview
+  the roster has them on, each filled with the examples the editor shows, a nested message as its key, which the
+  server renders itself, and painted in the service's colours. The bundle names which keys a preview
   reaches (`previews`); one shown in Steward or as a push has none.
 - **Alerts.** Every alert is a row in `admin_alert`, raised by whoever saw it: steward measures the
   stack every 30 seconds against the `web` group's thresholds and raises a failed run and a payment

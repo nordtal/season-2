@@ -363,7 +363,7 @@ function twoKeys() {
             texts: { en: ["<gray>Hello <white>{player}</white></gray>"] },
             key: "a",
             name: "First",
-            args: [{ name: "player", kind: "text", global: false, action: false }],
+            args: [{ name: "player", kind: "text", global: false, action: false, exampleWords: {} }],
           }),
           entry({ texts: { en: ["two"] }, key: "b", name: "Second" }),
         ],
@@ -485,7 +485,7 @@ function withGreeting() {
             texts: { en: ["Hello {player}"] },
             key: "greeting",
             name: "Greeting",
-            args: [{ name: "player", kind: "text", global: false, action: false }],
+            args: [{ name: "player", kind: "text", global: false, action: false, exampleWords: {} }],
           }),
         ],
       },
@@ -506,7 +506,7 @@ describe("placeholders", () => {
                 texts: { en: ["Hello {player}"] },
                 key: "greeting",
                 name: "Greeting",
-                args: [{ name: "player", kind: "text", global: false, action: false }],
+                args: [{ name: "player", kind: "text", global: false, action: false, exampleWords: {} }],
               }),
             ],
           },
@@ -621,7 +621,9 @@ describe("a preview", () => {
                 texts: { en: ["Welcome {player}"] },
                 key: "welcome",
                 name: "Welcome",
-                args: [{ name: "player", kind: "name", global: false, example: "Alex", action: false }],
+                args: [
+                  { name: "player", kind: "name", global: false, example: "Alex", action: false, exampleWords: {} },
+                ],
               }),
               entry({ texts: { en: ["Page"] }, key: "page", name: "Page" }),
             ],
@@ -651,6 +653,66 @@ describe("a preview", () => {
     await screen.findByText("Shown to your player in game.")
     expect(bodies).toEqual([
       { bundle: "smp/smp", key: "welcome", language: "en", text: "Moin {player}", values: { player: "Alex" } },
+    ])
+  })
+
+  it("shows a nested message as its words, and sends the server its key", async () => {
+    const bodies: unknown[] = []
+    vi.stubGlobal(
+      "fetch",
+      backend(
+        {
+          "smp/smp": {
+            ...location({ path: "smp/smp" }),
+            previews: { "restart.notice": "GAME" },
+            entries: [
+              entry({
+                texts: { en: ["{what} restarts"] },
+                key: "restart.notice",
+                name: "Restart notice",
+                args: [
+                  {
+                    name: "what",
+                    kind: "message",
+                    global: false,
+                    example: "restart.what.network",
+                    action: false,
+                    exampleWords: { en: "The network" },
+                  },
+                ],
+              }),
+            ],
+          },
+        },
+        {},
+        {
+          preview: (body) => {
+            bodies.push(body)
+            return "smp:3"
+          },
+          commands: {
+            "smp:3": { id: "smp:3", status: "DONE", result: words("Shown to your player in game.") },
+          },
+        },
+      ),
+    )
+    draw(<Settings service="smp" />)
+    await open("SMP Translations")
+    await openKey("Restart notice")
+
+    expect(await screen.findByText("The network")).toBeTruthy()
+    expect(screen.queryByText("restart.what.network")).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Show it to my player in game" }))
+
+    await screen.findByText("Shown to your player in game.")
+    expect(bodies).toEqual([
+      {
+        bundle: "smp/smp",
+        key: "restart.notice",
+        language: "en",
+        text: "{what} restarts",
+        values: { what: "restart.what.network" },
+      },
     ])
   })
 })

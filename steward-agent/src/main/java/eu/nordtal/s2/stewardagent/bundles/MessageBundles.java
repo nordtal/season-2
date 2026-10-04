@@ -7,6 +7,7 @@ import eu.nordtal.s2.internalapi.agent.MessageEntry;
 import eu.nordtal.s2.messages.PackagedTexts;
 import eu.nordtal.s2.messages.spec.MessageSchema;
 import eu.nordtal.s2.messages.text.Declaration;
+import eu.nordtal.s2.messages.value.Kind;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -149,7 +150,7 @@ public final class MessageBundles {
                     texts.put(language, variants);
                 }
             });
-            entries.add(entryOf(key, bundle, texts, described.get(key)));
+            entries.add(entryOf(key, bundle, texts, described.get(key), packaged));
         }
         return new MessageBundle(location.service(), location.module(), entries);
     }
@@ -158,7 +159,8 @@ public final class MessageBundles {
             final String key,
             final String bundle,
             final Map<String, List<String>> texts,
-            final @Nullable SchemaEntry schema) {
+            final @Nullable SchemaEntry schema,
+            final Packaged packaged) {
         return new MessageEntry(
                 key,
                 bundle,
@@ -167,10 +169,36 @@ public final class MessageBundles {
                 !texts.isEmpty(),
                 schema == null ? null : schema.name(),
                 schema == null ? null : schema.description(),
-                schema == null ? List.of() : schema.args(),
+                schema == null
+                        ? List.of()
+                        : schema.args().stream()
+                                .map(arg -> withWords(arg, packaged))
+                                .toList(),
                 schema == null ? List.of() : schema.section(),
                 schema == null ? null : schema.format(),
                 schema == null ? null : schema.shown());
+    }
+
+    /**
+     * The example's own words for a value that is a message, from the jar that ships both, in every language.
+     *
+     * The editor previews a nested message as a player reads it; the server, which renders the key, is sent the key.
+     */
+    private static MessageArg withWords(final MessageArg arg, final Packaged packaged) {
+        final String example = arg.example();
+        if (example == null || !Kind.MESSAGE.token().equals(arg.kind())) {
+            return arg;
+        }
+        final Map<String, String> words = new TreeMap<>();
+        packaged.texts()
+                .values()
+                .forEach(languages -> languages.forEach((language, byKey) -> {
+                    final List<String> variants = byKey.get(example);
+                    if (variants != null && !variants.isEmpty()) {
+                        words.putIfAbsent(language, variants.getFirst());
+                    }
+                }));
+        return arg.withExampleWords(words);
     }
 
     /**

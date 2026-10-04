@@ -4,6 +4,7 @@ import type { ReactNode } from "react"
 import { ApiError } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { t } from "@/lib/texts"
 export { Skeleton, SkeletonText } from "@/components/ui/skeleton"
 
 /**
@@ -53,27 +54,15 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
         <div className="flex min-w-0 flex-col gap-1">
           <p className="text-sm font-medium">
             {docker
-              ? "Docker is not answering."
+              ? t("steward.failure.docker-silent")
               : agent
-                ? "steward-agent is not answering."
-                : "This information could not be loaded."}
+                ? t("steward.failure.agent-silent")
+                : t("steward.failure.not-loaded")}
           </p>
           <p className="text-sm text-muted-foreground">
             {api ? api.message : String(error)}
-            {api?.status ? ` (HTTP ${api.status})` : null}
+            {api?.status ? ` ${t("steward.failure.http", { status: api.status })}` : null}
           </p>
-          {docker ? (
-            <p className="max-w-prose text-sm text-muted-foreground">
-              Everything about a container - status, log, console - comes from the Docker daemon. The interface itself
-              is running; this list is not empty because of that.
-            </p>
-          ) : null}
-          {agent ? (
-            <p className="max-w-prose text-sm text-muted-foreground">
-              Only this service may create containers. While it stays silent nothing can be recreated - the stack keeps
-              running regardless.
-            </p>
-          ) : null}
           {api?.detail ? (
             /** `whitespace-pre-wrap`, since a server's detail is one long line that a phone would cut off. */
             <pre className="mt-1 max-h-32 overflow-auto rounded-sm bg-muted px-2 py-1 text-xs break-words whitespace-pre-wrap text-muted-foreground">
@@ -85,7 +74,7 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
       {onRetry ? (
         <div>
           <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-            Try again
+            {t("steward.failure.try-again")}
           </Button>
         </div>
       ) : null}
@@ -144,12 +133,7 @@ export function QueryState<T>(
   const { query, empty, isEmpty } = props
 
   if (query.isPending && query.fetchStatus === "idle") {
-    return (
-      <Empty
-        title="Nothing was requested here."
-        note="This query is switched off, so no answer is on its way. That is a fault in the page rather than in the service - the skeletons below it would otherwise never end."
-      />
-    )
+    return <Empty title={t("steward.failure.not-requested")} />
   }
   if (query.error && !transient(query)) return <Failure error={query.error} onRetry={query.refetch} />
   if (query.isPending || query.data === undefined) {

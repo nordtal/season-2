@@ -11,20 +11,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { SkeletonText } from "@/components/ui/skeleton"
 
 import { INGRESS, imageTag, type NodeId } from "./topology"
+import { choice, t } from "@/lib/texts"
 
 /**
  * One card of the network picture, the same size in every arrangement, sized by `--node-w` and `--node-h`.
  *
  * Three lines: identifier and health dot, drift mark with tag and player count, then the toolbar.
  */
-
-/** The words for the drift states; `UP_TO_DATE` draws none. */
-const DRIFT_WORDS: Record<string, string> = {
-  OUTDATED: "out of date",
-  LOCAL: "built on this host, ahead of the registry",
-  UP_TO_DATE: "the same image the registry has",
-  UNKNOWN: "never compared against the registry",
-}
 
 /**
  * Image drift as a mark: silent when up to date, warning when OUTDATED, neutral for LOCAL and UNKNOWN.
@@ -34,14 +27,30 @@ const DRIFT_WORDS: Record<string, string> = {
 export function DriftMark({ drift }: { drift: string }) {
   switch (drift) {
     case "OUTDATED":
-      return <ArrowUpIcon className="size-3 shrink-0 text-warning" role="img" aria-label="out of date" />
+      return (
+        <ArrowUpIcon
+          className="size-3 shrink-0 text-warning"
+          role="img"
+          aria-label={t("steward.image.drift", { drift: "outdated" })}
+        />
+      )
     case "LOCAL":
-      return <WrenchIcon className="size-3 shrink-0 text-muted-foreground" role="img" aria-label="built on this host" />
+      return (
+        <WrenchIcon
+          className="size-3 shrink-0 text-muted-foreground"
+          role="img"
+          aria-label={t("steward.image.drift", { drift: "local" })}
+        />
+      )
     case "UP_TO_DATE":
       return null
     default:
       return (
-        <QuestionIcon className="size-3 shrink-0 text-muted-foreground" role="img" aria-label="image not compared" />
+        <QuestionIcon
+          className="size-3 shrink-0 text-muted-foreground"
+          role="img"
+          aria-label={t("steward.image.drift", { drift: "unknown" })}
+        />
       )
   }
 }
@@ -49,14 +58,24 @@ export function DriftMark({ drift }: { drift: string }) {
 /** Resources and runtime, on the dot; exported for `network.test.tsx`, which cannot hover. */
 export function Vitals({ service }: { service: Service }) {
   return (
-    /** A stopped node says "not running" instead of a row of dashes. */
+    /** A stopped node says it is not running instead of a row of dashes. */
     <span className="flex flex-col gap-0.5">
-      <span>{service.startedAt ? `up ${since(service.startedAt)}` : "not running"}</span>
-      {service.cpuPercent == null ? null : <span>cpu {percent(service.cpuPercent)}</span>}
+      <span>
+        {service.startedAt
+          ? t("steward.network.up", { since: since(service.startedAt) })
+          : t("steward.network.not-running")}
+      </span>
+      {service.cpuPercent == null ? null : (
+        <span>{t("steward.network.cpu", { percent: percent(service.cpuPercent) })}</span>
+      )}
       {service.memoryBytes == null ? null : (
         <span>
-          memory {bytes(service.memoryBytes)}
-          {service.memoryLimitBytes ? ` of ${bytes(service.memoryLimitBytes)}` : ""}
+          {service.memoryLimitBytes
+            ? t("steward.network.memory-of", {
+                used: bytes(service.memoryBytes),
+                limit: bytes(service.memoryLimitBytes),
+              })
+            : t("steward.network.memory", { used: bytes(service.memoryBytes) })}
         </span>
       )}
     </span>
@@ -76,13 +95,13 @@ export function NodeToolbar({ id }: { id: Exclude<NodeId, typeof INGRESS> }) {
           <Link
             to="/services/$name"
             params={{ name: id }}
-            aria-label={`open ${id}`}
+            aria-label={t("steward.network.open", { service: id })}
             className={cn(buttonVariants({ variant: "ghost", size: "icon-xs" }))}
           >
             <ArrowSquareOutIcon aria-hidden />
           </Link>
         </TooltipTrigger>
-        <TooltipContent>open {id}</TooltipContent>
+        <TooltipContent>{t("steward.network.open", { service: id })}</TooltipContent>
       </Tooltip>
 
       <RecreateButton service={id} variant="ghost" compact />
@@ -131,7 +150,7 @@ export function ServiceNode({
               </Link>
             </TooltipTrigger>
             {/* Docker's own status sentence, or the state word until it answers. */}
-            <TooltipContent>{service?.status ?? service?.state ?? "not read yet"}</TooltipContent>
+            <TooltipContent>{service?.status ?? service?.state ?? t("steward.service.not-read")}</TooltipContent>
           </Tooltip>
         )}
 
@@ -139,7 +158,7 @@ export function ServiceNode({
         {ingress && players !== undefined ? (
           <span
             /** The icon carries the word on screen; this carries it to a screen reader and a test. */
-            title="players"
+            title={t("steward.network.players")}
             className="flex shrink-0 items-center gap-1 text-[0.6875rem] text-muted-foreground"
           >
             <UsersIcon className="size-3" aria-hidden />
@@ -181,7 +200,7 @@ export function ServiceNode({
               {players === undefined ? null : (
                 <span
                   /** The same word for a screen reader and a test, as on `players` above. */
-                  title="players"
+                  title={t("steward.network.players")}
                   className="flex shrink-0 items-center gap-1"
                 >
                   <UsersIcon className="size-3" aria-hidden />
@@ -192,8 +211,8 @@ export function ServiceNode({
           </TooltipTrigger>
           <TooltipContent className="max-w-xs">
             <span className="flex flex-col gap-0.5">
-              <span className="tnum">{service?.image ?? "no image reported"}</span>
-              <span>{DRIFT_WORDS[service?.drift ?? "UNKNOWN"] ?? DRIFT_WORDS.UNKNOWN}</span>
+              <span className="tnum">{service?.image ?? t("steward.network.no-image")}</span>
+              <span>{t("steward.image.drift", { drift: choice(service?.drift ?? "UNKNOWN") })}</span>
             </span>
           </TooltipContent>
         </Tooltip>

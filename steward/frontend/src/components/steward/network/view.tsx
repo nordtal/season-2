@@ -6,6 +6,7 @@ import { PLAN } from "./plan"
 import { NetworkTable } from "./table"
 import { layoutFaults, topologyOf } from "./topology"
 import { QueryState } from "@/components/steward/query-state"
+import { t } from "@/lib/texts"
 
 /** Every box `PLAN` places, at any width, since the lanes move and the names do not. */
 const PLANNED = allSpots(place(PLAN, PLAN.minWidth)).map((spot) => spot.id)
@@ -22,15 +23,15 @@ export function NetworkPanel() {
 
   return (
     <section className="flex min-w-0 flex-col gap-3">
-      <h2 className="text-lg font-semibold text-foreground">Network</h2>
+      <h2 className="text-lg font-semibold text-foreground">{t("steward.network.title")}</h2>
       {/* The sidebar reads the same query at start, so the bars show on a cold load only. */}
       <QueryState
         query={query}
         rows={10}
         isEmpty={(answer) => answer.services.length === 0}
         empty={{
-          title: "No service on the map",
-          note: "No container carries a section label.",
+          title: t("steward.network.no-service"),
+          note: t("steward.network.no-service-note"),
         }}
       >
         {(map) => {

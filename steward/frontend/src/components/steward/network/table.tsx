@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useNetwork } from "./data"
 import { DriftMark, NodeToolbar } from "./node"
 import { imageTag, type Section } from "./topology"
+import { t } from "@/lib/texts"
 
 /**
  * The network on a phone: one row per service carrying the card's facts, grouped by the topology's sections.
@@ -43,7 +44,10 @@ export function NetworkTable({ sections }: { sections: readonly Section[] }) {
                     {/* A held service shows `service_hold`, since Docker's exit sentence reads like a crash. */}
                     <TooltipContent>
                       {held(service)
-                        ? `Held down since ${dateTime(service.hold!.since)}.`
+                        ? t("steward.service.held-since", {
+                            since: dateTime(service.hold!.since),
+                            state: service.state,
+                          })
                         : (service.status ?? service.state)}
                     </TooltipContent>
                   </Tooltip>
@@ -62,7 +66,7 @@ export function NetworkTable({ sections }: { sections: readonly Section[] }) {
                 {players === undefined ? null : (
                   <span
                     /** The icon carries the word on screen; this carries it to a screen reader and a test. */
-                    title="players"
+                    title={t("steward.network.players")}
                     className="flex shrink-0 items-center gap-1 text-[0.6875rem] text-muted-foreground"
                   >
                     <UsersIcon className="size-3" aria-hidden />

@@ -9,7 +9,8 @@ import {
   type AnnouncementTargets,
 } from "@/lib/announcement-targets"
 import { relative } from "@/lib/format"
-import { message } from "@/lib/texts"
+import { message, t } from "@/lib/texts"
+import { runStatus } from "@/components/steward/status"
 import { languageName } from "@/lib/language-names"
 import { useAnnouncements, useCommandRun, useConfig, useGuildChannels, useSendAnnouncement } from "@/lib/queries"
 import { AskThenAct } from "@/components/steward/ask-then-act"
@@ -34,7 +35,7 @@ const MAX_LENGTH = 2000
 export function AnnouncementsPage() {
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Announcements" />
+      <PageHeader title={t("steward.shell.page", { page: "announcements" })} />
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:items-start">
         <Compose />
         <Recent />
@@ -62,7 +63,7 @@ function Compose() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <MegaphoneIcon className="size-4 text-muted-foreground" aria-hidden />
-          New announcement
+          {t("steward.announcements.compose")}
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -101,7 +102,7 @@ function Compose() {
         ) : null}
         <div className="flex justify-end">
           <Button type="button" disabled={!complete} onClick={() => setAsking(true)}>
-            Send
+            {t("steward.announcements.send")}
           </Button>
         </div>
       </CardContent>
@@ -109,14 +110,10 @@ function Compose() {
       <AskThenAct
         open={asking}
         onOpenChange={setAsking}
-        title="Send this announcement?"
-        description={
-          tags.length === 1
-            ? "It is posted in Discord at once."
-            : `One post per language, ${tags.length} in all, in Discord at once.`
-        }
-        action="Send"
-        acting="Sending…"
+        title={t("steward.announcements.ask")}
+        description={t("steward.announcements.where", { languages: tags.length })}
+        action={t("steward.announcements.send")}
+        acting={t("steward.announcements.sending")}
         act={() =>
           send.mutateAsync(Object.fromEntries(tags.map((tag) => [tag, text(tag).trim()]))).then((answer) => {
             setSent(answer.ids)
@@ -140,13 +137,13 @@ function Destination({
 }) {
   if (!targets) return null
   if (targets.overridden) {
-    return <span className="text-xs text-muted-foreground">channel set by the host</span>
+    return <span className="text-xs text-muted-foreground">{t("steward.announcements.host-channel")}</span>
   }
   const channel = targets.languages.find((language) => language.tag === tag)?.channel ?? ""
   if (channel === "") {
     return (
       <Badge variant="outline" className="text-destructive">
-        no channel
+        {t("steward.announcements.no-channel")}
       </Badge>
     )
   }
@@ -175,13 +172,13 @@ function Recent() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Recent</CardTitle>
+        <CardTitle>{t("steward.announcements.recent")}</CardTitle>
       </CardHeader>
       <CardContent>
         <QueryState
           query={announcements}
           isEmpty={(data) => data.recent.length === 0}
-          empty={{ title: "Nothing announced yet." }}
+          empty={{ title: t("steward.announcements.none") }}
         >
           {(data) =>
             data ? (
@@ -210,7 +207,7 @@ function RecentLine({ line }: { line: Announcement }) {
         <span className="tabular-nums">{relative(line.requested)}</span>
         {line.status !== "DONE" ? (
           <Badge variant="outline" className={failed ? "text-destructive" : undefined}>
-            {line.status.toLowerCase()}
+            {runStatus(line.status)}
           </Badge>
         ) : null}
       </div>

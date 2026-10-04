@@ -19,7 +19,7 @@ import {
 import type { Icon } from "@phosphor-icons/react"
 import type { Action } from "@/lib/api"
 import { dateTime, relative } from "@/lib/format"
-import { message } from "@/lib/texts"
+import { message, t } from "@/lib/texts"
 import { Actor } from "@/components/steward/entity"
 import { Skeleton, SkeletonText } from "@/components/ui/skeleton"
 
@@ -87,7 +87,7 @@ export function ActionRow({
           {!action ? <SkeletonText className="w-32 text-xs" /> : <Actor kind={action.actorKind} id={action.actorId} />}
           {action ? (
             <>
-              <span>authored</span>
+              <span>{t("steward.overview.authored")}</span>
               <span title={dateTime(action.occurred)}>{relative(action.occurred, now)}</span>
             </>
           ) : null}

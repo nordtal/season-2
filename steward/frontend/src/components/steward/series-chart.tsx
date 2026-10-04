@@ -5,6 +5,7 @@ import type { MetricPoint } from "@/lib/api"
 import { LOCALE } from "@/lib/format"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import type { ChartConfig } from "@/components/ui/chart"
+import { t } from "@/lib/texts"
 
 /**
  * One curve of `metric_sample` through `/api/metrics`, since Docker's `/stats` keeps no history.
@@ -37,7 +38,7 @@ export function SeriesChart({
         style={{ height }}
         className="flex items-center justify-center rounded-md border border-dashed border-border text-xs text-muted-foreground"
       >
-        No data points yet - steward writes one every 30 seconds.
+        {t("steward.failure.no-points")}
       </div>
     )
   }

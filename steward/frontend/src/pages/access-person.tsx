@@ -441,7 +441,7 @@ export function RevokeAdminDialog({
             )
           },
           onError: (error) => {
-            toast.error("Nothing was revoked", { description: String(error) })
+            toast.error(t("steward.people.not-revoked"), { description: String(error) })
           },
         })
       }}
@@ -497,7 +497,7 @@ export function RevokeDialog({
             })
           },
           onError: (error) => {
-            toast.error("Nothing was revoked", { description: String(error) })
+            toast.error(t("steward.people.not-revoked"), { description: String(error) })
           },
         })
       }}

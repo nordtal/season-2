@@ -166,9 +166,7 @@ pages.
 
 `StewardSettings` loads and checks them before the web starts, so a wrong address or port stops the
 start rather than the first sign-in. A change to `steward` re-arms both clocks without a restart,
-and one to `alerts` applies at the next reading. The first start finds the last installation's
-`steward.yml` and `web.yml` in `steward-config`, imports what differs from the defaults and deletes
-them.
+and one to `alerts` applies at the next reading.
 
 Where a run's versions come from is `steward-agent`'s `runs` group.
 

@@ -22,12 +22,9 @@ VOLUME ["/app/config"]
 
 # `steward` is a command too, for `docker exec nordtal-s2-steward-1 steward forget-factors <discord-id>`.
 FROM jvm AS steward
-RUN mkdir -p config \
-    && printf '#!/bin/sh\nexec /app/entrypoint.sh "$@"\n' > /usr/local/bin/steward \
+RUN printf '#!/bin/sh\nexec /app/entrypoint.sh "$@"\n' > /usr/local/bin/steward \
     && chmod 0755 /usr/local/bin/steward
-ENV NORDTAL_STEWARD_CONFIG_DIR=/app/config
 EXPOSE 8080
-VOLUME ["/app/config"]
 
 # The docker CLI and compose plugin are static binaries. Mounted, not baked: the Docker socket, the
 # whole privilege of this container, and /app/env, the deployment's secrets, read only by compose.

@@ -428,9 +428,6 @@ services:
     ports:
       # Loopback only; production traffic comes through Caddy.
       - "${STEWARD_BIND:-127.0.0.1}:${STEWARD_PORT:-8080}:8080"
-    volumes:
-      # The last installation's steward.yml and web.yml: the first start imports them into the database and deletes them.
-      - ${STEWARD_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-config}:/app/config
     logging: *logging
 
   # migrate: the one process that applies the schema, from steward-agent's image. It creates every
@@ -692,8 +689,6 @@ volumes:
   steward-backups:
   postgres-data:
   bot-config:
-  # Not backed up: emptied by steward's first start, which moves its settings into the database.
-  steward-config:
   # Not backed up; losing it means a new certificate and Let's Encrypt's rate limit.
   caddy-data:
   caddy-config:

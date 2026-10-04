@@ -33,7 +33,6 @@ import eu.nordtal.s2.steward.config.WebSpec;
 import eu.nordtal.s2.steward.data.Data;
 import eu.nordtal.s2.steward.metric.MetricRecorder;
 import eu.nordtal.s2.steward.web.Web;
-import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.ZoneId;
@@ -57,9 +56,6 @@ public final class Steward {
     /** The logger the settings name what they refused or ignored in. */
     private static final org.slf4j.Logger SETTINGS_LOG = LoggerFactory.getLogger(StewardSettings.class);
 
-    /** Where the last installation's settings files are mounted, imported once and then deleted. */
-    private static final String DEFAULT_CONFIG_DIR = "config";
-
     /** The payment loop, the scheduled clocks and the web interface, for the container's lifetime. */
     private static final String SERVE = "serve";
 
@@ -69,13 +65,10 @@ public final class Steward {
     private Steward() {}
 
     public static void main(final String[] args) {
-        final Path configDirectory =
-                Path.of(System.getenv().getOrDefault("NORDTAL_STEWARD_CONFIG_DIR", DEFAULT_CONFIG_DIR));
-
         final int status = switch (command(args)) {
             case FORGET -> ForgetFactors.run(args, databaseConfig(), CLOCK);
             case Web.GENERATE_VAPID_KEYS -> generateVapidKeys();
-            case SERVE, "" -> serve(configDirectory);
+            case SERVE, "" -> serve();
             // Refused rather than served: a second interface beside the running one is never what a typo meant.
             default -> {
                 log.error(
@@ -90,7 +83,7 @@ public final class Steward {
         System.exit(status);
     }
 
-    private static int serve(final Path configDirectory) {
+    private static int serve() {
         final DatabaseSpec databaseConfig = databaseConfig();
         if (databaseConfig == null) {
             return 1;
@@ -100,7 +93,7 @@ public final class Steward {
             return 1;
         }
         try (Database database = opened) {
-            final Configs configs = configsOf(configDirectory, databaseConfig, database);
+            final Configs configs = configsOf(databaseConfig, database);
             if (configs == null) {
                 return 1;
             }
@@ -129,11 +122,9 @@ public final class Steward {
             Languages languages,
             Tiers tiers) {}
 
-    /** Takes both groups out of the database, importing the last installation's files once, or {@code null}. */
-    private static @Nullable Configs configsOf(
-            final Path configDirectory, final DatabaseSpec databaseConfig, final Database database) {
-        final DatabaseSettings settings =
-                StewardSettings.importing(database.dataSource(), configDirectory, SETTINGS_LOG);
+    /** Takes both groups out of the database, or {@code null}. */
+    private static @Nullable Configs configsOf(final DatabaseSpec databaseConfig, final Database database) {
+        final DatabaseSettings settings = StewardSettings.stored(database.dataSource(), SETTINGS_LOG);
         try {
             final Setting<StewardSpec> handle = StewardSettings.steward(settings);
             final WebSpec web = StewardSettings.web(settings).get();
@@ -145,7 +136,6 @@ public final class Steward {
                     NetworkSettings.tiers(settings.load(NetworkSettings.PRICES).get());
             final LanguageAndTimeSpec languageAndTime =
                     settings.load(NetworkSettings.LANGUAGE_AND_TIME).get();
-            settings.retireFiles();
             return new Configs(
                     handle,
                     handle.get(),

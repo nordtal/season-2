@@ -13,8 +13,6 @@ import eu.nordtal.s2.settings.Settings;
 import eu.nordtal.s2.settings.SettingsException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.file.Path;
-import java.util.Set;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -75,11 +73,6 @@ public final class StewardSettings {
     /** Returns steward's settings in the database behind {@code dataSource}. */
     public static DatabaseSettings stored(final DataSource dataSource, final Logger logger) {
         return DatabaseSettings.over(SettingStore.using(dataSource), SERVICE, ENVIRONMENT, logger);
-    }
-
-    /** Returns steward's settings, importing the files the last installation left in {@code directory} once. */
-    public static DatabaseSettings importing(final DataSource dataSource, final Path directory, final Logger logger) {
-        return stored(dataSource, logger).importingFrom(directory, Set.of());
     }
 
     private static void checkSteward(final StewardSpec config) {

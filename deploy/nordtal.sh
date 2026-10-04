@@ -109,7 +109,6 @@ DATA_DIRS=(
     "postgres-data"
     "steward-backups"
     "bot-config"
-    "steward-config"
     "caddy-data"
     "caddy-config"
     "bunq-context"

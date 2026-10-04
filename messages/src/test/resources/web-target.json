@@ -57,6 +57,18 @@
     "plain": "took 1d 1h"
   },
   {
+    "text": "took {d, duration, minutes}",
+    "nodes": ["took ", { "v": "d", "k": "duration", "s": "minutes" }],
+    "args": { "d": { "kind": "duration", "value": 109812 } },
+    "plain": "took 1d 6h 30m"
+  },
+  {
+    "text": "took {d, duration, minutes}",
+    "nodes": ["took ", { "v": "d", "k": "duration", "s": "minutes" }],
+    "args": { "d": { "kind": "duration", "value": 59 } },
+    "plain": "took 0m"
+  },
+  {
     "text": "took {d, duration, clock}",
     "nodes": ["took ", { "v": "d", "k": "duration", "s": "clock" }],
     "args": { "d": { "kind": "duration", "value": 3725 } },

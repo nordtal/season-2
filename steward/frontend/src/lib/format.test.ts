@@ -5,14 +5,11 @@ import {
   clock,
   count,
   dateTime,
-  duration,
   euros,
   load,
   parseInstant,
   percent,
-  playtime,
   relative,
-  since,
   splitPlaytime,
 } from "@/lib/format"
 
@@ -224,81 +221,9 @@ describe("relative", () => {
   })
 })
 
-describe("duration", () => {
-  it("prints seconds below a minute and drops the fraction instead of rounding it up", () => {
-    expect(duration(0)).toBe("0 s")
-    expect(duration(59.9)).toBe("59 s")
-  })
-
-  it("switches unit exactly at sixty seconds and again at sixty minutes", () => {
-    expect(duration(60)).toBe("1 min")
-    expect(duration(3_599)).toBe("59 min")
-    expect(duration(3_600)).toBe("1 h")
-  })
-
-  it("leaves out the smaller unit when it is zero", () => {
-    expect(duration(3_600)).toBe("1 h")
-    expect(duration(86_400)).toBe("1 d")
-  })
-
-  it("says at most two units, because nobody reads the fourth one", () => {
-    expect(duration(3 * 86_400 + 4 * 3_600 + 11 * 60 + 6)).toBe("3 d 4 h")
-    expect(duration(2 * 3_600 + 3 * 60 + 9)).toBe("2 h 3 min")
-  })
-
-  it("shows a dash for a negative span, which is not a span", () => {
-    expect(duration(-1)).toBe(NOTHING)
-  })
-
-  it("shows a dash for anything that is not a number", () => {
-    for (const value of NOT_A_NUMBER) expect(duration(value)).toBe(NOTHING)
-  })
-})
-
-describe("since", () => {
-  const NOW = Date.UTC(2026, 8, 12, 12, 0, 0)
-
-  it("says how long ago an instant was as a span rather than as a sentence", () => {
-    expect(since(new Date(NOW - (3 * 3_600_000 + 5 * 60_000)), NOW)).toBe("3 h 5 min")
-    expect(since(new Date(NOW - 30_000), NOW)).toBe("30 s")
-  })
-
-  it("shows a dash for an instant in the future", () => {
-    /** Pinned, not endorsed: two clocks disagree, so a timestamp slightly ahead reads as nothing. */
-    expect(since(new Date(NOW + 2_000), NOW)).toBe(NOTHING)
-  })
-
-  it("shows a dash for nothing and for SQL NULL", () => {
-    expect(since(null, NOW)).toBe(NOTHING)
-    expect(since("null", NOW)).toBe(NOTHING)
-  })
-})
-
-/** Play time is entered in days, hours and minutes, so it is shown in all three. */
-describe("playtime", () => {
-  it("spells out all three units, leaving out the empty ones", () => {
-    expect(playtime(86_400 + 6 * 3_600 + 30 * 60)).toBe("1 d 6 h 30 min")
-    expect(playtime(2 * 86_400)).toBe("2 d")
-    expect(playtime(6 * 3_600 + 30 * 60)).toBe("6 h 30 min")
-    expect(playtime(30 * 60)).toBe("30 min")
-  })
-
-  it("keeps the minutes `duration` would have dropped", () => {
-    /** Unlike `duration`, which stops at two units, this one keeps the minutes. */
-    expect(duration(86_400 + 6 * 3_600 + 30 * 60)).toBe("1 d 6 h")
-    expect(playtime(86_400 + 6 * 3_600 + 30 * 60)).toBe("1 d 6 h 30 min")
-  })
-
-  it("answers zero with a zero and nothing at all with a dash", () => {
-    /** Almost no time and never online are different answers: "0 min" and the dash. */
-    expect(playtime(0)).toBe("0 min")
-    expect(playtime(59)).toBe("0 min")
-    expect(playtime(-1)).toBe(NOTHING)
-    for (const value of NOT_A_NUMBER) expect(playtime(value)).toBe(NOTHING)
-  })
-
+/** The dialog's three fields; showing the value is the duration kind's, in `texts`. */
+describe("splitPlaytime", () => {
   it("drops seconds rather than rounding, so a value read back is the value written", () => {
-    expect(playtime(3_659)).toBe("1 h")
     expect(splitPlaytime(3_659)).toEqual({ days: 0, hours: 1, minutes: 0 })
   })
 

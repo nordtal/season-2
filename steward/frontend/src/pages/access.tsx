@@ -14,8 +14,7 @@ import { useState } from "react"
 
 import { adminsBelow } from "@/lib/admin-tree"
 import type { Person } from "@/lib/api"
-import { playtime } from "@/lib/format"
-import { t } from "@/lib/texts"
+import { span, t } from "@/lib/texts"
 import { useNow } from "@/lib/use-now"
 import { useMe, usePeople } from "@/lib/queries"
 import { Entity } from "@/components/steward/entity"
@@ -322,7 +321,7 @@ export function AccessPage() {
                         </TableCell>
                         <TableCell data-label={t("steward.people.playtime")}>
                           {/* `playtime` draws the dash for somebody who has never been online. */}
-                          <span className="text-sm tabular-nums">{playtime(person.playtimeSeconds ?? undefined)}</span>
+                          <span className="text-sm tabular-nums">{span(person.playtimeSeconds, "minutes")}</span>
                         </TableCell>
                         <TableCell>
                           <RowActions

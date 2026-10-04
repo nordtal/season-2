@@ -85,7 +85,7 @@ public enum Kind {
     public Set<String> styles() {
         return switch (this) {
             case NUMBER, DISPLAY_NAME -> Set.of("plain");
-            case DURATION -> Set.of("long", "short", "clock");
+            case DURATION -> Set.of("long", "short", "clock", "minutes");
             case INSTANT -> Set.of("datetime", "date", "time", "relative");
             case LIST -> Set.of("and", "or");
             default -> Set.of();

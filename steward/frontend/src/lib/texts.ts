@@ -4,7 +4,7 @@
  * The parser and the validator are Java's. `messages/src/test/resources/web-target.json` holds both sides to one result.
  */
 import { api } from "@/lib/api"
-import { LOCALE, date, dateTime, money, relative, time } from "@/lib/format"
+import { LOCALE, date, dateTime, money, parseInstant, relative, time } from "@/lib/format"
 import packaged from "@/lib/texts.gen.json"
 import type { TextArgs } from "@/lib/texts.gen"
 
@@ -141,6 +141,22 @@ export function runs(key: string, args: Record<string, unknown>): Run[] {
 /** An enum constant as a `select` names it, as Java's `Kind.choiceOf` does: `REMOVE_PLUGIN` is `remove-plugin`. */
 export function choice(constant: string): string {
   return constant.toLowerCase().replaceAll("_", "-")
+}
+
+/**
+ * A span outside a message, through the duration kind: `short` for an uptime or a run, `minutes` for play time.
+ *
+ * What is not a span is the en dash every cell shows for nothing.
+ */
+export function span(seconds: number | null | undefined, style: "short" | "minutes" = "short"): string {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return "\u2013"
+  return durationOf(seconds, style)
+}
+
+/** How long ago an instant was, as a span rather than as "… ago". */
+export function since(value: string | Date | null | undefined, now = Date.now()): string {
+  const parsed = value instanceof Date ? value : parseInstant(value)
+  return parsed == null ? "\u2013" : span((now - parsed.getTime()) / 1000)
 }
 
 function plain(pieces: Run[]): string {
@@ -318,7 +334,7 @@ function join(shownItems: string[], or: boolean): string {
   })
 }
 
-/** The two largest units that are not zero, as `ValueText` shows a duration. */
+/** The two largest units that are not zero, as `ValueText` shows a duration; or a style's. */
 function durationOf(seconds: number, style: string | undefined): string {
   const total = Math.max(0, Math.trunc(seconds))
   if (style === "clock") {
@@ -329,6 +345,17 @@ function durationOf(seconds: number, style: string | undefined): string {
   }
   const amounts = [Math.floor(total / 86_400), Math.floor(total / 3600) % 24, Math.floor(total / 60) % 60, total % 60]
   const units = ["days", "hours", "minutes", "seconds"]
+  if (style === "minutes") {
+    // Every unit down to the minute, so a span typed in days, hours and minutes reads back as it was typed.
+    const parts = units
+      .slice(0, 3)
+      .flatMap((unit, index) =>
+        amounts[index] > 0 || (index === 2 && amounts[0] + amounts[1] === 0)
+          ? [word(`duration.short.${unit}`, { n: amounts[index] })]
+          : [],
+      )
+    return parts.join(" ")
+  }
   const prefix = style === "short" ? "duration.short." : "duration."
   const parts: string[] = []
   for (let unit = 0; unit < units.length && parts.length < 2; unit++) {

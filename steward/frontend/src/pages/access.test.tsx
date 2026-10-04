@@ -191,7 +191,7 @@ describe("AccessPage - play time in the list, and overridable", () => {
     vi.stubGlobal("fetch", backend({ people: () => [person({ discordUsername: "alice", playtimeSeconds: 32400 })] }))
     draw(<AccessPage />)
 
-    const cell = await screen.findByText("9 h")
+    const cell = await screen.findByText("9h")
     expect(cell).not.toBeNull()
     expect(screen.queryByText("32400")).toBeNull()
   })
@@ -202,10 +202,10 @@ describe("AccessPage - play time in the list, and overridable", () => {
 
     const row = await screen.findByText("alice")
     expect(row).not.toBeNull()
-    expect(screen.queryByText("0 s")).toBeNull()
+    expect(screen.queryByText("0m")).toBeNull()
   })
 
-  it("shows the minutes as well, which `duration` would have dropped", async () => {
+  it("shows the minutes as well, which a two-unit span would have dropped", async () => {
     vi.stubGlobal(
       "fetch",
       backend({
@@ -214,7 +214,7 @@ describe("AccessPage - play time in the list, and overridable", () => {
     )
     draw(<AccessPage />)
 
-    expect(await screen.findByText("1 d 6 h 30 min")).not.toBeNull()
+    expect(await screen.findByText("1d 6h 30m")).not.toBeNull()
   })
 
   it("asks in days, hours and minutes rather than in decimal hours", async () => {

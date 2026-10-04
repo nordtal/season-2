@@ -4,7 +4,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 
 import type { Grant, Person } from "@/lib/api"
-import { dateTime, playtime, splitPlaytime } from "@/lib/format"
+import { dateTime, splitPlaytime } from "@/lib/format"
 import { choice, t } from "@/lib/texts"
 import {
   useGrantAccess,
@@ -237,7 +237,7 @@ export function PlaytimeDialog({
           {
             onSuccess: () => {
               toast.success(t("steward.people.playtime-set", { name: personName(person) }), {
-                description: t("steward.people.playtime-from", { time: playtime(seconds) }),
+                description: t("steward.people.playtime-from", { time: seconds }),
               })
             },
             onError: (error) => {
@@ -286,8 +286,8 @@ export function PlaytimeDialog({
         </div>
         <p className="text-xs text-muted-foreground">
           {t("steward.people.counted", {
-            counted: playtime(person.playtimeSeconds ?? undefined),
-            becoming: playtime(seconds),
+            counted: person.playtimeSeconds ?? 0,
+            becoming: seconds,
             usable,
           })}
         </p>

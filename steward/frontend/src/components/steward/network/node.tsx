@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router"
 import { cn } from "cn"
 
 import type { Service } from "@/lib/api"
-import { bytes, percent, since } from "@/lib/format"
+import { bytes, percent } from "@/lib/format"
 import { HealthDot } from "@/components/steward/status"
 import { RecreateButton } from "@/components/steward/recreate"
 import { buttonVariants } from "@/components/ui/button"
@@ -11,7 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { SkeletonText } from "@/components/ui/skeleton"
 
 import { INGRESS, imageTag, type NodeId } from "./topology"
-import { choice, t } from "@/lib/texts"
+import { choice, since, t } from "@/lib/texts"
 
 /**
  * One card of the network picture, the same size in every arrangement, sized by `--node-w` and `--node-h`.

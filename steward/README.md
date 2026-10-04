@@ -94,9 +94,10 @@ pin and no rollback: a bad release is corrected by publishing a better one.
   `texts.StewardTexts` and overridable like any other. `GET /api/texts` serves every key's variants as parsed
   trees, overrides layered, and is open before sign-in, since the sign-in page reads its words from it too; the
   page draws once they are read. `lib/texts.ts` is the web target: it fills a tree into text nodes, never markup,
-  and formats each value in `en-GB` and the browser's zone. `t(key, values)` is typed by `texts.gen.ts`, and
-  `texts.gen.json` is the packaged English the page falls back to; `generateApiTypes` writes both and
-  `TextTypesTest` fails while either differs. A label chosen by an enum is a `select` on it, the constant in kebab
+  and formats each value in `en-GB` and the browser's zone. A span outside a sentence, an uptime or a play time
+  cell, goes through the same duration kind (`span`, `since`), so a cell and a sentence read alike.
+  `t(key, values)` is typed by `texts.gen.ts`, and `texts.gen.json` is the packaged English the page falls back
+  to; `generateApiTypes` writes both and `TextTypesTest` fails while either differs. A label chosen by an enum is a `select` on it, the constant in kebab
   case (`choice`). A refusal a person meets is a `texts.RequestRefused`: the status, a message of the bundle and the
   code the page branches on, rendered with the overrides by the error handlers, so the page shows the error as it
   comes. A refused write of `:database` (`Refused`) reaches the same handlers and is worded by the database bundle

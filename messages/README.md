@@ -34,6 +34,7 @@ else of MessageFormat is. The kinds are a closed set, each rendered once per tar
 | `item`     | `GameContent`        |                                                                                                 |
 | `glyph`    | `Glyph`              |                                                                                                 |
 | `choice`   | `Boolean` or an enum | what `select` chooses on; an enum constant reads in kebab case                                  |
+| `message`  | `MessageRef`         | another message, rendered for the same reader in the same target                                |
 
 A Minecraft text is MiniMessage. A packaged text paints only with tones, `<good>`, `<bad>`, `<warn>`, `<muted>`,
 `<accent>`, `<brand>`, `<emphasis>`, `<faint>` and `<neutral>`, which each process's `colours` group maps to hex; an
@@ -57,6 +58,11 @@ of no kind is no value: the build refuses a spec parameter of no kind, and at ru
 word like a missing one. A value that is missing shows its kind's replacement word from the
 `values` bundle (`someone`, `jemand`) and logs a warning; `{x}` is never printed. `GameContent` is the game's
 own line: a translatable component the client reads in its language, English everywhere else.
+
+A `message` value is how a phrase is written once and placed in many texts: the service a countdown names, the
+reason a report gives. It is never rendered ahead into a string, since only the target knows the reader's language
+and how to draw the inner message's tones; Minecraft keeps them, Discord and the plain target show it as text. An
+editor writes its example as the key of a message without values.
 
 ## A message as data
 

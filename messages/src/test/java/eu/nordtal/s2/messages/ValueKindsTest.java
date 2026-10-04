@@ -131,6 +131,19 @@ class ValueKindsTest {
     }
 
     @Test
+    void aMessageInAMessageReadsInTheReadersLanguage() {
+        assertEquals("Next: 2 days.", en(KINDS.next(KINDS.days(2))));
+        assertEquals("Als Nächstes: 1 Tag.", de(KINDS.next(KINDS.days(1))));
+        assertEquals("Als Nächstes: etwas.", de(new MessageRef("next", Map.of())));
+    }
+
+    @Test
+    void aMessageInAMessageSurvivesTheWire() {
+        final MessageRef sent = KINDS.next(KINDS.days(3));
+        assertEquals("Next: 3 days.", en(MessageJson.decode(MessageJson.encode(sent))));
+    }
+
+    @Test
     void aMissingValueReadsAsItsKindsReplacementWord() {
         assertEquals("a while left", en(new MessageRef("left", Map.of())));
         assertEquals("noch eine Weile", de(new MessageRef("left", Map.of())));

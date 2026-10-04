@@ -141,6 +141,7 @@ public final class MessageJson {
             }
             case GLYPH -> ((Glyph) value).name();
             case CHOICE -> value instanceof Boolean ? value : Kind.choiceOf(value);
+            case MESSAGE -> encode((MessageRef) value);
         };
     }
 
@@ -184,6 +185,7 @@ public final class MessageJson {
                 }
                 case GLYPH -> new Glyph((String) value);
                 case CHOICE -> value instanceof Boolean ? value : (String) value;
+                case MESSAGE -> decode((Map<?, ?>) value);
             };
         } catch (final RuntimeException unreadable) {
             return null;

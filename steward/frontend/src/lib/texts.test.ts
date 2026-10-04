@@ -68,6 +68,12 @@ describe("the web target", () => {
     expect(money(300, "EUR")).toBe("€3.00")
   })
 
+  it("shows a message in a message for the same reader", () => {
+    replaceTexts({ ...PACKAGED, vector: [["Next: ", { v: "what" }, "."]], inner: [[{ v: "n" }, " days"]] })
+    const inner = { kind: "message", value: { key: "inner", args: { n: { kind: "number", value: 2 } } } } as const
+    expect(message({ key: "vector", args: { what: inner } })).toBe("Next: 2 days.")
+  })
+
   it("chooses on an enum constant as Java names it", () => {
     expect(choice("REMOVE_PLUGIN")).toBe("remove-plugin")
     expect(t("run.kind", { kind: choice("REMOVE_PLUGIN") })).toBe("Remove plugin")

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.messages.value;
 
+import eu.nordtal.s2.messages.MessageRef;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.Duration;
@@ -57,6 +58,7 @@ public final class ValueText {
                 value instanceof final Boolean yes
                         ? words.word(yes ? "choice.yes" : "choice.no", Map.of())
                         : Kind.choiceOf(value);
+            case MESSAGE -> words.message((MessageRef) value);
         };
     }
 

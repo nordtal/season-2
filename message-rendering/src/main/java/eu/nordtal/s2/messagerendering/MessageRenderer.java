@@ -132,12 +132,13 @@ public final class MessageRenderer {
      * @throws eu.nordtal.s2.messages.text.MessageSyntaxException when the text cannot be read
      */
     public Component format(final Viewer viewer, final MessageRef message, final String text, final Palette palette) {
-        return render(messages.prepare(viewer, message, text), message, true, palette);
+        return render(viewer, messages.prepare(viewer, message, text), message, true, palette);
     }
 
     /** Renders a message, its names with their cards unless it is a card itself, which never draws a card. */
     private Component format(final Viewer viewer, final MessageRef message, final boolean carded) {
         return render(
+                viewer,
                 messages.prepare(viewer, message),
                 message,
                 carded,
@@ -145,13 +146,22 @@ public final class MessageRenderer {
     }
 
     private Component render(
-            final Messages.Prepared prepared, final MessageRef message, final boolean carded, final Palette palette) {
+            final Viewer viewer,
+            final Messages.Prepared prepared,
+            final MessageRef message,
+            final boolean carded,
+            final Palette palette) {
         if (!prepared.markup()) {
             return Component.text(
                     PlainText.of(prepared.pieces(), prepared.language(), prepared.zone(), prepared.words()));
         }
-        final Writing writing =
-                new Writing(prepared, message.args(), names, carded ? name -> card(name, prepared) : name -> null);
+        // A message in a message is drawn for the same reader, in the same palette, with its own tones and names.
+        final Writing writing = new Writing(
+                prepared,
+                message.args(),
+                names,
+                carded ? name -> card(name, prepared) : name -> null,
+                inner -> render(viewer, messages.prepare(viewer, inner), inner, carded, palette));
         writing.write(prepared.pieces());
         return MiniMessage.miniMessage()
                 .deserialize(
@@ -199,6 +209,7 @@ public final class MessageRenderer {
         private final Map<String, ?> args;
         private final Names names;
         private final Function<DisplayName, @Nullable Component> cards;
+        private final Function<MessageRef, Component> inner;
         private final StringBuilder markup = new StringBuilder();
         private final List<Component> inserted = new ArrayList<>();
 
@@ -206,11 +217,13 @@ public final class MessageRenderer {
                 final Messages.Prepared prepared,
                 final Map<String, ?> args,
                 final Names names,
-                final Function<DisplayName, @Nullable Component> cards) {
+                final Function<DisplayName, @Nullable Component> cards,
+                final Function<MessageRef, Component> inner) {
             this.prepared = prepared;
             this.args = args;
             this.names = names;
             this.cards = cards;
+            this.inner = inner;
         }
 
         void write(final List<Piece> pieces) {
@@ -307,6 +320,7 @@ public final class MessageRenderer {
                 case DISPLAY_NAME -> name((DisplayName) value, "plain".equals(filled.style()));
                 case ITEM -> content((GameContent) value);
                 case LIST -> list((List<?>) value, "or".equals(filled.style()));
+                case MESSAGE -> inner.apply((MessageRef) value);
                 case GLYPH -> {
                     final Component glyph = glyph(((Glyph) value).name());
                     yield glyph == null ? Component.empty() : glyph;
@@ -368,6 +382,7 @@ public final class MessageRenderer {
             return switch (value) {
                 case final GameContent inner -> content(inner);
                 case final DisplayName name -> name(name, false);
+                case final MessageRef message -> inner.apply(message);
                 default -> {
                     final Kind kind = Kind.ofValue(value).orElse(Kind.TEXT);
                     yield Component.text(ValueText.of(

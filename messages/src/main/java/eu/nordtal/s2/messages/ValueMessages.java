@@ -57,6 +57,9 @@ public interface ValueMessages {
 
             @Name("Missing choice")
             MessageRef choice();
+
+            @Name("Missing message")
+            MessageRef message();
         }
 
         Duration duration();

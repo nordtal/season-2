@@ -487,7 +487,12 @@ public final class Messages {
                 values,
                 declaration == null ? Map.<String, Kind>of() : declaration.values(),
                 name -> reportMissingValue(message.key(), name));
-        return new Prepared(pieces, language, zone, format(message.key(), text), words(language, zone));
+        return new Prepared(
+                pieces,
+                language,
+                zone,
+                format(message.key(), text),
+                words(new Viewer(language, zone, viewer.player())));
     }
 
     /** A text read as MiniMessage is MiniMessage; any other is written as its key declares, plain by default. */
@@ -510,18 +515,28 @@ public final class Messages {
         return PlainText.of(prepared.pieces(), prepared.language(), prepared.zone(), prepared.words());
     }
 
-    /** The {@code values} bundle's words in one language, as plain text. */
-    private Words words(final Locale language, final ZoneId zone) {
-        return (key, values) -> {
-            final String name = VALUES + "." + key;
-            final MessageText text = text(language, name);
-            final Declaration declaration = declarations.get(name);
-            final List<Piece> pieces = Filling.fill(
-                    text,
-                    values,
-                    declaration == null ? Map.<String, Kind>of() : declaration.values(),
-                    missing -> reportMissingValue(name, missing));
-            return PlainText.of(pieces, language, zone, (inner, ignored) -> "");
+    /** The {@code values} bundle's words in one language, and a message in a message, as plain text for the reader. */
+    private Words words(final Viewer reader) {
+        final Locale language = reader.language();
+        final ZoneId zone = Objects.requireNonNull(reader.zone(), "zone");
+        return new Words() {
+            @Override
+            public String word(final String key, final Map<String, Object> values) {
+                final String name = VALUES + "." + key;
+                final MessageText text = text(language, name);
+                final Declaration declaration = declarations.get(name);
+                final List<Piece> pieces = Filling.fill(
+                        text,
+                        values,
+                        declaration == null ? Map.<String, Kind>of() : declaration.values(),
+                        missing -> reportMissingValue(name, missing));
+                return PlainText.of(pieces, language, zone, (inner, ignored) -> "");
+            }
+
+            @Override
+            public String message(final MessageRef message) {
+                return format(reader, message);
+            }
         };
     }
 

@@ -47,4 +47,7 @@ public interface KindsMessages {
 
     @Name("Found")
     MessageRef found(@Arg("item") GameContent item);
+
+    @Name("Next")
+    MessageRef next(@Arg("what") MessageRef what);
 }

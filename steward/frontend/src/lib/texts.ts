@@ -35,6 +35,8 @@ export type Typed =
   | { kind: "item"; value: { key: string; english: string; args?: Typed[] } }
   | { kind: "glyph"; value: string }
   | { kind: "choice"; value: boolean | string }
+  /** Another message, shown for the same reader. */
+  | { kind: "message"; value: MessageRef }
 
 export type Kind = Typed["kind"]
 
@@ -52,6 +54,7 @@ export type Arg = {
   item: { key: string; english: string } | Typed
   glyph: string | Typed
   choice: boolean | string | Typed
+  message: MessageRef | Typed
 }
 
 /** A message as data, its key and typed values, as a journal row or a request carries one. */
@@ -89,6 +92,7 @@ const KINDS = new Set<string>([
   "item",
   "glyph",
   "choice",
+  "message",
 ])
 
 const LINE_BREAKS = new Set(["newline", "br"])
@@ -251,6 +255,7 @@ function typedOf(raw: unknown, hint: Kind | undefined): Typed | undefined {
     if (!Number.isFinite(raw)) return undefined
     return hint === "duration" ? { kind: "duration", value: raw } : { kind: "number", value: raw }
   }
+  if (hint === "message" && isMessageRef(raw)) return { kind: "message", value: raw }
   if (typeof raw === "string") {
     if (hint === "instant") return { kind: "instant", value: raw }
     if (hint === "choice") return { kind: "choice", value: raw }
@@ -265,6 +270,10 @@ function typedOf(raw: unknown, hint: Kind | undefined): Typed | undefined {
     return { kind: "list", value: items }
   }
   return typeof raw === "object" ? typedObject(raw) : undefined
+}
+
+function isMessageRef(raw: unknown): raw is MessageRef {
+  return typeof raw === "object" && raw !== null && "key" in raw && typeof raw.key === "string"
 }
 
 /** A bare object is known by its fields, as the wire writes each kind's value. */
@@ -312,6 +321,8 @@ function shown(value: Typed, style: string | undefined): string {
       return itemOf(value.value)
     case "glyph":
       return ""
+    case "message":
+      return message(value.value)
     default:
       return typeof value.value === "boolean" ? word(value.value ? "choice.yes" : "choice.no", {}) : value.value
   }

@@ -2,6 +2,7 @@ package eu.nordtal.s2.messages.value;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.id.PlayerId;
+import eu.nordtal.s2.messages.MessageRef;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -54,7 +55,13 @@ public enum Kind {
     GLYPH("glyph", "admin"),
 
     /** Yes or no, or one of a fixed set of states; what {@code select} chooses on. */
-    CHOICE("choice", "true");
+    CHOICE("choice", "true"),
+
+    /**
+     * Another message, rendered for the same reader in the same target, so a phrase is written once and placed in many.
+     * An editor writes it as the key of a message without values.
+     */
+    MESSAGE("message", "values.missing.text");
 
     private static final PlayerId EXAMPLE_PLAYER = PlayerId.of(new UUID(0L, 1L));
 
@@ -66,7 +73,8 @@ public enum Kind {
             DisplayName.class, DISPLAY_NAME,
             Mention.class, MENTION,
             GameContent.class, ITEM,
-            Glyph.class, GLYPH);
+            Glyph.class, GLYPH,
+            MessageRef.class, MESSAGE);
 
     private final String token;
     private final String example;
@@ -143,6 +151,7 @@ public enum Kind {
             case ITEM -> GameContent.of(text);
             case GLYPH -> new Glyph(text);
             case CHOICE -> "true".equals(text) || "false".equals(text) ? Boolean.valueOf(text) : text;
+            case MESSAGE -> MessageRef.of(text.strip());
         };
     }
 

@@ -124,6 +124,13 @@ class MessageRendererTest {
     }
 
     @Test
+    void aMessageInAMessageKeepsItsOwnTones() {
+        final Component rendered = render("next", Map.of("what", MessageRef.of("toned")));
+        assertEquals("Next: danger and calm.", plain(rendered));
+        assertNotNull(find(rendered, child -> TextColor.fromHexString("#ff0000").equals(child.color())));
+    }
+
+    @Test
     void aGlyphTagWithANameNobodyKnowsStaysVisibleAsText() {
         assertEquals("<glyph:nope> here", plain(render("glyph-unknown", Map.of())));
     }

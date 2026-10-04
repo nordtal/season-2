@@ -3,7 +3,6 @@ package eu.nordtal.s2.smp.navigate;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.papercommon.time.PaperScheduler;
-import eu.nordtal.s2.smp.db.SmpDao;
 import java.util.Objects;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -17,12 +16,12 @@ import org.bukkit.plugin.Plugin;
 public final class NavigateListener implements Listener {
 
     private final Plugin plugin;
-    private final SmpDao dao;
+    private final PlaceDao dao;
     private final Navigation navigation;
     private final Identities identities;
 
     public NavigateListener(
-            final Plugin plugin, final SmpDao dao, final Navigation navigation, final Identities identities) {
+            final Plugin plugin, final PlaceDao dao, final Navigation navigation, final Identities identities) {
         this.plugin = plugin;
         this.dao = dao;
         this.navigation = navigation;

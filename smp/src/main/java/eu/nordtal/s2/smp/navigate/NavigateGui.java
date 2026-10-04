@@ -9,7 +9,6 @@ import eu.nordtal.s2.papercommon.menu.Menu;
 import eu.nordtal.s2.papercommon.menu.MenuClick;
 import eu.nordtal.s2.papercommon.menu.SlotGeometry;
 import eu.nordtal.s2.papercommon.player.Identities;
-import eu.nordtal.s2.smp.db.PoiRow;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;

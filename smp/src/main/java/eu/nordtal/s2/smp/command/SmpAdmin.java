@@ -16,9 +16,10 @@ import eu.nordtal.s2.messages.value.Money;
 import eu.nordtal.s2.papercommon.command.Answer;
 import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.smp.aura.AuraDao;
 import eu.nordtal.s2.smp.aura.AuraReason;
-import eu.nordtal.s2.smp.db.ObjectiveRow;
-import eu.nordtal.s2.smp.db.SmpDao;
+import eu.nordtal.s2.smp.milestone.ObjectiveRow;
+import eu.nordtal.s2.smp.milestone.TrackDao;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -40,7 +41,8 @@ public final class SmpAdmin {
         void unlockMilestone(String milestone);
     }
 
-    private final SmpDao dao;
+    private final TrackDao rows;
+    private final AuraDao aura;
     private final Track track;
     private final Identities identities;
     private final AccessReader access;
@@ -48,12 +50,14 @@ public final class SmpAdmin {
 
     /** An admin's view of the track and of access, with every date shown in the network's zone. */
     public SmpAdmin(
-            final SmpDao dao,
+            final TrackDao rows,
+            final AuraDao aura,
             final Track track,
             final Identities identities,
             final AccessReader access,
             final Logger logger) {
-        this.dao = dao;
+        this.rows = rows;
+        this.aura = aura;
         this.track = track;
         this.identities = identities;
         this.access = access;
@@ -62,11 +66,12 @@ public final class SmpAdmin {
 
     /** Closes one open objective of the active milestone, paying out what was collected. */
     public Answer completeObjective(final String key) {
-        final Optional<String> active = dao.activeMilestoneKey();
+        final Optional<String> active = rows.activeMilestoneKey();
         if (active.isEmpty()) {
             return Answer.refused(ServerRefusal.NO_ACTIVE_MILESTONE.with());
         }
-        final Optional<ObjectiveRow> row = dao.objective(active.get(), key).filter(objective -> !objective.completed());
+        final Optional<ObjectiveRow> row =
+                rows.objective(active.get(), key).filter(objective -> !objective.completed());
         if (row.isEmpty()) {
             return Answer.refused(ServerRefusal.NO_SUCH_OBJECTIVE.with(key));
         }
@@ -77,7 +82,7 @@ public final class SmpAdmin {
 
     /** Unlocks the active milestone by hand and pays everybody who qualified. */
     public Answer unlockMilestone(final String key) {
-        final Optional<String> active = dao.activeMilestoneKey();
+        final Optional<String> active = rows.activeMilestoneKey();
         if (active.isEmpty()) {
             return Answer.refused(ServerRefusal.NO_ACTIVE_MILESTONE.with());
         }
@@ -91,12 +96,12 @@ public final class SmpAdmin {
 
     /** Adds or removes aura for an online player, recording that the console did it. */
     public Answer changeAura(final UUID player, final String name, final int delta) {
-        final Optional<DiscordId> discordId = identities.discordIdOf(player).or(() -> dao.discordIdOf(player));
+        final Optional<DiscordId> discordId = identities.discordIdOf(player);
         if (discordId.isEmpty()) {
             return Answer.failed(MESSAGES.smp().admin().targetUnlinked(PlayerContext.of(PlayerId.of(player), name)));
         }
         try {
-            dao.addAura(discordId.get(), delta, AuraReason.ADMIN.stored(), "by the console");
+            aura.addAura(discordId.get(), delta, AuraReason.ADMIN.stored(), "by the console");
         } catch (final RuntimeException failure) {
             // Its own answer: the transaction may have committed although its answer was lost.
             logger.log(java.util.logging.Level.WARNING, "the aura change for " + name + " failed", failure);

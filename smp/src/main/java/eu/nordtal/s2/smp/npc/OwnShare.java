@@ -1,13 +1,15 @@
 package eu.nordtal.s2.smp.npc;
 
-import eu.nordtal.s2.smp.db.OwnContributionRow;
-import eu.nordtal.s2.smp.wheel.PrizeDraw;
+import eu.nordtal.s2.smp.port.Contributions;
+import eu.nordtal.s2.smp.port.OwnContributionRow;
+import eu.nordtal.s2.smp.port.PrizeSource;
 import java.util.List;
+import java.util.function.DoubleToIntFunction;
 
 /**
  * What a player has put into the active milestone, as the one line the NPC menu shows them.
  *
- * The percentage is per milestone, the spin count per objective, as {@link PrizeDraw#extraSpinsFor} grants it.
+ * The percentage is per milestone, the spin count per objective, as {@link PrizeSource#extraSpinsFor} grants it.
  */
 public final class OwnShare {
 
@@ -33,17 +35,17 @@ public final class OwnShare {
     /**
      * Summarises a player's contributions.
      *
-     * @param rows      one per objective of the active milestone, from {@code ownContributions}
-     * @param thresholds {@code config#wheel-extra-spin-percents}, which {@code ObjectiveEngine} pays out against
+     * @param rows     one per objective of the active milestone, from {@link Contributions#ownContributions}
+     * @param spinsFor the spins a share earns, {@link PrizeSource#extraSpinsFor}, which the payout also asks
      */
-    public static Summary of(final List<OwnContributionRow> rows, final List<Integer> thresholds) {
+    public static Summary of(final List<OwnContributionRow> rows, final DoubleToIntFunction spinsFor) {
         final List<Line> lines = new java.util.ArrayList<>(rows.size());
         long mine = 0L;
         long target = 0L;
         int spins = 0;
         for (final OwnContributionRow row : rows) {
             final double percent = percentOf(row.mine(), row.target());
-            final int earned = PrizeDraw.extraSpinsFor(thresholds, percent);
+            final int earned = spinsFor.applyAsInt(percent);
             lines.add(new Line(row.key(), percent, earned));
             mine += Math.max(0L, row.mine());
             target += Math.max(0L, row.target());

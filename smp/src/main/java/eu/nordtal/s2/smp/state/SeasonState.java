@@ -1,8 +1,8 @@
 package eu.nordtal.s2.smp.state;
 
-import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
+import eu.nordtal.s2.smp.milestone.ObjectiveRow;
 import eu.nordtal.s2.smp.milestone.Unlock;
 import java.util.Collections;
 import java.util.EnumSet;

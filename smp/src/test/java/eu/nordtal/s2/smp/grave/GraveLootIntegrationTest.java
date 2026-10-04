@@ -1,4 +1,4 @@
-package eu.nordtal.s2.smp.db;
+package eu.nordtal.s2.smp.grave;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -31,7 +31,7 @@ class GraveLootIntegrationTest {
     private static final String LOOTER = "100000000000000043";
     private static DataSource dataSource;
 
-    private SmpDao dao;
+    private GraveDao dao;
     private UUID graveId;
 
     @BeforeAll
@@ -47,7 +47,7 @@ class GraveLootIntegrationTest {
         execute("INSERT INTO smp_grave (id, owner_id, world, x, y, z, contents, experience)" + " VALUES ('" + graveId
                 + "', '" + OWNER + "', 'nordtal', 1, 2, 3, '\\x00', 7)");
 
-        dao = Jdbis.over(dataSource).onDemand(SmpDao.class);
+        dao = Jdbis.over(dataSource).onDemand(GraveDao.class);
     }
 
     @Test

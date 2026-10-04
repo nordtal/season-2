@@ -18,12 +18,12 @@ import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.SmpMessages;
-import eu.nordtal.s2.smp.db.PoiRow;
-import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.navigate.NavigateGui;
 import eu.nordtal.s2.smp.navigate.Navigation;
 import eu.nordtal.s2.smp.navigate.NavigationTarget;
+import eu.nordtal.s2.smp.navigate.PlaceDao;
+import eu.nordtal.s2.smp.navigate.PoiRow;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import java.util.List;
@@ -45,7 +45,7 @@ public final class NavigateCommand {
     private static final int MAX_POI_NAME = 32;
 
     private final Plugin plugin;
-    private final SmpDao dao;
+    private final PlaceDao dao;
     private final Navigation navigation;
     private final Identities identities;
     private final MessageRenderer renderer;
@@ -54,7 +54,7 @@ public final class NavigateCommand {
 
     public NavigateCommand(
             final Plugin plugin,
-            final SmpDao dao,
+            final PlaceDao dao,
             final Navigation navigation,
             final Identities identities,
             final MessageRenderer renderer,

@@ -7,16 +7,16 @@ import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.papercommon.time.PaperScheduler;
-import eu.nordtal.s2.smp.db.ObjectiveRow;
-import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
-import eu.nordtal.s2.smp.progress.ObjectiveEngine;
+import eu.nordtal.s2.smp.milestone.ObjectiveRow;
+import eu.nordtal.s2.smp.port.Contributions;
+import eu.nordtal.s2.smp.port.PrizeSource;
+import eu.nordtal.s2.smp.state.SeasonState;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -26,41 +26,40 @@ import org.bukkit.plugin.Plugin;
 /**
  * Clicking the NPC opens the objective list; a deposit screen's confirm comes back here, where items change hands.
  *
- * The credit runs off the main thread and its answer comes back on it.
+ * The menu draws the milestone {@link SeasonState} holds; the credit runs off the main thread, its answer on it.
  */
 public final class NpcListener implements Listener {
 
     private final Plugin plugin;
-    private final SmpDao dao;
     private final SpawnNpc npc;
+    private final SeasonState season;
     /** The milestone track, as a supplier, because a settings change replaces it mid-season. */
     private final java.util.function.Supplier<MilestoneTrack> track;
 
-    private final ObjectiveEngine engine;
+    private final Contributions contributions;
+    private final PrizeSource prizes;
     private final Identities identities;
-    /** {@code config#wheel-extra-spin-percents}, as a supplier for the same reason as the track. */
-    private final java.util.function.Supplier<List<Integer>> extraSpinPercents;
 
     private final MessageRenderer renderer;
     private final SmpSounds sounds;
 
     public NpcListener(
             final Plugin plugin,
-            final SmpDao dao,
             final SpawnNpc npc,
+            final SeasonState season,
             final java.util.function.Supplier<MilestoneTrack> track,
-            final ObjectiveEngine engine,
+            final Contributions contributions,
+            final PrizeSource prizes,
             final Identities identities,
-            final java.util.function.Supplier<List<Integer>> extraSpinPercents,
             final MessageRenderer renderer,
             final SmpSounds sounds) {
         this.plugin = plugin;
-        this.dao = dao;
         this.npc = npc;
+        this.season = season;
         this.track = track;
-        this.engine = engine;
+        this.contributions = contributions;
+        this.prizes = prizes;
         this.identities = identities;
-        this.extraSpinPercents = extraSpinPercents;
         this.renderer = renderer;
         this.sounds = sounds;
     }
@@ -76,25 +75,29 @@ public final class NpcListener implements Listener {
 
     private void openObjectives(final Player player) {
         final Locale locale = identities.languageOf(player.getUniqueId());
-        PaperScheduler.of(plugin).execute(() -> {
-            final Optional<String> activeKey = dao.activeMilestoneKey();
-            if (activeKey.isEmpty()) {
-                tell(player, renderer.format(locale, MESSAGES.smp().objectives().none()), Feedback.REFUSED);
-                return;
-            }
-            final Milestone milestone = track.get().milestone(activeKey.get()).orElse(null);
-            if (milestone == null) {
-                tell(player, renderer.format(locale, MESSAGES.smp().objectives().none()), Feedback.REFUSED);
-                return;
-            }
-            final List<ObjectiveRow> rows = dao.objectivesOf(activeKey.get());
+        final SeasonState.Active active = season.active();
+        final String activeKey = active.key();
+        final Milestone milestone =
+                activeKey == null ? null : track.get().milestone(activeKey).orElse(null);
+        if (milestone == null) {
+            player.sendMessage(
+                    renderer.format(locale, MESSAGES.smp().objectives().none()));
+            sounds.play(player, Feedback.REFUSED);
+            return;
+        }
+        show(player, locale, milestone, active.objectives());
+    }
 
-            // The player's own share, on the same async hop that read the objectives.
-            final OwnShare.Summary share = identities
-                    .discordIdOf(player.getUniqueId())
-                    .map(discordId ->
-                            OwnShare.of(dao.ownContributions(activeKey.get(), discordId), extraSpinPercents.get()))
-                    .orElseGet(() -> OwnShare.of(List.of(), List.of()));
+    /** Reads the player's own share, the one line only the database can answer, and opens the menu with it. */
+    private void show(
+            final Player player, final Locale locale, final Milestone milestone, final List<ObjectiveRow> rows) {
+        final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
+        PaperScheduler.of(plugin).execute(() -> {
+            final OwnShare.Summary share = OwnShare.of(
+                    discordId
+                            .map(id -> contributions.ownContributions(milestone.key(), id))
+                            .orElse(List.of()),
+                    prizes::extraSpinsFor);
 
             PaperScheduler.of(plugin).onMain(() -> {
                 if (player.isOnline()) {
@@ -129,7 +132,7 @@ public final class NpcListener implements Listener {
         PaperScheduler.of(plugin).execute(() -> {
             long credited;
             try {
-                credited = engine.credit(discordId.get(), objectiveKey, accepted, player.getUniqueId());
+                credited = contributions.credit(discordId.get(), objectiveKey, accepted, player.getUniqueId());
             } catch (final RuntimeException failure) {
                 // The database said no; without this the items vanish and the player is told nothing.
                 plugin.getLogger()
@@ -180,17 +183,5 @@ public final class NpcListener implements Listener {
         return stacks.stream()
                 .map(stack -> stack.getAmount() + "x " + stack.getType().name())
                 .collect(java.util.stream.Collectors.joining(", "));
-    }
-
-    /** Sends a message and its sound, both in the one hop back to the main thread. */
-    private void tell(final Player player, final Component message, final Feedback feedback) {
-        PaperScheduler.of(plugin).onMain(() -> {
-            if (player.isOnline()) {
-                player.sendMessage(message);
-                if (feedback != null) {
-                    sounds.play(player, feedback);
-                }
-            }
-        });
     }
 }

@@ -2,6 +2,7 @@ package eu.nordtal.s2.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static eu.nordtal.s2.architecture.Wiring.alwaysOnOneLine;
 import static eu.nordtal.s2.architecture.Wiring.callFrom;
 import static eu.nordtal.s2.architecture.Wiring.callInOrder;
@@ -42,6 +43,17 @@ class SmpRulesTest {
     private static final String PORTAL_GATE = "eu.nordtal.s2.smp.travel.PortalGate";
     private static final String PRESENCE = "eu.nordtal.s2.smp.player.PresenceListener";
     private static final String LANDING = "eu.nordtal.s2.smp.world.LandingSite";
+
+    private static final String SMP = "eu.nordtal.s2.smp.";
+
+    /**
+     * The packages that are a feature of their own; the rest are shared or wire the features together.
+     *
+     * The shared ones are the track, aura, the surfaces, the settings, the world and the ports; the root and
+     * {@code command} wire.
+     */
+    private static final List<String> FEATURES =
+            List.of("duel", "grave", "navigate", "npc", "progress", "protect", "travel", "welcome", "wheel");
 
     /** Everything that outlives a reload and reads the milestone track. */
     private static final List<String> TRACK_READERS = List.of(
@@ -106,8 +118,8 @@ class SmpRulesTest {
                 .andShould(callOnOneLine(
                         "reloadMilestoneTrack",
                         "StoredProgress#<init>",
-                        "SmpDao#storedMilestones",
-                        "SmpDao#storedObjectives"))
+                        "TrackDao#storedMilestones",
+                        "TrackDao#storedObjectives"))
                 .because("the sweep decides against the targets in the rows, and a refused file must never be"
                         + " applied")
                 .check(classes);
@@ -119,14 +131,44 @@ class SmpRulesTest {
         classes()
                 .that(isListed(PLUGIN))
                 .should(callInOrder(
-                        "ensureRows",
-                        "Jdbi#useTransaction",
-                        "Handle#attach",
-                        "SmpDao#ensureMilestone",
-                        "SmpDao#ensureObjective"))
-                .andShould(neverCallFrom("ensureRows", "SmpPlugin#dao"))
-                .because("the plugin's own dao writes outside the transaction, one statement at a time")
+                        "ensureRows", "Jdbi#useTransaction", "TrackDao#ensureMilestone", "TrackDao#ensureObjective"))
+                .because("a reload that failed half way would leave the targets payouts are computed from mixed")
                 .check(classes);
+    }
+
+    /** A credit with the finish and payout it causes is one write, and so is an unlock with the next activation. */
+    @Test
+    void everyStepOfTheTrackIsOneTransaction() {
+        classes()
+                .that(isListed(ENGINE))
+                .should(callFrom("credit", "Jdbi#inTransaction"))
+                .andShould(callFrom("creditAdvancement", "Jdbi#inTransaction"))
+                .andShould(callFrom("finishObjective", "Jdbi#inTransaction"))
+                .andShould(callFrom("unlockMilestone", "Jdbi#inTransaction"))
+                .andShould(callInOrder("credit", "Jdbi#inTransaction", "ObjectiveEngine#afterCommit"))
+                .andShould(callInOrder("finishObjective", "Jdbi#inTransaction", "ObjectiveEngine#afterCommit"))
+                .because("a payout that fails half way must not leave a delivery credited and its items handed back,"
+                        + " and nobody is told about a finish before it holds")
+                .check(classes);
+    }
+
+    /** The features talk through the identity service, the hub and the ports, never through each other's classes. */
+    @Test
+    void noFeatureReachesIntoAnother() {
+        for (final String feature : FEATURES) {
+            noClasses()
+                    .that()
+                    .resideInAPackage(SMP + feature + "..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(FEATURES.stream()
+                            .filter(other -> !other.equals(feature))
+                            .map(other -> SMP + other + "..")
+                            .toArray(String[]::new))
+                    .because("a feature that knows another's classes cannot change without it; what one needs of"
+                            + " another is a port in " + SMP + "port")
+                    .check(classes);
+        }
     }
 
     /** One unlock is built from one track, and a changed track starts the statistic baselines over. */

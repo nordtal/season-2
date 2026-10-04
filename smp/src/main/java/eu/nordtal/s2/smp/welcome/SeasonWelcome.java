@@ -6,7 +6,6 @@ import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.config.FirstJoinSpawnSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;
-import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.stage.BukkitCinematics;
 import eu.nordtal.s2.smp.stage.Cinematic;
 import eu.nordtal.s2.smp.world.LandingSite;
@@ -26,7 +25,7 @@ import org.bukkit.plugin.Plugin;
 /**
  * The one moment a player gets on their very first join of the season, and where they are first put down.
  *
- * {@link SmpDao#claimWelcome} takes the flag before anything is shown, so the moment and the teleport happen once.
+ * {@link WelcomeDao#claimWelcome} takes the flag before anything is shown, so the moment and the teleport happen once.
  */
 public final class SeasonWelcome {
 
@@ -40,7 +39,7 @@ public final class SeasonWelcome {
             "[ nordtal intro - placeholder 3/3 ]");
 
     private final Plugin plugin;
-    private final SmpDao dao;
+    private final WelcomeDao dao;
     private final Identities identities;
     private final BukkitCinematics cinematics;
     private final SmpSpec config;
@@ -48,7 +47,7 @@ public final class SeasonWelcome {
 
     public SeasonWelcome(
             final Plugin plugin,
-            final SmpDao dao,
+            final WelcomeDao dao,
             final Identities identities,
             final BukkitCinematics cinematics,
             final SmpSpec config,

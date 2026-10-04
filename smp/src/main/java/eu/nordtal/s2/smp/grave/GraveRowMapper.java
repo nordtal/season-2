@@ -1,4 +1,4 @@
-package eu.nordtal.s2.smp.db;
+package eu.nordtal.s2.smp.grave;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -10,7 +10,7 @@ import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 
 /**
- * Maps a row of {@link SmpDao#openGraves()}.
+ * Maps a row of {@link GraveDao#openGraves()}.
  *
  * Reads {@code created} through {@link OffsetDateTime}, the only way to avoid the JVM's default time zone.
  */

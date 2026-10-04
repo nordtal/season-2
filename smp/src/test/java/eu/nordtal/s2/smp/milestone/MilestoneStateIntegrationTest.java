@@ -1,4 +1,4 @@
-package eu.nordtal.s2.smp.db;
+package eu.nordtal.s2.smp.milestone;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -21,7 +21,7 @@ import org.junit.jupiter.api.TestInstance;
 class MilestoneStateIntegrationTest {
     private static DataSource dataSource;
 
-    private SmpDao dao;
+    private TrackDao dao;
 
     @BeforeAll
     static void startDatabase() {
@@ -32,7 +32,7 @@ class MilestoneStateIntegrationTest {
     void freshTrack() {
         execute("TRUNCATE TABLE smp_milestone CASCADE");
         execute("INSERT INTO smp_milestone (key) VALUES ('waiting'), ('departure')");
-        dao = Jdbis.over(dataSource).onDemand(SmpDao.class);
+        dao = Jdbis.over(dataSource).onDemand(TrackDao.class);
     }
 
     @Test

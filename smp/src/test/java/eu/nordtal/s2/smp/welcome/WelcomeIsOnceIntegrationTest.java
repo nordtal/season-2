@@ -1,4 +1,4 @@
-package eu.nordtal.s2.smp.db;
+package eu.nordtal.s2.smp.welcome;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.TestDatabase;
+import eu.nordtal.s2.smp.aura.AuraDao;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -36,7 +37,8 @@ class WelcomeIsOnceIntegrationTest {
     private static final String SOMEBODY_ELSE = "100000000000000043";
     private static DataSource dataSource;
 
-    private SmpDao dao;
+    private WelcomeDao dao;
+    private AuraDao aura;
 
     @BeforeAll
     static void startDatabase() {
@@ -48,7 +50,8 @@ class WelcomeIsOnceIntegrationTest {
         execute("TRUNCATE TABLE smp_player, smp_aura_event, discord_user CASCADE");
         execute("INSERT INTO discord_user (discord_id) VALUES ('" + PLAYER + "'), ('" + SOMEBODY_ELSE + "')");
 
-        dao = Jdbis.over(dataSource).onDemand(SmpDao.class);
+        dao = Jdbis.over(dataSource).onDemand(WelcomeDao.class);
+        aura = Jdbis.over(dataSource).onDemand(AuraDao.class);
     }
 
     @Test
@@ -72,14 +75,14 @@ class WelcomeIsOnceIntegrationTest {
 
     @Test
     void anExistingRowKeepsItsAura() {
-        dao.addAura(DiscordId.of(PLAYER), 40, "ADMIN", null);
-        assertEquals(40, dao.auraOf(DiscordId.of(PLAYER)).orElseThrow());
+        aura.addAura(DiscordId.of(PLAYER), 40, "ADMIN", null);
+        assertEquals(40, aura.auraOf(DiscordId.of(PLAYER)).orElseThrow());
 
         assertTrue(dao.claimWelcome(DiscordId.of(PLAYER)));
 
         assertEquals(
                 40,
-                dao.auraOf(DiscordId.of(PLAYER)).orElseThrow(),
+                aura.auraOf(DiscordId.of(PLAYER)).orElseThrow(),
                 "the claim upserts, so the ON CONFLICT branch must set the flag and nothing else -"
                         + " an INSERT that overwrote the row would zero somebody's season");
     }

@@ -1,4 +1,4 @@
-package eu.nordtal.s2.smp.db;
+package eu.nordtal.s2.smp.milestone;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -18,14 +18,14 @@ import org.junit.jupiter.api.Test;
 class SeasonResetIntegrationTest {
 
     private Jdbi owner;
-    private SmpDao smp;
+    private TrackDao smp;
     private PhaseDirectory phases;
 
     @BeforeEach
     void playedTrack() {
         final TestDatabase database = TestDatabase.fresh();
         owner = Jdbis.over(database.dataSource());
-        smp = Jdbis.over(database.dataSourceAs(DatabaseRole.SMP)).onDemand(SmpDao.class);
+        smp = Jdbis.over(database.dataSourceAs(DatabaseRole.SMP)).onDemand(TrackDao.class);
         phases = PhaseDirectory.using(database.dataSource(), Clock.systemUTC());
         owner.useHandle(handle -> {
             handle.execute("UPDATE season_phase SET phase = 'START_EVENT' WHERE id");

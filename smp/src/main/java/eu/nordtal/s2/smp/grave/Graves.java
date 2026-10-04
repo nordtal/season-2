@@ -10,9 +10,6 @@ import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.config.SmpSpec;
-import eu.nordtal.s2.smp.db.ExpiredGrave;
-import eu.nordtal.s2.smp.db.GraveRow;
-import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.feedback.WorldEffects;
 import java.time.Clock;
@@ -52,7 +49,7 @@ import org.joml.Vector3f;
 public final class Graves {
 
     private final Plugin plugin;
-    private final SmpDao dao;
+    private final GraveDao dao;
     private final Identities identities;
     private final MessageRenderer renderer;
     private final SmpSounds sounds;
@@ -82,7 +79,7 @@ public final class Graves {
 
     public Graves(
             final Plugin plugin,
-            final SmpDao dao,
+            final GraveDao dao,
             final Identities identities,
             final MessageRenderer renderer,
             final SmpSounds sounds,
@@ -99,8 +96,15 @@ public final class Graves {
         this.config = config;
     }
 
-    /** Puts every grave that still holds something back into the world, on the main thread. */
-    public void restore(final List<GraveRow> rows) {
+    /** Reads every grave that still holds something off the main thread, and puts it back into the world on it. */
+    public void restore() {
+        PaperScheduler.of(plugin).execute(() -> {
+            final List<GraveRow> rows = dao.openGraves();
+            PaperScheduler.of(plugin).onMain(() -> draw(rows));
+        });
+    }
+
+    private void draw(final List<GraveRow> rows) {
         for (final GraveRow row : rows) {
             final World world = Bukkit.getWorld(row.world());
             if (world == null) {

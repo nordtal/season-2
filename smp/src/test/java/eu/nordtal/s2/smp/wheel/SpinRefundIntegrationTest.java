@@ -1,4 +1,4 @@
-package eu.nordtal.s2.smp.db;
+package eu.nordtal.s2.smp.wheel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -30,7 +30,7 @@ class SpinRefundIntegrationTest {
     private static final LocalDate YESTERDAY = TODAY.minusDays(1);
     private static DataSource dataSource;
 
-    private SmpDao dao;
+    private SpinDao dao;
 
     @BeforeAll
     static void startDatabase() {
@@ -42,7 +42,7 @@ class SpinRefundIntegrationTest {
         execute("TRUNCATE TABLE smp_spin, discord_user CASCADE");
         execute("INSERT INTO discord_user (discord_id) VALUES ('" + DISCORD_ID + "')");
 
-        dao = Jdbis.over(dataSource).onDemand(SmpDao.class);
+        dao = Jdbis.over(dataSource).onDemand(SpinDao.class);
     }
 
     @Test

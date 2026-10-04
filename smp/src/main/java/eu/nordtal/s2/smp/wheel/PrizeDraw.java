@@ -48,7 +48,7 @@ public final class PrizeDraw {
      * @param percents the configured thresholds, in any order
      * @param share this contributor's share of the objective, 0 to 100
      */
-    public static int extraSpinsFor(final List<Integer> percents, final double share) {
+    static int extraSpinsFor(final List<Integer> percents, final double share) {
         if (percents == null || percents.isEmpty()) {
             return 0;
         }

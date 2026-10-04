@@ -1,6 +1,8 @@
 package eu.nordtal.s2.smp.progress;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.Jdbis;
@@ -11,12 +13,14 @@ import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.smp.announce.Announcer;
 import eu.nordtal.s2.smp.config.SmpSpec;
-import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.milestone.Objective;
 import eu.nordtal.s2.smp.milestone.ObjectiveType;
 import eu.nordtal.s2.smp.milestone.Unlock;
+import eu.nordtal.s2.smp.port.PrizeSource;
+import eu.nordtal.s2.smp.wheel.ExtraSpins;
+import eu.nordtal.s2.smp.wheel.SpinDao;
 import java.lang.reflect.Field;
 import java.lang.reflect.Proxy;
 import java.sql.Connection;
@@ -43,7 +47,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 /**
- * An objective finished by play pays its whole pot, however many credits it took to finish.
+ * An objective finished by play pays its whole pot, however many credits it took to finish, or nothing at all.
  *
  * Finishing one hands its announcement to the main thread, so the plugin and the server are fakes that drop it.
  */
@@ -59,6 +63,9 @@ class ObjectivePayoutIntegrationTest {
     private DataSource dataSource;
     private Jdbi jdbi;
     private ObjectiveEngine engine;
+    /** Whether the wheel refuses to grant, as a database that fails half way through a payout would. */
+    private boolean grantsFail;
+
     private @Nullable Server replaced;
 
     @BeforeAll
@@ -81,6 +88,7 @@ class ObjectivePayoutIntegrationTest {
 
     @BeforeEach
     void activeFoothold() {
+        grantsFail = false;
         execute("TRUNCATE TABLE smp_milestone, discord_user CASCADE");
         execute("INSERT INTO discord_user (discord_id) VALUES ('" + PLAYER.value() + "')");
         execute("INSERT INTO smp_milestone (key, state) VALUES ('foothold', 'ACTIVE')");
@@ -114,13 +122,13 @@ class ObjectivePayoutIntegrationTest {
                 Inbox.over(dataSource, BotRequest.TABLE), messages.locales(), Runnable::run, (message, failure) -> {});
         engine = new ObjectiveEngine(
                 fake(Plugin.class, Map.of("getLogger", LOGGER)),
-                jdbi.onDemand(SmpDao.class),
+                jdbi,
                 () -> track,
                 null,
                 null,
                 null,
                 MessageRenderer.of(messages),
-                new SmpSpec() {},
+                wheel(),
                 null,
                 null,
                 announcer);
@@ -147,6 +155,44 @@ class ObjectivePayoutIntegrationTest {
         engine.creditAdvancement(PLAYER, IRON_TOOLS, MINECRAFT_ID);
 
         assertEquals(POT, auraPaidFor("iron-tools"));
+    }
+
+    @Test
+    void aPayoutThatFailsHalfWayLeavesNothingBehind() {
+        grantsFail = true;
+
+        assertThrows(IllegalStateException.class, () -> engine.credit(PLAYER, "logs", 64L, MINECRAFT_ID));
+
+        assertEquals(0, auraPaidFor("logs"), "the aura booked before the spins failed is taken back");
+        assertEquals(0L, number("SELECT amount FROM smp_objective WHERE key = 'logs'"), "so is the delivery");
+        assertEquals(0L, number("SELECT count(*) FROM smp_contribution"), "and who made it");
+        assertFalse(
+                number("SELECT count(*) FROM smp_objective WHERE completed IS NOT NULL") > 0,
+                "the objective is still open, so the same delivery can be made again");
+    }
+
+    /** The real wheel, which the payout's spins land in, unless a test makes it fail. */
+    private PrizeSource wheel() {
+        final PrizeSource real = new ExtraSpins(jdbi.onDemand(SpinDao.class), new SmpSpec() {}::wheelExtraSpinPercents);
+        return new PrizeSource() {
+            @Override
+            public int extraSpinsFor(final double sharePercent) {
+                return real.extraSpinsFor(sharePercent);
+            }
+
+            @Override
+            public void grant(final DiscordId discordId, final int spins) {
+                if (grantsFail) {
+                    throw new IllegalStateException("the wheel's row could not be written");
+                }
+                real.grant(discordId, spins);
+            }
+        };
+    }
+
+    private long number(final String sql) {
+        return jdbi.withHandle(
+                handle -> handle.createQuery(sql).mapTo(Long.class).one());
     }
 
     /** Returns a fake that answers the named methods and refuses every other call. */

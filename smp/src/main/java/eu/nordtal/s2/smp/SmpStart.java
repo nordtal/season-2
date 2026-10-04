@@ -11,16 +11,19 @@ import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.duel.DuelListener;
 import eu.nordtal.s2.smp.duel.Duels;
 import eu.nordtal.s2.smp.feedback.WorldEffects;
+import eu.nordtal.s2.smp.grave.GraveDao;
 import eu.nordtal.s2.smp.grave.GraveListener;
 import eu.nordtal.s2.smp.grave.Graves;
 import eu.nordtal.s2.smp.hud.SmpHud;
 import eu.nordtal.s2.smp.navigate.NavigateListener;
+import eu.nordtal.s2.smp.navigate.PlaceDao;
 import eu.nordtal.s2.smp.npc.NpcListener;
 import eu.nordtal.s2.smp.npc.NpcProtection;
 import eu.nordtal.s2.smp.npc.SpawnNpc;
 import eu.nordtal.s2.smp.player.PlayerComposition;
 import eu.nordtal.s2.smp.player.PlayerSurfaces;
 import eu.nordtal.s2.smp.player.PresenceListener;
+import eu.nordtal.s2.smp.port.PrizeSource;
 import eu.nordtal.s2.smp.progress.AdvancementListener;
 import eu.nordtal.s2.smp.progress.GateHolders;
 import eu.nordtal.s2.smp.progress.ObjectiveEngine;
@@ -33,6 +36,9 @@ import eu.nordtal.s2.smp.travel.BalloonDisplay;
 import eu.nordtal.s2.smp.travel.BalloonListener;
 import eu.nordtal.s2.smp.travel.PortalGate;
 import eu.nordtal.s2.smp.welcome.SeasonWelcome;
+import eu.nordtal.s2.smp.welcome.WelcomeDao;
+import eu.nordtal.s2.smp.wheel.ExtraSpins;
+import eu.nordtal.s2.smp.wheel.SpinDao;
 import eu.nordtal.s2.smp.wheel.Wheel;
 import eu.nordtal.s2.smp.wheel.WheelListener;
 import java.time.Duration;
@@ -88,8 +94,13 @@ final class SmpStart {
         // Paper disables plugins before saving players, so a blindness would otherwise be saved too.
         final BukkitCinematics cinematics = new BukkitCinematics(plugin, plugin.sounds::play);
         plugin.getServer().getPluginManager().registerEvents(cinematics, plugin);
-        final SeasonWelcome welcome =
-                new SeasonWelcome(plugin, plugin.dao, plugin.identities(), cinematics, config, plugin.worlds);
+        final SeasonWelcome welcome = new SeasonWelcome(
+                plugin,
+                plugin.jdbi().onDemand(WelcomeDao.class),
+                plugin.identities(),
+                cinematics,
+                config,
+                plugin.worlds);
         return new Presence(systemLines, cinematics, welcome);
     }
 
@@ -101,22 +112,27 @@ final class SmpStart {
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(
-                        new NavigateListener(plugin, plugin.dao, plugin.navigation, plugin.identities()), plugin);
+                        new NavigateListener(
+                                plugin, plugin.jdbi().onDemand(PlaceDao.class), plugin.navigation, plugin.identities()),
+                        plugin);
         return listener;
     }
 
-    record Progress(ObjectiveEngine engine, StatisticPoller poller, GateHolders gates) {}
+    record Progress(PrizeSource prizes, ObjectiveEngine engine, StatisticPoller poller, GateHolders gates) {}
 
     static Progress wireProgressEngine(final SmpPlugin plugin, final SmpSpec config, final WorldEffects effects) {
+        // The wheel pays the extra spins a contribution earns, and the NPC menu forecasts them with the same source.
+        final PrizeSource prizes =
+                new ExtraSpins(plugin.jdbi().onDemand(SpinDao.class), config::wheelExtraSpinPercents);
         final ObjectiveEngine engine = new ObjectiveEngine(
                 plugin,
-                plugin.dao,
+                plugin.jdbi(),
                 () -> plugin.track,
                 plugin.season,
                 plugin.worlds,
                 plugin.identities(),
                 plugin.renderer(),
-                config,
+                prizes,
                 plugin.sounds,
                 effects,
                 plugin.announcer);
@@ -130,7 +146,7 @@ final class SmpStart {
                 PaperScheduler.of(plugin),
                 engine);
         plugin.getServer().getPluginManager().registerEvents(gates, plugin);
-        return new Progress(engine, poller, gates);
+        return new Progress(prizes, engine, poller, gates);
     }
 
     record Activities(DeathPenalty penalty, Wheel wheel, Graves graves, Duels duels) {}
@@ -138,7 +154,7 @@ final class SmpStart {
     static Activities wireActivities(final SmpPlugin plugin, final SmpSpec config, final WorldEffects effects) {
         final Graves graves = new Graves(
                 plugin,
-                plugin.dao,
+                plugin.jdbi().onDemand(GraveDao.class),
                 plugin.identities(),
                 plugin.renderer(),
                 plugin.sounds,
@@ -152,7 +168,7 @@ final class SmpStart {
         scheduler.onMainEvery(Duration.ofSeconds(1), Duration.ofSeconds(1), graves::tickHolograms);
         final Duels duels = new Duels(
                 plugin,
-                plugin.dao,
+                plugin.aura,
                 config,
                 plugin.worlds,
                 plugin.identities(),
@@ -164,7 +180,13 @@ final class SmpStart {
         final DeathPenalty penalty = new DeathPenalty(
                 config.deathPenalty(), config.deathPenaltyListed(), java.util.Set.copyOf(config.deathCausesListed()));
         final Wheel wheel = new Wheel(
-                plugin, plugin.dao, config, plugin.identities(), plugin.renderer(), plugin.sounds, plugin.clock());
+                plugin,
+                plugin.jdbi().onDemand(SpinDao.class),
+                config,
+                plugin.identities(),
+                plugin.renderer(),
+                plugin.sounds,
+                plugin.clock());
         return new Activities(penalty, wheel, graves, duels);
     }
 
@@ -174,7 +196,7 @@ final class SmpStart {
                 .registerEvents(
                         new AdvancementListener(
                                 plugin,
-                                plugin.dao,
+                                plugin.aura,
                                 plugin.engine,
                                 plugin.identities(),
                                 config,
@@ -186,11 +208,11 @@ final class SmpStart {
                 .registerEvents(
                         new GraveListener(
                                 plugin,
-                                plugin.dao,
+                                plugin.aura,
                                 activities.graves(),
                                 plugin.identities(),
                                 activities.penalty(),
-                                activities.duels()::isInArena,
+                                activities.duels(),
                                 plugin.renderer(),
                                 plugin.sounds),
                         plugin);
@@ -211,12 +233,12 @@ final class SmpStart {
                 .registerEvents(
                         new NpcListener(
                                 plugin,
-                                plugin.dao,
                                 npc,
+                                plugin.season,
                                 () -> plugin.track,
                                 plugin.engine,
+                                plugin.prizes,
                                 plugin.identities(),
-                                config::wheelExtraSpinPercents,
                                 plugin.renderer(),
                                 plugin.sounds),
                         plugin);
@@ -228,10 +250,7 @@ final class SmpStart {
     static BalloonDisplay restoreGravesAndRegisterWorld(
             final SmpPlugin plugin, final Boxes balloons, final Boxes regions, final WorldEffects effects) {
         // Graves outlive a restart, so they are read back once the world is up.
-        PaperScheduler.of(plugin).execute(() -> {
-            final var rows = plugin.dao.openGraves();
-            PaperScheduler.of(plugin).onMain(() -> plugin.graves.restore(rows));
-        });
+        plugin.graves.restore();
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(

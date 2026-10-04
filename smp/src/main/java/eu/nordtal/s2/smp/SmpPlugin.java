@@ -23,6 +23,7 @@ import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.SettingsException;
 import eu.nordtal.s2.settings.network.NetworkSettings;
 import eu.nordtal.s2.smp.announce.Announcer;
+import eu.nordtal.s2.smp.aura.AuraDao;
 import eu.nordtal.s2.smp.board.Boards;
 import eu.nordtal.s2.smp.command.NavigateCommand;
 import eu.nordtal.s2.smp.command.SmpAdmin;
@@ -30,20 +31,22 @@ import eu.nordtal.s2.smp.config.Milestones;
 import eu.nordtal.s2.smp.config.MilestonesSpec;
 import eu.nordtal.s2.smp.config.SmpSettings;
 import eu.nordtal.s2.smp.config.SmpSpec;
-import eu.nordtal.s2.smp.db.ObjectiveRow;
-import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.duel.Duels;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.grave.Graves;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneState;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
+import eu.nordtal.s2.smp.milestone.ObjectiveRow;
 import eu.nordtal.s2.smp.milestone.StoredProgress;
+import eu.nordtal.s2.smp.milestone.TrackDao;
 import eu.nordtal.s2.smp.milestone.TrackNames;
 import eu.nordtal.s2.smp.milestone.TrackValidation;
 import eu.nordtal.s2.smp.navigate.Navigation;
+import eu.nordtal.s2.smp.navigate.PlaceDao;
 import eu.nordtal.s2.smp.npc.SpawnNpc;
 import eu.nordtal.s2.smp.player.PresenceListener;
+import eu.nordtal.s2.smp.port.PrizeSource;
 import eu.nordtal.s2.smp.prestige.PrestigeColours;
 import eu.nordtal.s2.smp.progress.GateHolders;
 import eu.nordtal.s2.smp.progress.ObjectiveEngine;
@@ -87,7 +90,13 @@ public final class SmpPlugin extends NordtalPlugin {
     /** The name colours; volatile, since a reload replaces them and renders read them through a supplier. */
     volatile PrestigeColours prestigeColours;
 
-    SmpDao dao;
+    /** The track's rows, which the plugin starts over, fills from the settings and reads for the surfaces. */
+    TrackDao trackRows;
+    /** The aura book, one for every feature that pays or takes aura. */
+    AuraDao aura;
+    /** The wheel's extra spins, which progress pays and the NPC menu forecasts. */
+    PrizeSource prizes;
+
     Announcer announcer;
     private SmpAdmin admin;
     /** What the last reload refused the track for, or empty when it took it. */
@@ -217,7 +226,8 @@ public final class SmpPlugin extends NordtalPlugin {
     protected void enable() {
         final SmpSpec spec = config.get();
         final Boxes regions = ConfigBoxes.spawnRegions(spec);
-        dao = jdbi().onDemand(SmpDao.class);
+        trackRows = jdbi().onDemand(TrackDao.class);
+        aura = jdbi().onDemand(AuraDao.class);
         // Everything below this line touches the database, so it happens off the main thread.
         PaperScheduler.of(this).execute(this::loadSeasonState);
 
@@ -235,6 +245,7 @@ public final class SmpPlugin extends NordtalPlugin {
         presence = SmpStart.registerPresenceListeners(this, spec, wired, inputs);
 
         final SmpStart.Progress progress = SmpStart.wireProgressEngine(this, spec, wired.effects());
+        prizes = progress.prizes();
         engine = progress.engine();
         poller = progress.poller();
         gates = progress.gates();
@@ -363,8 +374,8 @@ public final class SmpPlugin extends NordtalPlugin {
 
     void registerCommands(final SmpSounds sounds) {
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
-            final NavigateCommand commands =
-                    new NavigateCommand(this, dao, navigation, identities(), renderer(), sounds, this::colours);
+            final NavigateCommand commands = new NavigateCommand(
+                    this, jdbi().onDemand(PlaceDao.class), navigation, identities(), renderer(), sounds, this::colours);
             event.registrar().register(commands.navigate());
             event.registrar().register(commands.poi());
         });
@@ -373,7 +384,8 @@ public final class SmpPlugin extends NordtalPlugin {
     /** The track actions of the console and the inbox, closing and unlocking through the running engine. */
     private SmpAdmin admin() {
         return new SmpAdmin(
-                dao,
+                trackRows,
+                aura,
                 new SmpAdmin.Track() {
                     // Null: an admin's completion has nobody behind it.
                     @Override
@@ -443,7 +455,7 @@ public final class SmpPlugin extends NordtalPlugin {
 
     /** Starts the track over when the phase stamped a fresh start this server has not applied yet. */
     void startTrackOverIfDue() {
-        if (dao.startOverIfDue() > 0) {
+        if (trackRows.startOverIfDue() > 0) {
             getLogger().info("the season started over: every milestone is locked and every objective is empty");
         }
     }
@@ -451,20 +463,20 @@ public final class SmpPlugin extends NordtalPlugin {
     /** Reads the data every surface draws, on the signal hub's thread, so no render waits on the database. */
     void refreshSurfaceData() {
         try {
-            java.util.Optional<String> active = dao.activeMilestoneKey();
-            final List<String> completed = dao.completedMilestoneKeys();
+            java.util.Optional<String> active = trackRows.activeMilestoneKey();
+            final List<String> completed = trackRows.completedMilestoneKeys();
             if (!completed.equals(season.completedKeys())
                     || (active.isEmpty() && track.next(completed).isPresent())) {
                 // A phase switch started the track over, or nothing has started it yet.
                 loadSeasonState();
-                active = dao.activeMilestoneKey();
+                active = trackRows.activeMilestoneKey();
             }
             active.ifPresentOrElse(
-                    key -> season.refreshActive(key, dao.objectivesOf(key)),
+                    key -> season.refreshActive(key, trackRows.objectivesOf(key)),
                     () -> season.refreshActive(null, java.util.List.of()));
             Objects.requireNonNull(poller).setActiveMilestone(active);
             gates.setActiveMilestone(active);
-            Objects.requireNonNull(boards).setLeaderboard(dao.topAura(10));
+            Objects.requireNonNull(boards).setLeaderboard(aura.topAura(10));
         } catch (final RuntimeException exception) {
             // Surfaces keep showing what they last knew.
             getLogger().warning("could not refresh the boards and HUD: " + exception);
@@ -477,8 +489,9 @@ public final class SmpPlugin extends NordtalPlugin {
      * Idempotent in SQL, so a lowered target completes at once and a reload that changed nothing does nothing.
      */
     private void completeWhateverTheNewTargetsAlreadyReach() {
-        dao.activeMilestoneKey()
-                .ifPresent(milestoneKey -> dao.objectivesOf(milestoneKey).stream()
+        trackRows
+                .activeMilestoneKey()
+                .ifPresent(milestoneKey -> trackRows.objectivesOf(milestoneKey).stream()
                         .filter(row -> !row.completed())
                         .filter(row -> row.amount() >= row.target())
                         .forEach(row -> {
@@ -519,7 +532,7 @@ public final class SmpPlugin extends NordtalPlugin {
             } else {
                 // A renamed key orphans progress, a moved target rewrites the ledger, an unknown name never counts.
                 problems = new ArrayList<>(TrackValidation.validate(
-                        candidate, new StoredProgress(dao.storedMilestones(), dao.storedObjectives())));
+                        candidate, new StoredProgress(trackRows.storedMilestones(), trackRows.storedObjectives())));
                 problems.addAll(TrackNames.validate(candidate, TrackNames.Server.running()));
             }
             if (!problems.isEmpty() || candidate == null) {
@@ -550,12 +563,12 @@ public final class SmpPlugin extends NordtalPlugin {
      * Otherwise a failed reload could leave the targets {@code ObjectiveEngine#credit} reads half updated.
      */
     private void ensureRows(final MilestoneTrack definition) {
+        // The plugin's own DAO joins the transaction this thread holds open.
         jdbi().useTransaction(handle -> {
-            final SmpDao transactional = handle.attach(SmpDao.class);
             for (final Milestone milestone : definition.milestones()) {
-                transactional.ensureMilestone(milestone.key(), MilestoneState.LOCKED.name());
+                trackRows.ensureMilestone(milestone.key(), MilestoneState.LOCKED.name());
                 for (final eu.nordtal.s2.smp.milestone.Objective objective : milestone.objectives()) {
-                    transactional.ensureObjective(
+                    trackRows.ensureObjective(
                             milestone.key(), objective.key(), objective.type().name(), objective.target());
                 }
             }
@@ -568,11 +581,11 @@ public final class SmpPlugin extends NordtalPlugin {
     void loadSeasonState() {
         final MilestoneTrack now = track;
         ensureRows(now);
-        final List<String> completed = dao.completedMilestoneKeys();
+        final List<String> completed = trackRows.completedMilestoneKeys();
         // A reset after the read changes the count, so the activation does nothing and the next tick decides.
-        if (dao.activeMilestoneKey().isEmpty()) {
+        if (trackRows.activeMilestoneKey().isEmpty()) {
             now.next(completed).ifPresent(next -> {
-                if (dao.activateAfter(next.key(), completed.size()) > 0) {
+                if (trackRows.activateAfter(next.key(), completed.size()) > 0) {
                     getLogger().info("milestone " + next.key() + " is now active");
                 }
             });

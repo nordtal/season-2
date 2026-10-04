@@ -1,4 +1,4 @@
-package eu.nordtal.s2.smp.db;
+package eu.nordtal.s2.smp;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -6,11 +6,15 @@ import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.notify.Channel;
+import eu.nordtal.s2.smp.aura.AuraDao;
+import eu.nordtal.s2.smp.milestone.TrackDao;
+import eu.nordtal.s2.smp.progress.ProgressDao;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.UUID;
 import javax.sql.DataSource;
+import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.postgresql.PGConnection;
@@ -28,12 +32,15 @@ class SurfaceSignalIntegrationTest {
 
     @Test
     void progressMilestonesAndAuraAllSignal() throws Exception {
-        final SmpDao dao = Jdbis.over(dataSource).onDemand(SmpDao.class);
+        final Jdbi jdbi = Jdbis.over(dataSource);
+        final TrackDao track = jdbi.onDemand(TrackDao.class);
+        final ProgressDao progress = jdbi.onDemand(ProgressDao.class);
+        final AuraDao aura = jdbi.onDemand(AuraDao.class);
         final DiscordId player = DiscordId.of("123456789012345678");
         execute("INSERT INTO smp_milestone (key) VALUES ('first'), ('second')");
         execute("INSERT INTO discord_user (discord_id) VALUES ('123456789012345678')");
-        dao.ensureObjective("first", "wood", "HAND_IN", 10);
-        final UUID objective = dao.objectivesOf("first").getFirst().id();
+        track.ensureObjective("first", "wood", "HAND_IN", 10);
+        final UUID objective = track.objectivesOf("first").getFirst().id();
 
         try (Connection listener = dataSource.getConnection()) {
             try (Statement statement = listener.createStatement()) {
@@ -41,19 +48,19 @@ class SurfaceSignalIntegrationTest {
             }
             final PGConnection pg = listener.unwrap(PGConnection.class);
 
-            dao.activateMilestone("first");
+            track.activateMilestone("first");
             assertTrue(signalled(pg), "activating a milestone");
-            dao.addObjectiveProgress(objective, 3);
+            progress.addObjectiveProgress(objective, 3);
             assertTrue(signalled(pg), "progress on an objective");
-            dao.countOnce(objective, player);
+            progress.countOnce(objective, player);
             assertTrue(signalled(pg), "a gate counting a player");
-            dao.completeObjective(objective);
+            progress.completeObjective(objective);
             assertTrue(signalled(pg), "a finished objective");
-            dao.completeMilestone("first");
+            track.completeMilestone("first");
             assertTrue(signalled(pg), "a finished milestone");
-            dao.activateAfter("second", 1);
+            track.activateAfter("second", 1);
             assertTrue(signalled(pg), "the next milestone");
-            dao.addAura(player, 5, "test", null);
+            aura.addAura(player, 5, "test", null);
             assertTrue(signalled(pg), "an aura change");
         }
     }

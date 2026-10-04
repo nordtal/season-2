@@ -1,4 +1,4 @@
-package eu.nordtal.s2.smp.db;
+package eu.nordtal.s2.smp.milestone;
 
 /**
  * One objective's stored progress; its definition lives in the {@code milestones} group.

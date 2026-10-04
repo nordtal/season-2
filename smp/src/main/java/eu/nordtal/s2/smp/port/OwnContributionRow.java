@@ -1,4 +1,4 @@
-package eu.nordtal.s2.smp.db;
+package eu.nordtal.s2.smp.port;
 
 /**
  * What one player has put into one objective, beside its target, with zero for one never touched.

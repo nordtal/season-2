@@ -12,8 +12,6 @@ import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.config.WheelPrizeSpec;
-import eu.nordtal.s2.smp.db.SmpDao;
-import eu.nordtal.s2.smp.db.Spins;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -39,7 +37,7 @@ import org.jspecify.annotations.Nullable;
 public final class Wheel {
 
     private final Plugin plugin;
-    private final SmpDao dao;
+    private final SpinDao dao;
     private final SmpSpec config;
     private final Identities identities;
     private final MessageRenderer renderer;
@@ -50,7 +48,7 @@ public final class Wheel {
 
     public Wheel(
             final Plugin plugin,
-            final SmpDao dao,
+            final SpinDao dao,
             final SmpSpec config,
             final Identities identities,
             final MessageRenderer renderer,

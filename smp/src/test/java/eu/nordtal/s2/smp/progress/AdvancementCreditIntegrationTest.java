@@ -10,7 +10,6 @@ import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.smp.announce.Announcer;
-import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.milestone.Objective;
@@ -75,13 +74,12 @@ class AdvancementCreditIntegrationTest {
                 + " ('settlement', 'mine-diamond', 'ADVANCEMENT', 10)");
         track = track("minecraft:story/iron_tools");
 
-        final SmpDao dao = jdbi.onDemand(SmpDao.class);
         final Messages messages =
                 Messages.load(AdvancementCreditIntegrationTest.class.getClassLoader(), "messages/smp", Locale.ENGLISH);
         final Announcer announcer = new Announcer(
                 Inbox.over(dataSource, BotRequest.TABLE), messages.locales(), Runnable::run, (message, failure) -> {});
         engine = new ObjectiveEngine(
-                null, dao, () -> track, null, null, null, MessageRenderer.of(messages), null, null, null, announcer);
+                null, jdbi, () -> track, null, null, null, MessageRenderer.of(messages), null, null, null, announcer);
 
         online.clear();
         held.clear();

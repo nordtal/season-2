@@ -13,7 +13,7 @@ without a running server. The module has no production code.
 | `ServerRulesTest`     | Wiring inside the limbo, the Hunger Games and the bot.                                                                                               |
 | `StewardRulesTest`    | The order of an update run's steps, and how a follow's heartbeat runs.                                                                               |
 | `ProxyRulesTest`      | The proxy's routing, its countdown, the move at zero and the return from the standby.                                                                |
-| `SmpRulesTest`        | The SMP's track reload, duels, graves, the tavern figure, the portal gate, the welcome, the payout at shutdown and the landings.                     |
+| `SmpRulesTest`        | The SMP's features kept apart, its transactions, the reload, duels, graves, the figure, the portal, the welcome, the payout at stop, the landings.   |
 
 ## Helpers
 

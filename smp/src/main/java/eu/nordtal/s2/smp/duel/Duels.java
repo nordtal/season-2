@@ -11,12 +11,13 @@ import eu.nordtal.s2.papercommon.game.GameKeys;
 import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.SmpMessages;
+import eu.nordtal.s2.smp.aura.AuraDao;
 import eu.nordtal.s2.smp.aura.AuraReason;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.config.WheelPrizeSpec;
-import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.feedback.WorldEffects;
+import eu.nordtal.s2.smp.port.Arenas;
 import eu.nordtal.s2.smp.world.WorldRole;
 import eu.nordtal.s2.smp.world.Worlds;
 import java.time.Clock;
@@ -43,7 +44,7 @@ import org.jspecify.annotations.Nullable;
  *
  * The duel's inventory, health and effects are its own, the loadouts are identical, and a disconnect is a defeat.
  */
-public final class Duels {
+public final class Duels implements Arenas {
 
     /** How long the fighters stand still before they may hit each other. */
     private static final int COUNTDOWN_SECONDS = 3;
@@ -51,7 +52,7 @@ public final class Duels {
     private static final CountdownPlan COUNTDOWN = CountdownPlan.at().everySecondFrom(COUNTDOWN_SECONDS);
 
     private final Plugin plugin;
-    private final SmpDao dao;
+    private final AuraDao aura;
     private final SmpSpec config;
     private final Worlds worlds;
     private final Identities identities;
@@ -96,7 +97,7 @@ public final class Duels {
 
     public Duels(
             final Plugin plugin,
-            final SmpDao dao,
+            final AuraDao aura,
             final SmpSpec config,
             final Worlds worlds,
             final Identities identities,
@@ -106,7 +107,7 @@ public final class Duels {
             final Clock clock) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.plugin = plugin;
-        this.dao = dao;
+        this.aura = aura;
         this.config = config;
         this.worlds = worlds;
         this.identities = identities;
@@ -139,6 +140,7 @@ public final class Duels {
     }
 
     /** Whether a player is fighting. */
+    @Override
     public boolean isInArena(final Player player) {
         return byPlayer.containsKey(player.getUniqueId());
     }
@@ -422,8 +424,8 @@ public final class Duels {
         final String type = duel.type().name();
 
         PaperScheduler.of(plugin).execute(() -> {
-            dao.addAura(DiscordId.of(winner), stake, AuraReason.DUEL_WIN.stored(), type);
-            dao.addAura(DiscordId.of(loser), -stake, AuraReason.DUEL_LOSS.stored(), type);
+            aura.addAura(DiscordId.of(winner), stake, AuraReason.DUEL_WIN.stored(), type);
+            aura.addAura(DiscordId.of(loser), -stake, AuraReason.DUEL_LOSS.stored(), type);
         });
     }
 

@@ -9,8 +9,9 @@ import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.inbox.ServerRefusal;
 import eu.nordtal.s2.papercommon.command.Answer;
 import eu.nordtal.s2.papercommon.player.Identities;
-import eu.nordtal.s2.smp.db.ObjectiveRow;
-import eu.nordtal.s2.smp.db.SmpDao;
+import eu.nordtal.s2.smp.aura.AuraDao;
+import eu.nordtal.s2.smp.milestone.ObjectiveRow;
+import eu.nordtal.s2.smp.milestone.TrackDao;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -19,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 import javax.sql.DataSource;
+import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,10 +43,11 @@ class SmpAdminIntegrationTest {
     @BeforeEach
     void freshTrack() {
         execute("TRUNCATE TABLE smp_milestone CASCADE");
-        final SmpDao dao = Jdbis.over(dataSource).onDemand(SmpDao.class);
+        final Jdbi jdbi = Jdbis.over(dataSource);
         final Identities identities = new Identities(players -> List.of());
         admin = new SmpAdmin(
-                dao,
+                jdbi.onDemand(TrackDao.class),
+                jdbi.onDemand(AuraDao.class),
                 new SmpAdmin.Track() {
                     @Override
                     public void finishObjective(final String milestone, final ObjectiveRow objective) {

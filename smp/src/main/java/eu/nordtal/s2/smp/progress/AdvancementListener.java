@@ -7,10 +7,10 @@ import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.papercommon.time.PaperScheduler;
+import eu.nordtal.s2.smp.aura.AuraDao;
 import eu.nordtal.s2.smp.aura.AuraReason;
 import eu.nordtal.s2.smp.config.AdvancementAwardSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;
-import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import java.util.HashMap;
 import java.util.Locale;
@@ -31,7 +31,7 @@ import org.bukkit.plugin.Plugin;
 public final class AdvancementListener implements Listener {
 
     private final Plugin plugin;
-    private final SmpDao dao;
+    private final AuraDao aura;
     private final ObjectiveEngine engine;
     private final Identities identities;
     private final MessageRenderer renderer;
@@ -42,14 +42,14 @@ public final class AdvancementListener implements Listener {
 
     public AdvancementListener(
             final Plugin plugin,
-            final SmpDao dao,
+            final AuraDao aura,
             final ObjectiveEngine engine,
             final Identities identities,
             final SmpSpec config,
             final MessageRenderer renderer,
             final SmpSounds sounds) {
         this.plugin = plugin;
-        this.dao = dao;
+        this.aura = aura;
         this.engine = engine;
         this.identities = identities;
         this.renderer = renderer;
@@ -79,7 +79,7 @@ public final class AdvancementListener implements Listener {
 
         PaperScheduler.of(plugin).execute(() -> {
             if (award != null && award > 0) {
-                dao.addAura(discordId.get(), award, AuraReason.ADVANCEMENT.stored(), key);
+                aura.addAura(discordId.get(), award, AuraReason.ADVANCEMENT.stored(), key);
                 final Locale locale = identities.languageOf(player.getUniqueId());
                 PaperScheduler.of(plugin).onMain(() -> {
                     if (player.isOnline()) {

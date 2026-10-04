@@ -148,7 +148,7 @@ class UpdateFeedTest {
         }
 
         @Override
-        public Optional<UpdateRequest> cancelCountdown(final String reason) {
+        public Optional<UpdateRequest> cancelCountdown() {
             throw new UnsupportedOperationException();
         }
 

@@ -178,7 +178,7 @@ class UpdateDirectoryIntegrationTest {
 
             updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ofMinutes(5));
             assertTrue(announced(pg), "the second request was not announced");
-            assertTrue(updates.cancelCountdown("test").isPresent());
+            assertTrue(updates.cancelCountdown().isPresent());
             assertTrue(announced(pg), "the cancel was not announced");
 
             updates.submit(UpdateKind.BACKUP, Actor.HOST, Duration.ZERO);
@@ -411,10 +411,12 @@ class UpdateDirectoryIntegrationTest {
     void aCountdownCanBeStoppedWhileItIsStillRunning() {
         updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ofSeconds(60));
 
-        final UpdateRequest cancelled =
-                updates.cancelCountdown("Alex changed their mind").orElseThrow();
+        final UpdateRequest cancelled = updates.cancelCountdown().orElseThrow();
         assertEquals(UpdateStatus.CANCELLED, cancelled.status());
-        assertEquals("Alex changed their mind", cancelled.result());
+        assertEquals(
+                UpdateReport.Stage.CANCELLED,
+                UpdateReports.parse(cancelled.result()).orElseThrow().stage(),
+                "a cancel with no report yet leaves one that says so, not a sentence");
 
         assertTrue(updates.countingDown().isEmpty(), "and nothing is counting down any more");
         assertTrue(updates.claimNext().isEmpty(), "and steward will never pick it up");
@@ -445,13 +447,21 @@ class UpdateDirectoryIntegrationTest {
         assertEquals(counting.requested(), counting.scheduledFor(), "the schedule itself never moves");
         assertEquals(List.of("smp"), counting.moving());
 
-        assertEquals(
-                submitted.id(), updates.cancelCountdown("stop").orElseThrow().id());
+        assertTrue(updates.progress(
+                submitted.id(),
+                UpdateReports.toJson(
+                        UpdateReport.at(UpdateReport.Stage.COUNTDOWN).withNote("planned"))));
+
+        assertEquals(submitted.id(), updates.cancelCountdown().orElseThrow().id());
         assertFalse(updates.commitCountdown(submitted.id()), "and the run must then stop nothing at all");
         assertTrue(
                 updates.finish(submitted.id(), UpdateStatus.DONE, "{}").isEmpty(),
                 "the cancellation is the answer; a late finish must not overwrite it");
-        assertEquals("stop", updates.find(submitted.id()).orElseThrow().result());
+        final UpdateReport left = UpdateReports.parse(
+                        updates.find(submitted.id()).orElseThrow().result())
+                .orElseThrow();
+        assertEquals(UpdateReport.Stage.CANCELLED, left.stage(), "the countdown's report moves to CANCELLED");
+        assertEquals(List.of("planned"), left.notes(), "and keeps what it held");
     }
 
     @Test
@@ -520,7 +530,7 @@ class UpdateDirectoryIntegrationTest {
 
             assertEquals(
                     submitted.id(),
-                    updates.cancelCountdown("Alex changed their mind")
+                    updates.cancelCountdown()
                             .orElseThrow(() -> new AssertionError(kind
                                     + " is counting down and the cancel cannot reach it - the"
                                     + " button would answer \"too late\" while it was still early"))
@@ -553,9 +563,7 @@ class UpdateDirectoryIntegrationTest {
 
         assertTrue(updates.commitCountdown(submitted.id()), "the run holds the right to proceed");
         assertTrue(updates.countingDown().isEmpty(), "nothing is counting down any more");
-        assertTrue(
-                updates.cancelCountdown("too late").isEmpty(),
-                "which is the sentence the admin needs, and not an error");
+        assertTrue(updates.cancelCountdown().isEmpty(), "which is the sentence the admin needs, and not an error");
         assertEquals(
                 UpdateStatus.RUNNING, updates.find(submitted.id()).orElseThrow().status());
     }
@@ -563,7 +571,7 @@ class UpdateDirectoryIntegrationTest {
     @Test
     void aCountdownCannotBeStartedOnARequestSomebodyHasAlreadyWithdrawn() {
         final UpdateRequest submitted = updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ofSeconds(60));
-        assertTrue(updates.cancelCountdown("changed my mind").isPresent());
+        assertTrue(updates.cancelCountdown().isPresent());
 
         assertTrue(updates.startCountdown(submitted.id(), Duration.ofSeconds(30), List.of("smp"))
                 .isEmpty());
@@ -578,7 +586,7 @@ class UpdateDirectoryIntegrationTest {
         updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
 
-        assertTrue(updates.cancelCountdown("too late").isEmpty());
+        assertTrue(updates.cancelCountdown().isEmpty());
     }
 
     @Test
@@ -586,7 +594,7 @@ class UpdateDirectoryIntegrationTest {
         // A report has no countdown, so "stop the countdown" cannot withdraw it.
         final UpdateRequest report = updates.submit(UpdateKind.START, Actor.HOST, Duration.ZERO);
 
-        assertTrue(updates.cancelCountdown("nope").isEmpty());
+        assertTrue(updates.cancelCountdown().isEmpty());
         assertEquals(
                 UpdateStatus.PENDING, updates.find(report.id()).orElseThrow().status());
     }
@@ -600,7 +608,7 @@ class UpdateDirectoryIntegrationTest {
                 update.id(),
                 updates.countingDown().orElseThrow().id(),
                 "the proxy counts down towards whatever is about to take servers away");
-        assertEquals(update.id(), updates.cancelCountdown("stop").orElseThrow().id());
+        assertEquals(update.id(), updates.cancelCountdown().orElseThrow().id());
         assertEquals(
                 UpdateStatus.CANCELLED, updates.find(update.id()).orElseThrow().status());
     }

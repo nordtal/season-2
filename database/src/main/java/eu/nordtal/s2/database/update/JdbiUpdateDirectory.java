@@ -189,8 +189,8 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
-    public Optional<UpdateRequest> cancelCountdown(final String reason) {
-        return dao.cancelCountdown(reason);
+    public Optional<UpdateRequest> cancelCountdown() {
+        return dao.cancelCountdown();
     }
 
     @Override

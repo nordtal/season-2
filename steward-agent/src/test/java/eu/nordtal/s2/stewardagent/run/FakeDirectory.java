@@ -3,6 +3,8 @@ package eu.nordtal.s2.stewardagent.run;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateKind;
+import eu.nordtal.s2.database.update.UpdateReport;
+import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateStatus;
 import java.time.Duration;
@@ -179,10 +181,13 @@ final class FakeDirectory implements UpdateDirectory {
     }
 
     @Override
-    public Optional<UpdateRequest> cancelCountdown(final String reason) {
+    public Optional<UpdateRequest> cancelCountdown() {
         return countingDown().map(row -> {
+            final String report = UpdateReports.toJson(UpdateReports.parse(row.result())
+                    .orElseGet(() -> UpdateReport.at(UpdateReport.Stage.CANCELLED))
+                    .withStage(UpdateReport.Stage.CANCELLED));
             final UpdateRequest cancelled =
-                    copy(row, UpdateStatus.CANCELLED, row.countdownEnd(), row.moving(), null, now, reason);
+                    copy(row, UpdateStatus.CANCELLED, row.countdownEnd(), row.moving(), null, now, report);
             rows.put(row.id(), cancelled);
             return cancelled;
         });

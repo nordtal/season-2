@@ -106,8 +106,7 @@ final class Updates {
     /** Cancels the earliest run still counting down; an empty answer means its countdown ran out meanwhile. */
     void cancel(final Context ctx) {
         final DiscordAuth.Account who = accounts.apply(ctx);
-        final var cancelled =
-                data().updates().cancelCountdown("Cancelled in Steward by " + who.name() + " (" + who.id() + ")");
+        final var cancelled = data().updates().cancelCountdown();
         if (cancelled.isEmpty()) {
             throw new RequestRefused(409, ANSWER.tooLate());
         }

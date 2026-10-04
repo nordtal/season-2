@@ -200,12 +200,11 @@ public interface UpdateDirectory {
     }
 
     /**
-     * Withdraws the countdown that is running.
+     * Withdraws the countdown that is running; its report says {@code CANCELLED}, and the journal says who.
      *
-     * @param reason what to record, naming who cancelled
      * @return the cancelled row, or empty when the countdown had already run out
      */
-    Optional<UpdateRequest> cancelCountdown(String reason);
+    Optional<UpdateRequest> cancelCountdown();
 
     /** Returns when the next pending request becomes due, or empty when there is none. */
     Optional<Instant> nextDue();

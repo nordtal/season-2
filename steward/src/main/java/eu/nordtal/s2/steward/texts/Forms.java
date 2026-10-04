@@ -31,4 +31,13 @@ public interface Forms {
 
     @Name("Close")
     MessageRef close();
+
+    @Name("Remove")
+    MessageRef remove();
+
+    @Name("Removing")
+    MessageRef removing();
+
+    @Name("Reset")
+    MessageRef reset();
 }

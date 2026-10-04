@@ -445,6 +445,9 @@ export type TextArgs = {
   "steward.form.changed-meanwhile": Record<string, never>
   "steward.form.close": Record<string, never>
   "steward.form.days": Record<string, never>
+  "steward.form.remove": Record<string, never>
+  "steward.form.removing": Record<string, never>
+  "steward.form.reset": Record<string, never>
   "steward.form.save": Record<string, never>
   "steward.form.schedule": Record<string, never>
   "steward.form.schedule-saved": Record<string, never>
@@ -648,6 +651,26 @@ export type TextArgs = {
     kind: Arg["text"]
     run: Arg["number"]
   }
+  "steward.overview.all-clear": Record<string, never>
+  "steward.overview.behind": Record<string, never>
+  "steward.overview.cores": {
+    count: Arg["number"]
+  }
+  "steward.overview.issues": Record<string, never>
+  "steward.overview.latest-actions": Record<string, never>
+  "steward.overview.latest-backup": Record<string, never>
+  "steward.overview.memory": Record<string, never>
+  "steward.overview.no-finished-backup": Record<string, never>
+  "steward.overview.none": Record<string, never>
+  "steward.overview.nothing-recorded": Record<string, never>
+  "steward.overview.nothing-recorded-note": Record<string, never>
+  "steward.overview.partly-unreadable": Record<string, never>
+  "steward.overview.unreadable": Record<string, never>
+  "steward.overview.used-of": {
+    used: Arg["text"]
+    total: Arg["text"]
+  }
+  "steward.overview.whole-journal": Record<string, never>
   "steward.payments.all": Record<string, never>
   "steward.payments.amount": Record<string, never>
   "steward.payments.created": {
@@ -915,6 +938,56 @@ export type TextArgs = {
   "steward.said.words": {
     text: Arg["text"]
   }
+  "steward.season.current": Record<string, never>
+  "steward.season.date-removed": {
+    date: Arg["text"]
+  }
+  "steward.season.date-saved": {
+    date: Arg["text"]
+  }
+  "steward.season.dates": Record<string, never>
+  "steward.season.lands-on": {
+    where: Arg["text"]
+  }
+  "steward.season.launch": Record<string, never>
+  "steward.season.launch-note": Record<string, never>
+  "steward.season.launch-removal": Record<string, never>
+  "steward.season.network": Record<string, never>
+  "steward.season.no-date": Record<string, never>
+  "steward.season.nothing-carried": Record<string, never>
+  "steward.season.now": Record<string, never>
+  "steward.season.phase": {
+    phase: Arg["choice"]
+  }
+  "steward.season.phase-heading": Record<string, never>
+  "steward.season.phase-is-now": {
+    phase: Arg["text"]
+  }
+  "steward.season.reason": Record<string, never>
+  "steward.season.reason-note": Record<string, never>
+  "steward.season.reason-placeholder": Record<string, never>
+  "steward.season.rebuild": Record<string, never>
+  "steward.season.remove-title": {
+    date: Arg["text"]
+  }
+  "steward.season.saved-at": {
+    at: Arg["instant"]
+  }
+  "steward.season.smp-start": Record<string, never>
+  "steward.season.smp-start-note": Record<string, never>
+  "steward.season.smp-start-removal": Record<string, never>
+  "steward.season.switch-note": {
+    who: Arg["text"]
+  }
+  "steward.season.switch-phase": Record<string, never>
+  "steward.season.switch-title": {
+    phase: Arg["text"]
+  }
+  "steward.season.switching": Record<string, never>
+  "steward.season.title": Record<string, never>
+  "steward.season.who": {
+    phase: Arg["choice"]
+  }
   "steward.service-page.add-plugin": Record<string, never>
   "steward.service-page.added": Record<string, never>
   "steward.service-page.agent-not-yet": Record<string, never>
@@ -985,7 +1058,6 @@ export type TextArgs = {
   "steward.service-page.recreate-title": {
     service: Arg["text"]
   }
-  "steward.service-page.remove": Record<string, never>
   "steward.service-page.remove-jar": {
     jar: Arg["text"]
   }

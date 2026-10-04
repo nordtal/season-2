@@ -48,6 +48,10 @@ public interface StewardTexts {
 
         Forms form();
 
+        OverviewPage overview();
+
+        SeasonPage season();
+
         ServicePage servicePage();
 
         KeysPage keys();

@@ -29,6 +29,27 @@ describe("a change in a run's report", () => {
     expect(container.textContent).toBe("containermade again from a pulled image")
   })
 
+  it("renders a backup's size and time from their values, the size a message of its own", () => {
+    const size = {
+      key: "report.size",
+      args: { amount: { kind: "number", value: 1.2 }, unit: { kind: "choice", value: "mib" } },
+    } as const
+    const { container } = render(
+      <Change
+        change={{
+          artefact: "backup",
+          to: "-",
+          state: "MOVING",
+          told: {
+            key: "report.saved",
+            args: { size: { kind: "message", value: size }, took: { kind: "duration", value: 72 } },
+          },
+        }}
+      />,
+    )
+    expect(container.textContent).toBe("backupsaved 1.2 MiB in 1m 12s")
+  })
+
   it("still reads a change stored in words by an earlier release", () => {
     const { container } = render(<Change change={{ artefact: "image", to: "out of date", state: "MOVING" }} />)
     expect(container.textContent).toContain("out of date")

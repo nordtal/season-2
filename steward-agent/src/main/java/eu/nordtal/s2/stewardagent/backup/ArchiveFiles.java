@@ -1,7 +1,7 @@
 package eu.nordtal.s2.stewardagent.backup;
 
+import eu.nordtal.s2.database.update.ByteSize;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
-import eu.nordtal.s2.internalapi.agent.SnapshotResult;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import io.javalin.http.NotFoundResponse;
@@ -94,7 +94,7 @@ final class ArchiveFiles {
         return Optional.of(new AgentWire.Archive(
                 name,
                 attributes.size(),
-                SnapshotResult.human(attributes.size()),
+                ByteSize.of(attributes.size()).toString(),
                 attributes.lastModifiedTime().toInstant(),
                 name.endsWith(".partial"),
                 TarSnapshots.restoresInto(name).orElse(null)));

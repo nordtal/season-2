@@ -3,6 +3,7 @@ package eu.nordtal.s2.stewardagent.run;
 import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 
 import eu.nordtal.s2.database.inbox.StewardRequest;
+import eu.nordtal.s2.database.update.ByteSize;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
@@ -247,7 +248,7 @@ final class Kinds {
             planned = planned.with(new UpdateReport.ServiceLine(
                     service,
                     UpdateReport.State.PLANNED,
-                    List.of(new UpdateReport.Change("restart", null, "no change")),
+                    List.of(UpdateReport.Change.told("restart", TEXTS.report().nothingChanges())),
                     null));
         }
         if (planned.services().isEmpty()) {
@@ -293,14 +294,14 @@ final class Kinds {
                 .with(new UpdateReport.ServiceLine(
                         Snapshots.DATABASE,
                         dumped.ok() ? UpdateReport.State.SAVED : UpdateReport.State.FAILED,
-                        List.of(new UpdateReport.Change("backup", null, dumped.message())),
-                        dumped.ok() ? null : TEXTS.report().words(dumped.message())));
+                        List.of(UpdateRun.backedUp(dumped)),
+                        dumped.ok() ? null : TEXTS.report().words(String.valueOf(dumped.message()))));
         progress.accept(planned);
         for (final String service : topology.stoppedForBackup()) {
             planned = planned.with(new UpdateReport.ServiceLine(
                     service,
                     UpdateReport.State.PLANNED,
-                    List.of(new UpdateReport.Change("backup", null, "stopped while saving")),
+                    List.of(UpdateReport.Change.told("backup", TEXTS.report().stoppedWhileSaving())),
                     null));
         }
 
@@ -346,7 +347,7 @@ final class Kinds {
             planned = planned.with(new UpdateReport.ServiceLine(
                     service,
                     UpdateReport.State.PLANNED,
-                    List.of(new UpdateReport.Change("down", null, "stays down")),
+                    List.of(UpdateReport.Change.told("down", TEXTS.report().staysDown())),
                     null));
         }
         final Run.Payload hold = (steps, stopped) -> {
@@ -384,7 +385,7 @@ final class Kinds {
             planned = planned.with(new UpdateReport.ServiceLine(
                     service,
                     UpdateReport.State.STOPPED,
-                    List.of(new UpdateReport.Change("down", "stays down", "starting")),
+                    List.of(UpdateReport.Change.told("down", TEXTS.report().startsAgain())),
                     null));
         }
         final Run.Payload release = (steps, stopped) -> {
@@ -483,7 +484,8 @@ final class Kinds {
                         service,
                         // A held server is already down, so the run neither stops nor starts it.
                         held ? UpdateReport.State.STOPPED : UpdateReport.State.PLANNED,
-                        List.of(new UpdateReport.Change("plugin", artifact, "removed")),
+                        List.of(UpdateReport.Change.told(
+                                artifact, TEXTS.report().pluginRemoved())),
                         null));
         final Run.Payload remove = (steps, stopped) -> {
             try {
@@ -541,7 +543,7 @@ final class Kinds {
             return putBack(saved, runner.backups.restore(archive), archive);
         };
         return Planned.plan(Run.Plan.of(
-                        stopping(users, "restore", archive),
+                        stopping(users, archive),
                         put,
                         UpdateReport.Undertaking.RESTORE_VOLUME,
                         true,
@@ -553,15 +555,12 @@ final class Kinds {
         // With everything running, as every backup takes it, and before anything is stopped.
         final SnapshotResult dumped = runner.backups.saveDatabase();
         if (!dumped.ok()) {
-            return failed(TEXTS.report().restoreDatabaseUnsaved(dumped.message()));
+            return failed(TEXTS.report().restoreDatabaseUnsaved(String.valueOf(dumped.message())));
         }
         final List<String> users = running(runner, runner.topology().renewed(AgentWire.Renewal.RUN));
-        final UpdateReport planned = stopping(users, "restore", dump)
+        final UpdateReport planned = stopping(users, dump)
                 .with(new UpdateReport.ServiceLine(
-                        Snapshots.DATABASE,
-                        UpdateReport.State.SAVED,
-                        List.of(new UpdateReport.Change("backup", null, dumped.message())),
-                        null));
+                        Snapshots.DATABASE, UpdateReport.State.SAVED, List.of(UpdateRun.backedUp(dumped)), null));
         final Run.Payload replace = (steps, stopped) -> {
             // The dump has this run's row as it was then, or not at all; it is carried across and put back.
             final String row = runner.directory.carry(request.id()).orElse(null);
@@ -580,11 +579,13 @@ final class Kinds {
         final UpdateReport.ServiceLine line = new UpdateReport.ServiceLine(
                 archive,
                 result.ok() ? UpdateReport.State.INSTALLED : UpdateReport.State.FAILED,
-                List.of(new UpdateReport.Change(
+                List.of(UpdateReport.Change.told(
                         "restore",
-                        null,
-                        result.ok() ? "restored " + SnapshotResult.human(result.bytes()) : result.message())),
-                result.ok() ? null : TEXTS.report().words(result.message()));
+                        result.ok()
+                                ? TEXTS.report()
+                                        .restored(ByteSize.of(result.bytes()).message())
+                                : TEXTS.report().notRestored())),
+                result.ok() ? null : TEXTS.report().words(String.valueOf(result.message())));
         return new Run.Done(
                 result.ok()
                         ? report.with(line)
@@ -606,12 +607,15 @@ final class Kinds {
                 .toList();
     }
 
-    /** A report with one planned line per service, each naming what it is stopped for. */
-    private static UpdateReport stopping(final List<String> services, final String why, final String archive) {
+    /** A report with one planned line per service, each naming the archive it is stopped for. */
+    private static UpdateReport stopping(final List<String> services, final String archive) {
         UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING);
         for (final String service : services) {
             planned = planned.with(new UpdateReport.ServiceLine(
-                    service, UpdateReport.State.PLANNED, List.of(new UpdateReport.Change(why, null, archive)), null));
+                    service,
+                    UpdateReport.State.PLANNED,
+                    List.of(UpdateReport.Change.told("restore", TEXTS.report().stoppedForRestore(archive))),
+                    null));
         }
         return planned;
     }

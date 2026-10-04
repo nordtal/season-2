@@ -412,7 +412,7 @@ export type TextArgs = {
     outdated: Arg["choice"]
     reason: Arg["text"]
     minutes: Arg["number"]
-    seen: Arg["text"]
+    seen: Arg["message"]
   }
   "report.fell-back-healthy": {
     outdated: Arg["choice"]
@@ -449,6 +449,18 @@ export type TextArgs = {
     services: Arg["list"]
   }
   "report.image-outdated": Record<string, never>
+  "report.images-local": {
+    services: Arg["list"]
+    count: Arg["number"]
+  }
+  "report.images-uncompared": Record<string, never>
+  "report.images-unread": {
+    answer: Arg["text"]
+  }
+  "report.images-unverifiable": {
+    services: Arg["list"]
+    count: Arg["number"]
+  }
   "report.made-again": {
     pull: Arg["choice"]
   }
@@ -458,6 +470,7 @@ export type TextArgs = {
     minecraft: Arg["text"]
     loader: Arg["text"]
   }
+  "report.no-container": Record<string, never>
   "report.no-container-to-start": Record<string, never>
   "report.no-container-to-stop": Record<string, never>
   "report.no-database": Record<string, never>
@@ -474,7 +487,7 @@ export type TextArgs = {
   }
   "report.not-healthy": {
     minutes: Arg["number"]
-    seen: Arg["text"]
+    seen: Arg["message"]
   }
   "report.not-in-release": {
     service: Arg["text"]
@@ -495,10 +508,13 @@ export type TextArgs = {
     outdated: Arg["choice"]
     reason: Arg["text"]
   }
+  "report.not-restored": Record<string, never>
+  "report.not-saved": Record<string, never>
   "report.not-stopped": {
     run: Arg["choice"]
     services: Arg["list"]
   }
+  "report.nothing-changes": Record<string, never>
   "report.nothing-held": Record<string, never>
   "report.older-release": {
     release: Arg["text"]
@@ -519,6 +535,7 @@ export type TextArgs = {
     services: Arg["list"]
     seconds: Arg["number"]
   }
+  "report.plugin-removed": Record<string, never>
   "report.proxy-pack-unread": {
     error: Arg["text"]
   }
@@ -594,12 +611,27 @@ export type TextArgs = {
   "report.restore-unsaved": {
     volume: Arg["text"]
   }
+  "report.restored": {
+    size: Arg["message"]
+  }
   "report.restored-over": {
     dump: Arg["text"]
   }
+  "report.runtime-unread": {
+    answer: Arg["text"]
+  }
+  "report.saved": {
+    size: Arg["message"]
+    took: Arg["duration"]
+  }
+  "report.saving": Record<string, never>
   "report.sha-1-unread": {
     file: Arg["text"]
     error: Arg["text"]
+  }
+  "report.size": {
+    amount: Arg["number"]
+    unit: Arg["choice"]
   }
   "report.standby-no-container": {
     standby: Arg["text"]
@@ -611,6 +643,10 @@ export type TextArgs = {
   "report.standby-not-stopped": {
     standby: Arg["text"]
     reason: Arg["text"]
+  }
+  "report.standby-seen": {
+    standby: Arg["text"]
+    seen: Arg["message"]
   }
   "report.standby-stopped": {
     standby: Arg["text"]
@@ -638,9 +674,15 @@ export type TextArgs = {
   "report.start-failed": {
     reason: Arg["text"]
   }
+  "report.starts-again": Record<string, never>
+  "report.stays-down": Record<string, never>
   "report.stop-failed": {
     reason: Arg["text"]
   }
+  "report.stopped-for-restore": {
+    archive: Arg["text"]
+  }
+  "report.stopped-while-saving": Record<string, never>
   "report.stopped-with-players": {
     players: Arg["number"]
     servers: Arg["list"]

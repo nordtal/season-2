@@ -244,13 +244,12 @@ public final class StackApi implements AutoCloseable {
     /**
      * How the running images compared with the registry, and when.
      *
-     * @param reason why the images could not be compared at all, absent when they could
+     * @param message why the images could not be read at all, absent when they could
      */
     public record DriftReading(
             Instant checkedAt,
             boolean reached,
             List<String> unverifiable,
-            @Nullable String reason,
             @Nullable String message) {}
 
     /** The services the network page draws, as compose.yml's labels place and wire them, in file order. */
@@ -290,7 +289,6 @@ public final class StackApi implements AutoCloseable {
                         drift.checkedAt(),
                         images.reached(),
                         images.unverifiable().stream().sorted().toList(),
-                        images.notCheckable().orElse(null),
                         images.message()));
     }
 

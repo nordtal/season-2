@@ -34,6 +34,25 @@ public final class Told {
         return english(report.notes());
     }
 
+    /** Every change of a stored report that is not a message, which only an installed version may be. */
+    public static List<UpdateReport.Change> untold(final String stored) {
+        return untold(UpdateReports.parse(stored).orElseThrow());
+    }
+
+    public static List<UpdateReport.Change> untold(final UpdateReport report) {
+        return report.services().stream()
+                .flatMap(line -> line.changes().stream())
+                .filter(change -> change.told() == null)
+                .toList();
+    }
+
+    /** The keys of every change one line of a stored report tells, in order. */
+    public static List<String> toldKeys(final String stored, final String line) {
+        return UpdateReports.parse(stored).orElseThrow().line(line).changes().stream()
+                .map(change -> change.told() == null ? "-" : change.told().key())
+                .toList();
+    }
+
     /** A line's detail, or the empty text when it has none. */
     public static String detail(final UpdateReport.ServiceLine line) {
         final MessageRef detail = line.detail();

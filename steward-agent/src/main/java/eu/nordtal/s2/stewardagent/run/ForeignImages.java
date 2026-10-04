@@ -11,7 +11,6 @@ import eu.nordtal.s2.internalapi.agent.Topology;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -36,20 +35,23 @@ final class ForeignImages {
         UpdateReport report = planned;
 
         // Named first: an image that could not be compared is UNKNOWN, never silently current.
-        final Optional<String> unverifiable = images.notCheckable();
-        if (unverifiable.isPresent()) {
-            report = report.withNote(TEXTS.report().words(unverifiable.get()));
+        if (!images.unverifiable().isEmpty()) {
+            final List<String> unverifiable =
+                    images.unverifiable().stream().sorted().toList();
+            report = report.withNote(TEXTS.report().imagesUnverifiable(unverifiable, unverifiable.size()));
         }
 
         // LOCAL is not work, but worth a note: unpublished code is overwritten by the next run.
-        final Optional<String> local = images.localImages();
-        if (local.isPresent()) {
-            report = report.withNote(TEXTS.report().words(local.get()));
+        final List<String> local = images.local();
+        if (!local.isEmpty()) {
+            report = report.withNote(TEXTS.report().imagesLocal(local, local.size()));
         }
 
-        final Optional<String> nothing = images.nothingChecked();
-        if (nothing.isPresent()) {
-            return report.withNote(TEXTS.report().words(nothing.get()));
+        if (!images.reached()) {
+            return report.withNote(TEXTS.report().imagesUnread(String.valueOf(images.message())));
+        }
+        if (images.nothingCompared()) {
+            return report.withNote(TEXTS.report().imagesUncompared());
         }
 
         final List<String> foreign = new ArrayList<>();

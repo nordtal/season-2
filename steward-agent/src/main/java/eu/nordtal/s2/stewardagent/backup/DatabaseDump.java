@@ -1,5 +1,6 @@
 package eu.nordtal.s2.stewardagent.backup;
 
+import eu.nordtal.s2.database.update.ByteSize;
 import eu.nordtal.s2.internalapi.agent.SnapshotResult;
 import eu.nordtal.s2.stewardagent.docker.Docker;
 import eu.nordtal.s2.stewardagent.docker.DockerException;
@@ -195,7 +196,7 @@ public final class DatabaseDump {
                     "the dump was written and verified but could not be named: " + firstLine(renamed.output()));
         }
 
-        log.info("database dumped to {} ({})", finalPath, SnapshotResult.human(bytes));
+        log.info("database dumped to {} ({})", finalPath, ByteSize.of(bytes));
         return SnapshotResult.saved(Snapshots.DATABASE, bytes, took(started), finalPath);
     }
 

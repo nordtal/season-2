@@ -120,14 +120,9 @@ final class Choreography {
                 return null;
             }
             if (!clock.now().isBefore(deadline)) {
-                final List<String> named = new ArrayList<>();
+                final List<MessageRef> named = new ArrayList<>();
                 for (final String standby : pending) {
-                    final String state = seen.reached()
-                            ? seen.service(standby)
-                                    .map(ServiceRuntime::describe)
-                                    .orElse("no container for it in the project")
-                            : "the container runtime could not be read: " + seen.message();
-                    named.add(standby + " (" + state + ")");
+                    named.add(TEXTS.report().standbySeen(standby, UpdateRun.seen(seen, standby)));
                 }
                 return TEXTS.report().standbysUnhealthy(named, STANDBY_HEALTHY_WITHIN.toMinutes());
             }

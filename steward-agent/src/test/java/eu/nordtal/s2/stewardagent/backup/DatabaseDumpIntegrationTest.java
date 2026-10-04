@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import eu.nordtal.s2.common.time.TestScheduler;
+import eu.nordtal.s2.database.update.ByteSize;
 import eu.nordtal.s2.internalapi.agent.SnapshotResult;
 import eu.nordtal.s2.stewardagent.TestProject;
 import eu.nordtal.s2.stewardagent.docker.Docker;
@@ -83,7 +84,7 @@ class DatabaseDumpIntegrationTest {
                 listing.output().contains(".partial"),
                 "a partial file survived a successful dump: " + listing.output());
 
-        System.out.println("dumped " + SnapshotResult.human(result.bytes()) + " in "
+        System.out.println("dumped " + ByteSize.of(result.bytes()) + " in "
                 + result.took().toMillis() + " ms to " + result.file());
 
         docker.exec(postgres, List.of("sh", "-c", "rm -rf " + DIRECTORY), null);

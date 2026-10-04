@@ -633,7 +633,6 @@ export type DriftReading = {
   checkedAt: string
   reached: boolean
   unverifiable: string[]
-  reason?: string
   message?: string
 }
 

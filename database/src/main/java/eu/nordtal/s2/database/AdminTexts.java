@@ -10,6 +10,7 @@ import eu.nordtal.s2.database.alert.DiscordRole;
 import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.database.payment.PaymentMatch;
 import eu.nordtal.s2.database.payment.PaymentRequestStatus;
+import eu.nordtal.s2.database.update.ByteSize;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateStatus;
@@ -23,6 +24,7 @@ import eu.nordtal.s2.messages.spec.TextFormat;
 import eu.nordtal.s2.messages.value.Example;
 import eu.nordtal.s2.messages.value.Mention;
 import eu.nordtal.s2.messages.value.Money;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -457,7 +459,10 @@ public interface AdminTexts {
         MessageRef standbyNotStarted(@Arg("standby") String standby, @Arg("reason") String reason);
 
         @Name("Standbys not healthy in time")
-        MessageRef standbysUnhealthy(@Arg("standbys") List<String> standbys, @Arg("minutes") long minutes);
+        MessageRef standbysUnhealthy(@Arg("standbys") List<MessageRef> standbys, @Arg("minutes") long minutes);
+
+        @Name("A standby and what was seen of it")
+        MessageRef standbySeen(@Arg("standby") String standby, @Arg("seen") MessageRef seen);
 
         @Name("Stopped while waiting for the standbys")
         MessageRef standbysInterrupted(@Arg("standbys") List<String> standbys);
@@ -610,6 +615,54 @@ public interface AdminTexts {
         @Name("A container made again, as a change")
         MessageRef madeAgain(@Arg("pull") boolean pull);
 
+        @Name("A server restarted with nothing changed, as a change")
+        MessageRef nothingChanges();
+
+        @Name("A volume being saved, as a change")
+        MessageRef saving();
+
+        @Name("A server stopped while its volume is saved, as a change")
+        MessageRef stoppedWhileSaving();
+
+        @Name("Something saved, as a change")
+        MessageRef saved(@Arg("size") MessageRef size, @Arg("took") Duration took);
+
+        @Name("Something not saved, as a change")
+        MessageRef notSaved();
+
+        @Name("A size in bytes")
+        MessageRef size(@Arg("amount") BigDecimal amount, @Arg("unit") ByteSize.Unit unit);
+
+        @Name("A server taken down and held, as a change")
+        MessageRef staysDown();
+
+        @Name("A held server started again, as a change")
+        MessageRef startsAgain();
+
+        @Name("A plugin removed, as a change")
+        MessageRef pluginRemoved();
+
+        @Name("A server stopped for a restore, as a change")
+        MessageRef stoppedForRestore(@Arg("archive") String archive);
+
+        @Name("An archive put back, as a change")
+        MessageRef restored(@Arg("size") MessageRef size);
+
+        @Name("An archive not put back, as a change")
+        MessageRef notRestored();
+
+        @Name("No image could be read")
+        MessageRef imagesUnread(@Arg("answer") String answer);
+
+        @Name("No image compared with a registry")
+        MessageRef imagesUncompared();
+
+        @Name("Images a registry could not be asked about")
+        MessageRef imagesUnverifiable(@Arg("services") List<String> services, @Arg("count") int count);
+
+        @Name("Images built on this host")
+        MessageRef imagesLocal(@Arg("services") List<String> services, @Arg("count") int count);
+
         @Name("Not recreated, and nothing to go back to")
         MessageRef notRecreated(@Arg("outdated") boolean outdated, @Arg("reason") String reason);
 
@@ -624,7 +677,7 @@ public interface AdminTexts {
                 @Arg("outdated") boolean outdated,
                 @Arg("reason") String reason,
                 @Arg("minutes") long minutes,
-                @Arg("seen") String seen);
+                @Arg("seen") MessageRef seen);
 
         @Name("Back on the old image, not seen before the agent stopped")
         MessageRef fellBackInterrupted(@Arg("outdated") boolean outdated, @Arg("reason") String reason);
@@ -634,7 +687,13 @@ public interface AdminTexts {
                 @Arg("outdated") boolean outdated, @Arg("reason") String reason, @Arg("answer") String answer);
 
         @Name("Not healthy in time")
-        MessageRef notHealthy(@Arg("minutes") long minutes, @Arg("seen") String seen);
+        MessageRef notHealthy(@Arg("minutes") long minutes, @Arg("seen") MessageRef seen);
+
+        @Name("A service with no container in the project, as what was seen of it")
+        MessageRef noContainer();
+
+        @Name("The container runtime unread, as what was seen of a service")
+        MessageRef runtimeUnread(@Arg("answer") String answer);
 
         @Name("Stopped while waiting for a service")
         MessageRef waitInterrupted();

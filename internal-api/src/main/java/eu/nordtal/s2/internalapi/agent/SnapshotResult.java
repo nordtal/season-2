@@ -8,10 +8,10 @@ import org.jspecify.annotations.Nullable;
  *
  * @param name what was saved: a volume name, or {@code database}
  * @param ok whether there is now a file that can be restored from
- * @param bytes how large it is
- * @param took how long it ran
+ * @param bytes how large it is, which a report tells through its own words for a size
+ * @param took how long it ran, likewise
  * @param file where it landed, or {@code null} when nothing was written
- * @param message what happened, in a sentence a person can act on
+ * @param message why it failed, in the words of whatever failed, or {@code null} when it saved
  */
 public record SnapshotResult(
         String name,
@@ -19,29 +19,13 @@ public record SnapshotResult(
         long bytes,
         Duration took,
         @Nullable String file,
-        String message) {
+        @Nullable String message) {
 
     public static SnapshotResult saved(final String name, final long bytes, final Duration took, final String file) {
-        return new SnapshotResult(
-                name, true, bytes, took, file, "saved " + human(bytes) + " in " + took.toSeconds() + "s");
+        return new SnapshotResult(name, true, bytes, took, file, null);
     }
 
     public static SnapshotResult failed(final String name, final Duration took, final String message) {
         return new SnapshotResult(name, false, 0, took, null, message);
-    }
-
-    /** Formats a size for a person to read. */
-    public static String human(final long bytes) {
-        if (bytes < 1024) {
-            return bytes + " B";
-        }
-        final String[] units = {"KiB", "MiB", "GiB", "TiB"};
-        double value = bytes / 1024.0;
-        int unit = 0;
-        while (value >= 1024 && unit < units.length - 1) {
-            value /= 1024;
-            unit++;
-        }
-        return String.format(java.util.Locale.ROOT, "%.1f %s", value, units[unit]);
     }
 }

@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.id.Actor;
+import eu.nordtal.s2.database.update.ByteSize;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateReport;
@@ -399,6 +400,26 @@ class UpdateFeedTest {
         assertFalse(now.contains("report.image-outdated"), now);
         assertFalse(now.contains("**-**"), "the placeholder of a version is never shown: " + now);
         assertTrue(before.contains("image **out of date**"), before);
+    }
+
+    @Test
+    void aBackupsSizeAndTimeAreRenderedFromTheirValues() {
+        final UpdateReport saved = new UpdateReport(
+                UpdateReport.Stage.DONE,
+                List.of(new UpdateReport.ServiceLine(
+                        "nordtal-s2_mc-smp",
+                        UpdateReport.State.SAVED,
+                        List.of(UpdateReport.Change.told(
+                                "backup",
+                                TEXTS.report().saved(ByteSize.of(1_234_567).message(), Duration.ofSeconds(12)))),
+                        null)),
+                List.of());
+        rows.put(row(1L, UpdateStatus.DONE, UpdateReports.toJson(saved), NOW));
+        feed.tick();
+
+        final String shown = lines(board.posted.getFirst().embed());
+        assertTrue(shown.contains("backup *saved 1.2 MiB in 12s*"), shown);
+        assertFalse(shown.contains("report."), "no key is ever shown in place of its words: " + shown);
     }
 
     private static String lines(final MessageEmbed embed) {

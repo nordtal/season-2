@@ -57,9 +57,9 @@ held open are failed. `deploy/restore.sh` remains for the host when steward-agen
 The run never stops steward-agent. A run that names it is refused.
 
 A run's report says what happened in messages of the admin bundle (`report.*` in `:database`'s
-`AdminTexts`): every note, every line's detail and every image or container change (`Change.told`)
-is a message reference with typed values, which Steward's page and the bot's update feed render for
-their reader, and `status ID` prints in English.
+`AdminTexts`): every note, every line's detail and every change but an installed version's
+(`Change.told`) is a message reference with typed values, a size or a duration included, which Steward's
+page and the bot's update feed render for their reader, and `status ID` prints in English.
 What a subsystem answered, a Docker or pg_dump error or a source's answer to the resolver, is carried
 as a value of the message that names it, or as `report.words` when the answer is all there is. The
 resolver's reasons are messages too, so a line that explains another (the pack left unchecked, a jar

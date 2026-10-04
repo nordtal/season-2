@@ -104,6 +104,8 @@ class RunnerTest {
         assertTrue(
                 progress.stream().anyMatch(report -> report.stage() == UpdateReport.Stage.COUNTDOWN),
                 "the feeds see the countdown too: " + progress);
+        allTold(outcome);
+        assertEquals(List.of("report.nothing-changes"), Told.toldKeys(outcome.report(), "smp"));
     }
 
     /** A one-shot's last act is the long-running agent at its own release, after every server is back. */
@@ -147,6 +149,20 @@ class RunnerTest {
         assertEquals(
                 List.of("discord-bot", "smp"),
                 directory.find(request.id()).orElseThrow().moving());
+        allTold(outcome);
+        assertEquals(List.of("report.saved"), Told.toldKeys(outcome.report(), Snapshots.DATABASE));
+        assertEquals(List.of("report.saved"), Told.toldKeys(outcome.report(), "nordtal-s2_mc-smp"));
+        assertEquals(List.of("report.stopped-while-saving"), Told.toldKeys(outcome.report(), "smp"));
+        assertTrue(
+                progress.stream()
+                        .flatMap(report -> report.services().stream())
+                        .flatMap(line -> line.changes().stream())
+                        .anyMatch(change -> change.told() != null
+                                && "report.saving".equals(change.told().key())),
+                "a volume being saved says so while it is: " + progress);
+        final String english = Told.report(outcome.report());
+        assertTrue(english.contains("saved 7.3 MiB in 3s"), english);
+        assertTrue(english.contains("saved 1.2 MiB in 12s"), english);
     }
 
     @Test
@@ -156,6 +172,8 @@ class RunnerTest {
         assertEquals(UpdateStatus.DONE, down.status(), down.report());
         assertEquals(List.of("stop:smp-container"), containers.calls, "a take-down starts nothing again");
         assertTrue(directory.isHeld("smp"));
+        allTold(down);
+        assertEquals(List.of("report.stays-down"), Told.toldKeys(down.report(), "smp"));
         directory.finish(directory.running().orElseThrow().id(), UpdateStatus.DONE, down.report());
 
         containers.calls.clear();
@@ -169,6 +187,8 @@ class RunnerTest {
                 null,
                 directory.find(start.id()).orElseThrow().countdownEnd(),
                 "starting a server takes nobody off one, so nobody is warned");
+        allTold(started);
+        assertEquals(List.of("report.starts-again"), Told.toldKeys(started.report(), "smp"));
     }
 
     @Test
@@ -193,6 +213,7 @@ class RunnerTest {
         assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
         assertEquals(List.of("stop:smp-container", "recreate-local:smp"), containers.calls);
         assertNotNull(directory.find(request.id()).orElseThrow().countdownEnd(), "players on smp are warned first");
+        allTold(outcome);
     }
 
     @Test
@@ -238,6 +259,8 @@ class RunnerTest {
         assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
         assertEquals(List.of("stop:smp-container", "remove:smp/chunky", "start:smp-container"), containers.calls);
         assertTrue(Told.report(outcome.report()).contains("chunky-1.0.jar"), outcome.report());
+        allTold(outcome);
+        assertEquals(List.of("report.plugin-removed"), Told.toldKeys(outcome.report(), "smp"));
     }
 
     @Test
@@ -266,8 +289,13 @@ class RunnerTest {
                 containers.calls);
         assertNotNull(directory.find(request.id()).orElseThrow().countdownEnd(), "a restore is announced");
         assertTrue(
-                Told.report(outcome.report()).contains("restored "),
+                Told.report(outcome.report()).contains("restored 1.2 MiB"),
                 "the line says what was restored: " + outcome.report());
+        allTold(outcome);
+        assertEquals(
+                List.of("report.restored"),
+                Told.toldKeys(outcome.report(), "nordtal-s2_mc-smp-20260913T000000Z.tar.zst"));
+        assertEquals(List.of("report.stopped-for-restore"), Told.toldKeys(outcome.report(), "smp"));
     }
 
     @Test
@@ -281,6 +309,7 @@ class RunnerTest {
         assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
         assertEquals(
                 List.of("stop:smp-container", "backup:nordtal-s2_mc-smp", "start:smp-container"), containers.calls);
+        allTold(outcome);
     }
 
     @Test
@@ -305,6 +334,10 @@ class RunnerTest {
                         .toList());
         assertEquals(
                 UpdateStatus.RUNNING, directory.find(request.id()).orElseThrow().status());
+        allTold(outcome);
+        assertEquals(List.of("report.saved"), Told.toldKeys(outcome.report(), Snapshots.DATABASE));
+        assertEquals(List.of("report.stopped-for-restore"), Told.toldKeys(outcome.report(), "smp"));
+        assertEquals(List.of("report.restored"), Told.toldKeys(outcome.report(), "nordtal-20260913T000000Z.dump"));
     }
 
     @Test
@@ -314,6 +347,14 @@ class RunnerTest {
 
         assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
         assertEquals(List.of(), containers.calls);
+    }
+
+    /** Every change of the run, stored and on the way, is a message: no kind but an install names a version. */
+    private void allTold(final Outcome outcome) {
+        assertEquals(List.of(), Told.untold(outcome.report()), outcome.report());
+        for (final UpdateReport report : progress) {
+            assertEquals(List.of(), Told.untold(report), report.toString());
+        }
     }
 
     /** Submits a request of any kind due now and claims it. */

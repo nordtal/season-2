@@ -3,6 +3,7 @@ package eu.nordtal.s2.stewardagent.run;
 import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 
 import eu.nordtal.s2.common.time.Waiting;
+import eu.nordtal.s2.database.update.ByteSize;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.internalapi.agent.ImageResult;
 import eu.nordtal.s2.internalapi.agent.RedeployResult;
@@ -117,12 +118,12 @@ final class UpdateRun {
             report = report.with(new UpdateReport.ServiceLine(
                     volume,
                     UpdateReport.State.STARTING,
-                    List.of(new UpdateReport.Change("backup", null, "saving")),
+                    List.of(UpdateReport.Change.told("backup", TEXTS.report().saving())),
                     null));
             progress.accept(report);
 
             final SnapshotResult result = snapshots.save(volume);
-            MessageRef detail = result.ok() ? null : TEXTS.report().words(result.message());
+            MessageRef detail = result.ok() ? null : TEXTS.report().words(String.valueOf(result.message()));
             if (result.ok() && result.file() != null && !unverifiedStops.isEmpty()) {
                 // The archive is kept: it is probably fine, and somebody must be told before restoring it.
                 final String why = "The servers were stopped for this backup and the end of "
@@ -137,7 +138,7 @@ final class UpdateRun {
             final UpdateReport.ServiceLine line = new UpdateReport.ServiceLine(
                     volume,
                     result.ok() ? UpdateReport.State.SAVED : UpdateReport.State.FAILED,
-                    List.of(new UpdateReport.Change("backup", null, result.message())),
+                    List.of(backedUp(result)),
                     detail);
             report = report.with(line);
             progress.accept(report);
@@ -289,13 +290,31 @@ final class UpdateRun {
         return report;
     }
 
+    /** One save as a backup change: its size and how long it took, or that it was not saved. */
+    static UpdateReport.Change backedUp(final SnapshotResult result) {
+        return UpdateReport.Change.told(
+                "backup",
+                result.ok()
+                        ? TEXTS.report().saved(ByteSize.of(result.bytes()).message(), result.took())
+                        : TEXTS.report().notSaved());
+    }
+
+    /** What the runtime showed of a service that did not come back, Docker's own state words where it had any. */
+    static MessageRef seen(final RuntimeResult runtime, final String service) {
+        if (!runtime.reached()) {
+            return TEXTS.report().runtimeUnread(String.valueOf(runtime.message()));
+        }
+        return runtime.service(service)
+                .filter(state -> state.status() != null)
+                .map(state -> TEXTS.report().words(state.describe()))
+                .orElseGet(() -> TEXTS.report().noContainer());
+    }
+
     // The snapshot this iteration already read, not a fresh GET per pending service.
     private UpdateReport timedOut(final UpdateReport before, final List<String> pending, final RuntimeResult last) {
         UpdateReport report = before;
         for (final String service : pending) {
-            final String seen = last.reached()
-                    ? last.service(service).map(ServiceRuntime::describe).orElse("no container for it in the project")
-                    : "the container runtime could not be read: " + last.message();
+            final MessageRef seen = seen(last, service);
             report = report.with(
                     fellBack.containsKey(service)
                             ? report.line(service)
@@ -331,7 +350,7 @@ final class UpdateRun {
             return TEXTS.report().fellBackHealthy(outdated, why);
         }
 
-        MessageRef down(final long minutes, final String seen) {
+        MessageRef down(final long minutes, final MessageRef seen) {
             return TEXTS.report().fellBackDown(outdated, why, minutes, seen);
         }
 

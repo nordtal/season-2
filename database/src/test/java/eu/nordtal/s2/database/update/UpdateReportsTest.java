@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -241,6 +242,46 @@ class UpdateReportsTest {
         assertEquals("out of date", change.to());
         assertEquals(null, change.told());
         assertTrue(UpdateReports.english(stored).contains("\"to\":\"out of date\""), UpdateReports.english(stored));
+    }
+
+    @Test
+    void aSavedBackupCarriesItsSizeAndItsTimeAsValuesAndNeverAsWords() {
+        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.DONE)
+                .with(new UpdateReport.ServiceLine(
+                        "nordtal-s2_mc-smp",
+                        UpdateReport.State.SAVED,
+                        List.of(UpdateReport.Change.told(
+                                "backup",
+                                TEXTS.report().saved(ByteSize.of(1_234_567).message(), Duration.ofSeconds(72)))),
+                        null));
+
+        final String json = UpdateReports.toJson(report);
+        // A unit comes back as its word, which a select chooses on as it did on the constant.
+        assertEquals(
+                UpdateReports.english(json),
+                UpdateReports.english(
+                        UpdateReports.toJson(UpdateReports.parse(json).orElseThrow())));
+        assertTrue(json.contains("\"key\":\"report.size\""), json);
+        assertTrue(json.contains("\"kind\":\"duration\""), json);
+        assertFalse(json.contains("MiB"), "the unit is a choice the bundle words: " + json);
+        final String english = UpdateReports.english(json);
+        assertTrue(english.contains("\"told\":\"saved 1.2 MiB in 1m 12s\""), english);
+    }
+
+    @Test
+    void whatWasSeenOfAServiceIsAMessageAndARowThatSaidItInWordsStillReads() {
+        final String told = UpdateReports.english(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.PLANNED, List.of(), null)
+                        .failed(TEXTS.report().notHealthy(5, TEXTS.report().noContainer())))));
+        assertTrue(told.contains("within 5 minutes (no container for it in the project)"), told);
+
+        // The same detail as an earlier release stored it, with what was seen in Docker's words.
+        final String stored = "{\"stage\": \"FAILED\", \"notes\": [], \"services\": [{\"state\": \"FAILED\","
+                + " \"changes\": [], \"service\": \"smp\", \"detail\": {\"key\": \"report.not-healthy\", \"args\":"
+                + " {\"minutes\": {\"kind\": \"number\", \"value\": 5},"
+                + " \"seen\": {\"kind\": \"text\", \"value\": \"running, unhealthy\"}}}}]}";
+        final String english = UpdateReports.english(stored);
+        assertTrue(english.contains("within 5 minutes (running, unhealthy)"), english);
     }
 
     @Test

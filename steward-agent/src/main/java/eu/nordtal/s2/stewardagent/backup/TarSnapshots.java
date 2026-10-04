@@ -1,5 +1,6 @@
 package eu.nordtal.s2.stewardagent.backup;
 
+import eu.nordtal.s2.database.update.ByteSize;
 import eu.nordtal.s2.internalapi.agent.Retention;
 import eu.nordtal.s2.internalapi.agent.SnapshotResult;
 import eu.nordtal.s2.stewardagent.run.Snapshots;
@@ -285,7 +286,7 @@ public final class TarSnapshots {
         // The real size on disk, not the input size.
         final long bytes = Files.size(finished);
         final Duration took = since(startedAt);
-        log.info("saved {} ({}) in {}s", name, SnapshotResult.human(bytes), took.toSeconds());
+        log.info("saved {} ({}) in {}s", name, ByteSize.of(bytes), took.toSeconds());
         return SnapshotResult.saved(volume, bytes, took, finished.toString());
     }
 

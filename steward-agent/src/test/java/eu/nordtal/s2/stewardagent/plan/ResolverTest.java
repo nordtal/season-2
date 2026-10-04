@@ -107,7 +107,7 @@ class ResolverTest {
         final String note = plan.notes().getFirst();
         assertTrue(note.contains("4.3.0") && note.contains(Platform.VELOCITY_API), note);
         assertTrue(
-                PlanReport.of(plan).render().contains(note),
+                PlanReport.of(plan).notes().contains(note),
                 "the note is decided by the resolver and drawn by PlanReport - a report that drops"
                         + " it is a version skew nobody is told about");
     }
@@ -198,18 +198,18 @@ class ResolverTest {
         assertFalse(plan.hasMissing(), Report.render(plan));
 
         final eu.nordtal.s2.database.update.UpdateReport report = PlanReport.of(plan);
-        assertFalse(report.isWork(), report.render());
+        assertFalse(report.isWork(), report.toString());
         assertEquals(
                 eu.nordtal.s2.database.update.UpdateReport.State.UNCHANGED,
                 report.line("smp").state(),
-                report.render());
+                report.toString());
         assertTrue(
                 report.line("smp").changes().stream()
                         .anyMatch(entry -> entry.artefact().equals("coreprotect")
                                 && entry.state()
                                         == eu.nordtal.s2.database.update.UpdateReport.Change.State.UNSUPPORTED),
                 "the artefact has to stay NAMED while it waits - one dropped from the report is one"
-                        + " somebody has to remember: " + report.render());
+                        + " somebody has to remember: " + report);
 
         // The text report names it too; its SUMMARY when nothing else is wrong is ReportTest's job, not this one's.
         final String text = Report.render(plan);
@@ -411,7 +411,7 @@ class ResolverTest {
         final eu.nordtal.s2.database.update.UpdateReport report = PlanReport.of(plan);
         assertTrue(
                 report.notes().stream().anyMatch(note -> note.contains(PACK_SHA1 + " stays")),
-                "the missing pack is a note in the report: " + report.render());
+                "the missing pack is a note in the report: " + report);
     }
 
     @Test
@@ -468,10 +468,10 @@ class ResolverTest {
         assertEquals(
                 eu.nordtal.s2.database.update.UpdateReport.State.PLANNED,
                 report.line("smp").state(),
-                report.render());
+                report.toString());
         assertTrue(
                 report.notes().stream().anyMatch(note -> note.contains("smp-0.1.0.jar stays")),
-                "the missing jar is a warning in the report: " + report.render());
+                "the missing jar is a warning in the report: " + report);
     }
 
     @Test
@@ -483,11 +483,11 @@ class ResolverTest {
 
         final eu.nordtal.s2.database.update.UpdateReport report = PlanReport.of(resolve());
 
-        assertFalse(report.line("smp").isMoving(), report.render());
+        assertFalse(report.line("smp").isMoving(), report.toString());
         assertEquals(
                 eu.nordtal.s2.database.update.UpdateReport.State.UNCHANGED,
                 report.line("smp").state(),
-                report.render());
+                report.toString());
     }
 
     @Test
@@ -504,9 +504,9 @@ class ResolverTest {
         assertEquals(
                 eu.nordtal.s2.database.update.UpdateReport.State.FAILED,
                 report.line("smp").state(),
-                report.render());
-        assertFalse(report.line("smp").isMoving(), report.render());
-        assertTrue(report.line("smp").detail().contains("packetevents"), report.render());
+                report.toString());
+        assertFalse(report.line("smp").isMoving(), report.toString());
+        assertTrue(report.line("smp").detail().contains("packetevents"), report.toString());
     }
 
     @Test
@@ -521,7 +521,7 @@ class ResolverTest {
         final eu.nordtal.s2.database.update.UpdateReport report = PlanReport.of(resolve());
 
         // The applier installs plugins beside a paper row it could not check, so the line must say it moves.
-        assertTrue(report.line("smp").isMoving(), report.render());
+        assertTrue(report.line("smp").isMoving(), report.toString());
     }
 
     @Test

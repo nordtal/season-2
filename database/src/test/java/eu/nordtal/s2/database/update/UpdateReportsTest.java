@@ -61,8 +61,7 @@ class UpdateReportsTest {
                 "a first deployment installs rather than upgrades, and the report has to be able"
                         + " to say so - 'null -> 1.4.36' in an embed is a bug report waiting to"
                         + " happen");
-        assertTrue(back.render().contains("chunky 1.4.36"));
-        assertFalse(back.render().contains("null"));
+        assertEquals("1.4.36", back.services().get(0).changes().get(0).to());
     }
 
     @Test
@@ -147,22 +146,6 @@ class UpdateReportsTest {
     }
 
     @Test
-    void theTextRenderingIsTheOneTextRendering() {
-        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.DONE)
-                .with(new UpdateReport.ServiceLine(
-                        "smp",
-                        UpdateReport.State.HEALTHY,
-                        List.of(new UpdateReport.Change("paper", "26.2.121", "26.2.126")),
-                        null))
-                .withNote("the schema is current");
-
-        assertEquals("""
-                Update finished
-                smp: running - paper 26.2.121 -> 26.2.126
-                the schema is current""", report.render());
-    }
-
-    @Test
     void anArtefactWithNoBuildForThisVersionIsNewsAndNeverWork() {
         // A line with only unsupported changes must not stop, install or close as installed.
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED)
@@ -172,11 +155,12 @@ class UpdateReportsTest {
                         List.of(UpdateReport.Change.unsupported("coreprotect")),
                         null));
 
-        assertFalse(report.isWork(), report.render());
-        assertFalse(report.line("smp").isMoving(), report.render());
+        assertFalse(report.isWork(), report.toString());
+        assertFalse(report.line("smp").isMoving(), report.toString());
         assertTrue(
-                report.render().contains("coreprotect"),
-                "an artefact waiting for a build has to stay NAMED: " + report.render());
+                report.line("smp").changes().stream()
+                        .anyMatch(change -> change.artefact().equals("coreprotect")),
+                "an artefact waiting for a build has to stay NAMED: " + report);
     }
 
     @Test
@@ -190,8 +174,8 @@ class UpdateReportsTest {
                                 new UpdateReport.Change("smp", "0.6.0", "0.7.0")),
                         null));
 
-        assertTrue(report.isWork(), report.render());
-        assertTrue(report.line("smp").isMoving(), report.render());
+        assertTrue(report.isWork(), report.toString());
+        assertTrue(report.line("smp").isMoving(), report.toString());
     }
 
     @Test
@@ -223,13 +207,13 @@ class UpdateReportsTest {
     }
 
     @Test
-    void aFailureSaysWhichServiceAndWhyInTheTextToo() {
-        final String rendered = UpdateReport.at(UpdateReport.Stage.FAILED)
+    void aFailureSaysWhichServiceAndWhy() {
+        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.FAILED)
                 .with(new UpdateReport.ServiceLine("limbo", UpdateReport.State.PLANNED, List.of(), null)
-                        .failed("did not report healthy within 5 minutes"))
-                .render();
+                        .failed("did not report healthy within 5 minutes"));
 
-        assertTrue(rendered.contains("limbo: FAILED"), rendered);
-        assertTrue(rendered.contains("did not report healthy within 5 minutes"), rendered);
+        assertEquals(UpdateReport.State.FAILED, report.line("limbo").state(), report.toString());
+        assertEquals(
+                "did not report healthy within 5 minutes", report.line("limbo").detail(), report.toString());
     }
 }

@@ -245,6 +245,18 @@ class ArchitectureTest {
                 .check(classes);
     }
 
+    @Test
+    void theProxySchedulesOnlyThroughVelocityScheduler() {
+        noClasses()
+                .that()
+                .doNotHaveFullyQualifiedName("eu.nordtal.s2.proxy.time.VelocityScheduler")
+                .should()
+                .dependOnClassesThat()
+                .resideInAPackage("com.velocitypowered.api.scheduler..")
+                .because("VelocityScheduler is the proxy's one scheduler, as PaperScheduler is a Paper server's")
+                .check(classes);
+    }
+
     /** A pool or a timer, a virtual thread per call, or the common pool behind an async call given no executor. */
     private static boolean reachesAPoolOrATimer(final JavaAccess<?> access) {
         final String owner = access.getTargetOwner().getName();

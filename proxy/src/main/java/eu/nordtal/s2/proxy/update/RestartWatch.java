@@ -4,8 +4,8 @@ import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
 
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
-import com.velocitypowered.api.scheduler.ScheduledTask;
 import eu.nordtal.s2.common.time.CountdownPlan;
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateRequest;
@@ -42,7 +42,7 @@ public final class RestartWatch {
     private static final Title.Times TIMES =
             Title.Times.times(Duration.ZERO, Duration.ofMillis(1400), Duration.ofMillis(250));
 
-    private final Object plugin;
+    private final Scheduler scheduler;
     private final ProxyServer proxy;
     private final Logger logger;
     private final UpdateDirectory updates;
@@ -63,7 +63,7 @@ public final class RestartWatch {
     /** When to speak and what to say. */
     private final Countdown countdown = new Countdown();
 
-    private final List<ScheduledTask> scheduled = new ArrayList<>();
+    private final List<Scheduler.Task> scheduled = new ArrayList<>();
 
     /** Whether the network has already been told the outage is happening; two paths reach that sentence. */
     private boolean saidNow;
@@ -72,7 +72,7 @@ public final class RestartWatch {
     private volatile Runnable atZero = () -> {};
 
     public RestartWatch(
-            final Object plugin,
+            final Scheduler scheduler,
             final ProxyServer proxy,
             final Logger logger,
             final UpdateDirectory updates,
@@ -80,7 +80,7 @@ public final class RestartWatch {
             final MessageRenderer renderer,
             final PhaseServers servers,
             final Clock clock) {
-        this.plugin = Objects.requireNonNull(plugin, "plugin");
+        this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.updates = Objects.requireNonNull(updates, "updates");
@@ -179,34 +179,31 @@ public final class RestartWatch {
 
     /** Puts one beat on the proxy's scheduler, even at zero delay, so no broadcast runs under this monitor. */
     private void schedule(final CountdownPlan.Beat<Announcement> beat) {
-        scheduled.add(proxy.getScheduler()
-                .buildTask(plugin, () -> {
-                    if (beat.said().kind() == Announcement.Kind.NOW) {
-                        synchronized (this) {
-                            if (saidNow) {
-                                return;
-                            }
-                            saidNow = true;
-                            countdown.zeroReached();
-                        }
-                        // Before the sentence: a failure here must not swallow the announcement.
-                        try {
-                            atZero.run();
-                        } catch (final RuntimeException failure) {
-                            logger.warn(
-                                    "What was scheduled for the end of the countdown failed; the"
-                                            + " five-second sweep behind it is what still has to catch this",
-                                    failure);
-                        }
+        scheduled.add(scheduler.after(beat.delay(), () -> {
+            if (beat.said().kind() == Announcement.Kind.NOW) {
+                synchronized (this) {
+                    if (saidNow) {
+                        return;
                     }
-                    say(beat.said());
-                })
-                .delay(beat.delay())
-                .schedule());
+                    saidNow = true;
+                    countdown.zeroReached();
+                }
+                // Before the sentence: a failure here must not swallow the announcement.
+                try {
+                    atZero.run();
+                } catch (final RuntimeException failure) {
+                    logger.warn(
+                            "What was scheduled for the end of the countdown failed; the"
+                                    + " five-second sweep behind it is what still has to catch this",
+                            failure);
+                }
+            }
+            say(beat.said());
+        }));
     }
 
     private void cancelScheduled() {
-        scheduled.forEach(ScheduledTask::cancel);
+        scheduled.forEach(Scheduler.Task::cancel);
         scheduled.clear();
     }
 

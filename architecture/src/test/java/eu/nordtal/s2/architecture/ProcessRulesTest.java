@@ -48,7 +48,7 @@ class ProcessRulesTest {
                 .that(isListed(PROXY))
                 .should(callFrom("start", "ProxyPlugin#startHeartbeat"))
                 .andShould(neverCallFrom("failClosed", "ProxyPlugin#startHeartbeat"))
-                .andShould(reachInside(reaches("com.velocitypowered.api.scheduler.ScheduledTask", "cancel")))
+                .andShould(reachInside(reaches("eu.nordtal.s2.common.time.Scheduler$Task", "cancel")))
                 .check(classes);
         assertEquals(
                 1,

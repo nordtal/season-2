@@ -23,3 +23,6 @@ everything that runs work later or again: a timer thread that only hands work on
 thread per run. Repeating work is `Scheduler.every` for every scheduler alike: the next run is armed
 when the last one ended, so two never overlap. No feature owns a thread pool or a timer; `:architecture`
 holds that, and a test drives timed work through the test fixture `ManualScheduler` instead of waiting.
+The two platforms bring a scheduler of their own, so each gets one facade that is a `Scheduler`:
+paper-common's `PaperScheduler` and the proxy's `VelocityScheduler`, the only code that reaches the
+platform's scheduler, each held by a rule in `:architecture`.

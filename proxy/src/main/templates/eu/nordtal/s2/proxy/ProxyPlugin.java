@@ -19,6 +19,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.common.health.Readiness;
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.Names;
@@ -29,6 +30,7 @@ import eu.nordtal.s2.database.online.OnlineRoster;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.proxy.config.ProxySettings;
+import eu.nordtal.s2.proxy.time.VelocityScheduler;
 import eu.nordtal.s2.settings.Colours;
 import eu.nordtal.s2.settings.DatabasePool;
 import eu.nordtal.s2.settings.DatabaseSpec;
@@ -122,6 +124,9 @@ public final class ProxyPlugin {
 
     private final ProxyServer proxy;
     private final Logger logger;
+
+    /** The one way this proxy runs work later or again; nothing else here touches Velocity's scheduler. */
+    private final VelocityScheduler scheduler;
     private final Path dataDirectory;
 
     private HikariDataSource pool;
@@ -133,7 +138,7 @@ public final class ProxyPlugin {
     private volatile Evacuation evacuation;
 
     private PlaytimeWriter playtime;
-    private com.velocitypowered.api.scheduler.ScheduledTask heartbeat;
+    private Scheduler.Task heartbeat;
 
     @Inject
     public ProxyPlugin(final ProxyServer proxy, final Logger logger,
@@ -141,6 +146,7 @@ public final class ProxyPlugin {
         this.proxy = proxy;
         this.logger = logger;
         this.dataDirectory = dataDirectory;
+        this.scheduler = VelocityScheduler.of(proxy, this);
     }
 
     @Subscribe
@@ -266,7 +272,7 @@ public final class ProxyPlugin {
         // One object for both returns, so each moved player is told once.
         final Homecoming homecoming = new Homecoming(logger, renderer, roster, phaseServers);
 
-        final PlayerRouter router = new PlayerRouter(this, proxy, logger, access, routing, phaseWatch,
+        final PlayerRouter router = new PlayerRouter(scheduler, proxy, logger, access, routing, phaseWatch,
                 roster, fallback, gateMessages, packs, intents, backendHealth,
                 parkedSeats, homecoming, clock);
         routerRef.set(router);
@@ -275,10 +281,7 @@ public final class ProxyPlugin {
         proxy.getEventManager().register(this, packs);
 
         final Duration sweepInterval = Duration.ofSeconds(gateConfig.limboSweepIntervalSeconds());
-        proxy.getScheduler().buildTask(this, packs::sweep)
-                .delay(sweepInterval)
-                .repeat(sweepInterval)
-                .schedule();
+        final var _ = scheduler.every(sweepInterval, sweepInterval, packs::sweep);
 
         // Read once, before the first player arrives, so the MAINTENANCE fallback runs as briefly as possible.
         phaseWatch.refresh();
@@ -332,19 +335,14 @@ public final class ProxyPlugin {
         proxy.getEventManager().register(this, new BackendKick(proxy, phaseServers,
                 backendHealth, gateMessages, roster, logger));
 
-        proxy.getScheduler().buildTask(this, expiryWatch::check)
-                .delay(Duration.ofSeconds(gateConfig.expiryCheckIntervalSeconds()))
-                .repeat(Duration.ofSeconds(gateConfig.expiryCheckIntervalSeconds()))
-                .schedule();
+        final Duration expiryInterval = Duration.ofSeconds(gateConfig.expiryCheckIntervalSeconds());
+        final var _ = scheduler.every(expiryInterval, expiryInterval, expiryWatch::check);
 
         // The numbers behind the MOTD, refreshed on a timer, never on the unauthenticated ping itself.
         final SnapshotStore snapshots = SnapshotStore.using(pool, logger);
         final Duration snapshotInterval = Duration.ofSeconds(networkConfig.snapshotRefreshSeconds());
         snapshots.refresh();
-        proxy.getScheduler().buildTask(this, snapshots::refresh)
-                .delay(snapshotInterval)
-                .repeat(snapshotInterval)
-                .schedule();
+        final var _ = scheduler.every(snapshotInterval, snapshotInterval, snapshots::refresh);
         proxy.getEventManager().register(this, new NetworkPing(proxy, players.get(), phaseWatch,
                 snapshots, renderer, languages.locales()[0], clock,
                 eu.nordtal.s2.proxy.ping.ServerIcon.load(dataDirectory, logger)));
@@ -353,10 +351,7 @@ public final class ProxyPlugin {
         final OnlineWriter onlineWriter = new OnlineWriter(proxy, phaseServers,
                 OnlineDirectory.using(pool, clock), OnlineRoster.using(pool, clock), role, logger, clock);
         onlineWriter.write();
-        proxy.getScheduler().buildTask(this, onlineWriter::tick)
-                .delay(OnlineWriter.TICK)
-                .repeat(OnlineWriter.TICK)
-                .schedule();
+        final var _ = scheduler.every(OnlineWriter.TICK, OnlineWriter.TICK, onlineWriter::tick);
 
         // play time
 
@@ -364,18 +359,12 @@ public final class ProxyPlugin {
         proxy.getEventManager().register(this, playtime);
 
         final Duration flushInterval = Duration.ofSeconds(gateConfig.playtimeFlushIntervalSeconds());
-        proxy.getScheduler().buildTask(this, playtime::flushAll)
-                .delay(flushInterval)
-                .repeat(flushInterval)
-                .schedule();
+        final var _ = scheduler.every(flushInterval, flushInterval, playtime::flushAll);
 
         // Only the proxy sees every player, so it gives the warning, counting towards the row's instant.
-        this.restartWatch = new RestartWatch(this, proxy, logger,
+        this.restartWatch = new RestartWatch(scheduler, proxy, logger,
                 UpdateDirectory.using(pool), roster, renderer, phaseServers, clock);
-        proxy.getScheduler().buildTask(this, this.restartWatch::check)
-                .delay(RestartWatch.INTERVAL)
-                .repeat(RestartWatch.INTERVAL)
-                .schedule();
+        final var _ = scheduler.every(RestartWatch.INTERVAL, RestartWatch.INTERVAL, this.restartWatch::check);
 
         // Moves players into the waiting room, on its own task beside the countdown.
         this.evacuation = new Evacuation(proxy, logger,
@@ -386,10 +375,7 @@ public final class ProxyPlugin {
         onlineWriter.whenHurrying(() ->
                 this.restartWatch.isCountingDown() || this.evacuation.isAnyMoving());
         // The countdown already schedules a task on the zero instant; the evacuation rides it.
-        proxy.getScheduler().buildTask(this, this.evacuation::check)
-                .delay(RestartWatch.INTERVAL)
-                .repeat(RestartWatch.INTERVAL)
-                .schedule();
+        final var _ = scheduler.every(RestartWatch.INTERVAL, RestartWatch.INTERVAL, this.evacuation::check);
 
         // Parks the network when this proxy itself stops; `role` decides which half acts.
         final ProxySwap swap = new ProxySwap(proxy, logger, UpdateDirectory.using(pool), swaps,
@@ -398,22 +384,16 @@ public final class ProxyPlugin {
         this.restartWatch.whenZeroReached(() -> atZero(swap));
         // Lets the announcement say whether a standby catches players, once per countdown.
         this.restartWatch.standbyProxyAnswers(swap::canPark);
-        proxy.getScheduler().buildTask(this, swap::check)
-                .delay(RestartWatch.INTERVAL)
-                .repeat(RestartWatch.INTERVAL)
-                .schedule();
+        final var _ = scheduler.every(RestartWatch.INTERVAL, RestartWatch.INTERVAL, swap::check);
 
         // An arrival between zero and the stop gets a sentence and goes to the standby too.
         proxy.getEventManager().register(this,
                 new RestartGate(logger, swap::isStopping, parkedSeats::holds, swap::park,
                         gateMessages, fallback));
 
-        final StandbyReturn standbyReturn = new StandbyReturn(this, proxy, logger, swaps, role,
+        final StandbyReturn standbyReturn = new StandbyReturn(scheduler, proxy, logger, swaps, role,
                 publicAddress, clock, homecoming);
-        proxy.getScheduler().buildTask(this, standbyReturn::check)
-                .delay(StandbyReturn.INTERVAL)
-                .repeat(StandbyReturn.INTERVAL)
-                .schedule();
+        final var _ = scheduler.every(StandbyReturn.INTERVAL, StandbyReturn.INTERVAL, standbyReturn::check);
 
         // Logged at start: a silent swap failure would look like a network that just went down.
         if (role.isStandby()) {
@@ -504,10 +484,7 @@ public final class ProxyPlugin {
      */
     private void startHeartbeat() {
         final Readiness readiness = Readiness.onDefaultPath(clock, logger::warn);
-        heartbeat = proxy.getScheduler().buildTask(this, readiness::refresh)
-                .delay(Duration.ZERO)
-                .repeat(Readiness.BEAT)
-                .schedule();
+        heartbeat = scheduler.every(Duration.ZERO, Readiness.BEAT, readiness::refresh);
     }
 
     /** Registers the only login handler, which refuses everybody. */

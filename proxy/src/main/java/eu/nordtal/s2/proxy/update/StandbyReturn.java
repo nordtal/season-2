@@ -3,6 +3,7 @@ package eu.nordtal.s2.proxy.update;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import eu.nordtal.s2.common.time.CountdownPlan;
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.proxy.ProxyRole;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -35,7 +36,7 @@ public final class StandbyReturn {
     /** How long it must have answered after an outage; longer than one tick, so a release takes two passes. */
     static final Duration SETTLE = Duration.ofSeconds(4);
 
-    private final Object plugin;
+    private final Scheduler scheduler;
     private final ProxyServer proxy;
     private final Logger logger;
     private final SwapStore seats;
@@ -62,7 +63,7 @@ public final class StandbyReturn {
     private @Nullable Instant answeringSince;
 
     public StandbyReturn(
-            final Object plugin,
+            final Scheduler scheduler,
             final ProxyServer proxy,
             final Logger logger,
             final SwapStore seats,
@@ -70,7 +71,7 @@ public final class StandbyReturn {
             final InetSocketAddress home,
             final Clock clock,
             final Homecoming voice) {
-        this(plugin, proxy, logger, seats, role, home, clock, voice, StandbyReturn::connects);
+        this(scheduler, proxy, logger, seats, role, home, clock, voice, StandbyReturn::connects);
     }
 
     /**
@@ -79,7 +80,7 @@ public final class StandbyReturn {
      * @param probe how to ask whether an address answers
      */
     StandbyReturn(
-            final Object plugin,
+            final Scheduler scheduler,
             final ProxyServer proxy,
             final Logger logger,
             final SwapStore seats,
@@ -88,7 +89,7 @@ public final class StandbyReturn {
             final Clock clock,
             final Homecoming voice,
             final Probe probe) {
-        this.plugin = Objects.requireNonNull(plugin, "plugin");
+        this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.voice = Objects.requireNonNull(voice, "voice");
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
@@ -171,22 +172,19 @@ public final class StandbyReturn {
                 Homecoming.NOTICE.toSeconds());
 
         for (final CountdownPlan.Beat<Announcement> beat : beats) {
-            proxy.getScheduler()
-                    .buildTask(plugin, () -> {
-                        // Asked again per beat: a player who logged out is gone, one who logged in is owed the same.
-                        final Collection<Player> here = proxy.getAllPlayers();
-                        voice.say(here, beat.said());
-                        if (beat.said().kind() != Announcement.Kind.NOW) {
-                            return;
-                        }
-                        // Sentence before transfer, unlike the way out: after it, the message reaches nobody.
-                        sendHome(here);
-                        returning = false;
-                        outageSeen = false;
-                        answeringSince = null;
-                    })
-                    .delay(beat.delay())
-                    .schedule();
+            final var _ = scheduler.after(beat.delay(), () -> {
+                // Asked again per beat: a player who logged out is gone, one who logged in is owed the same.
+                final Collection<Player> here = proxy.getAllPlayers();
+                voice.say(here, beat.said());
+                if (beat.said().kind() != Announcement.Kind.NOW) {
+                    return;
+                }
+                // Sentence before transfer, unlike the way out: after it, the message reaches nobody.
+                sendHome(here);
+                returning = false;
+                outageSeen = false;
+                answeringSince = null;
+            });
         }
     }
 

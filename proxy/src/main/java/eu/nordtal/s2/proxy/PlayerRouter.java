@@ -7,6 +7,7 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AccessState;
 import eu.nordtal.s2.proxy.gate.BackendHealth;
@@ -38,7 +39,7 @@ import org.slf4j.Logger;
  */
 public final class PlayerRouter implements PhaseWatch.ChangeListener {
 
-    private final Object plugin;
+    private final Scheduler scheduler;
     private final ProxyServer proxy;
     private final Logger logger;
     private final AccessReader access;
@@ -62,7 +63,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
     private final Clock clock;
 
     public PlayerRouter(
-            final Object plugin,
+            final Scheduler scheduler,
             final ProxyServer proxy,
             final Logger logger,
             final AccessReader access,
@@ -78,7 +79,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
             final eu.nordtal.s2.proxy.update.Homecoming homecoming,
             final Clock clock) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
-        this.plugin = Objects.requireNonNull(plugin, "plugin");
+        this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.access = Objects.requireNonNull(access, "access");
@@ -210,7 +211,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
                 previous,
                 current,
                 proxy.getAllPlayers().size());
-        proxy.getScheduler().buildTask(plugin, () -> rerouteAll(current)).schedule();
+        scheduler.execute(() -> rerouteAll(current));
     }
 
     /**

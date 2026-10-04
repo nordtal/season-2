@@ -5,6 +5,7 @@ import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.Outcome;
 import eu.nordtal.s2.database.inbox.Request;
+import eu.nordtal.s2.messages.MessageRef;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -21,18 +22,19 @@ import org.jspecify.annotations.Nullable;
 public final class BotInbox implements Inbox.Handler<BotRequest> {
 
     private final AccessChanges effects;
-    private final BiPredicate<String, String> announce;
+    private final BiPredicate<String, MessageRef> announce;
     private final Predicate<BotRequest.PostAlert> alert;
     private final Consumer<BotRequest.PaymentBooked> paid;
 
     /**
-     * @param announce posts a text into one language's announcement channel and answers whether it went out
+     * @param announce renders a message in one language, posts it into that language's announcement channel and
+     *     answers whether it went out
      * @param alert posts an alert into the admin channel and answers whether there was one
      * @param paid tells a payer what steward booked for them
      */
     public BotInbox(
             final AccessChanges effects,
-            final BiPredicate<String, String> announce,
+            final BiPredicate<String, MessageRef> announce,
             final Predicate<BotRequest.PostAlert> alert,
             final Consumer<BotRequest.PaymentBooked> paid) {
         this.effects = Objects.requireNonNull(effects, "effects");
@@ -64,13 +66,14 @@ public final class BotInbox implements Inbox.Handler<BotRequest> {
         };
     }
 
-    /** Posts every language's text and answers, per language, whether it went out; a missing channel is no fault. */
+    /** Posts every language's message and answers, per language, whether it went out; a missing channel is no fault. */
     private Map<String, String> post(final BotRequest.Announce announcement) {
         final Map<String, String> posted = new LinkedHashMap<>();
         announcement
-                .texts()
-                .forEach((tag, text) -> posted.put(
-                        tag, announce.test(tag, text) ? BotRequest.Announce.POSTED : BotRequest.Announce.NOT_POSTED));
+                .messages()
+                .forEach((tag, message) -> posted.put(
+                        tag,
+                        announce.test(tag, message) ? BotRequest.Announce.POSTED : BotRequest.Announce.NOT_POSTED));
         return posted;
     }
 

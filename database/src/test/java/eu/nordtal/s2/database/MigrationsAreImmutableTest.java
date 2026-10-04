@@ -97,6 +97,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V23__prestige_is_the_networks.sql",
                 "ae5301f4645517cdc1b7c18a523341e250ed7c2feb39f358287d18670d6b53bb");
+        FROZEN.put(
+                "V24__an_announcement_is_a_message.sql",
+                "c2357b454d3ad88ee2ed6a7569224ad02a04f91da8c6639bbaddb92e9a3ce96b");
     }
 
     @Test

@@ -4,20 +4,27 @@ import eu.nordtal.s2.database.access.PlayerCard;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateStatus;
 import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.messages.spec.Arg;
 import eu.nordtal.s2.messages.spec.Display;
+import eu.nordtal.s2.messages.spec.Format;
+import eu.nordtal.s2.messages.spec.Key;
 import eu.nordtal.s2.messages.spec.MessageSpec;
 import eu.nordtal.s2.messages.spec.MessageSpecs;
 import eu.nordtal.s2.messages.spec.Name;
 import eu.nordtal.s2.messages.spec.Shown;
+import eu.nordtal.s2.messages.spec.TextFormat;
 import eu.nordtal.s2.messages.value.Example;
 import eu.nordtal.s2.messages.value.Glyph;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
-/** Every message of the database bundle: what a refused write tells whoever asked for it, and a player's card. */
+/**
+ * Every message of the database bundle: refusals of a write, a player's card, and the announcements the bot posts.
+ * A server and Steward write an announcement into the bot's inbox, and the bot renders it in each language.
+ */
 @MessageSpec("database")
 public interface DatabaseMessages {
 
@@ -31,6 +38,39 @@ public interface DatabaseMessages {
     ServerRefusals server();
 
     PlayerTexts player();
+
+    Announcements announcement();
+
+    /** What the bot posts into each language's announcement channel; a glyph would be a box there, so none is used. */
+    @Name("Announcements")
+    @Shown(Display.DISCORD_MESSAGE)
+    @Format(TextFormat.DISCORD_MARKDOWN)
+    interface Announcements {
+
+        /** An admin's own words, posted as written: the markdown in them is theirs. */
+        @Name("Words an admin wrote")
+        @Format(TextFormat.PLAIN)
+        MessageRef words(@Arg("text") @Example("The End opens tonight at eight.") String text);
+
+        @Name("Milestone")
+        MessageRef milestone(@Arg("milestone") MilestoneContext milestone);
+
+        @Key("milestone")
+        Milestone milestoneSection();
+
+        @Name("Milestone")
+        interface Milestone {
+
+            @Name("Border")
+            MessageRef border(@Arg("milestone") MilestoneContext milestone);
+
+            @Name("Nether")
+            MessageRef nether(@Arg("milestone") MilestoneContext milestone);
+
+            @Name("End")
+            MessageRef end(@Arg("milestone") MilestoneContext milestone);
+        }
+    }
 
     @Name("Players")
     interface PlayerTexts {

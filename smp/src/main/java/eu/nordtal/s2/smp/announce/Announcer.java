@@ -5,21 +5,20 @@ import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.Schedule;
-import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import java.time.Duration;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 /**
- * Sends the SMP's lines into the Discord announcement channels: one request in the bot's inbox, one text per language.
- * Fire and forget on the async executor: the request keeps for an hour, so a bot that was down posts when it is back.
+ * Sends the SMP's lines into the Discord announcement channels: one request in the bot's inbox for every language.
+ * Each language's message is rendered by the bot. Fire and forget on the async executor: the request keeps an hour.
  */
 public final class Announcer {
 
@@ -27,59 +26,46 @@ public final class Announcer {
     public static final Duration KEEP = Duration.ofHours(1);
 
     private final Inbox<BotRequest> bot;
-    private final MessageRenderer renderer;
+    private final List<Locale> locales;
     private final Executor async;
     private final BiConsumer<String, Throwable> warn;
 
+    /** @param locales the languages the plugin loaded, which are the network's */
     public Announcer(
             final Inbox<BotRequest> bot,
-            final MessageRenderer renderer,
+            final List<Locale> locales,
             final Executor async,
             final BiConsumer<String, Throwable> warn) {
         this.bot = Objects.requireNonNull(bot, "bot");
-        this.renderer = Objects.requireNonNull(renderer, "renderer");
+        this.locales = List.copyOf(locales);
         this.async = Objects.requireNonNull(async, "async");
         this.warn = Objects.requireNonNull(warn, "warn");
     }
 
     /**
-     * Renders {@code message} in every language and sends it.
+     * Sends a message whose values depend on the language, such as a milestone's name.
      *
-     * @param message a message from this module's spec; the announcement keys carry no glyph, which Discord would draw
-     *     as a box
-     */
-    public void announce(final MessageRef message) {
-        Objects.requireNonNull(message, "message");
-        announce(locale -> message);
-    }
-
-    /**
-     * Renders a message whose values depend on the language, such as a milestone's name, and sends it.
-     *
-     * @param message what to send, asked once per language
+     * @param message what to send, asked once per language, from the database bundle's {@code announcement} section
      */
     public void announce(final Function<Locale, MessageRef> message) {
         Objects.requireNonNull(message, "message");
         async.execute(() -> {
-            final BotRequest.Announce announcement = render(message);
+            final BotRequest.Announce announcement = announcement(message);
             try {
                 // Nobody asked: the network announces its own progress.
                 bot.submit(announcement, Actor.STEWARD, Schedule.within(KEEP));
             } catch (final RuntimeException failure) {
-                warn.accept("could not send the announcement " + announcement.texts(), failure);
+                warn.accept("could not send the announcement " + announcement.messages(), failure);
             }
         });
     }
 
-    /** Returns the announcement with one plain text per language, visible for the test. */
-    BotRequest.Announce render(final Function<Locale, MessageRef> message) {
-        final Map<String, String> texts = new LinkedHashMap<>();
-        // The languages the plugin loaded, which are the network's.
-        for (final Locale locale : renderer.raw().locales()) {
-            texts.put(
-                    Locales.tag(locale),
-                    PlainTextComponentSerializer.plainText().serialize(renderer.format(locale, message.apply(locale))));
+    /** Returns the announcement with one message per language, visible for the test. */
+    BotRequest.Announce announcement(final Function<Locale, MessageRef> message) {
+        final Map<String, MessageRef> messages = new LinkedHashMap<>();
+        for (final Locale locale : locales) {
+            messages.put(Locales.tag(locale), message.apply(locale));
         }
-        return new BotRequest.Announce(texts);
+        return new BotRequest.Announce(messages);
     }
 }

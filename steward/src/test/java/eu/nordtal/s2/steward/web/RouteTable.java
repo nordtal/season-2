@@ -2,6 +2,7 @@ package eu.nordtal.s2.steward.web;
 
 import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
+import eu.nordtal.s2.settings.network.NetworkSettings;
 import eu.nordtal.s2.steward.alert.Thresholds;
 import eu.nordtal.s2.steward.api.FakeDirectories;
 import eu.nordtal.s2.steward.api.StackApi;
@@ -61,6 +62,7 @@ final class RouteTable {
                         agent,
                         false,
                         null,
+                        NetworkSettings.defaultLanguages(),
                         Clock.systemUTC())
                 // Port 0: the OS picks a free one, so this does not collide with another instance running.
                 .start(0);

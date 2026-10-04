@@ -79,10 +79,7 @@ class AdvancementCreditIntegrationTest {
         final Messages messages =
                 Messages.load(AdvancementCreditIntegrationTest.class.getClassLoader(), "messages/smp", Locale.ENGLISH);
         final Announcer announcer = new Announcer(
-                Inbox.over(dataSource, BotRequest.TABLE),
-                MessageRenderer.of(messages),
-                Runnable::run,
-                (message, failure) -> {});
+                Inbox.over(dataSource, BotRequest.TABLE), messages.locales(), Runnable::run, (message, failure) -> {});
         engine = new ObjectiveEngine(
                 null, dao, () -> track, null, null, null, MessageRenderer.of(messages), null, null, null, announcer);
 

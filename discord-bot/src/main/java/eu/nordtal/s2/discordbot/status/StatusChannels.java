@@ -117,8 +117,7 @@ public final class StatusChannels {
         if (announcements == null || previous == null || previous == phase) {
             return;
         }
-        announcements.postAll(language ->
-                messages.format(language.locale(), MESSAGES.announce().phase(phase, previous)));
+        announcements.postAll(MESSAGES.announce().phase(phase, previous));
     }
 
     private static boolean needsCounts(final SeasonPhase phase) {

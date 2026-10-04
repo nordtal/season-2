@@ -6,13 +6,11 @@ import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.messages.spec.Arg;
 import eu.nordtal.s2.messages.spec.Display;
-import eu.nordtal.s2.messages.spec.Format;
 import eu.nordtal.s2.messages.spec.Key;
 import eu.nordtal.s2.messages.spec.MessageSpec;
 import eu.nordtal.s2.messages.spec.MessageSpecs;
 import eu.nordtal.s2.messages.spec.Name;
 import eu.nordtal.s2.messages.spec.Shown;
-import eu.nordtal.s2.messages.spec.TextFormat;
 import eu.nordtal.s2.messages.value.GameContent;
 import eu.nordtal.s2.messages.value.Money;
 import eu.nordtal.s2.smp.world.WorldRole;
@@ -406,33 +404,6 @@ public interface SmpMessages {
 
             @Name("Completed")
             MessageRef completed(@Arg("milestone") MilestoneContext milestone);
-        }
-
-        Announce announce();
-
-        @Name("Announce")
-        @Shown(Display.DISCORD_MESSAGE)
-        @Format(TextFormat.DISCORD_MARKDOWN)
-        interface Announce {
-
-            @Name("Milestone")
-            MessageRef milestone(@Arg("milestone") MilestoneContext milestone);
-
-            @Key("milestone")
-            Announce.Milestone milestoneSection();
-
-            @Name("Milestone")
-            interface Milestone {
-
-                @Name("Border")
-                MessageRef border(@Arg("milestone") MilestoneContext milestone);
-
-                @Name("Nether")
-                MessageRef nether(@Arg("milestone") MilestoneContext milestone);
-
-                @Name("End")
-                MessageRef end(@Arg("milestone") MilestoneContext milestone);
-            }
         }
 
         Ceremony ceremony();

@@ -72,4 +72,5 @@ the card cannot say different things. An alert is the same: the bot raises it as
 steward routes back is drawn from them, each value escaped, with the link to its page below. A note (a booked payment,
 too many wrong link codes, a grant before the season has a start) and the update feed are drawn from the same bundle,
 in English, and who asked for a run is named as the journal names who did something. Only what a member reads is in
-the bot's own bundle, in every language.
+the bot's own bundle, in every language. The one exception is an announcement: a server and Steward write it as
+messages of `:database`'s bundle, which the bot loads too and renders in each channel's language.

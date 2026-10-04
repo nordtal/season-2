@@ -6,6 +6,9 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.common.language.Languages;
+import eu.nordtal.s2.common.language.Locales;
+import eu.nordtal.s2.database.DatabaseMessages;
 import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.database.inbox.BotRequest;
@@ -14,6 +17,8 @@ import eu.nordtal.s2.database.inbox.InboxStatus;
 import eu.nordtal.s2.database.inbox.Request;
 import eu.nordtal.s2.database.inbox.Schedule;
 import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.spec.MessageSchema;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.data.Data;
 import eu.nordtal.s2.steward.texts.RequestRefused;
@@ -32,7 +37,10 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
-/** Announcements an admin writes by hand: one request in the bot's inbox with a text per language, as the SMP sends. */
+/**
+ * Announcements an admin writes by hand: one request in the bot's inbox, a message per language, as the SMP sends.
+ * The bot renders each; the list renders them here, from the same bundle with the same overrides.
+ */
 final class Announcements {
 
     private static final StewardTexts.Steward.Answer ANSWER =
@@ -51,10 +59,24 @@ final class Announcements {
 
     private final @Nullable Data data;
     private final Function<Context, DiscordAuth.Account> accounts;
+    private final Messages announced;
 
-    Announcements(final @Nullable Data data, final Function<Context, DiscordAuth.Account> accounts) {
+    /** @param languages the network's, which the database bundle is loaded in for the list */
+    Announcements(
+            final @Nullable Data data,
+            final Function<Context, DiscordAuth.Account> accounts,
+            final Languages languages) {
         this.data = data;
         this.accounts = accounts;
+        this.announced = Messages.load(
+                Announcements.class.getClassLoader(),
+                "messages/" + MessageSchema.bundle(DatabaseMessages.class),
+                languages.locales());
+    }
+
+    /** Returns the bundle the list renders announcements in, which the overrides are layered on. */
+    Messages messages() {
+        return announced;
     }
 
     private Inbox<BotRequest> bot() {
@@ -91,11 +113,11 @@ final class Announcements {
                 continue;
             }
             announcement
-                    .texts()
-                    .forEach((language, text) -> recent.add(new Announcement(
+                    .messages()
+                    .forEach((language, message) -> recent.add(new Announcement(
                             "announce:" + row.id() + ":" + language,
                             language,
-                            text,
+                            announced.format(Locales.parse(language), message),
                             row.actor().kind(),
                             Objects.requireNonNullElse(row.actor().id(), ""),
                             row.requested(),
@@ -106,14 +128,17 @@ final class Announcements {
     }
 
     /**
-     * {@code POST /api/announcements} with {@code {texts: {<tag>: <text>, ...}}}: one request carrying every language.
-     * Nothing is written unless every entry carries text; the answer names each language's line to poll.
+     * {@code POST /api/announcements} with {@code {texts: {<tag>: <text>, ...}}}: one request with every language.
+     * Each language's message is the admin's words as written; nothing is written unless every entry carries text.
      */
     void send(final Context ctx) {
         final Map<String, String> checked = texts(ctx);
+        final Map<String, MessageRef> messages = new LinkedHashMap<>();
+        checked.forEach((tag, text) ->
+                messages.put(tag, DatabaseMessages.MESSAGES.announcement().words(text)));
         final DiscordAuth.Account who = accounts.apply(ctx);
         final Request<BotRequest> asked = bot().submit(
-                        new BotRequest.Announce(checked),
+                        new BotRequest.Announce(messages),
                         who.actor(),
                         Schedule.within(PATIENCE),
                         AuditLine.of(

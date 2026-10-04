@@ -7,6 +7,7 @@ import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.settings.DatabaseWaiting;
+import eu.nordtal.s2.settings.network.NetworkSettings;
 import eu.nordtal.s2.steward.alert.Thresholds;
 import eu.nordtal.s2.steward.api.StackApi;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
@@ -229,6 +230,7 @@ abstract class WebFixture {
                 client,
                 true,
                 data,
+                NetworkSettings.defaultLanguages(),
                 Clock.systemUTC());
     }
 

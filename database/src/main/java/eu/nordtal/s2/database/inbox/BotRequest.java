@@ -142,4 +142,13 @@ public sealed interface BotRequest {
             }
         }
     }
+
+    /** Sends an admin a text they are trying as a direct message; refused when Discord does not deliver it. */
+    record PreviewMessage(DiscordId person, MessagePreview preview) implements BotRequest {
+
+        public PreviewMessage {
+            Objects.requireNonNull(person, "person");
+            Objects.requireNonNull(preview, "preview");
+        }
+    }
 }

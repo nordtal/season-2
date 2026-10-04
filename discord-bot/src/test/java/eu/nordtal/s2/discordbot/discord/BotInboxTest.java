@@ -11,9 +11,12 @@ import eu.nordtal.s2.database.DatabaseMessages;
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.InboxStatus;
+import eu.nordtal.s2.database.inbox.MessagePreview;
 import eu.nordtal.s2.database.inbox.Outcome;
 import eu.nordtal.s2.database.inbox.Request;
+import eu.nordtal.s2.database.inbox.ServerRefusal;
 import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.spec.Display;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -64,7 +67,15 @@ class BotInboxTest {
                 carriedOut.add("alert " + alert.level() + " " + alert.title().key() + " " + alert.mentions());
                 return true;
             },
-            booked -> carriedOut.add("told " + booked.person() + " " + booked.days()));
+            booked -> carriedOut.add("told " + booked.person() + " " + booked.days()),
+            previewed -> {
+                carriedOut.add("preview " + previewed.person() + " "
+                        + previewed.preview().text());
+                return !previewed.person().equals(CLOSED);
+            });
+
+    /** An admin whose direct messages are closed, so Discord delivers nothing to them. */
+    private static final DiscordId CLOSED = DiscordId.of("400000000000000009");
 
     /** A payment steward booked, as the bot is told of it. */
     private static final BotRequest.PaymentBooked BOOKED = new BotRequest.PaymentBooked(
@@ -123,6 +134,23 @@ class BotInboxTest {
         assertEquals("{\"until\":\"2026-10-20T00:00:00Z\"}", answer(new BotRequest.Grant(someone, 30)));
         assertEquals("{\"revoked\":\"2\"}", answer(new BotRequest.Revoke(someone)));
         assertEquals("{\"told\":\"400000000000000002\"}", answer(BOOKED));
+    }
+
+    @Test
+    void aPreviewIsSentToTheAdminAndRefusedWhereDiscordDeliversNothing() {
+        final MessagePreview preview = new MessagePreview(
+                DatabaseMessages.MESSAGES.announcement().words("Hallo"), "de", "**{text}**", Display.DISCORD_MESSAGE);
+
+        final Outcome sent = subject.handle(row(new BotRequest.PreviewMessage(ADMIN, preview), Actor.person(ADMIN)));
+        final Outcome bounced =
+                subject.handle(row(new BotRequest.PreviewMessage(CLOSED, preview), Actor.person(CLOSED)));
+
+        assertEquals(new Outcome.Done(null), sent);
+        assertEquals(
+                ServerRefusal.NOT_DELIVERED,
+                assertInstanceOf(Outcome.Refused.class, bounced).refusal().reason());
+        assertEquals(
+                List.of("preview 400000000000000001 **{text}**", "preview 400000000000000009 **{text}**"), carriedOut);
     }
 
     @Test

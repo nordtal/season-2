@@ -29,7 +29,13 @@ public enum ServerRefusal implements RefusalReason {
     BELOW_HARD_MINIMUM,
 
     /** Fewer participants than recommended, and the asker has not confirmed. */
-    BELOW_SOFT_MINIMUM;
+    BELOW_SOFT_MINIMUM,
+
+    /** The player a preview is for is not on this server. */
+    NOT_HERE,
+
+    /** Discord did not deliver a preview as a direct message. */
+    NOT_DELIVERED;
 
     /** Returns this refusal with the message the database bundle words it in. */
     public Refusal with(final Object... args) {
@@ -46,6 +52,8 @@ public enum ServerRefusal implements RefusalReason {
                     case WRONG_STATE -> words.wrongState(String.valueOf(args[0]));
                     case BELOW_HARD_MINIMUM -> words.belowHardMinimum(count(args[0]), count(args[1]));
                     case BELOW_SOFT_MINIMUM -> words.belowSoftMinimum(count(args[0]), count(args[1]));
+                    case NOT_HERE -> words.notHere();
+                    case NOT_DELIVERED -> words.notDelivered();
                 });
     }
 

@@ -259,6 +259,24 @@ public final class AccessRoles {
                                 .failedFor(Mention.of(discordId), String.valueOf(failure.getMessage()))))));
     }
 
+    /**
+     * Sends a direct message and waits for Discord's answer.
+     * An admin waits on it in Steward, so a bounce is theirs to read there, not an alert.
+     *
+     * @return whether Discord delivered it
+     */
+    public boolean dmAndWait(final DiscordId discordId, final String text) {
+        try {
+            jda.openPrivateChannelById(discordId.value())
+                    .flatMap(channel -> channel.sendMessage(text))
+                    .complete();
+            return true;
+        } catch (final RuntimeException bounced) {
+            log.info("Discord did not deliver a direct message to {}: {}", discordId, bounced.getMessage());
+            return false;
+        }
+    }
+
     private static Alert roleMissing(
             final String subject, final DiscordRole role, final String id, final MessageRef consequence) {
         return new Alert(

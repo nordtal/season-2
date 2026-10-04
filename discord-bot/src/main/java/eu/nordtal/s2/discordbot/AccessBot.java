@@ -3,6 +3,7 @@ package eu.nordtal.s2.discordbot;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.common.health.Readiness;
+import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.Jdbis;
@@ -204,7 +205,17 @@ public class AccessBot implements AutoCloseable {
                         wiring.inboxEffects(),
                         wiring.announcements()::post,
                         wiring.admin()::postAlert,
-                        wiring.bookings()::tell)),
+                        wiring.bookings()::tell,
+                        previewed -> wiring.roles()
+                                .dmAndWait(
+                                        previewed.person(),
+                                        core.messages()
+                                                .format(
+                                                        Locales.parse(previewed
+                                                                .preview()
+                                                                .language()),
+                                                        previewed.preview().message(),
+                                                        previewed.preview().text())))),
                 wiring.adminRole(),
                 core.messages());
 

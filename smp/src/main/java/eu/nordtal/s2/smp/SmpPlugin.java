@@ -260,6 +260,7 @@ public final class SmpPlugin extends NordtalPlugin {
         answer(SmpRequest.TABLE, request -> switch (request) {
             case SmpRequest.CompleteObjective complete -> admin.completeObjective(complete.key());
             case SmpRequest.UnlockMilestone unlock -> admin.unlockMilestone(unlock.key());
+            case SmpRequest.PreviewMessage preview -> preview(preview.player(), preview.preview());
         });
         getLogger()
                 .info(track.size() + " milestones, " + regions.all().size() + " protected boxes, "

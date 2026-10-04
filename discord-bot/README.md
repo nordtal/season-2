@@ -9,6 +9,10 @@ It holds no bunq key and books nothing. The bot writes a `payment_request` row f
 and the bot is told through its inbox (`PAYMENT_BOOKED`) and reacts: the role, the direct message, the
 thank-you in the channel and the admin note. The prices are the network's `prices` group.
 
+An admin's preview of a text shown in Discord (`PREVIEW_MESSAGE`) is a direct message to that admin, rendered as
+the key renders. The inbox thread waits for Discord's answer, so a closed direct message is the request's refusal
+(`NOT_DELIVERED`) rather than a log line, and Steward words the delivered case itself.
+
 It never migrates the schema. At startup it runs Flyway's `validate()` and refuses a database it
 was not built against; the `migrate` service migrates, and compose starts the bot only once that
 has succeeded.

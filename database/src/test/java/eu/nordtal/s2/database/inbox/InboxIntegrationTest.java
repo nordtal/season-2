@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.audit.AuditLine;
@@ -15,7 +16,10 @@ import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Refusal;
 import eu.nordtal.s2.messages.RefusalReason;
+import eu.nordtal.s2.messages.spec.Display;
+import eu.nordtal.s2.messages.value.DisplayName;
 import eu.nordtal.s2.messages.value.Mention;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -199,6 +203,27 @@ class InboxIntegrationTest {
         final Request<BotRequest> claimed = inbox.claim().orElseThrow();
         assertEquals("PAYMENT_BOOKED", claimed.kind());
         assertEquals(booked, claimed.payload());
+    }
+
+    @Test
+    void aPreviewReachesTheServerWithItsTextAndEveryTypedValue() throws SQLException {
+        final PlayerId alex = PlayerId.of(UUID.fromString("00000000-0000-0000-0000-00000000000a"));
+        final SmpRequest.PreviewMessage preview = new SmpRequest.PreviewMessage(
+                alex,
+                new MessagePreview(
+                        new MessageRef(
+                                "objective.done",
+                                Map.of("player.name", new DisplayName(alex, "Alex"), "count", new BigDecimal("3"))),
+                        "de",
+                        "<good>{player.name}</good> hat {count}",
+                        Display.TITLE));
+        final Inbox<SmpRequest> smp = Inbox.over(database.dataSource(), SmpRequest.TABLE);
+        execute("DELETE FROM smp_inbox");
+        smp.submit(preview, ADMIN);
+
+        final Request<SmpRequest> claimed = smp.claim().orElseThrow();
+        assertEquals("PREVIEW_MESSAGE", claimed.kind());
+        assertEquals(preview, claimed.payload());
     }
 
     @Test

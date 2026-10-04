@@ -144,5 +144,11 @@ public interface DatabaseMessages {
 
         @Name("Below the recommended minimum")
         MessageRef belowSoftMinimum(@Arg("count") long count, @Arg("minimum") long minimum);
+
+        @Name("Player not here")
+        MessageRef notHere();
+
+        @Name("Direct message not delivered")
+        MessageRef notDelivered();
     }
 }

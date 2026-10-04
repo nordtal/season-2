@@ -70,6 +70,9 @@ public interface PaperCommonMessages {
 
         @Name("Failed")
         MessageRef failed();
+
+        @Name("Preview shown")
+        MessageRef previewShown();
     }
 
     @Name("Login")

@@ -8,6 +8,7 @@ import com.mojang.brigadier.context.CommandContext;
 import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.health.Shutdown;
+import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AccessReader;
@@ -17,6 +18,7 @@ import eu.nordtal.s2.database.game.GameCatalogue;
 import eu.nordtal.s2.database.game.GameDataStore;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.InboxTable;
+import eu.nordtal.s2.database.inbox.MessagePreview;
 import eu.nordtal.s2.database.inbox.Outcome;
 import eu.nordtal.s2.database.message.MessageOverrideStore;
 import eu.nordtal.s2.database.notify.Channel;
@@ -30,6 +32,7 @@ import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.papercommon.access.AdminWatch;
 import eu.nordtal.s2.papercommon.access.BukkitOps;
+import eu.nordtal.s2.papercommon.chat.Previews;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
 import eu.nordtal.s2.papercommon.command.Answer;
 import eu.nordtal.s2.papercommon.command.CommandFilter;
@@ -104,6 +107,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
     // The bare name until the plugin's enable() composes its own; read on every name drawn, from any thread.
     private volatile Names names = Names.BARE;
     private MessageRenderer renderer;
+    private Previews previews;
     private HikariDataSource pool;
     private Jdbi jdbi;
     private AccessReader access;
@@ -189,6 +193,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
         identities = new Identities(access::identities);
         renderer = MessageRenderer.of(
                 messages, (name, reader) -> names.draw(name, reader), identities.cards(this::prestige));
+        previews = new Previews(getServer()::getPlayer, renderer);
 
         // ops.json survives a crash, so an admin left in it is swept before any join is handled.
         final AdminOperators operators = BukkitOps.create();
@@ -398,6 +403,11 @@ public abstract class NordtalPlugin extends JavaPlugin {
     protected final <P> void answer(final InboxTable<P> table, final Function<P, Answer> action) {
         Inbox.takeOver(pool, table, getName())
                 .listen(hub(), request -> outcome(safely(() -> action.apply(request.payload()))));
+    }
+
+    /** Shows an admin's player a text they are trying; every plugin's inbox answers its preview with it. */
+    protected final Answer preview(final PlayerId player, final MessagePreview preview) {
+        return previews.show(player, preview);
     }
 
     /** Returns a subcommand only the console reaches. */

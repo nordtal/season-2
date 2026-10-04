@@ -12,6 +12,7 @@ import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.message.MessageOverrideStore;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.messages.MessageOverride;
+import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PackagedTexts;
 import eu.nordtal.s2.steward.texts.WebTexts;
 import eu.nordtal.s2.steward.web.ErrorHandlers;
@@ -60,7 +61,7 @@ class MessagesApiIntegrationTest {
         final MessagesApi messages = new MessagesApi(new AgentClient(agent.client()), store);
         app = Javalin.create(config -> {
                     config.jsonMapper(new JavalinGson(new Gson(), true));
-                    ErrorHandlers.install(config, WebTexts.load().messages());
+                    ErrorHandlers.install(config, WebTexts.load().messages(), Messages.load("messages/database"));
                     config.routes.get("/api/messages", messages::list);
                     config.routes.get("/api/message-fallbacks", messages::fallbacks);
                     config.routes.get("/api/messages/<bundle>", messages::one);

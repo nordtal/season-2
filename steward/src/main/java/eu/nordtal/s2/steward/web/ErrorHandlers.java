@@ -1,7 +1,6 @@
 package eu.nordtal.s2.steward.web;
 
 import eu.nordtal.s2.common.language.Locales;
-import eu.nordtal.s2.database.DatabaseText;
 import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
@@ -26,9 +25,11 @@ public final class ErrorHandlers {
      * Installs the handlers.
      *
      * @param texts Steward's bundles with the admins' overrides, which a {@link RequestRefused} is rendered from
+     * @param database the database bundle with the admins' overrides, which a {@link Refused} is worded in
      */
-    public static void install(final JavalinConfig cfg, final Messages texts) {
+    public static void install(final JavalinConfig cfg, final Messages texts, final Messages database) {
         Objects.requireNonNull(texts, "texts");
+        Objects.requireNonNull(database, "database");
         // The page recovers from SECOND_FACTOR_REQUIRED: it runs the ceremony and retries the request.
         cfg.routes.exception(RequestRefused.class, (refused, ctx) -> {
             final Map<String, Object> body = new LinkedHashMap<>();
@@ -48,7 +49,8 @@ public final class ErrorHandlers {
                 (refused, ctx) -> ctx.status(409)
                         .json(Map.of(
                                 "error",
-                                DatabaseText.english(refused.refusal().message()),
+                                database.format(
+                                        Locales.DEFAULT, refused.refusal().message()),
                                 "code",
                                 refused.reason().name())));
 

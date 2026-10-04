@@ -1,16 +1,13 @@
 package eu.nordtal.s2.steward.api;
 
 import eu.nordtal.s2.common.id.Actor;
-import eu.nordtal.s2.database.DatabaseText;
 import eu.nordtal.s2.database.inbox.StewardRequest;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
-import eu.nordtal.s2.messages.Refused;
 import io.javalin.http.BadRequestResponse;
-import io.javalin.http.ConflictResponse;
 import io.javalin.http.Context;
 import java.time.Duration;
 import java.util.List;
@@ -64,8 +61,6 @@ public final class PluginsForward {
                     new StewardRequest.RemovePlugin(List.of(service(ctx)), artifact), actor, Duration.ZERO);
         } catch (final IllegalArgumentException malformed) {
             throw new BadRequestResponse(malformed.getMessage());
-        } catch (final Refused refused) {
-            throw new ConflictResponse(DatabaseText.english(refused.refusal().message()));
         }
         ctx.status(202).json(new RemovalAsked(written.id(), written.kind(), artifact));
     }

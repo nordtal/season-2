@@ -3,6 +3,7 @@ package eu.nordtal.s2.steward.web;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.common.time.Waiting;
+import eu.nordtal.s2.database.DatabaseMessages;
 import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.access.PackExemptions;
 import eu.nordtal.s2.database.alert.AlertBook;
@@ -12,6 +13,8 @@ import eu.nordtal.s2.database.metric.Metric;
 import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.spec.MessageSchema;
 import eu.nordtal.s2.steward.WireJson;
 import eu.nordtal.s2.steward.alert.AlertMonitor;
 import eu.nordtal.s2.steward.alert.AlertPreferences;
@@ -142,6 +145,9 @@ public final class Web {
     /** The page's own texts, which the browser renders and an admin's override changes at once. */
     private final WebTexts texts = WebTexts.load();
 
+    /** The database bundle in the network's languages: a refused write, a server's refusal and an announcement. */
+    private final Messages database;
+
     private final @Nullable MessageOverrideStore overrides;
 
     /** The channels whose signals can change what a page shows; see {@link #listen}. */
@@ -170,7 +176,7 @@ public final class Web {
 
     /**
      * @param agentOffered whether an agent token is configured; without one no recreate button is drawn
-     * @param languages the network's, which the announcements the bot posts are listed in
+     * @param languages the network's, which the database bundle is loaded in
      */
     public Web(
             final WebSpec config,
@@ -183,6 +189,10 @@ public final class Web {
             final Languages languages,
             final Clock clock) {
         this.config = config;
+        this.database = Messages.load(
+                Web.class.getClassLoader(),
+                "messages/" + MessageSchema.bundle(DatabaseMessages.class),
+                languages.locales());
         this.discord = discord;
         this.stack = stack;
         this.sessions = data == null ? null : new Sessions(data.dataSource(), Duration.ofDays(config.sessionDays()));
@@ -193,9 +203,9 @@ public final class Web {
         this.gatekeeper = new Gatekeeper(this::session, this.secondFactor);
         this.metrics = new Metrics(data, clock);
         this.guild = new DiscordApi(new DiscordDirectory(config.discord(), DiscordAuth.DISCORD_API, clock));
-        this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow());
+        this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow(), database);
         this.games = new GameActions(data == null ? null : data.dataSource(), commands);
-        this.announcements = new Announcements(data, ctx -> account(ctx).orElseThrow(), languages);
+        this.announcements = new Announcements(data, ctx -> account(ctx).orElseThrow(), database);
         this.access = new AccessApi(data, ctx -> account(ctx).orElseThrow());
         this.roster = new RosterRoutes(data);
         this.gameData = new GameDataRoutes(data == null ? null : GameDataStore.using(data.dataSource()));
@@ -333,7 +343,7 @@ public final class Web {
         final MessageOverrideStore store = overrides;
         if (store != null) {
             store.follow(texts.messages(), hub);
-            store.follow(announcements.messages(), hub);
+            store.follow(database, hub);
         }
         final AlertRouter router = alertRouter;
         final AlertMonitor monitor = alertMonitor;
@@ -413,7 +423,7 @@ public final class Web {
                     registerSeasonDateRoute(cfg);
                     registerSeasonSummaryRoute(cfg);
                     registerFallbackRoutes(cfg);
-                    ErrorHandlers.install(cfg, texts.messages());
+                    ErrorHandlers.install(cfg, texts.messages(), database);
                 })
                 .start(port);
 

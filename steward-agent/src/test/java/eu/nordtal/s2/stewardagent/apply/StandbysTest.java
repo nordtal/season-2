@@ -62,6 +62,33 @@ class StandbysTest {
     }
 
     @Test
+    void aPluginsScratchDirectoryIsNeitherCopiedNorRemovedSoTheRunningStandbyKeepsItsOwn() throws IOException {
+        // spark, which Paper bundles, writes its profile into plugins/spark/tmp while the standby runs.
+        write("limbo/plugins/limbo-0.9.3.jar", "new");
+        write("limbo/plugins/spark/config.json", "{}");
+        write("limbo/plugins/spark/tmp/live.jfr.tmp", "the live server's");
+        write("limbo-standby/plugins/spark/tmp/standby.jfr.tmp", "the standby's");
+
+        final List<ApplyResult.Outcome> first = Standbys.fill(volumes, List.of(Topology.LIMBO), ComposeFile.topology());
+
+        assertEquals(ApplyResult.Status.DONE, first.getFirst().status(), detail(first));
+        assertEquals("{}", read("limbo-standby/plugins/spark/config.json"));
+        assertEquals(
+                "the standby's",
+                read("limbo-standby/plugins/spark/tmp/standby.jfr.tmp"),
+                "the fill deleted a file the running standby's profiler was still writing");
+        assertFalse(
+                Files.exists(volumes.resolve("limbo-standby/plugins/spark/tmp/live.jfr.tmp")),
+                "the live server's scratch file was copied into the standby");
+        assertEquals(
+                ApplyResult.Status.UNCHANGED,
+                Standbys.fill(volumes, List.of(Topology.LIMBO), ComposeFile.topology())
+                        .getFirst()
+                        .status(),
+                "two scratch directories that differ are no change to mirror");
+    }
+
+    @Test
     void aSecondRunInARowCopiesNothingAndSaysSo() throws IOException {
         write("proxy/plugins/proxy-0.9.3.jar", "new");
         mounted(ComposeFile.topology().standbyOf(Topology.PROXY).orElseThrow());

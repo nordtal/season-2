@@ -15,12 +15,15 @@ import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Makes each standby's {@code plugins/} an exact copy of the service it stands in for, configs included.
+ * Makes each standby's {@code plugins/} a copy of its service's, configs included and each plugin's scratch left out.
  *
  * Copied rather than resolved, so it matches what was just installed; a standby that is not mounted is skipped.
  */
 @Slf4j
 public final class Standbys {
+
+    /** The directory a plugin writes while its server runs, directly in its data folder; each server keeps its own. */
+    private static final String SCRATCH = "tmp";
 
     private Standbys() {}
 
@@ -70,7 +73,7 @@ public final class Standbys {
         final Tally tally = new Tally();
         try {
             Files.createDirectories(target);
-            copyInto(source, target, tally);
+            copyInto(source, target, 0, tally);
         } catch (final IOException failed) {
             log.error("Could not fill {}'s plugins/ from {}: {}", standby, source, failed.getMessage());
             return new ApplyResult.Outcome(
@@ -98,24 +101,25 @@ public final class Standbys {
     }
 
     /**
-     * One directory, recursively, made equal to another.
+     * One directory, recursively, made equal to another, except for a plugin's scratch directory on either side.
      *
      * Files are compared by content, since timestamps collide and a changed file can keep its size.
      */
-    private static void copyInto(final Path source, final Path target, final Tally tally) throws IOException {
+    private static void copyInto(final Path source, final Path target, final int depth, final Tally tally)
+            throws IOException {
         final Set<String> wanted = new LinkedHashSet<>();
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(source)) {
             for (final Path entry : entries) {
                 final String name = entry.getFileName().toString();
                 // Applier's half-written downloads, left by a run that died mid-phase.
-                if (Applier.STAGING.equals(name)) {
+                if (Applier.STAGING.equals(name) || isScratch(entry, depth)) {
                     continue;
                 }
                 wanted.add(name);
                 final Path destination = target.resolve(name);
                 if (Files.isDirectory(entry)) {
                     Files.createDirectories(destination);
-                    copyInto(entry, destination, tally);
+                    copyInto(entry, destination, depth + 1, tally);
                 } else if (isDifferent(entry, destination)) {
                     Files.copy(entry, destination, StandardCopyOption.REPLACE_EXISTING);
                     tally.copied++;
@@ -126,12 +130,17 @@ public final class Standbys {
         }
         try (DirectoryStream<Path> existing = Files.newDirectoryStream(target)) {
             for (final Path entry : existing) {
-                if (wanted.contains(entry.getFileName().toString())) {
+                if (wanted.contains(entry.getFileName().toString()) || isScratch(entry, depth)) {
                     continue;
                 }
                 tally.removed += deleteRecursively(entry);
             }
         }
+    }
+
+    /** Whether {@code entry}, in a directory {@code depth} levels below {@code plugins/}, is a plugin's scratch. */
+    private static boolean isScratch(final Path entry, final int depth) {
+        return depth == 1 && SCRATCH.equals(entry.getFileName().toString()) && Files.isDirectory(entry);
     }
 
     /** Whether the two files differ in content. */

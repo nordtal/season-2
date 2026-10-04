@@ -14,6 +14,7 @@ import {
 } from "@/lib/api"
 import { live, nextChange } from "@/lib/live"
 import { keys } from "@/lib/query-keys"
+import { t } from "@/lib/texts"
 
 /** The roster, its payments, periods and journal, and every change an admin makes to somebody's access. */
 
@@ -31,11 +32,11 @@ async function askTheBot(path: string, body: unknown): Promise<Record<string, un
       if (row.status === "DONE") return row.result ?? {}
       if (row.status === "FAILED") {
         const said = row.result?.error
-        throw new Error(typeof said === "string" ? said : "The bot could not carry this out.")
+        throw new Error(typeof said === "string" ? said : t("steward.failure.bot-failed"))
       }
       if (row.status === "EXPIRED") {
         // EXPIRED means the bot never picked the row up, so nothing changed.
-        throw new Error("The bot did not pick this up within two minutes. Nothing was changed.")
+        throw new Error(t("steward.failure.bot-silent"))
       }
       await change.arrived
     } finally {

@@ -293,6 +293,17 @@ export type TextArgs = {
   "steward.alerts.recent": Record<string, never>
   "steward.alerts.title": Record<string, never>
   "steward.alerts.unreadable": Record<string, never>
+  "steward.announcements.ask": Record<string, never>
+  "steward.announcements.compose": Record<string, never>
+  "steward.announcements.host-channel": Record<string, never>
+  "steward.announcements.no-channel": Record<string, never>
+  "steward.announcements.none": Record<string, never>
+  "steward.announcements.recent": Record<string, never>
+  "steward.announcements.send": Record<string, never>
+  "steward.announcements.sending": Record<string, never>
+  "steward.announcements.where": {
+    languages: Arg["number"]
+  }
   "steward.answer.agent-unconfigured": Record<string, never>
   "steward.answer.already-admin": Record<string, never>
   "steward.answer.bot-token-refused": Record<string, never>
@@ -438,6 +449,19 @@ export type TextArgs = {
   "steward.backups.volume-replaced": Record<string, never>
   "steward.backups.when": Record<string, never>
   "steward.backups.written": Record<string, never>
+  "steward.failure.agent-silent": Record<string, never>
+  "steward.failure.bot-failed": Record<string, never>
+  "steward.failure.bot-silent": Record<string, never>
+  "steward.failure.docker-silent": Record<string, never>
+  "steward.failure.http": {
+    status: Arg["number"]
+  }
+  "steward.failure.log-lost": Record<string, never>
+  "steward.failure.no-points": Record<string, never>
+  "steward.failure.not-loaded": Record<string, never>
+  "steward.failure.not-requested": Record<string, never>
+  "steward.failure.try-again": Record<string, never>
+  "steward.failure.unreachable": Record<string, never>
   "steward.form.cancel": Record<string, never>
   "steward.form.changed": {
     count: Arg["number"]
@@ -579,6 +603,32 @@ export type TextArgs = {
   "steward.keys.waiting": Record<string, never>
   "steward.keys.with-discord": Record<string, never>
   "steward.keys.wrong-domain": Record<string, never>
+  "steward.network.cpu": {
+    percent: Arg["text"]
+  }
+  "steward.network.memory": {
+    used: Arg["text"]
+  }
+  "steward.network.memory-of": {
+    used: Arg["text"]
+    limit: Arg["text"]
+  }
+  "steward.network.more": {
+    count: Arg["number"]
+  }
+  "steward.network.no-image": Record<string, never>
+  "steward.network.no-name": Record<string, never>
+  "steward.network.no-service": Record<string, never>
+  "steward.network.no-service-note": Record<string, never>
+  "steward.network.not-running": Record<string, never>
+  "steward.network.open": {
+    service: Arg["text"]
+  }
+  "steward.network.players": Record<string, never>
+  "steward.network.title": Record<string, never>
+  "steward.network.up": {
+    since: Arg["text"]
+  }
   "steward.notifications.added": {
     at: Arg["instant"]
   }
@@ -712,6 +762,7 @@ export type TextArgs = {
     run: Arg["number"]
   }
   "steward.overview.all-clear": Record<string, never>
+  "steward.overview.authored": Record<string, never>
   "steward.overview.behind": Record<string, never>
   "steward.overview.cores": {
     count: Arg["number"]
@@ -1175,6 +1226,7 @@ export type TextArgs = {
   "steward.shell.page": {
     page: Arg["choice"]
   }
+  "steward.shell.pages": Record<string, never>
   "steward.shell.run-hit": {
     run: Arg["number"]
     kind: Arg["text"]

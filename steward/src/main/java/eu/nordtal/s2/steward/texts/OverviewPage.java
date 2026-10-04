@@ -52,4 +52,7 @@ public interface OverviewPage {
 
     @Name("Whole journal")
     MessageRef wholeJournal();
+
+    @Name("Authored")
+    MessageRef authored();
 }

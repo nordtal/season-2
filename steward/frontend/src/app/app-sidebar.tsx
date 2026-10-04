@@ -4,6 +4,7 @@ import { useNavigation } from "@/app/navigation"
 import { useServices, useTopology } from "@/lib/queries"
 import { HealthDot } from "@/components/steward/status"
 import { SkeletonText } from "@/components/ui/skeleton"
+import { t } from "@/lib/texts"
 
 /** Four rows while the services are read, about as many as Paper and the entry have. */
 const WAITING_ROWS = [0, 1, 2, 3]
@@ -31,7 +32,7 @@ export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "
         : "text-foreground/85 hover:bg-secondary/50 hover:text-foreground"
 
   return (
-    <nav aria-label="Pages" className="flex flex-col gap-4">
+    <nav aria-label={t("steward.shell.pages")} className="flex flex-col gap-4">
       {groups.map((group) => (
         <div key={group.id} className="flex flex-col">
           {group.label ? (

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 
 import { followStream } from "@/lib/event-stream"
+import { t } from "@/lib/texts"
 
 /** The steps the window offers; steward says which it can fill (`logCapacity`). */
 export const STEPS = [1000, 5000, 10000] as const
@@ -21,8 +22,6 @@ export type LogStream = {
   /** Set only once {@link QUIET_FAILURES} attempts in a row have failed: what the server last said. */
   failure: string | null
 }
-
-const LOST = "The connection to the log was lost."
 
 const nextFrame: (callback: () => void) => () => void =
   typeof requestAnimationFrame === "function"
@@ -87,7 +86,7 @@ export function useLogStream(service: string, limit: number = DEFAULT_LIMIT): Lo
         grace = setTimeout(flush, REFILL_GRACE)
       },
       broke: () => clearTimeout(grace),
-      failing: (said) => setFailure(said ?? LOST),
+      failing: (said) => setFailure(said ?? t("steward.failure.log-lost")),
       recovered: () => setFailure(null),
     })
     return () => {

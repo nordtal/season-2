@@ -257,7 +257,7 @@ function Thresholds({ state }: { state: NotificationActions }) {
 
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-xs text-muted-foreground">Tell me when</span>
+      <span className="text-xs text-muted-foreground">{t("steward.notifications.tell-me-when")}</span>
       <ul className="flex flex-col">
         {rows.map((row) => (
           <li key={row.path} className="flex items-center justify-between gap-2 py-1">
@@ -330,7 +330,7 @@ function ReadOnlyThresholds({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-xs text-muted-foreground">Tell me when</span>
+      <span className="text-xs text-muted-foreground">{t("steward.notifications.tell-me-when")}</span>
       {waiting ? (
         <ul className="flex flex-col">
           {THRESHOLDS.map((threshold) => (

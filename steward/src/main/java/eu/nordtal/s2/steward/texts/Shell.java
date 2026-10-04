@@ -75,6 +75,9 @@ public interface Shell {
     @Name("Sign out")
     MessageRef signOut();
 
+    @Name("Pages")
+    MessageRef pages();
+
     /** A page of the navigation, which names it and says in one line what it is for. */
     enum Page {
         OVERVIEW,

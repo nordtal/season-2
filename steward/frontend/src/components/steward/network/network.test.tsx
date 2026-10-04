@@ -184,15 +184,15 @@ describe("the network view", () => {
     draw()
     await waitFor(() => expect(within(box("smp")).getByLabelText("healthy")).toBeTruthy())
 
-    expect(within(box("hunger-games")).getByLabelText("out of date")).toBeTruthy()
-    expect(within(box("proxy")).getByLabelText("built on this host")).toBeTruthy()
-    expect(within(box("discord-bot")).getByLabelText("image not compared")).toBeTruthy()
+    expect(within(box("hunger-games")).getByLabelText("outdated")).toBeTruthy()
+    expect(within(box("proxy")).getByLabelText("local build")).toBeTruthy()
+    expect(within(box("discord-bot")).getByLabelText("unchecked")).toBeTruthy()
 
     // Up to date says nothing, the way the sidebar's dot and the Issues tile say nothing.
     const current = within(box("smp"))
-    expect(current.queryByLabelText("out of date")).toBeNull()
-    expect(current.queryByLabelText("built on this host")).toBeNull()
-    expect(current.queryByLabelText("image not compared")).toBeNull()
+    expect(current.queryByLabelText("outdated")).toBeNull()
+    expect(current.queryByLabelText("local build")).toBeNull()
+    expect(current.queryByLabelText("unchecked")).toBeNull()
   })
 
   it("puts the running tag under the name, not the whole reference", async () => {
@@ -318,10 +318,10 @@ describe("the network on a phone", () => {
       expect(within(row(silent)).queryByTitle("players")).toBeNull()
     }
     // And the same drift marks, from the same component.
-    expect(within(row("hunger-games")).getByLabelText("out of date")).toBeTruthy()
-    expect(within(row("proxy")).getByLabelText("built on this host")).toBeTruthy()
-    expect(within(row("discord-bot")).getByLabelText("image not compared")).toBeTruthy()
-    expect(within(row("smp")).queryByLabelText("out of date")).toBeNull()
+    expect(within(row("hunger-games")).getByLabelText("outdated")).toBeTruthy()
+    expect(within(row("proxy")).getByLabelText("local build")).toBeTruthy()
+    expect(within(row("discord-bot")).getByLabelText("unchecked")).toBeTruthy()
+    expect(within(row("smp")).queryByLabelText("outdated")).toBeNull()
   })
 })
 

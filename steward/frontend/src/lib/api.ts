@@ -1,3 +1,5 @@
+import { t } from "@/lib/texts"
+
 /**
  * The one door to the backend: every request goes through here, and nothing else calls `fetch`.
  *
@@ -116,7 +118,7 @@ async function send<T>(path: string, options: Options = {}): Promise<T> {
     })
   } catch (cause) {
     /** The request never arrived: this interface, a proxy or the browser is offline. */
-    throw new ApiError(0, "The interface cannot be reached.", "steward", String(cause))
+    throw new ApiError(0, t("steward.failure.unreachable"), "steward", String(cause))
   }
 
   if (response.status === 204) {

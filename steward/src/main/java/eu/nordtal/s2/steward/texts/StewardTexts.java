@@ -48,6 +48,12 @@ public interface StewardTexts {
 
         Forms form();
 
+        AnnouncementsPage announcements();
+
+        Failures failure();
+
+        NetworkPanel network();
+
         IdentityCard identity();
 
         Shell shell();

@@ -5,6 +5,7 @@ import { count } from "@/lib/format"
 import { MinecraftHead } from "@/components/steward/identity"
 import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { t } from "@/lib/texts"
 
 /**
  * Who is in the game, at the top of the start page: up to three faces, then `+N`, then the count in words.
@@ -79,7 +80,7 @@ function Stack({ online, size = "size-8", base }: { online: Online; size?: strin
                 <MinecraftHead mcUuid={player.uuid ?? ""} baseUrl={base} size={size} rounded="rounded-md" />
               </span>
             </TooltipTrigger>
-            <TooltipContent>{player.name ?? "no name on record"}</TooltipContent>
+            <TooltipContent>{player.name ?? t("steward.network.no-name")}</TooltipContent>
           </Tooltip>
         </li>
       ))}
@@ -87,7 +88,7 @@ function Stack({ online, size = "size-8", base }: { online: Online; size?: strin
         <li
           className={`${size} flex items-center justify-center rounded-md bg-secondary text-xs font-medium tabular-nums text-foreground ring-2 ring-background`}
           role="img"
-          aria-label={`${rest} more in the game`}
+          aria-label={t("steward.network.more", { count: rest })}
         >
           +{count(rest)}
         </li>
@@ -176,7 +177,7 @@ export function OnlineCluster({ online }: { online: Online }) {
               <span
                 className="absolute bottom-0 right-0 flex size-6 translate-x-1.5 translate-y-1 items-center justify-center rounded-md bg-secondary text-[0.625rem] font-medium tabular-nums text-foreground ring-2 ring-background"
                 role="img"
-                aria-label={`${rest} more in the game`}
+                aria-label={t("steward.network.more", { count: rest })}
               >
                 +{count(rest)}
               </span>

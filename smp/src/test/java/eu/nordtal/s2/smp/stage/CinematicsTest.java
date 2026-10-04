@@ -4,9 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.messagerendering.feedback.FeedbackSounds;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.messages.feedback.FeedbackSound;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -266,7 +269,7 @@ class CinematicsTest {
     }
 
     /** A scheduler with a hand-turned clock; {@link #advanceTo} runs everything due up to that tick, in order. */
-    private static final class FakeScheduler implements Cinematics.Scheduler {
+    private static final class FakeScheduler implements Scheduler {
 
         /** A plain class rather than a record: the cancelled flag is the one thing that changes. */
         private static final class Scheduled {
@@ -285,8 +288,13 @@ class CinematicsTest {
         private long now;
 
         @Override
-        public Cinematics.Handle later(final Runnable task, final long delayTicks) {
-            final Scheduled scheduled = new Scheduled(now + delayTicks, task);
+        public void execute(final Runnable work) {
+            work.run();
+        }
+
+        @Override
+        public Task after(final Duration delay, final Runnable work) {
+            final Scheduled scheduled = new Scheduled(now + delay.dividedBy(PaperScheduler.TICK), work);
             pending.add(scheduled);
             return () -> scheduled.cancelled = true;
         }

@@ -23,8 +23,7 @@ public final class BukkitCinematics implements Listener {
     public BukkitCinematics(final Plugin plugin, final FeedbackPlayer sounds) {
         this.plugin = plugin;
         this.sounds = sounds;
-        this.cinematics = new Cinematics((task, delayTicks) ->
-                PaperScheduler.of(plugin).onMainAfter(PaperScheduler.TICK.multipliedBy(delayTicks), task)::cancel);
+        this.cinematics = new Cinematics(PaperScheduler.of(plugin).mainThread());
     }
 
     /**

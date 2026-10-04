@@ -55,6 +55,26 @@ public final class PaperScheduler implements Scheduler {
         return submit(() -> Bukkit.getScheduler().runTaskTimer(plugin, work, ticks(delay), Math.max(1, ticks(period))));
     }
 
+    /** Returns the main thread as a {@link Scheduler}, for code written against one whose work must run there. */
+    public Scheduler mainThread() {
+        return new Scheduler() {
+            @Override
+            public void execute(final Runnable work) {
+                onMain(work);
+            }
+
+            @Override
+            public Task after(final Duration delay, final Runnable work) {
+                return onMainAfter(delay, work);
+            }
+
+            @Override
+            public Task every(final Duration delay, final Duration period, final Runnable work) {
+                return onMainEvery(delay, period, work);
+            }
+        };
+    }
+
     /** Returns {@code duration} in whole ticks, rounded up so that nothing runs early. */
     static long ticks(final Duration duration) {
         return Math.ceilDiv(Math.max(0, duration.toMillis()), TICK.toMillis());

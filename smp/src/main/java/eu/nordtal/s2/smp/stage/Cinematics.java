@@ -1,5 +1,7 @@
 package eu.nordtal.s2.smp.stage;
 
+import eu.nordtal.s2.common.time.Scheduler;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -14,31 +16,18 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class Cinematics {
 
-    /** A task to run later, and a way to stop it before it does. */
-    public interface Handle {
-
-        /** Stops the task if it has not run. */
-        void cancel();
-    }
-
-    /** Schedules a task {@code delayTicks} ticks ahead; a delay of 0 may run now or on the next tick. */
-    public interface Scheduler {
-
-        Handle later(Runnable task, long delayTicks);
-    }
-
     /** One player's run, compared by identity so two runs are never equal. */
     private static final class Run {
 
-        private final List<Handle> handles;
+        private final List<Scheduler.Task> handles;
         private final CinematicStage stage;
 
-        Run(final List<Handle> handles, final CinematicStage stage) {
+        Run(final List<Scheduler.Task> handles, final CinematicStage stage) {
             this.handles = handles;
             this.stage = stage;
         }
 
-        List<Handle> handles() {
+        List<Scheduler.Task> handles() {
             return handles;
         }
 
@@ -52,6 +41,7 @@ public final class Cinematics {
     /** Concurrent because a cancel arrives from wherever a player leaves. */
     private final Map<UUID, Run> running = new ConcurrentHashMap<>();
 
+    /** Creates the runner; every frame after the first, and the end, run on {@code scheduler}, on the main thread. */
     public Cinematics(final Scheduler scheduler) {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
     }
@@ -86,20 +76,17 @@ public final class Cinematics {
                 cinematic.subtitle(),
                 cues.getFirst().frame().ticks());
         for (final Cinematic.Cue cue : cues.subList(1, cues.size())) {
-            run.handles()
-                    .add(scheduler.later(
-                            () -> {
-                                // A cancel may have cleared the screen; a late frame must not reopen it.
-                                if (running.get(who) == run) {
-                                    stage.show(
-                                            cue.frame().image(),
-                                            cinematic.subtitle(),
-                                            cue.frame().ticks());
-                                }
-                            },
-                            cue.atTick()));
+            run.handles().add(scheduler.after(PaperScheduler.TICK.multipliedBy(cue.atTick()), () -> {
+                // A cancel may have cleared the screen; a late frame must not reopen it.
+                if (running.get(who) == run) {
+                    stage.show(
+                            cue.frame().image(),
+                            cinematic.subtitle(),
+                            cue.frame().ticks());
+                }
+            }));
         }
-        run.handles().add(scheduler.later(() -> finish(who, run), total));
+        run.handles().add(scheduler.after(PaperScheduler.TICK.multipliedBy(total), () -> finish(who, run)));
         return true;
     }
 
@@ -131,8 +118,8 @@ public final class Cinematics {
     }
 
     private static void stop(final Run run) {
-        for (final Handle handle : run.handles()) {
-            handle.cancel();
+        for (final Scheduler.Task task : run.handles()) {
+            task.cancel();
         }
         run.stage().clear();
     }

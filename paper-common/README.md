@@ -10,7 +10,8 @@ What every Nordtal Paper plugin shares, and nothing a single plugin owns.
   `disable()`, and greets a player through `languageKnown`, one tick after join once every join handler ran.
 - **The scheduler**, `PaperScheduler.of(plugin)`: the one way Paper code reaches the server's scheduler,
   told durations and never ticks. As a `Scheduler` it runs work off the main thread; `onMain`,
-  `onMainAfter` and `onMainEvery` run it on the main thread. A disabled plugin's work is refused with a
+  `onMainAfter` and `onMainEvery` run it on the main thread, and `mainThread()` is the main thread as a
+  `Scheduler` (smp's cinematics run on it). A disabled plugin's work is refused with a
   `RejectedExecutionException`, and `:architecture` refuses `org.bukkit.scheduler` anywhere else.
 - **The HUD**, `hud()`: the boss bar lines a plugin declares in `enable()` as `HudLine`s (smp: status and
   navigation; hunger-games: players, loot and border), kept per player and drawn on one clock four times a

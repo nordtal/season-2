@@ -15,10 +15,7 @@ WORKDIR /app
 COPY deploy/jvm/entrypoint.sh /app/entrypoint.sh
 ENTRYPOINT ["/app/entrypoint.sh"]
 
-# Configuration in config/: bot.yml, database.yml and access.yml.
 FROM jvm AS discord-bot
-RUN mkdir -p config
-VOLUME ["/app/config"]
 
 # `steward` is a command too, for `docker exec nordtal-s2-steward-1 steward forget-factors <discord-id>`.
 FROM jvm AS steward

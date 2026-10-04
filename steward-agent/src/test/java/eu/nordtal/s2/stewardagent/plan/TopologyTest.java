@@ -476,8 +476,10 @@ class TopologyTest {
             assertServerConfigMatchesInterface(service, stewardMounts);
         }
 
-        // The bot, whose own name is the directory name a bundle's service reports to the browser.
-        assertOwnConfigMatchesInterface("discord-bot", stewardMounts);
+        // The bot has no plugins folder: its directory stays empty, and its name finds its jar in its image.
+        assertTrue(
+                stewardMounts.stream().anyMatch(mount -> mount.endsWith(":/configs/discord-bot")),
+                AgentWire.SERVICE + " mounts nothing at /configs/discord-bot, so the bot's messages are in no form");
     }
 
     private void assertServerConfigMatchesInterface(final Topology.Service service, final List<String> stewardMounts) {
@@ -506,26 +508,6 @@ class TopologyTest {
                 onTheInterface.endsWith(":ro"),
                 service.name() + "'s bundles are mounted read-only into the agent, so the form"
                         + " is drawn and the save fails: every bundle in the stack is editable from the interface.");
-    }
-
-    private void assertOwnConfigMatchesInterface(final String each, final List<String> stewardMounts) {
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> owner = (Map<String, Object>) services.get(each);
-        assertNotNull(owner, "compose.yml has no " + each + " service");
-        final String onTheOwner = mountsOf(owner).stream()
-                .filter(mount -> mount.endsWith(":/app/config"))
-                .findFirst()
-                .orElseThrow(() -> new AssertionError(each + " mounts nothing at /app/config"));
-        final String onTheInterface = stewardMounts.stream()
-                .filter(mount -> mount.endsWith(":/configs/" + each))
-                .findFirst()
-                .orElseThrow(() -> new AssertionError(AgentWire.SERVICE + " mounts nothing at"
-                        + " /configs/" + each + ", so that service has no form in the"
-                        + " interface"));
-        assertEquals(
-                sourceOf(onTheOwner),
-                sourceOf(onTheInterface),
-                each + ": the interface edits one volume and the service reads another");
     }
 
     /** The host side of a compose mount, everything before the last colon-separated field pair. */

@@ -59,7 +59,7 @@ class MessageBundlesTest {
 
     @Test
     void aWholeServicesBundleHasNoModuleAndItsJarComesFromItsImage() throws IOException {
-        // discord-bot's own jar is in its image, not on any volume; only its data is under the configs mount.
+        // discord-bot's own jar is in its image, not on any volume; its directory under the configs mount is empty.
         Files.createDirectories(configs.resolve("discord-bot"));
         writeJar(
                 images.resolve("discord-bot.jar"),

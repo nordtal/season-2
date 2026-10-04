@@ -230,8 +230,8 @@ class TopologyDeploymentTest {
     }
 
     @Test
-    void aBackupStopsTheWorldAndTheBotAndKeepsTheNetworkUp() {
-        // A snapshot of a running Paper server is torn; proxy, limbo and hunger-games hold no world worth saving.
+    void aBackupStopsTheWorldAndKeepsTheNetworkAndTheBotUp() {
+        // A running Paper server's snapshot is torn; proxy, limbo, hunger-games and the bot hold no world to save.
         final List<String> stopped = new java.util.ArrayList<>();
         for (final Map.Entry<String, Object> entry : services.entrySet()) {
             @SuppressWarnings("unchecked")
@@ -240,9 +240,7 @@ class TopologyDeploymentTest {
                 stopped.add(entry.getKey());
             }
         }
-        assertEquals(
-                List.of(Topology.DISCORD_BOT, Topology.SMP),
-                stopped.stream().sorted().toList());
+        assertEquals(List.of(Topology.SMP), stopped);
     }
 
     @Test

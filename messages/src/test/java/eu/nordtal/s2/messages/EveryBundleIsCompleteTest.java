@@ -42,10 +42,13 @@ class EveryBundleIsCompleteTest {
             "smp/src/main/resources/messages/smp");
 
     /**
-     * A unit of time after a number, past the tags that close around the number; parsed without markup, a tag is text.
+     * A counted noun after a number, past the tags that close around the number; parsed without markup, a tag is text.
+     *
+     * German nouns alike in both numbers are left out, but for those whose verb follows the count.
      */
-    private static final Pattern UNIT = Pattern.compile(
-            "(</?[a-z][^>]*>)*\\s+(seconds?|minutes?|hours?|days?|Sekunden?|Minuten?|Stunden?|Tag(?:en?)?)\\b");
+    private static final Pattern COUNTED = Pattern.compile("(</?[a-z][^>]*>)*\\s+("
+            + "seconds?|minutes?|hours?|days?|players?|participants?|teams?|members?"
+            + "|Sekunden?|Minuten?|Stunden?|Tag(?:en?)?|Teams?|Teilnehmende|Teilnehmer)\\b");
 
     /** The bundles only admins read, which are English: Steward's page, the words it shares, and the check's. */
     private static final Set<String> ENGLISH_ONLY = Set.of(
@@ -121,13 +124,13 @@ class EveryBundleIsCompleteTest {
     }
 
     @Test
-    void aUnitAfterANumberAgreesWithIt() {
+    void aNounAfterANumberAgreesWithIt() {
         final Set<String> wrong = new TreeSet<>();
         bundles().forEach((name, languages) -> {
             for (final String language : languages) {
                 final Properties texts = load(name, language);
                 for (final String key : texts.stringPropertyNames()) {
-                    if (unitAfterUnchosenNumber(
+                    if (nounAfterUnchosenNumber(
                             MessageText.parse(texts.getProperty(key), false).nodes(), Set.of())) {
                         wrong.add(name + "/" + language + ".properties " + key);
                     }
@@ -137,22 +140,22 @@ class EveryBundleIsCompleteTest {
         assertEquals(
                 Set.of(),
                 wrong,
-                "a fixed unit after a number reads \"1 seconds\" once a countdown reaches one:"
+                "a fixed noun after a number reads \"1 seconds\" or \"1 players\" once the number is one:"
                         + " choose it, as in {seconds, plural, one {second} other {seconds}}");
     }
 
     /**
-     * Returns whether a value is followed, past any tags, by a unit of time that no plural choice on it chose.
+     * Returns whether a value is followed, past any tags, by a counted noun that no plural choice on it chose.
      *
-     * @param chosen the values an enclosing plural already chose on, which may be followed by their unit
+     * @param chosen the values an enclosing plural already chose on, which may be followed by their noun
      */
-    private static boolean unitAfterUnchosenNumber(final List<Node> nodes, final Set<String> chosen) {
+    private static boolean nounAfterUnchosenNumber(final List<Node> nodes, final Set<String> chosen) {
         boolean afterNumber = false;
         for (final Node node : nodes) {
             switch (node) {
                 case Node.Value value -> afterNumber = !chosen.contains(value.name());
                 case Node.Literal literal -> {
-                    if (afterNumber && UNIT.matcher(literal.text()).lookingAt()) {
+                    if (afterNumber && COUNTED.matcher(literal.text()).lookingAt()) {
                         return true;
                     }
                     afterNumber = false;
@@ -163,7 +166,7 @@ class EveryBundleIsCompleteTest {
                         inside.add(choice.name());
                     }
                     for (final List<Node> branch : choice.cases().values()) {
-                        if (unitAfterUnchosenNumber(branch, inside)) {
+                        if (nounAfterUnchosenNumber(branch, inside)) {
                             return true;
                         }
                     }

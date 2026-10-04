@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url"
 
 import { describe, expect, it } from "vitest"
 
-import { parseText, readText, UnreadableText, writeText } from "@/lib/message-tree"
+import { marksOf, parseText, readText, UnreadableText, writeText } from "@/lib/message-tree"
 import type { TextNode } from "@/lib/texts"
 
 /** The vectors Java's parser is held to, so both read a text to one tree. */
@@ -35,6 +35,18 @@ describe("the browser's parser", () => {
     expect(error).toHaveProperty("at", 8)
     expect(readText("{n, plural, one {#}}", false)).toBeNull()
     expect(readText("a } b", false)).toBeNull()
+  })
+
+  it("marks the syntax it passed, and where it stopped reading", () => {
+    const { marks, error } = marksOf("a \\{ <red>{n}</red>", true)
+    expect(marks.map((mark) => [mark.from, mark.to, mark.kind])).toEqual([
+      [2, 4, "escape"],
+      [5, 10, "tag"],
+      [10, 13, "value"],
+      [13, 19, "tag"],
+    ])
+    expect(error).toBeNull()
+    expect(marksOf("ok {x", false).error).toBe(5)
   })
 
   it("keeps a < that opens no tag as text, and escapes what would read as syntax", () => {

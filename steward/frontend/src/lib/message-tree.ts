@@ -34,6 +34,25 @@ export function readText(text: string, markup: boolean): TextNode[] | null {
   }
 }
 
+/**
+ * One piece of syntax the reader passed, `from` inclusive and `to` exclusive: what the source editor colours.
+ *
+ * A tag's marks include the values in its arguments, which have marks of their own as well.
+ */
+export type Mark = { from: number; to: number; kind: "value" | "choice" | "tag" | "escape" | "pound"; node?: TextNode }
+
+/** The syntax of `text` as far as it reads, and where reading stopped, `null` when it read to the end. */
+export function marksOf(text: string, markup: boolean): { marks: Mark[]; error: number | null } {
+  const reader = new Reader(text, markup)
+  try {
+    reader.sequence(null, false)
+    return { marks: reader.marks, error: reader.at < text.length ? reader.at : null }
+  } catch (error) {
+    if (error instanceof UnreadableText) return { marks: reader.marks, error: error.at }
+    throw error
+  }
+}
+
 const LETTER = /\p{L}/u
 const DIGIT = /\p{Nd}/u
 const TAG_NAME = /[a-zA-Z0-9_-]/
@@ -56,6 +75,7 @@ function isSpace(c: string): boolean {
 
 class Reader {
   at = 0
+  readonly marks: Mark[] = []
   private readonly text: string
   private readonly markup: boolean
 
@@ -78,6 +98,7 @@ class Reader {
       if (c === "\\" && this.at + 1 < text.length && "{}#\\<".includes(text[this.at + 1])) {
         literal += text[this.at + 1]
         this.at += 2
+        this.mark(this.at - 2, "escape")
       } else if (c === "{") {
         flush()
         nodes.push(this.placeholder(plural))
@@ -89,7 +110,9 @@ class Reader {
         flush()
         nodes.push({ pound: plural })
         this.at++
+        this.mark(this.at - 1, "pound")
       } else if (c === "<" && this.markup) {
+        const start = this.at
         const tag = this.tag()
         if (tag === null) {
           literal += c
@@ -97,6 +120,7 @@ class Reader {
         } else {
           flush()
           nodes.push(tag)
+          this.mark(start, "tag", tag)
         }
       } else {
         literal += c
@@ -117,7 +141,7 @@ class Reader {
     this.space()
     if (this.peek() === "}") {
       this.at++
-      return { v: name }
+      return this.value(start, { v: name })
     }
     this.expect(",")
     this.space()
@@ -125,6 +149,7 @@ class Reader {
     this.space()
     if (second === "plural" || second === "select") {
       this.expect(",")
+      this.mark(start, "choice")
       return this.choice(name, second === "plural", plural, start)
     }
     if (!second) throw new UnreadableText(this.at)
@@ -137,7 +162,7 @@ class Reader {
       if (!style) throw new UnreadableText(this.at)
     }
     this.expect("}")
-    return style === undefined ? { v: name, k: second } : { v: name, k: second, s: style }
+    return this.value(start, style === undefined ? { v: name, k: second } : { v: name, k: second, s: style })
   }
 
   private choice(name: string, plural: boolean, outer: string | null, start: number): TextNode {
@@ -147,15 +172,19 @@ class Reader {
       if (this.at >= this.text.length) throw new UnreadableText(start)
       if (this.peek() === "}") {
         this.at++
+        this.mark(this.at - 1, "choice")
         break
       }
+      const keyStart = this.at
       const key = this.caseKey()
       if (!key) throw new UnreadableText(this.at)
       this.space()
       this.expect("{")
+      this.mark(keyStart, "choice")
       if (Object.hasOwn(cases, key)) throw new UnreadableText(this.at)
       cases[key] = this.sequence(plural ? name : outer, true)
       this.at++
+      this.mark(this.at - 1, "choice")
     }
     if (!Object.hasOwn(cases, "other")) throw new UnreadableText(start)
     return { c: name, plural, cases }
@@ -282,6 +311,17 @@ class Reader {
     while (this.at < this.text.length && isSpace(this.text[this.at])) this.at++
   }
 
+  /** Notes the syntax from `from` to where the reader stands. */
+  private mark(from: number, kind: Mark["kind"], node?: TextNode): void {
+    this.marks.push({ from, to: this.at, kind, node })
+  }
+
+  /** Notes a value from `from` to where the reader stands, and hands it back. */
+  private value(from: number, node: TextNode): TextNode {
+    this.mark(from, "value", node)
+    return node
+  }
+
   private peek(): string {
     return this.at < this.text.length ? this.text[this.at] : ""
   }
@@ -325,10 +365,19 @@ function escaped(text: string, markup: boolean, inPlural: boolean): string {
 /** A bare word stays bare; anything else is quoted, its values written in and its braces escaped. */
 function argument(parts: TextNode[]): string {
   if (parts.length === 1 && typeof parts[0] === "string" && /^[A-Za-z0-9_#.-]+$/.test(parts[0])) return parts[0]
-  const inner = parts
-    .map((part) => (typeof part === "string" ? part.replaceAll(/[{}]/g, (c) => `\\${c}`) : written(part, true, null)))
-    .join("")
+  const inner = argumentText(parts)
   // An argument read from double quotes may hold a single one, which it keeps.
   const quote = /(^|[^\\])'/.test(inner) ? '"' : "'"
   return `${quote}${inner}${quote}`
+}
+
+/**
+ * A tag argument's parts as the text inside its quotes: literals as they stand, braces escaped, values as written.
+ *
+ * A hover's argument is a text of its own, which this reads back to its tree; a click's is the value it carries.
+ */
+export function argumentText(parts: TextNode[]): string {
+  return parts
+    .map((part) => (typeof part === "string" ? part.replaceAll(/[{}]/g, (c) => `\\${c}`) : written(part, true, null)))
+    .join("")
 }

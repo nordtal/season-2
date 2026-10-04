@@ -14,6 +14,7 @@ import eu.nordtal.s2.messages.MessageOverride;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.text.MessageCheck;
+import eu.nordtal.s2.messages.value.Kind;
 import eu.nordtal.s2.steward.texts.RequestRefused;
 import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
@@ -132,16 +133,20 @@ public final class MessagesApi {
     }
 
     /**
-     * {@code GET /api/message-tones}: every tone a text names by tag, with its colour.
-     * The order is the palette's, and the colour the one a tone has where a service's {@code colours} settings name
-     * none; the editor draws its preview in them.
+     * {@code GET /api/message-syntax}: the tones and value styles a text may name, for the editor's menus.
+     * A tone comes with the colour it has where a service's {@code colours} settings name none, in the palette's
+     * order; a kind with the styles it offers besides its own way, sorted.
      */
-    public void tones(final Context ctx) {
+    public void syntax(final Context ctx) {
         final Map<String, String> tones = new LinkedHashMap<>();
         for (final Tone tone : Tone.values()) {
             tones.put(tone.tag(), tone.hex());
         }
-        ctx.json(tones);
+        final Map<String, List<String>> kinds = new LinkedHashMap<>();
+        for (final Kind kind : Kind.values()) {
+            kinds.put(kind.token(), kind.styles().stream().sorted().toList());
+        }
+        ctx.json(new Syntax(tones, kinds));
     }
 
     /**
@@ -300,6 +305,14 @@ public final class MessagesApi {
      * @param text a message of the {@code check} bundle
      */
     public record Warning(String key, String language, MessageRef text) {}
+
+    /**
+     * What a message text may name besides its values.
+     *
+     * @param tones every tone's tag with its colour, in the palette's order
+     * @param kinds every value kind's token with the styles it offers, sorted; empty for a kind with none
+     */
+    public record Syntax(Map<String, String> tones, Map<String, List<String>> kinds) {}
 
     /** Why a process shows the packaged text instead of an override. */
     public enum FallbackReason {

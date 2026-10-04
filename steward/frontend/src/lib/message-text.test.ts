@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import type { MessageEntry } from "@/lib/api"
-import { languagesOf, unknownPlaceholders } from "@/lib/message-text"
+import { languagesOf } from "@/lib/message-text"
 
 const won: MessageEntry = {
   bundle: "smp",
@@ -16,13 +16,6 @@ const won: MessageEntry = {
   ],
   section: [],
 }
-
-describe("unknownPlaceholders", () => {
-  it("knows a role's properties and the globals, and names a property the role does not have", () => {
-    expect(unknownPlaceholders(won, "{winner.name} on {server.name}")).toEqual([])
-    expect(unknownPlaceholders(won, "{winner.nope} {winner}")).toEqual(["{winner.nope}", "{winner}"])
-  })
-})
 
 describe("languagesOf", () => {
   it("lists every language a jar ships or an admin wrote, English first and each once", () => {

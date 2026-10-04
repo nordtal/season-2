@@ -59,9 +59,6 @@ public interface SettingsEditor {
     @Name("Overridden")
     MessageRef overridden();
 
-    @Name("Unknown placeholder")
-    MessageRef unknownPlaceholder(@Arg("names") String names);
-
     @Name("Refused")
     MessageRef refused(@Arg("problem") String problem);
 

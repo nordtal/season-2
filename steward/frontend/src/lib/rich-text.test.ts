@@ -1,24 +1,45 @@
 import { describe, expect, it } from "vitest"
 
-import type { MessageArg } from "@/lib/api"
-import { applyStyle, commonStyle, gradientAt, insert, parse, remove, serialize, totalLength } from "@/lib/rich-text"
+import {
+  applyStyle,
+  commonStyle,
+  gradientAt,
+  insert,
+  parse,
+  remove,
+  serialize,
+  totalLength,
+  type Format,
+  type Run,
+} from "@/lib/rich-text"
 
-const ARGS: MessageArg[] = [
-  { name: "invite", kind: "text", global: false, action: false },
-  { name: "sender", kind: "name", global: false, action: false },
-  { name: "player.name", kind: "name", type: "player", global: false, action: false },
-]
+const TONES = ["neutral", "good", "bad", "warn", "muted", "accent", "brand", "emphasis", "faint"]
 
-const roundTrip = (text: string, format: "MINIMESSAGE" | "DISCORD_MARKDOWN" | "PLAIN" = "MINIMESSAGE") =>
-  serialize(parse(text, format, ARGS), format, ARGS)
+function read(text: string, format: Format = "MINIMESSAGE"): Run[] {
+  const runs = parse(text, format, TONES)
+  if (runs === null) throw new Error(`unreadable: ${text}`)
+  return runs
+}
 
-describe("a MiniMessage text", () => {
+const roundTrip = (text: string, format: Format = "MINIMESSAGE") => serialize(read(text, format), format)
+
+describe("a Minecraft text", () => {
   it("reads colours, decorations and placeholders into runs", () => {
-    expect(parse("<gray>Hi <bold>{player.name}</bold></gray>!", "MINIMESSAGE", ARGS)).toEqual([
+    expect(read("<gray>Hi <bold>{player.name}</bold></gray>!")).toEqual([
       { kind: "text", text: "Hi ", style: { colour: "gray" } },
       { kind: "placeholder", name: "player.name", style: { colour: "gray", bold: true } },
       { kind: "text", text: "!", style: {} },
     ])
+  })
+
+  it("reads a tone, and a value's kind and style", () => {
+    expect(read("<good>{left, duration, short}</good>")).toEqual([
+      { kind: "placeholder", name: "left", k: "duration", s: "short", style: { tone: "good" } },
+    ])
+  })
+
+  it("lets a colour replace the tone around it", () => {
+    expect(read("<good><red>x</red></good>")).toEqual([{ kind: "text", text: "x", style: { colour: "red" } }])
   })
 
   it("writes back the same text it was read from, where that text was already minimal", () => {
@@ -26,23 +47,34 @@ describe("a MiniMessage text", () => {
       "<gray>The Discord</gray><newline><click:open_url:'{invite}'><#4a63d8><underlined>{invite}</underlined></#4a63d8></click>",
       "{sender} <#4e5668>|</#4e5668> <gradient:#ff0000:gold>rainbow <bold>ish</bold></gradient>",
       "<hover:show_text:'<red>it\\'s <glyph:admin></red>'>admin</hover> <italic:false>plain</italic>",
+      "<hover:show_text:'{player.name}'>x</hover>",
+      "<action:accept><good>Accept</good></action>",
       "a \\<b> c",
       "<rainbow>kept</rainbow>",
+      "{n, plural, one {# file} other {# files}} left",
     ]) {
       expect(roundTrip(text)).toBe(text)
     }
   })
 
+  it("keeps what no editor offers as one piece of source", () => {
+    expect(read("{n, plural, one {#} other {# more}}<lang:x>")).toEqual([
+      { kind: "raw", source: "{n, plural, one {#} other {# more}}", style: {} },
+      { kind: "raw", source: "<lang:x>", style: {} },
+    ])
+  })
+
+  it("reads nothing while the parser cannot", () => {
+    expect(parse("Hi {name", "MINIMESSAGE", TONES)).toBeNull()
+  })
+
   it("writes one tag around every run that shares a style, however the runs were split", () => {
-    const runs = applyStyle(parse("<red>abcdef</red>", "MINIMESSAGE", ARGS), 2, 4, (style) => ({
-      ...style,
-      bold: true,
-    }))
-    expect(serialize(runs, "MINIMESSAGE", ARGS)).toBe("<red>ab<bold>cd</bold>ef</red>")
+    const runs = applyStyle(read("<red>abcdef</red>"), 2, 4, (style) => ({ ...style, bold: true }))
+    expect(serialize(runs, "MINIMESSAGE")).toBe("<red>ab<bold>cd</bold>ef</red>")
   })
 
   it("keeps a hover's own text a message of its own", () => {
-    const [run] = parse("<hover:show_text:'<gold>more'>word</hover>", "MINIMESSAGE", ARGS)
+    const [run] = read("<hover:show_text:'<gold>more'>word</hover>")
     expect(run.style.hover).toEqual([{ kind: "text", text: "more", style: { colour: "gold" } }])
   })
 })
@@ -53,31 +85,41 @@ describe("a Discord text", () => {
     expect(roundTrip(text, "DISCORD_MARKDOWN")).toBe(text)
   })
 
-  it("leaves a lone marker as text", () => {
-    expect(parse("5 * 3", "DISCORD_MARKDOWN", ARGS)).toEqual([{ kind: "text", text: "5 * 3", style: {} }])
+  it("leaves a lone marker as text, and writes an escaped one back as it was", () => {
+    expect(read("5 * 3", "DISCORD_MARKDOWN")).toEqual([{ kind: "text", text: "5 * 3", style: {} }])
+    expect(roundTrip("5 \\* 3 \\{x\\}", "DISCORD_MARKDOWN")).toBe("5 \\* 3 \\{x\\}")
+  })
+})
+
+describe("a plain text", () => {
+  it("reads a line break and a value, and no tag", () => {
+    expect(read("One\n<b>{count}", "PLAIN")).toEqual([
+      { kind: "text", text: "One", style: {} },
+      { kind: "break", style: {} },
+      { kind: "text", text: "<b>", style: {} },
+      { kind: "placeholder", name: "count", style: {} },
+    ])
   })
 })
 
 describe("editing runs", () => {
-  const runs = parse("ab{invite}cd", "MINIMESSAGE", ARGS)
+  const runs = read("ab{invite}cd")
 
   it("counts a placeholder as one position", () => {
     expect(totalLength(runs)).toBe(5)
   })
 
   it("inserts in the style of what comes before", () => {
-    const red = parse("<red>ab</red>cd", "MINIMESSAGE", ARGS)
-    expect(serialize(insert(red, 2, [{ kind: "text", text: "X", style: {} }]), "MINIMESSAGE", ARGS)).toBe(
-      "<red>abX</red>cd",
-    )
+    const red = read("<red>ab</red>cd")
+    expect(serialize(insert(red, 2, [{ kind: "text", text: "X", style: {} }]), "MINIMESSAGE")).toBe("<red>abX</red>cd")
   })
 
   it("removes across runs", () => {
-    expect(serialize(remove(runs, 1, 4), "MINIMESSAGE", ARGS)).toBe("ad")
+    expect(serialize(remove(runs, 1, 4), "MINIMESSAGE")).toBe("ad")
   })
 
   it("tells the style a whole selection shares", () => {
-    const mixed = parse("<red><bold>ab</bold>cd</red>", "MINIMESSAGE", ARGS)
+    const mixed = read("<red><bold>ab</bold>cd</red>")
     expect(commonStyle(mixed, 0, 4)).toEqual({ colour: "red" })
     expect(commonStyle(mixed, 0, 2)).toEqual({ colour: "red", bold: true })
   })

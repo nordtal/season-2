@@ -1,14 +1,22 @@
-import type { MessageArg } from "@/lib/api"
-import { NAMED_COLOURS } from "@/lib/mini-message"
-import { tokenOf } from "@/lib/message-text"
+import { argumentText, readText, writeText } from "@/lib/message-tree"
+import type { TextNode } from "@/lib/texts"
+
+/**
+ * A message as the translation editor edits it: runs, each carrying its whole style, read from the one parser's tree.
+ *
+ * Only {@link parse} and {@link serialize} know how a style is spelled; the parsing itself is `message-tree`'s.
+ */
 
 export type Format = "MINIMESSAGE" | "DISCORD_MARKDOWN" | "PLAIN"
 
 export type ClickAction = "open_url" | "run_command" | "suggest_command" | "copy_to_clipboard"
 
+/** What a click does; `value` is the argument as written, so it may hold values like `{player.name}`. */
 export type Click = { action: ClickAction; value: string }
 
 export type Style = {
+  /** One of the palette's tones, as its tag (`good`); a packaged text names colours only so. */
+  tone?: string
   /** A named colour (`gray`) or a hex one (`#4a63d8`), as it is written. */
   colour?: string
   /** Two or more colours, spread over every run that carries the same list. */
@@ -23,23 +31,45 @@ export type Style = {
   code?: boolean
   hover?: Run[]
   click?: Click
+  /** The message's action this text triggers, `<action:name>`. */
+  action?: string
 }
 
 /**
- * A message as runs, each carrying its whole style; only `parse` and `serialize` know how tags are spelled.
- *
- * MiniMessage uses every field; Discord markdown uses the decorations, `code` and an `open_url` link; plain text none.
+ * One piece of the text. A value keeps the kind and style it was written with; a plural, a select or a tag no editor
+ * offers (`<rainbow>`, `<lang:…>`) is kept as its source and moves as one character.
  */
 export type Run =
   | { kind: "text"; text: string; style: Style }
-  | { kind: "placeholder"; name: string; style: Style }
+  | { kind: "placeholder"; name: string; k?: string; s?: string; style: Style }
   | { kind: "glyph"; name: string; style: Style }
   | { kind: "break"; style: Style }
-  /** A tag no editor offers (`<rainbow>`, `<lang:…>`), kept exactly as written. */
   | { kind: "raw"; source: string; style: Style }
 
 export const DECORATIONS = ["bold", "italic", "underlined", "strikethrough", "obfuscated"] as const
 export type Decoration = (typeof DECORATIONS)[number]
+
+/** Minecraft's sixteen named colours, as the client draws them. */
+export const NAMED_COLOURS: Record<string, string> = {
+  black: "#000000",
+  dark_blue: "#0000AA",
+  dark_green: "#00AA00",
+  dark_aqua: "#00AAAA",
+  dark_red: "#AA0000",
+  dark_purple: "#AA00AA",
+  gold: "#FFAA00",
+  gray: "#AAAAAA",
+  grey: "#AAAAAA",
+  dark_gray: "#555555",
+  dark_grey: "#555555",
+  blue: "#5555FF",
+  green: "#55FF55",
+  aqua: "#55FFFF",
+  red: "#FF5555",
+  light_purple: "#FF55FF",
+  yellow: "#FFFF55",
+  white: "#FFFFFF",
+}
 
 /** What a format lets a text carry; an editor offers exactly this and nothing else. */
 export function capabilities(format: Format) {
@@ -52,6 +82,7 @@ export function capabilities(format: Format) {
     code: discord,
     hover: mini,
     click: mini,
+    action: mini,
     link: discord,
     glyph: mini,
     breaks: format !== "PLAIN",
@@ -64,145 +95,81 @@ export function formatOf(value: string | undefined): Format {
 
 // Parsing
 
-export function parse(source: string, format: Format, args: MessageArg[]): Run[] {
-  if (format === "DISCORD_MARKDOWN") return normalize(parseMarkdown(source, args))
-  if (format === "PLAIN") return normalize(parsePlain(source, args))
-  return normalize(parseMini(source, args))
+/**
+ * The runs of `source`, or `null` while the one parser cannot read it; `tones` are the palette's tags.
+ *
+ * Only a Minecraft text reads tags; Discord's and a plain one read `{…}` alone, Discord's markdown on top.
+ */
+export function parse(source: string, format: Format, tones: readonly string[]): Run[] | null {
+  const markup = format === "MINIMESSAGE"
+  const nodes = readText(source, markup)
+  if (nodes === null) return null
+  if (format === "MINIMESSAGE") return normalize(fromTags(nodes, new Set(tones)))
+  const queue: Run[] = []
+  let flat = ""
+  for (const node of nodes) {
+    if (typeof node === "string") flat += node.replaceAll(HOLE, "")
+    else {
+      queue.push(leafOf(node, false, {}))
+      flat += HOLE
+    }
+  }
+  return normalize(format === "PLAIN" ? fromPlain(flat, queue) : fromMarkdown(flat, queue, {}))
 }
 
-function placeholderTokens(args: MessageArg[]): Map<string, string> {
-  return new Map(args.map((arg) => [tokenOf(arg), arg.name]))
-}
+/** Where a value or a choice stands in the text a plain or markdown reading scans: one character, never typed. */
+const HOLE = "￿"
 
-function parsePlain(source: string, args: MessageArg[]): Run[] {
-  const tokens = placeholderTokens(args)
-  const out: Run[] = []
-  let pending = ""
-  const flush = () => {
-    if (pending) out.push({ kind: "text", text: pending, style: {} })
-    pending = ""
-  }
-  for (let index = 0; index < source.length;) {
-    const char = source[index]
-    if (char === "\n") {
-      flush()
-      out.push({ kind: "break", style: {} })
-      index += 1
-      continue
-    }
-    if (char === "{") {
-      const end = source.indexOf("}", index)
-      const name = end > index ? tokens.get(source.slice(index, end + 1)) : undefined
-      if (name !== undefined) {
-        flush()
-        out.push({ kind: "placeholder", name, style: {} })
-        index = end + 1
-        continue
-      }
-    }
-    pending += char
-    index += 1
-  }
-  flush()
-  return out
+function leafOf(node: Exclude<TextNode, string>, markup: boolean, style: Style): Run {
+  if ("v" in node) return { kind: "placeholder", name: node.v, k: node.k, s: node.s, style }
+  return { kind: "raw", source: writeText([node], markup), style }
 }
 
 type Frame = { name: string; style: Style }
 
-function parseMini(source: string, args: MessageArg[]): Run[] {
-  const tokens = placeholderTokens(args)
+function fromTags(nodes: TextNode[], tones: Set<string>): Run[] {
   const out: Run[] = []
   const stack: Frame[] = []
-  const style = (): Style => stack[stack.length - 1]?.style ?? {}
-  let pending = ""
-  const flush = () => {
-    if (pending) out.push({ kind: "text", text: pending, style: style() })
-    pending = ""
-  }
-
-  for (let index = 0; index < source.length;) {
-    const char = source[index]
-    if (char === "\\" && (source[index + 1] === "<" || source[index + 1] === "\\")) {
-      pending += source[index + 1]
-      index += 2
+  const style = (): Style => stack.at(-1)?.style ?? {}
+  for (const node of nodes) {
+    if (typeof node === "string") {
+      out.push({ kind: "text", text: node, style: style() })
       continue
     }
-    if (char === "{") {
-      const end = source.indexOf("}", index)
-      const name = end > index ? tokens.get(source.slice(index, end + 1)) : undefined
-      if (name !== undefined) {
-        flush()
-        out.push({ kind: "placeholder", name, style: style() })
-        index = end + 1
-        continue
-      }
+    if (!("tag" in node)) {
+      out.push(leafOf(node, true, style()))
+      continue
     }
-    if (char === "<") {
-      const end = tagEnd(source, index)
-      if (end > index) {
-        const tag = source.slice(index + 1, end)
-        flush()
-        index = end + 1
-        const placeholder = tokens.get(`<${tag}>`)
-        if (placeholder !== undefined) {
-          out.push({ kind: "placeholder", name: placeholder, style: style() })
-          continue
-        }
-        const parts = splitArgs(tag)
-        const head = parts[0].toLowerCase()
-        if (tag.startsWith("/")) {
-          const closing = tag.slice(1).split(":")[0].toLowerCase()
-          const at = findLast(stack, (frame) => closes(frame.name, closing))
-          if (at >= 0) stack.length = at
-          else if (!KNOWN.has(closing.replace(/^!/, "")) && !closing.startsWith("#"))
-            out.push({ kind: "raw", source: `<${tag}>`, style: style() })
-          continue
-        }
-        if (head === "reset") {
-          stack.length = 0
-          continue
-        }
-        if (head === "newline" || head === "br") {
-          out.push({ kind: "break", style: style() })
-          continue
-        }
-        if (head === "glyph" && parts[1]) {
-          out.push({ kind: "glyph", name: parts[1], style: style() })
-          continue
-        }
-        const frame = opening(parts, args)
-        if (frame) stack.push({ name: frame.name, style: frame.apply(style()) })
-        else out.push({ kind: "raw", source: `<${tag}>`, style: style() })
-        continue
-      }
+    const raw: Run = { kind: "raw", source: writeText([node], true), style: style() }
+    if (node.shape === "CLOSE") {
+      const at = stack.findLastIndex((frame) => closes(frame.name, node.tag))
+      if (at >= 0) stack.length = at
+      else out.push(raw)
+      continue
     }
-    pending += char
-    index += 1
+    if (node.tag === "reset") {
+      stack.length = 0
+      continue
+    }
+    if (node.tag === "newline" || node.tag === "br") {
+      out.push({ kind: "break", style: style() })
+      continue
+    }
+    const glyph = node.tag === "glyph" && node.args.length === 1 ? literalOf(node.args[0]) : null
+    if (glyph) {
+      out.push({ kind: "glyph", name: glyph, style: style() })
+      continue
+    }
+    const frame = node.shape === "OPEN" ? opening(node.tag, node.args, tones) : null
+    if (frame) stack.push({ name: frame.name, style: frame.apply(style()) })
+    else out.push(raw)
   }
-  flush()
   return out
 }
 
-const KNOWN = new Set([
-  "color",
-  "colour",
-  "c",
-  "gradient",
-  "hover",
-  "click",
-  ...Object.keys(NAMED_COLOURS),
-  "bold",
-  "b",
-  "italic",
-  "i",
-  "em",
-  "underlined",
-  "u",
-  "strikethrough",
-  "st",
-  "obfuscated",
-  "obf",
-])
+function literalOf(parts: TextNode[]): string | null {
+  return parts.length === 1 && typeof parts[0] === "string" ? parts[0] : parts.length === 0 ? "" : null
+}
 
 const DECORATION_NAMES: Record<string, Decoration> = {
   bold: "bold",
@@ -224,48 +191,63 @@ export function isColour(value: string): boolean {
   return HEX.test(value) || value.toLowerCase() in NAMED_COLOURS
 }
 
-function opening(parts: string[], args: MessageArg[]): { name: string; apply: (style: Style) => Style } | null {
-  const [head, ...rest] = parts
-  const lower = head.toLowerCase()
-  if (HEX.test(head)) return { name: lower, apply: (style) => ({ ...style, colour: head, gradient: undefined }) }
-  if (lower in NAMED_COLOURS)
-    return { name: lower, apply: (style) => ({ ...style, colour: lower, gradient: undefined }) }
-  if (lower === "color" || lower === "colour" || lower === "c") {
-    const value = rest[0] ?? ""
-    if (!isColour(value)) return null
-    const colour = HEX.test(value) ? value : value.toLowerCase()
-    return { name: "color", apply: (style) => ({ ...style, colour, gradient: undefined }) }
-  }
-  if (lower === "gradient") {
-    const colours = rest.filter(isColour).map((value) => (HEX.test(value) ? value : value.toLowerCase()))
-    if (colours.length < 2 || colours.length !== rest.length) return null
-    return { name: "gradient", apply: (style) => ({ ...style, gradient: colours, colour: undefined }) }
-  }
-  if (lower === "hover" && rest[0]?.toLowerCase() === "show_text" && rest.length === 2) {
-    const hover = normalize(parseMini(rest[1], args))
-    return { name: "hover", apply: (style) => ({ ...style, hover }) }
-  }
-  if (lower === "click" && rest.length === 2) {
-    const action = CLICK_ACTIONS[rest[0].toLowerCase()]
-    if (action) {
-      const click: Click = { action, value: rest[1] }
-      return { name: "click", apply: (style) => ({ ...style, click }) }
-    }
-  }
-  const negated = lower.startsWith("!")
-  const decoration = DECORATION_NAMES[negated ? lower.slice(1) : lower]
-  if (decoration) {
-    const on = negated ? false : rest[0] !== "false"
-    return { name: negated ? lower.slice(1) : lower, apply: (style) => ({ ...style, [decoration]: on }) }
-  }
-  return null
-}
-
 const CLICK_ACTIONS: Record<string, ClickAction> = {
   open_url: "open_url",
   run_command: "run_command",
   suggest_command: "suggest_command",
   copy_to_clipboard: "copy_to_clipboard",
+}
+
+/** What an opening tag does to the style, and the name its closing tag will use; `null` for one no editor offers. */
+function opening(
+  tag: string,
+  args: TextNode[][],
+  tones: Set<string>,
+): { name: string; apply: (style: Style) => Style } | null {
+  const words = args.map(literalOf)
+  if (tones.has(tag) && args.length === 0) {
+    return { name: tag, apply: (style) => ({ ...style, tone: tag, colour: undefined, gradient: undefined }) }
+  }
+  if (HEX.test(tag))
+    return { name: tag, apply: (style) => ({ ...style, colour: tag, gradient: undefined, tone: undefined }) }
+  if (tag in NAMED_COLOURS)
+    return { name: tag, apply: (style) => ({ ...style, colour: tag, gradient: undefined, tone: undefined }) }
+  if ((tag === "color" || tag === "colour" || tag === "c") && words.length === 1 && words[0] && isColour(words[0])) {
+    const colour = HEX.test(words[0]) ? words[0] : words[0].toLowerCase()
+    return { name: "color", apply: (style) => ({ ...style, colour, gradient: undefined, tone: undefined }) }
+  }
+  if (tag === "gradient") {
+    const colours = words.filter((word): word is string => word !== null && isColour(word))
+    if (colours.length < 2 || colours.length !== words.length) return null
+    const gradient = colours.map((value) => (HEX.test(value) ? value : value.toLowerCase()))
+    return { name: "gradient", apply: (style) => ({ ...style, gradient, colour: undefined, tone: undefined }) }
+  }
+  if (tag === "hover" && args.length === 2 && words[0] === "show_text") {
+    const inner = readText(unquoted(argumentText(args[1])), true)
+    if (inner === null) return null
+    const hover = normalize(fromTags(inner, tones))
+    return { name: "hover", apply: (style) => ({ ...style, hover }) }
+  }
+  if (tag === "click" && args.length === 2 && words[0] !== null && words[0] in CLICK_ACTIONS) {
+    const click: Click = { action: CLICK_ACTIONS[words[0]], value: unquoted(argumentText(args[1])) }
+    return { name: "click", apply: (style) => ({ ...style, click }) }
+  }
+  if (tag === "action" && args.length === 1 && words[0]) {
+    const action = words[0]
+    return { name: "action", apply: (style) => ({ ...style, action }) }
+  }
+  const negated = tag.startsWith("!")
+  const decoration = DECORATION_NAMES[negated ? tag.slice(1) : tag]
+  if (decoration && args.length <= 1) {
+    const on = !negated && words[0] !== "false"
+    return { name: negated ? tag.slice(1) : tag, apply: (style) => ({ ...style, [decoration]: on }) }
+  }
+  return null
+}
+
+/** A quoted argument as Adventure reads it: an escaped quote is a quote. */
+function unquoted(text: string): string {
+  return text.replaceAll(/\\(['"])/g, "$1")
 }
 
 function closes(frame: string, closing: string): boolean {
@@ -277,51 +259,22 @@ function closes(frame: string, closing: string): boolean {
   return decoration !== undefined && DECORATION_NAMES[frame] === decoration
 }
 
-/** A tag's parts, split at `:` outside quotes, with the quotes and their escapes taken off. */
-function splitArgs(tag: string): string[] {
-  const parts: string[] = []
-  let current = ""
-  let quoteChar: string | null = null
-  for (let index = 0; index < tag.length; index += 1) {
-    const char = tag[index]
-    if (quoteChar) {
-      if (char === "\\" && (tag[index + 1] === quoteChar || tag[index + 1] === "\\")) {
-        current += tag[index + 1]
-        index += 1
-      } else if (char === quoteChar) quoteChar = null
-      else current += char
-    } else if (char === "'" || char === '"') quoteChar = char
-    else if (char === ":") {
-      parts.push(current)
-      current = ""
-    } else current += char
+/** A plain text: a line break is a break, a hole the next value. */
+function fromPlain(flat: string, queue: Run[]): Run[] {
+  const out: Run[] = []
+  let pending = ""
+  const flush = () => {
+    if (pending) out.push({ kind: "text", text: pending, style: {} })
+    pending = ""
   }
-  parts.push(current)
-  return parts
-}
-
-/** The `>` that ends the tag at `start`, skipping quoted arguments; -1 when the `<` opens nothing. */
-function tagEnd(source: string, start: number): number {
-  let quoteChar: string | null = null
-  for (let index = start + 1; index < source.length; index += 1) {
-    const char = source[index]
-    if (quoteChar) {
-      if (char === "\\") index += 1
-      else if (char === quoteChar) quoteChar = null
-    } else if (char === "'" || char === '"') {
-      quoteChar = char
-    } else if (char === ">") {
-      return index === start + 1 ? -1 : index
-    } else if (char === "<" || char === "\n" || char === " ") {
-      return -1
-    }
+  for (const char of flat) {
+    if (char === "\n" || char === HOLE) {
+      flush()
+      out.push(char === "\n" ? { kind: "break", style: {} } : queue.shift()!)
+    } else pending += char
   }
-  return -1
-}
-
-function findLast<T>(items: T[], test: (item: T) => boolean): number {
-  for (let index = items.length - 1; index >= 0; index -= 1) if (test(items[index])) return index
-  return -1
+  flush()
+  return out
 }
 
 const MARKS: [string, keyof Style][] = [
@@ -332,16 +285,15 @@ const MARKS: [string, keyof Style][] = [
   ["_", "italic"],
 ]
 
-function parseMarkdown(source: string, args: MessageArg[]): Run[] {
-  const tokens = placeholderTokens(args)
+/** Discord's markdown over the literal text; a hole takes the next value in the style around it. */
+function fromMarkdown(source: string, queue: Run[], outer: Style): Run[] {
   const out: Run[] = []
-  let style: Style = {}
+  let style: Style = outer
   let pending = ""
   const flush = () => {
     if (pending) out.push({ kind: "text", text: pending, style })
     pending = ""
   }
-
   for (let index = 0; index < source.length;) {
     const char = source[index]
     if (char === "\\" && /[\\*_~`[\]]/.test(source[index + 1] ?? "")) {
@@ -349,28 +301,18 @@ function parseMarkdown(source: string, args: MessageArg[]): Run[] {
       index += 2
       continue
     }
-    if (char === "\n") {
+    if (char === "\n" || char === HOLE) {
       flush()
-      out.push({ kind: "break", style })
+      out.push(char === "\n" ? { kind: "break", style } : { ...queue.shift()!, style })
       index += 1
       continue
-    }
-    if (char === "{") {
-      const end = source.indexOf("}", index)
-      const name = end > index ? tokens.get(source.slice(index, end + 1)) : undefined
-      if (name !== undefined) {
-        flush()
-        out.push({ kind: "placeholder", name, style })
-        index = end + 1
-        continue
-      }
     }
     if (char === "`") {
       const end = source.indexOf("`", index + 1)
       if (end > index + 1) {
         flush()
-        const inner = parsePlain(source.slice(index + 1, end), args)
-        for (const run of inner) out.push({ ...run, style: { ...style, code: true } })
+        for (const run of fromPlain(source.slice(index + 1, end), queue))
+          out.push({ ...run, style: { ...style, code: true } })
         index = end + 1
         continue
       }
@@ -380,7 +322,7 @@ function parseMarkdown(source: string, args: MessageArg[]): Run[] {
       if (link) {
         flush()
         const click: Click = { action: "open_url", value: link[2] }
-        for (const run of parseMarkdown(link[1], args)) out.push({ ...run, style: { ...run.style, ...style, click } })
+        out.push(...fromMarkdown(link[1], queue, { ...style, click }))
         index += link[0].length
         continue
       }
@@ -405,16 +347,16 @@ function parseMarkdown(source: string, args: MessageArg[]): Run[] {
 
 // Serializing
 
-export function serialize(runs: Run[], format: Format, args: MessageArg[]): string {
-  const tokens = new Map(args.map((arg) => [arg.name, tokenOf(arg)]))
-  if (format === "PLAIN") return runs.map((run) => leaf(run, tokens, format)).join("")
-  if (format === "DISCORD_MARKDOWN") return group(runs, MARKDOWN_LEVELS, 0, tokens, format)
-  return group(runs, MINI_LEVELS, 0, tokens, format)
+/** The runs as the text the one parser reads back to them. */
+export function serialize(runs: Run[], format: Format): string {
+  if (format === "PLAIN") return runs.map((run) => leaf(run, format)).join("")
+  if (format === "DISCORD_MARKDOWN") return group(runs, MARKDOWN_LEVELS, 0, format)
+  return group(runs, MINI_LEVELS, 0, format)
 }
 
 type Level = {
   of: (style: Style) => unknown
-  open(value: unknown, format: Format, tokens: Map<string, string>): string
+  open(value: unknown): string
   close(value: unknown): string
 }
 
@@ -424,17 +366,31 @@ const decorationLevel = (name: Decoration): Level => ({
   close: () => `</${name}>`,
 })
 
+/** A quoted tag argument: the text as it stands, a single quote in it escaped. */
+function quoted(value: string): string {
+  return `'${value.replaceAll("'", "\\'")}'`
+}
+
 const MINI_LEVELS: Level[] = [
   {
     of: (style) => style.click,
-    open: (click: Click) => `<click:${click.action}:'${quote(click.value)}'>`,
+    open: (click: Click) => `<click:${click.action}:${quoted(click.value)}>`,
     close: () => "</click>",
   },
   {
     of: (style) => style.hover,
-    open: (hover: Run[], format, tokens) =>
-      `<hover:show_text:'${quote(group(hover, MINI_LEVELS, 0, tokens, format))}'>`,
+    open: (hover: Run[]) => `<hover:show_text:${quoted(group(hover, MINI_LEVELS, 0, "MINIMESSAGE"))}>`,
     close: () => "</hover>",
+  },
+  {
+    of: (style) => style.action,
+    open: (action: string) => `<action:${action}>`,
+    close: () => "</action>",
+  },
+  {
+    of: (style) => style.tone,
+    open: (tone: string) => `<${tone}>`,
+    close: (tone: string) => `</${tone}>`,
   },
   {
     of: (style) => style.gradient,
@@ -468,33 +424,28 @@ const MARKDOWN_LEVELS: Level[] = [
   markdownLevel("strikethrough", "~~"),
 ]
 
-function group(runs: Run[], levels: Level[], depth: number, tokens: Map<string, string>, format: Format): string {
-  if (depth >= levels.length) return runs.map((run) => leaf(run, tokens, format)).join("")
+function group(runs: Run[], levels: Level[], depth: number, format: Format): string {
+  if (depth >= levels.length) return runs.map((run) => leaf(run, format)).join("")
   const level = levels[depth]
   let out = ""
   let start = 0
   while (start < runs.length) {
     const value = level.of(runs[start].style)
     let end = start + 1
-    // A break carries no style of its own worth splitting a tag over.
     while (end < runs.length && same(level.of(runs[end].style), value)) end += 1
-    const inner = group(runs.slice(start, end), levels, depth + 1, tokens, format)
-    out += value === undefined ? inner : level.open(value, format, tokens) + inner + level.close(value)
+    const inner = group(runs.slice(start, end), levels, depth + 1, format)
+    out += value === undefined ? inner : level.open(value) + inner + level.close(value)
     start = end
   }
   return out
 }
 
-function leaf(run: Run, tokens: Map<string, string>, format: Format): string {
+function leaf(run: Run, format: Format): string {
   switch (run.kind) {
     case "text":
-      return format === "MINIMESSAGE"
-        ? run.text.replace(/\\/g, "\\\\").replace(/</g, "\\<")
-        : format === "DISCORD_MARKDOWN"
-          ? run.text.replace(/([\\*_~`[\]])/g, "\\$1")
-          : run.text
+      return format === "DISCORD_MARKDOWN" ? markdownText(run.text) : writeText([run.text], format === "MINIMESSAGE")
     case "placeholder":
-      return tokens.get(run.name) ?? `{${run.name}}`
+      return writeText([{ v: run.name, k: run.k, s: run.s }], false)
     case "glyph":
       return `<glyph:${run.name}>`
     case "break":
@@ -508,8 +459,14 @@ function leaf(run: Run, tokens: Map<string, string>, format: Format): string {
   }
 }
 
-function quote(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")
+/**
+ * Literal text in Discord's markdown, escaped for both readings: markdown's markers first, then the message syntax.
+ *
+ * A backslash stays single where the message parser keeps it anyway, so a source's `\*` is written back as it was.
+ */
+function markdownText(text: string): string {
+  const marked = text.replaceAll(/([\\*_~`[\]])/g, "\\$1")
+  return marked.replaceAll(/\\(?=[{}\\]|$)|[{}]/g, (c) => `\\${c}`)
 }
 
 // Editing
@@ -531,7 +488,7 @@ export function normalize(runs: Run[]): Run[] {
   for (const run of runs) {
     const style = cleanStyle(run.style)
     if (run.kind === "text" && run.text === "") continue
-    const last = out[out.length - 1]
+    const last = out.at(-1)
     if (run.kind === "text" && last?.kind === "text" && same(last.style, style)) {
       out[out.length - 1] = { ...last, text: last.text + run.text }
     } else out.push({ ...run, style })
@@ -614,6 +571,7 @@ export function commonStyle(runs: Run[], from: number, to: number): Style {
 }
 
 const STYLE_KEYS: (keyof Style)[] = [
+  "tone",
   "colour",
   "gradient",
   "bold",
@@ -624,16 +582,16 @@ const STYLE_KEYS: (keyof Style)[] = [
   "code",
   "hover",
   "click",
+  "action",
 ]
 
 /** Copies `first`'s value for `key` into `result`, only when every style in `rest` agrees with it. */
-function setShared<K extends keyof Style>(result: Style, key: K, first: Style, rest: Style[]): Style[K] | undefined {
+function setShared(result: Style, key: keyof Style, first: Style, rest: Style[]): void {
   const value = first[key]
-  if (rest.every((style) => same(style[key], value))) result[key] = value
-  return value
+  if (rest.every((style) => same(style[key], value))) Object.assign(result, { [key]: value })
 }
 
-/** The plain characters of the runs, with placeholders as their names, for counting and search. */
+/** The plain characters of the runs, with placeholders filled, for counting and search. */
 export function plainText(runs: Run[], fill: (name: string) => string = (name) => `{${name}}`): string {
   return runs
     .map((run) =>
@@ -682,4 +640,11 @@ export function gradientAt(colours: string[], t: number): string {
 export function shadowOf(hex: string): string {
   const [r, g, b] = channels(hexOf(hex))
   return `rgb(${r >> 2}, ${g >> 2}, ${b >> 2})`
+}
+
+/** The colour a run's style draws in: its gradient's first stop aside, a colour, else its tone, else `base`. */
+export function colourOf(style: Style, tones: Record<string, string>, base: string): string {
+  if (style.colour) return hexOf(style.colour)
+  if (style.tone && tones[style.tone]) return tones[style.tone]
+  return base
 }

@@ -7,7 +7,14 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { ServiceSettings } from "@/components/steward/settings"
 import { resetDrafts } from "@/lib/drafts"
 import { setPendingMessageJump } from "@/lib/settings-search"
-import type { MessageBundle, MessageBundleLocation, MessageEntry, Warning } from "@/lib/api"
+import type {
+  MessageBundle,
+  MessageBundleLocation,
+  MessageEntry,
+  MessageFallback,
+  MessageProblem,
+  Warning,
+} from "@/lib/api"
 import { asButton, asTextArea } from "@/lib/test-elements"
 import { changesOf, words } from "@/lib/query-fixtures"
 
@@ -51,7 +58,14 @@ function entry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
 /** One `/api/messages/<path>` answer per fixture bundle and one canned PUT answer per path. */
 type Bundle = MessageBundle & { warnings?: Warning[] }
 
-function backend(bundles: Record<string, Bundle>, puts: Record<string, (body: unknown) => unknown> = {}) {
+/** What the editor asks besides the bundle; a test answers any of them otherwise. */
+type Around = { fallbacks?: MessageFallback[]; check?: (text: string) => MessageProblem[] }
+
+function backend(
+  bundles: Record<string, Bundle>,
+  puts: Record<string, (body: unknown) => unknown> = {},
+  around: Around = {},
+) {
   const listing = Object.values(bundles).map((bundle) => {
     const { service, module, path, writable } = bundle
     return { service, module, path, writable }
@@ -59,6 +73,13 @@ function backend(bundles: Record<string, Bundle>, puts: Record<string, (body: un
   return vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
     if (url === "/api/messages") return json(listing)
     if (url === "/api/setting-groups") return json([])
+    if (url === "/api/message-syntax") return json({ tones: { good: "#8ba888" }, kinds: { duration: ["short"] } })
+    if (url === "/api/message-examples") return json({})
+    if (url === "/api/message-fallbacks") return json(around.fallbacks ?? [])
+    if (url === "/glyphs/manifest.json") return json([])
+    if (url.startsWith("/api/message-check?")) {
+      return json(around.check?.(new URL(url, "http://steward").searchParams.get("text") ?? "") ?? [])
+    }
     if (init?.method === "PUT") {
       const found = Object.entries(puts).find(([path]) => url === `/api/messages/${path}`)
       if (found) return json(found[1](JSON.parse(init.body ?? "")))
@@ -81,19 +102,15 @@ async function open(label: string) {
   fireEvent.click((await screen.findAllByText(label))[0])
 }
 
-/** A screen as wide as the two-column layout, where a key opens inline instead of in a sheet. */
-function wide() {
-  vi.stubGlobal("matchMedia", (query: string) => ({
-    matches: query.includes("64rem"),
-    media: query,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  }))
-}
-
 /** A key is a row until it is opened; its field only exists once it is. */
 async function openKey(name: string) {
   fireEvent.click(await screen.findByRole("button", { name }))
+}
+
+/** Switches the open key to its source, B, and hands back the field `label` names. */
+async function source(label: string): Promise<HTMLTextAreaElement> {
+  fireEvent.click(await screen.findByRole("button", { name: "Source" }))
+  return asTextArea(await screen.findByRole("textbox", { name: label }))
 }
 
 /** The tab as the service page draws it, with `?file=` kept in state instead of the URL. */
@@ -155,7 +172,7 @@ describe("the en/de toggle", () => {
     await open("SMP Translations")
     await openKey("Welcome")
 
-    expect(await screen.findByDisplayValue("Welcome")).toBeTruthy()
+    expect((await screen.findByRole("textbox", { name: "welcome" })).textContent).toBe("Welcome")
   })
 
   it("switches to the override once German is selected, rather than the packaged text", async () => {
@@ -163,7 +180,7 @@ describe("the en/de toggle", () => {
     draw(<Settings service="smp" />)
     await open("SMP Translations")
     await openKey("Welcome")
-    await screen.findByDisplayValue("Welcome")
+    await source("welcome")
 
     fireEvent.mouseDown(screen.getByRole("tab", { name: /DE/ }))
 
@@ -203,8 +220,7 @@ describe("saving a line", () => {
     draw(<Settings service="smp" />)
     await open("SMP Translations")
     await openKey("Greeting")
-    const field = await screen.findByDisplayValue("Hello {sender}")
-    fireEvent.change(field, { target: { value: "Hello there" } })
+    fireEvent.change(await source("greeting"), { target: { value: "Hello there" } })
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
 
     expect(await screen.findByText(/the text never shows sender, which the message is given/)).toBeTruthy()
@@ -239,8 +255,7 @@ describe("saving a line", () => {
     draw(<Settings service="smp" />)
     await open("SMP Translations")
     await openKey("Welcome")
-    const field = await screen.findByDisplayValue("Welcome")
-    fireEvent.change(field, { target: { value: "Howdy" } })
+    fireEvent.change(await source("welcome"), { target: { value: "Howdy" } })
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
 
     await waitFor(() => expect(shown).toHaveBeenCalledWith("One text saved.", { description: message }))
@@ -272,7 +287,7 @@ describe("saving a line", () => {
     draw(<Settings service="smp" />)
     await open("SMP Translations")
     await openKey("Welcome")
-    await screen.findByDisplayValue("Howdy")
+    expect((await source("welcome")).value).toBe("Howdy")
 
     fireEvent.click(screen.getByRole("button", { name: /Reset/ }))
     await screen.findByDisplayValue("Welcome")
@@ -352,20 +367,18 @@ describe("one key open at a time", () => {
   })
 
   it("closes the open key when another is opened, and keeps its draft", async () => {
-    wide()
     twoKeys()
     draw(<Settings service="smp" />)
     await open("SMP Translations")
 
     await openKey("First")
-    fireEvent.change(await screen.findByDisplayValue("<gray>Hello <white>{player}</white></gray>"), {
-      target: { value: "Hi {player}" },
-    })
+    const first = await source("First")
+    expect(first.value).toBe("<gray>Hello <white>{player}</white></gray>")
+    fireEvent.change(first, { target: { value: "Hi {player}" } })
     await openKey("Second")
 
-    await screen.findByDisplayValue("two")
-    expect(screen.queryByDisplayValue("Hi {player}")).toBeNull()
-    expect(screen.getAllByRole("textbox")).toHaveLength(1)
+    expect((await screen.findByRole("textbox", { name: "Second" })).textContent).toBe("two")
+    expect(screen.queryByRole("textbox", { name: "First" })).toBeNull()
     screen.getByRole("button", { name: "Save 1" })
   })
 })
@@ -397,11 +410,10 @@ describe("both languages in one save", () => {
     await open("SMP Translations")
 
     await openKey("First")
-    fireEvent.change(await screen.findByDisplayValue("one"), { target: { value: "ONE" } })
-    fireEvent.click(screen.getByRole("button", { name: "Done" }))
+    fireEvent.change(await source("First"), { target: { value: "ONE" } })
     await openKey("Second")
-    fireEvent.mouseDown(screen.getByRole("tab", { name: /DE/ }))
-    fireEvent.change(await screen.findByDisplayValue("zwei"), { target: { value: "ZWEI" } })
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: /DE/ }))
+    fireEvent.change(await source("Second"), { target: { value: "ZWEI" } })
     fireEvent.click(screen.getByRole("button", { name: "Save 2" }))
 
     await waitFor(() => expect(bodies).toHaveLength(1))
@@ -430,29 +442,135 @@ function withGreeting() {
 }
 
 describe("placeholders", () => {
-  it("refuses to save a placeholder the text does not declare, and says which", async () => {
-    withGreeting()
+  it("shows what the validator says of the typed text, and leaves the refusal to the save", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend(
+        {
+          "smp/smp": {
+            ...location({ path: "smp/smp" }),
+            entries: [
+              entry({
+                texts: { en: ["Hello {player}"] },
+                key: "greeting",
+                name: "Greeting",
+                args: [{ name: "player", kind: "text", global: false, action: false }],
+              }),
+            ],
+          },
+        },
+        {},
+        {
+          check: (text) =>
+            text.includes("{palyer}")
+              ? [
+                  {
+                    error: true,
+                    text: {
+                      key: "check.value.unknown",
+                      args: {
+                        name: { kind: "text", value: "palyer" },
+                        offered: { kind: "text", value: "player" },
+                      },
+                    },
+                  },
+                ]
+              : [],
+        },
+      ),
+    )
     draw(<Settings service="smp" />)
     await open("SMP Translations")
     await openKey("Greeting")
 
-    fireEvent.change(await screen.findByDisplayValue("Hello {player}"), { target: { value: "Hello {palyer}" } })
+    fireEvent.change(await source("Greeting"), { target: { value: "Hello {palyer}" } })
 
-    await screen.findByText("Unknown placeholder {palyer}")
-    expect(asButton(screen.getByRole("button", { name: "Save 1" })).disabled).toBe(true)
+    await screen.findByText("{palyer} is nothing this message offers; it offers player")
+    expect(asButton(screen.getByRole("button", { name: "Save 1" })).disabled).toBe(false)
   })
 
-  it("inserts a declared placeholder from its badge", async () => {
+  it("inserts a declared placeholder from the menu where the caret is", async () => {
     withGreeting()
     draw(<Settings service="smp" />)
     await open("SMP Translations")
     await openKey("Greeting")
-    const field = asTextArea(await screen.findByDisplayValue("Hello {player}"))
+    const field = await source("Greeting")
     field.setSelectionRange(0, 0)
 
-    fireEvent.click(screen.getByRole("button", { name: "{player}" }))
+    fireEvent.click(screen.getByRole("button", { name: "Insert a value" }))
+    fireEvent.click(await screen.findByRole("button", { name: /^player/ }))
 
     expect(await screen.findByDisplayValue("{player}Hello {player}")).toBeTruthy()
+  })
+})
+
+describe("a fallen-back override", () => {
+  const fallback: MessageFallback = {
+    path: "smp/smp",
+    bundle: "smp",
+    key: "welcome",
+    language: "en",
+    reason: "STALE",
+    override: ["Howdy"],
+    original: ["Welcome"],
+    packaged: ["Welcome aboard"],
+    problems: [],
+  }
+
+  it("shows what it was written over and what the jar has now, and takes it over in one save", async () => {
+    const bodies: unknown[] = []
+    vi.stubGlobal(
+      "fetch",
+      backend(
+        {
+          "smp/smp": {
+            ...location({ path: "smp/smp" }),
+            entries: [entry({ texts: { en: ["Welcome aboard"] }, overrides: { en: ["Howdy"] }, key: "welcome" })],
+          },
+        },
+        {
+          "smp/smp": (body) => {
+            bodies.push(body)
+            return { ...location({ path: "smp/smp" }), entries: [], warnings: [] }
+          },
+        },
+        { fallbacks: [fallback] },
+      ),
+    )
+    draw(<Settings service="smp" />)
+    await open("SMP Translations")
+    await openKey("Welcome")
+
+    await screen.findByText("Fallen back")
+    expect(screen.getAllByRole("definition").map((text) => text.textContent)).toEqual([
+      "Welcome",
+      "Welcome aboard",
+      "Howdy",
+    ])
+    fireEvent.click(screen.getByRole("button", { name: "Take over" }))
+
+    await waitFor(() => expect(bodies).toHaveLength(1))
+    expect(bodies[0]).toEqual({ changes: { welcome: { en: ["Howdy"] } } })
+  })
+})
+
+describe("the two views", () => {
+  it("opens a text it cannot read as it is written, and offers no view of it as it looks", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        "smp/smp": {
+          ...location({ path: "smp/smp" }),
+          entries: [entry({ texts: { en: ["Hello {name"] }, key: "broken", name: "Broken" })],
+        },
+      }),
+    )
+    draw(<Settings service="smp" />)
+    await open("SMP Translations")
+    await openKey("Broken")
+
+    expect(asTextArea(await screen.findByRole("textbox", { name: "Broken" })).value).toBe("Hello {name")
+    expect(asButton(screen.getByRole("button", { name: "As it looks" })).disabled).toBe(true)
   })
 })
 
@@ -474,6 +592,8 @@ describe("a jump from the command palette", () => {
 
     setPendingMessageJump("smp", { path: "smp/smp", language: "de", key: "welcome" })
 
-    expect(await screen.findByDisplayValue("packaged-de-welcome")).toBeTruthy()
+    await waitFor(() =>
+      expect(screen.getByRole("textbox", { name: "Welcome" }).textContent).toBe("packaged-de-welcome"),
+    )
   })
 })

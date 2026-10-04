@@ -119,6 +119,17 @@ pin and no rollback: a bad release is corrected by publishing a better one.
   draws that group with it only when the editor reads the document it got, and with the form built
   from the schema otherwise. An editor knows the structure it lays out, never a label, a choice or a
   reference, and saves through the same draft as the form. Proposals for one live under `/designs`.
+- **Translations.** A bundle is a tree of its keys, and one key is open at a time, inline at every width, so the
+  page's own save serves it. The key's text is edited as it looks (A), runs of styled text with values as pills, or
+  as it is written (B), the source coloured from the marks of the one parser in `lib/message-tree.ts`; A builds on
+  that parser too (`lib/rich-text.ts`) and is offered only while the text reads. The tools above the field offer
+  exactly what the key's format allows: its values with their examples (the server's live ones per context type
+  from `GET /api/message-examples`, else the schema's), glyphs, tones and colours, a value's style, hover, click
+  and the key's actions. Whether a text is right is only ever `MessageCheck`: the editor asks
+  `GET /api/message-check` once typing pauses and shows what it says, and the save refuses what it errs on. The preview
+  draws tones in their default colours from `GET /api/message-syntax`, which also names each kind's styles; a
+  service's own `colours` are not reflected. An override no process shows (`GET /api/message-fallbacks`) opens
+  with what it was written over and what the jar has now; taking it over saves it as it stands.
 - **Alerts.** Every alert is a row in `admin_alert`, raised by whoever saw it: steward measures the
   stack every 30 seconds against the `web` group's thresholds and raises a failed run and a payment
   nobody can book, once per bank payment; the bot raises what it could not do in Discord or with a purchase. Steward routes each row once, to Web Push and to the admin channel through the

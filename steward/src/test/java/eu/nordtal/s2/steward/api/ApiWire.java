@@ -3,6 +3,7 @@ package eu.nordtal.s2.steward.api;
 import eu.nordtal.jcore.config.schema.SchemaNode;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.ImageResult;
+import eu.nordtal.s2.messages.text.MessageCheck;
 import eu.nordtal.s2.settings.Refers;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +30,8 @@ public final class ApiWire {
             MessagesApi.Bundle.class,
             MessagesApi.Saved.class,
             MessagesApi.Fallback.class,
+            MessagesApi.Syntax.class,
+            MessageCheck.Problem.class,
             AgentWire.PluginAdded.class,
             Routes.ConsoleSent.class,
             StackApi.NetworkMap.class);
@@ -56,7 +59,9 @@ public final class ApiWire {
             Map.entry(MessagesApi.Bundle.class, "MessageBundle"),
             Map.entry(MessagesApi.Saved.class, "MessageSaveResult"),
             Map.entry(MessagesApi.Fallback.class, "MessageFallback"),
-            Map.entry(MessagesApi.FallbackReason.class, "MessageFallbackReason"));
+            Map.entry(MessagesApi.FallbackReason.class, "MessageFallbackReason"),
+            Map.entry(MessagesApi.Syntax.class, "MessageSyntax"),
+            Map.entry(MessageCheck.Problem.class, "MessageProblem"));
 
     private ApiWire() {}
 }

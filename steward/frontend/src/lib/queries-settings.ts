@@ -1,4 +1,4 @@
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
+import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import {
   api,
@@ -13,7 +13,9 @@ import {
   type MessageChanges,
   type MessageSaveResult,
   type MessageExamples,
-  type MessageTones,
+  type MessageSyntax,
+  type MessageFallback,
+  type MessageProblem,
   type PluginDescriptor,
   type GameData,
 } from "@/lib/api"
@@ -114,6 +116,8 @@ export function useSaveMessageBundle(path: string) {
       api<MessageSaveResult>(`/api/messages/${encodePath(path)}`, { method: "PUT", body }),
     onSuccess: (document) => {
       client.setQueryData(keys.messageBundle(path), document)
+      /** A save over a fallen-back override takes it over. */
+      void client.invalidateQueries({ queryKey: keys.messageFallbacks })
     },
   })
 }
@@ -127,12 +131,36 @@ export function useMessageExamples() {
   })
 }
 
-/** The palette's tones by tag, each with the colour a text draws in where no service names its own. */
-export function useMessageTones() {
+/** The tones a text names by tag with their default colours, and the styles each value kind offers. */
+export function useMessageSyntax() {
   return useQuery({
-    queryKey: keys.messageTones,
-    queryFn: () => api<MessageTones>("/api/message-tones"),
+    queryKey: keys.messageSyntax,
+    queryFn: () => api<MessageSyntax>("/api/message-syntax"),
     staleTime: Infinity,
+  })
+}
+
+/** Every override no process shows, because a release changed its original or the validator refuses it. */
+export function useMessageFallbacks(enabled = true) {
+  return useQuery({
+    queryKey: keys.messageFallbacks,
+    queryFn: () => api<MessageFallback[]>("/api/message-fallbacks"),
+    ...live("SETTINGS"),
+    enabled,
+  })
+}
+
+/** What the one validator says of `text` as `key` of `bundle`; the editor asks once typing pauses. */
+export function useMessageCheck(bundle: string, key: string, text: string | null) {
+  return useQuery({
+    queryKey: keys.messageCheck(bundle, key, text ?? ""),
+    queryFn: () => {
+      const query = new URLSearchParams({ bundle, key, text: text ?? "" })
+      return api<MessageProblem[]>(`/api/message-check?${query}`)
+    },
+    enabled: text !== null,
+    staleTime: Infinity,
+    placeholderData: keepPreviousData,
   })
 }
 

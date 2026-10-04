@@ -39,6 +39,15 @@ const NO_WAITING_SHAPE = new Map<string, string>([
   ],
   ["app/security-key.tsx", "useRegisterKey is a mutation. Nothing here is read."],
   [
+    "components/steward/message-preview.tsx",
+    "The tones and glyphs only colour a line of text drawn from the start; until they arrive it is drawn plain.",
+  ],
+  [
+    "components/steward/message-editor/message-editor.tsx",
+    "BundleFile read the key and drew the wait. The tones, glyphs, examples and the validator's word only add" +
+      " to a field that is drawn from the start.",
+  ],
+  [
     "components/steward/group-draft.tsx",
     "useSaveConfig is a mutation. The group it drafts was read by the editor that calls it, which draws the wait.",
   ],

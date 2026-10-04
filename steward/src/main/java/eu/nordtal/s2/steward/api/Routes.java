@@ -109,7 +109,7 @@ final class Routes {
         config.routes.get("/api/messages", api.messages::list, Gate.KEY_HELD);
         config.routes.get("/api/message-fallbacks", api.messages::fallbacks, Gate.KEY_HELD);
         config.routes.get("/api/message-check", api.messages::check, Gate.KEY_HELD);
-        config.routes.get("/api/message-tones", api.messages::tones, Gate.KEY_HELD);
+        config.routes.get("/api/message-syntax", api.messages::syntax, Gate.KEY_HELD);
         config.routes.get("/api/messages/<bundle>", api.messages::one, Gate.KEY_HELD);
         config.routes.put(
                 "/api/messages/<bundle>",

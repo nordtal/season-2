@@ -52,6 +52,8 @@ public interface StewardTexts {
 
         SettingsEditor settings();
 
+        MessageEditorTexts messageEditor();
+
         AnnouncementsPage announcements();
 
         Failures failure();

@@ -875,6 +875,47 @@ export type TextArgs = {
   "steward.keys.waiting": Record<string, never>
   "steward.keys.with-discord": Record<string, never>
   "steward.keys.wrong-domain": Record<string, never>
+  "steward.message-editor.action": Record<string, never>
+  "steward.message-editor.add-colour": Record<string, never>
+  "steward.message-editor.add-variant": Record<string, never>
+  "steward.message-editor.apply": Record<string, never>
+  "steward.message-editor.as-it-looks": Record<string, never>
+  "steward.message-editor.bold": Record<string, never>
+  "steward.message-editor.clear-formatting": Record<string, never>
+  "steward.message-editor.click": Record<string, never>
+  "steward.message-editor.click-value": Record<string, never>
+  "steward.message-editor.code": Record<string, never>
+  "steward.message-editor.colour": Record<string, never>
+  "steward.message-editor.copy-to-clipboard": Record<string, never>
+  "steward.message-editor.default-style": Record<string, never>
+  "steward.message-editor.empty": Record<string, never>
+  "steward.message-editor.fallen-back": Record<string, never>
+  "steward.message-editor.glyph": Record<string, never>
+  "steward.message-editor.gradient": Record<string, never>
+  "steward.message-editor.hex-colour": Record<string, never>
+  "steward.message-editor.hover": Record<string, never>
+  "steward.message-editor.italic": Record<string, never>
+  "steward.message-editor.line-break": Record<string, never>
+  "steward.message-editor.link": Record<string, never>
+  "steward.message-editor.no-colour": Record<string, never>
+  "steward.message-editor.obfuscated": Record<string, never>
+  "steward.message-editor.open-url": Record<string, never>
+  "steward.message-editor.override": Record<string, never>
+  "steward.message-editor.packaged-now": Record<string, never>
+  "steward.message-editor.packaged-then": Record<string, never>
+  "steward.message-editor.placeholder": Record<string, never>
+  "steward.message-editor.remove": Record<string, never>
+  "steward.message-editor.remove-colour": Record<string, never>
+  "steward.message-editor.remove-variant": Record<string, never>
+  "steward.message-editor.run-command": Record<string, never>
+  "steward.message-editor.source": Record<string, never>
+  "steward.message-editor.strikethrough": Record<string, never>
+  "steward.message-editor.suggest-command": Record<string, never>
+  "steward.message-editor.take-over": Record<string, never>
+  "steward.message-editor.tone": Record<string, never>
+  "steward.message-editor.underlined": Record<string, never>
+  "steward.message-editor.value-style": Record<string, never>
+  "steward.message-editor.variant": Record<string, never>
   "steward.network.cpu": {
     percent: Arg["text"]
   }
@@ -1564,9 +1605,6 @@ export type TextArgs = {
   "steward.settings.undo": Record<string, never>
   "steward.settings.undo-entry": {
     what: Arg["text"]
-  }
-  "steward.settings.unknown-placeholder": {
-    names: Arg["text"]
   }
   "steward.shell.account": Record<string, never>
   "steward.shell.account-of": {

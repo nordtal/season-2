@@ -13,7 +13,6 @@ import { JournalPage } from "@/pages/journal"
 import { PaymentsPage } from "@/pages/payments"
 import { OverviewPage } from "@/pages/overview"
 import { AlertsPage } from "@/pages/alerts"
-import { translationsSearch } from "@/app/designs/translations/search"
 
 /** The route tree, written out, since a generated `routeTree.gen.ts` in src/ would keep `viteBuild` out of date. */
 
@@ -81,13 +80,6 @@ const routes = [
     getParentRoute: () => rootRoute,
     path: "/designs/milestones-config",
     component: lazyRouteComponent(() => import("@/app/designs/milestones-config"), "MilestonesConfigPage"),
-  }),
-  // The translation editors on real bundles, loaded apart; goes once the picked one is in the messages tool.
-  createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/designs/translations",
-    component: lazyRouteComponent(() => import("@/app/designs/translations/translations-page"), "TranslationsPage"),
-    validateSearch: translationsSearch,
   }),
 ]
 

@@ -5,8 +5,6 @@ export type AlertPreferences = Record<AlertType, Record<AlertChannel, boolean>>
 
 export type MessageExamples = Record<string, Record<string, string>>
 
-export type MessageTones = Record<string, string>
-
 export type LiveEvent = {
   topic: Topic
   version: string
@@ -423,6 +421,16 @@ export type MessageFallback = {
   original?: string[]
   packaged: string[]
   problems: MessageRef[]
+}
+
+export type MessageSyntax = {
+  tones: Record<string, string>
+  kinds: Record<string, string[]>
+}
+
+export type MessageProblem = {
+  error: boolean
+  text: MessageRef
 }
 
 export type PluginAdded = {

@@ -69,6 +69,47 @@ class StewardRoleUpgradeIntegrationTest {
                 "steward lacks on a database migrated before the rename what it holds on a new one");
     }
 
+    @Test
+    void theNameBeforeTheRenameHoldsNothingOnceMigrated() throws SQLException {
+        final TestDatabase upgraded = TestDatabase.empty();
+        execute(upgraded.dataSource(), """
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '%s') THEN
+                        CREATE ROLE %s NOLOGIN;
+                    END IF;
+                END
+                $$""".formatted(OLD_NAME, OLD_NAME));
+        final Map<String, String> before = new java.util.HashMap<>(DatabaseRole.placeholders(DatabaseRole.PREFIX));
+        before.put(DatabaseRole.STEWARD.placeholder(), OLD_NAME);
+        upgraded.migrate(before, "2");
+        upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "latest");
+
+        final Set<String> held = privileges(upgraded.dataSource(), OLD_NAME);
+        held.addAll(members(upgraded.dataSource(), OLD_NAME));
+        // Every dump names a role that holds a grant, and a dump naming a dropped role cannot be restored.
+        assertEquals(Set.of(), held, "the name before the rename still holds a grant, so every dump names it");
+    }
+
+    private static Set<String> members(final DataSource source, final String role) throws SQLException {
+        final Set<String> found = new TreeSet<>();
+        try (Connection connection = source.getConnection();
+                var query = connection.prepareStatement("""
+                        SELECT 'granted to ' || member.rolname
+                        FROM pg_auth_members granted
+                        JOIN pg_roles member ON member.oid = granted.member
+                        WHERE granted.roleid = (SELECT oid FROM pg_roles WHERE rolname = ?)
+                        """)) {
+            query.setString(1, role);
+            try (ResultSet rows = query.executeQuery()) {
+                while (rows.next()) {
+                    found.add(rows.getString(1));
+                }
+            }
+        }
+        return found;
+    }
+
     private static Set<String> privileges(final DataSource source, final String role) throws SQLException {
         final Set<String> held = new TreeSet<>();
         try (Connection connection = source.getConnection();

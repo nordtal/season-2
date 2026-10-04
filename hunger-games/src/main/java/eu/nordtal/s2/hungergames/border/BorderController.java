@@ -2,22 +2,23 @@ package eu.nordtal.s2.hungergames.border;
 
 import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.hungergames.GameState;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.WorldBorder;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.scheduler.BukkitTask;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -34,7 +35,7 @@ public final class BorderController {
     private final Identities identities;
     private final HungerGamesSounds sounds;
 
-    private @Nullable BukkitTask quietPeriodChecker;
+    private Scheduler.@Nullable Task quietPeriodChecker;
 
     private final Clock clock;
 
@@ -61,8 +62,8 @@ public final class BorderController {
         border.setCenter(world.getSpawnLocation());
         border.setSize(config.borderStartDiameter());
 
-        quietPeriodChecker =
-                Bukkit.getScheduler().runTaskTimer(plugin, () -> checkQuietPeriod(state), 20L * 30, 20L * 30);
+        final Duration check = Duration.ofSeconds(30);
+        quietPeriodChecker = PaperScheduler.of(plugin).onMainEvery(check, check, () -> checkQuietPeriod(state));
     }
 
     public void stop() {

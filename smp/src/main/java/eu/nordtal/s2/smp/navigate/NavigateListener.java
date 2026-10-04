@@ -2,10 +2,10 @@ package eu.nordtal.s2.smp.navigate;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import java.util.Objects;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -67,11 +67,9 @@ public final class NavigateListener implements Listener {
         if (discordId == null) {
             return;
         }
-        Bukkit.getScheduler()
-                .runTaskAsynchronously(
-                        plugin,
-                        () -> dao.rememberDeath(
-                                discordId, at.getWorld().getName(), at.getBlockX(), at.getBlockY(), at.getBlockZ()));
+        PaperScheduler.of(plugin)
+                .execute(() -> dao.rememberDeath(
+                        discordId, at.getWorld().getName(), at.getBlockX(), at.getBlockY(), at.getBlockZ()));
     }
 
     @EventHandler

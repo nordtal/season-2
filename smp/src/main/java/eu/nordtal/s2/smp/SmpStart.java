@@ -3,6 +3,7 @@ package eu.nordtal.s2.smp;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.announce.Announcer;
 import eu.nordtal.s2.smp.aura.DeathPenalty;
 import eu.nordtal.s2.smp.board.Boards;
@@ -35,7 +36,7 @@ import eu.nordtal.s2.smp.travel.PortalGate;
 import eu.nordtal.s2.smp.welcome.SeasonWelcome;
 import eu.nordtal.s2.smp.wheel.Wheel;
 import eu.nordtal.s2.smp.wheel.WheelListener;
-import org.bukkit.Bukkit;
+import java.time.Duration;
 
 /**
  * Everything {@link SmpPlugin#start()} wires up once its refusals have passed.
@@ -62,7 +63,7 @@ final class SmpStart {
         final Announcer announcer = new Announcer(
                 Inbox.over(plugin.pool(), BotRequest.TABLE),
                 plugin.renderer().raw().locales(),
-                task -> Bukkit.getScheduler().runTaskAsynchronously(plugin, task),
+                PaperScheduler.of(plugin),
                 (message, failure) -> plugin.getLogger().log(java.util.logging.Level.WARNING, message, failure));
         return new HudAndAnnouncer(hud, announcer);
     }
@@ -131,8 +132,8 @@ final class SmpStart {
                 () -> plugin.track,
                 GateHolders.Server.running(),
                 plugin.identities()::discordIdOf,
-                task -> Bukkit.getScheduler().runTask(plugin, task),
-                task -> Bukkit.getScheduler().runTaskAsynchronously(plugin, task),
+                PaperScheduler.of(plugin)::onMain,
+                PaperScheduler.of(plugin),
                 engine);
         plugin.getServer().getPluginManager().registerEvents(gates, plugin);
         return new Progress(engine, poller, gates);
@@ -151,10 +152,10 @@ final class SmpStart {
                 config,
                 plugin.clock());
         // Also immediately on start, so graves do not outlive their decay across downtime.
-        Bukkit.getScheduler()
-                .runTaskTimerAsynchronously(plugin, () -> graves.expire(config.graveMaxAgeHours()), 20L, 20L * 60L);
+        final PaperScheduler scheduler = PaperScheduler.of(plugin);
+        scheduler.every(Duration.ofSeconds(1), Duration.ofMinutes(1), () -> graves.expire(config.graveMaxAgeHours()));
         // Every second on the main thread, but it writes only near expiry.
-        Bukkit.getScheduler().runTaskTimer(plugin, graves::tickHolograms, 20L, 20L);
+        scheduler.onMainEvery(Duration.ofSeconds(1), Duration.ofSeconds(1), graves::tickHolograms);
         final Duels duels = new Duels(
                 plugin,
                 plugin.dao,
@@ -233,9 +234,9 @@ final class SmpStart {
     static BalloonDisplay restoreGravesAndRegisterWorld(
             final SmpPlugin plugin, final Boxes balloons, final Boxes regions, final WorldEffects effects) {
         // Graves outlive a restart, so they are read back once the world is up.
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        PaperScheduler.of(plugin).execute(() -> {
             final var rows = plugin.dao.openGraves();
-            Bukkit.getScheduler().runTask(plugin, () -> plugin.graves.restore(rows));
+            PaperScheduler.of(plugin).onMain(() -> plugin.graves.restore(rows));
         });
         plugin.getServer()
                 .getPluginManager()

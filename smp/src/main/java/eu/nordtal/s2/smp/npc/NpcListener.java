@@ -6,6 +6,7 @@ import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
@@ -16,7 +17,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import net.kyori.adventure.text.Component;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -78,7 +78,7 @@ public final class NpcListener implements Listener {
 
     private void openObjectives(final Player player) {
         final Locale locale = identities.languageOf(player.getUniqueId());
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        PaperScheduler.of(plugin).execute(() -> {
             final Optional<String> activeKey = dao.activeMilestoneKey();
             if (activeKey.isEmpty()) {
                 tell(player, renderer.format(locale, MESSAGES.smp().objectives().none()), Feedback.REFUSED);
@@ -98,7 +98,7 @@ public final class NpcListener implements Listener {
                             OwnShare.of(dao.ownContributions(activeKey.get(), discordId), extraSpinPercents.get()))
                     .orElseGet(() -> OwnShare.of(List.of(), List.of()));
 
-            Bukkit.getScheduler().runTask(plugin, () -> {
+            PaperScheduler.of(plugin).onMain(() -> {
                 if (player.isOnline()) {
                     player.openInventory(new ObjectiveGui(renderer, locale, milestone, rows, share).getInventory());
                 }
@@ -180,7 +180,7 @@ public final class NpcListener implements Listener {
         final String objectiveKey = gui.objective().key();
         final long accepted = result.accepted();
 
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        PaperScheduler.of(plugin).execute(() -> {
             long credited;
             try {
                 credited = engine.credit(discordId.get(), objectiveKey, accepted, player.getUniqueId());
@@ -193,8 +193,7 @@ public final class NpcListener implements Listener {
                 credited = 0;
             }
             final long paid = credited;
-            Bukkit.getScheduler()
-                    .runTask(plugin, () -> applyCreditResult(player, locale, gui, taken, objectiveKey, paid));
+            PaperScheduler.of(plugin).onMain(() -> applyCreditResult(player, locale, gui, taken, objectiveKey, paid));
         });
     }
 
@@ -246,7 +245,7 @@ public final class NpcListener implements Listener {
 
     /** Sends a message and its sound, both in the one hop back to the main thread. */
     private void tell(final Player player, final Component message, final Feedback feedback) {
-        Bukkit.getScheduler().runTask(plugin, () -> {
+        PaperScheduler.of(plugin).onMain(() -> {
             if (player.isOnline()) {
                 player.sendMessage(message);
                 if (feedback != null) {

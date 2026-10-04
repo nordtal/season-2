@@ -1,6 +1,6 @@
 package eu.nordtal.s2.smp.stage;
 
-import org.bukkit.Bukkit;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -8,7 +8,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.scheduler.BukkitTask;
 
 /**
  * The Paper half of the staging device; timing lives in {@link Cinematics}.
@@ -24,10 +23,8 @@ public final class BukkitCinematics implements Listener {
     public BukkitCinematics(final Plugin plugin, final FeedbackPlayer sounds) {
         this.plugin = plugin;
         this.sounds = sounds;
-        this.cinematics = new Cinematics((task, delayTicks) -> {
-            final BukkitTask scheduled = Bukkit.getScheduler().runTaskLater(plugin, task, delayTicks);
-            return scheduled::cancel;
-        });
+        this.cinematics = new Cinematics((task, delayTicks) ->
+                PaperScheduler.of(plugin).onMainAfter(PaperScheduler.TICK.multipliedBy(delayTicks), task)::cancel);
     }
 
     /**

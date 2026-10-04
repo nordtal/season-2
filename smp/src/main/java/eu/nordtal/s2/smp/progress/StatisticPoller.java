@@ -1,13 +1,16 @@
 package eu.nordtal.s2.smp.progress;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.papercommon.game.GameKeys;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.milestone.Objective;
 import eu.nordtal.s2.smp.milestone.ObjectiveType;
 import eu.nordtal.s2.smp.milestone.TrackNames;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,7 +20,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.Statistic;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.scheduler.BukkitTask;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -28,7 +30,7 @@ import org.jspecify.annotations.Nullable;
 public final class StatisticPoller {
 
     /** Every five seconds: fast enough to feel live, slow enough that nobody notices the reads. */
-    private static final long PERIOD_TICKS = 100L;
+    private static final Duration PERIOD = Duration.ofSeconds(5);
 
     private final Plugin plugin;
     /** The milestone track, as a supplier, because a settings change replaces it. */
@@ -42,7 +44,7 @@ public final class StatisticPoller {
     /** The track the baselines were sampled under; a changed track resets them, as a key may now mean more. */
     private @Nullable MilestoneTrack sampledUnder;
 
-    private @Nullable BukkitTask task;
+    private Scheduler.@Nullable Task task;
 
     public StatisticPoller(
             final Plugin plugin,
@@ -57,7 +59,7 @@ public final class StatisticPoller {
 
     public void start() {
         stop();
-        task = Bukkit.getScheduler().runTaskTimer(plugin, this::poll, PERIOD_TICKS, PERIOD_TICKS);
+        task = PaperScheduler.of(plugin).onMainEvery(PERIOD, PERIOD, this::poll);
     }
 
     public void stop() {
@@ -112,9 +114,7 @@ public final class StatisticPoller {
         if (discordId == null) {
             return;
         }
-        Bukkit.getScheduler()
-                .runTaskAsynchronously(
-                        plugin, () -> engine.credit(discordId, objective.key(), delta, player.getUniqueId()));
+        PaperScheduler.of(plugin).execute(() -> engine.credit(discordId, objective.key(), delta, player.getUniqueId()));
     }
 
     /** Sums the statistic across every subject the objective names. */

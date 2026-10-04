@@ -14,7 +14,7 @@ public interface Scheduler extends Executor {
     @Override
     void execute(Runnable work);
 
-    /** Runs {@code work} once after {@code delay}, unless cancelled first. */
+    /** Runs {@code work} once after {@code delay}, at once if that is not positive, unless cancelled first. */
     Task after(Duration delay, Runnable work);
 
     /**
@@ -22,7 +22,11 @@ public interface Scheduler extends Executor {
      *
      * Never two runs at once: one that overran is followed at once by the next, and no missed run is made up.
      */
-    Task every(Duration delay, Duration period, Runnable work);
+    default Task every(final Duration delay, final Duration period, final Runnable work) {
+        final Repeating repeating = new Repeating(this, delay, period, work);
+        repeating.arm();
+        return repeating;
+    }
 
     /** Returns a lane that runs what it is handed one at a time, in the order handed, on this scheduler's threads. */
     default Executor serial() {

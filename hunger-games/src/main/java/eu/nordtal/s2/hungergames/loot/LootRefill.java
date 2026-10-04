@@ -2,6 +2,7 @@ package eu.nordtal.s2.hungergames.loot;
 
 import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.hungergames.border.BorderController;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
@@ -9,11 +10,12 @@ import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.game.GameKeys;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -23,7 +25,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.scheduler.BukkitTask;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +46,7 @@ public final class LootRefill {
     private final Identities identities;
     private final HungerGamesSounds sounds;
 
-    private final List<BukkitTask> scheduled = new ArrayList<>();
+    private final List<Scheduler.Task> scheduled = new ArrayList<>();
 
     /** Set by {@link #scheduleAll}, cleared by {@link #cancelAll}; null while no game is running. */
     private volatile @Nullable Instant releasedAt;
@@ -92,19 +93,16 @@ public final class LootRefill {
     public void scheduleAll(final Instant releasedAt) {
         this.releasedAt = releasedAt;
         for (final HungerGamesSpec.RefillTierSpec tier : config.refillTiers()) {
-            final long delayTicks = tier.delayMinutes() * 60L * 20L;
-            final long elapsedTicks =
-                    java.time.Duration.between(releasedAt, clock.instant()).toSeconds() * 20L;
-            final long remainingTicks = Math.max(0, delayTicks - elapsedTicks);
-
-            final BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () -> refill(tier), remainingTicks);
-            scheduled.add(task);
+            // A tier already due by now refills at once.
+            final Duration remaining =
+                    Duration.ofMinutes(tier.delayMinutes()).minus(Duration.between(releasedAt, clock.instant()));
+            scheduled.add(PaperScheduler.of(plugin).onMainAfter(remaining, () -> refill(tier)));
         }
     }
 
     public void cancelAll() {
         releasedAt = null;
-        for (final BukkitTask task : scheduled) {
+        for (final Scheduler.Task task : scheduled) {
             task.cancel();
         }
         scheduled.clear();

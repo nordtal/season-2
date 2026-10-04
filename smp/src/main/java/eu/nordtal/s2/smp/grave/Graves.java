@@ -8,6 +8,7 @@ import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.ExpiredGrave;
 import eu.nordtal.s2.smp.db.GraveRow;
@@ -138,7 +139,7 @@ public final class Graves implements InventoryHolder {
         final Location grave =
                 java.util.Objects.requireNonNull(at.getBlock().getLocation()).add(0.5, 0, 0.5);
 
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        PaperScheduler.of(plugin).execute(() -> {
             dao.createGrave(
                     ownerId,
                     grave.getWorld().getName(),
@@ -149,17 +150,15 @@ public final class Graves implements InventoryHolder {
                     experience);
             // Read back rather than invented locally, so a restart draws exactly what a fresh death drew.
             final List<GraveRow> rows = dao.openGraves();
-            Bukkit.getScheduler()
-                    .runTask(
-                            plugin,
-                            () -> rows.stream()
-                                    .filter(row -> !open.containsKey(row.id()))
-                                    .forEach(row -> {
-                                        final World world = Bukkit.getWorld(row.world());
-                                        if (world != null) {
-                                            draw(row, new Location(world, row.x() + 0.5, row.y(), row.z() + 0.5));
-                                        }
-                                    }));
+            PaperScheduler.of(plugin)
+                    .onMain(() -> rows.stream()
+                            .filter(row -> !open.containsKey(row.id()))
+                            .forEach(row -> {
+                                final World world = Bukkit.getWorld(row.world());
+                                if (world != null) {
+                                    draw(row, new Location(world, row.x() + 0.5, row.y(), row.z() + 0.5));
+                                }
+                            }));
         });
     }
 
@@ -352,7 +351,7 @@ public final class Graves implements InventoryHolder {
         if (gone.isEmpty()) {
             return;
         }
-        Bukkit.getScheduler().runTask(plugin, () -> {
+        PaperScheduler.of(plugin).onMain(() -> {
             for (final ExpiredGrave grave : gone) {
                 erase(grave.id());
                 final World world = Bukkit.getWorld(grave.world());
@@ -520,7 +519,7 @@ public final class Graves implements InventoryHolder {
         if (!shown.containsValue(inventory)) {
             return;
         }
-        Bukkit.getScheduler().runTask(plugin, () -> settle(player, inventory));
+        PaperScheduler.of(plugin).onMain(() -> settle(player, inventory));
     }
 
     private void settle(final Player player, final Inventory inventory) {
@@ -575,7 +574,7 @@ public final class Graves implements InventoryHolder {
                         row.experience(),
                         row.created()));
         // And in the database: the map above is process memory, but restore-on-enable reads the row.
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> dao.updateGraveContents(graveId, remaining));
+        PaperScheduler.of(plugin).execute(() -> dao.updateGraveContents(graveId, remaining));
     }
 
     private void returnHeadToPlayer(final Inventory inventory, final Player player) {
@@ -600,11 +599,11 @@ public final class Graves implements InventoryHolder {
                 .map(DiscordId::value)
                 .orElse(null);
         final int experience = row.experience();
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        PaperScheduler.of(plugin).execute(() -> {
             if (dao.markGraveLooted(graveId, looterId).isEmpty()) {
                 return;
             }
-            Bukkit.getScheduler().runTask(plugin, () -> {
+            PaperScheduler.of(plugin).onMain(() -> {
                 erase(graveId);
 
                 // A world sound so anybody at the grave hears it settle.

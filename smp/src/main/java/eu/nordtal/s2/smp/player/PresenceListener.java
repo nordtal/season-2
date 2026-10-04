@@ -2,8 +2,8 @@ package eu.nordtal.s2.smp.player;
 
 import eu.nordtal.displaytags.api.events.NameTagCreateEvent;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import java.util.function.Consumer;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -39,7 +39,7 @@ public final class PresenceListener implements Listener {
         // Identities is already filled for this player.
         surfaces.refresh(event.getPlayer());
         // Everybody else's ordering depends on who is online, and this player is new to that set.
-        Bukkit.getScheduler().runTask(plugin, surfaces::refreshAll);
+        PaperScheduler.of(plugin).onMain(surfaces::refreshAll);
     }
 
     /** Redraws a joined player's surfaces once every join handler ran, and says they arrived. */

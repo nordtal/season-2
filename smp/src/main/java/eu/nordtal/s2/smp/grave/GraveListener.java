@@ -6,6 +6,7 @@ import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.aura.AuraReason;
 import eu.nordtal.s2.smp.aura.DeathPenalty;
 import eu.nordtal.s2.smp.db.SmpDao;
@@ -15,7 +16,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Predicate;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -103,9 +103,9 @@ public final class GraveListener implements Listener {
         final AuraReason reason = penalty.reasonFor(cause);
         final Locale locale = identities.languageOf(player.getUniqueId());
 
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        PaperScheduler.of(plugin).execute(() -> {
             dao.addAura(discordId, delta, reason.stored(), cause);
-            Bukkit.getScheduler().runTask(plugin, () -> {
+            PaperScheduler.of(plugin).onMain(() -> {
                 if (player.isOnline()) {
                     player.sendMessage(
                             renderer.format(locale, MESSAGES.smp().aura().death(Math.abs(delta))));

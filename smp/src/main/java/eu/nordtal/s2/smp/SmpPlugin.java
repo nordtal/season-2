@@ -16,6 +16,7 @@ import eu.nordtal.s2.papercommon.command.Answer;
 import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.papercommon.plugin.NordtalPlugin;
 import eu.nordtal.s2.papercommon.sound.SoundsSpec;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.papercommon.world.Distances;
 import eu.nordtal.s2.settings.Group;
 import eu.nordtal.s2.settings.Setting;
@@ -222,7 +223,7 @@ public final class SmpPlugin extends NordtalPlugin {
         final Boxes regions = ConfigBoxes.spawnRegions(spec);
         dao = jdbi().onDemand(SmpDao.class);
         // Everything below this line touches the database, so it happens off the main thread.
-        Bukkit.getScheduler().runTaskAsynchronously(this, this::loadSeasonState);
+        PaperScheduler.of(this).execute(this::loadSeasonState);
 
         final SmpStart.HudAndAnnouncer ha = SmpStart.startHudAndAnnouncer(this);
         hud = ha.hud();
@@ -438,7 +439,7 @@ public final class SmpPlugin extends NordtalPlugin {
         final PaperUser console = PaperUser.console(this, sender, renderer(), this::colours);
         final java.util.UUID id = player.getUniqueId();
         final String name = player.getName();
-        Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
+        PaperScheduler.of(this).execute(() -> {
             try {
                 admin.showAccess(console, id, name);
             } catch (final RuntimeException failure) {
@@ -555,7 +556,7 @@ public final class SmpPlugin extends NordtalPlugin {
                 trackProblems = List.of();
                 track = candidate;
                 completeWhateverTheNewTargetsAlreadyReach();
-                Bukkit.getScheduler().runTaskAsynchronously(this, this::loadSeasonState);
+                PaperScheduler.of(this).execute(this::loadSeasonState);
                 getLogger().info("the milestone track was reloaded: " + track.size() + " milestones");
             }
         } catch (final SettingsException | RuntimeException exception) {
@@ -600,7 +601,7 @@ public final class SmpPlugin extends NordtalPlugin {
         }
         season.refresh(completed, now);
 
-        Bukkit.getScheduler().runTask(this, () -> {
+        PaperScheduler.of(this).onMain(() -> {
             final int diameter = season.borderDiameter();
             if (diameter > 0) {
                 worlds.expandNordtal(diameter, false);

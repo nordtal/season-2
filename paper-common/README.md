@@ -8,6 +8,10 @@ What every Nordtal Paper plugin shares, and nothing a single plugin owns.
   the commands a player sees, keeps the readiness marker beating and stops the server when a start
   fails. A plugin contributes its settings, bundles and features through `prepare()`, `enable()` and
   `disable()`, and greets a player through `languageKnown`, one tick after join once every join handler ran.
+- **The scheduler**, `PaperScheduler.of(plugin)`: the one way Paper code reaches the server's scheduler,
+  told durations and never ticks. As a `Scheduler` it runs work off the main thread; `onMain`,
+  `onMainAfter` and `onMainEvery` run it on the main thread. A disabled plugin's work is refused with a
+  `RejectedExecutionException`, and `:architecture` refuses `org.bukkit.scheduler` anywhere else.
 - **The game data**: on the first tick after every start, `GameDataExport` reads the server's
   registries (items, blocks, entity types, advancements without the recipe ones, statistics with the
   registry they count per entry of, enchantments, biomes, effects, sounds, damage types and their

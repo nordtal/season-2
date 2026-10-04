@@ -2,6 +2,7 @@ package eu.nordtal.s2.hungergames.hud;
 
 import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.hungergames.GameState;
 import eu.nordtal.s2.hungergames.border.BorderController;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
@@ -13,6 +14,7 @@ import eu.nordtal.s2.packrendering.hud.Bearing;
 import eu.nordtal.s2.packrendering.hud.BossBarLine;
 import eu.nordtal.s2.packrendering.hud.BossBarLine.Pill;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -22,12 +24,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import net.kyori.adventure.bossbar.BossBar;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.scheduler.BukkitTask;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -51,7 +51,7 @@ public final class HudRenderer {
     private final Map<UUID, BossBar> lootBars = new HashMap<>();
     private final Map<UUID, BossBar> borderBars = new HashMap<>();
 
-    private @Nullable BukkitTask task;
+    private Scheduler.@Nullable Task task;
 
     /** Read at render time rather than pushed in, so the living count cannot go stale. */
     private final WinTracker wins;
@@ -85,8 +85,8 @@ public final class HudRenderer {
     }
 
     public void start() {
-        final long period = 20L / UPDATES_PER_SECOND;
-        task = Bukkit.getScheduler().runTaskTimer(plugin, this::renderAll, period, period);
+        final Duration period = Duration.ofSeconds(1).dividedBy(UPDATES_PER_SECOND);
+        task = PaperScheduler.of(plugin).onMainEvery(period, period, this::renderAll);
     }
 
     public void stop() {

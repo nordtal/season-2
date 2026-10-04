@@ -1,11 +1,13 @@
 package eu.nordtal.s2.limbo.waiting;
 
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.limbo.LimboMessages;
 import eu.nordtal.s2.limbo.config.LimboSpec;
 import eu.nordtal.s2.limbo.world.WaitingWorld;
 import eu.nordtal.s2.limboprotocol.WaitReason;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
@@ -18,7 +20,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
-import org.bukkit.scheduler.BukkitTask;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -36,7 +37,7 @@ public final class WaitingRoom {
 
     private final Map<UUID, WaitReason> shown = new ConcurrentHashMap<>();
 
-    private @Nullable BukkitTask refresh;
+    private Scheduler.@Nullable Task refresh;
 
     public WaitingRoom(
             final Plugin plugin,
@@ -100,8 +101,8 @@ public final class WaitingRoom {
 
     /** Starts the refresh loop, one task for the whole server rather than one per player. */
     public void start() {
-        final long ticks = config.titleRefreshSeconds() * 20L;
-        refresh = plugin.getServer().getScheduler().runTaskTimer(plugin, this::tick, ticks, ticks);
+        final Duration period = Duration.ofSeconds(config.titleRefreshSeconds());
+        refresh = PaperScheduler.of(plugin).onMainEvery(period, period, this::tick);
     }
 
     /** Stops the refresh loop. */

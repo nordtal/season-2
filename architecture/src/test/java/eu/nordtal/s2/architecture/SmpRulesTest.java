@@ -153,7 +153,7 @@ class SmpRulesTest {
                 .should(callInOrder("restore", "Player#isDead", "Map#put", "Spigot#respawn", "SavedState#restore"))
                 .andShould(callOnOneLine("restore", "SavedState#restore", "Duels#spawn"))
                 .andShould(callFrom("restore", "Player#showTitle"))
-                .andShould(callInOrder("respawned", "Map#remove", "BukkitScheduler#runTask", "SavedState#restore"))
+                .andShould(callInOrder("respawned", "Map#remove", "PaperScheduler#onMain", "SavedState#restore"))
                 .because("the parked state is process memory only, and the outcome is read off the screen")
                 .check(classes);
         handled(DUEL_LISTENER, "org.bukkit.event.player.PlayerRespawnEvent");
@@ -179,16 +179,16 @@ class SmpRulesTest {
         handled(DUEL_LISTENER, "org.bukkit.event.entity.EntityDamageEvent");
         classes()
                 .that(isListed(DUELS))
-                .should(callInOrder("steppedOn", "BukkitScheduler#runTask", "Duels#begin"))
+                .should(callInOrder("steppedOn", "PaperScheduler#onMain", "Duels#begin"))
                 .andShould(callOnceFrom("steppedOn", "Duels#begin"))
                 .because("a teleport inside a move event is undone once its handlers return")
                 .check(classes);
         classes()
                 .that(isListed(DUEL_LISTENER))
-                .should(callOnOneLine("onDeath", "BukkitScheduler#runTask", "Duels#decide"))
+                .should(callOnOneLine("onDeath", "PaperScheduler#onMain", "Duels#decide"))
                 .andShould(callOnceFrom("onDeath", "Duels#decide"))
                 .andShould(callInOrder("onDamage", "EntityDamageEvent#setCancelled", "Duels#decide"))
-                .andShould(callOnOneLine("onDamage", "BukkitScheduler#runTask", "Duels#decide"))
+                .andShould(callOnOneLine("onDamage", "PaperScheduler#onMain", "Duels#decide"))
                 .andShould(callOnceFrom("onDamage", "Duels#decide"))
                 .because("the grave listener asks about the arena after this one, and a death cannot be un-shown")
                 .check(classes);
@@ -202,7 +202,7 @@ class SmpRulesTest {
                 .should(callOnOneLine("open", "Map#computeIfAbsent", "Graves#window"))
                 .andShould(callOnlyFrom("window", "Bukkit#createInventory"))
                 .andShould(callOnceFrom("window", "Bukkit#createInventory"))
-                .andShould(callOnOneLine("onClosed", "BukkitScheduler#runTask", "Graves#settle"))
+                .andShould(callOnOneLine("onClosed", "PaperScheduler#onMain", "Graves#settle"))
                 .andShould(callOnceFrom("onClosed", "Graves#settle"))
                 .andShould(callFrom("settle", "Inventory#getViewers", "Graves#returnHeadToPlayer"))
                 .andShould(neverCallFrom("settle", "GravePanel#headSlot"))
@@ -284,7 +284,7 @@ class SmpRulesTest {
         classes()
                 .that(isListed(PORTAL_GATE))
                 .should(callInOrder("onPortalCreate", "PortalCreateEvent#setCancelled", "PortalGate#putOutTheFire"))
-                .andShould(callInOrder("putOutTheFire", "BukkitScheduler#runTask", "Block#setType"))
+                .andShould(callInOrder("putOutTheFire", "PaperScheduler#onMain", "Block#setType"))
                 .because("a block placed in the same call stack is placed again once the event returns")
                 .check(classes);
     }

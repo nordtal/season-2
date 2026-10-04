@@ -8,6 +8,7 @@ import eu.nordtal.s2.database.access.PlayerIdentity;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.papercommon.PaperCommonMessages;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.settings.network.PlayersSpec;
 import java.util.List;
 import net.kyori.adventure.text.Component;
@@ -59,7 +60,7 @@ public final class PlayerSurfaces {
 
     /** Redraws a player whose identity changed, on the main thread, if they are still online. */
     public void changed(final PlayerIdentity identity) {
-        Bukkit.getScheduler().runTask(plugin, () -> {
+        PaperScheduler.of(plugin).onMain(() -> {
             final Player player = Bukkit.getPlayer(identity.player().value());
             if (player != null) {
                 refresh(player);

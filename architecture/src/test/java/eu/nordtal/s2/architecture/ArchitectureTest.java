@@ -233,6 +233,18 @@ class ArchitectureTest {
                 .check(classes);
     }
 
+    @Test
+    void paperCodeSchedulesOnlyThroughPaperScheduler() {
+        noClasses()
+                .that()
+                .doNotHaveFullyQualifiedName("eu.nordtal.s2.papercommon.time.PaperScheduler")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("org.bukkit.scheduler..", "io.papermc.paper.threadedregions.scheduler..")
+                .because("PaperScheduler is the one way to the server's scheduler, and it takes durations, not ticks")
+                .check(classes);
+    }
+
     /** A pool or a timer, a virtual thread per call, or the common pool behind an async call given no executor. */
     private static boolean reachesAPoolOrATimer(final JavaAccess<?> access) {
         final String owner = access.getTargetOwner().getName();

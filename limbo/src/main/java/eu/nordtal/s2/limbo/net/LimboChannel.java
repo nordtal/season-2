@@ -3,6 +3,7 @@ package eu.nordtal.s2.limbo.net;
 import eu.nordtal.s2.limbo.waiting.WaitingRoom;
 import eu.nordtal.s2.limboprotocol.LimboProtocol;
 import eu.nordtal.s2.limboprotocol.WaitReason;
+import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
 import org.bukkit.entity.Player;
@@ -37,12 +38,12 @@ public final class LimboChannel implements PluginMessageListener {
     }
 
     /** How often READY is repeated while the player is still here: every second. */
-    public static final long READY_REPEAT_TICKS = 20L;
+    public static final Duration READY_REPEAT = Duration.ofSeconds(1);
 
     /**
      * Tells the proxy this player is ready to be routed on.
      *
-     * Sent a tick after the join and every {@link #READY_REPEAT_TICKS}, since Velocity can drop one; it is idempotent.
+     * Sent a tick after the join and every {@link #READY_REPEAT}, since Velocity can drop one; it is idempotent.
      */
     public void sendReady(final Player player) {
         player.sendPluginMessage(plugin, LimboProtocol.CHANNEL, LimboProtocol.ready());

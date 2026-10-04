@@ -5,12 +5,12 @@ import static eu.nordtal.s2.papercommon.PaperCommonMessages.MESSAGES;
 import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.database.access.AdminOperators;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import io.papermc.paper.event.player.PlayerServerFullCheckEvent;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Consumer;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -94,7 +94,7 @@ public final class Presence implements Listener {
     public void onJoin(final PlayerJoinEvent event) {
         final Player player = event.getPlayer();
         operators.onJoin(player.getUniqueId(), identities.of(player).admin());
-        Bukkit.getScheduler().runTask(plugin, () -> {
+        PaperScheduler.of(plugin).onMain(() -> {
             if (player.isOnline()) {
                 languageKnown.accept(player);
             }

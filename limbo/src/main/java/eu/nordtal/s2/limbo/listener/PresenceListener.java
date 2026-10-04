@@ -1,5 +1,6 @@
 package eu.nordtal.s2.limbo.listener;
 
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.limbo.LimboMessages;
 import eu.nordtal.s2.limbo.net.LimboChannel;
 import eu.nordtal.s2.limbo.waiting.WaitingRoom;
@@ -7,9 +8,11 @@ import eu.nordtal.s2.limbo.world.WaitingWorld;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.papercommon.PaperCommonMessages;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import io.papermc.paper.event.player.AsyncPlayerSpawnLocationEvent;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -23,7 +26,6 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.scheduler.BukkitRunnable;
 
 /**
  * Everything that has to be true for the waiting room to be a waiting room.
@@ -86,16 +88,17 @@ public final class PresenceListener implements Listener {
         sendTabList(player);
 
         // Repeated every second until the proxy moves the player on; see LimboChannel#sendReady.
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (!player.isOnline()) {
-                    cancel();
-                    return;
-                }
+        final AtomicReference<Scheduler.Task> repeat = new AtomicReference<>();
+        repeat.set(PaperScheduler.of(plugin).onMainEvery(PaperScheduler.TICK, LimboChannel.READY_REPEAT, () -> {
+            if (player.isOnline()) {
                 channel.sendReady(player);
+            } else {
+                final Scheduler.Task running = repeat.get();
+                if (running != null) {
+                    running.cancel();
+                }
             }
-        }.runTaskTimer(plugin, 1L, LimboChannel.READY_REPEAT_TICKS);
+        }));
     }
 
     @EventHandler

@@ -3,6 +3,7 @@ package eu.nordtal.s2.smp.welcome;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.config.FirstJoinSpawnSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.SmpDao;
@@ -69,12 +70,12 @@ public final class SeasonWelcome {
             return;
         }
         final String name = player.getName();
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        PaperScheduler.of(plugin).execute(() -> {
             if (!dao.claimWelcome(discordId.get())) {
                 // The ordinary answer on every join but the first.
                 return;
             }
-            Bukkit.getScheduler().runTask(plugin, () -> show(uuid, name, discordId.get()));
+            PaperScheduler.of(plugin).onMain(() -> show(uuid, name, discordId.get()));
         });
     }
 

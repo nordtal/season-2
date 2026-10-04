@@ -3,22 +3,23 @@ package eu.nordtal.s2.hungergames.lobby;
 import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.db.RosterEntry;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.value.Action;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
+import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import net.kyori.adventure.text.Component;
-import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.scheduler.BukkitTask;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -37,7 +38,7 @@ public final class Lobby {
     private final MessageRenderer renderer;
     private final Identities identities;
 
-    private @Nullable BukkitTask broadcastTask;
+    private Scheduler.@Nullable Task broadcastTask;
 
     public Lobby(
             final Plugin plugin,
@@ -54,16 +55,13 @@ public final class Lobby {
 
     /** Starts the periodic ready-check broadcast. Call once, from {@code onEnable}. */
     public void startBroadcasting(final World world) {
-        final long periodTicks = config.lobby().broadcastIntervalSeconds() * 20L;
+        final Duration period = Duration.ofSeconds(config.lobby().broadcastIntervalSeconds());
         // The roster is read off the main thread, and only the lines are sent from it.
-        broadcastTask = Bukkit.getScheduler()
-                .runTaskTimerAsynchronously(
-                        plugin,
-                        () -> readyStatus()
-                                .ifPresent(roster ->
-                                        Bukkit.getScheduler().runTask(plugin, () -> broadcast(world, roster))),
-                        periodTicks,
-                        periodTicks);
+        final PaperScheduler scheduler = PaperScheduler.of(plugin);
+        broadcastTask = scheduler.every(
+                period,
+                period,
+                () -> readyStatus().ifPresent(roster -> scheduler.onMain(() -> broadcast(world, roster))));
     }
 
     public void stop() {

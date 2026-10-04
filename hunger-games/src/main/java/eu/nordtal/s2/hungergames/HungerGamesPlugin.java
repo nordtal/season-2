@@ -43,6 +43,7 @@ import eu.nordtal.s2.papercommon.command.Answer;
 import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.papercommon.plugin.NordtalPlugin;
 import eu.nordtal.s2.papercommon.sound.SoundsSpec;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.settings.Group;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.SettingsException;
@@ -280,7 +281,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
     private int readyStatus(final CommandContext<CommandSourceStack> context) {
         final PaperUser console = PaperUser.console(this, context.getSource().getSender(), renderer(), this::colours);
         final Lobby waiting = Objects.requireNonNull(lobby);
-        Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
+        PaperScheduler.of(this).execute(() -> {
             final Optional<List<RosterEntry>> roster = waiting.readyStatus();
             if (roster.isEmpty()) {
                 console.reply(ServerRefusal.NO_GAME.with().message(), Tone.WARN);
@@ -311,7 +312,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
                 sounds::play,
                 this::colours);
         final Lobby waiting = Objects.requireNonNull(lobby);
-        Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
+        PaperScheduler.of(this).execute(() -> {
             final var discordId = identities().discordIdOf(player.getUniqueId());
             final boolean marked = discordId.isPresent() && waiting.markReady(discordId.get());
             user.reply(

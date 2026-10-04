@@ -2,9 +2,11 @@ package eu.nordtal.s2.smp.wheel;
 
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.feedback.Surface;
@@ -19,7 +21,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.scheduler.BukkitTask;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -41,7 +42,7 @@ public final class WheelGui implements Surface {
     private final @Nullable Runnable again;
 
     private final AtomicBoolean finished = new AtomicBoolean();
-    private @Nullable BukkitTask task;
+    private Scheduler.@Nullable Task task;
 
     /**
      * Builds the window for one spin.
@@ -151,18 +152,14 @@ public final class WheelGui implements Surface {
 
         final int delay = WheelStrip.delay(step);
         final int next = step + 1;
-        task = Bukkit.getScheduler()
-                .runTaskLater(
-                        plugin,
-                        () -> {
-                            if (next < WheelStrip.steps()) {
-                                step(plugin, player, next);
-                            } else {
-                                // The last delay is the beat after the wheel stops, not a gap before a frame.
-                                finish(player, true);
-                            }
-                        },
-                        delay);
+        task = PaperScheduler.of(plugin).onMainAfter(PaperScheduler.TICK.multipliedBy(delay), () -> {
+            if (next < WheelStrip.steps()) {
+                step(plugin, player, next);
+            } else {
+                // The last delay is the beat after the wheel stops, not a gap before a frame.
+                finish(player, true);
+            }
+        });
     }
 
     private void draw(final int step) {

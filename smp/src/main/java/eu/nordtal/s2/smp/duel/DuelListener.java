@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.duel;
 
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.config.DuelPlatformSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.region.Box;
@@ -7,7 +8,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -87,7 +87,7 @@ public final class DuelListener implements Listener {
         event.setDroppedExp(0);
         event.deathMessage(null);
         // On the next tick: GraveListener checks the arena at HIGH, this runs at LOWEST.
-        Bukkit.getScheduler().runTask(plugin, () -> duels.decide(player));
+        PaperScheduler.of(plugin).onMain(() -> duels.decide(player));
     }
 
     /**
@@ -104,7 +104,7 @@ public final class DuelListener implements Listener {
             return;
         }
         event.setCancelled(true);
-        Bukkit.getScheduler().runTask(plugin, () -> duels.decide(player));
+        PaperScheduler.of(plugin).onMain(() -> duels.decide(player));
     }
 
     /** The other half of a duel death: see {@link Duels#respawned}. */

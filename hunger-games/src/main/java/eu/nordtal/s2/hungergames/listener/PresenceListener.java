@@ -8,6 +8,7 @@ import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.papercommon.PaperCommonMessages;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.settings.network.PlayersSpec;
 import java.util.Objects;
 import org.bukkit.Bukkit;
@@ -99,7 +100,7 @@ public final class PresenceListener implements Listener {
         final Player player = event.getPlayer();
 
         // A tick later: during PlayerQuitEvent the leaver is still counted in getOnlinePlayers().
-        Bukkit.getScheduler().runTask(plugin, this::refreshTabList);
+        PaperScheduler.of(plugin).onMain(this::refreshTabList);
 
         // Only a RUNNING-game disconnect gets a body here; the countdown already placed one for offline players.
         if (state.isRunning()) {

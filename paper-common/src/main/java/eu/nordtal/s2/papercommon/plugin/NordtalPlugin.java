@@ -40,6 +40,7 @@ import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.papercommon.game.GameDataExport;
 import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.papercommon.player.Presence;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.papercommon.world.Distances;
 import eu.nordtal.s2.papercommon.world.WorldDistances;
 import eu.nordtal.s2.settings.Colours;
@@ -77,7 +78,6 @@ import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitTask;
 import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -114,7 +114,6 @@ public abstract class NordtalPlugin extends JavaPlugin {
     private Identities identities;
     private AdminWatch adminWatch;
     private @Nullable SignalHub hub;
-    private @Nullable BukkitTask heartbeat;
 
     /** Returns the prefix of every environment override of this plugin's settings, {@code NORDTAL_SMP} say. */
     protected abstract String settingsPrefix();
@@ -219,11 +218,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
         signals.start();
         exportGameData();
 
-        // Last, so a marker means every step above ran; async, so a frozen main thread lets it go stale.
-        final Readiness readiness = Readiness.onDefaultPath(clock, getLogger()::warning);
-        heartbeat = getServer()
-                .getScheduler()
-                .runTaskTimerAsynchronously(this, readiness::refresh, 0L, Readiness.BEAT.toSeconds() * 20L);
+        // Last, so a marker means every step above ran; off the main thread, so a frozen one lets it go stale.
+        final var _ = Readiness.onDefaultPath(clock, getLogger()::warning).keepBeating(PaperScheduler.of(this));
         getLogger().info(getName() + " enabled");
     }
 
@@ -233,9 +229,9 @@ public abstract class NordtalPlugin extends JavaPlugin {
      * The first tick is after every datapack is loaded; a failed write costs the pickers this server's entries.
      */
     private void exportGameData() {
-        getServer().getScheduler().runTask(this, () -> {
+        PaperScheduler.of(this).onMain(() -> {
             final GameCatalogue catalogue = GameDataExport.read(getServer(), getLogger()::warning);
-            getServer().getScheduler().runTaskAsynchronously(this, () -> {
+            PaperScheduler.of(this).execute(() -> {
                 try {
                     GameDataStore.using(pool).publish(getName(), catalogue);
                 } catch (final RuntimeException failed) {
@@ -337,11 +333,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
 
     @Override
     public final void onDisable() {
-        // The readiness marker stays: going stale is the signal.
-        final BukkitTask beat = heartbeat;
-        if (beat != null) {
-            quietly("heartbeat.cancel", beat::cancel);
-        }
+        // The readiness marker stays, going stale is the signal; the server calls off the beat with every other task.
         quietly("disable", this::disable);
         // Before the pool: a refresh in flight reads through it.
         if (adminWatch != null) {
@@ -373,9 +365,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
         try {
             distanceSettings.reload();
             worldDistances.want(wantedDistances());
-            getServer()
-                    .getScheduler()
-                    .runTask(this, () -> worldDistances.apply(getServer().getWorlds()));
+            PaperScheduler.of(this)
+                    .onMain(() -> worldDistances.apply(getServer().getWorlds()));
         } catch (final SettingsException failure) {
             problems.add("the distances: " + failure.getMessage());
         }
@@ -423,7 +414,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
     /** Runs an admin action off the main thread and tells whoever typed it what came of it. */
     protected final int run(final CommandContext<CommandSourceStack> context, final Supplier<Answer> action) {
         final CommandSender sender = context.getSource().getSender();
-        getServer().getScheduler().runTaskAsynchronously(this, () -> tell(sender, safely(action)));
+        PaperScheduler.of(this).execute(() -> tell(sender, safely(action)));
         return Command.SINGLE_SUCCESS;
     }
 

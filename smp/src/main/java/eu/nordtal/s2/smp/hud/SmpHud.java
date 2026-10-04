@@ -2,6 +2,7 @@ package eu.nordtal.s2.smp.hud;
 
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.packrendering.Glyphs;
@@ -9,6 +10,7 @@ import eu.nordtal.s2.packrendering.hud.Bearing;
 import eu.nordtal.s2.packrendering.hud.BossBarLine;
 import eu.nordtal.s2.packrendering.hud.BossBarLine.Pill;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.milestone.MilestoneNames;
 import eu.nordtal.s2.smp.navigate.Navigation;
 import eu.nordtal.s2.smp.navigate.NavigationTarget;
@@ -28,7 +30,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.scheduler.BukkitTask;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -39,7 +40,7 @@ import org.jspecify.annotations.Nullable;
 public final class SmpHud {
 
     /** Four times a second: fast enough that the navigation arrow tracks a turning player. */
-    private static final long REFRESH_TICKS = 5L;
+    private static final Duration REFRESH = Duration.ofMillis(250);
 
     /** How long a status-bar announcement stays up before the dimension and milestone come back. */
     private static final Duration ANNOUNCEMENT = Duration.ofSeconds(8);
@@ -57,7 +58,7 @@ public final class SmpHud {
     /** Who is currently being told something, and until when; main thread only. */
     private final Map<UUID, Announcement> announcements = new HashMap<>();
 
-    private @Nullable BukkitTask task;
+    private Scheduler.@Nullable Task task;
 
     /** One line, and the nanoTime it stops being shown. */
     private record Announcement(String line, long until) {}
@@ -79,7 +80,7 @@ public final class SmpHud {
 
     public void start() {
         stop();
-        task = Bukkit.getScheduler().runTaskTimer(plugin, this::renderAll, REFRESH_TICKS, REFRESH_TICKS);
+        task = PaperScheduler.of(plugin).onMainEvery(REFRESH, REFRESH, this::renderAll);
     }
 
     public void stop() {

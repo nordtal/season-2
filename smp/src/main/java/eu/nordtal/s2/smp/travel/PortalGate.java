@@ -5,6 +5,7 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.milestone.Unlock;
 import eu.nordtal.s2.smp.state.SeasonState;
@@ -79,13 +80,11 @@ public final class PortalGate implements Listener {
     private void putOutTheFire(final PortalCreateEvent event) {
         final World world = event.getWorld();
         final java.util.List<org.bukkit.block.BlockState> blocks = java.util.List.copyOf(event.getBlocks());
-        org.bukkit.Bukkit.getScheduler()
-                .runTask(
-                        plugin,
-                        () -> blocks.stream()
-                                .map(state -> world.getBlockAt(state.getX(), state.getY(), state.getZ()))
-                                .filter(block -> block.getType() == Material.FIRE)
-                                .forEach(block -> block.setType(Material.AIR, false)));
+        PaperScheduler.of(plugin)
+                .onMain(() -> blocks.stream()
+                        .map(state -> world.getBlockAt(state.getX(), state.getY(), state.getZ()))
+                        .filter(block -> block.getType() == Material.FIRE)
+                        .forEach(block -> block.setType(Material.AIR, false)));
     }
 
     /** An End portal frame never takes an eye. */

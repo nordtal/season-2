@@ -6,6 +6,7 @@ import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.aura.AuraReason;
 import eu.nordtal.s2.smp.config.AdvancementAwardSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;
@@ -15,7 +16,6 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -77,11 +77,11 @@ public final class AdvancementListener implements Listener {
         final Integer award = awards.get(key);
         final NamespacedKey advancement = event.getAdvancement().getKey();
 
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        PaperScheduler.of(plugin).execute(() -> {
             if (award != null && award > 0) {
                 dao.addAura(discordId.get(), award, AuraReason.ADVANCEMENT.stored(), key);
                 final Locale locale = identities.languageOf(player.getUniqueId());
-                Bukkit.getScheduler().runTask(plugin, () -> {
+                PaperScheduler.of(plugin).onMain(() -> {
                     if (player.isOnline()) {
                         player.sendMessage(
                                 renderer.format(locale, MESSAGES.smp().aura().advancement(award)));

@@ -9,6 +9,7 @@ import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.messages.value.GameContent;
 import eu.nordtal.s2.papercommon.game.GameKeys;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.config.WheelPrizeSpec;
 import eu.nordtal.s2.smp.db.SmpDao;
@@ -23,7 +24,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import net.kyori.adventure.text.Component;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -75,7 +75,7 @@ public final class Wheel {
             return;
         }
 
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        PaperScheduler.of(plugin).execute(() -> {
             final LocalDate today = LocalDate.now(clock);
             final Spins spins = dao.spinsOf(discordId.get()).orElse(new Spins(0, 0, null));
 
@@ -114,7 +114,7 @@ public final class Wheel {
         if (discordId.isEmpty()) {
             return;
         }
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        PaperScheduler.of(plugin).execute(() -> {
             final Spins spins = dao.spinsOf(discordId.get()).orElse(new Spins(0, 0, null));
             final int count = spins.available(LocalDate.now(clock));
             final MessageRef available = count == 0
@@ -148,7 +148,7 @@ public final class Wheel {
         final WheelStrip strip = WheelStrip.landingOn(pool.size(), index, random, WheelPanel.shape());
         final List<ItemStack> icons = icons(pool);
 
-        Bukkit.getScheduler().runTask(plugin, () -> {
+        PaperScheduler.of(plugin).onMain(() -> {
             if (!player.isOnline()) {
                 // Nobody to show it to and nobody to give it to. give() puts the spin back.
                 give(player, material, prize.amount(), locale, refund);
@@ -227,7 +227,7 @@ public final class Wheel {
     /** Runs database work off the main thread from anywhere; a refund lost to a shutdown is logged, not thrown. */
     private void offThread(final Runnable work) {
         try {
-            Bukkit.getScheduler().runTaskAsynchronously(plugin, work);
+            PaperScheduler.of(plugin).execute(work);
         } catch (final IllegalStateException | IllegalArgumentException refused) {
             plugin.getLogger()
                     .warning("could not put a wheel spin back - the server is shutting" + " down: "
@@ -242,7 +242,7 @@ public final class Wheel {
 
     /** The same, plus a sound, in one hop so the two land in the same tick. */
     private void tell(final Player player, final Component message, final @Nullable Feedback feedback) {
-        Bukkit.getScheduler().runTask(plugin, () -> {
+        PaperScheduler.of(plugin).onMain(() -> {
             if (player.isOnline()) {
                 player.sendMessage(message);
                 if (feedback != null) {

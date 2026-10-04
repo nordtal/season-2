@@ -4,13 +4,14 @@ import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AdminOperators;
 import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.SignalHub;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.RejectedExecutionException;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.IllegalPluginAccessException;
 import org.bukkit.plugin.Plugin;
 import org.slf4j.Logger;
 
@@ -74,8 +75,8 @@ public final class AdminWatch implements AutoCloseable {
         }
 
         try {
-            Bukkit.getScheduler().runTask(plugin, () -> apply(admins));
-        } catch (final IllegalPluginAccessException shuttingDown) {
+            PaperScheduler.of(plugin).onMain(() -> apply(admins));
+        } catch (final RejectedExecutionException shuttingDown) {
             // The plugin was disabled between the read and the hop; the next enable sweep fixes it.
             logger.debug("Dropped an admin refresh because the plugin is no longer enabled");
         }

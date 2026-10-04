@@ -15,6 +15,7 @@ import eu.nordtal.s2.hungergames.game.WinTracker;
 import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -24,7 +25,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -154,8 +154,7 @@ public final class CombatListener implements Listener {
         // LOSS here, not in the async block: the victim may be an offline body's owner, so play() tolerates null.
         sounds.play(plugin.getServer().getPlayer(victimMcUuid), Feedback.LOSS);
 
-        Bukkit.getScheduler()
-                .runTaskAsynchronously(plugin, () -> resolveDeathAsync(gameId, victimMcUuid, killerMcUuid));
+        PaperScheduler.of(plugin).execute(() -> resolveDeathAsync(gameId, victimMcUuid, killerMcUuid));
     }
 
     /** The database and outcome work for one death, off the main thread. */
@@ -177,7 +176,7 @@ public final class CombatListener implements Listener {
         final Ceremony.Decision decision =
                 outcome.map(decided -> decisionFor(gameId, decided)).orElse(null);
 
-        Bukkit.getScheduler().runTask(plugin, () -> {
+        PaperScheduler.of(plugin).onMain(() -> {
             border.onDeath(state);
             if (decision != null) {
                 onGameDecided.accept(decision);

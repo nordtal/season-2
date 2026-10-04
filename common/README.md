@@ -20,5 +20,6 @@ sleeping.
 
 A JVM process likewise makes one `ProcessScheduler` where it starts and hands it, as a `Scheduler`, to
 everything that runs work later or again: a timer thread that only hands work on, and a virtual
-thread per run. No feature owns a thread pool or a timer; `:architecture` holds that, and a test drives
-timed work through the test fixture `ManualScheduler` instead of waiting.
+thread per run. Repeating work is `Scheduler.every` for every scheduler alike: the next run is armed
+when the last one ended, so two never overlap. No feature owns a thread pool or a timer; `:architecture`
+holds that, and a test drives timed work through the test fixture `ManualScheduler` instead of waiting.

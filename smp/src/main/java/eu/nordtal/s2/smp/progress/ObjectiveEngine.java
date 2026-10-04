@@ -8,6 +8,7 @@ import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.aura.AuraPayout;
 import eu.nordtal.s2.smp.aura.AuraReason;
 import eu.nordtal.s2.smp.config.SmpSpec;
@@ -260,7 +261,7 @@ public final class ObjectiveEngine {
         season.refresh(dao.completedMilestoneKeys(), now);
 
         final Milestone milestone = now.milestone(milestoneKey).orElse(null);
-        Bukkit.getScheduler().runTask(plugin, () -> {
+        PaperScheduler.of(plugin).onMain(() -> {
             if (milestone != null && milestone.unlock() == Unlock.BORDER) {
                 // Animated, unlike the one applied at start: the wall crawling outwards is the ceremony.
                 worlds.expandNordtal(milestone.borderDiameter(), true);
@@ -271,7 +272,7 @@ public final class ObjectiveEngine {
 
     /** Announces a finished objective to everybody, without a sound, so the milestone's own sound keeps its weight. */
     private void announceObjective(final String objectiveKey) {
-        Bukkit.getScheduler().runTask(plugin, () -> {
+        PaperScheduler.of(plugin).onMain(() -> {
             for (final Player player : Bukkit.getOnlinePlayers()) {
                 final var locale = identities.languageOf(player.getUniqueId());
                 player.sendMessage(

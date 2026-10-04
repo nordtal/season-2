@@ -16,6 +16,7 @@ import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.PaperCommonMessages;
 import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.db.PoiRow;
 import eu.nordtal.s2.smp.db.SmpDao;
@@ -30,7 +31,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -156,14 +156,14 @@ public final class NavigateCommand {
         final Player player = (Player) context.getSource().getSender();
         final UUID uuid = player.getUniqueId();
 
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        PaperScheduler.of(plugin).execute(() -> {
             final List<PoiRow> pois = dao.allPois();
             final Optional<NavigationTarget> lastDeath = identities
                     .discordIdOf(uuid)
                     .flatMap(dao::lastDeathOf)
                     .map(place -> NavigationTarget.lastDeath(place.world(), place.x(), place.y(), place.z()));
 
-            Bukkit.getScheduler().runTask(plugin, () -> {
+            PaperScheduler.of(plugin).onMain(() -> {
                 if (!player.isOnline()) {
                     return;
                 }
@@ -191,7 +191,7 @@ public final class NavigateCommand {
         }
 
         final Location at = java.util.Objects.requireNonNull(player.getLocation());
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        PaperScheduler.of(plugin).execute(() -> {
             if (dao.allPois().stream().anyMatch(poi -> poi.name().equalsIgnoreCase(name))) {
                 tell(player, renderer.format(locale, MESSAGES.smp().poi().duplicate(name)), Feedback.REFUSED);
                 return;
@@ -215,7 +215,7 @@ public final class NavigateCommand {
         final boolean admin = identities.of(player.getUniqueId()).admin();
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
 
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        PaperScheduler.of(plugin).execute(() -> {
             final Optional<PoiRow> found = dao.allPois().stream()
                     .filter(poi -> poi.name().equalsIgnoreCase(name))
                     .findFirst();
@@ -230,7 +230,7 @@ public final class NavigateCommand {
                 return;
             }
             dao.deletePoi(poi.id());
-            Bukkit.getScheduler().runTask(plugin, () -> navigation.clearWorld(poi.world()));
+            PaperScheduler.of(plugin).onMain(() -> navigation.clearWorld(poi.world()));
             tell(player, renderer.format(locale, MESSAGES.smp().poi().removed(name)), Feedback.SMALL_SUCCESS);
         });
         return Command.SINGLE_SUCCESS;
@@ -238,7 +238,7 @@ public final class NavigateCommand {
 
     /** Sends a message and its sound in one hop to the main thread, so they never land a tick apart. */
     private void tell(final Player player, final Component message, final Feedback feedback) {
-        Bukkit.getScheduler().runTask(plugin, () -> {
+        PaperScheduler.of(plugin).onMain(() -> {
             if (player.isOnline()) {
                 player.sendMessage(message);
                 if (feedback != null) {

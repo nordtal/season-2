@@ -9,6 +9,7 @@ import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.game.GameKeys;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.aura.AuraReason;
 import eu.nordtal.s2.smp.config.SmpSpec;
@@ -166,7 +167,7 @@ public final class Duels {
         // One tick later: Bukkit applies event.getTo() after handlers return, undoing a teleport made in the event.
         final java.util.UUID firstId = opponent.getUniqueId();
         final java.util.UUID secondId = player.getUniqueId();
-        Bukkit.getScheduler().runTask(plugin, () -> {
+        PaperScheduler.of(plugin).onMain(() -> {
             final Player first = Bukkit.getPlayer(firstId);
             final Player second = Bukkit.getPlayer(secondId);
             if (first != null && second != null) {
@@ -189,7 +190,7 @@ public final class Duels {
         if (where != null) {
             event.setRespawnLocation(where);
         }
-        Bukkit.getScheduler().runTask(plugin, () -> {
+        PaperScheduler.of(plugin).onMain(() -> {
             final Player player = Bukkit.getPlayer(event.getPlayer().getUniqueId());
             if (player != null) {
                 state.restore(player, spawn());
@@ -317,8 +318,7 @@ public final class Duels {
         final SmpMessages.Smp.Duel lines = MESSAGES.smp().duel();
         for (final CountdownPlan.Beat<MessageRef> beat :
                 COUNTDOWN.beats(Duration.ofSeconds(COUNTDOWN_SECONDS), lines::countdown, lines.go())) {
-            Bukkit.getScheduler()
-                    .runTaskLater(plugin, () -> say(duel, beat), beat.delay().toMillis() / 50L);
+            PaperScheduler.of(plugin).onMainAfter(beat.delay(), () -> say(duel, beat));
         }
     }
 
@@ -421,7 +421,7 @@ public final class Duels {
         final int stake = config.duelStake();
         final String type = duel.type().name();
 
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        PaperScheduler.of(plugin).execute(() -> {
             dao.addAura(DiscordId.of(winner), stake, AuraReason.DUEL_WIN.stored(), type);
             dao.addAura(DiscordId.of(loser), -stake, AuraReason.DUEL_LOSS.stored(), type);
         });

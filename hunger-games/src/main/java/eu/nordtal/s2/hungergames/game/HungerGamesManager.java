@@ -17,6 +17,7 @@ import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.messages.context.TeamContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -111,7 +112,7 @@ public final class HungerGamesManager {
         final double step =
                 BorderMath.deathStep(config.borderStartDiameter(), config.borderEndDiameter(), participants.size());
 
-        plugin.getServer().getScheduler().runTask(plugin, () -> {
+        PaperScheduler.of(plugin).onMain(() -> {
             state.reset(gameId, participants.size(), step, clock.instant());
 
             final Location centre = world.getSpawnLocation();
@@ -129,15 +130,10 @@ public final class HungerGamesManager {
             frozen = true;
             announceDemotions(participants);
             scheduleCountdown(participants);
-            plugin.getServer()
-                    .getScheduler()
-                    .runTaskLater(
-                            plugin,
-                            () -> {
-                                release(gameId, participants);
-                                onReleased.run();
-                            },
-                            config.countdownSeconds() * 20L);
+            PaperScheduler.of(plugin).onMainAfter(Duration.ofSeconds(config.countdownSeconds()), () -> {
+                release(gameId, participants);
+                onReleased.run();
+            });
         });
     }
 
@@ -162,25 +158,19 @@ public final class HungerGamesManager {
         final List<CountdownPlan.Beat<MessageRef>> beats = COUNTDOWN.beats(
                 Duration.ofSeconds(config.countdownSeconds()), MESSAGES.hg().start()::countdown, null);
         for (final CountdownPlan.Beat<MessageRef> beat : beats) {
-            plugin.getServer()
-                    .getScheduler()
-                    .runTaskLater(
-                            plugin,
-                            () -> {
-                                // The game can be over, or never have started, by the time a beat fires.
-                                if (!frozen) {
-                                    return;
-                                }
-                                for (final Participant participant : participants) {
-                                    final Player online = plugin.getServer().getPlayer(participant.mcUuid());
-                                    if (online != null) {
-                                        online.sendMessage(renderer.format(
-                                                identities.languageOf(participant.mcUuid()), beat.said()));
-                                        sounds.play(online, Feedback.COUNTDOWN_TICK);
-                                    }
-                                }
-                            },
-                            beat.delay().toMillis() / 50L);
+            PaperScheduler.of(plugin).onMainAfter(beat.delay(), () -> {
+                // The game can be over, or never have started, by the time a beat fires.
+                if (!frozen) {
+                    return;
+                }
+                for (final Participant participant : participants) {
+                    final Player online = plugin.getServer().getPlayer(participant.mcUuid());
+                    if (online != null) {
+                        online.sendMessage(renderer.format(identities.languageOf(participant.mcUuid()), beat.said()));
+                        sounds.play(online, Feedback.COUNTDOWN_TICK);
+                    }
+                }
+            });
         }
     }
 
@@ -237,7 +227,7 @@ public final class HungerGamesManager {
 
     private void release(final UUID gameId, final List<Participant> participants) {
         frozen = false;
-        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> dao.release(gameId));
+        PaperScheduler.of(plugin).execute(() -> dao.release(gameId));
         state.release();
         border.begin(gameId, state);
 

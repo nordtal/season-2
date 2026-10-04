@@ -8,13 +8,13 @@ import eu.nordtal.s2.messagerendering.Tones;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
@@ -188,7 +188,7 @@ public final class PaperUser {
 
     /** Sends on the main thread, always scheduled, so that replies keep their order across threads. */
     private void send(final Component message, final @Nullable Feedback feedback) {
-        Bukkit.getScheduler().runTask(plugin, () -> {
+        PaperScheduler.of(plugin).onMain(() -> {
             sender.sendMessage(message);
             if (feedback != null && sender instanceof Player player) {
                 chime.play(player, feedback);

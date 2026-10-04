@@ -2,12 +2,15 @@
 
 import eu.nordtal.s2.build.CheckSourcesTracked
 import eu.nordtal.s2.build.RepositoryRootTestInputs
+import org.gradle.accessors.dm.LibrariesForLibs
 import org.gradle.process.CommandLineArgumentProvider
 
 plugins {
     id("java")
     id("nordtal.conventions")
 }
+
+val libs = the<LibrariesForLibs>()
 
 group = "eu.nordtal"
 
@@ -25,9 +28,9 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 dependencies {
-    "testImplementation"(platform("org.junit:junit-bom:6.0.0"))
-    "testImplementation"("org.junit.jupiter:junit-jupiter")
-    "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
+    "testImplementation"(platform(libs.junit.bom))
+    "testImplementation"(libs.junit.jupiter)
+    "testRuntimeOnly"(libs.junit.platform.launcher)
 }
 
 // A test reading a file at the repository root declares it, or Gradle skips it after an edit.

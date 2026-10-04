@@ -189,9 +189,8 @@ docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f ./compose.yml build stewa
 docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f ./compose.yml up -d --no-deps steward-agent
 ```
 
-`--no-deps` keeps it to one service. `steward` and `discord-bot` run the jar from their jar
-volume, not the one in the image, so for them copy the built jar into that volume and restart. Check
-which jar runs with `docker exec <container> cat /proc/1/cmdline | tr '\0' ' '`.
+`--no-deps` keeps it to one service. Every JVM image runs the jar baked into it, so the rebuild is
+the whole delivery. Check which jar runs with `docker exec <container> cat /proc/1/cmdline | tr '\0' ' '`.
 
 ## Locally
 

@@ -76,7 +76,7 @@ public final class AgentApi implements AutoCloseable {
      *
      * @param volumesRoot the services' volumes, one directory per service, or {@code null} for none
      * @param configs one directory per service whose jars carry message bundles, the bot's empty
-     * @param backupSources every volume a backup saves, read-only, one directory per Docker volume name
+     * @param backupSources every volume a backup saves, one directory per Docker volume name, writable for a restore
      * @param backups where archives are written, mounted at the same path in the database's container
      */
     public record Paths(@Nullable Path volumesRoot, Path configs, Path backupSources, Path backups) {

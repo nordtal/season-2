@@ -285,7 +285,7 @@ public interface StewardTexts {
             MessageRef noMessage(@Arg("bundle") String bundle, @Arg("key") String key);
 
             @Name("Override refused")
-            MessageRef overrideRefused(@Arg("problems") String problems);
+            MessageRef overrideRefused(@Arg("key") String key, @Arg("language") String language);
 
             @Name("Grant too long")
             MessageRef grantDays(@Arg("most") int most);

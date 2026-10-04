@@ -2,6 +2,7 @@ package eu.nordtal.s2.steward.texts;
 
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.database.AdminTexts;
+import eu.nordtal.s2.messages.CheckMessages;
 import eu.nordtal.s2.messages.MessageJson;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.spec.MessageSchema;
@@ -14,8 +15,8 @@ import java.util.List;
  */
 public final class WebTexts {
 
-    /** The specs of the bundles the page renders, over the {@code values} bundle: its own, and the admin texts. */
-    public static final List<Class<?>> SPECS = List.of(StewardTexts.class, AdminTexts.class);
+    /** The bundles the page renders over {@code values}: its own, the admin texts, and the validator's problems. */
+    public static final List<Class<?>> SPECS = List.of(StewardTexts.class, AdminTexts.class, CheckMessages.class);
 
     private final Messages messages;
 

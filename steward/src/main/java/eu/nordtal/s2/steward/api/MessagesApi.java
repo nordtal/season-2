@@ -11,6 +11,7 @@ import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.MessageBundle;
 import eu.nordtal.s2.internalapi.agent.MessageEntry;
 import eu.nordtal.s2.messages.MessageOverride;
+import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.text.MessageCheck;
 import eu.nordtal.s2.steward.texts.RequestRefused;
 import eu.nordtal.s2.steward.texts.StewardTexts;
@@ -73,20 +74,19 @@ public final class MessagesApi {
         final List<Change> changes = changesOf(bodyOf(ctx.body()));
         final Map<String, MessageEntry> entries = agent.bundle(location.service(), location.module()).entries().stream()
                 .collect(Collectors.toMap(MessageEntry::key, entry -> entry, (first, second) -> first));
-        final List<String> problems = new ArrayList<>();
-        final List<String> warnings = new ArrayList<>();
+        final List<Warning> warnings = new ArrayList<>();
         for (final Change change : changes) {
             final MessageEntry entry = entries.get(change.key());
             if (entry == null) {
                 throw new RequestRefused(400, ANSWER.noMessage(identityOf(location), change.key()));
             }
             for (final MessageCheck.Problem problem : OverrideCheck.problems(entry, change.text())) {
-                (problem.error() ? problems : warnings)
-                        .add(entry.key() + " (" + change.language() + "): " + problem.text() + ".");
+                if (problem.error()) {
+                    // The editor shows every problem as the text is typed, so the refusal only names the text.
+                    throw new RequestRefused(400, ANSWER.overrideRefused(entry.key(), change.language()));
+                }
+                warnings.add(new Warning(entry.key(), change.language(), problem.text()));
             }
-        }
-        if (!problems.isEmpty()) {
-            throw new RequestRefused(400, ANSWER.overrideRefused(String.join(" ", problems)));
         }
         for (final Change change : changes) {
             final MessageEntry entry = java.util.Objects.requireNonNull(entries.get(change.key()), change.key());
@@ -107,6 +107,23 @@ public final class MessagesApi {
                 bundle.entries(),
                 warnings,
                 Reloading.applied(StewardTexts.TEXTS.steward().said().message())));
+    }
+
+    /**
+     * {@code GET /api/message-check?bundle=&key=&text=}: what the one validator says of a text for a key.
+     * Errors and warnings, each a message of the {@code check} bundle; the editor asks as the admin types, so it has
+     * no check of its own.
+     */
+    public void check(final Context ctx) {
+        final String key = ctx.queryParamAsClass("key", String.class).get();
+        final String text = ctx.queryParamAsClass("text", String.class).get();
+        final AgentWire.BundleRef location =
+                locate(ctx.queryParamAsClass("bundle", String.class).get());
+        final MessageEntry entry = agent.bundle(location.service(), location.module()).entries().stream()
+                .filter(candidate -> candidate.key().equals(key))
+                .findFirst()
+                .orElseThrow(() -> new RequestRefused(400, ANSWER.noMessage(identityOf(location), key)));
+        ctx.json(OverrideCheck.problems(entry, text));
     }
 
     /**
@@ -161,7 +178,7 @@ public final class MessagesApi {
         final List<String> texts = rows.stream().map(MessageOverride::text).toList();
         final List<String> packaged = entry.packaged(language);
         final boolean stale = rows.getFirst().staleOver(packaged);
-        final List<String> problems = new ArrayList<>();
+        final List<MessageRef> problems = new ArrayList<>();
         for (final String text : texts) {
             for (final MessageCheck.Problem problem : OverrideCheck.problems(entry, text)) {
                 if (problem.error()) {
@@ -212,7 +229,10 @@ public final class MessagesApi {
     // Finding the bundle
 
     private AgentWire.BundleRef locate(final Context ctx) {
-        final String asked = ctx.pathParam("bundle");
+        return locate(ctx.pathParam("bundle"));
+    }
+
+    private AgentWire.BundleRef locate(final String asked) {
         return agent.bundles().stream()
                 .filter(location -> identityOf(location).equals(asked))
                 .findFirst()
@@ -240,7 +260,7 @@ public final class MessagesApi {
     /**
      * What a save answers: the bundle as it now reads, every dropped placeholder warning, and that it applies.
      *
-     * @param warnings the placeholders a text no longer carries, none of them blocking the save
+     * @param warnings what the validator warns about, none of it blocking the save
      */
     public record Saved(
             String service,
@@ -248,8 +268,15 @@ public final class MessagesApi {
             String path,
             boolean writable,
             List<MessageEntry> entries,
-            List<String> warnings,
+            List<Warning> warnings,
             Reloading reload) {}
+
+    /**
+     * What the validator warns about in one saved text, such as a value it no longer shows.
+     *
+     * @param text a message of the {@code check} bundle
+     */
+    public record Warning(String key, String language, MessageRef text) {}
 
     /** Why a process shows the packaged text instead of an override. */
     public enum FallbackReason {
@@ -266,7 +293,7 @@ public final class MessagesApi {
      * @param override the override's variants, in order
      * @param original the packaged texts it was written over, {@code null} where none were kept
      * @param packaged the packaged texts the jar ships now, which every process shows instead
-     * @param problems what the validator refuses, empty for a stale override
+     * @param problems what the validator refuses, messages of the {@code check} bundle, empty for a stale override
      */
     public record Fallback(
             String path,
@@ -277,7 +304,7 @@ public final class MessagesApi {
             List<String> override,
             @Nullable List<String> original,
             List<String> packaged,
-            List<String> problems) {}
+            List<MessageRef> problems) {}
 
     private BundleLocation describe(final AgentWire.BundleRef location) {
         return new BundleLocation(location.service(), location.module(), identityOf(location), overrides != null);

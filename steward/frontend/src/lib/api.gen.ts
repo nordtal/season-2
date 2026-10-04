@@ -407,7 +407,7 @@ export type MessageSaveResult = {
   path: string
   writable: boolean
   entries: MessageEntry[]
-  warnings: string[]
+  warnings: Warning[]
   reload: ReloadOutcome
 }
 
@@ -420,7 +420,7 @@ export type MessageFallback = {
   override: string[]
   original?: string[]
   packaged: string[]
-  problems: string[]
+  problems: MessageRef[]
 }
 
 export type PluginAdded = {
@@ -712,6 +712,12 @@ export type MessageEntry = {
   section: (string | null)[]
   format?: string
   shown?: string
+}
+
+export type Warning = {
+  key: string
+  language: string
+  text: MessageRef
 }
 
 export type MessageFallbackReason = "STALE" | "REFUSED"

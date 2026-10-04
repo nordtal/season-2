@@ -1,5 +1,6 @@
 // Writes messages/<bundle>/schema.json from each of the module's message specs, for steward to show.
-// The classpath is the resource source directories, since processed resources would be a cycle.
+// The classpath is the resource source directories, since processed resources would be a cycle, and the
+// dependencies at runtime, whose jars carry the check bundle a refusal is told in.
 
 plugins {
     java
@@ -17,7 +18,9 @@ val main = the<SourceSetContainer>()["main"]
 val messageSchema =
     tasks.register<JavaExec>("messageSchema") {
         description = "Writes messages/<bundle>/schema.json from each of the module's message specs."
-        classpath = main.output.classesDirs + files(main.resources.srcDirs) + main.compileClasspath
+        classpath =
+            main.output.classesDirs + files(main.resources.srcDirs) + main.compileClasspath +
+            configurations["runtimeClasspath"]
         mainClass.set("eu.nordtal.s2.messages.spec.MessageSchema")
         inputs.property("specClasses", messageSpec.specClasses)
         inputs.files(main.output.classesDirs, main.resources.srcDirs)

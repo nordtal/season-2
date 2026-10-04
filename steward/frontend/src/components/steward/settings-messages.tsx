@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import { cn } from "cn"
 
-import type { MessageBundle, MessageEntry } from "@/lib/api"
+import type { MessageBundle, MessageEntry, Warning } from "@/lib/api"
 import { announceSave } from "@/lib/announce-save"
 import { clearDraft, setDraftValue, useDraft } from "@/lib/drafts"
 import { overrideOf, packagedOf, tokenOf, unknownPlaceholders, type Language } from "@/lib/message-text"
@@ -36,7 +36,7 @@ import {
   useLanding,
   useWide,
 } from "@/components/steward/settings-view"
-import { t } from "@/lib/texts"
+import { message, t } from "@/lib/texts"
 
 /** A message bundle of the Settings tab: every key with its translations, and the save. */
 
@@ -66,7 +66,7 @@ export function BundleFile({ item, target }: { item: Extract<FileItem, { kind: "
 function BundleForm({ file, bundle, target }: { file: string; bundle: MessageBundle; target: Target | null }) {
   const draft = useDraft<MessageDraft>(file, isMessageDraftRecord)
   const save = useSaveMessageBundle(bundle.path)
-  const [warnings, setWarnings] = useState<string[]>([])
+  const [warnings, setWarnings] = useState<Warning[]>([])
   const nodes = useMemo(() => messageTree(bundle.entries), [bundle.entries])
   const byKey = useMemo(() => new Map(bundle.entries.map((entry) => [entry.key, entry])), [bundle.entries])
   // One key open at a time: opening another closes this one, and its draft stays where it is.
@@ -126,8 +126,10 @@ function BundleForm({ file, bundle, target }: { file: string; bundle: MessageBun
           {save.error ? <Failure error={save.error} /> : null}
           {warnings.length > 0 ? (
             <ul className="flex flex-col gap-1 text-xs text-warning">
-              {warnings.map((warning) => (
-                <li key={warning}>{warning}</li>
+              {warnings.map((warning, index) => (
+                <li key={`${warning.key}/${warning.language}/${index}`}>
+                  <span className="font-mono">{warning.key}</span> {message(warning.text)}
+                </li>
               ))}
             </ul>
           ) : null}

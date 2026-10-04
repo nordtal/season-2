@@ -80,6 +80,12 @@ a warning. It refuses an undeclared value, a kind or style a value does not have
 colour in a packaged text, a value in a tag argument that takes none, and a text longer than where it is shown;
 a text that never shows a value it is given is an error in a bundle and a warning in an override.
 
+Each problem, and each refusal of the parser, is a message of the English-only `check` bundle
+(`CheckMessages`), never a sentence in code: Steward serves that bundle with its own, so an admin reads
+it in the editor and can change it like any other, and the build and a process's log say it in the
+packaged English (`MessageCheck.english`). It is declared here and not in the admin texts because this
+module may depend on no other bundle. Steward's `GET /api/message-check` answers a text's problems for a key.
+
 ## Packaged texts and overrides
 
 A bundle is packaged in the jar as `messages/<bundle>/<language>.properties`, read in one place

@@ -64,6 +64,7 @@ class MessagesApiIntegrationTest {
                     ErrorHandlers.install(config, WebTexts.load().messages(), Messages.load("messages/database"));
                     config.routes.get("/api/messages", messages::list);
                     config.routes.get("/api/message-fallbacks", messages::fallbacks);
+                    config.routes.get("/api/message-check", messages::check);
                     config.routes.get("/api/messages/<bundle>", messages::one);
                     config.routes.put("/api/messages/<bundle>", ctx -> messages.save(ctx, Actor.STEWARD));
                 })
@@ -155,7 +156,13 @@ class MessagesApiIntegrationTest {
                 put("/api/messages/smp/smp", "{\"changes\":{\"greeting\":{\"en\":\"Hello there\"}}}"),
                 JsonObject.class);
 
-        assertTrue(saved.getAsJsonArray("warnings").get(0).getAsString().contains("player"), saved.toString());
+        final JsonObject warning = saved.getAsJsonArray("warnings").get(0).getAsJsonObject();
+        assertEquals("greeting", warning.get("key").getAsString(), saved.toString());
+        assertEquals("en", warning.get("language").getAsString(), saved.toString());
+        assertEquals(
+                "check.value.unshown",
+                warning.getAsJsonObject("text").get("key").getAsString(),
+                saved.toString());
         assertEquals(
                 "Hello there",
                 entry(saved, "greeting").get("overrideEnglish").getAsString(),
@@ -163,7 +170,7 @@ class MessagesApiIntegrationTest {
     }
 
     @Test
-    void aPlaceholderTheSchemaDoesNotDeclareIsRefusedWithTheKeyAndNothingIsSaved() throws Exception {
+    void aPlaceholderTheSchemaDoesNotDeclareIsRefusedWithTheKeyAndTheCheckSaysWhy() throws Exception {
         writeJar(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of(
@@ -179,8 +186,16 @@ class MessagesApiIntegrationTest {
                 send("PUT", "/api/messages/smp/smp", "{\"changes\":{\"greeting\":{\"en\":\"Hello {name}\"}}}");
 
         assertEquals(400, refused.statusCode(), refused.body());
-        assertTrue(refused.body().contains("greeting") && refused.body().contains("{name}"), refused.body());
+        assertTrue(refused.body().contains("greeting"), refused.body());
         assertEquals(List.of(), store.overrides(Set.of("smp")), "a refused save must not write anything");
+        final JsonObject problem = GSON.fromJson(
+                        get("/api/message-check?bundle=smp/smp&key=greeting&text=Hello%20%7Bname%7D"), JsonArray.class)
+                .get(0)
+                .getAsJsonObject();
+        assertTrue(problem.get("error").getAsBoolean(), problem.toString());
+        assertEquals(
+                "check.value.unknown",
+                problem.getAsJsonObject("text").get("key").getAsString());
         final JsonObject greeting = entry(GSON.fromJson(get("/api/messages/smp/smp"), JsonObject.class), "greeting");
         assertEquals("Greeting", greeting.get("name").getAsString());
         assertEquals(

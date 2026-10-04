@@ -28,7 +28,7 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
   kind carries a command line; `scheduled_for` lets any request wait for its time. The answer is an `Outcome`: done,
   refused with a `Refusal`, or failed, and a handler that throws fails its request, never retried. An asker needs
   no write to see its request expire: a pending row past its patience reads as expired. `Inboxes` lists every table.
-- **The servers' inboxes** take a few typed kinds each: the SMP's track actions and the Hunger Games start. No
+- **The servers' inboxes** take a few typed kinds each: the SMP's track actions, the Hunger Games start and a preview. No
   server is asked to reload, since settings and message overrides reach every process on the signal hub, so the
   waiting room and the proxy have no inbox. A server answers one the same way its console answers the same action, and a
   refusal of one is a `ServerRefusal` worded in this module's bundle, so Steward can say it without the server's.

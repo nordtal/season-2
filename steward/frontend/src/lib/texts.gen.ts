@@ -469,10 +469,14 @@ export type TextArgs = {
   "steward.form.changed-meanwhile": Record<string, never>
   "steward.form.close": Record<string, never>
   "steward.form.days": Record<string, never>
+  "steward.form.done": Record<string, never>
   "steward.form.remove": Record<string, never>
   "steward.form.removing": Record<string, never>
   "steward.form.reset": Record<string, never>
   "steward.form.save": Record<string, never>
+  "steward.form.save-count": {
+    count: Arg["number"]
+  }
   "steward.form.saving": Record<string, never>
   "steward.form.schedule": Record<string, never>
   "steward.form.schedule-saved": Record<string, never>
@@ -1210,6 +1214,87 @@ export type TextArgs = {
     state: Arg["choice"]
   }
   "steward.service.unhealthy": Record<string, never>
+  "steward.settings.add": Record<string, never>
+  "steward.settings.add-entry": Record<string, never>
+  "steward.settings.add-to": {
+    what: Arg["text"]
+  }
+  "steward.settings.all": Record<string, never>
+  "steward.settings.back-to-files": Record<string, never>
+  "steward.settings.back-to-top": Record<string, never>
+  "steward.settings.cannot-remove": Record<string, never>
+  "steward.settings.changed": Record<string, never>
+  "steward.settings.choose-one": Record<string, never>
+  "steward.settings.choose-suggestion": Record<string, never>
+  "steward.settings.draft-only": Record<string, never>
+  "steward.settings.empty-file": Record<string, never>
+  "steward.settings.empty-list": Record<string, never>
+  "steward.settings.entry": {
+    index: Arg["number"]
+  }
+  "steward.settings.entry-cannot-remove": {
+    index: Arg["number"]
+  }
+  "steward.settings.env-override": Record<string, never>
+  "steward.settings.env-override-tip": Record<string, never>
+  "steward.settings.every-tag": Record<string, never>
+  "steward.settings.files": Record<string, never>
+  "steward.settings.free-text": Record<string, never>
+  "steward.settings.incomplete": {
+    missing: Arg["text"]
+  }
+  "steward.settings.no-colour": Record<string, never>
+  "steward.settings.no-entries": Record<string, never>
+  "steward.settings.no-files": Record<string, never>
+  "steward.settings.no-match": Record<string, never>
+  "steward.settings.no-such-file": Record<string, never>
+  "steward.settings.none": Record<string, never>
+  "steward.settings.not-in-bundle": Record<string, never>
+  "steward.settings.not-readable": Record<string, never>
+  "steward.settings.not-set": Record<string, never>
+  "steward.settings.overridden": Record<string, never>
+  "steward.settings.pick-colour": Record<string, never>
+  "steward.settings.preview": {
+    shown: Arg["choice"]
+  }
+  "steward.settings.preview-on": Record<string, never>
+  "steward.settings.raw-list": Record<string, never>
+  "steward.settings.read-only": Record<string, never>
+  "steward.settings.refused": {
+    problem: Arg["text"]
+  }
+  "steward.settings.remove": {
+    what: Arg["text"]
+  }
+  "steward.settings.remove-ask": {
+    title: Arg["text"]
+  }
+  "steward.settings.remove-entry": {
+    index: Arg["number"]
+  }
+  "steward.settings.remove-entry-ask": Record<string, never>
+  "steward.settings.reset-to-packaged": Record<string, never>
+  "steward.settings.restart-needed": Record<string, never>
+  "steward.settings.search": Record<string, never>
+  "steward.settings.search-file": Record<string, never>
+  "steward.settings.search-in": {
+    what: Arg["text"]
+  }
+  "steward.settings.set": Record<string, never>
+  "steward.settings.settings-saved": {
+    count: Arg["number"]
+  }
+  "steward.settings.tag": Record<string, never>
+  "steward.settings.texts-saved": {
+    count: Arg["number"]
+  }
+  "steward.settings.undo": Record<string, never>
+  "steward.settings.undo-entry": {
+    what: Arg["text"]
+  }
+  "steward.settings.unknown-placeholder": {
+    names: Arg["text"]
+  }
   "steward.shell.account": Record<string, never>
   "steward.shell.account-of": {
     name: Arg["text"]

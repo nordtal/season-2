@@ -17,6 +17,7 @@ import {
 } from "@/lib/settings-tree"
 import { Button } from "@/components/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
+import { t } from "@/lib/texts"
 
 /** What a config file and a message bundle are drawn with alike: the tree, its rows, the jump to a field. */
 
@@ -51,7 +52,7 @@ export function useWide(): boolean {
 }
 
 export function DraftDot() {
-  return <span aria-label="Changed" className="size-1.5 shrink-0 rounded-full bg-primary" />
+  return <span aria-label={t("steward.settings.changed")} className="size-1.5 shrink-0 rounded-full bg-primary" />
 }
 
 export type Highlight = { id: string; seq: number; language?: Language }
@@ -139,8 +140,8 @@ export function TreeView<L>({
         </InputGroupAddon>
         <InputGroupInput
           type="search"
-          placeholder="Search"
-          aria-label="Search this file"
+          placeholder={t("steward.settings.search")}
+          aria-label={t("steward.settings.search-file")}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -148,7 +149,9 @@ export function TreeView<L>({
       {notice ? <p className="text-sm text-muted-foreground">{notice}</p> : null}
       {above}
       {shown.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{query.trim() ? "No match." : "Nothing in this file."}</p>
+        <p className="text-sm text-muted-foreground">
+          {query.trim() ? t("steward.settings.no-match") : t("steward.settings.empty-file")}
+        </p>
       ) : (
         <NodeList
           nodes={shown}
@@ -166,7 +169,7 @@ export function TreeView<L>({
             type="button"
             variant="ghost"
             size="icon"
-            aria-label="Back to the top"
+            aria-label={t("steward.settings.back-to-top")}
             className="pointer-events-auto rounded-full bg-background/90 backdrop-blur"
             onClick={() => top.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
           >

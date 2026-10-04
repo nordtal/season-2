@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button"
 import { DraftDot, type FileItem, type Target, useWide } from "@/components/steward/settings-view"
 import { ConfigFile } from "@/components/steward/settings-config"
 import { BundleFile } from "@/components/steward/settings-messages"
+import { t } from "@/lib/texts"
 
 /** The service the network's own settings are published under, the ones every process reads. */
 export const NETWORK = "network"
@@ -91,7 +92,7 @@ export function ServiceSettings({
   return (
     <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start lg:gap-8">
       <nav
-        aria-label="Files"
+        aria-label={t("steward.settings.files")}
         className={cn("flex flex-col gap-0.5 lg:sticky lg:top-4", file !== undefined && "max-lg:hidden")}
       >
         {failure ? <Failure error={failure} /> : null}
@@ -102,7 +103,7 @@ export function ServiceSettings({
             </div>
           ))
         ) : files.length === 0 && !failure ? (
-          <p className="px-2 text-sm text-muted-foreground">No files.</p>
+          <p className="px-2 text-sm text-muted-foreground">{t("steward.settings.no-files")}</p>
         ) : (
           rows.map((row) => {
             if (row.kind === "file") {
@@ -150,7 +151,7 @@ export function ServiceSettings({
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label="Back to the files"
+                aria-label={t("steward.settings.back-to-files")}
                 onClick={() => {
                   if (historyEntryIndex() > 0) window.history.back()
                   else onFile(undefined)
@@ -167,7 +168,7 @@ export function ServiceSettings({
             )}
           </>
         ) : file !== undefined && !loading ? (
-          <p className="text-sm text-muted-foreground">No such file.</p>
+          <p className="text-sm text-muted-foreground">{t("steward.settings.no-such-file")}</p>
         ) : null}
       </div>
     </div>
@@ -332,9 +333,9 @@ function FileRow({
       <span className="min-w-0 flex-1 truncate">{item.label}</span>
       {dirty ? <DraftDot /> : null}
       {!item.readable ? (
-        <LockIcon className="size-3.5 shrink-0" aria-label="Not readable" />
+        <LockIcon className="size-3.5 shrink-0" aria-label={t("steward.settings.not-readable")} />
       ) : !item.writable ? (
-        <LockIcon className="size-3.5 shrink-0 text-muted-foreground" aria-label="Read-only" />
+        <LockIcon className="size-3.5 shrink-0 text-muted-foreground" aria-label={t("steward.settings.read-only")} />
       ) : null}
       <CaretRightIcon className="size-4 shrink-0 text-muted-foreground lg:hidden" aria-hidden />
     </button>

@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { fileTitle } from "@/lib/words"
+import { t } from "@/lib/texts"
 
 /** One scalar key's control, shared by `configuration.tsx` and `repeatable-cards.tsx` so neither imports the other. */
 
@@ -58,7 +59,9 @@ function ChoicesControl({
     <div className="flex flex-wrap items-center gap-2">
       <Select value={known ? value : ""} onValueChange={onChange} disabled={disabled}>
         <SelectTrigger id={choices.strict ? id : undefined} className="min-w-48">
-          <SelectValue placeholder={choices.strict ? "choose one" : "choose a suggestion"} />
+          <SelectValue
+            placeholder={choices.strict ? t("steward.settings.choose-one") : t("steward.settings.choose-suggestion")}
+          />
         </SelectTrigger>
         <SelectContent>
           {choices.values.map((option) => (
@@ -71,7 +74,7 @@ function ChoicesControl({
       {choices.strict ? null : (
         <Input
           id={id}
-          aria-label="Free text"
+          aria-label={t("steward.settings.free-text")}
           disabled={disabled}
           value={value}
           spellCheck={false}
@@ -146,7 +149,15 @@ export function ScalarControl({
 }) {
   /** A secret lives in the host environment alone, so the form says only whether it is set. */
   if (entry.secret) {
-    return <Input id={id} type="password" disabled value="" placeholder={entry.filled ? "set" : "not set"} />
+    return (
+      <Input
+        id={id}
+        type="password"
+        disabled
+        value=""
+        placeholder={entry.filled ? t("steward.settings.set") : t("steward.settings.not-set")}
+      />
+    )
   }
 
   if (entry.choices) {
@@ -242,7 +253,7 @@ function ListRows({
   return (
     <div className="flex flex-col gap-2">
       {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Empty list.</p>
+        <p className="text-sm text-muted-foreground">{t("steward.settings.empty-list")}</p>
       ) : (
         items.map((item, index) => (
           <div key={index} className="flex items-center gap-2">
@@ -252,7 +263,7 @@ function ListRows({
               value={item}
               spellCheck={false}
               className="font-mono text-sm max-md:text-base"
-              aria-label={`Entry ${index + 1}`}
+              aria-label={t("steward.settings.entry", { index: index + 1 })}
               onChange={(event) => onChange(items.map((old, at) => (at === index ? event.target.value : old)))}
             />
             <Button
@@ -260,7 +271,7 @@ function ListRows({
               variant="ghost"
               size="icon"
               disabled={disabled}
-              aria-label={`Remove entry ${index + 1}`}
+              aria-label={t("steward.settings.remove-entry", { index: index + 1 })}
               onClick={() => onChange(items.filter((_, at) => at !== index))}
             >
               <TrashIcon aria-hidden />
@@ -271,7 +282,7 @@ function ListRows({
       <div>
         <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => onChange([...items, ""])}>
           <PlusIcon aria-hidden />
-          Add entry
+          {t("steward.settings.add-entry")}
         </Button>
       </div>
     </div>

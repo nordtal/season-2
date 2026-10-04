@@ -36,6 +36,7 @@ import {
   useLanding,
   useWide,
 } from "@/components/steward/settings-view"
+import { t } from "@/lib/texts"
 
 /** A message bundle of the Settings tab: every key with its translations, and the save. */
 
@@ -92,7 +93,7 @@ function BundleForm({ file, bundle, target }: { file: string; bundle: MessageBun
   }
 
   function submit() {
-    const label = count === 1 ? "One text saved." : `${count} texts saved.`
+    const label = t("steward.settings.texts-saved", { count })
     save.mutate(
       { changes: draft },
       {
@@ -108,7 +109,7 @@ function BundleForm({ file, bundle, target }: { file: string; bundle: MessageBun
   const saveButton = (className?: string) =>
     count > 0 && bundle.writable ? (
       <Button type="button" className={className} disabled={save.isPending || blocked} onClick={submit}>
-        {save.isPending ? "Saving…" : `Save ${count}`}
+        {save.isPending ? t("steward.form.saving") : t("steward.form.save-count", { count })}
       </Button>
     ) : null
 
@@ -204,7 +205,7 @@ function MessageRow({
         </span>
         {!entry.inBundle ? (
           <Badge variant="outline" className="shrink-0 text-muted-foreground">
-            not in bundle
+            {t("steward.settings.not-in-bundle")}
           </Badge>
         ) : null}
         {draft !== undefined ? <DraftDot /> : null}
@@ -228,7 +229,7 @@ function MessageRow({
               {save}
               <ResponsiveDialogClose asChild>
                 <Button type="button" variant="outline">
-                  Done
+                  {t("steward.form.done")}
                 </Button>
               </ResponsiveDialogClose>
             </ResponsiveDialogFooter>
@@ -305,7 +306,7 @@ function MessageField({
           </Label>
           {!entry.inBundle ? (
             <Badge variant="outline" className="shrink-0 text-muted-foreground">
-              not in bundle
+              {t("steward.settings.not-in-bundle")}
             </Badge>
           ) : null}
           {draft !== undefined ? <DraftDot /> : null}
@@ -325,14 +326,18 @@ function MessageField({
         />
         <InputGroupAddon align="inline-end" className="self-start py-1">
           {typed !== undefined ? (
-            <InputGroupButton size="icon-xs" aria-label="Undo" onClick={() => onChange(language, undefined)}>
+            <InputGroupButton
+              size="icon-xs"
+              aria-label={t("steward.settings.undo")}
+              onClick={() => onChange(language, undefined)}
+            >
               <ArrowCounterClockwiseIcon aria-hidden />
             </InputGroupButton>
           ) : null}
           {override !== undefined && typed !== null && writable ? (
             <InputGroupButton
               size="icon-xs"
-              aria-label="Reset to the packaged text"
+              aria-label={t("steward.settings.reset-to-packaged")}
               onClick={() => onChange(language, null)}
             >
               <EraserIcon aria-hidden />
@@ -343,14 +348,20 @@ function MessageField({
               {(["en", "de"] as const).map((tab) => (
                 <TabsTrigger key={tab} value={tab} className={cn("gap-1 px-1.5 text-xs", empty(tab) && "opacity-50")}>
                   {tab.toUpperCase()}
-                  {overridden(tab) ? <span aria-label="Overridden" className="size-1 rounded-full bg-primary" /> : null}
+                  {overridden(tab) ? (
+                    <span aria-label={t("steward.settings.overridden")} className="size-1 rounded-full bg-primary" />
+                  ) : null}
                 </TabsTrigger>
               ))}
             </TabsList>
           </Tabs>
         </InputGroupAddon>
       </InputGroup>
-      {unknown.length > 0 ? <p className="text-xs text-destructive">Unknown placeholder {unknown.join(" ")}</p> : null}
+      {unknown.length > 0 ? (
+        <p className="text-xs text-destructive">
+          {t("steward.settings.unknown-placeholder", { names: unknown.join(" ") })}
+        </p>
+      ) : null}
       {entry.args.length > 0 ? (
         <div className="flex flex-wrap gap-1">
           {entry.args.map((arg) => (

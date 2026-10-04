@@ -6,6 +6,7 @@ import { ListControl, ScalarControl } from "@/components/steward/config-controls
 import { type SectionValues, RepeatableCards, sectionsFromEntry } from "@/components/steward/repeatable-cards"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { t } from "@/lib/texts"
 
 /**
  * The marker for a key an environment variable answers, where a saved value waits until the variable is gone.
@@ -17,11 +18,11 @@ export function EnvironmentOverriddenBadge() {
         <span tabIndex={0} className="rounded-full focus-visible:outline-none">
           <Badge variant="outline" className="shrink-0 gap-1 border-warning/30 bg-warning/12 text-warning">
             <WarningIcon className="size-3" aria-hidden />
-            env override
+            {t("steward.settings.env-override")}
           </Badge>
         </span>
       </TooltipTrigger>
-      <TooltipContent className="max-w-xs">An environment variable overrides this until it is removed.</TooltipContent>
+      <TooltipContent className="max-w-xs">{t("steward.settings.env-override-tip")}</TooltipContent>
     </Tooltip>
   )
 }
@@ -73,7 +74,7 @@ function sectionTitleFor(entry: ConfigEntry): ((section: SectionValues, index: n
   if (entry.path !== "languages") return undefined
   return (section, index) => {
     const tag = typeof section.tag === "string" ? section.tag.trim() : ""
-    return tag ? languageName(tag) : `Entry ${index + 1}`
+    return tag ? languageName(tag) : t("steward.settings.entry", { index: index + 1 })
   }
 }
 

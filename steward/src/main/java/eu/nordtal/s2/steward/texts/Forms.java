@@ -43,4 +43,10 @@ public interface Forms {
 
     @Name("Saving")
     MessageRef saving();
+
+    @Name("Save count")
+    MessageRef saveCount(@Arg("count") int count);
+
+    @Name("Done")
+    MessageRef done();
 }

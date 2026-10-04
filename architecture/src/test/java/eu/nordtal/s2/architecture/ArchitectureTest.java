@@ -34,6 +34,14 @@ class ArchitectureTest {
             "java.time.Clock.systemDefaultZone",
             "java.lang.System.currentTimeMillis");
 
+    /** Every member of these makes a thread pool or a timer, or is one. */
+    private static final Set<String> POOLS = Set.of(
+            "java.util.concurrent.Executors",
+            "java.util.concurrent.ThreadPoolExecutor",
+            "java.util.concurrent.ScheduledThreadPoolExecutor",
+            "java.util.concurrent.ForkJoinPool",
+            "java.util.Timer");
+
     /** The annotations a setting Steward lists is described by, from jcore's config spec. */
     private static final String SPEC = "eu.nordtal.jcore.config.spec.annotation.";
 
@@ -211,6 +219,38 @@ class ArchitectureTest {
                                                 .anyMatch(type -> type.getName().equals("java.time.Clock")))))
                 .because("each process creates one clock with NetworkTime.clock() and hands it down")
                 .check(classes);
+    }
+
+    @Test
+    void onlyTheProcessSchedulerOwnsAThreadPoolOrATimer() {
+        noClasses()
+                .that()
+                .doNotHaveFullyQualifiedName("eu.nordtal.s2.common.time.ProcessScheduler")
+                .should()
+                .accessTargetWhere(DescribedPredicate.describe(
+                        "a thread pool or a timer of its own", ArchitectureTest::reachesAPoolOrATimer))
+                .because("a process makes one Scheduler where it starts and hands it to whatever schedules")
+                .check(classes);
+    }
+
+    /** A pool or a timer, a virtual thread per call, or the common pool behind an async call given no executor. */
+    private static boolean reachesAPoolOrATimer(final JavaAccess<?> access) {
+        final String owner = access.getTargetOwner().getName();
+        final String member = access.getTarget().getName();
+        if (POOLS.contains(owner)) {
+            return true;
+        }
+        if (owner.equals("java.lang.Thread")) {
+            return member.equals("ofVirtual") || member.equals("startVirtualThread");
+        }
+        if (owner.equals("java.util.concurrent.CompletableFuture") && member.equals("delayedExecutor")) {
+            return true;
+        }
+        return member.endsWith("Async")
+                && owner.startsWith("java.util.concurrent.")
+                && access.getTarget() instanceof final CodeUnitAccessTarget unit
+                && unit.getRawParameterTypes().stream()
+                        .noneMatch(type -> type.getName().equals("java.util.concurrent.Executor"));
     }
 
     private static void onlyOn(final String module, final String... allowed) {

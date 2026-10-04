@@ -3,6 +3,7 @@ package eu.nordtal.s2.stewardagent.measure;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import eu.nordtal.s2.common.time.TestScheduler;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.stewardagent.docker.Docker;
 import eu.nordtal.s2.stewardagent.docker.DockerSocket;
@@ -57,9 +58,10 @@ class SamplerRoundsTest {
 
     private static Sampler sampler(final FakeDaemon daemon) {
         return new Sampler(
-                new Docker(new DockerSocket(daemon.socket(), Duration.ofSeconds(5))),
+                new Docker(new DockerSocket(daemon.socket(), Duration.ofSeconds(5), TestScheduler.SHARED)),
                 new HostMetrics(),
                 FakeDaemon.PROJECT,
-                Clock.systemUTC());
+                Clock.systemUTC(),
+                TestScheduler.SHARED);
     }
 }

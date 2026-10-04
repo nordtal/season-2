@@ -5,6 +5,7 @@ import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.common.time.NetworkTime;
+import eu.nordtal.s2.common.time.ProcessScheduler;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AccessDirectory;
@@ -53,13 +54,10 @@ import eu.nordtal.s2.settings.network.LanguageAndTimeSpec;
 import eu.nordtal.s2.settings.network.NetworkSettings;
 import eu.nordtal.s2.settings.network.SeasonSpec;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
@@ -70,7 +68,7 @@ import net.dv8tion.jda.api.utils.ChunkingFilter;
 import net.dv8tion.jda.api.utils.MemberCachePolicy;
 
 /**
- * Entry point and owner of the pool, the JDA session, the listeners and the timers.
+ * Entry point and owner of the pool, the scheduler, the JDA session and the listeners.
  *
  * Starts configuration first, then the database and its {@link SchemaCheck}, then Discord, then everything else.
  */
@@ -100,17 +98,11 @@ public class AccessBot implements AutoCloseable {
     private static final int LISTENER_SOCKET_TIMEOUT_SECONDS = 30;
 
     /** Runs everything that blocks, since a gateway thread must acknowledge an interaction within three seconds. */
-    private final ExecutorService worker = Executors.newFixedThreadPool(4, runnable -> {
-        final Thread thread = new Thread(runnable, "access-bot-worker");
-        thread.setDaemon(true);
-        return thread;
-    });
+    private final ProcessScheduler scheduler =
+            new ProcessScheduler("access-bot", failure -> log.error("A task of the bot failed", failure));
 
-    private final ScheduledExecutorService timers = Executors.newSingleThreadScheduledExecutor(runnable -> {
-        final Thread thread = new Thread(runnable, "access-bot-timer");
-        thread.setDaemon(true);
-        return thread;
-    });
+    /** Two ticks of the status channels at once would both announce the same phase change. */
+    private final Executor statusLane = scheduler.serial();
 
     private record CoreServices(
             Languages languages,
@@ -221,8 +213,7 @@ public class AccessBot implements AutoCloseable {
                 core.messages());
 
         // Last on purpose: a marker on disk means the constructor finished.
-        final Readiness readiness = Readiness.onDefaultPath(clock, log::warn);
-        repeat(guarded("readiness marker", readiness::refresh), 0, Readiness.BEAT.toSeconds(), TimeUnit.SECONDS);
+        final var _ = Readiness.onDefaultPath(clock, log::warn).keepBeating(scheduler);
 
         return hub;
     }
@@ -279,7 +270,7 @@ public class AccessBot implements AutoCloseable {
 
         // Held because the payment seam finishes messages waiting for a link.
         final PurchaseFlow purchaseFlow = new PurchaseFlow(
-                core.tiers(), core.purchases(), core.requests(), core.messages(), roles, admin, worker, clock);
+                core.tiers(), core.purchases(), core.requests(), core.messages(), roles, admin, scheduler, clock);
 
         return finishWiring(
                 jda,
@@ -316,8 +307,8 @@ public class AccessBot implements AutoCloseable {
                         core.messages(),
                         admin,
                         new RedemptionLimit(accessConfig.linkCodeAttemptsPerHour(), clock),
-                        worker),
-                new RegisterFlow(jda, teams, access, core.messages(), worker));
+                        scheduler),
+                new RegisterFlow(jda, teams, access, core.messages(), scheduler));
 
         final BotAccessEffects inboxEffects = new BotAccessEffects(access, roles, admin, seasonStart, core.messages());
         final eu.nordtal.s2.discordbot.announce.Announcements announcements =
@@ -345,20 +336,16 @@ public class AccessBot implements AutoCloseable {
         wiring.adminRole().reconcile();
     }
 
-    /** Starts the recurring timers, each guarded because the scheduler silently cancels a task that throws. */
+    /** Starts the recurring tasks. */
     private void schedule(final AccessSpec config, final AccessRoles roles) {
-        final int reconcile = config.roleReconcileIntervalMinutes();
-        repeat(guarded("role reconcile", roles::reconcile), reconcile, reconcile, TimeUnit.MINUTES);
+        final Duration reconcile = Duration.ofMinutes(config.roleReconcileIntervalMinutes());
+        final var _ = scheduler.every(reconcile, reconcile, roles::reconcile);
 
         // An hour late at most, against a three-day lead.
-        repeat(
-                guarded("expiry sweep", () -> {
-                    roles.sweepExpiryNotices();
-                    roles.sweepLinkCodes();
-                }),
-                1,
-                1,
-                TimeUnit.HOURS);
+        final var _ = scheduler.every(Duration.ofHours(1), Duration.ofHours(1), () -> {
+            roles.sweepExpiryNotices();
+            roles.sweepLinkCodes();
+        });
     }
 
     /**
@@ -371,7 +358,7 @@ public class AccessBot implements AutoCloseable {
     }
 
     /**
-     * Opens the bot's one signal hub; every refresh hands its work to {@code worker}.
+     * Opens the bot's one signal hub; every refresh hands its work to the scheduler.
      *
      * Each runs on connect, on every signal and on the hub's reconciliation, which is what replaced the polls.
      */
@@ -391,13 +378,12 @@ public class AccessBot implements AutoCloseable {
                 "access-bot-signals",
                 log);
         // Unconditional: without bunq no link ever arrives. A booked payment reaches the bot through its inbox.
-        hub.on(Channel.PAYMENT, "waiting payment links", handTo(worker, "payment links", purchaseFlow::fillIn));
-        hub.on(Channel.BOT, "the bot inbox", handTo(worker, "the bot inbox", drainInbox));
-        hub.on(Channel.ADMIN, "admin role", handTo(worker, "admin role", adminRole::reconcile));
-        hub.on(Channel.UPDATE, "the update feed", () -> updateFeed.submit(worker));
-        // On the one timer thread, as before: two ticks at once would both announce the same phase change.
+        hub.on(Channel.PAYMENT, "waiting payment links", () -> scheduler.execute(purchaseFlow::fillIn));
+        hub.on(Channel.BOT, "the bot inbox", () -> scheduler.execute(drainInbox));
+        hub.on(Channel.ADMIN, "admin role", () -> scheduler.execute(adminRole::reconcile));
+        hub.on(Channel.UPDATE, "the update feed", () -> updateFeed.submit(scheduler));
         if (status.configured()) {
-            hub.on(Channel.PHASE, "the status channels", handTo(timers, "status channels", status::tick));
+            hub.on(Channel.PHASE, "the status channels", () -> statusLane.execute(status::tick));
         } else {
             log.info("No language has a status-channel; the sidebar status is off");
         }
@@ -406,28 +392,8 @@ public class AccessBot implements AutoCloseable {
         return hub;
     }
 
-    /** Returns a refresh that hands {@code task} to {@code executor}, so the hub's thread never waits on it. */
-    private Runnable handTo(final Executor executor, final String name, final Runnable task) {
-        final Runnable guardedTask = guarded(name, task);
-        return () -> executor.execute(guardedTask);
-    }
-
-    private void repeat(final Runnable task, final long initialDelay, final long delay, final TimeUnit unit) {
-        var _ = timers.scheduleWithFixedDelay(task, initialDelay, delay, unit);
-    }
-
-    private Runnable guarded(final String name, final Runnable task) {
-        return () -> {
-            try {
-                task.run();
-            } catch (final RuntimeException exception) {
-                log.error("The {} task failed; it will run again on schedule", name, exception);
-            }
-        };
-    }
-
     /**
-     * Stops the timers, ends the Discord session and closes the pool.
+     * Stops the scheduler, ends the Discord session and closes the pool.
      *
      * The readiness marker is left to go stale, which is the signal.
      */
@@ -435,8 +401,7 @@ public class AccessBot implements AutoCloseable {
     public void close() {
         log.info("Shutting down");
         signals.close();
-        timers.shutdownNow();
-        worker.shutdownNow();
+        scheduler.close();
         try {
             jda.shutdown();
         } finally {

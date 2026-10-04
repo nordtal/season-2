@@ -1,24 +1,22 @@
 package eu.nordtal.s2.internalapi.sse;
 
+import eu.nordtal.s2.common.time.Scheduler;
 import io.javalin.http.sse.SseClient;
 import java.io.Closeable;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.Phaser;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeoutException;
 import java.util.function.BooleanSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Long server-sent event streams: each on its own virtual thread, kept talking, and all ended before Jetty stops.
+ * Long server-sent event streams: each on a thread of its own, kept talking, and all ended before Jetty stops.
  *
  * A follow still open when Jetty stopped made Javalin throw in a tight loop, so {@link #close()} ends them first.
  */
@@ -36,8 +34,14 @@ public final class Follows implements AutoCloseable {
     /** How often a running follow asks whether it is still wanted, since a follow outlives the check at open. */
     private static final long RECHECK_NANOS = TimeUnit.SECONDS.toNanos(1);
 
-    /** Follows are long and blocking, so each gets a virtual thread. */
-    private final ExecutorService followers = Executors.newVirtualThreadPerTaskExecutor();
+    /** Runs every follow, long and blocking, and every heartbeat, each on a thread of its own. */
+    private final Scheduler scheduler;
+
+    /** A party per follow still running, and one for shutting down, which waits for them to close their emitters. */
+    private final Phaser running = new Phaser(1);
+
+    /** Every heartbeat still beating, so that shutting down can stop them first. */
+    private final Set<Scheduler.Task> heartbeats = ConcurrentHashMap.newKeySet();
 
     /** Every source still open, so that shutting down can end them first. */
     private final Set<Closeable> sources = ConcurrentHashMap.newKeySet();
@@ -49,18 +53,12 @@ public final class Follows implements AutoCloseable {
      */
     private volatile boolean closing;
 
-    private final ScheduledExecutorService heartbeats;
-
     private final String owner;
 
     /** @param owner the process, named in the {@code gone} event a follow gets when it shuts down */
-    public Follows(final String owner) {
+    public Follows(final String owner, final Scheduler scheduler) {
         this.owner = owner;
-        this.heartbeats = Executors.newSingleThreadScheduledExecutor(runnable -> {
-            final Thread thread = new Thread(runnable, owner + "-sse-heartbeat");
-            thread.setDaemon(true);
-            return thread;
-        });
+        this.scheduler = scheduler;
     }
 
     /** What a follow writes into: one event at a time, refused once nobody wants it any more. */
@@ -101,26 +99,31 @@ public final class Follows implements AutoCloseable {
             goneOnShutdown(client, source, name);
             return;
         }
-        final ScheduledFuture<?> heartbeat;
-        final AtomicBoolean beating = new AtomicBoolean();
+        final Scheduler.Task heartbeat;
         try {
-            heartbeat = heartbeats.scheduleWithFixedDelay(
-                    () -> beat(client, name, beating, wanted),
-                    HEARTBEAT.toSeconds(),
-                    HEARTBEAT.toSeconds(),
-                    TimeUnit.SECONDS);
+            heartbeat = scheduler.every(HEARTBEAT, HEARTBEAT, () -> beat(client, name, wanted));
         } catch (final RejectedExecutionException rejected) {
             goneOnShutdown(client, source, name);
             return;
         }
+        heartbeats.add(heartbeat);
         client.onClose(() -> {
-            heartbeat.cancel(false);
+            heartbeat.cancel();
+            heartbeats.remove(heartbeat);
             closeQuietly(source, name);
         });
+        running.register();
         try {
-            final var _ = followers.submit(() -> pump(client, name, source, wanted, pump));
+            scheduler.execute(() -> {
+                try {
+                    pump(client, name, source, wanted, pump);
+                } finally {
+                    running.arriveAndDeregister();
+                }
+            });
         } catch (final RejectedExecutionException rejected) {
-            heartbeat.cancel(false);
+            running.arriveAndDeregister();
+            heartbeat.cancel();
             goneOnShutdown(client, source, name);
         }
     }
@@ -166,34 +169,18 @@ public final class Follows implements AutoCloseable {
         }
     }
 
-    /**
-     * One heartbeat, written somewhere it is allowed to block.
-     *
-     * It catches everything, since a throw would cancel the periodic task, and skips a tick while one is out.
-     */
-    private void beat(final SseClient client, final String name, final AtomicBoolean beating, final Wanted wanted) {
-        if (!beating.compareAndSet(false, true)) {
-            return;
-        }
+    /** One heartbeat, on a thread of its own, so a reader who stopped reading holds nobody else's. */
+    private void beat(final SseClient client, final String name, final Wanted wanted) {
         try {
-            final var _ = followers.submit(() -> {
-                try {
-                    // A quiet source sends nothing to re-check on, so the heartbeat asks too.
-                    if (!stillWanted(wanted, name)) {
-                        client.sendEvent("gone", wanted.goneSentence());
-                        client.close();
-                        return;
-                    }
-                    client.sendComment("following " + name);
-                } catch (final RuntimeException e) {
-                    log.debug("the heartbeat for {} could not be written", name, e);
-                } finally {
-                    beating.set(false);
-                }
-            });
-        } catch (final RejectedExecutionException rejected) {
-            // close() got there first; the follow is being torn down anyway.
-            beating.set(false);
+            // A quiet source sends nothing to re-check on, so the heartbeat asks too.
+            if (!stillWanted(wanted, name)) {
+                client.sendEvent("gone", wanted.goneSentence());
+                client.close();
+                return;
+            }
+            client.sendComment("following " + name);
+        } catch (final RuntimeException e) {
+            log.debug("the heartbeat for {} could not be written", name, e);
         }
     }
 
@@ -226,15 +213,14 @@ public final class Follows implements AutoCloseable {
     public void close() {
         // First, so a request halfway through arranging a follow cleans up instead of meeting a dead executor.
         closing = true;
-        heartbeats.shutdownNow();
+        heartbeats.forEach(Scheduler.Task::cancel);
         for (final Closeable source : sources) {
             closeQuietly(source, "a follow still open at shutdown");
         }
-        followers.shutdownNow();
         try {
-            if (!followers.awaitTermination(2, TimeUnit.SECONDS)) {
-                log.warn("a follow was still running two seconds into shutdown");
-            }
+            running.awaitAdvanceInterruptibly(running.arrive(), 2, TimeUnit.SECONDS);
+        } catch (final TimeoutException e) {
+            log.warn("a follow was still running two seconds into shutdown");
         } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
         }

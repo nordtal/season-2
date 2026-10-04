@@ -36,7 +36,8 @@ class ProcessRulesTest {
         classes()
                 .that(isListed(PAPER, PROXY, BOT))
                 .should(reachInside(reaches(READINESS, "onDefaultPath")))
-                .andShould(reachInside(reaches(READINESS, "refresh")))
+                // A beat of its own, or Readiness's on the process's scheduler.
+                .andShould(reachInside(reaches(READINESS, "refresh").or(reaches(READINESS, "keepBeating"))))
                 .check(classes);
     }
 
@@ -62,10 +63,8 @@ class ProcessRulesTest {
                 .that(isListed(BOT))
                 .should(callInOrder("<init>", "AccessBot#publishAndReconcile", "AccessBot#finishStartup"))
                 .andShould(callFrom("publishAndReconcile", "AccessRoles#reconcile"))
-                .andShould(callInOrder("finishStartup", "AccessBot#listen", "Readiness#onDefaultPath"))
-                .andShould(callFrom("finishStartup", "AccessBot#guarded", "AccessBot#repeat"))
-                .andShould(callFrom("repeat", "ScheduledExecutorService#scheduleWithFixedDelay"))
-                .because("the beat runs on the timer every other duty runs on, so a stuck timer goes stale")
+                .andShould(callInOrder("finishStartup", "AccessBot#listen", "Readiness#keepBeating"))
+                .because("the beat runs on the one scheduler every other duty of the bot runs on")
                 .check(classes);
     }
 

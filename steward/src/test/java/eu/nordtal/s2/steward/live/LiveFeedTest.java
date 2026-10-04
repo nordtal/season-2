@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import eu.nordtal.s2.common.time.ManualScheduler;
 import eu.nordtal.s2.common.time.Waiting;
 import java.time.Clock;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -18,7 +19,7 @@ class LiveFeedTest {
     private final AtomicReference<Object> services = new AtomicReference<>("smp running");
     private final AtomicInteger reads = new AtomicInteger();
     private final AtomicBoolean failing = new AtomicBoolean();
-    private final LiveFeed feed = new LiveFeed(Waiting.on(Clock.systemUTC()));
+    private final LiveFeed feed = new LiveFeed(Waiting.on(Clock.systemUTC()), new ManualScheduler());
 
     LiveFeedTest() {
         feed.watch(Topic.RUNS, () -> {

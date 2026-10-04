@@ -1,7 +1,7 @@
 plugins {
     id("nordtal.java-base")
     id("java-library")
-    // RepositoryRoot, for every module whose tests read a file outside their own source set.
+    // RepositoryRoot for tests that read a file outside their source set, ManualScheduler for timed work.
     id("java-test-fixtures")
 }
 
@@ -19,6 +19,7 @@ dependencies {
     // Every platform ships Gson, so it is never shaded; a JVM application brings its own.
     compileOnly(libs.gson)
     testImplementation(libs.gson)
+    testFixturesCompileOnly(libs.jspecify)
 
     testRuntimeOnly(libs.logback.classic)
 }

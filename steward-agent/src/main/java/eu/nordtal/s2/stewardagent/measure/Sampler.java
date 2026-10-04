@@ -1,5 +1,6 @@
 package eu.nordtal.s2.stewardagent.measure;
 
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.stewardagent.docker.Docker;
 import eu.nordtal.s2.stewardagent.docker.DockerException;
@@ -15,12 +16,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalDouble;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,23 +49,27 @@ public final class Sampler implements AutoCloseable {
 
     private final Deque<AgentWire.Round> rounds = new ArrayDeque<>();
 
-    private final ScheduledExecutorService ticks = Executors.newSingleThreadScheduledExecutor(runnable -> {
-        final Thread thread = new Thread(runnable, "metric-sampler");
-        thread.setDaemon(true);
-        return thread;
-    });
-    private final ExecutorService perContainer = Executors.newVirtualThreadPerTaskExecutor();
+    /** Takes the rounds, and asks every container of one round at once. */
+    private final Scheduler scheduler;
 
-    public Sampler(final Docker docker, final HostMetrics host, final String project, final Clock clock) {
+    private Scheduler.@Nullable Task ticking;
+
+    public Sampler(
+            final Docker docker,
+            final HostMetrics host,
+            final String project,
+            final Clock clock,
+            final Scheduler scheduler) {
         this.docker = docker;
         this.host = host;
         this.project = project;
         this.wall = Objects.requireNonNull(clock, "clock");
+        this.scheduler = scheduler;
     }
 
     /** Takes a round now, which has no CPU yet, and one every period after it. */
-    public void start() {
-        final var _ = ticks.scheduleAtFixedRate(this::tickQuietly, 0, PERIOD.toSeconds(), TimeUnit.SECONDS);
+    public synchronized void start() {
+        ticking = scheduler.every(Duration.ZERO, PERIOD, this::tickQuietly);
         log.info("sampling the host and the containers every {}s", PERIOD.toSeconds());
     }
 
@@ -139,27 +142,31 @@ public final class Sampler implements AutoCloseable {
             log.warn("could not list containers for sampling", e);
             return List.of();
         }
-        final List<Callable<Reading>> reads = containers.stream()
-                .map(container -> (Callable<Reading>) () -> {
-                    final Docker.Stats stats = docker.stats(container.id());
-                    final String service =
-                            Objects.requireNonNull(container.service(), "containers is filtered to service() != null");
-                    return new Reading(service, stats.memoryBytes(), stats.memoryLimitBytes(), stats.cpuPercent());
-                })
+        final List<CompletableFuture<Reading>> reads = containers.stream()
+                .map(container -> CompletableFuture.supplyAsync(
+                        () -> {
+                            final Docker.Stats stats = docker.stats(container.id());
+                            final String service = Objects.requireNonNull(
+                                    container.service(), "containers is filtered to service() != null");
+                            return new Reading(
+                                    service, stats.memoryBytes(), stats.memoryLimitBytes(), stats.cpuPercent());
+                        },
+                        scheduler))
                 .toList();
-        final List<Reading> readings = new ArrayList<>();
         try {
-            for (final Future<Reading> future :
-                    perContainer.invokeAll(reads, ROUND_TIMEOUT.toSeconds(), TimeUnit.SECONDS)) {
-                try {
-                    readings.add(future.get());
-                } catch (final Exception e) {
-                    // One container that would not answer is one gap in one chart, not a lost round.
-                    log.debug("a container did not answer with stats", e);
-                }
-            }
+            CompletableFuture.allOf(reads.toArray(CompletableFuture[]::new))
+                    .get(ROUND_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
         } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
+        } catch (final ExecutionException | TimeoutException e) {
+            // One container that would not answer is one gap in one chart, not a lost round.
+            log.debug("a container did not answer with stats", e);
+        }
+        final List<Reading> readings = new ArrayList<>();
+        for (final CompletableFuture<Reading> read : reads) {
+            if (read.isDone() && !read.isCompletedExceptionally()) {
+                readings.add(read.join());
+            }
         }
         return readings;
     }
@@ -188,8 +195,9 @@ public final class Sampler implements AutoCloseable {
     }
 
     @Override
-    public void close() {
-        ticks.shutdownNow();
-        perContainer.shutdownNow();
+    public synchronized void close() {
+        if (ticking != null) {
+            ticking.cancel();
+        }
     }
 }

@@ -3,9 +3,8 @@ package eu.nordtal.s2.steward.bunq;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.time.ManualScheduler;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
@@ -23,40 +22,35 @@ class PaymentLoopTest {
         final CountDownLatch inside = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
 
-        final ScheduledExecutorService timer = Executors.newSingleThreadScheduledExecutor();
-        try {
-            final PaymentLoop loop = new PaymentLoop(
-                    () -> {
-                        passes.incrementAndGet();
-                        inside.countDown();
-                        try {
-                            release.await(5, TimeUnit.SECONDS);
-                        } catch (final InterruptedException interrupted) {
-                            Thread.currentThread().interrupt();
-                        }
-                    },
-                    timer);
+        final PaymentLoop loop = new PaymentLoop(
+                () -> {
+                    passes.incrementAndGet();
+                    inside.countDown();
+                    try {
+                        release.await(5, TimeUnit.SECONDS);
+                    } catch (final InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                    }
+                },
+                new ManualScheduler());
 
-            final Thread first = new Thread(loop::pass, "first-pass");
-            first.start();
-            assertTrue(inside.await(5, TimeUnit.SECONDS), "the first pass never started");
+        final Thread first = new Thread(loop::pass, "first-pass");
+        first.start();
+        assertTrue(inside.await(5, TimeUnit.SECONDS), "the first pass never started");
 
-            // The notification arriving while the bank is still answering the poll.
-            loop.pass();
-            assertEquals(
-                    1,
-                    passes.get(),
-                    "the second caller started a pass of its own; bunq is being asked the same"
-                            + " questions twice for every notification that lands mid-pass");
+        // The notification arriving while the bank is still answering the poll.
+        loop.pass();
+        assertEquals(
+                1,
+                passes.get(),
+                "the second caller started a pass of its own; bunq is being asked the same"
+                        + " questions twice for every notification that lands mid-pass");
 
-            release.countDown();
-            first.join(5_000);
+        release.countDown();
+        first.join(5_000);
 
-            // Once the first pass is done the next wake-up runs, so the lock was released.
-            loop.pass();
-            assertEquals(2, passes.get(), "the lock was not released");
-        } finally {
-            timer.shutdownNow();
-        }
+        // Once the first pass is done the next wake-up runs, so the lock was released.
+        loop.pass();
+        assertEquals(2, passes.get(), "the lock was not released");
     }
 }

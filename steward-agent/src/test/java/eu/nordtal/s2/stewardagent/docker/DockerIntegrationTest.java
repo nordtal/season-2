@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.time.TestScheduler;
 import eu.nordtal.s2.internalapi.agent.ImageResult;
 import eu.nordtal.s2.internalapi.agent.RuntimeResult;
 import eu.nordtal.s2.internalapi.agent.ServiceRuntime;
@@ -36,7 +37,7 @@ class DockerIntegrationTest {
 
     @BeforeAll
     static void connect() {
-        final DockerSocket socket = new DockerSocket();
+        final DockerSocket socket = new DockerSocket(TestScheduler.SHARED);
         assumeTrue(socket.isReachable(), "no docker socket - skipping");
         docker = new Docker(socket);
         ops = new Containers(docker, PROJECT);

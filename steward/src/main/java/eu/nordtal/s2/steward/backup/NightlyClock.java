@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward.backup;
 
 import eu.nordtal.s2.common.id.Actor;
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.database.DatabaseText;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateKind;
@@ -16,11 +17,9 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +57,9 @@ public final class NightlyClock implements AutoCloseable {
     private final Set<DayOfWeek> days;
     private final ZoneId zone;
     private final Clock wall;
-    private final ScheduledExecutorService clock;
+    private @Nullable Scheduler scheduler;
+    private Scheduler.@Nullable Task armed;
+    private boolean closed;
 
     private NightlyClock(
             final UpdateDirectory directory,
@@ -68,11 +69,6 @@ public final class NightlyClock implements AutoCloseable {
             final Clock wall) {
         this.directory = directory;
         this.job = job;
-        this.clock = Executors.newSingleThreadScheduledExecutor(runnable -> {
-            final Thread thread = new Thread(runnable, "clock-" + job.key);
-            thread.setDaemon(true);
-            return thread;
-        });
         this.at = at;
         this.days = days;
         this.wall = wall;
@@ -237,7 +233,9 @@ public final class NightlyClock implements AutoCloseable {
         return next;
     }
 
-    public void start() {
+    /** Arms the clock on the process's scheduler, which it asks again after every firing until closed. */
+    public synchronized void start(final Scheduler on) {
+        this.scheduler = on;
         final Duration until = untilNext(ZonedDateTime.now(wall));
         log.info(
                 "{} is asked for at {} {} on {} - next in {}h{}m",
@@ -254,19 +252,19 @@ public final class NightlyClock implements AutoCloseable {
         arm(until, null);
     }
 
-    private void arm(final Duration until, final @Nullable ZonedDateTime due) {
+    private synchronized void arm(final Duration until, final @Nullable ZonedDateTime due) {
+        if (closed) {
+            return;
+        }
         // Rounded up: toSeconds() floors, and a wait floored to zero fires early and re-arms into a loop.
         final long seconds = Math.max(1, Math.ceilDiv(until.toNanos(), 1_000_000_000L));
-        final var _ = clock.schedule(
-                () -> {
-                    final ZonedDateTime now = ZonedDateTime.now(wall);
-                    final ZonedDateTime tonight = due == null ? now : due;
-                    // Re-arms whether the request succeeded or not.
-                    final Duration next = fire(tonight, now);
-                    arm(next, next.equals(RETRY) ? tonight : null);
-                },
-                seconds,
-                TimeUnit.SECONDS);
+        armed = Objects.requireNonNull(scheduler, "armed only after start").after(Duration.ofSeconds(seconds), () -> {
+            final ZonedDateTime now = ZonedDateTime.now(wall);
+            final ZonedDateTime tonight = due == null ? now : due;
+            // Re-arms whether the request succeeded or not.
+            final Duration next = fire(tonight, now);
+            arm(next, next.equals(RETRY) ? tonight : null);
+        });
     }
 
     /** How long to wait before asking again while another run is open. */
@@ -315,7 +313,10 @@ public final class NightlyClock implements AutoCloseable {
     }
 
     @Override
-    public void close() {
-        clock.shutdownNow();
+    public synchronized void close() {
+        closed = true;
+        if (armed != null) {
+            armed.cancel();
+        }
     }
 }

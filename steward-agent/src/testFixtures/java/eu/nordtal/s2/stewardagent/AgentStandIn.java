@@ -2,6 +2,7 @@ package eu.nordtal.s2.stewardagent;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import eu.nordtal.s2.common.time.TestScheduler;
 import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.InternalServer;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
@@ -71,12 +72,13 @@ public final class AgentStandIn implements AutoCloseable {
         final JsonObject services =
                 JsonParser.parseString(SERVICES.formatted(sources)).getAsJsonObject();
         this.api = new AgentApi(
-                new Docker(new DockerSocket(daemon.socket(), Duration.ofSeconds(5))),
+                new Docker(new DockerSocket(daemon.socket(), Duration.ofSeconds(5), TestScheduler.SHARED)),
                 FakeDaemon.PROJECT,
                 () -> services,
                 Containers.Definitions.NONE,
                 new AgentApi.Paths(volumes, configs, sources, backups),
-                Clock.systemUTC());
+                Clock.systemUTC(),
+                TestScheduler.SHARED);
         api.start();
         final String prefix = "NORDTAL_STEWARD_AGENT_";
         this.server = new InternalServer(

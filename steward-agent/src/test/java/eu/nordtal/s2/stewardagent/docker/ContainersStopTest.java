@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.time.TestScheduler;
 import eu.nordtal.s2.internalapi.agent.RedeployResult;
 import java.io.IOException;
 import java.net.StandardProtocolFamily;
@@ -164,7 +165,8 @@ class ContainersStopTest {
                             }
                             return stops.isEmpty() ? inspection("{\"Status\":\"running\"}", 30) : null;
                         }),
-                        Duration.ofSeconds(5))),
+                        Duration.ofSeconds(5),
+                        TestScheduler.SHARED)),
                 "nordtal-s2");
     }
 
@@ -191,7 +193,8 @@ class ContainersStopTest {
                             }
                             return inspection(state, stopTimeout);
                         }),
-                        Duration.ofSeconds(5))),
+                        Duration.ofSeconds(5),
+                        TestScheduler.SHARED)),
                 "nordtal-s2");
     }
 

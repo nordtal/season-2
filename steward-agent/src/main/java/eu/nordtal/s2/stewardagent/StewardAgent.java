@@ -4,6 +4,8 @@ import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.Deployment;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.time.NetworkTime;
+import eu.nordtal.s2.common.time.ProcessScheduler;
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.game.GameDataStore;
 import eu.nordtal.s2.database.inbox.Inbox;
@@ -65,12 +67,16 @@ public final class StewardAgent {
                 Path.of(server.setting("PROJECT_DIRECTORY", "/app")),
                 project == null || project.isBlank() ? Deployment.PROJECT : project);
 
+        // Lives as long as the process, which every mode ends with System.exit.
+        final ProcessScheduler scheduler =
+                new ProcessScheduler(Compose.SELF, failure -> log.error("A task of steward-agent failed", failure));
         final Docker docker = new Docker(new DockerSocket(
                 Path.of(server.setting("DOCKER_SOCKET", DockerSocket.DEFAULT_SOCKET.toString())),
-                Duration.ofSeconds(30)));
+                Duration.ofSeconds(30),
+                scheduler));
         switch (mode) {
             case "up" -> System.exit(deploy(compose, List.of(), System.out::println, true, docker::hasImage));
-            case "serve" -> System.exit(serve(server, compose, docker));
+            case "serve" -> System.exit(serve(server, compose, docker, scheduler));
             case Compose.MIGRATE -> System.exit(migrate());
             case "run" ->
                 System.exit(args.length == 2 ? runHanded(server, compose, docker, Long.parseLong(args[1])) : 2);
@@ -261,7 +267,8 @@ public final class StewardAgent {
      *
      * @return the exit status: 1 when the database or its settings are not there
      */
-    private static int serve(final InternalServer server, final Compose compose, final Docker docker)
+    private static int serve(
+            final InternalServer server, final Compose compose, final Docker docker, final Scheduler scheduler)
             throws java.io.IOException {
         // A stale env file shows in the boot log, not on the first deploy.
         compose.assertEnvFileFresh();
@@ -287,7 +294,8 @@ public final class StewardAgent {
                 log.error("Refusing to carry out runs on settings that cannot be read: {}", broken.getMessage());
                 return 1;
             }
-            return serveWithDatabase(server, compose, docker, clock, database, databaseConfig, settings, runs);
+            return serveWithDatabase(
+                    server, compose, docker, scheduler, clock, database, databaseConfig, settings, runs);
         }
     }
 
@@ -351,6 +359,7 @@ public final class StewardAgent {
             final InternalServer server,
             final Compose compose,
             final Docker docker,
+            final Scheduler scheduler,
             final Clock clock,
             final Database database,
             final DatabaseSpec databaseConfig,
@@ -359,7 +368,8 @@ public final class StewardAgent {
         final String project = compose.projectName();
         final AgentApi.Paths paths = pathsOf(server, runs.get());
         final PluginDirectory plugins = PluginDirectory.using(database.dataSource());
-        final AgentApi api = new AgentApi(docker, project, compose::definitions, compose::hashes, paths, clock);
+        final AgentApi api =
+                new AgentApi(docker, project, compose::definitions, compose::hashes, paths, clock, scheduler);
         final RunRoutes runRoutes = new RunRoutes(runs::get, plugins, database, clock, api.topology()::read);
         if (!docker.isReachable()) {
             log.warn("No docker socket answers, so every container route answers that the daemon is not answering.");
@@ -375,7 +385,7 @@ public final class StewardAgent {
             if (runs.get().bootstrap()) {
                 Bootstrap.installMissing(runs.get(), database, api.topology()::read);
             }
-            if (!Readiness.onDefaultPath(clock, log::warn).keepBeating()) {
+            if (!Readiness.onDefaultPath(clock, log::warn).keepBeating(scheduler)) {
                 log.error("Could not write the readiness marker, so the rest of the stack will not start.");
             }
             final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());

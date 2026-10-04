@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.web;
 
+import eu.nordtal.s2.common.time.TestScheduler;
 import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.settings.network.NetworkSettings;
@@ -53,7 +54,8 @@ final class RouteTable {
                 FakeDirectories.updates(),
                 FakeDirectories.audit(),
                 new StackApi.Nightly("04:45", List.of(), "05:15", List.of(), ZoneId.of("Europe/Berlin")),
-                Clock.systemUTC());
+                Clock.systemUTC(),
+                TestScheduler.SHARED);
         return new Web(
                         config,
                         () -> new Thresholds(85, 90, 36),
@@ -63,7 +65,8 @@ final class RouteTable {
                         false,
                         null,
                         NetworkSettings.defaultLanguages(),
-                        Clock.systemUTC())
+                        Clock.systemUTC(),
+                        TestScheduler.SHARED)
                 // Port 0: the OS picks a free one, so this does not collide with another instance running.
                 .start(0);
     }

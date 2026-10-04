@@ -2,6 +2,7 @@ package eu.nordtal.s2.steward.backup;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
+import eu.nordtal.s2.common.time.ManualScheduler;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.steward.config.BackupSpec;
 import eu.nordtal.s2.steward.config.StewardSpec;
@@ -26,7 +27,8 @@ class SchedulesTest {
 
     @Test
     void armingAgainPicksUpAScheduleThatChangedSinceTheLastArm() {
-        try (Schedules schedules = new Schedules(noDirectory(), config(), Clock.system(ZoneId.of("Europe/Berlin")))) {
+        try (Schedules schedules = new Schedules(
+                noDirectory(), config(), Clock.system(ZoneId.of("Europe/Berlin")), new ManualScheduler())) {
             schedules.arm();
             assertArrayEquals(
                     new boolean[] {true, false}, schedules.running(), "by default only the backup runs on a clock");

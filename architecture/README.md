@@ -4,16 +4,16 @@ ArchUnit rules over the compiled classes of every checked module, run as JUnit t
 `:architecture:check`. They hold the shape of the codebase and the wiring a unit test cannot reach
 without a running server. The module has no production code.
 
-| class                 | what it holds                                                                                                                     |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `ArchitectureTest`    | The closed dependency lists of the shared modules, no package cycles, the wall clock, migrations, listed settings, the allowlist. |
-| `ProcessRulesTest`    | How a process says it is alive, and what it may write about a player.                                                             |
-| `PlayerTextRulesTest` | What a player reads goes through the message system; the few exceptions say why.                                                  |
-| `FeedbackRulesTest`   | A call site picks a feedback category; one adapter per module names a sound or an effect.                                         |
-| `ServerRulesTest`     | Wiring inside the limbo, the Hunger Games and the bot.                                                                            |
-| `StewardRulesTest`    | The order of an update run's steps, and which thread writes a heartbeat.                                                          |
-| `ProxyRulesTest`      | The proxy's routing, its countdown, the move at zero and the return from the standby.                                             |
-| `SmpRulesTest`        | The SMP's track reload, duels, graves, the tavern figure, the portal gate, the welcome, the payout at shutdown and the landings.  |
+| class                 | what it holds                                                                                                                                        |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ArchitectureTest`    | The closed dependency lists of the shared modules, no package cycles, the wall clock, the one scheduler, migrations, listed settings, the allowlist. |
+| `ProcessRulesTest`    | How a process says it is alive, and what it may write about a player.                                                                                |
+| `PlayerTextRulesTest` | What a player reads goes through the message system; the few exceptions say why.                                                                     |
+| `FeedbackRulesTest`   | A call site picks a feedback category; one adapter per module names a sound or an effect.                                                            |
+| `ServerRulesTest`     | Wiring inside the limbo, the Hunger Games and the bot.                                                                                               |
+| `StewardRulesTest`    | The order of an update run's steps, and how a follow's heartbeat runs.                                                                               |
+| `ProxyRulesTest`      | The proxy's routing, its countdown, the move at zero and the return from the standby.                                                                |
+| `SmpRulesTest`        | The SMP's track reload, duels, graves, the tavern figure, the portal gate, the welcome, the payout at shutdown and the landings.                     |
 
 ## Helpers
 

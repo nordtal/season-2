@@ -3,6 +3,7 @@ package eu.nordtal.s2.steward.backup;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.time.ManualScheduler;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import java.time.Clock;
 import java.time.Duration;
@@ -212,7 +213,52 @@ class NightlyClockTest {
     @Test
     void theUpdateClockAsksForAnUpdateAsTheClockRatherThanAsAPerson() {
         final List<Object[]> submitted = new java.util.ArrayList<>();
-        final UpdateDirectory recording = (UpdateDirectory) java.lang.reflect.Proxy.newProxyInstance(
+        final UpdateDirectory recording = recording(submitted);
+        final NightlyClock clock = NightlyClock.from(
+                        recording, NightlyClock.Job.UPDATE, "03:30", List.of("SUN"), Clock.system(BERLIN))
+                .orElseThrow();
+        final ZonedDateTime sunday = ZonedDateTime.of(2026, 9, 27, 3, 30, 0, 0, BERLIN);
+
+        final Duration next = clock.fire(sunday, sunday);
+
+        assertEquals(1, submitted.size());
+        assertEquals(eu.nordtal.s2.database.update.UpdateKind.UPDATE, submitted.get(0)[0]);
+        assertEquals(eu.nordtal.s2.common.id.Actor.STEWARD, submitted.get(0)[1], "the clock, not a person");
+        assertEquals(Duration.ofDays(7), next, "Sunday only: the next one is a week away");
+    }
+
+    @Test
+    void anEmptyUpdateAtIsNoUpdateClockAtAllWhichIsTheDefault() {
+        assertTrue(
+                NightlyClock.from(noDirectory(), NightlyClock.Job.UPDATE, "", List.of("MONDAY"), Clock.system(BERLIN))
+                        .isEmpty());
+    }
+
+    @Test
+    void aStartedClockAsksForTheBackupWhenItsTimeComesAndArmsForTheNextNight() {
+        final List<Object[]> submitted = new java.util.ArrayList<>();
+        final ManualScheduler scheduler = new ManualScheduler();
+        final NightlyClock clock = NightlyClock.from(recording(submitted), "04:45", Clock.system(BERLIN))
+                .orElseThrow();
+
+        clock.start(scheduler);
+        final Duration first = scheduler.pending().getFirst().delay();
+        assertTrue(
+                first.isPositive() && first.compareTo(Duration.ofDays(1).plusSeconds(1)) <= 0,
+                "the first backup is at most a night away: " + first);
+
+        scheduler.runPending();
+        assertEquals(1, submitted.size(), "the backup is asked for once its time comes");
+        assertEquals(eu.nordtal.s2.database.update.UpdateKind.BACKUP, submitted.get(0)[0]);
+        assertEquals(1, scheduler.pending().size(), "and the clock is armed again for the next night");
+
+        clock.close();
+        assertTrue(scheduler.pending().isEmpty(), "a closed clock asks for nothing more");
+    }
+
+    /** A directory that keeps the arguments of every submit and answers it with request 12. */
+    private static UpdateDirectory recording(final List<Object[]> submitted) {
+        return (UpdateDirectory) java.lang.reflect.Proxy.newProxyInstance(
                 UpdateDirectory.class.getClassLoader(),
                 new Class<?>[] {UpdateDirectory.class},
                 (proxy, method, args) -> {
@@ -233,23 +279,5 @@ class NightlyClockTest {
                     }
                     throw new AssertionError("the clock asked the database: " + method.getName());
                 });
-        final NightlyClock clock = NightlyClock.from(
-                        recording, NightlyClock.Job.UPDATE, "03:30", List.of("SUN"), Clock.system(BERLIN))
-                .orElseThrow();
-        final ZonedDateTime sunday = ZonedDateTime.of(2026, 9, 27, 3, 30, 0, 0, BERLIN);
-
-        final Duration next = clock.fire(sunday, sunday);
-
-        assertEquals(1, submitted.size());
-        assertEquals(eu.nordtal.s2.database.update.UpdateKind.UPDATE, submitted.get(0)[0]);
-        assertEquals(eu.nordtal.s2.common.id.Actor.STEWARD, submitted.get(0)[1], "the clock, not a person");
-        assertEquals(Duration.ofDays(7), next, "Sunday only: the next one is a week away");
-    }
-
-    @Test
-    void anEmptyUpdateAtIsNoUpdateClockAtAllWhichIsTheDefault() {
-        assertTrue(
-                NightlyClock.from(noDirectory(), NightlyClock.Job.UPDATE, "", List.of("MONDAY"), Clock.system(BERLIN))
-                        .isEmpty());
     }
 }

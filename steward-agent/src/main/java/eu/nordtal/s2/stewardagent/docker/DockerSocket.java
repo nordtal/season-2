@@ -1,5 +1,6 @@
 package eu.nordtal.s2.stewardagent.docker;
 
+import eu.nordtal.s2.common.time.Scheduler;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -15,10 +16,6 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,20 +37,17 @@ public final class DockerSocket {
 
     private final Path socket;
     private final Duration timeout;
-    private final ScheduledExecutorService watchdog;
+    private final Scheduler watchdog;
 
-    public DockerSocket() {
-        this(DEFAULT_SOCKET, Duration.ofSeconds(30));
+    /** @param watchdog the process's scheduler, which closes a request's channel when it runs out of time */
+    public DockerSocket(final Scheduler watchdog) {
+        this(DEFAULT_SOCKET, Duration.ofSeconds(30), watchdog);
     }
 
-    public DockerSocket(final Path socket, final Duration timeout) {
+    public DockerSocket(final Path socket, final Duration timeout, final Scheduler watchdog) {
         this.socket = socket;
         this.timeout = timeout;
-        this.watchdog = Executors.newSingleThreadScheduledExecutor(runnable -> {
-            final Thread thread = new Thread(runnable, "docker-timeout");
-            thread.setDaemon(true);
-            return thread;
-        });
+        this.watchdog = watchdog;
     }
 
     /** Whether the socket is there at all, asked once at startup. */
@@ -117,15 +111,14 @@ public final class DockerSocket {
             final @Nullable String jsonBody,
             final @Nullable Duration deadline) {
         SocketChannel channel = null;
-        ScheduledFuture<?> alarm = null;
+        Scheduler.Task alarm = null;
         try {
             // The watchdog is set before the connect, which itself blocks on a wedged daemon.
             channel = SocketChannel.open(StandardProtocolFamily.UNIX);
             // A call with a deadline is watched to its end; a log follow only until the headers are in.
             final Duration untilItAnswers = deadline == null ? timeout : deadline;
             final SocketChannel toClose = channel;
-            alarm = watchdog.schedule(
-                    () -> closeQuietly(toClose, method + " " + path), untilItAnswers.toMillis(), TimeUnit.MILLISECONDS);
+            alarm = watchdog.after(untilItAnswers, () -> closeQuietly(toClose, method + " " + path));
             channel.connect(UnixDomainSocketAddress.of(socket));
             write(channel, method, path, jsonBody);
 
@@ -135,20 +128,20 @@ public final class DockerSocket {
             final InputStream body = bodyOf(raw, headers);
             if (deadline == null) {
                 // The daemon answered, so the follow may now be silent.
-                alarm.cancel(false);
+                alarm.cancel();
                 alarm = null;
             }
             return new Stream(statusLine.status(), headers, body, channel, alarm);
         } catch (IOException e) {
             closeQuietly(channel, method + " " + path);
             if (alarm != null) {
-                alarm.cancel(false);
+                alarm.cancel();
             }
             throw new DockerException("talking to the docker socket at " + socket + " for " + method + " " + path, e);
         } catch (RuntimeException e) {
             closeQuietly(channel, method + " " + path);
             if (alarm != null) {
-                alarm.cancel(false);
+                alarm.cancel();
             }
             throw e;
         }
@@ -264,14 +257,14 @@ public final class DockerSocket {
         private final Map<String, String> headers;
         private final InputStream body;
         private final SocketChannel channel;
-        private final @Nullable ScheduledFuture<?> alarm;
+        private final Scheduler.@Nullable Task alarm;
 
         Stream(
                 final int status,
                 final Map<String, String> headers,
                 final InputStream body,
                 final SocketChannel channel,
-                final @Nullable ScheduledFuture<?> alarm) {
+                final Scheduler.@Nullable Task alarm) {
             this.status = status;
             this.headers = headers;
             this.body = body;
@@ -295,7 +288,7 @@ public final class DockerSocket {
         @Override
         public void close() throws IOException {
             if (alarm != null) {
-                alarm.cancel(false);
+                alarm.cancel();
             }
             channel.close();
         }

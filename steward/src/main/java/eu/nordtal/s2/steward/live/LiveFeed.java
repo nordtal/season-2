@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward.live;
 
 import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.notify.Doorbell;
 import eu.nordtal.s2.internalapi.sse.Follows;
@@ -48,13 +49,14 @@ public final class LiveFeed implements AutoCloseable {
 
     private final Set<Subscription> subscribers = ConcurrentHashMap.newKeySet();
     private final Doorbell bell = new Doorbell();
-    private final Follows follows = new Follows("Steward");
+    private final Follows follows;
     private final Waiting waiting;
     private volatile boolean running = true;
     private @Nullable Thread loop;
 
-    public LiveFeed(final Waiting waiting) {
+    public LiveFeed(final Waiting waiting, final Scheduler scheduler) {
         this.waiting = waiting;
+        this.follows = new Follows("Steward", scheduler);
     }
 
     /** Registers what one topic reads; before {@link #start()}, and once per topic. */

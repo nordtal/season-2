@@ -3,6 +3,7 @@ package eu.nordtal.s2.stewardagent.docker;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+import eu.nordtal.s2.common.time.TestScheduler;
 import eu.nordtal.s2.internalapi.agent.ImageResult;
 import java.io.IOException;
 import java.net.StandardProtocolFamily;
@@ -174,7 +175,8 @@ class ContainersImagesTest {
                 listening(request -> request.contains("/containers/json")
                         ? "[" + oneOff + "," + container("steward-agent", "current") + "]"
                         : null),
-                Duration.ofSeconds(5)));
+                Duration.ofSeconds(5),
+                TestScheduler.SHARED));
 
         assertEquals(
                 List.of("steward-agent-id"),
@@ -203,7 +205,8 @@ class ContainersImagesTest {
                             final String body = answer.to(request);
                             return body;
                         }),
-                        Duration.ofSeconds(5))),
+                        Duration.ofSeconds(5),
+                        TestScheduler.SHARED)),
                 "nordtal-s2",
                 definitions);
     }

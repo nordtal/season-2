@@ -1,5 +1,6 @@
 package eu.nordtal.s2.stewardagent;
 
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.stewardagent.backup.BackupRoutes;
 import eu.nordtal.s2.stewardagent.bundles.BundleRoutes;
@@ -46,10 +47,11 @@ public final class AgentApi implements AutoCloseable {
             final ComposeTopology.Definitions definitions,
             final Containers.Definitions hashes,
             final Paths paths,
-            final Clock clock) {
+            final Clock clock,
+            final Scheduler scheduler) {
         this.topology = new ComposeTopology(definitions, paths.backupSources().toString(), clock);
-        this.sampler = new Sampler(docker, new HostMetrics(), project, clock);
-        this.logs = new LogStreams(docker, project, paths.volumesRoot(), clock);
+        this.sampler = new Sampler(docker, new HostMetrics(), project, clock, scheduler);
+        this.logs = new LogStreams(docker, project, paths.volumesRoot(), clock, scheduler);
         this.routes = new AgentRoutes(
                 docker,
                 new Containers(docker, project, hashes),

@@ -2,6 +2,7 @@ package eu.nordtal.s2.internalapi;
 
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.common.time.Scheduler;
 import io.javalin.Javalin;
 import io.javalin.config.JavalinConfig;
 import io.javalin.http.BadRequestResponse;
@@ -74,10 +75,12 @@ public final class InternalServer {
      * Starts as {@link #start} does, then keeps the readiness marker fresh that the container's healthcheck reads.
      *
      * @param clock the process's one clock, which stamps the marker
+     * @param scheduler the process's one scheduler, which beats it
      */
-    public Javalin serve(final int defaultPort, final Clock clock, final Consumer<JavalinConfig> routes) {
+    public Javalin serve(
+            final int defaultPort, final Clock clock, final Scheduler scheduler, final Consumer<JavalinConfig> routes) {
         final Javalin server = start(defaultPort, routes);
-        Readiness.onDefaultPath(clock, log::warn).keepBeating();
+        final var _ = Readiness.onDefaultPath(clock, log::warn).keepBeating(scheduler);
         return server;
     }
 

@@ -284,6 +284,7 @@ dependencies {
 
     // The shutdown tests count logged warnings.
     testImplementation(libs.logback.classic)
+    testImplementation(testFixtures(project(":common")))
     testImplementation(testFixtures(project(":database")))
     testImplementation(testFixtures(project(":settings")))
     // The agent's real routes over a stand-in daemon, which the web tests talk to through the typed client.

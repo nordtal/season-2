@@ -2,6 +2,7 @@ package eu.nordtal.s2.internalapi.sse;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.time.ProcessScheduler;
 import io.javalin.Javalin;
 import java.io.BufferedReader;
 import java.io.Closeable;
@@ -23,7 +24,8 @@ import org.junit.jupiter.api.Test;
 /** The one way a long event stream is served: it ends when its reader is no longer wanted, and before Jetty stops. */
 class FollowsTest {
 
-    private final Follows follows = new Follows("test-process");
+    private final ProcessScheduler scheduler = new ProcessScheduler("test", failure -> {});
+    private final Follows follows = new Follows("test-process", scheduler);
     private final AtomicBoolean wanted = new AtomicBoolean(true);
     private final AtomicBoolean sourceClosed = new AtomicBoolean();
     private Javalin server;
@@ -34,6 +36,7 @@ class FollowsTest {
         if (server != null) {
             server.stop();
         }
+        scheduler.close();
     }
 
     @Test

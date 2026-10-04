@@ -1,17 +1,16 @@
 package eu.nordtal.s2.steward.metric;
 
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.database.metric.Metric;
 import eu.nordtal.s2.database.metric.MetricDirectory;
 import eu.nordtal.s2.database.metric.MetricSample;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -35,11 +34,7 @@ public final class MetricRecorder implements AutoCloseable {
     /** The newest round already written; {@code null} until the first copy, which takes all the agent holds. */
     private @Nullable Instant copied;
 
-    private final ScheduledExecutorService ticks = Executors.newSingleThreadScheduledExecutor(runnable -> {
-        final Thread thread = new Thread(runnable, "metric-recorder");
-        thread.setDaemon(true);
-        return thread;
-    });
+    private final List<Scheduler.Task> ticks = new ArrayList<>();
 
     /** @param rounds the agent's rounds taken after an instant, or all of them for {@code null} */
     public MetricRecorder(
@@ -51,10 +46,10 @@ public final class MetricRecorder implements AutoCloseable {
         this.clock = clock;
     }
 
-    public void start() {
-        final var _ = ticks.scheduleWithFixedDelay(
-                this::copyQuietly, 0, MetricDirectory.SAMPLE_INTERVAL.toSeconds(), TimeUnit.SECONDS);
-        final var _ = ticks.scheduleAtFixedRate(this::compactQuietly, 1, 1, TimeUnit.HOURS);
+    /** Copies every {@link MetricDirectory#SAMPLE_INTERVAL} and compacts every hour on the process's scheduler. */
+    public synchronized void start(final Scheduler scheduler) {
+        ticks.add(scheduler.every(Duration.ZERO, MetricDirectory.SAMPLE_INTERVAL, this::copyQuietly));
+        ticks.add(scheduler.every(Duration.ofHours(1), Duration.ofHours(1), this::compactQuietly));
     }
 
     private void copyQuietly() {
@@ -126,7 +121,8 @@ public final class MetricRecorder implements AutoCloseable {
     }
 
     @Override
-    public void close() {
-        ticks.shutdownNow();
+    public synchronized void close() {
+        ticks.forEach(Scheduler.Task::cancel);
+        ticks.clear();
     }
 }

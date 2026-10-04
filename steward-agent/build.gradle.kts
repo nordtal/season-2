@@ -57,6 +57,8 @@ dependencies {
     testImplementation(libs.logback.classic)
 
     testFixturesImplementation(project(":internal-api"))
+    testFixturesImplementation(project(":common"))
+    testFixturesImplementation(testFixtures(project(":common")))
     testFixturesImplementation(libs.gson)
 
     compileOnly(libs.lombok)

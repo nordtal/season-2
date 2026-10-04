@@ -2,6 +2,7 @@ package eu.nordtal.s2.steward.api;
 
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.common.time.TestScheduler;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.steward.texts.WebTexts;
@@ -44,7 +45,8 @@ final class StackServer {
                         "05:15",
                         List.of(),
                         ZoneId.of("Europe/Berlin")),
-                Clock.systemUTC());
+                Clock.systemUTC(),
+                TestScheduler.SHARED);
     }
 
     /** Serves {@code api} on {@code port}; stop the returned server, then close the API. */

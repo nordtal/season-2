@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.time.TestScheduler;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.stewardagent.TestProject;
 import eu.nordtal.s2.stewardagent.docker.Docker;
@@ -20,14 +21,15 @@ class SamplerIntegrationTest {
 
     @Test
     void oneRoundCarriesTheHostsNumbersAndOneReadingPerRunningService() throws InterruptedException {
-        final DockerSocket socket = new DockerSocket();
+        final DockerSocket socket = new DockerSocket(TestScheduler.SHARED);
         assumeTrue(socket.isReachable(), "no docker socket - skipping");
         final Docker docker = new Docker(socket);
         final String project = TestProject.reading();
 
         final Instant at = Instant.now();
         final AgentWire.Round round;
-        try (Sampler sampler = new Sampler(docker, new HostMetrics(), project, Clock.systemUTC())) {
+        try (Sampler sampler =
+                new Sampler(docker, new HostMetrics(), project, Clock.systemUTC(), TestScheduler.SHARED)) {
             // Twice: the first round has no previous CPU reading to subtract from.
             sampler.tick(at.minusSeconds(30));
             // With no containers both ticks fit inside one jiffy, and no time passed means no CPU to report.

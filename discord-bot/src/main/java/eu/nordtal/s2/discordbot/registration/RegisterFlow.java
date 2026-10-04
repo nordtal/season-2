@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
@@ -45,14 +45,14 @@ public final class RegisterFlow extends ListenerAdapter {
     private final Ids ids;
     private final AccessReader access;
     private final DiscordRenderer messages;
-    private final ExecutorService executor;
+    private final Executor executor;
 
     public RegisterFlow(
             final JDA jda,
             final Teams teams,
             final AccessReader access,
             final DiscordRenderer messages,
-            final ExecutorService executor) {
+            final Executor executor) {
         this.jda = jda;
         this.teams = teams;
         this.ids = Ids.of(teams.game());

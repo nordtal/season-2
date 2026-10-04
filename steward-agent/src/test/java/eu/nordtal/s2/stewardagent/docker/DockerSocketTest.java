@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.time.TestScheduler;
 import java.io.IOException;
 import java.net.StandardProtocolFamily;
 import java.net.UnixDomainSocketAddress;
@@ -54,7 +55,8 @@ class DockerSocketTest {
         final long before = System.nanoTime();
         assertThrows(
                 DockerException.class,
-                () -> new DockerSocket(socket, Duration.ofMillis(300)).stream("GET", "/containers/json", null));
+                () -> new DockerSocket(socket, Duration.ofMillis(300), TestScheduler.SHARED)
+                        .stream("GET", "/containers/json", null));
 
         assertTrue(
                 Duration.ofNanos(System.nanoTime() - before).toSeconds() < 10,
@@ -72,7 +74,7 @@ class DockerSocketTest {
         });
 
         try (DockerSocket.Stream stream =
-                new DockerSocket(socket, Duration.ofMillis(300)).stream("GET", "/logs", null)) {
+                new DockerSocket(socket, Duration.ofMillis(300), TestScheduler.SHARED).stream("GET", "/logs", null)) {
             final List<String> lines = new ArrayList<>();
             LogFrames.read(stream.body(), false, lines::add);
 
@@ -92,7 +94,7 @@ class DockerSocketTest {
             client.shutdownOutput();
         });
 
-        new Docker(new DockerSocket(socket, Duration.ofMillis(300))).stop("c0ffee", 1);
+        new Docker(new DockerSocket(socket, Duration.ofMillis(300), TestScheduler.SHARED)).stop("c0ffee", 1);
     }
 
     /** A unix socket that accepts one connection and hands it to {@code answer}. */

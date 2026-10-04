@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.time.ProcessScheduler;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -83,7 +84,9 @@ class ReadinessTest {
         final Path marker = directory.resolve("tmp/nordtal-ready");
         final Readiness readiness = new Readiness(marker, Clock.systemUTC(), complaint -> {});
 
-        assertTrue(readiness.keepBeating());
+        try (ProcessScheduler scheduler = new ProcessScheduler("test", failure -> {})) {
+            assertTrue(readiness.keepBeating(scheduler));
+        }
         assertTrue(Readiness.fresh(marker, Instant.now(), Readiness.STALE_AFTER));
     }
 

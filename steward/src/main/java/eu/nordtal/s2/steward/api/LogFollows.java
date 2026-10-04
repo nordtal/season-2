@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.api;
 
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.internalapi.agent.LogFollow;
@@ -17,10 +18,11 @@ final class LogFollows implements AutoCloseable {
     private static final String SIGNED_OUT = "this session ended - sign in again to keep watching";
 
     private final AgentClient agent;
-    private final Follows follows = new Follows("Steward");
+    private final Follows follows;
 
-    LogFollows(final AgentClient agent) {
+    LogFollows(final AgentClient agent, final Scheduler scheduler) {
         this.agent = agent;
+        this.follows = new Follows("Steward", scheduler);
     }
 
     /**

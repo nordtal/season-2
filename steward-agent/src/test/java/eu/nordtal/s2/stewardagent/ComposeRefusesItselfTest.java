@@ -51,7 +51,9 @@ class ComposeRefusesItselfTest {
     /** A daemon nobody answers on: a refused request must never get as far as asking it. */
     private static eu.nordtal.s2.stewardagent.docker.Docker nowhere() {
         return new eu.nordtal.s2.stewardagent.docker.Docker(new eu.nordtal.s2.stewardagent.docker.DockerSocket(
-                Path.of("/does/not/exist.sock"), java.time.Duration.ofSeconds(1)));
+                Path.of("/does/not/exist.sock"),
+                java.time.Duration.ofSeconds(1),
+                eu.nordtal.s2.common.time.TestScheduler.SHARED));
     }
 
     @Test

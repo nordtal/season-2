@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.api;
 
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.inbox.MessagePreview;
@@ -30,8 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -95,12 +95,8 @@ public final class StackApi implements AutoCloseable {
     /** One comparison and the moment it was made, as one value, so a row and its age always match. */
     private record Drift(ImageResult result, Instant checkedAt) {}
 
-    /** One daemon thread for background refreshes, which never run two at once. */
-    private final ExecutorService driftRefresh = Executors.newSingleThreadExecutor(runnable -> {
-        final Thread thread = new Thread(runnable, "steward-drift");
-        thread.setDaemon(true);
-        return thread;
-    });
+    /** The lane for background refreshes, which never run two at once. */
+    private final Executor driftRefresh;
 
     private final Refreshed<Drift> drift;
 
@@ -132,11 +128,13 @@ public final class StackApi implements AutoCloseable {
             final UpdateDirectory updates,
             final AuditDirectory audit,
             final Nightly nightly,
-            final Clock clock) {
-        this(agent, updates, audit, () -> nightly, null, null, null, null, null, clock);
+            final Clock clock,
+            final Scheduler scheduler) {
+        this(agent, updates, audit, () -> nightly, null, null, null, null, null, clock, scheduler);
     }
 
     private final Clock clock;
+    private final Scheduler scheduler;
 
     /** The run inbox, where a restore is asked for like every other run. */
     private final UpdateDirectory updates;
@@ -164,8 +162,11 @@ public final class StackApi implements AutoCloseable {
             final @Nullable PluginsForward managedPlugins,
             final @Nullable MessageOverrideStore messageOverrides,
             final @Nullable SettingStore settings,
-            final Clock clock) {
+            final Clock clock,
+            final Scheduler scheduler) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
+        this.scheduler = scheduler;
+        this.driftRefresh = scheduler.serial();
         this.updates = updates;
         this.managedPlugins = managedPlugins;
         this.settings = settings == null ? null : new SettingsApi(settings);
@@ -175,14 +176,13 @@ public final class StackApi implements AutoCloseable {
         // One query over two tables, not a frontend-side merge.
         this.actions = new ActionsApi(updates, audit);
         this.audit = audit;
-        // Its own virtual thread per refresh, so a du never waits behind a registry call.
-        this.disk = new DiskUsage(
-                agent, runnable -> Thread.ofVirtual().name("disk-usage").start(runnable), clock::instant);
-        this.logFollows = new LogFollows(agent);
+        // Beside the drift lane, so a du never waits behind a registry call.
+        this.disk = new DiskUsage(agent, scheduler, clock::instant);
+        this.logFollows = new LogFollows(agent, scheduler);
         this.serviceRows = new ServiceRows(agent, updates, online);
         this.drift = new Refreshed<>(
                 () -> new Drift(agent.images(), clock.instant()), DRIFT_TTL, driftRefresh, clock::instant);
-        // The same background thread as drift: both are slow calls nobody asked for.
+        // The drift lane: both are slow calls nobody asked for.
         this.available = resolve == null ? null : new Refreshed<>(resolve, AVAILABLE_TTL, driftRefresh, clock::instant);
     }
 
@@ -323,8 +323,7 @@ public final class StackApi implements AutoCloseable {
                         key -> new Refreshed<>(
                                 () -> agent.logCapacity(key, LOG_CAPACITY_MAX),
                                 LOG_CAPACITY_TTL,
-                                runnable ->
-                                        Thread.ofVirtual().name("log-capacity").start(runnable),
+                                scheduler,
                                 clock::instant))
                 .get();
     }
@@ -522,11 +521,9 @@ public final class StackApi implements AutoCloseable {
         agent.console(service, command, actor);
     }
 
-    /** Stops every open log follow, then the drift refresh; called before Jetty stops. */
+    /** Stops every open log follow; called before Jetty stops. */
     @Override
     public void close() {
         logFollows.close();
-        // Not awaited: a registry call has its own timeout, and Refreshed handles the rejection a later reader gets.
-        driftRefresh.shutdownNow();
     }
 }

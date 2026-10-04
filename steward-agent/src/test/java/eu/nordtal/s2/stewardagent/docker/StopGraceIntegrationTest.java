@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.time.TestScheduler;
 import eu.nordtal.s2.internalapi.agent.RedeployResult;
 import eu.nordtal.s2.stewardagent.TestProject;
 import java.time.Duration;
@@ -22,7 +23,7 @@ class StopGraceIntegrationTest {
     void aStopWaitsTheServicesOwnGraceAndThenSaysItKilled() {
         final String project = TestProject.acting().orElse(null);
         assumeTrue(project != null, "no scratch project named - skipping");
-        final DockerSocket socket = new DockerSocket();
+        final DockerSocket socket = new DockerSocket(TestScheduler.SHARED);
         assumeTrue(socket.isReachable(), "no docker socket - skipping");
         final Docker docker = new Docker(socket);
         final Docker.Container slow = docker.containers(project).stream()

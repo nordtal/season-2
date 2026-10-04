@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.id.Actor;
+import eu.nordtal.s2.common.time.TestScheduler;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -49,7 +50,7 @@ class ConsoleTest {
 
     private static Console console(final FakeDaemon daemon) {
         return new Console(
-                new Docker(new DockerSocket(daemon.socket(), Duration.ofSeconds(5))),
+                new Docker(new DockerSocket(daemon.socket(), Duration.ofSeconds(5), TestScheduler.SHARED)),
                 FakeDaemon.PROJECT,
                 () -> Set.of("smp", "proxy"));
     }

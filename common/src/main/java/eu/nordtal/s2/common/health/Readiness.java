@@ -1,5 +1,6 @@
 package eu.nordtal.s2.common.health;
 
+import eu.nordtal.s2.common.time.Scheduler;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -8,9 +9,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -87,16 +85,13 @@ public final class Readiness {
     }
 
     /**
-     * Writes the marker now and then every {@link #BEAT} on a daemon thread, for as long as the process lives.
-     * For a plain JVM process; a plugin beats on its platform's scheduler instead.
+     * Writes the marker now and then every {@link #BEAT} on {@code scheduler}, for as long as the process lives.
      *
      * @return whether the first write succeeded
      */
-    public boolean keepBeating() {
+    public boolean keepBeating(final Scheduler scheduler) {
         final boolean written = refresh();
-        final ScheduledExecutorService beat = Executors.newSingleThreadScheduledExecutor(
-                Thread.ofPlatform().name("readiness").daemon().factory());
-        final var _ = beat.scheduleAtFixedRate(this::refresh, BEAT.toSeconds(), BEAT.toSeconds(), TimeUnit.SECONDS);
+        final var _ = scheduler.every(BEAT, BEAT, this::refresh);
         return written;
     }
 

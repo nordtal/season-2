@@ -2,6 +2,7 @@ package eu.nordtal.s2.steward.web;
 
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.language.Languages;
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.DatabaseMessages;
 import eu.nordtal.s2.database.access.AdminTree;
@@ -46,14 +47,13 @@ import io.javalin.http.staticfiles.Location;
 import io.javalin.json.JavalinGson;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -165,12 +165,13 @@ public final class Web {
     /** How often {@link AlertMonitor#poll} reads the stack. */
     private static final Duration ALERT_POLL = Duration.ofSeconds(30);
 
-    /** The session sweep and the alert poll, two small jobs on one thread. */
-    private final ScheduledExecutorService timer = Executors.newSingleThreadScheduledExecutor(runnable -> {
-        final Thread thread = new Thread(runnable, "steward-web-timer");
-        thread.setDaemon(true);
-        return thread;
-    });
+    private final Scheduler scheduler;
+
+    /** The alert routing, the failed runs and the alert poll, one at a time: they share what they last saw. */
+    private final Executor alertLane;
+
+    /** The session sweep and the alert poll, cancelled at {@link #stop()}. */
+    private final List<Scheduler.Task> timed = new ArrayList<>();
 
     private Javalin app;
 
@@ -187,8 +188,11 @@ public final class Web {
             final boolean agentOffered,
             final @Nullable Data data,
             final Languages languages,
-            final Clock clock) {
+            final Clock clock,
+            final Scheduler scheduler) {
         this.config = config;
+        this.scheduler = scheduler;
+        this.alertLane = scheduler.serial();
         this.database = Messages.load(
                 Web.class.getClassLoader(),
                 "messages/" + MessageSchema.bundle(DatabaseMessages.class),
@@ -212,12 +216,7 @@ public final class Web {
         this.settings = new Settings(config);
         final @Nullable AdminTree localAdmins = data == null ? null : AdminTree.using(data.dataSource());
         this.admins = localAdmins;
-        this.adminApi = data == null
-                ? null
-                : new AdminApi(
-                        Objects.requireNonNull(localAdmins),
-                        data.audit(),
-                        ctx -> account(ctx).orElseThrow());
+        this.adminApi = adminApiOf(data, localAdmins);
         this.packExemptionApi = packExemptionsOf(data);
         this.authFlow = new AuthFlow(config, discord, data, this.sessions, localAdmins);
         this.updates = new Updates(data, ctx -> account(ctx).orElseThrow());
@@ -248,6 +247,15 @@ public final class Web {
         this.overrides = data == null ? null : MessageOverrideStore.using(data.dataSource());
     }
 
+    private @Nullable AdminApi adminApiOf(final @Nullable Data data, final @Nullable AdminTree localAdmins) {
+        return data == null
+                ? null
+                : new AdminApi(
+                        Objects.requireNonNull(localAdmins),
+                        data.audit(),
+                        ctx -> account(ctx).orElseThrow());
+    }
+
     private @Nullable PackExemptionApi packExemptionsOf(final @Nullable Data data) {
         return data == null
                 ? null
@@ -265,7 +273,7 @@ public final class Web {
 
     /** What each topic of the live stream reads: the same reads the routes answer with. */
     private LiveFeed watchLive(final @Nullable Data data, final Clock clock) {
-        final LiveFeed live = new LiveFeed(Waiting.on(clock));
+        final LiveFeed live = new LiveFeed(Waiting.on(clock), scheduler);
         stack.watch(live);
         if (data == null) {
             return live;
@@ -335,7 +343,7 @@ public final class Web {
     }
 
     /**
-     * Routes alerts and raises failed runs on the timer's thread whenever the hub rings; before the hub's start.
+     * Routes alerts and raises failed runs in the alert lane whenever the hub rings; before the hub's start.
      *
      * Each pass reads everything again, so a missed or doubled signal costs nothing.
      */
@@ -348,10 +356,10 @@ public final class Web {
         final AlertRouter router = alertRouter;
         final AlertMonitor monitor = alertMonitor;
         if (router != null) {
-            hub.on(Channel.ALERT, "alert routing", () -> timer.execute(router::route));
+            hub.on(Channel.ALERT, "alert routing", () -> alertLane.execute(router::route));
         }
         if (monitor != null) {
-            hub.on(Channel.UPDATE, "failed runs", () -> timer.execute(monitor::runs));
+            hub.on(Channel.UPDATE, "failed runs", () -> alertLane.execute(monitor::runs));
         }
         // Not SMP: play moves the track many times a minute, and the hub's minute covers it.
         for (final Channel channel : LIVE_CHANNELS) {
@@ -428,12 +436,12 @@ public final class Web {
                 .start(port);
 
         if (sessions != null) {
-            // Runs on the existing scheduler; an expired session is refused by the lookup regardless.
-            final var _ = timer.scheduleWithFixedDelay(authFlow::sweepSessions, 0, SWEEP.toSeconds(), TimeUnit.SECONDS);
+            // An expired session is refused by the lookup regardless; the sweep only tidies.
+            timed.add(scheduler.every(Duration.ZERO, SWEEP, authFlow::sweepSessions));
         }
-        if (alertMonitor != null) {
-            // Same scheduler as the sweep above: one small reading, not a workload of its own.
-            final var _ = timer.scheduleWithFixedDelay(alertMonitor::poll, 0, ALERT_POLL.toSeconds(), TimeUnit.SECONDS);
+        final AlertMonitor monitor = alertMonitor;
+        if (monitor != null) {
+            timed.add(scheduler.every(Duration.ZERO, ALERT_POLL, () -> alertLane.execute(monitor::poll)));
         }
         live.start();
         discord.whatIsMissing()
@@ -708,7 +716,7 @@ public final class Web {
 
     /** Ends every log follow before Jetty, since a follow closed after Jetty stopped loops in its error handling. */
     public void stop() {
-        timer.shutdownNow();
+        timed.forEach(Scheduler.Task::cancel);
         live.close();
         stack.close();
         if (app != null) {

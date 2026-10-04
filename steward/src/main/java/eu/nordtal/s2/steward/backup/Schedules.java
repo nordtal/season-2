@@ -1,5 +1,6 @@
 package eu.nordtal.s2.steward.backup;
 
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.steward.config.StewardSpec;
 import java.time.Clock;
@@ -20,13 +21,16 @@ public final class Schedules implements AutoCloseable {
     private final UpdateDirectory directory;
     private final StewardSpec config;
     private final Clock wall;
+    private final Scheduler scheduler;
     private @Nullable NightlyClock backup;
     private @Nullable NightlyClock update;
 
-    public Schedules(final UpdateDirectory directory, final StewardSpec config, final Clock wall) {
+    public Schedules(
+            final UpdateDirectory directory, final StewardSpec config, final Clock wall, final Scheduler scheduler) {
         this.directory = directory;
         this.config = config;
         this.wall = wall;
+        this.scheduler = scheduler;
         this.backup = null;
         this.update = null;
     }
@@ -60,8 +64,8 @@ public final class Schedules implements AutoCloseable {
         return new boolean[] {backup != null, update != null};
     }
 
-    private static @Nullable NightlyClock start(final Optional<NightlyClock> clock) {
-        clock.ifPresent(NightlyClock::start);
+    private @Nullable NightlyClock start(final Optional<NightlyClock> clock) {
+        clock.ifPresent(armed -> armed.start(scheduler));
         return clock.orElse(null);
     }
 

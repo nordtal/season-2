@@ -27,7 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
@@ -54,7 +54,7 @@ public final class PurchaseFlow extends ListenerAdapter {
     private final DiscordRenderer messages;
     private final AccessRoles roles;
     private final AdminLog admin;
-    private final ExecutorService executor;
+    private final Executor executor;
 
     /** Ephemeral messages waiting for a link, one per request, so a second confirm replaces the older one. */
     private final Map<UUID, Waiting> waiting = new ConcurrentHashMap<>();
@@ -77,7 +77,7 @@ public final class PurchaseFlow extends ListenerAdapter {
             final DiscordRenderer messages,
             final AccessRoles roles,
             final AdminLog admin,
-            final ExecutorService executor,
+            final Executor executor,
             final Clock clock) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.tiers = tiers;

@@ -4,6 +4,8 @@ import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.common.time.NetworkTime;
+import eu.nordtal.s2.common.time.ProcessScheduler;
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.metric.MetricDirectory;
 import eu.nordtal.s2.database.notify.SignalHub;
@@ -92,13 +94,16 @@ public final class Steward {
         if (opened == null) {
             return 1;
         }
-        try (Database database = opened) {
+        // Closed before the database, so no timed work outlives the pool it reads through.
+        try (Database database = opened;
+                ProcessScheduler scheduler =
+                        new ProcessScheduler("steward", failure -> log.error("A task of Steward failed", failure))) {
             final Configs configs = configsOf(databaseConfig, database);
             if (configs == null) {
                 return 1;
             }
-            markReady();
-            return serveNetwork(configs, database);
+            markReady(scheduler);
+            return serveNetwork(configs, database, scheduler);
         }
     }
 
@@ -153,7 +158,7 @@ public final class Steward {
         }
     }
 
-    private static int serveNetwork(final Configs configs, final Database database) {
+    private static int serveNetwork(final Configs configs, final Database database, final Scheduler scheduler) {
         final StewardSpec config = configs.config();
         final AgentClient agent = agentOf(config);
         if (config.agent().token().isBlank()) {
@@ -164,8 +169,8 @@ public final class Steward {
         }
         try (MetricRecorder recorder =
                 new MetricRecorder(agent::samples, MetricDirectory.using(database.dataSource()), CLOCK)) {
-            recorder.start();
-            return serveWithAgent(configs, database, agent);
+            recorder.start(scheduler);
+            return serveWithAgent(configs, database, agent, scheduler);
         }
     }
 
@@ -178,21 +183,22 @@ public final class Steward {
                 Duration.ofSeconds(config.httpTimeoutSeconds())));
     }
 
-    private static int serveWithAgent(final Configs configs, final Database database, final AgentClient agent) {
+    private static int serveWithAgent(
+            final Configs configs, final Database database, final AgentClient agent, final Scheduler scheduler) {
         final StewardSpec config = configs.config();
         // The schedules and the season dates tell time in the network's zone.
         final Clock zoned = NetworkTime.clock(configs.zone());
         // One set of directories, shared by the schedules, the stack routes and the web.
         final Data data = new Data(database, zoned);
 
-        try (Schedules schedules = new Schedules(data.updates(), config, zoned);
-                StackApi stack = buildStack(config, agent, database, data, configs.zone())) {
+        try (Schedules schedules = new Schedules(data.updates(), config, zoned, scheduler);
+                StackApi stack = buildStack(config, agent, database, data, configs.zone(), scheduler)) {
             // Started after the marker, so a failure of the interface cannot keep the servers down.
-            final Web web = startWeb(configs, stack, agent, data);
+            final Web web = startWeb(configs, stack, agent, data, scheduler);
             try {
                 // The nightly backup and the optional scheduled update.
                 schedules.arm();
-                return serveWithApi(configs, database, () -> reReadOwn(configs, schedules), web::listen);
+                return serveWithApi(configs, database, scheduler, () -> reReadOwn(configs, schedules), web::listen);
             } finally {
                 web.stop();
             }
@@ -200,7 +206,12 @@ public final class Steward {
     }
 
     /** Builds and starts the web interface on the {@code web} group's port, with the stack routes on it. */
-    private static Web startWeb(final Configs configs, final StackApi stack, final AgentClient agent, final Data data) {
+    private static Web startWeb(
+            final Configs configs,
+            final StackApi stack,
+            final AgentClient agent,
+            final Data data,
+            final Scheduler scheduler) {
         final WebSpec webConfig = configs.web();
         final StewardSpec config = configs.config();
         if (webConfig.webPush().publicKey().isBlank()) {
@@ -218,7 +229,8 @@ public final class Steward {
                 !config.agent().token().isBlank(),
                 data,
                 configs.languages(),
-                CLOCK);
+                CLOCK,
+                scheduler);
         web.start(webConfig.port());
         stack.warm();
         return web;
@@ -230,7 +242,8 @@ public final class Steward {
             final AgentClient agent,
             final Database database,
             final Data data,
-            final ZoneId zone) {
+            final ZoneId zone,
+            final Scheduler scheduler) {
         // Every process's settings, which its signal re-reads; the proxy's pack among them.
         final SettingStore settings = SettingStore.using(database.dataSource());
         return new StackApi(
@@ -253,7 +266,8 @@ public final class Steward {
                 // The overrides every process re-reads on the signal a save sends.
                 eu.nordtal.s2.database.message.MessageOverrideStore.using(database.dataSource()),
                 settings,
-                CLOCK);
+                CLOCK,
+                scheduler);
     }
 
     /** Takes the live groups again after a change in Steward and re-arms the two clocks from the steward group. */
@@ -278,6 +292,7 @@ public final class Steward {
     private static int serveWithApi(
             final Configs configs,
             final Database database,
+            final Scheduler scheduler,
             final Runnable onSettings,
             final java.util.function.Consumer<SignalHub> alerts) {
         final StewardSpec config = configs.config();
@@ -287,7 +302,8 @@ public final class Steward {
                         configs.tiers(),
                         database,
                         Waiting.on(CLOCK),
-                        Duration.ofSeconds(config.httpTimeoutSeconds()));
+                        Duration.ofSeconds(config.httpTimeoutSeconds()),
+                        scheduler);
                 SignalHub signals = SignalHub.open(
                         databaseConfig.jdbcUrl(),
                         databaseConfig.username(),
@@ -312,9 +328,9 @@ public final class Steward {
     }
 
     /** Writes the readiness marker once the schema is current and keeps it fresh; every service waits for it. */
-    private static void markReady() {
+    private static void markReady(final Scheduler scheduler) {
         final Readiness readiness = Readiness.onDefaultPath(CLOCK, log::warn);
-        if (!readiness.keepBeating()) {
+        if (!readiness.keepBeating(scheduler)) {
             // Fatal to everything waiting on this process, so it is loud.
             log.error(
                     "Could not write the readiness marker {}. The rest of the stack will not"

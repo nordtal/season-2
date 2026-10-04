@@ -17,8 +17,8 @@ The HTTP wire between `steward` and the services only it may call, `steward-agen
 - `agent` is the agent's half: `AgentWire` (the routes and records, documented in
   [`../steward-agent/README.md`](../steward-agent/README.md)) and `AgentClient`, the only way steward
   reaches Docker and the volumes. A run sees it as `ContainerOps` and `Snapshots`.
-- `sse.Follows` keeps a long server-sent event stream alive: a heartbeat, a check whether the reader
-  may still read, and every follow ended before Jetty stops. The agent's log streams and steward's
+- `sse.Follows` keeps a long server-sent event stream alive on the process's scheduler: a heartbeat,
+  a check whether the reader may still read, and every follow ended before Jetty stops. The agent's log streams and steward's
   relay of them are both one.
 
 The token is a second fence, not the only one. Both services sit on an internal Docker network

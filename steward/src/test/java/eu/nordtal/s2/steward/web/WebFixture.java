@@ -2,6 +2,7 @@ package eu.nordtal.s2.steward.web;
 
 import com.google.gson.Gson;
 import eu.nordtal.jcore.persistence.sql.Database;
+import eu.nordtal.s2.common.time.TestScheduler;
 import eu.nordtal.s2.database.DatabaseRole;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
@@ -221,7 +222,8 @@ abstract class WebFixture {
                 data.updates(),
                 data.audit(),
                 new StackApi.Nightly("04:45", List.of("MONDAY"), "05:15", List.of(), ZoneId.of("Europe/Berlin")),
-                Clock.systemUTC());
+                Clock.systemUTC(),
+                TestScheduler.SHARED);
         return new Web(
                 config,
                 () -> new Thresholds(85, 90, 36),
@@ -231,7 +233,8 @@ abstract class WebFixture {
                 true,
                 data,
                 NetworkSettings.defaultLanguages(),
-                Clock.systemUTC());
+                Clock.systemUTC(),
+                TestScheduler.SHARED);
     }
 
     /** The one key account "1" has, registered once in {@code WebTestSupport}. */

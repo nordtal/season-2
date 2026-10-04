@@ -1,5 +1,6 @@
 package eu.nordtal.s2.stewardagent.logs;
 
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.sse.Follows;
 import eu.nordtal.s2.stewardagent.docker.Docker;
@@ -28,14 +29,20 @@ public final class LogStreams implements AutoCloseable {
     private final String project;
     private final LogArchive archive;
     private final Clock clock;
-    private final Follows follows = new Follows(AgentWire.SERVICE);
+    private final Follows follows;
 
     /** @param volumesRoot where the Minecraft data volumes are mounted, one directory per service */
-    public LogStreams(final Docker docker, final String project, final @Nullable Path volumesRoot, final Clock clock) {
+    public LogStreams(
+            final Docker docker,
+            final String project,
+            final @Nullable Path volumesRoot,
+            final Clock clock,
+            final Scheduler scheduler) {
         this.docker = docker;
         this.project = project;
         this.archive = new LogArchive(volumesRoot, clock::instant);
         this.clock = clock;
+        this.follows = new Follows(AgentWire.SERVICE, scheduler);
     }
 
     /** {@link AgentWire#LOGS}: the backlog first, then the live log, until steward hangs up. */

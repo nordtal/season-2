@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import eu.nordtal.s2.common.time.TestScheduler;
 import eu.nordtal.s2.internalapi.agent.SnapshotResult;
 import eu.nordtal.s2.stewardagent.TestProject;
 import eu.nordtal.s2.stewardagent.docker.Docker;
@@ -35,7 +36,7 @@ class DatabaseDumpIntegrationTest {
     static void connect() {
         assumeTrue(TestProject.acting().isPresent(), TestProject.VARIABLE + " names no scratch project - skipping");
         project = TestProject.acting().orElseThrow();
-        final DockerSocket socket = new DockerSocket();
+        final DockerSocket socket = new DockerSocket(TestScheduler.SHARED);
         assumeTrue(socket.isReachable(), "no docker socket - skipping");
         docker = new Docker(socket);
         postgres = docker.containers(project).stream()

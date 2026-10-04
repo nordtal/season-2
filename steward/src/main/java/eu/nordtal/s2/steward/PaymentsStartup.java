@@ -2,6 +2,7 @@ package eu.nordtal.s2.steward;
 
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.time.Backoff;
+import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.alert.AlertBook;
 import eu.nordtal.s2.database.inbox.BankRequest;
@@ -44,7 +45,8 @@ final class PaymentsStartup {
             final Tiers tiers,
             final Database database,
             final Waiting waiting,
-            final Duration timeout) {
+            final Duration timeout,
+            final Scheduler scheduler) {
         final StewardSpec.BunqSpec settings = config.bunq();
         final Duration poll = Duration.ofSeconds(settings.pollIntervalSeconds());
         if (settings.token().isBlank()) {
@@ -97,7 +99,8 @@ final class PaymentsStartup {
                         Inbox.over(database.dataSource(), BankRequest.TABLE),
                         watermark,
                         settings.recentPaymentCount()),
-                poll);
+                poll,
+                scheduler);
     }
 
     private static void announce(final Database database, final boolean configured) {

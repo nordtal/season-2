@@ -82,21 +82,15 @@ class StewardRulesTest {
                 .check(classes);
     }
 
-    /** One follow nobody reads must not hold the one timer thread every follow shares. */
+    /** One follow nobody reads must hold no other's heartbeat, so each beats as a task of the process's scheduler. */
     @Test
-    void theHeartbeatTimerHandsTheWriteOnAndSkipsATickStillOnItsWay() {
+    void eachFollowBeatsAsATaskOfItsOwnAndAsksWhetherItIsStillWanted() {
         classes()
                 .that(isListed(FOLLOWS))
                 .should(neverCallFrom("serve", "SseClient#sendComment"))
-                .andShould(callFrom("serve", "ScheduledExecutorService#scheduleWithFixedDelay", "Follows#beat"))
-                .andShould(callInOrder(
-                        "beat",
-                        "AtomicBoolean#compareAndSet",
-                        "ExecutorService#submit",
-                        "SseClient#sendComment",
-                        "AtomicBoolean#set"))
-                .andShould(callFrom("<init>", "Executors#newVirtualThreadPerTaskExecutor"))
-                .andShould(callFrom("<init>", "Executors#newSingleThreadScheduledExecutor"))
+                .andShould(callFrom("serve", "Scheduler#every", "Follows#beat"))
+                .andShould(callInOrder("beat", "Follows#stillWanted", "SseClient#sendComment"))
+                .because("the scheduler never runs one task twice at once, so a stuck write skips its next beats")
                 .check(classes);
     }
 

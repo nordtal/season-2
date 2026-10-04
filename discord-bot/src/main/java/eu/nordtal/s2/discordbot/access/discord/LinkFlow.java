@@ -20,7 +20,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.components.label.Label;
 import net.dv8tion.jda.api.components.textinput.TextInput;
@@ -50,7 +50,7 @@ public final class LinkFlow extends ListenerAdapter {
     private final DiscordRenderer messages;
     private final AdminLog admin;
     private final RedemptionLimit limit;
-    private final ExecutorService executor;
+    private final Executor executor;
 
     public LinkFlow(
             final AccessDirectory access,
@@ -58,7 +58,7 @@ public final class LinkFlow extends ListenerAdapter {
             final DiscordRenderer messages,
             final AdminLog admin,
             final RedemptionLimit limit,
-            final ExecutorService executor) {
+            final Executor executor) {
         this.access = access;
         this.roles = roles;
         this.messages = messages;

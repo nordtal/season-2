@@ -164,8 +164,7 @@ final class Announcements {
             }
             final String stripped = text.getAsString().strip();
             if (stripped.length() > MAX_LENGTH) {
-                throw new BadRequestResponse(
-                        "The " + tag + " text is longer than Discord takes (" + MAX_LENGTH + " characters).");
+                throw new RequestRefused(400, ANSWER.tooLong(tag, MAX_LENGTH));
             }
             checked.put(tag, stripped);
         }

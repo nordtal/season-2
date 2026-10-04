@@ -25,6 +25,8 @@ import com.yubico.webauthn.data.UserVerificationRequirement;
 import com.yubico.webauthn.exception.AssertionFailedException;
 import com.yubico.webauthn.exception.RegistrationFailedException;
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.steward.texts.StewardTexts;
 import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
@@ -43,6 +45,9 @@ import org.slf4j.LoggerFactory;
 public final class WebAuthn {
 
     private static final Logger log = LoggerFactory.getLogger(WebAuthn.class);
+
+    private static final StewardTexts.Steward.Answer ANSWER =
+            StewardTexts.TEXTS.steward().answer();
 
     /** What the browser shows in its dialog and stores beside the key. */
     private static final String DISPLAY_NAME = "Nordtal Steward";
@@ -119,7 +124,7 @@ public final class WebAuthn {
      * @param label what the person calls this key
      * @param discordId whose account this is, checked against the parked request
      * @return the key as it was stored
-     * @throws Refused with a sentence safe to show: a replayed challenge, a known key, a bad signature or origin
+     * @throws Refused with a message safe to show: a replayed challenge, a known key, a bad signature or origin
      */
     public Registered finishRegistration(
             final String parked, final String answer, final String label, final DiscordId discordId) throws Refused {
@@ -129,20 +134,18 @@ public final class WebAuthn {
             request = PublicKeyCredentialCreationOptions.fromJson(parked);
         } catch (IOException unreadable) {
             // Only reachable if the column was edited by hand, or the jar changed mid-ceremony.
-            throw new Refused(
-                    "that registration was started by a different version of this" + " service - start again",
-                    unreadable);
+            throw new Refused(ANSWER.ceremonyStale(true), unreadable);
         }
         try {
             response = PublicKeyCredential.parseRegistrationResponseJson(answer);
         } catch (IOException malformed) {
-            throw new Refused("the browser's answer could not be read", malformed);
+            throw new Refused(ANSWER.answerUnreadable(), malformed);
         }
 
         // Checked against the parked request so a session that changed hands cannot attach a key.
         final String intended = Credentials.accountOf(request.getUser().getId()).orElse("");
         if (!intended.equals(discordId.value())) {
-            throw new Refused("that registration was started for a different account", null);
+            throw new Refused(ANSWER.ceremonyOtherAccount(true), null);
         }
 
         final RegistrationResult result;
@@ -153,7 +156,7 @@ public final class WebAuthn {
                     .build());
         } catch (RegistrationFailedException refused) {
             log.info("a registration for {} was refused: {}", discordId, refused.getMessage());
-            throw new Refused("that key could not be registered: " + refused.getMessage(), refused);
+            throw new Refused(ANSWER.keyRefused(true, String.valueOf(refused.getMessage())), refused);
         }
 
         final Set<AuthenticatorTransport> transports =
@@ -178,7 +181,7 @@ public final class WebAuthn {
     public Ceremony startAssertion(final DiscordId discordId) throws Refused {
         if (credentials.of(discordId).isEmpty()) {
             // An empty allowCredentials would make the browser offer every passkey it holds.
-            throw new Refused("that account has no security key to be asked for", null);
+            throw new Refused(ANSWER.noKey(), null);
         }
         final AssertionRequest request = relyingParty.startAssertion(StartAssertionOptions.builder()
                 .userHandle(Credentials.handleOf(discordId))
@@ -203,7 +206,7 @@ public final class WebAuthn {
      * @param answer the browser's {@code PublicKeyCredential}, as it serialised it
      * @param discordId whose session this is, checked against the parked request
      * @return the key that answered
-     * @throws Refused with a sentence safe to show: a replayed challenge, another's key, a bad signature or origin
+     * @throws Refused with a message safe to show: a replayed challenge, another's key, a bad signature or origin
      */
     public Held finishAssertion(final String parked, final String answer, final DiscordId discordId) throws Refused {
         final AssertionRequest request;
@@ -212,20 +215,18 @@ public final class WebAuthn {
             request = AssertionRequest.fromJson(parked);
         } catch (IOException unreadable) {
             // The column holds one ceremony; this means a registration was started and finished as one.
-            throw new Refused(
-                    "that sign-in was started differently, or by another version of this" + " service - start again",
-                    unreadable);
+            throw new Refused(ANSWER.ceremonyStale(false), unreadable);
         }
         try {
             response = PublicKeyCredential.parseAssertionResponseJson(answer);
         } catch (IOException malformed) {
-            throw new Refused("the browser's answer could not be read", malformed);
+            throw new Refused(ANSWER.answerUnreadable(), malformed);
         }
 
         final String intended =
                 request.getUserHandle().flatMap(Credentials::accountOf).orElse("");
         if (!intended.equals(discordId.value())) {
-            throw new Refused("that sign-in was started for a different account", null);
+            throw new Refused(ANSWER.ceremonyOtherAccount(false), null);
         }
 
         final AssertionResultV2<Credentials.Key> result;
@@ -236,11 +237,11 @@ public final class WebAuthn {
                     .build());
         } catch (AssertionFailedException refused) {
             log.info("an assertion for {} was refused: {}", discordId, refused.getMessage());
-            throw new Refused("that key was not accepted: " + refused.getMessage(), refused);
+            throw new Refused(ANSWER.keyRefused(false, String.valueOf(refused.getMessage())), refused);
         }
         if (!result.isSuccess()) {
             // The library throws on every failure it knows about; this covers the one it does not.
-            throw new Refused("that key was not accepted", null);
+            throw new Refused(ANSWER.keyNotAccepted(), null);
         }
         credentials.used(result.getCredential().getCredentialId(), result.getSignatureCount());
         return new Held(result.getCredential().label(), result.isUserVerified());
@@ -255,11 +256,20 @@ public final class WebAuthn {
     /** What was written down, for the answer the browser gets back. */
     public record Registered(ByteArray credentialId, String label, boolean userVerified, boolean backedUp) {}
 
-    /** A ceremony that did not pass, with a message that is safe to show. */
+    /** A ceremony that did not pass, with why as a message of Steward's bundle, which is safe to show. */
     public static final class Refused extends Exception {
 
-        public Refused(final String message, final @Nullable Throwable cause) {
-            super(message, cause);
+        private static final long serialVersionUID = 1L;
+
+        private final transient MessageRef why;
+
+        public Refused(final MessageRef why, final @Nullable Throwable cause) {
+            super(why.key(), cause);
+            this.why = Objects.requireNonNull(why, "why");
+        }
+
+        public MessageRef why() {
+            return why;
         }
     }
 }

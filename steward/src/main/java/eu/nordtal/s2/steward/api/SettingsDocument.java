@@ -9,7 +9,8 @@ import eu.nordtal.jcore.config.schema.SettingType;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.settings.Refers;
-import io.javalin.http.BadRequestResponse;
+import eu.nordtal.s2.steward.texts.RequestRefused;
+import eu.nordtal.s2.steward.texts.StewardTexts;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -29,6 +30,9 @@ import org.jspecify.annotations.Nullable;
  * A changed value equal to the default removes its row, so a row is always a difference from the process's own value.
  */
 final class SettingsDocument {
+
+    private static final StewardTexts.Steward.Answer ANSWER =
+            StewardTexts.TEXTS.steward().answer();
 
     private final SettingStore.Group group;
     private final JsonObject schema;
@@ -176,7 +180,7 @@ final class SettingsDocument {
     /**
      * Returns the rows a save writes: JSON text per path, or {@code null} where the value is back at the default.
      *
-     * @throws BadRequestResponse for a path the group has no setting for, a secret, or a value of the wrong type
+     * @throws RequestRefused for a path the group has no setting for, a secret, or a value of the wrong type
      */
     Map<String, @Nullable String> rowsFor(final JsonObject changes) {
         final Map<String, @Nullable String> rows = new LinkedHashMap<>();
@@ -184,10 +188,10 @@ final class SettingsDocument {
             final String path = change.getKey();
             final JsonObject node = nodeAt(path);
             if (node == null || "MAP".equals(kindOf(node))) {
-                throw new BadRequestResponse(group.name() + " has no setting " + path);
+                throw new RequestRefused(400, ANSWER.noSetting(group.name(), path));
             }
             if (node.has("secret") && node.get("secret").getAsBoolean()) {
-                throw new BadRequestResponse(path + " is a secret, which only the environment holds");
+                throw new RequestRefused(400, ANSWER.secretSetting(path));
             }
             final JsonElement value = SettingValues.convert(path, node, change.getValue());
             SettingValues.refuseRemovingTheProtected(path, node, value);

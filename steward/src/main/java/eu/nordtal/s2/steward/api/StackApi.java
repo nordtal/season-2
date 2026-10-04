@@ -436,14 +436,14 @@ public final class StackApi implements AutoCloseable {
         final AgentWire.Archive archive = archives().stream()
                 .filter(each -> each.name().equals(name))
                 .findFirst()
-                .orElseThrow(() -> new io.javalin.http.NotFoundResponse("no such backup: " + name));
+                .orElseThrow(() -> new RequestRefused(404, ANSWER.noBackup(name)));
         final String replaces = archive.restoresInto();
         if (replaces == null) {
-            throw new io.javalin.http.BadRequestResponse(name + " is not a finished backup, so it cannot be restored");
+            throw new RequestRefused(400, ANSWER.backupUnfinished(name));
         }
         final Confirmation body = ctx.bodyAsClass(Confirmation.class);
         if (body == null || !replaces.equals(body.confirm)) {
-            throw new io.javalin.http.BadRequestResponse("type " + replaces + " to confirm what this restore replaces");
+            throw new RequestRefused(400, ANSWER.confirmRestore(replaces));
         }
         // A refused write reaches the error handler, which words it with the admins' overrides.
         final eu.nordtal.s2.database.update.UpdateRequest written = updates.submit(

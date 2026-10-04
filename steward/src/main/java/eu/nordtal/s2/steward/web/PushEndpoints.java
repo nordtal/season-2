@@ -8,9 +8,10 @@ import eu.nordtal.s2.steward.alert.AlertRouter;
 import eu.nordtal.s2.steward.auth.Sessions;
 import eu.nordtal.s2.steward.data.Data;
 import eu.nordtal.s2.steward.push.PushSubscriptions;
+import eu.nordtal.s2.steward.texts.RequestRefused;
+import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
-import io.javalin.http.NotFoundResponse;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Objects;
@@ -23,6 +24,9 @@ import org.jspecify.annotations.Nullable;
  * Without a VAPID keypair {@code vapidKeys} is null and the router sends no push.
  */
 final class PushEndpoints {
+
+    private static final StewardTexts.Steward.Answer ANSWER =
+            StewardTexts.TEXTS.steward().answer();
 
     private final Function<Context, Sessions.Session> sessions;
     private final @Nullable Data data;
@@ -54,8 +58,7 @@ final class PushEndpoints {
     /** {@code GET /api/web-push/public-key}: the VAPID public key, encoded for the Push API. */
     void publicKey(final Context ctx) {
         if (vapidKeys == null) {
-            throw new NotFoundResponse(
-                    "web-push is not configured on this deployment yet - see" + " web-push in the web group");
+            throw new RequestRefused(404, ANSWER.pushUnconfigured());
         }
         ctx.json(new WebPushPublicKey(
                 Base64.getUrlEncoder().withoutPadding().encodeToString(vapidKeys.getApplicationServerKey())));
@@ -98,7 +101,7 @@ final class PushEndpoints {
             throw new BadRequestResponse("no endpoint in that request");
         }
         if (!pushSubscriptions().unsubscribe(who.signedInDiscordId(), body.endpoint)) {
-            throw new NotFoundResponse("this account has no web push subscription of that endpoint");
+            throw new RequestRefused(404, ANSWER.noSubscription());
         }
         data().audit()
                 .record(who.ownLine(
@@ -136,8 +139,7 @@ final class PushEndpoints {
     void test(final Context ctx) {
         final Sessions.Session who = sessions.apply(ctx);
         if (router == null || vapidKeys == null) {
-            throw new NotFoundResponse(
-                    "web-push is not configured on this deployment yet - see" + " web-push in the web group");
+            throw new RequestRefused(404, ANSWER.pushUnconfigured());
         }
         final PushTestBody body = ctx.bodyAsClass(PushTestBody.class);
         final AlertType type = body == null ? null : AlertType.of(body.type);
@@ -148,17 +150,15 @@ final class PushEndpoints {
         final PushSubscriptions.Subscription subscription =
                 pushSubscriptions().find(who.signedInDiscordId(), body.endpoint);
         if (subscription == null) {
-            throw new NotFoundResponse("this account has no web push subscription of that endpoint");
+            throw new RequestRefused(404, ANSWER.noSubscription());
         }
         final AlertRouter.Delivery delivery = router.sendSample(subscription, type);
         if (delivery == AlertRouter.Delivery.GONE) {
             // sendSample already removed the row; a silent 204 would leave the browser waiting.
-            throw new NotFoundResponse(
-                    "that browser's subscription no longer exists and has been" + " removed - subscribe again on it");
+            throw new RequestRefused(404, ANSWER.subscriptionGone());
         }
         if (delivery != AlertRouter.Delivery.SENT) {
-            throw new BadRequestResponse(
-                    "the push service did not accept it - see the log of" + " steward for what it said");
+            throw new RequestRefused(400, ANSWER.pushNotAccepted());
         }
         data().audit()
                 .record(who.ownLine(JournalAction.WEB_PUSH_TEST, TEXTS.journal().webPushTest(type)));

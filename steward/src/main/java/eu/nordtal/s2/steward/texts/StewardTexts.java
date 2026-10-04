@@ -249,6 +249,82 @@ public interface StewardTexts {
 
             @Name("Agent not configured")
             MessageRef agentUnconfigured();
+
+            @Name("No such service")
+            MessageRef noService(@Arg("service") String service);
+
+            @Name("No such settings group")
+            MessageRef noSettings(@Arg("service") String service, @Arg("group") String group);
+
+            @Name("No such setting")
+            MessageRef noSetting(@Arg("group") String group, @Arg("path") String path);
+
+            @Name("Settings changed meanwhile")
+            MessageRef settingsChanged(@Arg("service") String service, @Arg("group") String group);
+
+            @Name("A secret setting")
+            MessageRef secretSetting(@Arg("path") String path);
+
+            @Name("A setting of another type")
+            MessageRef notOfType(
+                    @Arg("path") String path, @Arg("expected") Expected expected, @Arg("text") String text);
+
+            @Name("A section that has to stay")
+            MessageRef keepSection(@Arg("path") String path, @Arg("field") String field, @Arg("value") String value);
+
+            @Name("No such backup")
+            MessageRef noBackup(@Arg("backup") String backup);
+
+            @Name("Backup not finished")
+            MessageRef backupUnfinished(@Arg("backup") String backup);
+
+            @Name("Restore not confirmed")
+            MessageRef confirmRestore(@Arg("replaces") String replaces);
+
+            @Name("No such message")
+            MessageRef noMessage(@Arg("bundle") String bundle, @Arg("key") String key);
+
+            @Name("Override refused")
+            MessageRef overrideRefused(@Arg("problems") String problems);
+
+            @Name("Grant too long")
+            MessageRef grantDays(@Arg("most") int most);
+
+            @Name("Play time out of range")
+            MessageRef playtimeRange(@Arg("most") Duration most);
+
+            @Name("Announcement too long")
+            MessageRef tooLong(@Arg("language") String language, @Arg("most") int most);
+
+            @Name("Web push not configured")
+            MessageRef pushUnconfigured();
+
+            @Name("No such push subscription")
+            MessageRef noSubscription();
+
+            @Name("Push subscription gone")
+            MessageRef subscriptionGone();
+
+            @Name("Push not accepted")
+            MessageRef pushNotAccepted();
+
+            @Name("Key name length")
+            MessageRef keyName(@Arg("most") int most);
+
+            @Name("Ceremony from an older Steward")
+            MessageRef ceremonyStale(@Arg("registration") boolean registration);
+
+            @Name("Browser answer unreadable")
+            MessageRef answerUnreadable();
+
+            @Name("Ceremony for another account")
+            MessageRef ceremonyOtherAccount(@Arg("registration") boolean registration);
+
+            @Name("Key refused")
+            MessageRef keyRefused(@Arg("registration") boolean registration, @Arg("why") String why);
+
+            @Name("Key not accepted")
+            MessageRef keyNotAccepted();
         }
 
         /** What Steward tells a person who did something, as data the page renders. */
@@ -277,6 +353,13 @@ public interface StewardTexts {
             @Name("A service's own words")
             MessageRef words(@Arg("text") String text);
         }
+    }
+
+    /** What a setting holds, named when a typed value is not one. */
+    enum Expected {
+        INTEGER,
+        DECIMAL,
+        BOOLEAN
     }
 
     /** What Steward keeps in its database, named when it has none. */

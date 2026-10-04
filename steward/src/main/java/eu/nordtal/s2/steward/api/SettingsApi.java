@@ -6,11 +6,10 @@ import com.google.gson.JsonParser;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.steward.texts.RequestRefused;
 import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
-import io.javalin.http.ConflictResponse;
 import io.javalin.http.Context;
-import io.javalin.http.NotFoundResponse;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
@@ -21,6 +20,9 @@ import org.jspecify.annotations.Nullable;
  * A change is a row and a signal; the process takes it at once where the group is live, else at its next start.
  */
 public final class SettingsApi {
+
+    private static final StewardTexts.Steward.Answer ANSWER =
+            StewardTexts.TEXTS.steward().answer();
 
     private final SettingStore store;
 
@@ -67,7 +69,7 @@ public final class SettingsApi {
                 actor,
                 held -> SettingsDocument.revisionOf(held).equals(revision.getAsString()));
         if (!written) {
-            throw new ConflictResponse(group.service() + "/" + group.name() + " was changed since it was read");
+            throw new RequestRefused(409, ANSWER.settingsChanged(group.service(), group.name()));
         }
         final SettingStore.Group now =
                 store.group(group.service(), group.name()).orElse(group);
@@ -77,8 +79,7 @@ public final class SettingsApi {
     private SettingStore.Group groupOf(final Context ctx) {
         final String service = ctx.pathParam("service");
         final String name = ctx.pathParam("name");
-        return store.group(service, name)
-                .orElseThrow(() -> new NotFoundResponse(service + " has published no settings " + name));
+        return store.group(service, name).orElseThrow(() -> new RequestRefused(404, ANSWER.noSettings(service, name)));
     }
 
     private SettingsDocument documentOf(final SettingStore.Group group) {

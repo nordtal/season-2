@@ -66,8 +66,7 @@ final class AccessApi {
         final Body ask = bodyOf(ctx);
         final DiscordId discordId = discordId(ask);
         if (ask.days == null || ask.days <= 0 || ask.days > MOST_DAYS) {
-            throw new BadRequestResponse(
-                    "A grant is between 1 and " + MOST_DAYS + " days. A longer period is two grants.");
+            throw new RequestRefused(400, ANSWER.grantDays(MOST_DAYS));
         }
         submit(ctx, new BotRequest.Grant(discordId, ask.days));
     }
@@ -155,11 +154,8 @@ final class AccessApi {
     /** {@code POST /api/people/{id}/playtime} with {@code {seconds}}, the new total. */
     void playtime(final Context ctx) {
         final Body ask = bodyOf(ctx);
-        if (ask.seconds == null || ask.seconds < 0) {
-            throw new BadRequestResponse("seconds is the new total, and is never negative");
-        }
-        if (ask.seconds > MOST_PLAYTIME_SECONDS) {
-            throw new BadRequestResponse("seconds is at most " + MOST_PLAYTIME_SECONDS);
+        if (ask.seconds == null || ask.seconds < 0 || ask.seconds > MOST_PLAYTIME_SECONDS) {
+            throw new RequestRefused(400, ANSWER.playtimeRange(Duration.ofSeconds(MOST_PLAYTIME_SECONDS)));
         }
         submit(ctx, new BotRequest.SetPlaytime(discordId(ctx.pathParam("id")), ask.seconds));
     }
@@ -170,7 +166,7 @@ final class AccessApi {
         try {
             id = Long.parseLong(ctx.pathParam("id"));
         } catch (final NumberFormatException e) {
-            throw new BadRequestResponse(ctx.pathParam("id") + " is not a request id.");
+            throw new RequestRefused(404, ANSWER.noRequest(ctx.pathParam("id")));
         }
         final Request<BotRequest> row =
                 data().bot().find(id).orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(String.valueOf(id))));

@@ -18,6 +18,9 @@ import io.javalin.http.BadRequestResponse;
  */
 final class Routes {
 
+    private static final StewardTexts.Steward.Answer ANSWER =
+            StewardTexts.TEXTS.steward().answer();
+
     private Routes() {}
 
     /** Wires every route onto {@code config}. */
@@ -40,8 +43,7 @@ final class Routes {
         config.routes.get(
                 "/api/services/{name}",
                 ctx -> ctx.json(api.service(ctx.pathParam("name"))
-                        .orElseThrow(() ->
-                                new io.javalin.http.NotFoundResponse("no such service: " + ctx.pathParam("name")))),
+                        .orElseThrow(() -> new RequestRefused(404, ANSWER.noService(ctx.pathParam("name"))))),
                 Gate.KEY_HELD);
 
         // SSE: one direction, reconnects itself, no reverse-proxy rule.

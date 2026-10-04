@@ -305,9 +305,22 @@ export type TextArgs = {
   }
   "steward.answer.agent-unconfigured": Record<string, never>
   "steward.answer.already-admin": Record<string, never>
+  "steward.answer.answer-unreadable": Record<string, never>
+  "steward.answer.backup-unfinished": {
+    backup: Arg["text"]
+  }
   "steward.answer.bot-token-refused": Record<string, never>
   "steward.answer.ceremony-elsewhere": {
     registration: Arg["choice"]
+  }
+  "steward.answer.ceremony-other-account": {
+    registration: Arg["choice"]
+  }
+  "steward.answer.ceremony-stale": {
+    registration: Arg["choice"]
+  }
+  "steward.answer.confirm-restore": {
+    replaces: Arg["text"]
   }
   "steward.answer.discord-answered": {
     status: Arg["number"]
@@ -321,19 +334,38 @@ export type TextArgs = {
   }
   "steward.answer.enforced-already": Record<string, never>
   "steward.answer.exempt-already": Record<string, never>
+  "steward.answer.grant-days": {
+    most: Arg["number"]
+  }
   "steward.answer.grants-per-hour": {
     count: Arg["number"]
   }
   "steward.answer.guild-unreadable": Record<string, never>
   "steward.answer.interrupted": Record<string, never>
+  "steward.answer.keep-section": {
+    path: Arg["text"]
+    field: Arg["text"]
+    value: Arg["text"]
+  }
   "steward.answer.key-first": Record<string, never>
+  "steward.answer.key-name": {
+    most: Arg["number"]
+  }
+  "steward.answer.key-not-accepted": Record<string, never>
   "steward.answer.key-not-held": Record<string, never>
   "steward.answer.key-not-recent": {
     within: Arg["duration"]
   }
+  "steward.answer.key-refused": {
+    registration: Arg["choice"]
+    why: Arg["text"]
+  }
   "steward.answer.no-access-token": Record<string, never>
   "steward.answer.no-announcement": {
     announcement: Arg["number"]
+  }
+  "steward.answer.no-backup": {
+    backup: Arg["text"]
   }
   "steward.answer.no-bundle": {
     bundle: Arg["text"]
@@ -343,10 +375,26 @@ export type TextArgs = {
     kept: Arg["choice"]
   }
   "steward.answer.no-key": Record<string, never>
+  "steward.answer.no-message": {
+    bundle: Arg["text"]
+    key: Arg["text"]
+  }
   "steward.answer.no-request": {
     request: Arg["text"]
   }
+  "steward.answer.no-service": {
+    service: Arg["text"]
+  }
+  "steward.answer.no-setting": {
+    group: Arg["text"]
+    path: Arg["text"]
+  }
+  "steward.answer.no-settings": {
+    service: Arg["text"]
+    group: Arg["text"]
+  }
   "steward.answer.no-sources": Record<string, never>
+  "steward.answer.no-subscription": Record<string, never>
   "steward.answer.no-such-key": Record<string, never>
   "steward.answer.not-a-member": Record<string, never>
   "steward.answer.not-admin": Record<string, never>
@@ -356,8 +404,28 @@ export type TextArgs = {
   "steward.answer.not-below": Record<string, never>
   "steward.answer.not-in-guild": Record<string, never>
   "steward.answer.not-json": Record<string, never>
+  "steward.answer.not-of-type": {
+    path: Arg["text"]
+    expected: Arg["choice"]
+    text: Arg["text"]
+  }
+  "steward.answer.override-refused": {
+    problems: Arg["text"]
+  }
+  "steward.answer.playtime-range": {
+    most: Arg["duration"]
+  }
+  "steward.answer.push-not-accepted": Record<string, never>
+  "steward.answer.push-unconfigured": Record<string, never>
   "steward.answer.rate-limited": Record<string, never>
+  "steward.answer.secret-setting": {
+    path: Arg["text"]
+  }
   "steward.answer.self": Record<string, never>
+  "steward.answer.settings-changed": {
+    service: Arg["text"]
+    group: Arg["text"]
+  }
   "steward.answer.sign-in-elsewhere": Record<string, never>
   "steward.answer.sign-in-refused": {
     status: Arg["number"]
@@ -366,7 +434,12 @@ export type TextArgs = {
   "steward.answer.sign-in-unconfigured": {
     missing: Arg["text"]
   }
+  "steward.answer.subscription-gone": Record<string, never>
   "steward.answer.too-late": Record<string, never>
+  "steward.answer.too-long": {
+    language: Arg["text"]
+    most: Arg["number"]
+  }
   "steward.answer.unknown-guild": Record<string, never>
   "steward.answer.unknown-person": Record<string, never>
   "steward.artifact.status": {

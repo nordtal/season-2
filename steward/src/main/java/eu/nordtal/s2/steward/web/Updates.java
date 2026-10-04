@@ -16,7 +16,6 @@ import eu.nordtal.s2.steward.texts.RequestRefused;
 import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
-import io.javalin.http.NotFoundResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -63,7 +62,7 @@ final class Updates {
         ctx.json(data().updates()
                 .find(id)
                 .map(this::describe)
-                .orElseThrow(() -> new NotFoundResponse("no request " + id)));
+                .orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(String.valueOf(id)))));
     }
 
     /** Asks for a run by writing a row; nothing here talks to a container. */

@@ -4,6 +4,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import eu.nordtal.s2.steward.texts.RequestRefused;
+import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
 import java.math.BigDecimal;
 import java.util.Locale;
@@ -16,12 +18,16 @@ import java.util.Map;
  */
 final class SettingValues {
 
+    private static final StewardTexts.Steward.Answer ANSWER =
+            StewardTexts.TEXTS.steward().answer();
+
     private SettingValues() {}
 
     /**
      * Returns {@code sent} as the value of the setting {@code node} describes.
      *
-     * @throws BadRequestResponse when {@code sent} does not have the setting's shape or type
+     * @throws BadRequestResponse when {@code sent} does not have the setting's shape, which the form always has
+     * @throws RequestRefused when {@code sent} is not of the setting's type
      */
     static JsonElement convert(final String path, final JsonObject node, final JsonElement sent) {
         final String kind = node.has("kind") ? node.get("kind").getAsString() : "SCALAR";
@@ -84,7 +90,7 @@ final class SettingValues {
                 default -> new JsonPrimitive(text);
             };
         } catch (final NumberFormatException notANumber) {
-            throw new BadRequestResponse(path + " is a " + type.toLowerCase(Locale.ROOT) + ", not " + text);
+            throw new RequestRefused(400, ANSWER.notOfType(path, StewardTexts.Expected.valueOf(type), text));
         }
     }
 
@@ -99,7 +105,7 @@ final class SettingValues {
     /**
      * Refuses a list of sections that drops the section its schema protects.
      *
-     * @throws BadRequestResponse naming the section that has to stay
+     * @throws RequestRefused naming the section that has to stay
      */
     static void refuseRemovingTheProtected(final String path, final JsonObject node, final JsonElement value) {
         if (!(node.get("protectedEntry") instanceof final JsonObject kept) || !value.isJsonArray()) {
@@ -114,6 +120,6 @@ final class SettingValues {
                 return;
             }
         }
-        throw new BadRequestResponse(path + " has to keep the section whose " + field + " is " + wanted);
+        throw new RequestRefused(400, ANSWER.keepSection(path, field, wanted));
     }
 }

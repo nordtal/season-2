@@ -16,7 +16,6 @@ import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
@@ -26,6 +25,9 @@ final class SecondFactor {
 
     private static final StewardTexts.Steward.Answer ANSWER =
             StewardTexts.TEXTS.steward().answer();
+
+    /** The longest name a key takes, so that it can be told apart from the next one. */
+    private static final int MOST_LABEL = 64;
 
     private final Function<Context, Sessions.Session> requireSession;
     private final @Nullable Data data;
@@ -133,9 +135,8 @@ final class SecondFactor {
             throw new BadRequestResponse("no credential in that answer");
         }
         final String label = answer.label == null ? "" : answer.label.trim();
-        if (label.isEmpty() || label.length() > 64) {
-            throw new BadRequestResponse(
-                    "a key needs a name of 1 to 64 characters, so that it can" + " be told apart from the next one");
+        if (label.isEmpty() || label.length() > MOST_LABEL) {
+            throw new RequestRefused(400, ANSWER.keyName(MOST_LABEL));
         }
         final String parked = sessions()
                 .consumeCeremony(who.id())
@@ -145,8 +146,7 @@ final class SecondFactor {
         try {
             key = webauthn().finishRegistration(parked, answer.credential, label, who.signedInDiscordId());
         } catch (WebAuthn.Refused refused) {
-            ctx.status(400).json(Map.of("error", refused.getMessage()));
-            return;
+            throw new RequestRefused(400, refused.why());
         }
         // Registering a key is holding it.
         sessions().markVerified(who.id());
@@ -205,8 +205,7 @@ final class SecondFactor {
         try {
             held = webauthn().finishAssertion(parked, answer.credential, who.signedInDiscordId());
         } catch (WebAuthn.Refused refused) {
-            ctx.status(400).json(Map.of("error", refused.getMessage()));
-            return;
+            throw new RequestRefused(400, refused.why());
         }
         sessions().markVerified(who.id());
         data().audit()
@@ -230,9 +229,8 @@ final class SecondFactor {
         final Sessions.Session who = requireSession.apply(ctx);
         final Answer body = ctx.bodyAsClass(Answer.class);
         final String label = body == null || body.label == null ? "" : body.label.trim();
-        if (label.isEmpty() || label.length() > 64) {
-            throw new BadRequestResponse(
-                    "a key needs a name of 1 to 64 characters, so that it can" + " be told apart from the next one");
+        if (label.isEmpty() || label.length() > MOST_LABEL) {
+            throw new RequestRefused(400, ANSWER.keyName(MOST_LABEL));
         }
         if (!credentials().rename(who.signedInDiscordId(), keyIdOf(ctx), label)) {
             throw new RequestRefused(404, ANSWER.noSuchKey());

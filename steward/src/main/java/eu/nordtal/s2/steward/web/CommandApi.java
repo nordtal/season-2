@@ -17,7 +17,6 @@ import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.data.Data;
 import eu.nordtal.s2.steward.texts.RequestRefused;
 import eu.nordtal.s2.steward.texts.StewardTexts;
-import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.time.Duration;
 import java.util.Objects;
@@ -106,10 +105,10 @@ final class CommandApi {
             } else if (name.length == 2 && name[0].equals("hunger_games")) {
                 ctx.json(settled(data().hungerGames(), id, Long.parseLong(name[1])));
             } else {
-                throw new BadRequestResponse(id + " is not a request.");
+                throw new RequestRefused(404, ANSWER.noRequest(id));
             }
         } catch (final NumberFormatException malformed) {
-            throw new BadRequestResponse(id + " is not a request.");
+            throw new RequestRefused(404, ANSWER.noRequest(id));
         }
     }
 

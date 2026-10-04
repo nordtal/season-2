@@ -78,7 +78,7 @@ public final class MessagesApi {
         for (final Change change : changes) {
             final MessageEntry entry = entries.get(change.key());
             if (entry == null) {
-                throw new BadRequestResponse(identityOf(location) + " has no message " + change.key() + ".");
+                throw new RequestRefused(400, ANSWER.noMessage(identityOf(location), change.key()));
             }
             for (final MessageCheck.Problem problem : OverrideCheck.problems(entry, change.text())) {
                 (problem.error() ? problems : warnings)
@@ -86,7 +86,7 @@ public final class MessagesApi {
             }
         }
         if (!problems.isEmpty()) {
-            throw new BadRequestResponse(String.join(" ", problems) + " Nothing was saved.");
+            throw new RequestRefused(400, ANSWER.overrideRefused(String.join(" ", problems)));
         }
         for (final Change change : changes) {
             final MessageEntry entry = java.util.Objects.requireNonNull(entries.get(change.key()), change.key());

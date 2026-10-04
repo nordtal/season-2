@@ -11,10 +11,12 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.setting.SettingStore;
+import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.settings.Group;
 import eu.nordtal.s2.settings.MemorySettingStore;
 import eu.nordtal.s2.settings.Refers;
-import io.javalin.http.BadRequestResponse;
+import eu.nordtal.s2.steward.texts.RequestRefused;
+import eu.nordtal.s2.steward.texts.StewardTexts;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -96,12 +98,19 @@ class SettingsDocumentTest {
     }
 
     @Test
-    void aWrongTypeAnUnknownPathAndASecretAreRefused() throws Exception {
+    void aWrongTypeAnUnknownPathAndASecretAreRefusedInTheBundlesWords() throws Exception {
         final SettingsDocument document = document();
-        for (final String path : List.of("max-players", "nowhere", "token")) {
+        final StewardTexts.Steward.Answer answer = StewardTexts.TEXTS.steward().answer();
+        final Map<String, MessageRef> refusals = Map.of(
+                "max-players", answer.notOfType("max-players", StewardTexts.Expected.INTEGER, "many"),
+                "nowhere", answer.noSetting("example", "nowhere"),
+                "token", answer.secretSetting("token"));
+        for (final Map.Entry<String, MessageRef> refusal : refusals.entrySet()) {
             final JsonObject changes = new JsonObject();
-            changes.addProperty(path, "many");
-            assertThrows(BadRequestResponse.class, () -> document.rowsFor(changes), path);
+            changes.addProperty(refusal.getKey(), "many");
+            final RequestRefused refused =
+                    assertThrows(RequestRefused.class, () -> document.rowsFor(changes), refusal.getKey());
+            assertEquals(refusal.getValue(), refused.why(), refusal.getKey());
         }
     }
 

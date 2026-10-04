@@ -131,6 +131,12 @@ class WebAuthnKeyTest extends WebTestSupport {
 
             final HttpResponse<String> refused = finishRegistration(browser, answer, "From next door");
             assertEquals(400, refused.statusCode(), refused.body());
+            assertTrue(
+                    GSON.fromJson(refused.body(), JsonObject.class)
+                            .get("error")
+                            .getAsString()
+                            .startsWith("That key could not be registered: "),
+                    "the refusal is not the bundle's sentence: " + refused.body());
             assertEquals(
                     0,
                     GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)

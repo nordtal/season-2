@@ -255,7 +255,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
         // The files of the last season's installation are imported once, then retired.
         settings = DatabaseSettings.over(SettingStore.using(pool), getName(), environment, logger())
                 .importingFrom(getDataFolder().toPath(), Set.of());
-        colourSettings = setting(Group.of("colours", ColoursSpec.class).whileRunning());
+        colourSettings = setting(Colours.GROUP.whileRunning());
         colours = ToneColours.parse(Colours.declared(colourSettings.get()), getLogger()::warning);
         distanceSettings = setting(Distances.group(distanceDefaults()));
         players = setting(NetworkSettings.PLAYERS);

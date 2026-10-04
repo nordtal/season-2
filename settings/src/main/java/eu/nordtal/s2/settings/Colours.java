@@ -7,6 +7,9 @@ import java.util.Map;
 /** The tone colours a group of {@link ColoursSpec} declares. */
 public final class Colours {
 
+    /** Every Paper and proxy service's group of tone colours; Steward reads it for the bundles of that service. */
+    public static final Group<ColoursSpec> GROUP = Group.of("colours", ColoursSpec.class);
+
     private Colours() {}
 
     /** Returns each tone's declared hex value; a new {@link Tone} stops this compiling until it has a key. */

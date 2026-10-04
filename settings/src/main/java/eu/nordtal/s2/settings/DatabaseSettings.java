@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
@@ -63,11 +64,29 @@ public final class DatabaseSettings implements Settings {
         return new DatabaseSettings(store, service, environment, logger, new LegacyFiles(folder, skipped, logger));
     }
 
+    /**
+     * Returns {@code group} of {@code service} as that service takes it at its start, without publishing anything.
+     *
+     * For a reader that shows another process's values: no environment applies, and refused rows give the defaults.
+     */
+    public static <T> T current(final SettingStore store, final String service, final Group<T> group)
+            throws SettingsException {
+        final String owner = group.network() ? SettingStore.NETWORK : service;
+        final Environment none = new Environment("NONE", group.name(), variable -> null);
+        final List<SettingStore.Value> stored = store.overrides(List.of(owner)).stream()
+                .filter(value -> value.group().equals(group.name()))
+                .toList();
+        try {
+            return compose(group, defaultsOf(group), stored, none, ignored -> {});
+        } catch (final SettingsException refused) {
+            return compose(group, defaultsOf(group), List.of(), none, ignored -> {});
+        }
+    }
+
     @Override
     public <T> Setting<T> load(final Group<T> group) throws SettingsException {
         final String owner = group.network() ? SettingStore.NETWORK : service;
-        final JsonObject defaults = SpecJson.defaults(group.spec());
-        group.defaults().forEach((path, value) -> SpecJson.put(defaults, path, SpecJson.GSON.toJsonTree(value)));
+        final JsonObject defaults = defaultsOf(group);
         final List<String> held = environment.applyTo(group, SpecJson.read(defaults, group.spec()));
         try {
             store.publish(owner, group.name(), SpecJson.schema(group.spec()), defaults.toString(), held, group.live());
@@ -116,14 +135,55 @@ public final class DatabaseSettings implements Settings {
         return List.of(service, SettingStore.NETWORK);
     }
 
+    /** The spec's defaults under the group's own. */
+    private static JsonObject defaultsOf(final Group<?> group) {
+        final JsonObject defaults = SpecJson.defaults(group.spec());
+        group.defaults().forEach((path, value) -> SpecJson.put(defaults, path, SpecJson.GSON.toJsonTree(value)));
+        return defaults;
+    }
+
+    /**
+     * Lays the stored rows over the defaults, then the environment, and checks the result.
+     *
+     * @param unknown told each stored path the group has no setting for, or keeps secret, which is skipped
+     */
+    private static <T> T compose(
+            final Group<T> group,
+            final JsonObject defaults,
+            final List<SettingStore.Value> stored,
+            final Environment environment,
+            final Consumer<String> unknown)
+            throws SettingsException {
+        final Set<String> paths = Set.copyOf(SpecJson.leaves(group.spec()));
+        final Set<String> secrets = SpecJson.secrets(group.spec());
+        final JsonObject tree = defaults.deepCopy();
+        try {
+            for (final SettingStore.Value value : stored) {
+                if (!paths.contains(value.path()) || secrets.contains(value.path())) {
+                    unknown.accept(value.path());
+                    continue;
+                }
+                final JsonElement held = JsonParser.parseString(value.value());
+                if (held.isJsonNull()) {
+                    throw new IllegalArgumentException(value.path() + " is stored without a value");
+                }
+                SpecJson.put(tree, value.path(), held);
+            }
+            final T taken = SpecJson.read(tree, group.spec());
+            environment.applyTo(group, taken);
+            group.check().check(taken);
+            return taken;
+        } catch (final RuntimeException wrong) {
+            throw new SettingsException(group.name() + ": " + wrong.getMessage(), wrong);
+        }
+    }
+
     /** One group, as last taken. */
     private final class Stored<T> implements Setting<T> {
 
         private final Group<T> group;
         private final String owner;
         private final JsonObject defaults;
-        private final Set<String> paths;
-        private final Set<String> secrets;
         private final ManagedSpecReference<T> values;
         private volatile boolean refused;
 
@@ -131,8 +191,6 @@ public final class DatabaseSettings implements Settings {
             this.group = group;
             this.owner = owner;
             this.defaults = defaults;
-            this.paths = Set.copyOf(SpecJson.leaves(group.spec()));
-            this.secrets = SpecJson.secrets(group.spec());
             this.values = new ManagedSpecReference<>(group.spec(), this::reloadFromSpec, Stored::cannotSave);
         }
 
@@ -194,31 +252,17 @@ public final class DatabaseSettings implements Settings {
         }
 
         private T compose(final List<SettingStore.Value> stored) throws SettingsException {
-            final JsonObject tree = defaults.deepCopy();
-            try {
-                for (final SettingStore.Value value : stored) {
-                    if (!paths.contains(value.path()) || secrets.contains(value.path())) {
-                        logger.warn(
-                                "{}/{} stores {}, which {} has no setting for: it is ignored",
-                                owner,
-                                group.name(),
-                                value.path(),
-                                service);
-                        continue;
-                    }
-                    final JsonElement held = JsonParser.parseString(value.value());
-                    if (held.isJsonNull()) {
-                        throw new IllegalArgumentException(value.path() + " is stored without a value");
-                    }
-                    SpecJson.put(tree, value.path(), held);
-                }
-                final T taken = SpecJson.read(tree, group.spec());
-                environment.applyTo(group, taken);
-                group.check().check(taken);
-                return taken;
-            } catch (final RuntimeException wrong) {
-                throw new SettingsException(group.name() + ": " + wrong.getMessage(), wrong);
-            }
+            return DatabaseSettings.compose(
+                    group,
+                    defaults,
+                    stored,
+                    environment,
+                    path -> logger.warn(
+                            "{}/{} stores {}, which {} has no setting for: it is ignored",
+                            owner,
+                            group.name(),
+                            path,
+                            service));
         }
 
         private void refuse(final SettingsException why) {

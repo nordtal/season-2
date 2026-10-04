@@ -1,9 +1,9 @@
 package eu.nordtal.s2.steward.data;
 
-import com.google.gson.JsonParser;
-import eu.nordtal.jcore.config.spec.Specs;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.setting.SettingStore;
+import eu.nordtal.s2.settings.DatabaseSettings;
+import eu.nordtal.s2.settings.SettingsException;
 import eu.nordtal.s2.settings.network.NetworkSettings;
 import eu.nordtal.s2.settings.network.SeasonSpec;
 import java.sql.Connection;
@@ -11,7 +11,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import javax.sql.DataSource;
@@ -71,17 +70,17 @@ public final class ExampleValues {
 
     /** The season as the network's settings name it: the spec's defaults under whatever an admin stored. */
     private Map<String, String> season() {
-        final SeasonSpec defaults = Specs.createDefault(SeasonSpec.class);
-        final Map<String, String> season = new LinkedHashMap<>();
-        season.put("number", String.valueOf(defaults.number()));
-        season.put("name", defaults.name());
-        for (final SettingStore.Value stored :
-                SettingStore.using(dataSource).overrides(List.of(SettingStore.NETWORK))) {
-            if (stored.group().equals(NetworkSettings.SEASON.name()) && season.containsKey(stored.path())) {
-                season.put(stored.path(), JsonParser.parseString(stored.value()).getAsString());
-            }
+        final SeasonSpec season;
+        try {
+            season = DatabaseSettings.current(
+                    SettingStore.using(dataSource), SettingStore.NETWORK, NetworkSettings.SEASON);
+        } catch (final SettingsException unreadable) {
+            throw new IllegalStateException("could not read the season", unreadable);
         }
-        return season;
+        final Map<String, String> answer = new LinkedHashMap<>();
+        answer.put("number", String.valueOf(season.number()));
+        answer.put("name", season.name());
+        return answer;
     }
 
     private static Map<String, String> named(final String name) {

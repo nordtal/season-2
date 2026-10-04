@@ -30,7 +30,6 @@ import eu.nordtal.s2.database.phase.PhaseDirectory;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.proxy.config.ProxySettings;
 import eu.nordtal.s2.settings.Colours;
-import eu.nordtal.s2.settings.ColoursSpec;
 import eu.nordtal.s2.settings.DatabasePool;
 import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.settings.DatabaseSettings;
@@ -163,9 +162,9 @@ public final class ProxyPlugin {
                     settings.load(Group.of("pack", PackSpec.class).checkedBy(ProxySettings::checkPack)).get();
             final NetworkSpec network = settings.load(
                     Group.of("network", NetworkSpec.class).checkedBy(ProxySettings::checkNetwork)).get();
-            // The reply and tone colours, read once here; see ColoursSpec.
+            // The reply and tone colours, read once here; see Colours.GROUP.
             final ToneColours colours = ToneColours.parse(
-                    Colours.declared(settings.load(Group.of("colours", ColoursSpec.class)).get()), logger::warn);
+                    Colours.declared(settings.load(Colours.GROUP).get()), logger::warn);
             final Setting<PlayersSpec> players = settings.load(NetworkSettings.PLAYERS);
             final Setting<PrestigeSpec> prestigeSettings = settings.load(NetworkSettings.PRESTIGE);
             prestige = NetworkSettings.prestige(prestigeSettings.get());

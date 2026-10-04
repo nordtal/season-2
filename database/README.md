@@ -8,9 +8,10 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
 - **Access** is read through `AccessReader` and written through `AccessDirectory`, which extends it.
   The plugins and the proxy's router only read.
 - **A player's card** is the one hover every name carries in game: `PlayerCard` builds it from what a process holds
-  of the player (a server's `PlayerIdentity`, the proxy's login roster) as a message of this module's bundle, their
-  role, the crest `Prestige` derives from their play time, and the play time itself. It lives here because every
-  Paper server and the proxy hold that record and load this bundle, and the crest table is the network's setting.
+  of the player (a server's `PlayerIdentity`, the proxy's login roster, which `AccessState` fills at login) as a
+  message of this module's bundle: their role, the crest `Prestige` derives from their play time, and the play time
+  itself. It lives here because every Paper server and the proxy hold that record and load this bundle, and the
+  crest table is the network's setting.
 - **A refused write** throws `Refused` with a typed reason (`UpdateRefusal`, `SeasonDateRefusal`)
   and a message from this module's own bundle, `messages/database`. `DatabaseText` renders it in
   English for Steward and the logs.

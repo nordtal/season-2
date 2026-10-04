@@ -38,7 +38,7 @@ public final class Homecoming {
             Title.Times.times(Duration.ZERO, Duration.ofMillis(1400), Duration.ofMillis(250));
 
     private final Logger logger;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final LoginRoster roster;
     private final PhaseServers servers;
 
@@ -46,9 +46,9 @@ public final class Homecoming {
     private final Set<UUID> owed = ConcurrentHashMap.newKeySet();
 
     public Homecoming(
-            final Logger logger, final Messages messages, final LoginRoster roster, final PhaseServers servers) {
+            final Logger logger, final MessageRenderer renderer, final LoginRoster roster, final PhaseServers servers) {
         this.logger = Objects.requireNonNull(logger, "logger");
-        this.messages = Objects.requireNonNull(messages, "messages");
+        this.renderer = Objects.requireNonNull(renderer, "renderer");
         this.roster = Objects.requireNonNull(roster, "roster");
         this.servers = Objects.requireNonNull(servers, "servers");
     }
@@ -87,8 +87,8 @@ public final class Homecoming {
         }
         try {
             final Locale locale = roster.localeOf(player.getUniqueId());
-            player.sendMessage(MessageRenderer.of(messages)
-                    .format(locale, MESSAGES.returnSection().waitingRoom(serviceName(messages, locale, destination))));
+            player.sendMessage(renderer.format(
+                    locale, MESSAGES.returnSection().waitingRoom(serviceName(renderer.raw(), locale, destination))));
         } catch (final RuntimeException failure) {
             logger.warn(
                     "Could not tell {} that they are being moved back to '{}'",
@@ -115,7 +115,6 @@ public final class Homecoming {
 
     private void tell(final Player player, final Announcement announcement) {
         final Locale locale = roster.localeOf(player.getUniqueId());
-        final MessageRenderer renderer = MessageRenderer.of(messages);
         switch (announcement.kind()) {
             case COUNTDOWN -> {
                 player.sendMessage(

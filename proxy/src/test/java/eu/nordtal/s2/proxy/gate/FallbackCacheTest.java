@@ -139,6 +139,7 @@ class FallbackCacheTest {
                 false,
                 false,
                 false,
+                0L,
                 locale,
                 SeasonPhase.SMP,
                 null);
@@ -154,6 +155,7 @@ class FallbackCacheTest {
                 false,
                 false,
                 false,
+                0L,
                 Locale.ENGLISH,
                 SeasonPhase.SMP,
                 null);
@@ -170,6 +172,7 @@ class FallbackCacheTest {
                 false,
                 false,
                 false,
+                0L,
                 Locale.ENGLISH,
                 SeasonPhase.PRE_EVENT,
                 null);

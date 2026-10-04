@@ -20,7 +20,10 @@ import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
+import eu.nordtal.s2.messagerendering.Names;
 import eu.nordtal.s2.messagerendering.ToneColours;
+import eu.nordtal.s2.database.access.Prestige;
 import eu.nordtal.s2.database.online.OnlineDirectory;
 import eu.nordtal.s2.database.online.OnlineRoster;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
@@ -38,6 +41,7 @@ import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.network.LanguageAndTimeSpec;
 import eu.nordtal.s2.settings.network.NetworkSettings;
 import eu.nordtal.s2.settings.network.PlayersSpec;
+import eu.nordtal.s2.settings.network.PrestigeSpec;
 import eu.nordtal.s2.settings.network.SeasonSpec;
 import eu.nordtal.s2.settings.SettingsException;
 import eu.nordtal.s2.database.setting.SettingStore;
@@ -114,6 +118,9 @@ public final class ProxyPlugin {
     /** The proxy's one bundle, once the settings named its languages; the refusal screen reuses it. */
     private Messages messages;
 
+    /** The crest table every card is drawn by, as the network's prestige group last read; the hub's thread sets it. */
+    private volatile Prestige prestige = Prestige.defaults();
+
     private final ProxyServer proxy;
     private final Logger logger;
     private final Path dataDirectory;
@@ -160,15 +167,20 @@ public final class ProxyPlugin {
             final ToneColours colours = ToneColours.parse(
                     Colours.declared(settings.load(Group.of("colours", ColoursSpec.class)).get()), logger::warn);
             final Setting<PlayersSpec> players = settings.load(NetworkSettings.PLAYERS);
+            final Setting<PrestigeSpec> prestigeSettings = settings.load(NetworkSettings.PRESTIGE);
+            prestige = NetworkSettings.prestige(prestigeSettings.get());
             final SeasonSpec season = settings.load(NetworkSettings.SEASON).get();
             final LanguageAndTimeSpec languageAndTime = settings.load(NetworkSettings.LANGUAGE_AND_TIME).get();
             languages = NetworkSettings.languages(languageAndTime);
             settings.retireFiles();
             // After the settings, which name the languages and the season.
-            final Messages messages = Messages.load(getClass().getClassLoader(), "messages/proxy", languages.locales())
+            // The database bundle holds the card a player's name shows on hover.
+            final Messages messages = Messages.load(
+                            getClass().getClassLoader(), List.of("messages/database", "messages/proxy"),
+                            languages.locales())
                     .within(NetworkSettings.environment("proxy", season, languageAndTime, colours));
             this.messages = messages;
-            start(database, gate, pack, network, colours, messages, settings, players);
+            start(database, gate, pack, network, colours, messages, settings, players, prestigeSettings);
         } catch (final SettingsException | RuntimeException failure) {
             failClosed(failure);
         }
@@ -177,13 +189,15 @@ public final class ProxyPlugin {
     private void start(final DatabaseSpec databaseConfig, final GateSpec gateConfig,
                        final PackSpec packConfig, final NetworkSpec networkConfig,
                        final ToneColours colours, final Messages messages, final DatabaseSettings settings,
-                       final Setting<PlayersSpec> players) {
+                       final Setting<PlayersSpec> players, final Setting<PrestigeSpec> prestigeSettings) {
         this.access = AccessDirectory.using(pool, clock);
 
         final PhaseDirectory phases = PhaseDirectory.using(pool, clock);
-        final GateMessages gateMessages = new GateMessages(messages, gateConfig);
-        final FallbackCache fallback = new FallbackCache(Duration.ofMinutes(gateConfig.fallbackCacheWindowMinutes()), clock);
         final LoginRoster roster = new LoginRoster();
+        // The proxy's one renderer: a name is drawn bare, with the card of the player's login here.
+        final MessageRenderer renderer = MessageRenderer.of(messages, Names.BARE, roster.cards(() -> prestige));
+        final GateMessages gateMessages = new GateMessages(renderer, gateConfig);
+        final FallbackCache fallback = new FallbackCache(Duration.ofMinutes(gateConfig.fallbackCacheWindowMinutes()), clock);
 
         // One PhaseServers for the whole plugin, not one per caller.
         final PhaseServers phaseServers = PhaseServers.from(gateConfig);
@@ -223,7 +237,7 @@ public final class ProxyPlugin {
 
         // the pack station
 
-        final PackMessages packMessages = new PackMessages(messages);
+        final PackMessages packMessages = new PackMessages(renderer);
         final PackOffer offer = packConfig.enabled()
                 ? new PackOffer(proxy, packConfig, packMessages)
                 : null;
@@ -251,7 +265,7 @@ public final class ProxyPlugin {
         proxy.getEventManager().register(this, intents);
 
         // One object for both returns, so each moved player is told once.
-        final Homecoming homecoming = new Homecoming(logger, messages, roster, phaseServers);
+        final Homecoming homecoming = new Homecoming(logger, renderer, roster, phaseServers);
 
         final PlayerRouter router = new PlayerRouter(this, proxy, logger, access, routing, phaseWatch,
                 roster, fallback, gateMessages, packs, intents, backendHealth,
@@ -288,7 +302,7 @@ public final class ProxyPlugin {
                 databaseConfig.password(), databaseConfig.queryTimeoutSeconds(), "proxy-signals", logger);
         signals.on(Channel.PHASE, "the season phase", phaseWatch::refresh);
         // The network's limit and allowlist, changed in Steward, arrive here without a restart.
-        settings.listen(signals, () -> reloadNetwork(players));
+        settings.listen(signals, () -> reloadNetwork(players, prestigeSettings));
         MessageOverrideStore.using(pool).follow(messages, signals);
         signals.on(Channel.ADMIN, "the admin roster", refreshAdmins);
         // Latency here would drop the 30 second beat.
@@ -333,7 +347,7 @@ public final class ProxyPlugin {
                 .repeat(snapshotInterval)
                 .schedule();
         proxy.getEventManager().register(this, new NetworkPing(proxy, players.get(), phaseWatch,
-                snapshots, messages, languages.locales()[0], clock,
+                snapshots, renderer, languages.locales()[0], clock,
                 eu.nordtal.s2.proxy.ping.ServerIcon.load(dataDirectory, logger)));
 
         // This proxy knows every connection, so it writes the counts and who is connected.
@@ -358,7 +372,7 @@ public final class ProxyPlugin {
 
         // Only the proxy sees every player, so it gives the warning, counting towards the row's instant.
         this.restartWatch = new RestartWatch(this, proxy, logger,
-                UpdateDirectory.using(pool), roster, messages, phaseServers, clock);
+                UpdateDirectory.using(pool), roster, renderer, phaseServers, clock);
         proxy.getScheduler().buildTask(this, this.restartWatch::check)
                 .delay(RestartWatch.INTERVAL)
                 .repeat(RestartWatch.INTERVAL)
@@ -422,19 +436,19 @@ public final class ProxyPlugin {
 
         // One list, the network's, enforced here and read by every Paper server too. See CommandGate/CommandFilter.
         proxy.getEventManager().register(this,
-                new CommandGate(roster, NetworkSettings.allowlist(players.get()), messages, logger, () -> colours,
+                new CommandGate(roster, NetworkSettings.allowlist(players.get()), renderer, logger, () -> colours,
                         eu.nordtal.s2.proxy.feedback.ProxySounds.defaults(logger::warn)));
         logger.info("Players who are not admins may use: {}", players.get().commandAllowlist());
 
         // The five a player types, as plain Velocity Brigadier, not admin-only.
         final PrivateMessages privateMessages =
-                new PrivateMessages(proxy, roster, messages, () -> colours, logger);
+                new PrivateMessages(proxy, roster, renderer, () -> colours, logger);
         // Also a listener: it tracks who last spoke to whom for /r, dropped when somebody leaves.
         proxy.getEventManager().register(this, privateMessages);
 
         // The invite is the gate group's, the same string every login screen already uses.
         final InfoTexts infoTexts =
-                new InfoTexts(messages, gateConfig.discordInviteUrl(), roster);
+                new InfoTexts(renderer, gateConfig.discordInviteUrl(), roster);
 
         final CommandManager commands = proxy.getCommandManager();
         final List<com.velocitypowered.api.command.BrigadierCommand> registered =
@@ -463,12 +477,18 @@ public final class ProxyPlugin {
         startHeartbeat();
     }
 
-    /** Takes the network's limit and allowlist again; a refused change keeps what runs. */
-    private void reloadNetwork(final Setting<PlayersSpec> players) {
+    /** Takes the network's limit, allowlist and crest table again; a refused change keeps what runs. */
+    private void reloadNetwork(final Setting<PlayersSpec> players, final Setting<PrestigeSpec> prestigeSettings) {
         try {
             players.reload();
         } catch (final SettingsException refused) {
             logger.warn("A network setting was not taken, the running one stays: {}", refused.getMessage());
+        }
+        try {
+            prestigeSettings.reload();
+            prestige = NetworkSettings.prestige(prestigeSettings.get());
+        } catch (final SettingsException refused) {
+            logger.warn("The prestige tiers were not taken, the running ones stay: {}", refused.getMessage());
         }
     }
 
@@ -501,7 +521,7 @@ public final class ProxyPlugin {
         try {
             final Messages shown = messages != null ? messages
                     : Messages.load(getClass().getClassLoader(), "messages/proxy", languages.locales());
-            proxy.getEventManager().register(this, new MisconfiguredGate(logger, shown));
+            proxy.getEventManager().register(this, new MisconfiguredGate(logger, MessageRenderer.of(shown)));
         } catch (final RuntimeException broken) {
             // The packaged bundle is inside the jar; reaching here means it is damaged, so the proxy shuts down.
             logger.error("proxy cannot even load its own packaged messages, so it cannot "

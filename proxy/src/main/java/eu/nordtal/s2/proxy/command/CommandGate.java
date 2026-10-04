@@ -12,7 +12,6 @@ import com.velocitypowered.api.proxy.Player;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messagerendering.Tones;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
@@ -44,7 +43,7 @@ public final class CommandGate {
     }
 
     private final LoginRoster roster;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final Logger logger;
     private final Supplier<ToneColours> colours;
     private final Chime chime;
@@ -54,30 +53,33 @@ public final class CommandGate {
 
     /** Without a {@link Chime}: silent. */
     public CommandGate(
-            final LoginRoster roster, final CommandAllowlist allowlist, final Messages messages, final Logger logger) {
-        this(roster, allowlist, messages, logger, Chime.silent());
+            final LoginRoster roster,
+            final CommandAllowlist allowlist,
+            final MessageRenderer renderer,
+            final Logger logger) {
+        this(roster, allowlist, renderer, logger, Chime.silent());
     }
 
     /** With one fixed list and without a colour supplier: {@link ToneColours#DEFAULTS}. */
     public CommandGate(
             final LoginRoster roster,
             final CommandAllowlist allowlist,
-            final Messages messages,
+            final MessageRenderer renderer,
             final Logger logger,
             final Chime chime) {
-        this(roster, () -> allowlist, messages, logger, () -> ToneColours.DEFAULTS, chime);
+        this(roster, () -> allowlist, renderer, logger, () -> ToneColours.DEFAULTS, chime);
     }
 
     public CommandGate(
             final LoginRoster roster,
             final Supplier<CommandAllowlist> allowlist,
-            final Messages messages,
+            final MessageRenderer renderer,
             final Logger logger,
             final Supplier<ToneColours> colours,
             final Chime chime) {
         this.roster = Objects.requireNonNull(roster, "roster");
         this.allowlist = Objects.requireNonNull(allowlist, "allowlist");
-        this.messages = Objects.requireNonNull(messages, "messages");
+        this.renderer = Objects.requireNonNull(renderer, "renderer");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.colours = Objects.requireNonNull(colours, "colours");
         this.chime = Objects.requireNonNull(chime, "chime");
@@ -111,11 +113,8 @@ public final class CommandGate {
             return;
         }
         event.setResult(CommandExecuteEvent.CommandResult.denied());
-        player.sendMessage(Tones.paint(
-                MessageRenderer.of(messages)
-                        .format(locale(player), MESSAGES.command().unknown()),
-                Tone.BAD,
-                colours.get()));
+        player.sendMessage(
+                Tones.paint(renderer.format(locale(player), MESSAGES.command().unknown()), Tone.BAD, colours.get()));
         chime.play(player, Feedback.REFUSED);
     }
 

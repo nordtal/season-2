@@ -6,7 +6,6 @@ import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messagerendering.Tones;
 import eu.nordtal.s2.messages.MessageRef;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
@@ -26,17 +25,17 @@ public final class VelocityUser {
 
     private final Player player;
     private final LoginRoster roster;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final Supplier<ToneColours> colours;
 
     public VelocityUser(
             final Player player,
             final LoginRoster roster,
-            final Messages messages,
+            final MessageRenderer renderer,
             final Supplier<ToneColours> colours) {
         this.player = player;
         this.roster = roster;
-        this.messages = messages;
+        this.renderer = renderer;
         this.colours = colours;
     }
 
@@ -82,6 +81,6 @@ public final class VelocityUser {
     }
 
     private Component render(final MessageRef message) {
-        return MessageRenderer.of(messages).format(locale(), message);
+        return renderer.format(locale(), message);
     }
 }

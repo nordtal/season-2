@@ -198,6 +198,16 @@ class AccessProfileIntegrationTest {
     }
 
     @Test
+    void theLoginStateCarriesThePlayTimeTheProxysCardShows() {
+        directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
+        assertEquals(0L, directory.accessState(MC_UUID).playtimeSeconds(), "nobody has played yet");
+
+        execute("INSERT INTO player_playtime (discord_id, seconds) VALUES ('" + DISCORD_ID + "', 7200)");
+
+        assertEquals(7200L, directory.accessState(MC_UUID).playtimeSeconds());
+    }
+
+    @Test
     void anAccountThatChoseNoLanguageReadsTheNetworksAndItsZoneIsTheNetworks() {
         directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
 

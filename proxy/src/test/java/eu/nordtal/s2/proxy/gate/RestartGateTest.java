@@ -8,6 +8,7 @@ import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AccessState;
 import eu.nordtal.s2.database.access.MemberState;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.proxy.config.GateSpec;
 import java.lang.reflect.InvocationHandler;
@@ -35,7 +36,7 @@ class RestartGateTest {
     private static final UUID PLAYER = UUID.fromString("00000000-0000-0000-0000-0000000000a1");
 
     private final Messages messages = Messages.load("messages/proxy", Locale.ENGLISH, Locale.GERMAN);
-    private final GateMessages gateMessages = new GateMessages(messages, defaults());
+    private final GateMessages gateMessages = new GateMessages(MessageRenderer.of(messages), defaults());
     private final FallbackCache locales = new FallbackCache(Duration.ofMinutes(15), Clock.systemUTC());
 
     @Test
@@ -127,6 +128,7 @@ class RestartGateTest {
                 false,
                 false,
                 false,
+                0L,
                 Locale.GERMAN,
                 SeasonPhase.SMP,
                 null);

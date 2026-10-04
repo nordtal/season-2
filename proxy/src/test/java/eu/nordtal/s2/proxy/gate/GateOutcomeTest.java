@@ -218,6 +218,7 @@ class GateOutcomeTest {
                 false,
                 false,
                 false,
+                0L,
                 Locale.ENGLISH,
                 null,
                 null);
@@ -262,6 +263,7 @@ class GateOutcomeTest {
                 false,
                 false,
                 false,
+                0L,
                 Locale.ENGLISH,
                 SeasonPhase.PRE_LAUNCH,
                 null);
@@ -303,6 +305,7 @@ class GateOutcomeTest {
                 false,
                 admin,
                 false,
+                0L,
                 Locale.ENGLISH,
                 phase,
                 null);

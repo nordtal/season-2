@@ -7,7 +7,6 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.LoginEvent;
 import com.velocitypowered.api.event.proxy.ProxyPingEvent;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
-import eu.nordtal.s2.messages.Messages;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
@@ -29,13 +28,12 @@ public final class MisconfiguredGate {
     /** How many logins were refused, so the log says "and 400 others" rather than 400 lines. */
     private final AtomicLong refused = new AtomicLong();
 
-    public MisconfiguredGate(final Logger logger, final Messages messages) {
+    public MisconfiguredGate(final Logger logger, final MessageRenderer renderer) {
         this.logger = Objects.requireNonNull(logger, "logger");
-        Objects.requireNonNull(messages, "messages");
-        this.screen = GateMessages.inEveryLanguage(messages, MESSAGES.gate().misconfigured());
+        Objects.requireNonNull(renderer, "renderer");
+        this.screen = GateMessages.inEveryLanguage(renderer, MESSAGES.gate().misconfigured());
         // English only: a ping carries no player to take a language from.
-        this.motd = MessageRenderer.of(messages)
-                .format(Locale.ENGLISH, MESSAGES.motd().misconfigured());
+        this.motd = renderer.format(Locale.ENGLISH, MESSAGES.motd().misconfigured());
     }
 
     /** Returns what the server browser shows while nobody can join. */

@@ -233,6 +233,7 @@ interface AccessDao {
                    usr.donor,
                    usr.admin,
                    usr.pack_exempt_at IS NOT NULL                           AS pack_exempt,
+                   coalesce(playtime.seconds, 0)                            AS playtime_seconds,
                    EXISTS (SELECT 1
                            FROM access_grant grant_row
                            WHERE grant_row.discord_id = link.discord_id
@@ -251,6 +252,7 @@ interface AccessDao {
             FROM (VALUES (1)) AS anchor (one)
                      LEFT JOIN account_link link ON link.mc_uuid = cast(:mcUuid AS uuid)
                      LEFT JOIN discord_user usr ON usr.discord_id = link.discord_id
+                     LEFT JOIN player_playtime playtime ON playtime.discord_id = link.discord_id
             """)
     @RegisterRowMapper(AccessStateMapper.class)
     Optional<AccessState> accessState(@Bind("mcUuid") UUID mcUuid);

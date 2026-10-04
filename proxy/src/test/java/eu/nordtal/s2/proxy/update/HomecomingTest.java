@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.proxy.PhaseServers;
 import java.util.List;
 import java.util.Set;
@@ -17,11 +18,11 @@ class HomecomingTest {
 
     private final Homecoming homecoming = new Homecoming(
             org.slf4j.LoggerFactory.getLogger(HomecomingTest.class),
-            eu.nordtal.s2.messages.Messages.load(
+            MessageRenderer.of(eu.nordtal.s2.messages.Messages.load(
                     HomecomingTest.class.getClassLoader(),
                     "messages/proxy",
                     java.util.Locale.ENGLISH,
-                    java.util.Locale.GERMAN),
+                    java.util.Locale.GERMAN)),
             new eu.nordtal.s2.proxy.gate.LoginRoster(),
             SERVERS);
 

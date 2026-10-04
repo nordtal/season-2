@@ -90,7 +90,8 @@ The release notes are generated from these subjects by git-cliff (`cliff.toml`).
     both platforms provide. Neither `discord-bot` nor Steward depends on Adventure or on either
     renderer.
   - No Paper plugin reads an identity outside pre-login or a hub refresh; database work leaves the main thread.
-  - A Paper plugin renders through its base's one `MessageRenderer`; no other class there builds one.
+  - A Paper plugin and the proxy render through their base's one `MessageRenderer` (`NordtalPlugin`,
+    `ProxyPlugin`); no other class there builds one.
   - Only steward-agent's `migrate` service runs Flyway `migrate()`. `discord-bot` only validates, plugins do
     neither.
 - **The steward frontend** is formatted by oxfmt and linted by oxlint with type-aware rules

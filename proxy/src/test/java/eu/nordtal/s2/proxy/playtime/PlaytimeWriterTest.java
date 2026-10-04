@@ -187,6 +187,7 @@ class PlaytimeWriterTest {
                         false,
                         false,
                         false,
+                        0L,
                         Locale.ENGLISH,
                         SeasonPhase.SMP,
                         null));

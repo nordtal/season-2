@@ -19,6 +19,7 @@ import org.jspecify.annotations.Nullable;
  * @param donor            whether the linked account has the permanent donor flag
  * @param admin            whether the linked account carries the admin flag mirrored from Discord
  * @param packExempt       whether an admin let this account through without the resource pack
+ * @param playtimeSeconds  network-wide play time as of this read, which the card's crest follows from
  * @param locale           the player's language, English when unknown
  * @param phase            the season phase when this was read, {@link SeasonPhase#MAINTENANCE} if unreadable
  * @param launch           when the network opens, {@code null} when no date has been announced
@@ -32,6 +33,7 @@ public record AccessState(
         boolean donor,
         boolean admin,
         boolean packExempt,
+        long playtimeSeconds,
         Locale locale,
         SeasonPhase phase,
         @Nullable Instant launch) {
@@ -50,7 +52,7 @@ public record AccessState(
 
     /** Returns the answer for a UUID nobody has linked, in a network whose phase is known. */
     public static AccessState unlinked(final UUID account, final SeasonPhase phase) {
-        return new AccessState(account, null, null, false, null, false, false, false, Locale.ENGLISH, phase, null);
+        return new AccessState(account, null, null, false, null, false, false, false, 0L, Locale.ENGLISH, phase, null);
     }
 
     /** Returns whether a Discord account is linked to this UUID. */

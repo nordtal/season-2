@@ -5,7 +5,6 @@ import com.velocitypowered.api.event.proxy.ProxyPingEvent;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.ServerPing;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.proxy.ProxyMessages;
 import eu.nordtal.s2.proxy.launch.LaunchCountdown;
 import eu.nordtal.s2.proxy.phase.PhaseWatch;
@@ -25,7 +24,7 @@ public final class NetworkPing {
     private final PlayersSpec players;
     private final PhaseWatch phases;
     private final SnapshotStore snapshots;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final Locale language;
     private final Clock clock;
     private final java.util.Optional<com.velocitypowered.api.util.Favicon> favicon;
@@ -42,7 +41,7 @@ public final class NetworkPing {
             final PlayersSpec players,
             final PhaseWatch phases,
             final SnapshotStore snapshots,
-            final Messages messages,
+            final MessageRenderer renderer,
             final Locale language,
             final Clock clock,
             final java.util.Optional<com.velocitypowered.api.util.Favicon> favicon) {
@@ -51,7 +50,7 @@ public final class NetworkPing {
         this.players = players;
         this.phases = phases;
         this.snapshots = snapshots;
-        this.messages = messages;
+        this.renderer = renderer;
         this.language = language;
         this.clock = clock;
     }
@@ -72,17 +71,16 @@ public final class NetworkPing {
                 snapshots.current(),
                 proxy.getPlayerCount(),
                 players.maxPlayers(),
-                LaunchCountdown.render(messages, language, known.launch(), clock.instant()));
+                LaunchCountdown.render(renderer.raw(), language, known.launch(), clock.instant()));
         final ProxyMessages.Motd motd = ProxyMessages.MESSAGES.motd();
-        return MessageRenderer.of(messages)
-                .format(
-                        language,
-                        switch (known.phase()) {
-                            case PRE_LAUNCH -> motd.preLaunch(list);
-                            case PRE_EVENT -> motd.preEvent(list);
-                            case START_EVENT -> motd.startEvent(list);
-                            case SMP -> motd.smp(list);
-                            case MAINTENANCE -> motd.maintenance();
-                        });
+        return renderer.format(
+                language,
+                switch (known.phase()) {
+                    case PRE_LAUNCH -> motd.preLaunch(list);
+                    case PRE_EVENT -> motd.preEvent(list);
+                    case START_EVENT -> motd.startEvent(list);
+                    case SMP -> motd.smp(list);
+                    case MAINTENANCE -> motd.maintenance();
+                });
     }
 }

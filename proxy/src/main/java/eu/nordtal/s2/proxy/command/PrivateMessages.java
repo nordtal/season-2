@@ -16,7 +16,6 @@ import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messages.MessageRef;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
@@ -50,7 +49,7 @@ public final class PrivateMessages {
 
     private final ProxyServer proxy;
     private final LoginRoster roster;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final Supplier<ToneColours> colours;
     private final Logger logger;
 
@@ -60,12 +59,12 @@ public final class PrivateMessages {
     public PrivateMessages(
             final ProxyServer proxy,
             final LoginRoster roster,
-            final Messages messages,
+            final MessageRenderer renderer,
             final Supplier<ToneColours> colours,
             final Logger logger) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.roster = Objects.requireNonNull(roster, "roster");
-        this.messages = Objects.requireNonNull(messages, "messages");
+        this.renderer = Objects.requireNonNull(renderer, "renderer");
         this.colours = Objects.requireNonNull(colours, "colours");
         this.logger = Objects.requireNonNull(logger, "logger");
     }
@@ -190,23 +189,22 @@ public final class PrivateMessages {
     Component line(final Half half, final Locale reader, final Player about, final String text) {
         final String flag = LanguageFlags.of(localeOf(about));
         final ProxyMessages.Chat.Msg msg = ProxyMessages.MESSAGES.chat().msg();
-        return MessageRenderer.of(messages)
-                .format(
-                        reader,
-                        switch (half) {
-                            case SENT ->
-                                msg.sent(
-                                        flag,
-                                        PlayerContext.of(PlayerId.of(about.getUniqueId()), about.getUsername()),
-                                        adminTag(about),
-                                        text);
-                            case RECEIVED ->
-                                msg.received(
-                                        flag,
-                                        PlayerContext.of(PlayerId.of(about.getUniqueId()), about.getUsername()),
-                                        adminTag(about),
-                                        text);
-                        });
+        return renderer.format(
+                reader,
+                switch (half) {
+                    case SENT ->
+                        msg.sent(
+                                flag,
+                                PlayerContext.of(PlayerId.of(about.getUniqueId()), about.getUsername()),
+                                adminTag(about),
+                                text);
+                    case RECEIVED ->
+                        msg.received(
+                                flag,
+                                PlayerContext.of(PlayerId.of(about.getUniqueId()), about.getUsername()),
+                                adminTag(about),
+                                text);
+                });
     }
 
     /** Sets these two as each other's {@code /r} partner. */
@@ -227,8 +225,7 @@ public final class PrivateMessages {
             return player;
         }
         context.getSource()
-                .sendMessage(MessageRenderer.of(messages)
-                        .format(Locale.ENGLISH, MESSAGES.command().notFromConsole()));
+                .sendMessage(renderer.format(Locale.ENGLISH, MESSAGES.command().notFromConsole()));
         return null;
     }
 
@@ -240,8 +237,8 @@ public final class PrivateMessages {
     private int usage(final CommandContext<CommandSource> context, final String usage, final MessageRef describe) {
         if (!(context.getSource() instanceof Player player)) {
             context.getSource()
-                    .sendMessage(MessageRenderer.of(messages)
-                            .format(Locale.ENGLISH, MESSAGES.command().help().usage(usage)));
+                    .sendMessage(renderer.format(
+                            Locale.ENGLISH, MESSAGES.command().help().usage(usage)));
             return Command.SINGLE_SUCCESS;
         }
         final VelocityUser who = user(player);
@@ -251,7 +248,7 @@ public final class PrivateMessages {
     }
 
     private VelocityUser user(final Player player) {
-        return new VelocityUser(player, roster, messages, colours);
+        return new VelocityUser(player, roster, renderer, colours);
     }
 
     /** The admin tag with a leading space, or nothing, substituted as {@code {admin}}. */

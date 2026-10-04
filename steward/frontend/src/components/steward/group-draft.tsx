@@ -7,6 +7,7 @@ import { useSaveConfig } from "@/lib/queries"
 import { Button } from "@/components/ui/button"
 import { changed, type Draft } from "@/components/steward/configuration"
 import type { SectionValues } from "@/components/steward/repeatable-cards"
+import { t } from "@/lib/texts"
 
 /** What one key of a group's draft can hold: text, a list, or a list of sections. */
 export type DraftValue = string | string[] | SectionValues[]
@@ -56,7 +57,7 @@ export function useGroupDraft(file: string, document: ConfigDocument) {
   }
 
   function submit() {
-    const label = count === 1 ? "One setting saved." : `${count} settings saved.`
+    const label = t("steward.settings.settings-saved", { count })
     save.mutate(
       { revision: document.revision, changes },
       {
@@ -73,9 +74,9 @@ export function useGroupDraft(file: string, document: ConfigDocument) {
 
 /** What stands above a group's fields: why a save is refused, cannot happen, or waits for a restart. */
 export function noticeOf(document: ConfigDocument): string | null {
-  if (document.problem) return `Refused: ${document.problem}`
-  if (!document.writable) return "Read-only."
-  return document.restartRequired ? "Applies after a restart." : null
+  if (document.problem) return t("steward.settings.refused", { problem: document.problem })
+  if (!document.writable) return t("steward.settings.read-only")
+  return document.restartRequired ? t("steward.settings.restart-needed") : null
 }
 
 /** The save button of a group's draft, shown only while there is something to save. */
@@ -93,7 +94,7 @@ export function SaveDraft({
   if (count === 0 || !writable) return null
   return (
     <Button type="button" className="pointer-events-auto" disabled={pending} onClick={onSave}>
-      {pending ? "Saving…" : `Save ${count}`}
+      {pending ? t("steward.form.saving") : t("steward.form.save-count", { count })}
     </Button>
   )
 }

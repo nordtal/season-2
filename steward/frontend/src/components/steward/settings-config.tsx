@@ -24,6 +24,7 @@ import {
   TreeView,
   useLanding,
 } from "@/components/steward/settings-view"
+import { t } from "@/lib/texts"
 
 /** A config file of the Settings tab: its form, its fields and the save that reloads the service. */
 
@@ -140,7 +141,13 @@ function SettingField({
         {dirty ? (
           <>
             <DraftDot />
-            <Button type="button" variant="ghost" size="icon-xs" aria-label={`Undo ${entry.label}`} onClick={onUndo}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label={t("steward.settings.undo-entry", { what: entry.label })}
+              onClick={onUndo}
+            >
               <ArrowCounterClockwiseIcon aria-hidden />
             </Button>
           </>

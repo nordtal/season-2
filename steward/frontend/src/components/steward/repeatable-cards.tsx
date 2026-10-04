@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { t } from "@/lib/texts"
 
 /** One section's fields as a card edits them, a list of sections holding the same record one level down. */
 export type SectionValues = { [key: string]: string | string[] | SectionValues[] }
@@ -91,10 +92,7 @@ export function RepeatableCards({
   if (template.length === 0) {
     return (
       <div className="flex flex-col gap-2">
-        <p className="text-sm text-muted-foreground">
-          These entries are not uniform enough for one card each - no card fits, so this list stays raw text and is not
-          editable here.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("steward.settings.raw-list")}</p>
         {value.map((section, index) => (
           <Textarea
             key={index}
@@ -117,7 +115,7 @@ export function RepeatableCards({
 
   return (
     <div className="flex flex-col gap-3">
-      {value.length === 0 ? <p className="text-sm text-muted-foreground">No entries yet.</p> : null}
+      {value.length === 0 ? <p className="text-sm text-muted-foreground">{t("steward.settings.no-entries")}</p> : null}
       {value.map((section, index) => {
         const missing = requiredChannelFields.filter((field) => !textOf(section, field.key).trim())
         const isProtected = index === protectedIndex
@@ -133,13 +131,13 @@ export function RepeatableCards({
                 variant="ghost"
                 size="icon"
                 disabled={disabled || isProtected}
-                title={isProtected ? (listExplanation ?? "This entry cannot be removed.") : undefined}
+                title={isProtected ? (listExplanation ?? t("steward.settings.cannot-remove")) : undefined}
                 aria-label={
                   isProtected
-                    ? `Entry ${index + 1} cannot be removed`
+                    ? t("steward.settings.entry-cannot-remove", { index: index + 1 })
                     : within
-                      ? `Remove ${title}`
-                      : `Remove entry ${index + 1}`
+                      ? t("steward.settings.remove", { what: title })
+                      : t("steward.settings.remove-entry", { index: index + 1 })
                 }
                 onClick={() => setPendingRemoval(index)}
               >
@@ -149,7 +147,9 @@ export function RepeatableCards({
             {missing.length > 0 ? (
               <p className="flex items-start gap-1.5 text-sm text-amber-600 dark:text-amber-500">
                 <WarningCircleIcon aria-hidden className="mt-0.5 size-4 shrink-0" />
-                <span>Incomplete - missing {missing.map((field) => field.label).join(", ")}.</span>
+                <span>
+                  {t("steward.settings.incomplete", { missing: missing.map((field) => field.label).join(", ") })}
+                </span>
               </p>
             ) : null}
             {template.map((field) => {
@@ -221,23 +221,23 @@ export function RepeatableCards({
           variant="outline"
           size="sm"
           disabled={disabled}
-          aria-label={within ? `Add to ${within}` : undefined}
+          aria-label={within ? t("steward.settings.add-to", { what: within }) : undefined}
           onClick={() => onChange([...value, blankSection(template)])}
         >
           <PlusIcon aria-hidden />
-          Add entry
+          {t("steward.settings.add-entry")}
         </Button>
       </div>
 
       <AskThenAct
         open={pendingRemoval !== null}
         onOpenChange={(open) => open || setPendingRemoval(null)}
-        title={`Remove ${pendingRemoval !== null ? `"${titleOf(value[pendingRemoval], pendingRemoval)}"` : "entry"}?`}
-        description={
-          <span className="whitespace-pre-wrap">
-            {listExplanation ?? "This only changes the draft - nothing is written to the file until Save."}
-          </span>
+        title={
+          pendingRemoval !== null
+            ? t("steward.settings.remove-ask", { title: titleOf(value[pendingRemoval], pendingRemoval) })
+            : t("steward.settings.remove-entry-ask")
         }
+        description={<span className="whitespace-pre-wrap">{listExplanation ?? t("steward.settings.draft-only")}</span>}
         cancel="Keep it"
         action="Remove it"
         act={() => {

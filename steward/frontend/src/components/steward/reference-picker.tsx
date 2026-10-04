@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/responsive-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
+import { t } from "@/lib/texts"
 
 /** How many rows a search draws at once; the rest wait for a narrower one. */
 const SHOWN = 200
@@ -278,11 +279,11 @@ export function ReferencePicker({
           variant="outline"
           size="sm"
           disabled={disabled}
-          aria-label={`Add to ${label}`}
+          aria-label={t("steward.settings.add-to", { what: label })}
           onClick={() => setOpen(true)}
         >
           <PlusIcon aria-hidden />
-          Add
+          {t("steward.settings.add")}
         </Button>
         {sheet}
       </div>
@@ -302,7 +303,7 @@ export function ReferencePicker({
         onClick={() => setOpen(true)}
       >
         {value === "" ? (
-          <span className="text-muted-foreground">none</span>
+          <span className="text-muted-foreground">{t("steward.settings.none")}</span>
         ) : choice ? (
           <>
             <Mark choice={choice} icons={icons} />
@@ -362,8 +363,8 @@ function Options({
     <div className="flex min-h-0 flex-col gap-2">
       <Input
         role="searchbox"
-        aria-label={`Search ${label}`}
-        placeholder="Search"
+        aria-label={t("steward.settings.search-in", { what: label })}
+        placeholder={t("steward.settings.search")}
         value={query}
         spellCheck={false}
         className="text-sm max-md:text-base"
@@ -381,17 +382,21 @@ function Options({
                   aria-pressed={namespace === name}
                   onClick={() => setNamespace(name)}
                 >
-                  {name === ALL ? "all" : name}
+                  {name === ALL ? t("steward.settings.all") : name}
                 </Button>
               ))
             : null}
           {choices.tags.length > 0 ? (
             <Select value={tag} onValueChange={setTag}>
-              <SelectTrigger size="sm" aria-label="Tag" className="min-w-0 flex-1 font-mono text-xs">
+              <SelectTrigger
+                size="sm"
+                aria-label={t("steward.settings.tag")}
+                className="min-w-0 flex-1 font-mono text-xs"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL}>every tag</SelectItem>
+                <SelectItem value={ALL}>{t("steward.settings.every-tag")}</SelectItem>
                 {choices.tags.map((candidate) => (
                   <SelectItem key={candidate.id} value={candidate.id} className="font-mono text-xs">
                     #{candidate.id}
@@ -427,7 +432,7 @@ function Options({
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-muted"
             onClick={onClear}
           >
-            none
+            {t("steward.settings.none")}
           </button>
         ) : null}
         {filtered.slice(0, SHOWN).map((choice) => {
@@ -471,7 +476,9 @@ function Options({
             </button>
           )
         })}
-        {filtered.length === 0 ? <p className="px-2 py-3 text-center text-sm text-muted-foreground">No match</p> : null}
+        {filtered.length === 0 ? (
+          <p className="px-2 py-3 text-center text-sm text-muted-foreground">{t("steward.settings.no-match")}</p>
+        ) : null}
         {filtered.length > SHOWN ? (
           <p className="px-2 py-2 text-center text-xs text-muted-foreground">+{filtered.length - SHOWN}</p>
         ) : null}

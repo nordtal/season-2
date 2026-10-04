@@ -3,6 +3,7 @@ import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react"
 import type { ConfigEntry } from "@/lib/api"
 import { isColour } from "@/lib/references"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group"
+import { t } from "@/lib/texts"
 
 /** Minecraft's chat background: black at the default `textBackgroundOpacity` of 0.5. */
 export const MINECRAFT_CHAT_BACKGROUND = "rgba(0, 0, 0, 0.5)"
@@ -38,7 +39,7 @@ export function ColourControl({
         {/* The native picker only takes `#rrggbb`, so it falls back to black rather than mirroring `value`. */}
         <input
           type="color"
-          aria-label="Pick a colour"
+          aria-label={t("steward.settings.pick-colour")}
           disabled={disabled}
           value={valid ?? "#000000"}
           onChange={(event) => onChange(event.target.value)}
@@ -59,7 +60,7 @@ export function ColourControl({
             <InputGroupButton
               size="icon-xs"
               aria-pressed={shown}
-              aria-label={shown ? "Hide the preview" : "Show the preview"}
+              aria-label={t("steward.settings.preview", { shown })}
               onClick={() => setShown((it) => !it)}
             >
               {shown ? <EyeSlashIcon /> : <EyeIcon />}
@@ -71,7 +72,7 @@ export function ColourControl({
       {shown ? (
         <div
           role="img"
-          aria-label={valid ? `Preview on Minecraft's chat background` : "No valid colour to preview yet"}
+          aria-label={valid ? t("steward.settings.preview-on") : t("steward.settings.no-colour")}
           style={{ backgroundColor: MINECRAFT_CHAT_BACKGROUND }}
           className="w-full rounded px-2 py-1"
         >

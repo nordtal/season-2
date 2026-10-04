@@ -48,6 +48,8 @@ public interface StewardTexts {
 
         Forms form();
 
+        SettingsEditor settings();
+
         AnnouncementsPage announcements();
 
         Failures failure();

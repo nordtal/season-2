@@ -11,7 +11,7 @@ import eu.nordtal.s2.messages.value.Action;
 import eu.nordtal.s2.papercommon.player.Identities;
 import java.util.List;
 import java.util.Locale;
-import java.util.UUID;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -53,18 +53,15 @@ public final class Lobby {
     }
 
     /** Starts the periodic ready-check broadcast. Call once, from {@code onEnable}. */
-    public void startBroadcasting(final World world, final java.util.function.Supplier<UUID> currentGameId) {
+    public void startBroadcasting(final World world) {
         final long periodTicks = config.lobby().broadcastIntervalSeconds() * 20L;
+        // The roster is read off the main thread, and only the lines are sent from it.
         broadcastTask = Bukkit.getScheduler()
-                .runTaskTimer(
+                .runTaskTimerAsynchronously(
                         plugin,
-                        () -> {
-                            final UUID gameId = currentGameId.get();
-                            if (gameId == null) {
-                                return;
-                            }
-                            broadcast(world, gameId);
-                        },
+                        () -> readyStatus()
+                                .ifPresent(roster ->
+                                        Bukkit.getScheduler().runTask(plugin, () -> broadcast(world, roster))),
                         periodTicks,
                         periodTicks);
     }
@@ -77,8 +74,7 @@ public final class Lobby {
     }
 
     /** Deliberately silent: a chime on a repeating message makes people turn the sound off entirely. */
-    private void broadcast(final World world, final UUID gameId) {
-        final List<RosterEntry> roster = dao.roster(gameId);
+    private void broadcast(final World world, final List<RosterEntry> roster) {
         final long totalTeams =
                 roster.stream().map(RosterEntry::teamId).distinct().count();
         final long readyTeams = roster.stream().collect(Collectors.groupingBy(RosterEntry::teamId)).values().stream()
@@ -94,15 +90,16 @@ public final class Lobby {
     }
 
     /**
-     * Marks the calling player's active membership as ready, for {@code /hg ready}.
+     * Marks the calling player ready in the open round, for {@code /hg ready}; blocking.
      *
-     * @return whether a membership was found and updated
+     * @return whether the player is on a team of the open round
      */
-    public boolean markReady(final UUID gameId, final DiscordId discordId) {
-        return dao.setReady(gameId, discordId, true) > 0;
+    public boolean markReady(final DiscordId discordId) {
+        return dao.openRound().map(round -> dao.markReady(round, discordId)).orElse(false);
     }
 
-    public List<RosterEntry> readyStatus(final UUID gameId) {
-        return dao.roster(gameId);
+    /** Returns every member of the open round and whether they are ready, or empty while no round is open; blocking. */
+    public Optional<List<RosterEntry>> readyStatus() {
+        return dao.openRound().map(dao::roster);
     }
 }

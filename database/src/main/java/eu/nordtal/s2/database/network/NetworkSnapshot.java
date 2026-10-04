@@ -3,11 +3,10 @@ package eu.nordtal.s2.database.network;
 /**
  * The numbers behind the MOTD placeholders, as of the last successful refresh, and never used to decide anything.
  *
- * @param hgState           {@code hg_game.state} of the one open game, or empty when there is none
- * @param hgTeams           registered teams in that game
+ * @param hgTeams           teams registered in the round of the Hunger Games that has not ended
  * @param hgTeamsAlive      teams with at least one member who has not been eliminated
  * @param hgParticipants    members who are actually on a team (owner or accepted), not invitations
- * @param hgAlive           participants with no {@code DEATH} event against them
+ * @param hgAlive           participants with no {@code DEATH} event against them in the game under way
  * @param hgEliminated      participants with one, so {@code hgAlive + hgEliminated == hgParticipants}
  * @param smpMilestone      the {@code ACTIVE} milestone's key, or empty when none is active
  * @param smpProgress       how far that milestone's objectives have got, 0 to 100, rounded down
@@ -17,7 +16,6 @@ package eu.nordtal.s2.database.network;
  * @param smpPlayers        how many players the SMP has ever seen
  */
 public record NetworkSnapshot(
-        String hgState,
         int hgTeams,
         int hgTeamsAlive,
         int hgParticipants,
@@ -31,5 +29,5 @@ public record NetworkSnapshot(
         int smpPlayers) {
 
     /** What a proxy renders before its first successful refresh: zeroes and empty strings, never nulls. */
-    public static final NetworkSnapshot EMPTY = new NetworkSnapshot("", 0, 0, 0, 0, 0, "", 0, 0, 0, 0L, 0);
+    public static final NetworkSnapshot EMPTY = new NetworkSnapshot(0, 0, 0, 0, 0, "", 0, 0, 0, 0L, 0);
 }

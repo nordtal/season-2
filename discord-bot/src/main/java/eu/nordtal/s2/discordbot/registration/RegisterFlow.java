@@ -1,4 +1,4 @@
-package eu.nordtal.s2.discordbot.hungergames;
+package eu.nordtal.s2.discordbot.registration;
 
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
@@ -30,9 +30,9 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.modals.Modal;
 
 /**
- * Team registration end to end: the Register button, the team name modal, the partner picker and the invite DM.
+ * Team registration for one game end to end: the Register button, the name modal, the partner picker and the DM.
  *
- * Readiness is written only by the Paper plugin; every database call runs on {@code executor}.
+ * The game is the one its {@link Teams} register for. Every database call runs on {@code executor}.
  */
 @Slf4j
 public final class RegisterFlow extends ListenerAdapter {
@@ -42,6 +42,7 @@ public final class RegisterFlow extends ListenerAdapter {
 
     private final JDA jda;
     private final Teams teams;
+    private final Ids ids;
     private final AccessReader access;
     private final DiscordRenderer messages;
     private final ExecutorService executor;
@@ -54,6 +55,7 @@ public final class RegisterFlow extends ListenerAdapter {
             final ExecutorService executor) {
         this.jda = jda;
         this.teams = teams;
+        this.ids = Ids.of(teams.game());
         this.access = access;
         this.messages = messages;
         this.executor = executor;
@@ -62,27 +64,27 @@ public final class RegisterFlow extends ListenerAdapter {
     @Override
     public void onButtonInteraction(final ButtonInteractionEvent event) {
         final String id = event.getComponentId();
-        if (Ids.REGISTER.equals(id)) {
+        if (ids.register().equals(id)) {
             openRegisterModal(event);
-        } else if (Ids.INVITE.equals(id)) {
+        } else if (ids.invite().equals(id)) {
             openInvitePicker(event);
-        } else if (id.startsWith(Ids.INVITE_ACCEPT)) {
-            answerInvite(event, UUID.fromString(id.substring(Ids.INVITE_ACCEPT.length())), true);
-        } else if (id.startsWith(Ids.INVITE_DECLINE)) {
-            answerInvite(event, UUID.fromString(id.substring(Ids.INVITE_DECLINE.length())), false);
+        } else if (id.startsWith(ids.inviteAccept())) {
+            answerInvite(event, UUID.fromString(id.substring(ids.inviteAccept().length())), true);
+        } else if (id.startsWith(ids.inviteDecline())) {
+            answerInvite(event, UUID.fromString(id.substring(ids.inviteDecline().length())), false);
         }
     }
 
     private void openRegisterModal(final ButtonInteractionEvent event) {
         final Locale locale = access.language(DiscordId.of(event.getUser().getId()));
 
-        final TextInput nameInput = TextInput.create(Ids.REGISTER_NAME_INPUT, TextInputStyle.SHORT)
+        final TextInput nameInput = TextInput.create(ids.registerNameInput(), TextInputStyle.SHORT)
                 .setPlaceholder(
                         messages.format(locale, MESSAGES.register().modal().namePlaceholder()))
                 .setRequiredRange(NAME_MIN_LENGTH, NAME_MAX_LENGTH)
                 .build();
         final Modal modal = Modal.create(
-                        Ids.REGISTER_MODAL,
+                        ids.registerModal(),
                         messages.format(locale, MESSAGES.register().modal().title()))
                 .addComponents(Label.of(
                         messages.format(locale, MESSAGES.register().modal().nameLabel()), nameInput))
@@ -93,20 +95,20 @@ public final class RegisterFlow extends ListenerAdapter {
 
     @Override
     public void onModalInteraction(final ModalInteractionEvent event) {
-        if (!Ids.REGISTER_MODAL.equals(event.getModalId())) {
+        if (!ids.registerModal().equals(event.getModalId())) {
             return;
         }
         final Locale locale = access.language(DiscordId.of(event.getUser().getId()));
-        final String typed = event.getValue(Ids.REGISTER_NAME_INPUT) == null
+        final String typed = event.getValue(ids.registerNameInput()) == null
                 ? ""
-                : event.getValue(Ids.REGISTER_NAME_INPUT).getAsString();
+                : event.getValue(ids.registerNameInput()).getAsString();
 
         event.deferReply(true).queue();
         executor.execute(() -> {
             try {
                 register(event, locale, typed.strip());
             } catch (final RuntimeException exception) {
-                log.error("Registering a hunger games team failed", exception);
+                log.error("Registering a {} team failed", teams.game().key(), exception);
                 event.getHook()
                         .editOriginal(
                                 messages.format(locale, MESSAGES.register().failed()))
@@ -125,7 +127,7 @@ public final class RegisterFlow extends ListenerAdapter {
                         .editOriginalComponents(List.of())
                         .setContent(messages.format(locale, MESSAGES.register().success(name)))
                         .setComponents(ActionRow.of(Button.secondary(
-                                Ids.INVITE,
+                                ids.invite(),
                                 messages.format(locale, MESSAGES.register().inviteButton()))))
                         .queue();
             case INVALID_NAME ->
@@ -143,12 +145,17 @@ public final class RegisterFlow extends ListenerAdapter {
                         .editOriginal(
                                 messages.format(locale, MESSAGES.register().alreadyRegistered()))
                         .queue();
+            case CLOSED ->
+                event.getHook()
+                        .editOriginal(
+                                messages.format(locale, MESSAGES.register().closed()))
+                        .queue();
         }
     }
 
     private void openInvitePicker(final ButtonInteractionEvent event) {
         final Locale locale = access.language(DiscordId.of(event.getUser().getId()));
-        final EntitySelectMenu picker = EntitySelectMenu.create(Ids.INVITE_SELECT, EntitySelectMenu.SelectTarget.USER)
+        final EntitySelectMenu picker = EntitySelectMenu.create(ids.inviteSelect(), EntitySelectMenu.SelectTarget.USER)
                 .setPlaceholder(
                         messages.format(locale, MESSAGES.register().invite().pickerPlaceholder()))
                 .build();
@@ -160,7 +167,7 @@ public final class RegisterFlow extends ListenerAdapter {
 
     @Override
     public void onEntitySelectInteraction(final EntitySelectInteractionEvent event) {
-        if (!Ids.INVITE_SELECT.equals(event.getComponentId())) {
+        if (!ids.inviteSelect().equals(event.getComponentId())) {
             return;
         }
         final Locale locale = access.language(DiscordId.of(event.getUser().getId()));
@@ -175,7 +182,7 @@ public final class RegisterFlow extends ListenerAdapter {
             try {
                 invite(event, locale, partner);
             } catch (final RuntimeException exception) {
-                log.error("Inviting a hunger games partner failed", exception);
+                log.error("Inviting a {} partner failed", teams.game().key(), exception);
                 event.getHook()
                         .editOriginal(
                                 messages.format(locale, MESSAGES.register().failed()))
@@ -232,6 +239,11 @@ public final class RegisterFlow extends ListenerAdapter {
                         .editOriginal(messages.format(
                                 locale, MESSAGES.register().invite().targetUnavailable()))
                         .queue();
+            case CLOSED ->
+                event.getHook()
+                        .editOriginal(
+                                messages.format(locale, MESSAGES.register().closed()))
+                        .queue();
         }
     }
 
@@ -240,10 +252,10 @@ public final class RegisterFlow extends ListenerAdapter {
         final String text = messages.format(locale, MESSAGES.register().invite().dm(new TeamContext(teamName)));
         final List<ActionRow> components = List.of(ActionRow.of(
                 Button.success(
-                        Ids.INVITE_ACCEPT + memberId,
+                        ids.inviteAccept() + memberId,
                         messages.format(locale, MESSAGES.register().invite().accept())),
                 Button.danger(
-                        Ids.INVITE_DECLINE + memberId,
+                        ids.inviteDecline() + memberId,
                         messages.format(locale, MESSAGES.register().invite().decline()))));
 
         jda.openPrivateChannelById(partner.getId())
@@ -251,16 +263,17 @@ public final class RegisterFlow extends ListenerAdapter {
                         channel -> channel.sendMessage(text)
                                 .addComponents(components)
                                 .queue(
-                                        ok -> log.debug("Sent hunger games invite DM to {}", partner.getId()),
+                                        ok -> log.debug(
+                                                "Sent a {} invite DM to {}",
+                                                teams.game().key(),
+                                                partner.getId()),
                                         failure -> log.info(
-                                                "Could not DM {} about a hunger games invite ({}); they will "
+                                                "Could not DM {} about an invite ({}); they will "
                                                         + "only find out if the owner tells them",
                                                 partner.getId(),
                                                 failure.toString())),
                         failure -> log.info(
-                                "Could not open a DM with {} for a hunger games invite ({})",
-                                partner.getId(),
-                                failure.toString()));
+                                "Could not open a DM with {} for an invite ({})", partner.getId(), failure.toString()));
     }
 
     private void answerInvite(final ButtonInteractionEvent event, final UUID memberId, final boolean accept) {
@@ -273,7 +286,7 @@ public final class RegisterFlow extends ListenerAdapter {
                         : teams.decline(memberId, event.getUser().getId());
                 report(event, locale, accept, result);
             } catch (final RuntimeException exception) {
-                log.error("Answering a hunger games invite failed", exception);
+                log.error("Answering a {} invite failed", teams.game().key(), exception);
                 event.getHook()
                         .editOriginalComponents(List.of())
                         .setContent(messages.format(locale, MESSAGES.register().failed()))
@@ -284,6 +297,14 @@ public final class RegisterFlow extends ListenerAdapter {
 
     private void report(
             final ButtonInteractionEvent event, final Locale locale, final boolean accept, final AnswerResult result) {
+        if (result.status() == AnswerResult.Status.CLOSED) {
+            // The buttons stay: the invite can still be answered once the round opens again.
+            event.getHook()
+                    .sendMessage(messages.format(locale, MESSAGES.register().closed()))
+                    .setEphemeral(true)
+                    .queue();
+            return;
+        }
         if (result.status() == AnswerResult.Status.NOT_PENDING) {
             event.getHook()
                     .editOriginalComponents(List.of())

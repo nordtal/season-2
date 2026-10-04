@@ -1,7 +1,8 @@
-package eu.nordtal.s2.discordbot.hungergames;
+package eu.nordtal.s2.discordbot.registration;
 
 import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 
+import eu.nordtal.s2.database.registration.Game;
 import eu.nordtal.s2.discordbot.Card;
 import eu.nordtal.s2.discordbot.DiscordRenderer;
 import eu.nordtal.s2.discordbot.ManagedMessageDao;
@@ -19,7 +20,7 @@ import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
 import org.jdbi.v3.core.Jdbi;
 
-/** Posts and edits the Register message, one per configured language, through {@link ManagedMessageDao}. */
+/** Posts and edits a game's Register message, one per configured language, through {@link ManagedMessageDao}. */
 @Slf4j
 public final class RegisterMessages {
 
@@ -27,6 +28,7 @@ public final class RegisterMessages {
     private final Languages languages;
     private final DiscordRenderer messages;
     private final ManagedMessageDao dao;
+    private final Ids ids = Ids.of(Game.HUNGER_GAMES);
 
     public RegisterMessages(final JDA jda, final Languages languages, final DiscordRenderer messages, final Jdbi jdbi) {
         this.jda = jda;
@@ -59,7 +61,7 @@ public final class RegisterMessages {
 
         final MessageEmbed embed = registerEmbed(locale);
         final List<ActionRow> components = List.of(ActionRow.of(Button.primary(
-                Ids.REGISTER, messages.format(locale, MESSAGES.register().button()))));
+                ids.register(), messages.format(locale, MESSAGES.register().button()))));
 
         try {
             final Optional<String> existing = dao.messageIdOf(kind, channelId);

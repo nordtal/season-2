@@ -329,6 +329,9 @@ public interface AccessMessages {
         @Name("Already registered")
         MessageRef alreadyRegistered();
 
+        @Name("Closed while a game is under way")
+        MessageRef closed();
+
         @Name("Failed")
         MessageRef failed();
 

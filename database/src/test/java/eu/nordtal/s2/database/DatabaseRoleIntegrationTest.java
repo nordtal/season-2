@@ -103,6 +103,7 @@ class DatabaseRoleIntegrationTest {
             cases.add(mayNot(role, "SELECT count(*) FROM plugin_file"));
         }
         cases.addAll(serverInboxes());
+        cases.addAll(registration());
         assertAll(cases.stream().map(DatabaseRoleIntegrationTest::check));
     }
 
@@ -146,6 +147,33 @@ class DatabaseRoleIntegrationTest {
                         may(DatabaseRole.STEWARD, "DELETE FROM steward_alert_preference WHERE false"),
                         mayNot(DatabaseRole.DISCORD_BOT, "SELECT count(*) FROM steward_alert_preference"))
                 .map(DatabaseRoleIntegrationTest::check));
+    }
+
+    /** The bot writes the registration and the game moves only its state; the game's own tables are the game's. */
+    private static List<Case> registration() {
+        return List.of(
+                may(DatabaseRole.DISCORD_BOT, "INSERT INTO registration (game) SELECT 'hunger-games' WHERE false"),
+                may(DatabaseRole.DISCORD_BOT, "UPDATE team_member SET state = 'ACCEPTED' WHERE false"),
+                mayNot(
+                        DatabaseRole.DISCORD_BOT,
+                        "INSERT INTO hg_game (registration_id) SELECT gen_random_uuid() WHERE false"),
+                mayNot(
+                        DatabaseRole.DISCORD_BOT,
+                        "INSERT INTO hg_ready (member_id) SELECT gen_random_uuid() WHERE false"),
+                may(DatabaseRole.HUNGER_GAMES, "UPDATE registration SET state = 'CLOSED' WHERE false"),
+                mayNot(DatabaseRole.HUNGER_GAMES, "UPDATE registration SET game = 'x' WHERE false"),
+                mayNot(
+                        DatabaseRole.HUNGER_GAMES,
+                        "INSERT INTO team (registration_id, name) SELECT gen_random_uuid(), 'x' WHERE false"),
+                mayNot(DatabaseRole.HUNGER_GAMES, "UPDATE team_member SET state = 'ACCEPTED' WHERE false"),
+                may(
+                        DatabaseRole.HUNGER_GAMES,
+                        "INSERT INTO hg_game (registration_id) SELECT gen_random_uuid() WHERE false"),
+                may(DatabaseRole.HUNGER_GAMES, "INSERT INTO hg_ready (member_id) SELECT gen_random_uuid() WHERE false"),
+                may(DatabaseRole.HUNGER_GAMES, "UPDATE hg_team_colour SET colour_rgb = 0 WHERE false"),
+                may(DatabaseRole.PROXY, "SELECT count(*) FROM team_member"),
+                may(DatabaseRole.STEWARD, "SELECT count(*) FROM hg_ready"),
+                mayNot(DatabaseRole.SMP, "SELECT count(*) FROM registration"));
     }
 
     /** Every server with an inbox claims only its own, and steward writes into each. */

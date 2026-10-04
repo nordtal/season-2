@@ -36,7 +36,6 @@ public final class Demotion {
                         entry.memberId(),
                         entry.teamId(),
                         entry.teamName(),
-                        entry.discordId(),
                         Objects.requireNonNull(entry.mcUuid()),
                         true,
                         demoted));

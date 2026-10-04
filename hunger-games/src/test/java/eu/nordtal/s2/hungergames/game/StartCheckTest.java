@@ -14,9 +14,8 @@ class StartCheckTest {
 
     private static final int RECOMMENDED = 8;
 
-    private static Optional<String> reason(
-            final GameState state, final SeasonPhase phase, final int participants, final boolean confirmed) {
-        return StartCheck.refusal(state, phase, participants, RECOMMENDED, confirmed)
+    private static Optional<String> reason(final SeasonPhase phase, final int participants, final boolean confirmed) {
+        return StartCheck.refusal(null, true, phase, participants, RECOMMENDED, confirmed)
                 .map(Refusal::reason)
                 .map(eu.nordtal.s2.messages.RefusalReason::name);
     }
@@ -25,7 +24,7 @@ class StartCheckTest {
     void noGameRegisteredIsItsOwnRefusal() {
         assertEquals(
                 Optional.of(ServerRefusal.NO_GAME.name()),
-                StartCheck.refusal(null, SeasonPhase.START_EVENT, 0, RECOMMENDED, false)
+                StartCheck.refusal(null, false, SeasonPhase.START_EVENT, 0, RECOMMENDED, false)
                         .map(refusal -> refusal.reason().name()));
     }
 
@@ -35,16 +34,16 @@ class StartCheckTest {
             if (phase != SeasonPhase.START_EVENT) {
                 assertEquals(
                         Optional.of(ServerRefusal.WRONG_PHASE.name()),
-                        reason(GameState.REGISTRATION, phase, 20, true),
+                        reason(phase, 20, true),
                         "a start in " + phase + " was let through");
             }
         }
     }
 
     @Test
-    void aGameThatIsNotInRegistrationNamesTheStateItIsIn() {
+    void aGameUnderWayNamesTheStateItIsIn() {
         final Optional<Refusal> refusal =
-                StartCheck.refusal(GameState.RUNNING, SeasonPhase.START_EVENT, 20, RECOMMENDED, true);
+                StartCheck.refusal(GameState.RUNNING, false, SeasonPhase.START_EVENT, 20, RECOMMENDED, true);
 
         assertEquals(
                 ServerRefusal.WRONG_STATE.name(), refusal.orElseThrow().reason().name());
@@ -53,21 +52,17 @@ class StartCheckTest {
 
     @Test
     void belowTheArithmeticFloorAConfirmationChangesNothing() {
-        assertEquals(
-                Optional.of(ServerRefusal.BELOW_HARD_MINIMUM.name()),
-                reason(GameState.REGISTRATION, SeasonPhase.START_EVENT, 1, true));
+        assertEquals(Optional.of(ServerRefusal.BELOW_HARD_MINIMUM.name()), reason(SeasonPhase.START_EVENT, 1, true));
     }
 
     @Test
     void belowTheRecommendedMinimumOnlyAConfirmedStartGoesAhead() {
-        assertEquals(
-                Optional.of(ServerRefusal.BELOW_SOFT_MINIMUM.name()),
-                reason(GameState.REGISTRATION, SeasonPhase.START_EVENT, 4, false));
-        assertEquals(Optional.empty(), reason(GameState.REGISTRATION, SeasonPhase.START_EVENT, 4, true));
+        assertEquals(Optional.of(ServerRefusal.BELOW_SOFT_MINIMUM.name()), reason(SeasonPhase.START_EVENT, 4, false));
+        assertEquals(Optional.empty(), reason(SeasonPhase.START_EVENT, 4, true));
     }
 
     @Test
     void atTheRecommendedMinimumItStartsAtOnce() {
-        assertEquals(Optional.empty(), reason(GameState.REGISTRATION, SeasonPhase.START_EVENT, RECOMMENDED, false));
+        assertEquals(Optional.empty(), reason(SeasonPhase.START_EVENT, RECOMMENDED, false));
     }
 }

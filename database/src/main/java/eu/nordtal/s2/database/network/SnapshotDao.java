@@ -1,50 +1,46 @@
 package eu.nordtal.s2.database.network;
 
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
+import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 
 /**
  * The one query behind every MOTD placeholder and every status channel name.
- * Scalar subqueries off a one-row {@code VALUES}, reading tables {@code hunger-games} and {@code smp} own.
+ * Scalar subqueries off a one-row {@code VALUES}, over the round discord-bot registers and what the games write.
  */
 interface SnapshotDao {
 
     @SqlQuery("""
-            SELECT (SELECT game.state FROM hg_game game WHERE game.state <> 'DECIDED')       AS hg_state,
+            WITH round AS (SELECT id FROM registration WHERE game = :game AND state <> 'ENDED'),
+                 -- A game under way, whose deaths count; an aborted one's do not, since its round plays again.
+                 game AS (SELECT id FROM hg_game WHERE state IN ('COUNTDOWN', 'RUNNING'))
+            SELECT (SELECT count(*) FROM team WHERE team.registration_id = (SELECT id FROM round)) AS hg_teams,
 
-                   (SELECT count(*) FROM hg_team team
-                    WHERE team.game_id = (SELECT game.id FROM hg_game game
-                                          WHERE game.state <> 'DECIDED'))                    AS hg_teams,
-
-                   -- "On the team" is OWNER or ACCEPTED; an INVITED row is an unanswered question
-                   -- and not a participant (V1__schema.sql).
-                   (SELECT count(*) FROM hg_member member
-                    WHERE member.game_id = (SELECT game.id FROM hg_game game
-                                            WHERE game.state <> 'DECIDED')
+                   -- "On the team" is OWNER or ACCEPTED; an INVITED row is an unanswered question.
+                   (SELECT count(*) FROM team_member member
+                    WHERE member.registration_id = (SELECT id FROM round)
                       AND member.state IN ('OWNER', 'ACCEPTED'))                             AS hg_participants,
 
                    -- Counted over the same set hg_participants counts, so that eliminated can
                    -- never exceed it and the mapper's alive = participants - eliminated cannot go
-                   -- negative or leave the two disagreeing in the server browser. No separate
-                   -- victim_id IS NOT NULL is needed: a DEATH row whose member has been deleted
-                   -- has victim_id SET NULL (V5) and matches nothing anyway.
+                   -- negative or leave the two disagreeing in the server browser.
                    (SELECT count(DISTINCT event.victim_id) FROM hg_event event
-                    WHERE event.game_id = (SELECT game.id FROM hg_game game
-                                           WHERE game.state <> 'DECIDED')
+                    WHERE event.game_id = (SELECT id FROM game)
                       AND event.type = 'DEATH'
-                      AND EXISTS (SELECT 1 FROM hg_member member
+                      AND EXISTS (SELECT 1 FROM team_member member
                                   WHERE member.id = event.victim_id
+                                    AND member.registration_id = (SELECT id FROM round)
                                     AND member.state IN ('OWNER', 'ACCEPTED')))              AS hg_eliminated,
 
-                   -- A team is still in while any of its members has no DEATH against them.
-                   (SELECT count(*) FROM hg_team team
-                    WHERE team.game_id = (SELECT game.id FROM hg_game game
-                                          WHERE game.state <> 'DECIDED')
-                      AND EXISTS (SELECT 1 FROM hg_member member
+                   -- A team is still in while any of its members has no DEATH against them in this game.
+                   (SELECT count(*) FROM team
+                    WHERE team.registration_id = (SELECT id FROM round)
+                      AND EXISTS (SELECT 1 FROM team_member member
                                   WHERE member.team_id = team.id
                                     AND member.state IN ('OWNER', 'ACCEPTED')
                                     AND NOT EXISTS (SELECT 1 FROM hg_event event
                                                     WHERE event.victim_id = member.id
+                                                      AND event.game_id = (SELECT id FROM game)
                                                       AND event.type = 'DEATH')))            AS hg_teams_alive,
 
                    (SELECT milestone.key FROM smp_milestone milestone
@@ -68,5 +64,5 @@ interface SnapshotDao {
             FROM (VALUES (1)) AS anchor (one)
             """)
     @RegisterRowMapper(SnapshotMapper.class)
-    NetworkSnapshot snapshot();
+    NetworkSnapshot snapshot(@Bind("game") String game);
 }

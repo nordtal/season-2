@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.DatabaseRole;
+import eu.nordtal.s2.database.RoundSeed;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.setting.SettingStore;
 import java.sql.SQLException;
@@ -34,8 +35,7 @@ class ExampleValuesTest {
 
     @BeforeEach
     void emptyTables() {
-        sql(
-                "TRUNCATE account_link, discord_user, hg_member, hg_team, hg_game, smp_milestone, setting_override CASCADE");
+        sql("TRUNCATE account_link, discord_user, registration, hg_game, smp_milestone, setting_override CASCADE");
     }
 
     @Test
@@ -82,9 +82,8 @@ class ExampleValuesTest {
     @Test
     void realTeamAndActiveMilestone() {
         sql("INSERT INTO smp_milestone (key, state) VALUES ('foothold', 'UNLOCKED'), ('nether', 'ACTIVE')");
-        sql("INSERT INTO hg_game (id) VALUES ('00000000-0000-0000-0000-00000000000a')");
-        sql("INSERT INTO hg_team (id, game_id, name) VALUES ('00000000-0000-0000-0000-00000000000b',"
-                + " '00000000-0000-0000-0000-00000000000a', 'Eisbären')");
+        final RoundSeed seed = new RoundSeed(owner);
+        seed.team(seed.round("OPEN"), "Eisbären");
 
         final Map<String, Map<String, String>> examples = new ExampleValues(dataSource).of(DiscordId.of("1"), "Ada");
         assertEquals(Map.of("name", "Eisbären"), examples.get("team"));

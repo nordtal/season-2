@@ -6,18 +6,18 @@ import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.hungergames.GameState;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.hungergames.border.BorderController;
-import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.db.RosterEntry;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.hungergames.game.Ceremony;
+import eu.nordtal.s2.hungergames.game.Names;
 import eu.nordtal.s2.hungergames.game.WinTracker;
 import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -52,6 +52,7 @@ public final class CombatListener implements Listener {
     private final BorderController border;
     private final WinTracker winTracker;
     private final HungerGamesSounds sounds;
+    private final Names names;
 
     /** What to run once the game is decided, with the winner's Minecraft uuid already resolved off the main thread. */
     private final Consumer<Ceremony.Decision> onGameDecided;
@@ -69,6 +70,7 @@ public final class CombatListener implements Listener {
             final BorderController border,
             final WinTracker winTracker,
             final HungerGamesSounds sounds,
+            final Names names,
             final SystemLines systemLines,
             final Consumer<Ceremony.Decision> onGameDecided,
             final Clock clock) {
@@ -80,6 +82,7 @@ public final class CombatListener implements Listener {
         this.border = border;
         this.winTracker = winTracker;
         this.sounds = sounds;
+        this.names = names;
         this.systemLines = systemLines;
         this.onGameDecided = onGameDecided;
     }
@@ -183,15 +186,14 @@ public final class CombatListener implements Listener {
                 if (killerMcUuid != null) {
                     sounds.play(plugin.getServer().getPlayer(killerMcUuid), Feedback.SMALL_SUCCESS);
                 }
-                final List<HgMember> activeMembers = dao.activeMembersOf(gameId);
                 winTracker.announceIfSameTeamFinalTwo(
-                        plugin.getServer().getWorlds().get(0), activeMembers);
+                        plugin.getServer().getWorlds().get(0));
             }
         });
     }
 
     private Ceremony.Decision decisionFor(final UUID gameId, final WinTracker.Outcome decided) {
-        final List<RosterEntry> roster = dao.roster(gameId);
+        final List<RosterEntry> roster = dao.gameRoster(gameId);
         final UUID winnerMcUuid = decided.winnerMemberId() == null
                 ? null
                 : roster.stream()
@@ -205,13 +207,18 @@ public final class CombatListener implements Listener {
         // Written ahead of the ceremony: a game left un-DECIDED is what the partial unique index refuses beside it.
         dao.decideGame(gameId, decided.winnerMemberId());
 
-        final Map<UUID, PlayerContext> names = new HashMap<>();
+        final Map<UUID, PlayerContext> byAccount = names.of(roster.stream()
+                .map(RosterEntry::mcUuid)
+                .filter(java.util.Objects::nonNull)
+                .toList());
+        final Map<UUID, PlayerContext> byMember = new LinkedHashMap<>();
         for (final RosterEntry entry : roster) {
-            if (entry.mcUuid() != null && entry.mcName() != null) {
-                names.put(entry.memberId(), PlayerContext.of(PlayerId.of(entry.mcUuid()), entry.mcName()));
+            final PlayerContext named = entry.mcUuid() == null ? null : byAccount.get(entry.mcUuid());
+            if (named != null) {
+                byMember.put(entry.memberId(), named);
             }
         }
-        return new Ceremony.Decision(decided, winnerMcUuid, dao.activeMembersOf(gameId), dao.killCounts(gameId), names);
+        return new Ceremony.Decision(decided, winnerMcUuid, dao.killCounts(gameId), byMember);
     }
 
     private Entity resolveAttacker(final Entity damager) {

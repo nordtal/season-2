@@ -3,6 +3,7 @@ package eu.nordtal.s2.proxy.ping;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.RoundSeed;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.network.NetworkSnapshot;
 import java.lang.reflect.InvocationTargetException;
@@ -10,6 +11,7 @@ import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeAll;
@@ -27,7 +29,9 @@ import org.slf4j.LoggerFactory;
 class SnapshotStoreIntegrationTest {
     private static DataSource dataSource;
 
+    private RoundSeed seed;
     private SnapshotStore store;
+    private UUID round;
 
     @BeforeAll
     static void startDatabase() {
@@ -36,7 +40,8 @@ class SnapshotStoreIntegrationTest {
 
     @BeforeEach
     void emptyDatabase() {
-        execute("TRUNCATE TABLE hg_event, hg_member, hg_team, hg_game, smp_contribution, smp_objective,"
+        seed = new RoundSeed(dataSource);
+        execute("TRUNCATE TABLE hg_event, hg_game, registration, smp_contribution, smp_objective,"
                 + " smp_milestone, smp_player, discord_user CASCADE");
         store = SnapshotStore.using(dataSource, LoggerFactory.getLogger(SnapshotStoreIntegrationTest.class));
     }
@@ -54,13 +59,12 @@ class SnapshotStoreIntegrationTest {
     }
 
     @Test
-    void aRegisteredGameIsCountedByTeamsAndByPeopleOnThoseTeams() {
+    void anOpenRoundIsCountedByTeamsAndByPeopleOnThoseTeams() {
         seedGame();
 
         store.refresh();
         final NetworkSnapshot snapshot = store.current();
 
-        assertEquals("REGISTRATION", snapshot.hgState());
         assertEquals(2, snapshot.hgTeams());
         // An INVITED row is an unanswered question, not a participant; OWNER and ACCEPTED both count.
         assertEquals(3, snapshot.hgParticipants());
@@ -72,7 +76,7 @@ class SnapshotStoreIntegrationTest {
     @Test
     void aDeathTakesAPlayerOutButATeamOnlyWithItsLastMember() {
         seedGame();
-        execute("UPDATE hg_game SET state = 'RUNNING'");
+        startGame();
 
         // Alpha's owner dies. Alpha is still in, because its second member is alive.
         kill(DiscordId.of("100000000000000001"));
@@ -95,16 +99,33 @@ class SnapshotStoreIntegrationTest {
     }
 
     @Test
-    void aDecidedGameStopsBeingTheCurrentOne() {
-        // The current game is a query, so once it is decided every number falls back to zero.
+    void aDecidedGameEndsItsRoundAndEveryNumberWithIt() {
+        // The current round is a query, so once its game is decided every number falls back to zero.
         seedGame();
-        execute("UPDATE hg_game SET state = 'DECIDED'");
+        startGame();
+        seed.execute("UPDATE hg_game SET state = 'DECIDED'");
+        seed.execute("UPDATE registration SET state = 'ENDED'");
 
         store.refresh();
 
-        assertEquals("", store.current().hgState());
         assertEquals(0, store.current().hgTeams());
         assertEquals(0, store.current().hgParticipants());
+    }
+
+    @Test
+    void anAbortedGamesDeathsAreForgottenOnceItsRoundIsOpenAgain() {
+        // A restart aborts the game and the round plays again from the start, with everybody alive.
+        seedGame();
+        startGame();
+        kill(DiscordId.of("100000000000000001"));
+        seed.execute("UPDATE hg_game SET state = 'ABORTED'");
+        seed.execute("UPDATE registration SET state = 'OPEN'");
+
+        store.refresh();
+
+        assertEquals(0, store.current().hgEliminated());
+        assertEquals(3, store.current().hgAlive());
+        assertEquals(2, store.current().hgTeamsAlive());
     }
 
     @Test
@@ -167,6 +188,7 @@ class SnapshotStoreIntegrationTest {
     void aDeathAgainstSomebodyWhoNeverJoinedATeamIsNotAnElimination() {
         // eliminated is counted over the participants' set, else a non-playing DEATH row exceeds it.
         seedGame();
+        startGame();
         kill(DiscordId.of("100000000000000003")); // the INVITED row on Alpha
         store.refresh();
 
@@ -202,50 +224,29 @@ class SnapshotStoreIntegrationTest {
 
     // fixtures
 
-    /** Two teams: Alpha with an owner, an accepted partner and an open invitation; Beta with an owner. */
+    /** An open round: Alpha with an owner, an accepted partner and an open invitation, Beta with an owner. */
     private void seedGame() {
-        execute("""
-                INSERT INTO discord_user (discord_id) VALUES
-                    ('100000000000000001'), ('100000000000000002'),
-                    ('100000000000000003'), ('100000000000000004')
-                """);
-        execute("INSERT INTO hg_game (state) VALUES ('REGISTRATION')");
-        execute("""
-                INSERT INTO hg_team (game_id, name)
-                SELECT id, 'Alpha' FROM hg_game
-                """);
-        execute("""
-                INSERT INTO hg_team (game_id, name)
-                SELECT id, 'Beta' FROM hg_game
-                """);
-        execute("""
-                INSERT INTO hg_member (team_id, game_id, discord_id, state)
-                SELECT team.id, team.game_id, '100000000000000001', 'OWNER'
-                FROM hg_team team WHERE team.name = 'Alpha'
-                """);
-        execute("""
-                INSERT INTO hg_member (team_id, game_id, discord_id, state)
-                SELECT team.id, team.game_id, '100000000000000002', 'ACCEPTED'
-                FROM hg_team team WHERE team.name = 'Alpha'
-                """);
-        execute("""
-                INSERT INTO hg_member (team_id, game_id, discord_id, state)
-                SELECT team.id, team.game_id, '100000000000000003', 'INVITED'
-                FROM hg_team team WHERE team.name = 'Alpha'
-                """);
-        execute("""
-                INSERT INTO hg_member (team_id, game_id, discord_id, state)
-                SELECT team.id, team.game_id, '100000000000000004', 'OWNER'
-                FROM hg_team team WHERE team.name = 'Beta'
-                """);
+        round = seed.round("OPEN");
+        final UUID alpha = seed.team(round, "Alpha");
+        seed.member(alpha, "100000000000000001", "OWNER");
+        seed.member(alpha, "100000000000000002", "ACCEPTED");
+        seed.member(alpha, "100000000000000003", "INVITED");
+        seed.member(seed.team(round, "Beta"), "100000000000000004", "OWNER");
     }
 
-    /** Writes the DEATH row an elimination produces, all this query sees of one. */
+    /** Starts a game of the round, which closes it. */
+    private void startGame() {
+        seed.execute("UPDATE registration SET state = 'CLOSED' WHERE id = ?", round);
+        seed.game(round, "RUNNING");
+    }
+
+    /** Writes the DEATH row an elimination in the game under way produces, all this query sees of one. */
     private void kill(final DiscordId discordId) {
-        execute("""
+        seed.execute("""
                 INSERT INTO hg_event (game_id, type, victim_id)
-                SELECT game_id, 'DEATH', id FROM hg_member WHERE discord_id = '%s'
-                """.formatted(discordId));
+                SELECT game.id, 'DEATH', member.id FROM hg_game game, team_member member
+                WHERE game.state = 'RUNNING' AND member.discord_id = ?
+                """, discordId.value());
     }
 
     /** The real pool, until the flag makes every {@code getConnection} fail like an unreachable database. */

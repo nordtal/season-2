@@ -3,13 +3,9 @@ package eu.nordtal.s2.hungergames.db;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.Jdbis;
+import eu.nordtal.s2.database.RoundSeed;
 import eu.nordtal.s2.database.TestDatabase;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.Map;
 import java.util.UUID;
 import javax.sql.DataSource;
@@ -27,6 +23,7 @@ import org.junit.jupiter.api.TestInstance;
 class KillCountsIntegrationTest {
     private static DataSource dataSource;
 
+    private RoundSeed seed;
     private HungerGamesDao dao;
     private UUID gameId;
     private UUID alice;
@@ -40,15 +37,17 @@ class KillCountsIntegrationTest {
 
     @BeforeEach
     void freshGame() {
-        execute("TRUNCATE TABLE hg_event, hg_member, hg_team, hg_game, discord_user CASCADE");
+        seed = new RoundSeed(dataSource);
+        seed.execute("TRUNCATE TABLE hg_event, hg_game, registration, discord_user CASCADE");
 
         dao = Jdbis.over(dataSource).onDemand(HungerGamesDao.class);
 
-        gameId = uuid("INSERT INTO hg_game (state) VALUES ('RUNNING') RETURNING id");
-        final UUID teamId = uuid("INSERT INTO hg_team (game_id, name) VALUES ('" + gameId + "', 'reds') RETURNING id");
-        alice = member(teamId, DiscordId.of("100000000000000001"));
-        bob = member(teamId, DiscordId.of("100000000000000002"));
-        carol = member(teamId, DiscordId.of("100000000000000003"));
+        final UUID round = seed.round("CLOSED");
+        gameId = seed.game(round, "RUNNING");
+        final UUID teamId = seed.team(round, "reds");
+        alice = seed.member(teamId, "100000000000000001", "OWNER");
+        bob = seed.member(teamId, "100000000000000002", "ACCEPTED");
+        carol = seed.member(teamId, "100000000000000003", "ACCEPTED");
     }
 
     @Test
@@ -87,17 +86,17 @@ class KillCountsIntegrationTest {
     @Test
     void onlyThisGamesKillEventsCount() {
         kill(alice, bob);
-        execute("INSERT INTO hg_event (game_id, type, actor_id) VALUES ('" + gameId + "', 'BORDER_SHRINK', NULL)");
-        execute("INSERT INTO hg_event (game_id, type, actor_id, victim_id) VALUES ('" + gameId + "', 'DEATH', '" + alice
-                + "', '" + bob + "')");
+        seed.execute("INSERT INTO hg_event (game_id, type, actor_id) VALUES (?, 'BORDER_SHRINK', NULL)", gameId);
+        seed.execute(
+                "INSERT INTO hg_event (game_id, type, actor_id, victim_id) VALUES (?, 'DEATH', ?, ?)",
+                gameId,
+                alice,
+                bob);
 
-        final UUID otherGame = uuid("INSERT INTO hg_game (state) VALUES ('DECIDED') RETURNING id");
-        final UUID otherTeam =
-                uuid("INSERT INTO hg_team (game_id, name) VALUES ('" + otherGame + "', 'blues') RETURNING id");
-        execute("INSERT INTO hg_member (team_id, game_id, discord_id) VALUES ('" + otherTeam + "', '" + otherGame
-                + "', '100000000000000001')");
-        execute("INSERT INTO hg_event (game_id, type, actor_id) SELECT '" + otherGame
-                + "', 'KILL', id FROM hg_member WHERE game_id = '" + otherGame + "'");
+        final UUID otherRound = seed.round("ENDED");
+        final UUID otherGame = seed.game(otherRound, "DECIDED");
+        final UUID otherMember = seed.member(seed.team(otherRound, "blues"), "100000000000000001", "OWNER");
+        seed.execute("INSERT INTO hg_event (game_id, type, actor_id) VALUES (?, 'KILL', ?)", otherGame, otherMember);
 
         assertEquals(
                 Map.of(alice, 1),
@@ -114,34 +113,11 @@ class KillCountsIntegrationTest {
                         + " of everybody at the end of the event");
     }
 
-    private UUID member(final UUID teamId, final DiscordId discordId) {
-        execute("INSERT INTO discord_user (discord_id) VALUES ('" + discordId + "')");
-        return uuid("INSERT INTO hg_member (team_id, game_id, discord_id) VALUES ('" + teamId + "', '" + gameId + "', '"
-                + discordId + "') RETURNING id");
-    }
-
     private void kill(final UUID actor, final UUID victim) {
-        execute("INSERT INTO hg_event (game_id, type, actor_id, victim_id) VALUES ('" + gameId + "', 'KILL', '" + actor
-                + "', '" + victim + "')");
-    }
-
-    private static void execute(final String sql) {
-        try (Connection connection = dataSource.getConnection();
-                Statement statement = connection.createStatement()) {
-            statement.execute(sql);
-        } catch (final SQLException exception) {
-            throw new IllegalStateException(sql, exception);
-        }
-    }
-
-    private static UUID uuid(final String sql) {
-        try (Connection connection = dataSource.getConnection();
-                Statement statement = connection.createStatement();
-                ResultSet rows = statement.executeQuery(sql)) {
-            rows.next();
-            return rows.getObject(1, UUID.class);
-        } catch (final SQLException exception) {
-            throw new IllegalStateException(sql, exception);
-        }
+        seed.execute(
+                "INSERT INTO hg_event (game_id, type, actor_id, victim_id) VALUES (?, 'KILL', ?, ?)",
+                gameId,
+                actor,
+                victim);
     }
 }

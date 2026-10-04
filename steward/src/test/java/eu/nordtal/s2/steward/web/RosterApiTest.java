@@ -10,6 +10,7 @@ import com.google.gson.JsonObject;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.DatabaseMessages;
 import eu.nordtal.s2.database.DatabaseText;
+import eu.nordtal.s2.database.RoundSeed;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.Schedule;
@@ -27,6 +28,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import org.junit.jupiter.api.Test;
@@ -236,10 +238,8 @@ class RosterApiTest extends WebTestSupport {
     @Test
     void theHungerGamesStartIsARowSayingWhetherItWasConfirmed() throws Exception {
         assertEquals("{}", get("/api/hunger-games/round").body());
-        try (var connection = WebFixture.postgres.dataSource().getConnection();
-                var statement = connection.createStatement()) {
-            statement.execute("INSERT INTO hg_game (state) VALUES ('REGISTRATION')");
-        }
+        final RoundSeed seed = new RoundSeed(WebFixture.postgres.dataSource());
+        final UUID registration = seed.round("OPEN");
         try {
             final JsonObject round =
                     GSON.fromJson(get("/api/hunger-games/round").body(), JsonObject.class);
@@ -251,10 +251,19 @@ class RosterApiTest extends WebTestSupport {
                     "HUNGER_GAMES",
                     "START_GAME",
                     "{\"confirmed\":true}");
+
+            // The round takes its game's state once one is under way.
+            seed.execute("UPDATE registration SET state = 'CLOSED'");
+            seed.game(registration, "RUNNING");
+            assertEquals(
+                    "RUNNING",
+                    GSON.fromJson(get("/api/hunger-games/round").body(), JsonObject.class)
+                            .get("state")
+                            .getAsString());
         } finally {
             try (var connection = WebFixture.postgres.dataSource().getConnection();
                     var statement = connection.createStatement()) {
-                statement.execute("DELETE FROM hg_game");
+                statement.execute("DELETE FROM registration");
             }
         }
     }

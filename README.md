@@ -95,9 +95,9 @@ the table below are compiled into the jars above.
 | ------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `proxy`             | Velocity        | The login gate, the season phase, and which backend a player belongs on.                                         |
 | `limbo`             | Paper           | The waiting room: applying and enforcing the resource pack before a player goes anywhere.                        |
-| `hunger-games`      | Paper           | The start event: registration, teams, border, loot, HUD, winning.                                                |
+| `hunger-games`      | Paper           | The start event: the game of the teams the bot registers, border, loot, HUD, winning.                            |
 | `smp`               | Paper           | The SMP: Nordtal, the farm world, the Nether and the End, milestones, aura, prestige, duels, graves.             |
-| `discord-bot`       | JVM app         | Sells access periods, books bunq payments, mirrors admins.                                                       |
+| `discord-bot`       | JVM app         | Sells access periods, books bunq payments, mirrors admins, registers teams for a game.                           |
 | `steward`           | JVM app + React | The web interface and its API, payments, alerts and the clocks that ask for runs.                                |
 | `steward-agent`     | JVM app         | The schema, every jar version and every run. The only service allowed to create a container.                     |
 | `steward-bunq`      | JVM app         | The only service holding the bank key: creates and cancels tabs, lists payments. Decides nothing.                |

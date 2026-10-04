@@ -1,98 +1,171 @@
 package eu.nordtal.s2.hungergames.db;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.registration.Game;
+import eu.nordtal.s2.database.registration.RegistrationState;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.jdbi.v3.sqlobject.config.KeyColumn;
+import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.config.ValueColumn;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
+import org.jdbi.v3.sqlobject.transaction.Transaction;
 import org.jspecify.annotations.Nullable;
 
-/** The whole SQL surface of this plugin: reads over the bot's tables, and game state in the {@code hg_*} tables. */
+/**
+ * The whole SQL surface of this plugin: its games and events, and the round of registration it starts them from.
+ *
+ * The round, its teams and members are discord-bot's. This plugin reads them and moves the round's state alone.
+ */
 public interface HungerGamesDao {
 
-    @SqlQuery("SELECT id, state, started, ended, winner_member_id FROM hg_game WHERE state <> 'DECIDED'")
+    /** Every active member of a round: on a team as its owner or accepted, never a pending invite. */
+    String ROSTER = """
+            SELECT member.id AS member_id, member.team_id, team.name AS team_name,
+                   ready.member_id IS NOT NULL AS ready, link.mc_uuid
+            FROM team_member member
+                     JOIN team ON team.id = member.team_id
+                     LEFT JOIN hg_ready ready ON ready.member_id = member.id
+                     LEFT JOIN account_link link ON link.discord_id = member.discord_id
+            WHERE member.state IN ('OWNER', 'ACCEPTED')
+            """;
+
+    /** The roster of the round a game was started from. */
+    String GAME_ROSTER = ROSTER + """
+             AND member.registration_id = (SELECT registration_id FROM hg_game WHERE id = :gameId)
+            """;
+
+    /** A round of registration that has not ended. */
+    record Round(UUID id, RegistrationState state) {}
+
+    /** Returns the round of the Hunger Games that has not ended, if there is one. */
+    default Optional<Round> currentRound() {
+        return currentRound(Game.HUNGER_GAMES.key());
+    }
+
+    @SqlQuery("SELECT id, state FROM registration WHERE game = :game AND state <> 'ENDED'")
+    @RegisterConstructorMapper(Round.class)
+    Optional<Round> currentRound(@Bind("game") String game);
+
+    /** Returns the round the lobby waits in, which only an open one is. */
+    default Optional<UUID> openRound() {
+        return currentRound()
+                .filter(round -> round.state() == RegistrationState.OPEN)
+                .map(Round::id);
+    }
+
+    /** Returns the game in its countdown or running, of which the schema allows one. */
+    @SqlQuery("""
+            SELECT id, registration_id, state, started, ended, winner_member_id FROM hg_game
+            WHERE state IN ('COUNTDOWN', 'RUNNING')
+            """)
     @RegisterRowMapper(HgGameMapper.class)
-    Optional<HgGame> currentGame();
+    Optional<HgGame> gameUnderWay();
 
-    @SqlQuery("SELECT id, state, started, ended, winner_member_id FROM hg_game WHERE id = :id")
-    @RegisterRowMapper(HgGameMapper.class)
-    Optional<HgGame> game(@Bind("id") UUID id);
+    /**
+     * Starts a game from an open round and closes the round to the bot, in one transaction.
+     *
+     * @return the new game, or empty when the round was no longer open
+     */
+    @Transaction
+    default Optional<UUID> startGame(final UUID registrationId) {
+        if (closeRound(registrationId) == 0) {
+            return Optional.empty();
+        }
+        return Optional.of(insertGame(registrationId));
+    }
 
-    @SqlUpdate("UPDATE hg_game SET state = :state WHERE id = :id")
-    void setGameState(@Bind("id") UUID id, @Bind("state") String state);
+    @SqlUpdate("UPDATE registration SET state = 'CLOSED' WHERE id = :id AND state = 'OPEN'")
+    int closeRound(@Bind("id") UUID registrationId);
 
-    @SqlUpdate("UPDATE hg_game SET state = :state, started = now() WHERE id = :id")
-    void startGame(@Bind("id") UUID id, @Bind("state") String state);
+    @SqlQuery("INSERT INTO hg_game (registration_id, started) VALUES (:registrationId, now()) RETURNING id")
+    UUID insertGame(@Bind("registrationId") UUID registrationId);
+
+    /** Marks the end of the countdown. */
+    @SqlUpdate("UPDATE hg_game SET state = 'RUNNING' WHERE id = :id AND state = 'COUNTDOWN'")
+    void release(@Bind("id") UUID id);
+
+    /** Decides a game and ends its round, so that the next registration opens a new one. */
+    @Transaction
+    default void decideGame(final UUID id, final @Nullable UUID winnerMemberId) {
+        markDecided(id, winnerMemberId);
+        endRoundOf(id);
+    }
 
     @SqlUpdate("""
             UPDATE hg_game
             SET state = 'DECIDED', ended = now(), winner_member_id = :winnerMemberId
             WHERE id = :id
             """)
-    void decideGame(@Bind("id") UUID id, @Bind("winnerMemberId") @Nullable UUID winnerMemberId);
+    void markDecided(@Bind("id") UUID id, @Bind("winnerMemberId") @Nullable UUID winnerMemberId);
 
-    @SqlQuery("SELECT id, game_id, name, colour_rgb, colour_named FROM hg_team WHERE game_id = :gameId")
-    @RegisterRowMapper(HgTeamMapper.class)
-    List<HgTeam> teamsOf(@Bind("gameId") UUID gameId);
-
-    @SqlUpdate("UPDATE hg_team SET colour_rgb = :colourRgb, colour_named = :colourNamed WHERE id = :id")
-    void setTeamColour(@Bind("id") UUID id, @Bind("colourRgb") int colourRgb, @Bind("colourNamed") String colourNamed);
-
-    @SqlQuery("""
-            SELECT id, team_id, game_id, discord_id, state, ready
-            FROM hg_member
-            WHERE game_id = :gameId AND state IN ('OWNER', 'ACCEPTED')
+    @SqlUpdate("""
+            UPDATE registration SET state = 'ENDED' WHERE id = (SELECT registration_id FROM hg_game WHERE id = :id)
             """)
-    @RegisterRowMapper(HgMemberMapper.class)
-    List<HgMember> activeMembersOf(@Bind("gameId") UUID gameId);
+    void endRoundOf(@Bind("id") UUID gameId);
 
-    @SqlUpdate("UPDATE hg_member SET ready = :ready WHERE game_id = :gameId AND discord_id = :discordId")
-    int setReady(@Bind("gameId") UUID gameId, @Bind("discordId") DiscordId discordId, @Bind("ready") boolean ready);
+    /**
+     * Aborts the game a restart interrupted and opens its round again, with its teams, for an admin to start anew.
+     *
+     * @return the game aborted, or empty when none was under way
+     */
+    @Transaction
+    default Optional<HgGame> abortInterrupted() {
+        final Optional<HgGame> interrupted = gameUnderWay();
+        interrupted.ifPresent(game -> {
+            markAborted(game.id());
+            reopenRound(game.registrationId());
+        });
+        return interrupted;
+    }
 
-    /** Every active ({@code OWNER} or {@code ACCEPTED}) membership of one game, joined to its Minecraft account. */
-    @SqlQuery("""
-            SELECT m.id AS member_id, m.team_id, t.name AS team_name, t.colour_rgb, t.colour_named,
-                   m.discord_id, m.state, m.ready, link.mc_uuid, link.mc_name
-            FROM hg_member m
-                     JOIN hg_team t ON t.id = m.team_id
-                     LEFT JOIN account_link link ON link.discord_id = m.discord_id
-            WHERE m.game_id = :gameId AND m.state IN ('OWNER', 'ACCEPTED')
+    @SqlUpdate("UPDATE hg_game SET state = 'ABORTED', ended = now() WHERE id = :id")
+    void markAborted(@Bind("id") UUID id);
+
+    @SqlUpdate("UPDATE registration SET state = 'OPEN' WHERE id = :id AND state = 'CLOSED'")
+    void reopenRound(@Bind("id") UUID registrationId);
+
+    /** Writes the colour a team plays in, the same one again for a game started anew. */
+    @SqlUpdate("""
+            INSERT INTO hg_team_colour (team_id, colour_rgb, colour_named) VALUES (:teamId, :colourRgb, :colourNamed)
+            ON CONFLICT (team_id) DO UPDATE SET colour_rgb = excluded.colour_rgb, colour_named = excluded.colour_named
             """)
+    void setTeamColour(
+            @Bind("teamId") UUID teamId, @Bind("colourRgb") int colourRgb, @Bind("colourNamed") String colourNamed);
+
+    /** Returns every active member of a round, joined to their Minecraft account. */
+    @SqlQuery(ROSTER + " AND member.registration_id = :registrationId")
     @RegisterRowMapper(RosterEntryMapper.class)
-    List<RosterEntry> roster(@Bind("gameId") UUID gameId);
+    List<RosterEntry> roster(@Bind("registrationId") UUID registrationId);
 
-    /** One member's row by their Minecraft account, for the current game. */
-    @SqlQuery("""
-            SELECT m.id AS member_id, m.team_id, t.name AS team_name, t.colour_rgb, t.colour_named,
-                   m.discord_id, m.state, m.ready, link.mc_uuid, link.mc_name
-            FROM hg_member m
-                     JOIN hg_team t ON t.id = m.team_id
-                     JOIN account_link link ON link.discord_id = m.discord_id
-            WHERE m.game_id = :gameId AND m.state IN ('OWNER', 'ACCEPTED') AND link.mc_uuid = :mcUuid
-            """)
+    /** Returns every active member of the round a game was started from. */
+    @SqlQuery(GAME_ROSTER)
+    @RegisterRowMapper(RosterEntryMapper.class)
+    List<RosterEntry> gameRoster(@Bind("gameId") UUID gameId);
+
+    /** Returns one member of a game's round by their Minecraft account. */
+    @SqlQuery(GAME_ROSTER + " AND link.mc_uuid = :mcUuid")
     @RegisterRowMapper(RosterEntryMapper.class)
     Optional<RosterEntry> rosterEntryByMcUuid(@Bind("gameId") UUID gameId, @Bind("mcUuid") UUID mcUuid);
 
-    @SqlQuery("SELECT mc_uuid FROM account_link WHERE discord_id = :discordId")
-    Optional<UUID> mcUuidOf(@Bind("discordId") DiscordId discordId);
-
-    @SqlQuery("SELECT discord_id FROM account_link WHERE mc_uuid = :mcUuid")
-    Optional<DiscordId> discordIdOf(@Bind("mcUuid") UUID mcUuid);
-
-    /** Whether the account behind this Minecraft UUID holds the admin flag, {@code discord_user.admin}. */
+    /**
+     * Marks a member of a round ready, which stays so for a game started anew.
+     *
+     * @return whether {@code discordId} is on a team of that round
+     */
     @SqlQuery("""
-            SELECT usr.admin
-            FROM account_link link
-                     JOIN discord_user usr ON usr.discord_id = link.discord_id
-            WHERE link.mc_uuid = :mcUuid
+            WITH member AS (SELECT id FROM team_member
+                            WHERE registration_id = :registrationId AND discord_id = :discordId
+                              AND state IN ('OWNER', 'ACCEPTED')),
+                 marked AS (INSERT INTO hg_ready (member_id) SELECT id FROM member ON CONFLICT DO NOTHING)
+            SELECT EXISTS (SELECT 1 FROM member)
             """)
-    Optional<Boolean> isAdmin(@Bind("mcUuid") UUID mcUuid);
+    boolean markReady(@Bind("registrationId") UUID registrationId, @Bind("discordId") DiscordId discordId);
 
     @SqlUpdate("""
             INSERT INTO hg_event (game_id, type, actor_id, victim_id, detail)

@@ -16,6 +16,7 @@ public final class HgGameMapper implements RowMapper<HgGame> {
     public HgGame map(final ResultSet rs, final StatementContext ctx) throws SQLException {
         return new HgGame(
                 rs.getObject("id", UUID.class),
+                rs.getObject("registration_id", UUID.class),
                 GameState.valueOf(rs.getString("state")),
                 instant(rs, "started"),
                 instant(rs, "ended"),

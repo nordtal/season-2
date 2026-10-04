@@ -1,4 +1,4 @@
-package eu.nordtal.s2.discordbot.hungergames;
+package eu.nordtal.s2.discordbot.registration;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import java.util.UUID;
@@ -27,12 +27,18 @@ public record RegistrationResult(Status status, @Nullable UUID teamId) {
         return new RegistrationResult(Status.ALREADY_REGISTERED, null);
     }
 
+    /** The round is closed while a game of it is under way. */
+    public static RegistrationResult closed() {
+        return new RegistrationResult(Status.CLOSED, null);
+    }
+
     public enum Status {
         REGISTERED,
+        CLOSED,
         /** Outside the 3 to 15 character range the modal already enforces. */
         INVALID_NAME,
         NAME_TAKEN,
-        /** Already OWNER, INVITED or ACCEPTED on some team in the open game. */
+        /** Already OWNER, INVITED or ACCEPTED on some team in the current round. */
         ALREADY_REGISTERED
     }
 }

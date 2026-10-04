@@ -59,7 +59,7 @@ public final class TeamColours {
     }
 
     /**
-     * Returns the name of the nearest named Minecraft colour, as written to {@code hg_team.colour_named}.
+     * Returns the name of the nearest named Minecraft colour, as written to {@code hg_team_colour.colour_named}.
      *
      * For the vanilla surfaces (scoreboard team, tab list) that cannot take an exact colour.
      */

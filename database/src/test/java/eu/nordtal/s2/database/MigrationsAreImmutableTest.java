@@ -109,6 +109,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V27__steward_s_old_role_holds_nothing.sql",
                 "d6900e6f7cbb31b1e1d9e5392f138386af53fbcaf431c656c28b11659bc0ee7a");
+        FROZEN.put(
+                "V28__registration_is_the_bots_and_named_by_game.sql",
+                "fb9850f0bc6d532131d64d99e2cce77b8e4b45cc4bd9f9ccfe8e4eb4676c35b4");
     }
 
     @Test

@@ -15,7 +15,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Killable armour stands standing in for absent players, before or during a game.
  *
- * Their damage and death map back to the owner through this class; {@code hg_member} tracks life.
+ * Their damage and death map back to the owner through this class; {@code WinTracker} tracks life.
  */
 public final class PlayerBodies {
 

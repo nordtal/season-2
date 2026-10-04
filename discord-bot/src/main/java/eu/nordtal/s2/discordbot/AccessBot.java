@@ -20,6 +20,7 @@ import eu.nordtal.s2.database.payment.PaymentGateway;
 import eu.nordtal.s2.database.payment.PaymentRequests;
 import eu.nordtal.s2.database.payment.Tiers;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
+import eu.nordtal.s2.database.registration.Game;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.discordbot.access.SeasonStart;
 import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
@@ -39,9 +40,9 @@ import eu.nordtal.s2.discordbot.discord.BotAccessEffects;
 import eu.nordtal.s2.discordbot.discord.BotInbox;
 import eu.nordtal.s2.discordbot.discord.GuildState;
 import eu.nordtal.s2.discordbot.discord.UpdateFeed;
-import eu.nordtal.s2.discordbot.hungergames.RegisterFlow;
-import eu.nordtal.s2.discordbot.hungergames.RegisterMessages;
-import eu.nordtal.s2.discordbot.hungergames.Teams;
+import eu.nordtal.s2.discordbot.registration.RegisterFlow;
+import eu.nordtal.s2.discordbot.registration.RegisterMessages;
+import eu.nordtal.s2.discordbot.registration.Teams;
 import eu.nordtal.s2.discordbot.status.StatusChannels;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.Palette;
@@ -274,7 +275,7 @@ public class AccessBot implements AutoCloseable {
         final GuildState guildState =
                 new GuildState(jda, accessConfig, core.languages(), access, adminTree, database.jdbi());
         final AdminRole adminRole = new AdminRole(jda, accessConfig, adminTree, admin);
-        final Teams teams = new Teams(database.jdbi());
+        final Teams teams = new Teams(database.jdbi(), Game.HUNGER_GAMES);
 
         // Held because the payment seam finishes messages waiting for a link.
         final PurchaseFlow purchaseFlow = new PurchaseFlow(

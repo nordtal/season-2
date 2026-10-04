@@ -1,4 +1,4 @@
-package eu.nordtal.s2.discordbot.hungergames;
+package eu.nordtal.s2.discordbot.registration;
 
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -47,13 +47,19 @@ public record InviteResult(
         return of(Status.CANNOT_INVITE_SELF);
     }
 
-    /** The invited account is a bot, or is already OWNER/INVITED/ACCEPTED somewhere in this game. */
+    /** The invited account is a bot, or is already OWNER/INVITED/ACCEPTED somewhere in this round. */
     public static InviteResult targetUnavailable() {
         return of(Status.TARGET_UNAVAILABLE);
     }
 
+    /** The round is closed while a game of it is under way. */
+    public static InviteResult closed() {
+        return of(Status.CLOSED);
+    }
+
     public enum Status {
         INVITED,
+        CLOSED,
         NOT_REGISTERED,
         NOT_OWNER,
         TEAM_FULL,

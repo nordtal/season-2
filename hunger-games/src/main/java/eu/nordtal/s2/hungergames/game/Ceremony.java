@@ -2,9 +2,7 @@ package eu.nordtal.s2.hungergames.game;
 
 import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
-import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.id.PlayerId;
-import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
@@ -43,14 +41,12 @@ public final class Ceremony {
      *
      * @param outcome what {@code WinTracker} decided
      * @param winnerMcUuid the winner's Minecraft account, or {@code null} when there is none
-     * @param members every active membership, for the names on the tally
      * @param kills member id to kill count; members with none are absent
-     * @param names member id to Minecraft name, as last seen at login; a member never seen is absent
+     * @param names member id to the player through the identity service, in roster order; one never seen is absent
      */
     public record Decision(
             WinTracker.Outcome outcome,
             @Nullable UUID winnerMcUuid,
-            List<HgMember> members,
             Map<UUID, Integer> kills,
             Map<UUID, PlayerContext> names) {}
 
@@ -88,7 +84,6 @@ public final class Ceremony {
     /** The announcement, line by line, the same for every reader but their language. */
     static List<MessageRef> lines(final Decision decision) {
         final WinTracker.Outcome outcome = decision.outcome();
-        final List<HgMember> allMembers = decision.members();
         final List<MessageRef> lines = new ArrayList<>();
         lines.add(MESSAGES.hg().ceremony().header());
 
@@ -107,12 +102,13 @@ public final class Ceremony {
             lines.add(MESSAGES.hg().ceremony().noWinner());
         }
 
-        for (final HgMember member : allMembers) {
-            final int kills = decision.kills().getOrDefault(member.id(), 0);
+        // Only a member who played can have a kill, and every one of them has a name.
+        decision.names().forEach((member, named) -> {
+            final int kills = decision.kills().getOrDefault(member, 0);
             if (kills > 0) {
-                lines.add(MESSAGES.hg().ceremony().kills(player(decision, member.id()), kills));
+                lines.add(MESSAGES.hg().ceremony().kills(named, kills));
             }
-        }
+        });
 
         lines.add(MESSAGES.hg().ceremony().footer());
         return lines;
@@ -129,13 +125,6 @@ public final class Ceremony {
             return named;
         }
         // The member id stands in for an account nobody has, so no hover card and no reader is them.
-        return PlayerContext.of(
-                PlayerId.of(memberId),
-                decision.members().stream()
-                        .filter(member -> member.id().equals(memberId))
-                        .map(HgMember::discordId)
-                        .findFirst()
-                        .orElse(DiscordId.of(memberId.toString()))
-                        .value());
+        return PlayerContext.of(PlayerId.of(memberId), "?");
     }
 }

@@ -8,7 +8,7 @@ import eu.nordtal.s2.messages.Refusal;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
-/** Whether the registered game may start now, the same answer for the console and for Steward. */
+/** Whether a game may start from the open round now, the same answer for the console and for Steward. */
 public final class StartCheck {
 
     private StartCheck() {}
@@ -16,25 +16,27 @@ public final class StartCheck {
     /**
      * Returns why the game may not start, or empty when it may.
      *
-     * @param state        the registered game's state, or {@code null} when no game is open
+     * @param underWay     the state of the game in its countdown or running, or {@code null} when none is
+     * @param open         whether a round of registration is open to start a game from
      * @param participants the participants after demotion, which the border divides by
      * @param recommended  the minimum below which only a confirmed start goes ahead
      * @param confirmed    whether the asker has seen the numbers
      */
     public static Optional<Refusal> refusal(
-            final @Nullable GameState state,
+            final @Nullable GameState underWay,
+            final boolean open,
             final SeasonPhase phase,
             final int participants,
             final int recommended,
             final boolean confirmed) {
-        if (state == null) {
+        if (underWay == null && !open) {
             return Optional.of(ServerRefusal.NO_GAME.with());
         }
         if (phase != SeasonPhase.START_EVENT) {
             return Optional.of(ServerRefusal.WRONG_PHASE.with(phase.name()));
         }
-        if (state != GameState.REGISTRATION) {
-            return Optional.of(ServerRefusal.WRONG_STATE.with(state.name()));
+        if (underWay != null) {
+            return Optional.of(ServerRefusal.WRONG_STATE.with(underWay.name()));
         }
         if (participants < HungerGamesSpec.HARD_MINIMUM_PARTICIPANTS) {
             return Optional.of(

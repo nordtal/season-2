@@ -7,6 +7,7 @@ import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.database.inbox.HungerGamesRequest;
 import eu.nordtal.s2.database.inbox.ServerRefusal;
 import eu.nordtal.s2.database.inbox.SmpRequest;
+import eu.nordtal.s2.database.registration.Game;
 import eu.nordtal.s2.messages.Refusal;
 import eu.nordtal.s2.messages.Refused;
 import eu.nordtal.s2.steward.texts.RequestRefused;
@@ -171,25 +172,36 @@ final class GameActions {
     /**
      * {@code GET /api/hunger-games/round}: the open round's state, or empty when none is open.
      *
-     * The count is players on the roster, not resolved participants.
+     * The count is players on a team, owner or accepted, not resolved participants.
      */
     void round(final Context ctx) {
         ctx.json(readRound());
     }
 
-    /** The open round as {@code GET /api/hunger-games/round} answers. */
+    /**
+     * The open round as {@code GET /api/hunger-games/round} answers.
+     *
+     * Its state is its game's while one is under way, and {@code REGISTRATION} while it is open.
+     */
     HungerGamesRound readRound() {
         try (Connection connection = dataSource().getConnection();
                 PreparedStatement statement = connection.prepareStatement("""
-                     SELECT game.state, (SELECT count(*) FROM hg_member member
-                                         WHERE member.game_id = game.id) AS registered
-                     FROM hg_game game
-                     WHERE game.state <> 'DECIDED'
-                     """);
-                ResultSet rows = statement.executeQuery()) {
-            return rows.next()
-                    ? new HungerGamesRound(rows.getString("state"), rows.getLong("registered"))
-                    : new HungerGamesRound(null, null);
+                     SELECT coalesce(game.state, CASE round.state WHEN 'OPEN' THEN 'REGISTRATION' ELSE round.state END)
+                                AS state,
+                            (SELECT count(*) FROM team_member member
+                             WHERE member.registration_id = round.id
+                               AND member.state IN ('OWNER', 'ACCEPTED')) AS registered
+                     FROM registration round
+                              LEFT JOIN hg_game game
+                                        ON game.registration_id = round.id AND game.state IN ('COUNTDOWN', 'RUNNING')
+                     WHERE round.game = ? AND round.state <> 'ENDED'
+                     """)) {
+            statement.setString(1, Game.HUNGER_GAMES.key());
+            try (ResultSet rows = statement.executeQuery()) {
+                return rows.next()
+                        ? new HungerGamesRound(rows.getString("state"), rows.getLong("registered"))
+                        : new HungerGamesRound(null, null);
+            }
         } catch (final SQLException failure) {
             throw new IllegalStateException("could not read the hunger games round", failure);
         }

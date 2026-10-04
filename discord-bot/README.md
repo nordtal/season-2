@@ -51,11 +51,20 @@ a new version arrives as a new image. The whole deployment is described in
 ## Where things live
 
 - `access/`: purchases, grants, linking, the reaction to a booked payment and the managed messages.
-- `hungergames/`: team registration.
+- `registration/`: team registration for a game, named by its key; the Hunger Games is the one game so far.
 - `status/`: the status channel names.
 - `announce/`, `discord/`: announcements, admin commands and the update feed.
 - `config/`: the three config specs and their defaults.
 - `src/main/resources/messages/`: the translations.
+
+## Registration
+
+The bot owns registration: `registration`, `team` and `team_member`, each round named by its game's key from
+`Game` in `:database`. The flow and `Teams` take the game, so a second team mode is a constant there and its
+own Register message, not a copy of the flow. The game owns everything after: the Hunger Games server creates a
+game from the round when it starts, and it alone moves the round's state. A closed round refuses every change
+until its game is aborted, which opens it again with its teams, or decided, which ends it; the next registration
+then opens a new round.
 
 ## Texts
 

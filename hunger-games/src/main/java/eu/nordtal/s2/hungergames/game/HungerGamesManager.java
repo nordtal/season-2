@@ -2,7 +2,6 @@ package eu.nordtal.s2.hungergames.game;
 
 import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
-import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.time.CountdownPlan;
 import eu.nordtal.s2.hungergames.GameState;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
@@ -10,12 +9,11 @@ import eu.nordtal.s2.hungergames.border.BorderController;
 import eu.nordtal.s2.hungergames.border.BorderMath;
 import eu.nordtal.s2.hungergames.color.TeamColours;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
-import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
-import eu.nordtal.s2.hungergames.db.RosterEntry;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.messages.context.TeamContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
@@ -25,10 +23,8 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import org.bukkit.Location;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -95,21 +91,20 @@ public final class HungerGamesManager {
     }
 
     /**
-     * Runs the whole start sequence; callers must already be off the main thread.
+     * Runs the whole start sequence of a game just created; callers must already be off the main thread.
      *
      * @param gameId the game being started
+     * @param participants who plays, at least one
+     * @param names what the participants are called, by Minecraft account, for the bodies of those offline
      * @param world the event world
      * @param onReleased called on the main thread once the countdown finishes and protection begins
      */
-    public void start(final UUID gameId, final World world, final Runnable onReleased) {
-        final List<RosterEntry> roster = dao.roster(gameId);
-        final List<Participant> participants = Demotion.resolve(roster);
-
-        if (participants.isEmpty()) {
-            LOGGER.warn("hunger-games start called with zero resolvable (linked) participants for game {}", gameId);
-            return;
-        }
-
+    public void start(
+            final UUID gameId,
+            final List<Participant> participants,
+            final Map<UUID, PlayerContext> names,
+            final World world,
+            final Runnable onReleased) {
         // Colours are written before the world is touched, so a restart before release repaints identically.
         assignColours(participants);
 
@@ -118,7 +113,6 @@ public final class HungerGamesManager {
 
         plugin.getServer().getScheduler().runTask(plugin, () -> {
             state.reset(gameId, participants.size(), step, clock.instant());
-            dao.startGame(gameId, "COUNTDOWN");
 
             final Location centre = world.getSpawnLocation();
             final List<double[]> towerPositions =
@@ -129,7 +123,7 @@ public final class HungerGamesManager {
                 final Participant participant = participants.get(index);
                 final double[] position = towerPositions.get(index);
                 final Location tower = new Location(world, position[0], towerY, position[1]);
-                placeOnTower(participant, tower);
+                placeOnTower(participant, tower, names);
             }
 
             frozen = true;
@@ -212,7 +206,8 @@ public final class HungerGamesManager {
         }
     }
 
-    private void placeOnTower(final Participant participant, final Location tower) {
+    private void placeOnTower(
+            final Participant participant, final Location tower, final Map<UUID, PlayerContext> names) {
         final Player online = plugin.getServer().getPlayer(participant.mcUuid());
         if (online != null) {
             // Not in the teleport callback, which would reorder the sequence; a failed teleport is logged.
@@ -233,21 +228,16 @@ public final class HungerGamesManager {
 
         // Not dropped: a body with no live Player to copy equipment from waits bare on its tower.
         LOGGER.info(
-                "Placing an unequipped body for offline participant on discord id {} on its "
+                "Placing an unequipped body for offline participant {} on its "
                         + "spawn tower - see PlayerBodies for what this approximates",
-                participant.discordId());
-        bodies.spawnBareArmorStand(tower, resolveDisplayName(participant), participant.mcUuid());
-    }
-
-    private String resolveDisplayName(final Participant participant) {
-        final OfflinePlayer offline = plugin.getServer().getOfflinePlayer(participant.mcUuid());
-        final String name = offline.getName();
-        return name != null ? name : participant.discordId().value();
+                participant.mcUuid());
+        final PlayerContext named = names.get(participant.mcUuid());
+        bodies.spawnBareArmorStand(tower, named == null ? "" : named.name().name(), participant.mcUuid());
     }
 
     private void release(final UUID gameId, final List<Participant> participants) {
         frozen = false;
-        dao.setGameState(gameId, "RUNNING");
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> dao.release(gameId));
         state.release();
         border.begin(gameId, state);
 
@@ -266,11 +256,5 @@ public final class HungerGamesManager {
                 sounds.play(online, Feedback.COUNTDOWN_TICK);
             }
         }
-    }
-
-    public Optional<HgMember> activeMemberByDiscordId(final UUID gameId, final DiscordId discordId) {
-        return dao.activeMembersOf(gameId).stream()
-                .filter(member -> member.discordId().equals(discordId))
-                .findFirst();
     }
 }

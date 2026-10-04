@@ -6,7 +6,7 @@ import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 
 /**
- * Maps the single row {@link SnapshotDao#snapshot()} returns, reading every {@code NULL} as zero or empty.
+ * Maps the single row {@link SnapshotDao#snapshot(String)} returns, reading every {@code NULL} as zero or empty.
  * Alive is computed here from the two counts, so the invariant holds by construction.
  */
 public final class SnapshotMapper implements RowMapper<NetworkSnapshot> {
@@ -16,7 +16,6 @@ public final class SnapshotMapper implements RowMapper<NetworkSnapshot> {
         final int participants = rs.getInt("hg_participants");
         final int eliminated = rs.getInt("hg_eliminated");
         return new NetworkSnapshot(
-                text(rs, "hg_state"),
                 rs.getInt("hg_teams"),
                 rs.getInt("hg_teams_alive"),
                 participants,

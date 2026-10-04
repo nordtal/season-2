@@ -1,4 +1,4 @@
-package eu.nordtal.s2.discordbot.hungergames;
+package eu.nordtal.s2.discordbot.registration;
 
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -21,8 +21,14 @@ public record AnswerResult(
         return new AnswerResult(Status.NOT_PENDING, null, null);
     }
 
+    /** The round is closed while a game of it is under way, so the invite waits. */
+    public static AnswerResult closed() {
+        return new AnswerResult(Status.CLOSED, null, null);
+    }
+
     public enum Status {
         ANSWERED,
+        CLOSED,
         NOT_PENDING
     }
 }

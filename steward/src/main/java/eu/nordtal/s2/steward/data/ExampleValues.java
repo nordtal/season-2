@@ -51,7 +51,7 @@ public final class ExampleValues {
                                     .orElse(displayName)));
             answer.put(
                     "team",
-                    named(first(connection, "SELECT name FROM hg_team ORDER BY created DESC NULLS LAST LIMIT 1")
+                    named(first(connection, "SELECT name FROM team ORDER BY created DESC LIMIT 1")
                             .orElse("Nordlichter")));
             answer.put(
                     "milestone",

@@ -2,7 +2,6 @@ package eu.nordtal.s2.hungergames.game;
 
 import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
-import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
@@ -41,8 +40,11 @@ public final class WinTracker {
     private final Identities identities;
     private final HungerGamesSounds sounds;
 
-    /** The living members of the current game; a member is removed on death. */
+    /** The living participants of the current game; one is removed on death. */
     private final java.util.Map<UUID, Instant> aliveSince = new ConcurrentHashMap<>();
+
+    /** Every participant's team, by member id, for the final two. */
+    private final java.util.Map<UUID, UUID> teamOf = new ConcurrentHashMap<>();
 
     private final ConcurrentLinkedQueue<UUID> recentDeaths = new ConcurrentLinkedQueue<>();
     private volatile @Nullable Instant lastDeathAt;
@@ -62,12 +64,15 @@ public final class WinTracker {
         this.sounds = sounds;
     }
 
-    public void reset(final List<HgMember> activeMembers) {
+    /** Starts a game with these participants alive: a member who never linked is not one, and so never is. */
+    public void reset(final List<Participant> participants) {
         aliveSince.clear();
+        teamOf.clear();
         recentDeaths.clear();
         final Instant now = clock.instant();
-        for (final HgMember member : activeMembers) {
-            aliveSince.put(member.id(), now);
+        for (final Participant participant : participants) {
+            aliveSince.put(participant.memberId(), now);
+            teamOf.put(participant.memberId(), participant.teamId());
         }
         lastDeathAt = null;
     }
@@ -146,21 +151,13 @@ public final class WinTracker {
     }
 
     /** Announces a final two who share a team; the passive border shrink resolves the stalemate. */
-    public void announceIfSameTeamFinalTwo(final World world, final List<HgMember> activeMembers) {
-        if (aliveSince.size() != 2) {
+    public void announceIfSameTeamFinalTwo(final World world) {
+        final List<UUID> alive = List.copyOf(aliveSince.keySet());
+        if (alive.size() != 2) {
             return;
         }
-        final List<UUID> aliveIds = aliveSince.keySet().stream().toList();
-        final Optional<HgMember> first = activeMembers.stream()
-                .filter(m -> m.id().equals(aliveIds.get(0)))
-                .findFirst();
-        final Optional<HgMember> second = activeMembers.stream()
-                .filter(m -> m.id().equals(aliveIds.get(1)))
-                .findFirst();
-        if (first.isEmpty() || second.isEmpty()) {
-            return;
-        }
-        if (!first.get().teamId().equals(second.get().teamId())) {
+        final UUID firstTeam = teamOf.get(alive.get(0));
+        if (firstTeam == null || !firstTeam.equals(teamOf.get(alive.get(1)))) {
             return;
         }
         for (final Player player : world.getPlayers()) {

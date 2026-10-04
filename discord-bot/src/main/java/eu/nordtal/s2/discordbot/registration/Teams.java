@@ -1,6 +1,9 @@
-package eu.nordtal.s2.discordbot.hungergames;
+package eu.nordtal.s2.discordbot.registration;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.registration.Game;
+import eu.nordtal.s2.database.registration.Membership;
+import eu.nordtal.s2.database.registration.RegistrationState;
 import java.sql.SQLException;
 import java.util.Optional;
 import java.util.UUID;
@@ -8,9 +11,9 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 
 /**
- * Team registration over {@code hg_game}, {@code hg_team} and {@code hg_member}, from the Discord side.
+ * Team registration for one game over {@code registration}, {@code team} and {@code team_member}.
  *
- * Every check is also a schema constraint; the Java checks only choose a specific result.
+ * Every check is also a schema constraint and only picks the answer; nothing changes while the game holds the round.
  */
 public final class Teams {
 
@@ -18,25 +21,32 @@ public final class Teams {
     private static final int NAME_MAX_LENGTH = 15;
 
     private final Jdbi jdbi;
-    private final HungerGamesDao dao;
+    private final Game game;
+    private final RegistrationDao dao;
 
-    public Teams(final Jdbi jdbi) {
+    public Teams(final Jdbi jdbi, final Game game) {
         this.jdbi = jdbi;
-        this.dao = jdbi.onDemand(HungerGamesDao.class);
+        this.game = game;
+        this.dao = jdbi.onDemand(RegistrationDao.class);
     }
 
-    /** Returns the id of the one open game, creating it if none exists yet. */
-    public UUID openGame() {
-        final Optional<UUID> existing = dao.openGameId();
+    /** Returns the game these teams register for. */
+    public Game game() {
+        return game;
+    }
+
+    /** Returns the round that has not ended, opening a new one after the last game was decided. */
+    RegistrationDao.Current current() {
+        final Optional<RegistrationDao.Current> existing = dao.current(game.key());
         if (existing.isPresent()) {
             return existing.get();
         }
         try {
-            return dao.createGame();
+            return dao.open(game.key());
         } catch (final UnableToExecuteStatementException exception) {
-            // Somebody else's first registration created it a moment ago.
+            // Somebody else's first registration opened it a moment ago.
             if (isUniqueViolation(exception)) {
-                return dao.openGameId().orElseThrow(() -> exception);
+                return dao.current(game.key()).orElseThrow(() -> exception);
             }
             throw exception;
         }
@@ -46,7 +56,7 @@ public final class Teams {
      * Registers a new team with {@code discordId} as its owner.
      *
      * @param discordId the registering Discord account
-     * @param name the team name, 3 to 15 characters, unique within the open game
+     * @param name the team name, 3 to 15 characters, unique within the round
      */
     public RegistrationResult register(final DiscordId discordId, final String name) {
         final String trimmed = name == null ? "" : name.strip();
@@ -54,30 +64,38 @@ public final class Teams {
             return RegistrationResult.invalidName();
         }
 
-        final UUID gameId = openGame();
-        if (dao.activeMembershipId(gameId, discordId).isPresent()) {
+        final RegistrationDao.Current round = current();
+        if (round.state() != RegistrationState.OPEN) {
+            return RegistrationResult.closed();
+        }
+        final UUID registrationId = round.id();
+        if (dao.activeMembershipId(registrationId, discordId).isPresent()) {
             return RegistrationResult.alreadyRegistered();
         }
-        if (dao.teamNameTaken(gameId, trimmed)) {
+        if (dao.teamNameTaken(registrationId, trimmed)) {
             return RegistrationResult.nameTaken();
         }
 
         try {
-            final UUID teamId = jdbi.inTransaction(handle -> {
+            final Optional<UUID> teamId = jdbi.inTransaction(handle -> {
+                final RegistrationDao txDao = handle.attach(RegistrationDao.class);
+                if (txDao.holdOpen(registrationId).isEmpty()) {
+                    return Optional.<UUID>empty();
+                }
                 handle.createUpdate("INSERT INTO discord_user (discord_id) VALUES (:id) "
                                 + "ON CONFLICT (discord_id) DO NOTHING")
                         .bind("id", discordId)
                         .execute();
-                final HungerGamesDao txDao = handle.attach(HungerGamesDao.class);
-                final UUID team = txDao.insertTeam(gameId, trimmed);
-                txDao.insertOwner(team, gameId, discordId);
-                return team;
+                final UUID team = txDao.insertTeam(registrationId, trimmed);
+                txDao.insertOwner(team, registrationId, discordId);
+                return Optional.of(team);
             });
-            return RegistrationResult.registered(teamId);
+            // A game started between the check above and this transaction.
+            return teamId.map(RegistrationResult::registered).orElseGet(RegistrationResult::closed);
         } catch (final UnableToExecuteStatementException exception) {
             if (isUniqueViolation(exception)) {
                 // Somebody else's registration landed between the check above and this transaction.
-                return dao.activeMembershipId(gameId, discordId).isPresent()
+                return dao.activeMembershipId(registrationId, discordId).isPresent()
                         ? RegistrationResult.alreadyRegistered()
                         : RegistrationResult.nameTaken();
             }
@@ -88,7 +106,7 @@ public final class Teams {
     /**
      * Invites {@code partnerDiscordId} onto {@code ownerDiscordId}'s team.
      *
-     * @param ownerDiscordId   must be the OWNER of a team in the open game
+     * @param ownerDiscordId   must be the OWNER of a team in the current round
      * @param partnerDiscordId who is being invited
      */
     public InviteResult invite(final String ownerDiscordId, final String partnerDiscordId) {
@@ -96,15 +114,22 @@ public final class Teams {
             return InviteResult.cannotInviteSelf();
         }
 
-        final UUID gameId = openGame();
-        final Optional<UUID> ownerMemberId = dao.activeMembershipId(gameId, DiscordId.of(ownerDiscordId));
+        final RegistrationDao.Current round = current();
+        if (round.state() != RegistrationState.OPEN) {
+            return InviteResult.closed();
+        }
+        final UUID registrationId = round.id();
+        final Optional<UUID> ownerMemberId = dao.activeMembershipId(registrationId, DiscordId.of(ownerDiscordId));
         if (ownerMemberId.isEmpty()
-                || !"OWNER".equals(dao.stateOfMember(ownerMemberId.get()).orElse(""))) {
+                || dao.stateOfMember(ownerMemberId.get())
+                        .filter(Membership.OWNER::equals)
+                        .isEmpty()) {
             return InviteResult.notOwner();
         }
         final UUID teamId = dao.teamIdOfMember(ownerMemberId.get()).orElseThrow();
 
-        if (dao.activeMembershipId(gameId, DiscordId.of(partnerDiscordId)).isPresent()) {
+        if (dao.activeMembershipId(registrationId, DiscordId.of(partnerDiscordId))
+                .isPresent()) {
             return InviteResult.targetUnavailable();
         }
         if (dao.settledMemberCount(teamId) >= 2) {
@@ -115,14 +140,22 @@ public final class Teams {
         }
 
         try {
-            final UUID memberId = jdbi.inTransaction(handle -> {
+            final Optional<UUID> memberId = jdbi.inTransaction(handle -> {
+                final RegistrationDao txDao = handle.attach(RegistrationDao.class);
+                if (txDao.holdOpen(registrationId).isEmpty()) {
+                    return Optional.<UUID>empty();
+                }
                 handle.createUpdate("INSERT INTO discord_user (discord_id) VALUES (:id) "
                                 + "ON CONFLICT (discord_id) DO NOTHING")
                         .bind("id", partnerDiscordId)
                         .execute();
-                return handle.attach(HungerGamesDao.class).insertInvite(teamId, gameId, DiscordId.of(partnerDiscordId));
+                return Optional.of(txDao.insertInvite(teamId, registrationId, DiscordId.of(partnerDiscordId)));
             });
-            return InviteResult.invited(memberId, teamId, dao.teamName(teamId).orElseThrow());
+            if (memberId.isEmpty()) {
+                return InviteResult.closed();
+            }
+            return InviteResult.invited(
+                    memberId.get(), teamId, dao.teamName(teamId).orElseThrow());
         } catch (final UnableToExecuteStatementException exception) {
             if (isUniqueViolation(exception)) {
                 return InviteResult.targetUnavailable();
@@ -139,7 +172,15 @@ public final class Teams {
      */
     public AnswerResult accept(final UUID memberId, final String respondingDiscordId) {
         if (dao.accept(memberId, DiscordId.of(respondingDiscordId)) != 1) {
-            return AnswerResult.notPending();
+            final boolean closed = dao.registrationStateOf(memberId)
+                    .filter(state -> state == RegistrationState.CLOSED)
+                    .isPresent();
+            return closed
+                            && dao.stateOfMember(memberId)
+                                    .filter(Membership.INVITED::equals)
+                                    .isPresent()
+                    ? AnswerResult.closed()
+                    : AnswerResult.notPending();
         }
         final UUID teamId = dao.teamIdOfMember(memberId).orElseThrow();
         return AnswerResult.answered(teamId, dao.teamName(teamId).orElseThrow());

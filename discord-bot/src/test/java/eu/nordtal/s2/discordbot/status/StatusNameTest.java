@@ -21,7 +21,7 @@ class StatusNameTest {
     private static final Instant NOW = Instant.parse("2026-09-03T12:00:00Z");
 
     private static final NetworkSnapshot RUNNING =
-            new NetworkSnapshot("RUNNING", 8, 3, 24, 7, 17, "NETHER", 40, 3, 8, 12_400L, 31);
+            new NetworkSnapshot(8, 3, 24, 7, 17, "NETHER", 40, 3, 8, 12_400L, 31);
 
     private static String at(final Duration untilLaunch) {
         return StatusName.render(

@@ -6,7 +6,6 @@ import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
 import java.time.Clock;
@@ -38,7 +37,7 @@ public final class WinTracker {
     private static final Duration SIMULTANEOUS_WINDOW = Duration.ofMillis(500);
 
     private final HungerGamesDao dao;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final Identities identities;
     private final HungerGamesSounds sounds;
 
@@ -52,13 +51,13 @@ public final class WinTracker {
 
     public WinTracker(
             final HungerGamesDao dao,
-            final Messages messages,
+            final MessageRenderer renderer,
             final Identities identities,
             final HungerGamesSounds sounds,
             final Clock clock) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.dao = dao;
-        this.messages = messages;
+        this.renderer = renderer;
         this.identities = identities;
         this.sounds = sounds;
     }
@@ -165,10 +164,9 @@ public final class WinTracker {
             return;
         }
         for (final Player player : world.getPlayers()) {
-            player.sendMessage(MessageRenderer.of(messages)
-                    .format(
-                            identities.languageOf(player.getUniqueId()),
-                            MESSAGES.hg().win().sameTeamFinalTwo()));
+            player.sendMessage(renderer.format(
+                    identities.languageOf(player.getUniqueId()),
+                    MESSAGES.hg().win().sameTeamFinalTwo()));
             // NETWORK_EVENT: about two other people, who are the least likely to be reading chat.
             sounds.play(player, Feedback.NETWORK_EVENT);
         }

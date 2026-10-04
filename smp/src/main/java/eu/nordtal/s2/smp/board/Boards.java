@@ -5,7 +5,6 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.papercommon.player.Identities;
@@ -55,7 +54,7 @@ public final class Boards {
     private final Plugin plugin;
     private final SmpSpec config;
     private final SeasonState season;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final Identities identities;
 
     private final Map<UUID, Map<BoardKind, TextDisplay>> displays = new HashMap<>();
@@ -68,12 +67,12 @@ public final class Boards {
             final Plugin plugin,
             final SmpSpec config,
             final SeasonState season,
-            final Messages messages,
+            final MessageRenderer renderer,
             final Identities identities) {
         this.plugin = plugin;
         this.config = config;
         this.season = season;
-        this.messages = messages;
+        this.renderer = renderer;
         this.identities = identities;
     }
 
@@ -161,7 +160,6 @@ public final class Boards {
 
     // Names travel as parameters so {@code MessageRenderer} escapes them.
     private Component objectiveText(final Locale locale, final int width) {
-        final MessageRenderer renderer = MessageRenderer.of(messages);
         final Component title =
                 renderer.format(locale, MESSAGES.smp().board().objective().title());
         final List<Component> lines = new ArrayList<>();
@@ -190,7 +188,6 @@ public final class Boards {
     }
 
     private Component auraText(final Locale locale, final int width) {
-        final MessageRenderer renderer = MessageRenderer.of(messages);
         final Component title =
                 renderer.format(locale, MESSAGES.smp().board().aura().title());
         final List<Component> lines = new ArrayList<>();
@@ -234,7 +231,7 @@ public final class Boards {
     }
 
     private String milestoneName(final String key, final Locale locale) {
-        return MilestoneNames.of(messages, locale, key);
+        return MilestoneNames.of(renderer.raw(), locale, key);
     }
 
     private static MessageRef row(final String name, final ObjectiveRow objective) {

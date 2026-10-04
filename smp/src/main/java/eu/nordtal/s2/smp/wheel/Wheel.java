@@ -5,7 +5,6 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.messages.value.GameContent;
 import eu.nordtal.s2.papercommon.game.GameKeys;
@@ -43,7 +42,7 @@ public final class Wheel {
     private final SmpDao dao;
     private final SmpSpec config;
     private final Identities identities;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final SmpSounds sounds;
     private final Random random = new Random();
 
@@ -54,7 +53,7 @@ public final class Wheel {
             final SmpDao dao,
             final SmpSpec config,
             final Identities identities,
-            final Messages messages,
+            final MessageRenderer renderer,
             final SmpSounds sounds,
             final Clock clock) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
@@ -62,7 +61,7 @@ public final class Wheel {
         this.dao = dao;
         this.config = config;
         this.identities = identities;
-        this.messages = messages;
+        this.renderer = renderer;
         this.sounds = sounds;
     }
 
@@ -71,8 +70,7 @@ public final class Wheel {
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
         final Locale locale = identities.languageOf(player.getUniqueId());
         if (discordId.isEmpty()) {
-            player.sendMessage(MessageRenderer.of(messages)
-                    .format(locale, MESSAGES.smp().error().noAccountLink()));
+            player.sendMessage(renderer.format(locale, MESSAGES.smp().error().noAccountLink()));
             sounds.play(player, Feedback.REFUSED);
             return;
         }
@@ -96,7 +94,7 @@ public final class Wheel {
                         : extras == 1
                                 ? MESSAGES.smp().wheel().noneSection().one()
                                 : MESSAGES.smp().wheel().noneSection().many(extras);
-                tell(player, MessageRenderer.of(messages).format(locale, none), Feedback.REFUSED);
+                tell(player, renderer.format(locale, none), Feedback.REFUSED);
                 return;
             }
             // How to undo exactly the row this spin changed; built here since only this call site knows which.
@@ -124,7 +122,7 @@ public final class Wheel {
                     : count == 1
                             ? MESSAGES.smp().wheel().availableSection().one()
                             : MESSAGES.smp().wheel().availableSection().many(count);
-            tell(player, MessageRenderer.of(messages).format(locale, available));
+            tell(player, renderer.format(locale, available));
         });
     }
 
@@ -142,11 +140,7 @@ public final class Wheel {
                             + "', which is not a material - the spin is being put back and nothing was given");
             // The spin goes back: a bad item name in the config group is an operator's typo, not bad luck.
             refund.run();
-            tell(
-                    player,
-                    MessageRenderer.of(messages)
-                            .format(locale, MESSAGES.smp().wheel().brokenPrize()),
-                    Feedback.LOSS);
+            tell(player, renderer.format(locale, MESSAGES.smp().wheel().brokenPrize()), Feedback.LOSS);
             return;
         }
 
@@ -161,7 +155,7 @@ public final class Wheel {
                 return;
             }
             new WheelGui(
-                            messages,
+                            renderer,
                             locale,
                             strip,
                             icons,
@@ -208,8 +202,8 @@ public final class Wheel {
                 .addItem(stack)
                 .values()
                 .forEach(left -> player.getWorld().dropItemNaturally(dropAt, left));
-        player.sendMessage(MessageRenderer.of(messages)
-                .format(locale, MESSAGES.smp().wheel().won(count, GameContent.of(material.translationKey()))));
+        player.sendMessage(
+                renderer.format(locale, MESSAGES.smp().wheel().won(count, GameContent.of(material.translationKey()))));
     }
 
     /** One icon per prize, in pool order, with a barrier for a material that does not resolve. */

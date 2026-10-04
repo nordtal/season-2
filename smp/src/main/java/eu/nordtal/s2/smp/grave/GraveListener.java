@@ -4,7 +4,6 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.aura.AuraReason;
@@ -41,7 +40,7 @@ public final class GraveListener implements Listener {
     private final Identities identities;
     private final DeathPenalty penalty;
     private final Predicate<Player> inArena;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final SmpSounds sounds;
 
     public GraveListener(
@@ -51,7 +50,7 @@ public final class GraveListener implements Listener {
             final Identities identities,
             final DeathPenalty penalty,
             final Predicate<Player> inArena,
-            final Messages messages,
+            final MessageRenderer renderer,
             final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
@@ -59,7 +58,7 @@ public final class GraveListener implements Listener {
         this.identities = identities;
         this.penalty = penalty;
         this.inArena = inArena;
-        this.messages = messages;
+        this.renderer = renderer;
         this.sounds = sounds;
     }
 
@@ -108,8 +107,8 @@ public final class GraveListener implements Listener {
             dao.addAura(discordId, delta, reason.stored(), cause);
             Bukkit.getScheduler().runTask(plugin, () -> {
                 if (player.isOnline()) {
-                    player.sendMessage(MessageRenderer.of(messages)
-                            .format(locale, MESSAGES.smp().aura().death(Math.abs(delta))));
+                    player.sendMessage(
+                            renderer.format(locale, MESSAGES.smp().aura().death(Math.abs(delta))));
                     sounds.play(player, Feedback.LOSS);
                 }
             });

@@ -8,7 +8,6 @@ import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
@@ -29,12 +28,12 @@ public final class Ceremony {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Ceremony.class);
 
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final Identities identities;
     private final HungerGamesSounds sounds;
 
-    public Ceremony(final Messages messages, final Identities identities, final HungerGamesSounds sounds) {
-        this.messages = messages;
+    public Ceremony(final MessageRenderer renderer, final Identities identities, final HungerGamesSounds sounds) {
+        this.renderer = renderer;
         this.identities = identities;
         this.sounds = sounds;
     }
@@ -79,7 +78,7 @@ public final class Ceremony {
     private void announce(final Player player, final Decision decision) {
         final Locale locale = identities.languageOf(player.getUniqueId());
         for (final MessageRef line : lines(decision)) {
-            player.sendMessage(MessageRenderer.of(messages).format(locale, line));
+            player.sendMessage(renderer.format(locale, line));
         }
         sounds.play(
                 player,

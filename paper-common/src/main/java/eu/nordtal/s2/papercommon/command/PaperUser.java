@@ -6,7 +6,6 @@ import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messagerendering.Tones;
 import eu.nordtal.s2.messages.MessageRef;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import java.util.Locale;
@@ -46,7 +45,7 @@ public final class PaperUser {
     private final Locale locale;
     private final boolean admin;
     private final java.util.function.Supplier<Optional<DiscordId>> discordId;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final Chime chime;
     private final java.util.function.Supplier<ToneColours> colours;
 
@@ -56,7 +55,7 @@ public final class PaperUser {
             final Locale locale,
             final boolean admin,
             final java.util.function.Supplier<Optional<DiscordId>> discordId,
-            final Messages messages,
+            final MessageRenderer renderer,
             final Chime chime,
             final java.util.function.Supplier<ToneColours> colours) {
         this.plugin = plugin;
@@ -64,7 +63,7 @@ public final class PaperUser {
         this.locale = locale;
         this.admin = admin;
         this.discordId = discordId;
-        this.messages = messages;
+        this.renderer = renderer;
         this.chime = chime;
         this.colours = colours;
     }
@@ -82,10 +81,10 @@ public final class PaperUser {
             final Locale locale,
             final boolean admin,
             final @Nullable DiscordId discordId,
-            final Messages messages,
+            final MessageRenderer renderer,
             final Chime chime,
             final java.util.function.Supplier<ToneColours> colours) {
-        return of(plugin, player, locale, admin, () -> Optional.ofNullable(discordId), messages, chime, colours);
+        return of(plugin, player, locale, admin, () -> Optional.ofNullable(discordId), renderer, chime, colours);
     }
 
     /** Returns the same, with the Discord account resolved only when asked; use it unless the source is a cache. */
@@ -95,7 +94,7 @@ public final class PaperUser {
             final @Nullable Locale locale,
             final boolean admin,
             final java.util.function.Supplier<Optional<DiscordId>> discordId,
-            final Messages messages,
+            final MessageRenderer renderer,
             final @Nullable Chime chime,
             final java.util.function.Supplier<ToneColours> colours) {
         return new PaperUser(
@@ -104,16 +103,16 @@ public final class PaperUser {
                 locale == null ? Locales.DEFAULT : locale,
                 admin,
                 discordId,
-                Objects.requireNonNull(messages, "messages"),
+                Objects.requireNonNull(renderer, "renderer"),
                 chime == null ? Chime.silent() : chime,
                 Objects.requireNonNull(colours, "colours"));
     }
 
-    /** Returns the console: English, always an admin, no identities, and no sound. */
+    /** Returns the console: English, always an admin, no identities, no sound, and names drawn bare. */
     public static PaperUser console(
             final Plugin plugin,
             final CommandSender sender,
-            final Messages messages,
+            final MessageRenderer renderer,
             final java.util.function.Supplier<ToneColours> colours) {
         return new PaperUser(
                 Objects.requireNonNull(plugin, "plugin"),
@@ -121,7 +120,7 @@ public final class PaperUser {
                 Locales.DEFAULT,
                 true,
                 Optional::empty,
-                Objects.requireNonNull(messages, "messages"),
+                Objects.requireNonNull(renderer, "renderer").bare(),
                 Chime.silent(),
                 Objects.requireNonNull(colours, "colours"));
     }
@@ -184,7 +183,7 @@ public final class PaperUser {
     }
 
     private Component render(final MessageRef message) {
-        return MessageRenderer.of(messages).format(locale, message);
+        return renderer.format(locale, message);
     }
 
     /** Sends on the main thread, always scheduled, so that replies keep their order across threads. */

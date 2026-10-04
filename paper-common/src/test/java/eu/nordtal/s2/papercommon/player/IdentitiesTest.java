@@ -1,10 +1,16 @@
 package eu.nordtal.s2.papercommon.player;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.id.PlayerId;
+import eu.nordtal.s2.database.access.PlayerCard;
 import eu.nordtal.s2.database.access.PlayerIdentity;
+import eu.nordtal.s2.database.access.Prestige;
+import eu.nordtal.s2.messagerendering.NameCards;
+import eu.nordtal.s2.messages.value.DisplayName;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -46,6 +52,21 @@ class IdentitiesTest {
 
         assertEquals(List.of(row(ALEX, 11)), told);
         assertEquals(11, identities.of(ALEX).aura());
+    }
+
+    @Test
+    void aHeldPlayerHasTheCardOfWhatIsHeldAndNobodyElseHasOne() {
+        final Prestige prestige = Prestige.defaults();
+        final NameCards cards = identities.cards(() -> prestige);
+        rows.put(ALEX, row(ALEX, 10));
+        identities.load(ALEX);
+        identities.holdUnknown(SAM);
+        final DisplayName alex = new DisplayName(ALEX, "Alex");
+
+        assertNotNull(cards.card(alex));
+        assertEquals(PlayerCard.of(alex, row(ALEX, 10), prestige), cards.card(alex));
+        assertNull(cards.card(new DisplayName(SAM, "Sam")), "held as unknown");
+        assertNull(cards.card(new DisplayName(PlayerId.of(UUID.randomUUID()), "Kim")), "not held");
     }
 
     @Test

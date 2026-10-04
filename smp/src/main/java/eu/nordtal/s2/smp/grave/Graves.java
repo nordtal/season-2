@@ -5,7 +5,6 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
@@ -55,7 +54,7 @@ public final class Graves implements InventoryHolder {
     private final Plugin plugin;
     private final SmpDao dao;
     private final Identities identities;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final SmpSounds sounds;
     private final WorldEffects effects;
     private final SmpSpec config;
@@ -85,7 +84,7 @@ public final class Graves implements InventoryHolder {
             final Plugin plugin,
             final SmpDao dao,
             final Identities identities,
-            final Messages messages,
+            final MessageRenderer renderer,
             final SmpSounds sounds,
             final WorldEffects effects,
             final SmpSpec config,
@@ -94,7 +93,7 @@ public final class Graves implements InventoryHolder {
         this.plugin = plugin;
         this.dao = dao;
         this.identities = identities;
-        this.messages = messages;
+        this.renderer = renderer;
         this.sounds = sounds;
         this.effects = effects;
         this.config = config;
@@ -294,8 +293,7 @@ public final class Graves implements InventoryHolder {
         // Whole minutes outside the final stretch, since the text is redrawn once a minute there.
         final Duration shown =
                 timeLeft.compareTo(HOLOGRAM_FINAL_STRETCH) < 0 ? timeLeft : timeLeft.truncatedTo(ChronoUnit.MINUTES);
-        return MessageRenderer.of(messages)
-                .format(locale, MESSAGES.smp().grave().hologram(shown));
+        return renderer.format(locale, MESSAGES.smp().grave().hologram(shown));
     }
 
     /** Once a minute normally, once a second inside {@link #HOLOGRAM_FINAL_STRETCH}. */
@@ -403,8 +401,6 @@ public final class Graves implements InventoryHolder {
     private Inventory window(final GraveRow row, final Locale locale) {
         final ItemStack[] contents = ItemStack.deserializeItemsFromBytes(row.contents());
         final int contentRows = GravePanel.contentRows(contents.length);
-        final MessageRenderer renderer = MessageRenderer.of(messages);
-
         final Inventory window = Bukkit.createInventory(
                 null,
                 GravePanel.rows(contentRows) * 9,
@@ -412,9 +408,10 @@ public final class Graves implements InventoryHolder {
                         renderer.format(locale, MESSAGES.smp().grave().title()),
                         contentRows,
                         row.experience() > 0
-                                ? messages.format(locale, MESSAGES.smp().grave().experienceLine(row.experience()))
+                                ? renderer.raw()
+                                        .format(locale, MESSAGES.smp().grave().experienceLine(row.experience()))
                                 : "",
-                        messages.format(locale, MESSAGES.smp().grave().takeAllButton())));
+                        renderer.raw().format(locale, MESSAGES.smp().grave().takeAllButton())));
 
         final int slots = GravePanel.contentSlots(contentRows);
         for (int slot = 0; slot < slots && slot < contents.length; slot++) {
@@ -619,10 +616,9 @@ public final class Graves implements InventoryHolder {
 
                 if (experience > 0 && player.isOnline()) {
                     player.giveExp(experience);
-                    player.sendMessage(MessageRenderer.of(messages)
-                            .format(
-                                    identities.languageOf(player.getUniqueId()),
-                                    MESSAGES.smp().grave().experience(experience)));
+                    player.sendMessage(renderer.format(
+                            identities.languageOf(player.getUniqueId()),
+                            MESSAGES.smp().grave().experience(experience)));
                     sounds.play(player, Feedback.SMALL_SUCCESS);
                 }
             });

@@ -8,6 +8,7 @@ import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.Request;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.smp.SmpMessages;
@@ -27,8 +28,8 @@ class AnnouncerTest {
     void oneRequestCarriesEveryLanguage() {
         final Inbox<BotRequest> bot = Inbox.over(TestDatabase.fresh().dataSource(), BotRequest.TABLE);
         final List<String> warnings = new ArrayList<>();
-        final Announcer announcer =
-                new Announcer(bot, MESSAGES, Runnable::run, (message, failure) -> warnings.add(message));
+        final Announcer announcer = new Announcer(
+                bot, MessageRenderer.of(MESSAGES), Runnable::run, (message, failure) -> warnings.add(message));
 
         announcer.announce(locale -> SmpMessages.MESSAGES
                 .smp()
@@ -53,7 +54,11 @@ class AnnouncerTest {
     void aRefusedWriteIsAWarning() {
         final Inbox<BotRequest> refusing = Inbox.over(TestDatabase.empty().dataSource(), BotRequest.TABLE);
         final List<String> warnings = new ArrayList<>();
-        new Announcer(refusing, MESSAGES, Runnable::run, (message, failure) -> warnings.add(message))
+        new Announcer(
+                        refusing,
+                        MessageRenderer.of(MESSAGES),
+                        Runnable::run,
+                        (message, failure) -> warnings.add(message))
                 .announce(SmpMessages.MESSAGES.smp().announce().milestone(new MilestoneContext("Departure")));
         assertEquals(1, warnings.size());
     }

@@ -7,6 +7,7 @@ import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.smp.announce.Announcer;
 import eu.nordtal.s2.smp.db.SmpDao;
@@ -78,8 +79,12 @@ class AdvancementCreditIntegrationTest {
         final Messages messages =
                 Messages.load(AdvancementCreditIntegrationTest.class.getClassLoader(), "messages/smp", Locale.ENGLISH);
         final Announcer announcer = new Announcer(
-                Inbox.over(dataSource, BotRequest.TABLE), messages, Runnable::run, (message, failure) -> {});
-        engine = new ObjectiveEngine(null, dao, () -> track, null, null, null, messages, null, null, null, announcer);
+                Inbox.over(dataSource, BotRequest.TABLE),
+                MessageRenderer.of(messages),
+                Runnable::run,
+                (message, failure) -> {});
+        engine = new ObjectiveEngine(
+                null, dao, () -> track, null, null, null, MessageRenderer.of(messages), null, null, null, announcer);
 
         online.clear();
         held.clear();

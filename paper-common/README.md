@@ -34,3 +34,8 @@ What every Nordtal Paper plugin shares, and nothing a single plugin owns.
   it; nothing is reloaded by hand, since a settings change reaches every process on the hub. Admin subcommands answer the console only, and the inbox answers the same actions, both through one
   `Answer` (done, refused or failed) that the console reads in English and Steward as text or a refusal.
 - **Chat and replies**: the five system lines and a reply in the player's language with tone and sound.
+  Everything goes through the base's one `renderer()`. It draws every name the way the plugin hands to
+  `composeNames` in `enable()` (smp: the flag, the prestige colour and the crest; hunger-games: the flag and a
+  grey name) and puts the card of a player held in `Identities` on it: role, crest and play time, as the
+  network's `prestige` group reads now. A text that wants the tone around a name, such as the aura board's
+  rows, writes it `plain`. The console reads names bare.

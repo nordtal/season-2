@@ -63,6 +63,7 @@ import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -100,6 +101,9 @@ public abstract class NordtalPlugin extends JavaPlugin {
     private WorldDistances worldDistances;
     private volatile ToneColours colours;
     private Messages messages;
+    // The bare name until the plugin's enable() composes its own; read on every name drawn, from any thread.
+    private volatile Names names = Names.BARE;
+    private MessageRenderer renderer;
     private HikariDataSource pool;
     private Jdbi jdbi;
     private AccessReader access;
@@ -183,12 +187,14 @@ public abstract class NordtalPlugin extends JavaPlugin {
         jdbi = Jdbis.over(pool);
         access = AccessReader.using(pool, clock);
         identities = new Identities(access::identities);
+        renderer = MessageRenderer.of(
+                messages, (name, reader) -> names.draw(name, reader), identities.cards(this::prestige));
 
         // ops.json survives a crash, so an admin left in it is swept before any join is handled.
         final AdminOperators operators = BukkitOps.create();
         operators.sweep();
         listen(new Presence(
-                this, identities, operators, messages, refusesWithoutIdentity(), this::languageKnown, logger()));
+                this, identities, operators, renderer, refusesWithoutIdentity(), this::languageKnown, logger()));
         adminWatch = new AdminWatch(this, access, operators, logger());
         filterCommands(adminWatch);
         // Only the proxy enforces the network's limit, so this server takes whoever it sends.
@@ -304,7 +310,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
                 NetworkSettings.allowlist(players.get()),
                 admins::isAdmin,
                 identities,
-                messages,
+                renderer,
                 this::colours,
                 chime()));
     }
@@ -422,7 +428,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
 
     /** Tells the console or a player an answer, in English with its tone. */
     protected final void tell(final CommandSender sender, final Answer answer) {
-        final PaperUser user = PaperUser.console(this, sender, messages, this::colours);
+        final PaperUser user = PaperUser.console(this, sender, renderer, this::colours);
         switch (answer) {
             case Answer.Done done -> user.reply(done.message(), Tone.GOOD);
             case Answer.Refused refused -> user.reply(refused.refusal().message(), Tone.WARN);
@@ -450,7 +456,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
 
     private String english(final MessageRef message) {
         return PlainTextComponentSerializer.plainText()
-                .serialize(MessageRenderer.of(messages).format(Locale.ENGLISH, message));
+                .serialize(renderer.bare().format(Locale.ENGLISH, message));
     }
 
     /** Why the console was asked to type an action again. */
@@ -498,11 +504,19 @@ public abstract class NordtalPlugin extends JavaPlugin {
     }
 
     /**
+     * Draws every name this plugin renders with {@code composition} from now on, with its card on hover.
+     * A server that composes names calls it from {@link #enable()}; until then, and without it, a name is bare.
+     */
+    protected final void composeNames(final Names composition) {
+        names = Objects.requireNonNull(composition, "composition");
+    }
+
+    /**
      * Builds and registers the five lines players read about each other (said, joined, left, died, earned).
      * A server where players see each other calls it once from {@link #enable()}.
      */
-    public final SystemLines systemLines(final Names names) {
-        final SystemLines lines = new SystemLines(names, messages, identities);
+    public final SystemLines systemLines() {
+        final SystemLines lines = new SystemLines(renderer, identities);
         listen(lines);
         return lines;
     }
@@ -517,9 +531,12 @@ public abstract class NordtalPlugin extends JavaPlugin {
         return colours;
     }
 
-    /** Returns every message this plugin renders: {@code paper-common}'s and its own bundles. */
-    public final Messages messages() {
-        return messages;
+    /**
+     * Returns the one renderer of this plugin, over {@code paper-common}'s bundles and its own.
+     * It draws a name as {@link #composeNames} set and shows the card of a player held here.
+     */
+    public final MessageRenderer renderer() {
+        return renderer;
     }
 
     /** Returns the process's one connection pool. */

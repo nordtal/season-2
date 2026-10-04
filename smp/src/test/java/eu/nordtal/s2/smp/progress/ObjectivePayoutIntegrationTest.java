@@ -7,6 +7,7 @@ import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.smp.announce.Announcer;
 import eu.nordtal.s2.smp.config.SmpSpec;
@@ -110,7 +111,10 @@ class ObjectivePayoutIntegrationTest {
         final Messages messages =
                 Messages.load(ObjectivePayoutIntegrationTest.class.getClassLoader(), "messages/smp", Locale.ENGLISH);
         final Announcer announcer = new Announcer(
-                Inbox.over(dataSource, BotRequest.TABLE), messages, Runnable::run, (message, failure) -> {});
+                Inbox.over(dataSource, BotRequest.TABLE),
+                MessageRenderer.of(messages),
+                Runnable::run,
+                (message, failure) -> {});
         engine = new ObjectiveEngine(
                 fake(Plugin.class, Map.of("getLogger", LOGGER)),
                 jdbi.onDemand(SmpDao.class),
@@ -118,7 +122,7 @@ class ObjectivePayoutIntegrationTest {
                 null,
                 null,
                 null,
-                messages,
+                MessageRenderer.of(messages),
                 new SmpSpec() {},
                 null,
                 null,

@@ -5,9 +5,7 @@ import static eu.nordtal.s2.papercommon.PaperCommonMessages.MESSAGES;
 import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.messagerendering.GameLines;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
-import eu.nordtal.s2.messagerendering.Names;
 import eu.nordtal.s2.messages.MessageRef;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.papercommon.player.Identities;
 import io.papermc.paper.advancement.AdvancementDisplay;
@@ -33,17 +31,15 @@ import org.bukkit.event.player.PlayerQuitEvent;
  */
 public final class SystemLines implements Listener {
 
-    private final Names names;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final Identities identities;
 
     /**
-     * @param names how this server draws a player a line is about, which differs between servers; called on the main
-     *     thread and on Paper's chat thread, so it reads from a cache, never a database
+     * @param renderer the plugin's, which draws a player a line is about as this server does; called on the main
+     *     thread and on Paper's chat thread, so its names read from a cache, never a database
      */
-    public SystemLines(final Names names, final Messages messages, final Identities identities) {
-        this.names = Objects.requireNonNull(names, "names");
-        this.messages = Objects.requireNonNull(messages, "messages");
+    public SystemLines(final MessageRenderer renderer, final Identities identities) {
+        this.renderer = Objects.requireNonNull(renderer, "renderer");
         this.identities = Objects.requireNonNull(identities, "identities");
     }
 
@@ -55,7 +51,6 @@ public final class SystemLines implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onChat(final AsyncChatEvent event) {
         final PlayerContext sender = context(event.getPlayer());
-        final MessageRenderer renderer = renderer();
         event.renderer((source, displayName, message, viewer) ->
                 renderer.format(localeOf(viewer), MESSAGES.system().chat().line(sender, GameLines.text(message))));
     }
@@ -124,14 +119,8 @@ public final class SystemLines implements Listener {
         return PlayerContext.of(PlayerId.of(player.getUniqueId()), player.getName());
     }
 
-    /** A renderer that draws every player a line names the way this server draws them. */
-    private MessageRenderer renderer() {
-        return MessageRenderer.of(messages, names);
-    }
-
     /** Renders {@code message} once per reader, in that reader's language. */
     private void broadcast(final MessageRef message, final Predicate<Player> to) {
-        final MessageRenderer renderer = renderer();
         for (final Player viewer : Bukkit.getOnlinePlayers()) {
             if (!to.test(viewer)) {
                 continue;

@@ -3,7 +3,6 @@ package eu.nordtal.s2.smp.protect;
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.messagerendering.MessageRenderer;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
@@ -38,14 +37,14 @@ public final class ProtectionListener implements Listener {
 
     private final Boxes regions;
     private final Identities identities;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final SmpSounds sounds;
 
     public ProtectionListener(
-            final Boxes regions, final Identities identities, final Messages messages, final SmpSounds sounds) {
+            final Boxes regions, final Identities identities, final MessageRenderer renderer, final SmpSounds sounds) {
         this.regions = regions;
         this.identities = identities;
-        this.messages = messages;
+        this.renderer = renderer;
         this.sounds = sounds;
     }
 
@@ -157,10 +156,9 @@ public final class ProtectionListener implements Listener {
                 || identities.of(player.getUniqueId()).admin()) {
             return false;
         }
-        player.sendActionBar(MessageRenderer.of(messages)
-                .format(
-                        identities.languageOf(player.getUniqueId()),
-                        MESSAGES.smp().protect().denied()));
+        player.sendActionBar(renderer.format(
+                identities.languageOf(player.getUniqueId()),
+                MESSAGES.smp().protect().denied()));
         sounds.play(player, Feedback.REFUSED);
         return true;
     }

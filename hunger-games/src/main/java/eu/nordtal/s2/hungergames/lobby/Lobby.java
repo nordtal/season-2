@@ -7,7 +7,6 @@ import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.db.RosterEntry;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.value.Action;
 import eu.nordtal.s2.papercommon.player.Identities;
 import java.util.List;
@@ -35,7 +34,7 @@ public final class Lobby {
     private final Plugin plugin;
     private final HungerGamesDao dao;
     private final HungerGamesSpec config;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final Identities identities;
 
     private @Nullable BukkitTask broadcastTask;
@@ -44,12 +43,12 @@ public final class Lobby {
             final Plugin plugin,
             final HungerGamesDao dao,
             final HungerGamesSpec config,
-            final Messages messages,
+            final MessageRenderer renderer,
             final Identities identities) {
         this.plugin = plugin;
         this.dao = dao;
         this.config = config;
-        this.messages = messages;
+        this.renderer = renderer;
         this.identities = identities;
     }
 
@@ -88,8 +87,8 @@ public final class Lobby {
 
         for (final Player player : world.getPlayers()) {
             final Locale locale = identities.languageOf(player.getUniqueId());
-            final Component message = MessageRenderer.of(messages)
-                    .format(locale, MESSAGES.hg().lobby().broadcast(readyTeams, totalTeams, READY));
+            final Component message =
+                    renderer.format(locale, MESSAGES.hg().lobby().broadcast(readyTeams, totalTeams, READY));
             player.sendMessage(message);
         }
     }

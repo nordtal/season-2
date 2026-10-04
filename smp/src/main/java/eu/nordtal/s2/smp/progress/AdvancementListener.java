@@ -4,7 +4,6 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.aura.AuraReason;
@@ -35,7 +34,7 @@ public final class AdvancementListener implements Listener {
     private final SmpDao dao;
     private final ObjectiveEngine engine;
     private final Identities identities;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final SmpSounds sounds;
 
     /** The curated award list, flattened once at construction. */
@@ -47,13 +46,13 @@ public final class AdvancementListener implements Listener {
             final ObjectiveEngine engine,
             final Identities identities,
             final SmpSpec config,
-            final Messages messages,
+            final MessageRenderer renderer,
             final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
         this.engine = engine;
         this.identities = identities;
-        this.messages = messages;
+        this.renderer = renderer;
         this.sounds = sounds;
         for (final AdvancementAwardSpec award : config.advancementAwards()) {
             awards.put(award.advancement().toLowerCase(Locale.ROOT), award.aura());
@@ -84,8 +83,8 @@ public final class AdvancementListener implements Listener {
                 final Locale locale = identities.languageOf(player.getUniqueId());
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     if (player.isOnline()) {
-                        player.sendMessage(MessageRenderer.of(messages)
-                                .format(locale, MESSAGES.smp().aura().advancement(award)));
+                        player.sendMessage(
+                                renderer.format(locale, MESSAGES.smp().aura().advancement(award)));
                         sounds.play(player, Feedback.SMALL_SUCCESS);
                     }
                 });

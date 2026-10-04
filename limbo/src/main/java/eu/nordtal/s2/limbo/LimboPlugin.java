@@ -57,12 +57,12 @@ public final class LimboPlugin extends NordtalPlugin {
 
     @Override
     protected void enable() {
-        room = new WaitingRoom(this, config.get(), messages(), identities(), world);
+        room = new WaitingRoom(this, config.get(), renderer(), identities(), world);
         room.start();
         final LimboChannel speaking = new LimboChannel(this, room);
         speaking.register();
         channel = speaking;
-        presence = new PresenceListener(this, world, room, speaking, messages(), identities());
+        presence = new PresenceListener(this, world, room, speaking, renderer(), identities());
         listen(presence);
         getLogger()
                 .info("waiting world '" + config.get().worldName() + "', title refreshed every "

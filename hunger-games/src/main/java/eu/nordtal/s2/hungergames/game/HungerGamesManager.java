@@ -14,7 +14,6 @@ import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.db.RosterEntry;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.TeamContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
@@ -45,7 +44,7 @@ public final class HungerGamesManager {
     private final Plugin plugin;
     private final HungerGamesDao dao;
     private final HungerGamesSpec config;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final Identities identities;
     private final PlayerBodies bodies;
     private final GameState state;
@@ -61,7 +60,7 @@ public final class HungerGamesManager {
             final Plugin plugin,
             final HungerGamesDao dao,
             final HungerGamesSpec config,
-            final Messages messages,
+            final MessageRenderer renderer,
             final Identities identities,
             final PlayerBodies bodies,
             final GameState state,
@@ -72,7 +71,7 @@ public final class HungerGamesManager {
         this.plugin = plugin;
         this.dao = dao;
         this.config = config;
-        this.messages = messages;
+        this.renderer = renderer;
         this.identities = identities;
         this.bodies = bodies;
         this.state = state;
@@ -150,10 +149,9 @@ public final class HungerGamesManager {
             final Player online = plugin.getServer().getPlayer(participant.mcUuid());
             if (online != null) {
                 // Deliberately silent: the tower teleport in the same tick already played TRAVEL.
-                online.sendMessage(MessageRenderer.of(messages)
-                        .format(
-                                identities.languageOf(participant.mcUuid()),
-                                MESSAGES.hg().team().demoted(new TeamContext(participant.teamName()))));
+                online.sendMessage(renderer.format(
+                        identities.languageOf(participant.mcUuid()),
+                        MESSAGES.hg().team().demoted(new TeamContext(participant.teamName()))));
             }
         }
     }
@@ -175,10 +173,9 @@ public final class HungerGamesManager {
                                 for (final Participant participant : participants) {
                                     final Player online = plugin.getServer().getPlayer(participant.mcUuid());
                                     if (online != null) {
-                                        online.sendMessage(MessageRenderer.of(messages)
-                                                .format(
-                                                        identities.languageOf(participant.mcUuid()),
-                                                        MESSAGES.hg().start().countdown(remaining)));
+                                        online.sendMessage(renderer.format(
+                                                identities.languageOf(participant.mcUuid()),
+                                                MESSAGES.hg().start().countdown(remaining)));
                                         sounds.play(online, Feedback.COUNTDOWN_TICK);
                                     }
                                 }
@@ -257,10 +254,9 @@ public final class HungerGamesManager {
                 // setFlying(false) first: setAllowFlight(false) on someone actually flying drops them.
                 online.setFlying(false);
                 online.setAllowFlight(false);
-                online.sendMessage(MessageRenderer.of(messages)
-                        .format(
-                                identities.languageOf(participant.mcUuid()),
-                                MESSAGES.hg().start().released(config.pvpProtectionSeconds())));
+                online.sendMessage(renderer.format(
+                        identities.languageOf(participant.mcUuid()),
+                        MESSAGES.hg().start().released(config.pvpProtectionSeconds())));
                 sounds.play(online, Feedback.COUNTDOWN_TICK);
             }
         }

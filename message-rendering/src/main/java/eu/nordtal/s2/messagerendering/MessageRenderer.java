@@ -97,6 +97,11 @@ public final class MessageRenderer {
         return new MessageRenderer(messages, names, cards);
     }
 
+    /** Returns the same bundle with every name bare and no card, for a reader that draws neither, such as a console. */
+    public MessageRenderer bare() {
+        return new MessageRenderer(messages);
+    }
+
     /** Returns the raw bundle behind this renderer. */
     public Messages raw() {
         return messages;

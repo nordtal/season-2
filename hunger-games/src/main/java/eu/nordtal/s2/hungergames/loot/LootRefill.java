@@ -6,7 +6,6 @@ import eu.nordtal.s2.hungergames.border.BorderController;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.game.GameKeys;
 import eu.nordtal.s2.papercommon.player.Identities;
@@ -42,7 +41,7 @@ public final class LootRefill {
     private final World world;
     private final HungerGamesSpec config;
     private final BorderController border;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final Identities identities;
     private final HungerGamesSounds sounds;
 
@@ -58,7 +57,7 @@ public final class LootRefill {
             final World world,
             final HungerGamesSpec config,
             final BorderController border,
-            final Messages messages,
+            final MessageRenderer renderer,
             final Identities identities,
             final HungerGamesSounds sounds,
             final Clock clock) {
@@ -67,7 +66,7 @@ public final class LootRefill {
         this.world = world;
         this.config = config;
         this.border = border;
-        this.messages = messages;
+        this.renderer = renderer;
         this.identities = identities;
         this.sounds = sounds;
     }
@@ -154,10 +153,9 @@ public final class LootRefill {
     /** {@code NETWORK_EVENT}, and not chat alone: the one announcement here a player is expected to act on. */
     private void announce() {
         for (final Player player : world.getPlayers()) {
-            player.sendMessage(MessageRenderer.of(messages)
-                    .format(
-                            identities.languageOf(player.getUniqueId()),
-                            MESSAGES.hg().loot().refill()));
+            player.sendMessage(renderer.format(
+                    identities.languageOf(player.getUniqueId()),
+                    MESSAGES.hg().loot().refill()));
             sounds.play(player, Feedback.NETWORK_EVENT);
         }
     }

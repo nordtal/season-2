@@ -11,7 +11,6 @@ import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messages.MessageRef;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.PaperCommonMessages;
@@ -49,7 +48,7 @@ public final class NavigateCommand {
     private final SmpDao dao;
     private final Navigation navigation;
     private final Identities identities;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final SmpSounds sounds;
     private final java.util.function.Supplier<ToneColours> colours;
 
@@ -58,14 +57,14 @@ public final class NavigateCommand {
             final SmpDao dao,
             final Navigation navigation,
             final Identities identities,
-            final Messages messages,
+            final MessageRenderer renderer,
             final SmpSounds sounds,
             final java.util.function.Supplier<ToneColours> colours) {
         this.plugin = plugin;
         this.dao = dao;
         this.navigation = navigation;
         this.identities = identities;
-        this.messages = messages;
+        this.renderer = renderer;
         this.sounds = sounds;
         this.colours = colours;
     }
@@ -148,7 +147,7 @@ public final class NavigateCommand {
                 identities.languageOf(player.getUniqueId()),
                 identities.of(player.getUniqueId()).admin(),
                 () -> identities.discordIdOf(player.getUniqueId()),
-                messages,
+                renderer,
                 sounds::play,
                 colours);
     }
@@ -169,7 +168,7 @@ public final class NavigateCommand {
                     return;
                 }
                 player.openInventory(
-                        new NavigateGui(messages, identities, navigation, player, lastDeath, pois).getInventory());
+                        new NavigateGui(renderer, identities, navigation, player, lastDeath, pois).getInventory());
             });
         });
         return Command.SINGLE_SUCCESS;
@@ -181,32 +180,20 @@ public final class NavigateCommand {
         final String name = StringArgumentType.getString(context, "name").trim();
 
         if (name.isEmpty() || name.length() > MAX_POI_NAME) {
-            tell(
-                    player,
-                    MessageRenderer.of(messages)
-                            .format(locale, MESSAGES.smp().poi().badName(MAX_POI_NAME)),
-                    Feedback.REFUSED);
+            tell(player, renderer.format(locale, MESSAGES.smp().poi().badName(MAX_POI_NAME)), Feedback.REFUSED);
             return Command.SINGLE_SUCCESS;
         }
 
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
         if (discordId.isEmpty()) {
-            tell(
-                    player,
-                    MessageRenderer.of(messages)
-                            .format(locale, MESSAGES.smp().error().noAccountLink()),
-                    Feedback.REFUSED);
+            tell(player, renderer.format(locale, MESSAGES.smp().error().noAccountLink()), Feedback.REFUSED);
             return Command.SINGLE_SUCCESS;
         }
 
         final Location at = java.util.Objects.requireNonNull(player.getLocation());
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             if (dao.allPois().stream().anyMatch(poi -> poi.name().equalsIgnoreCase(name))) {
-                tell(
-                        player,
-                        MessageRenderer.of(messages)
-                                .format(locale, MESSAGES.smp().poi().duplicate(name)),
-                        Feedback.REFUSED);
+                tell(player, renderer.format(locale, MESSAGES.smp().poi().duplicate(name)), Feedback.REFUSED);
                 return;
             }
             dao.createPoi(
@@ -216,11 +203,7 @@ public final class NavigateCommand {
                     at.getBlockY(),
                     at.getBlockZ(),
                     discordId.get().value());
-            tell(
-                    player,
-                    MessageRenderer.of(messages)
-                            .format(locale, MESSAGES.smp().poi().added(name)),
-                    Feedback.SMALL_SUCCESS);
+            tell(player, renderer.format(locale, MESSAGES.smp().poi().added(name)), Feedback.SMALL_SUCCESS);
         });
         return Command.SINGLE_SUCCESS;
     }
@@ -237,30 +220,18 @@ public final class NavigateCommand {
                     .filter(poi -> poi.name().equalsIgnoreCase(name))
                     .findFirst();
             if (found.isEmpty()) {
-                tell(
-                        player,
-                        MessageRenderer.of(messages)
-                                .format(locale, MESSAGES.smp().poi().notFound(name)),
-                        Feedback.REFUSED);
+                tell(player, renderer.format(locale, MESSAGES.smp().poi().notFound(name)), Feedback.REFUSED);
                 return;
             }
             final PoiRow poi = found.get();
             if (!admin
                     && !poi.createdBy().equals(discordId.map(DiscordId::value).orElse(""))) {
-                tell(
-                        player,
-                        MessageRenderer.of(messages)
-                                .format(locale, MESSAGES.smp().poi().notYours()),
-                        Feedback.REFUSED);
+                tell(player, renderer.format(locale, MESSAGES.smp().poi().notYours()), Feedback.REFUSED);
                 return;
             }
             dao.deletePoi(poi.id());
             Bukkit.getScheduler().runTask(plugin, () -> navigation.clearWorld(poi.world()));
-            tell(
-                    player,
-                    MessageRenderer.of(messages)
-                            .format(locale, MESSAGES.smp().poi().removed(name)),
-                    Feedback.SMALL_SUCCESS);
+            tell(player, renderer.format(locale, MESSAGES.smp().poi().removed(name)), Feedback.SMALL_SUCCESS);
         });
         return Command.SINGLE_SUCCESS;
     }

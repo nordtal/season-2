@@ -2,7 +2,10 @@ package eu.nordtal.s2.papercommon.player;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.id.PlayerId;
+import eu.nordtal.s2.database.access.PlayerCard;
 import eu.nordtal.s2.database.access.PlayerIdentity;
+import eu.nordtal.s2.database.access.Prestige;
+import eu.nordtal.s2.messagerendering.NameCards;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
@@ -15,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.bukkit.entity.Player;
 
 /**
@@ -74,6 +78,23 @@ public final class Identities {
     /** Returns what is known about a player now, or the unknown identity while nothing is held. */
     public PlayerIdentity of(final PlayerId player) {
         return byPlayer.getOrDefault(player, PlayerIdentity.unknown(player));
+    }
+
+    /**
+     * Returns the card of each player held here, by the crest table as it reads now.
+     * A player not held, or held as unknown, has none: a card of nothing known would show a newcomer.
+     */
+    public NameCards cards(final Supplier<Prestige> prestige) {
+        Objects.requireNonNull(prestige, "prestige");
+        return name -> held(name.player())
+                .filter(identity -> identity.discordId() != null)
+                .map(identity -> PlayerCard.of(name, identity, prestige.get()))
+                .orElse(null);
+    }
+
+    /** Returns what is held of a player, and nothing for one this server does not hold. */
+    public Optional<PlayerIdentity> held(final PlayerId player) {
+        return Optional.ofNullable(byPlayer.get(player));
     }
 
     /** Returns what is known about a Minecraft account now. */

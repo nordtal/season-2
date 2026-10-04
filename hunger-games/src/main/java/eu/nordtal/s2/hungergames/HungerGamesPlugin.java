@@ -146,6 +146,8 @@ public final class HungerGamesPlugin extends NordtalPlugin {
 
     @Override
     protected void enable() {
+        // Every name in the arena is drawn alike: the flag and a grey name, so no colour reads as a team.
+        composeNames(new ArenaComposition(identities()));
         dao = jdbi().onDemand(HungerGamesDao.class);
         wireGameSystems(config.get());
         wireListeners();
@@ -185,25 +187,34 @@ public final class HungerGamesPlugin extends NordtalPlugin {
     /** Builds the border, loot, HUD, lobby, ceremony and manager, and starts the lobby broadcast. */
     private void wireGameSystems(final HungerGamesSpec spec) {
         final BorderController borderController =
-                new BorderController(this, world, spec, messages(), identities(), sounds, clock());
+                new BorderController(this, world, spec, renderer(), identities(), sounds, clock());
         border = borderController;
         final LootRefill refill =
-                new LootRefill(this, world, spec, borderController, messages(), identities(), sounds, clock());
+                new LootRefill(this, world, spec, borderController, renderer(), identities(), sounds, clock());
         loot = refill;
         // winTracker before hud: the HUD reads the living count off it on every redraw.
-        winTracker = new WinTracker(dao, messages(), identities(), sounds, clock());
+        winTracker = new WinTracker(dao, renderer(), identities(), sounds, clock());
         hud = new HudRenderer(
-                this, world, spec, messages(), identities(), borderController, state, winTracker, refill, clock());
-        final Lobby waiting = new Lobby(this, dao, spec, messages(), identities());
+                this,
+                world,
+                spec,
+                renderer().raw(),
+                identities(),
+                borderController,
+                state,
+                winTracker,
+                refill,
+                clock());
+        final Lobby waiting = new Lobby(this, dao, spec, renderer(), identities());
         lobby = waiting;
-        ceremony = new Ceremony(messages(), identities(), sounds);
+        ceremony = new Ceremony(renderer(), identities(), sounds);
         manager = new HungerGamesManager(
-                this, dao, spec, messages(), identities(), bodies, state, borderController, sounds, clock());
+                this, dao, spec, renderer(), identities(), bodies, state, borderController, sounds, clock());
 
         refreshCurrentGame();
 
         // Lobby map slicing, tolerant of missing artwork.
-        new LobbyMaps(this, spec, messages().locales()).render(world);
+        new LobbyMaps(this, spec, renderer().raw().locales()).render(world);
 
         waiting.startBroadcasting(world, () -> currentGameId);
     }
@@ -212,8 +223,8 @@ public final class HungerGamesPlugin extends NordtalPlugin {
     private void wireListeners() {
         listen(new FreezeListener(manager));
         // The five system lines; the death line keeps the game's own line for killer and weapon.
-        final SystemLines systemLines = systemLines(new ArenaComposition(identities()));
-        presence = new PresenceListener(this, identities(), bodies, state, messages(), systemLines, players());
+        final SystemLines systemLines = systemLines();
+        presence = new PresenceListener(this, identities(), bodies, state, renderer(), systemLines, players());
         listen(presence);
         listen(new CombatListener(
                 this,
@@ -254,7 +265,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
 
     /** {@code /hg ready-status}: every registered team and whether it has said it is ready. */
     private int readyStatus(final CommandContext<CommandSourceStack> context) {
-        final PaperUser console = PaperUser.console(this, context.getSource().getSender(), messages(), this::colours);
+        final PaperUser console = PaperUser.console(this, context.getSource().getSender(), renderer(), this::colours);
         final Lobby waiting = Objects.requireNonNull(lobby);
         Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
             final UUID gameId = currentGameIdNow();
@@ -283,7 +294,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
                 identities().languageOf(player.getUniqueId()),
                 false,
                 java.util.Optional::<eu.nordtal.s2.common.id.DiscordId>empty,
-                messages(),
+                renderer(),
                 sounds::play,
                 this::colours);
         final UUID gameId = currentGameId;

@@ -1,21 +1,32 @@
 package eu.nordtal.s2.discordbot.announce;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.database.DatabaseMessages;
+import eu.nordtal.s2.discordbot.AccessBot;
+import eu.nordtal.s2.discordbot.DiscordRenderer;
 import eu.nordtal.s2.discordbot.config.Languages;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.context.MilestoneContext;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.helpers.MessageFormatter;
 
-/** What the bot's log says about an announcement it posted. */
+/** What the bot posts for an announcement, rendered in each language from the bundles it loads, and what it logs. */
 class AnnouncementsTest {
+
+    private static final DiscordRenderer BUNDLES = DiscordRenderer.of(
+            Messages.load(AnnouncementsTest.class.getClassLoader(), AccessBot.BUNDLES, Locale.GERMAN));
+    private static final DatabaseMessages.Announcements ANNOUNCEMENT = DatabaseMessages.MESSAGES.announcement();
 
     private static final Map<String, String> GUILD = Map.of("111", "announcements", "222", "ankuendigungen");
 
@@ -57,14 +68,18 @@ class AnnouncementsTest {
             new Languages.Language("en", "", "", "", "", "", "111"),
             new Languages.Language("de", "", "", "", "", "", "222")));
 
-    private final Announcements subject = new Announcements(channels, languages, log);
+    private final Announcements subject = new Announcements(channels, languages, BUNDLES, log);
 
     @Test
     void everyPostedLineIsLoggedAtInfoWithItsLanguageAndChannel() {
-        assertTrue(subject.post("en", "Frontier is complete"));
-        assertTrue(subject.post("de", "Grenzland ist geschafft"));
+        assertTrue(subject.post("en", ANNOUNCEMENT.milestoneSection().border(new MilestoneContext("Frontier"))));
+        assertTrue(subject.post("de", ANNOUNCEMENT.milestoneSection().border(new MilestoneContext("Grenzland"))));
 
-        assertEquals(List.of("111: Frontier is complete", "222: Grenzland ist geschafft"), sent);
+        assertEquals(
+                List.of(
+                        "111: Frontier is complete - the border grows.",
+                        "222: Grenzland ist geschafft - die Grenze wächst."),
+                sent);
         final List<String> info = logged.stream()
                 .filter(line -> line.level().equals("info"))
                 .map(Line::text)
@@ -72,5 +87,19 @@ class AnnouncementsTest {
         assertEquals(2, info.size(), () -> "logged: " + logged);
         assertTrue(info.get(0).contains("'en'") && info.get(0).contains("#announcements (111)"), info.get(0));
         assertTrue(info.get(1).contains("'de'") && info.get(1).contains("#ankuendigungen (222)"), info.get(1));
+    }
+
+    @Test
+    void anAdminsWordsKeepTheirMarkdownAndANameDoesNot() {
+        assertTrue(subject.post("en", ANNOUNCEMENT.words("The **End** opens at 8_pm.")));
+        assertTrue(subject.post("en", ANNOUNCEMENT.milestone(new MilestoneContext("Far_Side"))));
+
+        assertEquals(List.of("111: The **End** opens at 8_pm.", "111: Far\\_Side is complete."), sent);
+    }
+
+    @Test
+    void aLanguageWithoutAChannelIsNotPosted() {
+        assertFalse(subject.post("fr", ANNOUNCEMENT.words("Bonjour")), "nothing is posted where nobody reads");
+        assertEquals(List.of(), sent);
     }
 }

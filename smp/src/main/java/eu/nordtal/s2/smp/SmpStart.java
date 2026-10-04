@@ -61,7 +61,7 @@ final class SmpStart {
         // Discord announcements: one request in the bot's inbox with every language, fire and forget.
         final Announcer announcer = new Announcer(
                 Inbox.over(plugin.pool(), BotRequest.TABLE),
-                plugin.renderer(),
+                plugin.renderer().raw().locales(),
                 task -> Bukkit.getScheduler().runTaskAsynchronously(plugin, task),
                 (message, failure) -> plugin.getLogger().log(java.util.logging.Level.WARNING, message, failure));
         return new HudAndAnnouncer(hud, announcer);

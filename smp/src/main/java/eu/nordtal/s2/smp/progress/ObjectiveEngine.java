@@ -3,11 +3,11 @@ package eu.nordtal.s2.smp.progress;
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.database.DatabaseMessages;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
-import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.aura.AuraPayout;
 import eu.nordtal.s2.smp.aura.AuraReason;
 import eu.nordtal.s2.smp.config.SmpSpec;
@@ -290,13 +290,12 @@ public final class ObjectiveEngine {
         announcer.announce(locale -> {
             final MilestoneContext milestone =
                     new MilestoneContext(MilestoneNames.of(renderer.raw(), locale, milestoneKey));
-            final SmpMessages.Smp.Announce.Milestone by =
-                    MESSAGES.smp().announce().milestoneSection();
+            final DatabaseMessages.Announcements announcement = DatabaseMessages.MESSAGES.announcement();
             return switch (unlock) {
-                case BORDER -> by.border(milestone);
-                case NETHER -> by.nether(milestone);
-                case END -> by.end(milestone);
-                case NOTHING -> MESSAGES.smp().announce().milestone(milestone);
+                case BORDER -> announcement.milestoneSection().border(milestone);
+                case NETHER -> announcement.milestoneSection().nether(milestone);
+                case END -> announcement.milestoneSection().end(milestone);
+                case NOTHING -> announcement.milestone(milestone);
             };
         });
         for (final Player player : Bukkit.getOnlinePlayers()) {

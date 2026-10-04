@@ -78,11 +78,11 @@ public class AccessBot implements AutoCloseable {
     /** The one clock of this process. */
     private final Clock clock = NetworkTime.clock();
 
-    /** Classpath root of the message bundles, one {@code <tag>.properties} per language. */
-    private static final String MESSAGE_ROOT = "messages/access";
-
-    /** The admin texts the bot shares with Steward: the journal, the run words. English only. */
-    private static final String ADMIN_ROOT = "messages/admin";
+    /**
+     * The bundles the bot renders, one {@code <tag>.properties} per language: its own, the admin and the database's.
+     * It shares the admin texts with Steward, in English only; a server and Steward write announcements of the third.
+     */
+    public static final List<String> BUNDLES = List.of("messages/access", "messages/admin", "messages/database");
 
     /** The name {@code {server.name}} reads in this process. */
     private static final String SERVICE = "discord-bot";
@@ -221,12 +221,10 @@ public class AccessBot implements AutoCloseable {
             final LanguageAndTimeSpec languageAndTime,
             final Tiers tiers) {
         final Languages languages = Languages.of(accessConfig);
-        final DiscordRenderer messages = DiscordRenderer.of(Messages.load(
-                        AccessBot.class.getClassLoader(),
-                        java.util.List.of(MESSAGE_ROOT, ADMIN_ROOT),
-                        languages.locales())
-                // Discord paints no tones.
-                .within(NetworkSettings.environment(SERVICE, season, languageAndTime, Palette.DEFAULTS)));
+        final DiscordRenderer messages =
+                DiscordRenderer.of(Messages.load(AccessBot.class.getClassLoader(), BUNDLES, languages.locales())
+                        // Discord paints no tones.
+                        .within(NetworkSettings.environment(SERVICE, season, languageAndTime, Palette.DEFAULTS)));
         // The bunq key lives in steward-bunq; whether payments are on is read here as a row.
         Configured.report(accessConfig, tiers, PaymentGateway.state(database.jdbi()));
         final PaymentRequests requests = new PaymentRequests(database.dataSource());
@@ -311,7 +309,7 @@ public class AccessBot implements AutoCloseable {
 
         final BotAccessEffects inboxEffects = new BotAccessEffects(access, roles, admin, seasonStart, core.messages());
         final eu.nordtal.s2.discordbot.announce.Announcements announcements =
-                new eu.nordtal.s2.discordbot.announce.Announcements(jda, core.languages(), log);
+                new eu.nordtal.s2.discordbot.announce.Announcements(jda, core.languages(), core.messages(), log);
 
         final List<CommandData> commands = new ArrayList<>();
         // Only a player's own self-service is registered natively.

@@ -7,11 +7,13 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.database.DatabaseMessages;
 import eu.nordtal.s2.database.alert.Alert;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.InboxStatus;
 import eu.nordtal.s2.database.inbox.Outcome;
 import eu.nordtal.s2.database.inbox.Request;
+import eu.nordtal.s2.messages.MessageRef;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,8 +56,8 @@ class BotInboxTest {
 
     private final BotInbox subject = new BotInbox(
             effects,
-            (tag, text) -> {
-                carriedOut.add("announce " + tag + " " + text);
+            (tag, message) -> {
+                carriedOut.add("announce " + tag + " " + message.key());
                 return !tag.equals("fr");
             },
             alert -> {
@@ -125,13 +127,13 @@ class BotInboxTest {
 
     @Test
     void anAnnouncementPostsEveryLanguageAndSaysWhichWentOut() {
-        final java.util.Map<String, String> texts = new java.util.LinkedHashMap<>();
-        texts.put("de", "Hallo");
-        texts.put("fr", "Bonjour");
+        final java.util.Map<String, MessageRef> messages = new java.util.LinkedHashMap<>();
+        messages.put("de", DatabaseMessages.MESSAGES.announcement().words("Hallo"));
+        messages.put("fr", DatabaseMessages.MESSAGES.announcement().words("Bonjour"));
 
-        final String answer = answer(new BotRequest.Announce(texts));
+        final String answer = answer(new BotRequest.Announce(messages));
 
-        assertEquals(List.of("announce de Hallo", "announce fr Bonjour"), carriedOut);
+        assertEquals(List.of("announce de announcement.words", "announce fr announcement.words"), carriedOut);
         assertEquals("{\"de\":\"POSTED\",\"fr\":\"NOT_POSTED\"}", answer);
     }
 

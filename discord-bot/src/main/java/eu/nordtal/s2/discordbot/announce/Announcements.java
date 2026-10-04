@@ -1,6 +1,8 @@
 package eu.nordtal.s2.discordbot.announce;
 
+import eu.nordtal.s2.discordbot.DiscordRenderer;
 import eu.nordtal.s2.discordbot.config.Languages;
+import eu.nordtal.s2.messages.MessageRef;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -11,37 +13,41 @@ import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import org.slf4j.Logger;
 
 /**
- * Posts finished lines into one language's announcement channel.
+ * Posts a message into one language's announcement channel, rendered in that language.
  * The bot's inbox calls it for an announcement request, and the bot's status tick through {@link #postAll}.
  */
 public final class Announcements {
 
     private final Channels channels;
     private final Languages languages;
+    private final DiscordRenderer messages;
     private final Logger log;
 
-    public Announcements(final JDA jda, final Languages languages, final Logger log) {
-        this(Channels.of(jda), languages, log);
+    public Announcements(final JDA jda, final Languages languages, final DiscordRenderer messages, final Logger log) {
+        this(Channels.of(jda), languages, messages, log);
     }
 
-    Announcements(final Channels channels, final Languages languages, final Logger log) {
+    Announcements(
+            final Channels channels, final Languages languages, final DiscordRenderer messages, final Logger log) {
         this.channels = Objects.requireNonNull(channels, "channels");
         this.languages = Objects.requireNonNull(languages, "languages");
+        this.messages = Objects.requireNonNull(messages, "messages");
         this.log = Objects.requireNonNull(log, "log");
     }
 
     /**
-     * Posts a line into one language's announcement channel and waits until Discord took it.
+     * Renders a message in one language, posts it into that language's announcement channel and waits for Discord.
      *
      * @param languageTag the language, as in {@code access#languages[].tag}
      * @return whether it was posted; {@code false} when that language has no channel or Discord refused
      */
-    public boolean post(final String languageTag, final String text) {
+    public boolean post(final String languageTag, final MessageRef message) {
         final Optional<Languages.Language> language = languages.byTag(languageTag);
         if (language.isEmpty() || !language.get().hasAnnouncementChannel()) {
             // Not a fault: a language without a channel gets no announcements.
             return false;
         }
+        final String text = messages.format(language.get().locale(), message);
         final String channelId = language.get().announcementChannelId();
         final Optional<String> channel = channels.name(channelId);
         if (channel.isEmpty()) {
@@ -106,15 +112,11 @@ public final class Announcements {
         }
     }
 
-    /**
-     * Posts one line per language that has a channel.
-     *
-     * @param render the line for one language
-     */
-    public void postAll(final java.util.function.Function<Languages.Language, String> render) {
+    /** Posts one message into every language's channel, each rendered in its language. */
+    public void postAll(final MessageRef message) {
         for (final Languages.Language language : languages.all()) {
             if (language.hasAnnouncementChannel()) {
-                post(language.tag(), render.apply(language));
+                post(language.tag(), message);
             }
         }
     }

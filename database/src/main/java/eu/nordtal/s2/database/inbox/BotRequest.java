@@ -122,11 +122,12 @@ public sealed interface BotRequest {
     }
 
     /**
-     * Posts one text per language into that language's announcement channel; a language without one is skipped.
+     * Posts one message per language into that language's announcement channel; a language without one is skipped.
+     * The bot renders each in its language, so an override of the text reaches a request already written.
      *
-     * @param texts language tag to the finished plain text
+     * @param messages language tag to the message of the database bundle's {@code announcement} section
      */
-    record Announce(Map<String, String> texts) implements BotRequest {
+    record Announce(Map<String, MessageRef> messages) implements BotRequest {
 
         /** The bot's answer for a language whose text went out; the answer maps each language to this or the next. */
         public static final String POSTED = "POSTED";
@@ -135,8 +136,8 @@ public sealed interface BotRequest {
         public static final String NOT_POSTED = "NOT_POSTED";
 
         public Announce {
-            texts = Collections.unmodifiableMap(new LinkedHashMap<>(Objects.requireNonNull(texts, "texts")));
-            if (texts.isEmpty()) {
+            messages = Collections.unmodifiableMap(new LinkedHashMap<>(Objects.requireNonNull(messages, "messages")));
+            if (messages.isEmpty()) {
                 throw new IllegalArgumentException("an announcement carries at least one language");
             }
         }

@@ -2,6 +2,7 @@ package eu.nordtal.s2.steward;
 
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.health.Readiness;
+import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.metric.MetricDirectory;
@@ -18,6 +19,7 @@ import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.settings.DatabaseWaiting;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.SettingsException;
+import eu.nordtal.s2.settings.network.LanguageAndTimeSpec;
 import eu.nordtal.s2.settings.network.NetworkSettings;
 import eu.nordtal.s2.steward.alert.Thresholds;
 import eu.nordtal.s2.steward.api.PluginsForward;
@@ -114,6 +116,7 @@ public final class Steward {
      * @param handle the steward group, so a change in Steward re-arms the two clocks
      * @param config what {@code handle} hands out, which reads through to every reload
      * @param settings where both groups came from, listened to for a change
+     * @param languages the network's at this start, which the announcements are listed in
      * @param tiers the network's price list at this start, which payments are booked by
      */
     private record Configs(
@@ -124,6 +127,7 @@ public final class Steward {
             DatabaseSpec database,
             DatabaseSettings settings,
             ZoneId zone,
+            Languages languages,
             Tiers tiers) {}
 
     /** Takes both groups out of the database, importing the last installation's files once, or {@code null}. */
@@ -140,10 +144,19 @@ public final class Steward {
             settings.load(NetworkSettings.SEASON);
             final Tiers tiers =
                     NetworkSettings.tiers(settings.load(NetworkSettings.PRICES).get());
-            final ZoneId zone = NetworkSettings.zone(
-                    settings.load(NetworkSettings.LANGUAGE_AND_TIME).get());
+            final LanguageAndTimeSpec languageAndTime =
+                    settings.load(NetworkSettings.LANGUAGE_AND_TIME).get();
             settings.retireFiles();
-            return new Configs(handle, handle.get(), web, alerts, databaseConfig, settings, zone, tiers);
+            return new Configs(
+                    handle,
+                    handle.get(),
+                    web,
+                    alerts,
+                    databaseConfig,
+                    settings,
+                    NetworkSettings.zone(languageAndTime),
+                    NetworkSettings.languages(languageAndTime),
+                    tiers);
         } catch (final SettingsException broken) {
             // No stack trace, so the sentence is not missed.
             log.error("Refusing to serve on settings that cannot be read: {}", broken.getMessage());
@@ -215,6 +228,7 @@ public final class Steward {
                 agent,
                 !config.agent().token().isBlank(),
                 data,
+                configs.languages(),
                 CLOCK);
         web.start(webConfig.port());
         stack.warm();

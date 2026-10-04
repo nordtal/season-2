@@ -2,12 +2,24 @@ package eu.nordtal.s2.steward.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import eu.nordtal.s2.common.id.Actor;
+import eu.nordtal.s2.database.DatabaseMessages;
+import eu.nordtal.s2.database.inbox.BotRequest;
+import eu.nordtal.s2.database.inbox.Inbox;
+import eu.nordtal.s2.database.inbox.Schedule;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.context.MilestoneContext;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /** The game actions and announcements, and the requests they become. */
@@ -190,12 +202,36 @@ class RosterApiTest extends WebTestSupport {
         final JsonArray recent = GSON.fromJson(get("/api/announcements").body(), JsonObject.class)
                 .getAsJsonArray("recent");
         final java.util.Map<String, JsonObject> byLanguage = new java.util.HashMap<>();
-        recent.forEach(
-                line -> byLanguage.put(line.getAsJsonObject().get("language").getAsString(), line.getAsJsonObject()));
+        // Newest first, so the first line of a language is this announcement's.
+        recent.forEach(line ->
+                byLanguage.putIfAbsent(line.getAsJsonObject().get("language").getAsString(), line.getAsJsonObject()));
         assertEquals(java.util.Set.of("en", "de"), byLanguage.keySet(), recent.toString());
         assertEquals("The end opens tonight.", byLanguage.get("en").get("text").getAsString());
         assertEquals("PENDING", byLanguage.get("en").get("status").getAsString());
         assertEquals("PERSON", byLanguage.get("en").get("actorKind").getAsString());
+    }
+
+    @Test
+    void theListShowsEachLanguageAsTheBotPostsIt() throws Exception {
+        final MessageRef border =
+                DatabaseMessages.MESSAGES.announcement().milestoneSection().border(new MilestoneContext("Frontier"));
+        // As the SMP sends a milestone: one message per language, for the bot to render.
+        Inbox.over(WebFixture.postgres.dataSource(), BotRequest.TABLE)
+                .submit(
+                        new BotRequest.Announce(Map.of("en", border, "de", border)),
+                        Actor.STEWARD,
+                        Schedule.within(Duration.ofHours(1)));
+
+        final java.util.Map<String, String> byLanguage = new java.util.HashMap<>();
+        GSON.fromJson(get("/api/announcements").body(), JsonObject.class)
+                .getAsJsonArray("recent")
+                .forEach(line -> byLanguage.putIfAbsent(
+                        line.getAsJsonObject().get("language").getAsString(),
+                        line.getAsJsonObject().get("text").getAsString()));
+        final Messages bundle = Messages.load(RosterApiTest.class.getClassLoader(), "messages/database", Locale.GERMAN);
+        assertEquals("Frontier is complete - the border grows.", byLanguage.get("en"));
+        assertEquals(bundle.format(Locale.GERMAN, border), byLanguage.get("de"), "the German line is the bundle's");
+        assertNotEquals(byLanguage.get("en"), byLanguage.get("de"), "each language is rendered in its own words");
     }
 
     private static void assertRow(

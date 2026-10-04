@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward.web;
 
 import eu.nordtal.s2.common.id.Actor;
+import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.access.PackExemptions;
@@ -169,6 +170,7 @@ public final class Web {
 
     /**
      * @param agentOffered whether an agent token is configured; without one no recreate button is drawn
+     * @param languages the network's, which the announcements the bot posts are listed in
      */
     public Web(
             final WebSpec config,
@@ -178,6 +180,7 @@ public final class Web {
             final AgentClient agent,
             final boolean agentOffered,
             final @Nullable Data data,
+            final Languages languages,
             final Clock clock) {
         this.config = config;
         this.discord = discord;
@@ -192,7 +195,7 @@ public final class Web {
         this.guild = new DiscordApi(new DiscordDirectory(config.discord(), DiscordAuth.DISCORD_API, clock));
         this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow());
         this.games = new GameActions(data == null ? null : data.dataSource(), commands);
-        this.announcements = new Announcements(data, ctx -> account(ctx).orElseThrow());
+        this.announcements = new Announcements(data, ctx -> account(ctx).orElseThrow(), languages);
         this.access = new AccessApi(data, ctx -> account(ctx).orElseThrow());
         this.roster = new RosterRoutes(data);
         this.gameData = new GameDataRoutes(data == null ? null : GameDataStore.using(data.dataSource()));
@@ -330,6 +333,7 @@ public final class Web {
         final MessageOverrideStore store = overrides;
         if (store != null) {
             store.follow(texts.messages(), hub);
+            store.follow(announcements.messages(), hub);
         }
         final AlertRouter router = alertRouter;
         final AlertMonitor monitor = alertMonitor;

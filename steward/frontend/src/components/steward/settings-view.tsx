@@ -219,7 +219,10 @@ function NodeList<L>({
             <div
               key={`leaves-${group[0].id}`}
               className={cn(
-                list ? "flex flex-col" : "grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-x-6 gap-y-4 py-2",
+                // A leaf's text starts where a branch's label does: past the caret's column, at every depth.
+                list
+                  ? "flex flex-col pl-6"
+                  : "grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-x-6 gap-y-4 py-2 pl-8",
               )}
             >
               {group.map((leaf) => (
@@ -238,7 +241,7 @@ function NodeList<L>({
               type="button"
               aria-expanded={open}
               onClick={() => onToggle(group.id)}
-              className="flex h-9 w-full items-center gap-2 rounded-md text-left text-sm font-medium hover:bg-accent/50"
+              className="flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-sm font-medium hover:bg-accent/50"
             >
               <CaretRightIcon
                 aria-hidden
@@ -255,7 +258,7 @@ function NodeList<L>({
                 ))}
               </span>
               {count > 0 ? (
-                <span className="ml-auto flex shrink-0 items-center gap-1.5 pr-2 text-xs text-muted-foreground tabular-nums">
+                <span className="ml-auto flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
                   <DraftDot />
                   {count}
                 </span>

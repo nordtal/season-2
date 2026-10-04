@@ -27,6 +27,13 @@ class DiscordRendererTest {
     }
 
     @Test
+    void aTextBeingTriedIsWrittenAsTheKeysTextsAreWithItsValuesEscaped() {
+        assertEquals(
+                "**Red\\_Fox\\*\\*** ist dabei.",
+                DISCORD.format(Locale.GERMAN, MESSAGES.register().success("Red_Fox**"), "**{name}** ist dabei."));
+    }
+
+    @Test
     void aMomentIsDiscordsTimestampInEveryReadersZone() {
         assertEquals(
                 "Your access is active until **<t:1791052800:f>**. Have fun on nordtal.",

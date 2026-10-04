@@ -45,6 +45,15 @@ public final class DiscordRenderer {
         return render(messages.prepare(Viewer.of(locale), message));
     }
 
+    /**
+     * Renders a text an admin is trying for a message's key, in place of the key's own, with the message's values.
+     *
+     * @throws eu.nordtal.s2.messages.text.MessageSyntaxException when the text cannot be read
+     */
+    public String format(final @Nullable Locale locale, final MessageRef message, final String text) {
+        return render(messages.prepare(Viewer.of(locale), message, text));
+    }
+
     /** Renders prepared pieces as Discord shows them. */
     public static String render(final Messages.Prepared prepared) {
         final boolean markdown = prepared.format() == TextFormat.DISCORD_MARKDOWN;

@@ -113,6 +113,17 @@ class MessageRendererTest {
     }
 
     @Test
+    void aTextBeingTriedIsDrawnInPlaceOfTheKeysOwnWithTheMessagesValuesAndTones() {
+        final Component tried = RENDER.format(
+                eu.nordtal.s2.messages.Viewer.of(Locale.ENGLISH),
+                new MessageRef("greeting", Map.of("name", "Alex", "count", 2)),
+                "<bad>{name}</bad> has {count}");
+
+        assertEquals("Alex has 2", plain(tried));
+        assertNotNull(find(tried, child -> TextColor.fromHexString("#ff0000").equals(child.color())));
+    }
+
+    @Test
     void aGlyphTagWithANameNobodyKnowsStaysVisibleAsText() {
         assertEquals("<glyph:nope> here", plain(render("glyph-unknown", Map.of())));
     }

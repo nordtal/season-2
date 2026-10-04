@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.messages.text.MessageSyntaxException;
+import eu.nordtal.s2.messages.text.PlainText;
 import java.util.Locale;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -84,6 +86,20 @@ class MessagesTest {
         assertEquals(
                 "Left something and {alone}.",
                 messages().format(Locale.ENGLISH, new MessageRef("braces", Map.of("name", "{alone}"))));
+    }
+
+    @Test
+    void aTextBeingTriedIsFilledInPlaceOfTheKeysOwnAndKeptNowhere() {
+        final Messages messages = messages();
+        final MessageRef greeting = new MessageRef("greeting", Map.of("name", "Alex"));
+
+        final Messages.Prepared tried = messages.prepare(Viewer.of(Locale.GERMAN), greeting, "Moin {name}!");
+
+        assertEquals("Moin Alex!", PlainText.of(tried.pieces(), tried.language(), tried.zone(), tried.words()));
+        assertEquals("Hallo Alex!", messages.format(Locale.GERMAN, greeting));
+        assertThrows(
+                MessageSyntaxException.class,
+                () -> messages.prepare(Viewer.of(Locale.GERMAN), greeting, "Moin {name!"));
     }
 
     @Test

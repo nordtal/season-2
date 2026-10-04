@@ -117,9 +117,21 @@ public final class MessageRenderer {
         return format(viewer, message, true);
     }
 
+    /**
+     * Renders a text an admin is trying for a message's key, in place of the key's own, with the message's values.
+     *
+     * @throws eu.nordtal.s2.messages.text.MessageSyntaxException when the text cannot be read
+     */
+    public Component format(final Viewer viewer, final MessageRef message, final String text) {
+        return render(messages.prepare(viewer, message, text), message, true);
+    }
+
     /** Renders a message, its names with their cards unless it is a card itself, which never draws a card. */
     private Component format(final Viewer viewer, final MessageRef message, final boolean carded) {
-        final Messages.Prepared prepared = messages.prepare(viewer, message);
+        return render(messages.prepare(viewer, message), message, carded);
+    }
+
+    private Component render(final Messages.Prepared prepared, final MessageRef message, final boolean carded) {
         if (!prepared.markup()) {
             return Component.text(
                     PlainText.of(prepared.pieces(), prepared.language(), prepared.zone(), prepared.words()));

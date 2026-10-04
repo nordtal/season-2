@@ -464,9 +464,22 @@ public final class Messages {
 
     /** Returns a message prepared for a reader; the one path every target renders from. */
     public Prepared prepare(final Viewer viewer, final MessageRef message) {
+        return prepare(viewer, message, text(viewer.language(), message.key()));
+    }
+
+    /**
+     * Returns a message prepared from a text an admin is trying in place of its key's own.
+     * It is written in the key's way and filled with the message's values, though no override holds it.
+     *
+     * @throws MessageSyntaxException when the text cannot be read
+     */
+    public Prepared prepare(final Viewer viewer, final MessageRef message, final String text) {
+        return prepare(viewer, message, MessageText.parse(text, markup(message.key())));
+    }
+
+    private Prepared prepare(final Viewer viewer, final MessageRef message, final MessageText text) {
         final Locale language = viewer.language();
         final ZoneId zone = viewer.zone() == null ? environment.zone() : viewer.zone();
-        final MessageText text = text(language, message.key());
         final Map<String, Object> values = Contexts.flatten(message.args(), environment, viewer.player());
         final Declaration declaration = declarations.get(message.key());
         final List<Piece> pieces = Filling.fill(

@@ -25,7 +25,7 @@ import eu.nordtal.s2.hungergames.game.Names;
 import eu.nordtal.s2.hungergames.game.Participant;
 import eu.nordtal.s2.hungergames.game.StartCheck;
 import eu.nordtal.s2.hungergames.game.WinTracker;
-import eu.nordtal.s2.hungergames.hud.HudRenderer;
+import eu.nordtal.s2.hungergames.hud.GameHud;
 import eu.nordtal.s2.hungergames.listener.CombatListener;
 import eu.nordtal.s2.hungergames.listener.FreezeListener;
 import eu.nordtal.s2.hungergames.listener.PresenceListener;
@@ -85,7 +85,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
 
     private @Nullable BorderController border;
     private @Nullable LootRefill loot;
-    private @Nullable HudRenderer hud;
+    private @Nullable GameHud gameHud;
     private @Nullable Lobby lobby;
     private WinTracker winTracker;
     private Ceremony ceremony;
@@ -174,9 +174,6 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         if (lobby != null) {
             quietly("lobby.stop", lobby::stop);
         }
-        if (hud != null) {
-            quietly("hud.stop", hud::stop);
-        }
         if (loot != null) {
             quietly("loot.cancelAll", loot::cancelAll);
         }
@@ -193,19 +190,12 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         final LootRefill refill =
                 new LootRefill(this, world, spec, borderController, renderer(), identities(), sounds, clock());
         loot = refill;
-        // winTracker before hud: the HUD reads the living count off it on every redraw.
+        // winTracker before the HUD, which reads the living count off it on every redraw.
         winTracker = new WinTracker(dao, renderer(), identities(), sounds, clock());
-        hud = new HudRenderer(
-                this,
-                world,
-                spec,
-                renderer().raw(),
-                identities(),
-                borderController,
-                state,
-                winTracker,
-                refill,
-                clock());
+        final GameHud lines =
+                new GameHud(world, spec, renderer().raw(), borderController, state, winTracker, refill, clock());
+        lines.declareOn(hud());
+        gameHud = lines;
         final Lobby waiting = new Lobby(this, dao, spec, renderer(), identities());
         lobby = waiting;
         ceremony = new Ceremony(renderer(), identities(), sounds);
@@ -332,7 +322,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         manager.start(gameId, participants, names, world, () -> {
             final Instant releasedAt = clock().instant();
             Objects.requireNonNull(loot).scheduleAll(releasedAt);
-            Objects.requireNonNull(hud).start();
+            Objects.requireNonNull(gameHud).show();
             winTracker.reset(participants);
         });
     }
@@ -358,7 +348,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
             return;
         }
 
-        Objects.requireNonNull(hud).stop();
+        Objects.requireNonNull(gameHud).hide();
         Objects.requireNonNull(loot).cancelAll();
         Objects.requireNonNull(border).stop();
 

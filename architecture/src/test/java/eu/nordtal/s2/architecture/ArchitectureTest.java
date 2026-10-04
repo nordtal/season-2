@@ -257,6 +257,30 @@ class ArchitectureTest {
                 .check(classes);
     }
 
+    @Test
+    void onlyTheHudPutsUpABossBar() {
+        noClasses()
+                .that()
+                .doNotHaveFullyQualifiedName("eu.nordtal.s2.papercommon.hud.Hud")
+                .should()
+                .accessTargetWhere(DescribedPredicate.describe(
+                        "a boss bar shown, hidden or made",
+                        ArchitectureTest::touchesABossBar))
+                .because("a plugin declares its lines on its Hud, which keeps every bar per player and draws them on"
+                        + " one clock")
+                .check(classes);
+    }
+
+    /** A boss bar shown to or hidden from an audience, or one made for a line. */
+    private static boolean touchesABossBar(final JavaAccess<?> access) {
+        final String member = access.getTarget().getName();
+        if (member.equals("showBossBar") || member.equals("hideBossBar")) {
+            return true;
+        }
+        return member.equals("bar")
+                && access.getTargetOwner().getName().equals("eu.nordtal.s2.packrendering.hud.BossBarLine");
+    }
+
     /** A pool or a timer, a virtual thread per call, or the common pool behind an async call given no executor. */
     private static boolean reachesAPoolOrATimer(final JavaAccess<?> access) {
         final String owner = access.getTargetOwner().getName();

@@ -35,7 +35,6 @@ import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.duel.Duels;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.grave.Graves;
-import eu.nordtal.s2.smp.hud.SmpHud;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneState;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
@@ -102,9 +101,6 @@ public final class SmpPlugin extends NordtalPlugin {
     Worlds worlds;
     private Boxes balloons;
     final SeasonState season = new SeasonState();
-
-    @Nullable
-    SmpHud hud;
 
     @Nullable
     Boards boards;
@@ -225,9 +221,7 @@ public final class SmpPlugin extends NordtalPlugin {
         // Everything below this line touches the database, so it happens off the main thread.
         PaperScheduler.of(this).execute(this::loadSeasonState);
 
-        final SmpStart.HudAndAnnouncer ha = SmpStart.startHudAndAnnouncer(this);
-        hud = ha.hud();
-        announcer = ha.announcer();
+        announcer = SmpStart.declareHudAndStartAnnouncer(this);
 
         final SmpStart.Surfaces wired = SmpStart.wireEffectsAndSurfaces(this, spec);
         // Every name this server holds wears what chat shows: the flag, the prestige colour and the crest.
@@ -372,10 +366,6 @@ public final class SmpPlugin extends NordtalPlugin {
         final StatisticPoller statistics = poller;
         if (statistics != null) {
             quietly("poller.stop", statistics::stop);
-        }
-        final SmpHud heads = hud;
-        if (heads != null) {
-            quietly("hud.stop", heads::stop);
         }
         final Boards drawn = boards;
         if (drawn != null) {

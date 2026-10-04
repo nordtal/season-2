@@ -2,160 +2,54 @@ package eu.nordtal.s2.smp.hud;
 
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
-import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.packrendering.Glyphs;
 import eu.nordtal.s2.packrendering.hud.Bearing;
-import eu.nordtal.s2.packrendering.hud.BossBarLine;
 import eu.nordtal.s2.packrendering.hud.BossBarLine.Pill;
-import eu.nordtal.s2.papercommon.player.Identities;
-import eu.nordtal.s2.papercommon.time.PaperScheduler;
+import eu.nordtal.s2.papercommon.hud.Hud;
 import eu.nordtal.s2.smp.milestone.MilestoneNames;
 import eu.nordtal.s2.smp.navigate.Navigation;
 import eu.nordtal.s2.smp.navigate.NavigationTarget;
 import eu.nordtal.s2.smp.state.SeasonState;
 import eu.nordtal.s2.smp.world.WorldRole;
 import eu.nordtal.s2.smp.world.Worlds;
-import java.time.Duration;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
-import net.kyori.adventure.bossbar.BossBar;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
-import org.jspecify.annotations.Nullable;
 
 /**
- * The SMP's two boss bar lines: dimension and milestone, and the target while {@code /navigate} is on.
+ * The SMP's two lines on its {@code Hud}: dimension and milestone, and the target while {@code /navigate} is on.
  *
  * The second line is hidden rather than emptied; there is no season countdown, as the season has no end date.
  */
 public final class SmpHud {
 
-    /** Four times a second: fast enough that the navigation arrow tracks a turning player. */
-    private static final Duration REFRESH = Duration.ofMillis(250);
-
-    /** How long a status-bar announcement stays up before the dimension and milestone come back. */
-    private static final Duration ANNOUNCEMENT = Duration.ofSeconds(8);
-
-    private final Plugin plugin;
     private final Worlds worlds;
     private final SeasonState season;
     private final Navigation navigation;
     private final Messages messages;
-    private final Identities identities;
 
-    private final Map<UUID, BossBar> statusBars = new HashMap<>();
-    private final Map<UUID, BossBar> navigateBars = new HashMap<>();
-
-    /** Who is currently being told something, and until when; main thread only. */
-    private final Map<UUID, Announcement> announcements = new HashMap<>();
-
-    private Scheduler.@Nullable Task task;
-
-    /** One line, and the nanoTime it stops being shown. */
-    private record Announcement(String line, long until) {}
-
-    public SmpHud(
-            final Plugin plugin,
-            final Worlds worlds,
-            final SeasonState season,
-            final Navigation navigation,
-            final Messages messages,
-            final Identities identities) {
-        this.plugin = plugin;
+    public SmpHud(final Worlds worlds, final SeasonState season, final Navigation navigation, final Messages messages) {
         this.worlds = worlds;
         this.season = season;
         this.navigation = navigation;
         this.messages = messages;
-        this.identities = identities;
     }
 
-    public void start() {
-        stop();
-        task = PaperScheduler.of(plugin).onMainEvery(REFRESH, REFRESH, this::renderAll);
+    /** Declares the two lines, status above navigation. */
+    public void declareOn(final Hud hud) {
+        hud.declare(this::statusLine);
+        hud.declare(this::navigateLine);
     }
 
-    public void stop() {
-        if (task != null) {
-            task.cancel();
-            task = null;
-        }
-        Bukkit.getOnlinePlayers().forEach(this::hide);
-        statusBars.clear();
-        navigateBars.clear();
-        announcements.clear();
-    }
-
-    /**
-     * Takes the status line over for {@link #ANNOUNCEMENT}, keeping the dimension icon.
-     * Main thread.
-     *
-     * @param line already rendered, in the player's own language, and short enough for the bar
-     */
-    public void announce(final Player player, final String line) {
-        announcements.put(player.getUniqueId(), new Announcement(line, System.nanoTime() + ANNOUNCEMENT.toNanos()));
-    }
-
-    public void hide(final Player player) {
-        announcements.remove(player.getUniqueId());
-        final BossBar status = statusBars.remove(player.getUniqueId());
-        if (status != null) {
-            player.hideBossBar(status);
-        }
-        final BossBar navigate = navigateBars.remove(player.getUniqueId());
-        if (navigate != null) {
-            player.hideBossBar(navigate);
-        }
-    }
-
-    private void renderAll() {
-        for (final Player player : Bukkit.getOnlinePlayers()) {
-            renderFor(player);
-        }
-    }
-
-    private void renderFor(final Player player) {
-        final Locale locale = identities.languageOf(player.getUniqueId());
-
-        final BossBar status = statusBars.computeIfAbsent(player.getUniqueId(), key -> BossBarLine.bar());
-        BossBarLine.show(status, statusLine(player, locale));
-        player.showBossBar(status);
-
-        final Optional<NavigationTarget> target = navigation.of(player.getUniqueId());
-        if (target.isEmpty()) {
-            final BossBar existing = navigateBars.remove(player.getUniqueId());
-            if (existing != null) {
-                player.hideBossBar(existing);
-            }
-            return;
-        }
-
-        final BossBar navigate = navigateBars.computeIfAbsent(player.getUniqueId(), key -> BossBarLine.bar());
-        BossBarLine.show(navigate, navigateLine(player, locale, target.get()));
-        player.showBossBar(navigate);
-    }
-
-    /**
-     * The world's pill, then the milestone's, or the world's alone once the track has run out.
-     *
-     * An announcement takes the world's pill over rather than adding a third.
-     */
+    /** The world's pill, then the milestone's, or the world's alone once the track has run out. */
     List<Pill> statusLine(final Player player, final Locale locale) {
         final String dimension =
                 worlds.roleOf(player.getWorld()).map(WorldRole::glyph).orElse(Glyphs.BOSSBAR_ICON_DIM_OVERWORLD);
-
-        final String announcement = announcementFor(player.getUniqueId());
-        if (announcement != null) {
-            return List.of(Pill.of(dimension, announcement));
-        }
 
         // One read, so the name and the percentage are always the same milestone's.
         final SeasonState.Active active = season.active();
@@ -173,8 +67,13 @@ public final class SmpHud {
                                 .milestone(new MilestoneContext(milestoneName(active.key(), locale)), percent))));
     }
 
-    /** The target's pill, led by the arrow to it, then the distance's. */
-    List<Pill> navigateLine(final Player player, final Locale locale, final NavigationTarget target) {
+    /** The target's pill, led by the arrow to it, then the distance's; nothing while no target is set. */
+    List<Pill> navigateLine(final Player player, final Locale locale) {
+        final Optional<NavigationTarget> wanted = navigation.of(player.getUniqueId());
+        if (wanted.isEmpty()) {
+            return List.of();
+        }
+        final NavigationTarget target = wanted.get();
         // Non-null exactly when kind() is POI: NavigationTarget.poi() is the only factory that supplies one.
         final String label = target.kind() == NavigationTarget.Kind.POI
                 ? Objects.requireNonNull(target.label())
@@ -194,19 +93,6 @@ public final class SmpHud {
         return List.of(
                 Pill.of(Glyphs.BOSSBAR_ARROWS.get(arrow), label),
                 Pill.of(messages.format(locale, MESSAGES.smp().hud().distance(distance))));
-    }
-
-    /** The live announcement for a player, or null, dropping an expired one here. */
-    private @Nullable String announcementFor(final UUID player) {
-        final Announcement announcement = announcements.get(player);
-        if (announcement == null) {
-            return null;
-        }
-        if (System.nanoTime() - announcement.until() >= 0) {
-            announcements.remove(player);
-            return null;
-        }
-        return announcement.line();
     }
 
     private String worldName(final Player player, final Locale locale) {

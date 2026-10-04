@@ -3,13 +3,11 @@ package eu.nordtal.s2.smp.board;
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.common.id.PlayerId;
-import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.papercommon.player.Identities;
-import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.config.BoardSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;
@@ -34,7 +32,6 @@ import org.bukkit.entity.Display;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.plugin.Plugin;
-import org.jspecify.annotations.Nullable;
 
 /**
  * The two boards at the spawn, rendered <b>per player, in their own language</b>.
@@ -43,8 +40,8 @@ import org.jspecify.annotations.Nullable;
  */
 public final class Boards {
 
-    /** Once every five seconds; the numbers behind a board change a few times an hour. */
-    private static final Duration REFRESH = Duration.ofSeconds(5);
+    /** Once every five seconds, on the HUD's clock; the numbers behind a board change a few times an hour. */
+    public static final Duration REFRESH = Duration.ofSeconds(5);
 
     private static final int BAR_WIDTH = 20;
 
@@ -63,7 +60,6 @@ public final class Boards {
 
     private volatile List<AuraRow> leaderboard = List.of();
     private final Map<UUID, String> namesByUuid = new HashMap<>();
-    private Scheduler.@Nullable Task task;
 
     public Boards(
             final Plugin plugin,
@@ -78,16 +74,8 @@ public final class Boards {
         this.identities = identities;
     }
 
-    public void start() {
-        stop();
-        task = PaperScheduler.of(plugin).onMainEvery(REFRESH, REFRESH, this::renderAll);
-    }
-
+    /** Takes every board down; the HUD's clock stopped before. */
     public void stop() {
-        if (task != null) {
-            task.cancel();
-            task = null;
-        }
         displays.values().forEach(byKind -> byKind.values().forEach(TextDisplay::remove));
         displays.clear();
     }
@@ -103,7 +91,8 @@ public final class Boards {
         }
     }
 
-    private void renderAll() {
+    /** Draws both boards for everybody in their world. Main thread. */
+    public void renderAll() {
         for (final Player player : Bukkit.getOnlinePlayers()) {
             for (final BoardSpec spec : config.boards()) {
                 final Optional<BoardKind> kind = BoardKind.parse(spec.kind());

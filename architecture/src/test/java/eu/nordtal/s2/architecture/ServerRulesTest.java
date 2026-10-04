@@ -18,7 +18,7 @@ class ServerRulesTest {
 
     private static final String MANAGER = "eu.nordtal.s2.hungergames.game.HungerGamesManager";
     private static final String FREEZE = "eu.nordtal.s2.hungergames.listener.FreezeListener";
-    private static final String HUD = "eu.nordtal.s2.hungergames.hud.HudRenderer";
+    private static final String HUD = "eu.nordtal.s2.hungergames.hud.GameHud";
     private static final String COMBAT = "eu.nordtal.s2.hungergames.listener.CombatListener";
     private static final String LIMBO_PRESENCE = "eu.nordtal.s2.limbo.listener.PresenceListener";
     private static final String BOT = "eu.nordtal.s2.discordbot.AccessBot";

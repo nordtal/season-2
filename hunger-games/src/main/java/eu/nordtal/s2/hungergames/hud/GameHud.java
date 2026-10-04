@@ -2,7 +2,6 @@ package eu.nordtal.s2.hungergames.hud;
 
 import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
-import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.hungergames.GameState;
 import eu.nordtal.s2.hungergames.border.BorderController;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
@@ -13,45 +12,29 @@ import eu.nordtal.s2.packrendering.Glyphs;
 import eu.nordtal.s2.packrendering.hud.Bearing;
 import eu.nordtal.s2.packrendering.hud.BossBarLine;
 import eu.nordtal.s2.packrendering.hud.BossBarLine.Pill;
-import eu.nordtal.s2.papercommon.player.Identities;
-import eu.nordtal.s2.papercommon.time.PaperScheduler;
+import eu.nordtal.s2.papercommon.hud.Hud;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Locale;
 import java.util.Objects;
-import java.util.UUID;
-import net.kyori.adventure.bossbar.BossBar;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
-import org.jspecify.annotations.Nullable;
 
 /**
- * The three-line HUD, players, loot and border, as three {@link BossBar} pills per player.
+ * The game's three boss bar lines on the plugin's {@code Hud}: players, loot and border, from release to decision.
  *
  * The resource pack hides the vanilla bar, so this class only decides what each line says.
  */
-public final class HudRenderer {
+public final class GameHud {
 
-    private static final int UPDATES_PER_SECOND = 4;
-
-    private final Plugin plugin;
     private final World world;
     private final HungerGamesSpec config;
     private final Messages messages;
-    private final Identities identities;
     private final BorderController border;
     private final GameState state;
-
-    private final Map<UUID, BossBar> playersBars = new HashMap<>();
-    private final Map<UUID, BossBar> lootBars = new HashMap<>();
-    private final Map<UUID, BossBar> borderBars = new HashMap<>();
-
-    private Scheduler.@Nullable Task task;
 
     /** Read at render time rather than pushed in, so the living count cannot go stale. */
     private final WinTracker wins;
@@ -61,97 +44,76 @@ public final class HudRenderer {
 
     private final Clock clock;
 
-    public HudRenderer(
-            final Plugin plugin,
+    /** Whether a game is under way; the lines are hidden otherwise. */
+    private volatile boolean shown;
+
+    public GameHud(
             final World world,
             final HungerGamesSpec config,
             final Messages messages,
-            final Identities identities,
             final BorderController border,
             final GameState state,
             final WinTracker wins,
             final LootRefill loot,
             final Clock clock) {
-        this.clock = java.util.Objects.requireNonNull(clock, "clock");
-        this.plugin = plugin;
+        this.clock = Objects.requireNonNull(clock, "clock");
         this.world = world;
         this.config = config;
         this.messages = messages;
-        this.identities = identities;
         this.border = border;
         this.state = state;
         this.wins = wins;
         this.loot = loot;
     }
 
-    public void start() {
-        final Duration period = Duration.ofSeconds(1).dividedBy(UPDATES_PER_SECOND);
-        task = PaperScheduler.of(plugin).onMainEvery(period, period, this::renderAll);
+    /** Declares the three lines, players above loot above border. */
+    public void declareOn(final Hud hud) {
+        hud.declare(this::playersLine);
+        hud.declare(this::lootLine);
+        hud.declare(this::borderLine);
     }
 
-    public void stop() {
-        if (task != null) {
-            task.cancel();
-            task = null;
+    /** Shows the lines to everybody in the arena from the next frame on. */
+    public void show() {
+        shown = true;
+    }
+
+    /** Hides the lines from the next frame on. */
+    public void hide() {
+        shown = false;
+    }
+
+    private boolean showsTo(final Player player) {
+        return shown && player.getWorld().equals(world);
+    }
+
+    private List<Pill> playersLine(final Player player, final Locale locale) {
+        if (!showsTo(player)) {
+            return List.of();
         }
-        for (final Player player : world.getPlayers()) {
-            hide(player);
+        return List.of(Pill.of(
+                Glyphs.BOSSBAR_ICON_ALIVE,
+                withArrow(
+                        messages.format(
+                                locale,
+                                MESSAGES.hg()
+                                        .hud()
+                                        .players(wins.aliveCount(), wins.deadCount(state.effectiveParticipants()))),
+                        nearestPlayerArrow(player))));
+    }
+
+    private List<Pill> lootLine(final Player player, final Locale locale) {
+        if (!showsTo(player)) {
+            return List.of();
         }
-        playersBars.clear();
-        lootBars.clear();
-        borderBars.clear();
+        return List.of(Pill.of(Glyphs.BOSSBAR_ICON_LOOT_POINT, withArrow(lootText(locale), nearestLootArrow(player))));
     }
 
-    public void hide(final Player player) {
-        final UUID uuid = player.getUniqueId();
-        removeIfPresent(playersBars, player, uuid);
-        removeIfPresent(lootBars, player, uuid);
-        removeIfPresent(borderBars, player, uuid);
-    }
-
-    private void removeIfPresent(final Map<UUID, BossBar> bars, final Player player, final UUID uuid) {
-        final BossBar bar = bars.remove(uuid);
-        if (bar != null) {
-            player.hideBossBar(bar);
+    private List<Pill> borderLine(final Player player, final Locale locale) {
+        if (!showsTo(player)) {
+            return List.of();
         }
-    }
-
-    private void renderAll() {
-        for (final Player player : world.getPlayers()) {
-            renderFor(player);
-        }
-    }
-
-    private void renderFor(final Player player) {
-        final java.util.Locale locale = identities.languageOf(player.getUniqueId());
-        final BossBar playersBar = playersBars.computeIfAbsent(player.getUniqueId(), key -> BossBarLine.bar());
-        final BossBar lootBar = lootBars.computeIfAbsent(player.getUniqueId(), key -> BossBarLine.bar());
-        final BossBar borderBar = borderBars.computeIfAbsent(player.getUniqueId(), key -> BossBarLine.bar());
-
-        BossBarLine.show(
-                playersBar,
-                List.of(Pill.of(
-                        Glyphs.BOSSBAR_ICON_ALIVE,
-                        withArrow(
-                                messages.format(
-                                        locale,
-                                        MESSAGES.hg()
-                                                .hud()
-                                                .players(
-                                                        wins.aliveCount(),
-                                                        wins.deadCount(state.effectiveParticipants()))),
-                                nearestPlayerArrow(player)))));
-
-        BossBarLine.show(
-                lootBar,
-                List.of(Pill.of(
-                        Glyphs.BOSSBAR_ICON_LOOT_POINT, withArrow(lootLine(locale), nearestLootArrow(player)))));
-
-        BossBarLine.show(borderBar, List.of(Pill.of(Glyphs.BOSSBAR_ICON_BORDER, borderLine(locale))));
-
-        player.showBossBar(playersBar);
-        player.showBossBar(lootBar);
-        player.showBossBar(borderBar);
+        return List.of(Pill.of(Glyphs.BOSSBAR_ICON_BORDER, borderText(locale)));
     }
 
     /** The arrow rides at the end of its text's pill, or nothing does when there is no target. */
@@ -159,7 +121,7 @@ public final class HudRenderer {
         return arrow.isEmpty() ? text : text + BossBarLine.ICON_GAP + arrow;
     }
 
-    private String lootLine(final java.util.Locale locale) {
+    private String lootText(final Locale locale) {
         final Instant nextRefillAt = loot.nextRefillAt();
         if (nextRefillAt == null) {
             return messages.format(locale, MESSAGES.hg().hud().lootNone());
@@ -167,7 +129,7 @@ public final class HudRenderer {
         return messages.format(locale, MESSAGES.hg().hud().loot(Duration.between(clock.instant(), nextRefillAt)));
     }
 
-    private String borderLine(final java.util.Locale locale) {
+    private String borderText(final Locale locale) {
         if (!state.isShrinking()) {
             return messages.format(locale, MESSAGES.hg().hud().borderStable());
         }

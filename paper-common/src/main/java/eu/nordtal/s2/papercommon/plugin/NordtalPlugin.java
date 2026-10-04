@@ -38,6 +38,7 @@ import eu.nordtal.s2.papercommon.command.Answer;
 import eu.nordtal.s2.papercommon.command.CommandFilter;
 import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.papercommon.game.GameDataExport;
+import eu.nordtal.s2.papercommon.hud.Hud;
 import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.papercommon.player.Presence;
 import eu.nordtal.s2.papercommon.time.PaperScheduler;
@@ -112,6 +113,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
     private Jdbi jdbi;
     private AccessReader access;
     private Identities identities;
+    private Hud hud;
     private AdminWatch adminWatch;
     private @Nullable SignalHub hub;
 
@@ -193,6 +195,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
         renderer = MessageRenderer.of(
                 messages, (name, reader) -> names.draw(name, reader), identities.cards(this::prestige));
         previews = new Previews(getServer()::getPlayer, renderer);
+        hud = new Hud(this, identities);
+        listen(hud);
 
         // ops.json survives a crash, so an admin left in it is swept before any join is handled.
         final AdminOperators operators = BukkitOps.create();
@@ -208,6 +212,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
         hub = signals;
         registerCommands();
         enable();
+        // After enable, which declared the lines; a plugin that declared none has no clock.
+        hud.start();
         adminWatch.listen(signals);
         // Every signal runs every refresh, so an aura booked on smp's channel lands here too.
         signals.on(Channel.ADMIN, "who the players are", identities::reread);
@@ -334,6 +340,10 @@ public abstract class NordtalPlugin extends JavaPlugin {
     @Override
     public final void onDisable() {
         // The readiness marker stays, going stale is the signal; the server calls off the beat with every other task.
+        if (hud != null) {
+            // First, so no frame draws over what the plugin takes down.
+            quietly("hud.stop", hud::stop);
+        }
         quietly("disable", this::disable);
         // Before the pool: a refresh in flight reads through it.
         if (adminWatch != null) {
@@ -558,6 +568,11 @@ public abstract class NordtalPlugin extends JavaPlugin {
     /** Returns who everybody online is. */
     public final Identities identities() {
         return identities;
+    }
+
+    /** Returns this plugin's heads-up display, where its boss bar lines are declared in {@code enable()}. */
+    public final Hud hud() {
+        return hud;
     }
 
     /** Returns the admin roster as last read. */

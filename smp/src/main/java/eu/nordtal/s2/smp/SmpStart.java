@@ -47,17 +47,13 @@ final class SmpStart {
 
     private SmpStart() {}
 
-    record HudAndAnnouncer(SmpHud hud, Announcer announcer) {}
-
-    static HudAndAnnouncer startHudAndAnnouncer(final SmpPlugin plugin) {
-        final SmpHud hud = new SmpHud(
-                plugin,
-                plugin.worlds,
-                plugin.season,
-                plugin.navigation,
-                plugin.renderer().raw(),
-                plugin.identities());
-        hud.start();
+    static Announcer declareHudAndStartAnnouncer(final SmpPlugin plugin) {
+        new SmpHud(
+                        plugin.worlds,
+                        plugin.season,
+                        plugin.navigation,
+                        plugin.renderer().raw())
+                .declareOn(plugin.hud());
 
         // Discord announcements: one request in the bot's inbox with every language, fire and forget.
         final Announcer announcer = new Announcer(
@@ -65,7 +61,7 @@ final class SmpStart {
                 plugin.renderer().raw().locales(),
                 PaperScheduler.of(plugin),
                 (message, failure) -> plugin.getLogger().log(java.util.logging.Level.WARNING, message, failure));
-        return new HudAndAnnouncer(hud, announcer);
+        return announcer;
     }
 
     record Surfaces(WorldEffects effects, PlayerComposition composition, PlayerSurfaces surfaces, Boards boards) {}
@@ -81,7 +77,7 @@ final class SmpStart {
         plugin.identities().whenChanged(surfaces::changed);
 
         final Boards boards = new Boards(plugin, config, plugin.season, plugin.renderer(), plugin.identities());
-        boards.start();
+        plugin.hud().every(Boards.REFRESH, boards::renderAll);
         return new Surfaces(effects, composition, surfaces, boards);
     }
 

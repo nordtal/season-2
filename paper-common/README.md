@@ -12,6 +12,11 @@ What every Nordtal Paper plugin shares, and nothing a single plugin owns.
   told durations and never ticks. As a `Scheduler` it runs work off the main thread; `onMain`,
   `onMainAfter` and `onMainEvery` run it on the main thread. A disabled plugin's work is refused with a
   `RejectedExecutionException`, and `:architecture` refuses `org.bukkit.scheduler` anywhere else.
+- **The HUD**, `hud()`: the boss bar lines a plugin declares in `enable()` as `HudLine`s (smp: status and
+  navigation; hunger-games: players, loot and border), kept per player and drawn on one clock four times a
+  second. A line answers what it says to one player now, and nothing hides its bar. Slower surfaces ride the
+  same clock with `every` (smp's boards, every five seconds), so a plugin has one render clock, started after
+  `enable()` and stopped first at disable. `:architecture` refuses a boss bar shown or made anywhere else.
 - **The game data**: on the first tick after every start, `GameDataExport` reads the server's
   registries (items, blocks, entity types, advancements without the recipe ones, statistics with the
   registry they count per entry of, enchantments, biomes, effects, sounds, damage types and their

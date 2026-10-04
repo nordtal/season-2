@@ -47,8 +47,8 @@ class EveryBundleIsCompleteTest {
      * German nouns alike in both numbers are left out, but for those whose verb follows the count.
      */
     private static final Pattern COUNTED = Pattern.compile("(</?[a-z][^>]*>)*\\s+("
-            + "seconds?|minutes?|hours?|days?|players?|participants?|teams?|members?"
-            + "|Sekunden?|Minuten?|Stunden?|Tag(?:en?)?|Teams?|Teilnehmende|Teilnehmer)\\b");
+            + "seconds?|minutes?|hours?|days?|players?|participants?|teams?|members?|milestones?|kills?"
+            + "|Sekunden?|Minuten?|Stunden?|Tag(?:en?)?|Teams?|Teilnehmende|Teilnehmer|Meilenstein(?:en?)?)\\b");
 
     /** The bundles only admins read, which are English: Steward's page, the words it shares, and the check's. */
     private static final Set<String> ENGLISH_ONLY = Set.of(

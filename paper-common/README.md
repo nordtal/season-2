@@ -17,6 +17,14 @@ What every Nordtal Paper plugin shares, and nothing a single plugin owns.
   second. A line answers what it says to one player now, and nothing hides its bar. Slower surfaces ride the
   same clock with `every` (smp's boards, every five seconds), so a plugin has one render clock, started after
   `enable()` and stopped first at disable. `:architecture` refuses a boss bar shown or made anywhere else.
+- **Menus**: a window is a `Menu`, which holds its own chest inventory, framed once with a title `MenuTitle`
+  drew (with `MenuFont`, `MenuPalette`, `SlotGeometry` and `BlankItem` beside it). The one `Menus` listener
+  plays the open and close sounds through the plugin's `chime()`, refuses every click a menu does not leave
+  free, and hands a click on the menu's own slots to `click`, which answers with a `MenuClick`: a sound, then
+  a next menu or a close. A title cannot be redrawn, so a page turn is a next menu. `closed` runs on every
+  close, and `stopped` at the plugin's stop for whoever still looks at one, before `disable()`, because Paper
+  disconnects players only after the plugins stopped (smp: the wheel pays out, a deposit screen gives its
+  items back). `:architecture` refuses an inventory made, opened or asked for its holder anywhere else.
 - **The game data**: on the first tick after every start, `GameDataExport` reads the server's
   registries (items, blocks, entity types, advancements without the recipe ones, statistics with the
   registry they count per entry of, enchantments, biomes, effects, sounds, damage types and their

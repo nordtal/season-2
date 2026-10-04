@@ -1,4 +1,4 @@
-package eu.nordtal.s2.smp.menu;
+package eu.nordtal.s2.papercommon.menu;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;

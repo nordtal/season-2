@@ -5,9 +5,9 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.value.GameContent;
 import eu.nordtal.s2.papercommon.game.GameKeys;
-import eu.nordtal.s2.smp.feedback.Surface;
-import eu.nordtal.s2.smp.menu.BlankItem;
-import eu.nordtal.s2.smp.menu.SlotGeometry;
+import eu.nordtal.s2.papercommon.menu.BlankItem;
+import eu.nordtal.s2.papercommon.menu.Menu;
+import eu.nordtal.s2.papercommon.menu.MenuClick;
 import eu.nordtal.s2.smp.milestone.Objective;
 import eu.nordtal.s2.smp.milestone.TrackNames;
 import java.util.ArrayList;
@@ -15,7 +15,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import org.bukkit.Bukkit;
+import java.util.function.BiConsumer;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -26,7 +26,7 @@ import org.bukkit.inventory.ItemStack;
  *
  * Closing without confirming gives everything back, since a closed plugin inventory drops its contents into nothing.
  */
-public final class HandInGui implements Surface {
+public final class HandInGui extends Menu {
 
     private static final int DEPOSIT_SLOTS = HandInPanel.DEPOSIT_SLOTS;
 
@@ -34,20 +34,27 @@ public final class HandInGui implements Surface {
     private final Objective objective;
     private final long stillNeeded;
     private final Set<String> wanted;
+    private final BiConsumer<Player, HandInGui> confirm;
 
+    /**
+     * Builds the deposit screen for one objective.
+     *
+     * @param confirm credits what the player put in, once they press confirm
+     */
     public HandInGui(
             final MessageRenderer renderer,
             final Locale locale,
             final Objective objective,
             final long amount,
-            final long target) {
+            final long target,
+            final BiConsumer<Player, HandInGui> confirm) {
         this.objective = objective;
+        this.confirm = confirm;
         this.stillNeeded = Math.max(0L, target - amount);
         this.wanted = new LinkedHashSet<>(objective.items() == null ? List.of() : objective.items());
 
-        this.inventory = Bukkit.createInventory(
-                this,
-                HandInPanel.ROWS * SlotGeometry.COLUMNS,
+        this.inventory = frame(
+                HandInPanel.ROWS,
                 HandInPanel.title(
                         renderer.format(locale, MESSAGES.smp().handin().title()),
                         renderer.raw().format(locale, MESSAGES.smp().handin().stillNeeded(stillNeeded)),
@@ -56,10 +63,10 @@ public final class HandInGui implements Surface {
         // A sample of the first wanted material, so the window says what it wants without a sentence.
         sample().ifPresent(item -> inventory.setItem(HandInPanel.SAMPLE_SLOT, describe(renderer, locale, item)));
 
-        final ItemStack confirm = BlankItem.of(
+        final ItemStack button = BlankItem.of(
                 renderer.format(locale, MESSAGES.smp().handin().confirm()),
                 List.of(renderer.format(locale, MESSAGES.smp().handin().needed(stillNeeded, wantedItems()))));
-        HandInPanel.CONFIRM_SLOTS.forEach(slot -> inventory.setItem(slot, confirm));
+        HandInPanel.CONFIRM_SLOTS.forEach(slot -> inventory.setItem(slot, button));
     }
 
     /** The wanted items, which the client names in its reader's language. */
@@ -86,22 +93,34 @@ public final class HandInGui implements Surface {
         return stack;
     }
 
-    @Override
-    public Inventory getInventory() {
-        return inventory;
-    }
-
     public Objective objective() {
         return objective;
     }
 
-    public static boolean isConfirm(final int slot) {
-        return HandInPanel.CONFIRM_SLOTS.contains(slot);
+    /** The deposit slots are deliberately free, and so is the player's own inventory below: this is a chest to fill. */
+    @Override
+    protected boolean leavesFree(final int rawSlot) {
+        return rawSlot < 0 || rawSlot >= inventory.getSize() || HandInPanel.isDeposit(rawSlot);
     }
 
-    /** Whether a slot is one a player may put something into. */
-    public static boolean isDeposit(final int slot) {
-        return HandInPanel.isDeposit(slot);
+    @Override
+    protected MenuClick click(final Player player, final int slot) {
+        if (HandInPanel.CONFIRM_SLOTS.contains(slot)) {
+            confirm.accept(player, this);
+        }
+        return MenuClick.nothing();
+    }
+
+    /** Closing without confirming gives everything back. */
+    @Override
+    protected void closed(final Player player) {
+        returnEverything(player);
+    }
+
+    /** Paper disconnects players after the plugins stop, and a closed plugin inventory drops what it holds. */
+    @Override
+    protected void stopped(final Player player) {
+        returnEverything(player);
     }
 
     /** What is currently sitting in the deposit slots, as plain values the sorter understands. */
@@ -157,8 +176,8 @@ public final class HandInGui implements Surface {
         stacks.forEach(stack -> give(player, stack));
     }
 
-    /** Gives everything in the deposit slots back to the player; called on every close. */
-    public void returnEverything(final Player player) {
+    /** Gives everything in the deposit slots back to the player. */
+    private void returnEverything(final Player player) {
         for (int slot = 0; slot < DEPOSIT_SLOTS; slot++) {
             final ItemStack stack = inventory.getItem(slot);
             if (stack == null || stack.getType() == Material.AIR) {

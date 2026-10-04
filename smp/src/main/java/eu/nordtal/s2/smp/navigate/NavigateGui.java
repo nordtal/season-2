@@ -4,30 +4,28 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
-import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.menu.BlankItem;
+import eu.nordtal.s2.papercommon.menu.Menu;
+import eu.nordtal.s2.papercommon.menu.MenuClick;
+import eu.nordtal.s2.papercommon.menu.SlotGeometry;
 import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.db.PoiRow;
-import eu.nordtal.s2.smp.feedback.Surface;
-import eu.nordtal.s2.smp.menu.BlankItem;
-import eu.nordtal.s2.smp.menu.SlotGeometry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.jspecify.annotations.Nullable;
 
 /**
  * The list {@code /navigate} opens: the current world's spawn, the player's last death, and every public POI.
  *
  * There is no entry for another player, and a page turn opens a new inventory because a title cannot be redrawn.
  */
-public final class NavigateGui implements Surface {
+public final class NavigateGui extends Menu {
 
     private final MessageRenderer renderer;
     private final Navigation navigation;
@@ -78,9 +76,8 @@ public final class NavigateGui implements Surface {
         final List<NavigatePanel.Entry> entries =
                 NavigatePage.entries(targets, this.page, world, x, y, z, active, renderer.raw(), locale);
 
-        this.inventory = Bukkit.createInventory(
-                this,
-                NavigatePanel.ROWS * SlotGeometry.COLUMNS,
+        this.inventory = frame(
+                NavigatePanel.ROWS,
                 NavigatePanel.title(
                         renderer.format(locale, MESSAGES.smp().navigate().title()),
                         entries,
@@ -104,11 +101,6 @@ public final class NavigateGui implements Surface {
             out.add(NavigationTarget.poi(poi.id(), poi.name(), poi.world(), poi.x(), poi.y(), poi.z()));
         }
         return List.copyOf(out);
-    }
-
-    @Override
-    public Inventory getInventory() {
-        return inventory;
     }
 
     /**
@@ -160,55 +152,30 @@ public final class NavigateGui implements Surface {
                         renderer.format(locale, MESSAGES.smp().navigate().click())));
     }
 
-    public record Click(
-            @Nullable Feedback sound,
-            boolean close,
-            @Nullable NavigateGui open) {
-
-        static Click nothing() {
-            return new Click(null, false, null);
-        }
-
-        static Click refused() {
-            return new Click(Feedback.REFUSED, false, null);
-        }
-
-        static Click closing() {
-            return new Click(Feedback.SELECT, true, null);
-        }
-
-        static Click opening(final NavigateGui gui) {
-            return new Click(Feedback.SELECT, false, gui);
-        }
-    }
-
-    /** Handles a click on a raw slot of this window. */
-    public Click click(final Player player, final int slot) {
-        if (slot < 0 || slot >= inventory.getSize()) {
-            return Click.nothing();
-        }
+    @Override
+    protected MenuClick click(final Player player, final int slot) {
         if (NavigatePanel.STOP_SLOTS.contains(slot)) {
             navigation.clear(player.getUniqueId());
             player.sendMessage(renderer.format(locale, MESSAGES.smp().navigate().stopped()));
-            return Click.closing();
+            return MenuClick.closing();
         }
         if (slot == NavigatePanel.PREV_SLOT || slot == NavigatePanel.NEXT_SLOT) {
             final int wanted = page + (slot == NavigatePanel.PREV_SLOT ? -1 : 1);
             // A greyed button is still a button, so the refusal is a sound and not silence.
             return wanted < 0 || wanted >= NavigatePage.pages(targets.size())
-                    ? Click.refused()
-                    : Click.opening(onPage(wanted, player));
+                    ? MenuClick.refused()
+                    : MenuClick.opening(onPage(wanted, player));
         }
 
         final List<NavigationTarget> shown = NavigatePage.slice(targets, page);
         final int row = SlotGeometry.row(slot);
         if (row >= shown.size()) {
-            return Click.nothing();
+            return MenuClick.nothing();
         }
         final NavigationTarget target = shown.get(row);
         navigation.set(player.getUniqueId(), target);
         player.sendMessage(renderer.format(
                 locale, MESSAGES.smp().navigate().started(NavigatePage.label(target, renderer.raw(), locale))));
-        return Click.closing();
+        return MenuClick.closing();
     }
 }

@@ -167,8 +167,7 @@ public final class NavigateCommand {
                 if (!player.isOnline()) {
                     return;
                 }
-                player.openInventory(
-                        new NavigateGui(renderer, identities, navigation, player, lastDeath, pois).getInventory());
+                new NavigateGui(renderer, identities, navigation, player, lastDeath, pois).open(player);
             });
         });
         return Command.SINGLE_SUCCESS;

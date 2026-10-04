@@ -4,6 +4,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import eu.nordtal.s2.packrendering.Glyphs;
+import eu.nordtal.s2.papercommon.menu.MenuFont;
+import eu.nordtal.s2.papercommon.menu.MenuTitle;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStreamReader;

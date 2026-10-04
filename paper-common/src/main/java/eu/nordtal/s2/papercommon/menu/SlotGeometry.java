@@ -1,4 +1,4 @@
-package eu.nordtal.s2.smp.menu;
+package eu.nordtal.s2.papercommon.menu;
 
 /**
  * Where a chest slot is, in the window's own pixels. The pack's panels are drawn on this grid.

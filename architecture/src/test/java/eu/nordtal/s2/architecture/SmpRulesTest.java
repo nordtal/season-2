@@ -200,8 +200,8 @@ class SmpRulesTest {
         classes()
                 .that(isListed(GRAVES))
                 .should(callOnOneLine("open", "Map#computeIfAbsent", "Graves#window"))
-                .andShould(callOnlyFrom("window", "Bukkit#createInventory"))
-                .andShould(callOnceFrom("window", "Bukkit#createInventory"))
+                .andShould(callOnlyFrom("window", "GraveWindow#<init>"))
+                .andShould(callOnceFrom("window", "GraveWindow#<init>"))
                 .andShould(callOnOneLine("onClosed", "PaperScheduler#onMain", "Graves#settle"))
                 .andShould(callOnceFrom("onClosed", "Graves#settle"))
                 .andShould(callFrom("settle", "Inventory#getViewers", "Graves#returnHeadToPlayer"))
@@ -320,15 +320,15 @@ class SmpRulesTest {
     @Test
     void aSpinStillRunningAtShutdownPaysOut() {
         classes()
-                .that(isListed(PLUGIN))
-                .should(callFrom("disable", "SmpPlugin#payOutSpinsInFlight"))
-                .andShould(callFrom("payOutSpinsInFlight", "WheelGui#finish"))
+                .that(isListed("eu.nordtal.s2.smp.wheel.WheelGui"))
+                .should(callFrom("stopped", "WheelGui#finish"))
+                .andShould(callFrom("closed", "WheelGui#finish"))
                 .because("Paper disables plugins before it disconnects players, and the spin is spent before the"
                         + " first frame")
                 .check(classes);
         classes()
                 .that(isListed(PLUGIN_BASE))
-                .should(callInOrder("onDisable", "NordtalPlugin#disable", "HikariDataSource#close"))
+                .should(callInOrder("onDisable", "Menus#stopAll", "NordtalPlugin#disable", "HikariDataSource#close"))
                 .check(classes);
     }
 

@@ -5,12 +5,13 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.menu.BlankItem;
+import eu.nordtal.s2.papercommon.menu.Menu;
+import eu.nordtal.s2.papercommon.menu.MenuClick;
 import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.config.SpawnPointSpec;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
-import eu.nordtal.s2.smp.feedback.Surface;
 import eu.nordtal.s2.smp.feedback.WorldEffects;
-import eu.nordtal.s2.smp.menu.BlankItem;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneNames;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
@@ -24,7 +25,6 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import net.kyori.adventure.text.Component;
-import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -35,7 +35,7 @@ import org.bukkit.inventory.ItemStack;
  *
  * Every card slot holds a {@link BlankItem} whose tooltip names its card; locked destinations stay in place, shaded.
  */
-public final class BalloonGui implements Surface {
+public final class BalloonGui extends Menu {
 
     private final MessageRenderer renderer;
     private final Identities identities;
@@ -70,13 +70,8 @@ public final class BalloonGui implements Surface {
         this.entries = BalloonMenu.of(here, season.unlocked());
 
         final Locale locale = identities.languageOf(viewer.getUniqueId());
-        this.inventory = Bukkit.createInventory(this, BalloonMenu.ROWS * 9, TravelPanel.title(entries));
+        this.inventory = frame(BalloonMenu.ROWS, TravelPanel.title(entries));
         draw(locale);
-    }
-
-    @Override
-    public Inventory getInventory() {
-        return inventory;
     }
 
     private void draw(final Locale locale) {
@@ -129,40 +124,39 @@ public final class BalloonGui implements Surface {
         return MilestoneNames.of(renderer.raw(), locale, milestone.get().key());
     }
 
-    /** Handles a click on {@code slot}, returning whether the player was sent somewhere. */
-    public boolean click(final Player player, final int slot) {
+    /** Sends the player to the card's world, or says why not; the jump plays its own sound. */
+    @Override
+    protected MenuClick click(final Player player, final int slot) {
         final Locale locale = identities.languageOf(player.getUniqueId());
         final Optional<BalloonMenu.Entry> clicked = BalloonMenu.at(entries, slot);
         if (clicked.isEmpty()) {
-            return false;
+            return MenuClick.nothing();
         }
 
         final BalloonMenu.Entry entry = clicked.get();
         if (!entry.travellable()) {
-            if (entry.state() == BalloonMenu.State.LOCKED) {
-                player.sendMessage(renderer.format(
-                        locale,
-                        MESSAGES.smp()
-                                .balloon()
-                                .locked(new MilestoneContext(milestoneName(entry.destination(), locale)))));
-                sounds.play(player, Feedback.REFUSED);
+            if (entry.state() != BalloonMenu.State.LOCKED) {
+                return MenuClick.nothing();
             }
-            return false;
+            player.sendMessage(renderer.format(
+                    locale,
+                    MESSAGES.smp().balloon().locked(new MilestoneContext(milestoneName(entry.destination(), locale)))));
+            return MenuClick.refused();
         }
 
         final World destination = worlds.world(entry.destination()).orElse(null);
         if (destination == null) {
             player.sendMessage(renderer.format(locale, MESSAGES.smp().balloon().unavailable()));
-            sounds.play(player, Feedback.REFUSED);
-            return false;
+            return MenuClick.refused();
         }
 
         player.closeInventory();
-        return teleportToBalloon(player, locale, entry, destination);
+        teleportToBalloon(player, locale, entry, destination);
+        return MenuClick.nothing();
     }
 
     /** The jump itself, via {@code LandingSite#findSafeAt}, which never falls back to an unsafe point. */
-    private boolean teleportToBalloon(
+    private void teleportToBalloon(
             final Player player, final Locale locale, final BalloonMenu.Entry entry, final World destination) {
         // Read before the teleport: it is all anybody left at the balloon sees.
         final org.bukkit.Location from = Objects.requireNonNull(player.getLocation());
@@ -174,7 +168,7 @@ public final class BalloonGui implements Surface {
         if (landing == null || !player.teleport(landing)) {
             player.sendMessage(renderer.format(locale, MESSAGES.smp().balloon().unavailable()));
             sounds.play(player, Feedback.REFUSED);
-            return false;
+            return;
         }
         effects.travelled(from);
         effects.travelled(landing);
@@ -184,7 +178,6 @@ public final class BalloonGui implements Surface {
                         .balloon()
                         .travelled(renderer.raw().format(locale, MESSAGES.smp().world(entry.destination())))));
         sounds.play(player, Feedback.TRAVEL);
-        return true;
     }
 
     public WorldRole here() {

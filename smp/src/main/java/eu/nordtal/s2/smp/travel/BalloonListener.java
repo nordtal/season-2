@@ -17,12 +17,11 @@ import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
 /**
- * Stepping into a balloon opens the travel GUI; clicking in it travels.
+ * Stepping into a balloon opens the travel GUI.
  *
  * The GUI opens once on entering the box, not on every step inside it.
  */
@@ -90,25 +89,12 @@ public final class BalloonListener implements Listener {
         inside.remove(event.getPlayer().getUniqueId());
     }
 
-    @EventHandler
-    public void onClick(final InventoryClickEvent event) {
-        if (!(event.getInventory().getHolder() instanceof BalloonGui gui)) {
-            return;
-        }
-        // Nothing in this inventory is ever picked up, including the filler.
-        event.setCancelled(true);
-        if (event.getWhoClicked() instanceof Player player) {
-            gui.click(player, event.getRawSlot());
-        }
-    }
-
     private void open(final Player player, final Location at) {
         final Optional<WorldRole> role = worlds.roleOf(at.getWorld());
         if (role.isEmpty()) {
             return;
         }
-        player.openInventory(
-                new BalloonGui(renderer, identities, worlds, season, track.get(), sounds, effects, player, role.get())
-                        .getInventory());
+        new BalloonGui(renderer, identities, worlds, season, track.get(), sounds, effects, player, role.get())
+                .open(player);
     }
 }

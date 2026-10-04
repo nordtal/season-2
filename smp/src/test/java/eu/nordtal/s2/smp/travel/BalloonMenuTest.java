@@ -3,7 +3,7 @@ package eu.nordtal.s2.smp.travel;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.s2.smp.menu.SlotGeometry;
+import eu.nordtal.s2.papercommon.menu.SlotGeometry;
 import eu.nordtal.s2.smp.milestone.Unlock;
 import eu.nordtal.s2.smp.world.WorldRole;
 import java.util.EnumSet;

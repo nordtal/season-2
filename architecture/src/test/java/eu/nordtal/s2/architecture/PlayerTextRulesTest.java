@@ -46,7 +46,8 @@ class PlayerTextRulesTest {
     private static final String BOSS_BAR_LINE = "eu.nordtal.s2.packrendering.hud.BossBarLine";
     private static final String BOSS_BAR_WIDTH = "eu.nordtal.s2.packrendering.hud.BossBarWidth";
     private static final String GLYPHS = "eu.nordtal.s2.packrendering.Glyphs";
-    private static final String MENU_TITLE = "eu.nordtal.s2.smp.menu.MenuTitle";
+    private static final String MENU_TITLE = "eu.nordtal.s2.papercommon.menu.MenuTitle";
+    private static final String MENU = "eu.nordtal.s2.papercommon.menu.Menu";
 
     /** The classes that compose a component by hand, and why that is not a message going around the renderer. */
     private static final Map<String, String> COMPOSE_BY_HAND = Map.ofEntries(
@@ -55,7 +56,9 @@ class PlayerTextRulesTest {
                     "eu.nordtal.s2.papercommon.game.GameDataExport",
                     "placeholders in a game name rendered for Steward, never shown to a player"),
             Map.entry("eu.nordtal.s2.smp.board.BoardFrame", "pack glyphs around lines already rendered"),
-            Map.entry("eu.nordtal.s2.smp.menu.MenuTitle", "pack glyphs and spacing around a title already rendered"),
+            Map.entry(
+                    "eu.nordtal.s2.papercommon.menu.MenuTitle",
+                    "pack glyphs and spacing around a title already rendered"),
             Map.entry("eu.nordtal.s2.smp.npc.SpawnNpc", "the NPC's name from config.yml, a name and not a message"),
             Map.entry("eu.nordtal.s2.smp.welcome.SeasonWelcome", "the opening frames, pictures and not sentences"),
             Map.entry("eu.nordtal.s2.hungergames.body.PlayerBodies", "a disconnected player's name on their body"),
@@ -244,9 +247,9 @@ class PlayerTextRulesTest {
                 .should(openOnlyFramedMenus())
                 .check(classes);
         assertTrue(
-                classes.get("eu.nordtal.s2.smp.navigate.NavigateGui").getAccessesFromSelf().stream()
-                        .anyMatch(access -> access.getTarget().getName().equals("createInventory")),
-                "NavigateGui, the reference menu, opens no inventory, so this rule may be checking nothing");
+                classes.get("eu.nordtal.s2.smp.navigate.NavigateGui").getMethodCallsFromSelf().stream()
+                        .anyMatch(PlayerTextRulesTest::framesAMenu),
+                "NavigateGui, the reference menu, frames no window, so this rule may be checking nothing");
     }
 
     private static boolean namesABossBar(final JavaMethodCall call) {
@@ -323,16 +326,25 @@ class PlayerTextRulesTest {
                         .orElse(false);
     }
 
+    /** A call of {@code Menu#frame}, the one place a window is made. */
+    private static boolean framesAMenu(final JavaMethodCall call) {
+        return call.getName().equals("frame")
+                && call.getTarget()
+                        .resolveMember()
+                        .map(method -> method.getOwner().getName().equals(MENU))
+                        .orElse(false);
+    }
+
     /**
-     * Every code unit that creates an inventory also takes a component from MenuTitle, or from a panel built on it.
+     * Every code unit that frames a menu also takes a component from MenuTitle, or from a panel built on it.
      */
     private static ArchCondition<JavaClass> openOnlyFramedMenus() {
         return new ArchCondition<>("open no inventory without a MenuTitle") {
             @Override
             public void check(final JavaClass type, final ConditionEvents events) {
                 for (final JavaCodeUnit unit : type.getCodeUnits()) {
-                    final boolean opens = unit.getMethodCallsFromSelf().stream()
-                            .anyMatch(call -> call.getName().equals("createInventory"));
+                    final boolean opens =
+                            unit.getMethodCallsFromSelf().stream().anyMatch(PlayerTextRulesTest::framesAMenu);
                     final boolean framed = unit.getMethodCallsFromSelf().stream()
                             .anyMatch(call -> call.getTarget()
                                             .getRawReturnType()

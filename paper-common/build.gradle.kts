@@ -28,8 +28,13 @@ dependencies {
     compileOnly(libs.jcore)
     compileOnly(libs.jdbi.core)
 
+    // The assembled resource pack: the fonts the menu tests measure against only exist there.
+    "resourcePack"(project(":resource-pack", "pack"))
+
     // A server's settings, loaded in a test as the plugin loads them.
     testImplementation(testFixtures(project(":settings")))
+    testImplementation(testFixtures(project(":common")))
+    testImplementation(testFixtures(project(":pack-rendering")))
     testImplementation(libs.jcore)
     testImplementation(libs.gson)
 }

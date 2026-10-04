@@ -1,8 +1,8 @@
 package eu.nordtal.s2.smp.travel;
 
 import eu.nordtal.s2.packrendering.Glyphs;
-import eu.nordtal.s2.smp.menu.MenuTitle;
-import eu.nordtal.s2.smp.menu.SlotGeometry;
+import eu.nordtal.s2.papercommon.menu.MenuTitle;
+import eu.nordtal.s2.papercommon.menu.SlotGeometry;
 import java.util.List;
 import java.util.Optional;
 import net.kyori.adventure.text.Component;

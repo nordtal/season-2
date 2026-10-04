@@ -37,7 +37,6 @@ import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.plugin.Plugin;
@@ -50,7 +49,7 @@ import org.joml.Vector3f;
  *
  * Display entities and an {@link Interaction}, never real blocks; anyone may open one, and {@code /rules} says so.
  */
-public final class Graves implements InventoryHolder {
+public final class Graves {
 
     private final Plugin plugin;
     private final SmpDao dao;
@@ -77,7 +76,7 @@ public final class Graves implements InventoryHolder {
      *
      * One shared window, because two windows would each write a whole snapshot back and duplicate the contents.
      */
-    private final Map<UUID, Inventory> shown = new HashMap<>();
+    private final Map<UUID, GraveWindow> shown = new HashMap<>();
 
     private final Clock clock;
 
@@ -98,16 +97,6 @@ public final class Graves implements InventoryHolder {
         this.sounds = sounds;
         this.effects = effects;
         this.config = config;
-    }
-
-    /** Whether {@code inventory} is a grave standing open right now, recognised by identity. */
-    public boolean isShowingGrave(final Inventory inventory) {
-        return shown.containsValue(inventory);
-    }
-
-    @Override
-    public Inventory getInventory() {
-        throw new UnsupportedOperationException("graves hold many inventories, one per open grave");
     }
 
     /** Puts every grave that still holds something back into the world, on the main thread. */
@@ -386,8 +375,7 @@ public final class Graves implements InventoryHolder {
         final Locale locale = identities.languageOf(player.getUniqueId());
 
         // The window this grave already has, if somebody else is in it.
-        final Inventory inventory = shown.computeIfAbsent(graveId, id -> window(row, locale));
-        player.openInventory(inventory);
+        shown.computeIfAbsent(graveId, id -> window(row, locale)).open(player);
 
         // At the grave, not at the player, so anybody nearby hears it being disturbed.
         final org.bukkit.World world = Bukkit.getWorld(row.world());
@@ -397,20 +385,19 @@ public final class Graves implements InventoryHolder {
     }
 
     /** Builds the one window a grave is shown in, drawn by {@link GravePanel}. */
-    private Inventory window(final GraveRow row, final Locale locale) {
+    private GraveWindow window(final GraveRow row, final Locale locale) {
         final ItemStack[] contents = ItemStack.deserializeItemsFromBytes(row.contents());
         final int contentRows = GravePanel.contentRows(contents.length);
-        final Inventory window = Bukkit.createInventory(
-                null,
-                GravePanel.rows(contentRows) * 9,
-                GravePanel.title(
-                        renderer.format(locale, MESSAGES.smp().grave().title()),
-                        contentRows,
-                        row.experience() > 0
-                                ? renderer.raw()
-                                        .format(locale, MESSAGES.smp().grave().experienceLine(row.experience()))
-                                : "",
-                        renderer.raw().format(locale, MESSAGES.smp().grave().takeAllButton())));
+        final GraveWindow menu = new GraveWindow(
+                this,
+                row.id(),
+                contentRows,
+                renderer.format(locale, MESSAGES.smp().grave().title()),
+                row.experience() > 0
+                        ? renderer.raw().format(locale, MESSAGES.smp().grave().experienceLine(row.experience()))
+                        : "",
+                renderer.raw().format(locale, MESSAGES.smp().grave().takeAllButton()));
+        final Inventory window = menu.getInventory();
 
         final int slots = GravePanel.contentSlots(contentRows);
         for (int slot = 0; slot < slots && slot < contents.length; slot++) {
@@ -420,17 +407,17 @@ public final class Graves implements InventoryHolder {
         window.setItem(GravePanel.headSlot(contentRows), head(row, renderer, locale));
 
         // The name is on the head, not the title.
-        final ItemStack experience = eu.nordtal.s2.smp.menu.BlankItem.of(
+        final ItemStack experience = eu.nordtal.s2.papercommon.menu.BlankItem.of(
                 renderer.format(locale, MESSAGES.smp().grave().experienceTooltip()),
                 List.of(renderer.format(locale, MESSAGES.smp().grave().experienceHint(row.experience()))));
         GravePanel.experienceSlots(contentRows).forEach(slot -> window.setItem(slot, experience));
 
-        final ItemStack takeAll = eu.nordtal.s2.smp.menu.BlankItem.of(
+        final ItemStack takeAll = eu.nordtal.s2.papercommon.menu.BlankItem.of(
                 renderer.format(locale, MESSAGES.smp().grave().takeAll()),
                 List.of(renderer.format(locale, MESSAGES.smp().grave().takeAllHint())));
         GravePanel.takeAllSlots(contentRows).forEach(slot -> window.setItem(slot, takeAll));
 
-        return window;
+        return menu;
     }
 
     /**
@@ -460,34 +447,11 @@ public final class Graves implements InventoryHolder {
         return head;
     }
 
-    /**
-     * A click inside a grave window.
-     *
-     * @return true when the click was in the footer and has been dealt with
-     */
-    public boolean click(final Player player, final Inventory inventory, final int rawSlot) {
-        if (!isShowingGrave(inventory) || rawSlot < 0 || rawSlot >= inventory.getSize()) {
-            return false;
-        }
-        final int contentRows = inventory.getSize() / 9 - 1;
-        if (GravePanel.isContent(rawSlot, contentRows)) {
-            return false;
-        }
-        if (GravePanel.takeAllSlots(contentRows).contains(rawSlot)) {
-            takeAll(player, inventory, contentRows);
-        }
-        return true;
-    }
-
-    /**
-     * Empties a grave into one player's inventory, dropping what does not fit, and closes the window.
-     *
-     * The head stays: closing settles the grave and hands it over, even for an already empty grave.
-     */
-    private void takeAll(final Player player, final Inventory inventory, final int contentRows) {
+    /** Empties a grave into one player's inventory, dropping what does not fit; the head stays for the close. */
+    void takeAll(final Player player, final GraveWindow window) {
+        final Inventory inventory = window.getInventory();
         final Location dropAt = java.util.Objects.requireNonNull(player.getLocation());
-        boolean took = false;
-        for (int slot = 0; slot < GravePanel.contentSlots(contentRows); slot++) {
+        for (int slot = 0; slot < GravePanel.contentSlots(window.contentRows()); slot++) {
             final ItemStack stack = inventory.getItem(slot);
             if (stack == null || stack.getType().isAir()) {
                 continue;
@@ -497,17 +461,7 @@ public final class Graves implements InventoryHolder {
                     .addItem(stack)
                     .values()
                     .forEach(left -> player.getWorld().dropItemNaturally(dropAt, left));
-            took = true;
         }
-
-        if (!took) {
-            // Nothing was in it, which is not a refusal: the close below settles the grave and gives the head back.
-            sounds.play(player, Feedback.SELECT);
-            player.closeInventory();
-            return;
-        }
-        sounds.play(player, Feedback.SELECT);
-        player.closeInventory();
     }
 
     /**
@@ -515,27 +469,23 @@ public final class Graves implements InventoryHolder {
      *
      * Settled a tick later, because Bukkit fires the close before it drops the viewer.
      */
-    public void onClosed(final Player player, final Inventory inventory) {
-        if (!shown.containsValue(inventory)) {
+    void onClosed(final Player player, final GraveWindow window) {
+        if (shown.get(window.graveId()) != window) {
             return;
         }
-        PaperScheduler.of(plugin).onMain(() -> settle(player, inventory));
+        PaperScheduler.of(plugin).onMain(() -> settle(player, window));
     }
 
-    private void settle(final Player player, final Inventory inventory) {
+    private void settle(final Player player, final GraveWindow window) {
+        final Inventory inventory = window.getInventory();
         if (!inventory.getViewers().isEmpty()) {
             // Somebody else still has it open and will come through here when they close it.
             return;
         }
-        final UUID graveId = shown.entrySet().stream()
-                .filter(entry -> entry.getValue().equals(inventory))
-                .map(Map.Entry::getKey)
-                .findFirst()
-                .orElse(null);
-        if (graveId == null) {
+        final UUID graveId = window.graveId();
+        if (!shown.remove(graveId, window)) {
             return;
         }
-        shown.remove(graveId);
         final GraveRow row = open.get(graveId);
         if (row == null) {
             return;

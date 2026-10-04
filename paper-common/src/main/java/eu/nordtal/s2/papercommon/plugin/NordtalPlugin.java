@@ -39,6 +39,7 @@ import eu.nordtal.s2.papercommon.command.CommandFilter;
 import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.papercommon.game.GameDataExport;
 import eu.nordtal.s2.papercommon.hud.Hud;
+import eu.nordtal.s2.papercommon.menu.Menus;
 import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.papercommon.player.Presence;
 import eu.nordtal.s2.papercommon.time.PaperScheduler;
@@ -114,6 +115,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
     private AccessReader access;
     private Identities identities;
     private Hud hud;
+    private Menus menus;
     private AdminWatch adminWatch;
     private @Nullable SignalHub hub;
 
@@ -197,6 +199,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
         previews = new Previews(getServer()::getPlayer, renderer);
         hud = new Hud(this, identities);
         listen(hud);
+        menus = new Menus(chime());
+        listen(menus);
 
         // ops.json survives a crash, so an admin left in it is swept before any join is handled.
         final AdminOperators operators = BukkitOps.create();
@@ -343,6 +347,10 @@ public abstract class NordtalPlugin extends JavaPlugin {
         if (hud != null) {
             // First, so no frame draws over what the plugin takes down.
             quietly("hud.stop", hud::stop);
+        }
+        if (menus != null) {
+            // Before disable: Paper disconnects players after the plugins stop, and a menu may still owe them.
+            quietly("menus.stopAll", menus::stopAll);
         }
         quietly("disable", this::disable);
         // Before the pool: a refresh in flight reads through it.

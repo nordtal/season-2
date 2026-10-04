@@ -190,7 +190,7 @@ a plate across a row, which a recess would show around, hence the panels without
 
 **One panel and overlays, not a panel per state.** Each card state is a card-sized glyph declared
 once per card row with the ascent that lands it there (`13 − y`); the title walks back to the card's
-x before drawing it. `MenuTitle.Canvas` in `:smp` composes it and `MenuTitleTest` checks every
+x before drawing it. `MenuTitle.Canvas` in `:paper-common` composes it and `MenuTitleTest` checks every
 overlay lands on its card.
 
 The wheel sits two columns left of centre to free columns 5 to 8 for its button and text. The bar's
@@ -218,7 +218,7 @@ Text lands at **+4**, not +3. `MenuFontTest` checks each ascent against `SlotGeo
 `. , : / - + % ( ) ! ? ' "`, `Ä Ö Ü ß`, `∙`, and `█` `░` for a text bar. A space is a `space`
 provider at **+3**, since an empty cell would advance one pixel.
 
-It is all capitals: `:smp`'s `MenuFont` folds lower case onto them (except `ß`) and maps unknown
+It is all capitals: `:paper-common`'s `MenuFont` folds lower case onto them (except `ß`) and maps unknown
 characters to `?`, because a missing-glyph box is six pixels wide and would shift everything after
 it. `0`, `O` and `8` are drawn apart:
 

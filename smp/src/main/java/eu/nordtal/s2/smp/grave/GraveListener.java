@@ -22,7 +22,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
@@ -125,27 +124,5 @@ public final class GraveListener implements Listener {
         }
         event.setCancelled(true);
         graves.open(event.getPlayer(), graveId.get());
-    }
-
-    /**
-     * A click inside a grave window.
-     *
-     * The content rows are free; the footer is furniture and one button, and a click on it is cancelled.
-     */
-    @EventHandler
-    public void onClick(final org.bukkit.event.inventory.InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player player)) {
-            return;
-        }
-        if (graves.click(player, event.getInventory(), event.getRawSlot())) {
-            event.setCancelled(true);
-        }
-    }
-
-    @EventHandler
-    public void onClose(final InventoryCloseEvent event) {
-        if (event.getPlayer() instanceof Player player) {
-            graves.onClosed(player, event.getInventory());
-        }
     }
 }

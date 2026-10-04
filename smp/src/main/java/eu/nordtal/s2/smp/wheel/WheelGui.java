@@ -6,17 +6,16 @@ import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.feedback.Feedback;
+import eu.nordtal.s2.papercommon.menu.BlankItem;
+import eu.nordtal.s2.papercommon.menu.Menu;
+import eu.nordtal.s2.papercommon.menu.MenuClick;
 import eu.nordtal.s2.papercommon.time.PaperScheduler;
 import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
-import eu.nordtal.s2.smp.feedback.Surface;
-import eu.nordtal.s2.smp.menu.BlankItem;
-import eu.nordtal.s2.smp.menu.SlotGeometry;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -26,9 +25,9 @@ import org.jspecify.annotations.Nullable;
 /**
  * The wheel itself: twelve prizes travelling round a ring, slowing down, and stopping on the one already won.
  *
- * Every way out calls {@link #finish}, a one-shot latch that pays; "again" is live only once the wheel stops.
+ * Every way out calls {@code finish}, a one-shot latch that pays; "again" is live only once the wheel stops.
  */
-public final class WheelGui implements Surface {
+public final class WheelGui extends Menu {
 
     private final Inventory inventory;
     private final WheelStrip strip;
@@ -69,9 +68,8 @@ public final class WheelGui implements Surface {
         this.locale = locale;
         this.again = again;
 
-        this.inventory = Bukkit.createInventory(
-                this,
-                WheelPanel.ROWS * SlotGeometry.COLUMNS,
+        this.inventory = frame(
+                WheelPanel.ROWS,
                 WheelPanel.title(
                         renderer.format(locale, MESSAGES.smp().wheel().title()),
                         String.valueOf(spinsLeft),
@@ -90,29 +88,37 @@ public final class WheelGui implements Surface {
         draw(0);
     }
 
-    @Override
-    public Inventory getInventory() {
-        return inventory;
-    }
-
     /** Opens the window and runs the animation, on the main thread. */
     public void start(final Plugin plugin, final Player player) {
-        player.openInventory(inventory);
+        open(player);
         step(plugin, player, 0);
     }
 
-    /** A click inside this window: runs another spin if it hit the "again" button and the wheel has stopped. */
-    public void click(final Player player, final int rawSlot) {
-        if (!WheelPanel.AGAIN_SLOTS.contains(rawSlot)) {
-            return;
+    /** Runs another spin if the click hit the "again" button and the wheel has stopped. */
+    @Override
+    protected MenuClick click(final Player player, final int slot) {
+        if (!WheelPanel.AGAIN_SLOTS.contains(slot)) {
+            return MenuClick.nothing();
         }
         if (!finished.get() || again == null) {
-            // Still spinning, or nothing left to spin with; both refuse with a sound instead of silence.
-            sounds.play(player, Feedback.REFUSED);
-            return;
+            // Still spinning, or nothing left to spin with.
+            return MenuClick.refused();
         }
         // The new spin opens its own window, closing this one.
         again.run();
+        return MenuClick.nothing();
+    }
+
+    /** A window closed before the wheel stopped still pays out, without the strike. */
+    @Override
+    protected void closed(final Player player) {
+        finish(player, false);
+    }
+
+    /** A wheel still spinning at shutdown pays out now, since the spin was spent before the first frame. */
+    @Override
+    protected void stopped(final Player player) {
+        finish(player, false);
     }
 
     /**
@@ -120,7 +126,7 @@ public final class WheelGui implements Surface {
      *
      * @param celebrate whether the player is still watching, so the strike plays
      */
-    public void finish(final Player player, final boolean celebrate) {
+    private void finish(final Player player, final boolean celebrate) {
         if (!finished.compareAndSet(false, true)) {
             return;
         }

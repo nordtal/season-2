@@ -1,4 +1,4 @@
-package eu.nordtal.s2.smp.menu;
+package eu.nordtal.s2.papercommon.menu;
 
 import eu.nordtal.s2.packrendering.Glyphs;
 import java.util.ArrayList;

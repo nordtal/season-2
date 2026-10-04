@@ -6,11 +6,12 @@ import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.papercommon.game.GameKeys;
+import eu.nordtal.s2.papercommon.menu.BlankItem;
+import eu.nordtal.s2.papercommon.menu.Menu;
+import eu.nordtal.s2.papercommon.menu.MenuClick;
+import eu.nordtal.s2.papercommon.menu.SlotGeometry;
 import eu.nordtal.s2.smp.board.ProgressBar;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
-import eu.nordtal.s2.smp.feedback.Surface;
-import eu.nordtal.s2.smp.menu.BlankItem;
-import eu.nordtal.s2.smp.menu.SlotGeometry;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneNames;
 import eu.nordtal.s2.smp.milestone.Objective;
@@ -19,8 +20,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.function.BiConsumer;
 import net.kyori.adventure.text.Component;
-import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
@@ -29,13 +31,14 @@ import org.bukkit.inventory.ItemStack;
  *
  * Only a {@code HAND_IN} card opens the deposit screen, and a page turn opens a new inventory.
  */
-public final class ObjectiveGui implements Surface {
+public final class ObjectiveGui extends Menu {
 
     private final MessageRenderer renderer;
     private final Locale locale;
     private final Milestone milestone;
     private final List<ObjectiveRow> rows;
     private final OwnShare.Summary share;
+    private final BiConsumer<Player, HandInGui> confirm;
     private final int page;
     private final Inventory inventory;
 
@@ -55,8 +58,9 @@ public final class ObjectiveGui implements Surface {
             final Locale locale,
             final Milestone milestone,
             final List<ObjectiveRow> rows,
-            final OwnShare.Summary share) {
-        this(renderer, locale, milestone, rows, share, 0);
+            final OwnShare.Summary share,
+            final BiConsumer<Player, HandInGui> confirm) {
+        this(renderer, locale, milestone, rows, share, confirm, 0);
     }
 
     private ObjectiveGui(
@@ -65,12 +69,14 @@ public final class ObjectiveGui implements Surface {
             final Milestone milestone,
             final List<ObjectiveRow> rows,
             final OwnShare.Summary share,
+            final BiConsumer<Player, HandInGui> confirm,
             final int page) {
         this.renderer = renderer;
         this.locale = locale;
         this.milestone = milestone;
         this.rows = rows;
         this.share = share;
+        this.confirm = confirm;
         this.page = Math.max(0, Math.min(page, pages() - 1));
 
         final List<ObjectiveRow> shown = slice();
@@ -90,9 +96,8 @@ public final class ObjectiveGui implements Surface {
                     row.completed()));
         }
 
-        this.inventory = Bukkit.createInventory(
-                this,
-                ObjectivePanel.ROWS * SlotGeometry.COLUMNS,
+        this.inventory = frame(
+                ObjectivePanel.ROWS,
                 ObjectivePanel.title(
                         renderer.format(locale, MESSAGES.smp().objectives().title()),
                         milestoneName(),
@@ -105,37 +110,40 @@ public final class ObjectiveGui implements Surface {
         fill();
     }
 
+    /** A page button turns the page, a hand-in card opens the deposit screen, and any other card refuses. */
     @Override
-    public Inventory getInventory() {
-        return inventory;
-    }
-
-    /** The same milestone on another page: what a page button opens. */
-    public ObjectiveGui onPage(final int wanted) {
-        return new ObjectiveGui(renderer, locale, milestone, rows, share, wanted);
-    }
-
-    public boolean hasPage(final int wanted) {
-        return wanted >= 0 && wanted < pages();
-    }
-
-    public int page() {
-        return page;
+    protected MenuClick click(final Player player, final int slot) {
+        // The page buttons first; they sit on the share plate's own two cells, never the share line.
+        if (isPrevious(slot) || isNext(slot)) {
+            return MenuClick.opening(new ObjectiveGui(
+                    renderer, locale, milestone, rows, share, confirm, page + (isPrevious(slot) ? -1 : 1)));
+        }
+        final Optional<Entry> entry = at(slot);
+        if (entry.isEmpty()) {
+            return MenuClick.nothing();
+        }
+        if (!entry.get().isHandIn()) {
+            // A statistic counts itself, an advancement is earned elsewhere.
+            return MenuClick.refused();
+        }
+        final ObjectiveRow row = entry.get().row();
+        return MenuClick.opening(
+                new HandInGui(renderer, locale, entry.get().objective(), row.amount(), row.target(), confirm));
     }
 
     /** Which entry a raw slot belongs to, if any. */
-    public Optional<Entry> at(final int slot) {
+    private Optional<Entry> at(final int slot) {
         final int card = ObjectivePanel.cardOf(slot);
         return card < 0
                 ? Optional.empty()
                 : entries.stream().filter(entry -> entry.card() == card).findFirst();
     }
 
-    public boolean isPrevious(final int slot) {
+    private boolean isPrevious(final int slot) {
         return slot == ObjectivePanel.PREV_SLOT && page > 0;
     }
 
-    public boolean isNext(final int slot) {
+    private boolean isNext(final int slot) {
         return slot == ObjectivePanel.NEXT_SLOT && page < pages() - 1;
     }
 

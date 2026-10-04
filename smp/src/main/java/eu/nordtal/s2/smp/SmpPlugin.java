@@ -329,20 +329,8 @@ public final class SmpPlugin extends NordtalPlugin {
         return candidate;
     }
 
-    /** Hands over any prize whose animation is still running, on the main thread at disable. */
-    private void payOutSpinsInFlight() {
-        for (final org.bukkit.entity.Player player : Bukkit.getOnlinePlayers()) {
-            if (player.getOpenInventory().getTopInventory().getHolder()
-                    instanceof eu.nordtal.s2.smp.wheel.WheelGui wheel) {
-                wheel.finish(player, false);
-            }
-        }
-    }
-
     @Override
     protected void disable() {
-        // First: Paper disables plugins before saving players, so a spinning wheel pays out now.
-        quietly("wheel.payOutInFlight", this::payOutSpinsInFlight);
         // A staging still running holds a potion effect on the player.
         final BukkitCinematics staging = cinematics;
         if (staging != null) {

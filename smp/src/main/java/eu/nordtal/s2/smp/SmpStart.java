@@ -10,7 +10,6 @@ import eu.nordtal.s2.smp.board.Boards;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.duel.DuelListener;
 import eu.nordtal.s2.smp.duel.Duels;
-import eu.nordtal.s2.smp.feedback.SurfaceListener;
 import eu.nordtal.s2.smp.feedback.WorldEffects;
 import eu.nordtal.s2.smp.grave.GraveListener;
 import eu.nordtal.s2.smp.grave.Graves;
@@ -102,8 +101,7 @@ final class SmpStart {
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(
-                        new NavigateListener(plugin, plugin.dao, plugin.navigation, plugin.identities(), plugin.sounds),
-                        plugin);
+                        new NavigateListener(plugin, plugin.dao, plugin.navigation, plugin.identities()), plugin);
         return listener;
     }
 
@@ -265,11 +263,6 @@ final class SmpStart {
                                 plugin.identities(),
                                 plugin.sounds),
                         plugin);
-
-        // One listener for every menu; the grave inventory has a null holder, hence the predicate.
-        plugin.getServer()
-                .getPluginManager()
-                .registerEvents(new SurfaceListener(plugin.sounds, plugin.graves::isShowingGrave), plugin);
         return balloonDisplay;
     }
 }

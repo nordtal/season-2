@@ -12,6 +12,7 @@ import com.tngtech.archunit.core.domain.AccessTarget.CodeUnitAccessTarget;
 import com.tngtech.archunit.core.domain.JavaAccess;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaConstructorCall;
+import com.tngtech.archunit.lang.conditions.ArchConditions;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeAll;
@@ -67,6 +68,8 @@ class ArchitectureTest {
 
     /** A call that builds a message renderer, which only the base of a process does. */
     private static final String RENDERER = "eu.nordtal.s2.messagerendering.MessageRenderer";
+
+    private static final String INVENTORY = "org.bukkit.inventory.Inventory";
 
     private static final DescribedPredicate<JavaAccess<?>> BUILDS_A_RENDERER = DescribedPredicate.describe(
             "a new renderer",
@@ -268,6 +271,31 @@ class ArchitectureTest {
                 .because("a plugin declares its lines on its Hud, which keeps every bar per player and draws them on"
                         + " one clock")
                 .check(classes);
+    }
+
+    @Test
+    void onlyTheMenuLayerHoldsAWindow() {
+        noClasses()
+                .that()
+                .resideOutsideOfPackage("eu.nordtal.s2.papercommon.menu")
+                .should()
+                .accessTargetWhere(DescribedPredicate.describe(
+                        "a window made, opened or recognised by its holder", ArchitectureTest::touchesAWindow))
+                .orShould(ArchConditions.have(DescribedPredicate.describe(
+                        "InventoryHolder among its own interfaces",
+                        type -> type.getRawInterfaces().stream()
+                                .anyMatch(face -> face.getName().equals(INVENTORY + "Holder")))))
+                .because("every window is a Menu, which Menus hands its clicks and closes, so a second listener"
+                        + " deciding by instanceof is a second copy of that")
+                .check(classes);
+    }
+
+    /** An inventory made or opened for a player, or one asked whose it is. */
+    private static boolean touchesAWindow(final JavaAccess<?> access) {
+        final String member = access.getTarget().getName();
+        return member.equals("createInventory")
+                || member.equals("openInventory")
+                || (member.equals("getHolder") && access.getTargetOwner().isAssignableTo(INVENTORY));
     }
 
     /** A boss bar shown to or hidden from an audience, or one made for a line. */

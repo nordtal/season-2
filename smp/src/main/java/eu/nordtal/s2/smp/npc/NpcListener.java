@@ -20,15 +20,13 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.plugin.Plugin;
 
 /**
- * Clicking the NPC: the objective list, the deposit screen, and the confirmation where items change hands.
+ * Clicking the NPC opens the objective list; a deposit screen's confirm comes back here, where items change hands.
  *
- * Closing a deposit screen always gives everything back.
+ * The credit runs off the main thread and its answer comes back on it.
  */
 public final class NpcListener implements Listener {
 
@@ -100,62 +98,10 @@ public final class NpcListener implements Listener {
 
             PaperScheduler.of(plugin).onMain(() -> {
                 if (player.isOnline()) {
-                    player.openInventory(new ObjectiveGui(renderer, locale, milestone, rows, share).getInventory());
+                    new ObjectiveGui(renderer, locale, milestone, rows, share, this::confirm).open(player);
                 }
             });
         });
-    }
-
-    @EventHandler
-    public void onClick(final InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player player)) {
-            return;
-        }
-        final Object holder = event.getInventory().getHolder();
-
-        if (holder instanceof ObjectiveGui gui) {
-            // Nothing in the list is ever picked up.
-            event.setCancelled(true);
-            final int slot = event.getRawSlot();
-            if (slot < 0 || slot >= event.getInventory().getSize()) {
-                return;
-            }
-            // The page buttons first; they sit on the share plate's own two cells, never the share line.
-            if (gui.isPrevious(slot) || gui.isNext(slot)) {
-                sounds.play(player, Feedback.SELECT);
-                player.openInventory(
-                        gui.onPage(gui.page() + (gui.isPrevious(slot) ? -1 : 1)).getInventory());
-                return;
-            }
-            gui.at(slot).ifPresent(entry -> {
-                if (entry.isHandIn()) {
-                    sounds.play(player, Feedback.SELECT);
-                    player.openInventory(new HandInGui(
-                                    renderer,
-                                    identities.languageOf(player.getUniqueId()),
-                                    entry.objective(),
-                                    entry.row().amount(),
-                                    entry.row().target())
-                            .getInventory());
-                } else {
-                    // A statistic counts itself, an advancement is earned elsewhere.
-                    sounds.play(player, Feedback.REFUSED);
-                }
-            });
-            return;
-        }
-
-        if (holder instanceof HandInGui gui) {
-            // The deposit slots are deliberately free: this is a chest a player fills.
-            if (event.getRawSlot() >= 0
-                    && event.getRawSlot() < event.getInventory().getSize()
-                    && !HandInGui.isDeposit(event.getRawSlot())) {
-                event.setCancelled(true);
-            }
-            if (HandInGui.isConfirm(event.getRawSlot())) {
-                confirm(player, gui);
-            }
-        }
     }
 
     /** The one moment items change hands, applying what {@link HandIn} decided and crediting it. */
@@ -227,13 +173,6 @@ public final class NpcListener implements Listener {
         player.sendMessage(renderer.format(locale, MESSAGES.smp().handin().accepted(paid)));
         sounds.play(player, Feedback.SMALL_SUCCESS);
         player.closeInventory();
-    }
-
-    @EventHandler
-    public void onClose(final InventoryCloseEvent event) {
-        if (event.getInventory().getHolder() instanceof HandInGui gui && event.getPlayer() instanceof Player player) {
-            gui.returnEverything(player);
-        }
     }
 
     /** {@code 12x DIAMOND, 3x EMERALD}, for a log line an admin has to act on. */

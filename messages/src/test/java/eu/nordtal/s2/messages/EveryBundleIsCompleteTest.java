@@ -19,13 +19,15 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * Checks that every message bundle in the repository has every key in both languages, but the English-only ones.
+ * Checks that every bundle in the repository is complete in both languages and agrees with the numbers it shows.
  *
- * A missing German key falls back to English silently, so the tree is walked to cover new modules without a line here.
+ * The English-only bundles ship one language. A missing German key falls back to English silently, so the tree is
+ * walked to cover new modules without a line here.
  */
 class EveryBundleIsCompleteTest {
 
@@ -38,6 +40,12 @@ class EveryBundleIsCompleteTest {
             "proxy/src/main/resources/messages/proxy",
             "paper-common/src/main/resources/messages/paper-common",
             "smp/src/main/resources/messages/smp");
+
+    /**
+     * A unit of time after a number, past the tags that close around the number; parsed without markup, a tag is text.
+     */
+    private static final Pattern UNIT = Pattern.compile(
+            "(</?[a-z][^>]*>)*\\s+(seconds?|minutes?|hours?|days?|Sekunden?|Minuten?|Stunden?|Tag(?:en?)?)\\b");
 
     /** The bundles only admins read, which are English: Steward's page, the words it shares, and the check's. */
     private static final Set<String> ENGLISH_ONLY = Set.of(
@@ -110,6 +118,61 @@ class EveryBundleIsCompleteTest {
             }
         }
         assertEquals(Map.of(), wrong, "one of these prints a literal {name} to somebody, and the other does not");
+    }
+
+    @Test
+    void aUnitAfterANumberAgreesWithIt() {
+        final Set<String> wrong = new TreeSet<>();
+        bundles().forEach((name, languages) -> {
+            for (final String language : languages) {
+                final Properties texts = load(name, language);
+                for (final String key : texts.stringPropertyNames()) {
+                    if (unitAfterUnchosenNumber(
+                            MessageText.parse(texts.getProperty(key), false).nodes(), Set.of())) {
+                        wrong.add(name + "/" + language + ".properties " + key);
+                    }
+                }
+            }
+        });
+        assertEquals(
+                Set.of(),
+                wrong,
+                "a fixed unit after a number reads \"1 seconds\" once a countdown reaches one:"
+                        + " choose it, as in {seconds, plural, one {second} other {seconds}}");
+    }
+
+    /**
+     * Returns whether a value is followed, past any tags, by a unit of time that no plural choice on it chose.
+     *
+     * @param chosen the values an enclosing plural already chose on, which may be followed by their unit
+     */
+    private static boolean unitAfterUnchosenNumber(final List<Node> nodes, final Set<String> chosen) {
+        boolean afterNumber = false;
+        for (final Node node : nodes) {
+            switch (node) {
+                case Node.Value value -> afterNumber = !chosen.contains(value.name());
+                case Node.Literal literal -> {
+                    if (afterNumber && UNIT.matcher(literal.text()).lookingAt()) {
+                        return true;
+                    }
+                    afterNumber = false;
+                }
+                case Node.Choice choice -> {
+                    final Set<String> inside = new TreeSet<>(chosen);
+                    if (choice.plural()) {
+                        inside.add(choice.name());
+                    }
+                    for (final List<Node> branch : choice.cases().values()) {
+                        if (unitAfterUnchosenNumber(branch, inside)) {
+                            return true;
+                        }
+                    }
+                    afterNumber = false;
+                }
+                default -> afterNumber = false;
+            }
+        }
+        return false;
     }
 
     /** Returns every message bundle directory in the repository, with the language codes in it. */

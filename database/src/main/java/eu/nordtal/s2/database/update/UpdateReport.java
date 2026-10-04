@@ -86,18 +86,6 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
         return services.stream().anyMatch(line -> line.state() == State.SAVED);
     }
 
-    /** Returns the whole report as plain text, the only text rendering of an update there is. */
-    public String render() {
-        final StringBuilder text = new StringBuilder(stage.headline());
-        for (final ServiceLine line : services) {
-            text.append('\n').append(line.render());
-        }
-        for (final String note : notes) {
-            text.append('\n').append(note);
-        }
-        return text.toString();
-    }
-
     /** One service, and what has happened to it so far. */
     public record ServiceLine(
             String service,
@@ -139,24 +127,6 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
         public boolean isMoving() {
             return changes.stream().anyMatch(change -> change.state() == Change.State.MOVING);
         }
-
-        /** Renders as {@code smp: healthy - paper 26.2.121 -> 26.2.126, smp 0.6.0 -> 0.7.0}. */
-        public String render() {
-            final StringBuilder text = new StringBuilder(service).append(": ").append(state.label());
-            if (!changes.isEmpty()) {
-                text.append(" - ");
-                for (int i = 0; i < changes.size(); i++) {
-                    if (i > 0) {
-                        text.append(", ");
-                    }
-                    text.append(changes.get(i).render());
-                }
-            }
-            if (detail != null && !detail.isBlank()) {
-                text.append(" (").append(detail).append(')');
-            }
-            return text.toString();
-        }
     }
 
     /**
@@ -187,13 +157,6 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
             return new Change(artefact, null, UNSUPPORTED, Change.State.UNSUPPORTED);
         }
 
-        public String render() {
-            return switch (state) {
-                case UNSUPPORTED -> artefact + " (no build for this Minecraft version yet)";
-                case MOVING -> from == null ? artefact + " " + to : artefact + " " + from + " -> " + to;
-            };
-        }
-
         /** What is happening to one artefact. */
         public enum State {
             /** A file is being installed or replaced; {@code from} and {@code to} say which. */
@@ -207,39 +170,29 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
     public enum Stage {
 
         /** Asking every source what the newest version is; writes nothing. */
-        RESOLVING("Working out what is new..."),
+        RESOLVING,
         /** Resolved, nothing done yet; the plan a countdown announces. */
-        PLANNED("What is new"),
+        PLANNED,
         /** The countdown is running and players can see it; still cancellable. */
-        COUNTDOWN("Updating shortly"),
+        COUNTDOWN,
         /** Servers are being stopped, in the order the report lists them. */
-        STOPPING("Stopping the servers"),
+        STOPPING,
         /** The volumes are being saved with nothing running on them; only a {@code BACKUP} run. */
-        BACKING_UP("Saving the volumes"),
+        BACKING_UP,
         /** The schema is current and the jars are being swapped, with nothing running on them. */
-        INSTALLING("Installing"),
+        INSTALLING,
         /** The servers are being started again. */
-        STARTING("Starting the servers"),
+        STARTING,
         /** Started, and being watched until each one reports healthy. */
-        VERIFYING("Waiting for the servers to come back"),
+        VERIFYING,
         /** Everything asked for happened and every service came back. */
-        DONE("Update finished"),
+        DONE,
         /** Nothing needed doing, which is a third answer and not a quiet kind of fine. */
-        NOTHING_TO_DO("Everything is already current"),
+        NOTHING_TO_DO,
         /** Something went wrong; the notes and the failed service lines say what. */
-        FAILED("The update failed"),
+        FAILED,
         /** Stopped by a person before it began. */
-        CANCELLED("Stopped");
-
-        private final String headline;
-
-        Stage(final String headline) {
-            this.headline = headline;
-        }
-
-        public String headline() {
-            return headline;
-        }
+        CANCELLED;
 
         /** Returns whether a run in this stage has stopped moving. */
         public boolean isFinished() {
@@ -251,30 +204,20 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
     public enum State {
 
         /** Nothing about this service changes, so it is never stopped. */
-        UNCHANGED("unchanged"),
+        UNCHANGED,
         /** It has changes and the run has not reached it yet. */
-        PLANNED("waiting"),
+        PLANNED,
         /** Stopped, and its jars are safe to replace. */
-        STOPPED("stopped"),
+        STOPPED,
         /** The new jars are in place and it has not been started yet. */
-        INSTALLED("updated"),
+        INSTALLED,
         /** A volume's snapshot is finished; a {@code BACKUP} report carries one line per volume. */
-        SAVED("saved"),
+        SAVED,
         /** Started, and not yet reporting healthy. */
-        STARTING("starting"),
+        STARTING,
         /** Back, and its own healthcheck says so. */
-        HEALTHY("running"),
+        HEALTHY,
         /** It did not come back, or its own step failed; the detail says which. */
-        FAILED("FAILED");
-
-        private final String label;
-
-        State(final String label) {
-            this.label = label;
-        }
-
-        public String label() {
-            return label;
-        }
+        FAILED;
     }
 }

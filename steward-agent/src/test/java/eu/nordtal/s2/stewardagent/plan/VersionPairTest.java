@@ -1,7 +1,6 @@
 package eu.nordtal.s2.stewardagent.plan;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.stewardagent.source.RemoteFile;
@@ -81,7 +80,6 @@ class VersionPairTest {
                 report.services().getFirst().changes().getFirst();
         assertEquals("0.9.3", change.from());
         assertEquals("0.9.4", change.to());
-        assertTrue(report.render().contains("smp 0.9.3 -> 0.9.4"), report.render());
     }
 
     @Test

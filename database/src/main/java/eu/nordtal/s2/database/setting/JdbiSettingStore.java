@@ -5,7 +5,6 @@ import eu.nordtal.s2.database.Jdbis;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -126,34 +125,6 @@ final class JdbiSettingStore implements SettingStore {
             }
             signal(handle, service);
             return true;
-        });
-    }
-
-    @Override
-    public List<String> importMissing(
-            final String service, final String name, final Map<String, String> values, final Actor actor) {
-        return jdbi.inTransaction(handle -> {
-            final List<String> written = new ArrayList<>();
-            for (final Map.Entry<String, String> value : values.entrySet()) {
-                final int inserted = handle.createUpdate("""
-                                INSERT INTO setting_override (service, name, path, value, actor_kind, actor_id, changed)
-                                VALUES (:service, :name, :path, CAST(:value AS jsonb), :kind, :id, now())
-                                ON CONFLICT (service, name, path) DO NOTHING""")
-                        .bind("service", service)
-                        .bind("name", name)
-                        .bind("path", value.getKey())
-                        .bind("value", value.getValue())
-                        .bind("kind", actor.kind().name())
-                        .bind("id", actor.id())
-                        .execute();
-                if (inserted > 0) {
-                    written.add(value.getKey());
-                }
-            }
-            if (!written.isEmpty()) {
-                signal(handle, service);
-            }
-            return List.copyOf(written);
         });
     }
 

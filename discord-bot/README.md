@@ -27,7 +27,7 @@ has succeeded.
 
 the `access` group is edited in Steward. `compose.yml` passes the bot only its token, the database and
 the two ids `deploy/nordtal.sh` asks for, `NORDTAL_ACCESS_GUILD_ID` and `NORDTAL_ACCESS_ROLES_ADMIN`;
-those win over the file. The startup log lists every setting the environment overrode.
+those win over what is stored. The startup log lists every setting the environment overrode.
 
 ## Run it
 

@@ -11,7 +11,6 @@ import eu.nordtal.s2.settings.Group;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.Settings;
 import eu.nordtal.s2.settings.SettingsException;
-import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -35,9 +34,6 @@ public final class BotSettings {
     /** The guild, its roles and channels, and the languages. */
     static final Group<AccessSpec> ACCESS = Group.of("access", AccessSpec.class).checkedBy(BotSettings::validateAccess);
 
-    /** System property for the config directory, which the tests point at a temporary one. */
-    static final String DIRECTORY_PROPERTY = "access.config.dir";
-
     /** The one language the access settings may not leave out, the one {@link AccessSpec#languages()} protects. */
     private static final String FALLBACK_LANGUAGE = Languages.FALLBACK_TAG;
 
@@ -59,24 +55,16 @@ public final class BotSettings {
 
     private BotSettings() {}
 
-    private static Path directory() {
-        return Path.of(System.getProperty(DIRECTORY_PROPERTY, "config"));
-    }
-
     /** Loads the connection to the database, which the environment alone holds. */
     public static Setting<DatabaseSpec> database() throws SettingsException {
         return EnvironmentSettings.of(ENVIRONMENT)
                 .load(Group.of("database", DatabaseSpec.class).checkedBy(DatabasePool::check));
     }
 
-    /** Returns the bot's settings in the database behind {@code dataSource}, importing its last files once. */
+    /** Returns the bot's settings in the database behind {@code dataSource}. */
     public static DatabaseSettings stored(final DataSource dataSource) {
         return DatabaseSettings.over(
-                        SettingStore.using(dataSource),
-                        SERVICE,
-                        ENVIRONMENT,
-                        LoggerFactory.getLogger(BotSettings.class))
-                .importingFrom(directory(), Set.of());
+                SettingStore.using(dataSource), SERVICE, ENVIRONMENT, LoggerFactory.getLogger(BotSettings.class));
     }
 
     /** Loads the bot group, whose Discord token comes from the environment alone. */

@@ -84,11 +84,4 @@ public interface SettingStore {
             Map<String, @Nullable String> values,
             Actor actor,
             Predicate<List<Value>> current);
-
-    /**
-     * Inserts values at the paths where the group has none yet, and signals its service.
-     *
-     * @return the paths written; an admin's value at a path is never replaced
-     */
-    List<String> importMissing(String service, String name, Map<String, String> values, Actor actor);
 }

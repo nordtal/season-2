@@ -74,28 +74,10 @@ class SettingStoreIntegrationTest {
     }
 
     @Test
-    void anImportNeverReplacesAnAdminsValue() {
-        final SettingStore store = SettingStore.using(TestDatabase.fresh().dataSource());
-        store.publish("proxy", "gate", SCHEMA, "{}", List.of(), false);
-        store.change("proxy", "gate", Map.of("server-smp", "\"admin\""), ADMIN, held -> true);
-
-        final List<String> written = store.importMissing(
-                "proxy", "gate", Map.of("server-smp", "\"file\"", "server-limbo", "\"file\""), Actor.HOST);
-
-        assertEquals(List.of("server-limbo"), written);
-        assertEquals(
-                List.of(
-                        new SettingStore.Value("proxy", "gate", "server-limbo", "\"file\""),
-                        new SettingStore.Value("proxy", "gate", "server-smp", "\"admin\"")),
-                store.overrides(Set.of("proxy")));
-    }
-
-    @Test
-    void aServicePublishesAndImportsButOnlyStewardChangesAValue() {
+    void aServicePublishesButOnlyStewardChangesAValue() {
         final TestDatabase database = TestDatabase.fresh();
         final SettingStore smp = SettingStore.using(database.dataSourceAs(DatabaseRole.SMP));
         smp.publish("smp", "milestones", SCHEMA, "{}", List.of(), true);
-        smp.importMissing("smp", "milestones", Map.of("track", "[]"), Actor.HOST);
 
         assertThrows(
                 UnableToExecuteStatementException.class,

@@ -139,7 +139,6 @@ public class AccessBot implements AutoCloseable {
                     settings.load(NetworkSettings.LANGUAGE_AND_TIME).get();
             final Tiers tiers =
                     NetworkSettings.tiers(settings.load(NetworkSettings.PRICES).get());
-            settings.retireFiles();
 
             // Borrows the bot's pool; closing a borrowed pool is a no-op.
             this.access = AccessDirectory.using(database.dataSource(), clock);

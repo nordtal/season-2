@@ -8,39 +8,29 @@ import eu.nordtal.s2.database.DatabaseRole;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.setting.SettingStore;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** That a Paper process imports its file under its own role, and takes an admin's change from Steward live. */
+/** That a Paper process publishes its group under its own role, and takes an admin's change from Steward live. */
 class DatabaseSettingsIntegrationTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatabaseSettingsIntegrationTest.class);
 
-    @TempDir
-    Path folder;
-
     @Test
     void aChangeStewardMakesReachesTheProcessOnTheSignal() throws Exception {
         final TestDatabase database = TestDatabase.fresh();
-        Files.writeString(folder.resolve("example.yml"), "name: from-the-file\n");
         final DatabaseSettings settings = DatabaseSettings.over(
-                        SettingStore.using(database.dataSourceAs(DatabaseRole.SMP)),
-                        "smp",
-                        Environment.of("NORDTAL_TEST").reading(variable -> null),
-                        LOGGER)
-                .importingFrom(folder, java.util.Set.of());
+                SettingStore.using(database.dataSourceAs(DatabaseRole.SMP)),
+                "smp",
+                Environment.of("NORDTAL_TEST").reading(variable -> null),
+                LOGGER);
         final Setting<ExampleSpec> example =
                 settings.load(Group.of("example", ExampleSpec.class).whileRunning());
-        settings.retireFiles();
-        assertEquals("from-the-file", example.get().name());
-        assertTrue(Files.notExists(folder.resolve("example.yml")));
+        assertEquals("nordtal", example.get().name());
 
         final Semaphore changed = new Semaphore(0);
         try (SignalHub hub = SignalHub.open(

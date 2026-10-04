@@ -4,137 +4,126 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.jcore.config.spec.annotation.Protected;
 import eu.nordtal.s2.settings.MemorySettingStore;
 import eu.nordtal.s2.settings.SettingsException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.lang.reflect.Method;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
-/** Every value that must not get past startup: mistyped keys, malformed ids and missing settings. */
+/** Every access value that must not get past startup, and how the environment reaches the access settings. */
 class BotSettingsTest {
-
-    /** The agreed language list, as YAML. */
-    private static final String VALID_LANGUAGES = """
-            languages:
-            - tag: en
-              role: '30'
-              contribution-channel: '31'
-              link-channel: '32'
-              hunger-games-channel: '39'
-            - tag: de
-              role: '33'
-              contribution-channel: '34'
-              link-channel: '35'
-              hunger-games-channel: '40'""";
-
-    /** A third language that nothing in the bot knows, to append to {@link #VALID_LANGUAGES}. */
-    private static final String FRENCH = """
-
-            - tag: fr
-              role: '36'
-              contribution-channel: '37'
-              link-channel: '38'
-              hunger-games-channel: '41'""";
-
-    /** Everything but the languages, without the retired per-language role and channel keys. */
-    private static final String REST = """
-            guild-id: '1'
-            roles:
-              access: '10'
-              donor: '11'
-              admin: '14'
-            channels:
-              admin: '24'
-            payment:
-              request-ttl-hours: 24
-            expiry-reminder-lead-days: 3
-            role-reconcile-interval-minutes: 10
-            """;
-
-    /** A complete access.yml with the given languages block. */
-    private static String languages(final String languages) {
-        return languages + "\n" + REST;
-    }
-
-    /** A complete, valid access.yml. */
-    private static String access() {
-        return languages(VALID_LANGUAGES);
-    }
-
-    @TempDir
-    Path directory;
 
     private final MemorySettingStore store = new MemorySettingStore();
 
-    /** Takes the access group the way the first start does, importing the {@code access.yml} written here. */
-    private AccessSpec imported() throws SettingsException {
-        return store.imported(directory, BotSettings.SERVICE, BotSettings.ACCESS);
+    /** A complete, valid access group as Steward stores it, with English and German. */
+    private static Map<String, Object> access() {
+        return access(List.of(language("en", 30, 39), language("de", 33, 40)));
     }
 
-    @BeforeEach
-    void pointConfigsAtTempDirectory() {
-        System.setProperty(BotSettings.DIRECTORY_PROPERTY, directory.toString());
+    /** A complete access group with the given languages, one value per path. */
+    private static Map<String, Object> access(final List<Map<String, String>> languages) {
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("guild-id", "1");
+        values.put("roles.access", "10");
+        values.put("roles.donor", "11");
+        values.put("roles.admin", "14");
+        values.put("channels.admin", "24");
+        values.put("payment.request-ttl-hours", 24);
+        values.put("expiry-reminder-lead-days", 3);
+        values.put("role-reconcile-interval-minutes", 10);
+        values.put("languages", languages);
+        return values;
     }
 
-    @AfterEach
-    void restore() {
-        System.clearProperty(BotSettings.DIRECTORY_PROPERTY);
+    /** One language entry: its role, the two channels numbered after it, and its Hunger Games channel. */
+    private static Map<String, String> language(final String tag, final int role, final int hungerGamesChannel) {
+        final Map<String, String> entry = new LinkedHashMap<>();
+        entry.put("tag", tag);
+        entry.put("role", String.valueOf(role));
+        entry.put("contribution-channel", String.valueOf(role + 1));
+        entry.put("link-channel", String.valueOf(role + 2));
+        entry.put("hunger-games-channel", String.valueOf(hungerGamesChannel));
+        return entry;
+    }
+
+    /** Takes the access group over {@code values} the way the bot does at its start. */
+    private AccessSpec taken(final Map<String, Object> values) throws SettingsException {
+        return store.checked(BotSettings.SERVICE, BotSettings.ACCESS, values);
+    }
+
+    /** The message the check refuses {@code values} with. */
+    private String refused(final Map<String, Object> values) {
+        return assertThrows(SettingsException.class, () -> taken(values)).getMessage();
+    }
+
+    /** English, and German with {@code key} set to {@code value}. */
+    private static Map<String, Object> germanWith(final String key, final String value) {
+        final Map<String, String> german = language("de", 33, 40);
+        german.put(key, value);
+        return access(List.of(language("en", 30, 39), german));
     }
 
     @Test
-    void aCompleteAccessYmlLoads() throws Exception {
-        Files.writeString(directory.resolve("access.yml"), access());
-
-        final AccessSpec config = imported();
+    void aCompleteAccessGroupLoads() throws Exception {
+        final AccessSpec config = taken(access());
 
         assertAll(
                 () -> assertEquals("1", config.guildId()),
                 () -> assertEquals("10", config.roles().access()),
                 () -> assertEquals("14", config.roles().admin()),
                 () -> assertEquals("24", config.channels().admin()),
-                () -> assertEquals(24, config.payment().requestTtlHours()));
+                () -> assertEquals(24, config.payment().requestTtlHours()),
+                () -> assertEquals(
+                        List.of("en", "de"),
+                        config.languages().stream()
+                                .map(AccessSpec.LanguageSpec::tag)
+                                .toList()));
     }
 
     @Test
     void noAdminChannelIsABotThatStartsAndLogsItsAlertsInstead() throws Exception {
         // A guild without an admin channel yet still has to come up to say what else is missing.
-        Files.writeString(directory.resolve("access.yml"), access().replace("admin: '24'", "admin: ''"));
+        final Map<String, Object> values = access();
+        values.put("channels.admin", "");
 
-        assertEquals("", imported().channels().admin());
+        assertEquals("", taken(values).channels().admin());
     }
 
     @Test
-    void anAdminChannelThatIsPresentStillHasToBeASnowflake() throws Exception {
+    void anAdminChannelThatIsPresentStillHasToBeASnowflake() {
         // Empty is a decision; `<#24>` is a paste.
-        Files.writeString(directory.resolve("access.yml"), access().replace("admin: '24'", "admin: '<#24>'"));
+        final Map<String, Object> values = access();
+        values.put("channels.admin", "<#24>");
 
-        final SettingsException error = assertThrows(SettingsException.class, this::imported);
-        assertTrue(error.getMessage().contains("channels.admin"), error.getMessage());
+        final String message = refused(values);
+        assertTrue(message.contains("channels.admin"), message);
     }
 
     @Test
-    void theGuildIdIsOneOfTheTwoTheBotCannotStartWithout() throws Exception {
-        Files.writeString(directory.resolve("access.yml"), access().replace("guild-id: '1'", "guild-id: ''"));
+    void theGuildIdIsOneOfTheTwoTheBotCannotStartWithout() {
+        final Map<String, Object> values = access();
+        values.put("guild-id", "");
 
-        final SettingsException error = assertThrows(SettingsException.class, this::imported);
-        assertTrue(error.getMessage().contains("guild-id"), error.getMessage());
+        final String message = refused(values);
+        assertTrue(message.contains("guild-id"), message);
     }
 
     @Test
     void everyRoleButTheAdminOneMayBeLeftEmptyAndTheBotStillStarts() throws Exception {
-        Files.writeString(
-                directory.resolve("access.yml"),
-                access().replace("access: '10'", "access: ''").replace("donor: '11'", "donor: ''"));
+        final Map<String, Object> values = access();
+        values.put("roles.access", "");
+        values.put("roles.donor", "");
 
-        final AccessSpec config = imported();
+        final AccessSpec config = taken(values);
 
         assertAll(
                 () -> assertEquals("", config.roles().access()),
@@ -143,27 +132,38 @@ class BotSettingsTest {
     }
 
     @Test
-    void theBotRefusesToStartWhileTheAdminRoleIdIsEmpty() throws Exception {
+    void theBotRefusesToStartWhileTheAdminRoleIdIsEmpty() {
         // This role's flag authorises the admin actions and admission during MAINTENANCE.
-        Files.writeString(directory.resolve("access.yml"), access().replace("admin: '14'", "admin: ''"));
+        final Map<String, Object> values = access();
+        values.put("roles.admin", "");
 
-        final SettingsException error = assertThrows(SettingsException.class, this::imported);
-        assertTrue(error.getMessage().contains("roles.admin"), error.getMessage());
+        final String message = refused(values);
+        assertTrue(message.contains("roles.admin"), message);
     }
 
     @Test
-    void aRoleIdThatIsNotASnowflakeStopsTheBot() throws Exception {
-        Files.writeString(directory.resolve("access.yml"), access().replace("access: '10'", "access: '<@&10>'"));
+    void aRoleIdThatIsNotASnowflakeStopsTheBot() {
+        final Map<String, Object> values = access();
+        values.put("roles.access", "<@&10>");
 
-        final SettingsException error = assertThrows(SettingsException.class, this::imported);
-        assertTrue(error.getMessage().contains("roles.access"), error.getMessage());
+        final String message = refused(values);
+        assertTrue(message.contains("roles.access"), message);
+    }
+
+    @Test
+    void aReplaceMeIdIsRefusedByNameRatherThanStartedWith() {
+        // REPLACE_ME rather than zeros: zeros are a valid snowflake for a guild that does not exist.
+        final Map<String, Object> values = access();
+        values.put("roles.access", "REPLACE_ME");
+
+        final String message = refused(values);
+        assertTrue(message.contains("roles.access"), "the message has to name the setting, was: " + message);
     }
 
     @Test
     void theLanguageListLoadsWithItsTagsRoleAndChannels() throws Exception {
-        Files.writeString(directory.resolve("access.yml"), access());
+        final AccessSpec config = taken(access());
 
-        final AccessSpec config = imported();
         assertAll(
                 () -> assertEquals(2, config.languages().size()),
                 () -> assertEquals("en", config.languages().getFirst().tag()),
@@ -175,68 +175,50 @@ class BotSettingsTest {
     }
 
     @Test
-    void aLanguageListWithoutEnStopsTheBotAndPrintsTheShapeToWrite() throws Exception {
+    void aLanguageListWithoutEnStopsTheBotAndPrintsTheShapeToWrite() {
         // English is the floor every missing translation degrades to.
-        Files.writeString(directory.resolve("access.yml"), languages("""
-                languages:
-                - tag: de
-                  role: '33'
-                  contribution-channel: '34'
-                  link-channel: '35'
-                  hunger-games-channel: '40'"""));
+        final String message = refused(access(List.of(language("de", 33, 40))));
 
-        final SettingsException error = assertThrows(SettingsException.class, this::imported);
         assertAll(
-                () -> assertTrue(error.getMessage().contains("no 'en' entry"), error.getMessage()),
-                () -> assertTrue(
-                        error.getMessage().contains("tag: en"),
-                        "the message has to show what to write: " + error.getMessage()));
+                () -> assertTrue(message.contains("no 'en' entry"), message),
+                () -> assertTrue(message.contains("tag: en"), "the message has to show what to write: " + message));
     }
 
     @Test
-    void anEmptyLanguageListStopsTheBot() throws Exception {
-        Files.writeString(directory.resolve("access.yml"), languages("languages: []"));
+    void anEmptyLanguageListStopsTheBot() {
+        final String message = refused(access(List.of()));
 
-        final SettingsException error = assertThrows(SettingsException.class, this::imported);
         assertAll(
-                () -> assertTrue(error.getMessage().contains("languages is empty"), error.getMessage()),
+                () -> assertTrue(message.contains("languages is empty"), message),
                 () -> assertTrue(
-                        error.getMessage().contains("link-channel"),
-                        "the message has to show the whole entry: " + error.getMessage()));
+                        message.contains("link-channel"), "the message has to show the whole entry: " + message));
     }
 
     @Test
-    void twoEntriesWithTheSameTagStopTheBot() throws Exception {
+    void twoEntriesWithTheSameTagStopTheBot() {
         // A tag is the bundle name and the discord_user.locale value, so two entries claiming one are ambiguous.
-        Files.writeString(
-                directory.resolve("access.yml"), languages(VALID_LANGUAGES.replace("- tag: de", "- tag: en")));
+        final String message = refused(access(List.of(language("en", 30, 39), language("en", 33, 40))));
 
-        final SettingsException error = assertThrows(SettingsException.class, this::imported);
-        assertTrue(error.getMessage().contains("Tags identify a language"), error.getMessage());
+        assertTrue(message.contains("Tags identify a language"), message);
     }
 
     @Test
-    void anUpperCaseTagStopsTheBot() throws Exception {
+    void anUpperCaseTagStopsTheBot() {
         // Nothing downstream case-folds a .properties file name.
-        Files.writeString(
-                directory.resolve("access.yml"), languages(VALID_LANGUAGES.replace("- tag: de", "- tag: DE")));
+        final String message = refused(access(List.of(language("en", 30, 39), language("DE", 33, 40))));
 
-        final SettingsException error = assertThrows(SettingsException.class, this::imported);
-        assertTrue(error.getMessage().contains("must be lower case"), error.getMessage());
+        assertTrue(message.contains("must be lower case"), message);
     }
 
     @Test
     void aLanguageEntryWhoseIdsAreAllEmptyIsALanguageThatServesNothing() throws Exception {
         // Empty switches off what it names, and Configured lists it.
-        Files.writeString(
-                directory.resolve("access.yml"),
-                languages(VALID_LANGUAGES
-                        .replace("role: '33'", "role: ''")
-                        .replace("contribution-channel: '34'", "contribution-channel: ''")
-                        .replace("link-channel: '35'", "link-channel: ''")
-                        .replace("hunger-games-channel: '40'", "hunger-games-channel: ''")));
+        final Map<String, String> empty = language("de", 33, 40);
+        empty.replaceAll((key, value) -> key.equals("tag") ? value : "");
 
-        final AccessSpec.LanguageSpec german = imported().languages().get(1);
+        final AccessSpec.LanguageSpec german = taken(access(List.of(language("en", 30, 39), empty)))
+                .languages()
+                .get(1);
 
         assertAll(
                 () -> assertEquals("", german.role()),
@@ -246,21 +228,16 @@ class BotSettingsTest {
     }
 
     @Test
-    void aLanguageIdThatIsPresentStillHasToBeASnowflakeNamingTheEntry() throws Exception {
+    void aLanguageIdThatIsPresentStillHasToBeASnowflakeNamingTheEntry() {
         // An unresolvable channel and an unconfigured one are not the same.
-        Files.writeString(
-                directory.resolve("access.yml"),
-                languages(VALID_LANGUAGES.replace("link-channel: '35'", "link-channel: '<#35>'")));
+        final String message = refused(germanWith("link-channel", "<#35>"));
 
-        final SettingsException error = assertThrows(SettingsException.class, this::imported);
-        assertTrue(error.getMessage().contains("languages[1].link-channel"), error.getMessage());
+        assertTrue(message.contains("languages[1].link-channel"), message);
     }
 
     @Test
     void aLanguageWithNoStatusChannelIsALanguageWithNoStatusChannel() throws Exception {
-        Files.writeString(directory.resolve("access.yml"), languages(VALID_LANGUAGES));
-
-        final AccessSpec config = imported();
+        final AccessSpec config = taken(access());
 
         assertEquals("", config.languages().getFirst().statusChannel());
         assertFalse(Languages.of(config).all().getFirst().hasStatusChannel());
@@ -269,67 +246,49 @@ class BotSettingsTest {
     @Test
     void aLanguageWithNoAnnouncementChannelGetsNoAnnouncementsAndTheBotStarts() throws Exception {
         // The second optional id: the servers' announce rows for this language settle as "no channel".
-        Files.writeString(directory.resolve("access.yml"), languages(VALID_LANGUAGES));
-
-        final AccessSpec config = imported();
+        final AccessSpec config = taken(access());
 
         assertEquals("", config.languages().getFirst().announcementChannel());
         assertFalse(Languages.of(config).all().getFirst().hasAnnouncementChannel());
     }
 
     @Test
-    void anAnnouncementChannelThatIsSetHasToBeARealSnowflake() throws Exception {
-        Files.writeString(
-                directory.resolve("access.yml"),
-                languages(VALID_LANGUAGES.replace(
-                        "hunger-games-channel: '40'",
-                        "hunger-games-channel: '40'\n  announcement-channel: 'not-an-id'")));
+    void anAnnouncementChannelThatIsSetHasToBeARealSnowflake() {
+        final String message = refused(germanWith("announcement-channel", "not-an-id"));
 
-        final SettingsException error = assertThrows(SettingsException.class, this::imported);
-        assertTrue(error.getMessage().contains("languages[1].announcement-channel"), error.getMessage());
+        assertTrue(message.contains("languages[1].announcement-channel"), message);
     }
 
     @Test
-    void aStatusChannelThatIsSetHasToBeARealSnowflake() throws Exception {
+    void aStatusChannelThatIsSetHasToBeARealSnowflake() {
         // Lenient about absent must not become lenient about wrong.
-        Files.writeString(
-                directory.resolve("access.yml"),
-                languages(VALID_LANGUAGES.replace(
-                        "hunger-games-channel: '40'", "hunger-games-channel: '40'\n  status-channel: 'not-an-id'")));
+        final String message = refused(germanWith("status-channel", "not-an-id"));
 
-        final SettingsException error = assertThrows(SettingsException.class, this::imported);
-        assertTrue(error.getMessage().contains("languages[1].status-channel"), error.getMessage());
+        assertTrue(message.contains("languages[1].status-channel"), message);
     }
 
     @Test
-    void aLinkCodeAttemptCapOfZeroWouldLockEverybodyOutAndIsRefused() throws Exception {
-        Files.writeString(
-                directory.resolve("access.yml"),
-                access().replace(
-                                "role-reconcile-interval-minutes: 10",
-                                "role-reconcile-interval-minutes: 10\nlink-code-attempts-per-hour: 0"));
+    void aLinkCodeAttemptCapOfZeroWouldLockEverybodyOutAndIsRefused() {
+        final Map<String, Object> values = access();
+        values.put("link-code-attempts-per-hour", 0);
 
-        final SettingsException error = assertThrows(SettingsException.class, this::imported);
-        assertTrue(error.getMessage().contains("link-code-attempts-per-hour"), error.getMessage());
+        final String message = refused(values);
+        assertTrue(message.contains("link-code-attempts-per-hour"), message);
     }
 
     @Test
-    void aTagTooLongForManagedMessageKindStopsTheBot() throws Exception {
+    void aTagTooLongForManagedMessageKindStopsTheBot() {
         // managed_message.kind is varchar(32) and holds "CONTRIBUTION_<TAG>".
-        Files.writeString(
-                directory.resolve("access.yml"),
-                languages(VALID_LANGUAGES.replace("- tag: de", "- tag: " + "a".repeat(20))));
+        final String message = refused(access(List.of(language("en", 30, 39), language("a".repeat(20), 33, 40))));
 
-        final SettingsException error = assertThrows(SettingsException.class, this::imported);
-        assertTrue(error.getMessage().contains("as long as a managed message's key"), error.getMessage());
+        assertTrue(message.contains("as long as a managed message's key"), message);
     }
 
     @Test
-    void aThirdLanguageIsAConfigEditAndNothingElse() throws Exception {
-        // Nothing in the bot's source mentions 'fr'; this file is the entire change per language.
-        Files.writeString(directory.resolve("access.yml"), languages(VALID_LANGUAGES + FRENCH));
-
-        final Languages languages = Languages.of(imported());
+    void aThirdLanguageIsASettingEditAndNothingElse() throws Exception {
+        // Nothing in the bot's source mentions 'fr'; this entry is the entire change per language.
+        final Languages languages = Languages.of(
+                taken(access(List.of(language("en", 30, 39), language("de", 33, 40), language("fr", 36, 41)))));
         final Languages.Language french = languages.byTag("fr").orElseThrow();
 
         assertAll(
@@ -359,5 +318,43 @@ class BotSettingsTest {
                 () -> assertTrue(
                         error.getMessage().contains("NORDTAL_BOT_TOKEN"),
                         "the message has to name the variable to set: " + error.getMessage()));
+    }
+
+    /**
+     * The {@code @Protected} annotation and the bot's startup rule name the same fallback language.
+     *
+     * Nothing notices at runtime if they drift, because the removal refusal lives in steward.
+     */
+    @Test
+    void theLanguageStewardRefusesToRemoveIsTheOneThisBotFallsBackTo() throws Exception {
+        final Method languages = AccessSpec.class.getMethod("languages");
+        final Protected annotation = languages.getAnnotation(Protected.class);
+        assertNotNull(
+                annotation,
+                "AccessSpec#languages() must carry @Protected - without it"
+                        + " steward lets an operator remove the fallback language through the API,"
+                        + " and the bot only notices on its next restart");
+        assertEquals("tag", annotation.field(), "@Protected has to match on the element's own tag field");
+        assertEquals(
+                Languages.FALLBACK_TAG,
+                annotation.value(),
+                "the protected tag and the fallback tag are the same language or the rule protects"
+                        + " the wrong entry");
+    }
+
+    /** A value under {@code NORDTAL_ACCESS_} wins over what is stored, and Steward is told which path it holds. */
+    @Test
+    void theEnvironmentWinsAndStewardIsToldWhichPathItHolds() throws Exception {
+        access().forEach((path, value) -> store.set(BotSettings.SERVICE, "access", path, value));
+
+        final AccessSpec taken = BotSettings.access(store.settings(
+                        BotSettings.SERVICE,
+                        BotSettings.ENVIRONMENT.reading(Map.of("NORDTAL_ACCESS_GUILD_ID", "2")::get)))
+                .get();
+
+        assertEquals("2", taken.guildId());
+        assertEquals(
+                List.of("guild-id"),
+                store.group(BotSettings.SERVICE, "access").orElseThrow().environment());
     }
 }

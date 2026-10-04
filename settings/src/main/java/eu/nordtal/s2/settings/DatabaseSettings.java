@@ -4,18 +4,13 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import eu.nordtal.jcore.config.spec.ManagedSpecReference;
-import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.setting.SettingStore;
-import java.nio.file.Path;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
@@ -29,20 +24,13 @@ public final class DatabaseSettings implements Settings {
     private final String service;
     private final Environment environment;
     private final Logger logger;
-    private final @Nullable LegacyFiles legacy;
-    private final Set<String> loaded = ConcurrentHashMap.newKeySet();
 
     private DatabaseSettings(
-            final SettingStore store,
-            final String service,
-            final Environment environment,
-            final Logger logger,
-            final @Nullable LegacyFiles legacy) {
+            final SettingStore store, final String service, final Environment environment, final Logger logger) {
         this.store = Objects.requireNonNull(store, "store");
         this.service = Objects.requireNonNull(service, "service");
         this.environment = Objects.requireNonNull(environment, "environment");
         this.logger = Objects.requireNonNull(logger, "logger");
-        this.legacy = legacy;
     }
 
     /**
@@ -52,16 +40,7 @@ public final class DatabaseSettings implements Settings {
      */
     public static DatabaseSettings over(
             final SettingStore store, final String service, final Environment environment, final Logger logger) {
-        return new DatabaseSettings(store, service, environment, logger, null);
-    }
-
-    /**
-     * Returns these settings importing each group's YAML file from {@code folder} as it loads.
-     *
-     * @param skipped {@code group/path} of every value never imported, whatever its file says
-     */
-    public DatabaseSettings importingFrom(final Path folder, final Set<String> skipped) {
-        return new DatabaseSettings(store, service, environment, logger, new LegacyFiles(folder, skipped, logger));
+        return new DatabaseSettings(store, service, environment, logger);
     }
 
     /**
@@ -90,31 +69,12 @@ public final class DatabaseSettings implements Settings {
         final List<String> held = environment.applyTo(group, SpecJson.read(defaults, group.spec()));
         try {
             store.publish(owner, group.name(), SpecJson.schema(group.spec()), defaults.toString(), held, group.live());
-            if (legacy != null) {
-                final Set<String> excluded = new HashSet<>(held);
-                excluded.addAll(SpecJson.secrets(group.spec()));
-                final List<String> imported =
-                        store.importMissing(owner, group.name(), legacy.changed(group, excluded), Actor.HOST);
-                if (!imported.isEmpty()) {
-                    logger.info("{}.yml: imported {}", group.name(), imported);
-                }
-            }
         } catch (final RuntimeException unreachable) {
             throw new SettingsException(group.name() + ": not published: " + unreachable.getMessage(), unreachable);
         }
-        loaded.add(group.name());
         final Stored<T> setting = new Stored<>(group, owner, defaults);
         setting.start();
         return setting;
-    }
-
-    /** Deletes the YAML files every loaded group was imported from, and the bootstrap's; call it once all loaded. */
-    public void retireFiles() {
-        if (legacy != null) {
-            final Set<String> groups = new HashSet<>(loaded);
-            groups.add("database");
-            legacy.retire(groups);
-        }
     }
 
     /**

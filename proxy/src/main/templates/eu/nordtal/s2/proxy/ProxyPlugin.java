@@ -158,10 +158,8 @@ public final class ProxyPlugin {
             final DatabaseSpec database = EnvironmentSettings.of(environment)
                     .load(Group.of("database", DatabaseSpec.class).checkedBy(DatabasePool::check)).get();
             this.pool = DatabasePool.open(database, "proxy-access");
-            // The files of the last season's installation are imported once, then retired.
-            final DatabaseSettings settings = DatabaseSettings.over(
-                    SettingStore.using(pool), "proxy", environment, logger)
-                    .importingFrom(dataDirectory, java.util.Set.of());
+            final DatabaseSettings settings =
+                    DatabaseSettings.over(SettingStore.using(pool), "proxy", environment, logger);
             final GateSpec gate =
                     settings.load(Group.of("gate", GateSpec.class).checkedBy(ProxySettings::checkGate)).get();
             final PackSpec pack =
@@ -177,7 +175,6 @@ public final class ProxyPlugin {
             final SeasonSpec season = settings.load(NetworkSettings.SEASON).get();
             final LanguageAndTimeSpec languageAndTime = settings.load(NetworkSettings.LANGUAGE_AND_TIME).get();
             languages = NetworkSettings.languages(languageAndTime);
-            settings.retireFiles();
             // After the settings, which name the languages and the season.
             // The database bundle holds the card a player's name shows on hover.
             final Messages messages = Messages.load(

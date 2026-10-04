@@ -23,8 +23,7 @@ Javalin as the rest and pass the same gates: a read needs a signed-in admin with
 (`KEY_HELD`), a change a fresh one (`KEY_FRESH`). The plugin "added by" comes from the session, and a
 long log follow re-checks the session once a second, so a sign-out ends it.
 
-The process on the internet holds no Docker socket and mounts no volume but the last installation's
-settings files, which its first start imports.
+The process on the internet holds no Docker socket and mounts no volume.
 Everything Docker knows comes from `steward-agent` through `AgentClient`: the containers and their
 last sample, logs, the console, image drift, the host's numbers, the archives and the plan of the
 next update. The managed plugins' list, search and add are passed through to the agent unchanged.

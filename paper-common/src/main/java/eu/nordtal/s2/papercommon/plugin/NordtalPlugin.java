@@ -70,7 +70,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Level;
@@ -258,9 +257,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
                 EnvironmentSettings.of(environment),
                 Group.of("database", DatabaseSpec.class).checkedBy(DatabasePool::check));
         pool = DatabasePool.open(database.get(), getName());
-        // The files of the last season's installation are imported once, then retired.
-        settings = DatabaseSettings.over(SettingStore.using(pool), getName(), environment, logger())
-                .importingFrom(getDataFolder().toPath(), Set.of());
+        settings = DatabaseSettings.over(SettingStore.using(pool), getName(), environment, logger());
         colourSettings = setting(Colours.GROUP.whileRunning());
         colours = ToneColours.parse(Colours.declared(colourSettings.get()), getLogger()::warning);
         distanceSettings = setting(Distances.group(distanceDefaults()));
@@ -272,7 +269,6 @@ public abstract class NordtalPlugin extends JavaPlugin {
         languageAndTime = setting(NetworkSettings.LANGUAGE_AND_TIME).get();
         clock = NetworkTime.clock(NetworkSettings.zone(languageAndTime));
         prepare();
-        settings.retireFiles();
     }
 
     /** Returns the distances as last taken, within what Paper accepts. */

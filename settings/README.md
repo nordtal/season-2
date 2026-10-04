@@ -11,10 +11,7 @@ whether it is the network's, and any default of this process that differs from t
   `EnvironmentSettings` is the bootstrap: the database connection, from the environment alone.
 - **Refusal**: a stored value the check refuses never stops a start. The group runs on its defaults,
   the reason is recorded on the group, and Steward shows it.
-- **Secrets** (`@Secret`) come from the environment only and are never stored or imported.
-- **Import**: `LegacyFiles` takes each group's YAML file left by the last installation once, every
-  value that differs from the spec's default, as the host, and never over a row. `retireFiles`
-  deletes the files afterwards.
+- **Secrets** (`@Secret`) come from the environment only and are never stored.
 - **References** (`@Refers`): a getter that names a game thing (an item, a statistic and the subject it
   counts, an advancement, a sound, a damage type and the like), a colour or a Discord role, channel or
   user says so, and `SpecJson.schema` puts it on the field as `refers`. Steward draws its picker from

@@ -6,7 +6,6 @@ import com.google.gson.JsonParser;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.setting.SettingStore;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -56,27 +55,6 @@ public final class MemorySettingStore implements SettingStore {
         final T taken = settings(service).load(group).get();
         final @Nullable String problem =
                 group(owner, group.name()).map(Group::problem).orElse(null);
-        if (problem != null) {
-            throw new SettingsException(problem);
-        }
-        return taken;
-    }
-
-    /**
-     * Returns {@code group} of {@code service} after importing what the last installation left in {@code directory}.
-     *
-     * @throws SettingsException with the reason the check refused the imported values
-     */
-    public <T> T imported(
-            final java.nio.file.Path directory, final String service, final eu.nordtal.s2.settings.Group<T> group)
-            throws SettingsException {
-        final T taken = settings(service)
-                .importingFrom(directory, java.util.Set.of())
-                .load(group)
-                .get();
-        final @Nullable String problem = group(group.network() ? NETWORK : service, group.name())
-                .map(Group::problem)
-                .orElse(null);
         if (problem != null) {
             throw new SettingsException(problem);
         }
@@ -160,20 +138,6 @@ public final class MemorySettingStore implements SettingStore {
             }
         });
         return true;
-    }
-
-    @Override
-    public synchronized List<String> importMissing(
-            final String service, final String name, final Map<String, String> imported, final Actor actor) {
-        final List<String> written = new ArrayList<>();
-        imported.forEach((path, value) -> {
-            if (!values.containsKey(key(service, name, path))) {
-                values.put(key(service, name, path), new Value(service, name, path, value));
-                actors.put(key(service, name, path), actor);
-                written.add(path);
-            }
-        });
-        return written;
     }
 
     private static String key(final String service, final String group, final String path) {

@@ -318,11 +318,11 @@ per plugin. steward-agent reads the label and installs them; the entrypoint read
 
 | symptom                                                         | cause                                                                                                     |
 | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| a log names a config key                                        | jcore refused the config file; the message names the setting                                              |
+| a log names a setting                                           | a stored value was refused; the message names the setting, and Steward shows it on the group              |
 | `FATAL: set EULA=true`                                          | the image does not accept the EULA for you                                                                |
 | every login fails with _"Unable to connect you to the backend"_ | the forwarding secret differs somewhere; see [above](#the-forwarding-secret)                              |
 | Velocity exits with _"Your configuration is invalid"_           | `velocity.toml` names a server its `[servers]` does not define                                            |
-| the proxy shows a "network misconfigured" screen                | the proxy refused one of its config files; read its log                                                   |
+| the proxy shows a "network misconfigured" screen                | the proxy could not start; its log says why                                                               |
 | a backend answers _"Server full"_                               | the backend was not restarted after a limit change; see [Who limits the players](#who-limits-the-players) |
 | everybody is refused with a countdown                           | the phase is `PRE_LAUNCH`; `/phase set PRE_EVENT` opens the network                                       |
 | `docker rm -f` fails with _"did not receive an exit event"_     | see [below](#never-mirror-the-console-with-tmux-pipe-pane); only a daemon restart helps                   |

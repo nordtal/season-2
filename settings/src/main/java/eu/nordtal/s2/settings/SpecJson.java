@@ -117,18 +117,6 @@ final class SpecJson {
         return null;
     }
 
-    /** Returns the value at a dotted path, or {@code null} when a segment is absent. */
-    static @Nullable JsonElement at(final JsonObject tree, final String path) {
-        JsonElement node = tree;
-        for (final String segment : path.split("\\.", -1)) {
-            if (!(node instanceof final JsonObject object) || !object.has(segment)) {
-                return null;
-            }
-            node = object.get(segment);
-        }
-        return node;
-    }
-
     /** Puts {@code value} at a dotted path, making every missing object on the way. */
     static void put(final JsonObject tree, final String path, final JsonElement value) {
         final String[] segments = path.split("\\.", -1);

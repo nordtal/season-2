@@ -141,9 +141,6 @@ public interface ServicePage {
     @Name("Remove title")
     MessageRef removeTitle(@Arg("name") String name);
 
-    @Name("Remove")
-    MessageRef remove();
-
     @Name("Not yet installed")
     MessageRef notYetInstalled();
 

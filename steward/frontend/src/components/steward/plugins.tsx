@@ -296,7 +296,7 @@ function RemoveButton({ service, plugin, artifact }: { service: string; plugin: 
         onOpenChange={setOpen}
         title={t("steward.service-page.remove-title", { name: plugin.name })}
         description={removalSentence(plugin)}
-        action={t("steward.service-page.remove")}
+        action={t("steward.form.remove")}
         destructive
         act={() =>
           remove

@@ -13,6 +13,7 @@ import { Sparkline } from "@/components/steward/sparkline"
 import { Stat, UsageBar } from "@/components/steward/stat"
 import { QueryState, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
+import { t } from "@/lib/texts"
 
 /**
  * The landing page: is something wrong, how full is the box, where to go next.
@@ -65,9 +66,9 @@ function MetricRow() {
     <div className="grid grid-cols-2 gap-x-4 gap-y-5 min-[26rem]:grid-cols-3 lg:grid-cols-6">
       {/* CPU spans the row below `lg`, since its sparkline makes it taller than any row-mate. */}
       <MetricTile
-        label="CPU"
+        label={t("steward.service-page.cpu")}
         value={host.data ? percent(host.data.cpuPercent) : undefined}
-        hint={host.data ? (unreadable ?? `${count(host.data.cpus)} cores`) : WAITING_HINT}
+        hint={host.data ? (unreadable ?? cores(host.data.cpus)) : WAITING_HINT}
         className="col-span-2 min-[26rem]:col-span-3 lg:col-span-1"
       >
         <UsageBar used={host.data?.cpuPercent ?? (host.data ? 0 : undefined)} total={host.data ? 100 : undefined} />
@@ -75,12 +76,14 @@ function MetricRow() {
       </MetricTile>
 
       <MetricTile
-        label="Memory"
+        label={t("steward.overview.memory")}
         value={host.data ? memoryShare(host.data) : undefined}
         hint={
           host.data
             ? (unreadable ??
-              (host.data.memoryTotalBytes ? `${bytes(usedMemory)} of ${bytes(host.data.memoryTotalBytes)}` : "\u2013"))
+              (host.data.memoryTotalBytes
+                ? t("steward.overview.used-of", { used: bytes(usedMemory), total: bytes(host.data.memoryTotalBytes) })
+                : "\u2013"))
             : WAITING_HINT
         }
       >
@@ -92,7 +95,7 @@ function MetricRow() {
       </MetricTile>
 
       <MetricTile
-        label="Disk"
+        label={t("steward.service-page.disk")}
         value={
           !host.data
             ? undefined
@@ -104,7 +107,10 @@ function MetricRow() {
           host.data
             ? (unreadable ??
               (host.data.diskTotalBytes
-                ? `${bytes(host.data.diskUsedBytes)} of ${bytes(host.data.diskTotalBytes)}`
+                ? t("steward.overview.used-of", {
+                    used: bytes(host.data.diskUsedBytes),
+                    total: bytes(host.data.diskTotalBytes),
+                  })
                 : "\u2013"))
             : WAITING_HINT
         }
@@ -119,22 +125,22 @@ function MetricRow() {
       {/* `/operations/backups` holds what this number summarises, as `/alerts` does the issues'. */}
       <Link to="/operations/backups" className="flex min-w-0 flex-col gap-1.5">
         <Stat
-          label="Latest backup"
-          value={newest ? relative(newest.modified) : backups.data ? "none" : undefined}
+          label={t("steward.overview.latest-backup")}
+          value={newest ? relative(newest.modified) : backups.data ? t("steward.overview.none") : undefined}
           tone={backups.data && !newest ? "down" : undefined}
-          hint={newest ? newest.human : backups.data ? "no finished backup" : WAITING_HINT}
+          hint={newest ? newest.human : backups.data ? t("steward.overview.no-finished-backup") : WAITING_HINT}
         />
       </Link>
 
       <MetricTile
-        label="Behind"
+        label={t("steward.overview.behind")}
         value={services.data ? count(outdated.length) : undefined}
         tone={outdated.length > 0 ? "warn" : undefined}
         hint={
           !services.data
             ? WAITING_HINT
             : outdated.length === 0
-              ? "up to date"
+              ? t("steward.service-page.up-to-date")
               : outdated.map((service) => service.service).join(", ")
         }
       />
@@ -158,18 +164,28 @@ function MetricRow() {
 function IssuesTile({ alerts, waiting, failed }: { alerts: Alert[]; waiting: boolean; failed: boolean }) {
   if (alerts.length === 0) {
     /** Neither a dash nor a zero: a tile with nothing in it yet. */
-    if (waiting && !failed) return <MetricTile label="Issues" value={undefined} hint={WAITING_HINT} />
-    if (failed) return <MetricTile label="Issues" value={"\u2013"} tone="warn" hint="could not be read" />
-    return <MetricTile label="Issues" value={count(0)} hint="all clear" />
+    if (waiting && !failed)
+      return <MetricTile label={t("steward.overview.issues")} value={undefined} hint={WAITING_HINT} />
+    if (failed) {
+      return (
+        <MetricTile
+          label={t("steward.overview.issues")}
+          value={"\u2013"}
+          tone="warn"
+          hint={t("steward.overview.unreadable")}
+        />
+      )
+    }
+    return <MetricTile label={t("steward.overview.issues")} value={count(0)} hint={t("steward.overview.all-clear")} />
   }
 
   const worst = alerts[0]
   const names = alerts.map((alert) => alert.subject).join(", ")
-  const note = failed ? "could not read everything" : null
+  const note = failed ? t("steward.overview.partly-unreadable") : null
 
   return (
     <MetricTile
-      label="Issues"
+      label={t("steward.overview.issues")}
       value={count(alerts.length)}
       tone={worst.level === "down" ? "down" : "warn"}
       hint={
@@ -209,6 +225,11 @@ function MetricTile({
   )
 }
 
+/** The host's core count, or the dash while the host has not said. */
+function cores(cpus: number | undefined): string {
+  return cpus === undefined ? "\u2013" : t("steward.overview.cores", { count: cpus })
+}
+
 function memoryShare(host: { memoryTotalBytes?: number; memoryAvailableBytes?: number } | undefined) {
   if (!host?.memoryTotalBytes) return "\u2013"
   const used = host.memoryTotalBytes - (host.memoryAvailableBytes ?? 0)
@@ -225,13 +246,13 @@ function ActionsPanel() {
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-lg font-semibold text-foreground">Latest actions</h2>
+      <h2 className="text-lg font-semibold text-foreground">{t("steward.overview.latest-actions")}</h2>
       <QueryState
         query={actions}
         isEmpty={(list) => list.length === 0}
         empty={{
-          title: "Nothing recorded yet",
-          note: "Every update, backup and access change shows up here as it happens.",
+          title: t("steward.overview.nothing-recorded"),
+          note: t("steward.overview.nothing-recorded-note"),
         }}
       >
         {(list) => (
@@ -249,7 +270,7 @@ function ActionsPanel() {
         )}
       </QueryState>
       <Button asChild variant="ghost" size="sm" className="w-fit -ml-3">
-        <Link to="/journal">The whole journal</Link>
+        <Link to="/journal">{t("steward.overview.whole-journal")}</Link>
       </Button>
     </section>
   )

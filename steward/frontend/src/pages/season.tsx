@@ -4,7 +4,6 @@ import { useState } from "react"
 import { toast } from "sonner"
 
 import type { Season } from "@/lib/api"
-import { dateTime, relative } from "@/lib/format"
 import { useSeason, useSetPhase, useSetSeasonDate } from "@/lib/queries"
 import { SEASON_PHASES as PHASES, type SeasonPhaseName as PhaseName } from "@/lib/season-phases"
 import { AskThenAct } from "@/components/steward/ask-then-act"
@@ -17,6 +16,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { choice, t } from "@/lib/texts"
 
 /** The open network settings group, in the URL like a service's, so Ctrl-K can land on it. */
 export type SeasonSearch = { file?: string }
@@ -37,7 +37,7 @@ export function SeasonPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Season" />
+      <PageHeader title={t("steward.season.title")} />
 
       <QueryState query={season}>
         {(current) => (
@@ -46,18 +46,15 @@ export function SeasonPage() {
             <DatesCard season={current} />
             <Alert>
               <ShieldWarningIcon aria-hidden />
-              <AlertTitle>Nothing is carried between seasons.</AlertTitle>
-              <AlertDescription>
-                Every season is a full rebuild: every service, every database, every config from scratch. That is why
-                there is deliberately no button here that ends a season - it is not a switch, it is a build.
-              </AlertDescription>
+              <AlertTitle>{t("steward.season.nothing-carried")}</AlertTitle>
+              <AlertDescription>{t("steward.season.rebuild")}</AlertDescription>
             </Alert>
           </>
         )}
       </QueryState>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-foreground">Network</h2>
+        <h2 className="text-lg font-semibold text-foreground">{t("steward.season.network")}</h2>
         <ServiceSettings
           service={NETWORK}
           file={search.file}
@@ -72,19 +69,18 @@ function PhaseCard({ season }: { season?: Season }) {
   const [asked, setAsked] = useState<PhaseName | null>(null)
   const [reason, setReason] = useState("")
   const change = useSetPhase()
-  const current = PHASES.find((phase) => phase.name === season?.phase)
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <FlagIcon className="size-4 text-muted-foreground" aria-hidden />
-          Phase
+          {t("steward.season.phase-heading")}
         </CardTitle>
         <CardDescription>
           {season ? (
             <>
-              <span className="font-medium text-foreground">{current?.label ?? season.phase}</span>{" "}
+              <span className="font-medium text-foreground">{phaseName(season.phase)}</span>{" "}
               <span className="font-mono text-xs">({season.phase})</span>
             </>
           ) : (
@@ -108,15 +104,15 @@ function PhaseCard({ season }: { season?: Season }) {
             >
               <div className="flex min-w-0 flex-col gap-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">{phase.label}</span>
-                  {active ? <Badge variant="secondary">now</Badge> : null}
+                  <span className="text-sm font-medium">{phaseName(phase.name)}</span>
+                  {active ? <Badge variant="secondary">{t("steward.season.now")}</Badge> : null}
                   {season ? null : <Skeleton className="h-5 w-10 rounded-full" />}
                   <span className="font-mono text-xs text-muted-foreground">{phase.name}</span>
                 </div>
-                <p className="max-w-prose text-sm text-muted-foreground">{phase.who}</p>
-                <p className="text-sm text-muted-foreground">
-                  Players land on: <span className="font-mono">{phase.where}</span>
+                <p className="max-w-prose text-sm text-muted-foreground">
+                  {t("steward.season.who", { phase: choice(phase.name) })}
                 </p>
+                <p className="text-sm text-muted-foreground">{t("steward.season.lands-on", { where: phase.where })}</p>
               </div>
               <Button
                 type="button"
@@ -125,7 +121,7 @@ function PhaseCard({ season }: { season?: Season }) {
                 disabled={!season || active || change.isPending}
                 onClick={() => setAsked(phase.name)}
               >
-                {active ? "current" : "Switch"}
+                {active ? t("steward.season.current") : t("steward.season.switch-phase")}
               </Button>
             </div>
           )
@@ -140,30 +136,31 @@ function PhaseCard({ season }: { season?: Season }) {
           setAsked(null)
           setReason("")
         }}
-        title={`Switch the phase to "${PHASES.find((phase) => phase.name === asked)?.label}"?`}
-        description={`${PHASES.find((phase) => phase.name === asked)?.who} The change applies from the next join - players already on the network are not moved.`}
-        action="Switch"
-        acting="Switching…"
+        title={asked ? t("steward.season.switch-title", { phase: phaseName(asked) }) : ""}
+        description={
+          asked
+            ? t("steward.season.switch-note", { who: t("steward.season.who", { phase: choice(asked) }) })
+            : undefined
+        }
+        action={t("steward.season.switch-phase")}
+        acting={t("steward.season.switching")}
         act={() => {
           const phase = asked
           if (!phase) return Promise.resolve()
           return change
             .mutateAsync({ phase, reason })
-            .then(() => toast.success(`Phase is now ${PHASES.find((p) => p.name === phase)?.label ?? phase}.`))
+            .then(() => toast.success(t("steward.season.phase-is-now", { phase: phaseName(phase) })))
         }}
       >
         <div className="flex flex-col gap-2">
-          <Label htmlFor="phase-reason">Reason</Label>
+          <Label htmlFor="phase-reason">{t("steward.season.reason")}</Label>
           <Input
             id="phase-reason"
             value={reason}
-            placeholder="ends up in the journal"
+            placeholder={t("steward.season.reason-placeholder")}
             onChange={(event) => setReason(event.target.value)}
           />
-          <p className="text-sm text-muted-foreground">
-            The reason lands in the journal, together with your name. It may stay empty; then it only records who
-            switched.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("steward.season.reason-note")}</p>
         </div>
       </AskThenAct>
     </Card>
@@ -176,23 +173,23 @@ function DatesCard({ season }: { season?: Season }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <CalendarDotIcon className="size-4 text-muted-foreground" aria-hidden />
-          Dates
+          {t("steward.season.dates")}
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         <DateField
           which="launch"
-          label="Network launch"
-          note="What the countdown before launch counts towards."
-          removal="The countdown and the start page go back to having no date. Nothing else moves."
+          label={t("steward.season.launch")}
+          note={t("steward.season.launch-note")}
+          removal={t("steward.season.launch-removal")}
           at={season?.launch}
           waiting={!season}
         />
         <DateField
           which="smpStart"
-          label="SMP launch"
-          note="When the season properly begins."
-          removal="Access periods stay where they are, and the next date set moves every live one onto it - this is not an undo."
+          label={t("steward.season.smp-start")}
+          note={t("steward.season.smp-start-note")}
+          removal={t("steward.season.smp-start-removal")}
           at={season?.smpStart}
           waiting={!season}
         />
@@ -250,35 +247,35 @@ function DateField({
           onClick={() =>
             change.mutate(
               { which, at: new Date(local).toISOString() },
-              { onSuccess: () => toast.success(`${label} saved.`) },
+              { onSuccess: () => toast.success(t("steward.season.date-saved", { date: label })) },
             )
           }
         >
-          Save
+          {t("steward.form.save")}
         </Button>
         {/* Reset while something is typed, Remove otherwise, so the row never wraps on a phone. */}
         {dirty ? (
           <Button type="button" variant="ghost" size="sm" onClick={() => setLocal(toLocalInput(at))}>
-            Reset
+            {t("steward.form.reset")}
           </Button>
         ) : at && !waiting ? (
           <Button type="button" variant="ghost" size="sm" disabled={change.isPending} onClick={() => setRemoving(true)}>
-            Remove
+            {t("steward.form.remove")}
           </Button>
         ) : null}
       </div>
       <AskThenAct
         open={removing}
         onOpenChange={setRemoving}
-        title={`Remove the ${label.toLowerCase()} date?`}
+        title={t("steward.season.remove-title", { date: label })}
         description={removal}
-        action="Remove"
-        acting="Removing…"
+        action={t("steward.form.remove")}
+        acting={t("steward.form.removing")}
         destructive
         act={() =>
           change.mutateAsync({ which, at: null }).then(() => {
             setLocal("")
-            toast.success(`${label} removed.`)
+            toast.success(t("steward.season.date-removed", { date: label }))
           })
         }
       />
@@ -286,12 +283,17 @@ function DateField({
         <SkeletonText className="text-sm" width="long" />
       ) : (
         <p className="text-sm text-muted-foreground">
-          {at ? `Saved: ${dateTime(at)} (${relative(at)})` : "No date set yet."}
+          {at ? t("steward.season.saved-at", { at }) : t("steward.season.no-date")}
         </p>
       )}
       {change.error && !removing ? <Failure error={change.error} /> : null}
     </div>
   )
+}
+
+/** A phase's name from the bundle, or the constant itself for one this page does not know. */
+function phaseName(phase: string): string {
+  return t("steward.season.phase", { phase: choice(phase) })
 }
 
 function pad(value: number): string {

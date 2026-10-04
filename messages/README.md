@@ -21,19 +21,19 @@ A value is written `{role}` or `{role.attr}`, optionally with its kind and a sty
 `{n, plural, one {# day} other {# days}}` and `{open, select, true {open} other {closed}}` are ICU's, and nothing
 else of MessageFormat is. The kinds are a closed set, each rendered once per target:
 
-| kind       | Java type            | styles (the first is the default)                                      |
-| ---------- | -------------------- | ---------------------------------------------------------------------- |
-| `text`     | a `CharSequence`     |                                                                        |
-| `number`   | any `Number`         | grouped, `plain`; at most two fraction digits                          |
-| `duration` | `Duration`           | `long` (its two largest units), `short` (`2h 5m`), `clock` (`2:05:00`) |
-| `instant`  | `Instant`            | `datetime`, `date`, `time`, `relative`, in the reader's zone           |
-| `money`    | `Money`              | in the reader's language: `€3.00`, `3,00 €`                            |
-| `list`     | a `List`             | `and`, `or`                                                            |
-| `name`     | `DisplayName`        | with the process's name card, `plain` without                          |
-| `mention`  | `Mention`            |                                                                        |
-| `item`     | `GameContent`        |                                                                        |
-| `glyph`    | `Glyph`              |                                                                        |
-| `choice`   | `Boolean` or an enum | what `select` chooses on; an enum constant reads in kebab case         |
+| kind       | Java type            | styles (the first is the default)                                                               |
+| ---------- | -------------------- | ----------------------------------------------------------------------------------------------- |
+| `text`     | a `CharSequence`     |                                                                                                 |
+| `number`   | any `Number`         | grouped, `plain`; at most two fraction digits                                                   |
+| `duration` | `Duration`           | `long` (its two largest units), `short` (`2h 5m`), `clock` (`2:05:00`), `minutes` (`1d 6h 30m`) |
+| `instant`  | `Instant`            | `datetime`, `date`, `time`, `relative`, in the reader's zone                                    |
+| `money`    | `Money`              | in the reader's language: `€3.00`, `3,00 €`                                                     |
+| `list`     | a `List`             | `and`, `or`                                                                                     |
+| `name`     | `DisplayName`        | with the process's name card, `plain` without                                                   |
+| `mention`  | `Mention`            |                                                                                                 |
+| `item`     | `GameContent`        |                                                                                                 |
+| `glyph`    | `Glyph`              |                                                                                                 |
+| `choice`   | `Boolean` or an enum | what `select` chooses on; an enum constant reads in kebab case                                  |
 
 A Minecraft text is MiniMessage. A packaged text paints only with tones, `<good>`, `<bad>`, `<warn>`, `<muted>`,
 `<accent>`, `<brand>`, `<emphasis>`, `<faint>` and `<neutral>`, which each process's `colours` group maps to hex; an

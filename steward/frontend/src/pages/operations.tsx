@@ -18,10 +18,10 @@ import { Link, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
 
 import type { ReportChange, ReportLine, Run } from "@/lib/api"
-import { dateTime, duration, parseInstant, relative } from "@/lib/format"
+import { dateTime, parseInstant, relative } from "@/lib/format"
 import { useAskForRun, useCancelRun, useRun } from "@/lib/queries"
 import { useRunLock } from "@/lib/run-lock"
-import { choice, t } from "@/lib/texts"
+import { choice, span, t } from "@/lib/texts"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
@@ -409,7 +409,7 @@ function RunDetail({ run }: { run?: Run }) {
           />
           <Stat
             label={t("steward.operations.duration")}
-            value={run ? duration(runSeconds(run)) : undefined}
+            value={run ? span(runSeconds(run)) : undefined}
             hint={!run ? undefined : finished ? dateTime(run.finished) : t("steward.operations.still-running")}
           />
         </CardContent>

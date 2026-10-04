@@ -5,6 +5,7 @@ import eu.nordtal.s2.database.access.MemberState;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.spec.Arg;
 import eu.nordtal.s2.messages.spec.Name;
+import java.time.Duration;
 import java.time.Instant;
 
 /** The Users page and one person's dialogs: access, periods, roles and the writes on them. */
@@ -228,7 +229,7 @@ public interface PeoplePage {
     MessageRef playtimeSet(@Arg("name") String name);
 
     @Name("Play time from")
-    MessageRef playtimeFrom(@Arg("time") String time);
+    MessageRef playtimeFrom(@Arg("time") Duration time);
 
     @Name("Play time not written")
     MessageRef playtimeNotWritten();
@@ -240,7 +241,8 @@ public interface PeoplePage {
     MessageRef minutes();
 
     @Name("Counted")
-    MessageRef counted(@Arg("counted") String counted, @Arg("becoming") String becoming, @Arg("usable") boolean usable);
+    MessageRef counted(
+            @Arg("counted") Duration counted, @Arg("becoming") Duration becoming, @Arg("usable") boolean usable);
 
     @Name("Unlink title")
     MessageRef unlinkTitle();

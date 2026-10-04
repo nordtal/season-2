@@ -10,7 +10,7 @@ import {
 import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 
-import { bytes, percent, relative, since } from "@/lib/format"
+import { bytes, percent, relative } from "@/lib/format"
 import { useConfigs, useMessageBundles, useMetrics, useService } from "@/lib/queries"
 import { ServiceConsole } from "@/components/steward/console"
 import { ServiceSettings } from "@/components/steward/settings"
@@ -31,7 +31,7 @@ import { Sparkline } from "@/components/steward/sparkline"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { choice, t } from "@/lib/texts"
+import { choice, since, t } from "@/lib/texts"
 
 /** What `/services/$name` keeps in its URL. Console is the default and never written. */
 export type ServiceSearch = { tab?: "settings" | "plugins"; file?: string }

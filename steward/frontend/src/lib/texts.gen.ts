@@ -1006,8 +1006,8 @@ export type TextArgs = {
   }
   "steward.people.chain": Record<string, never>
   "steward.people.counted": {
-    counted: Arg["text"]
-    becoming: Arg["text"]
+    counted: Arg["duration"]
+    becoming: Arg["duration"]
     usable: Arg["choice"]
   }
   "steward.people.day-is-day": Record<string, never>
@@ -1113,7 +1113,7 @@ export type TextArgs = {
   "steward.people.person": Record<string, never>
   "steward.people.playtime": Record<string, never>
   "steward.people.playtime-from": {
-    time: Arg["text"]
+    time: Arg["duration"]
   }
   "steward.people.playtime-not-written": Record<string, never>
   "steward.people.playtime-note": {

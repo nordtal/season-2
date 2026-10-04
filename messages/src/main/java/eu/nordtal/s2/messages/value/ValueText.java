@@ -74,7 +74,7 @@ public final class ValueText {
         return format.format(decimal);
     }
 
-    /** The two largest units that are not zero, so a countdown reads {@code 2 hours and 5 minutes}. */
+    /** The two largest units that are not zero, so a countdown reads {@code 2 hours and 5 minutes}; or a style's. */
     private static String duration(final Duration duration, final @Nullable String style, final Words words) {
         final long total = Math.max(0, duration.toSeconds());
         if ("clock".equals(style)) {
@@ -87,6 +87,16 @@ public final class ValueText {
         }
         final long[] amounts = {total / 86_400, total / 3600 % 24, total / 60 % 60, total % 60};
         final String[] units = {"days", "hours", "minutes", "seconds"};
+        if ("minutes".equals(style)) {
+            // Every unit down to the minute, so a span typed in days, hours and minutes reads back as it was typed.
+            final List<String> parts = new ArrayList<>();
+            for (int unit = 0; unit < units.length - 1; unit++) {
+                if (amounts[unit] > 0 || (unit == units.length - 2 && parts.isEmpty())) {
+                    parts.add(words.word("duration.short." + units[unit], Map.of("n", amounts[unit])));
+                }
+            }
+            return String.join(" ", parts);
+        }
         final String prefix = "short".equals(style) ? "duration.short." : "duration.";
         final List<String> parts = new ArrayList<>();
         for (int unit = 0; unit < units.length && parts.size() < 2; unit++) {

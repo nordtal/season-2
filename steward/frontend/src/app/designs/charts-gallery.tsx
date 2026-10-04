@@ -1,8 +1,9 @@
 import { useState } from "react"
 import type { ReactNode } from "react"
 
-import { bytes, percent, since } from "@/lib/format"
+import { bytes, percent } from "@/lib/format"
 import { useService } from "@/lib/queries"
+import { since } from "@/lib/texts"
 import { ServiceHead } from "@/pages/service"
 import { DriftBadge, ServiceState } from "@/components/steward/status"
 import { Skeleton, SkeletonText } from "@/components/steward/query-state"

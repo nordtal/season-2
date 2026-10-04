@@ -5,9 +5,9 @@ import { toast } from "sonner"
 
 import type { Backup, Run } from "@/lib/api"
 import { archived } from "@/lib/backup-name"
-import { bytes, count, dateTime, duration, parseInstant, relative } from "@/lib/format"
+import { bytes, count, dateTime, parseInstant, relative } from "@/lib/format"
 import { useBackups, useRestore, useRuns, useSchedule } from "@/lib/queries"
-import { t } from "@/lib/texts"
+import { span, t } from "@/lib/texts"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { Actor } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
@@ -110,7 +110,7 @@ function ran(run: Run): string {
   const started = parseInstant(run.started)
   const finished = parseInstant(run.finished)
   if (!started || !finished) return "\u2013"
-  return duration((finished.getTime() - started.getTime()) / 1000)
+  return span((finished.getTime() - started.getTime()) / 1000)
 }
 
 /** Four waiting runs; the panel shows eight at most. */

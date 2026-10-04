@@ -146,39 +146,7 @@ export function relative(value: string | Date | null | undefined, now = Date.now
   return DATE_TIME.format(parsed)
 }
 
-/** A span in at most two units: "3 d 4 h", "12 min"; for uptime and run durations. */
-export function duration(seconds: number | null | undefined): string {
-  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return "\u2013"
-  const whole = Math.floor(seconds)
-  if (whole < 60) return `${whole} s`
-  const minutes = Math.floor(whole / 60)
-  if (minutes < 60) return `${minutes} min`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) {
-    const rest = minutes % 60
-    return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`
-  }
-  const days = Math.floor(hours / 24)
-  const rest = hours % 24
-  return rest === 0 ? `${days} d` : `${days} d ${rest} h`
-}
-
-/**
- * Play time in days, hours and minutes, the units the dialog asks for: "1 d 6 h 30 min".
- *
- * Seconds are dropped so a value round-trips; zero parts are left out, but all zero is "0 min".
- */
-export function playtime(seconds: number | null | undefined): string {
-  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return "\u2013"
-  const { days, hours, minutes } = splitPlaytime(seconds)
-  const parts: string[] = []
-  if (days > 0) parts.push(`${days} d`)
-  if (hours > 0) parts.push(`${hours} h`)
-  if (minutes > 0 || parts.length === 0) parts.push(`${minutes} min`)
-  return parts.join(" ")
-}
-
-/** The same three numbers unjoined, for the dialog's fields; the form carries overflow on save. */
+/** Play time as the dialog's three fields, days, hours and minutes; the form carries overflow on save. */
 export function splitPlaytime(seconds: number | null | undefined): {
   days: number
   hours: number
@@ -193,10 +161,4 @@ export function splitPlaytime(seconds: number | null | undefined): {
     hours: Math.floor(whole / 60) % 24,
     minutes: whole % 60,
   }
-}
-
-/** How long ago an instant was, as a span rather than as "… ago". */
-export function since(value: string | Date | null | undefined, now = Date.now()): string {
-  const parsed = value instanceof Date ? value : parseInstant(value)
-  return parsed == null ? "\u2013" : duration((now - parsed.getTime()) / 1000)
 }

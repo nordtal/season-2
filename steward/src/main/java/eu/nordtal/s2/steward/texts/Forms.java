@@ -40,4 +40,7 @@ public interface Forms {
 
     @Name("Reset")
     MessageRef reset();
+
+    @Name("Saving")
+    MessageRef saving();
 }

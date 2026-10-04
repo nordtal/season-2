@@ -48,6 +48,8 @@ public interface StewardTexts {
 
         Forms form();
 
+        NotificationsPanel notifications();
+
         OverviewPage overview();
 
         SeasonPage season();

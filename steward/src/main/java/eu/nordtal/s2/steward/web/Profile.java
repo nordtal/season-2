@@ -94,7 +94,6 @@ final class Profile {
             @Nullable Instant signedInAt,
             @Nullable Instant expiresAt,
             @Nullable String signInUnavailable,
-            String webauthn,
             @Nullable List<SecurityKey> keys,
             @Nullable Boolean verified,
             @Nullable Instant verifiedAt,
@@ -138,9 +137,6 @@ final class Profile {
     void whoAmI(final Context ctx) {
         final Optional<Sessions.Session> found = session.apply(ctx);
         final @Nullable String missing = discord.whatIsMissing().orElse(null);
-        final String webauthn = "A security key is required: it is asked for at every sign-in, and"
-                + " again before anything that changes something - one touch covers the next "
-                + Web.STEP_UP.toMinutes() + " minutes.";
         if (found.isEmpty()) {
             ctx.json(new Me(
                     false,
@@ -150,7 +146,6 @@ final class Profile {
                     null,
                     null,
                     missing,
-                    webauthn,
                     null,
                     null,
                     null,
@@ -169,7 +164,6 @@ final class Profile {
                 who.createdAt(),
                 who.expiresAt(),
                 missing,
-                webauthn,
                 keysOf(who.signedInDiscordId()),
                 who.verified(),
                 who.verifiedAt(),

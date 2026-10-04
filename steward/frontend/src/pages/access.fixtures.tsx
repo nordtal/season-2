@@ -161,7 +161,7 @@ export function backend(
     if (url.startsWith("/api/admins/") && init?.method === "POST") {
       return json(200, { outcome: url.endsWith("/grant") ? "GRANTED" : "REVOKED", removed: [] })
     }
-    if (url === "/api/me") return json(200, { signedIn: true, id: ME, webauthn: "READY" })
+    if (url === "/api/me") return json(200, { signedIn: true, id: ME })
     if (url === "/api/people") return json(200, over.people ? over.people() : PEOPLE)
     if (url === "/api/topology") return json(200, NETWORK_MAP)
     if (url === "/api/payments") return json(200, over.payments ? over.payments() : [])

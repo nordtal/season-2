@@ -82,22 +82,6 @@ class SignInAndSessionTest extends WebTestSupport {
         assertFalse(me.get("signedIn").getAsBoolean());
         // Configured here, so nothing is missing; DiscordAuthTest covers the deployment where something is.
         assertFalse(me.has("signInUnavailable"), me.toString());
-        // This sentence is printed on the sign-in page, so it has to stay true as the second factor evolves.
-        final String said = me.get("webauthn").getAsString();
-        assertTrue(said.contains("required"), "the sign-in page no longer says a key is needed: " + said);
-        assertFalse(
-                said.contains("not built"),
-                "the sign-in page still says the second factor" + " does not exist, which stopped being true with V20: "
-                        + said);
-        assertFalse(
-                said.contains("not yet"),
-                "the sign-in page still says the key is not yet"
-                        + " asked for before a dangerous action, which stopped being true with packages C"
-                        + " and D: " + said);
-        assertTrue(
-                said.contains("every sign-in"),
-                "the sign-in page does not say the key is asked"
-                        + " for at every sign-in, which is the whole of package C: " + said);
     }
 
     @Test

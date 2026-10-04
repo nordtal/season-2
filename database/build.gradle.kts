@@ -9,6 +9,8 @@ plugins {
 // The test image's tag.
 repositoryRootTestInputs {
     reads("compose.yml")
+    // The release whose standbys a migration must not break.
+    reads("gradle.properties")
 }
 
 dependencies {

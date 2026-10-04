@@ -80,6 +80,15 @@ shared read models through one read role. V1 names the roles by Flyway placehold
 one: roles belong to the cluster, so the migrator creates them first (`DatabaseRole.provision`), with
 the passwords its environment carries. `DatabaseRoleIntegrationTest` holds the grants.
 
+**Migrations expand before they contract.** An update runs `migrate` while the proxy's and limbo's standbys
+still run the previous release, so a migration never drops, renames or narrows what that release reads or
+writes, and never adds a required column without a default to a table it inserts into. The new shape comes
+first; the old one goes a release after the code stopped using it. `MigrationsExpandBeforeTheyContractIntegrationTest`
+migrates to the installed release's newest migration, takes the proxy's and limbo's grants as what they use, and
+holds them after the rest: a release adds its newest migration to the test's list when it bumps `version`, and a
+grant its code no longer uses is listed there before a later release takes it away. A pushed migration never
+changes, which `MigrationsAreImmutableTest` holds.
+
 The test fixtures publish `TestDatabase`, the one way a test reaches PostgreSQL: one container per
 test JVM, with the roles created and migrated once, and a new database cloned from it for every
 `fresh()` (or an unmigrated one from `empty()`); `dataSourceAs(role)` logs in as a service would. Its image is compose.yml's default, which `TestDatabaseImageTest` holds.

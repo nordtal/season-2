@@ -24,7 +24,6 @@ export type Me = {
   signedInAt?: string
   expiresAt?: string
   signInUnavailable?: string
-  webauthn: string
   keys?: SecurityKey[]
   verified?: boolean
   verifiedAt?: string

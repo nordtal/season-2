@@ -47,7 +47,7 @@ afterEach(() => {
 
 describe("Shell - the answer that means the session is gone", () => {
   it("draws the sign-in page when /api/me says nobody is signed in", async () => {
-    fetched.mockResolvedValue(answer(200, { signedIn: false, webauthn: "none" }))
+    fetched.mockResolvedValue(answer(200, { signedIn: false }))
     draw()
 
     await waitFor(() => expect(signInButton()).not.toBeNull())
@@ -150,7 +150,6 @@ function signedIn(keys: unknown) {
     id: "1",
     name: "ally",
     csrf: "t",
-    webauthn: "required",
     relyingPartyId: "nordtal.eu",
     keys,
   }
@@ -170,7 +169,7 @@ describe("Shell - signed in, and still not in", () => {
 
   it("does not draw it for somebody who is not signed in at all", async () => {
     /** `keys` is absent when signed out, so the key gate must come after the signed out branch. */
-    fetched.mockResolvedValue(answer(200, { signedIn: false, webauthn: "required" }))
+    fetched.mockResolvedValue(answer(200, { signedIn: false }))
     draw()
 
     await waitFor(() => expect(signInButton()).not.toBeNull())

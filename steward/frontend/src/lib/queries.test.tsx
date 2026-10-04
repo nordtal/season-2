@@ -241,7 +241,7 @@ describe("useMe - the token every write in the interface needs", () => {
   it("puts the token where api() can read it synchronously", async () => {
     /** The CSRF token arrives only with /api/me, which is why the shell refuses to draw without it. */
     const queryClient = client()
-    fetched.mockResolvedValue(answer(200, { signedIn: true, id: "1", name: "ally", csrf: "t0ken", webauthn: "x" }))
+    fetched.mockResolvedValue(answer(200, { signedIn: true, id: "1", name: "ally", csrf: "t0ken" }))
     renderHook(() => useMe(), { wrapper: wrap(queryClient) })
     await waitFor(() => expect(stateOf(queryClient, keys.me).data).toBeDefined())
 
@@ -250,7 +250,7 @@ describe("useMe - the token every write in the interface needs", () => {
 
   it("leaves it empty when the answer was a refusal, rather than keeping the last one", async () => {
     const queryClient = client()
-    fetched.mockResolvedValue(answer(200, { signedIn: false, webauthn: "x" }))
+    fetched.mockResolvedValue(answer(200, { signedIn: false }))
     renderHook(() => useMe(), { wrapper: wrap(queryClient) })
     await waitFor(() => expect(stateOf(queryClient, keys.me).data).toBeDefined())
 

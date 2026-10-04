@@ -19,7 +19,6 @@ const ME: Me = {
   id: "214906139328839681",
   name: "ally",
   csrf: "t",
-  webauthn: "required",
   relyingPartyId: "nordtal.eu",
   stepUpMinutes: 15,
   verified: true,

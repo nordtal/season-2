@@ -106,8 +106,8 @@ class MessageBundlesTest {
                 List.of("reload.done", "welcome"),
                 bundle.entries().stream().map(MessageEntry::key).sorted().toList());
         final MessageEntry welcome = entry(bundle, "welcome");
-        assertEquals("Welcome", welcome.english());
-        assertEquals("Willkommen", welcome.german());
+        assertEquals(List.of("Welcome"), welcome.packaged("en"));
+        assertEquals(List.of("Willkommen"), welcome.packaged("de"));
         assertTrue(welcome.inBundle());
     }
 
@@ -205,8 +205,8 @@ class MessageBundlesTest {
 
         final MessageEntry entry = entry(MessageBundles.read(location), "new-feature");
 
-        assertEquals("New!", entry.english());
-        assertNull(entry.german());
+        assertEquals(List.of("New!"), entry.packaged("en"));
+        assertEquals(java.util.Set.of("en"), entry.texts().keySet(), "an untranslated key has no German at all");
     }
 
     @Test
@@ -223,10 +223,9 @@ class MessageBundlesTest {
 
         final MessageEntry cheer = entry(bundle, "cheer");
         assertEquals("smp", cheer.bundle());
-        assertEquals("Hooray!", cheer.english());
-        assertEquals(List.of("Hooray!", "Yay!"), cheer.englishTexts());
-        assertEquals(List.of(), cheer.germanTexts());
-        assertEquals("Mühle", entry(bundle, "mill").german());
+        assertEquals(List.of("Hooray!", "Yay!"), cheer.packaged("en"));
+        assertEquals(List.of(), cheer.packaged("de"));
+        assertEquals(List.of("Mühle"), entry(bundle, "mill").packaged("de"));
         assertEquals("paper-common", entry(bundle, "reload.done").bundle());
     }
 

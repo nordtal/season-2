@@ -43,7 +43,9 @@ public final class MessageBundles {
 
     private static final Logger LOG = LoggerFactory.getLogger(MessageBundles.class);
 
-    private static final Pattern BUNDLE_ENTRY = Pattern.compile("messages/([^/]+)/(en|de)\\.properties");
+    /** A bundle's texts in one language, the file named by its lowercase language tag. */
+    private static final Pattern BUNDLE_ENTRY =
+            Pattern.compile("messages/([^/]+)/([a-z]{2,3}(?:-[a-z0-9]+)*)\\.properties");
 
     /** The schema a root's message spec writes into the jar at build time. */
     private static final Pattern SCHEMA_ENTRY = Pattern.compile("messages/([^/]+)/schema\\.json");
@@ -140,11 +142,14 @@ public final class MessageBundles {
         for (final String key : keys) {
             // A described key the jar has no text for still belongs to the bundle whose schema names it.
             final String bundle = java.util.Objects.requireNonNull(bundleOf.get(key), key);
-            final Map<String, Map<String, List<String>>> languages =
-                    packaged.texts().getOrDefault(bundle, Map.of());
-            final List<String> english = languages.getOrDefault("en", Map.of()).get(key);
-            final List<String> german = languages.getOrDefault("de", Map.of()).get(key);
-            entries.add(entryOf(key, bundle, english, german, described.get(key)));
+            final Map<String, List<String>> texts = new HashMap<>();
+            packaged.texts().getOrDefault(bundle, Map.of()).forEach((language, byKey) -> {
+                final List<String> variants = byKey.get(key);
+                if (variants != null) {
+                    texts.put(language, variants);
+                }
+            });
+            entries.add(entryOf(key, bundle, texts, described.get(key)));
         }
         return new MessageBundle(location.service(), location.module(), entries);
     }
@@ -152,19 +157,14 @@ public final class MessageBundles {
     private static MessageEntry entryOf(
             final String key,
             final String bundle,
-            final @Nullable List<String> english,
-            final @Nullable List<String> german,
+            final Map<String, List<String>> texts,
             final @Nullable SchemaEntry schema) {
         return new MessageEntry(
                 key,
                 bundle,
-                english == null ? null : english.getFirst(),
-                german == null ? null : german.getFirst(),
-                english == null ? List.of() : english,
-                german == null ? List.of() : german,
-                null,
-                null,
-                english != null || german != null,
+                texts,
+                Map.of(),
+                !texts.isEmpty(),
                 schema == null ? null : schema.name(),
                 schema == null ? null : schema.description(),
                 schema == null ? List.of() : schema.args(),

@@ -111,10 +111,29 @@ class MessagesApiIntegrationTest {
 
         final JsonObject bundle = GSON.fromJson(get("/api/messages/" + path), JsonObject.class);
         final JsonObject welcome = entry(bundle, "welcome");
-        assertEquals("Welcome", welcome.get("english").getAsString());
-        assertEquals("Willkommen", welcome.get("german").getAsString());
-        assertEquals("Servus", welcome.get("overrideGerman").getAsString());
-        assertFalse(welcome.has("overrideEnglish"), "no override means the field is absent: " + welcome);
+        assertEquals(List.of("Welcome"), texts(welcome, "texts", "en"));
+        assertEquals(List.of("Willkommen"), texts(welcome, "texts", "de"));
+        assertEquals(List.of("Servus"), texts(welcome, "overrides", "de"));
+        assertFalse(welcome.getAsJsonObject("overrides").has("en"), "no override means no language: " + welcome);
+    }
+
+    @Test
+    void everyLanguageAndEveryVariantIsReadAndSaved() throws Exception {
+        writeJar(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                java.util.Map.of(
+                        "messages/smp/en.properties", "welcome=Welcome\nwelcome[1]=Hi\n",
+                        "messages/smp/fr.properties", "welcome=Bienvenue\n"));
+
+        final JsonObject saved = GSON.fromJson(
+                put("/api/messages/smp/smp", "{\"changes\":{\"welcome\":{\"fr\":[\"Salut\",\"Coucou\"]}}}"),
+                JsonObject.class);
+
+        final JsonObject welcome = entry(saved, "welcome");
+        assertEquals(List.of("Welcome", "Hi"), texts(welcome, "texts", "en"), saved.toString());
+        assertEquals(List.of("Bienvenue"), texts(welcome, "texts", "fr"), saved.toString());
+        assertEquals(List.of("Salut", "Coucou"), texts(welcome, "overrides", "fr"), saved.toString());
+        assertEquals(2, store.overrides(Set.of("smp")).size(), "one row per variant");
     }
 
     @Test
@@ -153,7 +172,7 @@ class MessagesApiIntegrationTest {
                         """));
 
         final JsonObject saved = GSON.fromJson(
-                put("/api/messages/smp/smp", "{\"changes\":{\"greeting\":{\"en\":\"Hello there\"}}}"),
+                put("/api/messages/smp/smp", "{\"changes\":{\"greeting\":{\"en\":[\"Hello there\"]}}}"),
                 JsonObject.class);
 
         final JsonObject warning = saved.getAsJsonArray("warnings").get(0).getAsJsonObject();
@@ -165,7 +184,7 @@ class MessagesApiIntegrationTest {
                 saved.toString());
         assertEquals(
                 "Hello there",
-                entry(saved, "greeting").get("overrideEnglish").getAsString(),
+                texts(entry(saved, "greeting"), "overrides", "en").getFirst(),
                 "a warning must not stop the save");
     }
 
@@ -183,7 +202,7 @@ class MessagesApiIntegrationTest {
                         """));
 
         final HttpResponse<String> refused =
-                send("PUT", "/api/messages/smp/smp", "{\"changes\":{\"greeting\":{\"en\":\"Hello {name}\"}}}");
+                send("PUT", "/api/messages/smp/smp", "{\"changes\":{\"greeting\":{\"en\":[\"Hello {name}\"]}}}");
 
         assertEquals(400, refused.statusCode(), refused.body());
         assertTrue(refused.body().contains("greeting"), refused.body());
@@ -213,12 +232,12 @@ class MessagesApiIntegrationTest {
         writeJar(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of("messages/smp/en.properties", "welcome=Welcome\n"));
-        put("/api/messages/smp/smp", "{\"changes\":{\"welcome\":{\"en\":\"Howdy\"}}}");
+        put("/api/messages/smp/smp", "{\"changes\":{\"welcome\":{\"en\":[\"Howdy\"]}}}");
 
         final JsonObject afterReset = GSON.fromJson(
                 put("/api/messages/smp/smp", "{\"changes\":{\"welcome\":{\"en\":null}}}"), JsonObject.class);
 
-        assertFalse(entry(afterReset, "welcome").has("overrideEnglish"), afterReset.toString());
+        assertFalse(entry(afterReset, "welcome").getAsJsonObject("overrides").has("en"), afterReset.toString());
         assertTrue(afterReset.getAsJsonArray("warnings").isEmpty());
     }
 
@@ -232,11 +251,11 @@ class MessagesApiIntegrationTest {
         smpBundle();
 
         final JsonObject saved = GSON.fromJson(
-                put("/api/messages/smp/smp", "{\"changes\":{\"welcome\":{\"en\":\"Howdy\",\"de\":\"Servus\"}}}"),
+                put("/api/messages/smp/smp", "{\"changes\":{\"welcome\":{\"en\":[\"Howdy\"],\"de\":[\"Servus\"]}}}"),
                 JsonObject.class);
 
-        assertEquals("Howdy", entry(saved, "welcome").get("overrideEnglish").getAsString(), saved.toString());
-        assertEquals("Servus", entry(saved, "welcome").get("overrideGerman").getAsString(), saved.toString());
+        assertEquals(List.of("Howdy"), texts(entry(saved, "welcome"), "overrides", "en"), saved.toString());
+        assertEquals(List.of("Servus"), texts(entry(saved, "welcome"), "overrides", "de"), saved.toString());
     }
 
     @Test
@@ -248,7 +267,7 @@ class MessagesApiIntegrationTest {
                         "messages/paper-common/en.properties", "reload.done=Reloaded\n"));
 
         final JsonObject saved = GSON.fromJson(
-                put("/api/messages/smp/smp", "{\"changes\":{\"reload.done\":{\"en\":\"Done\"}}}"), JsonObject.class);
+                put("/api/messages/smp/smp", "{\"changes\":{\"reload.done\":{\"en\":[\"Done\"]}}}"), JsonObject.class);
 
         assertEquals("APPLIED", saved.getAsJsonObject("reload").get("status").getAsString(), saved.toString());
         assertEquals(
@@ -262,11 +281,19 @@ class MessagesApiIntegrationTest {
         smpBundle();
 
         final HttpResponse<String> refused =
-                send("PUT", "/api/messages/smp/smp", "{\"changes\":{\"welcom\":{\"en\":\"Hi\"}}}");
+                send("PUT", "/api/messages/smp/smp", "{\"changes\":{\"welcom\":{\"en\":[\"Hi\"]}}}");
 
         assertEquals(400, refused.statusCode(), refused.body());
         assertTrue(refused.body().contains("welcom"), refused.body());
         assertEquals(List.of(), store.overrides(Set.of("smp")));
+    }
+
+    /** A language's variants under {@code field}, {@code texts} or {@code overrides}, of one entry. */
+    private static List<String> texts(final JsonObject entry, final String field, final String language) {
+        final JsonArray variants = entry.getAsJsonObject(field).getAsJsonArray(language);
+        final List<String> texts = new java.util.ArrayList<>();
+        variants.forEach(variant -> texts.add(variant.getAsString()));
+        return texts;
     }
 
     private void smpBundle() throws IOException {

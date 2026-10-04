@@ -40,8 +40,8 @@ function entry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
   return {
     bundle: "smp",
     inBundle: true,
-    englishTexts: [],
-    germanTexts: [],
+    texts: {},
+    overrides: {},
     args: [],
     section: [],
     ...over,
@@ -116,7 +116,7 @@ describe("the bundle row", () => {
       backend({
         "smp/smp": {
           ...location({ path: "smp/smp" }),
-          entries: [entry({ key: "welcome", english: "Welcome", german: "packaged-de-text" })],
+          entries: [entry({ texts: { en: ["Welcome"], de: ["packaged-de-text"] }, key: "welcome" })],
         },
       }),
     )
@@ -141,10 +141,9 @@ describe("the en/de toggle", () => {
       ...location({ path: "smp/smp" }),
       entries: [
         entry({
+          texts: { en: ["Welcome"], de: ["packaged-de-text"] },
+          overrides: { de: ["override-de-text"] },
           key: "welcome",
-          english: "Welcome",
-          german: "packaged-de-text",
-          overrideGerman: "override-de-text",
         }),
       ],
     },
@@ -181,13 +180,15 @@ describe("saving a line", () => {
         {
           "smp/smp": {
             ...location({ path: "smp/smp" }),
-            entries: [entry({ key: "greeting", english: "Hello {sender}" })],
+            entries: [entry({ texts: { en: ["Hello {sender}"] }, key: "greeting" })],
           },
         },
         {
           "smp/smp": () => ({
             ...location({ path: "smp/smp" }),
-            entries: [entry({ key: "greeting", english: "Hello {sender}", overrideEnglish: "Hello there" })],
+            entries: [
+              entry({ texts: { en: ["Hello {sender}"] }, overrides: { en: ["Hello there"] }, key: "greeting" }),
+            ],
             warnings: [
               {
                 key: "greeting",
@@ -222,13 +223,13 @@ describe("saving a line", () => {
         {
           "smp/smp": {
             ...location({ path: "smp/smp" }),
-            entries: [entry({ key: "welcome", english: "Welcome" })],
+            entries: [entry({ texts: { en: ["Welcome"] }, key: "welcome" })],
           },
         },
         {
           "smp/smp": () => ({
             ...location({ path: "smp/smp" }),
-            entries: [entry({ key: "welcome", english: "Welcome", overrideEnglish: "Howdy" })],
+            entries: [entry({ texts: { en: ["Welcome"] }, overrides: { en: ["Howdy"] }, key: "welcome" })],
             warnings: [],
             reload: { status, message: words(message) },
           }),
@@ -252,7 +253,7 @@ describe("saving a line", () => {
         {
           "smp/smp": {
             ...location({ path: "smp/smp" }),
-            entries: [entry({ key: "welcome", english: "Welcome", overrideEnglish: "Howdy" })],
+            entries: [entry({ texts: { en: ["Welcome"] }, overrides: { en: ["Howdy"] }, key: "welcome" })],
           },
         },
         {
@@ -261,7 +262,7 @@ describe("saving a line", () => {
             expect(changes).toEqual({ welcome: { en: null } })
             return {
               ...location({ path: "smp/smp" }),
-              entries: [entry({ key: "welcome", english: "Welcome" })],
+              entries: [entry({ texts: { en: ["Welcome"] }, key: "welcome" })],
               warnings: [],
             }
           },
@@ -292,8 +293,13 @@ describe("the tree of a bundle", () => {
         "smp/smp": {
           ...location({ path: "smp/smp" }),
           entries: [
-            entry({ key: "grave.decay.warning", name: "Decay warning", section: ["Graves", "Decay"], english: "Soon" }),
-            entry({ key: "welcome", name: "Welcome", english: "Welcome" }),
+            entry({
+              texts: { en: ["Soon"] },
+              key: "grave.decay.warning",
+              name: "Decay warning",
+              section: ["Graves", "Decay"],
+            }),
+            entry({ texts: { en: ["Welcome"] }, key: "welcome", name: "Welcome" }),
           ],
         },
       }),
@@ -320,12 +326,12 @@ function twoKeys() {
         ...location({ path: "smp/smp" }),
         entries: [
           entry({
+            texts: { en: ["<gray>Hello <white>{player}</white></gray>"] },
             key: "a",
             name: "First",
-            english: "<gray>Hello <white>{player}</white></gray>",
             args: [{ name: "player", kind: "text", global: false, action: false }],
           }),
-          entry({ key: "b", name: "Second", english: "two" }),
+          entry({ texts: { en: ["two"] }, key: "b", name: "Second" }),
         ],
       },
     }),
@@ -374,8 +380,8 @@ describe("both languages in one save", () => {
           "smp/smp": {
             ...location({ path: "smp/smp" }),
             entries: [
-              entry({ key: "a", name: "First", english: "one", german: "eins" }),
-              entry({ key: "b", name: "Second", english: "two", german: "zwei" }),
+              entry({ texts: { en: ["one"], de: ["eins"] }, key: "a", name: "First" }),
+              entry({ texts: { en: ["two"], de: ["zwei"] }, key: "b", name: "Second" }),
             ],
           },
         },
@@ -399,7 +405,7 @@ describe("both languages in one save", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save 2" }))
 
     await waitFor(() => expect(bodies).toHaveLength(1))
-    expect(bodies[0]).toEqual({ changes: { a: { en: "ONE" }, b: { de: "ZWEI" } } })
+    expect(bodies[0]).toEqual({ changes: { a: { en: ["ONE"] }, b: { de: ["ZWEI"] } } })
   })
 })
 
@@ -412,9 +418,9 @@ function withGreeting() {
         ...location({ path: "smp/smp" }),
         entries: [
           entry({
+            texts: { en: ["Hello {player}"] },
             key: "greeting",
             name: "Greeting",
-            english: "Hello {player}",
             args: [{ name: "player", kind: "text", global: false, action: false }],
           }),
         ],
@@ -457,7 +463,9 @@ describe("a jump from the command palette", () => {
       backend({
         "smp/smp": {
           ...location({ path: "smp/smp" }),
-          entries: [entry({ key: "welcome", name: "Welcome", english: "Welcome", german: "packaged-de-welcome" })],
+          entries: [
+            entry({ texts: { en: ["Welcome"], de: ["packaged-de-welcome"] }, key: "welcome", name: "Welcome" }),
+          ],
         },
       }),
     )

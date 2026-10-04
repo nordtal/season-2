@@ -6,7 +6,17 @@ import { cn } from "cn"
 import type { MessageBundle, MessageEntry, Warning } from "@/lib/api"
 import { announceSave } from "@/lib/announce-save"
 import { clearDraft, setDraftValue, useDraft } from "@/lib/drafts"
-import { overrideOf, packagedOf, tokenOf, unknownPlaceholders, type Language } from "@/lib/message-text"
+import {
+  ENGLISH,
+  isLanguage,
+  languagesOf,
+  overrideOf,
+  packagedOf,
+  shownOf,
+  tokenOf,
+  unknownPlaceholders,
+  type Language,
+} from "@/lib/message-text"
 import { useMessageBundle, useSaveMessageBundle } from "@/lib/queries"
 import { messageLeafMatches, messageName, messageTree } from "@/lib/settings-tree"
 import { Failure, QueryState } from "@/components/steward/query-state"
@@ -32,7 +42,6 @@ import {
   type Target,
   TreeView,
   UNSEEN,
-  isLanguage,
   useLanding,
   useWide,
 } from "@/components/steward/settings-view"
@@ -40,14 +49,20 @@ import { message, t } from "@/lib/texts"
 
 /** A message bundle of the Settings tab: every key with its translations, and the save. */
 
-/** One key's draft: per language, a new text, `null` for "back to the jar", absent for no change. */
-type MessageDraft = Partial<Record<Language, string | null>>
+/** One key's draft: per language, its new variants, `null` for "back to the jar", absent for no change. */
+type MessageDraft = Record<Language, string[] | null>
 
 function isMessageDraft(value: unknown): value is MessageDraft {
   if (typeof value !== "object" || value === null) return false
   return Object.entries(value).every(
-    ([key, entry]) => (key === "en" || key === "de") && (entry === null || typeof entry === "string"),
+    ([key, entry]) =>
+      isLanguage(key) &&
+      (entry === null || (Array.isArray(entry) && entry.every((variant) => typeof variant === "string"))),
   )
+}
+
+function same(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((text, index) => text === b[index])
 }
 
 function isMessageDraftRecord(value: unknown): value is Record<string, MessageDraft> {
@@ -69,27 +84,31 @@ function BundleForm({ file, bundle, target }: { file: string; bundle: MessageBun
   const [warnings, setWarnings] = useState<Warning[]>([])
   const nodes = useMemo(() => messageTree(bundle.entries), [bundle.entries])
   const byKey = useMemo(() => new Map(bundle.entries.map((entry) => [entry.key, entry])), [bundle.entries])
+  const languages = useMemo(() => languagesOf(bundle.entries), [bundle.entries])
   // One key open at a time: opening another closes this one, and its draft stays where it is.
   const [openKey, setOpenKey] = useState<string | null>(null)
 
   const draftIds = useMemo(() => new Set(Object.keys(draft)), [draft])
-  const count = Object.values(draft).reduce((sum, languages) => sum + Object.keys(languages).length, 0)
-  const blocked = Object.entries(draft).some(([key, languages]) => {
+  const count = Object.values(draft).reduce((sum, changed) => sum + Object.keys(changed).length, 0)
+  const blocked = Object.entries(draft).some(([key, changed]) => {
     const entry = byKey.get(key)
-    return entry !== undefined && Object.values(languages).some((text) => unknownPlaceholders(entry, text).length > 0)
+    return (
+      entry !== undefined &&
+      Object.values(changed).some((texts) => texts?.some((text) => unknownPlaceholders(entry, text).length > 0))
+    )
   })
 
-  function set(key: string, language: Language, value: string | null | undefined) {
+  function set(key: string, language: Language, value: string[] | null | undefined) {
     const entry = byKey.get(key)
     if (!entry) return
     const saved = overrideOf(entry, language)
     let next = value
-    if (typeof next === "string" && next === (saved ?? packagedOf(entry, language) ?? "")) next = undefined
+    if (Array.isArray(next) && same(next, shownOf(entry, language))) next = undefined
     if (next === null && saved === undefined) next = undefined
-    const languages: MessageDraft = { ...draft[key] }
-    if (next === undefined) delete languages[language]
-    else languages[language] = next
-    setDraftValue(file, key, Object.keys(languages).length > 0 ? languages : undefined)
+    const changed: MessageDraft = { ...draft[key] }
+    if (next === undefined) delete changed[language]
+    else changed[language] = next
+    setDraftValue(file, key, Object.keys(changed).length > 0 ? changed : undefined)
   }
 
   function submit() {
@@ -140,6 +159,7 @@ function BundleForm({ file, bundle, target }: { file: string; bundle: MessageBun
       renderLeaf={(leaf, highlight) => (
         <MessageRow
           entry={leaf.value}
+          languages={languages}
           open={openKey === leaf.value.key}
           onOpen={(open) => setOpenKey(open ? leaf.value.key : null)}
           writable={bundle.writable}
@@ -157,6 +177,7 @@ function BundleForm({ file, bundle, target }: { file: string; bundle: MessageBun
 /** One key: its name and text on one line, and once opened its field, inline when wide and in a sheet below. */
 function MessageRow({
   entry,
+  languages,
   open,
   onOpen,
   writable,
@@ -172,13 +193,8 @@ function MessageRow({
 }) {
   const wide = useWide()
   const name = messageName(entry)
-  const english =
-    draft?.en === undefined
-      ? (overrideOf(entry, "en") ?? packagedOf(entry, "en"))
-      : draft.en === null
-        ? packagedOf(entry, "en")
-        : draft.en
-  const text = english || (draft?.de ?? overrideOf(entry, "de") ?? packagedOf(entry, "de") ?? "")
+  const typed = draft?.[ENGLISH]
+  const text = (typed === undefined ? shownOf(entry, ENGLISH) : (typed ?? packagedOf(entry, ENGLISH)))[0] ?? ""
 
   // A jump from the command palette lands on a key by opening it.
   useEffect(() => {
@@ -187,7 +203,15 @@ function MessageRow({
   }, [highlight?.seq])
 
   const field = (
-    <MessageField entry={entry} writable={writable} draft={draft} highlight={highlight} onChange={onChange} bare />
+    <MessageField
+      entry={entry}
+      languages={languages}
+      writable={writable}
+      draft={draft}
+      highlight={highlight}
+      onChange={onChange}
+      bare
+    />
   )
   return (
     <div className="min-w-0">
@@ -244,6 +268,7 @@ function MessageRow({
 
 function MessageField({
   entry,
+  languages,
   writable,
   draft,
   highlight,
@@ -251,15 +276,17 @@ function MessageField({
   bare,
 }: {
   entry: MessageEntry
+  /** The bundle's languages, English first. */
+  languages: Language[]
   writable: boolean
   draft: MessageDraft | undefined
   highlight: Highlight | null
-  /** `undefined` drops this language's draft, `null` asks for the packaged text back. */
-  onChange: (language: Language, value: string | null | undefined) => void
+  /** `undefined` drops this language's draft, `null` asks for the packaged texts back. */
+  onChange: (language: Language, value: string[] | null | undefined) => void
   /** Without its own name above it: the row or the sheet it sits in already says it. */
   bare?: boolean
 }) {
-  const [language, setLanguage] = useState<Language>("en")
+  const [language, setLanguage] = useState<Language>(ENGLISH)
   const ref = useLanding(highlight)
   const input = useRef<HTMLTextAreaElement>(null)
   const id = `message-${entry.key}`
@@ -273,20 +300,23 @@ function MessageField({
   const typed = draft?.[language]
   const packaged = packagedOf(entry, language)
   const override = overrideOf(entry, language)
-  const value = typed === undefined ? (override ?? packaged ?? "") : typed === null ? (packaged ?? "") : typed
-  const unknown = typeof typed === "string" ? unknownPlaceholders(entry, typed) : []
+  const variants = typed === undefined ? (override ?? packaged) : (typed ?? packaged)
+  // This field writes the first variant and keeps the others as they are.
+  const value = variants[0] ?? ""
+  const write = (text: string) => onChange(language, [text, ...variants.slice(1)])
+  const unknown = Array.isArray(typed) ? unknownPlaceholders(entry, typed[0]) : []
 
   const overridden = (tab: Language) => {
     const own = draft?.[tab]
     return own === null ? false : own !== undefined ? true : overrideOf(entry, tab) !== undefined
   }
-  const empty = (tab: Language) => !packagedOf(entry, tab) && !overridden(tab)
+  const empty = (tab: Language) => packagedOf(entry, tab).length === 0 && !overridden(tab)
 
   function insert(token: string) {
     const element = input.current
     const start = element?.selectionStart ?? value.length
     const end = element?.selectionEnd ?? value.length
-    onChange(language, value.slice(0, start) + token + value.slice(end))
+    write(value.slice(0, start) + token + value.slice(end))
     requestAnimationFrame(() => {
       element?.focus()
       element?.setSelectionRange(start + token.length, start + token.length)
@@ -323,7 +353,7 @@ function MessageField({
           disabled={!writable}
           spellCheck={false}
           aria-invalid={unknown.length > 0}
-          onChange={(event) => onChange(language, event.target.value)}
+          onChange={(event) => write(event.target.value)}
           className="field-sizing-content min-h-8 py-1.5 text-sm"
         />
         <InputGroupAddon align="inline-end" className="self-start py-1">
@@ -347,7 +377,7 @@ function MessageField({
           ) : null}
           <Tabs value={language} onValueChange={(next) => (isLanguage(next) ? setLanguage(next) : undefined)}>
             <TabsList className="group-data-horizontal/tabs:h-6 p-0.5">
-              {(["en", "de"] as const).map((tab) => (
+              {languages.map((tab) => (
                 <TabsTrigger key={tab} value={tab} className={cn("gap-1 px-1.5 text-xs", empty(tab) && "opacity-50")}>
                   {tab.toUpperCase()}
                   {overridden(tab) ? (

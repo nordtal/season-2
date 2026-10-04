@@ -24,6 +24,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
@@ -37,8 +39,8 @@ public final class MessagesApi {
     private static final StewardTexts.Steward.Answer ANSWER =
             StewardTexts.TEXTS.steward().answer();
 
-    /** The languages the editor writes. */
-    private static final Set<String> LANGUAGES = Set.of("en", "de");
+    /** A lowercase language tag, which names a bundle file and a row's language alike. */
+    private static final Pattern LANGUAGE = Pattern.compile("[a-z]{2,3}(-[a-z0-9]+)*");
 
     private final AgentClient agent;
     private final @Nullable MessageOverrideStore overrides;
@@ -61,9 +63,9 @@ public final class MessagesApi {
     }
 
     /**
-     * {@code PUT /api/messages/<bundle>}: writes both languages' overrides as rows, at once for every process.
-     * A {@code null} resets a key; what the one validator warns about is answered, what it refuses is a 400 that
-     * writes nothing.
+     * {@code PUT /api/messages/<bundle>}: writes each language's override, its variants in order, as rows at once.
+     * A {@code null} resets a key's language; what the one validator warns about is answered, what it refuses is a
+     * 400 that writes nothing.
      */
     public void save(final Context ctx, final Actor actor) {
         final MessageOverrideStore store = overrides;
@@ -80,12 +82,14 @@ public final class MessagesApi {
             if (entry == null) {
                 throw new RequestRefused(400, ANSWER.noMessage(identityOf(location), change.key()));
             }
-            for (final MessageCheck.Problem problem : OverrideCheck.problems(entry, change.text())) {
-                if (problem.error()) {
-                    // The editor shows every problem as the text is typed, so the refusal only names the text.
-                    throw new RequestRefused(400, ANSWER.overrideRefused(entry.key(), change.language()));
+            for (final String text : change.texts()) {
+                for (final MessageCheck.Problem problem : OverrideCheck.problems(entry, text)) {
+                    if (problem.error()) {
+                        // The editor shows every problem as the text is typed, so the refusal only names the text.
+                        throw new RequestRefused(400, ANSWER.overrideRefused(entry.key(), change.language()));
+                    }
+                    warnings.add(new Warning(entry.key(), change.language(), problem.text()));
                 }
-                warnings.add(new Warning(entry.key(), change.language(), problem.text()));
             }
         }
         for (final Change change : changes) {
@@ -94,7 +98,7 @@ public final class MessagesApi {
                     entry.bundle(),
                     change.key(),
                     change.language(),
-                    change.text() == null ? List.of() : List.of(change.text()),
+                    change.texts(),
                     entry.packaged(change.language()),
                     actor);
         }
@@ -201,7 +205,7 @@ public final class MessagesApi {
                 problems);
     }
 
-    /** The jar's bundles with the stored overrides beside the packaged texts, the first variant of each. */
+    /** The jar's bundles with the stored overrides beside the packaged texts, every language and variant. */
     private MessageBundle read(final AgentWire.BundleRef location) {
         final MessageBundle packaged = agent.bundle(location.service(), location.module());
         final MessageOverrideStore store = overrides;
@@ -210,19 +214,24 @@ public final class MessagesApi {
         }
         final Set<String> bundles =
                 packaged.entries().stream().map(MessageEntry::bundle).collect(Collectors.toSet());
-        final Map<String, String> first = new HashMap<>();
+        // Bundle and key to language to variant number to text.
+        final Map<String, Map<String, TreeMap<Integer, String>>> stored = new HashMap<>();
         for (final MessageOverride row : store.overrides(bundles)) {
-            if (row.variant() == 0) {
-                first.put(row.bundle() + "/" + row.key() + "/" + row.language(), row.text());
-            }
+            stored.computeIfAbsent(row.bundle() + "/" + row.key(), ignored -> new HashMap<>())
+                    .computeIfAbsent(row.language(), ignored -> new TreeMap<>())
+                    .put(row.variant(), row.text());
         }
         return new MessageBundle(
                 packaged.service(),
                 packaged.module(),
                 packaged.entries().stream()
-                        .map(entry -> entry.withOverrides(
-                                first.get(entry.bundle() + "/" + entry.key() + "/en"),
-                                first.get(entry.bundle() + "/" + entry.key() + "/de")))
+                        .map(entry -> {
+                            final Map<String, List<String>> languages = new HashMap<>();
+                            stored.getOrDefault(entry.bundle() + "/" + entry.key(), Map.of())
+                                    .forEach((language, variants) ->
+                                            languages.put(language, List.copyOf(variants.values())));
+                            return entry.withOverrides(languages);
+                        })
                         .toList());
     }
 
@@ -317,9 +326,8 @@ public final class MessagesApi {
 
     // What comes in
 
-    /** One language's text for one key; a {@code null} text resets it to the packaged one. */
-    private record Change(
-            String key, String language, @Nullable String text) {}
+    /** One language's texts for one key, its variants in order; none resets it to the packaged ones. */
+    private record Change(String key, String language, List<String> texts) {}
 
     private static JsonObject bodyOf(final String body) {
         try {
@@ -333,31 +341,46 @@ public final class MessagesApi {
     private static List<Change> changesOf(final JsonObject body) {
         final JsonElement changes = body.get("changes");
         if (changes == null || !changes.isJsonObject()) {
-            throw new BadRequestResponse("`changes` has to be an object of key to {\"en\": text,"
-                    + " \"de\": text}, where null resets that language.");
+            throw new BadRequestResponse("`changes` has to be an object of key to {\"<language>\": [variants]},"
+                    + " where null resets that language.");
         }
         final List<Change> all = new ArrayList<>();
         for (final Map.Entry<String, JsonElement> change :
                 changes.getAsJsonObject().entrySet()) {
             if (!change.getValue().isJsonObject()) {
-                throw new BadRequestResponse(
-                        change.getKey() + " has to be an object of language to text, like {\"en\": \"...\"}.");
+                throw new BadRequestResponse(change.getKey()
+                        + " has to be an object of language to its variants, like {\"en\": [\"...\"]}.");
             }
             for (final Map.Entry<String, JsonElement> text :
                     change.getValue().getAsJsonObject().entrySet()) {
-                if (!LANGUAGES.contains(text.getKey())) {
-                    throw new BadRequestResponse("A language has to be \"en\" or \"de\", not " + text.getKey() + ".");
+                if (!LANGUAGE.matcher(text.getKey()).matches()) {
+                    throw new BadRequestResponse(
+                            "A language is a lowercase tag like \"en\", not " + text.getKey() + ".");
                 }
-                final JsonElement value = text.getValue();
-                all.add(new Change(
-                        change.getKey(),
-                        text.getKey(),
-                        value == null || value.isJsonNull() ? null : value.getAsString()));
+                all.add(new Change(change.getKey(), text.getKey(), variantsOf(change.getKey(), text.getValue())));
             }
         }
         if (all.isEmpty()) {
             throw new BadRequestResponse("`changes` is empty - there is nothing to save.");
         }
         return all;
+    }
+
+    /** A language's variants in order, none for a {@code null} that resets it. */
+    private static List<String> variantsOf(final String key, final @Nullable JsonElement value) {
+        if (value == null || value.isJsonNull()) {
+            return List.of();
+        }
+        if (!value.isJsonArray() || value.getAsJsonArray().isEmpty()) {
+            throw new BadRequestResponse(key + " has to name each language's variants as a list of texts, or null.");
+        }
+        final List<String> variants = new ArrayList<>();
+        for (final JsonElement variant : value.getAsJsonArray()) {
+            if (!variant.isJsonPrimitive() || !variant.getAsJsonPrimitive().isString()) {
+                throw new BadRequestResponse(key + " has a variant that is not a text.");
+            }
+            variants.add(variant.getAsString());
+        }
+        return variants;
     }
 }

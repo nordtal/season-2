@@ -186,7 +186,7 @@ describe("pending jump", () => {
 // The message bundles are a second supplier, not a second search.
 
 function messageEntry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
-  return { bundle: "smp", inBundle: true, englishTexts: [], germanTexts: [], args: [], section: [], ...over }
+  return { bundle: "smp", inBundle: true, texts: {}, overrides: {}, args: [], section: [], ...over }
 }
 
 function bundleLocation(over: Partial<MessageBundleLocation> & { path: string }): MessageBundleLocation {
@@ -199,16 +199,15 @@ function bundle(loc: MessageBundleLocation, entries: MessageEntry[]): MessageBun
 
 describe("messageEntryHaystack / matchesMessageQuery", () => {
   it("matches the English default", () => {
-    const e = messageEntry({ key: "grave.decay.announce", english: "Your grave has decayed." })
+    const e = messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })
     expect(matchesMessageQuery(e, "en", "decayed")).toBe(true)
   })
 
   it("matches the German translation, and only for the German language", () => {
     /** A synthetic marker rather than German prose, since `language.test.ts` scans fixtures too. */
     const e = messageEntry({
+      texts: { en: ["Your grave has decayed."], de: ["packaged-de-marker"] },
       key: "grave.decay.announce",
-      english: "Your grave has decayed.",
-      german: "packaged-de-marker",
     })
     expect(matchesMessageQuery(e, "de", "de-marker")).toBe(true)
     expect(matchesMessageQuery(e, "en", "de-marker")).toBe(false)
@@ -216,31 +215,31 @@ describe("messageEntryHaystack / matchesMessageQuery", () => {
 
   it("matches an operator's override, not only the packaged text", () => {
     const e = messageEntry({
+      texts: { en: ["Your grave has decayed."] },
+      overrides: { en: ["The grave is being cleared."] },
       key: "grave.decay.announce",
-      english: "Your grave has decayed.",
-      overrideEnglish: "The grave is being cleared.",
     })
     expect(matchesMessageQuery(e, "en", "cleared")).toBe(true)
   })
 
   it("matches the key, in both languages - the key has no language of its own", () => {
-    const e = messageEntry({ key: "grave.decay.announce", english: "x", german: "y" })
+    const e = messageEntry({ texts: { en: ["x"], de: ["y"] }, key: "grave.decay.announce" })
     expect(matchesMessageQuery(e, "en", "grave.decay")).toBe(true)
     expect(matchesMessageQuery(e, "de", "grave.decay")).toBe(true)
   })
 
   it("is case-insensitive", () => {
-    const e = messageEntry({ key: "grave.decay.announce", english: "Your grave has decayed." })
+    const e = messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })
     expect(matchesMessageQuery(e, "en", "DECAYED")).toBe(true)
   })
 
   it("finds nothing for an empty query", () => {
-    const e = messageEntry({ key: "grave.decay.announce", english: "Your grave has decayed." })
+    const e = messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })
     expect(matchesMessageQuery(e, "en", "   ")).toBe(false)
   })
 
   it("does not leak the other language's text into this one's haystack", () => {
-    const e = messageEntry({ key: "grave.decay.announce", english: "wipe", german: "de-only-marker" })
+    const e = messageEntry({ texts: { en: ["wipe"], de: ["de-only-marker"] }, key: "grave.decay.announce" })
     expect(messageEntryHaystack(e, "en")).not.toContain("de-only-marker")
     expect(messageEntryHaystack(e, "de")).not.toContain("wipe")
   })
@@ -251,9 +250,8 @@ describe("searchMessagesAcross", () => {
     const loc = bundleLocation({ path: "smp/smp" })
     const doc = bundle(loc, [
       messageEntry({
+        texts: { en: ["Your grave has decayed."], de: ["packaged-de-marker"] },
         key: "grave.decay.announce",
-        english: "Your grave has decayed.",
-        german: "packaged-de-marker",
       }),
     ])
     /** One hit per language, since each opens a different tab. */
@@ -268,13 +266,13 @@ describe("searchMessagesAcross", () => {
 
   it("returns nothing for an empty query without looking at any bundle", () => {
     const loc = bundleLocation({ path: "smp/smp" })
-    const doc = bundle(loc, [messageEntry({ key: "a", english: "b" })])
+    const doc = bundle(loc, [messageEntry({ texts: { en: ["b"] }, key: "a" })])
     expect(searchMessagesAcross([{ location: loc, bundle: doc }], "")).toEqual([])
   })
 
   it('tags every hit with kind: "message", so a caller can tell it apart from a config hit', () => {
     const loc = bundleLocation({ path: "smp/smp" })
-    const doc = bundle(loc, [messageEntry({ key: "a", english: "wipe" })])
+    const doc = bundle(loc, [messageEntry({ texts: { en: ["wipe"] }, key: "a" })])
     const [hit] = searchMessagesAcross([{ location: loc, bundle: doc }], "wipe")
     expect(hit.kind).toBe("message")
   })
@@ -314,7 +312,7 @@ describe("searchSettingsAndMessages - one list, from two suppliers", () => {
     ])
     const bundleLoc = bundleLocation({ path: "smp/smp" })
     const bundleDoc = bundle(bundleLoc, [
-      messageEntry({ key: "grave.decay.announce", english: "Your grave has decayed." }),
+      messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" }),
     ])
 
     // The "before" half: config search alone finds nothing for this text.
@@ -347,7 +345,7 @@ describe("searchSettingsAndMessages - one list, from two suppliers", () => {
     ])
     const bundleLoc = bundleLocation({ path: "smp/smp" })
     const bundleDoc = bundle(bundleLoc, [
-      messageEntry({ key: "grave.decay.announce", english: "Grave decay announcement" }),
+      messageEntry({ texts: { en: ["Grave decay announcement"] }, key: "grave.decay.announce" }),
     ])
 
     const hits = searchSettingsAndMessages(

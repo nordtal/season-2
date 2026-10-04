@@ -2,20 +2,21 @@ package eu.nordtal.s2.internalapi.agent;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One message key in both languages, packaged and overridden, kept apart so an override shows as one.
+ * One message key in every language it has, packaged and overridden, kept apart so an override shows as one.
  *
  * @param key the dotted key, for example {@code contribution.title}
  * @param bundle the packaged bundle the key belongs to, the directory under {@code messages/} in the jar
- * @param english the first English text the jar ships, or {@code null} for a key only an override names
- * @param german the first German text the jar ships, or {@code null} when untranslated (English is used)
- * @param englishTexts every English text the jar ships for the key, its variants in order, which an override keeps
- * @param germanTexts the same for German, empty when untranslated
- * @param overrideEnglish the admin's English override, which steward fills in from the database, or {@code null}
- * @param overrideGerman the admin's German override, likewise, or {@code null}
+ * @param texts language tag to every text the jar ships, its variants in order; English first, then by tag
+ * @param overrides language tag to the admin's override, its variants in order, which steward fills in from the
+ *     database; empty for a key without one
  * @param inBundle whether the jar declares this key
  * @param name the name an admin reads, from the schema; {@code null} when the schema does not describe the key
  * @param description a sentence for a hard case, or {@code null}
@@ -27,12 +28,8 @@ import org.jspecify.annotations.Nullable;
 public record MessageEntry(
         String key,
         String bundle,
-        @Nullable String english,
-        @Nullable String german,
-        List<String> englishTexts,
-        List<String> germanTexts,
-        @Nullable String overrideEnglish,
-        @Nullable String overrideGerman,
+        Map<String, List<String>> texts,
+        Map<String, List<String>> overrides,
         boolean inBundle,
         @Nullable String name,
         @Nullable String description,
@@ -41,41 +38,42 @@ public record MessageEntry(
         @Nullable String format,
         @Nullable String shown) {
 
+    /** English first, as the fallback every process shows, then by tag. */
+    private static final Comparator<String> BY_LANGUAGE =
+            Comparator.comparing((String language) -> !"en".equals(language)).thenComparing(language -> language);
+
     public MessageEntry {
-        englishTexts = List.copyOf(englishTexts);
-        germanTexts = List.copyOf(germanTexts);
+        texts = ordered(texts);
+        overrides = ordered(overrides);
         args = List.copyOf(args);
         // A nameless section is null here, which List.copyOf would refuse.
         section = Collections.unmodifiableList(new ArrayList<>(section));
     }
 
-    /** The same key with the admin's overrides, {@code null} for a language without one. */
-    public MessageEntry withOverrides(final @Nullable String english, final @Nullable String german) {
+    /** The same key with the admin's overrides, language tag to variants. */
+    public MessageEntry withOverrides(final Map<String, List<String>> overrides) {
         return new MessageEntry(
-                key,
-                bundle,
-                this.english,
-                this.german,
-                englishTexts,
-                germanTexts,
-                english,
-                german,
-                inBundle,
-                name,
-                description,
-                args,
-                section,
-                format,
-                shown);
+                key, bundle, texts, overrides, inBundle, name, description, args, section, format, shown);
     }
 
     /** Every text the jar ships for the key in {@code language}, empty where it ships none. */
     public List<String> packaged(final String language) {
-        return "de".equals(language) ? germanTexts : "en".equals(language) ? englishTexts : List.of();
+        return texts.getOrDefault(language, List.of());
     }
 
     /** Whether the jar's schema describes this key, which is what makes its placeholders checkable. */
     public boolean described() {
         return name != null;
+    }
+
+    /** English first, then by tag, each language's variants copied; a language without a text is left out. */
+    private static Map<String, List<String>> ordered(final Map<String, List<String>> byLanguage) {
+        final Map<String, List<String>> sorted = new TreeMap<>(BY_LANGUAGE);
+        byLanguage.forEach((language, variants) -> {
+            if (!variants.isEmpty()) {
+                sorted.put(language, List.copyOf(variants));
+            }
+        });
+        return Collections.unmodifiableMap(new LinkedHashMap<>(sorted));
     }
 }

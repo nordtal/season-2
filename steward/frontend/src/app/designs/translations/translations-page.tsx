@@ -145,7 +145,7 @@ function KeyPicker({
             {entries.map((entry) => (
               <CommandItem
                 key={entry.key}
-                value={`${entry.key} ${entry.name ?? ""} ${entry.english ?? ""}`}
+                value={`${entry.key} ${entry.name ?? ""} ${entry.texts.en?.[0] ?? ""}`}
                 onSelect={() => {
                   onPick(entry.key)
                   setOpen(false)
@@ -174,8 +174,8 @@ function Workbench({
   language: Language
   editor: Editor
 }) {
-  const packaged = packagedOf(entry, language) ?? ""
-  const stored = overrideOf(entry, language) ?? packaged
+  const packaged = packagedOf(entry, language)[0] ?? ""
+  const stored = overrideOf(entry, language)?.[0] ?? packaged
   const [text, setText] = useState(stored)
   const format = formatOf(entry.format)
   const args = entry.args
@@ -192,7 +192,7 @@ function Workbench({
 
   function write(value: string | null) {
     save.mutate(
-      { changes: { [entry.key]: { [language]: value } } },
+      { changes: { [entry.key]: { [language]: value === null ? null : [value] } } },
       { onSuccess: (saved) => announceSave(label, saved.reload, bundle.path) },
     )
   }

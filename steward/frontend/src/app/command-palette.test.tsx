@@ -132,7 +132,7 @@ function bundleLocation(over: Partial<MessageBundleLocation> & { path: string })
 }
 
 function messageEntry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
-  return { bundle: "smp", inBundle: true, englishTexts: [], germanTexts: [], args: [], section: [], ...over }
+  return { bundle: "smp", inBundle: true, texts: {}, overrides: {}, args: [], section: [], ...over }
 }
 
 /** Wires `useMessageBundles` and `useMessageDocuments` for one bundle, paired by index like `oneFile`. */
@@ -439,7 +439,7 @@ describe("CommandPalette - finding a setting", () => {
 describe("CommandPalette - finding a message bundle key", () => {
   it("finds a bundle key that no config file mentions", async () => {
     const loc = bundleLocation({ path: "smp/smp" })
-    oneBundle(loc, [messageEntry({ key: "grave.decay.announce", english: "Your grave has decayed." })])
+    oneBundle(loc, [messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })])
 
     await search("decayed")
 
@@ -453,9 +453,8 @@ describe("CommandPalette - finding a message bundle key", () => {
     const loc = bundleLocation({ path: "smp/smp" })
     oneBundle(loc, [
       messageEntry({
+        texts: { en: ["Your grave has decayed."], de: ["packaged-de-marker"] },
         key: "grave.decay.announce",
-        english: "Your grave has decayed.",
-        german: "packaged-de-marker",
       }),
     ])
 
@@ -466,7 +465,7 @@ describe("CommandPalette - finding a message bundle key", () => {
 
   it("finds a key by the key itself", async () => {
     const loc = bundleLocation({ path: "smp/smp" })
-    oneBundle(loc, [messageEntry({ key: "grave.decay.announce", english: "Your grave has decayed." })])
+    oneBundle(loc, [messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })])
 
     await search("grave.decay")
 
@@ -477,7 +476,7 @@ describe("CommandPalette - finding a message bundle key", () => {
 
   it("shows nothing before anything is typed, same as a config hit", async () => {
     const loc = bundleLocation({ path: "smp/smp" })
-    oneBundle(loc, [messageEntry({ key: "grave.decay.announce", english: "Your grave has decayed." })])
+    oneBundle(loc, [messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })])
 
     render(<CommandPalette />)
     ctrlK(document.body)
@@ -488,7 +487,7 @@ describe("CommandPalette - finding a message bundle key", () => {
 
   it("selecting a bundle hit navigates to the service page and hands the messages tool a jump, not the configuration form", async () => {
     const loc = bundleLocation({ path: "smp/smp", service: "smp" })
-    oneBundle(loc, [messageEntry({ key: "grave.decay.announce", english: "Your grave has decayed." })])
+    oneBundle(loc, [messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })])
 
     await search("decayed")
     fireEvent.click(await screen.findByText("Announce"))
@@ -535,7 +534,7 @@ describe("CommandPalette - finding a message bundle key", () => {
       queryResult({ ...configLoc, revision: "r1", restartRequired: false, entries: [gravEntry] }),
     ])
     oneBundle(bundleLocation({ path: "smp/smp", service: "smp" }), [
-      messageEntry({ key: "grave.decay.announce", english: "Grave decay announcement" }),
+      messageEntry({ texts: { en: ["Grave decay announcement"] }, key: "grave.decay.announce" }),
     ])
 
     await search("grave decay")

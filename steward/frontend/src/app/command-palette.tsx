@@ -31,6 +31,7 @@ import {
 } from "@/lib/settings-search"
 import { bundleFileId, NETWORK } from "@/components/steward/settings"
 import { messageName } from "@/lib/settings-tree"
+import { shownOf } from "@/lib/message-text"
 import { runKind, runStatus } from "@/components/steward/status"
 import { t } from "@/lib/texts"
 
@@ -258,10 +259,7 @@ export function CommandPalette() {
                     </CommandItem>
                   )
                 }
-                const text =
-                  hit.language === "en"
-                    ? (hit.entry.overrideEnglish ?? hit.entry.english)
-                    : (hit.entry.overrideGerman ?? hit.entry.german)
+                const text = shownOf(hit.entry, hit.language)[0]
                 return (
                   <CommandItem
                     key={`message-${hit.location.path}-${hit.language}-${hit.entry.key}`}

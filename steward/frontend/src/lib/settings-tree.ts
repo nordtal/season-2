@@ -199,8 +199,7 @@ export function messageName(entry: MessageEntry): string {
 export function messageLeafMatches(entry: MessageEntry, query: string): boolean {
   const needle = query.trim().toLowerCase()
   if (!needle) return true
-  return [messageName(entry), entry.key, entry.english, entry.german, entry.overrideEnglish, entry.overrideGerman]
-    .filter((part): part is string => Boolean(part))
+  return [messageName(entry), entry.key, ...Object.values(entry.texts).flat(), ...Object.values(entry.overrides).flat()]
     .join("\n")
     .toLowerCase()
     .includes(needle)

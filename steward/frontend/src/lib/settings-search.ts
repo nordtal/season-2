@@ -6,6 +6,7 @@ import type {
   MessageBundleLocation,
   MessageEntry,
 } from "@/lib/api"
+import { languagesOf, overrideOf, packagedOf, shownOf, type Language } from "@/lib/message-text"
 
 /**
  * Settings search, for one service's files and for the command palette across every file and message bundle.
@@ -56,7 +57,7 @@ export type ConfigSettingsHit = {
 export type MessageSettingsHit = {
   kind: "message"
   location: MessageBundleLocation
-  language: "en" | "de"
+  language: Language
   entry: MessageEntry
 }
 
@@ -86,17 +87,12 @@ export function searchAcross(
  *
  * Only this language's text is read, so an English query never finds a bundle by its German line.
  */
-export function messageEntryHaystack(entry: MessageEntry, language: "en" | "de"): string {
-  const packaged = language === "en" ? entry.english : entry.german
-  const override = language === "en" ? entry.overrideEnglish : entry.overrideGerman
-  const parts = [entry.key]
-  if (packaged) parts.push(packaged)
-  if (override) parts.push(override)
-  return parts.join("\n").toLowerCase()
+export function messageEntryHaystack(entry: MessageEntry, language: Language): string {
+  return [entry.key, ...packagedOf(entry, language), ...(overrideOf(entry, language) ?? [])].join("\n").toLowerCase()
 }
 
 /** Whether `entry`'s `language` row is found by `query`, the same substring match as {@link matchesQuery}. */
-export function matchesMessageQuery(entry: MessageEntry, language: "en" | "de", query: string): boolean {
+export function matchesMessageQuery(entry: MessageEntry, language: Language, query: string): boolean {
   const needle = query.trim().toLowerCase()
   if (!needle) return false
   return messageEntryHaystack(entry, language).includes(needle)
@@ -112,11 +108,9 @@ export function searchMessagesAcross(
   for (const { location, bundle } of bundles) {
     if (!bundle) continue
     for (const entry of bundle.entries) {
-      for (const language of ["en", "de"] as const) {
-        /** A language with neither packaged text nor an override is skipped, so a key match yields no duplicate row. */
-        const packaged = language === "en" ? entry.english : entry.german
-        const override = language === "en" ? entry.overrideEnglish : entry.overrideGerman
-        if (packaged === undefined && override === undefined) continue
+      // Only a language the key has a text in, so a match on the key alone yields one row per language it has.
+      for (const language of languagesOf([entry])) {
+        if (shownOf(entry, language).length === 0) continue
         if (matchesMessageQuery(entry, language, query)) {
           hits.push({ kind: "message", location, language, entry })
         }
@@ -225,7 +219,7 @@ export function takePendingJump(service: string): PendingJump | undefined {
  *
  * Kept apart from {@link PendingJump} so a bundle hit can never be taken as a config jump.
  */
-export type PendingMessageJump = { path: string; language: "en" | "de"; key: string }
+export type PendingMessageJump = { path: string; language: Language; key: string }
 
 const pendingMessageJumps = new Map<string, PendingMessageJump>()
 

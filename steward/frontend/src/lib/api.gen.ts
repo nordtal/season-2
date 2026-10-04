@@ -699,12 +699,8 @@ export type ReloadOutcome = {
 export type MessageEntry = {
   key: string
   bundle: string
-  english?: string
-  german?: string
-  englishTexts: string[]
-  germanTexts: string[]
-  overrideEnglish?: string
-  overrideGerman?: string
+  texts: Record<string, string[]>
+  overrides: Record<string, string[]>
   inBundle: boolean
   name?: string
   description?: string

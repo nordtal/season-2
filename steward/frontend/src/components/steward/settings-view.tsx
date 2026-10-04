@@ -296,7 +296,3 @@ export const LIT = "bg-accent ring-2 ring-primary ring-offset-4 ring-offset-back
 
 /** A sequence number no highlight reaches, so the first render always counts as new. */
 export const UNSEEN = Symbol("unseen")
-
-export function isLanguage(value: string): value is Language {
-  return value === "en" || value === "de"
-}

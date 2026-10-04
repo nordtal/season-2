@@ -13,8 +13,8 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
   itself. It lives here because every Paper server and the proxy hold that record and load this bundle, and the
   crest table is the network's setting.
 - **A refused write** throws `Refused` with a typed reason (`UpdateRefusal`, `SeasonDateRefusal`)
-  and a message from this module's own bundle, `messages/database`. `DatabaseText` renders it in
-  English for Steward and the logs.
+  and a message from this module's own bundle, `messages/database`. Steward words it with the admins'
+  overrides; `DatabaseText` renders it in packaged English for a log line.
 - **Signals**: a process opens one `SignalHub`, the only `LISTEN` connection it holds, and registers a
   refresh per `Channel`. Every refresh runs on connect, on every signal and once a minute, whatever the
   channel, so a lost notification costs a minute and a reconnect re-reads in full; this is the only polling

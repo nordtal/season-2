@@ -6,7 +6,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.json.Json;
-import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.database.DatabaseMessages;
 import eu.nordtal.s2.database.audit.AuditLine;
@@ -18,7 +17,6 @@ import eu.nordtal.s2.database.inbox.Request;
 import eu.nordtal.s2.database.inbox.Schedule;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
-import eu.nordtal.s2.messages.spec.MessageSchema;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.data.Data;
 import eu.nordtal.s2.steward.texts.RequestRefused;
@@ -61,22 +59,14 @@ final class Announcements {
     private final Function<Context, DiscordAuth.Account> accounts;
     private final Messages announced;
 
-    /** @param languages the network's, which the database bundle is loaded in for the list */
+    /** @param announced the database bundle in the network's languages, with the admins' overrides */
     Announcements(
             final @Nullable Data data,
             final Function<Context, DiscordAuth.Account> accounts,
-            final Languages languages) {
+            final Messages announced) {
         this.data = data;
         this.accounts = accounts;
-        this.announced = Messages.load(
-                Announcements.class.getClassLoader(),
-                "messages/" + MessageSchema.bundle(DatabaseMessages.class),
-                languages.locales());
-    }
-
-    /** Returns the bundle the list renders announcements in, which the overrides are layered on. */
-    Messages messages() {
-        return announced;
+        this.announced = Objects.requireNonNull(announced, "announced");
     }
 
     private Inbox<BotRequest> bot() {

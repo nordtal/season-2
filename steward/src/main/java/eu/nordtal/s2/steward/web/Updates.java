@@ -3,7 +3,6 @@ package eu.nordtal.s2.steward.web;
 import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 
 import eu.nordtal.s2.common.id.Actor;
-import eu.nordtal.s2.database.DatabaseText;
 import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.database.update.UpdateKind;
@@ -11,13 +10,11 @@ import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateStatus;
-import eu.nordtal.s2.messages.Refused;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.data.Data;
 import eu.nordtal.s2.steward.texts.RequestRefused;
 import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
-import io.javalin.http.ConflictResponse;
 import io.javalin.http.Context;
 import io.javalin.http.NotFoundResponse;
 import java.time.Duration;
@@ -94,8 +91,6 @@ final class Updates {
         final UpdateRequest written;
         try {
             written = data().updates().submit(kind, who.actor(), delay, ask.services);
-        } catch (final Refused refused) {
-            throw new ConflictResponse(DatabaseText.english(refused.refusal().message()));
         } catch (final IllegalArgumentException named) {
             // A restore and a plugin removal carry more than services and have routes of their own.
             throw new BadRequestResponse(named.getMessage());

@@ -5,7 +5,10 @@ import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.database.inbox.HungerGamesRequest;
+import eu.nordtal.s2.database.inbox.ServerRefusal;
 import eu.nordtal.s2.database.inbox.SmpRequest;
+import eu.nordtal.s2.messages.Refusal;
+import eu.nordtal.s2.messages.Refused;
 import eu.nordtal.s2.steward.texts.RequestRefused;
 import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
@@ -20,6 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 
@@ -115,7 +119,11 @@ final class GameActions {
         return at == null ? null : at.toInstant();
     }
 
-    /** {@code POST /api/smp/objective} with {@code {key}}, an open objective of the active milestone. */
+    /**
+     * {@code POST /api/smp/objective} with {@code {key}}, an open objective of the active milestone.
+     *
+     * A stale key is refused at once, with the reason and the words the SMP's own refusal carries.
+     */
     void completeObjective(final Context ctx) {
         final String key = key(ctx);
         if (!exists("""
@@ -123,7 +131,10 @@ final class GameActions {
                          JOIN smp_milestone milestone ON milestone.key = objective.milestone_key
                 WHERE milestone.state = 'ACTIVE' AND objective.key = ? AND objective.completed IS NULL
                 """, key)) {
-            throw new BadRequestResponse(key + " is not an open objective of the active milestone.");
+            throw refused(
+                    activeMilestone().isEmpty()
+                            ? ServerRefusal.NO_ACTIVE_MILESTONE.with()
+                            : ServerRefusal.NO_SUCH_OBJECTIVE.with(key));
         }
         answer(
                 ctx,
@@ -134,11 +145,15 @@ final class GameActions {
                         TEXTS.journal().completeObjective(key)));
     }
 
-    /** {@code POST /api/smp/milestone} with {@code {key}}, the active milestone. */
+    /** {@code POST /api/smp/milestone} with {@code {key}}, the active milestone, refused as the SMP refuses it. */
     void unlockMilestone(final Context ctx) {
         final String key = key(ctx);
-        if (!exists("SELECT 1 FROM smp_milestone WHERE state = 'ACTIVE' AND key = ?", key)) {
-            throw new BadRequestResponse(key + " is not the active milestone.");
+        final Optional<String> active = activeMilestone();
+        if (active.isEmpty()) {
+            throw refused(ServerRefusal.NO_ACTIVE_MILESTONE.with());
+        }
+        if (!active.get().equals(key)) {
+            throw refused(ServerRefusal.MILESTONE_NOT_ACTIVE.with(key, active.get()));
         }
         answer(
                 ctx,
@@ -147,6 +162,10 @@ final class GameActions {
                         new SmpRequest.UnlockMilestone(key),
                         JournalAction.UNLOCK_MILESTONE,
                         TEXTS.journal().unlockMilestone(key)));
+    }
+
+    private static Refused refused(final Refusal refusal) {
+        return new Refused(refusal.reason(), refusal.message());
     }
 
     /**
@@ -213,6 +232,17 @@ final class GameActions {
             throw new BadRequestResponse("key is the one to act on.");
         }
         return body.get("key").getAsString().trim();
+    }
+
+    private Optional<String> activeMilestone() {
+        try (Connection connection = dataSource().getConnection();
+                PreparedStatement statement =
+                        connection.prepareStatement("SELECT key FROM smp_milestone WHERE state = 'ACTIVE'");
+                ResultSet rows = statement.executeQuery()) {
+            return rows.next() ? Optional.of(rows.getString("key")) : Optional.empty();
+        } catch (final SQLException failure) {
+            throw new IllegalStateException("could not read the SMP's track", failure);
+        }
     }
 
     private boolean exists(final String sql, final String parameter) {

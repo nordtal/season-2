@@ -445,14 +445,9 @@ public final class StackApi implements AutoCloseable {
         if (body == null || !replaces.equals(body.confirm)) {
             throw new io.javalin.http.BadRequestResponse("type " + replaces + " to confirm what this restore replaces");
         }
-        final eu.nordtal.s2.database.update.UpdateRequest written;
-        try {
-            written = updates.submit(
-                    new eu.nordtal.s2.database.inbox.StewardRequest.Restore(List.of(), name), actor, Duration.ZERO);
-        } catch (final eu.nordtal.s2.messages.Refused refused) {
-            throw new io.javalin.http.ConflictResponse(eu.nordtal.s2.database.DatabaseText.english(
-                    refused.refusal().message()));
-        }
+        // A refused write reaches the error handler, which words it with the admins' overrides.
+        final eu.nordtal.s2.database.update.UpdateRequest written = updates.submit(
+                new eu.nordtal.s2.database.inbox.StewardRequest.Restore(List.of(), name), actor, Duration.ZERO);
         log.info("restore of {} asked for as request {}", name, written.id());
         ctx.status(202).json(new RestoreAsked(written.id(), written.kind(), name));
     }

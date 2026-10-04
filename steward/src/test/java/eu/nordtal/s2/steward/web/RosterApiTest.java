@@ -9,11 +9,14 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.DatabaseMessages;
+import eu.nordtal.s2.database.DatabaseText;
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.Schedule;
+import eu.nordtal.s2.database.inbox.ServerRefusal;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.Refusal;
 import eu.nordtal.s2.messages.context.MilestoneContext;
 import java.net.http.HttpResponse;
 import java.time.Duration;
@@ -113,12 +116,17 @@ class RosterApiTest extends WebTestSupport {
             assertEquals(1, byKey.get("t-later").getAsJsonArray("objectives").size(), track.toString());
             assertEquals(0, byKey.get("t-done").getAsJsonArray("objectives").size(), track.toString());
 
-            assertEquals(400, post("/api/smp/objective", "{\"key\":\"t-coal\"}").statusCode());
-            assertEquals(400, post("/api/smp/objective", "{\"key\":\"t-gold\"}").statusCode());
+            assertRefused(
+                    post("/api/smp/objective", "{\"key\":\"t-coal\"}"), ServerRefusal.NO_SUCH_OBJECTIVE.with("t-coal"));
+            assertRefused(
+                    post("/api/smp/objective", "{\"key\":\"t-gold\"}"), ServerRefusal.NO_SUCH_OBJECTIVE.with("t-gold"));
             assertEquals(400, post("/api/smp/objective", "{}").statusCode());
-            assertEquals(
-                    400, post("/api/smp/milestone", "{\"key\":\"t-later\"}").statusCode());
-            assertEquals(400, post("/api/smp/milestone", "{\"key\":\"t-done\"}").statusCode());
+            assertRefused(
+                    post("/api/smp/milestone", "{\"key\":\"t-later\"}"),
+                    ServerRefusal.MILESTONE_NOT_ACTIVE.with("t-later", "t-open"));
+            assertRefused(
+                    post("/api/smp/milestone", "{\"key\":\"t-done\"}"),
+                    ServerRefusal.MILESTONE_NOT_ACTIVE.with("t-done", "t-open"));
 
             assertRow(
                     post("/api/smp/objective", "{\"key\":\"t-iron\"}"),
@@ -270,5 +278,13 @@ class RosterApiTest extends WebTestSupport {
             assertTrue(rows.next());
             return rows.getLong(1);
         }
+    }
+
+    /** A stale key is refused as the SMP refuses it: 409, its reason, and the database bundle's sentence. */
+    private static void assertRefused(final HttpResponse<String> answer, final Refusal refusal) {
+        assertEquals(409, answer.statusCode(), answer.body());
+        final JsonObject body = GSON.fromJson(answer.body(), JsonObject.class);
+        assertEquals(refusal.reason().name(), body.get("code").getAsString(), answer.body());
+        assertEquals(DatabaseText.english(refusal.message()), body.get("error").getAsString(), answer.body());
     }
 }

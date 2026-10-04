@@ -1,7 +1,7 @@
 package eu.nordtal.s2.steward.web;
 
 import com.google.gson.JsonObject;
-import eu.nordtal.s2.database.DatabaseText;
+import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.audit.JournalAction;
 import eu.nordtal.s2.database.inbox.BotRequest;
@@ -12,6 +12,7 @@ import eu.nordtal.s2.database.inbox.Request;
 import eu.nordtal.s2.database.inbox.Schedule;
 import eu.nordtal.s2.database.inbox.SmpRequest;
 import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.data.Data;
 import eu.nordtal.s2.steward.texts.RequestRefused;
@@ -43,10 +44,14 @@ final class CommandApi {
     private final @Nullable Data data;
 
     private final Function<Context, DiscordAuth.Account> accounts;
+    private final Messages refusals;
 
-    CommandApi(final @Nullable Data data, final Function<Context, DiscordAuth.Account> accounts) {
+    /** @param refusals the database bundle with the admins' overrides, which a server's refusal is worded in */
+    CommandApi(
+            final @Nullable Data data, final Function<Context, DiscordAuth.Account> accounts, final Messages refusals) {
         this.data = data;
         this.accounts = accounts;
+        this.refusals = Objects.requireNonNull(refusals, "refusals");
     }
 
     private Data data() {
@@ -113,10 +118,10 @@ final class CommandApi {
      *
      * A refusal also names its reason, which is what the browser branches on.
      */
-    private static <P> CommandRun settled(final Inbox<P> inbox, final String name, final long id) {
+    private <P> CommandRun settled(final Inbox<P> inbox, final String name, final long id) {
         final Request<P> row = inbox.find(id).orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(name)));
         final Optional<String> result = row.status() == InboxStatus.REFUSED
-                ? row.refusal().map(refusal -> DatabaseText.english(refusal.message()))
+                ? row.refusal().map(refusal -> refusals.format(Locales.DEFAULT, refusal.message()))
                 : row.status() == InboxStatus.DONE ? row.outcome(String.class) : failure(row);
         return new CommandRun(
                 name,

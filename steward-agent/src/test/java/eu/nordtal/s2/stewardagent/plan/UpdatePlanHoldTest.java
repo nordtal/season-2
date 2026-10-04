@@ -1,5 +1,6 @@
 package eu.nordtal.s2.stewardagent.plan;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -21,7 +22,13 @@ class UpdatePlanHoldTest {
     }
 
     private static UpdatePlan planOf(final List<Change> changes, final List<UpdatePlan.Unclaimed> unclaimed) {
-        return new UpdatePlan(Instant.EPOCH, "v0.2.0", false, changes, unclaimed, List.of("a note"));
+        return new UpdatePlan(
+                Instant.EPOCH,
+                "v0.2.0",
+                false,
+                changes,
+                unclaimed,
+                List.of(TEXTS.report().words("a note")));
     }
 
     @Test

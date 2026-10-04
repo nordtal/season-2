@@ -1,5 +1,6 @@
 package eu.nordtal.s2.stewardagent.apply;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -69,7 +70,7 @@ class ApplierTest {
                                 Change.Status.NOT_IN_RELEASE,
                                 "smp-0.9.5.jar",
                                 null,
-                                "release v0.9.5 carries no smp-<version>.jar"),
+                                TEXTS.report().releaseWithoutJar("v0.9.5", "smp")),
                         outdated(
                                 "smp",
                                 "packetevents",
@@ -213,7 +214,7 @@ class ApplierTest {
                 new Fake(),
                 plan(
                         outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar"),
-                        Change.unresolved("smp", "packetevents", "Modrinth: connect timed out")));
+                        Change.unresolved("smp", "packetevents", TEXTS.report().words("Modrinth: connect timed out"))));
 
         // DisplayTags and PacketEvents are both required under smp; a partial swap here fails to start.
         assertTrue(Files.exists(volumes.resolve("smp/plugins/smp-0.1.0.jar")));
@@ -232,7 +233,8 @@ class ApplierTest {
                 new Fake(),
                 plan(
                         outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar"),
-                        Change.unsupported("smp", "coreprotect", "no stable release for this platform")));
+                        Change.unsupported(
+                                "smp", "coreprotect", TEXTS.report().words("no stable release for this platform"))));
 
         assertTrue(Files.exists(volumes.resolve("smp/plugins/smp-0.2.0.jar")));
         assertEquals(ApplyResult.Status.DONE, outcome(result, "smp", "smp").status());
@@ -256,7 +258,7 @@ class ApplierTest {
                 new Fake(),
                 plan(
                         outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar"),
-                        Change.unresolved("smp", "paper", "PaperMC Fill: connect timed out")));
+                        Change.unresolved("smp", "paper", TEXTS.report().words("PaperMC Fill: connect timed out"))));
 
         assertTrue(Files.exists(volumes.resolve("smp/plugins/smp-0.2.0.jar")));
         assertFalse(Files.exists(volumes.resolve("smp/plugins/smp-0.1.0.jar")));
@@ -325,7 +327,7 @@ class ApplierTest {
                         Change.Status.MOUNT_MISSING,
                         null,
                         remote("smp", "smp-0.2.0.jar"),
-                        "/volumes/smp is not mounted in this container")));
+                        TEXTS.report().notMounted("/volumes/smp"))));
 
         assertEquals(ApplyResult.Status.SKIPPED, outcome(result, "smp", "smp").status());
         assertFalse(result.changedAnything());
@@ -338,7 +340,7 @@ class ApplierTest {
         final ApplyResult result = apply(
                 new Fake(),
                 plan(
-                        Change.unresolved("smp", "packetevents", "Modrinth: connect timed out"),
+                        Change.unresolved("smp", "packetevents", TEXTS.report().words("Modrinth: connect timed out")),
                         new Change(
                                 "smp",
                                 "smp",
@@ -360,7 +362,8 @@ class ApplierTest {
     void b4ABootstrapWhoseSeasonJarIsUnresolvedInstallsNothingForThatServer() {
         // A resolved plugin next to an unresolved season jar must not let the entrypoint start on a partial install.
         final UpdatePlan bootstrap = plan(
-                        Change.unresolved("smp", "smp", "could not read nordtal/season-2@latest: HTTP 403"),
+                        Change.unresolved(
+                                "smp", "smp", TEXTS.report().words("could not read nordtal/season-2@latest: HTTP 403")),
                         new Change(
                                 "smp",
                                 "packetevents",
@@ -400,7 +403,10 @@ class ApplierTest {
         final ApplyResult result = apply(
                 new Fake(),
                 plan(
-                        Change.unresolved("proxy", Topology.RESOURCE_PACK, "the release published no .sha1 asset"),
+                        Change.unresolved(
+                                "proxy",
+                                Topology.RESOURCE_PACK,
+                                TEXTS.report().words("the release published no .sha1 asset")),
                         outdated("proxy", "proxy", "proxy-0.1.0.jar", "proxy-0.2.0.jar")));
 
         assertTrue(
@@ -423,7 +429,7 @@ class ApplierTest {
         final ApplyResult result = apply(
                 new Fake(),
                 plan(
-                        Change.unresolved("proxy", "proxy", "GitHub answered 403"),
+                        Change.unresolved("proxy", "proxy", TEXTS.report().words("GitHub answered 403")),
                         new Change("proxy", Topology.RESOURCE_PACK, Change.Status.UP_TO_DATE, "abc123", null, null)));
 
         final ApplyResult.Outcome pack = outcome(result, "proxy", Topology.RESOURCE_PACK);

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.stewardagent.plan;
 
+import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.stewardagent.source.RemoteFile;
 import org.jspecify.annotations.Nullable;
 
@@ -9,7 +10,7 @@ import org.jspecify.annotations.Nullable;
  * @param service the compose service, or {@code null} for the bot's jar and the resource pack
  * @param installed what is there now: a jar's filename or the pack's short SHA-1; {@code null} when nothing is
  * @param wanted what the sources say is newest; {@code null} when a source could not be reached
- * @param note a sentence for a person, present exactly when the status needs explaining
+ * @param reason why, present exactly when the status needs explaining
  */
 public record Change(
         @Nullable String service,
@@ -17,7 +18,7 @@ public record Change(
         Status status,
         @Nullable String installed,
         @Nullable RemoteFile wanted,
-        @Nullable String note) {
+        @Nullable MessageRef reason) {
 
     public enum Status {
         /** What is installed is what the source says is newest. */
@@ -52,14 +53,14 @@ public record Change(
         }
     }
 
-    public static Change unresolved(final @Nullable String service, final String artifact, final String why) {
+    public static Change unresolved(final @Nullable String service, final String artifact, final MessageRef why) {
         return new Change(service, artifact, Status.UNRESOLVED, null, null, why);
     }
 
     /**
      * No build of this artefact exists for the network's Minecraft version; a hand-installed jar shows as unclaimed.
      */
-    public static Change unsupported(final @Nullable String service, final String artifact, final String why) {
+    public static Change unsupported(final @Nullable String service, final String artifact, final MessageRef why) {
         return new Change(service, artifact, Status.UNSUPPORTED, null, null, why);
     }
 }

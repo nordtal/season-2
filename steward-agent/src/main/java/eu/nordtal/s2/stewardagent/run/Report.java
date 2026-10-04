@@ -1,5 +1,7 @@
 package eu.nordtal.s2.stewardagent.run;
 
+import eu.nordtal.s2.database.DatabaseText;
+import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.stewardagent.apply.ApplyResult;
 import eu.nordtal.s2.stewardagent.plan.Change;
 import eu.nordtal.s2.stewardagent.plan.Installation;
@@ -91,11 +93,12 @@ public final class Report {
                         .append(detail.isEmpty() ? label(change) : pad(label(change), LABEL_WIDTH))
                         .append(detail)
                         .append('\n');
-                if (change.note() != null && !change.note().equals(shared)) {
+                final String note = english(change);
+                if (note != null && !note.equals(shared)) {
                     out.append(INDENT)
                             .append(INDENT)
                             .append(pad("", width))
-                            .append(noteText(change.note(), footnotes))
+                            .append(noteText(note, footnotes))
                             .append('\n');
                 }
             }
@@ -138,8 +141,9 @@ public final class Report {
     private static Map<String, Integer> footnotesOf(final UpdatePlan plan) {
         final Map<String, Integer> counts = new LinkedHashMap<>();
         for (final Change change : plan.changes()) {
-            if (change.note() != null) {
-                counts.merge(change.note(), 1, Integer::sum);
+            final String note = english(change);
+            if (note != null) {
+                counts.merge(note, 1, Integer::sum);
             }
         }
         final Map<String, Integer> numbered = new LinkedHashMap<>();
@@ -240,11 +244,11 @@ public final class Report {
 
     /** The note every row in a group shares, or {@code null} when they do not all share one. */
     private static @Nullable String sharedNote(final List<Change> changes) {
-        final String first = changes.getFirst().note();
+        final String first = english(changes.getFirst());
         if (first == null || changes.size() < 2) {
             return null;
         }
-        return changes.stream().allMatch(change -> first.equals(change.note())) ? first : null;
+        return changes.stream().allMatch(change -> first.equals(english(change))) ? first : null;
     }
 
     /** What a row is compared on: the filename for a jar, the hash for the pack. */
@@ -293,5 +297,11 @@ public final class Report {
 
     private static String pad(final String value, final int width) {
         return value.length() >= width ? value : value + " ".repeat(width - value.length());
+    }
+
+    /** A row's reason in English, as this plain text is read; {@code null} when it has none. */
+    private static @Nullable String english(final Change change) {
+        final MessageRef reason = change.reason();
+        return reason == null ? null : DatabaseText.english(reason);
     }
 }

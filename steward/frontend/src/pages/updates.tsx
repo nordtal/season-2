@@ -7,7 +7,7 @@ import { toast } from "sonner"
 import type { AvailableChange, ConfigChanges, Run } from "@/lib/api"
 import { ApiError } from "@/lib/api"
 import { LOCALE, count, dateTime, relative } from "@/lib/format"
-import { t } from "@/lib/texts"
+import { message, t } from "@/lib/texts"
 import { versionJump } from "@/lib/version-jump"
 import { useAvailable, useRefreshAvailable, useRuns, useSaveConfig, useSchedule } from "@/lib/queries"
 import { ScalarControl } from "@/components/steward/config-controls"
@@ -139,7 +139,7 @@ function worthShowing(changes: AvailableChange[]): AvailableChange[] {
 /**
  * One row's change in as few characters as possible, or `nothing → 1.6.0` for a fresh volume.
  *
- * An artefact with no pair gets a dash, with its long note as the title.
+ * An artefact with no pair gets a dash, with its reason as the title.
  */
 function Jump({ change }: { change: AvailableChange }) {
   const jump = versionJump(change.installed, change.fileName, change.version)
@@ -150,7 +150,7 @@ function Jump({ change }: { change: AvailableChange }) {
     return <Pair from={t("steward.updates.nothing")} to={wanted} exact={change.version !== undefined} />
   }
   return (
-    <span className="text-xs" title={change.note}>
+    <span className="text-xs" title={change.reason ? message(change.reason) : undefined}>
       {change.installed ?? "\u2013"}
     </span>
   )
@@ -248,7 +248,7 @@ function Available() {
                   })}
                 </p>
               ) : null}
-              {plan ? <Notes notes={plan.notes} /> : null}
+              {plan ? <Notes notes={plan.notes.map(message)} /> : null}
             </>
           )
         }}

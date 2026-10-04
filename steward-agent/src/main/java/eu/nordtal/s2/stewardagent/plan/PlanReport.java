@@ -28,7 +28,7 @@ public final class PlanReport {
      */
     public static UpdateReport of(final UpdatePlan plan) {
         final Map<String, List<UpdateReport.Change>> work = new LinkedHashMap<>();
-        final Map<String, String> trouble = new LinkedHashMap<>();
+        final Map<String, MessageRef> trouble = new LinkedHashMap<>();
         final List<MessageRef> notes = classify(plan, work, trouble);
 
         UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED);
@@ -51,10 +51,9 @@ public final class PlanReport {
     private static List<MessageRef> classify(
             final UpdatePlan plan,
             final Map<String, List<UpdateReport.Change>> work,
-            final Map<String, String> trouble) {
+            final Map<String, MessageRef> trouble) {
         // The resolver's own notes first, as it worded them: this class draws, it does not decide.
-        final List<MessageRef> notes =
-                new ArrayList<>(plan.notes().stream().map(TEXTS.report()::words).toList());
+        final List<MessageRef> notes = new ArrayList<>(plan.notes());
 
         for (final Change change : plan.changes()) {
             if (change.service() == null) {
@@ -87,7 +86,7 @@ public final class PlanReport {
     private static UpdateReport.ServiceLine serviceLine(
             final String service,
             final List<UpdateReport.Change> changes,
-            final @Nullable String why,
+            final @Nullable MessageRef why,
             final UpdatePlan plan) {
         if (why != null && plan.blocker(service) != null) {
             // The run skips a service it could not trust, so nothing on its line may read as moving.
@@ -101,12 +100,11 @@ public final class PlanReport {
                     changes.stream()
                             .filter(row -> row.state() != UpdateReport.Change.State.MOVING)
                             .toList(),
-                    held.isEmpty() ? TEXTS.report().words(why) : TEXTS.report().heldBack(why, held));
+                    held.isEmpty() ? why : TEXTS.report().heldBack(why, held));
         }
         if (why != null) {
             // An unchecked server jar stays in .server/ and the plugins beside it still move.
-            return new UpdateReport.ServiceLine(
-                    service, UpdateReport.State.FAILED, changes, TEXTS.report().words(why));
+            return new UpdateReport.ServiceLine(service, UpdateReport.State.FAILED, changes, why);
         }
         // PLANNED means stopped and written into; a service with only no-build artefacts is UNCHANGED.
         final boolean moving = changes.stream().anyMatch(row -> row.state() == UpdateReport.Change.State.MOVING);
@@ -131,7 +129,7 @@ public final class PlanReport {
         return change.wanted() == null ? "?" : change.wanted().version();
     }
 
-    private static String reason(final Change change) {
-        return change.note() == null ? change.status().name() : change.note();
+    private static MessageRef reason(final Change change) {
+        return change.reason() == null ? TEXTS.report().words(change.status().name()) : change.reason();
     }
 }

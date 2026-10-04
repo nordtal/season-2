@@ -328,7 +328,7 @@ export type Available = {
   hasFailures: boolean
   changes: AvailableChange[]
   unclaimed: Unclaimed[]
-  notes: string[]
+  notes: MessageRef[]
 }
 
 export type Action = {
@@ -678,7 +678,7 @@ export type AvailableChange = {
   installed?: string
   version?: string
   fileName?: string
-  note?: string
+  reason?: MessageRef
 }
 
 export type Unclaimed = {

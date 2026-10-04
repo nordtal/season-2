@@ -1,5 +1,6 @@
 package eu.nordtal.s2.stewardagent.run;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -63,7 +64,7 @@ class ReportTest {
                 Instant.EPOCH,
                 "v0.2.1",
                 false,
-                List.of(Change.unresolved("smp", "packetevents", "Modrinth answered 503")),
+                List.of(Change.unresolved("smp", "packetevents", TEXTS.report().words("Modrinth answered 503"))),
                 List.of(),
                 List.of());
 
@@ -81,7 +82,10 @@ class ReportTest {
                 false,
                 List.of(
                         new Change("smp", "smp", Change.Status.UP_TO_DATE, "smp-0.7.1.jar", null, null),
-                        Change.unsupported("smp", "coreprotect", "no stable release is tagged for this platform")),
+                        Change.unsupported(
+                                "smp",
+                                "coreprotect",
+                                TEXTS.report().words("no stable release is tagged for this platform"))),
                 List.of(),
                 List.of());
 
@@ -99,12 +103,14 @@ class ReportTest {
     private static UpdatePlan githubIsDown() {
         final List<Change> changes = new ArrayList<>();
         for (final String service : List.of("proxy", "limbo", "hunger-games", "smp")) {
-            changes.add(Change.unresolved(service, service, GITHUB_403));
+            changes.add(Change.unresolved(service, service, TEXTS.report().words(GITHUB_403)));
         }
-        changes.add(Change.unresolved("proxy", Topology.RESOURCE_PACK, GITHUB_403));
-        changes.add(Change.unresolved("smp", "display-tags", GITHUB_403));
-        changes.add(Change.unresolved("discord-bot", "discord-bot", GITHUB_403));
-        changes.add(Change.unresolved("steward", "steward", GITHUB_403));
+        changes.add(Change.unresolved(
+                "proxy", Topology.RESOURCE_PACK, TEXTS.report().words(GITHUB_403)));
+        changes.add(Change.unresolved("smp", "display-tags", TEXTS.report().words(GITHUB_403)));
+        changes.add(
+                Change.unresolved("discord-bot", "discord-bot", TEXTS.report().words(GITHUB_403)));
+        changes.add(Change.unresolved("steward", "steward", TEXTS.report().words(GITHUB_403)));
         return new UpdatePlan(
                 Instant.EPOCH,
                 null,

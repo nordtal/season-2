@@ -1,6 +1,9 @@
 package eu.nordtal.s2.stewardagent.plan;
 
+import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
+import eu.nordtal.s2.messages.MessageJson;
+import eu.nordtal.s2.messages.MessageRef;
 import java.util.List;
 
 /** The whole resolve, flattened for the updates page; every row is carried with its status. */
@@ -23,7 +26,7 @@ public final class PlanView {
                         // Version for a person, filename for the comparison, since some files carry a suffix.
                         change.wanted() == null ? null : change.wanted().version(),
                         change.wanted() == null ? null : change.wanted().fileName(),
-                        change.note()))
+                        change.reason() == null ? null : wire(change.reason())))
                 .toList();
         return new AgentWire.Resolve(
                 plan.resolvedAt(),
@@ -35,6 +38,13 @@ public final class PlanView {
                 plan.unclaimed().stream()
                         .map(one -> new AgentWire.Unclaimed(one.service(), one.fileName()))
                         .toList(),
-                plan.notes());
+                plan.notes().stream().map(PlanView::wire).toList());
+    }
+
+    /** A message as the wire carries it: each value typed, as the message system writes it. */
+    static AgentWire.Message wire(final MessageRef message) {
+        return new AgentWire.Message(
+                message.key(),
+                Json.tree(Json.encode(MessageJson.encodeArgs(message.args()))).getAsJsonObject());
     }
 }

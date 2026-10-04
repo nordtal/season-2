@@ -1,6 +1,7 @@
 package eu.nordtal.s2.stewardagent.plan;
 
 import eu.nordtal.s2.internalapi.agent.Topology;
+import eu.nordtal.s2.messages.MessageRef;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -20,7 +21,7 @@ public record UpdatePlan(
         boolean seasonPrerelease,
         List<Change> changes,
         List<Unclaimed> unclaimed,
-        List<String> notes) {
+        List<MessageRef> notes) {
 
     public record Unclaimed(String service, String fileName) {}
 

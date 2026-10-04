@@ -433,7 +433,7 @@ export type TextArgs = {
     release: Arg["text"]
   }
   "report.held-back": {
-    reason: Arg["text"]
+    reason: Arg["message"]
     held: Arg["list"]
   }
   "report.held-down": {
@@ -449,8 +449,17 @@ export type TextArgs = {
     services: Arg["list"]
   }
   "report.no-backup-volumes": Record<string, never>
+  "report.no-build": {
+    artefact: Arg["text"]
+    minecraft: Arg["text"]
+    loader: Arg["text"]
+  }
   "report.no-container-to-start": Record<string, never>
   "report.no-container-to-stop": Record<string, never>
+  "report.no-database": Record<string, never>
+  "report.no-source": {
+    artefact: Arg["text"]
+  }
   "report.no-standby": {
     run: Arg["choice"]
   }
@@ -465,7 +474,7 @@ export type TextArgs = {
   }
   "report.not-in-release": {
     service: Arg["text"]
-    reason: Arg["text"]
+    reason: Arg["message"]
     installed: Arg["text"]
   }
   "report.not-installed": {
@@ -474,6 +483,9 @@ export type TextArgs = {
   }
   "report.not-migrated": {
     reason: Arg["text"]
+  }
+  "report.not-mounted": {
+    directory: Arg["text"]
   }
   "report.not-recreated": {
     outdated: Arg["choice"]
@@ -497,12 +509,17 @@ export type TextArgs = {
     version: Arg["text"]
   }
   "report.pack-unchecked": {
-    reason: Arg["text"]
+    reason: Arg["message"]
   }
   "report.players-unknown": {
     services: Arg["list"]
     seconds: Arg["number"]
   }
+  "report.proxy-pack-unread": {
+    error: Arg["text"]
+  }
+  "report.proxy-pack-without-sha-1": Record<string, never>
+  "report.proxy-without-pack": Record<string, never>
   "report.pruned": {
     daily: Arg["number"]
     weekly: Arg["number"]
@@ -512,6 +529,21 @@ export type TextArgs = {
   }
   "report.recreating": {
     pull: Arg["choice"]
+  }
+  "report.release-unread": {
+    repo: Arg["text"]
+    error: Arg["text"]
+  }
+  "report.release-without-jar": {
+    release: Arg["text"]
+    artefact: Arg["text"]
+  }
+  "report.release-without-pack": {
+    release: Arg["text"]
+  }
+  "report.release-without-sha-1": {
+    release: Arg["text"]
+    zip: Arg["text"]
   }
   "report.released-meanwhile": {
     release: Arg["text"]
@@ -560,6 +592,10 @@ export type TextArgs = {
   }
   "report.restored-over": {
     dump: Arg["text"]
+  }
+  "report.sha-1-unread": {
+    file: Arg["text"]
+    error: Arg["text"]
   }
   "report.standby-no-container": {
     standby: Arg["text"]
@@ -620,6 +656,10 @@ export type TextArgs = {
     services: Arg["list"]
     run: Arg["choice"]
     failsTheRun: Arg["choice"]
+  }
+  "report.velocity-ahead": {
+    version: Arg["text"]
+    api: Arg["text"]
   }
   "report.wait-interrupted": Record<string, never>
   "report.words": {

@@ -1,9 +1,12 @@
 package eu.nordtal.s2.stewardagent.plan;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import eu.nordtal.s2.common.Platform;
 import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.internalapi.agent.JarName;
 import eu.nordtal.s2.internalapi.agent.Topology;
+import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.stewardagent.config.RunSpec;
 import eu.nordtal.s2.stewardagent.source.Checksum;
 import eu.nordtal.s2.stewardagent.source.GitHubReleases;
@@ -72,10 +75,10 @@ public final class Resolver {
 
     public UpdatePlan resolve() {
         final Map<String, RemoteFile> newest = new LinkedHashMap<>();
-        final Map<String, String> failures = new HashMap<>();
+        final Map<String, MessageRef> failures = new HashMap<>();
         // Apart from `failures`: both mean no file, only a failure makes the report untrustworthy.
-        final Map<String, String> unsupported = new HashMap<>();
-        final List<String> notes = new ArrayList<>();
+        final Map<String, MessageRef> unsupported = new HashMap<>();
+        final List<MessageRef> notes = new ArrayList<>();
         // Season jars our release answered for without a file; the reason is an answer, not an outage.
         final Set<String> unreleased = new HashSet<>();
 
@@ -123,8 +126,8 @@ public final class Resolver {
     /** The fixed topology plus the plugins added in the interface; an unreadable database costs only the added rows. */
     private List<Topology.Service> mergeAddedPlugins(
             final Map<String, RemoteFile> newest,
-            final Map<String, String> failures,
-            final Map<String, String> unsupported) {
+            final Map<String, MessageRef> failures,
+            final Map<String, MessageRef> unsupported) {
         final List<eu.nordtal.s2.stewardagent.plugin.ManagedPlugin> added = readAdded();
         final List<Topology.Service> services =
                 eu.nordtal.s2.stewardagent.plugin.PluginDirectory.servicesWith(servers, added);
@@ -139,8 +142,8 @@ public final class Resolver {
             final List<Topology.Service> services,
             final Path root,
             final Map<String, RemoteFile> newest,
-            final Map<String, String> failures,
-            final Map<String, String> unsupported,
+            final Map<String, MessageRef> failures,
+            final Map<String, MessageRef> unsupported,
             final Set<String> unreleased,
             final List<Change> changes,
             final List<UpdatePlan.Unclaimed> unclaimed) {
@@ -171,8 +174,8 @@ public final class Resolver {
     /** Asks Modrinth once per artefact id for every added plugin, so one slug on two loaders is two questions. */
     private void resolveAdded(
             final Map<String, RemoteFile> newest,
-            final Map<String, String> failures,
-            final Map<String, String> unsupported,
+            final Map<String, MessageRef> failures,
+            final Map<String, MessageRef> unsupported,
             final List<eu.nordtal.s2.stewardagent.plugin.ManagedPlugin> added,
             final List<Topology.Service> services) {
         for (final Topology.Service service : services) {
@@ -199,15 +202,17 @@ public final class Resolver {
     }
 
     private GitHubReleases.@Nullable Release resolveSeason(
-            final Map<String, RemoteFile> newest, final Map<String, String> failures, final Set<String> unreleased) {
+            final Map<String, RemoteFile> newest,
+            final Map<String, MessageRef> failures,
+            final Set<String> unreleased) {
         final GitHubReleases.Release release;
         try {
             release = github.latest(config.seasonRepo());
         } catch (final IOException failed) {
             // Our own jars and the pack come from this one call, so one reason covers every row.
-            final String why =
-                    "could not read the latest release of " + config.seasonRepo() + ": " + failed.getMessage();
-            log.warn("Season release unresolved - {}", why);
+            final MessageRef why =
+                    TEXTS.report().releaseUnread(config.seasonRepo(), String.valueOf(failed.getMessage()));
+            log.warn("Season release unresolved - {}", failed.getMessage());
             Topology.SEASON_JARS.forEach(artifact -> failures.put(artifact, why));
             failures.put(Topology.RESOURCE_PACK, why);
             return null;
@@ -226,7 +231,7 @@ public final class Resolver {
 
         for (final String artifact : Topology.SEASON_JARS) {
             if (!newest.containsKey(artifact)) {
-                failures.put(artifact, "release " + release.tag() + " carries no " + artifact + "-<version>.jar");
+                failures.put(artifact, TEXTS.report().releaseWithoutJar(release.tag(), artifact));
                 unreleased.add(artifact);
             }
         }
@@ -239,7 +244,7 @@ public final class Resolver {
     private void resolvePackAsset(
             final GitHubReleases.Release release,
             final Map<String, RemoteFile> newest,
-            final Map<String, String> failures,
+            final Map<String, MessageRef> failures,
             final Set<String> unreleased) {
         GitHubReleases.Asset zip = null;
         GitHubReleases.Asset sha1 = null;
@@ -252,16 +257,13 @@ public final class Resolver {
         }
 
         if (zip == null) {
-            failures.put(Topology.RESOURCE_PACK, "release " + release.tag() + " carries no pack zip");
+            failures.put(Topology.RESOURCE_PACK, TEXTS.report().releaseWithoutPack(release.tag()));
             unreleased.add(Topology.RESOURCE_PACK);
             return;
         }
         if (sha1 == null) {
             // Refused, not worked around: the client gets URL and hash together and rejects a mismatch.
-            failures.put(
-                    Topology.RESOURCE_PACK,
-                    "release " + release.tag() + " carries " + zip.name() + " but no " + zip.name()
-                            + ".sha1 next to it - the client is sent both or neither");
+            failures.put(Topology.RESOURCE_PACK, TEXTS.report().releaseWithoutSha1(release.tag(), zip.name()));
             return;
         }
 
@@ -275,11 +277,13 @@ public final class Resolver {
                             zip.url(),
                             Checksum.sha1(github.readText(sha1))));
         } catch (final IOException failed) {
-            failures.put(Topology.RESOURCE_PACK, "could not read " + sha1.name() + ": " + failed.getMessage());
+            failures.put(
+                    Topology.RESOURCE_PACK,
+                    TEXTS.report().sha1Unread(sha1.name(), String.valueOf(failed.getMessage())));
         }
     }
 
-    private void resolveDisplayTags(final Map<String, RemoteFile> newest, final Map<String, String> failures) {
+    private void resolveDisplayTags(final Map<String, RemoteFile> newest, final Map<String, MessageRef> failures) {
         try {
             final GitHubReleases.Release release = github.latest(config.displayTagsRepo());
             GitHubReleases.Asset jar = null;
@@ -290,7 +294,8 @@ public final class Resolver {
                 }
             }
             if (jar == null) {
-                failures.put(Topology.DISPLAY_TAGS, "release " + release.tag() + " carries no jar");
+                failures.put(
+                        Topology.DISPLAY_TAGS, TEXTS.report().releaseWithoutJar(release.tag(), Topology.DISPLAY_TAGS));
                 return;
             }
             newest.put(
@@ -304,7 +309,7 @@ public final class Resolver {
         } catch (final IOException failed) {
             failures.put(
                     Topology.DISPLAY_TAGS,
-                    "could not read the latest release of " + config.displayTagsRepo() + ": " + failed.getMessage());
+                    TEXTS.report().releaseUnread(config.displayTagsRepo(), String.valueOf(failed.getMessage())));
         }
     }
 
@@ -313,8 +318,8 @@ public final class Resolver {
      */
     private void resolveModrinth(
             final Map<String, RemoteFile> newest,
-            final Map<String, String> failures,
-            final Map<String, String> unsupported,
+            final Map<String, MessageRef> failures,
+            final Map<String, MessageRef> unsupported,
             final String artifact,
             final String projectId,
             final String loader) {
@@ -326,18 +331,18 @@ public final class Resolver {
                             + " itself when one appears",
                     artifact,
                     Platform.MINECRAFT);
-            unsupported.put(artifact, none.getMessage());
+            unsupported.put(artifact, TEXTS.report().noBuild(artifact, Platform.MINECRAFT, loader));
         } catch (final IOException failed) {
-            failures.put(artifact, failed.getMessage());
+            failures.put(artifact, TEXTS.report().words(String.valueOf(failed.getMessage())));
         }
     }
 
     /** The newest stable build of {@link Platform#MINECRAFT}, an exact version rather than a family. */
-    private void resolvePaper(final Map<String, RemoteFile> newest, final Map<String, String> failures) {
+    private void resolvePaper(final Map<String, RemoteFile> newest, final Map<String, MessageRef> failures) {
         try {
             newest.put(Topology.PAPER, fill.newestStable(Topology.PAPER, Platform.MINECRAFT));
         } catch (final IOException failed) {
-            failures.put(Topology.PAPER, failed.getMessage());
+            failures.put(Topology.PAPER, TEXTS.report().words(String.valueOf(failed.getMessage())));
         }
     }
 
@@ -347,19 +352,18 @@ public final class Resolver {
      * Moving past {@link Platform#VELOCITY_API} is noted, not refused.
      */
     private void resolveVelocity(
-            final Map<String, RemoteFile> newest, final Map<String, String> failures, final List<String> notes) {
+            final Map<String, RemoteFile> newest,
+            final Map<String, MessageRef> failures,
+            final List<MessageRef> notes) {
         try {
             final String version = fill.newestStableVersion(Topology.VELOCITY, Platform.VELOCITY_FAMILY);
             newest.put(Topology.VELOCITY, fill.newestStable(Topology.VELOCITY, version));
 
             if (!Platform.VELOCITY_API.equals(version)) {
-                notes.add("the proxy resolves to Velocity " + version + ", and proxy is"
-                        + " compiled against " + Platform.VELOCITY_API + " - a plugin running on an"
-                        + " API it was not built for. Nothing is blocked; the fix is one line in"
-                        + " gradle/libs.versions.toml and a release.");
+                notes.add(TEXTS.report().velocityAhead(version, Platform.VELOCITY_API));
             }
         } catch (final IOException failed) {
-            failures.put(Topology.VELOCITY, failed.getMessage());
+            failures.put(Topology.VELOCITY, TEXTS.report().words(String.valueOf(failed.getMessage())));
         }
     }
 
@@ -368,18 +372,19 @@ public final class Resolver {
             final String artifact,
             final Installation installed,
             final Map<String, RemoteFile> newest,
-            final Map<String, String> failures,
-            final Map<String, String> unsupported,
+            final Map<String, MessageRef> failures,
+            final Map<String, MessageRef> unsupported,
             final Set<String> unreleased,
             final Set<String> claimed) {
         final RemoteFile wanted = newest.get(artifact);
         if (wanted == null) {
-            final String none = unsupported.get(artifact);
+            final MessageRef none = unsupported.get(artifact);
             if (none != null) {
                 // Claims nothing on disk, so a hand-installed jar shows up in UpdatePlan#unclaimed.
                 return Change.unsupported(service, artifact, none);
             }
-            final String why = failures.getOrDefault(artifact, "no source answered for this artefact");
+            final MessageRef why =
+                    failures.getOrDefault(artifact, TEXTS.report().noSource(artifact));
             final Installation.Jar kept =
                     unreleased.contains(artifact) && installed.mounted() ? installed.withPrefix(artifact) : null;
             if (kept != null) {
@@ -401,7 +406,7 @@ public final class Resolver {
                     Change.Status.MOUNT_MISSING,
                     null,
                     wanted,
-                    installed.directory() + " is not mounted in this container");
+                    TEXTS.report().notMounted(installed.directory().toString()));
         }
 
         final Installation.Jar present = installed.matching(wanted.fileName());
@@ -415,23 +420,28 @@ public final class Resolver {
     }
 
     private Change resolvePack(
-            final Map<String, RemoteFile> newest, final Map<String, String> failures, final Set<String> unreleased) {
+            final Map<String, RemoteFile> newest,
+            final Map<String, MessageRef> failures,
+            final Set<String> unreleased) {
         final RemoteFile wanted = newest.get(Topology.RESOURCE_PACK);
-        final String why = failures.getOrDefault(Topology.RESOURCE_PACK, "no source answered for the pack");
+        final MessageRef why =
+                failures.getOrDefault(Topology.RESOURCE_PACK, TEXTS.report().noSource(Topology.RESOURCE_PACK));
         if (wanted == null && !unreleased.contains(Topology.RESOURCE_PACK)) {
             return Change.unresolved(Topology.PROXY, Topology.RESOURCE_PACK, why);
         }
 
         if (settings == null) {
             return Change.unresolved(
-                    Topology.PROXY, Topology.RESOURCE_PACK, "no database, so what the proxy sends is unknown");
+                    Topology.PROXY, Topology.RESOURCE_PACK, TEXTS.report().noDatabase());
         }
         final PackState state;
         try {
             state = PackState.read(settings);
         } catch (final RuntimeException failed) {
             return Change.unresolved(
-                    Topology.PROXY, Topology.RESOURCE_PACK, "could not read the proxy's pack: " + failed.getMessage());
+                    Topology.PROXY,
+                    Topology.RESOURCE_PACK,
+                    TEXTS.report().proxyPackUnread(String.valueOf(failed.getMessage())));
         }
 
         if (wanted == null) {
@@ -454,7 +464,9 @@ public final class Resolver {
                     Change.Status.MISSING,
                     null,
                     wanted,
-                    state.url() == null ? "the proxy has no pack yet" : "the proxy's pack has no sha1");
+                    state.url() == null
+                            ? TEXTS.report().proxyWithoutPack()
+                            : TEXTS.report().proxyPackWithoutSha1());
         }
 
         // The hash is the identity, compared case-insensitively since a typed hash may differ in case.

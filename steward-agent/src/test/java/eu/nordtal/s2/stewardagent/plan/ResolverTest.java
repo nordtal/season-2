@@ -105,7 +105,9 @@ class ResolverTest {
                 changeFor(plan, "proxy", "velocity").wanted().fileName());
 
         assertEquals(1, plan.notes().size(), "expected exactly one note: " + plan.notes());
-        final String note = plan.notes().getFirst();
+        // A key with typed values, so every surface words it in its reader's language and target.
+        assertEquals("report.velocity-ahead", plan.notes().getFirst().key());
+        final String note = Told.english(plan.notes().getFirst());
         assertTrue(note.contains("4.3.0") && note.contains(Platform.VELOCITY_API), note);
         assertTrue(
                 Told.notes(PlanReport.of(plan)).contains(note),
@@ -176,7 +178,7 @@ class ResolverTest {
         assertEquals(Change.Status.UNSUPPORTED, change.status());
         assertNull(change.wanted());
         assertNull(change.installed());
-        assertNotNull(change.note());
+        assertNotNull(change.reason());
 
         // Distinct from UNRESOLVED: a failure row skips the whole service, so a missing build must not read as one.
         assertFalse(change.status().isFailure(), Report.render(plan));
@@ -325,8 +327,11 @@ class ResolverTest {
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "smp", "packetevents"));
         // A 404 is not an outage: it is a repository with no published release, and the message has to say so.
         final Change change = changeFor(plan, "smp", "smp");
-        assertNotNull(change.note());
-        assertTrue(change.note().contains("not published") || change.note().contains("404"), change.note());
+        assertNotNull(change.reason());
+        assertTrue(
+                Told.english(change.reason()).contains("not published")
+                        || Told.english(change.reason()).contains("404"),
+                Told.english(change.reason()));
     }
 
     @Test
@@ -377,8 +382,9 @@ class ResolverTest {
         final Change change = changeFor(resolve(), "proxy", "resource-pack");
 
         assertEquals(Change.Status.MISSING, change.status());
-        assertNotNull(change.note());
-        assertTrue(change.note().contains("no pack yet"), change.note());
+        assertNotNull(change.reason());
+        assertEquals("report.proxy-without-pack", change.reason().key());
+        assertTrue(Told.english(change.reason()).contains("no pack yet"), Told.english(change.reason()));
     }
 
     @Test
@@ -390,8 +396,8 @@ class ResolverTest {
 
         // MISSING would make a bootstrap install it, which needs the very database that is not there.
         assertEquals(Change.Status.UNRESOLVED, change.status());
-        assertNotNull(change.note());
-        assertTrue(change.note().contains("no database"), change.note());
+        assertNotNull(change.reason());
+        assertTrue(Told.english(change.reason()).contains("no database"), Told.english(change.reason()));
     }
 
     @Test
@@ -427,8 +433,8 @@ class ResolverTest {
         final Change pack = changeFor(resolve(), "proxy", "resource-pack");
 
         assertEquals(Change.Status.UNRESOLVED, pack.status());
-        assertNotNull(pack.note());
-        assertTrue(pack.note().contains("carries no pack zip"), pack.note());
+        assertNotNull(pack.reason());
+        assertTrue(Told.english(pack.reason()).contains("carries no pack zip"), Told.english(pack.reason()));
     }
 
     @Test
@@ -442,8 +448,8 @@ class ResolverTest {
         final Change change = changeFor(resolve(), "limbo", "limbo");
 
         assertEquals(Change.Status.MOUNT_MISSING, change.status());
-        assertNotNull(change.note());
-        assertTrue(change.note().contains("not mounted"), change.note());
+        assertNotNull(change.reason());
+        assertTrue(Told.english(change.reason()).contains("not mounted"), Told.english(change.reason()));
     }
 
     @Test

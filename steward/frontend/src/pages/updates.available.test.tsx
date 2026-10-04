@@ -178,7 +178,11 @@ describe("the available card", () => {
           hasFailures: true,
           changes: [
             change({ artifact: "smp", status: "UP_TO_DATE", installed: "smp-0.9.1.jar" }),
-            change({ artifact: "packetevents", status: "UNRESOLVED", note: "modrinth timed out" }),
+            change({
+              artifact: "packetevents",
+              status: "UNRESOLVED",
+              reason: { key: "report.words", args: { text: { kind: "text", value: "modrinth timed out" } } },
+            }),
           ],
         }),
       ).fetch,
@@ -221,7 +225,14 @@ describe("the available card", () => {
             change({
               artifact: "coreprotect",
               status: "UNSUPPORTED",
-              note: "Modrinth coreprotect for 26.2/paper: no stable release is tagged for this platform.",
+              reason: {
+                key: "report.no-build",
+                args: {
+                  artefact: { kind: "text", value: "coreprotect" },
+                  minecraft: { kind: "text", value: "26.2" },
+                  loader: { kind: "text", value: "paper" },
+                },
+              },
             }),
           ],
         }),
@@ -232,8 +243,11 @@ describe("the available card", () => {
     await screen.findByText("coreprotect")
     expect(screen.getByText("unsupported")).toBeTruthy()
     expect(screen.queryByText(/incomplete/)).toBeNull()
-    /** The note belongs in the title and the badge, not in a table cell. */
-    expect(screen.queryByText(/no stable release/)).toBeNull()
+    /** The reason belongs in the title and the badge, not in a table cell. */
+    expect(screen.queryByText(/no stable build/)).toBeNull()
+    expect(
+      document.querySelector('[title^="coreprotect has no stable build for Minecraft 26.2 on paper"]'),
+    ).toBeTruthy()
   })
 
   it("says how old the reading is", async () => {

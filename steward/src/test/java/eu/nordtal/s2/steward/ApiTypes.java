@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.annotations.SerializedName;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.id.PlayerId;
+import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.messages.MessageRef;
 import java.io.IOException;
 import java.lang.reflect.AnnotatedArrayType;
@@ -209,7 +210,7 @@ public final class ApiTypes {
         if (type == Optional.class) {
             throw new IllegalStateException("Optional has no wire shape; a @Nullable component is an absent field");
         }
-        if (type == MessageRef.class) {
+        if (type == MessageRef.class || type == AgentWire.Message.class) {
             return "MessageRef";
         }
         if (type == JsonObject.class) {

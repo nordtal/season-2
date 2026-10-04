@@ -20,6 +20,7 @@ import eu.nordtal.s2.messages.spec.MessageSpec;
 import eu.nordtal.s2.messages.spec.MessageSpecs;
 import eu.nordtal.s2.messages.spec.Name;
 import eu.nordtal.s2.messages.spec.TextFormat;
+import eu.nordtal.s2.messages.value.Example;
 import eu.nordtal.s2.messages.value.Mention;
 import eu.nordtal.s2.messages.value.Money;
 import java.time.Duration;
@@ -648,17 +649,60 @@ public interface AdminTexts {
         MessageRef packMoves(@Arg("version") String version);
 
         @Name("The resource pack not checked")
-        MessageRef packUnchecked(@Arg("reason") String reason);
+        MessageRef packUnchecked(@Arg("reason") @Example("report.no-database") MessageRef reason);
 
         @Name("Not in the release")
         MessageRef notInRelease(
-                @Arg("service") String service, @Arg("reason") String reason, @Arg("installed") String installed);
+                @Arg("service") String service,
+                @Arg("reason") @Example("report.release-without-pack") MessageRef reason,
+                @Arg("installed") String installed);
 
         @Name("A jar nothing claims")
         MessageRef unclaimed(@Arg("service") String service, @Arg("file") String file);
 
         @Name("Held back")
-        MessageRef heldBack(@Arg("reason") String reason, @Arg("held") List<String> held);
+        MessageRef heldBack(
+                @Arg("reason") @Example("report.no-database") MessageRef reason, @Arg("held") List<String> held);
+
+        @Name("The latest release unread")
+        MessageRef releaseUnread(@Arg("repo") String repo, @Arg("error") String error);
+
+        @Name("A release without a jar")
+        MessageRef releaseWithoutJar(@Arg("release") String release, @Arg("artefact") String artefact);
+
+        @Name("A release without a pack")
+        MessageRef releaseWithoutPack(@Arg("release") String release);
+
+        @Name("A release's pack without its SHA-1")
+        MessageRef releaseWithoutSha1(@Arg("release") String release, @Arg("zip") String zip);
+
+        @Name("A pack's SHA-1 unread")
+        MessageRef sha1Unread(@Arg("file") String file, @Arg("error") String error);
+
+        @Name("No build for this Minecraft version")
+        MessageRef noBuild(
+                @Arg("artefact") String artefact, @Arg("minecraft") String minecraft, @Arg("loader") String loader);
+
+        @Name("No source answered")
+        MessageRef noSource(@Arg("artefact") String artefact);
+
+        @Name("A volume not mounted")
+        MessageRef notMounted(@Arg("directory") String directory);
+
+        @Name("No database to read the proxy's pack from")
+        MessageRef noDatabase();
+
+        @Name("The proxy's pack unread")
+        MessageRef proxyPackUnread(@Arg("error") String error);
+
+        @Name("The proxy has no pack")
+        MessageRef proxyWithoutPack();
+
+        @Name("The proxy's pack has no SHA-1")
+        MessageRef proxyPackWithoutSha1();
+
+        @Name("Velocity ahead of the proxy's API")
+        MessageRef velocityAhead(@Arg("version") String version, @Arg("api") String api);
 
         @Name("An archive taken after an unverified stop")
         MessageRef unverifiedArchive(@Arg("mark") String mark);

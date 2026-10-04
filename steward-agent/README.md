@@ -59,8 +59,11 @@ The run never stops steward-agent. A run that names it is refused.
 A run's report says what happened in messages of the admin bundle (`report.*` in `:database`'s
 `AdminTexts`): every note and every line's detail is a message reference with typed values, which
 Steward's page and the bot's update feed render for their reader, and `status ID` prints in English.
-What a subsystem answered, a Docker or pg_dump error or the resolver's note on a build, is carried
+What a subsystem answered, a Docker or pg_dump error or a source's answer to the resolver, is carried
 as a value of the message that names it, or as `report.words` when the answer is all there is. The
+resolver's reasons are messages too, so a line that explains another (the pack left unchecked, a jar
+held back) carries the reason as a `message` value, and the updates page shows the same reason the
+report does. The
 kind of run a note speaks of is an `Undertaking`, so one message says "nothing was installed" for an
 update and "nothing was saved" for a backup. The directory refuses an outcome that is not a report.
 

@@ -1,9 +1,11 @@
 package eu.nordtal.s2.stewardagent.apply;
 
+import eu.nordtal.s2.database.DatabaseText;
 import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.JarName;
 import eu.nordtal.s2.internalapi.agent.Topology;
+import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.stewardagent.config.RunSpec;
 import eu.nordtal.s2.stewardagent.plan.Change;
 import eu.nordtal.s2.stewardagent.plan.Installation;
@@ -140,9 +142,8 @@ public final class Applier {
             final List<Change> changes,
             final Change blocked,
             final List<ApplyResult.Outcome> outcomes) {
-        final String why = blocked.artifact() + " could not be checked"
-                + (blocked.note() == null ? "" : " (" + blocked.note() + ")")
-                + ", so nothing on this server was touched";
+        final String why =
+                blocked.artifact() + " could not be checked" + why(blocked) + ", so nothing on this server was touched";
         // The pack still gets its own row: a skipped service must still say what the client is sent.
         changes.stream()
                 .filter(change -> !Topology.RESOURCE_PACK.equals(change.artifact()))
@@ -160,7 +161,7 @@ public final class Applier {
                         service,
                         change.artifact(),
                         ApplyResult.Status.SKIPPED,
-                        "could not be checked" + (change.note() == null ? "" : " (" + change.note() + ")")
+                        "could not be checked" + why(change)
                                 + "; the build in .server/ stays, and the plugins were not held back for it")));
     }
 
@@ -250,7 +251,7 @@ public final class Applier {
                     service,
                     Topology.RESOURCE_PACK,
                     ApplyResult.Status.SKIPPED,
-                    "could not be checked" + (pack.note() == null ? "" : " (" + pack.note() + ")")
+                    "could not be checked" + why(pack)
                             + "; the proxy's pack was left alone, so the client is still sent "
                             + (pack.installed() == null ? "whatever it already said" : pack.installed())
                             + ". The jars beside it were not held back for it."));
@@ -359,5 +360,11 @@ public final class Applier {
             // Not a failure: the jars are in place and the next run empties this before using it.
             log.warn("Could not clean up {}: {}", directory, leftBehind.getMessage());
         }
+    }
+
+    /** A row's reason in English and in parentheses, as an outcome reads it; empty when it has none. */
+    private static String why(final Change change) {
+        final MessageRef reason = change.reason();
+        return reason == null ? "" : " (" + DatabaseText.english(reason) + ")";
     }
 }

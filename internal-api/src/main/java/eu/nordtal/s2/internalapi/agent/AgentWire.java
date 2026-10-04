@@ -1,5 +1,6 @@
 package eu.nordtal.s2.internalapi.agent;
 
+import com.google.gson.JsonObject;
 import com.google.gson.annotations.SerializedName;
 import eu.nordtal.s2.common.id.Actor;
 import java.time.Duration;
@@ -438,7 +439,13 @@ public final class AgentWire {
             boolean hasFailures,
             List<ResolvedChange> changes,
             List<Unclaimed> unclaimed,
-            List<String> notes) {}
+            List<Message> notes) {}
+
+    /**
+     * A message as data, its key and each value with its kind, as the message system writes one.
+     * The wire does not know that system, so a value is carried as the JSON it already is.
+     */
+    public record Message(String key, JsonObject args) {}
 
     /**
      * One artefact in a resolve; an unresolved one is unknown, never nothing to do.
@@ -458,7 +465,7 @@ public final class AgentWire {
             @Nullable String installed,
             @Nullable String version,
             @Nullable String fileName,
-            @Nullable String note) {}
+            @Nullable Message reason) {}
 
     /**
      * A plugin added to one server, which the next run installs.

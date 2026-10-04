@@ -1,5 +1,6 @@
 package eu.nordtal.s2.stewardagent.plan;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -53,7 +54,7 @@ class UpdatePlanTest {
     void aSourceThatCouldNotBeReachedIsNotMistakenForAMissingFile() {
         // GitHub being down means UNRESOLVED, not missing; onlyMissing() must count that as work, not an empty volume.
         final UpdatePlan plan = planOf(
-                Change.unresolved("smp", "PacketEvents", "Modrinth answered 503"),
+                Change.unresolved("smp", "PacketEvents", TEXTS.report().words("Modrinth answered 503")),
                 change("VoiceChat", Change.Status.MOUNT_MISSING));
 
         final UpdatePlan bootstrap = plan.onlyMissing();
@@ -71,7 +72,8 @@ class UpdatePlanTest {
     void b4TheUnresolvedRowsSurviveSoTheReportCannotClaimUnbrokenSuccess() {
         // A resolved plugin next to an unresolved season jar must not report success while a jar goes uninstalled.
         final UpdatePlan plan = planOf(
-                Change.unresolved("smp", "season", "could not read nordtal/season-2@latest: HTTP 403"),
+                Change.unresolved(
+                        "smp", "season", TEXTS.report().words("could not read nordtal/season-2@latest: HTTP 403")),
                 change("PacketEvents", Change.Status.MISSING),
                 change("VoiceChat", Change.Status.MISSING));
 

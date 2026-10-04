@@ -35,6 +35,7 @@ class HandedRunIntegrationTest {
         assertTrue(updates.claimNext().isPresent());
         assertTrue(updates.handOver(apply.id(), ONE_SHOT));
         assertEquals(Optional.of(ONE_SHOT), updates.runnerOf(apply.id()));
+        assertEquals(Optional.of(ONE_SHOT), updates.handedTo());
 
         assertEquals(0, updates.settleOrphans("Killed mid-run", ONE_SHOT::equals));
         assertEquals(
@@ -47,6 +48,7 @@ class HandedRunIntegrationTest {
         assertEquals(1, updates.settleOrphans("Killed mid-run", runner -> false));
         assertEquals(UpdateStatus.FAILED, updates.find(apply.id()).orElseThrow().status());
         assertEquals(Optional.empty(), updates.runnerOf(apply.id()), "a settled row has no runner");
+        assertEquals(Optional.empty(), updates.handedTo(), "a settled row is handed to nobody");
         assertFalse(updates.handOver(apply.id(), "late"), "a settled row cannot be handed over");
     }
 }

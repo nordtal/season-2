@@ -223,6 +223,14 @@ final class FakeDirectory implements UpdateDirectory {
     }
 
     @Override
+    public java.util.Optional<String> handedTo() {
+        return runners.keySet().stream()
+                .map(this::runnerOf)
+                .flatMap(java.util.Optional::stream)
+                .findFirst();
+    }
+
+    @Override
     public int settleOrphans(final String failed, final java.util.function.Predicate<String> stillRunning) {
         int settled = 0;
         for (final UpdateRequest row : List.copyOf(rows.values())) {

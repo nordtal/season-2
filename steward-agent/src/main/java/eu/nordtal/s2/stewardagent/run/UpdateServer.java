@@ -103,11 +103,25 @@ public final class UpdateServer implements AutoCloseable {
     void drain() {
         // Between runs nothing of this process's own is open, so an open row is a one-shot's or nobody's.
         settleOrphans();
-        Optional<UpdateRequest> claimed = directory.claimNext();
+        Optional<UpdateRequest> claimed = claimNext();
         while (running && claimed.isPresent()) {
             carryOut(claimed.get());
-            claimed = directory.claimNext();
+            claimed = claimNext();
         }
+    }
+
+    /**
+     * Claims the next due request, or nothing while a run is handed to a one-shot.
+     *
+     * Until that row is settled the agent is up but paused: it serves state, logs and the console, and runs nothing.
+     */
+    private Optional<UpdateRequest> claimNext() {
+        final Optional<String> oneShot = directory.handedTo();
+        if (oneShot.isPresent()) {
+            log.debug("{} carries out a run, so nothing is claimed until it settles it", oneShot.get());
+            return Optional.empty();
+        }
+        return directory.claimNext();
     }
 
     /**

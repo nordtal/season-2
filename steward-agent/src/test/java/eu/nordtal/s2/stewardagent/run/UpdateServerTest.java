@@ -185,6 +185,35 @@ class UpdateServerTest {
                 directory.find(submitted.id()).orElseThrow().status());
     }
 
+    /** While a run is handed to a one-shot the agent claims nothing, in the drain that handed it and after. */
+    @Test
+    void nothingIsClaimedUntilTheRunHandedToAOneShotIsSettled() {
+        final UpdateRequest update = directory.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
+        final UpdateRequest backup = directory.submit(UpdateKind.BACKUP, Actor.HOST, Duration.ZERO);
+        final List<UpdateKind> ran = new ArrayList<>();
+        final UpdateServer server = server(
+                (request, progress) -> {
+                    ran.add(request.kind());
+                    if (request.kind() == UpdateKind.UPDATE) {
+                        directory.handOver(request.id(), "nordtal-s2-steward-agent-run");
+                        return Outcome.handedOver("handed");
+                    }
+                    return Outcome.done("saved");
+                },
+                "nordtal-s2-steward-agent-run"::equals);
+
+        server.drain();
+        server.drain();
+        assertEquals(List.of(UpdateKind.UPDATE), ran);
+        assertEquals(
+                UpdateStatus.PENDING, directory.find(backup.id()).orElseThrow().status());
+
+        directory.finish(update.id(), UpdateStatus.DONE, "installed");
+        server.drain();
+
+        assertEquals(List.of(UpdateKind.UPDATE, UpdateKind.BACKUP), ran);
+    }
+
     /** The one-shot carries out the run handed to it, and only that one, and settles the row itself. */
     @Test
     void theOneShotCarriesOutTheRunHandedToItAndSettlesIt() {

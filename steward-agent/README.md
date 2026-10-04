@@ -71,8 +71,12 @@ agent, or that finds the agent's own container out of date, is handed to a one-s
 4. Last it makes the long-running `steward-agent` again at its release and waits for it to be healthy,
    then settles the row and exits.
 
-The new agent starts while the row is still open and leaves it alone, since its one-shot still runs.
-A row whose one-shot is gone without settling it is failed at the next wake-up, which lets the lock go.
+The one-shot stops the long-running agent only by replacing it in step 4, after `migrate`. From the
+hand-over until the row is settled the agent is up but paused: it serves state, logs, the console
+and the plan to Steward and to `nordtal.sh`'s waiter, and claims no request of any kind, a backup
+included. The agent made in step 4 starts paused for the same reason and claims again once the
+one-shot has settled the row. A row whose one-shot is gone without settling it is failed at the next
+wake-up, which lets the lock go and ends the pause.
 An older release is refused: no schema goes back.
 
 ## Where a version comes from

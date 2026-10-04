@@ -233,6 +233,11 @@ public interface UpdateDirectory {
         return Optional.empty();
     }
 
+    /** Returns the container the open run is handed to, or empty; the default knows of none. */
+    default Optional<String> handedTo() {
+        return Optional.empty();
+    }
+
     /**
      * Returns one row whole, as JSON, so a database restore can put it back; empty for an unknown id.
      *

@@ -229,6 +229,11 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
+    public Optional<String> handedTo() {
+        return dao.handed().stream().map(UpdateDao.Handed::runner).findFirst();
+    }
+
+    @Override
     public Optional<String> carry(final long id) {
         return inbox.carry(id);
     }

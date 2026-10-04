@@ -5,7 +5,6 @@ import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
 import com.velocitypowered.api.proxy.Player;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.proxy.PhaseServers;
 import eu.nordtal.s2.proxy.ProxyMessages;
 import eu.nordtal.s2.proxy.gate.LoginRoster;
@@ -87,8 +86,7 @@ public final class Homecoming {
         }
         try {
             final Locale locale = roster.localeOf(player.getUniqueId());
-            player.sendMessage(renderer.format(
-                    locale, MESSAGES.returnSection().waitingRoom(serviceName(renderer.raw(), locale, destination))));
+            player.sendMessage(renderer.format(locale, MESSAGES.returnSection().waitingRoom(serviceName(destination))));
         } catch (final RuntimeException failure) {
             logger.warn(
                     "Could not tell {} that they are being moved back to '{}'",
@@ -167,20 +165,15 @@ public final class Homecoming {
         player.showTitle(Title.title(Component.empty(), line, TIMES));
     }
 
-    /**
-     * A compose service name as a player would say it, or the compose name when there is no line for it.
-     *
-     * Always read in English, since every locale falls back to English and would otherwise lose the name.
-     */
-    public static String serviceName(final Messages messages, final Locale locale, final String service) {
+    /** A compose service name as a player would say it, or the compose name itself when there is no line for it. */
+    public static MessageRef serviceName(final String service) {
         final ProxyMessages.Restart.What names = MESSAGES.restart().what();
-        final MessageRef name = switch (service) {
+        return switch (service) {
             case "smp" -> names.smp();
             case "limbo" -> names.limbo();
             case "hunger-games" -> names.hungerGames();
             case "proxy" -> names.proxy();
-            default -> null;
+            default -> names.other(service);
         };
-        return name == null ? service : messages.format(locale, name);
     }
 }

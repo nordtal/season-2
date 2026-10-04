@@ -64,7 +64,7 @@ class LaunchCountdownTest {
 
     @Test
     void noAnnouncedDateSaysSoInsteadOfCountingFromNothing() {
-        final String line = LaunchCountdown.render(MESSAGES, Locale.ENGLISH, null, NOW);
+        final String line = MESSAGES.format(Locale.ENGLISH, LaunchCountdown.left(null, NOW));
 
         assertTrue(line.toLowerCase(Locale.ROOT).contains("not announced"), line);
     }
@@ -72,7 +72,7 @@ class LaunchCountdownTest {
     @Test
     void theNoDateFragmentCarriesNoMiniMessageTag() {
         // Placeholders escapes what it inserts, so a tag here would show as literal text.
-        final String line = LaunchCountdown.render(MESSAGES, Locale.ENGLISH, null, NOW);
+        final String line = MESSAGES.format(Locale.ENGLISH, LaunchCountdown.left(null, NOW));
 
         assertFalse(line.contains("<"), line);
     }
@@ -92,8 +92,9 @@ class LaunchCountdownTest {
     void germanIsTranslatedRatherThanFallingBackToEnglish() {
         // A missing key falls back to English silently, which is how a half-translated screen ships.
         assertEquals(
-                "42 Minuten", LaunchCountdown.render(MESSAGES, Locale.GERMAN, NOW.plus(Duration.ofMinutes(42)), NOW));
-        assertEquals("jedem Moment", LaunchCountdown.render(MESSAGES, Locale.GERMAN, NOW, NOW));
+                "42 Minuten",
+                MESSAGES.format(Locale.GERMAN, LaunchCountdown.left(NOW.plus(Duration.ofMinutes(42)), NOW)));
+        assertEquals("jedem Moment", MESSAGES.format(Locale.GERMAN, LaunchCountdown.left(NOW, NOW)));
         assertTrue(sentence(Locale.GERMAN, NOW.plus(Duration.ofMinutes(42))).contains("Das Netzwerk öffnet"));
     }
 
@@ -104,6 +105,6 @@ class LaunchCountdownTest {
     }
 
     private static String render(final Duration remaining) {
-        return LaunchCountdown.render(MESSAGES, Locale.ENGLISH, NOW.plus(remaining), NOW);
+        return MESSAGES.format(Locale.ENGLISH, LaunchCountdown.left(NOW.plus(remaining), NOW));
     }
 }

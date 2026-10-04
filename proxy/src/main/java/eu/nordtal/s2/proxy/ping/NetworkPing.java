@@ -71,7 +71,7 @@ public final class NetworkPing {
                 snapshots.current(),
                 proxy.getPlayerCount(),
                 players.maxPlayers(),
-                LaunchCountdown.render(renderer.raw(), language, known.launch(), clock.instant()));
+                renderer.raw().format(language, LaunchCountdown.left(known.launch(), clock.instant())));
         final ProxyMessages.Motd motd = ProxyMessages.MESSAGES.motd();
         return renderer.format(
                 language,

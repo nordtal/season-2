@@ -5,6 +5,7 @@ import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.scheduler.ScheduledTask;
+import eu.nordtal.s2.common.time.CountdownPlan;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateRequest;
@@ -177,10 +178,10 @@ public final class RestartWatch {
     }
 
     /** Puts one beat on the proxy's scheduler, even at zero delay, so no broadcast runs under this monitor. */
-    private void schedule(final Countdown.Beat beat) {
+    private void schedule(final CountdownPlan.Beat<Announcement> beat) {
         scheduled.add(proxy.getScheduler()
                 .buildTask(plugin, () -> {
-                    if (beat.announcement().kind() == Announcement.Kind.NOW) {
+                    if (beat.said().kind() == Announcement.Kind.NOW) {
                         synchronized (this) {
                             if (saidNow) {
                                 return;
@@ -198,7 +199,7 @@ public final class RestartWatch {
                                     failure);
                         }
                     }
-                    say(beat.announcement());
+                    say(beat.said());
                 })
                 .delay(beat.delay())
                 .schedule());
@@ -250,7 +251,7 @@ public final class RestartWatch {
             case COUNTDOWN -> {
                 each((player, locale) -> player.sendMessage(line(
                         locale,
-                        countdown(current.occasion(), what(locale, current), announcement.seconds()),
+                        countdown(current.occasion(), what(current), announcement.seconds()),
                         fateOf(current, player))));
                 title(locale -> renderer.format(locale, MESSAGES.restart().tick(announcement.seconds())));
                 if (!saidVoice) {
@@ -265,16 +266,16 @@ public final class RestartWatch {
             }
             case NOW -> {
                 each((player, locale) -> player.sendMessage(
-                        line(locale, now(current.occasion(), what(locale, current)), fateOf(current, player))));
-                title(locale -> renderer.format(locale, now(current.occasion(), what(locale, current))));
+                        line(locale, now(current.occasion(), what(current)), fateOf(current, player))));
+                title(locale -> renderer.format(locale, now(current.occasion(), what(current))));
             }
             // No chat line: the number alone, in the middle of the screen, once a second.
             case TICK ->
                 title(locale -> renderer.format(locale, MESSAGES.restart().tick(announcement.seconds())));
             case CANCELLED ->
-                broadcast(locale -> renderer.format(locale, MESSAGES.restart().cancelled(occasion(locale, current))));
+                broadcast(locale -> renderer.format(locale, MESSAGES.restart().cancelled(occasion(current))));
             case FAILED ->
-                broadcast(locale -> renderer.format(locale, MESSAGES.restart().failed(occasion(locale, current))));
+                broadcast(locale -> renderer.format(locale, MESSAGES.restart().failed(occasion(current))));
         }
     }
 
@@ -294,7 +295,7 @@ public final class RestartWatch {
         };
     }
 
-    static MessageRef countdown(final RunShape.Occasion occasion, final String what, final long seconds) {
+    static MessageRef countdown(final RunShape.Occasion occasion, final MessageRef what, final long seconds) {
         final ProxyMessages.Restart.RestartCountdown lines = MESSAGES.restart().countdown();
         return switch (occasion) {
             case UPDATE -> lines.update(what, seconds);
@@ -305,7 +306,7 @@ public final class RestartWatch {
         };
     }
 
-    static MessageRef now(final RunShape.Occasion occasion, final String what) {
+    static MessageRef now(final RunShape.Occasion occasion, final MessageRef what) {
         final ProxyMessages.Restart.Now lines = MESSAGES.restart().now();
         return switch (occasion) {
             case UPDATE -> lines.update(what);
@@ -331,27 +332,21 @@ public final class RestartWatch {
     }
 
     /** The service a run is about as a player would name it, or "the network" for more than one. */
-    private String what(final Locale locale, final RunShape current) {
+    private static MessageRef what(final RunShape current) {
         final String only = current.onlyService();
-        if (only == null) {
-            return renderer.raw().format(locale, MESSAGES.restart().what().network());
-        }
-        return Homecoming.serviceName(renderer.raw(), locale, only);
+        return only == null ? MESSAGES.restart().what().network() : Homecoming.serviceName(only);
     }
 
     /** The occasion as a noun, for the lines that say it is off. */
-    private String occasion(final Locale locale, final RunShape current) {
+    private static MessageRef occasion(final RunShape current) {
         final ProxyMessages.Restart.Occasion occasions = MESSAGES.restart().occasion();
-        return renderer.raw()
-                .format(
-                        locale,
-                        switch (current.occasion()) {
-                            case UPDATE -> occasions.update();
-                            case RECREATE -> occasions.recreate();
-                            case BACKUP -> occasions.backup();
-                            case DOWN -> occasions.down();
-                            case MAINTENANCE -> occasions.maintenance();
-                        });
+        return switch (current.occasion()) {
+            case UPDATE -> occasions.update();
+            case RECREATE -> occasions.recreate();
+            case BACKUP -> occasions.backup();
+            case DOWN -> occasions.down();
+            case MAINTENANCE -> occasions.maintenance();
+        };
     }
 
     /** Renders a line for everybody in their own locale from {@link LoginRoster}, English when it has none. */

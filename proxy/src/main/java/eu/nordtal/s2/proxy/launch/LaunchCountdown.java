@@ -3,7 +3,8 @@ package eu.nordtal.s2.proxy.launch;
 import static eu.nordtal.s2.proxy.ProxyMessages.MESSAGES;
 
 import eu.nordtal.s2.messagerendering.MessageRenderer;
-import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.proxy.ProxyMessages;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
@@ -20,29 +21,26 @@ public final class LaunchCountdown {
     private LaunchCountdown() {}
 
     /**
-     * Renders the remaining time, or the line for a date nobody has announced.
+     * The remaining time, or the line for a date nobody has announced.
      *
      * @param launch when the network opens, or {@code null} when no date is set
-     * @return one line, never {@code null} and never empty
      */
-    public static String render(
-            final Messages messages, final Locale locale, final @Nullable Instant launch, final Instant now) {
+    public static MessageRef left(final @Nullable Instant launch, final Instant now) {
+        final ProxyMessages.NetworkCountdown lines = MESSAGES.countdown();
         if (launch == null) {
-            // A plain-text fragment substituted into a wrapper; a tag here would survive escaping as literal text.
-            return messages.format(locale, MESSAGES.countdown().unknown());
+            return lines.unknown();
         }
-
         final Duration remaining = Duration.between(now, launch);
         if (remaining.isZero() || remaining.isNegative() || remaining.toMinutes() < 1) {
-            return messages.format(locale, MESSAGES.countdown().imminent());
+            return lines.imminent();
         }
         if (remaining.toDays() >= 1) {
-            return messages.format(locale, MESSAGES.countdown().days(remaining.toDays(), remaining.toHoursPart()));
+            return lines.days(remaining.toDays(), remaining.toHoursPart());
         }
         if (remaining.toHours() >= 1) {
-            return messages.format(locale, MESSAGES.countdown().hours(remaining.toHours(), remaining.toMinutesPart()));
+            return lines.hours(remaining.toHours(), remaining.toMinutesPart());
         }
-        return messages.format(locale, MESSAGES.countdown().minutes(remaining.toMinutes()));
+        return lines.minutes(remaining.toMinutes());
     }
 
     /** The countdown wrapped in {@code gate.countdown}, or the "no date announced" line, for the disconnect screens. */
@@ -51,6 +49,6 @@ public final class LaunchCountdown {
         if (launch == null) {
             return renderer.format(locale, MESSAGES.gate().countdownSection().unknown());
         }
-        return renderer.format(locale, MESSAGES.gate().countdown(render(renderer.raw(), locale, launch, now)));
+        return renderer.format(locale, MESSAGES.gate().countdown(left(launch, now)));
     }
 }

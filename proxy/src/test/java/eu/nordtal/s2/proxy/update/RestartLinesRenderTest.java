@@ -23,7 +23,7 @@ class RestartLinesRenderTest {
     @Test
     void aCountdownLineNamesTheServiceAndLeavesNoBrace() {
         for (final Locale locale : LOCALES) {
-            final String smp = Homecoming.serviceName(MESSAGES_BUNDLE, locale, "smp");
+            final MessageRef smp = Homecoming.serviceName("smp");
             for (final RunShape.Occasion occasion : RunShape.Occasion.values()) {
                 assertRendered(
                         locale, RestartWatch.countdown(occasion, smp, 10), occasion != RunShape.Occasion.MAINTENANCE);
@@ -34,7 +34,7 @@ class RestartLinesRenderTest {
     @Test
     void aNowLineNamesTheServiceAndLeavesNoBrace() {
         for (final Locale locale : LOCALES) {
-            final String smp = Homecoming.serviceName(MESSAGES_BUNDLE, locale, "smp");
+            final MessageRef smp = Homecoming.serviceName("smp");
             for (final RunShape.Occasion occasion : RunShape.Occasion.values()) {
                 assertRendered(locale, RestartWatch.now(occasion, smp), occasion != RunShape.Occasion.MAINTENANCE);
             }
@@ -44,7 +44,7 @@ class RestartLinesRenderTest {
     @Test
     void theWaitingRoomLineNamesTheServiceAndLeavesNoBrace() {
         for (final Locale locale : LOCALES) {
-            final String smp = Homecoming.serviceName(MESSAGES_BUNDLE, locale, "smp");
+            final MessageRef smp = Homecoming.serviceName("smp");
             assertRendered(locale, MESSAGES.returnSection().waitingRoom(smp), true);
         }
     }
@@ -52,10 +52,21 @@ class RestartLinesRenderTest {
     @Test
     void theCalledOffAndFailedLinesNameTheOccasionAndLeaveNoBrace() {
         for (final Locale locale : LOCALES) {
-            final String update =
-                    MESSAGES_BUNDLE.format(locale, MESSAGES.restart().occasion().update());
+            final MessageRef update = MESSAGES.restart().occasion().update();
             assertRendered(locale, MESSAGES.restart().cancelled(update), false);
             assertRendered(locale, MESSAGES.restart().failed(update), false);
+        }
+    }
+
+    @Test
+    void aServiceWithNoLineOfItsOwnIsNamedByItsComposeName() {
+        for (final Locale locale : LOCALES) {
+            final String text = PlainTextComponentSerializer.plainText()
+                    .serialize(MessageRenderer.of(MESSAGES_BUNDLE)
+                            .format(
+                                    locale,
+                                    RestartWatch.now(RunShape.Occasion.RECREATE, Homecoming.serviceName("steward"))));
+            assertTrue(text.contains("steward"), locale + ": " + text);
         }
     }
 

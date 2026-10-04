@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.common.time.CountdownPlan;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.proxy.PhaseServers;
 import java.util.List;
@@ -73,17 +74,15 @@ class HomecomingTest {
 
     @Test
     void theNoticeIsCountedAllTheWay() {
-        final List<Countdown.Beat> beats =
+        final List<CountdownPlan.Beat<Announcement>> beats =
                 new Countdown().beats(1L, Homecoming.NOTICE).orElseThrow();
 
         // One chat line at ten, nine subtitles, the transfer; the ten-second tick is dropped since chat draws it.
-        assertEquals(Announcement.Kind.COUNTDOWN, beats.get(0).announcement().kind());
-        assertEquals(10L, beats.get(0).announcement().seconds());
+        assertEquals(Announcement.Kind.COUNTDOWN, beats.get(0).said().kind());
+        assertEquals(10L, beats.get(0).said().seconds());
         assertEquals(java.time.Duration.ZERO, beats.get(0).delay(), "the first word is said now");
         assertEquals(11, beats.size(), beats.toString());
-        assertEquals(
-                Announcement.Kind.NOW,
-                beats.get(beats.size() - 1).announcement().kind());
+        assertEquals(Announcement.Kind.NOW, beats.get(beats.size() - 1).said().kind());
         assertEquals(
                 Homecoming.NOTICE,
                 beats.get(beats.size() - 1).delay(),

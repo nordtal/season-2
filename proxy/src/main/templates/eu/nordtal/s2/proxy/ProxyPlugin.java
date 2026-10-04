@@ -468,8 +468,8 @@ public final class ProxyPlugin {
         if (phaseWatch.lastKnown() == SeasonPhase.PRE_LAUNCH) {
             logger.info("The network has not opened yet: only admins get in, everybody else is shown "
                             + "the countdown ({}).",
-                    LaunchCountdown.render(messages, Locale.ENGLISH, phaseWatch.launch().orElse(null),
-                            clock.instant()));
+                    messages.format(Locale.ENGLISH, LaunchCountdown.left(phaseWatch.launch().orElse(null),
+                            clock.instant())));
         }
 
         signals.start();

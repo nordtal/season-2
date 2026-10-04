@@ -3,6 +3,7 @@ package eu.nordtal.s2.smp.duel;
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.common.time.CountdownPlan;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.feedback.Feedback;
@@ -18,6 +19,7 @@ import eu.nordtal.s2.smp.feedback.WorldEffects;
 import eu.nordtal.s2.smp.world.WorldRole;
 import eu.nordtal.s2.smp.world.Worlds;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -44,6 +46,8 @@ public final class Duels {
 
     /** How long the fighters stand still before they may hit each other. */
     private static final int COUNTDOWN_SECONDS = 3;
+
+    private static final CountdownPlan COUNTDOWN = CountdownPlan.at().everySecondFrom(COUNTDOWN_SECONDS);
 
     private final Plugin plugin;
     private final SmpDao dao;
@@ -239,7 +243,7 @@ public final class Duels {
             abort(duel);
             return;
         }
-        countdown(duel, COUNTDOWN_SECONDS);
+        countdown(duel);
     }
 
     /** Unwinds a duel that never started: both fighters go back as they were, and nothing is booked. */
@@ -308,26 +312,26 @@ public final class Duels {
         return true;
     }
 
-    private void countdown(final ActiveDuel duel, final int remaining) {
-        if (!byPlayer.containsKey(duel.first())) {
+    /** Four evenly spaced beats, 3-2-1-Go: the last lands on the moment the fight starts. */
+    private void countdown(final ActiveDuel duel) {
+        final SmpMessages.Smp.Duel lines = MESSAGES.smp().duel();
+        for (final CountdownPlan.Beat<MessageRef> beat :
+                COUNTDOWN.beats(Duration.ofSeconds(COUNTDOWN_SECONDS), lines::countdown, lines.go())) {
+            Bukkit.getScheduler()
+                    .runTaskLater(plugin, () -> say(duel, beat), beat.delay().toMillis() / 50L);
+        }
+    }
+
+    private void say(final ActiveDuel duel, final CountdownPlan.Beat<MessageRef> beat) {
+        // A beat of a duel that ended, or of one that ended and was followed by another, says nothing.
+        if (!duel.equals(byPlayer.get(duel.first()))) {
             return;
         }
         forBoth(duel, player -> {
-            player.setGameMode(remaining > 0 ? GameMode.ADVENTURE : GameMode.SURVIVAL);
-            player.sendMessage(
-                    remaining > 0
-                            ? renderer.format(
-                                    identities.languageOf(player.getUniqueId()),
-                                    MESSAGES.smp().duel().countdown(remaining))
-                            : renderer.format(
-                                    identities.languageOf(player.getUniqueId()),
-                                    MESSAGES.smp().duel().go()));
-            // Four evenly spaced ticks, 3-2-1-Go: the last lands on the moment the fight starts.
+            player.setGameMode(beat.seconds() > 0 ? GameMode.ADVENTURE : GameMode.SURVIVAL);
+            player.sendMessage(renderer.format(identities.languageOf(player.getUniqueId()), beat.said()));
             sounds.play(player, Feedback.COUNTDOWN_TICK);
         });
-        if (remaining > 0) {
-            Bukkit.getScheduler().runTaskLater(plugin, () -> countdown(duel, remaining - 1), 20L);
-        }
     }
 
     /** A fighter was defeated, by damage or by disconnecting. */

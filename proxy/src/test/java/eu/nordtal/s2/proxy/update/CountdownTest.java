@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.id.Actor;
+import eu.nordtal.s2.common.time.CountdownPlan;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateRequest;
@@ -44,14 +45,14 @@ class CountdownTest {
                 null);
     }
 
-    private List<Countdown.Beat> beatsFor(final UpdateRequest request) {
+    private List<CountdownPlan.Beat<Announcement>> beatsFor(final UpdateRequest request) {
         return countdown.beats(request.id(), request.untilDue(clock.instant())).orElseThrow();
     }
 
     @Test
     void aFullCountdownIsPlannedOnce() {
         // The real countdown constant, since a literal would assert nothing real.
-        final List<Countdown.Beat> beats = beatsFor(due(1L, UpdateDirectory.UPDATE_COUNTDOWN));
+        final List<CountdownPlan.Beat<Announcement>> beats = beatsFor(due(1L, UpdateDirectory.UPDATE_COUNTDOWN));
 
         assertEquals(
                 3,
@@ -87,27 +88,27 @@ class CountdownTest {
 
     @Test
     void theNumberSpokenIsTheNumberLeft() {
-        final List<Countdown.Beat> beats = beatsFor(due(1L, Duration.ofSeconds(30)));
+        final List<CountdownPlan.Beat<Announcement>> beats = beatsFor(due(1L, Duration.ofSeconds(30)));
 
-        for (final Countdown.Beat beat : beats) {
-            if (beat.announcement().kind() == Announcement.Kind.NOW) {
+        for (final CountdownPlan.Beat<Announcement> beat : beats) {
+            if (beat.said().kind() == Announcement.Kind.NOW) {
                 assertEquals(Duration.ofSeconds(30), beat.delay(), "zero is at the end");
                 continue;
             }
             assertEquals(
-                    Duration.ofSeconds(30 - beat.announcement().seconds()),
+                    Duration.ofSeconds(30 - beat.said().seconds()),
                     beat.delay(),
-                    beat.announcement() + " does not fire when its own number is true");
+                    beat.said() + " does not fire when its own number is true");
         }
     }
 
     @Test
     void theOddMillisecondsAreTheReasonThisIsNotSeconds() {
         // The countdown starts at now() + 30s on the database's clock; truncating to seconds shifts every beat.
-        final List<Countdown.Beat> beats = beatsFor(due(1L, Duration.ofMillis(29_640)));
+        final List<CountdownPlan.Beat<Announcement>> beats = beatsFor(due(1L, Duration.ofMillis(29_640)));
 
-        final Countdown.Beat five = kinds(beats, Announcement.Kind.TICK).stream()
-                .filter(beat -> beat.announcement().seconds() == 5L)
+        final CountdownPlan.Beat<Announcement> five = kinds(beats, Announcement.Kind.TICK).stream()
+                .filter(beat -> beat.said().seconds() == 5L)
                 .findFirst()
                 .orElseThrow();
         assertEquals(
@@ -123,7 +124,8 @@ class CountdownTest {
      */
     @Test
     void theFirstLineIsNotLostToLatency() {
-        final List<Countdown.Beat> beats = beatsFor(due(1L, UpdateDirectory.UPDATE_COUNTDOWN.minusMillis(20)));
+        final List<CountdownPlan.Beat<Announcement>> beats =
+                beatsFor(due(1L, UpdateDirectory.UPDATE_COUNTDOWN.minusMillis(20)));
 
         assertEquals(
                 Countdown.CHAT_THRESHOLDS,
@@ -141,7 +143,7 @@ class CountdownTest {
     @Test
     void aCountdownJoinedLateDoesNotReplay() {
         // A proxy that comes up with seven seconds left must not say "30 seconds".
-        final List<Countdown.Beat> beats = beatsFor(due(1L, Duration.ofSeconds(7)));
+        final List<CountdownPlan.Beat<Announcement>> beats = beatsFor(due(1L, Duration.ofSeconds(7)));
 
         assertTrue(kinds(beats, Announcement.Kind.COUNTDOWN).isEmpty(), "both chat thresholds are behind us");
         assertEquals(List.of(7L, 6L, 5L, 4L, 3L, 2L, 1L), seconds(kinds(beats, Announcement.Kind.TICK)));
@@ -152,10 +154,10 @@ class CountdownTest {
 
     @Test
     void zeroIsStillWorthOneLine() {
-        final List<Countdown.Beat> beats = beatsFor(due(1L, Duration.ZERO));
+        final List<CountdownPlan.Beat<Announcement>> beats = beatsFor(due(1L, Duration.ZERO));
 
         assertEquals(1, beats.size());
-        assertEquals(Announcement.Kind.NOW, beats.getFirst().announcement().kind());
+        assertEquals(Announcement.Kind.NOW, beats.getFirst().said().kind());
         assertEquals(Duration.ZERO, beats.getFirst().delay());
     }
 
@@ -175,7 +177,7 @@ class CountdownTest {
     void aNewRowStartsOver() {
         beatsFor(due(1L, Duration.ofSeconds(30)));
 
-        final Optional<List<Countdown.Beat>> second = countdown.beats(2L, Duration.ofSeconds(30));
+        final Optional<List<CountdownPlan.Beat<Announcement>>> second = countdown.beats(2L, Duration.ofSeconds(30));
         assertTrue(second.isPresent());
         assertEquals(2L, countdown.watching());
     }
@@ -238,7 +240,7 @@ class CountdownTest {
     @Test
     void oneTitlePerSecond() {
         // The chat line draws a title as well (ProxyRulesTest), so a tick on its second would collide with it.
-        final List<Countdown.Beat> beats = beatsFor(due(1L, Duration.ofSeconds(30)));
+        final List<CountdownPlan.Beat<Announcement>> beats = beatsFor(due(1L, Duration.ofSeconds(30)));
 
         final List<Long> chat = seconds(kinds(beats, Announcement.Kind.COUNTDOWN));
         for (final Long tick : seconds(kinds(beats, Announcement.Kind.TICK))) {
@@ -251,11 +253,12 @@ class CountdownTest {
 
     // helpers
 
-    private static List<Countdown.Beat> kinds(final List<Countdown.Beat> beats, final Announcement.Kind kind) {
-        return beats.stream().filter(beat -> beat.announcement().kind() == kind).toList();
+    private static List<CountdownPlan.Beat<Announcement>> kinds(
+            final List<CountdownPlan.Beat<Announcement>> beats, final Announcement.Kind kind) {
+        return beats.stream().filter(beat -> beat.said().kind() == kind).toList();
     }
 
-    private static List<Long> seconds(final List<Countdown.Beat> beats) {
-        return beats.stream().map(beat -> beat.announcement().seconds()).toList();
+    private static List<Long> seconds(final List<CountdownPlan.Beat<Announcement>> beats) {
+        return beats.stream().map(beat -> beat.said().seconds()).toList();
     }
 }

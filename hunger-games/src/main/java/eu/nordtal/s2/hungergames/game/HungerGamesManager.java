@@ -3,6 +3,7 @@ package eu.nordtal.s2.hungergames.game;
 import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 
 import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.common.time.CountdownPlan;
 import eu.nordtal.s2.hungergames.GameState;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.hungergames.border.BorderController;
@@ -14,10 +15,12 @@ import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.db.RosterEntry;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
+import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.context.TeamContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -40,6 +43,10 @@ import org.slf4j.LoggerFactory;
 public final class HungerGamesManager {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(HungerGamesManager.class);
+
+    /** Sparse far out, dense at the end, the whole time first. */
+    private static final CountdownPlan COUNTDOWN =
+            CountdownPlan.at(60, 30, 20, 10, 5, 4, 3, 2, 1).fromTheStart();
 
     private final Plugin plugin;
     private final HungerGamesDao dao;
@@ -156,17 +163,17 @@ public final class HungerGamesManager {
         }
     }
 
-    /** Schedules the countdown announcements, one task per mark, since the marks are uneven. */
+    /** Schedules the countdown announcements, one task per beat, since the beats are uneven. */
     private void scheduleCountdown(final List<Participant> participants) {
-        final int total = config.countdownSeconds();
-        for (final int remaining : Countdown.marks(total)) {
-            final long delayTicks = (total - remaining) * 20L;
+        final List<CountdownPlan.Beat<MessageRef>> beats = COUNTDOWN.beats(
+                Duration.ofSeconds(config.countdownSeconds()), MESSAGES.hg().start()::countdown, null);
+        for (final CountdownPlan.Beat<MessageRef> beat : beats) {
             plugin.getServer()
                     .getScheduler()
                     .runTaskLater(
                             plugin,
                             () -> {
-                                // The game can be over, or never have started, by the time a mark fires.
+                                // The game can be over, or never have started, by the time a beat fires.
                                 if (!frozen) {
                                     return;
                                 }
@@ -174,13 +181,12 @@ public final class HungerGamesManager {
                                     final Player online = plugin.getServer().getPlayer(participant.mcUuid());
                                     if (online != null) {
                                         online.sendMessage(renderer.format(
-                                                identities.languageOf(participant.mcUuid()),
-                                                MESSAGES.hg().start().countdown(remaining)));
+                                                identities.languageOf(participant.mcUuid()), beat.said()));
                                         sounds.play(online, Feedback.COUNTDOWN_TICK);
                                     }
                                 }
                             },
-                            delayTicks);
+                            beat.delay().toMillis() / 50L);
         }
     }
 

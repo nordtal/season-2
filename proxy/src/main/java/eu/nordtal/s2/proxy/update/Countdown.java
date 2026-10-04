@@ -1,16 +1,16 @@
 package eu.nordtal.s2.proxy.update;
 
+import eu.nordtal.s2.common.time.CountdownPlan;
 import eu.nordtal.s2.database.update.UpdateStatus;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Plans when to speak during a countdown, and what to say, with no proxy, database or clock in it.
+ * Follows the one request being counted down and says what became of it.
  *
- * A beat is due once a whole-second counter reads its number; a late join gets only the beats still ahead.
+ * When to speak is the network's {@link CountdownPlan}; there is no proxy, database or clock in it.
  */
 public final class Countdown {
 
@@ -20,12 +20,10 @@ public final class Countdown {
     /** The last stretch, one subtitle per second. */
     static final long SUBTITLES_FROM = 10L;
 
-    /**
-     * One thing to say, and how long to wait before saying it.
-     *
-     * @param delay from the instant {@link #beats} was called
-     */
-    public record Beat(Duration delay, Announcement announcement) {}
+    /** Every chat line, then a subtitle each second; a second with a chat line gets no tick, its line draws a title. */
+    private static final CountdownPlan PLAN = CountdownPlan.at(
+                    CHAT_THRESHOLDS.stream().mapToLong(Long::longValue).toArray())
+            .everySecondFrom(SUBTITLES_FROM);
 
     /** The request being counted down; a different one starts a fresh plan. */
     private @Nullable Long watching;
@@ -39,40 +37,18 @@ public final class Countdown {
      * @param untilDue what is left, to the millisecond
      * @return the beats still ahead, earliest first, or empty when this row is already scheduled
      */
-    public Optional<List<Beat>> beats(final long requestId, final Duration untilDue) {
+    public Optional<List<CountdownPlan.Beat<Announcement>>> beats(final long requestId, final Duration untilDue) {
         if (watching != null && watching == requestId) {
             return Optional.empty();
         }
         watching = requestId;
         reachedZero = false;
-
-        final long millisLeft = Math.max(0L, untilDue.toMillis());
-        // The seconds a counter shows, not the raw milliseconds, decide whether a number is still ahead.
-        final long secondsShown = (millisLeft + 999L) / 1000L;
-        final List<Beat> beats = new ArrayList<>();
-
-        for (final long threshold : CHAT_THRESHOLDS) {
-            if (secondsShown >= threshold) {
-                beats.add(atOrNow(millisLeft, threshold, new Announcement(Announcement.Kind.COUNTDOWN, threshold)));
-            }
-        }
-        for (long second = SUBTITLES_FROM; second >= 1L; second--) {
-            // A second with a chat line gets no tick: the chat line draws its own title.
-            if (secondsShown >= second && !CHAT_THRESHOLDS.contains(second)) {
-                beats.add(atOrNow(millisLeft, second, new Announcement(Announcement.Kind.TICK, second)));
-            }
-        }
-        beats.add(new Beat(Duration.ofMillis(millisLeft), new Announcement(Announcement.Kind.NOW, 0L)));
-
-        beats.sort(java.util.Comparator.comparing(Beat::delay));
-        return Optional.of(beats);
-    }
-
-    /**
-     * One beat on the instant its number becomes true, or now if that instant has just passed; never a negative delay.
-     */
-    private static Beat atOrNow(final long millisLeft, final long seconds, final Announcement announcement) {
-        return new Beat(Duration.ofMillis(Math.max(0L, millisLeft - seconds * 1000L)), announcement);
+        return Optional.of(PLAN.beats(
+                untilDue,
+                seconds -> new Announcement(
+                        CHAT_THRESHOLDS.contains(seconds) ? Announcement.Kind.COUNTDOWN : Announcement.Kind.TICK,
+                        seconds),
+                new Announcement(Announcement.Kind.NOW, 0L)));
     }
 
     /** Returns the request this countdown is following, or {@code null} when none. */

@@ -9,6 +9,7 @@ import eu.nordtal.s2.messages.spec.MessageSpec;
 import eu.nordtal.s2.messages.spec.MessageSpecs;
 import eu.nordtal.s2.messages.spec.Name;
 import eu.nordtal.s2.messages.spec.Shown;
+import eu.nordtal.s2.messages.value.Example;
 import eu.nordtal.s2.proxy.ping.ServerListContext;
 
 /** Every message of the proxy bundle, one method per key. */
@@ -57,7 +58,7 @@ public interface ProxyMessages {
         MessageRef full(@Arg("online") long online, @Arg("max") long max);
 
         @Name("Countdown")
-        MessageRef countdown(@Arg("countdown") String countdown);
+        MessageRef countdown(@Arg("countdown") @Example("countdown.imminent") MessageRef countdown);
 
         @Key("not-linked")
         NotLinked notLinkedSection();
@@ -155,10 +156,10 @@ public interface ProxyMessages {
         MessageRef tick(@Arg("seconds") long seconds);
 
         @Name("Cancelled")
-        MessageRef cancelled(@Arg("occasion") String occasion);
+        MessageRef cancelled(@Arg("occasion") @Example("restart.occasion.update") MessageRef occasion);
 
         @Name("Failed")
-        MessageRef failed(@Arg("occasion") String occasion);
+        MessageRef failed(@Arg("occasion") @Example("restart.occasion.update") MessageRef occasion);
 
         @Name("Voice")
         MessageRef voice();
@@ -169,16 +170,20 @@ public interface ProxyMessages {
         interface RestartCountdown {
 
             @Name("Update")
-            MessageRef update(@Arg("what") String what, @Arg("seconds") long seconds);
+            MessageRef update(
+                    @Arg("what") @Example("restart.what.network") MessageRef what, @Arg("seconds") long seconds);
 
             @Name("Recreate")
-            MessageRef recreate(@Arg("what") String what, @Arg("seconds") long seconds);
+            MessageRef recreate(
+                    @Arg("what") @Example("restart.what.network") MessageRef what, @Arg("seconds") long seconds);
 
             @Name("Backup")
-            MessageRef backup(@Arg("what") String what, @Arg("seconds") long seconds);
+            MessageRef backup(
+                    @Arg("what") @Example("restart.what.network") MessageRef what, @Arg("seconds") long seconds);
 
             @Name("Down")
-            MessageRef down(@Arg("what") String what, @Arg("seconds") long seconds);
+            MessageRef down(
+                    @Arg("what") @Example("restart.what.network") MessageRef what, @Arg("seconds") long seconds);
 
             @Name("Maintenance")
             MessageRef maintenance(@Arg("seconds") long seconds);
@@ -218,6 +223,9 @@ public interface ProxyMessages {
 
             @Name("Proxy")
             MessageRef proxy();
+
+            @Name("Any other service")
+            MessageRef other(@Arg("service") String service);
         }
 
         Occasion occasion();
@@ -247,16 +255,16 @@ public interface ProxyMessages {
         interface Now {
 
             @Name("Update")
-            MessageRef update(@Arg("what") String what);
+            MessageRef update(@Arg("what") @Example("restart.what.network") MessageRef what);
 
             @Name("Recreate")
-            MessageRef recreate(@Arg("what") String what);
+            MessageRef recreate(@Arg("what") @Example("restart.what.network") MessageRef what);
 
             @Name("Backup")
-            MessageRef backup(@Arg("what") String what);
+            MessageRef backup(@Arg("what") @Example("restart.what.network") MessageRef what);
 
             @Name("Down")
-            MessageRef down(@Arg("what") String what);
+            MessageRef down(@Arg("what") @Example("restart.what.network") MessageRef what);
 
             @Name("Maintenance")
             MessageRef maintenance();
@@ -270,7 +278,7 @@ public interface ProxyMessages {
     interface Return {
 
         @Name("Waiting room")
-        MessageRef waitingRoom(@Arg("what") String what);
+        MessageRef waitingRoom(@Arg("what") @Example("restart.what.network") MessageRef what);
 
         @Name("Countdown")
         MessageRef countdown(@Arg("seconds") long seconds);

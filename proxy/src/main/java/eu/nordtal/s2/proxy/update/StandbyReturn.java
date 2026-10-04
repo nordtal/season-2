@@ -2,6 +2,7 @@ package eu.nordtal.s2.proxy.update;
 
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import eu.nordtal.s2.common.time.CountdownPlan;
 import eu.nordtal.s2.proxy.ProxyRole;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -161,7 +162,7 @@ public final class StandbyReturn {
     /** Tells the players the network is back, counts the last ten seconds, and transfers them on zero. */
     private void announceThenSendHome(final Collection<Player> players) {
         returning = true;
-        final List<Countdown.Beat> beats =
+        final List<CountdownPlan.Beat<Announcement>> beats =
                 notice.beats(++notices, Homecoming.NOTICE).orElseGet(List::of);
         logger.info(
                 "{} is answering again: telling {} player(s) and handing them back in {}s",
@@ -169,13 +170,13 @@ public final class StandbyReturn {
                 players.size(),
                 Homecoming.NOTICE.toSeconds());
 
-        for (final Countdown.Beat beat : beats) {
+        for (final CountdownPlan.Beat<Announcement> beat : beats) {
             proxy.getScheduler()
                     .buildTask(plugin, () -> {
                         // Asked again per beat: a player who logged out is gone, one who logged in is owed the same.
                         final Collection<Player> here = proxy.getAllPlayers();
-                        voice.say(here, beat.announcement());
-                        if (beat.announcement().kind() != Announcement.Kind.NOW) {
+                        voice.say(here, beat.said());
+                        if (beat.said().kind() != Announcement.Kind.NOW) {
                             return;
                         }
                         // Sentence before transfer, unlike the way out: after it, the message reaches nobody.

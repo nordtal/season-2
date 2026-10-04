@@ -20,6 +20,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Progress } from "@/components/ui/progress"
+import { t } from "@/lib/texts"
 
 /** The track's definition, read through the configuration API for its order and what each step asks for. */
 export const TRACK_FILE = "smp/milestones"
@@ -94,7 +95,7 @@ export function SmpActions() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <FlagBannerIcon className="size-4 text-muted-foreground" aria-hidden />
-          Milestone track
+          {t("steward.game.track")}
         </CardTitle>
         {steps ? (
           <CardAction className="text-sm tabular-nums text-muted-foreground">
@@ -106,11 +107,11 @@ export function SmpActions() {
         <QueryState
           query={track}
           isEmpty={(data: SmpTrack) => data.milestones.length === 0}
-          empty={{ title: "The SMP has not written its track yet." }}
+          empty={{ title: t("steward.game.no-track") }}
         >
           {(data) =>
             data && steps ? (
-              <ol aria-label="Milestones" className="flex flex-col lg:flex-row">
+              <ol aria-label={t("steward.game.milestones")} className="flex flex-col lg:flex-row">
                 {steps.map((step, index) => (
                   <Step key={step.key} step={step} last={index === steps.length - 1} onAsk={setAsk} />
                 ))}
@@ -133,9 +134,9 @@ function Step({ step, last, onAsk }: { step: TrackStep; last: boolean; onAsk: (a
     onAsk({
       path: "/api/smp/milestone",
       body: { key: step.key },
-      title: `Unlock ${name}?`,
-      description: "The track moves on and aura is paid out to everybody who qualified. There is no way back.",
-      confirm: "Unlock",
+      title: t("steward.game.unlock-ask", { name }),
+      description: t("steward.game.unlock-note"),
+      confirm: t("steward.game.unlock"),
     })
 
   return (
@@ -160,7 +161,7 @@ function Step({ step, last, onAsk }: { step: TrackStep; last: boolean; onAsk: (a
           <StepPopover step={step} name={name} onUnlock={unlock} />
           {active ? (
             <Button type="button" variant="outline" size="xs" onClick={unlock}>
-              Unlock
+              {t("steward.game.unlock")}
             </Button>
           ) : null}
         </div>
@@ -225,15 +226,15 @@ function StepPopover({ step, name, onUnlock }: { step: TrackStep; name: string; 
           <PopoverTitle>{name}</PopoverTitle>
           <PopoverDescription>
             {step.state === "UNLOCKED"
-              ? `Unlocked ${date(step.unlocked)}`
+              ? t("steward.game.unlocked", { at: date(step.unlocked) })
               : step.state === "ACTIVE"
-                ? "Active"
-                : "Locked"}
+                ? t("steward.game.active")
+                : t("steward.game.locked")}
           </PopoverDescription>
         </PopoverHeader>
         <SectionSummary fields={step.fields} />
         <p className="text-xs tabular-nums text-muted-foreground">
-          {step.objectives.length === 0 ? "No tasks" : `${finished} of ${step.objectives.length} tasks`}
+          {t("steward.game.tasks", { finished, total: step.objectives.length })}
         </p>
         {step.state === "ACTIVE" ? (
           <Button
@@ -286,12 +287,12 @@ function TaskPopover({ task, active, onAsk }: { task: TrackTask; active: boolean
           <PopoverDescription className="font-mono text-xs">{task.type}</PopoverDescription>
         </PopoverHeader>
         <div className="flex flex-col gap-1">
-          <Progress value={value} aria-label={`${name} progress`} />
+          <Progress value={value} aria-label={t("steward.game.progress", { name })} />
           <div className="flex justify-between text-xs tabular-nums text-muted-foreground">
             <span>
               {task.amount.toLocaleString("en")} / {task.target.toLocaleString("en")}
             </span>
-            <span>{task.completed ? `Done ${date(task.completedAt)}` : `${value} %`}</span>
+            <span>{task.completed ? t("steward.game.done-at", { at: date(task.completedAt) }) : `${value} %`}</span>
           </div>
         </div>
         <SectionSummary fields={task.fields} />
@@ -305,13 +306,13 @@ function TaskPopover({ task, active, onAsk }: { task: TrackTask; active: boolean
               onAsk({
                 path: "/api/smp/objective",
                 body: { key: task.key },
-                title: `Complete ${name}?`,
-                description: `It closes at ${task.amount.toLocaleString("en")} of ${task.target.toLocaleString("en")} and pays out that share of its aura. There is no way back.`,
-                confirm: "Complete",
+                title: t("steward.game.complete-ask", { name }),
+                description: t("steward.game.complete-note", { amount: task.amount, target: task.target }),
+                confirm: t("steward.game.complete"),
               })
             }}
           >
-            Complete
+            {t("steward.game.complete")}
           </Button>
         ) : null}
       </PopoverContent>

@@ -14,6 +14,7 @@ import {
 } from "@/components/steward/milestones/parts"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { t } from "@/lib/texts"
 
 /** What every layout of the track is handed: the schema, the track as the draft holds it, and its edits. */
 export type LayoutProps = {
@@ -124,7 +125,7 @@ function MilestoneBody({
         <div>
           <Button type="button" variant="ghost" size="sm" disabled={disabled} onClick={onAdd}>
             <PlusIcon aria-hidden />
-            Objective
+            {t("steward.game.objective")}
           </Button>
         </div>
       </div>
@@ -137,7 +138,7 @@ function AddMilestone({ disabled, onAdd }: { disabled: boolean; onAdd: () => voi
     <div>
       <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={onAdd}>
         <PlusIcon aria-hidden />
-        Milestone
+        {t("steward.game.milestone")}
       </Button>
     </div>
   )
@@ -153,7 +154,7 @@ export function RowsLayout(props: LayoutProps) {
   const sheet = useObjectiveSheet(props)
   return (
     <div className="flex flex-col gap-3">
-      <ol aria-label="Milestones" className="flex flex-col divide-y rounded-lg border bg-card">
+      <ol aria-label={t("steward.game.milestones")} className="flex flex-col divide-y rounded-lg border bg-card">
         {track.map((milestone, index) => {
           const open = opened === index
           const name = nameOf(milestone)
@@ -236,7 +237,7 @@ export function SplitLayout(props: LayoutProps) {
 
   const list = (
     <div className="flex flex-col gap-2">
-      <ol aria-label="Milestones" className="flex flex-col gap-0.5">
+      <ol aria-label={t("steward.game.milestones")} className="flex flex-col gap-0.5">
         {track.map((milestone, index) => {
           const name = nameOf(milestone)
           const on = wide === index
@@ -317,7 +318,7 @@ export function SplitLayout(props: LayoutProps) {
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label="All milestones"
+                aria-label={t("steward.game.all-milestones")}
                 onClick={() => setChosen(null)}
               >
                 <CaretLeftIcon aria-hidden />
@@ -342,7 +343,7 @@ export function GridLayout(props: LayoutProps) {
   const sheet = useObjectiveSheet(props)
   return (
     <div className="flex flex-col gap-3">
-      <ol aria-label="Milestones" className="flex flex-col gap-3">
+      <ol aria-label={t("steward.game.milestones")} className="flex flex-col gap-3">
         {track.map((milestone, index) => {
           const name = nameOf(milestone)
           return (

@@ -113,7 +113,7 @@ function Compose() {
         title={t("steward.announcements.ask")}
         description={t("steward.announcements.where", { languages: tags.length })}
         action={t("steward.announcements.send")}
-        acting={t("steward.announcements.sending")}
+        acting={t("steward.form.sending")}
         act={() =>
           send.mutateAsync(Object.fromEntries(tags.map((tag) => [tag, text(tag).trim()]))).then((answer) => {
             setSent(answer.ids)

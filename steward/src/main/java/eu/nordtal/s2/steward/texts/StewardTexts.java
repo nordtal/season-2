@@ -48,6 +48,8 @@ public interface StewardTexts {
 
         Forms form();
 
+        GameTexts game();
+
         SettingsEditor settings();
 
         AnnouncementsPage announcements();

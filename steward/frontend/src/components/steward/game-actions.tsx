@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query"
 
 import type { CommandRun } from "@/lib/api"
 import { useCommandRun, useGameAction, useHungerGamesRound } from "@/lib/queries"
-import { message } from "@/lib/texts"
+import { choice, message, t } from "@/lib/texts"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { Failure, QueryState, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
@@ -30,25 +30,27 @@ export function HungerGamesActions() {
   const [ask, setAsk] = useState<Ask | null>(null)
   const state = round.data?.state
 
-  const start = (confirm: boolean) =>
+  const start = (anyway: boolean) =>
     setAsk({
       path: "/api/hunger-games/start",
-      body: confirm ? { confirm: true } : {},
-      title: confirm ? "Start anyway?" : "Start the round?",
-      description: "Everybody registered is sent into the arena and the countdown begins. There is no way back.",
-      confirm: confirm ? "Start anyway" : "Start",
+      body: anyway ? { confirm: true } : {},
+      title: t("steward.game.start-ask", { anyway }),
+      description: t("steward.game.start-note"),
+      confirm: t("steward.game.start", { anyway }),
     })
 
   /** A start refused below the recommended minimum is the one refusal a second, confirmed step can overrule. */
   const after = (run: CommandRun) =>
-    run.reason === "BELOW_SOFT_MINIMUM" && ask?.confirm === "Start" ? <StartAnyway onStart={() => start(true)} /> : null
+    run.reason === "BELOW_SOFT_MINIMUM" && ask?.confirm === t("steward.game.start", { anyway: false }) ? (
+      <StartAnyway onStart={() => start(true)} />
+    ) : null
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <SwordIcon className="size-4 text-muted-foreground" aria-hidden />
-          Round
+          {t("steward.game.round")}
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-wrap items-center justify-between gap-3">
@@ -57,12 +59,12 @@ export function HungerGamesActions() {
             data ? (
               <span className="text-sm text-muted-foreground">
                 {data.state === undefined
-                  ? "No round is open."
+                  ? t("steward.game.no-round")
                   : data.state === "REGISTRATION"
-                    ? `${data.registered ?? 0} registered`
+                    ? t("steward.game.registered", { count: data.registered ?? 0 })
                     : data.state === "COUNTDOWN"
-                      ? "Counting down"
-                      : "Running"}
+                      ? t("steward.game.counting-down")
+                      : t("steward.game.running")}
               </span>
             ) : (
               <SkeletonText width="medium" />
@@ -70,7 +72,7 @@ export function HungerGamesActions() {
           }
         </QueryState>
         <Button type="button" size="sm" disabled={state !== "REGISTRATION"} onClick={() => start(false)}>
-          Start round
+          {t("steward.game.start-round")}
         </Button>
       </CardContent>
       <ActionDialog ask={ask} onClose={() => setAsk(null)} refresh="hunger-games-round" after={after} />
@@ -83,7 +85,7 @@ function StartAnyway({ onStart }: { onStart: () => void }) {
   if (round.data?.state !== "REGISTRATION") return null
   return (
     <Button type="button" variant="destructive" onClick={onStart}>
-      Start anyway
+      {t("steward.game.start", { anyway: true })}
     </Button>
   )
 }
@@ -131,7 +133,7 @@ export function ActionDialog({
       title={ask?.title}
       description={ask?.description}
       action={ask?.confirm}
-      acting="Sending…"
+      acting={t("steward.form.sending")}
       destructive
       act={() => {
         if (!ask) return Promise.resolve()
@@ -147,7 +149,7 @@ export function ActionDialog({
         )
       }
       busy={waiting}
-      closeLabel={waiting ? "Waiting…" : "Close"}
+      closeLabel={waiting ? t("steward.form.waiting") : t("steward.form.close")}
     />
   )
 }
@@ -158,15 +160,6 @@ export function ActionDialog({
  * EXPIRED means no server claimed the row, so it is not listening; the action did not fail.
  */
 export function RequestOutcome({ run }: { run: CommandRun }) {
-  const text: Record<CommandRun["status"], string> = {
-    PENDING: "Sent. The server has not picked it up yet.",
-    RUNNING: "The server is carrying it out.",
-    DONE: "The server answered:",
-    REFUSED: "The server refused:",
-    FAILED: "The server picked it up and failed at it.",
-    EXPIRED: "Nobody picked this up within two minutes: the server is not listening. Nothing was changed.",
-    CANCELLED: "Withdrawn before the server picked it up. Nothing was changed.",
-  }
   const tone =
     run.status === "FAILED" || run.status === "EXPIRED"
       ? "border-destructive/40 bg-destructive/5 text-destructive"
@@ -174,7 +167,7 @@ export function RequestOutcome({ run }: { run: CommandRun }) {
 
   return (
     <div role="status" className={`flex flex-col gap-1 rounded-md border px-3 py-2 text-sm ${tone}`}>
-      <span>{text[run.status]}</span>
+      <span>{t("steward.game.outcome", { status: choice(run.status) })}</span>
       {run.result ? <span className="whitespace-pre-wrap">{message(run.result)}</span> : null}
     </div>
   )

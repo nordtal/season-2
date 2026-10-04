@@ -449,6 +449,7 @@ export type TextArgs = {
   "steward.form.removing": Record<string, never>
   "steward.form.reset": Record<string, never>
   "steward.form.save": Record<string, never>
+  "steward.form.saving": Record<string, never>
   "steward.form.schedule": Record<string, never>
   "steward.form.schedule-saved": Record<string, never>
   "steward.image.drift": {
@@ -564,6 +565,51 @@ export type TextArgs = {
   "steward.keys.waiting": Record<string, never>
   "steward.keys.with-discord": Record<string, never>
   "steward.keys.wrong-domain": Record<string, never>
+  "steward.notifications.added": {
+    at: Arg["instant"]
+  }
+  "steward.notifications.by-channel": {
+    type: Arg["text"]
+    channel: Arg["text"]
+  }
+  "steward.notifications.devices": Record<string, never>
+  "steward.notifications.discord": Record<string, never>
+  "steward.notifications.disk-in-use": Record<string, never>
+  "steward.notifications.last-notified": {
+    at: Arg["instant"]
+  }
+  "steward.notifications.memory-in-use": Record<string, never>
+  "steward.notifications.newest-backup": Record<string, never>
+  "steward.notifications.no-device": Record<string, never>
+  "steward.notifications.no-push": Record<string, never>
+  "steward.notifications.notify-about": Record<string, never>
+  "steward.notifications.off": Record<string, never>
+  "steward.notifications.on": Record<string, never>
+  "steward.notifications.push": Record<string, never>
+  "steward.notifications.read-only": {
+    group: Arg["text"]
+    service: Arg["text"]
+  }
+  "steward.notifications.remove-device": {
+    name: Arg["text"]
+  }
+  "steward.notifications.sample": {
+    type: Arg["choice"]
+  }
+  "steward.notifications.send-test": {
+    name: Arg["text"]
+  }
+  "steward.notifications.tell-me-when": Record<string, never>
+  "steward.notifications.test-notifications": Record<string, never>
+  "steward.notifications.this-device": Record<string, never>
+  "steward.notifications.this-one": Record<string, never>
+  "steward.notifications.title": Record<string, never>
+  "steward.notifications.turn-off": Record<string, never>
+  "steward.notifications.turn-on": Record<string, never>
+  "steward.notifications.type": {
+    type: Arg["choice"]
+  }
+  "steward.notifications.unnamed": Record<string, never>
   "steward.operations.a-run": Record<string, never>
   "steward.operations.added": Record<string, never>
   "steward.operations.all-updates": Record<string, never>

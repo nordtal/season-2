@@ -4,7 +4,6 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 
 import type { AlertChannel, AlertType, ConfigEntry, PushDevice } from "@/lib/api"
-import { relative } from "@/lib/format"
 import { pushSupported } from "@/lib/push"
 import {
   useConfig,
@@ -32,6 +31,7 @@ import {
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog"
 import { Switch } from "@/components/ui/switch"
+import { runs, t } from "@/lib/texts"
 
 /**
  * Every notification setting, reached from the user popover so it is found.
@@ -41,31 +41,30 @@ import { Switch } from "@/components/ui/switch"
 export type NotificationActions = ReturnType<typeof useNotificationActions>
 
 /**
- * The words for {@link AlertType}.
+ * Every {@link AlertType}, with the tone `AlertRouter#sample` really sends.
  *
- * `label` names what a switch governs; `test` and `tone` are what `AlertRouter#sample` really sends.
+ * What a switch governs is `steward.notifications.type`, and the test's words are `steward.notifications.sample`.
  */
-const TYPES: ReadonlyArray<{
-  key: AlertType
-  label: string
-  test: string
-  tone: "warn" | "down"
-}> = [
-  { key: "service", label: "Services", test: "Service down", tone: "down" },
-  { key: "backup", label: "Backups", test: "Backup missing", tone: "down" },
-  { key: "disk", label: "Disk", test: "Disk filling up", tone: "warn" },
-  { key: "memory", label: "Memory", test: "Memory filling up", tone: "warn" },
-  { key: "drift", label: "Images", test: "Image out of date", tone: "warn" },
-  { key: "run", label: "Failed runs", test: "Run failed", tone: "down" },
-  { key: "payment", label: "Payments", test: "Payment needs a look", tone: "down" },
-  { key: "bot", label: "Discord actions", test: "Role not given", tone: "warn" },
+const TYPES: ReadonlyArray<{ key: AlertType; tone: "warn" | "down" }> = [
+  { key: "service", tone: "down" },
+  { key: "backup", tone: "down" },
+  { key: "disk", tone: "warn" },
+  { key: "memory", tone: "warn" },
+  { key: "drift", tone: "warn" },
+  { key: "run", tone: "down" },
+  { key: "payment", tone: "down" },
+  { key: "bot", tone: "warn" },
 ]
 
 /** The two places an alert can reach an admin besides Steward, as columns. */
-const CHANNELS: ReadonlyArray<{ key: AlertChannel; label: string }> = [
-  { key: "push", label: "Push" },
-  { key: "discord", label: "Discord" },
+const CHANNELS: ReadonlyArray<{ key: AlertChannel; label: () => string }> = [
+  { key: "push", label: () => t("steward.notifications.push") },
+  { key: "discord", label: () => t("steward.notifications.discord") },
 ]
+
+function typeName(type: AlertType): string {
+  return t("steward.notifications.type", { type })
+}
 
 export function useNotificationActions() {
   const supported = pushSupported()
@@ -104,14 +103,14 @@ export function NotificationsDialog({ state }: { state: NotificationActions }) {
       {/* `sm:max-w-md` only: below it a sheet is as wide as the phone, and no row may widen it. */}
       <ResponsiveDialogContent className="sm:max-w-md">
         <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>Notifications</ResponsiveDialogTitle>
+          <ResponsiveDialogTitle>{t("steward.notifications.title")}</ResponsiveDialogTitle>
         </ResponsiveDialogHeader>
 
         <div className="flex min-h-0 flex-col gap-4 overflow-x-hidden overflow-y-auto">
           {state.supported ? (
             <ThisDevice state={state} />
           ) : (
-            <p className="text-sm text-muted-foreground">This browser cannot receive push notifications.</p>
+            <p className="text-sm text-muted-foreground">{t("steward.notifications.no-push")}</p>
           )}
           <Types state={state} />
           <Thresholds state={state} />
@@ -136,8 +135,10 @@ function ThisDevice({ state }: { state: NotificationActions }) {
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 flex-col">
-          <span className="text-sm font-medium">This device</span>
-          <span className="text-xs text-muted-foreground">{subscribed ? "On" : "Off"}</span>
+          <span className="text-sm font-medium">{t("steward.notifications.this-device")}</span>
+          <span className="text-xs text-muted-foreground">
+            {subscribed ? t("steward.notifications.on") : t("steward.notifications.off")}
+          </span>
         </div>
         <Button
           type="button"
@@ -154,7 +155,7 @@ function ThisDevice({ state }: { state: NotificationActions }) {
           }}
         >
           {subscribed ? <BellSlashIcon aria-hidden /> : <BellIcon aria-hidden />}
-          {subscribed ? "Turn off" : "Turn on"}
+          {subscribed ? t("steward.notifications.turn-off") : t("steward.notifications.turn-on")}
         </Button>
       </div>
       {failure ? (
@@ -173,21 +174,24 @@ function Types({ state }: { state: NotificationActions }) {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2">
-        <span className="min-w-0 flex-1 text-xs text-muted-foreground">Notify me about</span>
+        <span className="min-w-0 flex-1 text-xs text-muted-foreground">{t("steward.notifications.notify-about")}</span>
         {CHANNELS.map((channel) => (
           <span key={channel.key} className="w-14 shrink-0 text-center text-xs text-muted-foreground">
-            {channel.label}
+            {channel.label()}
           </span>
         ))}
       </div>
       <ul className="flex flex-col">
         {TYPES.map((type) => (
           <li key={type.key} className="flex items-center gap-2 py-1">
-            <span className="min-w-0 flex-1 truncate text-sm">{type.label}</span>
+            <span className="min-w-0 flex-1 truncate text-sm">{typeName(type.key)}</span>
             {CHANNELS.map((channel) => (
               <span key={channel.key} className="flex w-14 shrink-0 justify-center">
                 <Switch
-                  aria-label={`${type.label} by ${channel.label}`}
+                  aria-label={t("steward.notifications.by-channel", {
+                    type: typeName(type.key),
+                    channel: channel.label(),
+                  })}
                   /** Off until the query answers, and disabled until then, so no type ever reads as off by accident. */
                   checked={chosen?.[type.key]?.[channel.key] ?? false}
                   disabled={!chosen || (channel.key === "push" && !state.supported)}
@@ -258,7 +262,7 @@ function Thresholds({ state }: { state: NotificationActions }) {
         {rows.map((row) => (
           <li key={row.path} className="flex items-center justify-between gap-2 py-1">
             <label htmlFor={`threshold-${row.key}`} className="min-w-0 truncate text-sm">
-              {row.label}
+              {row.label()}
             </label>
             <div className="flex shrink-0 items-center gap-1.5">
               <Input
@@ -295,7 +299,7 @@ function Thresholds({ state }: { state: NotificationActions }) {
             )
           }}
         >
-          {save.isPending ? "Saving…" : "Save"}
+          {save.isPending ? t("steward.form.saving") : t("steward.form.save")}
         </Button>
       </div>
       {save.error ? (
@@ -308,10 +312,10 @@ function Thresholds({ state }: { state: NotificationActions }) {
 }
 
 /** The three keys, in the order the alerts read them. */
-const THRESHOLDS: ReadonlyArray<{ key: string; path: string; label: string; unit: string }> = [
-  { key: "disk", path: "disk-percent", label: "Disk in use", unit: "%" },
-  { key: "memory", path: "memory-percent", label: "Memory in use", unit: "%" },
-  { key: "backup", path: "backup-age-hours", label: "Newest backup", unit: "h" },
+const THRESHOLDS: ReadonlyArray<{ key: string; path: string; label: () => string; unit: string }> = [
+  { key: "disk", path: "disk-percent", label: () => t("steward.notifications.disk-in-use"), unit: "%" },
+  { key: "memory", path: "memory-percent", label: () => t("steward.notifications.memory-in-use"), unit: "%" },
+  { key: "backup", path: "backup-age-hours", label: () => t("steward.notifications.newest-backup"), unit: "h" },
 ]
 
 /** What a deployment that cannot write the file gets: the numbers, and where they are set. */
@@ -320,7 +324,7 @@ function ReadOnlyThresholds({
   waiting,
   onLeave,
 }: {
-  rows: Array<{ key: string; label: string; unit: string; entry?: ConfigEntry }>
+  rows: Array<{ key: string; label: () => string; unit: string; entry?: ConfigEntry }>
   waiting: boolean
   onLeave: () => void
 }) {
@@ -340,7 +344,7 @@ function ReadOnlyThresholds({
         <ul className="flex flex-col">
           {rows.map((row) => (
             <li key={row.key} className="flex items-center justify-between gap-2 py-1">
-              <span className="min-w-0 truncate text-sm">{row.label}</span>
+              <span className="min-w-0 truncate text-sm">{row.label()}</span>
               <span className="shrink-0 text-sm text-muted-foreground">
                 {row.entry?.value ?? "\u2014"} {row.unit}
               </span>
@@ -349,17 +353,25 @@ function ReadOnlyThresholds({
         </ul>
       ) : null}
       <p className="text-xs break-words text-muted-foreground">
-        This deployment does not let Steward write its own <span className="font-mono">{ALERTS_FILE}</span>. They are
-        changed on the{" "}
-        <Link
-          to="/services/$name"
-          params={{ name: ALERTS_SERVICE }}
-          onClick={onLeave}
-          className="underline underline-offset-2"
-        >
-          {ALERTS_SERVICE} page
-        </Link>
-        .
+        {runs("steward.notifications.read-only", { group: ALERTS_FILE, service: ALERTS_SERVICE }).map((run, index) =>
+          run.name === "service" ? (
+            <Link
+              key={index}
+              to="/services/$name"
+              params={{ name: ALERTS_SERVICE }}
+              onClick={onLeave}
+              className="underline underline-offset-2"
+            >
+              {run.text}
+            </Link>
+          ) : run.name === "group" ? (
+            <span key={index} className="font-mono">
+              {run.text}
+            </span>
+          ) : (
+            run.text
+          ),
+        )}
       </p>
     </div>
   )
@@ -373,7 +385,7 @@ function Devices({ state }: { state: NotificationActions }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-xs text-muted-foreground">Devices</span>
+      <span className="text-xs text-muted-foreground">{t("steward.notifications.devices")}</span>
 
       {/* Two placeholder rows while loading, so the dialog does not grow under a pointer. */}
       {state.devices.isPending ? (
@@ -390,7 +402,7 @@ function Devices({ state }: { state: NotificationActions }) {
           ))}
         </ul>
       ) : devices.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No device is subscribed.</p>
+        <p className="text-sm text-muted-foreground">{t("steward.notifications.no-device")}</p>
       ) : (
         <ul className="flex flex-col">
           {devices.map((device) => (
@@ -420,7 +432,7 @@ function DeviceRow({
   isThisOne: boolean
   state: NotificationActions
 }) {
-  const name = device.device ?? "Unnamed browser"
+  const name = device.device ?? t("steward.notifications.unnamed")
   const busy = state.test.isPending || state.forget.isPending
   const [testing, setTesting] = useState(false)
 
@@ -431,10 +443,10 @@ function DeviceRow({
         {/* One line under the name, and "this device" wins it. */}
         <span className="truncate text-xs text-muted-foreground">
           {isThisOne
-            ? "this device"
+            ? t("steward.notifications.this-one")
             : device.lastSentAt
-              ? `last notified ${relative(device.lastSentAt)}`
-              : `added ${relative(device.subscribedAt)}`}
+              ? t("steward.notifications.last-notified", { at: device.lastSentAt })
+              : t("steward.notifications.added", { at: device.subscribedAt })}
         </span>
       </div>
       <Popover open={testing} onOpenChange={setTesting}>
@@ -445,14 +457,14 @@ function DeviceRow({
             size="icon-sm"
             className="shrink-0"
             disabled={busy}
-            aria-label={`Send a test notification to ${name}`}
+            aria-label={t("steward.notifications.send-test", { name })}
           >
             <PaperPlaneTiltIcon aria-hidden />
           </Button>
         </PopoverTrigger>
         {/* End-aligned with a `rem` width, so it grows left into the sheet instead of past it. */}
         <PopoverContent align="end" className="w-60 max-w-[calc(100vw-2rem)] p-1">
-          <p className="px-2 py-1.5 text-xs text-muted-foreground">Test notifications</p>
+          <p className="px-2 py-1.5 text-xs text-muted-foreground">{t("steward.notifications.test-notifications")}</p>
           <ul className="flex flex-col">
             {TYPES.map((type) => (
               <li key={type.key}>
@@ -471,7 +483,7 @@ function DeviceRow({
                   ) : (
                     <WarningIcon aria-hidden className="text-warning" />
                   )}
-                  <span className="min-w-0 truncate">{type.test}</span>
+                  <span className="min-w-0 truncate">{t("steward.notifications.sample", { type: type.key })}</span>
                 </Button>
               </li>
             ))}
@@ -484,7 +496,7 @@ function DeviceRow({
         size="icon-sm"
         className="shrink-0"
         disabled={busy}
-        aria-label={`Remove ${name}`}
+        aria-label={t("steward.notifications.remove-device", { name })}
         onClick={() => state.forget.mutate(device.endpoint)}
       >
         <TrashIcon aria-hidden />

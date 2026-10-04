@@ -421,7 +421,7 @@ describe("the thresholds the notifications fire on", () => {
 
     // No field that cannot write: a box somebody types into and loses is worse than a sentence.
     expect(screen.queryByLabelText("Disk in use")).toBeNull()
-    expect(screen.getByRole("link", { name: "steward page" })).toBeTruthy()
+    expect(screen.getByRole("link", { name: "steward" }).getAttribute("href")).toBe("/services/steward")
   })
 })
 

@@ -27,7 +27,7 @@ import { DriftBadge, RunStatus, ServiceState, runKind } from "@/components/stewa
 import type { Run } from "@/lib/api"
 import { touches, useRunLock } from "@/lib/run-lock"
 import { QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
-import { Sparkline } from "@/components/steward/sparkline"
+import { MetricChart, RangeSelect, type Range } from "@/components/steward/metric-chart"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -300,13 +300,13 @@ export function ServiceHead({
   service?: NonNullable<ReturnType<typeof useService>["data"]>
   name: string
 }) {
-  /** The same six hours the start page draws, one series per container. */
-  const cpu = useMetrics(name, "cpu_percent", 6)
-  const memory = useMetrics(name, "memory_bytes", 6)
+  const [minutes, setMinutes] = useState<Range>(360)
+  const cpu = useMetrics(name, "cpu_percent", minutes)
+  const memory = useMetrics(name, "memory_bytes", minutes)
   return (
-    /* On a phone one compact row, so the console starts right under it; from `sm` the labelled grid. */
-    <section className="grid grid-cols-2 gap-x-4 gap-y-5 max-sm:flex max-sm:flex-wrap max-sm:items-center max-sm:gap-y-1 lg:flex lg:items-start lg:gap-x-10">
-      <div className="col-span-2 flex flex-col gap-2 max-sm:flex-row max-sm:items-center">
+    /* On a phone the state is one compact row, the curves side by side under it; from `lg` one flat row. */
+    <section className="grid grid-cols-2 gap-x-4 gap-y-3 sm:gap-y-5 lg:flex lg:items-start lg:gap-x-10">
+      <div className="col-span-2 flex flex-col gap-2 max-sm:flex-row max-sm:flex-wrap max-sm:items-center">
         <span className="text-xs font-medium font-heading text-muted-foreground max-sm:sr-only">
           {t("steward.operations.state")}
         </span>
@@ -326,27 +326,30 @@ export function ServiceHead({
             <SkeletonText width="short" className="h-[1lh]" />
           )}
         </span>
-      </div>
-      <div className="flex min-w-0 flex-col gap-1.5 lg:w-40">
-        <Stat
-          label={t("steward.service-page.cpu")}
-          value={service ? percent(service.cpuPercent) : undefined}
-          {...PHONE_INLINE}
-        />
-        <div className="max-sm:hidden">
-          <Sparkline points={cpu.data?.points} />
+        <div className="max-sm:ml-auto">
+          <RangeSelect minutes={minutes} onChange={setMinutes} />
         </div>
       </div>
-      <div className="flex min-w-0 flex-col gap-1.5 lg:w-40">
-        <Stat
-          label={t("steward.service-page.ram")}
-          value={service ? bytes(service.memoryBytes) : undefined}
-          {...PHONE_INLINE}
-        />
-        <div className="max-sm:hidden">
-          <Sparkline points={memory.data?.points} />
-        </div>
-      </div>
+      <MetricChart
+        label={t("steward.service-page.cpu")}
+        value={service ? percent(service.cpuPercent) : undefined}
+        points={cpu.data?.points}
+        format={percent}
+        colour="var(--chart-1)"
+        className="flex min-w-0 flex-col gap-1.5 lg:w-48"
+        statClassName={PHONE_INLINE.className}
+        valueClassName={PHONE_INLINE.valueClassName}
+      />
+      <MetricChart
+        label={t("steward.service-page.ram")}
+        value={service ? bytes(service.memoryBytes) : undefined}
+        points={memory.data?.points}
+        format={bytes}
+        colour="var(--chart-2)"
+        className="flex min-w-0 flex-col gap-1.5 lg:w-48"
+        statClassName={PHONE_INLINE.className}
+        valueClassName={PHONE_INLINE.valueClassName}
+      />
       {/* Only services with a volume have a number, since 0 bytes would be a claim; an old one says its age. */}
       {service?.diskBytes === undefined ? null : (
         <Stat

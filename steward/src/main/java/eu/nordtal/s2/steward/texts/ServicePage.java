@@ -4,6 +4,7 @@ import eu.nordtal.s2.internalapi.agent.AgentWire.PluginGroup;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.spec.Arg;
 import eu.nordtal.s2.messages.spec.Name;
+import java.time.Instant;
 
 /** A service's page: its head, the console, Recreate and the plugins. */
 @Name("Service page")
@@ -32,6 +33,12 @@ public interface ServicePage {
 
     @Name("Disk")
     MessageRef disk();
+
+    @Name("How far back the curves reach")
+    MessageRef range();
+
+    @Name("A curve's reading at a moment")
+    MessageRef reading(@Arg("metric") String metric, @Arg("at") Instant at);
 
     @Name("Find")
     MessageRef find();

@@ -9,7 +9,7 @@ import { useActions, useAlerts, useBackups, useHost, useMetrics, useServices } f
 import { ActionRow } from "@/components/steward/actions"
 import { NetworkPanel } from "@/components/steward/network/view"
 import { OnlineLine, useOnline } from "@/components/steward/online"
-import { Sparkline } from "@/components/steward/sparkline"
+import { MetricChart } from "@/components/steward/metric-chart"
 import { Stat, UsageBar } from "@/components/steward/stat"
 import { QueryState, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
@@ -48,7 +48,7 @@ const WAITING_HINT = <SkeletonText className="w-20 text-xs" />
 /** CPU, memory, disk, latest backup, drift and issues; the detail behind each lives on the Operations page. */
 function MetricRow() {
   const host = useHost()
-  const cpu = useMetrics("host", "cpu_percent", 6)
+  const cpu = useMetrics("host", "cpu_percent", 360)
   const services = useServices()
   const backups = useBackups()
   const alerts = useAlerts()
@@ -64,7 +64,7 @@ function MetricRow() {
 
   return (
     <div className="grid grid-cols-2 gap-x-4 gap-y-5 min-[26rem]:grid-cols-3 lg:grid-cols-6">
-      {/* CPU spans the row below `lg`, since its sparkline makes it taller than any row-mate. */}
+      {/* CPU spans the row below `lg`, since its curve makes it taller than any row-mate. */}
       <MetricTile
         label={t("steward.service-page.cpu")}
         value={host.data ? percent(host.data.cpuPercent) : undefined}
@@ -72,7 +72,7 @@ function MetricRow() {
         className="col-span-2 min-[26rem]:col-span-3 lg:col-span-1"
       >
         <UsageBar used={host.data?.cpuPercent ?? (host.data ? 0 : undefined)} total={host.data ? 100 : undefined} />
-        <Sparkline points={cpu.data?.points} />
+        <MetricChart points={cpu.data?.points} format={percent} colour="var(--chart-4)" height={28} />
       </MetricTile>
 
       <MetricTile

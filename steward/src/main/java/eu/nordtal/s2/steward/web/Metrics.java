@@ -14,6 +14,9 @@ import org.jspecify.annotations.Nullable;
 /** {@code /api/metrics}: the curves the start page draws, read from Postgres since Docker only answers "now". */
 final class Metrics {
 
+    /** Six hours, the start page's curve. */
+    private static final int DEFAULT_MINUTES = 360;
+
     private final @Nullable Data data;
 
     private final Clock clock;
@@ -36,9 +39,11 @@ final class Metrics {
         if (metric == null || metric.isBlank()) {
             throw new BadRequestResponse("metric is which number to draw");
         }
-        final int hours = ctx.queryParamAsClass("hours", Integer.class).getOrDefault(6);
+        final int minutes = ctx.queryParamAsClass("minutes", Integer.class)
+                .check(asked -> asked > 0, "minutes is how far back the curve reaches, more than none")
+                .getOrDefault(DEFAULT_MINUTES);
         final Instant now = clock.instant();
-        final Instant from = now.minus(Duration.ofHours(hours));
+        final Instant from = now.minus(Duration.ofMinutes(minutes));
         ctx.json(new Curve(subject, metric, from, data().metrics().range(subject, metric, from, now)));
     }
 }

@@ -79,6 +79,28 @@ describe("ServiceHead - the number row", () => {
   })
 })
 
+/** Both curves follow one range, picked under the State heading, six hours until somebody picks another. */
+describe("ServiceHead - the range of the curves", () => {
+  it("asks for six hours of CPU and RAM, counted in minutes", () => {
+    draw(<ServiceHead name="smp" service={service()} />)
+
+    const asked = vi.mocked(fetch).mock.calls.map(([url]) => (typeof url === "string" ? url : null))
+    for (const metric of ["cpu_percent", "memory_bytes"]) {
+      expect(asked).toContain(`/api/metrics?subject=smp&metric=${metric}&minutes=360`)
+    }
+  })
+
+  it("draws the range under the State heading, reading six hours", () => {
+    draw(<ServiceHead name="smp" service={service()} />)
+
+    const range = screen.getByRole("combobox", { name: "Range" })
+    const state = screen.getByText("State")
+    expect(range.textContent).toBe("6h")
+    expect(state.parentElement?.contains(range)).toBe(true)
+    expect(state.compareDocumentPosition(range) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})
+
 /** Held down and crashed look the same to Docker; only `hold` tells them apart, and absent is not false. */
 describe("ServiceHead - a service somebody is holding down", () => {
   it("says so when the row carries a hold", () => {

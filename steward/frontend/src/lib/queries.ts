@@ -253,12 +253,12 @@ export function useRun(id: string, enabled = true) {
   })
 }
 
-export function useMetrics(subject: string, metric: string, hours: number, enabled = true) {
+export function useMetrics(subject: string, metric: string, minutes: number, enabled = true) {
   return useQuery({
-    queryKey: keys.metrics(subject, metric, hours),
+    queryKey: keys.metrics(subject, metric, minutes),
     queryFn: () =>
       api<Metrics>(
-        `/api/metrics?subject=${encodeURIComponent(subject)}&metric=${encodeURIComponent(metric)}&hours=${hours}`,
+        `/api/metrics?subject=${encodeURIComponent(subject)}&metric=${encodeURIComponent(metric)}&minutes=${minutes}`,
       ),
     ...live("METRICS"),
     enabled,

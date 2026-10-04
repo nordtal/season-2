@@ -264,8 +264,7 @@ class ArchitectureTest {
                 .doNotHaveFullyQualifiedName("eu.nordtal.s2.papercommon.hud.Hud")
                 .should()
                 .accessTargetWhere(DescribedPredicate.describe(
-                        "a boss bar shown, hidden or made",
-                        ArchitectureTest::touchesABossBar))
+                        "a boss bar shown, hidden or made", ArchitectureTest::touchesABossBar))
                 .because("a plugin declares its lines on its Hud, which keeps every bar per player and draws them on"
                         + " one clock")
                 .check(classes);

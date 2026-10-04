@@ -48,6 +48,10 @@ public interface StewardTexts {
 
         Forms form();
 
+        IdentityCard identity();
+
+        Shell shell();
+
         NotificationsPanel notifications();
 
         OverviewPage overview();

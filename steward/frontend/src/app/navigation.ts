@@ -17,6 +17,7 @@ import type { LinkProps } from "@tanstack/react-router"
 
 import { topologyOf } from "@/components/steward/network/topology"
 import { useTopology } from "@/lib/queries"
+import { t } from "@/lib/texts"
 
 /** The one list of places, read by the sidebar, the palette and the breadcrumb; a route missing here is unreachable. */
 
@@ -55,9 +56,9 @@ export function navigation(services: readonly string[]): NavGroup[] {
       entries: [
         {
           id: "overview",
-          label: "Overview",
+          label: t("steward.shell.page", { page: "overview" }),
           to: "/",
-          note: "Whether anything needs attention, the numbers behind it, and the season.",
+          note: t("steward.shell.note", { page: "overview" }),
           icon: PulseIcon,
           keywords: ["home", "dashboard", "health", "overview", "status"],
         },
@@ -65,45 +66,45 @@ export function navigation(services: readonly string[]): NavGroup[] {
     },
     {
       id: "services",
-      label: "Services",
+      label: t("steward.shell.page", { page: "services" }),
       icon: HardDrivesIcon,
       entries: services.map((name) => ({
         id: `service-${name}`,
         label: name,
         to: "/services/$name",
         params: { name },
-        note: `Log window and console for ${name}.`,
+        note: t("steward.shell.service-note", { name }),
         icon: HardDrivesIcon,
         keywords: ["container", "log", "console", "restart"],
       })),
     },
     {
       id: "operations",
-      label: "Operations",
+      label: t("steward.shell.page", { page: "operations" }),
       icon: WrenchIcon,
       entries: [
         {
           id: "operations-updates",
-          label: "Updates",
+          label: t("steward.shell.page", { page: "updates" }),
           to: "/operations/updates",
-          note: "What a run would install, the images, the update runs and their schedule.",
+          note: t("steward.shell.note", { page: "updates" }),
           icon: ArrowCircleUpIcon,
           keywords: ["update", "drift", "image", "plugin", "restart", "schedule"],
         },
         {
           /** The list page rather than a backup id, since "latest" is not a backup's name. */
           id: "operations-backups",
-          label: "Backups",
+          label: t("steward.shell.page", { page: "backups" }),
           to: "/operations/backups",
-          note: "Runs, archives, retention, the offsite copy and the way back.",
+          note: t("steward.shell.note", { page: "backups" }),
           icon: ArchiveIcon,
           keywords: ["backup", "archive", "snapshot", "retention", "s3", "storage box", "offsite", "restore"],
         },
         {
           id: "operations-alerts",
-          label: "Alerts",
+          label: t("steward.shell.page", { page: "alerts" }),
           to: "/alerts",
-          note: "What is wrong now, and every alert raised lately.",
+          note: t("steward.shell.note", { page: "alerts" }),
           icon: BellIcon,
           keywords: ["alert", "issue", "problem", "warning", "down", "notification"],
         },
@@ -115,41 +116,41 @@ export function navigation(services: readonly string[]): NavGroup[] {
       entries: [
         {
           id: "season",
-          label: "Season",
+          label: t("steward.shell.page", { page: "season" }),
           to: "/season",
-          note: "Phase, dates, and what a season change resets.",
+          note: t("steward.shell.note", { page: "season" }),
           icon: CalendarIcon,
           keywords: ["season", "phase", "reset", "launch"],
         },
         {
           id: "announcements",
-          label: "Announcements",
+          label: t("steward.shell.page", { page: "announcements" }),
           to: "/announcements",
-          note: "Write an announcement in every language, and read the latest ones.",
+          note: t("steward.shell.note", { page: "announcements" }),
           icon: MegaphoneIcon,
           keywords: ["announce", "announcement", "discord", "news", "broadcast"],
         },
         {
           id: "access",
-          label: "Users",
+          label: t("steward.shell.page", { page: "access" }),
           to: "/access",
-          note: "Who may join the server, and why they may.",
+          note: t("steward.shell.note", { page: "access" }),
           icon: UsersIcon,
           keywords: ["access", "whitelist", "roles", "accounts", "players", "discord", "link"],
         },
         {
           id: "payments",
-          label: "Payments",
+          label: t("steward.shell.page", { page: "payments" }),
           to: "/payments",
-          note: "Incoming bunq payments and the tier that follows from them.",
+          note: t("steward.shell.note", { page: "payments" }),
           icon: CreditCardIcon,
           keywords: ["bunq", "contribution", "money", "payments"],
         },
         {
           id: "journal",
-          label: "Journal",
+          label: t("steward.shell.page", { page: "journal" }),
           to: "/journal",
-          note: "Every change, who triggered it and what it did.",
+          note: t("steward.shell.note", { page: "journal" }),
           icon: BookOpenTextIcon,
           keywords: ["audit", "history", "trail", "log"],
         },

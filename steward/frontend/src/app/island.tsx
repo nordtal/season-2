@@ -4,6 +4,7 @@ import { Fragment } from "react"
 
 import type { Crumb } from "@/app/breadcrumbs"
 import { StewardMark } from "@/app/steward-mark"
+import { t } from "@/lib/texts"
 
 /** The chrome's pieces: the toggle, the mark, the trail and the search, none with a border of its own. */
 
@@ -28,7 +29,7 @@ export function NavToggle({
     <button
       type="button"
       onClick={onToggle}
-      aria-label="Navigation"
+      aria-label={t("steward.shell.navigation")}
       aria-expanded={shown}
       className={`${CONTROL} ${shown ? "text-foreground" : ""}`}
     >
@@ -61,7 +62,7 @@ export function Brand({ onFollow }: { onFollow?: () => void }) {
       className="flex h-control min-w-0 shrink-0 items-center gap-2 rounded-md pr-2 text-sm font-semibold tracking-tight transition-colors duration-150 ease-out hover:text-primary focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
     >
       <StewardMark className="size-5 shrink-0" />
-      <span className="truncate">Steward</span>
+      <span className="truncate">{t("steward.shell.steward")}</span>
     </Link>
   )
 }
@@ -99,7 +100,7 @@ export function openCommandPalette() {
 /** A button that looks like a place to type, since a real input would be a second one. */
 export function SearchButton() {
   return (
-    <button type="button" onClick={openCommandPalette} aria-label="Search pages" className={CONTROL}>
+    <button type="button" onClick={openCommandPalette} aria-label={t("steward.shell.search-pages")} className={CONTROL}>
       <MagnifyingGlassIcon className="size-4" aria-hidden />
     </button>
   )

@@ -13,6 +13,7 @@ import {
   type MessageChanges,
   type MessageSaveResult,
   type MessageExamples,
+  type MessageTones,
   type PluginDescriptor,
   type GameData,
 } from "@/lib/api"
@@ -123,6 +124,15 @@ export function useMessageExamples() {
     queryKey: keys.messageExamples,
     queryFn: () => api<MessageExamples>("/api/message-examples"),
     staleTime: 5 * 60 * SECOND,
+  })
+}
+
+/** The palette's tones by tag, each with the colour a text draws in where no service names its own. */
+export function useMessageTones() {
+  return useQuery({
+    queryKey: keys.messageTones,
+    queryFn: () => api<MessageTones>("/api/message-tones"),
+    staleTime: Infinity,
   })
 }
 

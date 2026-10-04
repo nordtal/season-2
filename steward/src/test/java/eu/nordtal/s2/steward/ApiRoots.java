@@ -46,6 +46,7 @@ final class ApiRoots {
         aliases.put("AlertPreferences", new TypeToken<Map<AlertType, Map<AlertChannel, Boolean>>>() {}.getType());
         // An example value per context type and property, from real data.
         aliases.put("MessageExamples", new TypeToken<Map<String, Map<String, String>>>() {}.getType());
+        aliases.put("MessageTones", new TypeToken<Map<String, String>>() {}.getType());
         return aliases;
     }
 }

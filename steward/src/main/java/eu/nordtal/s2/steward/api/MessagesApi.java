@@ -12,6 +12,7 @@ import eu.nordtal.s2.internalapi.agent.MessageBundle;
 import eu.nordtal.s2.internalapi.agent.MessageEntry;
 import eu.nordtal.s2.messages.MessageOverride;
 import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.messages.text.MessageCheck;
 import eu.nordtal.s2.steward.texts.RequestRefused;
 import eu.nordtal.s2.steward.texts.StewardTexts;
@@ -128,6 +129,19 @@ public final class MessagesApi {
                 .findFirst()
                 .orElseThrow(() -> new RequestRefused(400, ANSWER.noMessage(identityOf(location), key)));
         ctx.json(OverrideCheck.problems(entry, text));
+    }
+
+    /**
+     * {@code GET /api/message-tones}: every tone a text names by tag, with its colour.
+     * The order is the palette's, and the colour the one a tone has where a service's {@code colours} settings name
+     * none; the editor draws its preview in them.
+     */
+    public void tones(final Context ctx) {
+        final Map<String, String> tones = new LinkedHashMap<>();
+        for (final Tone tone : Tone.values()) {
+            tones.put(tone.tag(), tone.hex());
+        }
+        ctx.json(tones);
     }
 
     /**

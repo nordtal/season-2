@@ -40,6 +40,7 @@ export const keys = {
   gameData: ["game-data"] as const,
   messageBundle: (path: string) => ["message-bundle", path] as const,
   messageExamples: ["message-examples"] as const,
+  messageTones: ["message-tones"] as const,
   glyphs: ["glyphs"] as const,
   webPushPublicKey: ["web-push-public-key"] as const,
   webPushSubscription: ["web-push-subscription"] as const,

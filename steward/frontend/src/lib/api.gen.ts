@@ -5,6 +5,8 @@ export type AlertPreferences = Record<AlertType, Record<AlertChannel, boolean>>
 
 export type MessageExamples = Record<string, Record<string, string>>
 
+export type MessageTones = Record<string, string>
+
 export type LiveEvent = {
   topic: Topic
   version: string

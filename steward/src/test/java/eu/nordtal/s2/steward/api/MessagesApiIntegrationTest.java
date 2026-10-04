@@ -14,6 +14,7 @@ import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.messages.MessageOverride;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PackagedTexts;
+import eu.nordtal.s2.messages.Tone;
 import eu.nordtal.s2.steward.texts.WebTexts;
 import eu.nordtal.s2.steward.web.ErrorHandlers;
 import eu.nordtal.s2.stewardagent.AgentStandIn;
@@ -65,6 +66,7 @@ class MessagesApiIntegrationTest {
                     config.routes.get("/api/messages", messages::list);
                     config.routes.get("/api/message-fallbacks", messages::fallbacks);
                     config.routes.get("/api/message-check", messages::check);
+                    config.routes.get("/api/message-tones", messages::tones);
                     config.routes.get("/api/messages/<bundle>", messages::one);
                     config.routes.put("/api/messages/<bundle>", ctx -> messages.save(ctx, Actor.STEWARD));
                 })
@@ -115,6 +117,14 @@ class MessagesApiIntegrationTest {
         assertEquals(List.of("Willkommen"), texts(welcome, "texts", "de"));
         assertEquals(List.of("Servus"), texts(welcome, "overrides", "de"));
         assertFalse(welcome.getAsJsonObject("overrides").has("en"), "no override means no language: " + welcome);
+    }
+
+    @Test
+    void theTonesAreEveryTagOfThePaletteWithItsColour() throws Exception {
+        final JsonObject tones = GSON.fromJson(get("/api/message-tones"), JsonObject.class);
+        assertEquals(Tone.values().length, tones.size(), tones.toString());
+        assertEquals("neutral", tones.keySet().iterator().next(), "in the palette's order: " + tones);
+        assertEquals("#8ba888", tones.get("good").getAsString());
     }
 
     @Test

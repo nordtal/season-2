@@ -157,6 +157,25 @@ class NetworkSettingsTest {
         return Map.of("days", days, "price-cents", priceCents);
     }
 
+    // prestige
+
+    @Test
+    void theCrestTableIsTheOneTheHoursDeclare() throws Exception {
+        values.put("hours.tier-02", 3);
+
+        assertEquals(
+                3 * 3600L,
+                NetworkSettings.prestige(checked(NetworkSettings.PRESTIGE)).secondsFor(2));
+    }
+
+    @Test
+    void hoursThatDoNotRiseAreRefused() {
+        // Tier 2 at no hours would be reached in the same second as tier 1, which no player could ever wear.
+        values.put("hours.tier-02", 0);
+
+        assertRefused(NetworkSettings.PRESTIGE, "rise strictly");
+    }
+
     // season
 
     @Test

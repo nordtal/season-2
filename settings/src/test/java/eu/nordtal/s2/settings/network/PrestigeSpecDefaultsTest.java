@@ -1,11 +1,11 @@
-package eu.nordtal.s2.smp.config;
+package eu.nordtal.s2.settings.network;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.jcore.config.spec.Specs;
-import eu.nordtal.s2.smp.prestige.Prestige;
+import eu.nordtal.s2.database.access.Prestige;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
- * The crest ladder this plugin ships, fourteen colours and thirteen hours, is held here.
+ * The crest ladder the network ships, fourteen colours and thirteen hours, is held here.
  *
  * Colours are compared by distance, not inequality; the floor of 20 is about half the closest shipped pair.
  */
@@ -74,8 +74,8 @@ class PrestigeSpecDefaultsTest {
 
     @Test
     void theShippedHoursAreAValidLadder() {
-        // The same constructor `Configs.prestige`'s validator runs, so a bad default fails here, not after a restart.
-        assertDoesNotThrow(() -> new Prestige(SmpSettings.declaredPrestigeHours(spec)));
+        // The same constructor the group's check runs, so a bad default fails here, not after a restart.
+        assertDoesNotThrow(() -> new Prestige(NetworkSettings.prestigeHours(spec)));
     }
 
     /** The `@Key` values of a tier block, in `@Order`. */
@@ -91,7 +91,7 @@ class PrestigeSpecDefaultsTest {
 
     /** The thirteen tiers plus the admin override, which has to stand apart from all of them. */
     private List<String> all() {
-        final List<String> colours = new ArrayList<>(SmpSettings.declaredPrestigeTiers(spec));
+        final List<String> colours = new ArrayList<>(NetworkSettings.prestigeColours(spec));
         colours.add(spec.admin());
         return colours;
     }

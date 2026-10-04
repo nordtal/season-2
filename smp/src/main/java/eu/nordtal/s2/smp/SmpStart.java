@@ -70,8 +70,7 @@ final class SmpStart {
         final WorldEffects effects = new WorldEffects(plugin);
         plugin.getServer().getPluginManager().registerEvents(effects, plugin);
 
-        final PlayerComposition composition =
-                new PlayerComposition(() -> plugin.prestige, () -> plugin.prestigeColours);
+        final PlayerComposition composition = new PlayerComposition(plugin::prestige, () -> plugin.prestigeColours);
         final PlayerSurfaces surfaces = new PlayerSurfaces(
                 plugin, plugin.identities(), composition, new MessageRenderer(plugin.messages()), plugin.players());
         plugin.identities().whenChanged(surfaces::changed);

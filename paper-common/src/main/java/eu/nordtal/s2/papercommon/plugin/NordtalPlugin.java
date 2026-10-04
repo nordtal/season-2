@@ -12,6 +12,7 @@ import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AdminOperators;
+import eu.nordtal.s2.database.access.Prestige;
 import eu.nordtal.s2.database.game.GameCatalogue;
 import eu.nordtal.s2.database.game.GameDataStore;
 import eu.nordtal.s2.database.inbox.Inbox;
@@ -53,6 +54,7 @@ import eu.nordtal.s2.settings.SettingsException;
 import eu.nordtal.s2.settings.network.LanguageAndTimeSpec;
 import eu.nordtal.s2.settings.network.NetworkSettings;
 import eu.nordtal.s2.settings.network.PlayersSpec;
+import eu.nordtal.s2.settings.network.PrestigeSpec;
 import eu.nordtal.s2.settings.network.SeasonSpec;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
@@ -91,6 +93,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
     private Setting<ColoursSpec> colourSettings;
     private Setting<DistancesSpec> distanceSettings;
     private Setting<PlayersSpec> players;
+    private Setting<PrestigeSpec> prestigeSettings;
+    private volatile Prestige prestige;
     private SeasonSpec season;
     private LanguageAndTimeSpec languageAndTime;
     private WorldDistances worldDistances;
@@ -244,6 +248,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
         colours = ToneColours.parse(Colours.declared(colourSettings.get()), getLogger()::warning);
         distanceSettings = setting(Distances.group(distanceDefaults()));
         players = setting(NetworkSettings.PLAYERS);
+        prestigeSettings = setting(NetworkSettings.PRESTIGE);
+        prestige = NetworkSettings.prestige(prestigeSettings.get());
         // Both are read at start only: the season changes with an installation, bundles and clocks are built once.
         season = setting(NetworkSettings.SEASON).get();
         languageAndTime = setting(NetworkSettings.LANGUAGE_AND_TIME).get();
@@ -308,6 +314,16 @@ public abstract class NordtalPlugin extends JavaPlugin {
         return players.get();
     }
 
+    /** Returns the network's prestige group as of its last reload, for a server that paints names in its colours. */
+    public final PrestigeSpec prestigeSettings() {
+        return prestigeSettings.get();
+    }
+
+    /** Returns the crest table as of the last reload. */
+    public final Prestige prestige() {
+        return prestige;
+    }
+
     @Override
     public final void onDisable() {
         // The readiness marker stays: going stale is the signal.
@@ -356,6 +372,12 @@ public abstract class NordtalPlugin extends JavaPlugin {
             players.reload();
         } catch (final SettingsException failure) {
             problems.add("the network's players: " + failure.getMessage());
+        }
+        try {
+            prestigeSettings.reload();
+            prestige = NetworkSettings.prestige(prestigeSettings.get());
+        } catch (final SettingsException failure) {
+            problems.add("the prestige tiers: " + failure.getMessage());
         }
         problems.addAll(reloadOwn());
         problems.forEach(problem -> getLogger().severe("not reloaded, the running values stay: " + problem));

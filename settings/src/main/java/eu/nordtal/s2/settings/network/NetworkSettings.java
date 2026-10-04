@@ -3,6 +3,7 @@ package eu.nordtal.s2.settings.network;
 import eu.nordtal.jcore.config.spec.Specs;
 import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.common.language.Locales;
+import eu.nordtal.s2.database.access.Prestige;
 import eu.nordtal.s2.database.payment.Tier;
 import eu.nordtal.s2.database.payment.Tiers;
 import eu.nordtal.s2.messages.Palette;
@@ -25,7 +26,7 @@ import java.util.function.Supplier;
 /**
  * The groups every process shares, which an admin changes once for the whole network, and what a valid one is.
  *
- * The players are taken while a process runs; the season and the languages at its next start.
+ * The players and the prestige are taken while a process runs; the season and the languages at its next start.
  */
 public final class NetworkSettings {
 
@@ -46,6 +47,12 @@ public final class NetworkSettings {
             .checkedBy(NetworkSettings::checkLanguageAndTime)
             .networkWide();
 
+    /** When each crest is reached and the colour a name is drawn in; every name's card shows the crest. */
+    public static final Group<PrestigeSpec> PRESTIGE = Group.of("prestige", PrestigeSpec.class)
+            .checkedBy(NetworkSettings::checkPrestige)
+            .whileRunning()
+            .networkWide();
+
     /** What access costs, which the bot offers and steward books by. */
     public static final Group<PricesSpec> PRICES = Group.of("prices", PricesSpec.class)
             .checkedBy(NetworkSettings::checkPrices)
@@ -60,6 +67,58 @@ public final class NetworkSettings {
                         .map(tier -> new Tier(tier.days(), tier.priceCents()))
                         .toList(),
                 spec.donationCents());
+    }
+
+    /** Returns the crest table {@code spec} declares, which {@link #checkPrestige} has already let through. */
+    public static Prestige prestige(final PrestigeSpec spec) {
+        return new Prestige(prestigeHours(spec));
+    }
+
+    /**
+     * Refuses bad crest hours, since {@link Prestige}'s constructor is the whole rule for them.
+     *
+     * @throws IllegalArgumentException naming what is wrong with the hours
+     */
+    public static void checkPrestige(final PrestigeSpec spec) {
+        final Prestige _ = prestige(spec);
+    }
+
+    /** The thirteen tier colours, in tier order, as a server that paints names in them parses them. */
+    public static List<String> prestigeColours(final PrestigeSpec spec) {
+        final PrestigeSpec.TierColoursSpec tiers = spec.colours();
+        return List.of(
+                tiers.tier01(),
+                tiers.tier02(),
+                tiers.tier03(),
+                tiers.tier04(),
+                tiers.tier05(),
+                tiers.tier06(),
+                tiers.tier07(),
+                tiers.tier08(),
+                tiers.tier09(),
+                tiers.tier10(),
+                tiers.tier11(),
+                tiers.tier12(),
+                tiers.tier13());
+    }
+
+    /** The thirteen tier hours, in the same order, as {@link Prestige} takes them. */
+    public static List<Integer> prestigeHours(final PrestigeSpec spec) {
+        final PrestigeSpec.TierHoursSpec tiers = spec.hours();
+        return List.of(
+                tiers.tier01(),
+                tiers.tier02(),
+                tiers.tier03(),
+                tiers.tier04(),
+                tiers.tier05(),
+                tiers.tier06(),
+                tiers.tier07(),
+                tiers.tier08(),
+                tiers.tier09(),
+                tiers.tier10(),
+                tiers.tier11(),
+                tiers.tier12(),
+                tiers.tier13());
     }
 
     /**

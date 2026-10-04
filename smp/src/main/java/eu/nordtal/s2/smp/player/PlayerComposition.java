@@ -1,9 +1,9 @@
 package eu.nordtal.s2.smp.player;
 
 import eu.nordtal.s2.database.access.PlayerIdentity;
+import eu.nordtal.s2.database.access.Prestige;
 import eu.nordtal.s2.packrendering.Glyphs;
 import eu.nordtal.s2.packrendering.LanguageFlags;
-import eu.nordtal.s2.smp.prestige.Prestige;
 import eu.nordtal.s2.smp.prestige.PrestigeColours;
 import java.util.Locale;
 import java.util.Objects;

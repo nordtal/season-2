@@ -1,4 +1,4 @@
-package eu.nordtal.s2.smp.config;
+package eu.nordtal.s2.settings.network;
 
 import eu.nordtal.jcore.config.spec.Specs;
 import eu.nordtal.jcore.config.spec.annotation.Comment;
@@ -11,8 +11,8 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 import eu.nordtal.s2.settings.Refers;
 
 /**
- * The {@code prestige} group: the thirteen crest tiers, when each is reached and the colour a name is drawn in.
- *
+ * The network's {@code prestige} group: when each of the thirteen crests is reached, and the name colours.
+ * Every name's card shows the crest, and smp paints names in the colours.
  * Hours and colours are sibling blocks with the same keys, so steward pairs them; {@code admin} sits beside both.
  */
 @ConfigSpec
@@ -49,7 +49,7 @@ public interface PrestigeSpec {
         return Specs.createDefault(TierColoursSpec.class);
     }
 
-    /** The hour each {@link eu.nordtal.s2.smp.prestige.Prestige} tier is reached at, in order. */
+    /** The hour each {@link eu.nordtal.s2.database.access.Prestige} tier is reached at, in order. */
     @ConfigSpec
     interface TierHoursSpec {
 
@@ -172,7 +172,7 @@ public interface PrestigeSpec {
         }
     }
 
-    /** One colour per {@link eu.nordtal.s2.smp.prestige.Prestige} tier, in order. */
+    /** One colour per {@link eu.nordtal.s2.database.access.Prestige} tier, in order. */
     @ConfigSpec
     interface TierColoursSpec {
 

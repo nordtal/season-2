@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.prestige;
 
+import eu.nordtal.s2.database.access.Prestige;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;

@@ -19,13 +19,13 @@ import eu.nordtal.s2.papercommon.world.Distances;
 import eu.nordtal.s2.settings.Group;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.SettingsException;
+import eu.nordtal.s2.settings.network.NetworkSettings;
 import eu.nordtal.s2.smp.announce.Announcer;
 import eu.nordtal.s2.smp.board.Boards;
 import eu.nordtal.s2.smp.command.NavigateCommand;
 import eu.nordtal.s2.smp.command.SmpAdmin;
 import eu.nordtal.s2.smp.config.Milestones;
 import eu.nordtal.s2.smp.config.MilestonesSpec;
-import eu.nordtal.s2.smp.config.PrestigeSpec;
 import eu.nordtal.s2.smp.config.SmpSettings;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
@@ -43,7 +43,6 @@ import eu.nordtal.s2.smp.milestone.TrackValidation;
 import eu.nordtal.s2.smp.navigate.Navigation;
 import eu.nordtal.s2.smp.npc.SpawnNpc;
 import eu.nordtal.s2.smp.player.PresenceListener;
-import eu.nordtal.s2.smp.prestige.Prestige;
 import eu.nordtal.s2.smp.prestige.PrestigeColours;
 import eu.nordtal.s2.smp.progress.GateHolders;
 import eu.nordtal.s2.smp.progress.ObjectiveEngine;
@@ -84,13 +83,8 @@ public final class SmpPlugin extends NordtalPlugin {
     /** Swapped by a reload; every listener holds this one instance. */
     SmpSounds sounds;
 
-    private Setting<PrestigeSpec> prestigeSettings;
-
     /** The name colours; volatile, since a reload replaces them and renders read them through a supplier. */
     volatile PrestigeColours prestigeColours;
-
-    /** The crest ladder; volatile, since a reload re-derives it off the main thread. */
-    volatile Prestige prestige;
 
     SmpDao dao;
     Announcer announcer;
@@ -200,9 +194,6 @@ public final class SmpPlugin extends NordtalPlugin {
                 .checkedBy(SmpSettings::checkMilestones)
                 .whileRunning());
         soundSettings = setting(Group.of("sounds", SoundsSpec.class).whileRunning());
-        prestigeSettings = setting(Group.of("prestige", PrestigeSpec.class)
-                .checkedBy(SmpSettings::checkPrestige)
-                .whileRunning());
         loadMilestoneTrack();
         loadFeedbackPalettes();
         worlds = bootstrapWorlds(config.get());
@@ -296,11 +287,15 @@ public final class SmpPlugin extends NordtalPlugin {
     private void loadFeedbackPalettes() {
         // A wrong sound key silences its own category rather than refusing the start.
         sounds = SmpSounds.of(soundSettings.get(), getLogger()::warning);
-        prestigeColours = PrestigeColours.parse(
-                SmpSettings.declaredPrestigeTiers(prestigeSettings.get()),
-                prestigeSettings.get().admin(),
+        prestigeColours = prestigeColours();
+    }
+
+    /** The name colours of the network's prestige group, which the base has just read. */
+    private PrestigeColours prestigeColours() {
+        return PrestigeColours.parse(
+                NetworkSettings.prestigeColours(prestigeSettings()),
+                prestigeSettings().admin(),
                 getLogger()::warning);
-        prestige = new Prestige(SmpSettings.declaredPrestigeHours(prestigeSettings.get()));
     }
 
     private Worlds bootstrapWorlds(final SmpSpec config) {
@@ -518,16 +513,8 @@ public final class SmpPlugin extends NordtalPlugin {
         } catch (final SettingsException | RuntimeException failure) {
             problems.add("the sounds: " + failure.getMessage());
         }
-        try {
-            prestigeSettings.reload();
-            prestigeColours = PrestigeColours.parse(
-                    SmpSettings.declaredPrestigeTiers(prestigeSettings.get()),
-                    prestigeSettings.get().admin(),
-                    getLogger()::warning);
-            prestige = new Prestige(SmpSettings.declaredPrestigeHours(prestigeSettings.get()));
-        } catch (final SettingsException | RuntimeException failure) {
-            problems.add("the prestige name colours: " + failure.getMessage());
-        }
+        // The base re-read the prestige group before this.
+        prestigeColours = prestigeColours();
         reloadMilestoneTrack();
         problems.addAll(trackProblems);
         return problems;

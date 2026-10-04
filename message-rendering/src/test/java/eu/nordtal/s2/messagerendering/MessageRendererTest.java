@@ -221,6 +221,38 @@ class MessageRendererTest {
     }
 
     @Test
+    void aNameShowsTheCardThisProcessHoldsOfThePlayerAndPlainShowsNone() {
+        // The card names the player itself, which must not draw a card of its own inside it.
+        final MessageRenderer carding = MessageRenderer.of(
+                RENDER.raw(), Names.BARE, name -> new MessageRef("who", Map.of("who", name, "who2", name)));
+        final Component rendered =
+                carding.format(Locale.ENGLISH, new MessageRef("who", Map.of("who", ALEX, "who2", ALEX)));
+
+        final Component carded = find(rendered, child -> child.hoverEvent() != null);
+        assertNotNull(carded);
+        assertEquals("Alex", plain(carded));
+        final Component card = (Component) carded.hoverEvent().value();
+        assertEquals("Alex and Alex", plain(card));
+        assertNull(find(card, child -> child.hoverEvent() != null), "a card draws no card");
+        assertEquals(1, hovers(rendered), "the plain name has none");
+    }
+
+    @Test
+    void aPlayerNothingIsHeldOfHasNoCard() {
+        final MessageRenderer carding = MessageRenderer.of(RENDER.raw(), Names.BARE, name -> null);
+
+        assertEquals(
+                0, hovers(carding.format(Locale.ENGLISH, new MessageRef("who", Map.of("who", ALEX, "who2", ALEX)))));
+    }
+
+    private static long hovers(final Component component) {
+        return (component.hoverEvent() == null ? 0 : 1)
+                + component.children().stream()
+                        .mapToLong(MessageRendererTest::hovers)
+                        .sum();
+    }
+
+    @Test
     void aMissingValueShowsItsReplacementWord() {
         assertTrue(plain(render("greeting", Map.of("count", 1))).startsWith("Hello something,"));
     }

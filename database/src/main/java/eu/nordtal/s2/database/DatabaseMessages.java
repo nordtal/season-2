@@ -1,17 +1,23 @@
 package eu.nordtal.s2.database;
 
+import eu.nordtal.s2.database.access.PlayerCard;
 import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateStatus;
 import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.context.PlayerContext;
 import eu.nordtal.s2.messages.spec.Arg;
+import eu.nordtal.s2.messages.spec.Display;
 import eu.nordtal.s2.messages.spec.MessageSpec;
 import eu.nordtal.s2.messages.spec.MessageSpecs;
 import eu.nordtal.s2.messages.spec.Name;
+import eu.nordtal.s2.messages.spec.Shown;
 import eu.nordtal.s2.messages.value.Example;
+import eu.nordtal.s2.messages.value.Glyph;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
-/** Every message of the database bundle: what a refused write tells whoever asked for it. */
+/** Every message of the database bundle: what a refused write tells whoever asked for it, and a player's card. */
 @MessageSpec("database")
 public interface DatabaseMessages {
 
@@ -23,6 +29,22 @@ public interface DatabaseMessages {
     SeasonRefusals season();
 
     ServerRefusals server();
+
+    PlayerTexts player();
+
+    @Name("Players")
+    interface PlayerTexts {
+
+        /** What a player's name shows on hover in game, wherever a message names them. */
+        @Name("Card")
+        @Shown(Display.GUI)
+        MessageRef card(
+                @Arg("player") PlayerContext player,
+                @Arg("role") @Example("admin") PlayerCard.Role role,
+                @Arg("crest") @Example("crest-4") Glyph crest,
+                @Arg("tier") @Example("4") int tier,
+                @Arg("playtime") @Example("PT12H5M") Duration playtime);
+    }
 
     @Name("Update runs")
     interface UpdateRefusals {

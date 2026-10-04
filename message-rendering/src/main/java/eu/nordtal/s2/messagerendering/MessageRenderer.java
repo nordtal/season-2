@@ -21,8 +21,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.ServiceLoader;
+import java.util.function.Function;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.minimessage.Context;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -61,14 +63,20 @@ public final class MessageRenderer {
 
     private final Messages messages;
     private final Names names;
+    private final NameCards cards;
 
     public MessageRenderer(final Messages messages) {
-        this(messages, Names.BARE);
+        this(messages, Names.BARE, NameCards.NONE);
     }
 
     public MessageRenderer(final Messages messages, final Names names) {
+        this(messages, names, NameCards.NONE);
+    }
+
+    public MessageRenderer(final Messages messages, final Names names, final NameCards cards) {
         this.messages = Objects.requireNonNull(messages, "messages");
         this.names = Objects.requireNonNull(names, "names");
+        this.cards = Objects.requireNonNull(cards, "cards");
     }
 
     /**
@@ -84,6 +92,11 @@ public final class MessageRenderer {
         return new MessageRenderer(messages, names);
     }
 
+    /** Returns a renderer that draws every player's name with {@code names} and shows its card on hover. */
+    public static MessageRenderer of(final Messages messages, final Names names, final NameCards cards) {
+        return new MessageRenderer(messages, names, cards);
+    }
+
     /** Returns the raw bundle behind this renderer. */
     public Messages raw() {
         return messages;
@@ -96,12 +109,18 @@ public final class MessageRenderer {
 
     /** Renders a message for a reader: their language, their zone, and {@code self} for the roles that are them. */
     public Component format(final Viewer viewer, final MessageRef message) {
+        return format(viewer, message, true);
+    }
+
+    /** Renders a message, its names with their cards unless it is a card itself, which never draws a card. */
+    private Component format(final Viewer viewer, final MessageRef message, final boolean carded) {
         final Messages.Prepared prepared = messages.prepare(viewer, message);
         if (!prepared.markup()) {
             return Component.text(
                     PlainText.of(prepared.pieces(), prepared.language(), prepared.zone(), prepared.words()));
         }
-        final Writing writing = new Writing(prepared, message.args(), names);
+        final Writing writing =
+                new Writing(prepared, message.args(), names, carded ? name -> card(name, prepared) : name -> null);
         writing.write(prepared.pieces());
         return MiniMessage.miniMessage()
                 .deserialize(
@@ -110,6 +129,12 @@ public final class MessageRenderer {
                                 writing.values(),
                                 new Tones(messages.environment().palette()),
                                 GLYPH_TAG));
+    }
+
+    /** Returns the card of {@code name} for the reader {@code prepared} is for, or {@code null} where there is none. */
+    private @Nullable Component card(final DisplayName name, final Messages.Prepared prepared) {
+        final @Nullable MessageRef card = cards.card(name);
+        return card == null ? null : format(new Viewer(prepared.language(), prepared.zone(), null), card, false);
     }
 
     /**
@@ -145,13 +170,19 @@ public final class MessageRenderer {
         private final Messages.Prepared prepared;
         private final Map<String, ?> args;
         private final Names names;
+        private final Function<DisplayName, @Nullable Component> cards;
         private final StringBuilder markup = new StringBuilder();
         private final List<Component> inserted = new ArrayList<>();
 
-        Writing(final Messages.Prepared prepared, final Map<String, ?> args, final Names names) {
+        Writing(
+                final Messages.Prepared prepared,
+                final Map<String, ?> args,
+                final Names names,
+                final Function<DisplayName, @Nullable Component> cards) {
             this.prepared = prepared;
             this.args = args;
             this.names = names;
+            this.cards = cards;
         }
 
         void write(final List<Piece> pieces) {
@@ -322,8 +353,14 @@ public final class MessageRenderer {
             };
         }
 
+        /** The name as this process draws it, with its card on hover; {@code plain} is the bare name alone. */
         private Component name(final DisplayName name, final boolean plain) {
-            return plain ? Component.text(name.name()) : names.draw(name, prepared.language());
+            if (plain) {
+                return Component.text(name.name());
+            }
+            final Component drawn = names.draw(name, prepared.language());
+            final @Nullable Component card = cards.apply(name);
+            return card == null ? drawn : drawn.hoverEvent(HoverEvent.showText(card));
         }
 
         TagResolver values() {

@@ -2,11 +2,8 @@
 # what it copies. A new module's jar needs a line here.
 *
 !deploy/jvm/entrypoint.sh
-!discord-bot/build/libs/*.jar
-!steward/build/libs/*.jar
-!steward-agent/build/libs/*.jar
-!steward-agent/build/compose/compose.yml
-!steward-bunq/build/libs/*.jar
-
-# The thin jars stay out: the template copies build/libs by glob and would take either.
-*/build/libs/*-thin.jar
+!discord-bot/build/image/app.jar
+!steward/build/image/app.jar
+!steward-agent/build/image/app.jar
+!steward-agent/build/image/compose.yml
+!steward-bunq/build/image/app.jar

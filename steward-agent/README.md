@@ -225,7 +225,7 @@ recorded from the live GitHub, Modrinth and PaperMC APIs, and `TopologyTest` rea
 
 ## Building
 
-    ./gradlew :steward-agent:build          # jar, and compose.yml staged into build/compose/
+    ./gradlew :steward-agent:imageContext   # the jar and compose.yml, staged into build/image/
     docker build -f deploy/jvm/Dockerfile --build-arg MODULE=steward-agent -t ghcr.io/nordtal/steward-agent:dev .
 
 ## Where things live

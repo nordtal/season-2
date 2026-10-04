@@ -591,7 +591,7 @@ class TopologyDeploymentTest {
                     template.lines().anyMatch(line -> line.strip().equals("FROM jvm AS " + name)),
                     "deploy/jvm/Dockerfile has no stage '" + name + "', so its build fails on the last FROM.");
             assertTrue(
-                    admitted.contains("!" + name + "/build/libs/*.jar"),
+                    admitted.contains("!" + name + "/build/image/app.jar"),
                     "/.dockerignore does not let " + name + "'s jar in, so the image has nothing to COPY.");
         }));
     }

@@ -17,17 +17,19 @@ tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJ
     }
 }
 
-// The jar the image template copies must be the only one it could copy; see CheckOneImageJar.
-val checkOneImageJar =
-    tasks.register<eu.nordtal.s2.build.CheckOneImageJar>("checkOneImageJar") {
-        libraries.set(layout.buildDirectory.dir("libs"))
-        artifact.set(project.name)
-        // After the jar exists, or a stale one would be the only file there and would pass alone.
-        dependsOn(tasks.named("shadowJar"))
+// What deploy/jvm/Dockerfile copies, under one name: an earlier version's jar is never a second candidate.
+val imageContext =
+    tasks.register<Sync>("imageContext") {
+        group = "distribution"
+        description = "Stages what the image template copies into build/image."
+        from(tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar").flatMap { it.archiveFile }) {
+            rename { "app.jar" }
+        }
+        into(layout.buildDirectory.dir("image"))
     }
 
-tasks.named("check") {
-    dependsOn(checkOneImageJar)
+tasks.named("assemble") {
+    dependsOn(imageContext)
 }
 
 // One logging configuration for every service. A module's own logback.xml would be a duplicate and fail the copy.

@@ -67,18 +67,7 @@ dependencies {
     testAnnotationProcessor(libs.lombok)
 }
 
-// Beside build/libs, whose one jar is what the Dockerfile's glob copies into the image.
-tasks.named<Jar>("testFixturesJar") {
-    destinationDirectory.set(layout.buildDirectory.dir("test-fixtures"))
-}
-
-// compose.yml is baked into the image, so Gradle copies it into the build context.
-val stageComposeFile by tasks.registering(Copy::class) {
+// compose.yml is baked into the image beside the jar.
+tasks.named<Sync>("imageContext") {
     from(rootProject.layout.projectDirectory.file("compose.yml"))
-    into(layout.buildDirectory.dir("compose"))
-}
-
-// Off `assemble`, so whatever builds the jar for the image also stages the file baked beside it.
-tasks.named("assemble") {
-    dependsOn(stageComposeFile)
 }

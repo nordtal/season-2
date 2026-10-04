@@ -195,7 +195,7 @@ which jar runs with `docker exec <container> cat /proc/1/cmdline | tr '\0' ' '`.
 
 ## Locally
 
-The same `compose.yml` and images, with `deploy/dev.env` and jars from `build/libs`:
+The same `compose.yml` and images, with `deploy/dev.env` and jars from this checkout:
 
 `dev` is the Java program in `:dev`; it needs Java and Docker on any operating system. Each command
 is a run configuration in IntelliJ's `dev:` folders, or `./gradlew -q :dev:run --args="<command>"`:

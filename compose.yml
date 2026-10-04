@@ -25,7 +25,7 @@
 name: nordtal-s2
 
 # Our JVM services share one image template; each passes its module.
-x-jvm-build: &jvm-build # `./gradlew imageContexts` first: the template copies each jar from its module's build/libs.
+x-jvm-build: &jvm-build # `./gradlew imageContexts` first: the template copies each module's build/image/app.jar.
   context: .
   dockerfile: deploy/jvm/Dockerfile
 

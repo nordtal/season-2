@@ -36,7 +36,7 @@ RUN apt-get update \
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=docker-cli /usr/local/libexec/docker/cli-plugins/docker-compose \
      /usr/local/libexec/docker/cli-plugins/docker-compose
-COPY steward-agent/build/compose/compose.yml /app/compose.yml
+COPY steward-agent/build/image/compose.yml /app/compose.yml
 ENV NORDTAL_STEWARD_AGENT_COMPOSE_FILE=/app/compose.yml \
     NORDTAL_STEWARD_AGENT_ENV_FILE=/app/env/.env \
     NORDTAL_STEWARD_AGENT_PROJECT_DIRECTORY=/app \
@@ -52,8 +52,7 @@ ENV NORDTAL_STEWARD_BUNQ_CONTEXT_PATH=/app/bunq/bunq-config.conf
 EXPOSE 8082
 VOLUME ["/app/bunq"]
 
-# Last, since it changes on every build. .dockerignore keeps the -thin jar out, so the glob matches one.
-# The image is the version: no service of ours runs a jar from a volume.
+# Last, since it changes on every build. The image is the version: no service of ours runs a jar from a volume.
 FROM ${MODULE} AS image
 ARG MODULE
-COPY ${MODULE}/build/libs/${MODULE}-*.jar /app/app.jar
+COPY ${MODULE}/build/image/app.jar /app/app.jar

@@ -1,5 +1,7 @@
 package eu.nordtal.s2.messages.text;
 
+import eu.nordtal.s2.messages.CheckMessages;
+import eu.nordtal.s2.messages.MessageRef;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -9,6 +11,9 @@ import org.jspecify.annotations.Nullable;
 
 /** Reads a message text into nodes, one left-to-right pass; see {@link MessageText} for the syntax. */
 final class Parser {
+
+    private static final CheckMessages.Check.Syntax SAYS =
+            CheckMessages.TEXTS.check().syntax();
 
     private final String text;
     private final boolean markup;
@@ -23,7 +28,7 @@ final class Parser {
         final Parser parser = new Parser(text, markup);
         final List<Node> nodes = parser.sequence(null, false);
         if (parser.at < text.length()) {
-            throw parser.fail("a } closes nothing; write \\} for the character");
+            throw fail(SAYS.closesNothing(parser.at + 1), parser.at);
         }
         return nodes;
     }
@@ -65,7 +70,7 @@ final class Parser {
             }
         }
         if (inCase) {
-            throw fail("a case of a plural or select is never closed with }");
+            throw fail(SAYS.caseNeverClosed(at + 1), at);
         }
         flush(literal, nodes);
         return nodes;
@@ -84,23 +89,23 @@ final class Parser {
         at++;
         final String name = name();
         if (name.isEmpty()) {
-            throw fail("a { opens no placeholder; write \\{ for the character", start);
+            throw fail(SAYS.opensNothing(start + 1), start);
         }
         space();
         if (peek() == '}') {
             at++;
             return new Node.Value(name, null, null);
         }
-        expect(',', "after the placeholder's name");
+        expect(',', SAYS.commaAfterName(at + 1));
         space();
         final String second = word();
         space();
         if ("plural".equals(second) || "select".equals(second)) {
-            expect(',', "before the cases");
+            expect(',', SAYS.commaBeforeCases(at + 1));
             return choice(name, "plural".equals(second), plural, start);
         }
         if (second.isEmpty()) {
-            throw fail("a kind is missing after " + name + ",");
+            throw fail(SAYS.kindMissing(name, at + 1), at);
         }
         String style = null;
         if (peek() == ',') {
@@ -109,10 +114,10 @@ final class Parser {
             style = word();
             space();
             if (style.isEmpty()) {
-                throw fail("a style is missing after " + name + ", " + second + ",");
+                throw fail(SAYS.styleMissing(name, second, at + 1), at);
             }
         }
-        expect('}', "to close {" + name);
+        expect('}', SAYS.valueNotClosed(name, at + 1));
         return new Node.Value(name, second, style);
     }
 
@@ -122,7 +127,7 @@ final class Parser {
         while (true) {
             space();
             if (at >= text.length()) {
-                throw fail("{" + name + " is never closed", start);
+                throw fail(SAYS.choiceNeverClosed(name, start + 1), start);
             }
             if (peek() == '}') {
                 at++;
@@ -130,18 +135,18 @@ final class Parser {
             }
             final String key = caseKey();
             if (key.isEmpty()) {
-                throw fail("a case of {" + name + "} needs a name before its {");
+                throw fail(SAYS.caseUnnamed(name, at + 1), at);
             }
             space();
-            expect('{', "to open the case " + key);
+            expect('{', SAYS.caseNotOpened(key, at + 1));
             if (cases.containsKey(key)) {
-                throw fail("{" + name + "} has the case " + key + " twice");
+                throw fail(SAYS.caseTwice(name, key, at + 1), at);
             }
             cases.put(key, sequence(isPlural ? name : outer, true));
             at++;
         }
         if (!cases.containsKey("other")) {
-            throw fail("{" + name + "} needs an other case, for whatever no case names", start);
+            throw fail(SAYS.otherMissing(name, start + 1), start);
         }
         return new Node.Choice(name, isPlural, cases);
     }
@@ -237,7 +242,7 @@ final class Parser {
                 final int start = at;
                 final Node value = placeholder(null);
                 if (!(value instanceof Node.Value)) {
-                    throw fail("a plural or select cannot stand inside a tag's argument", start);
+                    throw fail(SAYS.choiceInArgument(start + 1), start);
                 }
                 parts.add(value);
                 continue;
@@ -261,7 +266,7 @@ final class Parser {
         }
         final String name = text.substring(start, at);
         if (name.endsWith(".") || name.contains("..")) {
-            throw fail("{" + name + " names no attribute after its dot", start);
+            throw fail(SAYS.attributeMissing(name, start + 1), start);
         }
         return name;
     }
@@ -285,18 +290,15 @@ final class Parser {
         return at < text.length() ? text.charAt(at) : 0;
     }
 
-    private void expect(final char c, final String where) {
+    /** Steps over {@code c}, or refuses with {@code otherwise}, which names the character where it is missing. */
+    private void expect(final char c, final MessageRef otherwise) {
         if (peek() != c) {
-            throw fail("expected " + c + " " + where);
+            throw fail(otherwise, at);
         }
         at++;
     }
 
-    private MessageSyntaxException fail(final String message) {
-        return fail(message, at);
-    }
-
-    private static MessageSyntaxException fail(final String message, final int position) {
-        return new MessageSyntaxException(message, position);
+    private static MessageSyntaxException fail(final MessageRef reason, final int position) {
+        return new MessageSyntaxException(reason, position);
     }
 }

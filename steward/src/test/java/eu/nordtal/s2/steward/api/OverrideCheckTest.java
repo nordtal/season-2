@@ -27,14 +27,14 @@ class OverrideCheckTest {
     private static List<String> errors(final MessageEntry entry, final String text) {
         return OverrideCheck.problems(entry, text).stream()
                 .filter(MessageCheck.Problem::error)
-                .map(MessageCheck.Problem::text)
+                .map(problem -> MessageCheck.english(problem.text()))
                 .toList();
     }
 
     private static List<String> warnings(final MessageEntry entry, final String text) {
         return OverrideCheck.problems(entry, text).stream()
                 .filter(problem -> !problem.error())
-                .map(MessageCheck.Problem::text)
+                .map(problem -> MessageCheck.english(problem.text()))
                 .toList();
     }
 

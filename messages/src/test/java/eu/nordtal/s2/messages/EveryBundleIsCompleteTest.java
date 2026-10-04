@@ -39,9 +39,11 @@ class EveryBundleIsCompleteTest {
             "paper-common/src/main/resources/messages/paper-common",
             "smp/src/main/resources/messages/smp");
 
-    /** The bundles only admins read, which are English: Steward's page, and the journal and run words it shares. */
-    private static final Set<String> ENGLISH_ONLY =
-            Set.of("steward/src/main/resources/messages/steward", "database/src/main/resources/messages/admin");
+    /** The bundles only admins read, which are English: Steward's page, the words it shares, and the check's. */
+    private static final Set<String> ENGLISH_ONLY = Set.of(
+            "steward/src/main/resources/messages/steward",
+            "database/src/main/resources/messages/admin",
+            "messages/src/main/resources/messages/check");
 
     @Test
     void theWalkFindsEveryKnownBundle() {

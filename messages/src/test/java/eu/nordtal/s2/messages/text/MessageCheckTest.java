@@ -1,8 +1,10 @@
 package eu.nordtal.s2.messages.text;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.text.MessageCheck.Mode;
 import eu.nordtal.s2.messages.value.Kind;
 import java.util.List;
@@ -53,6 +55,29 @@ class MessageCheckTest {
     }
 
     @Test
+    void aProblemIsAMessageOfTheCheckBundleWithItsValues() {
+        final MessageRef problem = MessageCheck.check("{loser.name} {winner.name} {n}", CHAT, Mode.PACKAGED)
+                .getFirst()
+                .text();
+
+        assertEquals("check.value.unknown", problem.key());
+        assertEquals("loser.name", problem.args().get("name"));
+        assertEquals(
+                "{loser.name} is nothing this message offers; it offers n, open, reason, winner.name and winner.self",
+                MessageCheck.english(problem));
+    }
+
+    @Test
+    void anUnreadableTextIsAMessageThatNamesTheCharacter() {
+        final MessageSyntaxException refused =
+                assertThrows(MessageSyntaxException.class, () -> MessageText.parse("Hi {name", true));
+
+        assertEquals("check.syntax.comma-after-name", refused.reason().key());
+        assertEquals(8, refused.position());
+        assertEquals("expected , after the placeholder's name (at character 9)", refused.getMessage());
+    }
+
+    @Test
     void anUnknownRoleOrAttributeIsRefused() {
         refused(packaged("{loser.name} {winner.name} {n}"), "{loser.name} is nothing this message offers");
         refused(packaged("{winner.colour} {winner.name} {n}"), "{winner.colour} is nothing");
@@ -63,7 +88,8 @@ class MessageCheckTest {
         refused(packaged("{winner.name} won"), "never shows n");
         assertEquals(List.of(), override("{winner.name} won"));
         assertTrue(MessageCheck.check("{winner.name} won", CHAT, Mode.OVERRIDE).stream()
-                .anyMatch(problem -> !problem.error() && problem.text().contains("never shows n")));
+                .anyMatch(problem ->
+                        !problem.error() && MessageCheck.english(problem.text()).contains("never shows n")));
     }
 
     @Test

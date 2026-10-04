@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { ServiceSettings } from "@/components/steward/settings"
 import { resetDrafts } from "@/lib/drafts"
 import { setPendingMessageJump } from "@/lib/settings-search"
-import type { MessageBundle, MessageBundleLocation, MessageEntry } from "@/lib/api"
+import type { MessageBundle, MessageBundleLocation, MessageEntry, Warning } from "@/lib/api"
 import { asButton, asTextArea } from "@/lib/test-elements"
 import { changesOf, words } from "@/lib/query-fixtures"
 
@@ -49,7 +49,7 @@ function entry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
 }
 
 /** One `/api/messages/<path>` answer per fixture bundle and one canned PUT answer per path. */
-type Bundle = MessageBundle & { warnings?: string[] }
+type Bundle = MessageBundle & { warnings?: Warning[] }
 
 function backend(bundles: Record<string, Bundle>, puts: Record<string, (body: unknown) => unknown> = {}) {
   const listing = Object.values(bundles).map((bundle) => {
@@ -188,7 +188,13 @@ describe("saving a line", () => {
           "smp/smp": () => ({
             ...location({ path: "smp/smp" }),
             entries: [entry({ key: "greeting", english: "Hello {sender}", overrideEnglish: "Hello there" })],
-            warnings: ["greeting no longer contains {sender}"],
+            warnings: [
+              {
+                key: "greeting",
+                language: "en",
+                text: { key: "check.value.unshown", args: { role: { kind: "text", value: "sender" } } },
+              },
+            ],
           }),
         },
       ),
@@ -200,7 +206,7 @@ describe("saving a line", () => {
     fireEvent.change(field, { target: { value: "Hello there" } })
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
 
-    expect(await screen.findByText(/no longer contains {sender}/)).toBeTruthy()
+    expect(await screen.findByText(/the text never shows sender, which the message is given/)).toBeTruthy()
     expect(await screen.findByDisplayValue("Hello there")).toBeTruthy()
   })
 

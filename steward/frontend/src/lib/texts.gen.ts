@@ -115,6 +115,136 @@ export type TextArgs = {
   "alert.words": {
     text: Arg["text"]
   }
+  "check.syntax.attribute-missing": {
+    name: Arg["text"]
+    at: Arg["number"]
+  }
+  "check.syntax.case-never-closed": {
+    at: Arg["number"]
+  }
+  "check.syntax.case-not-opened": {
+    case: Arg["text"]
+    at: Arg["number"]
+  }
+  "check.syntax.case-twice": {
+    name: Arg["text"]
+    case: Arg["text"]
+    at: Arg["number"]
+  }
+  "check.syntax.case-unnamed": {
+    name: Arg["text"]
+    at: Arg["number"]
+  }
+  "check.syntax.choice-in-argument": {
+    at: Arg["number"]
+  }
+  "check.syntax.choice-never-closed": {
+    name: Arg["text"]
+    at: Arg["number"]
+  }
+  "check.syntax.closes-nothing": {
+    at: Arg["number"]
+  }
+  "check.syntax.comma-after-name": {
+    at: Arg["number"]
+  }
+  "check.syntax.comma-before-cases": {
+    at: Arg["number"]
+  }
+  "check.syntax.kind-missing": {
+    name: Arg["text"]
+    at: Arg["number"]
+  }
+  "check.syntax.opens-nothing": {
+    at: Arg["number"]
+  }
+  "check.syntax.other-missing": {
+    name: Arg["text"]
+    at: Arg["number"]
+  }
+  "check.syntax.style-missing": {
+    name: Arg["text"]
+    kind: Arg["text"]
+    at: Arg["number"]
+  }
+  "check.syntax.value-not-closed": {
+    name: Arg["text"]
+    at: Arg["number"]
+  }
+  "check.tag.closes-nothing": {
+    tag: Arg["text"]
+  }
+  "check.tag.closes-other": {
+    tag: Arg["text"]
+    open: Arg["text"]
+  }
+  "check.tag.never-closed": {
+    tag: Arg["text"]
+  }
+  "check.tag.packaged-colour": {
+    tag: Arg["text"]
+    tones: Arg["list"]
+  }
+  "check.tag.unknown": {
+    tag: Arg["text"]
+  }
+  "check.tag.unknown-action": {
+    action: Arg["text"]
+    actions: Arg["list"]
+  }
+  "check.tag.unquoted-value": {
+    name: Arg["text"]
+    tag: Arg["text"]
+  }
+  "check.tag.value-in-argument": {
+    name: Arg["text"]
+    tag: Arg["text"]
+  }
+  "check.too-long": {
+    length: Arg["number"]
+    limit: Arg["number"]
+  }
+  "check.value.no-kind": {
+    name: Arg["text"]
+    kind: Arg["text"]
+    kinds: Arg["list"]
+  }
+  "check.value.no-style": {
+    name: Arg["text"]
+    style: Arg["text"]
+    kind: Arg["text"]
+    styles: Arg["list"]
+  }
+  "check.value.other-kind": {
+    name: Arg["text"]
+    kind: Arg["text"]
+    written: Arg["text"]
+  }
+  "check.value.plural-case": {
+    name: Arg["text"]
+    case: Arg["text"]
+    cases: Arg["list"]
+  }
+  "check.value.plural-on": {
+    name: Arg["text"]
+    kind: Arg["text"]
+  }
+  "check.value.select-on": {
+    name: Arg["text"]
+    kind: Arg["text"]
+  }
+  "check.value.styleless": {
+    name: Arg["text"]
+    style: Arg["text"]
+    kind: Arg["text"]
+  }
+  "check.value.unknown": {
+    name: Arg["text"]
+    offered: Arg["list"]
+  }
+  "check.value.unshown": {
+    role: Arg["text"]
+  }
   "journal.action": {
     action: Arg["choice"]
   }
@@ -410,7 +540,8 @@ export type TextArgs = {
     text: Arg["text"]
   }
   "steward.answer.override-refused": {
-    problems: Arg["text"]
+    key: Arg["text"]
+    language: Arg["text"]
   }
   "steward.answer.playtime-range": {
     most: Arg["duration"]

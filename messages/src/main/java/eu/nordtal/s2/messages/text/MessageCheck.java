@@ -1,10 +1,15 @@
 package eu.nordtal.s2.messages.text;
 
+import eu.nordtal.s2.common.language.Locales;
+import eu.nordtal.s2.messages.CheckMessages;
+import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.value.Kind;
 import eu.nordtal.s2.messages.value.Words;
 import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -22,7 +27,11 @@ import org.jspecify.annotations.Nullable;
 public final class MessageCheck {
 
     /** The plural categories a case may name, besides an exact {@code =n}. */
-    private static final Set<String> PLURAL_CASES = Set.of("zero", "one", "two", "few", "many", "other");
+    private static final List<String> PLURAL_ORDER = List.of("zero", "one", "two", "few", "many", "other");
+
+    private static final Set<String> PLURAL_CASES = Set.copyOf(PLURAL_ORDER);
+
+    private static final CheckMessages.Check SAYS = CheckMessages.TEXTS.check();
 
     /** Stands in for every word while a text is measured, so a limit holds in any language. */
     private static final Words MEASURE = (key, values) -> "........";
@@ -39,9 +48,9 @@ public final class MessageCheck {
      * One thing wrong with a text.
      *
      * @param error whether it refuses the text, rather than warning about it
-     * @param text  what is wrong, for an admin to read
+     * @param text  what is wrong, a message of the {@code check} bundle, for an admin to read
      */
-    public record Problem(boolean error, String text) {}
+    public record Problem(boolean error, MessageRef text) {}
 
     private final Declaration declaration;
     private final Mode mode;
@@ -59,7 +68,7 @@ public final class MessageCheck {
         try {
             parsed = MessageText.parse(text, declaration.markup());
         } catch (final MessageSyntaxException e) {
-            return List.of(new Problem(true, String.valueOf(e.getMessage())));
+            return List.of(new Problem(true, e.reason()));
         }
         final MessageCheck check = new MessageCheck(declaration, mode);
         check.sequence(parsed.nodes());
@@ -70,12 +79,26 @@ public final class MessageCheck {
         return List.copyOf(check.problems);
     }
 
-    /** Returns only the errors of {@code text}, each as an admin reads it. */
+    /** Returns only the errors of {@code text}, each in English as the packaged texts say it. */
     public static List<String> errors(final String text, final Declaration declaration, final Mode mode) {
         return check(text, declaration, mode).stream()
                 .filter(Problem::error)
-                .map(Problem::text)
+                .map(problem -> english(problem.text()))
                 .toList();
+    }
+
+    /** Returns a problem in English with the packaged texts, for the build's refusal and a process's log. */
+    public static String english(final MessageRef problem) {
+        return English.MESSAGES.format(Locales.DEFAULT, problem);
+    }
+
+    /** The {@code check} bundle as packaged, loaded on the first problem told in English. */
+    private static final class English {
+
+        private static final Messages MESSAGES =
+                Messages.load(MessageCheck.class.getClassLoader(), "messages/check", Locales.DEFAULT);
+
+        private English() {}
     }
 
     /** Checks one run of nodes, a case's own: every tag it opens it closes. */
@@ -91,7 +114,7 @@ public final class MessageCheck {
             }
         }
         for (final String tag : open) {
-            error("<" + tag + "> is never closed");
+            error(SAYS.tag().neverClosed(tag));
         }
     }
 
@@ -103,17 +126,19 @@ public final class MessageCheck {
         if (value.kind() != null) {
             final Kind written = Kind.byToken(value.kind()).orElse(null);
             if (written == null) {
-                error("{" + value.name() + ", " + value.kind() + "} names no kind; the kinds are " + tokens());
+                error(SAYS.value().noKind(value.name(), value.kind(), tokens()));
                 return;
             }
             if (written != kind) {
-                error("{" + value.name() + "} is a " + kind.token() + ", not a " + written.token());
+                error(SAYS.value().otherKind(value.name(), kind.token(), written.token()));
                 return;
             }
         }
         if (value.style() != null && !kind.styles().contains(value.style())) {
-            error("{" + value.name() + "} has no style " + value.style() + "; a " + kind.token() + " has "
-                    + (kind.styles().isEmpty() ? "none" : kind.styles()));
+            error(
+                    kind.styles().isEmpty()
+                            ? SAYS.value().styleless(value.name(), value.style(), kind.token())
+                            : SAYS.value().noStyle(value.name(), value.style(), kind.token(), sorted(kind.styles())));
         }
     }
 
@@ -121,14 +146,15 @@ public final class MessageCheck {
         final Kind kind = known(choice.name());
         final Kind wanted = choice.plural() ? Kind.NUMBER : Kind.CHOICE;
         if (kind != null && kind != wanted) {
-            error("{" + choice.name() + ", " + (choice.plural() ? "plural" : "select") + "} chooses on a "
-                    + kind.token() + ", and only a " + wanted.token() + " can be chosen on that way");
+            error(
+                    choice.plural()
+                            ? SAYS.value().pluralOn(choice.name(), kind.token())
+                            : SAYS.value().selectOn(choice.name(), kind.token()));
         }
         for (final Map.Entry<String, List<Node>> branch : choice.cases().entrySet()) {
             final String key = branch.getKey();
             if (choice.plural() && !key.startsWith("=") && !PLURAL_CASES.contains(key)) {
-                error("{" + choice.name() + ", plural} has the case " + key + ", which is no plural category; they are"
-                        + " =n, " + PLURAL_CASES);
+                error(SAYS.value().pluralCase(choice.name(), key, PLURAL_ORDER));
             }
             sequence(branch.getValue());
         }
@@ -141,16 +167,14 @@ public final class MessageCheck {
         if (!allowed && tag.shape() != Node.Tag.Shape.CLOSE) {
             error(
                     mode == Mode.PACKAGED && Tags.colour(name)
-                            ? "<" + name + "> is a colour, and a packaged text names colours only by tone: "
-                                    + new TreeSet<>(Tags.TONES)
-                            : "<" + name + "> is no tag a text may use");
+                            ? SAYS.tag().packagedColour(name, sorted(Tags.TONES))
+                            : SAYS.tag().unknown(name));
         }
         if ("action".equals(name) && tag.shape() != Node.Tag.Shape.CLOSE) {
             final String action =
                     tag.args().isEmpty() ? null : tag.args().getFirst().literal();
             if (action == null || !declaration.actions().contains(action)) {
-                error("<action:" + (action == null ? "" : action) + "> names no action this message offers; it offers "
-                        + (declaration.actions().isEmpty() ? "none" : declaration.actions()));
+                error(SAYS.tag().unknownAction(action == null ? "" : action, sorted(declaration.actions())));
             } else {
                 used.add(action);
             }
@@ -161,10 +185,9 @@ public final class MessageCheck {
             for (final Node part : arg.parts()) {
                 if (part instanceof final Node.Value value) {
                     if (!takesValues) {
-                        error("{" + value.name() + "} stands in <" + name + ">'s argument, where no value may; only a"
-                                + " hover text and a click's target take one");
+                        error(SAYS.tag().valueInArgument(value.name(), name));
                     } else if (arg.quote() == 0) {
-                        error("{" + value.name() + "} stands in <" + name + ">'s argument without quotes around it");
+                        error(SAYS.tag().unquotedValue(value.name(), name));
                     } else {
                         value(value);
                     }
@@ -182,10 +205,10 @@ public final class MessageCheck {
             }
             case CLOSE -> {
                 if (open.isEmpty() || !open.peek().equals(name)) {
-                    error("</" + name + "> closes "
-                            + (open.isEmpty()
-                                    ? "nothing"
-                                    : "<" + name + "> while <" + open.peek() + "> is still open"));
+                    error(
+                            open.isEmpty()
+                                    ? SAYS.tag().closesNothing(name)
+                                    : SAYS.tag().closesOther(name, open.peek()));
                 } else {
                     open.pop();
                 }
@@ -198,7 +221,7 @@ public final class MessageCheck {
         used.add(name);
         final Kind kind = declaration.values().get(name);
         if (kind == null) {
-            error("{" + name + "} is nothing this message offers; it offers " + offered());
+            error(SAYS.value().unknown(name, sorted(declaration.values().keySet())));
         }
         return kind;
     }
@@ -208,8 +231,7 @@ public final class MessageCheck {
             final boolean usedAtAll =
                     used.contains(role) || used.stream().anyMatch(name -> name.startsWith(role + "."));
             if (!usedAtAll) {
-                problems.add(new Problem(
-                        mode == Mode.PACKAGED, "the text never shows " + role + ", which the message is given"));
+                problems.add(new Problem(mode == Mode.PACKAGED, SAYS.value().unshown(role)));
             }
         }
     }
@@ -234,21 +256,19 @@ public final class MessageCheck {
                 ZoneOffset.UTC,
                 MEASURE);
         if (shown.length() > declaration.limit()) {
-            error("with its examples the text is " + shown.length() + " characters long, and where it is shown "
-                    + declaration.limit() + " fit");
+            error(SAYS.tooLong(shown.length(), declaration.limit()));
         }
     }
 
-    private String offered() {
-        final TreeSet<String> names = new TreeSet<>(declaration.values().keySet());
-        return names.isEmpty() ? "nothing" : String.join(", ", names);
+    private static List<String> sorted(final Set<String> names) {
+        return List.copyOf(new TreeSet<>(names));
     }
 
-    private static String tokens() {
-        return java.util.Arrays.stream(Kind.values()).map(Kind::token).toList().toString();
+    private static List<String> tokens() {
+        return Arrays.stream(Kind.values()).map(Kind::token).toList();
     }
 
-    private void error(final String text) {
+    private void error(final MessageRef text) {
         problems.add(new Problem(true, text));
     }
 }

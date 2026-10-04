@@ -191,6 +191,17 @@ public final class StewardAgent {
      */
     private static int runHanded(
             final InternalServer server, final Compose compose, final Docker docker, final long id) {
+        final Path backups = Path.of(
+                server.setting("BACKUPS", AgentApi.Paths.DEFAULTS.backups().toString()));
+        // Its container is removed once it exits, so the file is the only record a failed run leaves.
+        try (RunLog ignored = RunLog.keep(backups, id)) {
+            return carryOutHanded(server, compose, docker, id);
+        }
+    }
+
+    /** The handed run itself, with its log already kept. */
+    private static int carryOutHanded(
+            final InternalServer server, final Compose compose, final Docker docker, final long id) {
         final Clock clock = NetworkTime.clock();
         final DatabaseSpec databaseConfig;
         try {

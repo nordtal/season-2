@@ -79,6 +79,11 @@ one-shot has settled the row. A row whose one-shot is gone without settling it i
 wake-up, which lets the lock go and ends the pause.
 An older release is refused: no schema goes back.
 
+The one-shot's container is removed once it exits, so from its first line on it copies everything it
+writes into `runs/<id>.log` under the backups, `steward-backups/runs/` on the host, unbuffered; a run
+that failed or was killed leaves its log there. The newest ten stay. The archive list and the backup
+retention read only the files directly in the backups, so neither sees the folder.
+
 ## Where a version comes from
 
 | what                                                 | source                                                     |

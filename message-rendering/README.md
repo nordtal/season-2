@@ -9,7 +9,9 @@ of their own kinds too, so a list of items is still the client's to name. A tone
 the code bound to that name.
 
 `Names` is how a process draws a player's name: the bare name by default, a server's own
-composition with its hover card where it hands one in; the style `plain` bypasses it. `GameLines`
+composition where it hands one in. `NameCards` is what the name shows on hover, a message the renderer draws
+for the same reader without cards of its own, so a card naming its player cannot recurse; a player the process
+holds nothing of has none. The style `plain` bypasses both, for the bare name. `GameLines`
 turns a line the game wrote, such as a death message, into a `GameContent` value, which renders as a
 translatable component the client reads in its own language. `Tones` paints a reply's tone and
 `FeedbackSounds` turns a feedback into a sound.

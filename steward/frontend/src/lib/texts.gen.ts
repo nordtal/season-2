@@ -1300,6 +1300,11 @@ export type TextArgs = {
   }
   "steward.service-page.plugins": Record<string, never>
   "steward.service-page.ram": Record<string, never>
+  "steward.service-page.range": Record<string, never>
+  "steward.service-page.reading": {
+    metric: Arg["text"]
+    at: Arg["instant"]
+  }
   "steward.service-page.recreate-note": Record<string, never>
   "steward.service-page.recreate-service": {
     service: Arg["text"]

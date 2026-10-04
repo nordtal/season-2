@@ -17,7 +17,7 @@ export const keys = {
   activeRun: ["runs", "active"] as const,
   run: (id: string) => ["run", id] as const,
   available: ["available"] as const,
-  metrics: (subject: string, metric: string, hours: number) => ["metrics", subject, metric, hours] as const,
+  metrics: (subject: string, metric: string, minutes: number) => ["metrics", subject, metric, minutes] as const,
   season: ["season"] as const,
   people: ["people"] as const,
   payments: ["payments"] as const,

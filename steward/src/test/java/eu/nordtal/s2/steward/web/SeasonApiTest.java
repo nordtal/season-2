@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonObject;
 import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 
 /** The season's dates, curves and phase, as the interface reads and writes them. */
@@ -58,12 +60,24 @@ class SeasonApiTest extends WebTestSupport {
     @Test
     void theCurvesAreRead() throws Exception {
         final JsonObject answer = GSON.fromJson(
-                get("/api/metrics?subject=host&metric=cpu_percent&hours=6").body(), JsonObject.class);
+                get("/api/metrics?subject=host&metric=cpu_percent&minutes=360").body(), JsonObject.class);
 
         assertEquals("host", answer.get("subject").getAsString());
         assertTrue(answer.has("points"), answer.toString());
         // Nothing has sampled into this database, so the answer is no points, not a fabricated line.
         assertEquals(0, answer.getAsJsonArray("points").size());
+    }
+
+    /** The page's shortest range is two minutes, which a whole number of hours cannot ask for. */
+    @Test
+    void aCurveSpansTheMinutesAsked() throws Exception {
+        final Instant before = Instant.now();
+        final JsonObject answer = GSON.fromJson(
+                get("/api/metrics?subject=host&metric=cpu_percent&minutes=2").body(), JsonObject.class);
+
+        final Instant from = Instant.parse(answer.get("from").getAsString());
+        assertFalse(from.isBefore(before.minus(Duration.ofMinutes(2)).minusSeconds(5)), from.toString());
+        assertFalse(from.isAfter(Instant.now().minus(Duration.ofMinutes(2))), from.toString());
     }
 
     @Test

@@ -1,5 +1,8 @@
 package eu.nordtal.s2.smp.wheel;
 
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 
 /**
@@ -27,10 +30,10 @@ public final class WheelStrip {
         }
     }
 
-    /** Ticks to wait after drawing each frame; the last is the pause before the strike. */
-    private static final int[] DELAYS = {
-        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 4, 5, 6, 8, 10, 13, 16, 18,
-    };
+    /** How long each frame stands, in milliseconds; the last is the pause before the strike. */
+    private static final List<Duration> DELAYS = millis(
+            100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 150, 150, 200, 250, 300, 400, 500, 650, 800,
+            900);
 
     private final int[] sequence;
     private final int winner;
@@ -80,17 +83,21 @@ public final class WheelStrip {
         return new WheelStrip(sequence, winner, shape);
     }
 
-    /** How many frames the animation has. */
-    public static int steps() {
-        return DELAYS.length;
+    private static List<Duration> millis(final long... each) {
+        return Arrays.stream(each).mapToObj(Duration::ofMillis).toList();
     }
 
-    /** Ticks to wait after drawing {@code step} before drawing the next one. */
-    public static int delay(final int step) {
+    /** How many frames the animation has. */
+    public static int steps() {
+        return DELAYS.size();
+    }
+
+    /** How long to wait after drawing {@code step} before drawing the next one. */
+    public static Duration delay(final int step) {
         if (step < 0 || step >= steps()) {
             throw new IllegalArgumentException("step " + step + " is not one of " + steps());
         }
-        return DELAYS[step];
+        return DELAYS.get(step);
     }
 
     /** The prize index in each visible cell at {@code step}, in the surface's own cell order. */
@@ -108,13 +115,9 @@ public final class WheelStrip {
         return shape;
     }
 
-    /** How long a whole spin takes, in ticks, including the pause before the strike. */
-    public static int totalTicks() {
-        int sum = 0;
-        for (final int delay : DELAYS) {
-            sum += delay;
-        }
-        return sum;
+    /** How long a whole spin takes, including the pause before the strike. */
+    public static Duration total() {
+        return DELAYS.stream().reduce(Duration.ZERO, Duration::plus);
     }
 
     /** The prize this strip was built to land on. */

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Random;
 import org.junit.jupiter.api.Test;
@@ -119,19 +120,20 @@ class WheelStripTest {
 
     @Test
     void itDecelerates() {
-        int previous = 0;
+        Duration previous = Duration.ZERO;
         for (int step = 0; step < WheelStrip.steps(); step++) {
-            final int delay = WheelStrip.delay(step);
+            final Duration delay = WheelStrip.delay(step);
             assertTrue(
-                    delay >= previous,
+                    delay.compareTo(previous) >= 0,
                     "step " + step + " is faster than the one before it (" + delay + " after " + previous
                             + "); a wheel that speeds up again has been retuned wrong");
             previous = delay;
         }
+        final Duration total = WheelStrip.total();
         assertTrue(
-                WheelStrip.totalTicks() >= 80 && WheelStrip.totalTicks() <= 160,
+                total.compareTo(Duration.ofSeconds(4)) >= 0 && total.compareTo(Duration.ofSeconds(8)) <= 0,
                 "a spin is meant to be about five seconds - long enough to lean in, short enough to"
-                        + " do twice. It is " + WheelStrip.totalTicks() + " ticks.");
+                        + " do twice. It is " + total + ".");
     }
 
     @Test

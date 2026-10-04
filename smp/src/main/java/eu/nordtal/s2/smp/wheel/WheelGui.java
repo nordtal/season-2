@@ -156,9 +156,8 @@ public final class WheelGui extends Menu {
         draw(step);
         sounds.play(player, Feedback.COUNTDOWN_TICK);
 
-        final int delay = WheelStrip.delay(step);
         final int next = step + 1;
-        task = PaperScheduler.of(plugin).onMainAfter(PaperScheduler.TICK.multipliedBy(delay), () -> {
+        task = PaperScheduler.of(plugin).onMainAfter(WheelStrip.delay(step), () -> {
             if (next < WheelStrip.steps()) {
                 step(plugin, player, next);
             } else {

@@ -460,8 +460,7 @@ final class Kinds {
             planned = planned.with(new UpdateReport.ServiceLine(
                     service,
                     UpdateReport.State.PLANNED,
-                    List.of(new UpdateReport.Change(
-                            "container", null, pull ? "made again from a pulled image" : "made again")),
+                    List.of(UpdateReport.Change.told("container", TEXTS.report().madeAgain(pull))),
                     null));
         }
         return planned;

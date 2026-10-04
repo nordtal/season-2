@@ -352,7 +352,7 @@ final class Run {
         UpdateReport report = before.with(new UpdateReport.ServiceLine(
                 AgentWire.SERVICE,
                 UpdateReport.State.STARTING,
-                List.of(new UpdateReport.Change("image", null, "out of date")),
+                List.of(UpdateReport.Change.told("image", TEXTS.report().imageOutdated())),
                 TEXTS.report().renewingAgent()));
         progress.accept(report);
         final RedeployResult result = runner.containers.renewAgent();

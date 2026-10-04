@@ -91,13 +91,22 @@ function LineState({ state }: { state: string }) {
 /**
  * One artefact, and what is happening to it.
  *
- * Branches on MOVING and UNSUPPORTED, whose `to` is `"-"`, and shows the raw words for anything newer.
+ * Branches on UNSUPPORTED and on `told`, whose `to` is `"-"`, and shows the raw words of a row stored before a change
+ * was told in a message.
  */
-function Change({ change }: { change: ReportChange }) {
+export function Change({ change }: { change: ReportChange }) {
   if (change.state === "UNSUPPORTED") {
     return (
       <span className="text-muted-foreground">
         <code className="text-xs">{change.artefact}</code> - {t("steward.operations.no-build")}
+      </span>
+    )
+  }
+  if (change.told) {
+    return (
+      <span className="flex flex-wrap items-center gap-1.5">
+        <code className="text-xs">{change.artefact}</code>
+        <span className="text-muted-foreground">{message(change.told)}</span>
       </span>
     )
   }

@@ -448,6 +448,10 @@ export type TextArgs = {
   "report.held-not-restarted": {
     services: Arg["list"]
   }
+  "report.image-outdated": Record<string, never>
+  "report.made-again": {
+    pull: Arg["choice"]
+  }
   "report.no-backup-volumes": Record<string, never>
   "report.no-build": {
     artefact: Arg["text"]

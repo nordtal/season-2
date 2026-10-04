@@ -211,6 +211,39 @@ class UpdateReportsTest {
     }
 
     @Test
+    void aChangeToldInWordsKeepsItsMessageAndTheTerminalReadsItInEnglish() {
+        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED)
+                .with(new UpdateReport.ServiceLine(
+                        "smp",
+                        UpdateReport.State.PLANNED,
+                        List.of(UpdateReport.Change.told("image", TEXTS.report().imageOutdated())),
+                        null));
+
+        final String json = UpdateReports.toJson(report);
+        assertEquals(report, UpdateReports.parse(json).orElseThrow());
+        assertTrue(report.line("smp").isMoving(), "a told change still stops its service");
+        assertTrue(json.contains("\"key\":\"report.image-outdated\""), json);
+        assertFalse(json.contains("out of date"), json);
+        final String english = UpdateReports.english(json);
+        assertTrue(english.contains("\"told\":\"out of date\""), english);
+    }
+
+    @Test
+    void aChangeStoredInWordsByAnEarlierReleaseStillReadsAsItWas() {
+        // An image change as the inbox keeps it from before it was a message.
+        final String stored = "{\"stage\": \"DONE\", \"notes\": [], \"services\": [{\"state\": \"HEALTHY\","
+                + " \"changes\": [{\"to\": \"out of date\", \"state\": \"MOVING\", \"artefact\": \"image\"}],"
+                + " \"service\": \"smp\"}]}";
+
+        final UpdateReport.Change change =
+                UpdateReports.parse(stored).orElseThrow().line("smp").changes().getFirst();
+
+        assertEquals("out of date", change.to());
+        assertEquals(null, change.told());
+        assertTrue(UpdateReports.english(stored).contains("\"to\":\"out of date\""), UpdateReports.english(stored));
+    }
+
+    @Test
     void aFailureSaysWhichServiceAndWhy() {
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.FAILED)
                 .with(new UpdateReport.ServiceLine("limbo", UpdateReport.State.PLANNED, List.of(), null)

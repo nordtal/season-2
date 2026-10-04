@@ -604,6 +604,12 @@ public interface AdminTexts {
         @Name("Recreating a container")
         MessageRef recreating(@Arg("pull") boolean pull);
 
+        @Name("An image the registry has a newer one of, as a change")
+        MessageRef imageOutdated();
+
+        @Name("A container made again, as a change")
+        MessageRef madeAgain(@Arg("pull") boolean pull);
+
         @Name("Not recreated, and nothing to go back to")
         MessageRef notRecreated(@Arg("outdated") boolean outdated, @Arg("reason") String reason);
 

@@ -1,6 +1,8 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -371,5 +373,37 @@ class UpdateFeedTest {
         for (final String symbol : List.of("✔", "✖", "○", "◑", "\u2013")) {
             assertTrue(!goodLines.contains(symbol), "a text symbol beside emojis: " + symbol);
         }
+    }
+
+    @Test
+    void aChangeToldInAMessageIsRenderedAndOneStoredInWordsStillReads() {
+        final UpdateReport told = new UpdateReport(
+                UpdateReport.Stage.DONE,
+                List.of(new UpdateReport.ServiceLine(
+                        "smp",
+                        UpdateReport.State.HEALTHY,
+                        List.of(UpdateReport.Change.told("image", TEXTS.report().imageOutdated())),
+                        null)),
+                List.of());
+        // An image change as the inbox keeps it from before it was a message.
+        final String stored = "{\"stage\": \"DONE\", \"notes\": [], \"services\": [{\"state\": \"HEALTHY\","
+                + " \"changes\": [{\"to\": \"out of date\", \"state\": \"MOVING\", \"artefact\": \"image\"}],"
+                + " \"service\": \"limbo\"}]}";
+        rows.put(row(1L, UpdateStatus.DONE, UpdateReports.toJson(told), NOW));
+        rows.put(row(2L, UpdateStatus.DONE, stored, NOW));
+        feed.tick();
+
+        final String now = lines(board.posted.get(0).embed());
+        final String before = lines(board.posted.get(1).embed());
+        assertTrue(now.contains("image *out of date*"), now);
+        assertFalse(now.contains("report.image-outdated"), now);
+        assertFalse(now.contains("**-**"), "the placeholder of a version is never shown: " + now);
+        assertTrue(before.contains("image **out of date**"), before);
+    }
+
+    private static String lines(final MessageEmbed embed) {
+        return embed.getFields().stream()
+                .map(MessageEmbed.Field::getValue)
+                .collect(java.util.stream.Collectors.joining("\n"));
     }
 }

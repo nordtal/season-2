@@ -74,7 +74,8 @@ final class ForeignImages {
             if (!scope.isEmpty() && !scope.contains(service)) {
                 continue;
             }
-            report = report.with(report.line(service).with(new UpdateReport.Change("image", null, "out of date")));
+            report = report.with(report.line(service)
+                    .with(UpdateReport.Change.told("image", TEXTS.report().imageOutdated())));
         }
 
         if (!foreign.isEmpty()) {
@@ -125,8 +126,10 @@ final class ForeignImages {
                     UpdateReport.State.STARTING,
                     List.of(
                             pull
-                                    ? new UpdateReport.Change("image", null, "out of date")
-                                    : new UpdateReport.Change("container", null, "made again")),
+                                    ? UpdateReport.Change.told(
+                                            "image", TEXTS.report().imageOutdated())
+                                    : UpdateReport.Change.told(
+                                            "container", TEXTS.report().madeAgain(false))),
                     TEXTS.report().recreating(pull)));
             progress.accept(report);
             final RedeployResult result = pull ? containers.deploy(service) : containers.recreate(service);

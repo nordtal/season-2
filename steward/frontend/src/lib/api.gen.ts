@@ -828,6 +828,7 @@ export type ReportChange = {
   from?: string
   to: string
   state: ChangeState
+  told?: MessageRef
 }
 
 export type ReferenceKind =

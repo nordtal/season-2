@@ -138,13 +138,19 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<Message
      * One artefact, and what is happening to it.
      *
      * @param from  the version installed now, or {@code null} for a first install
-     * @param to    where it is going, or {@link #UNSUPPORTED}
+     * @param to    where it is going, or {@link #NONE} when no version names it
      * @param state whether this row is a file moving or an artefact waiting for a build
+     * @param told  what happens to it as a message of the report section, for a change no version names, or none
      */
-    public record Change(String artefact, @Nullable String from, String to, Change.State state) {
+    public record Change(
+            String artefact,
+            @Nullable String from,
+            String to,
+            Change.State state,
+            @Nullable MessageRef told) {
 
-        /** The {@link Change#to()} of an artefact with no build to move to; readers branch on the state first. */
-        public static final String UNSUPPORTED = "-";
+        /** The {@link Change#to()} of a change no version names; readers branch on the state and on {@link #told}. */
+        public static final String NONE = "-";
 
         public Change {
             Objects.requireNonNull(artefact, "artefact");
@@ -154,12 +160,17 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<Message
 
         /** A file being installed or replaced. */
         public Change(final String artefact, final @Nullable String from, final String to) {
-            this(artefact, from, to, Change.State.MOVING);
+            this(artefact, from, to, Change.State.MOVING, null);
+        }
+
+        /** A change no version names, such as a container made again; it stops its service all the same. */
+        public static Change told(final String artefact, final MessageRef what) {
+            return new Change(artefact, null, NONE, Change.State.MOVING, Objects.requireNonNull(what, "what"));
         }
 
         /** An artefact the network wants that has no build for this Minecraft version yet. */
         public static Change unsupported(final String artefact) {
-            return new Change(artefact, null, UNSUPPORTED, Change.State.UNSUPPORTED);
+            return new Change(artefact, null, NONE, Change.State.UNSUPPORTED, null);
         }
 
         /** What is happening to one artefact. */

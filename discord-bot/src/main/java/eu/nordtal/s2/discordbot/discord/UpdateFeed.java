@@ -290,13 +290,19 @@ public final class UpdateFeed {
                                 // No build for this Minecraft version, which stops no server.
                                 case UNSUPPORTED ->
                                     Card.italic(text.apply(TEXTS.run().noBuild()));
-                                case MOVING ->
-                                    change.from() == null
-                                            ? Card.bold(change.to())
-                                            : Card.arrow(change.from(), change.to());
+                                case MOVING -> moving(change, text);
                             });
         }
         return shown.toString();
+    }
+
+    /** Renders a change that moves: in words when no version names it, else its version or the pair of them. */
+    private static String moving(final UpdateReport.Change change, final Function<MessageRef, String> text) {
+        final MessageRef told = change.told();
+        if (told != null) {
+            return Card.italic(text.apply(told));
+        }
+        return change.from() == null ? Card.bold(change.to()) : Card.arrow(change.from(), change.to());
     }
 
     /** Returns the emoji of one service's state, from the same set as {@link #glance}. */

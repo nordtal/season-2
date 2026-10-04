@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.AccessTarget.CodeUnitAccessTarget;
+import com.tngtech.archunit.core.domain.JavaAccess;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaConstructorCall;
 import java.util.List;
@@ -55,6 +56,14 @@ class ArchitectureTest {
             "eu.nordtal.s2.steward.config.WebSpec",
             "eu.nordtal.s2.steward.config.StewardSpec",
             "eu.nordtal.s2.stewardagent.config.RunSpec");
+
+    /** A call that builds a message renderer, which only the base of a process does. */
+    private static final String RENDERER = "eu.nordtal.s2.messagerendering.MessageRenderer";
+
+    private static final DescribedPredicate<JavaAccess<?>> BUILDS_A_RENDERER = DescribedPredicate.describe(
+            "a new renderer",
+            access -> access.getTargetOwner().getName().equals(RENDERER)
+                    && Set.of("<init>", "of").contains(access.getTarget().getName()));
 
     private static JavaClasses classes;
 
@@ -322,6 +331,23 @@ class ArchitectureTest {
                 .haveFullyQualifiedName("eu.nordtal.s2.papercommon.plugin.NordtalPlugin")
                 .should()
                 .callConstructorWhere(builds("eu.nordtal.s2.papercommon.command.CommandFilter"))
+                .check(classes);
+    }
+
+    /** A Paper server renders through its base's one renderer, which draws every name with the server's own card. */
+    @Test
+    void onlyThePluginBaseBuildsARendererOnAPaperServer() {
+        noClasses()
+                .that()
+                .resideInAnyPackage(
+                        "eu.nordtal.s2.limbo..",
+                        "eu.nordtal.s2.hungergames..",
+                        "eu.nordtal.s2.smp..",
+                        "eu.nordtal.s2.papercommon..")
+                .and()
+                .doNotHaveFullyQualifiedName("eu.nordtal.s2.papercommon.plugin.NordtalPlugin")
+                .should()
+                .accessTargetWhere(BUILDS_A_RENDERER)
                 .check(classes);
     }
 

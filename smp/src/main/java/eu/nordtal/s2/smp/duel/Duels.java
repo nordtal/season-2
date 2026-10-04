@@ -5,7 +5,6 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.game.GameKeys;
 import eu.nordtal.s2.papercommon.player.Identities;
@@ -51,7 +50,7 @@ public final class Duels {
     private final SmpSpec config;
     private final Worlds worlds;
     private final Identities identities;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final SmpSounds sounds;
     private final WorldEffects effects;
     private final ArenaSlots slots;
@@ -96,7 +95,7 @@ public final class Duels {
             final SmpSpec config,
             final Worlds worlds,
             final Identities identities,
-            final Messages messages,
+            final MessageRenderer renderer,
             final SmpSounds sounds,
             final WorldEffects effects,
             final Clock clock) {
@@ -106,7 +105,7 @@ public final class Duels {
         this.config = config;
         this.worlds = worlds;
         this.identities = identities;
-        this.messages = messages;
+        this.renderer = renderer;
         this.sounds = sounds;
         this.effects = effects;
         this.slots = new ArenaSlots(config.concurrentDuelLimit(), config.duelArenaBaseY(), config.duelArenaSpacing());
@@ -317,14 +316,12 @@ public final class Duels {
             player.setGameMode(remaining > 0 ? GameMode.ADVENTURE : GameMode.SURVIVAL);
             player.sendMessage(
                     remaining > 0
-                            ? MessageRenderer.of(messages)
-                                    .format(
-                                            identities.languageOf(player.getUniqueId()),
-                                            MESSAGES.smp().duel().countdown(remaining))
-                            : MessageRenderer.of(messages)
-                                    .format(
-                                            identities.languageOf(player.getUniqueId()),
-                                            MESSAGES.smp().duel().go()));
+                            ? renderer.format(
+                                    identities.languageOf(player.getUniqueId()),
+                                    MESSAGES.smp().duel().countdown(remaining))
+                            : renderer.format(
+                                    identities.languageOf(player.getUniqueId()),
+                                    MESSAGES.smp().duel().go()));
             // Four evenly spaced ticks, 3-2-1-Go: the last lands on the moment the fight starts.
             sounds.play(player, Feedback.COUNTDOWN_TICK);
         });
@@ -376,7 +373,6 @@ public final class Duels {
         } else {
             state.restore(player, spawn());
         }
-        final MessageRenderer renderer = MessageRenderer.of(messages);
         final java.util.Locale locale = identities.languageOf(playerId);
         final SmpMessages.Smp.Duel lines = MESSAGES.smp().duel();
         final int stake = config.duelStake();
@@ -519,7 +515,7 @@ public final class Duels {
      * A {@code null} feedback is ordinary: only moments that change what the player can do get one.
      */
     private void tell(final Player player, final MessageRef message, final @Nullable Feedback feedback) {
-        player.sendMessage(MessageRenderer.of(messages).format(identities.languageOf(player.getUniqueId()), message));
+        player.sendMessage(renderer.format(identities.languageOf(player.getUniqueId()), message));
         if (feedback != null) {
             sounds.play(player, feedback);
         }

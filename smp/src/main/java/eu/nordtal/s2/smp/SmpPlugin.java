@@ -11,6 +11,7 @@ import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import eu.nordtal.s2.database.inbox.SmpRequest;
 import eu.nordtal.s2.database.notify.Channel;
+import eu.nordtal.s2.messagerendering.Names;
 import eu.nordtal.s2.papercommon.command.Answer;
 import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.papercommon.plugin.NordtalPlugin;
@@ -228,6 +229,11 @@ public final class SmpPlugin extends NordtalPlugin {
         announcer = ha.announcer();
 
         final SmpStart.Surfaces wired = SmpStart.wireEffectsAndSurfaces(this, spec);
+        // Every name this server holds wears what chat shows: the flag, the prestige colour and the crest.
+        composeNames((name, reader) -> identities()
+                .held(name.player())
+                .map(identity -> wired.composition().chatPrefix(name.name(), identity))
+                .orElseGet(() -> Names.BARE.draw(name, reader)));
         boards = wired.boards();
         final SmpStart.Presence inputs = SmpStart.wirePresenceInputs(this, spec, wired);
         cinematics = inputs.cinematics();
@@ -378,7 +384,7 @@ public final class SmpPlugin extends NordtalPlugin {
     void registerCommands(final SmpSounds sounds) {
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             final NavigateCommand commands =
-                    new NavigateCommand(this, dao, navigation, identities(), messages(), sounds, this::colours);
+                    new NavigateCommand(this, dao, navigation, identities(), renderer(), sounds, this::colours);
             event.registrar().register(commands.navigate());
             event.registrar().register(commands.poi());
         });
@@ -428,7 +434,7 @@ public final class SmpPlugin extends NordtalPlugin {
             return Command.SINGLE_SUCCESS;
         }
         final org.bukkit.command.CommandSender sender = context.getSource().getSender();
-        final PaperUser console = PaperUser.console(this, sender, messages(), this::colours);
+        final PaperUser console = PaperUser.console(this, sender, renderer(), this::colours);
         final java.util.UUID id = player.getUniqueId();
         final String name = player.getName();
         Bukkit.getScheduler().runTaskAsynchronously(this, () -> {

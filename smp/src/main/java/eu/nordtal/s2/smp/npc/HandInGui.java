@@ -3,7 +3,6 @@ package eu.nordtal.s2.smp.npc;
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.messagerendering.MessageRenderer;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.value.GameContent;
 import eu.nordtal.s2.papercommon.game.GameKeys;
 import eu.nordtal.s2.smp.feedback.Surface;
@@ -37,7 +36,7 @@ public final class HandInGui implements Surface {
     private final Set<String> wanted;
 
     public HandInGui(
-            final Messages messages,
+            final MessageRenderer renderer,
             final Locale locale,
             final Objective objective,
             final long amount,
@@ -50,19 +49,16 @@ public final class HandInGui implements Surface {
                 this,
                 HandInPanel.ROWS * SlotGeometry.COLUMNS,
                 HandInPanel.title(
-                        MessageRenderer.of(messages)
-                                .format(locale, MESSAGES.smp().handin().title()),
-                        messages.format(locale, MESSAGES.smp().handin().stillNeeded(stillNeeded)),
-                        messages.format(locale, MESSAGES.smp().handin().confirmButton())));
+                        renderer.format(locale, MESSAGES.smp().handin().title()),
+                        renderer.raw().format(locale, MESSAGES.smp().handin().stillNeeded(stillNeeded)),
+                        renderer.raw().format(locale, MESSAGES.smp().handin().confirmButton())));
 
         // A sample of the first wanted material, so the window says what it wants without a sentence.
-        sample().ifPresent(item -> inventory.setItem(HandInPanel.SAMPLE_SLOT, describe(messages, locale, item)));
+        sample().ifPresent(item -> inventory.setItem(HandInPanel.SAMPLE_SLOT, describe(renderer, locale, item)));
 
         final ItemStack confirm = BlankItem.of(
-                MessageRenderer.of(messages)
-                        .format(locale, MESSAGES.smp().handin().confirm()),
-                List.of(MessageRenderer.of(messages)
-                        .format(locale, MESSAGES.smp().handin().needed(stillNeeded, wantedItems()))));
+                renderer.format(locale, MESSAGES.smp().handin().confirm()),
+                List.of(renderer.format(locale, MESSAGES.smp().handin().needed(stillNeeded, wantedItems()))));
         HandInPanel.CONFIRM_SLOTS.forEach(slot -> inventory.setItem(slot, confirm));
     }
 
@@ -79,14 +75,12 @@ public final class HandInGui implements Surface {
                 .findFirst();
     }
 
-    private ItemStack describe(final Messages messages, final Locale locale, final Material material) {
+    private ItemStack describe(final MessageRenderer renderer, final Locale locale, final Material material) {
         final ItemStack stack = new ItemStack(material);
         stack.editMeta(meta -> {
-            meta.displayName(MessageRenderer.of(messages)
-                    .format(locale, MESSAGES.smp().handin().wanted())
+            meta.displayName(renderer.format(locale, MESSAGES.smp().handin().wanted())
                     .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-            meta.lore(List.of(MessageRenderer.of(messages)
-                    .format(locale, MESSAGES.smp().handin().needed(stillNeeded, wantedItems()))
+            meta.lore(List.of(renderer.format(locale, MESSAGES.smp().handin().needed(stillNeeded, wantedItems()))
                     .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)));
         });
         return stack;

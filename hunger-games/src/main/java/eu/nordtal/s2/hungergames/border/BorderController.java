@@ -6,7 +6,6 @@ import eu.nordtal.s2.hungergames.GameState;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
 import java.time.Clock;
@@ -31,7 +30,7 @@ public final class BorderController {
     private final Plugin plugin;
     private final World world;
     private final HungerGamesSpec config;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final Identities identities;
     private final HungerGamesSounds sounds;
 
@@ -43,7 +42,7 @@ public final class BorderController {
             final Plugin plugin,
             final World world,
             final HungerGamesSpec config,
-            final Messages messages,
+            final MessageRenderer renderer,
             final Identities identities,
             final HungerGamesSounds sounds,
             final Clock clock) {
@@ -51,7 +50,7 @@ public final class BorderController {
         this.plugin = plugin;
         this.world = world;
         this.config = config;
-        this.messages = messages;
+        this.renderer = renderer;
         this.identities = identities;
         this.sounds = sounds;
     }
@@ -132,20 +131,18 @@ public final class BorderController {
     /** {@code COUNTDOWN_TICK}, not {@code NETWORK_EVENT}: a shrink is a clock running out, not news about somebody. */
     private void announce(final double target, final long seconds) {
         for (final Player player : world.getPlayers()) {
-            player.sendMessage(MessageRenderer.of(messages)
-                    .format(
-                            identities.languageOf(player.getUniqueId()),
-                            MESSAGES.hg().border().shrinkStarted(Math.round(target), seconds)));
+            player.sendMessage(renderer.format(
+                    identities.languageOf(player.getUniqueId()),
+                    MESSAGES.hg().border().shrinkStarted(Math.round(target), seconds)));
             sounds.play(player, Feedback.COUNTDOWN_TICK);
         }
     }
 
     private void announcePassive() {
         for (final Player player : world.getPlayers()) {
-            player.sendMessage(MessageRenderer.of(messages)
-                    .format(
-                            identities.languageOf(player.getUniqueId()),
-                            MESSAGES.hg().border().passiveShrinkStarted()));
+            player.sendMessage(renderer.format(
+                    identities.languageOf(player.getUniqueId()),
+                    MESSAGES.hg().border().passiveShrinkStarted()));
             sounds.play(player, Feedback.COUNTDOWN_TICK);
         }
     }

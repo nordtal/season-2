@@ -4,7 +4,6 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
@@ -54,7 +53,7 @@ public final class ObjectiveEngine {
     private final SeasonState season;
     private final Worlds worlds;
     private final Identities identities;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final SmpSpec config;
     private final SmpSounds sounds;
     private final WorldEffects effects;
@@ -71,7 +70,7 @@ public final class ObjectiveEngine {
             final SeasonState season,
             final Worlds worlds,
             final Identities identities,
-            final Messages messages,
+            final MessageRenderer renderer,
             final SmpSpec config,
             final SmpSounds sounds,
             final WorldEffects effects,
@@ -83,7 +82,7 @@ public final class ObjectiveEngine {
         this.season = season;
         this.worlds = worlds;
         this.identities = identities;
-        this.messages = messages;
+        this.renderer = renderer;
         this.config = config;
         this.sounds = sounds;
         this.effects = effects;
@@ -275,8 +274,8 @@ public final class ObjectiveEngine {
         Bukkit.getScheduler().runTask(plugin, () -> {
             for (final Player player : Bukkit.getOnlinePlayers()) {
                 final var locale = identities.languageOf(player.getUniqueId());
-                player.sendMessage(MessageRenderer.of(messages)
-                        .format(locale, MESSAGES.smp().objective().completed(objectiveKey)));
+                player.sendMessage(
+                        renderer.format(locale, MESSAGES.smp().objective().completed(objectiveKey)));
             }
         });
     }
@@ -289,7 +288,8 @@ public final class ObjectiveEngine {
     private void announceMilestone(final String milestoneKey, final @Nullable UUID completedBy, final Unlock unlock) {
         // Discord first, off this thread, one row per language.
         announcer.announce(locale -> {
-            final MilestoneContext milestone = new MilestoneContext(MilestoneNames.of(messages, locale, milestoneKey));
+            final MilestoneContext milestone =
+                    new MilestoneContext(MilestoneNames.of(renderer.raw(), locale, milestoneKey));
             final SmpMessages.Smp.Announce.Milestone by =
                     MESSAGES.smp().announce().milestoneSection();
             return switch (unlock) {
@@ -299,10 +299,9 @@ public final class ObjectiveEngine {
                 case NOTHING -> MESSAGES.smp().announce().milestone(milestone);
             };
         });
-        final MessageRenderer renderer = MessageRenderer.of(messages);
         for (final Player player : Bukkit.getOnlinePlayers()) {
             final var locale = identities.languageOf(player.getUniqueId());
-            final MilestoneContext name = new MilestoneContext(MilestoneNames.of(messages, locale, milestoneKey));
+            final MilestoneContext name = new MilestoneContext(MilestoneNames.of(renderer.raw(), locale, milestoneKey));
 
             player.sendMessage(
                     renderer.format(locale, MESSAGES.smp().milestone().completed(name)));

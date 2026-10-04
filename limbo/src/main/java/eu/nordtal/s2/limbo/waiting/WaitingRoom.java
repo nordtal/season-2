@@ -5,7 +5,6 @@ import eu.nordtal.s2.limbo.config.LimboSpec;
 import eu.nordtal.s2.limbo.world.WaitingWorld;
 import eu.nordtal.s2.limboprotocol.WaitReason;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.papercommon.player.Identities;
 import java.time.Duration;
 import java.util.Locale;
@@ -31,7 +30,7 @@ public final class WaitingRoom {
 
     private final Plugin plugin;
     private final LimboSpec config;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final Identities identities;
     private final WaitingWorld world;
 
@@ -42,12 +41,12 @@ public final class WaitingRoom {
     public WaitingRoom(
             final Plugin plugin,
             final LimboSpec config,
-            final Messages messages,
+            final MessageRenderer renderer,
             final Identities identities,
             final WaitingWorld world) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.config = Objects.requireNonNull(config, "config");
-        this.messages = Objects.requireNonNull(messages, "messages");
+        this.renderer = Objects.requireNonNull(renderer, "renderer");
         this.identities = Objects.requireNonNull(identities, "identities");
         this.world = Objects.requireNonNull(world, "world");
     }
@@ -96,9 +95,7 @@ public final class WaitingRoom {
         final LimboMessages.Limbo.Screen screen =
                 LimboMessages.MESSAGES.limbo().waiting().of(reason);
         player.showTitle(Title.title(
-                MessageRenderer.of(messages).format(locale, screen.title()),
-                MessageRenderer.of(messages).format(locale, screen.subtitle()),
-                times));
+                renderer.format(locale, screen.title()), renderer.format(locale, screen.subtitle()), times));
     }
 
     /** Starts the refresh loop, one task for the whole server rather than one per player. */

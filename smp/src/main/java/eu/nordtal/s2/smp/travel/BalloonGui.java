@@ -3,7 +3,6 @@ package eu.nordtal.s2.smp.travel;
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.messagerendering.MessageRenderer;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
@@ -38,7 +37,7 @@ import org.bukkit.inventory.ItemStack;
  */
 public final class BalloonGui implements Surface {
 
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final Identities identities;
     private final Worlds worlds;
     private final SeasonState season;
@@ -51,7 +50,7 @@ public final class BalloonGui implements Surface {
     private final Inventory inventory;
 
     public BalloonGui(
-            final Messages messages,
+            final MessageRenderer renderer,
             final Identities identities,
             final Worlds worlds,
             final SeasonState season,
@@ -60,7 +59,7 @@ public final class BalloonGui implements Surface {
             final WorldEffects effects,
             final Player viewer,
             final WorldRole here) {
-        this.messages = messages;
+        this.renderer = renderer;
         this.identities = identities;
         this.worlds = worlds;
         this.season = season;
@@ -92,9 +91,8 @@ public final class BalloonGui implements Surface {
     /** The invisible item under a card: the world's name, and one or two lines on its state. */
     private ItemStack tooltip(final BalloonMenu.Entry entry, final Locale locale) {
         // The world's name is a parameter and the colour is the bundle's.
-        final MessageRenderer renderer = MessageRenderer.of(messages);
         final boolean locked = entry.state() == BalloonMenu.State.LOCKED;
-        final String destination = messages.format(locale, MESSAGES.smp().world(entry.destination()));
+        final String destination = renderer.raw().format(locale, MESSAGES.smp().world(entry.destination()));
         final Component name = renderer.format(
                 locale,
                 locked
@@ -126,9 +124,9 @@ public final class BalloonGui implements Surface {
                 .filter(candidate -> candidate.unlock() == needed)
                 .findFirst();
         if (milestone.isEmpty()) {
-            return messages.format(locale, MESSAGES.smp().balloon().lockedUnknown());
+            return renderer.raw().format(locale, MESSAGES.smp().balloon().lockedUnknown());
         }
-        return MilestoneNames.of(messages, locale, milestone.get().key());
+        return MilestoneNames.of(renderer.raw(), locale, milestone.get().key());
     }
 
     /** Handles a click on {@code slot}, returning whether the player was sent somewhere. */
@@ -142,12 +140,11 @@ public final class BalloonGui implements Surface {
         final BalloonMenu.Entry entry = clicked.get();
         if (!entry.travellable()) {
             if (entry.state() == BalloonMenu.State.LOCKED) {
-                player.sendMessage(MessageRenderer.of(messages)
-                        .format(
-                                locale,
-                                MESSAGES.smp()
-                                        .balloon()
-                                        .locked(new MilestoneContext(milestoneName(entry.destination(), locale)))));
+                player.sendMessage(renderer.format(
+                        locale,
+                        MESSAGES.smp()
+                                .balloon()
+                                .locked(new MilestoneContext(milestoneName(entry.destination(), locale)))));
                 sounds.play(player, Feedback.REFUSED);
             }
             return false;
@@ -155,8 +152,7 @@ public final class BalloonGui implements Surface {
 
         final World destination = worlds.world(entry.destination()).orElse(null);
         if (destination == null) {
-            player.sendMessage(MessageRenderer.of(messages)
-                    .format(locale, MESSAGES.smp().balloon().unavailable()));
+            player.sendMessage(renderer.format(locale, MESSAGES.smp().balloon().unavailable()));
             sounds.play(player, Feedback.REFUSED);
             return false;
         }
@@ -176,20 +172,17 @@ public final class BalloonGui implements Surface {
         final org.bukkit.Location landing = eu.nordtal.s2.smp.world.LandingSite.findSafeAt(destination, target)
                 .orElse(null);
         if (landing == null || !player.teleport(landing)) {
-            player.sendMessage(MessageRenderer.of(messages)
-                    .format(locale, MESSAGES.smp().balloon().unavailable()));
+            player.sendMessage(renderer.format(locale, MESSAGES.smp().balloon().unavailable()));
             sounds.play(player, Feedback.REFUSED);
             return false;
         }
         effects.travelled(from);
         effects.travelled(landing);
-        player.sendMessage(MessageRenderer.of(messages)
-                .format(
-                        locale,
-                        MESSAGES.smp()
-                                .balloon()
-                                .travelled(
-                                        messages.format(locale, MESSAGES.smp().world(entry.destination())))));
+        player.sendMessage(renderer.format(
+                locale,
+                MESSAGES.smp()
+                        .balloon()
+                        .travelled(renderer.raw().format(locale, MESSAGES.smp().world(entry.destination())))));
         sounds.play(player, Feedback.TRAVEL);
         return true;
     }

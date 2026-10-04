@@ -245,6 +245,19 @@ class MessageRendererTest {
                 0, hovers(carding.format(Locale.ENGLISH, new MessageRef("who", Map.of("who", ALEX, "who2", ALEX)))));
     }
 
+    @Test
+    void theBareViewDrawsNeitherTheCompositionNorTheCard() {
+        final MessageRenderer composed = MessageRenderer.of(
+                RENDER.raw(),
+                (name, reader) -> Component.text("[" + name.name() + "]"),
+                name -> new MessageRef("who", Map.of()));
+        final MessageRef line = new MessageRef("who", Map.of("who", ALEX, "who2", ALEX));
+
+        assertEquals(1, hovers(composed.format(Locale.ENGLISH, line)));
+        assertEquals("Alex and Alex", plain(composed.bare().format(Locale.ENGLISH, line)));
+        assertEquals(0, hovers(composed.bare().format(Locale.ENGLISH, line)));
+    }
+
     private static long hovers(final Component component) {
         return (component.hoverEvent() == null ? 0 : 1)
                 + component.children().stream()

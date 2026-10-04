@@ -4,7 +4,6 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
@@ -44,7 +43,7 @@ public final class NpcListener implements Listener {
     /** {@code config#wheel-extra-spin-percents}, as a supplier for the same reason as the track. */
     private final java.util.function.Supplier<List<Integer>> extraSpinPercents;
 
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final SmpSounds sounds;
 
     public NpcListener(
@@ -55,7 +54,7 @@ public final class NpcListener implements Listener {
             final ObjectiveEngine engine,
             final Identities identities,
             final java.util.function.Supplier<List<Integer>> extraSpinPercents,
-            final Messages messages,
+            final MessageRenderer renderer,
             final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
@@ -64,7 +63,7 @@ public final class NpcListener implements Listener {
         this.engine = engine;
         this.identities = identities;
         this.extraSpinPercents = extraSpinPercents;
-        this.messages = messages;
+        this.renderer = renderer;
         this.sounds = sounds;
     }
 
@@ -82,20 +81,12 @@ public final class NpcListener implements Listener {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             final Optional<String> activeKey = dao.activeMilestoneKey();
             if (activeKey.isEmpty()) {
-                tell(
-                        player,
-                        MessageRenderer.of(messages)
-                                .format(locale, MESSAGES.smp().objectives().none()),
-                        Feedback.REFUSED);
+                tell(player, renderer.format(locale, MESSAGES.smp().objectives().none()), Feedback.REFUSED);
                 return;
             }
             final Milestone milestone = track.get().milestone(activeKey.get()).orElse(null);
             if (milestone == null) {
-                tell(
-                        player,
-                        MessageRenderer.of(messages)
-                                .format(locale, MESSAGES.smp().objectives().none()),
-                        Feedback.REFUSED);
+                tell(player, renderer.format(locale, MESSAGES.smp().objectives().none()), Feedback.REFUSED);
                 return;
             }
             final List<ObjectiveRow> rows = dao.objectivesOf(activeKey.get());
@@ -109,7 +100,7 @@ public final class NpcListener implements Listener {
 
             Bukkit.getScheduler().runTask(plugin, () -> {
                 if (player.isOnline()) {
-                    player.openInventory(new ObjectiveGui(messages, locale, milestone, rows, share).getInventory());
+                    player.openInventory(new ObjectiveGui(renderer, locale, milestone, rows, share).getInventory());
                 }
             });
         });
@@ -140,7 +131,7 @@ public final class NpcListener implements Listener {
                 if (entry.isHandIn()) {
                     sounds.play(player, Feedback.SELECT);
                     player.openInventory(new HandInGui(
-                                    messages,
+                                    renderer,
                                     identities.languageOf(player.getUniqueId()),
                                     entry.objective(),
                                     entry.row().amount(),
@@ -172,16 +163,14 @@ public final class NpcListener implements Listener {
         final Locale locale = identities.languageOf(player.getUniqueId());
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
         if (discordId.isEmpty()) {
-            player.sendMessage(MessageRenderer.of(messages)
-                    .format(locale, MESSAGES.smp().error().noAccountLink()));
+            player.sendMessage(renderer.format(locale, MESSAGES.smp().error().noAccountLink()));
             sounds.play(player, Feedback.REFUSED);
             return;
         }
 
         final HandIn.Result result = HandIn.sort(gui.offered(), gui.wanted(), gui.stillNeeded());
         if (result.accepted() <= 0) {
-            player.sendMessage(MessageRenderer.of(messages)
-                    .format(locale, MESSAGES.smp().handin().nothingWanted()));
+            player.sendMessage(renderer.format(locale, MESSAGES.smp().handin().nothingWanted()));
             sounds.play(player, Feedback.REFUSED);
             return;
         }
@@ -228,8 +217,7 @@ public final class NpcListener implements Listener {
                 return;
             }
             gui.giveBack(player, taken);
-            player.sendMessage(MessageRenderer.of(messages)
-                    .format(locale, MESSAGES.smp().handin().nothingCredited()));
+            player.sendMessage(renderer.format(locale, MESSAGES.smp().handin().nothingCredited()));
             sounds.play(player, Feedback.REFUSED);
             player.closeInventory();
             return;
@@ -237,8 +225,7 @@ public final class NpcListener implements Listener {
         if (!player.isOnline()) {
             return;
         }
-        player.sendMessage(MessageRenderer.of(messages)
-                .format(locale, MESSAGES.smp().handin().accepted(paid)));
+        player.sendMessage(renderer.format(locale, MESSAGES.smp().handin().accepted(paid)));
         sounds.play(player, Feedback.SMALL_SUCCESS);
         player.closeInventory();
     }

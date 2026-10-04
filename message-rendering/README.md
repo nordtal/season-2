@@ -11,7 +11,8 @@ the code bound to that name.
 `Names` is how a process draws a player's name: the bare name by default, a server's own
 composition where it hands one in. `NameCards` is what the name shows on hover, a message the renderer draws
 for the same reader without cards of its own, so a card naming its player cannot recurse; a player the process
-holds nothing of has none. The style `plain` bypasses both, for the bare name. `GameLines`
+holds nothing of has none. The style `plain` bypasses both, for the bare name, and `bare()` is the same
+bundle with neither, for a console. `GameLines`
 turns a line the game wrote, such as a death message, into a `GameContent` value, which renders as a
 translatable component the client reads in its own language. `Tones` paints a reply's tone and
 `FeedbackSounds` turns a feedback into a sound.

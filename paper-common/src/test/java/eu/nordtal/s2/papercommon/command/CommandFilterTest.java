@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.language.Locales;
+import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messagerendering.ToneColours;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.feedback.Feedback;
@@ -45,7 +46,8 @@ class CommandFilterTest {
     }
 
     private CommandFilter filter(final Supplier<CommandAllowlist> allowlist, final SpyChime chime) {
-        return new CommandFilter(allowlist, uuid -> false, identities, messages, () -> ToneColours.DEFAULTS, chime);
+        return new CommandFilter(
+                allowlist, uuid -> false, identities, MessageRenderer.of(messages), () -> ToneColours.DEFAULTS, chime);
     }
 
     @Test

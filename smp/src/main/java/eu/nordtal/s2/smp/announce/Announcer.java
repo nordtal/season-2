@@ -7,7 +7,6 @@ import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.Schedule;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
-import eu.nordtal.s2.messages.Messages;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -28,17 +27,17 @@ public final class Announcer {
     public static final Duration KEEP = Duration.ofHours(1);
 
     private final Inbox<BotRequest> bot;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final Executor async;
     private final BiConsumer<String, Throwable> warn;
 
     public Announcer(
             final Inbox<BotRequest> bot,
-            final Messages messages,
+            final MessageRenderer renderer,
             final Executor async,
             final BiConsumer<String, Throwable> warn) {
         this.bot = Objects.requireNonNull(bot, "bot");
-        this.messages = Objects.requireNonNull(messages, "messages");
+        this.renderer = Objects.requireNonNull(renderer, "renderer");
         this.async = Objects.requireNonNull(async, "async");
         this.warn = Objects.requireNonNull(warn, "warn");
     }
@@ -76,11 +75,10 @@ public final class Announcer {
     BotRequest.Announce render(final Function<Locale, MessageRef> message) {
         final Map<String, String> texts = new LinkedHashMap<>();
         // The languages the plugin loaded, which are the network's.
-        for (final Locale locale : messages.locales()) {
+        for (final Locale locale : renderer.raw().locales()) {
             texts.put(
                     Locales.tag(locale),
-                    PlainTextComponentSerializer.plainText()
-                            .serialize(MessageRenderer.of(messages).format(locale, message.apply(locale))));
+                    PlainTextComponentSerializer.plainText().serialize(renderer.format(locale, message.apply(locale))));
         }
         return new BotRequest.Announce(texts);
     }

@@ -2,7 +2,6 @@ package eu.nordtal.s2.smp;
 
 import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
-import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
 import eu.nordtal.s2.smp.announce.Announcer;
 import eu.nordtal.s2.smp.aura.DeathPenalty;
@@ -51,13 +50,18 @@ final class SmpStart {
 
     static HudAndAnnouncer startHudAndAnnouncer(final SmpPlugin plugin) {
         final SmpHud hud = new SmpHud(
-                plugin, plugin.worlds, plugin.season, plugin.navigation, plugin.messages(), plugin.identities());
+                plugin,
+                plugin.worlds,
+                plugin.season,
+                plugin.navigation,
+                plugin.renderer().raw(),
+                plugin.identities());
         hud.start();
 
         // Discord announcements: one request in the bot's inbox with every language, fire and forget.
         final Announcer announcer = new Announcer(
                 Inbox.over(plugin.pool(), BotRequest.TABLE),
-                plugin.messages(),
+                plugin.renderer(),
                 task -> Bukkit.getScheduler().runTaskAsynchronously(plugin, task),
                 (message, failure) -> plugin.getLogger().log(java.util.logging.Level.WARNING, message, failure));
         return new HudAndAnnouncer(hud, announcer);
@@ -71,11 +75,11 @@ final class SmpStart {
         plugin.getServer().getPluginManager().registerEvents(effects, plugin);
 
         final PlayerComposition composition = new PlayerComposition(plugin::prestige, () -> plugin.prestigeColours);
-        final PlayerSurfaces surfaces = new PlayerSurfaces(
-                plugin, plugin.identities(), composition, new MessageRenderer(plugin.messages()), plugin.players());
+        final PlayerSurfaces surfaces =
+                new PlayerSurfaces(plugin, plugin.identities(), composition, plugin.renderer(), plugin.players());
         plugin.identities().whenChanged(surfaces::changed);
 
-        final Boards boards = new Boards(plugin, config, plugin.season, plugin.messages(), plugin.identities());
+        final Boards boards = new Boards(plugin, config, plugin.season, plugin.renderer(), plugin.identities());
         boards.start();
         return new Surfaces(effects, composition, surfaces, boards);
     }
@@ -83,8 +87,7 @@ final class SmpStart {
     record Presence(SystemLines systemLines, BukkitCinematics cinematics, SeasonWelcome welcome) {}
 
     static Presence wirePresenceInputs(final SmpPlugin plugin, final SmpSpec config, final Surfaces surfaces) {
-        final SystemLines systemLines = plugin.systemLines((name, reader) -> surfaces.composition()
-                .chatPrefix(name.name(), plugin.identities().of(name.player())));
+        final SystemLines systemLines = plugin.systemLines();
 
         // Paper disables plugins before saving players, so a blindness would otherwise be saved too.
         final BukkitCinematics cinematics = new BukkitCinematics(plugin, plugin.sounds::play);
@@ -117,7 +120,7 @@ final class SmpStart {
                 plugin.season,
                 plugin.worlds,
                 plugin.identities(),
-                plugin.messages(),
+                plugin.renderer(),
                 config,
                 plugin.sounds,
                 effects,
@@ -142,7 +145,7 @@ final class SmpStart {
                 plugin,
                 plugin.dao,
                 plugin.identities(),
-                plugin.messages(),
+                plugin.renderer(),
                 plugin.sounds,
                 effects,
                 config,
@@ -158,7 +161,7 @@ final class SmpStart {
                 config,
                 plugin.worlds,
                 plugin.identities(),
-                plugin.messages(),
+                plugin.renderer(),
                 plugin.sounds,
                 effects,
                 plugin.clock());
@@ -166,7 +169,7 @@ final class SmpStart {
         final DeathPenalty penalty = new DeathPenalty(
                 config.deathPenalty(), config.deathPenaltyListed(), java.util.Set.copyOf(config.deathCausesListed()));
         final Wheel wheel = new Wheel(
-                plugin, plugin.dao, config, plugin.identities(), plugin.messages(), plugin.sounds, plugin.clock());
+                plugin, plugin.dao, config, plugin.identities(), plugin.renderer(), plugin.sounds, plugin.clock());
         return new Activities(penalty, wheel, graves, duels);
     }
 
@@ -180,7 +183,7 @@ final class SmpStart {
                                 plugin.engine,
                                 plugin.identities(),
                                 config,
-                                plugin.messages(),
+                                plugin.renderer(),
                                 plugin.sounds),
                         plugin);
         plugin.getServer()
@@ -193,7 +196,7 @@ final class SmpStart {
                                 plugin.identities(),
                                 activities.penalty(),
                                 activities.duels()::isInArena,
-                                plugin.messages(),
+                                plugin.renderer(),
                                 plugin.sounds),
                         plugin);
         plugin.getServer()
@@ -219,7 +222,7 @@ final class SmpStart {
                                 plugin.engine,
                                 plugin.identities(),
                                 config::wheelExtraSpinPercents,
-                                plugin.messages(),
+                                plugin.renderer(),
                                 plugin.sounds),
                         plugin);
         // Only keeps the figure standing against damage.
@@ -237,7 +240,7 @@ final class SmpStart {
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(
-                        new ProtectionListener(regions, plugin.identities(), plugin.messages(), plugin.sounds), plugin);
+                        new ProtectionListener(regions, plugin.identities(), plugin.renderer(), plugin.sounds), plugin);
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(
@@ -246,7 +249,7 @@ final class SmpStart {
                                 plugin.worlds,
                                 plugin.season,
                                 () -> plugin.track,
-                                plugin.messages(),
+                                plugin.renderer(),
                                 plugin.identities(),
                                 plugin.sounds,
                                 effects),
@@ -261,7 +264,7 @@ final class SmpStart {
                                 plugin,
                                 plugin.worlds,
                                 plugin.season,
-                                plugin.messages(),
+                                plugin.renderer(),
                                 plugin.identities(),
                                 plugin.sounds),
                         plugin);

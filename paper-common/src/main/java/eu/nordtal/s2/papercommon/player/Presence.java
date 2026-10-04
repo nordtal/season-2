@@ -5,7 +5,6 @@ import static eu.nordtal.s2.papercommon.PaperCommonMessages.MESSAGES;
 import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.database.access.AdminOperators;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
-import eu.nordtal.s2.messages.Messages;
 import io.papermc.paper.event.player.PlayerServerFullCheckEvent;
 import java.util.Locale;
 import java.util.Objects;
@@ -32,7 +31,7 @@ public final class Presence implements Listener {
     private final Plugin plugin;
     private final Identities identities;
     private final AdminOperators operators;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final boolean refusesWithoutIdentity;
     private final Consumer<Player> languageKnown;
     private final Logger logger;
@@ -45,14 +44,14 @@ public final class Presence implements Listener {
             final Plugin plugin,
             final Identities identities,
             final AdminOperators operators,
-            final Messages messages,
+            final MessageRenderer renderer,
             final boolean refusesWithoutIdentity,
             final Consumer<Player> languageKnown,
             final Logger logger) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.identities = Objects.requireNonNull(identities, "identities");
         this.operators = Objects.requireNonNull(operators, "operators");
-        this.messages = Objects.requireNonNull(messages, "messages");
+        this.renderer = Objects.requireNonNull(renderer, "renderer");
         this.refusesWithoutIdentity = refusesWithoutIdentity;
         this.languageKnown = Objects.requireNonNull(languageKnown, "languageKnown");
         this.logger = Objects.requireNonNull(logger, "logger");
@@ -77,8 +76,7 @@ public final class Presence implements Listener {
             // English: without the identity there is no language to read, which is itself what is broken.
             event.disallow(
                     AsyncPlayerPreLoginEvent.Result.KICK_OTHER,
-                    MessageRenderer.of(messages)
-                            .format(Locale.ENGLISH, MESSAGES.login().databaseUnreachable()));
+                    renderer.format(Locale.ENGLISH, MESSAGES.login().databaseUnreachable()));
         }
     }
 

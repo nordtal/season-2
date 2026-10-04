@@ -5,7 +5,6 @@ import static eu.nordtal.s2.hungergames.HungerGamesMessages.MESSAGES;
 import eu.nordtal.s2.hungergames.GameState;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.papercommon.PaperCommonMessages;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
 import eu.nordtal.s2.papercommon.player.Identities;
@@ -35,7 +34,7 @@ public final class PresenceListener implements Listener {
     private final Identities identities;
     private final PlayerBodies bodies;
     private final GameState state;
-    private final MessageRenderer messages;
+    private final MessageRenderer renderer;
 
     /** The shared system lines, held for the join line. */
     private final SystemLines lines;
@@ -48,7 +47,7 @@ public final class PresenceListener implements Listener {
             final Identities identities,
             final PlayerBodies bodies,
             final GameState state,
-            final Messages messages,
+            final MessageRenderer renderer,
             final SystemLines lines,
             final PlayersSpec network) {
         this.network = network;
@@ -56,7 +55,7 @@ public final class PresenceListener implements Listener {
         this.identities = identities;
         this.bodies = bodies;
         this.state = state;
-        this.messages = new MessageRenderer(messages);
+        this.renderer = renderer;
         this.lines = lines;
     }
 
@@ -65,8 +64,8 @@ public final class PresenceListener implements Listener {
         for (final Player online : Bukkit.getOnlinePlayers()) {
             final java.util.Locale locale = identities.languageOf(online.getUniqueId());
             online.sendPlayerListHeaderAndFooter(
-                    messages.format(locale, PaperCommonMessages.MESSAGES.tab().header()),
-                    messages.format(
+                    renderer.format(locale, PaperCommonMessages.MESSAGES.tab().header()),
+                    renderer.format(
                             locale,
                             MESSAGES.tab().footer(Bukkit.getOnlinePlayers().size(), network.maxPlayers())));
         }

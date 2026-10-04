@@ -4,7 +4,6 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.smp.SmpMessages;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
@@ -35,7 +34,7 @@ public final class WheelGui implements Surface {
     private final List<ItemStack> icons;
     private final SmpSounds sounds;
     private final Consumer<Player> payout;
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final Locale locale;
 
     /** What to run when the player asks for another spin, or null while there is none to give. */
@@ -52,7 +51,7 @@ public final class WheelGui implements Surface {
      * @param again runs another spin, or null when this player has none left
      */
     public WheelGui(
-            final Messages messages,
+            final MessageRenderer renderer,
             final Locale locale,
             final WheelStrip strip,
             final List<ItemStack> icons,
@@ -65,21 +64,20 @@ public final class WheelGui implements Surface {
         this.icons = List.copyOf(icons);
         this.sounds = sounds;
         this.payout = payout;
-        this.messages = messages;
+        this.renderer = renderer;
         this.locale = locale;
         this.again = again;
 
-        final MessageRenderer renderer = MessageRenderer.of(messages);
         this.inventory = Bukkit.createInventory(
                 this,
                 WheelPanel.ROWS * SlotGeometry.COLUMNS,
                 WheelPanel.title(
                         renderer.format(locale, MESSAGES.smp().wheel().title()),
                         String.valueOf(spinsLeft),
-                        messages.format(locale, MESSAGES.smp().wheel().spinsLeft(spinsLeft)),
-                        messages.format(locale, MESSAGES.smp().wheel().ruleTop()),
-                        messages.format(locale, MESSAGES.smp().wheel().ruleBottom(earnAt)),
-                        messages.format(locale, MESSAGES.smp().wheel().againButton())));
+                        renderer.raw().format(locale, MESSAGES.smp().wheel().spinsLeft(spinsLeft)),
+                        renderer.raw().format(locale, MESSAGES.smp().wheel().ruleTop()),
+                        renderer.raw().format(locale, MESSAGES.smp().wheel().ruleBottom(earnAt)),
+                        renderer.raw().format(locale, MESSAGES.smp().wheel().againButton())));
 
         final ItemStack hub = BlankItem.of(
                 renderer.format(locale, MESSAGES.smp().wheel().hub(spinsLeft)),
@@ -140,7 +138,6 @@ public final class WheelGui implements Surface {
     }
 
     private void setAgain(final MessageRef name, final MessageRef hint) {
-        final MessageRenderer renderer = MessageRenderer.of(messages);
         final ItemStack item = BlankItem.of(renderer.format(locale, name), List.of(renderer.format(locale, hint)));
         WheelPanel.AGAIN_SLOTS.forEach(slot -> inventory.setItem(slot, item));
     }

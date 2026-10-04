@@ -4,7 +4,6 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.feedback.Feedback;
 import eu.nordtal.s2.papercommon.player.Identities;
 import eu.nordtal.s2.smp.db.PoiRow;
@@ -30,7 +29,7 @@ import org.jspecify.annotations.Nullable;
  */
 public final class NavigateGui implements Surface {
 
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final Navigation navigation;
     private final List<NavigationTarget> targets;
     private final int page;
@@ -42,14 +41,14 @@ public final class NavigateGui implements Surface {
     private final Inventory inventory;
 
     public NavigateGui(
-            final Messages messages,
+            final MessageRenderer renderer,
             final Identities identities,
             final Navigation navigation,
             final Player viewer,
             final Optional<NavigationTarget> lastDeath,
             final List<PoiRow> pois) {
         this(
-                messages,
+                renderer,
                 identities.languageOf(viewer.getUniqueId()),
                 navigation,
                 build(viewer, lastDeath, pois),
@@ -58,13 +57,13 @@ public final class NavigateGui implements Surface {
     }
 
     private NavigateGui(
-            final Messages messages,
+            final MessageRenderer renderer,
             final Locale locale,
             final Navigation navigation,
             final List<NavigationTarget> targets,
             final int page,
             final Player viewer) {
-        this.messages = messages;
+        this.renderer = renderer;
         this.locale = locale;
         this.navigation = navigation;
         this.targets = targets;
@@ -77,17 +76,16 @@ public final class NavigateGui implements Surface {
 
         final Optional<NavigationTarget> active = navigation.of(viewer.getUniqueId());
         final List<NavigatePanel.Entry> entries =
-                NavigatePage.entries(targets, this.page, world, x, y, z, active, messages, locale);
+                NavigatePage.entries(targets, this.page, world, x, y, z, active, renderer.raw(), locale);
 
         this.inventory = Bukkit.createInventory(
                 this,
                 NavigatePanel.ROWS * SlotGeometry.COLUMNS,
                 NavigatePanel.title(
-                        MessageRenderer.of(messages)
-                                .format(locale, MESSAGES.smp().navigate().title()),
+                        renderer.format(locale, MESSAGES.smp().navigate().title()),
                         entries,
-                        messages.format(locale, MESSAGES.smp().navigate().stopButton()),
-                        NavigatePage.pageLabel(this.page, targets.size(), messages, locale),
+                        renderer.raw().format(locale, MESSAGES.smp().navigate().stopButton()),
+                        NavigatePage.pageLabel(this.page, targets.size(), renderer.raw(), locale),
                         this.page > 0,
                         this.page < NavigatePage.pages(targets.size()) - 1));
         fill();
@@ -119,7 +117,7 @@ public final class NavigateGui implements Surface {
      * The viewer is a parameter, because a menu that holds a {@code Player} keeps a logged-out one alive.
      */
     public NavigateGui onPage(final int wanted, final Player viewer) {
-        return new NavigateGui(messages, locale, navigation, targets, wanted, viewer);
+        return new NavigateGui(renderer, locale, navigation, targets, wanted, viewer);
     }
 
     private void fill() {
@@ -133,10 +131,8 @@ public final class NavigateGui implements Surface {
         }
 
         final ItemStack stop = BlankItem.of(
-                MessageRenderer.of(messages)
-                        .format(locale, MESSAGES.smp().navigate().stop()),
-                List.of(MessageRenderer.of(messages)
-                        .format(locale, MESSAGES.smp().navigate().stopHint())));
+                renderer.format(locale, MESSAGES.smp().navigate().stop()),
+                List.of(renderer.format(locale, MESSAGES.smp().navigate().stopHint())));
         NavigatePanel.STOP_SLOTS.forEach(slot -> inventory.setItem(slot, stop));
 
         final int pages = NavigatePage.pages(targets.size());
@@ -149,23 +145,19 @@ public final class NavigateGui implements Surface {
     }
 
     private ItemStack pageItem(final MessageRef label) {
-        return BlankItem.of(MessageRenderer.of(messages).format(locale, label), List.of());
+        return BlankItem.of(renderer.format(locale, label), List.of());
     }
 
     private ItemStack entryItem(final NavigationTarget target) {
         // A POI name is player-typed: it goes in as a parameter so MessageRenderer escapes a `<click:...>`.
         return BlankItem.of(
-                MessageRenderer.of(messages)
-                        .format(locale, MESSAGES.smp().navigate().target(NavigatePage.label(target, messages, locale))),
+                renderer.format(
+                        locale, MESSAGES.smp().navigate().target(NavigatePage.label(target, renderer.raw(), locale))),
                 List.of(
-                        MessageRenderer.of(messages)
-                                .format(
-                                        locale,
-                                        MESSAGES.smp()
-                                                .navigate()
-                                                .at(target.world(), target.x(), target.y(), target.z())),
-                        MessageRenderer.of(messages)
-                                .format(locale, MESSAGES.smp().navigate().click())));
+                        renderer.format(
+                                locale,
+                                MESSAGES.smp().navigate().at(target.world(), target.x(), target.y(), target.z())),
+                        renderer.format(locale, MESSAGES.smp().navigate().click())));
     }
 
     public record Click(
@@ -197,8 +189,7 @@ public final class NavigateGui implements Surface {
         }
         if (NavigatePanel.STOP_SLOTS.contains(slot)) {
             navigation.clear(player.getUniqueId());
-            player.sendMessage(MessageRenderer.of(messages)
-                    .format(locale, MESSAGES.smp().navigate().stopped()));
+            player.sendMessage(renderer.format(locale, MESSAGES.smp().navigate().stopped()));
             return Click.closing();
         }
         if (slot == NavigatePanel.PREV_SLOT || slot == NavigatePanel.NEXT_SLOT) {
@@ -216,8 +207,8 @@ public final class NavigateGui implements Surface {
         }
         final NavigationTarget target = shown.get(row);
         navigation.set(player.getUniqueId(), target);
-        player.sendMessage(MessageRenderer.of(messages)
-                .format(locale, MESSAGES.smp().navigate().started(NavigatePage.label(target, messages, locale))));
+        player.sendMessage(renderer.format(
+                locale, MESSAGES.smp().navigate().started(NavigatePage.label(target, renderer.raw(), locale))));
         return Click.closing();
     }
 }

@@ -4,7 +4,6 @@ import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.s2.messagerendering.MessageRenderer;
 import eu.nordtal.s2.messages.MessageRef;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.context.MilestoneContext;
 import eu.nordtal.s2.papercommon.game.GameKeys;
 import eu.nordtal.s2.smp.board.ProgressBar;
@@ -32,7 +31,7 @@ import org.bukkit.inventory.ItemStack;
  */
 public final class ObjectiveGui implements Surface {
 
-    private final Messages messages;
+    private final MessageRenderer renderer;
     private final Locale locale;
     private final Milestone milestone;
     private final List<ObjectiveRow> rows;
@@ -52,22 +51,22 @@ public final class ObjectiveGui implements Surface {
     }
 
     public ObjectiveGui(
-            final Messages messages,
+            final MessageRenderer renderer,
             final Locale locale,
             final Milestone milestone,
             final List<ObjectiveRow> rows,
             final OwnShare.Summary share) {
-        this(messages, locale, milestone, rows, share, 0);
+        this(renderer, locale, milestone, rows, share, 0);
     }
 
     private ObjectiveGui(
-            final Messages messages,
+            final MessageRenderer renderer,
             final Locale locale,
             final Milestone milestone,
             final List<ObjectiveRow> rows,
             final OwnShare.Summary share,
             final int page) {
-        this.messages = messages;
+        this.renderer = renderer;
         this.locale = locale;
         this.milestone = milestone;
         this.rows = rows;
@@ -95,8 +94,7 @@ public final class ObjectiveGui implements Surface {
                 this,
                 ObjectivePanel.ROWS * SlotGeometry.COLUMNS,
                 ObjectivePanel.title(
-                        MessageRenderer.of(messages)
-                                .format(locale, MESSAGES.smp().objectives().title()),
+                        renderer.format(locale, MESSAGES.smp().objectives().title()),
                         milestoneName(),
                         ProgressBar.of(finishedRatio(), ObjectivePanel.HEADING_BAR_WIDTH),
                         finished() + "/" + rows.size(),
@@ -114,7 +112,7 @@ public final class ObjectiveGui implements Surface {
 
     /** The same milestone on another page: what a page button opens. */
     public ObjectiveGui onPage(final int wanted) {
-        return new ObjectiveGui(messages, locale, milestone, rows, share, wanted);
+        return new ObjectiveGui(renderer, locale, milestone, rows, share, wanted);
     }
 
     public boolean hasPage(final int wanted) {
@@ -159,7 +157,7 @@ public final class ObjectiveGui implements Surface {
     }
 
     private String milestoneName() {
-        return MilestoneNames.of(messages, locale, milestone.key());
+        return MilestoneNames.of(renderer.raw(), locale, milestone.key());
     }
 
     private String name(final Objective definition) {
@@ -169,17 +167,15 @@ public final class ObjectiveGui implements Surface {
     /** The sentence on the bottom row, as the plain bundle value because {@code MenuFont} draws it. */
     private String shareLine() {
         if (share.empty()) {
-            return messages.format(locale, MESSAGES.smp().objectives().shareNone());
+            return renderer.raw().format(locale, MESSAGES.smp().objectives().shareNone());
         }
-        return messages.format(locale, MESSAGES.smp().objectives().share(share.spins()));
+        return renderer.raw().format(locale, MESSAGES.smp().objectives().share(share.spins()));
     }
 
     private void fill() {
         final ItemStack heading = BlankItem.of(
-                MessageRenderer.of(messages)
-                        .format(locale, MESSAGES.smp().objectives().heading(new MilestoneContext(milestoneName()))),
-                List.of(MessageRenderer.of(messages)
-                        .format(locale, MESSAGES.smp().objectives().headingHint(finished(), rows.size()))));
+                renderer.format(locale, MESSAGES.smp().objectives().heading(new MilestoneContext(milestoneName()))),
+                List.of(renderer.format(locale, MESSAGES.smp().objectives().headingHint(finished(), rows.size()))));
         for (int column = 0; column < SlotGeometry.COLUMNS; column++) {
             inventory.setItem(SlotGeometry.slot(column, ObjectivePanel.HEADING_ROW), heading);
         }
@@ -189,10 +185,8 @@ public final class ObjectiveGui implements Surface {
             ObjectivePanel.slotsOf(entry.card()).forEach(slot -> inventory.setItem(slot, item));
         }
 
-        final ItemStack shareItem = BlankItem.of(
-                MessageRenderer.of(messages)
-                        .format(locale, MESSAGES.smp().objectives().shareTooltip()),
-                shareLore());
+        final ItemStack shareItem =
+                BlankItem.of(renderer.format(locale, MESSAGES.smp().objectives().shareTooltip()), shareLore());
         for (int column = 0; column < SlotGeometry.COLUMNS; column++) {
             inventory.setItem(SlotGeometry.slot(column, ObjectivePanel.SHARE_ROW), shareItem);
         }
@@ -211,11 +205,10 @@ public final class ObjectiveGui implements Surface {
     }
 
     private ItemStack pageItem(final MessageRef label) {
-        return BlankItem.of(MessageRenderer.of(messages).format(locale, label), List.of());
+        return BlankItem.of(renderer.format(locale, label), List.of());
     }
 
     private ItemStack cardItem(final Entry entry) {
-        final MessageRenderer renderer = MessageRenderer.of(messages);
         final ObjectiveRow row = entry.row();
         final Objective definition = entry.objective();
 
@@ -253,7 +246,6 @@ public final class ObjectiveGui implements Surface {
     }
 
     private List<Component> shareLore() {
-        final MessageRenderer renderer = MessageRenderer.of(messages);
         final List<Component> lore = new ArrayList<>();
         if (share.empty()) {
             lore.add(renderer.format(locale, MESSAGES.smp().objectives().shareEmptyHint()));

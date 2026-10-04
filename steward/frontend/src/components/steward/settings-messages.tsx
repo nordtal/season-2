@@ -159,6 +159,7 @@ function BundleForm({ file, bundle, target }: { file: string; bundle: MessageBun
           fallbacks={fallenBack.get(leaf.value.key) ?? []}
           onTakeOver={takeOverOf(leaf.value.key)}
           takingOver={takeOver.isPending}
+          preview={bundle.previews[leaf.value.key]}
         />
       )}
       save={saveButton("pointer-events-auto")}

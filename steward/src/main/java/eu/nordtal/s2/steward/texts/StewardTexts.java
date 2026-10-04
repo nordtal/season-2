@@ -289,6 +289,18 @@ public interface StewardTexts {
             @Name("Override refused")
             MessageRef overrideRefused(@Arg("key") String key, @Arg("language") String language);
 
+            @Name("Preview refused")
+            MessageRef previewRefused(@Arg("key") String key, @Arg("language") String language);
+
+            @Name("Nowhere to preview")
+            MessageRef noPreview(@Arg("key") String key);
+
+            @Name("No player to preview to")
+            MessageRef previewUnlinked();
+
+            @Name("Player not in a game")
+            MessageRef previewOffline();
+
             @Name("Grant too long")
             MessageRef grantDays(@Arg("most") int most);
 
@@ -342,6 +354,9 @@ public interface StewardTexts {
 
             @Name("An announcement's line")
             MessageRef announced(@Arg("posted") boolean posted, @Arg("language") String language);
+
+            @Name("A preview sent")
+            MessageRef previewSent();
 
             @Name("No guild id")
             MessageRef noGuildId();

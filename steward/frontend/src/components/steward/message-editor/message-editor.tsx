@@ -1,10 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { ArrowCounterClockwiseIcon, CodeIcon, EraserIcon, EyeIcon, MinusIcon, PlusIcon } from "@phosphor-icons/react"
+import {
+  ArrowCounterClockwiseIcon,
+  CodeIcon,
+  EraserIcon,
+  EyeIcon,
+  MinusIcon,
+  PaperPlaneTiltIcon,
+  PlusIcon,
+} from "@phosphor-icons/react"
 import { cn } from "cn"
 
-import type { MessageEntry, MessageFallback } from "@/lib/api"
+import type { MessageEntry, MessageFallback, MessagePreviewTarget } from "@/lib/api"
 import { ENGLISH, isLanguage, overrideOf, packagedOf, type Language } from "@/lib/message-text"
-import { useGlyphs, useMessageCheck, useMessageExamples, useMessageSyntax } from "@/lib/queries"
+import {
+  useCommandRun,
+  useGameAction,
+  useGlyphs,
+  useMessageCheck,
+  useMessageExamples,
+  useMessageSyntax,
+} from "@/lib/queries"
 import { formatOf, normalize, parse, plainText, same, serialize } from "@/lib/rich-text"
 import type { Format, Run } from "@/lib/rich-text"
 import { message, t } from "@/lib/texts"
@@ -12,8 +27,10 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupButton } from "@/components/ui/input-group"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { exampleOf } from "@/components/steward/message-editor/examples"
+import { RequestOutcome } from "@/components/steward/game-actions"
+import { exampleOf, type Fill } from "@/components/steward/message-editor/examples"
 import { discordLimit, Preview } from "@/components/steward/message-editor/preview"
+import { Failure } from "@/components/steward/query-state"
 import { SourceEditor } from "@/components/steward/message-editor/source-editor"
 import { VisualEditor } from "@/components/steward/message-editor/visual-editor"
 import { LIT, UNSEEN, useLanding, type Highlight } from "@/components/steward/settings-view"
@@ -40,6 +57,8 @@ export type MessageEditorProps = {
   /** Saves a fallen-back override as it is, which takes it over. */
   onTakeOver: (language: Language, texts: string[]) => void
   takingOver: boolean
+  /** Where a preview of the key reaches the admin, absent for a key none reaches. */
+  preview?: MessagePreviewTarget
 }
 
 /**
@@ -57,6 +76,7 @@ export function MessageEditor({
   fallbacks,
   onTakeOver,
   takingOver,
+  preview,
 }: MessageEditorProps) {
   const [language, setLanguage] = useState<Language>(ENGLISH)
   const [variant, setVariant] = useState(0)
@@ -94,6 +114,9 @@ export function MessageEditor({
   const checked = useDebounced(typed === undefined ? null : text, CHECK_DELAY)
   const check = useMessageCheck(bundle, entry.key, checked)
   const problems = typed === undefined ? [] : (check.data ?? [])
+  const send = usePreview(bundle, entry, language, text, fill)
+  const sendLabel =
+    preview === "GAME" ? t("steward.message-editor.show-in-game") : t("steward.message-editor.send-in-discord")
 
   const overridden = (tab: Language) => {
     const own = draft?.[tab]
@@ -197,6 +220,17 @@ export function MessageEditor({
               ) : null}
             </>
           ) : null}
+          {preview ? (
+            <InputGroupButton
+              size="icon-xs"
+              aria-label={sendLabel}
+              title={sendLabel}
+              disabled={send.busy || text === "" || problems.some((problem) => problem.error)}
+              onClick={send.send}
+            >
+              <PaperPlaneTiltIcon aria-hidden />
+            </InputGroupButton>
+          ) : null}
           <span className="ml-auto flex items-center gap-1">
             {limit !== null ? (
               <span
@@ -260,6 +294,8 @@ export function MessageEditor({
           ))}
         </ul>
       ) : null}
+      {send.error ? <Failure error={send.error} /> : null}
+      {send.run ? <RequestOutcome run={send.run} /> : null}
       {runs !== null ? (
         <Preview
           runs={runs}
@@ -364,6 +400,32 @@ function useRuns(
     setText(value)
   }
   return [runs, update]
+}
+
+/**
+ * The text as it stands, sent to the admin alone where the key is shown, with the values the preview shows; what
+ * became of the request follows. A value every message has is the receiving process's own.
+ */
+function usePreview(bundle: string, entry: MessageEntry, language: Language, text: string, fill: Fill) {
+  const action = useGameAction()
+  const [id, setId] = useState<string | null>(null)
+  const run = useCommandRun(id)
+  const settled = run.data !== undefined && run.data.status !== "PENDING" && run.data.status !== "RUNNING"
+  const values = Object.fromEntries(
+    entry.args.filter((arg) => !arg.action && !arg.global).map((arg) => [arg.name, fill(arg.name)]),
+  )
+  return {
+    busy: action.isPending || (id !== null && !settled && !run.error),
+    error: action.error ?? run.error,
+    run: id === null ? undefined : run.data,
+    send: () => {
+      setId(null)
+      action.mutate(
+        { path: "/api/message-preview", body: { bundle, key: entry.key, language, text, values } },
+        { onSuccess: (asked) => setId(asked.id) },
+      )
+    },
+  }
 }
 
 function useDebounced<T>(value: T, delay: number): T {

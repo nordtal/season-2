@@ -2,6 +2,7 @@ package eu.nordtal.s2.steward.api;
 
 import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.database.audit.AuditLine;
+import eu.nordtal.s2.database.inbox.MessagePreview;
 import eu.nordtal.s2.database.message.MessageOverrideStore;
 import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.database.update.UpdateDirectory;
@@ -16,6 +17,7 @@ import eu.nordtal.s2.steward.live.Topic;
 import eu.nordtal.s2.steward.texts.RequestRefused;
 import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.config.JavalinConfig;
+import io.javalin.http.Context;
 import java.io.InputStream;
 import java.time.Clock;
 import java.time.Duration;
@@ -187,6 +189,11 @@ public final class StackApi implements AutoCloseable {
     /** Puts every route of this API onto {@code config}, behind the gate {@code caller} answers for. */
     public void register(final JavalinConfig config, final Caller caller) {
         Routes.register(this, config, caller);
+    }
+
+    /** Reads an admin's preview of a text out of {@code POST /api/message-preview}, which the web then asks for. */
+    public MessagePreview messagePreview(final Context ctx) {
+        return messages.preview(ctx);
     }
 
     /** Registers the topics only this API can read: the service table, the host, the topology and the settings. */
@@ -414,7 +421,7 @@ public final class StackApi implements AutoCloseable {
      *
      * The agent refuses a name that is not a finished archive with a 400 and a missing one with a 404.
      */
-    void download(final io.javalin.http.Context ctx, final String name) {
+    void download(final Context ctx, final String name) {
         final InputStream body = agent.archive(name);
         ctx.contentType("application/octet-stream");
         ctx.header("Content-Disposition", "attachment; filename=\"" + name + "\"");
@@ -431,7 +438,7 @@ public final class StackApi implements AutoCloseable {
      *
      * The run takes a fresh backup first, counts down and stops what the archive replaces; this only writes the row.
      */
-    void restore(final io.javalin.http.Context ctx, final eu.nordtal.s2.common.id.Actor actor) {
+    void restore(final Context ctx, final eu.nordtal.s2.common.id.Actor actor) {
         final String name = ctx.pathParam("name");
         final AgentWire.Archive archive = archives().stream()
                 .filter(each -> each.name().equals(name))

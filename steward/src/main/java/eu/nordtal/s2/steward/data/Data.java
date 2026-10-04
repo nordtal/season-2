@@ -8,6 +8,7 @@ import eu.nordtal.s2.database.inbox.HungerGamesRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.SmpRequest;
 import eu.nordtal.s2.database.metric.MetricDirectory;
+import eu.nordtal.s2.database.online.OnlineRoster;
 import eu.nordtal.s2.database.payment.Bookings;
 import eu.nordtal.s2.database.payment.PaymentRequests;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
@@ -29,6 +30,7 @@ public final class Data {
     private final Bookings bookings;
     private final AuditDirectory audit;
     private final AccessDirectory access;
+    private final OnlineRoster roster;
     private final Inbox<SmpRequest> smp;
     private final Inbox<HungerGamesRequest> hungerGames;
     private final Inbox<BotRequest> bot;
@@ -42,6 +44,7 @@ public final class Data {
         this.bookings = new Bookings(database.dataSource());
         this.audit = AuditDirectory.using(database.dataSource());
         this.access = AccessDirectory.using(database.dataSource(), clock);
+        this.roster = OnlineRoster.using(database.dataSource(), clock);
         this.smp = Inbox.over(database.dataSource(), SmpRequest.TABLE);
         this.hungerGames = Inbox.over(database.dataSource(), HungerGamesRequest.TABLE);
         this.bot = Inbox.over(database.dataSource(), BotRequest.TABLE);
@@ -80,6 +83,11 @@ public final class Data {
     /** Granting and revoking access, each writing an {@code audit_log} row naming the admin who clicked. */
     public AccessDirectory access() {
         return access;
+    }
+
+    /** Who is connected right now and on which server, as the proxy writes it. */
+    public OnlineRoster roster() {
+        return roster;
     }
 
     /** The SMP's inbox, which the track actions are asked through. */

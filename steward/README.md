@@ -129,7 +129,11 @@ pin and no rollback: a bad release is corrected by publishing a better one.
   `GET /api/message-check` once typing pauses and shows what it says, and the save refuses what it errs on. The preview
   draws tones in their default colours from `GET /api/message-syntax`, which also names each kind's styles; a
   service's own `colours` are not reflected. An override no process shows (`GET /api/message-fallbacks`) opens
-  with what it was written over and what the jar has now; taking it over saves it as it stands.
+  with what it was written over and what the jar has now; taking it over saves it as it stands. The send button
+  asks for a preview of the text as it stands (`POST /api/message-preview`, answered like a game action): a key
+  shown in Discord comes as a direct message from the bot, any other to the admin's linked player on the server
+  the roster has them on, each filled with the examples the editor shows. The bundle names which keys a preview
+  reaches (`previews`); one shown in Steward or as a push has none.
 - **Alerts.** Every alert is a row in `admin_alert`, raised by whoever saw it: steward measures the
   stack every 30 seconds against the `web` group's thresholds and raises a failed run and a payment
   nobody can book, once per bank payment; the bot raises what it could not do in Discord or with a purchase. Steward routes each row once, to Web Push and to the admin channel through the

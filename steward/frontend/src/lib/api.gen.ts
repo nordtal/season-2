@@ -399,6 +399,7 @@ export type MessageBundle = {
   path: string
   writable: boolean
   entries: MessageEntry[]
+  previews: Record<string, MessagePreviewTarget>
 }
 
 export type MessageSaveResult = {
@@ -407,6 +408,7 @@ export type MessageSaveResult = {
   path: string
   writable: boolean
   entries: MessageEntry[]
+  previews: Record<string, MessagePreviewTarget>
   warnings: Warning[]
   reload: ReloadOutcome
 }
@@ -719,6 +721,8 @@ export type MessageEntry = {
   format?: string
   shown?: string
 }
+
+export type MessagePreviewTarget = "GAME" | "DISCORD"
 
 export type Warning = {
   key: string

@@ -60,6 +60,7 @@ public final class ApiWire {
             Map.entry(MessagesApi.Saved.class, "MessageSaveResult"),
             Map.entry(MessagesApi.Fallback.class, "MessageFallback"),
             Map.entry(MessagesApi.FallbackReason.class, "MessageFallbackReason"),
+            Map.entry(MessagesApi.PreviewTarget.class, "MessagePreviewTarget"),
             Map.entry(MessagesApi.Syntax.class, "MessageSyntax"),
             Map.entry(MessageCheck.Problem.class, "MessageProblem"));
 

@@ -9,12 +9,15 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.database.TestDatabase;
+import eu.nordtal.s2.database.inbox.MessagePreview;
 import eu.nordtal.s2.database.message.MessageOverrideStore;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.messages.MessageOverride;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.PackagedTexts;
 import eu.nordtal.s2.messages.Tone;
+import eu.nordtal.s2.messages.spec.Display;
+import eu.nordtal.s2.messages.value.DisplayName;
 import eu.nordtal.s2.messages.value.Kind;
 import eu.nordtal.s2.steward.texts.WebTexts;
 import eu.nordtal.s2.steward.web.ErrorHandlers;
@@ -29,6 +32,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.jar.JarEntry;
@@ -53,6 +57,9 @@ class MessagesApiIntegrationTest {
     private int port;
     private MessageOverrideStore store;
 
+    /** What the last {@code POST /api/message-preview} read, which the web would ask for. */
+    private MessagePreview previewed;
+
     @BeforeEach
     void start() throws IOException {
         // Short, since a Unix socket path has a length limit the default temp directory can exceed.
@@ -70,6 +77,10 @@ class MessagesApiIntegrationTest {
                     config.routes.get("/api/message-syntax", messages::syntax);
                     config.routes.get("/api/messages/<bundle>", messages::one);
                     config.routes.put("/api/messages/<bundle>", ctx -> messages.save(ctx, Actor.STEWARD));
+                    config.routes.post("/api/message-preview", ctx -> {
+                        previewed = messages.preview(ctx);
+                        ctx.status(204);
+                    });
                 })
                 .start(0);
         port = app.port();
@@ -243,6 +254,56 @@ class MessagesApiIntegrationTest {
                         .get("name")
                         .getAsString());
         assertEquals("Join", greeting.getAsJsonArray("section").get(0).getAsString());
+    }
+
+    @Test
+    void aPreviewIsTheTriedTextWhereItsKeyIsShownWithEveryValueTypedAndAKeyShownInStewardHasNone() throws Exception {
+        writeJar(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                java.util.Map.of(
+                        "messages/smp/en.properties", "greeting=Hello {player} after {time}\npage=Page\nlink=Link\n",
+                        "messages/smp/schema.json", """
+                        {"bundle": "smp", "messages": [
+                          {"key": "greeting", "name": "Greeting", "section": ["Join"], "format": "MINIMESSAGE",
+                           "shown": "TITLE", "args": [
+                             {"name": "player", "kind": "name", "example": "Alex", "action": false},
+                             {"name": "time", "kind": "duration", "example": "PT5M", "action": false}]},
+                          {"key": "page", "name": "Page", "section": [], "format": "PLAIN", "shown": "STEWARD",
+                           "args": []},
+                          {"key": "link", "name": "Link", "section": [], "format": "DISCORD_MARKDOWN",
+                           "shown": "DISCORD_EMBED", "args": []}],
+                         "contexts": {}, "globals": []}
+                        """));
+
+        assertEquals(
+                GSON.fromJson("{\"greeting\": \"GAME\", \"link\": \"DISCORD\"}", JsonObject.class),
+                GSON.fromJson(get("/api/messages/smp/smp"), JsonObject.class).getAsJsonObject("previews"));
+
+        final HttpResponse<String> asked = send("POST", "/api/message-preview", """
+                {"bundle": "smp/smp", "key": "greeting", "language": "de", "text": "Moin {player} nach {time}",
+                 "values": {"player": "Alex", "time": "eine Weile"}}
+                """);
+        assertEquals(204, asked.statusCode(), asked.body());
+        assertEquals(Display.TITLE, previewed.shown());
+        assertEquals("de", previewed.language());
+        assertEquals("Moin {player} nach {time}", previewed.text());
+        assertEquals("Alex", ((DisplayName) previewed.message().args().get("player")).name());
+        assertEquals(
+                Duration.ofMinutes(5),
+                previewed.message().args().get("time"),
+                "a value that does not read as its kind is the schema's example");
+
+        final HttpResponse<String> nowhere = send(
+                "POST",
+                "/api/message-preview",
+                "{\"bundle\": \"smp/smp\", \"key\": \"page\", \"language\": \"en\", \"text\": \"Page\"}");
+        assertEquals(400, nowhere.statusCode(), nowhere.body());
+        final HttpResponse<String> refused = send(
+                "POST",
+                "/api/message-preview",
+                "{\"bundle\": \"smp/smp\", \"key\": \"greeting\", \"language\": \"en\", \"text\": \"Hi {name}\"}");
+        assertEquals(400, refused.statusCode(), refused.body());
+        assertTrue(refused.body().contains("greeting"), refused.body());
     }
 
     @Test

@@ -509,6 +509,9 @@ export type TextArgs = {
     bundle: Arg["text"]
     key: Arg["text"]
   }
+  "steward.answer.no-preview": {
+    key: Arg["text"]
+  }
   "steward.answer.no-request": {
     request: Arg["text"]
   }
@@ -546,6 +549,12 @@ export type TextArgs = {
   "steward.answer.playtime-range": {
     most: Arg["duration"]
   }
+  "steward.answer.preview-offline": Record<string, never>
+  "steward.answer.preview-refused": {
+    key: Arg["text"]
+    language: Arg["text"]
+  }
+  "steward.answer.preview-unlinked": Record<string, never>
   "steward.answer.push-not-accepted": Record<string, never>
   "steward.answer.push-unconfigured": Record<string, never>
   "steward.answer.rate-limited": Record<string, never>
@@ -908,6 +917,8 @@ export type TextArgs = {
   "steward.message-editor.remove-colour": Record<string, never>
   "steward.message-editor.remove-variant": Record<string, never>
   "steward.message-editor.run-command": Record<string, never>
+  "steward.message-editor.send-in-discord": Record<string, never>
+  "steward.message-editor.show-in-game": Record<string, never>
   "steward.message-editor.source": Record<string, never>
   "steward.message-editor.strikethrough": Record<string, never>
   "steward.message-editor.suggest-command": Record<string, never>
@@ -1354,6 +1365,7 @@ export type TextArgs = {
   "steward.said.message": Record<string, never>
   "steward.said.no-bot-token": Record<string, never>
   "steward.said.no-guild-id": Record<string, never>
+  "steward.said.preview-sent": Record<string, never>
   "steward.said.setting": {
     network: Arg["choice"]
     service: Arg["text"]

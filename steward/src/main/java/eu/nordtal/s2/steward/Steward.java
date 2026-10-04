@@ -8,7 +8,6 @@ import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.metric.MetricDirectory;
 import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.online.OnlineDirectory;
-import eu.nordtal.s2.database.online.OnlineRoster;
 import eu.nordtal.s2.database.payment.Tiers;
 import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.internalapi.InternalClient;
@@ -256,9 +255,7 @@ public final class Steward {
                         zone),
                 // The player counts proxy writes, and the player list next to them.
                 new eu.nordtal.s2.steward.api.ServicesApi(
-                        OnlineDirectory.using(database.dataSource(), CLOCK),
-                        OnlineRoster.using(database.dataSource(), CLOCK),
-                        CLOCK),
+                        OnlineDirectory.using(database.dataSource(), CLOCK), data.roster(), CLOCK),
                 // The agent's resolve, so the page can ask what is newest without a run.
                 agent::plan,
                 // The agent's plugin list and search; removing one is a run.

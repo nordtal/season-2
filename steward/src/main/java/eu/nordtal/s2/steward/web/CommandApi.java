@@ -1,6 +1,8 @@
 package eu.nordtal.s2.steward.web;
 
 import com.google.gson.JsonObject;
+import eu.nordtal.s2.common.id.DiscordId;
+import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.audit.JournalAction;
@@ -8,11 +10,15 @@ import eu.nordtal.s2.database.inbox.BotRequest;
 import eu.nordtal.s2.database.inbox.HungerGamesRequest;
 import eu.nordtal.s2.database.inbox.Inbox;
 import eu.nordtal.s2.database.inbox.InboxStatus;
+import eu.nordtal.s2.database.inbox.MessagePreview;
 import eu.nordtal.s2.database.inbox.Request;
 import eu.nordtal.s2.database.inbox.Schedule;
 import eu.nordtal.s2.database.inbox.SmpRequest;
+import eu.nordtal.s2.database.online.OnlinePlayer;
+import eu.nordtal.s2.internalapi.agent.Topology;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
+import eu.nordtal.s2.steward.api.MessagesApi;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.data.Data;
 import eu.nordtal.s2.steward.texts.RequestRefused;
@@ -21,6 +27,7 @@ import io.javalin.http.Context;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -28,7 +35,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Steward's actions on the game servers, asked for from a browser as typed requests in the servers' inboxes.
- * A request is named to the browser as {@code <target>:<id>}, or {@code announce:<id>:<language>} for one line.
+ * A request is named to the browser as {@code <target>:<id>}, or {@code announce:<id>:<language>} for one line;
+ * the bot is a target only for an admin's preview of a text.
  */
 final class CommandApi {
 
@@ -83,6 +91,42 @@ final class CommandApi {
     }
 
     /**
+     * Asks for an admin's preview where it reaches them and returns the name the browser polls.
+     * That is a direct message from the bot, or their linked player on the game server the roster has them on. A
+     * preview changes nothing, so it is the one request without a journal line.
+     */
+    String preview(final Context ctx, final MessagePreview preview) {
+        final DiscordAuth.Account who = accounts.apply(ctx);
+        final DiscordId admin = DiscordId.of(who.id());
+        if (MessagesApi.PreviewTarget.of(preview.shown()) == MessagesApi.PreviewTarget.DISCORD) {
+            return "bot:" + ask(who, data().bot(), new BotRequest.PreviewMessage(admin, preview));
+        }
+        final UUID linked = data().access()
+                .linkedMinecraftAccount(admin)
+                .orElseThrow(() -> new RequestRefused(409, ANSWER.previewUnlinked()));
+        final String server = data().roster().current().stream()
+                .filter(online -> online.uuid().equals(linked))
+                .map(OnlinePlayer::subject)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse("");
+        final PlayerId player = PlayerId.of(linked);
+        return switch (server) {
+            case Topology.SMP -> "smp:" + ask(who, data().smp(), new SmpRequest.PreviewMessage(player, preview));
+            case Topology.HUNGER_GAMES ->
+                "hunger_games:"
+                        + ask(who, data().hungerGames(), new HungerGamesRequest.PreviewMessage(player, preview));
+            default -> throw new RequestRefused(409, ANSWER.previewOffline());
+        };
+    }
+
+    private <P> long ask(final DiscordAuth.Account who, final Inbox<P> inbox, final P request) {
+        final Request<P> asked = inbox.submit(request, who.actor(), Schedule.within(PATIENCE));
+        log.info("{} asked for {}", who.name(), inbox.table().kindOf(request));
+        return asked.id();
+    }
+
+    /**
      * What became of a request; {@code reason} is why a server refused, when it did.
      *
      * Out of time, PENDING means the target is down and RUNNING that it is stuck, so EXPIRED is a diagnosis.
@@ -104,6 +148,8 @@ final class CommandApi {
                 ctx.json(settled(data().smp(), id, Long.parseLong(name[1])));
             } else if (name.length == 2 && name[0].equals("hunger_games")) {
                 ctx.json(settled(data().hungerGames(), id, Long.parseLong(name[1])));
+            } else if (name.length == 2 && name[0].equals("bot")) {
+                ctx.json(sent(id, Long.parseLong(name[1])));
             } else {
                 throw new RequestRefused(404, ANSWER.noRequest(id));
             }
@@ -112,13 +158,32 @@ final class CommandApi {
         }
     }
 
+    private <P> CommandRun settled(final Inbox<P> inbox, final String name, final long id) {
+        return settled(name, inbox.find(id).orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(name))));
+    }
+
     /**
-     * A server's request: its status, and its answer in its own words, a refusal worded by the database bundle.
+     * A preview the bot was asked for, worded here once Discord delivered it.
+     * The bot answers no words of its own; every other row of its inbox has a name of its own, or none.
+     */
+    private CommandRun sent(final String name, final long id) {
+        final Request<BotRequest> row = data().bot()
+                .find(id)
+                .filter(found -> found.payload() instanceof BotRequest.PreviewMessage)
+                .orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(name)));
+        final CommandRun run = settled(name, row);
+        return row.status() == InboxStatus.DONE
+                ? new CommandRun(
+                        name, run.status(), StewardTexts.TEXTS.steward().said().previewSent(), null)
+                : run;
+    }
+
+    /**
+     * A request: its status, and its answer in its own words, a refusal worded by the database bundle.
      *
      * A refusal also names its reason, which is what the browser branches on.
      */
-    private <P> CommandRun settled(final Inbox<P> inbox, final String name, final long id) {
-        final Request<P> row = inbox.find(id).orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(name)));
+    private <P> CommandRun settled(final String name, final Request<P> row) {
         final Optional<String> result = row.status() == InboxStatus.REFUSED
                 ? row.refusal().map(refusal -> refusals.format(Locales.DEFAULT, refusal.message()))
                 : row.status() == InboxStatus.DONE ? row.outcome(String.class) : failure(row);

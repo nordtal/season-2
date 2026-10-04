@@ -18,11 +18,17 @@ import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.Refusal;
 import eu.nordtal.s2.messages.context.MilestoneContext;
+import java.io.IOException;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 import org.junit.jupiter.api.Test;
 
 /** The game actions and announcements, and the requests they become. */
@@ -58,6 +64,86 @@ class RosterApiTest extends WebTestSupport {
         assertEquals("PERSON", row.get("actor_kind"));
         assertEquals("1", row.get("actor_id"));
         assertEquals(GSON.fromJson("{\"key\": \"r-open\"}", JsonObject.class), payload(row));
+    }
+
+    @Test
+    void aPreviewGoesToTheAdminsPlayerWhereTheRosterHasThemOrToTheirDirectMessagesAndIsJournaledNowhere()
+            throws Exception {
+        final Path jar = agent.configs.resolve("smp/smp-0.9.1.jar");
+        writeJar(
+                jar,
+                Map.of(
+                        "messages/smp/en.properties",
+                        "welcome=Welcome {player}\nlinked=Linked\n",
+                        "messages/smp/schema.json",
+                        """
+                {"bundle": "smp", "messages": [
+                  {"key": "welcome", "name": "Welcome", "section": [], "format": "MINIMESSAGE", "shown": "CHAT",
+                   "args": [{"name": "player", "kind": "name", "example": "Alex", "action": false}]},
+                  {"key": "linked", "name": "Linked", "section": [], "format": "DISCORD_MARKDOWN",
+                   "shown": "DISCORD_EMBED", "args": []}],
+                 "contexts": {}, "globals": []}
+                """));
+        final String welcome = """
+                {"bundle": "smp/smp", "key": "welcome", "language": "en", "text": "Hi {player}",
+                 "values": {"player": "Ally"}}
+                """;
+        final String player = "00000000-0000-0000-0000-0000000000a1";
+        final long journal = count("SELECT count(*) FROM audit_log");
+        try {
+            assertEquals(409, post("/api/message-preview", welcome).statusCode(), "no player is linked");
+            sql("INSERT INTO discord_user (discord_id) VALUES ('1') ON CONFLICT DO NOTHING");
+            sql("INSERT INTO account_link (discord_id, mc_uuid, mc_name) VALUES ('1', '" + player + "', 'Ally')");
+            assertEquals(409, post("/api/message-preview", welcome).statusCode(), "the player is in no game");
+            sql("INSERT INTO online_player (mc_uuid, mc_name, subject, updated) VALUES ('" + player
+                    + "', 'Ally', 'smp', now())");
+
+            final HttpResponse<String> shown = post("/api/message-preview", welcome);
+            assertEquals(202, shown.statusCode(), shown.body());
+            final String inGame =
+                    GSON.fromJson(shown.body(), JsonObject.class).get("id").getAsString();
+            assertTrue(inGame.startsWith("smp:"), inGame);
+            assertEquals("PREVIEW_MESSAGE", row(inGame).get("kind"));
+            assertTrue(row(inGame).get("payload").contains(player), row(inGame).get("payload"));
+
+            final HttpResponse<String> sent = post(
+                    "/api/message-preview",
+                    "{\"bundle\": \"smp/smp\", \"key\": \"linked\", \"language\": \"en\", \"text\": \"**Linked**\"}");
+            assertEquals(202, sent.statusCode(), sent.body());
+            final String dm =
+                    GSON.fromJson(sent.body(), JsonObject.class).get("id").getAsString();
+            assertTrue(dm.startsWith("bot:"), dm);
+            assertEquals("PREVIEW_MESSAGE", row(dm).get("kind"));
+            assertEquals(
+                    "PENDING",
+                    GSON.fromJson(get("/api/commands/" + dm).body(), JsonObject.class)
+                            .get("status")
+                            .getAsString());
+            assertEquals(journal, count("SELECT count(*) FROM audit_log"), "a preview changes nothing");
+        } finally {
+            sql("DELETE FROM online_player WHERE mc_uuid = '" + player + "'");
+            sql("DELETE FROM account_link WHERE discord_id = '1'");
+            Files.delete(jar);
+        }
+    }
+
+    private static void sql(final String statement) throws Exception {
+        try (var connection = WebFixture.postgres.dataSource().getConnection();
+                var run = connection.createStatement()) {
+            run.execute(statement);
+        }
+    }
+
+    /** Writes a jar with the given entry name to UTF-8 text content, as steward-agent finds a plugin's. */
+    private static void writeJar(final Path jar, final Map<String, String> entries) throws IOException {
+        Files.createDirectories(jar.getParent());
+        try (JarOutputStream out = new JarOutputStream(Files.newOutputStream(jar))) {
+            for (final var entry : entries.entrySet()) {
+                out.putNextEntry(new JarEntry(entry.getKey()));
+                out.write(entry.getValue().getBytes(StandardCharsets.UTF_8));
+                out.closeEntry();
+            }
+        }
     }
 
     /** Returns the request a web action wrote, named as the browser was told. */

@@ -129,4 +129,10 @@ public interface MessageEditorTexts {
 
     @Name("Take over")
     MessageRef takeOver();
+
+    @Name("Show in game")
+    MessageRef showInGame();
+
+    @Name("Send in Discord")
+    MessageRef sendInDiscord();
 }

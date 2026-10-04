@@ -212,7 +212,8 @@ final class GameActions {
                         TEXTS.journal().startGame()));
     }
 
-    private static void answer(final Context ctx, final String id) {
+    /** Answers that the request named {@code id} is written, for the browser to follow. */
+    static void answer(final Context ctx, final String id) {
         ctx.status(202).json(new CommandAsked(id, "PENDING"));
     }
 

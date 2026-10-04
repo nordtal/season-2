@@ -567,6 +567,11 @@ public final class Web {
         cfg.routes.post("/api/hunger-games/start", games::startRound, Gate.KEY_FRESH);
         cfg.routes.get("/api/announcements", announcements::recent, Gate.KEY_HELD);
         cfg.routes.post("/api/announcements", announcements::send, Gate.KEY_FRESH);
+        // A text an admin is trying, shown to them alone by whichever process shows its key.
+        cfg.routes.post(
+                "/api/message-preview",
+                ctx -> GameActions.answer(ctx, commands.preview(ctx, stack.messagePreview(ctx))),
+                Gate.KEY_FRESH);
     }
 
     private void registerConfigRoutes(final JavalinConfig cfg) {

@@ -8,6 +8,7 @@ import { ServiceSettings } from "@/components/steward/settings"
 import { resetDrafts } from "@/lib/drafts"
 import { setPendingMessageJump } from "@/lib/settings-search"
 import type {
+  CommandRun,
   MessageBundle,
   MessageBundleLocation,
   MessageEntry,
@@ -34,11 +35,15 @@ function json(body: unknown): Response {
   })
 }
 
-function location(over: Partial<MessageBundleLocation> & { path: string }): MessageBundleLocation {
+/** A bundle's place, and no key a preview reaches unless a test names one. */
+function location(
+  over: Partial<MessageBundleLocation> & { path: string },
+): MessageBundleLocation & Pick<MessageBundle, "previews"> {
   return {
     service: "smp",
     module: "smp",
     writable: true,
+    previews: {},
     ...over,
   }
 }
@@ -59,7 +64,14 @@ function entry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
 type Bundle = MessageBundle & { warnings?: Warning[] }
 
 /** What the editor asks besides the bundle; a test answers any of them otherwise. */
-type Around = { fallbacks?: MessageFallback[]; check?: (text: string) => MessageProblem[] }
+type Around = {
+  fallbacks?: MessageFallback[]
+  check?: (text: string) => MessageProblem[]
+  /** Answers a preview's body with the request's name. */
+  preview?: (body: unknown) => string
+  /** What became of each request, by name. */
+  commands?: Record<string, CommandRun>
+}
 
 function backend(
   bundles: Record<string, Bundle>,
@@ -80,6 +92,11 @@ function backend(
     if (url.startsWith("/api/message-check?")) {
       return json(around.check?.(new URL(url, "http://steward").searchParams.get("text") ?? "") ?? [])
     }
+    if (url === "/api/message-preview" && around.preview) {
+      return json({ id: around.preview(JSON.parse(init?.body ?? "")), status: "PENDING" })
+    }
+    const command = url.startsWith("/api/commands/") ? around.commands?.[url.slice("/api/commands/".length)] : null
+    if (command) return json(command)
     if (init?.method === "PUT") {
       const found = Object.entries(puts).find(([path]) => url === `/api/messages/${path}`)
       if (found) return json(found[1](JSON.parse(init.body ?? "")))
@@ -551,6 +568,55 @@ describe("a fallen-back override", () => {
 
     await waitFor(() => expect(bodies).toHaveLength(1))
     expect(bodies[0]).toEqual({ changes: { welcome: { en: ["Howdy"] } } })
+  })
+})
+
+describe("a preview", () => {
+  it("sends the text being typed with the values it shows to the admin where the key is shown", async () => {
+    const bodies: unknown[] = []
+    vi.stubGlobal(
+      "fetch",
+      backend(
+        {
+          "smp/smp": {
+            ...location({ path: "smp/smp" }),
+            previews: { welcome: "GAME" },
+            entries: [
+              entry({
+                texts: { en: ["Welcome {player}"] },
+                key: "welcome",
+                name: "Welcome",
+                args: [{ name: "player", kind: "name", global: false, example: "Alex", action: false }],
+              }),
+              entry({ texts: { en: ["Page"] }, key: "page", name: "Page" }),
+            ],
+          },
+        },
+        {},
+        {
+          preview: (body) => {
+            bodies.push(body)
+            return "smp:7"
+          },
+          commands: {
+            "smp:7": { id: "smp:7", status: "DONE", result: words("Shown to your player in game.") },
+          },
+        },
+      ),
+    )
+    draw(<Settings service="smp" />)
+    await open("SMP Translations")
+    await openKey("Page")
+    expect(screen.queryByRole("button", { name: /in game|in Discord/ })).toBeNull()
+    await openKey("Welcome")
+    fireEvent.change(await source("Welcome"), { target: { value: "Moin {player}" } })
+
+    fireEvent.click(screen.getByRole("button", { name: "Show it to my player in game" }))
+
+    await screen.findByText("Shown to your player in game.")
+    expect(bodies).toEqual([
+      { bundle: "smp/smp", key: "welcome", language: "en", text: "Moin {player}", values: { player: "Alex" } },
+    ])
   })
 })
 

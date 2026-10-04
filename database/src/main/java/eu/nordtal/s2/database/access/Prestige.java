@@ -1,4 +1,4 @@
-package eu.nordtal.s2.smp.prestige;
+package eu.nordtal.s2.database.access;
 
 import java.util.List;
 import java.util.Objects;
@@ -6,7 +6,7 @@ import java.util.Objects;
 /**
  * The prestige crest: a tier from 1 to 13, derived from a player's total online time, AFK included.
  *
- * Derived and never stored, and pure arithmetic, because render paths call it many times a second.
+ * Derived from {@link PlayerIdentity#playtimeSeconds()}, never stored, and pure arithmetic: renders call it often.
  */
 public final class Prestige {
 

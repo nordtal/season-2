@@ -8,8 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.id.PlayerId;
 import eu.nordtal.s2.database.access.PlayerIdentity;
+import eu.nordtal.s2.database.access.Prestige;
 import eu.nordtal.s2.packrendering.Glyphs;
-import eu.nordtal.s2.smp.prestige.Prestige;
 import eu.nordtal.s2.smp.prestige.PrestigeColours;
 import java.util.Locale;
 import java.util.UUID;

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.s2.database.access.Prestige;
 import java.util.ArrayList;
 import java.util.List;
 import net.kyori.adventure.text.format.TextColor;

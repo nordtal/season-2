@@ -1,4 +1,4 @@
-package eu.nordtal.s2.smp.prestige;
+package eu.nordtal.s2.database.access;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;

@@ -47,11 +47,11 @@ class ArchitectureTest {
             "eu.nordtal.s2.proxy.config.NetworkSpec",
             "eu.nordtal.s2.proxy.config.PackSpec",
             "eu.nordtal.s2.smp.config.MilestonesSpec",
-            "eu.nordtal.s2.smp.config.PrestigeSpec",
             "eu.nordtal.s2.smp.config.SmpSpec",
             "eu.nordtal.s2.settings.ColoursSpec",
             "eu.nordtal.s2.settings.DatabaseSpec",
             "eu.nordtal.s2.settings.network.PlayersSpec",
+            "eu.nordtal.s2.settings.network.PrestigeSpec",
             "eu.nordtal.s2.steward.config.WebSpec",
             "eu.nordtal.s2.steward.config.StewardSpec",
             "eu.nordtal.s2.stewardagent.config.RunSpec");

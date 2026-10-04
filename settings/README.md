@@ -26,10 +26,11 @@ whether it is the network's, and any default of this process that differs from t
 - **Shared groups**: `DatabaseSpec`, `ColoursSpec` (mapped onto the message tones by `Colours`) and
   `DistancesSpec`, whose defaults each Paper server sets for itself. `DatabasePool` opens the pool.
 - **The network's groups** (`network/`), stored once under the service `network` and read by every
-  process: `players` (the limit, which only the proxy enforces, and the command allowlist), taken while
-  running; `season`, `language-and-time` (the default language, the languages and
+  process: `players` (the limit, which only the proxy enforces, and the command allowlist) and `prestige`
+  (when each crest is reached, which every name's hover card shows, and the name colours smp paints),
+  taken while running; `season`, `language-and-time` (the default language, the languages and
   the default time zone) and `prices` (the tiers and the donation threshold, which the bot offers and steward
   books by), taken at the next start. `CommandAllowlist` is the parsed list, `NetworkSettings.tiers` the price
-  list as `:database`'s `Tiers`.
+  list as `:database`'s `Tiers`, and `NetworkSettings.prestige` the crest table as `:database`'s `Prestige`.
 
 jcore and HikariCP are `compileOnly`: every consumer already carries them in the version it needs.

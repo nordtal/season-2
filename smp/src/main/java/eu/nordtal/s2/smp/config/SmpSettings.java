@@ -2,13 +2,11 @@ package eu.nordtal.s2.smp.config;
 
 import eu.nordtal.s2.settings.Checks;
 import eu.nordtal.s2.smp.board.BoardFrame;
-import eu.nordtal.s2.smp.prestige.Prestige;
-import java.util.List;
 
 /**
- * Every rule about what a valid value of smp's settings is, and what the prestige groups declare.
+ * Every rule about what a valid value of smp's settings is.
  *
- * The track, sounds and prestige groups are separate from {@code config} so a reload can re-read them.
+ * The track and sounds groups are separate from {@code config} so a reload can re-read them.
  */
 public final class SmpSettings {
 
@@ -24,55 +22,6 @@ public final class SmpSettings {
         if (!result.problems().isEmpty()) {
             throw new IllegalArgumentException("the milestone track is not usable:\n" + result.describe());
         }
-    }
-
-    /**
-     * Refuses bad crest hours, since {@link Prestige}'s constructor is the whole rule for them.
-     *
-     * @throws IllegalArgumentException naming what is wrong with the hours
-     */
-    public static void checkPrestige(final PrestigeSpec config) {
-        final Prestige _ = new Prestige(declaredPrestigeHours(config));
-    }
-
-    /**
-     * The thirteen tier colours, in tier order, as {@link eu.nordtal.s2.smp.prestige.PrestigeColours#parse} takes them.
-     */
-    public static List<String> declaredPrestigeTiers(final PrestigeSpec spec) {
-        final PrestigeSpec.TierColoursSpec tiers = spec.colours();
-        return List.of(
-                tiers.tier01(),
-                tiers.tier02(),
-                tiers.tier03(),
-                tiers.tier04(),
-                tiers.tier05(),
-                tiers.tier06(),
-                tiers.tier07(),
-                tiers.tier08(),
-                tiers.tier09(),
-                tiers.tier10(),
-                tiers.tier11(),
-                tiers.tier12(),
-                tiers.tier13());
-    }
-
-    /** The thirteen tier hours, in the same order, as {@link Prestige} takes them. */
-    public static List<Integer> declaredPrestigeHours(final PrestigeSpec spec) {
-        final PrestigeSpec.TierHoursSpec tiers = spec.hours();
-        return List.of(
-                tiers.tier01(),
-                tiers.tier02(),
-                tiers.tier03(),
-                tiers.tier04(),
-                tiers.tier05(),
-                tiers.tier06(),
-                tiers.tier07(),
-                tiers.tier08(),
-                tiers.tier09(),
-                tiers.tier10(),
-                tiers.tier11(),
-                tiers.tier12(),
-                tiers.tier13());
     }
 
     /**

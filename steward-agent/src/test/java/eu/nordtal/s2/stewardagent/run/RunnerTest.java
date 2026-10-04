@@ -18,6 +18,7 @@ import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateStatus;
 import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.settings.DatabaseWaiting;
+import eu.nordtal.s2.stewardagent.Told;
 import eu.nordtal.s2.stewardagent.config.RunSpec;
 import eu.nordtal.s2.stewardagent.config.RunSpec.BackupSpec;
 import java.time.Duration;
@@ -178,7 +179,7 @@ class RunnerTest {
         final Outcome outcome = runner.run(request, progress::add);
 
         assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
-        assertTrue(outcome.report().contains("NOTHING_TO_DO"), outcome.report());
+        assertTrue(Told.report(outcome.report()).contains("NOTHING_TO_DO"), outcome.report());
         assertEquals(List.of(), containers.calls, "a run that discovers there is nothing to do must stop nothing");
         assertEquals(null, directory.find(request.id()).orElseThrow().countdownEnd());
     }
@@ -224,7 +225,7 @@ class RunnerTest {
         final Outcome outcome = runner.run(claimed(UpdateKind.RECREATE, List.of("steward-agent")), progress::add);
 
         assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
-        assertTrue(outcome.report().contains("one-shot"), outcome.report());
+        assertTrue(Told.report(outcome.report()).contains("one-shot"), outcome.report());
         assertEquals(List.of(), containers.calls);
     }
 
@@ -236,7 +237,7 @@ class RunnerTest {
 
         assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
         assertEquals(List.of("stop:smp-container", "remove:smp/chunky", "start:smp-container"), containers.calls);
-        assertTrue(outcome.report().contains("chunky-1.0.jar"), outcome.report());
+        assertTrue(Told.report(outcome.report()).contains("chunky-1.0.jar"), outcome.report());
     }
 
     @Test
@@ -264,7 +265,9 @@ class RunnerTest {
                         "start:smp-container"),
                 containers.calls);
         assertNotNull(directory.find(request.id()).orElseThrow().countdownEnd(), "a restore is announced");
-        assertTrue(outcome.report().contains("restored "), "the line says what was restored: " + outcome.report());
+        assertTrue(
+                Told.report(outcome.report()).contains("restored "),
+                "the line says what was restored: " + outcome.report());
     }
 
     @Test

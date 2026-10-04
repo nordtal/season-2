@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.internalapi.agent.Topology;
+import eu.nordtal.s2.stewardagent.Told;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -146,8 +147,8 @@ class UpdateRunTest {
         assertEquals(
                 UpdateReport.State.FAILED, stopped.report().line(Topology.SMP).state());
         assertTrue(
-                stopped.report().line(Topology.SMP).detail().contains("no container for this"),
-                stopped.report().line(Topology.SMP).detail());
+                Told.detail(stopped.report().line(Topology.SMP)).contains("no container for this"),
+                Told.detail(stopped.report().line(Topology.SMP)));
     }
 
     @Test
@@ -181,8 +182,8 @@ class UpdateRunTest {
                         + " season on it - which is what the first deployment actually did, and is"
                         + " why every process writes a readiness marker");
         assertTrue(
-                verified.line(Topology.SMP).detail().contains("did not come back"),
-                verified.line(Topology.SMP).detail());
+                Told.detail(verified.line(Topology.SMP)).contains("did not come back"),
+                Told.detail(verified.line(Topology.SMP)));
     }
 
     @Test
@@ -307,9 +308,8 @@ class UpdateRunTest {
 
         assertEquals(UpdateReport.State.FAILED, saved.line("mc-smp").state());
         assertTrue(
-                saved.line("mc-smp").detail().contains("not a readable archive"),
-                "what the tar said is what a person reads at 04:45: "
-                        + saved.line("mc-smp").detail());
+                Told.detail(saved.line("mc-smp")).contains("not a readable archive"),
+                "what the tar said is what a person reads at 04:45: " + Told.detail(saved.line("mc-smp")));
     }
 
     @Test
@@ -322,9 +322,7 @@ class UpdateRunTest {
         final UpdateReport saved = run.save(UpdateReport.at(UpdateReport.Stage.STOPPING), List.of("mc-smp"));
 
         assertEquals(UpdateReport.State.FAILED, saved.line("mc-smp").state());
-        assertTrue(
-                saved.line("mc-smp").detail().contains("nothing was saved"),
-                saved.line("mc-smp").detail());
+        assertTrue(Told.detail(saved.line("mc-smp")).contains("nothing was saved"), Told.detail(saved.line("mc-smp")));
     }
 
     @Test
@@ -459,21 +457,20 @@ class UpdateRunTest {
                 report.line(Topology.SMP).state(),
                 "the update did not happen, and a run is settled FAILED the moment a line is");
         assertTrue(
-                report.line(Topology.SMP).detail().contains("image is out of date"),
-                "the reason has to say which half of the run stopped: "
-                        + report.line(Topology.SMP).detail());
+                Told.detail(report.line(Topology.SMP)).contains("image is out of date"),
+                "the reason has to say which half of the run stopped: " + Told.detail(report.line(Topology.SMP)));
         assertTrue(
-                report.line(Topology.SMP).detail().contains("started again on the image it already had"),
+                Told.detail(report.line(Topology.SMP)).contains("started again on the image it already had"),
                 "and it has to say the old container was put back, or an operator starts by hand"
                         + " one that is already running: "
-                        + report.line(Topology.SMP).detail());
+                        + Told.detail(report.line(Topology.SMP)));
         assertFalse(
-                report.line(Topology.SMP).detail().contains("the service is back"),
+                Told.detail(report.line(Topology.SMP)).contains("the service is back"),
                 "this line ended 'so the service is back' until 2026-09-13, written on the strength"
                         + " of Docker having accepted a start. Docker accepts one just as readily"
                         + " for a container that exits on the first tick. Whether it came back is"
                         + " verify()'s to find out and to finish the sentence with: "
-                        + report.line(Topology.SMP).detail());
+                        + Told.detail(report.line(Topology.SMP)));
     }
 
     @Test
@@ -489,7 +486,7 @@ class UpdateRunTest {
         final UpdateReport verified =
                 run.verify(started, stopped.services(), comesBackOnTheSecondLook(containers, Topology.SMP));
 
-        final String detail = verified.line(Topology.SMP).detail();
+        final String detail = Told.detail(verified.line(Topology.SMP));
         assertEquals(
                 UpdateReport.State.FAILED,
                 verified.line(Topology.SMP).state(),
@@ -517,7 +514,7 @@ class UpdateRunTest {
 
         final UpdateReport verified = run.verify(started, stopped.services(), impatient());
 
-        final String detail = verified.line(Topology.SMP).detail();
+        final String detail = Told.detail(verified.line(Topology.SMP));
         assertEquals(UpdateReport.State.FAILED, verified.line(Topology.SMP).state());
         assertTrue(
                 detail.contains("did NOT come back within " + UpdateRun.HEALTH_PATIENCE.toMinutes() + " minutes"),
@@ -545,7 +542,7 @@ class UpdateRunTest {
 
         final int announced = progress.stream()
                 .filter(report -> report.line(Topology.SMP).detail() != null
-                        && report.line(Topology.SMP).detail().contains("recreating"))
+                        && Told.detail(report.line(Topology.SMP)).contains("recreating"))
                 .findFirst()
                 .map(progress::indexOf)
                 .orElse(-1);

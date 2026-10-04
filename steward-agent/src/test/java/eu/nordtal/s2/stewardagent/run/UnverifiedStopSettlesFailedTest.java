@@ -1,11 +1,13 @@
 package eu.nordtal.s2.stewardagent.run;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.internalapi.agent.Topology;
+import eu.nordtal.s2.stewardagent.Told;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -19,15 +21,14 @@ class UnverifiedStopSettlesFailedTest {
     private static final Runner.Doubt FAILS = Runner.Doubt.FAILS_THE_RUN;
     private static final Runner.Doubt SAID = Runner.Doubt.IS_ONLY_SAID;
 
-    /** What the backup path passes: the sentence naming what is now in doubt. */
-    private static final String ARCHIVES = "the archives were taken - they were kept, and each one"
-            + " has a .unverified file beside it saying so, which `deploy/restore.sh --list` prints";
+    /** What the backup path passes, which the note names as what is now in doubt. */
+    private static final UpdateReport.Undertaking ARCHIVES = UpdateReport.Undertaking.BACKUP;
 
-    /** And what the update path passes, which is a different sentence for a different risk. */
-    private static final String JARS = "the jars were moved into its plugins directory";
+    /** And what the update path passes, a different risk. */
+    private static final UpdateReport.Undertaking JARS = UpdateReport.Undertaking.INSTALL;
 
-    /** The restart path's sentence. */
-    private static final String SAME_WORLD = "it was started again on the same world";
+    /** The restart path's. */
+    private static final UpdateReport.Undertaking SAME_WORLD = UpdateReport.Undertaking.RESTART;
 
     @Test
     void anUnverifiedStopFailsTheRunOnItsOwnWithEveryLineGreen() {
@@ -92,14 +93,15 @@ class UnverifiedStopSettlesFailedTest {
     @Test
     void notesTheRunAlreadyMadeSurviveBeingSettled() {
         // The backup path writes its retention line before this is reached; a fresh report here would lose it.
-        final UpdateReport swept = green().withNote("kept the newest 7 of each and removed 3");
+        final UpdateReport swept = green().withNote(TEXTS.report().words("kept the newest 7 of each and removed 3"));
 
         final UpdateReport settled = Runner.settle(swept, List.of(Topology.SMP), ARCHIVES, false, FAILS);
 
-        assertEquals(2, settled.notes().size(), settled.notes().toString());
+        final List<String> notes = Told.notes(settled);
+        assertEquals(2, notes.size(), notes.toString());
         assertTrue(
-                settled.notes().getFirst().startsWith("kept the newest"),
-                "the retention line is gone, and it is the only record of what was deleted: " + settled.notes());
+                notes.getFirst().startsWith("kept the newest"),
+                "the retention line is gone, and it is the only record of what was deleted: " + notes);
     }
 
     @Test
@@ -135,7 +137,10 @@ class UnverifiedStopSettlesFailedTest {
     void aFailedLineStillFailsARunWithNoUnverifiedStops() {
         // Most likely to be dropped while rearranging the other two: a dump that did not run is a FAILED line.
         final UpdateReport report = green().with(new UpdateReport.ServiceLine(
-                Snapshots.DATABASE, UpdateReport.State.FAILED, List.of(), "pg_dump exited 1"));
+                Snapshots.DATABASE,
+                UpdateReport.State.FAILED,
+                List.of(),
+                TEXTS.report().words("pg_dump exited 1")));
 
         final UpdateReport settled = Runner.settle(report, List.of(), ARCHIVES, false, FAILS);
 
@@ -209,7 +214,10 @@ class UnverifiedStopSettlesFailedTest {
     void theModeSaysNothingAboutTheOtherTwoConditionsAFailedLineStillFails() {
         // One parenthesis: a misplaced one here compiles, reads almost the same, and makes every restart a success.
         final UpdateReport report = green().with(new UpdateReport.ServiceLine(
-                Topology.LIMBO, UpdateReport.State.FAILED, List.of(), "did not come back within 5 minutes"));
+                Topology.LIMBO,
+                UpdateReport.State.FAILED,
+                List.of(),
+                TEXTS.report().words("did not come back within 5 minutes")));
 
         final UpdateReport settled = Runner.settle(report, List.of(Topology.SMP), SAME_WORLD, false, SAID);
 
@@ -255,6 +263,6 @@ class UnverifiedStopSettlesFailedTest {
     /** The one note a settled report has, or a failure saying there was none. */
     private static String note(final UpdateReport settled) {
         assertFalse(settled.notes().isEmpty(), "no note was added at all, so the run is a failure nobody can explain");
-        return settled.notes().getLast();
+        return String.valueOf(Told.english(settled.notes().getLast()));
     }
 }

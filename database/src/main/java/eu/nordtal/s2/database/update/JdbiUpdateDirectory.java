@@ -3,7 +3,6 @@ package eu.nordtal.s2.database.update;
 import static eu.nordtal.s2.database.DatabaseMessages.MESSAGES;
 
 import com.google.gson.JsonElement;
-import com.google.gson.JsonPrimitive;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.json.Json;
 import eu.nordtal.s2.database.Jdbis;
@@ -12,6 +11,7 @@ import eu.nordtal.s2.database.inbox.Outcome;
 import eu.nordtal.s2.database.inbox.Request;
 import eu.nordtal.s2.database.inbox.Schedule;
 import eu.nordtal.s2.database.inbox.StewardRequest;
+import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Refused;
 import java.time.Duration;
 import java.time.Instant;
@@ -72,14 +72,22 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
         return dao.find(request.id()).orElseThrow(() -> new IllegalStateException("run " + request.id() + " is gone"));
     }
 
-    /** Returns the answer a run's outcome stores: its report as JSON, or a plain reason as a JSON string. */
+    /**
+     * Returns the answer a run's outcome stores, which is always its report.
+     *
+     * @throws IllegalArgumentException for a bare sentence, which no reader could tell in another language
+     */
     private static JsonElement answer(final String result) {
+        final JsonElement report;
         try {
-            final JsonElement report = Json.tree(result);
-            return report.isJsonObject() ? report : new JsonPrimitive(result);
+            report = Json.tree(result);
         } catch (final RuntimeException notJson) {
-            return new JsonPrimitive(result);
+            throw new IllegalArgumentException("A run's outcome is its report, not a sentence", notJson);
         }
+        if (!report.isJsonObject()) {
+            throw new IllegalArgumentException("A run's outcome is its report, not a sentence");
+        }
+        return report;
     }
 
     @Override
@@ -209,13 +217,13 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
-    public int settleOrphans(final String failed, final java.util.function.Predicate<String> stillRunning) {
+    public int settleOrphans(final MessageRef why, final java.util.function.Predicate<String> stillRunning) {
         Objects.requireNonNull(stillRunning, "stillRunning");
         final List<Long> spared = dao.handed().stream()
                 .filter(handed -> stillRunning.test(handed.runner()))
                 .map(UpdateDao.Handed::id)
                 .toList();
-        return inbox.settleOrphans(answer(failed), spared);
+        return inbox.settleOrphans(failedFor(why), spared);
     }
 
     @Override
@@ -239,7 +247,12 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
-    public void putBack(final String row, final String failed) {
-        inbox.putBack(row, answer(failed));
+    public void putBack(final String row, final MessageRef why) {
+        inbox.putBack(row, failedFor(why));
+    }
+
+    /** A failed report whose one note says why, which every reader of a run draws like any other. */
+    private static UpdateReport failedFor(final MessageRef why) {
+        return UpdateReport.at(UpdateReport.Stage.FAILED).withNote(Objects.requireNonNull(why, "why"));
     }
 }

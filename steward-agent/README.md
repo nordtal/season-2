@@ -56,6 +56,14 @@ held open are failed. `deploy/restore.sh` remains for the host when steward-agen
 
 The run never stops steward-agent. A run that names it is refused.
 
+A run's report says what happened in messages of the admin bundle (`report.*` in `:database`'s
+`AdminTexts`): every note and every line's detail is a message reference with typed values, which
+Steward's page and the bot's update feed render for their reader, and `status ID` prints in English.
+What a subsystem answered, a Docker or pg_dump error or the resolver's note on a build, is carried
+as a value of the message that names it, or as `report.words` when the answer is all there is. The
+kind of run a note speaks of is an `Undertaking`, so one message says "nothing was installed" for an
+update and "nothing was saved" for a backup. The directory refuses an outcome that is not a report.
+
 ## Another release
 
 `serve` carries out runs of its own release only. An update whose newest release is later than the

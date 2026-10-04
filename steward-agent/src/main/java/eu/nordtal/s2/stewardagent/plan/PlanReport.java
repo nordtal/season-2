@@ -1,7 +1,10 @@
 package eu.nordtal.s2.stewardagent.plan;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.internalapi.agent.Topology;
+import eu.nordtal.s2.messages.MessageRef;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,7 +29,7 @@ public final class PlanReport {
     public static UpdateReport of(final UpdatePlan plan) {
         final Map<String, List<UpdateReport.Change>> work = new LinkedHashMap<>();
         final Map<String, String> trouble = new LinkedHashMap<>();
-        final List<String> notes = classify(plan, work, trouble);
+        final List<MessageRef> notes = classify(plan, work, trouble);
 
         UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED);
         for (final Map.Entry<String, List<UpdateReport.Change>> entry : work.entrySet()) {
@@ -36,30 +39,29 @@ public final class PlanReport {
 
         for (final UpdatePlan.Unclaimed left : plan.unclaimed()) {
             // Loud rather than tidy: a claimless jar is usually a renamed plugin, loaded twice.
-            notes.add(left.service() + " also holds " + left.fileName()
-                    + ", which nothing in this plan claims - if that is a renamed jar, the server"
-                    + " is loading two versions of one plugin");
+            notes.add(TEXTS.report().unclaimed(left.service(), left.fileName()));
         }
-        for (final String note : notes) {
+        for (final MessageRef note : notes) {
             report = report.withNote(note);
         }
         return report;
     }
 
     /** Sorts the changes into per-service work, per-service trouble, and notes that belong to no service. */
-    private static List<String> classify(
+    private static List<MessageRef> classify(
             final UpdatePlan plan,
             final Map<String, List<UpdateReport.Change>> work,
             final Map<String, String> trouble) {
-        // The resolver's own notes first, copied: this class draws, it does not decide.
-        final List<String> notes = new ArrayList<>(plan.notes());
+        // The resolver's own notes first, as it worded them: this class draws, it does not decide.
+        final List<MessageRef> notes =
+                new ArrayList<>(plan.notes().stream().map(TEXTS.report()::words).toList());
 
         for (final Change change : plan.changes()) {
             if (change.service() == null) {
                 if (change.status().isWork()) {
-                    notes.add("the resource pack moves to " + version(change));
+                    notes.add(TEXTS.report().packMoves(version(change)));
                 } else if (change.status().isFailure()) {
-                    notes.add("the resource pack could not be checked: " + reason(change));
+                    notes.add(TEXTS.report().packUnchecked(reason(change)));
                 }
                 continue;
             }
@@ -71,7 +73,8 @@ public final class PlanReport {
                 work.get(change.service()).add(UpdateReport.Change.unsupported(change.artifact()));
             } else if (change.status() == Change.Status.NOT_IN_RELEASE) {
                 // Not work, not a failure: our release carries nothing for this jar, and the installed one stays.
-                notes.add(change.service() + ": " + reason(change) + "; " + change.installed() + " stays");
+                notes.add(TEXTS.report()
+                        .notInRelease(change.service(), reason(change), String.valueOf(change.installed())));
             } else if (change.status().isFailure()) {
                 // One unreadable row makes the whole service untrustworthy.
                 trouble.putIfAbsent(change.service(), reason(change));
@@ -98,11 +101,12 @@ public final class PlanReport {
                     changes.stream()
                             .filter(row -> row.state() != UpdateReport.Change.State.MOVING)
                             .toList(),
-                    held.isEmpty() ? why : why + "; held back: " + String.join(", ", held));
+                    held.isEmpty() ? TEXTS.report().words(why) : TEXTS.report().heldBack(why, held));
         }
         if (why != null) {
             // An unchecked server jar stays in .server/ and the plugins beside it still move.
-            return new UpdateReport.ServiceLine(service, UpdateReport.State.FAILED, changes, why);
+            return new UpdateReport.ServiceLine(
+                    service, UpdateReport.State.FAILED, changes, TEXTS.report().words(why));
         }
         // PLANNED means stopped and written into; a service with only no-build artefacts is UNCHANGED.
         final boolean moving = changes.stream().anyMatch(row -> row.state() == UpdateReport.Change.State.MOVING);

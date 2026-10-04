@@ -1,5 +1,7 @@
 package eu.nordtal.s2.stewardagent.run;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
@@ -7,12 +9,13 @@ import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.ImageResult;
 import eu.nordtal.s2.internalapi.agent.RedeployResult;
 import eu.nordtal.s2.internalapi.agent.RuntimeResult;
+import eu.nordtal.s2.messages.MessageRef;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -84,10 +87,8 @@ final class Run {
      * @param alsoStarts services the run starts although it did not stop them, as a release of a hold does
      * @param images the services to recreate as they start, since their container is out of date
      * @param foreign the images nobody here builds to make again once the rest is back, announced like a stop
-     * @param refusedStop the first words of the report when a service did not stop, or {@code null} to carry on
-     * @param refusedStandby the report's note when a standby did not come up, from the standby's own sentence
-     * @param what what the run is called in a sentence, such as "this restart"
-     * @param atRisk what an unverified stop put at risk, as the middle of a sentence
+     * @param undertaking what the run does while the servers are down, which its notes name
+     * @param refusesUnstopped whether a service that did not stop ends the run before its payload
      * @param remade services whose container is made again as they start, whatever their image's state
      * @param pulls whether making a container again pulls its image first; only a recreate does not
      */
@@ -100,10 +101,8 @@ final class Run {
             List<String> alsoStarts,
             ImageResult images,
             List<String> foreign,
-            @Nullable String refusedStop,
-            Function<String, String> refusedStandby,
-            String what,
-            String atRisk,
+            UpdateReport.Undertaking undertaking,
+            boolean refusesUnstopped,
             Runner.Doubt doubt,
             boolean alreadyFailed,
             List<String> remade,
@@ -119,10 +118,8 @@ final class Run {
         static Plan of(
                 final UpdateReport planned,
                 final Payload payload,
-                final @Nullable String refusedStop,
-                final Function<String, String> refusedStandby,
-                final String what,
-                final String atRisk,
+                final UpdateReport.Undertaking undertaking,
+                final boolean refusesUnstopped,
                 final Runner.Doubt doubt) {
             return new Plan(
                     planned,
@@ -133,10 +130,8 @@ final class Run {
                     List.of(),
                     ImageResult.of(java.util.Map.of()),
                     List.of(),
-                    refusedStop,
-                    refusedStandby,
-                    what,
-                    atRisk,
+                    undertaking,
+                    refusesUnstopped,
                     doubt,
                     false,
                     List.of(),
@@ -153,10 +148,8 @@ final class Run {
                     alsoStarts,
                     images,
                     foreign,
-                    refusedStop,
-                    refusedStandby,
-                    what,
-                    atRisk,
+                    undertaking,
+                    refusesUnstopped,
                     doubt,
                     alreadyFailed,
                     remade,
@@ -174,10 +167,8 @@ final class Run {
                     alsoStarts,
                     images,
                     foreign,
-                    refusedStop,
-                    refusedStandby,
-                    what,
-                    atRisk,
+                    undertaking,
+                    refusesUnstopped,
                     doubt,
                     alreadyFailed,
                     remade,
@@ -194,10 +185,8 @@ final class Run {
                     alsoStarts,
                     images,
                     foreign,
-                    refusedStop,
-                    refusedStandby,
-                    what,
-                    atRisk,
+                    undertaking,
+                    refusesUnstopped,
                     doubt,
                     alreadyFailed,
                     remade,
@@ -214,10 +203,8 @@ final class Run {
                     services,
                     images,
                     foreign,
-                    refusedStop,
-                    refusedStandby,
-                    what,
-                    atRisk,
+                    undertaking,
+                    refusesUnstopped,
                     doubt,
                     alreadyFailed,
                     remade,
@@ -234,10 +221,8 @@ final class Run {
                     alsoStarts,
                     newer,
                     renewed,
-                    refusedStop,
-                    refusedStandby,
-                    what,
-                    atRisk,
+                    undertaking,
+                    refusesUnstopped,
                     doubt,
                     failed,
                     remade,
@@ -259,10 +244,8 @@ final class Run {
                     alsoStarts,
                     images,
                     theirs,
-                    refusedStop,
-                    refusedStandby,
-                    what,
-                    atRisk,
+                    undertaking,
+                    refusesUnstopped,
                     doubt,
                     alreadyFailed,
                     ours,
@@ -285,11 +268,11 @@ final class Run {
         final Choreography.Window window = choreography.open(moving);
         if (!window.opened()) {
             return Outcome.failed(UpdateReports.toJson(planned.withStage(UpdateReport.Stage.FAILED)
-                    .withNote(plan.refusedStandby().apply(window.refusal()))));
+                    .withNote(TEXTS.report().noStandby(plan.undertaking()))
+                    .withNote(Objects.requireNonNull(window.refusal()))));
         }
         if (!window.isEmpty()) {
-            planned = planned.withNote(String.join(", ", window.standbys()) + " started and healthy, so " + plan.what()
-                    + " has somewhere to put the players.");
+            planned = planned.withNote(TEXTS.report().standbysReady(window.standbys(), plan.undertaking()));
             progress.accept(planned);
         }
         try {
@@ -298,9 +281,11 @@ final class Run {
             }
 
             // After the countdown the run waits for the players to move, then stops regardless after ten seconds.
-            final String stillOn = choreography.waitUntilEmpty(moving);
-            if (stillOn != null) {
-                planned = planned.withNote(stillOn);
+            final List<MessageRef> stillOn = choreography.waitUntilEmpty(moving);
+            if (!stillOn.isEmpty()) {
+                for (final MessageRef said : stillOn) {
+                    planned = planned.withNote(said);
+                }
                 progress.accept(planned);
             }
 
@@ -354,7 +339,7 @@ final class Run {
         final UpdateReport finished = Runner.settle(
                 Runner.noteStandbys(renewed, choreography.close()),
                 steps.unverifiedStops(),
-                plan.atRisk(),
+                plan.undertaking(),
                 plan.alreadyFailed() || done.failed(),
                 plan.doubt());
         return finished.stage() == UpdateReport.Stage.FAILED
@@ -368,13 +353,12 @@ final class Run {
                 AgentWire.SERVICE,
                 UpdateReport.State.STARTING,
                 List.of(new UpdateReport.Change("image", null, "out of date")),
-                "recreating the container at this release"));
+                TEXTS.report().renewingAgent()));
         progress.accept(report);
         final RedeployResult result = runner.containers.renewAgent();
         if (!result.triggered()) {
-            report = report.with(report.line(AgentWire.SERVICE)
-                    .failed("the container could not be recreated: " + result.message()
-                            + ". The one it had is still running at its old release."));
+            report = report.with(
+                    report.line(AgentWire.SERVICE).failed(TEXTS.report().agentNotRenewed(result.message())));
             progress.accept(report);
             return report;
         }
@@ -384,7 +368,7 @@ final class Run {
     /** Starts back and fails the run when a service the plan stops did not stop and the kind refuses to go on. */
     private @Nullable Outcome refuseIfNotStopped(
             final Plan plan, final UpdateReport planned, final UpdateRun.Stopped stopped) {
-        if (plan.refusedStop() == null) {
+        if (!plan.refusesUnstopped()) {
             return null;
         }
         final List<String> notStopped = Runner.servicesThatRefused(planned, stopped.services());
@@ -392,9 +376,7 @@ final class Run {
             return null;
         }
         final UpdateReport back = steps.start(new UpdateRun.Stopped(
-                stopped.report()
-                        .withNote(plan.refusedStop() + " " + String.join(", ", notStopped) + " could not be stopped, "
-                                + "and every service that did stop has been started again."),
+                stopped.report().withNote(TEXTS.report().notStopped(plan.undertaking(), notStopped)),
                 stopped.services(),
                 runtime));
         return Outcome.failed(UpdateReports.toJson(

@@ -1,5 +1,7 @@
 package eu.nordtal.s2.stewardagent.run;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.internalapi.agent.ImageResult;
@@ -7,12 +9,14 @@ import eu.nordtal.s2.internalapi.agent.RedeployResult;
 import eu.nordtal.s2.internalapi.agent.RuntimeResult;
 import eu.nordtal.s2.internalapi.agent.ServiceRuntime;
 import eu.nordtal.s2.internalapi.agent.SnapshotResult;
+import eu.nordtal.s2.messages.MessageRef;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,11 +42,11 @@ final class UpdateRun {
     private final List<String> unverifiedStops = new ArrayList<>();
 
     /**
-     * Services left on their old image because the recreate failed, each with the known half of its report line.
+     * Services left on their old image because the recreate failed, each with why, which every later detail repeats.
      *
-     * {@link #verify} waits for them like everything else, then finishes the sentence with what it saw.
+     * {@link #verify} waits for them like everything else, then picks the detail that says what it saw.
      */
-    private final Map<String, String> fellBack = new LinkedHashMap<>();
+    private final Map<String, FellBack> fellBack = new LinkedHashMap<>();
 
     UpdateRun(final ContainerOps containers, final Snapshots snapshots, final Consumer<UpdateReport> progress) {
         this.containers = containers;
@@ -76,14 +80,13 @@ final class UpdateRun {
             }
             final ServiceRuntime service = runtime.service(line.service()).orElse(null);
             if (service == null || service.containerId() == null) {
-                report = report.with(line.failed("the compose project has no container for this"
-                        + " service, so it could not be stopped and nothing was installed for it"));
+                report = report.with(line.failed(TEXTS.report().noContainerToStop()));
                 progress.accept(report);
                 continue;
             }
             final RedeployResult result = containers.stop(service.containerId());
             if (!result.triggered()) {
-                report = report.with(line.failed("could not be stopped: " + result.message()));
+                report = report.with(line.failed(TEXTS.report().stopFailed(result.message())));
                 progress.accept(report);
                 continue;
             }
@@ -92,7 +95,8 @@ final class UpdateRun {
                 report = report.with(line.at(UpdateReport.State.STOPPED));
             } else {
                 unverifiedStops.add(line.service());
-                report = report.with(line.at(UpdateReport.State.STOPPED).withDetail(result.message()));
+                report = report.with(line.at(UpdateReport.State.STOPPED)
+                        .withDetail(TEXTS.report().words(result.message())));
             }
             progress.accept(report);
         }
@@ -118,7 +122,7 @@ final class UpdateRun {
             progress.accept(report);
 
             final SnapshotResult result = snapshots.save(volume);
-            String detail = result.ok() ? null : result.message();
+            MessageRef detail = result.ok() ? null : TEXTS.report().words(result.message());
             if (result.ok() && result.file() != null && !unverifiedStops.isEmpty()) {
                 // The archive is kept: it is probably fine, and somebody must be told before restoring it.
                 final String why = "The servers were stopped for this backup and the end of "
@@ -127,8 +131,8 @@ final class UpdateRun {
                         + " readable; what is unverified is the moment it was taken.";
                 final String mark = snapshots.markUnverified(result.file(), why);
                 detail = mark == null
-                        ? "UNVERIFIED STOP - and the mark beside the archive could not be written: " + why
-                        : "UNVERIFIED STOP - see " + mark;
+                        ? TEXTS.report().unmarkedArchive(List.copyOf(unverifiedStops))
+                        : TEXTS.report().unverifiedArchive(mark);
             }
             final UpdateReport.ServiceLine line = new UpdateReport.ServiceLine(
                     volume,
@@ -184,7 +188,7 @@ final class UpdateRun {
 
             final ServiceRuntime entry = state.runtime().service(service).orElse(null);
             if (entry == null || entry.containerId() == null) {
-                report = report.with(line.failed("no container id to start it with"));
+                report = report.with(line.failed(TEXTS.report().noContainerToStart()));
                 progress.accept(report);
                 continue;
             }
@@ -192,7 +196,7 @@ final class UpdateRun {
             report = report.with(
                     result.triggered()
                             ? line.at(UpdateReport.State.STARTING)
-                            : line.failed("could not be started: " + result.message()));
+                            : line.failed(TEXTS.report().startFailed(result.message())));
             progress.accept(report);
         }
         return report;
@@ -210,29 +214,25 @@ final class UpdateRun {
         // Written before the call, so a recreate that never returns leaves this as the report's last word.
         final UpdateReport report = before.with(before.line(service)
                 .at(UpdateReport.State.STARTING)
-                .withDetail(pull ? "pulling its image and recreating the container" : "recreating the container"));
+                .withDetail(TEXTS.report().recreating(pull)));
         progress.accept(report);
         final RedeployResult recreated = pull ? containers.deploy(service) : containers.recreate(service);
         if (recreated.triggered()) {
             return report.with(report.line(service).at(UpdateReport.State.STARTING));
         }
 
-        final String why = (outdated ? "its image is out of date and the" : "the")
-                + " container could not be recreated: " + recreated.message();
+        final String why = recreated.message();
         final ServiceRuntime old = state.runtime().service(service).orElse(null);
         if (old == null || old.containerId() == null) {
-            return report.with(
-                    report.line(service).failed(why + " - and there is no container id to put the old one back with"));
+            return report.with(report.line(service).failed(TEXTS.report().notRecreated(outdated, why)));
         }
         final RedeployResult back = containers.start(old.containerId());
         if (back.triggered()) {
             // Docker accepting a start is not a service coming back; verify() finishes this with what it saw.
-            final String half = why + ". It was started again on the image it already had";
-            fellBack.put(service, half);
-            return report.with(report.line(service).failed(half + ", and has not been seen coming back yet."));
+            fellBack.put(service, new FellBack(outdated, why));
+            return report.with(report.line(service).failed(TEXTS.report().fellBack(outdated, why)));
         }
-        return report.with(report.line(service)
-                .failed(why + ", and starting it again on the old image failed too: " + back.message()));
+        return report.with(report.line(service).failed(TEXTS.report().notFellBack(outdated, why, back.message())));
     }
 
     /**
@@ -258,11 +258,12 @@ final class UpdateRun {
                 for (final String service : pending) {
                     if (now.service(service).map(ServiceRuntime::isBack).orElse(false)) {
                         back.add(service);
-                        // A fallback line stays FAILED and gains the half of the sentence that is now known.
+                        // A fallback line stays FAILED, its detail now saying that the service is back.
                         report = report.with(
                                 fellBack.containsKey(service)
                                         ? report.line(service)
-                                                .failed(fellBack.get(service) + ", and it is back on that old version.")
+                                                .failed(Objects.requireNonNull(fellBack.get(service))
+                                                        .healthy())
                                         : report.line(service).at(UpdateReport.State.HEALTHY));
                     }
                 }
@@ -298,15 +299,10 @@ final class UpdateRun {
             report = report.with(
                     fellBack.containsKey(service)
                             ? report.line(service)
-                                    .failed(fellBack.get(service)
-                                            + ", and it did NOT come back within "
-                                            + HEALTH_PATIENCE.toMinutes() + " minutes (" + seen + "). The"
-                                            + " service is down.")
+                                    .failed(Objects.requireNonNull(fellBack.get(service))
+                                            .down(HEALTH_PATIENCE.toMinutes(), seen))
                             : report.line(service)
-                                    .failed("did not come back within "
-                                            + HEALTH_PATIENCE.toMinutes() + " minutes (" + seen + ") - its"
-                                            + " own log is where the reason is, and the jar it was running"
-                                            + " before this update is still on disk"));
+                                    .failed(TEXTS.report().notHealthy(HEALTH_PATIENCE.toMinutes(), seen)));
         }
         return report;
     }
@@ -318,13 +314,29 @@ final class UpdateRun {
             report = report.with(report.line(service)
                     .failed(
                             fellBack.containsKey(service)
-                                    ? fellBack.get(service) + ", and steward-agent stopped before it was"
-                                            + " seen coming back."
-                                    : "steward-agent stopped while waiting for this service"));
+                                    ? Objects.requireNonNull(fellBack.get(service))
+                                            .interrupted()
+                                    : TEXTS.report().waitInterrupted()));
         }
         return report;
     }
 
     /** What {@link #stop} produced, carried to the two steps after it. */
     record Stopped(UpdateReport report, List<String> services, RuntimeResult runtime) {}
+
+    /** Why a recreate fell back to the image the service had, which every later word on its line repeats. */
+    private record FellBack(boolean outdated, String why) {
+
+        MessageRef healthy() {
+            return TEXTS.report().fellBackHealthy(outdated, why);
+        }
+
+        MessageRef down(final long minutes, final String seen) {
+            return TEXTS.report().fellBackDown(outdated, why, minutes, seen);
+        }
+
+        MessageRef interrupted() {
+            return TEXTS.report().fellBackInterrupted(outdated, why);
+        }
+    }
 }

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -68,10 +69,30 @@ class EmbedBudgetTest {
     }
 
     @Test
+    void aNoteIsToldInTheChannelsLanguageWithItsValuesEscaped() {
+        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.DONE)
+                .withNote(TEXTS.report().heldLeftOut(List.of("mc_smp")))
+                .with(new UpdateReport.ServiceLine(
+                        "smp",
+                        UpdateReport.State.FAILED,
+                        List.of(),
+                        TEXTS.report().stopFailed("exit *1*")));
+        final MessageEmbed embed = UpdateFeed.fields(report, request(), messages, Instant.now());
+
+        final String notes = embed.getFields().stream()
+                .filter(field -> "Notes".equals(field.getName()))
+                .map(MessageEmbed.Field::getValue)
+                .findFirst()
+                .orElseThrow();
+        assertTrue(notes.contains("mc\\_smp is being held down and was left out of this run"), notes);
+        assertTrue(notes.contains("**smp** could not be stopped: exit \\*1\\*"), notes);
+    }
+
+    @Test
     void aNoteThatIsAPageRenderedForATerminalIsLeftToStewardsLog() {
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.DONE)
-                .withNote("proxy: release v0.9.5 carries no proxy-<version>.jar")
-                .withNote("what was done\n\nproxy\n  proxy   unchanged   proxy-0.9.5.jar\n");
+                .withNote(TEXTS.report().words("proxy: release v0.9.5 carries no proxy-<version>.jar"))
+                .withNote(TEXTS.report().words("what was done\n\nproxy\n  proxy   unchanged   proxy-0.9.5.jar\n"));
         final MessageEmbed embed = UpdateFeed.fields(report, request(), messages, Instant.now());
 
         final String notes = embed.getFields().stream()
@@ -118,11 +139,14 @@ class EmbedBudgetTest {
             for (int c = 0; c * 40 < each; c++) {
                 changes.add(new UpdateReport.Change("artefact-" + i + "-" + c, "0.6.0", "0.7.0"));
             }
-            report = report.with(
-                    new UpdateReport.ServiceLine("service-" + i, UpdateReport.State.FAILED, changes, "x".repeat(each)));
+            report = report.with(new UpdateReport.ServiceLine(
+                    "service-" + i,
+                    UpdateReport.State.FAILED,
+                    changes,
+                    TEXTS.report().words("x".repeat(each))));
         }
         for (int i = 0; i < notes; i++) {
-            report = report.withNote("n".repeat(noteLength));
+            report = report.withNote(TEXTS.report().words("n".repeat(noteLength)));
         }
         return report;
     }

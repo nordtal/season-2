@@ -14,7 +14,7 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
   crest table is the network's setting.
 - **A refused write** throws `Refused` with a typed reason (`UpdateRefusal`, `SeasonDateRefusal`)
   and a message from this module's own bundle, `messages/database`. Steward words it with the admins'
-  overrides; `DatabaseText` renders it in packaged English for a log line.
+  overrides; `DatabaseText` renders it, or a message of the admin bundle, in packaged English for a log line.
 - **Signals**: a process opens one `SignalHub`, the only `LISTEN` connection it holds, and registers a
   refresh per `Channel`. Every refresh runs on connect, on every signal and once a minute, whatever the
   channel, so a lost notification costs a minute and a reconnect re-reads in full; this is the only polling
@@ -66,7 +66,11 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
 - **The season phase** is one row every process follows on its hub. A switch into `SMP` from before the season stamps
   `fresh_start`, and smp starts its own track over once per stamp whenever it next sees the phase, so a server that
   was down at the switch still starts over and no other process writes smp's tables.
-- **A run** is a request in the run inbox, `steward_inbox`; a unique index keeps one open at a time.
+- **A run** is a request in the run inbox, `steward_inbox`; a unique index keeps one open at a time. Its outcome is
+  always an `UpdateReport`, stored through `DatabaseJson`: each note and each line's detail a message of the
+  bundle's `report` section, its values typed, so Steward's page and the bot each render it and
+  `UpdateReports.english` prints it for the host. A report or a bare reason from before V26 keeps its words as
+  `report.words`.
 - **A run's countdown** is typed columns the proxy reads: `scheduled_for` (when steward-agent may claim it),
   `countdown_end` (when the servers go down) and `moving` (what they are), never the report JSON.
 

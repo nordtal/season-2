@@ -387,6 +387,244 @@ export type TextArgs = {
     from: Arg["instant"]
   }
   "note.too-many-codes": Record<string, never>
+  "report.agent-not-renewed": {
+    reason: Arg["text"]
+  }
+  "report.backup-unread": {
+    reason: Arg["text"]
+  }
+  "report.cancelled": Record<string, never>
+  "report.down-refused": {
+    services: Arg["list"]
+  }
+  "report.down-unnamed": Record<string, never>
+  "report.evacuation-interrupted": {
+    services: Arg["list"]
+  }
+  "report.failed-unexpectedly": {
+    error: Arg["text"]
+  }
+  "report.fell-back": {
+    outdated: Arg["choice"]
+    reason: Arg["text"]
+  }
+  "report.fell-back-down": {
+    outdated: Arg["choice"]
+    reason: Arg["text"]
+    minutes: Arg["number"]
+    seen: Arg["text"]
+  }
+  "report.fell-back-healthy": {
+    outdated: Arg["choice"]
+    reason: Arg["text"]
+  }
+  "report.fell-back-interrupted": {
+    outdated: Arg["choice"]
+    reason: Arg["text"]
+  }
+  "report.foreign-newer": {
+    services: Arg["list"]
+    count: Arg["number"]
+  }
+  "report.foreign-not-recreated": {
+    reason: Arg["text"]
+  }
+  "report.handed": {
+    release: Arg["text"]
+  }
+  "report.held-back": {
+    reason: Arg["text"]
+    held: Arg["list"]
+  }
+  "report.held-down": {
+    services: Arg["list"]
+  }
+  "report.held-left-out": {
+    services: Arg["list"]
+  }
+  "report.held-not-remade": {
+    services: Arg["list"]
+  }
+  "report.held-not-restarted": {
+    services: Arg["list"]
+  }
+  "report.no-backup-volumes": Record<string, never>
+  "report.no-container-to-start": Record<string, never>
+  "report.no-container-to-stop": Record<string, never>
+  "report.no-standby": {
+    run: Arg["choice"]
+  }
+  "report.not-fell-back": {
+    outdated: Arg["choice"]
+    reason: Arg["text"]
+    answer: Arg["text"]
+  }
+  "report.not-healthy": {
+    minutes: Arg["number"]
+    seen: Arg["text"]
+  }
+  "report.not-in-release": {
+    service: Arg["text"]
+    reason: Arg["text"]
+    installed: Arg["text"]
+  }
+  "report.not-installed": {
+    artefact: Arg["text"]
+    reason: Arg["text"]
+  }
+  "report.not-migrated": {
+    reason: Arg["text"]
+  }
+  "report.not-recreated": {
+    outdated: Arg["choice"]
+    reason: Arg["text"]
+  }
+  "report.not-stopped": {
+    run: Arg["choice"]
+    services: Arg["list"]
+  }
+  "report.nothing-held": Record<string, never>
+  "report.older-release": {
+    release: Arg["text"]
+    own: Arg["text"]
+  }
+  "report.one-shot-not-started": {
+    release: Arg["text"]
+    reason: Arg["text"]
+  }
+  "report.orphaned": Record<string, never>
+  "report.pack-moves": {
+    version: Arg["text"]
+  }
+  "report.pack-unchecked": {
+    reason: Arg["text"]
+  }
+  "report.players-unknown": {
+    services: Arg["list"]
+    seconds: Arg["number"]
+  }
+  "report.pruned": {
+    daily: Arg["number"]
+    weekly: Arg["number"]
+    monthly: Arg["number"]
+    count: Arg["number"]
+    archives: Arg["list"]
+  }
+  "report.recreating": {
+    pull: Arg["choice"]
+  }
+  "report.released-meanwhile": {
+    release: Arg["text"]
+    own: Arg["text"]
+  }
+  "report.remake-agent": Record<string, never>
+  "report.remake-unknown": {
+    services: Arg["list"]
+  }
+  "report.remake-unnamed": {
+    kind: Arg["choice"]
+  }
+  "report.removal-empty": {
+    artifact: Arg["text"]
+  }
+  "report.removal-failed": {
+    reason: Arg["text"]
+  }
+  "report.removal-unknown": {
+    service: Arg["text"]
+    artifact: Arg["text"]
+  }
+  "report.removal-unnamed": Record<string, never>
+  "report.removed": {
+    files: Arg["list"]
+  }
+  "report.renewing-agent": Record<string, never>
+  "report.restart-all-held": Record<string, never>
+  "report.restart-none-in-scope": {
+    scope: Arg["list"]
+  }
+  "report.restore-database-unsaved": {
+    reason: Arg["text"]
+  }
+  "report.restore-failed": Record<string, never>
+  "report.restore-not-a-volume": {
+    volume: Arg["text"]
+    archive: Arg["text"]
+  }
+  "report.restore-unknown": {
+    archive: Arg["text"]
+  }
+  "report.restore-unnamed": Record<string, never>
+  "report.restore-unsaved": {
+    volume: Arg["text"]
+  }
+  "report.restored-over": {
+    dump: Arg["text"]
+  }
+  "report.standby-no-container": {
+    standby: Arg["text"]
+  }
+  "report.standby-not-started": {
+    standby: Arg["text"]
+    reason: Arg["text"]
+  }
+  "report.standby-not-stopped": {
+    standby: Arg["text"]
+    reason: Arg["text"]
+  }
+  "report.standby-stopped": {
+    standby: Arg["text"]
+  }
+  "report.standby-stopped-interrupted": {
+    standby: Arg["text"]
+    players: Arg["number"]
+  }
+  "report.standby-stopped-with-players": {
+    standby: Arg["text"]
+    players: Arg["number"]
+    seconds: Arg["number"]
+  }
+  "report.standbys-interrupted": {
+    standbys: Arg["list"]
+  }
+  "report.standbys-ready": {
+    standbys: Arg["list"]
+    run: Arg["choice"]
+  }
+  "report.standbys-unhealthy": {
+    standbys: Arg["list"]
+    minutes: Arg["number"]
+  }
+  "report.start-failed": {
+    reason: Arg["text"]
+  }
+  "report.stop-failed": {
+    reason: Arg["text"]
+  }
+  "report.stopped-with-players": {
+    players: Arg["number"]
+    servers: Arg["list"]
+    seconds: Arg["number"]
+  }
+  "report.unclaimed": {
+    service: Arg["text"]
+    file: Arg["text"]
+  }
+  "report.unmarked-archive": {
+    services: Arg["list"]
+  }
+  "report.unverified-archive": {
+    mark: Arg["text"]
+  }
+  "report.unverified-stop": {
+    services: Arg["list"]
+    run: Arg["choice"]
+    failsTheRun: Arg["choice"]
+  }
+  "report.wait-interrupted": Record<string, never>
+  "report.words": {
+    text: Arg["text"]
+  }
   "run.duration": Record<string, never>
   "run.heading": Record<string, never>
   "run.kind": {

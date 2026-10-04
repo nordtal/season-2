@@ -257,14 +257,16 @@ public final class UpdateFeed {
         final List<String> notes = new ArrayList<>();
         for (final UpdateReport.ServiceLine line : report.services()) {
             lines.add(line(line, text));
-            if (line.detail() != null && !line.detail().isBlank()) {
-                notes.add(Card.bold(line.service()) + " " + Card.escape(line.detail()));
+            final MessageRef detail = line.detail();
+            if (detail != null) {
+                notes.add(Card.bold(line.service()) + " " + text.apply(detail).strip());
             }
         }
-        for (final String note : report.notes()) {
-            // A multi-line note only reads in monospace and repeats the service lines.
-            if (!note.isBlank() && note.strip().indexOf('\n') < 0) {
-                notes.add(Card.escape(note.strip()));
+        for (final MessageRef note : report.notes()) {
+            // The renderer escapes every value; a multi-line note only reads in monospace and repeats the lines.
+            final String shown = text.apply(note).strip();
+            if (!shown.isBlank() && shown.indexOf('\n') < 0) {
+                notes.add(shown);
             }
         }
         card.block(text.apply(TEXTS.run().services()), lines, more);

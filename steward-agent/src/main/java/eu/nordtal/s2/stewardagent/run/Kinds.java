@@ -1,6 +1,9 @@
 package eu.nordtal.s2.stewardagent.run;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import eu.nordtal.s2.database.inbox.StewardRequest;
+import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
@@ -10,6 +13,7 @@ import eu.nordtal.s2.internalapi.agent.RedeployResult;
 import eu.nordtal.s2.internalapi.agent.Retention;
 import eu.nordtal.s2.internalapi.agent.SnapshotResult;
 import eu.nordtal.s2.internalapi.agent.Topology;
+import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.stewardagent.apply.ApplyResult;
 import eu.nordtal.s2.stewardagent.config.RunSpec.BackupSpec;
 import eu.nordtal.s2.stewardagent.plan.PlanReport;
@@ -64,8 +68,7 @@ final class Kinds {
                 .filter(service -> scope.isEmpty() || scope.contains(service))
                 .toList();
         if (!skipped.isEmpty()) {
-            planned = planned.withNote(String.join(", ", skipped) + " is being held down and was"
-                    + " left out of this run. Start it again and ask for the update once more.");
+            planned = planned.withNote(TEXTS.report().heldLeftOut(skipped));
         }
         final List<String> foreign = ForeignImages.staleForeign(topology, images).stream()
                 // A scoped run renews a foreign image only when the scope names it.
@@ -91,14 +94,8 @@ final class Kinds {
         return Planned.plan(Run.Plan.of(
                         stopped,
                         stopped.isWork() ? install(runner, plan, progress) : Run.Payload.NONE,
-                        "NOTHING WAS INSTALLED: installing into a server that is still running is the failure this"
-                                + " sequence exists to prevent.",
-                        refusal -> "NOTHING WAS STOPPED AND NOTHING WAS INSTALLED. " + refusal
-                                + ". This run stops a service whose players have to go somewhere, and the somewhere"
-                                + " is that standby - so a standby that does not come up is a run that would take"
-                                + " the network down with nowhere to put anybody.",
-                        "this run",
-                        "the jars were moved into its plugins directory",
+                        UpdateReport.Undertaking.INSTALL,
+                        true,
                         Runner.Doubt.FAILS_THE_RUN)
                 .renewing(images, foreign, plan.hasFailures()));
     }
@@ -122,17 +119,11 @@ final class Kinds {
             case OWN -> {}
             case NEWER -> {
                 return runner.oneShot
-                        ? refused(
-                                planned,
-                                tag + " was published while this run was handed to steward-agent " + own
-                                        + ". Ask for the update again.")
+                        ? refused(planned, TEXTS.report().releasedMeanwhile(String.valueOf(tag), String.valueOf(own)))
                         : handOver(runner, request, planned, Release.version(Objects.requireNonNull(tag)), progress);
             }
             case OLDER -> {
-                return refused(
-                        planned,
-                        "The newest release is " + tag + " and steward-agent is " + own
-                                + ", and no schema goes back to an earlier release.");
+                return refused(planned, TEXTS.report().olderRelease(String.valueOf(tag), String.valueOf(own)));
             }
         }
         if (!runner.oneShot
@@ -149,18 +140,16 @@ final class Kinds {
         return Run.Plan.of(
                         planned,
                         Run.Payload.NONE,
-                        null,
-                        refusal -> refusal,
-                        "this run",
-                        "steward-agent was renewed",
+                        UpdateReport.Undertaking.RENEW_AGENT,
+                        false,
                         Runner.Doubt.IS_ONLY_SAID)
                 .stoppingNothing();
     }
 
     /** A run that ends before anything moved, with the reason as the report's note. */
-    private static Planned refused(final UpdateReport planned, final String why) {
-        return Planned.outcome(Outcome.failed(UpdateReports.toJson(planned.withStage(UpdateReport.Stage.FAILED)
-                .withNote("NOTHING WAS STOPPED AND NOTHING WAS INSTALLED. " + why))));
+    private static Planned refused(final UpdateReport planned, final MessageRef why) {
+        return Planned.outcome(Outcome.failed(UpdateReports.toJson(
+                planned.withStage(UpdateReport.Stage.FAILED).withNote(why))));
     }
 
     /**
@@ -178,14 +167,12 @@ final class Kinds {
             // No longer RUNNING since the claim, which in practice means cancelled.
             return Planned.outcome(Runner.cancelled());
         }
-        final UpdateReport handed = planned.withNote("This run goes to a one-shot steward-agent at release " + release
-                + ", which carries it out and renews the running one last.");
+        final UpdateReport handed = planned.withNote(TEXTS.report().handed(release));
         progress.accept(handed);
         final RedeployResult started = runner.containers.handOver(request.id(), release);
         if (!started.triggered()) {
             return Planned.outcome(Outcome.failed(UpdateReports.toJson(handed.withStage(UpdateReport.Stage.FAILED)
-                    .withNote("NOTHING WAS STOPPED AND NOTHING WAS INSTALLED. The steward-agent at " + release
-                            + " did not start: " + started.message()))));
+                    .withNote(TEXTS.report().oneShotNotStarted(release, started.message())))));
         }
         log.info("Request {} is handed to {} at release {}", request.id(), runner.containers.oneShot(), release);
         return Planned.outcome(Outcome.handedOver(UpdateReports.toJson(handed)));
@@ -203,15 +190,19 @@ final class Kinds {
             progress.accept(report);
             final RedeployResult migrated = runner.containers.migrate();
             if (!migrated.triggered()) {
-                throw new Run.Abort(report.withNote("NOTHING WAS INSTALLED. The schema could not be brought to this"
-                        + " release, so every server was started again on what it had: " + migrated.message()));
+                throw new Run.Abort(report.withNote(TEXTS.report().notMigrated(migrated.message())));
             }
             final ApplyResult result =
                     Runs.apply(runner.config, runner.topology(), plan, runner.settings(), runner.plugins);
-            report = report.withNote(Report.render(result));
+            for (final ApplyResult.Outcome outcome : result.outcomes()) {
+                // A file of no service, the resource pack, has no line to fail on.
+                if (outcome.service() == null && didNotGoIn(outcome)) {
+                    report = report.withNote(notInstalled(outcome));
+                }
+            }
             for (final String service : state.services()) {
                 // Only where the apply succeeded; marking every stopped service INSTALLED here would be premature.
-                final String failure = failureFor(result, service);
+                final MessageRef failure = failureFor(result, service);
                 report = report.with(
                         failure == null
                                 ? report.line(service).at(UpdateReport.State.INSTALLED)
@@ -223,17 +214,27 @@ final class Kinds {
     }
 
     /** Why one service's install did not happen, or {@code null} when it did, counting {@code SKIPPED} as failed. */
-    private static @Nullable String failureFor(final ApplyResult result, final String service) {
+    private static @Nullable MessageRef failureFor(final ApplyResult result, final String service) {
         return result.outcomes().stream()
                 .filter(outcome -> service.equals(outcome.service()))
-                .filter(outcome ->
-                        outcome.status() == ApplyResult.Status.FAILED || outcome.status() == ApplyResult.Status.SKIPPED)
+                .filter(Kinds::didNotGoIn)
                 .findFirst()
-                .map(outcome -> outcome.artifact() + ": "
-                        + (outcome.detail() == null
-                                ? outcome.status().name().toLowerCase(java.util.Locale.ROOT)
-                                : outcome.detail()))
+                .map(Kinds::notInstalled)
                 .orElse(null);
+    }
+
+    private static boolean didNotGoIn(final ApplyResult.Outcome outcome) {
+        return outcome.status() == ApplyResult.Status.FAILED || outcome.status() == ApplyResult.Status.SKIPPED;
+    }
+
+    /** An artefact that did not go in, with the applier's reason or its status word when it gave none. */
+    private static MessageRef notInstalled(final ApplyResult.Outcome outcome) {
+        return TEXTS.report()
+                .notInstalled(
+                        outcome.artifact(),
+                        outcome.detail() == null
+                                ? outcome.status().name().toLowerCase(java.util.Locale.ROOT)
+                                : outcome.detail());
     }
 
     /** Stops the Minecraft services in scope and starts them again, installing nothing. */
@@ -253,28 +254,18 @@ final class Kinds {
             return Planned.outcome(Outcome.done(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.NOTHING_TO_DO)
                     .withNote(
                             scope.isEmpty()
-                                    ? "Every Minecraft service is being held down, so there was nothing to"
-                                            + " restart. Nothing was stopped."
-                                    : "Nothing in " + String.join(", ", scope) + " is a Minecraft service"
-                                            + " this run may restart - either it is not one, or it is being"
-                                            + " held down. Nothing was stopped."))));
+                                    ? TEXTS.report().restartAllHeld()
+                                    : TEXTS.report().restartNoneInScope(scope)))));
         }
         final List<String> untouched = servers.stream()
                 .filter(holds::contains)
                 .filter(service -> scope.isEmpty() || scope.contains(service))
                 .toList();
         if (!untouched.isEmpty()) {
-            planned = planned.withNote(String.join(", ", untouched) + " is being held down and was not"
-                    + " restarted. It stays down until somebody starts it.");
+            planned = planned.withNote(TEXTS.report().heldNotRestarted(untouched));
         }
         return Planned.plan(Run.Plan.of(
-                planned,
-                Run.Payload.NONE,
-                null,
-                refusal -> "NOTHING WAS RESTARTED. " + refusal + ". Every service is still running exactly as it was.",
-                "this restart",
-                "it was started again on the same world",
-                Runner.Doubt.IS_ONLY_SAID));
+                planned, Run.Payload.NONE, UpdateReport.Undertaking.RESTART, false, Runner.Doubt.IS_ONLY_SAID));
     }
 
     /**
@@ -288,14 +279,12 @@ final class Kinds {
             topology = runner.containers.topology();
         } catch (final RuntimeException unread) {
             return Planned.outcome(Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote("steward-agent did not say what a backup saves, so nothing was stopped and"
-                            + " nothing was saved: " + unread.getMessage()))));
+                    .withNote(TEXTS.report().backupUnread(String.valueOf(unread.getMessage()))))));
         }
         if (topology.backupVolumes().isEmpty()) {
             // Not a quiet success: a compose.yml with no backup mounts must not take the network down for nothing.
             return Planned.outcome(Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote("compose.yml mounts no volume for steward-agent to back up, so there is nothing to"
-                            + " save and nothing was stopped."))));
+                    .withNote(TEXTS.report().noBackupVolumes()))));
         }
 
         // The database first, with everything running: pg_dump's MVCC snapshot needs nothing stopped.
@@ -305,7 +294,7 @@ final class Kinds {
                         Snapshots.DATABASE,
                         dumped.ok() ? UpdateReport.State.SAVED : UpdateReport.State.FAILED,
                         List.of(new UpdateReport.Change("backup", null, dumped.message())),
-                        dumped.ok() ? null : dumped.message()));
+                        dumped.ok() ? null : TEXTS.report().words(dumped.message())));
         progress.accept(planned);
         for (final String service : topology.stoppedForBackup()) {
             planned = planned.with(new UpdateReport.ServiceLine(
@@ -321,18 +310,8 @@ final class Kinds {
             // While the servers are still down: quick, and it frees disk before the next run.
             return new Run.Done(prune(runner, saved), false);
         };
-        return Planned.plan(Run.Plan.of(
-                planned,
-                save,
-                "NOTHING WAS SAVED: a snapshot of a running server is one that fails when somebody tries to"
-                        + " restore it.",
-                refusal -> "NOTHING WAS STOPPED AND NOTHING WAS SAVED. " + refusal
-                        + ". The database dump above was taken with everything running and is real; the volumes"
-                        + " were not touched.",
-                "this backup",
-                "the archives were taken - they were kept, and each one has a .unverified file beside it saying"
-                        + " so, which `deploy/restore.sh --list` prints",
-                Runner.Doubt.FAILS_THE_RUN));
+        return Planned.plan(
+                Run.Plan.of(planned, save, UpdateReport.Undertaking.BACKUP, true, Runner.Doubt.FAILS_THE_RUN));
     }
 
     /** What was kept and what was removed, put into the report so a wrong retention shows. */
@@ -342,9 +321,8 @@ final class Kinds {
         final List<String> pruned = runner.backups.prune(policy);
         return pruned.isEmpty()
                 ? saved
-                : saved.withNote("kept " + policy.daily() + " daily, " + policy.weekly() + " weekly and "
-                        + policy.monthly() + " monthly of each series, and removed " + pruned.size() + ": "
-                        + String.join(", ", pruned));
+                : saved.withNote(TEXTS.report()
+                        .pruned(policy.daily(), policy.weekly(), policy.monthly(), pruned.size(), pruned));
     }
 
     /**
@@ -356,18 +334,12 @@ final class Kinds {
         final List<String> scope = runner.directory.scopeOf(request.id());
         if (scope.isEmpty()) {
             return Planned.outcome(Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote("This request asks to put services down without naming any. Nothing"
-                            + " was stopped: an unnamed scope means the whole network, and taking"
-                            + " the whole network down until somebody presses Start is not"
-                            + " something anybody asks for by leaving a field empty."))));
+                    .withNote(TEXTS.report().downUnnamed()))));
         }
         final List<String> refused = scope.stream().filter(NEVER_DOWN::contains).toList();
         if (!refused.isEmpty()) {
             return Planned.outcome(Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote("Nothing was stopped: " + String.join(", ", refused) + " cannot be"
-                            + " put down from here. Steward is where Start is pressed, and this"
-                            + " run writes its report through postgres, so a run that stopped either"
-                            + " one could not be undone or say what it had done."))));
+                    .withNote(TEXTS.report().downRefused(refused)))));
         }
         UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING);
         for (final String service : scope) {
@@ -385,23 +357,14 @@ final class Kinds {
             return new Run.Done(
                     stopped.services().isEmpty()
                             ? stopped.report()
-                            : stopped.report()
-                                    .withNote("Held down: " + String.join(", ", stopped.services())
-                                            + ". Nothing starts a held service again on its own: not a later update"
-                                            + " run, not a restart, and not steward-agent coming back."),
+                            : stopped.report().withNote(TEXTS.report().heldDown(stopped.services())),
                     false);
         };
-        return Planned.plan(Run.Plan.of(
-                        planned,
-                        hold,
-                        null,
-                        refusal -> "NOTHING WAS STOPPED. " + refusal + ".",
-                        "this take-down",
-                        "it was put down on purpose",
-                        Runner.Doubt.IS_ONLY_SAID)
-                // Only when somebody could be standing on one of them, since the countdown warns players.
-                .announced(scope.stream().anyMatch(runner::isMinecraft))
-                .leavingThemDown());
+        return Planned.plan(
+                Run.Plan.of(planned, hold, UpdateReport.Undertaking.TAKE_DOWN, false, Runner.Doubt.IS_ONLY_SAID)
+                        // Only when somebody could be standing on one of them, since the countdown warns players.
+                        .announced(scope.stream().anyMatch(runner::isMinecraft))
+                        .leavingThemDown());
     }
 
     /**
@@ -414,7 +377,7 @@ final class Kinds {
         final List<String> services = asked.isEmpty() ? runner.held() : asked;
         if (services.isEmpty()) {
             return Planned.outcome(Outcome.done(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.NOTHING_TO_DO)
-                    .withNote("No service is being held down, so there was nothing to start."))));
+                    .withNote(TEXTS.report().nothingHeld()))));
         }
         UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STARTING);
         for (final String service : services) {
@@ -431,16 +394,10 @@ final class Kinds {
             }
             return new Run.Done(stopped.report(), false);
         };
-        return Planned.plan(Run.Plan.of(
-                        planned,
-                        release,
-                        null,
-                        refusal -> refusal,
-                        "this start",
-                        "it was started again",
-                        Runner.Doubt.IS_ONLY_SAID)
-                .stoppingNothing()
-                .alsoStarting(services));
+        return Planned.plan(
+                Run.Plan.of(planned, release, UpdateReport.Undertaking.START, false, Runner.Doubt.IS_ONLY_SAID)
+                        .stoppingNothing()
+                        .alsoStarting(services));
     }
 
     /**
@@ -449,16 +406,12 @@ final class Kinds {
      * Ours are stopped and made again as they start; caddy, pack-host and postgres once the rest is back.
      */
     static Planned remake(final Runner runner, final UpdateRequest request, final boolean pull) {
-        final String verb = pull ? "deploy" : "recreate";
         final List<String> scope = runner.directory.scopeOf(request.id());
         if (scope.isEmpty()) {
-            return failed("This " + verb + " names no service. Nothing was stopped: a container is made again"
-                    + " one service at a time, by name.");
+            return failed(TEXTS.report().remakeUnnamed(pull ? UpdateKind.DEPLOY : UpdateKind.RECREATE));
         }
         if (scope.contains(AgentWire.SERVICE)) {
-            return failed("Nothing was stopped: steward-agent carries this run out, so it cannot make its own"
-                    + " container again. An update hands itself to a one-shot steward-agent whenever this one is"
-                    + " out of date, and that one-shot renews it.");
+            return failed(TEXTS.report().remakeAgent());
         }
         final AgentWire.Topology topology = runner.topology();
         final List<String> recreatable = topology.renewed(AgentWire.Renewal.RUN);
@@ -468,8 +421,7 @@ final class Kinds {
                 .filter(service -> !foreign.contains(service))
                 .toList();
         if (!unknown.isEmpty()) {
-            return failed("Nothing was stopped: " + String.join(", ", unknown) + " is not a service a run may"
-                    + " make again.");
+            return failed(TEXTS.report().remakeUnknown(unknown));
         }
         final List<String> holds = runner.held();
         final List<String> ours = scope.stream()
@@ -484,8 +436,7 @@ final class Kinds {
         UpdateReport planned = remadeLines(ours, pull);
         final List<String> skipped = scope.stream().filter(holds::contains).toList();
         if (!skipped.isEmpty()) {
-            planned = planned.withNote(String.join(", ", skipped) + " is being held down and was left out: making"
-                    + " its container again would start it.");
+            planned = planned.withNote(TEXTS.report().heldNotRemade(skipped));
         }
         if (ours.isEmpty() && theirs.isEmpty()) {
             return Planned.outcome(
@@ -494,10 +445,8 @@ final class Kinds {
         return Planned.plan(Run.Plan.of(
                         planned,
                         Run.Payload.NONE,
-                        "NOTHING WAS MADE AGAIN:",
-                        refusal -> "NOTHING WAS STOPPED. " + refusal + ".",
-                        "this " + verb,
-                        "its container was made again",
+                        pull ? UpdateReport.Undertaking.DEPLOY : UpdateReport.Undertaking.RECREATE,
+                        true,
                         Runner.Doubt.IS_ONLY_SAID)
                 // Postgres and Caddy carry every server's connections, so they are announced like a stop.
                 .announced(ours.stream().anyMatch(runner::isMinecraft) || !theirs.isEmpty())
@@ -522,13 +471,12 @@ final class Kinds {
     static Planned removePlugin(final Runner runner, final UpdateRequest request) {
         final StewardRequest asked = runner.directory.requestOf(request.id()).orElse(null);
         if (!(asked instanceof StewardRequest.RemovePlugin removal)) {
-            return failed("This row does not say which plugin to remove. Nothing was stopped.");
+            return failed(TEXTS.report().removalUnnamed());
         }
         final String service = removal.services().getFirst();
         final String artifact = removal.artifact();
         if (!runner.removal.has(service, artifact)) {
-            return failed("Nothing was stopped: " + service + " has no added plugin " + artifact + ". The"
-                    + " plugins the network gives are not in that list and cannot be removed.");
+            return failed(TEXTS.report().removalUnknown(service, artifact));
         }
         final boolean held = runner.held().contains(service);
         final UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING)
@@ -545,22 +493,17 @@ final class Kinds {
                         stopped.report()
                                 .withNote(
                                         deleted.isEmpty()
-                                                ? artifact + " had nothing installed; it is off the list."
-                                                : "Removed " + String.join(", ", deleted) + "."),
+                                                ? TEXTS.report().removalEmpty(artifact)
+                                                : TEXTS.report().removed(deleted)),
                         false);
             } catch (final RuntimeException refused) {
                 return new Run.Done(
-                        stopped.report().withNote("The plugin was not removed: " + refused.getMessage()), true);
+                        stopped.report().withNote(TEXTS.report().removalFailed(String.valueOf(refused.getMessage()))),
+                        true);
             }
         };
-        final Run.Plan plan = Run.Plan.of(
-                planned,
-                remove,
-                "NOTHING WAS REMOVED: a running server keeps a deleted plugin loaded and its folder open.",
-                refusal -> "NOTHING WAS STOPPED AND NOTHING WAS REMOVED. " + refusal + ".",
-                "this removal",
-                "the plugin was deleted",
-                Runner.Doubt.IS_ONLY_SAID);
+        final Run.Plan plan =
+                Run.Plan.of(planned, remove, UpdateReport.Undertaking.REMOVE_PLUGIN, true, Runner.Doubt.IS_ONLY_SAID);
         return Planned.plan(held ? plan.stoppingNothing().leavingThemDown() : plan);
     }
 
@@ -572,12 +515,12 @@ final class Kinds {
     static Planned restore(final Runner runner, final UpdateRequest request) {
         final StewardRequest asked = runner.directory.requestOf(request.id()).orElse(null);
         if (!(asked instanceof StewardRequest.Restore restore)) {
-            return failed("This row does not say which archive to restore. Nothing was stopped.");
+            return failed(TEXTS.report().restoreUnnamed());
         }
         final String archive = restore.archive();
         final String series = runner.backups.seriesOf(archive).orElse(null);
         if (series == null) {
-            return failed("Nothing was stopped: " + archive + " is not a finished archive in the backups.");
+            return failed(TEXTS.report().restoreUnknown(archive));
         }
         return Snapshots.DATABASE.equals(series)
                 ? restoreDatabase(runner, request, archive)
@@ -587,27 +530,22 @@ final class Kinds {
     private static Planned restoreVolume(final Runner runner, final String archive, final String volume) {
         final AgentWire.Topology topology = runner.containers.topology();
         if (!topology.backupVolumes().contains(volume)) {
-            return failed("Nothing was stopped: " + volume + " is not a volume compose.yml lets steward-agent"
-                    + " back up, so it cannot put " + archive + " back either.");
+            return failed(TEXTS.report().restoreNotAVolume(volume, archive));
         }
         final List<String> users = running(runner, topology.usersOf(volume));
         final Run.Payload put = (steps, stopped) -> {
             // The volume as it is now, so a restore of the wrong archive is itself undone by a restore.
             final UpdateReport saved = steps.save(stopped.report(), List.of(volume));
             if (saved.line(volume).state() != UpdateReport.State.SAVED) {
-                throw new Run.Abort(saved.withNote("NOTHING WAS RESTORED: " + volume + " could not be saved as it"
-                        + " is first, and a restore without that backup could not be taken back."));
+                throw new Run.Abort(saved.withNote(TEXTS.report().restoreUnsaved(volume)));
             }
             return putBack(saved, runner.backups.restore(archive), archive);
         };
         return Planned.plan(Run.Plan.of(
                         stopping(users, "restore", archive),
                         put,
-                        "NOTHING WAS RESTORED: putting files back under a running server is what this run stops it"
-                                + " for.",
-                        refusal -> "NOTHING WAS STOPPED AND NOTHING WAS RESTORED. " + refusal + ".",
-                        "this restore",
-                        "the archive was put back",
+                        UpdateReport.Undertaking.RESTORE_VOLUME,
+                        true,
                         Runner.Doubt.FAILS_THE_RUN)
                 .announced(users.stream().anyMatch(runner::isMinecraft)));
     }
@@ -616,8 +554,7 @@ final class Kinds {
         // With everything running, as every backup takes it, and before anything is stopped.
         final SnapshotResult dumped = runner.backups.saveDatabase();
         if (!dumped.ok()) {
-            return failed("Nothing was stopped and the database was not touched: the database could not be"
-                    + " saved as it is first. " + dumped.message());
+            return failed(TEXTS.report().restoreDatabaseUnsaved(dumped.message()));
         }
         final List<String> users = running(runner, runner.topology().renewed(AgentWire.Renewal.RUN));
         final UpdateReport planned = stopping(users, "restore", dump)
@@ -631,22 +568,12 @@ final class Kinds {
             final String row = runner.directory.carry(request.id()).orElse(null);
             final SnapshotResult restored = runner.backups.restoreDatabase(dump);
             if (restored.ok() && row != null) {
-                runner.directory.putBack(
-                        row,
-                        "The database was restored from " + dump + ", which held this"
-                                + " run open; it was not carried out after the restore.");
+                runner.directory.putBack(row, TEXTS.report().restoredOver(dump));
             }
             return putBack(stopped.report(), restored, dump);
         };
         return Planned.plan(Run.Plan.of(
-                planned,
-                replace,
-                "NOTHING WAS RESTORED: a service writing into the database while it is replaced writes into"
-                        + " the one being thrown away.",
-                refusal -> "NOTHING WAS STOPPED AND NOTHING WAS RESTORED. " + refusal + ".",
-                "this restore",
-                "the database was replaced",
-                Runner.Doubt.FAILS_THE_RUN));
+                planned, replace, UpdateReport.Undertaking.RESTORE_DATABASE, true, Runner.Doubt.FAILS_THE_RUN));
     }
 
     /** The archive's own line on the report, and a failed run when it did not go back. */
@@ -658,13 +585,11 @@ final class Kinds {
                         "restore",
                         null,
                         result.ok() ? "restored " + SnapshotResult.human(result.bytes()) : result.message())),
-                result.ok() ? null : result.message());
+                result.ok() ? null : TEXTS.report().words(result.message()));
         return new Run.Done(
                 result.ok()
                         ? report.with(line)
-                        : report.with(line)
-                                .withNote("The restore failed and the backup taken just before it holds what was"
-                                        + " there."),
+                        : report.with(line).withNote(TEXTS.report().restoreFailed()),
                 !result.ok());
     }
 
@@ -692,7 +617,7 @@ final class Kinds {
         return planned;
     }
 
-    private static Planned failed(final String note) {
+    private static Planned failed(final MessageRef note) {
         return Planned.outcome(Outcome.failed(
                 UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED).withNote(note))));
     }

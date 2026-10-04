@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.update;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -40,7 +41,7 @@ class CarriedAcrossARestoreIntegrationTest {
             statement.execute("DELETE FROM steward_inbox WHERE id = " + restore.id());
             statement.execute("UPDATE steward_inbox SET status = 'RUNNING', finished = NULL WHERE id = " + backup.id());
         }
-        updates.putBack(carried, "restored from a dump taken while this ran");
+        updates.putBack(carried, TEXTS.report().words("restored from a dump taken while this ran"));
 
         final UpdateRequest back = updates.find(restore.id()).orElseThrow();
         assertEquals(UpdateStatus.RUNNING, back.status());
@@ -49,7 +50,9 @@ class CarriedAcrossARestoreIntegrationTest {
                 updates.requestOf(restore.id()).orElseThrow());
         final UpdateRequest settled = updates.find(backup.id()).orElseThrow();
         assertEquals(UpdateStatus.FAILED, settled.status(), "an open row from the dump would be claimed again");
-        assertEquals("restored from a dump taken while this ran", settled.result());
+        assertEquals(
+                List.of(TEXTS.report().words("restored from a dump taken while this ran")),
+                UpdateReports.parse(settled.result()).orElseThrow().notes());
 
         assertTrue(updates.finish(restore.id(), UpdateStatus.DONE, "{}").isPresent());
         assertTrue(

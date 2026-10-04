@@ -4,8 +4,10 @@ import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.common.time.Waiting;
+import eu.nordtal.s2.database.DatabaseText;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.database.update.UpdateKind;
+import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.messages.Refused;
 import eu.nordtal.s2.settings.DatabaseSpec;
@@ -71,8 +73,7 @@ final class HostRequests {
             System.out.println(written.id());
             return 0;
         } catch (final Refused refused) {
-            System.err.println(eu.nordtal.s2.database.DatabaseText.english(
-                    refused.refusal().message()));
+            System.err.println(DatabaseText.english(refused.refusal().message()));
             return 1;
         } catch (final IllegalArgumentException refused) {
             System.err.println(refused.getMessage());
@@ -89,8 +90,9 @@ final class HostRequests {
         if (row.isEmpty()) {
             return 1;
         }
-        final String report = row.get().result();
-        System.out.println(row.get().status() + "\t" + (report == null ? "" : report.replace('\n', ' ')));
+        final String stored = row.get().result();
+        final String report = stored == null ? "" : UpdateReports.english(stored);
+        System.out.println(row.get().status() + "\t" + report.replace('\n', ' '));
         return 0;
     }
 }

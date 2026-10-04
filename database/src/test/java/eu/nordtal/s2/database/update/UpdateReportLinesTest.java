@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.update;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -34,11 +35,12 @@ class UpdateReportLinesTest {
 
     @Test
     void theNotesAreNotACasualtyOfDroppingALine() {
-        final UpdateReport left =
-                of("smp", "limbo").withNote("limbo is being held down").withoutLines(List.of("limbo"));
+        final UpdateReport left = of("smp", "limbo")
+                .withNote(TEXTS.report().words("limbo is being held down"))
+                .withoutLines(List.of("limbo"));
 
         assertTrue(
-                left.notes().contains("limbo is being held down"),
+                left.notes().contains(TEXTS.report().words("limbo is being held down")),
                 "the sentence explaining why the line is missing was dropped with the line, so the"
                         + " report now silently does less than it says");
         assertEquals(UpdateReport.Stage.PLANNED, left.stage());

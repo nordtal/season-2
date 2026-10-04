@@ -103,6 +103,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V25__an_admin_previews_a_text_where_it_is_shown.sql",
                 "5ba3313e1a2a338cadfd283fde22794d3615e6c702836fdd96d6a46038cd84e2");
+        FROZEN.put(
+                "V26__a_run_report_is_told_in_messages.sql",
+                "27ebdea354065693da714bc950b106218c173c155e71677a9d1fa5188fdf3adb");
     }
 
     @Test

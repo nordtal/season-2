@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.update;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -32,8 +33,10 @@ class UpdateReportsTest {
                                 "limbo",
                                 UpdateReport.State.FAILED,
                                 List.of(new UpdateReport.Change("limbo", null, "0.7.0")),
-                                "did not report healthy within 5 minutes")),
-                List.of("the schema is current", "the pack was written"));
+                                TEXTS.report().words("did not report healthy within 5 minutes"))),
+                List.of(
+                        TEXTS.report().words("the schema is current"),
+                        TEXTS.report().words("the pack was written")));
 
         final Optional<UpdateReport> back = UpdateReports.parse(UpdateReports.toJson(report));
 
@@ -68,10 +71,11 @@ class UpdateReportsTest {
     void aFailureMessageCarryingQuotesAndNewlinesComesBackAsItWentIn() {
         final String nasty = "the daemon answered 404 for \"/containers/abc123/stop\".\nIts id\tis"
                 + " twelve hex characters, not a service name.";
-        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.FAILED).withNote(nasty);
+        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.FAILED)
+                .withNote(TEXTS.report().words(nasty));
 
         assertEquals(
-                nasty,
+                TEXTS.report().words(nasty),
                 UpdateReports.parse(UpdateReports.toJson(report))
                         .orElseThrow()
                         .notes()
@@ -210,10 +214,12 @@ class UpdateReportsTest {
     void aFailureSaysWhichServiceAndWhy() {
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.FAILED)
                 .with(new UpdateReport.ServiceLine("limbo", UpdateReport.State.PLANNED, List.of(), null)
-                        .failed("did not report healthy within 5 minutes"));
+                        .failed(TEXTS.report().words("did not report healthy within 5 minutes")));
 
         assertEquals(UpdateReport.State.FAILED, report.line("limbo").state(), report.toString());
         assertEquals(
-                "did not report healthy within 5 minutes", report.line("limbo").detail(), report.toString());
+                TEXTS.report().words("did not report healthy within 5 minutes"),
+                report.line("limbo").detail(),
+                report.toString());
     }
 }

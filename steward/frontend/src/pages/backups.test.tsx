@@ -153,7 +153,7 @@ function run(over: Record<string, unknown> = {}) {
         service: `nordtal-s2_volume-${index}`,
         state: "FAILED",
         changes: [],
-        detail: "no mount at /backup-sources",
+        detail: { key: "report.words", args: { text: { kind: "text", value: "no mount at /backup-sources" } } },
       })),
     },
     ...over,

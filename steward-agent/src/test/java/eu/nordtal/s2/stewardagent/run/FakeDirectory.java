@@ -7,6 +7,7 @@ import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateStatus;
+import eu.nordtal.s2.messages.MessageRef;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -231,7 +232,9 @@ final class FakeDirectory implements UpdateDirectory {
     }
 
     @Override
-    public int settleOrphans(final String failed, final java.util.function.Predicate<String> stillRunning) {
+    public int settleOrphans(final MessageRef why, final java.util.function.Predicate<String> stillRunning) {
+        final String failed =
+                UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED).withNote(why));
         int settled = 0;
         for (final UpdateRequest row : List.copyOf(rows.values())) {
             if (row.status() != UpdateStatus.RUNNING) {

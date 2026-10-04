@@ -1,6 +1,7 @@
 package eu.nordtal.s2.database.update;
 
 import eu.nordtal.s2.common.id.Actor;
+import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.Refused;
 import java.time.Duration;
 import java.time.Instant;
@@ -212,11 +213,11 @@ public interface UpdateDirectory {
     /**
      * Fails everything left {@code RUNNING} but a run handed to a container that still runs; once, at startup.
      *
-     * @param failed what to write into those rows
+     * @param why the one note of the failed report written into those rows
      * @param stillRunning asks the daemon whether the container a run was handed to still runs
      * @return how many there were
      */
-    int settleOrphans(String failed, java.util.function.Predicate<String> stillRunning);
+    int settleOrphans(MessageRef why, java.util.function.Predicate<String> stillRunning);
 
     /**
      * Hands a running request to a one-shot container, which settles it; the default hands nothing over.
@@ -251,9 +252,9 @@ public interface UpdateDirectory {
      * After a restore: fails every row the dump held open, then writes the carried row back and counts on from it.
      *
      * @param row what {@link #carry} returned before the restore
-     * @param failed what to write into the rows the dump held open
+     * @param why the one note of the failed report written into the rows the dump held open
      */
-    default void putBack(final String row, final String failed) {
+    default void putBack(final String row, final MessageRef why) {
         throw new UnsupportedOperationException("this directory cannot put a row back");
     }
 }

@@ -1,5 +1,7 @@
 package eu.nordtal.s2.stewardagent.run;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
@@ -36,18 +38,18 @@ final class ForeignImages {
         // Named first: an image that could not be compared is UNKNOWN, never silently current.
         final Optional<String> unverifiable = images.notCheckable();
         if (unverifiable.isPresent()) {
-            report = report.withNote(unverifiable.get());
+            report = report.withNote(TEXTS.report().words(unverifiable.get()));
         }
 
         // LOCAL is not work, but worth a note: unpublished code is overwritten by the next run.
         final Optional<String> local = images.localImages();
         if (local.isPresent()) {
-            report = report.withNote(local.get());
+            report = report.withNote(TEXTS.report().words(local.get()));
         }
 
         final Optional<String> nothing = images.nothingChecked();
         if (nothing.isPresent()) {
-            return report.withNote(nothing.get());
+            return report.withNote(TEXTS.report().words(nothing.get()));
         }
 
         final List<String> foreign = new ArrayList<>();
@@ -76,10 +78,7 @@ final class ForeignImages {
         }
 
         if (!foreign.isEmpty()) {
-            report = report.withNote("The registry has a newer image for "
-                    + String.join(", ", foreign) + ", which steward-agent does not own and never"
-                    + " stops. Renew " + (foreign.size() == 1 ? "it" : "them")
-                    + " with a redeploy of the project from the host.");
+            report = report.withNote(TEXTS.report().foreignNewer(foreign, foreign.size()));
         }
         return report;
     }
@@ -128,16 +127,14 @@ final class ForeignImages {
                             pull
                                     ? new UpdateReport.Change("image", null, "out of date")
                                     : new UpdateReport.Change("container", null, "made again")),
-                    pull ? "pulling its image and recreating the container" : "recreating the container"));
+                    TEXTS.report().recreating(pull)));
             progress.accept(report);
             final RedeployResult result = pull ? containers.deploy(service) : containers.recreate(service);
             if (result.triggered()) {
                 asked.add(service);
                 continue;
             }
-            report = report.with(report.line(service)
-                    .failed("the container could not be recreated: " + result.message()
-                            + ". The one it had is still running."));
+            report = report.with(report.line(service).failed(TEXTS.report().foreignNotRecreated(result.message())));
             progress.accept(report);
         }
         // This process writes the run's final report through postgres after returning from here.

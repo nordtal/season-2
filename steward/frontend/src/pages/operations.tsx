@@ -21,7 +21,7 @@ import type { ReportChange, ReportLine, Run } from "@/lib/api"
 import { dateTime, parseInstant, relative } from "@/lib/format"
 import { useAskForRun, useCancelRun, useRun } from "@/lib/queries"
 import { useRunLock } from "@/lib/run-lock"
-import { choice, span, t } from "@/lib/texts"
+import { choice, message, span, t } from "@/lib/texts"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
@@ -478,7 +478,7 @@ function RunDetail({ run }: { run?: Run }) {
           ) : (
             <>
               <ReportLines lines={report.services} />
-              <Notes notes={report.notes} />
+              <Notes notes={report.notes.map(message)} />
             </>
           )}
         </CardContent>
@@ -578,7 +578,7 @@ function ReportLines({ lines }: { lines: ReportLine[] }) {
                     <span
                       className={line.state === "FAILED" ? "text-xs text-destructive" : "text-xs text-muted-foreground"}
                     >
-                      {line.detail}
+                      {message(line.detail)}
                     </span>
                   ) : null}
                 </div>

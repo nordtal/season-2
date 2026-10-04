@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.update;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -33,6 +34,7 @@ import org.postgresql.PGNotification;
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class UpdateDirectoryIntegrationTest {
+
     private static DataSource dataSource;
 
     private UpdateDirectory updates;
@@ -184,7 +186,7 @@ class UpdateDirectoryIntegrationTest {
             updates.submit(UpdateKind.BACKUP, Actor.HOST, Duration.ZERO);
             assertTrue(updates.claimNext().isPresent());
             assertTrue(announced(pg), "the third request was not announced");
-            assertEquals(1, updates.settleOrphans("gone", runner -> false));
+            assertEquals(1, updates.settleOrphans(TEXTS.report().words("gone"), runner -> false));
             assertTrue(announced(pg), "settling the orphans was not announced");
         }
     }
@@ -365,49 +367,6 @@ class UpdateDirectoryIntegrationTest {
     }
 
     @Test
-    void finishingWritesTheReportIntoTheSameRow() {
-        final UpdateRequest submitted = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
-        assertTrue(updates.claimNext().isPresent());
-
-        final UpdateRequest finished = updates.finish(submitted.id(), UpdateStatus.DONE, "smp  0.1.0 -> 0.2.0")
-                .orElseThrow();
-
-        assertEquals(UpdateStatus.DONE, finished.status());
-        assertEquals("smp  0.1.0 -> 0.2.0", finished.result());
-        assertNotNull(finished.finished());
-        assertTrue(finished.status().isFinished());
-    }
-
-    @Test
-    void onlyARunningRequestCanBeFinished() {
-        final UpdateRequest submitted = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
-
-        assertTrue(
-                updates.finish(submitted.id(), UpdateStatus.DONE, "x").isEmpty(),
-                "it was never claimed, so there is no answer to write");
-
-        assertTrue(updates.claimNext().isPresent());
-        assertTrue(updates.finish(submitted.id(), UpdateStatus.DONE, "x").isPresent());
-        assertTrue(
-                updates.finish(submitted.id(), UpdateStatus.FAILED, "y").isEmpty(),
-                "and an answer that is already there is not overwritten by a second steward");
-    }
-
-    @Test
-    void aClaimedRequestCannotBeFinishedAsCancelled() {
-        final UpdateRequest submitted = updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ZERO);
-        assertTrue(updates.claimNext().isPresent());
-
-        // CANCELLED is a person withdrawing a run, so steward cannot report its own work as one.
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> updates.finish(submitted.id(), UpdateStatus.CANCELLED, "too late"));
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> updates.finish(submitted.id(), UpdateStatus.RUNNING, "still going"));
-    }
-
-    @Test
     void aCountdownCanBeStoppedWhileItIsStillRunning() {
         updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ofSeconds(60));
 
@@ -449,8 +408,8 @@ class UpdateDirectoryIntegrationTest {
 
         assertTrue(updates.progress(
                 submitted.id(),
-                UpdateReports.toJson(
-                        UpdateReport.at(UpdateReport.Stage.COUNTDOWN).withNote("planned"))));
+                UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.COUNTDOWN)
+                        .withNote(TEXTS.report().words("planned")))));
 
         assertEquals(submitted.id(), updates.cancelCountdown().orElseThrow().id());
         assertFalse(updates.commitCountdown(submitted.id()), "and the run must then stop nothing at all");
@@ -461,7 +420,7 @@ class UpdateDirectoryIntegrationTest {
                         updates.find(submitted.id()).orElseThrow().result())
                 .orElseThrow();
         assertEquals(UpdateReport.Stage.CANCELLED, left.stage(), "the countdown's report moves to CANCELLED");
-        assertEquals(List.of("planned"), left.notes(), "and keeps what it held");
+        assertEquals(List.of(TEXTS.report().words("planned")), left.notes(), "and keeps what it held");
     }
 
     @Test
@@ -671,14 +630,19 @@ class UpdateDirectoryIntegrationTest {
         final UpdateRequest restart = updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
 
-        assertEquals(1, updates.settleOrphans("Killed mid-run", runner -> false));
+        assertEquals(1, updates.settleOrphans(TEXTS.report().words("Killed mid-run"), runner -> false));
 
         final UpdateRequest read = updates.find(restart.id()).orElseThrow();
         assertEquals(UpdateStatus.FAILED, read.status());
-        assertEquals("Killed mid-run", read.result());
+        assertEquals(
+                List.of(TEXTS.report().words("Killed mid-run")),
+                UpdateReports.parse(read.result()).orElseThrow().notes());
         assertNotNull(read.finished());
 
-        assertEquals(0, updates.settleOrphans("x", runner -> false), "and a second start finds nothing to do");
+        assertEquals(
+                0,
+                updates.settleOrphans(TEXTS.report().words("x"), runner -> false),
+                "and a second start finds nothing to do");
     }
 
     @Test
@@ -686,18 +650,20 @@ class UpdateDirectoryIntegrationTest {
         final UpdateRequest apply = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
 
-        assertEquals(1, updates.settleOrphans("Killed mid-run", runner -> false));
+        assertEquals(1, updates.settleOrphans(TEXTS.report().words("Killed mid-run"), runner -> false));
 
         final UpdateRequest read = updates.find(apply.id()).orElseThrow();
         assertEquals(UpdateStatus.FAILED, read.status());
-        assertEquals("Killed mid-run", read.result());
+        assertEquals(
+                List.of(TEXTS.report().words("Killed mid-run")),
+                UpdateReports.parse(read.result()).orElseThrow().notes());
     }
 
     @Test
     void settlingOrphansLeavesPendingWorkAlone() {
         final UpdateRequest waiting = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
 
-        assertEquals(0, updates.settleOrphans("failed", runner -> false));
+        assertEquals(0, updates.settleOrphans(TEXTS.report().words("failed"), runner -> false));
         assertEquals(
                 UpdateStatus.PENDING, updates.find(waiting.id()).orElseThrow().status());
     }

@@ -537,7 +537,7 @@ export type ActorKind = "PERSON" | "STEWARD" | "HOST"
 export type Report = {
   stage: ReportStage
   services: ReportLine[]
-  notes: string[]
+  notes: MessageRef[]
 }
 
 export type SeasonPhase = "PRE_LAUNCH" | "PRE_EVENT" | "START_EVENT" | "SMP" | "MAINTENANCE"
@@ -764,7 +764,7 @@ export type ReportLine = {
   service: string
   state: LineState
   changes: ReportChange[]
-  detail?: string
+  detail?: MessageRef
 }
 
 export type SmpObjective = {

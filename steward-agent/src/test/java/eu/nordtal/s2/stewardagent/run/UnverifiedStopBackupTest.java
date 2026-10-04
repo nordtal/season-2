@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.internalapi.agent.Topology;
+import eu.nordtal.s2.stewardagent.Told;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -49,13 +50,12 @@ class UnverifiedStopBackupTest {
                         + " fine. What is unverified is the moment it was taken");
         assertEquals(UpdateReport.State.SAVED, saved.line("bot-config").state());
         assertTrue(
-                saved.line("mc-smp").detail().contains("UNVERIFIED STOP"),
-                "the report line is where somebody reads this at 04:45: "
-                        + saved.line("mc-smp").detail());
+                Told.detail(saved.line("mc-smp")).contains("UNVERIFIED STOP"),
+                "the report line is where somebody reads this at 04:45: " + Told.detail(saved.line("mc-smp")));
         assertTrue(
-                saved.line("mc-smp").detail().contains("mc-smp-20260913T000000Z.tar.zst.unverified"),
+                Told.detail(saved.line("mc-smp")).contains("mc-smp-20260913T000000Z.tar.zst.unverified"),
                 "and it has to name the mark, or the sentence is a warning with no file behind it: "
-                        + saved.line("mc-smp").detail());
+                        + Told.detail(saved.line("mc-smp")));
     }
 
     @Test
@@ -95,9 +95,9 @@ class UnverifiedStopBackupTest {
         assertEquals(
                 UpdateReport.State.STOPPED, stopped.report().line(Topology.SMP).state());
         assertTrue(
-                stopped.report().line(Topology.SMP).detail().contains("could not be read back"),
+                Told.detail(stopped.report().line(Topology.SMP)).contains("could not be read back"),
                 "an ordinary stop and one whose ending nobody saw must not read the same: "
-                        + stopped.report().line(Topology.SMP).detail());
+                        + Told.detail(stopped.report().line(Topology.SMP)));
     }
 
     @Test
@@ -186,9 +186,8 @@ class UnverifiedStopBackupTest {
         assertEquals(Map.of(), snapshots.marks());
         assertEquals(UpdateReport.State.FAILED, saved.line("mc-smp").state());
         assertTrue(
-                saved.line("mc-smp").detail().contains("not a readable archive"),
-                "the tar's own reason is what a person acts on: "
-                        + saved.line("mc-smp").detail());
+                Told.detail(saved.line("mc-smp")).contains("not a readable archive"),
+                "the tar's own reason is what a person acts on: " + Told.detail(saved.line("mc-smp")));
     }
 
     /** A plan where the first service has work and the rest do not. */

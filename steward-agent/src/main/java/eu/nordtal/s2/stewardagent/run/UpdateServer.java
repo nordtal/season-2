@@ -1,5 +1,7 @@
 package eu.nordtal.s2.stewardagent.run;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.database.notify.Doorbell;
 import eu.nordtal.s2.database.notify.SignalHub;
@@ -195,11 +197,7 @@ public final class UpdateServer implements AutoCloseable {
      */
     private void settleOrphans() {
         try {
-            final int settled = directory.settleOrphans(
-                    "The steward-agent carrying out this request stopped before it finished."
-                            + " Nothing here says how far it got - check the report of the next run"
-                            + " before assuming anything was installed.",
-                    stillRunning);
+            final int settled = directory.settleOrphans(TEXTS.report().orphaned(), stillRunning);
             if (settled > 0) {
                 log.info("Settled {} request(s) no steward-agent carries out any more", settled);
             }

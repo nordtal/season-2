@@ -158,7 +158,8 @@ class UpdateFeedTest {
         }
 
         @Override
-        public int settleOrphans(final String failed, final java.util.function.Predicate<String> stillRunning) {
+        public int settleOrphans(
+                final eu.nordtal.s2.messages.MessageRef why, final java.util.function.Predicate<String> stillRunning) {
             throw new UnsupportedOperationException();
         }
     }

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.update;
 
+import eu.nordtal.s2.messages.MessageRef;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -10,9 +11,9 @@ import org.jspecify.annotations.Nullable;
  *
  * @param stage    where the run has got to
  * @param services one line per service the run touches, in reading order
- * @param notes    anything not attached to a service
+ * @param notes    anything not attached to a service, each a message of the admin bundle's report section
  */
-public record UpdateReport(Stage stage, List<ServiceLine> services, List<String> notes) {
+public record UpdateReport(Stage stage, List<ServiceLine> services, List<MessageRef> notes) {
 
     public UpdateReport {
         Objects.requireNonNull(stage, "stage");
@@ -29,8 +30,8 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
         return new UpdateReport(next, services, notes);
     }
 
-    public UpdateReport withNote(final String note) {
-        final List<String> combined = new ArrayList<>(notes);
+    public UpdateReport withNote(final MessageRef note) {
+        final List<MessageRef> combined = new ArrayList<>(notes);
         combined.add(note);
         return new UpdateReport(stage, services, combined);
     }
@@ -86,12 +87,16 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
         return services.stream().anyMatch(line -> line.state() == State.SAVED);
     }
 
-    /** One service, and what has happened to it so far. */
+    /**
+     * One service, and what has happened to it so far.
+     *
+     * @param detail what a failure or a long step says beside the state, a message of the report section, or none
+     */
     public record ServiceLine(
             String service,
             State state,
             List<Change> changes,
-            @Nullable String detail) {
+            @Nullable MessageRef detail) {
 
         public ServiceLine {
             Objects.requireNonNull(service, "service");
@@ -103,16 +108,16 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
             return new ServiceLine(service, next, changes, detail);
         }
 
-        public ServiceLine failed(final @Nullable String why) {
+        public ServiceLine failed(final @Nullable MessageRef why) {
             return new ServiceLine(service, State.FAILED, changes, why);
         }
 
         /**
-         * Returns the same line with a sentence beside it, without touching the state.
+         * Returns the same line with a message beside it, without touching the state.
          *
          * A long step says what it is doing before it does it, without publishing a failure.
          */
-        public ServiceLine withDetail(final @Nullable String what) {
+        public ServiceLine withDetail(final @Nullable MessageRef what) {
             return new ServiceLine(service, state, changes, what);
         }
 
@@ -198,6 +203,23 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
         public boolean isFinished() {
             return this == DONE || this == NOTHING_TO_DO || this == FAILED || this == CANCELLED;
         }
+    }
+
+    /** What a kind of run does while its servers are down, which its notes name. */
+    public enum Undertaking {
+        /** An update installs jars. */
+        INSTALL,
+        /** A one-shot renews the long-running steward-agent and nothing else. */
+        RENEW_AGENT,
+        RESTART,
+        BACKUP,
+        TAKE_DOWN,
+        START,
+        RECREATE,
+        DEPLOY,
+        REMOVE_PLUGIN,
+        RESTORE_VOLUME,
+        RESTORE_DATABASE
     }
 
     /** What has happened to one service so far. */

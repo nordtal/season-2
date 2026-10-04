@@ -1,5 +1,7 @@
 package eu.nordtal.s2.stewardagent.run;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
+
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.setting.SettingStore;
@@ -12,6 +14,7 @@ import eu.nordtal.s2.database.update.UpdateStatus;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.RuntimeResult;
 import eu.nordtal.s2.internalapi.agent.Topology;
+import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.stewardagent.config.RunSpec;
 import java.time.Duration;
 import java.time.Instant;
@@ -159,8 +162,8 @@ public final class Runner implements RequestRunner {
             // Read before anything is planned, so a run that cannot stop a server never moves a jar.
             final RuntimeResult runtime = steps.check();
             if (!runtime.reached()) {
-                return Outcome.failed(UpdateReports.toJson(
-                        UpdateReport.at(UpdateReport.Stage.FAILED).withNote(unreachableMessage(runtime))));
+                return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                        .withNote(TEXTS.report().words(unreachableMessage(runtime)))));
             }
             // The row is the lock: the inbox holds one open run at a time, whoever wrote it.
             final Kinds.Planned planned = plan(request, progress);
@@ -169,7 +172,8 @@ public final class Runner implements RequestRunner {
                     : new Run(this, steps, runtime, progress).carryOut(request, Objects.requireNonNull(planned.plan()));
         } catch (final RuntimeException failure) {
             log.error("Request {} ({}) failed", request.id(), request.kind(), failure);
-            return Outcome.failed("This request failed: " + failure + "\nsteward-agent's log has the stack trace.");
+            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                    .withNote(TEXTS.report().failedUnexpectedly(failure.toString()))));
         }
     }
 
@@ -246,7 +250,7 @@ public final class Runner implements RequestRunner {
      *
      * @param verified the report after {@code verify}, with its stage not yet settled
      * @param unverified {@link UpdateRun#unverifiedStops()}
-     * @param whatIsAtRisk what the run did meanwhile, as the middle of a sentence ("the jars were moved")
+     * @param undertaking what the run did meanwhile, which the note names
      * @param alreadyFailed whether something else has already failed this run
      * @param doubt what an unverified stop costs here
      * @return the report with its stage set, and the note on it when there was one to make
@@ -254,20 +258,13 @@ public final class Runner implements RequestRunner {
     static UpdateReport settle(
             final UpdateReport verified,
             final List<String> unverified,
-            final String whatIsAtRisk,
+            final UpdateReport.Undertaking undertaking,
             final boolean alreadyFailed,
             final Doubt doubt) {
         final UpdateReport told = unverified.isEmpty()
                 ? verified
-                : verified.withNote("UNVERIFIED STOP. " + String.join(", ", unverified)
-                        + " stopped, and how it ended could not be read back, so nothing here knows"
-                        + " whether the server had finished writing when " + whatIsAtRisk + "."
-                        + " Nothing was thrown away and nothing was undone."
-                        + (doubt == Doubt.FAILS_THE_RUN
-                                ? " This run is reported as FAILED for that reason alone, so"
-                                        + " that nothing counts this archive as one."
-                                : " This run is not reported as a failure over it: it left nothing"
-                                        + " behind that anybody has to decide whether to trust."));
+                : verified.withNote(
+                        TEXTS.report().unverifiedStop(unverified, undertaking, doubt == Doubt.FAILS_THE_RUN));
         final boolean failed = (doubt == Doubt.FAILS_THE_RUN && !unverified.isEmpty())
                 || alreadyFailed
                 || told.services().stream().anyMatch(line -> line.state() == UpdateReport.State.FAILED);
@@ -290,7 +287,7 @@ public final class Runner implements RequestRunner {
     /** The answer to a run somebody stopped, usually discarded since the row is already {@code CANCELLED}. */
     static Outcome cancelled() {
         return Outcome.done(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.CANCELLED)
-                .withNote("Stopped during the countdown. Nothing was stopped and nothing was" + " installed.")));
+                .withNote(TEXTS.report().cancelled())));
     }
 
     /**
@@ -340,10 +337,10 @@ public final class Runner implements RequestRunner {
     /**
      * Puts what {@link Choreography#close()} said into the report as notes, since a service line would be evacuated.
      */
-    static UpdateReport noteStandbys(final UpdateReport report, final List<String> said) {
+    static UpdateReport noteStandbys(final UpdateReport report, final List<MessageRef> said) {
         UpdateReport told = report;
-        for (final String sentence : said) {
-            told = told.withNote(sentence);
+        for (final MessageRef note : said) {
+            told = told.withNote(note);
         }
         return told;
     }

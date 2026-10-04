@@ -108,6 +108,37 @@ describe("a run's report reads as versions, not as bookkeeping", () => {
     expect(screen.queryByText("c0bac3a03dad681347cbe4a3bc932aff8ffd8203")).toBeNull()
   })
 
+  it("tells the run's notes and a line's detail in the page's words", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        stage: "FAILED",
+        services: [
+          {
+            service: "smp",
+            state: "FAILED",
+            changes: [],
+            detail: { key: "report.stop-failed", args: { reason: { kind: "text", value: "exit 1" } } },
+          },
+        ],
+        notes: [
+          {
+            key: "report.held-left-out",
+            args: { services: { kind: "list", value: [{ kind: "text", value: "limbo" }] } },
+          },
+        ],
+      }),
+    )
+    draw()
+
+    expect(await screen.findByText("could not be stopped: exit 1")).toBeTruthy()
+    expect(
+      screen.getByText(
+        "limbo is being held down and was left out of this run. Start it again and ask for the update once more.",
+      ),
+    ).toBeTruthy()
+  })
+
   it("leaves a filename alone when that is honestly all there is", async () => {
     /** A renamed jar falls back to its filename, since an invented version would be worse. */
     vi.stubGlobal(

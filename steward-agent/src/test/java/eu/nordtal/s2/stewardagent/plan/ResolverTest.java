@@ -10,6 +10,7 @@ import eu.nordtal.s2.common.Platform;
 import eu.nordtal.s2.common.http.HttpFailure;
 import eu.nordtal.s2.internalapi.agent.Topology;
 import eu.nordtal.s2.settings.MemorySettingStore;
+import eu.nordtal.s2.stewardagent.Told;
 import eu.nordtal.s2.stewardagent.config.RunSpec;
 import eu.nordtal.s2.stewardagent.config.RunSpec.BackupSpec;
 import eu.nordtal.s2.stewardagent.run.Report;
@@ -107,7 +108,7 @@ class ResolverTest {
         final String note = plan.notes().getFirst();
         assertTrue(note.contains("4.3.0") && note.contains(Platform.VELOCITY_API), note);
         assertTrue(
-                PlanReport.of(plan).notes().contains(note),
+                Told.notes(PlanReport.of(plan)).contains(note),
                 "the note is decided by the resolver and drawn by PlanReport - a report that drops"
                         + " it is a version skew nobody is told about");
     }
@@ -410,7 +411,7 @@ class ResolverTest {
         assertFalse(pack.status().isFailure(), Report.render(plan));
         final eu.nordtal.s2.database.update.UpdateReport report = PlanReport.of(plan);
         assertTrue(
-                report.notes().stream().anyMatch(note -> note.contains(PACK_SHA1 + " stays")),
+                Told.notes(report).stream().anyMatch(note -> note.contains(PACK_SHA1 + " stays")),
                 "the missing pack is a note in the report: " + report);
     }
 
@@ -470,7 +471,7 @@ class ResolverTest {
                 report.line("smp").state(),
                 report.toString());
         assertTrue(
-                report.notes().stream().anyMatch(note -> note.contains("smp-0.1.0.jar stays")),
+                Told.notes(report).stream().anyMatch(note -> note.contains("smp-0.1.0.jar stays")),
                 "the missing jar is a warning in the report: " + report);
     }
 
@@ -506,7 +507,7 @@ class ResolverTest {
                 report.line("smp").state(),
                 report.toString());
         assertFalse(report.line("smp").isMoving(), report.toString());
-        assertTrue(report.line("smp").detail().contains("packetevents"), report.toString());
+        assertTrue(Told.detail(report.line("smp")).contains("packetevents"), report.toString());
     }
 
     @Test

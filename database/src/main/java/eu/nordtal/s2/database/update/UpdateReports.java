@@ -1,20 +1,33 @@
 package eu.nordtal.s2.database.update;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSerializer;
 import eu.nordtal.s2.common.json.Json;
+import eu.nordtal.s2.database.DatabaseJson;
+import eu.nordtal.s2.database.DatabaseText;
+import eu.nordtal.s2.messages.MessageRef;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
- * {@link UpdateReport} to and from the JSON in the run's outcome, through the kernel's codec.
+ * {@link UpdateReport} to and from the JSON in the run's outcome, through the codec that types its messages.
  *
  * {@link #parse} answers empty for an unreadable row, and every caller falls back to the raw text.
  */
 public final class UpdateReports {
 
+    /** The report's own shape with every message in English, for a terminal that reads no message keys. */
+    private static final Gson ENGLISH = Json.gson()
+            .newBuilder()
+            .registerTypeHierarchyAdapter(MessageRef.class, (JsonSerializer<MessageRef>)
+                    (message, type, context) -> new JsonPrimitive(DatabaseText.english(message)))
+            .create();
+
     private UpdateReports() {}
 
     public static String toJson(final UpdateReport report) {
-        return Json.encode(report);
+        return DatabaseJson.encode(report);
     }
 
     /**
@@ -28,9 +41,14 @@ public final class UpdateReports {
             return Optional.empty();
         }
         try {
-            return Optional.of(Json.decode(json, UpdateReport.class));
+            return Optional.of(DatabaseJson.decode(json, UpdateReport.class));
         } catch (final RuntimeException malformed) {
             return Optional.empty();
         }
+    }
+
+    /** The stored report as JSON with its messages in English; text that is no report comes back as it was. */
+    public static String english(final String stored) {
+        return parse(stored).map(ENGLISH::toJson).orElse(stored);
     }
 }

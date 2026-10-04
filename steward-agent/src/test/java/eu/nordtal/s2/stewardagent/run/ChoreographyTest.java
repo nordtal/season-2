@@ -3,10 +3,10 @@ package eu.nordtal.s2.stewardagent.run;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.s2.common.time.Waiting;
+import eu.nordtal.s2.stewardagent.Told;
 import eu.nordtal.s2.stewardagent.topology.ComposeFile;
 import java.time.Duration;
 import java.time.Instant;
@@ -58,7 +58,7 @@ class ChoreographyTest {
 
         final Choreography.Window window = choreography.open(List.of("proxy", "limbo", "smp"));
 
-        assertTrue(window.opened(), window.refusal());
+        assertTrue(window.opened(), Told.english(window.refusal()));
         assertEquals(List.of("proxy-standby", "limbo-standby"), window.standbys());
         // recreate-local, not recreate: the standby must run the image its live service runs, often built here.
         assertEquals(
@@ -76,7 +76,7 @@ class ChoreographyTest {
 
         final Choreography.Window window = choreography.open(List.of("limbo"));
 
-        assertTrue(window.opened(), window.refusal());
+        assertTrue(window.opened(), Told.english(window.refusal()));
         assertEquals(
                 List.of("fetch:limbo-standby", "recreate-local:limbo-standby"),
                 containers.calls,
@@ -92,9 +92,10 @@ class ChoreographyTest {
         final Choreography.Window window = choreography.open(List.of("limbo"));
 
         assertFalse(window.opened(), "a run with nowhere to put the players must not go ahead");
-        assertNotNull(window.refusal());
-        assertTrue(window.refusal().contains("limbo-standby"), window.refusal());
-        assertTrue(window.refusal().contains("unhealthy"), window.refusal());
+        final String refusal = Told.english(window.refusal());
+        assertNotNull(refusal);
+        assertTrue(refusal.contains("limbo-standby"), refusal);
+        assertTrue(refusal.contains("unhealthy"), refusal);
         // And it leaves nothing behind: a refused run does not park a second network on this host unnoticed.
         assertTrue(
                 containers.calls.contains("stop:limbo-standby-container-2"),
@@ -123,7 +124,7 @@ class ChoreographyTest {
         final Counts counts = new Counts().on("smp", 0);
         final Choreography choreography = new Choreography(new FakeContainers(), counts, driven());
 
-        assertNull(choreography.waitUntilEmpty(List.of("smp")));
+        assertEquals(List.of(), choreography.waitUntilEmpty(List.of("smp")));
     }
 
     @Test
@@ -133,7 +134,7 @@ class ChoreographyTest {
         clock.onSleep(() -> counts.on("smp", 0));
         final Choreography choreography = new Choreography(new FakeContainers(), counts, clock);
 
-        assertNull(choreography.waitUntilEmpty(List.of("smp")));
+        assertEquals(List.of(), choreography.waitUntilEmpty(List.of("smp")));
         assertEquals(
                 Duration.ofSeconds(1),
                 clock.slept(),
@@ -146,9 +147,9 @@ class ChoreographyTest {
         final Driven clock = driven();
         final Choreography choreography = new Choreography(new FakeContainers(), counts, clock);
 
-        final String said = choreography.waitUntilEmpty(List.of("smp"));
+        final String said = Told.joined(choreography.waitUntilEmpty(List.of("smp")));
 
-        assertNotNull(said, "a stop with somebody still on it is a line in the report, not silence");
+        assertFalse(said.isEmpty(), "a stop with somebody still on it is a line in the report, not silence");
         assertEquals("stopped with 1 player still connected (smp: 1) after waiting 10s", said);
         assertTrue(clock.slept().compareTo(Choreography.EMPTY_CAP) >= 0, "it waited the whole cap before giving up");
     }
@@ -158,9 +159,9 @@ class ChoreographyTest {
         // The failure this Optional exists for: a proxy that stopped writing must never be read as "zero players".
         final Choreography choreography = new Choreography(new FakeContainers(), Occupancy.NONE, driven());
 
-        final String said = choreography.waitUntilEmpty(List.of("smp"));
+        final String said = Told.joined(choreography.waitUntilEmpty(List.of("smp")));
 
-        assertNotNull(said);
+        assertFalse(said.isEmpty());
         assertTrue(said.contains("Nothing recent said how many players were on smp"), said);
     }
 
@@ -168,7 +169,7 @@ class ChoreographyTest {
     void theTwoHalvesOfTheSentenceAreToldApart() {
         final Map<String, Integer> occupied = new LinkedHashMap<>();
         occupied.put("smp", 2);
-        final String said = Choreography.stoppedAnyway(occupied, List.of("limbo"));
+        final String said = Told.joined(Choreography.stoppedAnyway(occupied, List.of("limbo")));
 
         assertTrue(said.startsWith("stopped with 2 players still connected (smp: 2)"), said);
         assertTrue(said.contains("Nothing recent said how many players were on limbo"), said);
@@ -184,7 +185,7 @@ class ChoreographyTest {
         choreography.open(List.of("limbo"));
         containers.calls.clear();
 
-        final List<String> said = choreography.close();
+        final List<String> said = Told.english(choreography.close());
 
         assertEquals(1, said.size(), said.toString());
         assertTrue(said.get(0).contains("limbo-standby"), said.toString());
@@ -206,7 +207,7 @@ class ChoreographyTest {
         choreography.open(List.of("proxy"));
         containers.calls.clear();
 
-        final List<String> said = choreography.close();
+        final List<String> said = Told.english(choreography.close());
 
         assertEquals(List.of("stop:proxy-standby-container-2"), containers.calls);
         assertTrue(said.get(0).endsWith("has been stopped again"), said.toString());

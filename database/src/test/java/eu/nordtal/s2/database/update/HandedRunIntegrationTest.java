@@ -1,5 +1,6 @@
 package eu.nordtal.s2.database.update;
 
+import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -37,7 +38,7 @@ class HandedRunIntegrationTest {
         assertEquals(Optional.of(ONE_SHOT), updates.runnerOf(apply.id()));
         assertEquals(Optional.of(ONE_SHOT), updates.handedTo());
 
-        assertEquals(0, updates.settleOrphans("Killed mid-run", ONE_SHOT::equals));
+        assertEquals(0, updates.settleOrphans(TEXTS.report().words("Killed mid-run"), ONE_SHOT::equals));
         assertEquals(
                 UpdateStatus.RUNNING, updates.find(apply.id()).orElseThrow().status());
         assertThrows(
@@ -45,7 +46,7 @@ class HandedRunIntegrationTest {
                 () -> updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ZERO),
                 "the handed row still holds the lock");
 
-        assertEquals(1, updates.settleOrphans("Killed mid-run", runner -> false));
+        assertEquals(1, updates.settleOrphans(TEXTS.report().words("Killed mid-run"), runner -> false));
         assertEquals(UpdateStatus.FAILED, updates.find(apply.id()).orElseThrow().status());
         assertEquals(Optional.empty(), updates.runnerOf(apply.id()), "a settled row has no runner");
         assertEquals(Optional.empty(), updates.handedTo(), "a settled row is handed to nobody");

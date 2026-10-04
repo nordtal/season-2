@@ -214,8 +214,8 @@ public final class HungerGamesManager {
                 if (!moved) {
                     plugin.getLogger()
                             .severe(online.getName() + " could not be placed on their "
-                                    + "spawn tower and is invulnerable wherever they are standing. The "
-                                    + "head start releases them with everybody else.");
+                                    + "spawn tower and is invulnerable wherever they are standing. The end "
+                                    + "of the countdown releases them with everybody else.");
                 }
             });
             online.setInvulnerable(true);

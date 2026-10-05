@@ -41,7 +41,7 @@ A deploy pulls and never builds. The images (`minecraft`, `steward`, `steward-ag
    ```
 
    It asks for what only a person knows (`STEWARD_HOST`, `STEWARD_ACME_EMAIL`, the EULA, the bot
-   token, the Discord login's client id and secret, the guild, the admin role, and optionally bunq),
+   token, the Discord login's client id and secret, the guild, and optionally bunq),
    generates the secrets, waits until `STEWARD_HOST` resolves to this host so Caddy's certificate
    request succeeds, pulls `steward-agent` at the newest release and brings the stack up. A second run asks only for
    what is missing. On a host with an existing `postgres-data` it asks for `POSTGRES_PASSWORD`

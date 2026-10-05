@@ -92,7 +92,6 @@ REQUIRED=(
     EULA
     NORDTAL_BOT_TOKEN
     NORDTAL_ACCESS_GUILD_ID
-    NORDTAL_ACCESS_ROLES_ADMIN
     STEWARD_HOST
     STEWARD_ACME_EMAIL
     STEWARD_ENV_FILE
@@ -248,7 +247,6 @@ QUESTIONS=(
     STEWARD_DISCORD_CLIENT_ID
     STEWARD_DISCORD_CLIENT_SECRET
     NORDTAL_ACCESS_GUILD_ID
-    NORDTAL_ACCESS_ROLES_ADMIN
     NORDTAL_STEWARD_BUNQ_API_KEY
     NORDTAL_STEWARD_BUNQ_ACCOUNT_ID
     COMPOSE_PROFILES
@@ -263,7 +261,6 @@ declare -A QUESTION_KIND=(
     [STEWARD_DISCORD_CLIENT_ID]=plain
     [STEWARD_DISCORD_CLIENT_SECRET]=secret
     [NORDTAL_ACCESS_GUILD_ID]=plain
-    [NORDTAL_ACCESS_ROLES_ADMIN]=plain
     [NORDTAL_STEWARD_BUNQ_API_KEY]=optional-secret
     [NORDTAL_STEWARD_BUNQ_ACCOUNT_ID]=plain
     [COMPOSE_PROFILES]=plain
@@ -278,7 +275,6 @@ declare -A QUESTION_CHECK=(
     [STEWARD_DISCORD_CLIENT_ID]=looks_like_snowflake
     [STEWARD_DISCORD_CLIENT_SECRET]=-
     [NORDTAL_ACCESS_GUILD_ID]=looks_like_snowflake
-    [NORDTAL_ACCESS_ROLES_ADMIN]=looks_like_snowflake
     [NORDTAL_STEWARD_BUNQ_API_KEY]=-
     [NORDTAL_STEWARD_BUNQ_ACCOUNT_ID]=-
     [COMPOSE_PROFILES]=looks_like_profiles
@@ -293,7 +289,6 @@ declare -A QUESTION_PROMPT=(
     [STEWARD_DISCORD_CLIENT_ID]="The Discord application's Client ID - this is what the interface signs you in with."
     [STEWARD_DISCORD_CLIENT_SECRET]="The same application's Client Secret."
     [NORDTAL_ACCESS_GUILD_ID]="The id of the guild this deployment belongs to."
-    [NORDTAL_ACCESS_ROLES_ADMIN]="The id of the admin role."
     [NORDTAL_STEWARD_BUNQ_API_KEY]="The bunq API key, if payments should work. Press Enter to skip."
     [NORDTAL_STEWARD_BUNQ_ACCOUNT_ID]="The bunq monetary account id the payments arrive in."
     [COMPOSE_PROFILES]="Which parts of the stack come up?"
@@ -315,9 +310,6 @@ declare -A QUESTION_HINT=(
     [STEWARD_DISCORD_CLIENT_SECRET]="OAuth2 -> Reset Secret. Discord shows it once; if you have lost it, reset it and paste the new
         one - nothing else in this deployment holds a copy."
     [NORDTAL_ACCESS_GUILD_ID]="Discord -> Developer Mode -> right-click the server -> Copy Server ID."
-    [NORDTAL_ACCESS_ROLES_ADMIN]="This is the one role that is not optional: it is what the bot mirrors into the database, and it
-        is what decides who may sign in to the interface at all. Right-click the role -> Copy Role ID,
-        and make sure your own account has it."
     [NORDTAL_STEWARD_BUNQ_API_KEY]="Without it the whole stack starts and runs; steward just never polls bunq, and access
         can only be granted by hand - through the interface or through /access in Discord."
     [NORDTAL_STEWARD_BUNQ_ACCOUNT_ID]="A number. steward-bunq refuses to start with a key and no account, because a poll

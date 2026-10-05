@@ -289,7 +289,7 @@ ok "set_assignment hands the value to awk through the environment"
 case_begin "what a deployment demands of a person is the short list"
 # bunq stays optional; without it no payments are taken.
 for name in COMPOSE_PROFILES POSTGRES_PASSWORD VELOCITY_FORWARDING_SECRET EULA NORDTAL_BOT_TOKEN \
-            NORDTAL_ACCESS_GUILD_ID NORDTAL_ACCESS_ROLES_ADMIN STEWARD_HOST STEWARD_ACME_EMAIL \
+            NORDTAL_ACCESS_GUILD_ID STEWARD_HOST STEWARD_ACME_EMAIL \
             STEWARD_ENV_FILE STEWARD_ENV_DIR STEWARD_ENV_FILE_NAME STEWARD_DISCORD_CLIENT_ID \
             STEWARD_DISCORD_CLIENT_SECRET; do
     contains "$name" "${REQUIRED[@]}" || bad "$name is not required and should be"
@@ -300,7 +300,11 @@ for name in NORDTAL_STEWARD_BUNQ_API_KEY NORDTAL_STEWARD_BUNQ_ACCOUNT_ID; do
     fi
 done
 contains NORDTAL_DIR "${REQUIRED[@]}" || bad "NORDTAL_DIR is not required and should be"
-ok "fifteen required; bunq is not"
+# The bot finds its roles by name, so no role id is asked for.
+if contains NORDTAL_ACCESS_ROLES_ADMIN "${REQUIRED[@]}" "${QUESTIONS[@]}"; then
+    bad "the admin role is still asked for by id"
+fi
+ok "fourteen required; bunq is not, and no role is"
 
 case_begin "a value full of shell metacharacters survives the round trip"
 # A value is written literally, never as shell.
@@ -336,7 +340,7 @@ for name in NORDTAL_BOT_TOKEN STEWARD_DISCORD_CLIENT_SECRET NORDTAL_STEWARD_BUNQ
         *) bad "$name is not a secret kind, so the menu would print it" ;;
     esac
 done
-ok "twelve questions, all four columns each, and the three secrets are secret kinds"
+ok "eleven questions, all four columns each, and the three secrets are secret kinds"
 
 case_begin "a bare Return in the menu deploys nothing"
 # An empty answer never confirms stopping the servers.

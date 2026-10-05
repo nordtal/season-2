@@ -78,13 +78,6 @@ final class LocalQuestions {
                     Kind.OPTIONAL_PLAIN,
                     "The id of the guild this deployment belongs to.",
                     "A test guild, not the real one. " + SKIP,
-                    LocalQuestions::looksLikeSnowflake),
-            new Question(
-                    "NORDTAL_ACCESS_ROLES_ADMIN",
-                    Kind.OPTIONAL_PLAIN,
-                    "The id of the admin role.",
-                    "The admin role in that test guild - it is what decides who may sign in to the interface at"
-                            + " all, so your own account needs it. " + SKIP,
                     LocalQuestions::looksLikeSnowflake));
 
     private LocalQuestions() {}

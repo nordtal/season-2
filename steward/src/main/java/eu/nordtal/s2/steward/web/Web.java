@@ -8,6 +8,7 @@ import eu.nordtal.s2.database.DatabaseMessages;
 import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.access.PackExemptions;
 import eu.nordtal.s2.database.alert.AlertBook;
+import eu.nordtal.s2.database.command.CommandTreeStore;
 import eu.nordtal.s2.database.game.GameDataStore;
 import eu.nordtal.s2.database.message.MessageOverrideStore;
 import eu.nordtal.s2.database.metric.Metric;
@@ -139,6 +140,9 @@ public final class Web {
     /** What the servers know of the game, which the pickers draw from. */
     private final GameDataRoutes gameData;
 
+    /** The servers' command trees, which the console suggests from. */
+    private final ConsoleCommands consoleCommands;
+
     /** The browser's one live stream, which every page's data follows. */
     private final LiveFeed live;
 
@@ -213,6 +217,7 @@ public final class Web {
         this.access = new AccessApi(data, ctx -> account(ctx).orElseThrow());
         this.roster = new RosterRoutes(data);
         this.gameData = new GameDataRoutes(data == null ? null : GameDataStore.using(data.dataSource()));
+        this.consoleCommands = new ConsoleCommands(data == null ? null : CommandTreeStore.using(data.dataSource()));
         this.settings = new Settings(config);
         final @Nullable AdminTree localAdmins = data == null ? null : AdminTree.using(data.dataSource());
         this.admins = localAdmins;
@@ -593,6 +598,7 @@ public final class Web {
         cfg.routes.get("/api/settings", settings::get, Gate.KEY_HELD);
         cfg.routes.get("/api/game-data", gameData::read, Gate.KEY_HELD);
         cfg.routes.get("/api/game-data/{version}/icons.png", gameData::icons, Gate.KEY_HELD);
+        cfg.routes.get("/api/services/{name}/commands", consoleCommands::tree, Gate.KEY_HELD);
     }
 
     private void registerRosterRoutes(final JavalinConfig cfg) {

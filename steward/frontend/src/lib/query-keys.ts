@@ -8,6 +8,7 @@ export const keys = {
   topology: ["topology"] as const,
   service: (name: string) => ["service", name] as const,
   plugins: (name: string) => ["plugins", name] as const,
+  commandTree: (name: string) => ["command-tree", name] as const,
   pluginSearch: (name: string, query: string) => ["plugin-search", name, query] as const,
   host: ["host"] as const,
   backups: ["backups"] as const,

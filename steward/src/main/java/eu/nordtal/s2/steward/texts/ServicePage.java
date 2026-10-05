@@ -76,6 +76,9 @@ public interface ServicePage {
     @Name("Send a line")
     MessageRef sendLine();
 
+    @Name("Commands")
+    MessageRef commands();
+
     @Name("Send")
     MessageRef send();
 

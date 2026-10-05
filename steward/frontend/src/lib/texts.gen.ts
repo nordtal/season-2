@@ -1760,6 +1760,7 @@ export type TextArgs = {
   }
   "steward.service-page.check-updates": Record<string, never>
   "steward.service-page.close-find": Record<string, never>
+  "steward.service-page.commands": Record<string, never>
   "steward.service-page.console": Record<string, never>
   "steward.service-page.cpu": Record<string, never>
   "steward.service-page.disk": Record<string, never>

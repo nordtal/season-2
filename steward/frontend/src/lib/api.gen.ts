@@ -262,6 +262,10 @@ export type GameData = {
   icons?: GameIcons
 }
 
+export type ConsoleTree = {
+  nodes: CommandNode[]
+}
+
 export type ServiceTable = {
   services: Service[]
   drift: DriftReading
@@ -587,6 +591,14 @@ export type GameIcons = {
   url: string
   columns: number
   slots: Record<string, number>
+}
+
+export type CommandNode = {
+  name: string
+  argument?: boolean
+  executes?: boolean
+  children?: number[]
+  redirect?: number
 }
 
 export type Service = {

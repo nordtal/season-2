@@ -52,7 +52,9 @@ pin and no rollback: a bad release is corrected by publishing a better one.
   `steward-agent` carries it out and writes the report back into the row, which the interface follows
   on `nordtal_update`. steward is restarted by a run like any other service.
 - **Containers.** It asks `steward-agent` for state, health and the last sample, and to write into
-  the Minecraft consoles, naming who typed the line. It never touches the socket.
+  the Minecraft consoles, naming who typed the line. It never touches the socket. The console line
+  suggests from the command tree each server publishes of itself into `command_tree`, never from a
+  list of its own and never by asking the server.
 - **Images.** It shows each service's image against the registry, and an image it could not check
   as unchecked, never as current.
 - **Metrics.** Every 30 seconds it copies the agent's new sampler rounds into `metric_sample`, and

@@ -1289,6 +1289,7 @@
     "steward.service-page.arrives": [[{"v":"file"}," arrives with the next update run."]],
     "steward.service-page.check-updates": [["Check for updates"]],
     "steward.service-page.close-find": [["Close find"]],
+    "steward.service-page.commands": [["Commands"]],
     "steward.service-page.console": [["Console"]],
     "steward.service-page.cpu": [["CPU"]],
     "steward.service-page.disk": [["Disk"]],

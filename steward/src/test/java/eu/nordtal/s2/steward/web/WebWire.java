@@ -6,6 +6,7 @@ import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.access.PackExemptions;
 import eu.nordtal.s2.database.access.Person;
 import eu.nordtal.s2.database.audit.AuditEntry;
+import eu.nordtal.s2.database.command.CommandTree;
 import eu.nordtal.s2.database.payment.PaymentRequest;
 import eu.nordtal.s2.database.phase.DateChange;
 import eu.nordtal.s2.database.phase.PhaseChange;
@@ -50,12 +51,14 @@ public final class WebWire {
             AdminTree.Revocation.class,
             PackExemptionApi.Exempted.class,
             Settings.PageSettings.class,
-            GameDataRoutes.GameData.class);
+            GameDataRoutes.GameData.class,
+            ConsoleCommands.ConsoleTree.class);
 
     /** Records here whose own simple name would say too little or collide. */
     public static final Map<Class<?>, String> NAMES = Map.ofEntries(
             Map.entry(Metrics.Curve.class, "Metrics"),
             Map.entry(GameDataRoutes.Icons.class, "GameIcons"),
+            Map.entry(CommandTree.Node.class, "CommandNode"),
             Map.entry(eu.nordtal.s2.database.game.GameCatalogue.Entry.class, "GameEntry"),
             Map.entry(eu.nordtal.s2.database.game.GameCatalogue.Tag.class, "GameTag"),
             Map.entry(AccessGrant.class, "Grant"),

@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
+import type { CommandNode } from "@/lib/api"
+import { keys } from "@/lib/query-keys"
 import { ServiceConsole, offeredSteps } from "./console"
 
 /** The Console window: newest line on top, levels as colours, stack traces, run lines, Find, steps and failures. */
@@ -37,6 +39,33 @@ function mount() {
   )
   act(() => live().emit("open"))
 }
+
+/** The console line of a server whose published tree is already in the cache, so nothing is fetched. */
+function mountLine(nodes: CommandNode[]) {
+  const client = new QueryClient()
+  client.setQueryData(keys.commandTree("smp"), { nodes })
+  render(
+    <QueryClientProvider client={client}>
+      <ServiceConsole name="smp" hasConsole capacity={10000} />
+    </QueryClientProvider>,
+  )
+  act(() => live().emit("open"))
+  return screen.getByRole<HTMLInputElement>("combobox", { name: "Send a line to the server console" })
+}
+
+const TREE: CommandNode[] = [
+  { name: "", children: [1, 2, 3, 4] },
+  { name: "execute", children: [5] },
+  { name: "give", children: [6] },
+  { name: "say", children: [7] },
+  { name: "stop", executes: true },
+  { name: "run", redirect: 0 },
+  { name: "targets", argument: true, children: [8] },
+  { name: "message", argument: true, executes: true },
+  { name: "item", argument: true, executes: true },
+]
+
+const shown = () => screen.queryAllByRole("option").map((option) => option.textContent)
 
 function feed(...events: Array<[string, string]>) {
   act(() => {
@@ -132,6 +161,49 @@ describe("ServiceConsole", () => {
     expect(screen.getByRole("alert").textContent).toContain("Can't reach the log.")
     expect(screen.getByRole("alert").textContent).toContain("no running container for smp")
     expect(screen.queryByText("alpha")).toBeNull()
+  })
+
+  it("suggests from the server's own tree as a word is typed, and a tap or Tab takes it", () => {
+    const line = mountLine(TREE)
+    expect(screen.queryByRole("listbox")).toBeNull()
+
+    fireEvent.change(line, { target: { value: "gi" } })
+    expect(shown()).toEqual(["give"])
+    fireEvent.click(screen.getByRole("option", { name: "give" }))
+    expect(line.value).toBe("give ")
+    expect(shown()).toEqual(["<targets>"])
+    expect(screen.getByRole("option", { name: "<targets>" }).getAttribute("aria-disabled")).toBe("true")
+
+    fireEvent.change(line, { target: { value: "execute r" } })
+    fireEvent.keyDown(line, { key: "Tab" })
+    expect(line.value).toBe("execute run ")
+    fireEvent.change(line, { target: { value: "execute run st" } })
+    fireEvent.keyDown(line, { key: "Tab" })
+    expect(line.value).toBe("execute run stop")
+  })
+
+  it("moves through the words with the arrows while they show, and leaves the history to them once Escape closed them", () => {
+    const line = mountLine(TREE)
+    fireEvent.change(line, { target: { value: "s" } })
+    expect(shown()).toEqual(["say", "stop"])
+    fireEvent.keyDown(line, { key: "ArrowDown" })
+    expect(screen.getByRole("option", { name: "stop" }).getAttribute("aria-selected")).toBe("true")
+    fireEvent.keyDown(line, { key: "ArrowDown" })
+    expect(screen.getByRole("option", { name: "say" }).getAttribute("aria-selected")).toBe("true")
+    fireEvent.keyDown(line, { key: "ArrowUp" })
+    fireEvent.keyDown(line, { key: "Tab" })
+    expect(line.value).toBe("stop")
+
+    fireEvent.change(line, { target: { value: "s" } })
+    fireEvent.keyDown(line, { key: "Escape" })
+    expect(screen.queryByRole("listbox")).toBeNull()
+    expect(line.value).toBe("s")
+  })
+
+  it("offers nothing for a server that published no tree", () => {
+    const line = mountLine([])
+    fireEvent.change(line, { target: { value: "st" } })
+    expect(screen.queryByRole("listbox")).toBeNull()
   })
 
   it("offers only the steps steward can fill, and always the lowest", () => {

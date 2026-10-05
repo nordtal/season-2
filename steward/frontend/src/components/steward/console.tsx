@@ -12,7 +12,9 @@ import { toast } from "sonner"
 
 import { continuesPrevious, parseLogLine } from "@/lib/log-line"
 import type { Level, ParsedLine } from "@/lib/log-line"
-import { useConsole } from "@/lib/queries"
+import { complete, suggest } from "@/lib/command-tree"
+import type { Word } from "@/lib/command-tree"
+import { useCommandTree, useConsole } from "@/lib/queries"
 import { DEFAULT_LIMIT, STEPS, useLogStream } from "@/lib/use-log-stream"
 import type { LogEntry } from "@/lib/use-log-stream"
 import { Button } from "@/components/ui/button"
@@ -347,18 +349,38 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
  */
 function ConsoleLine({ name }: { name: string }) {
   const send = useConsole(name)
+  const tree = useCommandTree(name)
+  const field = useRef<HTMLInputElement>(null)
   const [command, setCommand] = useState("")
   const [history, setHistory] = useState<string[]>([])
   const [cursor, setCursor] = useState(-1)
+  const [suggesting, setSuggesting] = useState(false)
+  const [highlight, setHighlight] = useState(0)
+
+  const offered = useMemo(
+    () => (suggesting && command ? suggest(tree.data?.nodes ?? [], command) : null),
+    [suggesting, command, tree.data],
+  )
+  const words = offered?.words ?? []
+  const open = offered !== null && (words.length > 0 || offered.arguments.length > 0)
+  const chosen = Math.min(highlight, words.length - 1)
+
+  const take = (word: Word) => {
+    if (!offered) return
+    setCommand(complete(command, offered.from, word))
+    setHighlight(0)
+    field.current?.focus()
+  }
 
   return (
     <form
       id="console"
-      className="flex h-9 shrink-0 items-center gap-2 bg-white/[0.03] pr-1.5 pl-3"
+      className="relative flex h-9 shrink-0 items-center gap-2 bg-white/[0.03] pr-1.5 pl-3"
       onSubmit={(event) => {
         event.preventDefault()
         const line = command.trim()
         if (!line) return
+        setSuggesting(false)
         send.mutate(line, {
           onSuccess: () => {
             setHistory((previous) => [line, ...previous].slice(0, 20))
@@ -375,20 +397,43 @@ function ConsoleLine({ name }: { name: string }) {
         ›
       </span>
       <input
+        ref={field}
         id="console-command"
+        role="combobox"
+        aria-expanded={open}
+        aria-controls="console-suggestions"
+        aria-autocomplete="list"
+        aria-activedescendant={open && chosen >= 0 ? `console-suggestion-${chosen}` : undefined}
         value={command}
-        onChange={(event) => setCommand(event.target.value)}
+        onChange={(event) => {
+          setCommand(event.target.value)
+          setSuggesting(true)
+          setHighlight(0)
+        }}
+        onBlur={() => setSuggesting(false)}
         onKeyDown={(event) => {
-          if (event.key === "ArrowUp" && history.length > 0) {
+          if (open && chosen >= 0 && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+            event.preventDefault()
+            const step = event.key === "ArrowDown" ? 1 : words.length - 1
+            setHighlight((chosen + step) % words.length)
+          } else if (open && chosen >= 0 && event.key === "Tab" && !event.shiftKey) {
+            event.preventDefault()
+            take(words[chosen])
+          } else if (open && event.key === "Escape") {
+            event.preventDefault()
+            setSuggesting(false)
+          } else if (event.key === "ArrowUp" && history.length > 0) {
             event.preventDefault()
             const next = Math.min(cursor + 1, history.length - 1)
             setCursor(next)
             setCommand(history[next])
+            setSuggesting(false)
           } else if (event.key === "ArrowDown" && cursor >= 0) {
             event.preventDefault()
             const next = cursor - 1
             setCursor(next)
             setCommand(next < 0 ? "" : history[next])
+            setSuggesting(false)
           }
         }}
         placeholder="list"
@@ -410,6 +455,64 @@ function ConsoleLine({ name }: { name: string }) {
       >
         <KeyReturnIcon aria-hidden />
       </Button>
+      {open && offered ? (
+        <ConsoleSuggestions words={words} expected={offered.arguments} chosen={chosen} onTake={take} />
+      ) : null}
     </form>
+  )
+}
+
+/**
+ * The words that complete the one being typed, under the line, and the arguments expected there.
+ *
+ * A tap takes a word without the field losing focus, so the keyboard on a phone stays up.
+ */
+function ConsoleSuggestions({
+  words,
+  expected,
+  chosen,
+  onTake,
+}: {
+  words: Word[]
+  expected: string[]
+  chosen: number
+  onTake: (word: Word) => void
+}) {
+  return (
+    <ul
+      id="console-suggestions"
+      role="listbox"
+      aria-label={t("steward.service-page.commands")}
+      className="absolute inset-x-0 top-full z-20 max-h-60 overflow-y-auto border-y border-white/10 bg-[#141414] py-1 shadow-lg sm:right-auto sm:left-4 sm:w-72 sm:rounded-b-md sm:border-x"
+    >
+      {words.map((word, index) => (
+        <li
+          key={word.name}
+          id={`console-suggestion-${index}`}
+          role="option"
+          aria-selected={index === chosen}
+          ref={index === chosen ? (option) => option?.scrollIntoView?.({ block: "nearest" }) : undefined}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => onTake(word)}
+          className={cn(
+            "flex h-9 cursor-pointer items-center truncate px-3 text-white/85 sm:h-7",
+            index === chosen ? "bg-white/10 text-white" : "hover:bg-white/5",
+          )}
+        >
+          {word.name}
+        </li>
+      ))}
+      {expected.map((argument) => (
+        <li
+          key={`<${argument}>`}
+          role="option"
+          aria-selected={false}
+          aria-disabled
+          className="flex h-9 items-center truncate px-3 text-white/35 sm:h-7"
+        >
+          {`<${argument}>`}
+        </li>
+      ))}
+    </ul>
   )
 }

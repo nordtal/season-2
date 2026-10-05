@@ -13,7 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Warns when a grant starts now because {@code season_phase.smp_start} is not set yet.
  *
- * A note, not an alert: it does not ping the admin role, since every test purchase fires it.
+ * A note, not an alert: it mentions no admin, since every test purchase fires it.
  */
 @Slf4j
 public final class SeasonStart {

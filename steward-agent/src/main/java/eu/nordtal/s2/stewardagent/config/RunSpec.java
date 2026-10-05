@@ -194,10 +194,11 @@ public interface RunSpec {
         @Key("patience-minutes")
         @Comment({
             "How long one volume's snapshot may take before the run gives up and starts the",
-            "servers again. A run that ends FAILED mentions the admin role in the admin channel."
+            "servers again. A run that ends FAILED alerts the admins; those who take alerts in",
+            "Discord are mentioned in the admin channel."
         })
         @Explain(
-                "How long one volume's snapshot may run before this gives up and restarts the servers. A FAILED result pings the admin role.")
+                "How long one volume's snapshot may run before this gives up and restarts the servers. A FAILED result alerts the admins.")
         default int patienceMinutes() {
             return 30;
         }

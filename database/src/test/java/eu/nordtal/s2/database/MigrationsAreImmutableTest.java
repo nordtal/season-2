@@ -112,6 +112,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V28__registration_is_the_bots_and_named_by_game.sql",
                 "fb9850f0bc6d532131d64d99e2cce77b8e4b45cc4bd9f9ccfe8e4eb4676c35b4");
+        FROZEN.put(
+                "V29__the_bot_finds_its_roles_by_name.sql",
+                "3de63a72c2ab0552d89ffae6e3d9a161a4fbd4374be2e35f3a3cc613f23ff507");
     }
 
     @Test

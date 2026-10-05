@@ -104,6 +104,7 @@ class DatabaseRoleIntegrationTest {
         }
         cases.addAll(serverInboxes());
         cases.addAll(registration());
+        cases.addAll(discordRoles());
         assertAll(cases.stream().map(DatabaseRoleIntegrationTest::check));
     }
 
@@ -147,6 +148,17 @@ class DatabaseRoleIntegrationTest {
                         may(DatabaseRole.STEWARD, "DELETE FROM steward_alert_preference WHERE false"),
                         mayNot(DatabaseRole.DISCORD_BOT, "SELECT count(*) FROM steward_alert_preference"))
                 .map(DatabaseRoleIntegrationTest::check));
+    }
+
+    /** The Discord roles the bot found are the bot's alone. */
+    private static List<Case> discordRoles() {
+        return List.of(
+                may(
+                        DatabaseRole.DISCORD_BOT,
+                        "INSERT INTO discord_role (role_key, role_id) SELECT 'x', '1' WHERE false"),
+                may(DatabaseRole.DISCORD_BOT, "DELETE FROM discord_role WHERE false"),
+                mayNot(DatabaseRole.STEWARD, "SELECT count(*) FROM discord_role"),
+                mayNot(DatabaseRole.SMP, "SELECT count(*) FROM discord_role"));
     }
 
     /** The bot writes the registration and the game moves only its state; the game's own tables are the game's. */

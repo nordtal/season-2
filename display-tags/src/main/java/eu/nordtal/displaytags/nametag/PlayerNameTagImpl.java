@@ -36,17 +36,9 @@ public class PlayerNameTagImpl extends PlayerNameTag {
     private final TextDisplayWrapper display;
 
     /**
-     * The faint copy drawn through blocks: the whole of what {@link SeeThroughMode#VANILLA} adds.
+     * The faint copy drawn through blocks under the opaque one: the whole of what {@link SeeThroughMode#VANILLA} adds.
      *
-     * Vanilla's name tag is two draws of the same text, not one: a see-through pass in alpha 32
-     * that carries the background, and an opaque pass on top of it that does not. Where nothing
-     * blocks the view the opaque pass covers the faint one - both carry the same text in the same
-     * colours, so the result looks exactly like a single opaque name - and behind a wall only the
-     * faint one survives. A text display cannot do that alone: its {@code see_through} flag is
-     * either off or full brightness. Two displays can, and this is the second one.
-     *
-     * It is spawned only while it is actually needed (see {@link #shouldDrawGhost()}), so the
-     * other two modes cost exactly what they did before.
+     * It is spawned only when {@link #shouldDrawGhost()} says so.
      */
     private final TextDisplayWrapper ghost;
 
@@ -159,22 +151,12 @@ public class PlayerNameTagImpl extends PlayerNameTag {
         }
     }
 
-    /**
-     * Whether the faint see-through copy is drawn at all.
-     *
-     * Sneaking takes it away on purpose: vanilla drops its see-through pass for a sneaking player,
-     * so the name is dimmed in plain view and gone behind a wall.
-     */
+    /** Whether the faint see-through copy is drawn: like vanilla, not for a sneaking player. */
     private boolean shouldDrawGhost() {
         return this.data.getSeeThrough() == SeeThroughMode.VANILLA && !this.data.isSneaking();
     }
 
-    /**
-     * Everything both copies share.
-     *
-     * What they must not share is see-through, opacity and background - those three are what makes
-     * one of them the faint one.
-     */
+    /** Everything both copies share; see-through, opacity and background are what make one of them the faint one. */
     private void apply(final TextDisplayWrapper display) {
         display.setTextAlignment(
                 TextAlignment.valueOf(this.data.getTextAlignment().name()));
@@ -286,8 +268,7 @@ public class PlayerNameTagImpl extends PlayerNameTag {
     /**
      * Suppresses the player's vanilla name tag for a viewer, once.
      *
-     * Re-sending the team packet on every tick would work, but it makes the client log a warning
-     * about a team it already knows.
+     * Sending the team packet again on every tick makes the client log a warning about a team it knows.
      */
     private void hideVanillaNameTagFor(final UUID viewerId) {
         if (this.vanillaHidden.contains(viewerId)) {
@@ -300,12 +281,7 @@ public class PlayerNameTagImpl extends PlayerNameTag {
         }
     }
 
-    /**
-     * Hands the vanilla name tag back to every viewer it was hidden from.
-     *
-     * Called when the name tag is removed - after that point DisplayTags no longer renders a name
-     * for this player, so the vanilla one has to come back.
-     */
+    /** Hands the vanilla name tag back to every viewer it was hidden from, once the tag is removed. */
     void restoreVanillaNameTags() {
         for (final UUID viewerId : List.copyOf(this.vanillaHidden)) {
             VanillaNameTagUtil.show(this.player, viewerId);
@@ -343,12 +319,9 @@ public class PlayerNameTagImpl extends PlayerNameTag {
     }
 
     /**
-     * The configured lines with {@code {player}} already substituted.
+     * The configured lines with {@code {player}} substituted once, since a player's name does not change.
      *
-     * A player's name is static, so it is resolved once instead of on every tick. The raw lines
-     * stay in {@link eu.nordtal.displaytags.api.nametag.NameTagData} so that API consumers still
-     * read back what was configured; the substitution is redone whenever they replace the line
-     * list.
+     * The raw lines stay in {@link eu.nordtal.displaytags.api.nametag.NameTagData}; replacing them redoes this.
      */
     private List<String> getResolvedLines() {
         final List<String> lines = this.data.getLines();

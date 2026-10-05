@@ -70,9 +70,7 @@ public class EntityWrapper {
     /**
      * Mounts several entities on one vehicle in a single packet.
      *
-     * {@code SetPassengers} is absolute, replacing the vehicle's whole passenger list, so two entities
-     * that each send their own packet do not add up: the second one throws the first off the vehicle
-     * again. Everything that has to ride the same vehicle has to go out together.
+     * {@code SetPassengers} replaces the vehicle's whole passenger list, so everything riding it goes out together.
      */
     public static void mountAllFor(final UUID viewer, final int vehicleId, final int... passengerIds) {
         PacketUtil.sendPacket(viewer, passengersPacket(vehicleId, passengerIds));

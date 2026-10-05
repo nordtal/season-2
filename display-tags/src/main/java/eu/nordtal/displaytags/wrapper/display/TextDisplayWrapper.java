@@ -11,12 +11,7 @@ public class TextDisplayWrapper extends DisplayWrapper {
     /**
      * Entity metadata indices of {@code net.minecraft.world.entity.Display$TextDisplay}.
      *
-     * {@code DATA_TEXT_ID = 23}, {@code DATA_LINE_WIDTH_ID = 24}, {@code
-     * DATA_BACKGROUND_COLOR_ID = 25}, {@code DATA_TEXT_OPACITY_ID = 26}, {@code
-     * DATA_STYLE_FLAGS_ID = 27}. PacketEvents has no named constants for these, so a wrong number
-     * here would silently produce an invisible or garbled name tag rather than a compile error;
-     * re-check against Paper's own accessors and against minecraft.wiki's "Java Edition
-     * protocol/Entity metadata" whenever the targeted Minecraft version changes.
+     * PacketEvents names none of them, so re-check them against the server's accessors when Minecraft changes.
      */
     private static final int INDEX_TEXT = 23;
 
@@ -26,11 +21,9 @@ public class TextDisplayWrapper extends DisplayWrapper {
     private static final int INDEX_STYLE_FLAGS = 27;
 
     /**
-     * Bit masks of the style flags at {@link #INDEX_STYLE_FLAGS}.
+     * Bit masks of the style flags at {@link #INDEX_STYLE_FLAGS}; both alignment bits clear means centred.
      *
-     * {@code FLAG_SHADOW = 1}, {@code FLAG_SEE_THROUGH = 2}, {@code
-     * FLAG_USE_DEFAULT_BACKGROUND = 4} (unused here - the background colour is sent explicitly),
-     * {@code FLAG_ALIGN_LEFT = 8}, {@code FLAG_ALIGN_RIGHT = 16}. Both bits clear means centred.
+     * The default-background flag (4) goes unused, since the background colour is sent explicitly.
      */
     private static final int FLAG_SHADOW = 0x01;
 

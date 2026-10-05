@@ -3,11 +3,9 @@ package eu.nordtal.displaytags.wrapper.display;
 import java.util.Locale;
 
 /**
- * The text alignment of a text display.
+ * The text alignment of a text display, sent as style flags rather than as this value.
  *
- * This is not sent as a value of its own - it is encoded in the style flags - so {@code value}
- * only exists for completeness. The values match {@code Display$TextDisplay$Align} in Paper's own
- * jar: CENTER = 0, LEFT = 1, RIGHT = 2.
+ * The values match {@code Display$TextDisplay$Align}: CENTER = 0, LEFT = 1, RIGHT = 2.
  */
 public enum TextAlignment {
     CENTER(0),

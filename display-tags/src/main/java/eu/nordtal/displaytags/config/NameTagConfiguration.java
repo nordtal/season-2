@@ -117,12 +117,7 @@ public class NameTagConfiguration {
         return Objects.requireNonNull(this.scale, "load() has not run");
     }
 
-    /**
-     * Reads an enum-valued setting.
-     *
-     * Reports what is actually allowed if it does not match, so a typo produces a readable message
-     * instead of a bare {@code IllegalArgumentException}.
-     */
+    /** Reads an enum-valued setting, naming the allowed values when it does not match. */
     private static <E extends Enum<E>> E parse(final Class<E> type, final String key, final @Nullable String value) {
         if (value != null) {
             try {

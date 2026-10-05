@@ -11,13 +11,7 @@ public class DisplayWrapper extends EntityWrapper {
     /**
      * Entity metadata indices of {@code net.minecraft.world.entity.Display}.
      *
-     * PacketEvents has no named constants for these, so a wrong number here would silently produce an
-     * invisible or garbled display rather than a compile error. Verified against two independent
-     * sources: the server's own {@code Display} entity data accessors read out of {@code paper.jar}
-     * ({@code DATA_TRANSLATION_ID = 11}, {@code DATA_SCALE_ID = 12},
-     * {@code DATA_BILLBOARD_RENDER_CONSTRAINTS_ID = 15}), and minecraft.wiki's "Java Edition
-     * protocol/Entity metadata", Display section. Re-check both whenever the targeted Minecraft
-     * version changes.
+     * PacketEvents names none of them, so re-check them against the server's accessors when Minecraft changes.
      */
     private static final int INDEX_TRANSLATION = 11;
 

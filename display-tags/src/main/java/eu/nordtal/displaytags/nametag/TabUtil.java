@@ -8,15 +8,9 @@ import me.neznamy.tab.api.event.player.PlayerLoadEvent;
 import me.neznamy.tab.api.nametag.NameTagManager;
 
 /**
- * Compatibility layer for the TAB plugin ({@code https://github.com/NEZNAMY/TAB}).
+ * Hides the vanilla name tag through the TAB plugin when TAB handles name tags, so the two do not fight over teams.
  *
- * TAB manages scoreboard teams itself. When it is present and handling name tags, DisplayTags must
- * not send its own team packets, otherwise both plugins fight over the same teams. Instead, TAB is
- * asked to hide the vanilla name tag for every player it loads.
- *
- * Every call into TAB's API lives in the nested {@link Hook} class so that this class can be loaded
- * and queried on servers where TAB is absent, or where an incompatible TAB version is installed:
- * the linkage error is then confined to {@code Hook} and caught here.
+ * Every call into TAB's API sits in {@link Hook}, so a missing or incompatible TAB fails there and is caught here.
  */
 public final class TabUtil {
     private static boolean available;

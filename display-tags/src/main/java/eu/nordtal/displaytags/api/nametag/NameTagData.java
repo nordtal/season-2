@@ -112,30 +112,6 @@ public class NameTagData {
     }
 
     /**
-     * @return whether the name is drawn through blocks at full opacity
-     * @deprecated see-through is no longer a switch with two positions - use
-     *             {@link #getSeeThrough()}. This reports {@code true} only for
-     *             {@link SeeThroughMode#ALWAYS}, so {@link SeeThroughMode#VANILLA} reads as
-     *             {@code false} here even though such a tag <em>is</em> visible through blocks.
-     */
-    @Deprecated
-    public boolean isSeeThrough() {
-        return this.seeThrough == SeeThroughMode.ALWAYS;
-    }
-
-    /**
-     * @param seeThrough the new value
-     * @deprecated use {@link #setSeeThrough(SeeThroughMode)}. {@code true} maps to
-     *             {@link SeeThroughMode#ALWAYS} and {@code false} to {@link SeeThroughMode#NEVER},
-     *             which is what these two values meant before {@link SeeThroughMode#VANILLA}
-     *             existed.
-     */
-    @Deprecated
-    public void setSeeThrough(final boolean seeThrough) {
-        this.seeThrough = seeThrough ? SeeThroughMode.ALWAYS : SeeThroughMode.NEVER;
-    }
-
-    /**
      * @return the packed ARGB background colour, as produced by {@link Util#parseDisplayBackground}
      */
     public int getBackground() {
@@ -172,13 +148,7 @@ public class NameTagData {
     }
 
     /**
-     * Whether the player is sneaking.
-     *
-     * This is not a cosmetic setting but the state the rendering depends on: with
-     * {@link SeeThroughMode#VANILLA} a sneaking player's name is not drawn through blocks at all,
-     * which is what vanilla does. It is kept here rather than read from the player because
-     * {@code PlayerToggleSneakEvent} fires <em>before</em> the state is applied, so at that moment
-     * {@code Player#isSneaking()} still reports the state the player is leaving.
+     * Whether the player is sneaking, kept here since {@code PlayerToggleSneakEvent} fires before the state changes.
      *
      * @return whether the player is sneaking
      */

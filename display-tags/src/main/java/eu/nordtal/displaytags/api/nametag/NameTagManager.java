@@ -24,9 +24,7 @@ public interface NameTagManager {
     PlayerNameTag getByPlayer(Player player);
 
     /**
-     * Removes {@code player}'s name tag, if it has one.
-     *
-     * Despawns its display for all viewers and hands their vanilla name tag back.
+     * Removes {@code player}'s name tag, if it has one, despawning it and handing the vanilla one back.
      *
      * @param player the player whose name tag is removed
      */

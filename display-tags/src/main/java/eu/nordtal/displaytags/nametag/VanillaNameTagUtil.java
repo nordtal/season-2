@@ -7,12 +7,9 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 
 /**
- * Hides the vanilla player name tag from individual viewers.
+ * Hides the vanilla player name tag from individual viewers, so a player shows one name and not two.
  *
- * DisplayTags renders its own text display above the player's head. Without this, the client would
- * render both that display and the vanilla name tag, resulting in two names per player. The vanilla
- * name tag is suppressed by putting the target into a client-side scoreboard team whose name tag
- * visibility is {@code NEVER}.
+ * It puts the target into a client-side scoreboard team whose name tag visibility is {@code NEVER}.
  */
 public final class VanillaNameTagUtil {
     private VanillaNameTagUtil() {}
@@ -63,14 +60,7 @@ public final class VanillaNameTagUtil {
         return true;
     }
 
-    /**
-     * The client-side team name used for a player.
-     *
-     * Keyed by the player's UUID rather than their entity id: the entity id changes on respawn, which
-     * would orphan the team on the client and let the vanilla name come back. The UUID is written
-     * without its dashes, which keeps the name at 44 characters, far below the 32767 the team name
-     * field allows.
-     */
+    /** The client-side team name for a player, keyed by UUID, since the entity id changes on respawn. */
     private static String getTeamName(final Player target) {
         return "displaytags_" + target.getUniqueId().toString().replace("-", "");
     }

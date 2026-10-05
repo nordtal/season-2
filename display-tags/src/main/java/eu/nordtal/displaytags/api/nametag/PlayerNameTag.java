@@ -21,12 +21,7 @@ public abstract class PlayerNameTag {
      */
     protected NameTagData data;
 
-    /**
-     * The viewers the name tag is currently spawned for.
-     *
-     * Touched from the name tag scheduler, from Bukkit events and from the API, so the set has to
-     * tolerate concurrent reads and writes.
-     */
+    /** The viewers the name tag is spawned for, touched from the scheduler, events and the API at once. */
     protected Set<UUID> viewers;
 
     /**
@@ -88,12 +83,7 @@ public abstract class PlayerNameTag {
     public abstract void tick();
 
     /**
-     * Moves the name tag's display to an explicit position for a single viewer.
-     *
-     * {@link org.bukkit.event.player.PlayerTeleportEvent} fires <em>before</em> the player is
-     * actually moved, so at that point {@link #getPlayer()}'s location is still the origin and a
-     * teleport packet derived from it would carry the position the player is leaving. Callers that
-     * already know the destination pass it here instead.
+     * Moves the display to {@code location} for one viewer, for a teleport the player has not yet made.
      *
      * @param viewerId the viewer to send the teleport to
      * @param location the position the display is moved to; not modified by this call
@@ -177,12 +167,7 @@ public abstract class PlayerNameTag {
         }
     }
 
-    /**
-     * A snapshot of the current viewers.
-     *
-     * The per-viewer methods remove from {@link #viewers} (and implementations or event listeners
-     * may add to it), so the bulk methods above must never iterate the live set.
-     */
+    /** A snapshot of the current viewers, since the per-viewer methods change the live set. */
     private List<UUID> currentViewers() {
         return List.copyOf(this.viewers);
     }

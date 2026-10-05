@@ -30,6 +30,7 @@
  * Modified by nordtal.eu:
  *   - package revxrsal.spec -> eu.nordtal.jcore.config.spec
  *   - header() javadoc rewritten: it goes into the schema, not the YAML, not the file itself
+ *   - doc comments shortened to this repository's conventions
  */
 package eu.nordtal.jcore.config.spec.annotation;
 
@@ -48,16 +49,9 @@ import java.lang.annotation.Target;
 public @interface ConfigSpec {
 
     /**
-     * The prose describing the file as a whole, one line per value.
+     * The prose describing the whole spec, one line per value, which the schema carries as the root's explanation.
      *
-     * Carried into {@code <basename>.schema.json} as the {@code explanation} of the root
-     * {@link eu.nordtal.jcore.config.schema.SchemaNode}, not into the YAML. Lines are joined with
-     * {@code '\n'} and taken verbatim, with no {@code '#'} added or stripped.
-     *
-     * Write it for the person operating the file - a file-wide instruction such as "supply this
-     * through the environment" - since {@code @Explain} only covers one key.
-     *
-     * @return The header lines, or an empty array for a file that needs none
+     * @return The header lines, or an empty array for a spec that needs none
      */
     String[] header() default {};
 }

@@ -29,6 +29,7 @@
  *
  * Modified by nordtal.eu:
  *   - package revxrsal.spec -> eu.nordtal.jcore.config.spec
+ *   - doc comments shortened to this repository's conventions
  */
 package eu.nordtal.jcore.config.spec.annotation;
 
@@ -38,54 +39,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * An annotation that allows to compute certain values and cache their result.
+ * Caches what a default method computes from the settings, until a reload, a reset or a setter.
  *
- * This is very useful for heavy, repetitive computations that depend
- * on the configuration values.
- *
- * Note: {@link Memoize @Memoize} does not (yet) consider arguments
- * when caching values. Therefore, it is best to just use it to compute the
- * parts that depend on the configuration values
- *
- * Reloading, resetting, or calling a setter will re-compute
- * all memoized values.
- *
- * Example:
- * {@snippet lang="java" :
- * @ConfigSpec
- * public interface SearchArea {
- *
- *     default double radius() {
- *         return 5;
- *     }
- *
- *     void setRadius(double radius);
- *
- *     @Memoize
- *     default double radiusCubed() {
- *         System.out.println("Computing r^3");
- *         return radius() * radius() * radius();
- *     }
- *
- *     @Memoize
- *     default double radiusSquared() {
- *         System.out.println("Computing r^2");
- *         return radius() * radius();
- *     }
- * }
- * }
- *
- * Calling it:
- * {@snippet lang="java" :
- * SearchArea area = Specs.createDefault(SearchArea.class);
- * System.out.println(area.radiusCubed());
- * System.out.println(area.radiusCubed());
- * area.setRadius(10);
- * System.out.println(area.radiusCubed());
- * System.out.println(area.radiusCubed());
- * }
- * prints {@code Computing r^3}, {@code 125.0}, {@code 125.0}, {@code Computing r^3},
- * {@code 1000.0}, {@code 1000.0} - the setter invalidates the cache, a plain read does not.
+ * Arguments are not part of the cache key, so it suits methods without parameters.
  */
 @HandledByProxy
 @Target(ElementType.METHOD)

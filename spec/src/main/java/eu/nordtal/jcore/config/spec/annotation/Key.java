@@ -29,6 +29,7 @@
  *
  * Modified by nordtal.eu:
  *   - package revxrsal.spec -> eu.nordtal.jcore.config.spec
+ *   - doc comments shortened to this repository's conventions
  */
 package eu.nordtal.jcore.config.spec.annotation;
 
@@ -37,22 +38,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * Sets the key of the property in the configuration file
- *
- * Example:
- * {@snippet lang="java" :
- * @ConfigSpec
- * public interface GameSettings {
- *
- *     @Comment("The cooldown message. Use %cooldown% as a placeholder.")
- *     @Key("cooldown-message")
- *     default String cooldownMessage() {
- *         return "Starting in %cooldown%s";
- *     }
- * }
- * }
- */
+/** Sets the key of the property in the stored settings. */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Key {

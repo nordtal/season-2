@@ -11,11 +11,9 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Addresses the leaves of a spec by their dotted config path ({@code nametag.display.scale}).
+ * Addresses the leaves of a spec by their dotted path ({@code display.scale}).
  *
- * A spec instance is a proxy backed by a {@link Map}, and a nested spec is another such proxy
- * stored as a value in it. Reading or writing one value by path therefore means walking those
- * maps, which is what this does.
+ * A nested spec is a proxy stored as a value in its parent's map, so a path walks those maps.
  */
 public final class SpecPaths {
 

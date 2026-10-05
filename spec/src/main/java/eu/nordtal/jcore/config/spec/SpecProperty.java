@@ -30,6 +30,7 @@
  * Modified by nordtal.eu:
  *   - package revxrsal.spec -> eu.nordtal.jcore.config.spec
  *   - de-Lombok: @RequiredArgsConstructor / @Getter replaced with explicit members
+ *   - comment lines split with its own pattern
  */
 package eu.nordtal.jcore.config.spec;
 

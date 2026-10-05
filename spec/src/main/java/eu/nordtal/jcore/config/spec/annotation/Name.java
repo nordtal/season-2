@@ -6,29 +6,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Written for nordtal.eu - <b>not</b> part of the vendored Spec library, unlike most of this package.
+ * The name a person reads for a setting or a section in place of its key, which it is otherwise derived from.
  *
- * The name a person reads for a setting or a section in an interface, in place of its key. The
- * key is what the YAML says; {@code bunq-api-key} is not what an admin calls the thing.
- *
- * On a getter it names that setting, or that section when the getter returns a nested
- * {@code @ConfigSpec}. On a {@code @ConfigSpec} interface it names the section wherever the
- * interface is used, unless the getter carries its own. Without either, the schema falls back to a
- * name derived from the key.
- *
- * Example:
- * {@snippet lang="java" :
- * @ConfigSpec
- * @Name("Payments")
- * public interface PaymentProcessingSpec {
- *
- *     @Name("Check interval")
- *     @Explain("How often payments are checked, in seconds.")
- *     default long checkIntervalSeconds() { return 10; }
- * }
- * }
- *
- * @see Explain
+ * On a getter returning a nested spec, or on a {@code @ConfigSpec} interface, it names the section. Not part of Spec.
  */
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)

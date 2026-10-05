@@ -3,13 +3,7 @@ package eu.nordtal.jcore.config.spec;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Not part of the vendored Spec library, though it uses its package-private {@link SpecProxy}.
- *
- * Spec's own {@link SpecReference} owns the load/save sequence itself. jcore needs that sequence
- * to also do unknown-key detection, atomic writes, the environment overlay, validation and
- * locking, so this holds only the two things that must live inside the Spec package: the proxy
- * that keeps {@code @Reload} and {@code @Save} working on the spec interface, and the swappable
- * value behind it.
+ * nordtal.eu's own holder of a spec's value, behind the proxy that keeps {@code @Reload} and {@code @Save} working.
  *
  * @param <T> the spec interface type
  */

@@ -29,6 +29,7 @@
  *
  * Modified by nordtal.eu:
  *   - package revxrsal.spec -> eu.nordtal.jcore.config.spec
+ *   - doc comments shortened to this repository's conventions
  */
 package eu.nordtal.jcore.config.spec.annotation;
 
@@ -41,21 +42,6 @@ import java.lang.annotation.Target;
  * Sets the index of the spec field relative to other fields; lower values come first.
  *
  * Neither Gson nor Java guarantee field order on their own, so this is what fixes it.
- *
- * Example:
- * {@snippet lang="java" :
- * @ConfigSpec
- * public interface GameSettings {
- *
- *     @Order(0)
- *     default int cooldown() {
- *         return 20;
- *     }
- *
- *     @Order(1)
- *     String cooldownMessage();
- * }
- * }
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)

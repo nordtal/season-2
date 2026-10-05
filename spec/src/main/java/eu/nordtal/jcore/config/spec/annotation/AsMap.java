@@ -29,6 +29,7 @@
  *
  * Modified by nordtal.eu:
  *   - package revxrsal.spec -> eu.nordtal.jcore.config.spec
+ *   - doc comments shortened to this repository's conventions
  */
 package eu.nordtal.jcore.config.spec.annotation;
 
@@ -37,30 +38,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * Returns the {@link java.util.Map} representation of a given {@link ConfigSpec} interface.
- *
- * Example:
- * {@snippet lang="java" :
- * @ConfigSpec
- * public interface GameSettings {
- *
- *     @Comment("The game cooldown")
- *     default int cooldown() {
- *         return 20;
- *     }
- *
- *     @Comment("The cooldown message")
- *     default String countdownMessage() {
- *         return "Game starts in %countdown%s";
- *     }
- *
- *     @AsMap(AsMap.Behavior.CLONE)
- *     Map<String, Object> asMap();
- *
- * }
- * }
- */
+/** Returns the {@link java.util.Map} representation of a given {@link ConfigSpec} interface. */
 @HandledByProxy
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)

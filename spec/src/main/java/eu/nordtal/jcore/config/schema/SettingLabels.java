@@ -4,15 +4,9 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Turns a config key into the words a human reads above the input.
+ * Turns a setting key into the words a person reads above its input.
  *
- * Deliberately the same mechanical rule steward-worker's own {@code Labels.of} applies to a raw
- * key it reads out of a file with no schema: split on {@code -}/{@code _} and a change of case,
- * lower-case all but a short list of acronyms, capitalise the first word. Keeping the two
- * identical means a setting reads the same whether the interface got its label from this schema or
- * from the raw-file fallback - two algorithms producing two different capitalisations of the same
- * key would be its own small inconsistency. jcore cannot
- * depend on steward-worker to share the one implementation, so this is the other, matching half.
+ * It splits on {@code -}, {@code _} and a change of case, keeps a few acronyms and capitalises the first word.
  */
 final class SettingLabels {
 

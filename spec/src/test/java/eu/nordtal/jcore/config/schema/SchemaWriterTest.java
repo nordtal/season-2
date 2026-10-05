@@ -43,7 +43,7 @@ class SchemaWriterTest {
 
     @Test
     void unmigratedPropertyGetsAnEmptyExplanation() {
-        // Colliding.ab() carries no annotation at all - the one case left with no explanation.
+        // Colliding.ab() carries no annotation at all, the one case left with no explanation.
         final SchemaNode schema = SchemaWriter.build(TestSpecs.Colliding.class);
         final SchemaNode ab = schema.children().get("a-b");
         assertAll(() -> assertEquals("", ab.explanation()), () -> assertFalse(ab.noExplanationNeeded()));

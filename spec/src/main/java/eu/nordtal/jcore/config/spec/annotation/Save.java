@@ -29,6 +29,7 @@
  *
  * Modified by nordtal.eu:
  *   - package revxrsal.spec -> eu.nordtal.jcore.config.spec
+ *   - doc comments shortened to this repository's conventions
  */
 package eu.nordtal.jcore.config.spec.annotation;
 
@@ -37,26 +38,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * Marks a function as being the reload function for a {@link ConfigSpec}.
- *
- * Note that only top-level values can be saved!
- *
- * Example:
- * {@snippet lang="java" :
- * @ConfigSpec
- * public interface GameSettings {
- *
- *     @Comment("The cooldown message. Use %cooldown% as a placeholder.")
- *     default String cooldownMessage() {
- *         return "Starting in %cooldown%s";
- *     }
- *
- *     @Save
- *     void save();
- * }
- * }
- */
+/** Marks the method that saves a {@link ConfigSpec}'s top-level values. */
 @HandledByProxy
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)

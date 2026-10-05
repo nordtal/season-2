@@ -29,6 +29,7 @@
  *
  * Modified by nordtal.eu:
  *   - package revxrsal.spec -> eu.nordtal.jcore.config.spec
+ *   - doc comments shortened to this repository's conventions
  */
 package eu.nordtal.jcore.config.spec.annotation;
 
@@ -37,28 +38,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * Marks a method as ignored by the property scanner of {@link ConfigSpec config specs}.
- *
- * The method must be a default method; scanning it otherwise throws.
- *
- * Example:
- * {@snippet lang="java" :
- * @ConfigSpec
- * public interface GameSettings {
- *
- *     @Comment("The cooldown message. Use %cooldown% as a placeholder.")
- *     default String cooldownMessage() {
- *         return "Starting in %cooldown%s";
- *     }
- *
- *     @IgnoreMethod
- *     default String getCooldownMessage(int cooldown) {
- *         return cooldownMessage().replace("%cooldown%", String.valueOf(cooldown));
- *     }
- * }
- * }
- */
+/** Marks a default method that the property scanner of {@link ConfigSpec config specs} skips. */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface IgnoreMethod {}

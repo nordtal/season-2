@@ -6,25 +6,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Written for nordtal.eu - <b>not</b> part of the vendored Spec library, unlike most of this package.
+ * Marks the entry of a list of nested specs a consumer must never remove, by the value of one of its fields.
  *
- * Marks one entry of a list-of-settings property as one the interface must never let an operator
- * remove, identified by the value one of its own fields carries -
- * {@code @Protected(field = "tag", value = "en")} on a {@code List<Language>} property says the
- * entry whose {@code tag} equals {@code "en"} stays, whatever else in the list changes.
- *
- * Only meaningful on a property whose element type is itself a {@code @ConfigSpec} - a list of
- * plain scalars has no field of its own to match against, and the schema writer refuses to build a
- * schema that puts this annotation anywhere else (a scalar list, a single value, or a nested map).
- * {@link #field()} must name a real property of the element type; a typo there would silently
- * protect nothing, so the writer refuses that too rather than building a schema nobody could act on.
- *
- * <b>This is a description, not an enforcement.</b> The annotation only ever lands on the
- * {@code SchemaNode} the schema writer builds
- * ({@link eu.nordtal.jcore.config.schema.SchemaNode#protectedEntry()}); jcore itself never rejects a
- * removal on the strength of it. A consumer that edits the file - steward-worker's
- * {@code ConfigFiles.removeSection} is the one this was built for - is what turns the description
- * into a refusal.
+ * {@code @Protected(field = "tag", value = "en")} keeps the entry whose {@code tag} is {@code "en"}. Not part of Spec.
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)

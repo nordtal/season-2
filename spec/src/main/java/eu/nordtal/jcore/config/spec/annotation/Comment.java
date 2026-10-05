@@ -29,6 +29,7 @@
  *
  * Modified by nordtal.eu:
  *   - package revxrsal.spec -> eu.nordtal.jcore.config.spec
+ *   - doc comments shortened to this repository's conventions
  */
 package eu.nordtal.jcore.config.spec.annotation;
 
@@ -37,35 +38,13 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * Adds a comment to the given property.
- *
- * Example:
- * {@snippet lang="java" :
- * @ConfigSpec
- * public interface GameSettings {
- *
- *     @Comment(
- *         "The game cooldown",
- *         "",
- *         "Default value: 20"
- *     )
- *     default int cooldown() {
- *         return 20;
- *     }
- * }
- * }
- */
+/** Adds a comment to the given property, one line per value. */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Comment {
 
     /**
-     * The comments to add. Each value is a separate line.
-     *
-     * Note that every line will be preceded by a '# ' automatically,
-     * except entries that start with '#', which will not be preceded by a
-     * space (for creating visual separators).
+     * The comment, one line per value.
      *
      * @return The comments
      */

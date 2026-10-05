@@ -7,69 +7,19 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One key of a {@code config.schema.json}, as {@link SchemaWriter} builds it from a {@code @ConfigSpec} interface.
+ * One setting of a schema, as {@link SchemaWriter} builds it from a {@code @ConfigSpec} interface.
  *
- * <b>Group is deliberately not a field here.</b> "Discord &rarr; Access" is not a second thing
- * this record has to say - it is {@code children} nested inside {@code children}, the same
- * nesting the YAML itself has. A caller that wants the group of a leaf setting walks the tree to
- * it; the alternative, a parallel group string computed independently, is a second mechanism doing
- * the same job and was rejected for it.
- *
- * <b>Unit and value range are deliberately absent too</b> - both were proposed for this schema
- * and rejected.
- *
- * @param kind                what sits under this key
- * @param label               the plain-language name, derived from the key the same way
- *                            steward-worker's {@code Labels.of} derives one from a raw YAML key -
- *                            {@code base-url} becomes {@code Base url}. Always {@code ""} on the
- *                            root node, which stands for the file and has no key to derive one
- *                            from
- * @param explanation         the short text from {@link eu.nordtal.jcore.config.spec.annotation.Explain @Explain}
- *                            when the property carries one. When it does not - still most of the
- *                            codebase - the longer
- *                            {@link eu.nordtal.jcore.config.spec.annotation.Comment @Comment} text
- *                            is used instead, its lines joined with {@code '\n'}: a long
- *                            explanation nobody has shortened yet is better than an empty field,
- *                            and {@code @Explain} always wins once it is written. Empty only when
- *                            the property carries neither.
- *
- *                            <b>On the root node this is the file-level header</b> -
- *                            {@code @ConfigSpec(header = {...})}, one array entry per line, joined
- *                            with {@code '\n'}. It is therefore the one
- *                            place in this record where the text can be several lines and a whole
- *                            paragraph long, so a consumer that renders it must not assume one
- *                            line. Still {@code ""} when the spec declares no header
- * @param noExplanationNeeded whether
- *                            {@link eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded @NoExplanationNeeded}
- *                            is present - the interface shows no explanation at all rather than
- *                            an empty one
- * @param secret              whether {@link eu.nordtal.jcore.config.spec.annotation.Secret @Secret}
- *                            is present. This is the explicit declaration; the key-name heuristic
- *                            a consumer applies to every file, schema or not, is a separate net
- *                            underneath and is not replaced by this field
- * @param type                for a {@link SettingKind#SCALAR}, what the value looks like to YAML;
- *                            for a {@link SettingKind#LIST}, the type its entries share. Always
- *                            {@code null} for a {@link SettingKind#MAP}, which has no scalar of
- *                            its own
- * @param choices             the allowed (or suggested) values and whether the list is closed, or
- *                            {@code null} when this setting has none. Present for a Java
- *                            {@code enum}-typed property automatically, and for anything else
- *                            carrying {@link eu.nordtal.jcore.config.spec.annotation.AllowedValues @AllowedValues}
- * @param children            for a {@link SettingKind#MAP}, the nested settings, keyed by their
- *                            own leaf key; for a {@link SettingKind#LIST} of nested objects, the
- *                            shape of one element, the same way. Empty for a scalar list and for
- *                            a scalar setting
- * @param protectedEntry      for a {@link SettingKind#LIST} of nested objects whose property carries
- *                            {@link eu.nordtal.jcore.config.spec.annotation.Protected @Protected}:
- *                            the field and value that identify the one entry a consumer must refuse
- *                            to remove - {@code tag} / {@code en} for
- *                            {@code languages}, say. {@code null} whenever the property carries no
- *                            {@code @Protected}, and always {@code null} for a {@link SettingKind#SCALAR},
- *                            a {@link SettingKind#MAP} or a scalar list, none of which {@code @Protected}
- *                            is legal on - {@code SchemaWriter} refuses to build a schema that puts
- *                            it anywhere else. This is a description, not an enforcement: jcore
- *                            itself never refuses a removal, it only makes the rule readable to code
- *                            that does
+ * @param kind what sits under this key
+ * @param label the name derived from the key, {@code base-url} as {@code Base url}; {@code ""} on the root
+ * @param explanation the {@code @Explain} text, else the {@code @Comment} lines joined with {@code '\n'}, else
+ *     {@code ""}; on the root, the spec's header, which may be several paragraphs
+ * @param noExplanationNeeded whether {@code @NoExplanationNeeded} is present, so no explanation is shown at all
+ * @param secret whether {@code @Secret} is present
+ * @param type for a scalar the type of its value, for a list the type its entries share; {@code null} for a map
+ * @param choices the allowed or suggested values and whether the list is closed, or {@code null} for none
+ * @param children a map's nested settings, or the shape of one element of a list of nested specs; else empty
+ * @param protectedEntry for a list of nested specs carrying {@code @Protected}, the entry a consumer must not
+ *     remove; else {@code null}
  */
 public record SchemaNode(
         SettingKind kind,
@@ -92,9 +42,7 @@ public record SchemaNode(
      * The values offered for a setting, and whether the field next to them accepts free text.
      *
      * @param values the allowed (or suggested) values, in display order
-     * @param strict {@code true} for a select with no free text; {@code false} for a select with
-     *               a free-text field beside it - see
-     *               {@link eu.nordtal.jcore.config.spec.annotation.AllowedValues#strict()}
+     * @param strict {@code true} for a closed list, {@code false} for suggestions beside a free-text field
      */
     public record Choices(List<String> values, boolean strict) {
 

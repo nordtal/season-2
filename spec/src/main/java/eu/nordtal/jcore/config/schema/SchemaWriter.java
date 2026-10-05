@@ -20,22 +20,9 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Writes {@code <name>.schema.json} beside {@code <name>.yml}, in the same operation that writes the YAML.
+ * Builds the schema of a {@code @ConfigSpec} interface: each setting's name, explanation, type, choices and flags.
  *
- * Every setting the schema carries: the plain-language name, the allowed values (and whether the
- * list is closed or a suggestion), whether no explanation is needed, whether it is a secret, the
- * short explanation text, and the type and kind - already exactly what
- * {@link SchemaNode} documents. The group is not a separate field; it is the nesting of the
- * schema tree itself, which mirrors the YAML's own nesting.
- *
- * The file-level {@code @ConfigSpec(header = {...})} is the root node's {@code explanation} - see
- * {@link #headerOf}. Nothing else writes the header anywhere; it is otherwise carried in no file
- * at all.
- *
- * A list-of-settings property carrying {@code @Protected} gets a
- * {@link SchemaNode#protectedEntry()} naming the one entry a consumer must never let an operator
- * remove - the shape a list's own entries take is otherwise all a schema can describe, never
- * a rule about one specific value among them.
+ * A setting's group is the nesting of the tree, and the spec's header is the root's {@code explanation}.
  */
 public final class SchemaWriter {
 
@@ -53,40 +40,10 @@ public final class SchemaWriter {
     }
 
     /**
-     * The file-level {@code @ConfigSpec(header = {...})} as one block of text, or empty when the spec declares none.
-     *
-     * The per-key {@code @Explain} text goes into this schema; {@code @Comment} reaches no other
-     * file, so {@link #nodeFor} falls back to it for the (still common) case where a property
-     * has no {@code @Explain} of its own. The file-level header goes nowhere else either, so it
-     * is written into no file but this one. That is not a cosmetic detail:
-     * season-2's {@code BotSpec} uses its header for the only sentence anywhere that tells an
-     * operator the Discord token and the bunq key come from {@code NORDTAL_BOT_TOKEN} and friends
-     * rather than from the file they are looking at.
-     *
-     * The root node is where it belongs, because a header describes the whole file exactly as the
-     * root node does, and because it needs no new field that every consumer would then have to
-     * learn about: anything already rendering {@code explanation} renders this for free.
-     *
-     * It lands on {@code explanation} and deliberately <b>not</b> on {@code label}. A label is a
-     * name - {@code SettingLabels.of} turns {@code base-url} into {@code Base url}, two or three
-     * words meant for a heading - and a header is prose, up to a dozen lines of it. Putting a
-     * paragraph where a consumer expects a heading would break every caller that renders one.
-     *
-     * An absent or empty header stays the empty string, which is what {@code explanation} has
-     * always been for a node with nothing to say, so nothing downstream has to change and no
-     * placeholder text is invented.
-     *
-     * {@code headerOf} has already split every array entry on {@code '\n'}, so joining the result
-     * with {@code '\n'} returns the author's text unchanged rather than doubling a line break.
-     * Blank entries are kept: {@code BotSpec}'s header is paragraphs separated by empty lines, and
-     * dropping them would run all of it together. The text is otherwise taken verbatim - the
-     * {@code '# '} prefix and the {@code '#'} separator convention documented on
-     * {@link eu.nordtal.jcore.config.spec.annotation.ConfigSpec#header()} are how the header used
-     * to be <i>rendered into YAML</i>, and that rendering is gone; re-applying any of it here
-     * would put comment syntax into a JSON string that no YAML parser will ever see.
+     * Returns the spec's {@code @ConfigSpec(header)} as one text, or {@code ""} when it declares none.
      *
      * @param specType the spec interface
-     * @return the header text, or {@code ""}
+     * @return the header lines joined with {@code '\n'}, verbatim and with blank ones kept, or {@code ""}
      */
     private static String headerOf(final Class<?> specType) {
         return String.join("\n", Specs.from(specType).headers());
@@ -217,8 +174,7 @@ public final class SchemaWriter {
      * Builds the {@link SchemaNode.ProtectedEntry} a list property's {@code @Protected} describes, or {@code null}.
      *
      * @throws IllegalArgumentException if {@link Protected#field()} names a field the element type
-     *                                  does not have - a typo here would otherwise silently protect
-     *                                  nothing, which is worse than refusing to build the schema
+     *                                  does not have, since a typo would otherwise protect nothing
      */
     private static SchemaNode.@Nullable ProtectedEntry protectedEntryOf(
             final @Nullable Protected annotation, final Class<?> elementType, final String propertyKey) {

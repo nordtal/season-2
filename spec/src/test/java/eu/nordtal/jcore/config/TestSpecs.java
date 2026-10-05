@@ -66,7 +66,7 @@ public final class TestSpecs {
         }
     }
 
-    /** A list of nested objects - the shape jcore's serialization is weakest on. */
+    /** A list of nested objects, the shape serialization is weakest on. */
     @ConfigSpec(header = "Worlds")
     public interface Worlds {
 

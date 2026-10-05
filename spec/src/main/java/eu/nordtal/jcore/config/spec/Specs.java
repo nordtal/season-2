@@ -30,6 +30,8 @@
  * Modified by nordtal.eu:
  *   - package revxrsal.spec -> eu.nordtal.jcore.config.spec
  *   - de-Lombok: @SneakyThrows replaced with explicit try/catch
+ *   - reading from a file removed; gsonBuilder added
+ *   - doc comments shortened to this repository's conventions
  */
 package eu.nordtal.jcore.config.spec;
 
@@ -86,17 +88,11 @@ public final class Specs {
     }
 
     /**
-     * Creates a spec with the default values for the given spec type.
-     *
-     * If the spec contains other nested specs, they will be generated with their
-     * default values as well.
-     *
-     * Lists, maps, sets, arrays, and primitive types will be initialized to
-     * empty values. Everything else will be null.
+     * Creates a spec with the default values for the given spec type, nested specs included.
      *
      * @param interfaceType The spec interface
      * @param <T>           The spec type
-     * @return The newly created instance.
+     * @return The newly created instance; without a default, collections start empty, primitives zero, the rest null
      */
     public static <T> T createDefault(final Class<T> interfaceType) {
         if (!isConfigSpec(interfaceType)) throw new IllegalArgumentException(interfaceType + " must be a spec class!");

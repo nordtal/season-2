@@ -69,7 +69,7 @@ public class PlayerNameTagImpl extends PlayerNameTag {
         this.display = new TextDisplayWrapper();
         this.ghost = new TextDisplayWrapper();
 
-        final NameTagConfiguration config = DisplayTags.get().config().nametag();
+        final NameTagConfiguration config = DisplayTags.get().config();
         final TextDisplay.TextAlignment alignment =
                 TextDisplay.TextAlignment.valueOf(config.getTextAlignment().name());
         final Display.Billboard billboard =

@@ -2,7 +2,8 @@ package eu.nordtal.displaytags.config;
 
 import eu.nordtal.displaytags.api.Util;
 import eu.nordtal.displaytags.api.nametag.SeeThroughMode;
-import eu.nordtal.displaytags.config.spec.DisplayTagsConfigurationSpec;
+import eu.nordtal.displaytags.config.spec.NameTagConfigurationSpec;
+import eu.nordtal.displaytags.config.spec.VectorSpec;
 import eu.nordtal.displaytags.wrapper.display.DisplayBillboard;
 import eu.nordtal.displaytags.wrapper.display.TextAlignment;
 import java.util.Arrays;
@@ -29,32 +30,27 @@ public class NameTagConfiguration {
     private @Nullable Vector offset;
     private @Nullable Vector scale;
 
-    public void load(final DisplayTagsConfigurationSpec config) {
+    public void load(final NameTagConfigurationSpec config) {
         final TextAlignment alignment = parse(
-                TextAlignment.class,
-                "display.text-alignment",
-                config.nametag().display().textAlignment());
+                TextAlignment.class, "display.text-alignment", config.display().textAlignment());
         final DisplayBillboard billboard = parse(
-                DisplayBillboard.class,
-                "display.billboard",
-                config.nametag().display().billboard());
-        final SeeThroughMode seeThrough =
-                parseSeeThrough(config.nametag().display().seeThrough());
-        parseBackground(config.nametag().display().background());
+                DisplayBillboard.class, "display.billboard", config.display().billboard());
+        final SeeThroughMode seeThrough = parseSeeThrough(config.display().seeThrough());
+        parseBackground(config.display().background());
 
-        this.enabled = config.nametag().enabled();
-        this.showToSelf = config.nametag().showToSelf();
-        this.updateInterval = config.nametag().updateInterval();
-        this.visibilityDistance = config.nametag().visibilityDistance();
-        this.lines = config.nametag().display().lines();
-        this.textShadow = config.nametag().display().textShadow();
+        this.enabled = config.enabled();
+        this.showToSelf = config.showToSelf();
+        this.updateInterval = config.updateInterval();
+        this.visibilityDistance = config.visibilityDistance();
+        this.lines = config.display().lines();
+        this.textShadow = config.display().textShadow();
         this.seeThrough = seeThrough;
-        this.sneakTextOpacity = clampOpacity(config.nametag().display().sneakTextOpacity());
+        this.sneakTextOpacity = clampOpacity(config.display().sneakTextOpacity());
         this.textAlignment = alignment;
-        this.background = config.nametag().display().background();
+        this.background = config.display().background();
         this.billboard = billboard;
-        this.offset = config.nametag().display().offset().toBukkitVector();
-        this.scale = config.nametag().display().scale().toBukkitVector();
+        this.offset = vector(config.display().offset());
+        this.scale = vector(config.display().scale());
     }
 
     public boolean isEnabled() {
@@ -141,13 +137,13 @@ public class NameTagConfiguration {
                 .collect(Collectors.joining(", "));
 
         throw new IllegalArgumentException(
-                "nametag." + key + ": '" + value + "' is not a valid value. Available values: " + allowed + ".");
+                key + ": '" + value + "' is not a valid value. Available values: " + allowed + ".");
     }
 
     /**
      * Reads {@code display.see-through}.
      *
-     * Accepts the plain YAML booleans jcore passes it as {@code "true"} or {@code "false"}.
+     * Accepts the booleans as {@code "true"} or {@code "false"}.
      */
     private static SeeThroughMode parseSeeThrough(final @Nullable String value) {
         final SeeThroughMode mode = SeeThroughMode.parse(value);
@@ -155,7 +151,7 @@ public class NameTagConfiguration {
             return mode;
         }
 
-        throw new IllegalArgumentException("nametag.display.see-through: '" + value + "' is not a valid value. "
+        throw new IllegalArgumentException("display.see-through: '" + value + "' is not a valid value. "
                 + "Available values: vanilla (visible through blocks but dimmed, like a "
                 + "vanilla name tag), true (visible through blocks), false (hidden behind "
                 + "blocks).");
@@ -170,9 +166,13 @@ public class NameTagConfiguration {
         try {
             Util.parseDisplayBackground(background);
         } catch (RuntimeException error) {
-            throw new IllegalArgumentException("nametag.display.background: '" + background + "' is not a valid value. "
+            throw new IllegalArgumentException("display.background: '" + background + "' is not a valid value. "
                     + "Available values: 'default', 'transparent', or a hex colour such as '#FFFFFF'.");
         }
+    }
+
+    private static Vector vector(final VectorSpec spec) {
+        return new Vector(spec.x(), spec.y(), spec.z());
     }
 
     /**

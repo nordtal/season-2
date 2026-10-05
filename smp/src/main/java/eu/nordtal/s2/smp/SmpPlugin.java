@@ -9,6 +9,8 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import eu.nordtal.displaytags.DisplayTags;
+import eu.nordtal.displaytags.config.spec.NameTagConfigurationSpec;
 import eu.nordtal.s2.database.inbox.SmpRequest;
 import eu.nordtal.s2.database.notify.Channel;
 import eu.nordtal.s2.messagerendering.Names;
@@ -86,6 +88,12 @@ public final class SmpPlugin extends NordtalPlugin {
 
     /** Swapped by a reload; every listener holds this one instance. */
     SmpSounds sounds;
+
+    /** Its own group, taken while running: a change redraws every name tag. */
+    private Setting<NameTagConfigurationSpec> nameTagSettings;
+
+    /** Every player's name tag, started at enable. */
+    DisplayTags nameTags;
 
     /** The name colours; volatile, since a reload replaces them and renders read them through a supplier. */
     volatile PrestigeColours prestigeColours;
@@ -171,6 +179,7 @@ public final class SmpPlugin extends NordtalPlugin {
                                                         context,
                                                         () -> admin.completeObjective(
                                                                 StringArgumentType.getString(context, "key"))))))))
+                .then(console("nametags").then(Commands.literal("redraw").executes(this::redrawNameTags)))
                 .then(console("milestone")
                         .then(Commands.literal("unlock")
                                 .then(Commands.argument("key", StringArgumentType.word())
@@ -201,6 +210,9 @@ public final class SmpPlugin extends NordtalPlugin {
                 .checkedBy(SmpSettings::checkMilestones)
                 .whileRunning());
         soundSettings = setting(Group.of("sounds", SoundsSpec.class).whileRunning());
+        nameTagSettings = setting(Group.of("nametags", NameTagConfigurationSpec.class)
+                .checkedBy(DisplayTags::check)
+                .whileRunning());
         loadMilestoneTrack();
         loadFeedbackPalettes();
         worlds = bootstrapWorlds(config.get());
@@ -233,6 +245,7 @@ public final class SmpPlugin extends NordtalPlugin {
 
         announcer = SmpStart.declareHudAndStartAnnouncer(this);
 
+        nameTags = DisplayTags.start(this, nameTagSettings.get());
         final SmpStart.Surfaces wired = SmpStart.wireEffectsAndSurfaces(this, spec);
         // Every name this server holds wears what chat shows: the flag, the prestige colour and the crest.
         composeNames((name, reader) -> identities()
@@ -370,6 +383,10 @@ public final class SmpPlugin extends NordtalPlugin {
         if (drawn != null) {
             quietly("boards.stop", drawn::stop);
         }
+        final DisplayTags tags = nameTags;
+        if (tags != null) {
+            quietly("nameTags.stop", tags::stop);
+        }
     }
 
     void registerCommands(final SmpSounds sounds) {
@@ -414,6 +431,13 @@ public final class SmpPlugin extends NordtalPlugin {
         }
         final int delta = IntegerArgumentType.getInteger(context, "delta");
         return run(context, () -> admin.changeAura(player.getUniqueId(), player.getName(), delta));
+    }
+
+    /** {@code /smp nametags redraw}: drops every name tag and draws it again from the {@code nametags} group. */
+    private int redrawNameTags(final CommandContext<CommandSourceStack> context) {
+        nameTags.reload(nameTagSettings.get());
+        tell(context.getSource().getSender(), Answer.done(MESSAGES.smp().admin().nameTagsRedrawn()));
+        return Command.SINGLE_SUCCESS;
     }
 
     /** {@code /smp access <player>}: whether somebody online is linked, has access and is paying. */
@@ -511,6 +535,12 @@ public final class SmpPlugin extends NordtalPlugin {
             sounds.reload(soundSettings.get());
         } catch (final SettingsException | RuntimeException failure) {
             problems.add("the sounds: " + failure.getMessage());
+        }
+        try {
+            nameTagSettings.reload();
+            nameTags.reload(nameTagSettings.get());
+        } catch (final SettingsException | RuntimeException failure) {
+            problems.add("the name tags: " + failure.getMessage());
         }
         // The base re-read the prestige group before this.
         prestigeColours = prestigeColours();

@@ -25,7 +25,7 @@ public class PlayerListener implements Listener {
     // Waits for the client to finish loading the world; on PlayerJoinEvent the spawn packets would be dropped.
     @EventHandler
     public void onPlayerClientLoadedWorld(final PlayerClientLoadedWorldEvent event) {
-        if (this.plugin.config().nametag().isEnabled()) {
+        if (this.plugin.config().isEnabled()) {
             // Tick right away instead of waiting up to one update-interval for the scheduler.
             this.plugin.getNameTagManager().createNameTag(event.getPlayer()).tick();
         }
@@ -33,14 +33,14 @@ public class PlayerListener implements Listener {
 
     @EventHandler
     public void onPlayerQuit(final PlayerQuitEvent event) {
-        if (this.plugin.config().nametag().isEnabled()) {
+        if (this.plugin.config().isEnabled()) {
             this.plugin.getNameTagManager().removeNameTag(event.getPlayer());
         }
     }
 
     @EventHandler(ignoreCancelled = true)
     public void onPlayerSneakToggle(final PlayerToggleSneakEvent event) {
-        final NameTagConfiguration config = this.plugin.config().nametag();
+        final NameTagConfiguration config = this.plugin.config();
         if (!config.isEnabled()) return;
 
         final PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(event.getPlayer());
@@ -59,7 +59,7 @@ public class PlayerListener implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onPlayerTeleport(final PlayerTeleportEvent event) {
-        if (this.plugin.config().nametag().isEnabled()) {
+        if (this.plugin.config().isEnabled()) {
             final Player player = event.getPlayer();
             final PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(player);
             if (tag == null) return;
@@ -68,7 +68,7 @@ public class PlayerListener implements Listener {
             tag.teleportForViewers(event.getTo());
 
             // Distance and world can only be re-evaluated once the move has actually happened.
-            this.plugin.getServer().getScheduler().runTask(this.plugin, () -> {
+            this.plugin.getServer().getScheduler().runTask(this.plugin.host(), () -> {
                 final PlayerNameTag current = this.plugin.getNameTagManager().getByPlayer(player);
                 if (current != null) current.tick();
             });
@@ -77,7 +77,7 @@ public class PlayerListener implements Listener {
 
     @EventHandler
     public void onPlayerChangedWorld(final PlayerChangedWorldEvent event) {
-        if (this.plugin.config().nametag().isEnabled()) {
+        if (this.plugin.config().isEnabled()) {
             final PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(event.getPlayer());
             if (tag == null) return;
 
@@ -89,12 +89,12 @@ public class PlayerListener implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onPlayerGameModeChange(final PlayerGameModeChangeEvent event) {
-        if (this.plugin.config().nametag().isEnabled()) {
+        if (this.plugin.config().isEnabled()) {
             final Player player = event.getPlayer();
             if (this.plugin.getNameTagManager().getByPlayer(player) == null) return;
 
             // Player#getGameMode() still reports the old mode here, so visibility is re-evaluated next tick instead.
-            this.plugin.getServer().getScheduler().runTask(this.plugin, () -> {
+            this.plugin.getServer().getScheduler().runTask(this.plugin.host(), () -> {
                 final PlayerNameTag current = this.plugin.getNameTagManager().getByPlayer(player);
                 if (current != null) current.tick();
             });
@@ -103,7 +103,7 @@ public class PlayerListener implements Listener {
 
     @EventHandler
     public void onPlayerDeath(final PlayerDeathEvent event) {
-        if (this.plugin.config().nametag().isEnabled()) {
+        if (this.plugin.config().isEnabled()) {
             final PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(event.getPlayer());
             if (tag == null) return;
 
@@ -113,7 +113,7 @@ public class PlayerListener implements Listener {
 
     @EventHandler
     public void onPlayerRespawn(final PlayerRespawnEvent event) {
-        if (this.plugin.config().nametag().isEnabled()) {
+        if (this.plugin.config().isEnabled()) {
             final PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(event.getPlayer());
             if (tag == null) return;
 

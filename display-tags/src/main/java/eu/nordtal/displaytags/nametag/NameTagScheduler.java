@@ -17,14 +17,14 @@ public class NameTagScheduler {
         // start() is called again on every reload, so a previous timer must not keep running.
         this.end();
 
-        if (this.plugin.config().nametag().isEnabled()) {
+        if (this.plugin.config().isEnabled()) {
             // An update interval of 0 would ask for a task on every server tick, so one tick is the floor.
-            final int interval = Math.max(1, this.plugin.config().nametag().getUpdateInterval() * 20);
+            final int interval = Math.max(1, this.plugin.config().getUpdateInterval() * 20);
             this.task = this.plugin
                     .getServer()
                     .getScheduler()
                     .runTaskTimer(
-                            this.plugin,
+                            this.plugin.host(),
                             () -> {
                                 for (final PlayerNameTag nametag :
                                         this.plugin.getNameTagManager().getAll()) {
@@ -40,10 +40,7 @@ public class NameTagScheduler {
                     .getLogger()
                     .warning(
                             "Custom name tags are disabled for this server, therefore the Name Tag Scheduler has not been started.");
-            this.plugin
-                    .getLogger()
-                    .warning(
-                            "If you want to enable the custom name tags again, enable them in config.yml and run /displaytags reload.");
+            this.plugin.getLogger().warning("Turning them on in the nametags settings starts it again.");
         }
     }
 

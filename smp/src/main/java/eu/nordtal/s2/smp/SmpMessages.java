@@ -170,6 +170,9 @@ public interface SmpMessages {
             @Name("Player offline")
             MessageRef playerOffline();
 
+            @Name("Name tags redrawn")
+            MessageRef nameTagsRedrawn();
+
             @Name("Target unlinked")
             MessageRef targetUnlinked(@Arg("player") PlayerContext player);
 

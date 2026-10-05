@@ -77,8 +77,13 @@ final class SmpStart {
         plugin.getServer().getPluginManager().registerEvents(effects, plugin);
 
         final PlayerComposition composition = new PlayerComposition(plugin::prestige, () -> plugin.prestigeColours);
-        final PlayerSurfaces surfaces =
-                new PlayerSurfaces(plugin, plugin.identities(), composition, plugin.renderer(), plugin.players());
+        final PlayerSurfaces surfaces = new PlayerSurfaces(
+                plugin,
+                plugin.identities(),
+                composition,
+                plugin.renderer(),
+                plugin.players(),
+                plugin.nameTags.getNameTagManager());
         plugin.identities().whenChanged(surfaces::changed);
 
         final Boards boards = new Boards(plugin, config, plugin.season, plugin.renderer(), plugin.identities());

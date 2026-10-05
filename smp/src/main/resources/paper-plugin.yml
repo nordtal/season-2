@@ -6,9 +6,15 @@ author: nordtal
 website: https://nordtal.eu
 api-version: "26.2"
 
-# DisplayTags owns every nametag; required so a server without it fails at start.
+# The name tags draw through PacketEvents, so a server without it fails at start; PlaceholderAPI and TAB are used when present.
 dependencies:
   server:
-    DisplayTags:
+    packetevents:
       load: BEFORE
       required: true
+    PlaceholderAPI:
+      load: BEFORE
+      required: false
+    TAB:
+      load: BEFORE
+      required: false

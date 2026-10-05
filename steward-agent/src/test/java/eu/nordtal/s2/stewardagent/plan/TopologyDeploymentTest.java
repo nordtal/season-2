@@ -613,16 +613,16 @@ class TopologyDeploymentTest {
     }
 
     @Test
-    void displaytagsReallyIsRequiredBySmpWhichIsWhyTheTopologyListsIt() throws IOException {
+    void packetEventsReallyIsRequiredBySmpWhichIsWhyTheTopologyListsIt() throws IOException {
         // Checked against the manifest that enforces it rather than against a comment about it.
         final Path manifest = findUpwards("smp/src/main/resources/paper-plugin.yml");
         final String text = Files.readString(manifest, StandardCharsets.UTF_8);
 
-        assertTrue(text.contains("DisplayTags"), manifest + " no longer names DisplayTags");
+        assertTrue(text.contains("packetevents:"), manifest + " no longer names packetevents");
         assertTrue(text.contains("required: true"), manifest + " no longer requires it");
         assertTrue(
-                smpPlugins().contains(Topology.DISPLAY_TAGS),
-                "smp requires DisplayTags but its eu.nordtal.plugins label does not name it, so steward would"
+                smpPlugins().contains(Topology.PACKETEVENTS),
+                "smp requires packetevents but its eu.nordtal.plugins label does not name it, so steward would"
                         + " never install it");
     }
 

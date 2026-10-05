@@ -1,182 +1,112 @@
 package eu.nordtal.displaytags;
 
-import com.google.common.base.Splitter;
-import eu.nordtal.displaytags.api.DisplayTagsPlugin;
 import eu.nordtal.displaytags.api.nametag.NameTagManager;
 import eu.nordtal.displaytags.api.nametag.PlayerNameTag;
-import eu.nordtal.displaytags.commands.DisplayTagsCommand;
-import eu.nordtal.displaytags.config.ConfigurationMigrator;
-import eu.nordtal.displaytags.config.DisplayTagsConfiguration;
+import eu.nordtal.displaytags.config.NameTagConfiguration;
+import eu.nordtal.displaytags.config.spec.NameTagConfigurationSpec;
 import eu.nordtal.displaytags.listener.PlayerListener;
 import eu.nordtal.displaytags.nametag.NameTagManagerImpl;
 import eu.nordtal.displaytags.nametag.NameTagScheduler;
 import eu.nordtal.displaytags.nametag.TabUtil;
-import eu.nordtal.jcore.config.exception.ConfigException;
 import java.util.List;
 import java.util.Objects;
+import java.util.logging.Logger;
 import org.bukkit.Bukkit;
-import org.bukkit.command.CommandMap;
+import org.bukkit.Server;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.PluginManager;
-import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
-public final class DisplayTags extends JavaPlugin implements DisplayTagsPlugin {
-    private static @Nullable DisplayTags INSTANCE;
+/** Every player's name tag as packet-only text displays, run by the plugin that hosts it. */
+public final class DisplayTags {
+    private static @Nullable DisplayTags running;
 
-    private @Nullable DisplayTagsConfiguration config;
-    private @Nullable NameTagManager nameTagManager;
-    private @Nullable NameTagScheduler nameTagScheduler;
+    private final Plugin host;
+    private final NameTagConfiguration config = new NameTagConfiguration();
+    private final NameTagManager nameTagManager = new NameTagManagerImpl();
+    private final NameTagScheduler nameTagScheduler;
 
-    @Override
-    public void onLoad() {
-        INSTANCE = this;
-
-        try {
-            // Runs before the config is read, or jcore overwrites the file with defaults and old settings are lost.
-            ConfigurationMigrator.migrate(this);
-
-            this.config = new DisplayTagsConfiguration(this);
-        } catch (ConfigException | RuntimeException error) {
-            // A bad config value must not crash the server; onEnable disables the plugin instead.
-            this.config = null;
-            getLogger().severe("Could not read plugins/DisplayTags/config.yml:");
-            for (final String line : Splitter.on('\n').split(String.valueOf(error.getMessage()))) {
-                getLogger().severe("  " + line);
-            }
-            return;
-        }
-
-        this.nameTagManager = new NameTagManagerImpl();
+    private DisplayTags(final Plugin host) {
+        this.host = host;
         this.nameTagScheduler = new NameTagScheduler(this);
     }
 
-    @Override
-    public void onEnable() {
-        if (this.config == null) {
-            getLogger().severe("DisplayTags is not starting up because its configuration could not be read.");
-            getLogger()
-                    .severe(
-                            "Correct the error reported above in plugins/DisplayTags/config.yml, then restart the server.");
-            getServer().getPluginManager().disablePlugin(this);
-            return;
-        }
-
-        try {
-            DependencyUtil.load(this);
-
-            final PluginManager pluginManager = getServer().getPluginManager();
-            final CommandMap commandMap = getServer().getCommandMap();
-
-            TabUtil.load(this);
-
-            this.nameTagScheduler().start();
-
-            pluginManager.registerEvents(new PlayerListener(this), this);
-            commandMap.register("displaytags", new DisplayTagsCommand(this));
-        } catch (Exception error) {
-            getLogger().severe("DisplayTags failed to start up: " + error);
-            error.printStackTrace();
-            getServer().getPluginManager().disablePlugin(this);
-            return;
-        }
-
-        final String version = getPluginMeta().getVersion();
-        getLogger().info(String.format("Enabled DisplayTags v%s.", version));
-    }
-
-    @Override
-    public void onDisable() {
-        // Fields stay null when onLoad or onEnable bailed out early; Bukkit still calls onDisable then.
-        if (this.nameTagScheduler != null) {
-            this.nameTagScheduler.end();
-        }
-
-        // Despawns explicitly: a display exists only on the client, so a viewer who never reconnects keeps seeing it.
-        if (this.nameTagManager != null) {
-            this.removeAllNameTags();
-        }
-
-        getLogger().info("Disabled DisplayTags.");
+    /**
+     * Starts the name tags for {@code host}, from its {@code nametags} group.
+     *
+     * @throws IllegalArgumentException naming the first value of {@code settings} that cannot be used
+     */
+    public static DisplayTags start(final Plugin host, final NameTagConfigurationSpec settings) {
+        final DisplayTags tags = new DisplayTags(host);
+        tags.config.load(settings);
+        running = tags;
+        DependencyUtil.load(tags);
+        TabUtil.load(tags);
+        tags.nameTagScheduler.start();
+        host.getServer().getPluginManager().registerEvents(new PlayerListener(tags), host);
+        return tags;
     }
 
     /**
-     * Removes every registered name tag, restoring the vanilla one for its viewers.
+     * Refuses a {@code nametags} group no name tag can be drawn from.
+     *
+     * @throws IllegalArgumentException naming the first value that is wrong
      */
-    private void removeAllNameTags() {
-        final NameTagManager manager = this.nameTagManager();
-        for (final PlayerNameTag tag : List.copyOf(manager.getAll())) {
-            manager.removeNameTag(tag.getPlayer());
-        }
+    public static void check(final NameTagConfigurationSpec settings) {
+        new NameTagConfiguration().load(settings);
     }
 
-    public boolean reloadPlugin() {
-        getLogger().info("Reloading DisplayTags...");
-
-        this.nameTagScheduler().end();
-
-        // Drops the old tags instead of only despawning them, clearing entries the new config might not recreate.
+    /** Takes changed settings: every tag is dropped and drawn again from them. */
+    public void reload(final NameTagConfigurationSpec settings) {
+        this.nameTagScheduler.end();
+        // Drops the old tags instead of only despawning them, clearing entries the new settings might not recreate.
         this.removeAllNameTags();
-
-        try {
-            this.config().reload();
-        } catch (IllegalArgumentException error) {
-            // A rejected value never reaches the live config, so the plugin carries on with the previous one.
-            getLogger().severe("Failed to reload the plugin configuration:");
-            getLogger().severe("  " + error.getMessage());
-            getLogger().severe("Keeping the configuration that was loaded before.");
-
-            this.startNameTags();
-            return false;
-        } catch (Exception error) {
-            getLogger().severe("Failed to reload the plugin configuration: " + error);
-            getLogger().severe("Keeping the configuration that was loaded before.");
-            error.printStackTrace();
-
-            this.startNameTags();
-            return false;
+        this.config.load(settings);
+        if (this.config.isEnabled()) {
+            for (final Player player : Bukkit.getOnlinePlayers()) {
+                this.nameTagManager.createNameTag(player).tick();
+            }
         }
-
-        this.startNameTags();
-
-        getLogger().info("Successfully reloaded!");
-        return true;
+        this.nameTagScheduler.start();
     }
 
-    /**
-     * Creates a name tag for every player that is currently online and (re)starts the scheduler.
-     */
-    private void startNameTags() {
-        if (!this.config().nametag().isEnabled()) {
-            return;
-        }
-
-        final NameTagManager manager = this.nameTagManager();
-        for (final Player player : Bukkit.getOnlinePlayers()) {
-            manager.createNameTag(player).tick();
-        }
-
-        this.nameTagScheduler().start();
+    /** Stops the scheduler and removes every tag, restoring the vanilla one for its viewers. */
+    public void stop() {
+        this.nameTagScheduler.end();
+        // A display exists only on the client, so a viewer who never reconnects would keep seeing it.
+        this.removeAllNameTags();
+        running = null;
     }
 
+    private void removeAllNameTags() {
+        for (final PlayerNameTag tag : List.copyOf(this.nameTagManager.getAll())) {
+            this.nameTagManager.removeNameTag(tag.getPlayer());
+        }
+    }
+
+    /** Returns the running instance, for the tags it draws. */
     public static DisplayTags get() {
-        return Objects.requireNonNull(INSTANCE, "DisplayTags.get() called before onLoad");
+        return Objects.requireNonNull(running, "DisplayTags has not started");
     }
 
-    public DisplayTagsConfiguration config() {
-        return Objects.requireNonNull(this.config, "DisplayTags configuration could not be read");
+    public NameTagConfiguration config() {
+        return this.config;
     }
 
-    @Override
     public NameTagManager getNameTagManager() {
-        return this.nameTagManager();
+        return this.nameTagManager;
     }
 
-    private NameTagManager nameTagManager() {
-        return Objects.requireNonNull(this.nameTagManager, "DisplayTags has not started up");
+    /** Returns the plugin that hosts the name tags, which owns their tasks and listeners. */
+    public Plugin host() {
+        return this.host;
     }
 
-    private NameTagScheduler nameTagScheduler() {
-        return Objects.requireNonNull(this.nameTagScheduler, "DisplayTags has not started up");
+    public Server getServer() {
+        return this.host.getServer();
+    }
+
+    public Logger getLogger() {
+        return this.host.getLogger();
     }
 }

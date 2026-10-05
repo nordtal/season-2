@@ -26,11 +26,6 @@ repositoryRootTestInputs {
     reads("deploy/minecraft/entrypoint.sh")
 }
 
-repositories {
-    // jcore and papermc-display-tags are published via JitPack.
-    maven("https://jitpack.io")
-}
-
 dependencies {
     // The assembled resource pack: the fonts the menu tests measure against only exist there.
     "resourcePack"(project(":resource-pack", "pack"))
@@ -38,18 +33,16 @@ dependencies {
     testImplementation(testFixtures(project(":common")))
     testImplementation(testFixtures(project(":pack-rendering")))
 
-    // Flyway is excluded: this plugin never migrates, and flyway-core drags in Jackson 3.
-    implementation(libs.jcore) {
-        exclude(group = "org.flywaydb")
-    }
+    // JDBI, which :database and :settings only compile against.
+    implementation(libs.jdbi.core)
+    implementation(libs.jdbi.sqlobject)
 
     implementation(libs.hikaricp)
 
-    // jcore declares jdbi3-postgres in runtime scope only.
     implementation(libs.jdbi.postgres)
 
-    // Never shaded: a bundled copy of the API would not match the running DisplayTags plugin's classes.
-    compileOnly(libs.display.tags)
+    // The name tags, shaded into this plugin.
+    implementation(project(":display-tags"))
 
     testImplementation(testFixtures(project(":database")))
     testImplementation(testFixtures(project(":settings")))

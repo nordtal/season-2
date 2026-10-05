@@ -2,7 +2,7 @@ package eu.nordtal.s2.smp.player;
 
 import static eu.nordtal.s2.smp.SmpMessages.MESSAGES;
 
-import eu.nordtal.displaytags.api.DisplayTagsPlugin;
+import eu.nordtal.displaytags.api.nametag.NameTagManager;
 import eu.nordtal.displaytags.api.nametag.PlayerNameTag;
 import eu.nordtal.s2.database.access.PlayerIdentity;
 import eu.nordtal.s2.messagerendering.MessageRenderer;
@@ -28,6 +28,7 @@ public final class PlayerSurfaces {
     private final Identities identities;
     private final PlayerComposition composition;
     private final MessageRenderer messages;
+    private final NameTagManager nameTags;
 
     /** The network's limit, which the footer shows: no server has one of its own. */
     private final PlayersSpec network;
@@ -37,7 +38,9 @@ public final class PlayerSurfaces {
             final Identities identities,
             final PlayerComposition composition,
             final MessageRenderer messages,
-            final PlayersSpec network) {
+            final PlayersSpec network,
+            final NameTagManager nameTags) {
+        this.nameTags = nameTags;
         this.network = network;
         this.plugin = plugin;
         this.identities = identities;
@@ -78,15 +81,7 @@ public final class PlayerSurfaces {
      * A tag created at join is replaced by DisplayTags' own lines; {@code onNameTagCreate} is the seam that holds.
      */
     private void applyNameTag(final Player player, final PlayerIdentity identity) {
-        final DisplayTagsPlugin displayTags = DisplayTagsPlugin.get();
-        if (displayTags == null) {
-            // DisplayTags is declared required, so its absence is a failed enable.
-            plugin.getLogger()
-                    .warning("DisplayTags is not available - " + player.getName() + " keeps the vanilla nametag");
-            return;
-        }
-
-        final PlayerNameTag tag = displayTags.getNameTagManager().getByPlayer(player);
+        final PlayerNameTag tag = nameTags.getByPlayer(player);
         if (tag == null) {
             // Between join and the client loading its world there is nothing to write to. The create event fills it in.
             return;

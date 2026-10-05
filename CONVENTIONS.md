@@ -73,8 +73,11 @@ decision records.
 `type(scope): description`, type in lowercase, no issue ID.
 Types: `feat`, `fix`, `refactor`, `perf`, `test`, `docs`, `build`, `ci`, `chore`, `style`. A
 breaking change carries `!` after the type. _(checked by a `commit-msg` hook and in CI)_
-The release notes are generated from these subjects by git-cliff (`cliff.toml`). Run
-`git config core.hooksPath .githooks` once per clone to get the hook.
+No message, pull request title or body names a model or its vendor.
+_(checked by the same hook, in CI and by the `pr-title` check)_
+The release notes are generated from these subjects by git-cliff (`cliff.toml`). The system hook at
+`/etc/nordtal/githooks` runs `.githooks/commit-msg` in every clone; only on a machine without it,
+run `git config core.hooksPath .githooks` once per clone.
 
 ## This repository: season-2
 

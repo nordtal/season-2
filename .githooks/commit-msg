@@ -1,9 +1,15 @@
 #!/bin/sh
-# Refuses a commit message that is not a Conventional Commit or that names an issue-tracker ID.
+# Refuses a commit message that is not a Conventional Commit, names an issue-tracker ID, or names a model
+# or its vendor. The pr-title workflow runs it on a pull request's title and body too.
 set -eu
 
 message=$(grep -v '^#' "$1")
 subject=$(printf '%s\n' "$message" | sed -n '/[^[:space:]]/{p;q;}')
+
+if printf '%s\n' "$message" | grep -Eiq '\b(claude|anthropic|opus|sonnet|haiku|fable)\b|generated with|^co-authored-by:.*(\[bot\]|\bbot\b)'; then
+    echo "commit-msg: the message names a model or its vendor, a generated-with line or a bot co-author; remove it." >&2
+    exit 1
+fi
 
 case "$subject" in
     "Merge "* | "Revert "* | "fixup! "* | "squash! "* | "amend! "*) exit 0 ;;

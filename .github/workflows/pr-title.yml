@@ -15,9 +15,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Title follows CONVENTIONS.md
+      # The body is checked with the title for model and vendor names, which no commit hook ever sees.
+      # Dependabot's body quotes the release notes of the packages it bumps, so only its title is checked.
+      - name: Title and body follow CONVENTIONS.md
         env:
           TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+          ACTOR: ${{ github.actor }}
         run: |
-          printf '%s\n' "$TITLE" > "$RUNNER_TEMP/message"
+          [ "$ACTOR" = "dependabot[bot]" ] && BODY=""
+          printf '%s\n\n%s\n' "$TITLE" "$BODY" > "$RUNNER_TEMP/message"
           sh .githooks/commit-msg "$RUNNER_TEMP/message"

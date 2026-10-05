@@ -41,7 +41,7 @@ public final class StandbyReturn {
     private final Logger logger;
     private final SwapStore seats;
     private final ProxyRole role;
-    private final InetSocketAddress home;
+    private final @Nullable InetSocketAddress home;
     private final Clock clock;
     private final Probe probe;
 
@@ -68,7 +68,7 @@ public final class StandbyReturn {
             final Logger logger,
             final SwapStore seats,
             final ProxyRole role,
-            final InetSocketAddress home,
+            final @Nullable InetSocketAddress home,
             final Clock clock,
             final Homecoming voice) {
         this(scheduler, proxy, logger, seats, role, home, clock, voice, StandbyReturn::connects);
@@ -85,7 +85,7 @@ public final class StandbyReturn {
             final Logger logger,
             final SwapStore seats,
             final ProxyRole role,
-            final InetSocketAddress home,
+            final @Nullable InetSocketAddress home,
             final Clock clock,
             final Homecoming voice,
             final Probe probe) {
@@ -107,7 +107,8 @@ public final class StandbyReturn {
 
     /** One pass: reports how many players are here and sends them home if it is time; never throws. */
     public void check() {
-        if (!isArmed()) {
+        final InetSocketAddress target = home;
+        if (target == null || !isArmed()) {
             return;
         }
         final Collection<Player> players = proxy.getAllPlayers();
@@ -133,7 +134,7 @@ public final class StandbyReturn {
 
         final boolean answers;
         try {
-            answers = probe.answers(home, PROBE_TIMEOUT);
+            answers = probe.answers(target, PROBE_TIMEOUT);
         } catch (final RuntimeException failure) {
             logger.warn("Could not probe {}; holding the players here this pass", home, failure);
             return;

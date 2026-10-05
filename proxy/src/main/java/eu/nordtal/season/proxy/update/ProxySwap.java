@@ -13,6 +13,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
@@ -32,7 +33,7 @@ public final class ProxySwap {
     private final UpdateDirectory updates;
     private final SwapStore seats;
     private final ProxyRole role;
-    private final InetSocketAddress standby;
+    private final @Nullable InetSocketAddress standby;
     private final Clock clock;
     private final StandbyReturn.Probe probe;
 
@@ -53,7 +54,7 @@ public final class ProxySwap {
             final UpdateDirectory updates,
             final SwapStore seats,
             final ProxyRole role,
-            final InetSocketAddress standby,
+            final @Nullable InetSocketAddress standby,
             final Clock clock) {
         this(proxy, logger, updates, seats, role, standby, clock, StandbyReturn::connects);
     }
@@ -69,7 +70,7 @@ public final class ProxySwap {
             final UpdateDirectory updates,
             final SwapStore seats,
             final ProxyRole role,
-            final InetSocketAddress standby,
+            final @Nullable InetSocketAddress standby,
             final Clock clock,
             final StandbyReturn.Probe probe) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
@@ -106,12 +107,14 @@ public final class ProxySwap {
      * False on the standby itself and on a proxy with no {@code public-address}.
      */
     public boolean canPark() {
-        return isArmed() && probe.answers(standby, STANDBY_ANSWERS_WITHIN);
+        final InetSocketAddress target = standby;
+        return target != null && isArmed() && probe.answers(target, STANDBY_ANSWERS_WITHIN);
     }
 
     /** One pass; never throws, since Velocity stops running a task that throws. */
     public void check() {
-        if (!isArmed()) {
+        final InetSocketAddress target = standby;
+        if (target == null || !isArmed()) {
             return;
         }
 
@@ -126,7 +129,7 @@ public final class ProxySwap {
         final boolean alreadyMoved = running.map(request -> hasBeenThroughMe(startedAt, request.due()))
                 .orElse(false);
 
-        final Pass pass = decide(next, parked, alreadyMoved, () -> probe.answers(standby, STANDBY_ANSWERS_WITHIN));
+        final Pass pass = decide(next, parked, alreadyMoved, () -> probe.answers(target, STANDBY_ANSWERS_WITHIN));
         // The door is decided separately: park() happens once, being shut lasts as long as the run.
         parked = doorAfter(pass, parked);
         switch (pass) {
@@ -137,8 +140,8 @@ public final class ProxySwap {
                                 + "be parked - this update takes the network down the way it "
                                 + "always did. The standby has to be running BEFORE the run "
                                 + "reaches this proxy.",
-                        standby.getHostString(),
-                        standby.getPort());
+                        target.getHostString(),
+                        target.getPort());
             case PARK -> park();
         }
     }
@@ -213,7 +216,8 @@ public final class ProxySwap {
     /** Seats everybody and hands them the standby's address; a failed seat write does not stop a transfer. */
     private void park() {
         final var players = proxy.getAllPlayers();
-        if (players.isEmpty()) {
+        final InetSocketAddress target = standby;
+        if (target == null || players.isEmpty()) {
             logger.info("The update moves this proxy and nobody is connected: nothing to park");
             return;
         }
@@ -221,8 +225,8 @@ public final class ProxySwap {
         logger.info(
                 "The update moves this proxy: parking {} player(s) on {}:{} until it is back",
                 players.size(),
-                standby.getHostString(),
-                standby.getPort());
+                target.getHostString(),
+                target.getPort());
         for (final Player player : players) {
             park(player);
         }

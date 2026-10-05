@@ -18,7 +18,7 @@ dependencies {
     "implementation"(project(":message-rendering"))
 }
 
-// The @Plugin class is a template in src/main/templates, expanded with the version from gradle.properties.
+// The version class that @Plugin reads is a template in src/main/templates, expanded with gradle.properties.
 val generateTemplates =
     tasks.register<Copy>("generateTemplates") {
         val props = mapOf("version" to project.version.toString())

@@ -43,7 +43,7 @@ class ProxyRulesTest {
     void aChangedAdminFlagReroutesThePlayers() {
         classes()
                 .that(isListed(PROXY))
-                .should(callInOrder("start", "LoginRoster#refreshAdmins", "PlayerRouter#rerouteAll"))
+                .should(callInOrder("refreshAdmins", "LoginRoster#refreshAdmins", "PlayerRouter#rerouteAll"))
                 .because("a revoked admin otherwise stays on the SMP until the phase happens to change")
                 .check(classes);
     }
@@ -95,12 +95,11 @@ class ProxyRulesTest {
                 .check(classes);
         classes()
                 .that(isListed(PROXY))
-                .should(callFrom("start", "RestartWatch#whenZeroReached", "ProxyPlugin#atZero"))
+                .should(callFrom("wireProxySwap", "RestartWatch#whenZeroReached", "ProxyPlugin#atZero"))
                 .andShould(callInOrder("atZero", "Evacuation#check", "ProxySwap#check"))
                 .because("parking the network first would move everybody twice")
                 .check(classes);
         final Set<String> swept = classes.get(PROXY).getCodeUnits().stream()
-                .filter(unit -> unit.getName().equals("start"))
                 .flatMap(unit -> unit.getMethodReferencesFromSelf().stream())
                 .map(reference -> reference.getTargetOwner().getSimpleName() + "#" + reference.getName())
                 .collect(Collectors.toSet());
@@ -114,7 +113,7 @@ class ProxyRulesTest {
     void theCountsHurryFromTheCountdownOn() {
         classes()
                 .that(isListed(PROXY))
-                .should(callFrom("start", "OnlineWriter#whenHurrying", "RestartWatch#isCountingDown"))
+                .should(callFrom("wireUpdates", "OnlineWriter#whenHurrying", "RestartWatch#isCountingDown"))
                 .check(classes);
     }
 

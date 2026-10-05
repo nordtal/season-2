@@ -1,5 +1,3 @@
-import net.ltgt.gradle.errorprone.errorprone
-
 plugins {
     id("nordtal.velocity-plugin")
     id("nordtal.message-spec")
@@ -9,16 +7,6 @@ plugins {
 // How Steward shows this module's settings; steward-agent reads it out of the jar.
 pluginDescriptor {
     displayName.set("Proxy")
-}
-
-// Names start() as NullAway's initializer, since ProxyPlugin's fields are set there.
-tasks.withType<JavaCompile>().configureEach {
-    options.errorprone {
-        option(
-            "NullAway:KnownInitializers",
-            "eu.nordtal.season.proxy.ProxyPlugin.start",
-        )
-    }
 }
 
 // ComposeTellsTheStandbyApartTest reads the deployment file itself, so Gradle has to see it as a test input.

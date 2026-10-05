@@ -24,6 +24,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import net.kyori.adventure.text.Component;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
@@ -44,7 +45,7 @@ public final class PackStation {
     private final BackendHealth health;
 
     /** {@code null} when {@code pack#enabled} is off. */
-    private final PackOffer offer;
+    private final @Nullable PackOffer offer;
 
     private final MinecraftChannelIdentifier channel = MinecraftChannelIdentifier.from(LimboProtocol.CHANNEL);
 
@@ -67,7 +68,7 @@ public final class PackStation {
             final LoginRoster roster,
             final PackMessages messages,
             final PackSpec config,
-            final PackOffer offer,
+            final @Nullable PackOffer offer,
             final WaitingBook book,
             final BackendHealth health) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");

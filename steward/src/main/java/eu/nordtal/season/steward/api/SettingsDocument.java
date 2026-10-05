@@ -301,7 +301,7 @@ final class SettingsDocument {
         object.add(segments[segments.length - 1], value);
     }
 
-    /** How the form draws a setting: jcore's kinds, with a list of sections apart since it is drawn as cards. */
+    /** How the form draws a setting: the schema's kinds, with a list of sections apart since it is drawn as cards. */
     public enum Shape {
         SCALAR,
         LIST,

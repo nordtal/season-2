@@ -370,8 +370,6 @@ public interface SmpSpec {
 
     // Feedback sounds live in the reloadable the sounds group; see SoundsSpec.
 
-    // jcore deletes the retired admin-permissions key rather than leaving a no-op.
-
     @Order(43)
     @Name("Balloon spawn points")
     @Key("balloon-spawn-points")

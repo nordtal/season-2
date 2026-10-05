@@ -604,7 +604,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
         return signals;
     }
 
-    /** Returns this plugin's slf4j logger, which jcore and the database module log through. */
+    /** Returns this plugin's slf4j logger, which the database module logs through. */
     public final Logger logger() {
         return LoggerFactory.getLogger(getClass());
     }

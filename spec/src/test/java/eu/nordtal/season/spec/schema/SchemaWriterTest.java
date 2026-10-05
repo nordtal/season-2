@@ -20,9 +20,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/**
- * jcore writes a {@code config.schema.json} beside the YAML it writes; the YAML carries no comments.
- */
+/** The schema carries each setting's explanation, not its {@code @Comment}. */
 class SchemaWriterTest {
 
     // the annotation split

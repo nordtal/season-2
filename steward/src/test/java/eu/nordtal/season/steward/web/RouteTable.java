@@ -24,7 +24,7 @@ final class RouteTable {
 
     /** Starts the service with no database and no agent: every route is registered before either is asked. */
     static Javalin start() {
-        // Every section at its default; jcore's @ConfigSpec leaves the getters abstract otherwise.
+        // Every section at its default; a @ConfigSpec leaves the getters abstract otherwise.
         final WebSpec config = new WebSpec() {
             @Override
             public DiscordSpec discord() {

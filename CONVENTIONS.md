@@ -1,8 +1,7 @@
 # Conventions
 
-These rules hold for every contributor, human or agent. The same shared part stands in
-`season-2`, `jcore` and `papermc-display-tags`; the last section lists what is specific to this
-repository. Every rule marked _(checked)_ fails `./gradlew check`, and warnings count as failures.
+These rules hold for every contributor, human or agent; the last section lists what is specific to
+this repository. Every rule marked _(checked)_ fails `./gradlew check`, and warnings count as failures.
 
 ## Comments
 
@@ -115,8 +114,6 @@ run `git config core.hooksPath .githooks` once per clone.
 - **Never shaded into a Paper plugin**: Gson, SnakeYAML and Brigadier, which the platforms ship, and
   Flyway, which reaches neither `:common` nor `:database` either.
 - **Commands use Brigadier directly**, through each platform's own API. No command framework.
-- **jcore** reaches the shared modules at most `compileOnly`. A plugin takes it after deciding per
-  module, never by copying `discord-bot`'s dependency block.
 - **Signals**: no process keeps a poll of its own on database state; the hub's reconciliation is the
   guarantee and a notification only makes a change feel instant. A notification is never the state, so
   every wake-up and every reconnect re-reads in full. Every channel is a constant of `Channel`.

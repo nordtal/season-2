@@ -36,7 +36,6 @@ database under that role too, so a statement steward was never granted fails in 
 | what                                                 | source                                                     |
 | ---------------------------------------------------- | ---------------------------------------------------------- |
 | the season-2 jars, the resource pack and its `.sha1` | GitHub releases, `nordtal/season-2`                        |
-| DisplayTags                                          | GitHub releases, `nordtal/papermc-display-tags`            |
 | PacketEvents                                         | Modrinth v2, filtered to the Minecraft version and `paper` |
 | Paper, Velocity                                      | PaperMC Fill v3, newest `STABLE` build                     |
 | what is installed                                    | the volumes under `volumes-root`                           |

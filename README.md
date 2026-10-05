@@ -109,12 +109,11 @@ the table below are compiled into the jars above.
 | `limbo-protocol`    | library         | The wire protocol between the proxy and limbo.                                                                   |
 | `internal-api`      | library         | The token-guarded HTTP wire between `steward` and the services only it may call, and the bank's wire records.    |
 | `paper-common`      | library         | What the three Paper plugins share and Velocity cannot use.                                                      |
+| `display-tags`      | library         | Every player's name tag as packet-only text displays, which smp hosts as its `nametags` settings group.          |
 | `settings`          | library         | Where every process's settings come from, and the database and colour settings they share.                       |
+| `spec`              | library         | The spec interfaces every settings group is written as, and the schema Steward draws its forms from.             |
 | `resource-pack`     | assets          | The pack, the glyph allocation its fonts are written from, and the zip + SHA-1 a release ships.                  |
 | `architecture`      | tests           | The ArchUnit rules over every module's compiled classes: the dependency lists and the wiring.                    |
-
-`DisplayTags` also runs on this network and ships from
-[nordtal/papermc-display-tags](https://github.com/nordtal/papermc-display-tags).
 
 ## How the pieces fit
 

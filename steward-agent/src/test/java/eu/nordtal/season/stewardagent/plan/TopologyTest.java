@@ -317,7 +317,7 @@ class TopologyTest {
 
     @Test
     void composeYmlDoesNotFetchPluginsAnyMoreTwoOwnersIsOneTooMany() {
-        // entrypoint.sh deletes every other plugin version by prefix; a jcore PACK_SHA1 override is never written back.
+        // entrypoint.sh deletes every other plugin version by prefix; an environment PACK_SHA1 is never written back.
         for (final String forbidden :
                 List.of("SEASON_PLUGINS", "EXTRA_PLUGIN_URLS", "NORDTAL_PROXY_PACK_URL", "NORDTAL_PROXY_PACK_SHA1")) {
             services.forEach((name, definition) -> {

@@ -18,7 +18,7 @@ dependencies {
     // A group is a spec interface.
     api(project(":spec"))
 
-    // compileOnly: every consumer already carries Gson and HikariCP, shaded or not, in the version it needs.
+    // compileOnly: every consumer already carries Gson, HikariCP and JDBI, shaded or not, in the version it needs.
     compileOnly(libs.gson)
     compileOnly(libs.hikaricp)
     compileOnly(libs.jdbi.core)

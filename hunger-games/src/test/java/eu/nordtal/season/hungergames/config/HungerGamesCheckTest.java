@@ -79,7 +79,7 @@ class HungerGamesCheckTest {
         }
         assertTrue(
                 missing.isEmpty(),
-                "a nested spec interface without @ConfigSpec makes jcore's writer fall back to "
+                "a nested spec interface without @ConfigSpec makes the schema writer fall back to "
                         + "reflection over the proxy, which fails as a Gson error naming Proxy#h: "
                         + missing);
     }

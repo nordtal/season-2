@@ -201,7 +201,7 @@ class TopologyStandbyTest {
                 address,
                 "the proxy is given no public address, so network.yml's empty"
                         + " default stands, no transfer is ever offered, and nothing in .env can change"
-                        + " that - a jcore override is only read for a key the spec declares.");
+                        + " that - a stored override is only read for a key the spec declares.");
         assertTrue(
                 String.valueOf(address).contains("NETWORK_PUBLIC_ADDRESS"),
                 "the public address does not come from NETWORK_PUBLIC_ADDRESS: " + address

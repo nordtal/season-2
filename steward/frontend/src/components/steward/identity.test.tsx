@@ -217,7 +217,7 @@ describe("minecraftHeadUrl", () => {
   })
 
   it("still works for a base pointing anywhere else, because it is configuration", () => {
-    /** A `web.yml` still naming mc-heads keeps working, since jcore preserves a written file. */
+    /** A base naming mc-heads keeps working, since it is a setting like any other. */
     expect(minecraftHeadUrl("https://mc-heads.net/avatar", MC_UUID)).toBe(`https://mc-heads.net/avatar/${UNDASHED}`)
   })
 

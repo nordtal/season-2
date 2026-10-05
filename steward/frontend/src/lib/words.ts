@@ -1,4 +1,4 @@
-/** Abbreviations kept upper case, the same list as steward's `Labels.of` and jcore's `SettingLabels.of`. */
+/** Abbreviations kept upper case, the same list as steward's `Labels.of` and the spec module's `SettingLabels.of`. */
 const ACRONYMS = new Set([
   "api",
   "db",

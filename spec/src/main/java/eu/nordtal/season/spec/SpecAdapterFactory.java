@@ -22,7 +22,7 @@
  *  SOFTWARE.
  */
 /*
- * Vendored into jcore from io.github.revxrsal:spec:1.5
+ * Vendored from io.github.revxrsal:spec:1.5
  * (https://github.com/Revxrsal/spec, sources jar from repo1.maven.org). The MIT licence
  * and copyright notice above belong to the original author and are retained as the licence
  * requires. See NOTICE for the full third-party licence text.
@@ -124,7 +124,7 @@ public final class SpecAdapterFactory implements TypeAdapterFactory {
             // Reject @JsonAdapter loudly here rather than silently ignoring it.
             if (getter.isAnnotationPresent(JsonAdapter.class)) {
                 throw new IllegalArgumentException("@JsonAdapter on " + rawType.getName() + "#" + getter.getName()
-                        + " is not supported by jcore's vendored Spec. Register the "
+                        + " is not supported by the vendored Spec. Register the "
                         + "TypeAdapter on the GsonBuilder passed to the config loader instead.");
             }
 

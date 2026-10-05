@@ -20,8 +20,7 @@ import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The only implementation of {@link AccessDirectory}.
- * It avoids jcore's {@code Database} so a Paper plugin need not shade jcore's dependencies.
+ * The only implementation of {@link AccessDirectory}, over a bare {@link Jdbi} that needs no pool wrapper.
  */
 final class JdbiAccessDirectory implements AccessDirectory {
 

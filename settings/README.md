@@ -1,7 +1,7 @@
 # settings
 
 Where every process's settings come from. A process holds a `Settings` and loads one `Setting` per
-`Group`: its name, its jcore `@ConfigSpec`, its `Check`, whether it is taken while the process runs,
+`Group`: its name, its `@ConfigSpec` from `:spec`, its `Check`, whether it is taken while the process runs,
 whether it is the network's, and any default of this process that differs from the spec's.
 
 - **Source**: `DatabaseSettings` publishes each group's schema and defaults into `setting_group` at
@@ -19,7 +19,7 @@ whether it is the network's, and any default of this process that differs from t
   that and from nothing else, so it never guesses from a key's name or a value's look. A subject
   depends on its sibling `statistic`, whose registry it reads. Game values are namespaced keys
   (`minecraft:oak_log`); the plugin binds each when it loads and refuses one it does not know, while
-  Steward stores whatever is picked or typed. The annotation lives here rather than in jcore's schema
+  Steward stores whatever is picked or typed. The annotation lives here rather than in `:spec`'s schema
   because it is the published schema that carries it, and that is `SpecJson`.
 - **Shared groups**: `DatabaseSpec`, `ColoursSpec` (mapped onto the message tones by `Colours`) and
   `DistancesSpec`, whose defaults each Paper server sets for itself. `DatabasePool` opens the pool.
@@ -31,4 +31,5 @@ whether it is the network's, and any default of this process that differs from t
   books by), taken at the next start. `CommandAllowlist` is the parsed list, `NetworkSettings.tiers` the price
   list as `:database`'s `Tiers`, and `NetworkSettings.prestige` the crest table as `:database`'s `Prestige`.
 
-jcore and HikariCP are `compileOnly`: every consumer already carries them in the version it needs.
+`:spec` comes along as `api`; Gson, HikariCP and JDBI are `compileOnly`, since every consumer already carries
+them in the version it needs.

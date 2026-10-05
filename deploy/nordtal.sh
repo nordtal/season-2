@@ -183,7 +183,7 @@ env_replace_me_lines() {
     grep -n 'REPLACE_ME' "$file" | grep -v '^[0-9]*:[[:space:]]*#' | cut -d: -f1 || true
 }
 
-# COMPOSE_PROFILES must include `steward`, or the stack comes up without an interface.
+# COMPOSE_PROFILES must include `steward`, or steward-bunq never starts and Caddy only with `mc`.
 profiles_include() {
     local profiles="$1" wanted="$2" profile
     local IFS=','
@@ -216,9 +216,36 @@ looks_like_public_address() {
     [[ "$port" =~ ^[0-9]{1,5}$ ]] && (( port >= 1 && port <= 65535 ))
 }
 
-# A profile selection: names and commas. An unknown name is harmless and allowed.
+# A profile selection: names and commas. An unknown name is answered by `unknown_profiles`.
 looks_like_profiles() {
     [[ "$1" =~ ^[[:space:]]*[a-z0-9-]+([[:space:]]*,[[:space:]]*[a-z0-9-]+)*[[:space:]]*$ ]]
+}
+
+# The profiles compose.yml defines that a selection may name; `standby` is started by name only.
+# nordtal-test.sh holds this list equal to compose.yml's.
+SELECTABLE_PROFILES=(db bot mc steward devpack)
+
+# Prints every name in a selection that no selectable profile has, one per line; Compose ignores them.
+unknown_profiles() {
+    local profiles="$1" profile known
+    local IFS=','
+    for profile in $profiles; do
+        profile="${profile//[[:space:]]/}"
+        [[ -n "$profile" ]] || continue
+        for known in "${SELECTABLE_PROFILES[@]}"; do
+            [[ "$profile" == "$known" ]] && continue 2
+        done
+        printf '%s\n' "$profile"
+    done
+}
+
+# Warns about every name in the env file's selection that selects nothing.
+warn_unknown_profiles() {
+    local profiles unknown
+    profiles="$(env_value "$1" COMPOSE_PROFILES)"
+    unknown="$(unknown_profiles "$profiles")"
+    [[ -z "$unknown" ]] || warn "COMPOSE_PROFILES in $1 names $(tr '\n' ' ' <<<"$unknown")which compose.yml does
+       not define as a profile to select, so it selects nothing. The profiles are: ${SELECTABLE_PROFILES[*]}."
 }
 
 # Whether the installation answered §5b's question: true and false are answers, anything else is not.
@@ -314,9 +341,9 @@ declare -A QUESTION_HINT=(
         can only be granted by hand - through the interface or through /access in Discord."
     [NORDTAL_STEWARD_BUNQ_ACCOUNT_ID]="A number. steward-bunq refuses to start with a key and no account, because a poll
         loop with nowhere to look would be a silent one."
-    [COMPOSE_PROFILES]="A comma-separated list. The production selection is db,bot,mc,backup,steward and there is
-        rarely a reason to type anything else; 'steward' has to be in it or the interface is defined
-        and never started."
+    [COMPOSE_PROFILES]="A comma-separated list. The production selection is db,bot,mc,steward and there is
+        rarely a reason to type anything else; 'steward' has to be in it, or steward-bunq never
+        starts and Caddy only with 'mc'."
 )
 
 # The generated secrets: listed under the menu, never editable, since a new POSTGRES_PASSWORD breaks
@@ -698,6 +725,8 @@ cmd_update() {
         || die "$UPDATE_ENV_FILE is not there, so this host has no deployment to update.
        If the environment file is somewhere else: ./nordtal.sh update --env-file PATH"
 
+    warn_unknown_profiles "$UPDATE_ENV_FILE"
+
     # One name only, since the file also holds secrets.
     local project container
     project="$(env_value "$UPDATE_ENV_FILE" COMPOSE_PROJECT_NAME)"
@@ -1004,7 +1033,7 @@ fi
 # Asks once for each missing value. Secrets are read with echo off and never shown; a malformed
 # answer is refused at the prompt.
 
-default_for COMPOSE_PROFILES     "db,bot,mc,backup,steward"
+default_for COMPOSE_PROFILES     "db,bot,mc,steward"
 default_for COMPOSE_PROJECT_NAME "$DEFAULT_PROJECT"
 default_for POSTGRES_DB          "nordtal"
 default_for POSTGRES_USER        "nordtal"
@@ -1252,8 +1281,9 @@ fi
 
 profiles="$(env_value "$ENV_FILE" COMPOSE_PROFILES)"
 profiles_include "$profiles" steward || die "COMPOSE_PROFILES in $ENV_FILE is '$profiles', which does
-       not include 'steward'. caddy and steward-agent would be defined and never started, and
-       the stack would come up healthy with nothing in front of the interface."
+       not include 'steward'. steward-bunq would never start, and Caddy, the interface's only way
+       in, only while 'mc' is selected."
+warn_unknown_profiles "$ENV_FILE"
 
 declared_env_file="$(env_value "$ENV_FILE" STEWARD_ENV_FILE)"
 [[ "$declared_env_file" == "$ENV_FILE" ]] || die "STEWARD_ENV_FILE inside the file says

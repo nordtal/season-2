@@ -13,7 +13,7 @@
 # sets to its own on every compose command, so the agent's release is the stack's. `build:` blocks are
 # for local development. Only the plugins and Paper/Velocity are files, which runs install.
 #
-# COMPOSE_PROFILES selects the services; production is `db,bot,mc,backup,steward`. `up` and `down`
+# COMPOSE_PROFILES selects the services; production is `db,bot,mc,steward`. `up` and `down`
 # must use the same selection. `standby` is never selected: an update run starts those services
 # by name and stops them again.
 #
@@ -478,7 +478,7 @@ services:
       # Required; it refuses to serve without one.
       NORDTAL_STEWARD_AGENT_TOKEN: ${STEWARD_AGENT_TOKEN:?set STEWARD_AGENT_TOKEN in .env - the secret steward and steward-agent share, `openssl rand -hex 32`}
       # The env file decides; repeated so host and interface select the same services.
-      COMPOSE_PROFILES: ${COMPOSE_PROFILES:-db,bot,mc,backup,steward}
+      COMPOSE_PROFILES: ${COMPOSE_PROFILES:-db,bot,mc,steward}
       # Must match the host's project, or a deploy starts a second, empty stack.
       COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-nordtal-s2}
       # The release this container was made as. Every compose command it runs inherits both, so the

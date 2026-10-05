@@ -32,7 +32,7 @@ ENV="$WORK/season-2.env"
 
 cat > "$ENV" <<'FIXTURE'
 # REPLACE_ME   this line is the documentation and must not count as a leftover
-COMPOSE_PROFILES=db,bot,mc,backup,steward
+COMPOSE_PROFILES=db,bot,mc,steward
 PLAIN=value
 QUOTED="in double quotes"
 SINGLE='in single quotes'
@@ -91,10 +91,10 @@ ok "the value is found, the documentation is not"
 
 case_begin "the steward profile has to be selected"
 # Without the steward profile, caddy and steward-agent never start.
-profiles_include "db,bot,mc,backup,steward" steward || bad "the real selection was refused"
+profiles_include "db,bot,mc,steward" steward       || bad "the real selection was refused"
 profiles_include "steward" steward                  || bad "steward on its own was refused"
 profiles_include "db, steward ,mc" steward          || bad "spaces around the name broke it"
-for wrong in "" "db,bot,mc,backup" "stewards" "steward-agent" "db,bot,steward2"; do
+for wrong in "" "db,bot,mc" "stewards" "steward-agent" "db,bot,steward2"; do
     if profiles_include "$wrong" steward; then
         bad "'$wrong' was accepted as selecting the steward profile"
     fi
@@ -355,13 +355,28 @@ case_begin "a bare Return in the menu deploys nothing"
 ok "deploy, quit and a number in range; everything else redraws"
 
 case_begin "a profile selection is a list of names and not a path"
-looks_like_profiles "db,bot,mc,backup,steward" || bad "the production selection"
+looks_like_profiles "db,bot,mc,steward"        || bad "the production selection"
 looks_like_profiles "bot"                      || bad "one profile"
 looks_like_profiles "db, bot"                  || bad "a space after the comma"
 looks_like_profiles "/etc/nordtal"             && bad "a path was accepted"
 looks_like_profiles "db,,bot"                  && bad "an empty profile was accepted"
 looks_like_profiles ""                         && bad "nothing was accepted"
 ok "names and commas; a path, an empty element and nothing are refused"
+
+case_begin "a name compose.yml selects nothing by is reported"
+[[ -z "$(unknown_profiles "db,bot,mc,steward")" ]]    || bad "the production selection has an unknown name"
+[[ -z "$(unknown_profiles "db, mc ,devpack")" ]]      || bad "spaces around a known name made it unknown"
+[[ "$(unknown_profiles "db,backup,steward")" == "backup" ]] || bad "backup is no profile"
+[[ "$(unknown_profiles "standby,mc")" == "standby" ]] || bad "standby is never selected"
+ok "every name but the selectable profiles is reported, one per line"
+
+case_begin "the selectable profiles are compose.yml's"
+# Every profile compose.yml declares, standby included, which nobody selects.
+declared="$(grep -o 'profiles: \[[^]]*\]' "$HERE/../compose.yml" | grep -o '"[a-z0-9-]*"' | tr -d '"' | sort -u)"
+listed="$(printf '%s\n' "${SELECTABLE_PROFILES[@]}" standby | sort -u)"
+[[ -n "$declared" ]] || bad "no profile found in compose.yml"
+[[ "$declared" == "$listed" ]] || bad "compose.yml declares $(tr '\n' ' ' <<<"$declared")but nordtal.sh knows $(tr '\n' ' ' <<<"$listed")"
+ok "SELECTABLE_PROFILES and standby are exactly compose.yml's profiles"
 
 case_begin "a downloaded file has to be this script before it replaces this script"
 # The renewal only runs a download that is complete and is the script.

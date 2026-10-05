@@ -64,6 +64,8 @@ val checkSetup =
         commandLine("bash", setupTest.asFile.absolutePath)
         inputs.file(setupScript).withPropertyName("setup")
         inputs.file(setupTest).withPropertyName("test")
+        // The test holds the script's profile list equal to compose.yml's.
+        inputs.file(layout.projectDirectory.file("compose.yml")).withPropertyName("compose")
         val marker = layout.buildDirectory.file("checkSetup/passed")
         outputs.file(marker).withPropertyName("marker")
         doLast {

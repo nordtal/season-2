@@ -3,6 +3,7 @@ package eu.nordtal.s2.database.access;
 import eu.nordtal.s2.common.id.DiscordId;
 import java.time.Duration;
 import java.time.InstantSource;
+import java.time.ZoneId;
 import java.util.Locale;
 import java.util.UUID;
 import javax.sql.DataSource;
@@ -27,10 +28,13 @@ public interface AccessDirectory extends AccessReader {
     void setMemberState(DiscordId discordId, MemberState memberState);
 
     /**
-     * Stores the language mirrored from the Discord onboarding role.
+     * Stores the language mirrored from the member's language role, or {@code null} for the network's.
      * Only the language is kept, so {@code de-AT} and {@code de-DE} are one value.
      */
-    void setLocale(DiscordId discordId, Locale locale);
+    void setLocale(DiscordId discordId, @Nullable Locale locale);
+
+    /** Stores the time zone mirrored from the member's region role, or {@code null} for the network's. */
+    void setTimeZone(DiscordId discordId, @Nullable ZoneId zone);
 
     /**
      * Sets this account's total play time to exactly {@code seconds}, creating the row if it is missing.

@@ -176,9 +176,10 @@ class AccessProfileIntegrationTest {
     void anIdentityIsTheLinkTheNameTheLanguageTheZoneBothFlagsTheAuraAndThePlayTimeInOneRead() {
         directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
         directory.setLocale(DiscordId.of(DISCORD_ID), Locale.GERMAN);
+        directory.setTimeZone(DiscordId.of(DISCORD_ID), ZoneId.of("America/New_York"));
         Jdbis.over(dataSource).useTransaction(handle -> Grants.markDonor(handle, DiscordId.of(DISCORD_ID)));
-        execute("UPDATE discord_user SET admin = true, admin_granted_at = now(), time_zone = 'America/New_York'"
-                + " WHERE discord_id = '" + DISCORD_ID + "'");
+        execute("UPDATE discord_user SET admin = true, admin_granted_at = now() WHERE discord_id = '" + DISCORD_ID
+                + "'");
         execute("UPDATE account_link SET mc_name = 'Steve' WHERE mc_uuid = '" + MC_UUID + "'");
         execute("INSERT INTO player_playtime (discord_id, seconds) VALUES ('" + DISCORD_ID + "', 3600)");
         execute("INSERT INTO smp_player (discord_id, aura) VALUES ('" + DISCORD_ID + "', 42)");
@@ -214,6 +215,21 @@ class AccessProfileIntegrationTest {
         final PlayerIdentity identity =
                 directory.identities(List.of(PlayerId.of(MC_UUID))).getFirst();
 
+        assertEquals(Locale.ENGLISH, identity.language());
+        assertEquals(ZoneId.of("Europe/Berlin"), identity.timeZoneOr(ZoneId.of("Europe/Berlin")));
+    }
+
+    @Test
+    void anAccountThatDropsItsLanguageAndRegionReadsTheNetworksAgain() {
+        directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
+        directory.setLocale(DiscordId.of(DISCORD_ID), Locale.GERMAN);
+        directory.setTimeZone(DiscordId.of(DISCORD_ID), ZoneId.of("America/New_York"));
+
+        directory.setLocale(DiscordId.of(DISCORD_ID), null);
+        directory.setTimeZone(DiscordId.of(DISCORD_ID), null);
+
+        final PlayerIdentity identity =
+                directory.identities(List.of(PlayerId.of(MC_UUID))).getFirst();
         assertEquals(Locale.ENGLISH, identity.language());
         assertEquals(ZoneId.of("Europe/Berlin"), identity.timeZoneOr(ZoneId.of("Europe/Berlin")));
     }

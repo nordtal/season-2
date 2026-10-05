@@ -7,6 +7,7 @@ import eu.nordtal.s2.database.Jdbis;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.InstantSource;
+import java.time.ZoneId;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
@@ -119,9 +120,15 @@ final class JdbiAccessDirectory implements AccessDirectory {
     }
 
     @Override
-    public void setLocale(final DiscordId discordId, final Locale locale) {
+    public void setLocale(final DiscordId discordId, final @Nullable Locale locale) {
         Objects.requireNonNull(discordId, "discordId");
-        dao.setLocale(discordId, Locales.tag(locale));
+        dao.setLocale(discordId, locale == null ? null : Locales.tag(locale));
+    }
+
+    @Override
+    public void setTimeZone(final DiscordId discordId, final @Nullable ZoneId zone) {
+        Objects.requireNonNull(discordId, "discordId");
+        dao.setTimeZone(discordId, zone == null ? null : zone.getId());
     }
 
     @Override

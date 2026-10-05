@@ -36,7 +36,15 @@ interface AccessDao {
             ON CONFLICT (discord_id)
                 DO UPDATE SET locale = EXCLUDED.locale, updated = now()
             """)
-    void setLocale(@Bind("discordId") DiscordId discordId, @Bind("locale") String locale);
+    void setLocale(@Bind("discordId") DiscordId discordId, @Bind("locale") @Nullable String locale);
+
+    @SqlUpdate("""
+            INSERT INTO discord_user (discord_id, time_zone, updated)
+            VALUES (:discordId, :zone, now())
+            ON CONFLICT (discord_id)
+                DO UPDATE SET time_zone = EXCLUDED.time_zone, updated = now()
+            """)
+    void setTimeZone(@Bind("discordId") DiscordId discordId, @Bind("zone") @Nullable String zone);
 
     @SqlUpdate("""
             INSERT INTO discord_user (discord_id, donor, updated)

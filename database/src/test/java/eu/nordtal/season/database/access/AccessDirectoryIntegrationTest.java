@@ -1,5 +1,6 @@
 package eu.nordtal.season.database.access;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -542,8 +543,12 @@ class AccessDirectoryIntegrationTest {
         directory.ensureUser(DiscordId.of("100000000000000002"));
 
         // The unique index on bunq_payment_id is partial, so two NULLs do not collide.
-        insertOpenRequest(DiscordId.of(DISCORD_ID), "NT-CCCCCC");
-        insertOpenRequest(DiscordId.of("100000000000000002"), "NT-DDDDDD");
+        assertDoesNotThrow(
+                () -> {
+                    insertOpenRequest(DiscordId.of(DISCORD_ID), "NT-CCCCCC");
+                    insertOpenRequest(DiscordId.of("100000000000000002"), "NT-DDDDDD");
+                },
+                "two open requests of different people must not collide on the null payment id");
     }
 
     @Test

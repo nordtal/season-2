@@ -1,5 +1,6 @@
 package eu.nordtal.season.internalapi;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -109,15 +110,21 @@ class InternalClientTest {
             "http://[::1]:8081",
             "http://steward:8081/"
         }) {
-            new InternalClient("steward-agent", inside, "a-secret", Duration.ofSeconds(1));
+            assertDoesNotThrow(
+                    () -> new InternalClient("steward-agent", inside, "a-secret", Duration.ofSeconds(1)),
+                    "an address that is internal has to be accepted: " + inside);
         }
     }
 
     @Test
     void nothingToProtectMeansNothingToRefuse() {
         // The unconfigured agent already refuses everything through the caller's own check.
-        new InternalClient("steward-agent", "http://steward.nordtal.eu", "", Duration.ofSeconds(1));
-        new InternalClient("steward-agent", "http://anything.example.com", "   ", Duration.ofSeconds(1));
+        assertDoesNotThrow(
+                () -> new InternalClient("steward-agent", "http://steward.nordtal.eu", "", Duration.ofSeconds(1)),
+                "an empty secret protects nothing, so no address is refused");
+        assertDoesNotThrow(
+                () -> new InternalClient("steward-agent", "http://anything.example.com", "   ", Duration.ofSeconds(1)),
+                "a blank secret protects nothing, so no address is refused");
     }
 
     @Test

@@ -1,5 +1,6 @@
 package eu.nordtal.season.stewardagent.docker;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -94,7 +95,11 @@ class DockerSocketTest {
             client.shutdownOutput();
         });
 
-        new Docker(new DockerSocket(socket, Duration.ofMillis(300), TestScheduler.SHARED)).stop("c0ffee", 1);
+        final Docker docker = new Docker(new DockerSocket(socket, Duration.ofMillis(300), TestScheduler.SHARED));
+
+        assertDoesNotThrow(
+                () -> docker.stop("c0ffee", 1),
+                "the stop answers after three times the socket's timeout, which is still a stop and not a timeout");
     }
 
     /** A unix socket that accepts one connection and hands it to {@code answer}. */

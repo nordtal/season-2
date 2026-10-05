@@ -3,10 +3,6 @@ package eu.nordtal.season.common;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -21,9 +17,8 @@ class EntrypointRulesTest {
     private static String script;
 
     @BeforeAll
-    static void read() throws IOException {
-        final String raw =
-                Files.readString(repositoryRoot().resolve("deploy/minecraft/entrypoint.sh"), StandardCharsets.UTF_8);
+    static void read() {
+        final String raw = RepositoryRoot.read("deploy/minecraft/entrypoint.sh");
         script = raw.lines()
                 .filter(line -> !line.stripLeading().startsWith("#"))
                 .collect(java.util.stream.Collectors.joining("\n"));
@@ -106,18 +101,5 @@ class EntrypointRulesTest {
                 script.contains("MAX_PLAYERS"),
                 "the entrypoint reads a player limit out of the environment again; the limit is a setting"
                         + " in the database, which an admin changes without a restart.");
-    }
-
-    /** The directory holding {@code settings.gradle.kts}, not the nearest file by name. */
-    private static Path repositoryRoot() {
-        Path directory = Path.of("").toAbsolutePath();
-        while (directory != null) {
-            if (Files.isRegularFile(directory.resolve("settings.gradle.kts"))) {
-                return directory;
-            }
-            directory = directory.getParent();
-        }
-        throw new IllegalStateException(
-                "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
     }
 }

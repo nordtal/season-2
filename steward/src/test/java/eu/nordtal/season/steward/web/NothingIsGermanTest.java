@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.Gson;
+import eu.nordtal.season.common.RepositoryRoot;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -160,7 +161,7 @@ class NothingIsGermanTest {
 
     /** Every word in the values of a message bundle, lowercased. Never in its keys. */
     private static Set<String> bundleWords(final String name) {
-        final Path file = repository().resolve(BUNDLE + name);
+        final Path file = RepositoryRoot.path().resolve(BUNDLE + name);
         assertTrue(
                 Files.isRegularFile(file),
                 file + " is not there, so this test derived its word"
@@ -185,7 +186,7 @@ class NothingIsGermanTest {
     private static final Set<String> ALSO_ENGLISH = lowercased(RULES_FILE.alsoEnglish());
 
     private static Rules rules() {
-        final Path file = repository().resolve(RULES);
+        final Path file = RepositoryRoot.path().resolve(RULES);
         assertTrue(Files.isRegularFile(file), file + " is not there, and it is half of this rule.");
         try {
             return new Gson().fromJson(Files.readString(file, StandardCharsets.UTF_8), Rules.class);
@@ -245,7 +246,7 @@ class NothingIsGermanTest {
     }
 
     private static List<String> scan(final java.util.function.Predicate<String> guilty) {
-        final Path root = repository();
+        final Path root = RepositoryRoot.path();
         final List<Path> files = new ArrayList<>();
         for (final String tree : TREES) {
             final Path directory = root.resolve(tree);
@@ -293,16 +294,5 @@ class NothingIsGermanTest {
         } catch (final IOException unreadable) {
             throw new UncheckedIOException(unreadable);
         }
-    }
-
-    /** The repository root, found by walking up to the build definition, so a wrong guess cannot scan nothing. */
-    private static Path repository() {
-        Path directory = Path.of("").toAbsolutePath();
-        while (directory != null && !Files.isRegularFile(directory.resolve("settings.gradle.kts"))) {
-            directory = directory.getParent();
-        }
-        assertTrue(
-                directory != null, "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
-        return directory;
     }
 }

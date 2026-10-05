@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.common.RepositoryRoot;
 import eu.nordtal.season.steward.config.WebSpec;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -61,7 +62,7 @@ class DiscordAuthTest {
 
         final List<String> wrong = new ArrayList<>();
         for (final String file : GUIDANCE) {
-            final Matcher mention = MENTION.matcher(read(repository().resolve(file)));
+            final Matcher mention = MENTION.matcher(read(RepositoryRoot.path().resolve(file)));
             while (mention.find()) {
                 final String named = pathOf(mention.group());
                 if (!named.equals(path)) {
@@ -91,17 +92,6 @@ class DiscordAuthTest {
         } catch (IOException unreadable) {
             throw new UncheckedIOException(unreadable);
         }
-    }
-
-    /** The repository root, found by walking up, since a test's working directory is its module. */
-    private static Path repository() {
-        Path directory = Path.of("").toAbsolutePath();
-        while (directory != null && !Files.isRegularFile(directory.resolve("settings.gradle.kts"))) {
-            directory = directory.getParent();
-        }
-        assertTrue(
-                directory != null, "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
-        return directory;
     }
 
     private static String missingFrom(final WebSpec.DiscordSpec values) {

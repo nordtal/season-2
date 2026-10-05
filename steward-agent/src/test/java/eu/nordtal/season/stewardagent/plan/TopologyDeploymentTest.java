@@ -7,7 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.common.ComposeFile;
 import eu.nordtal.season.common.Deployment;
+import eu.nordtal.season.common.RepositoryRoot;
 import eu.nordtal.season.internalapi.BankWire;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.Topology;
@@ -15,25 +17,21 @@ import eu.nordtal.season.stewardagent.AgentApi;
 import eu.nordtal.season.stewardagent.Compose;
 import eu.nordtal.season.stewardagent.config.RunSpec;
 import eu.nordtal.season.stewardagent.config.RunSpec.BackupSpec;
-import eu.nordtal.season.stewardagent.topology.ComposeFile;
-import java.io.IOException;
-import java.io.Reader;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import eu.nordtal.season.stewardagent.topology.DeclaredTopology;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.yaml.snakeyaml.Yaml;
 
 /** The deployment, backup and standby half of {@link TopologyTest}, which reads compose.yml on its own. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TopologyDeploymentTest {
 
-    private static final List<Topology.Service> SERVERS = ComposeFile.topology().servers();
+    private static final List<Topology.Service> SERVERS =
+            DeclaredTopology.topology().servers();
 
     /** The compose service running PostgreSQL, which every process with a login reaches. */
     private static final String DATABASE = "postgres";
@@ -42,15 +40,15 @@ class TopologyDeploymentTest {
     private static final List<String> JVM_SERVICES =
             List.of(Topology.DISCORD_BOT, Topology.STEWARD, AgentWire.SERVICE, BankWire.SERVICE);
 
-    private final Map<String, Object> services = readComposeServices();
+    private final ComposeFile compose = ComposeFile.get();
 
     @Test
-    void noServiceOfOursRunsAJarFromAVolume() throws IOException {
+    void noServiceOfOursRunsAJarFromAVolume() {
         // A jar in a volume outlives the image it came with, and nothing but the image may say which version runs.
-        final String entrypoint = Files.readString(findUpwards("deploy/jvm/entrypoint.sh"), StandardCharsets.UTF_8);
+        final String entrypoint = RepositoryRoot.read("deploy/jvm/entrypoint.sh");
         assertFalse(entrypoint.contains("JAR_DIR"), "deploy/jvm/entrypoint.sh picks a jar from a directory again");
         for (final String name : JVM_SERVICES) {
-            final String mounts = String.valueOf(((Map<?, ?>) services.get(name)).get("volumes"));
+            final String mounts = String.valueOf(compose.service(name).mounts());
             assertFalse(
                     mounts.contains("/app/lib") || mounts.contains("/volumes/" + name),
                     "'" + name + "' mounts a volume where its own jar could lie: " + mounts);
@@ -59,20 +57,17 @@ class TopologyDeploymentTest {
 
     @Test
     void theAgentIsInEveryProfileSelectionBecauseEverythingElseDependsOnIt() {
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> agent = (Map<String, Object>) services.get(AgentWire.SERVICE);
+        final ComposeFile.Service agent = compose.service(AgentWire.SERVICE);
         assertFalse(
-                agent.containsKey("profiles"),
+                agent.has("profiles"),
                 AgentWire.SERVICE + " has a profile again. It applies the schema and carries out every run, so a"
                         + " selection without it is a stack that cannot correctly start.");
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> steward = (Map<String, Object>) services.get(Topology.STEWARD);
         assertEquals(
                 List.of("serve"),
-                steward.get("command"),
+                compose.service(Topology.STEWARD).list("command"),
                 "the steward service must run `serve`; its other commands are asked for by name");
-        assertNotNull(
-                agent.get("healthcheck"),
+        assertTrue(
+                agent.has("healthcheck"),
                 "without the healthcheck, depends_on: service_healthy on every other service is a"
                         + " dependency on nothing");
     }
@@ -84,14 +79,9 @@ class TopologyDeploymentTest {
         SERVERS.forEach(service -> named.add(service.name()));
 
         for (final String name : named) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> service = (Map<String, Object>) services.get(name);
-            assertNotNull(service, "compose.yml has no service '" + name + "'");
-
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> healthcheck = (Map<String, Object>) service.get("healthcheck");
-            assertNotNull(
-                    healthcheck,
+            final Map<String, Object> healthcheck = compose.service(name).block("healthcheck");
+            assertFalse(
+                    healthcheck.isEmpty(),
                     name + " has no healthcheck, so nothing outside its JVM"
                             + " reports anything about it - a container that is up, green by default, and"
                             + " running nothing useful");
@@ -115,11 +105,8 @@ class TopologyDeploymentTest {
         SERVERS.forEach(service -> named.add(service.name()));
 
         for (final String name : named) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> service = (Map<String, Object>) services.get(name);
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> healthcheck = (Map<String, Object>) service.get("healthcheck");
-            assertNotNull(healthcheck, name + " has no healthcheck at all - see the case above");
+            final Map<String, Object> healthcheck = compose.service(name).block("healthcheck");
+            assertFalse(healthcheck.isEmpty(), name + " has no healthcheck at all - see the case above");
             final java.util.regex.Matcher matcher = window.matcher(String.valueOf(healthcheck.get("test")));
 
             assertTrue(
@@ -137,11 +124,9 @@ class TopologyDeploymentTest {
     void theMinecraftServicesStillTestThePortAsWellAsTheMarker() {
         // The compose healthcheck replaces the image's own; the port check repeats because the marker lags readiness.
         for (final Topology.Service service : SERVERS) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> healthcheck = (Map<String, Object>) defined.get("healthcheck");
-            assertNotNull(healthcheck, service.name() + " has no healthcheck at all - see above");
+            final Map<String, Object> healthcheck =
+                    compose.service(service.name()).block("healthcheck");
+            assertFalse(healthcheck.isEmpty(), service.name() + " has no healthcheck at all - see above");
             final String test = String.valueOf(healthcheck.get("test"));
 
             assertTrue(
@@ -158,22 +143,14 @@ class TopologyDeploymentTest {
 
     @Test
     void everyServiceThatLogsInToTheDatabaseWaitsForTheMigrateServiceToSucceed() {
-        services.forEach((name, definition) -> {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> service = (Map<String, Object>) definition;
-            final Object environment = service.get("environment");
+        compose.services().forEach((name, service) -> {
             if (name.equals(Compose.MIGRATE)
-                    || !(environment instanceof Map<?, ?> variables)
-                    || variables.keySet().stream()
-                            .noneMatch(key -> String.valueOf(key).endsWith("DATABASE_USERNAME"))) {
+                    || service.environment().keySet().stream().noneMatch(key -> key.endsWith("DATABASE_USERNAME"))) {
                 return;
             }
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> dependsOn = (Map<String, Object>) service.get("depends_on");
-            assertTrue(
-                    dependsOn != null
-                            && dependsOn.get(Compose.MIGRATE) instanceof Map<?, ?> migrate
-                            && "service_completed_successfully".equals(migrate.get("condition")),
+            assertEquals(
+                    Optional.of("service_completed_successfully"),
+                    service.dependencyCondition(Compose.MIGRATE),
                     name + " logs in to the database without waiting for " + Compose.MIGRATE
                             + " to succeed, so it can come up against a schema older than itself");
         });
@@ -181,27 +158,23 @@ class TopologyDeploymentTest {
 
     @Test
     void theMigrateServiceRunsOnceFromTheAgentsImageInEverySelection() {
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> migrate = (Map<String, Object>) services.get(Compose.MIGRATE);
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> agent = (Map<String, Object>) services.get(AgentWire.SERVICE);
-        assertNotNull(migrate, "compose.yml has no " + Compose.MIGRATE + " service");
-        assertEquals(agent.get("image"), migrate.get("image"), "the schema is the agent's release's");
-        assertEquals(List.of(Compose.MIGRATE), migrate.get("command"));
+        final ComposeFile.Service migrate = compose.service(Compose.MIGRATE);
+        final ComposeFile.Service agent = compose.service(AgentWire.SERVICE);
+        assertEquals(agent.text("image"), migrate.text("image"), "the schema is the agent's release's");
+        assertEquals(List.of(Compose.MIGRATE), migrate.list("command"));
         // Restarted, an exited migration would run on a loop; completed, it is what everything waits for.
-        assertEquals("no", migrate.get("restart"));
-        assertFalse(migrate.containsKey("profiles"), "a selection without the migrate service starts nothing");
+        assertEquals(Optional.of("no"), migrate.text("restart"));
+        assertFalse(migrate.has("profiles"), "a selection without the migrate service starts nothing");
         assertFalse(
-                ((Map<?, ?>) agent.get("environment"))
-                        .keySet().stream().anyMatch(key -> String.valueOf(key).matches(".*DATABASE_[A-Z_]+_PASSWORD")),
+                agent.environment().keySet().stream().anyMatch(key -> key.matches(".*DATABASE_[A-Z_]+_PASSWORD")),
                 AgentWire.SERVICE + " carries a role's password, which only the migrate service creates roles with");
     }
 
     @Test
     void everyVolumeABackupSavesIsAVolumeComposeYmlDeclaresPrefixIncluded() {
         // A volume's real name is the project name plus an underscore plus its key; a typo backs up an empty volume.
-        final String project = composeProject();
-        final Set<String> declared = composeVolumes();
+        final String project = project();
+        final Set<String> declared = compose.block("volumes").keySet();
 
         for (final String volume : backupSet()) {
             assertTrue(
@@ -222,9 +195,9 @@ class TopologyDeploymentTest {
         final List<String> saved = backupSet();
 
         // Both worlds are hand-built and in no repository or release; a backup without one would still report DONE.
-        assertTrue(saved.contains(composeProject() + "_mc-smp"), "the backup does not save the world: " + saved);
+        assertTrue(saved.contains(project() + "_mc-smp"), "the backup does not save the world: " + saved);
         assertTrue(
-                saved.contains(composeProject() + "_mc-hunger-games"),
+                saved.contains(project() + "_mc-hunger-games"),
                 "the backup does not save the hunger games world: " + saved);
         // A snapshot of a running PGDATA fails at RESTORE and nowhere else; the database is dumped instead.
         assertTrue(
@@ -236,22 +209,18 @@ class TopologyDeploymentTest {
     void aBackupStopsBothWorldsAndKeepsTheNetworkAndTheBotUp() {
         // A running Paper server's snapshot is torn; proxy, limbo and the bot hold no world to save.
         final List<String> stopped = new java.util.ArrayList<>();
-        for (final Map.Entry<String, Object> entry : services.entrySet()) {
-            @SuppressWarnings("unchecked")
-            final Object labels = ((Map<String, Object>) entry.getValue()).get("labels");
-            if (labels instanceof Map<?, ?> map && "stop".equals(String.valueOf(map.get("eu.nordtal.backup")))) {
-                stopped.add(entry.getKey());
+        compose.services().forEach((name, service) -> {
+            if ("stop".equals(service.labels().get("eu.nordtal.backup"))) {
+                stopped.add(name);
             }
-        }
+        });
         assertEquals(List.of(Topology.HUNGER_GAMES, Topology.SMP), stopped);
     }
 
     @Test
     void aRestoreCanWriteIntoEveryVolumeABackupSaves() {
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> agent = (Map<String, Object>) services.get(AgentWire.SERVICE);
         final String root = AgentApi.Paths.DEFAULTS.backupSources() + "/";
-        for (final String mount : mountsOf(agent)) {
+        for (final String mount : compose.service(AgentWire.SERVICE).mounts()) {
             if (destinationOf(mount).startsWith(root)) {
                 // A restore unpacks into the same mount the backup reads, so a read-only one fails only then.
                 assertFalse(mount.endsWith(":ro"), "steward-agent mounts " + destinationOf(mount) + " read-only");
@@ -259,13 +228,18 @@ class TopologyDeploymentTest {
         }
     }
 
+    /** The compose project name, which is the prefix Docker puts on every volume in it. */
+    private String project() {
+        return compose.projectName()
+                .orElseThrow(() -> new AssertionError("compose.yml has no top-level name:, so the"
+                        + " volume prefix is the directory name and depends on where somebody cloned this repository"));
+    }
+
     /** The volumes a backup saves: every mount under steward-agent's backup sources, as the agent reads them. */
     private List<String> backupSet() {
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> agent = (Map<String, Object>) services.get(AgentWire.SERVICE);
         final String root = AgentApi.Paths.DEFAULTS.backupSources() + "/";
         final List<String> saved = new java.util.ArrayList<>();
-        for (final String mount : mountsOf(agent)) {
+        for (final String mount : compose.service(AgentWire.SERVICE).mounts()) {
             final String withoutMode =
                     mount.endsWith(":ro") || mount.endsWith(":rw") ? mount.substring(0, mount.lastIndexOf(':')) : mount;
             // Parsed from the right: a variable-backed default itself contains colons.
@@ -279,20 +253,19 @@ class TopologyDeploymentTest {
     }
 
     @Test
-    void everyServiceLogsInAsItsOwnRoleAndTheMigratorCarriesEveryRolesPassword() throws IOException {
+    void everyServiceLogsInAsItsOwnRoleAndTheMigratorCarriesEveryRolesPassword() {
         // A username that is not the role's name logs in as nobody; a password the migrator lacks creates no role.
-        final String compose = Files.readString(findUpwards("compose.yml"), StandardCharsets.UTF_8);
+        final String composeText = compose.text();
         for (final eu.nordtal.season.database.DatabaseRole role : eu.nordtal.season.database.DatabaseRole.values()) {
             if (!role.hasPassword()) {
                 continue;
             }
             assertTrue(
-                    compose.contains("DATABASE_USERNAME: " + role.roleName() + "\n"),
+                    composeText.contains("DATABASE_USERNAME: " + role.roleName() + "\n"),
                     "no service in compose.yml logs in as " + role.roleName());
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> migrate = (Map<String, Object>) services.get(Compose.MIGRATE);
             assertTrue(
-                    ((Map<?, ?>) migrate.get("environment"))
+                    compose.service(Compose.MIGRATE)
+                            .environment()
                             .containsKey(eu.nordtal.season.stewardagent.schema.Schema.passwordVariable(role)),
                     "the migrate service is not handed "
                             + eu.nordtal.season.stewardagent.schema.Schema.passwordVariable(role));
@@ -300,13 +273,13 @@ class TopologyDeploymentTest {
     }
 
     @Test
-    void theLocalEnvFileAnswersEveryVariableComposeYmlRequires() throws IOException {
+    void theLocalEnvFileAnswersEveryVariableComposeYmlRequires() {
         // One unanswered `${X:?}` stops every service; comments are stripped since compose never interpolates them.
-        final String compose = Files.readString(findUpwards("compose.yml"), StandardCharsets.UTF_8)
+        final String uncommented = compose.text()
                 .lines()
                 .filter(line -> !line.strip().startsWith("#"))
                 .collect(java.util.stream.Collectors.joining("\n"));
-        final String env = Files.readString(findUpwards("deploy/dev.env.example"), StandardCharsets.UTF_8);
+        final String env = RepositoryRoot.read("deploy/dev.env.example");
 
         final Set<String> defined = env.lines()
                 .map(String::strip)
@@ -316,7 +289,7 @@ class TopologyDeploymentTest {
                 .collect(java.util.stream.Collectors.toSet());
 
         final java.util.regex.Matcher required =
-                java.util.regex.Pattern.compile("\\$\\{([A-Z0-9_]+):\\?").matcher(compose);
+                java.util.regex.Pattern.compile("\\$\\{([A-Z0-9_]+):\\?").matcher(uncommented);
         final List<String> missing = new java.util.ArrayList<>();
         while (required.find()) {
             if (!defined.contains(required.group(1))) {
@@ -345,8 +318,8 @@ class TopologyDeploymentTest {
                 Topology.MIGRATE);
 
         for (final String name : asked.stream().distinct().toList()) {
-            assertNotNull(
-                    services.get(name),
+            assertTrue(
+                    compose.services().containsKey(name),
                     "Topology looks the service name '" + name + "' up"
                             + " in the container runtime, but compose.yml defines no service called that."
                             + " The runtime is keyed by compose's own service names, so this one can never"
@@ -358,9 +331,9 @@ class TopologyDeploymentTest {
     @Test
     void theBankKeyIsHandedToStewardBunqAndToNoOtherService() {
         // Only steward-bunq holds the bank client, so a key handed to any other container is a key it can leak.
-        services.forEach((name, service) -> {
+        compose.services().forEach((name, service) -> {
             if (!name.equals(BankWire.SERVICE)) {
-                final String environment = String.valueOf(((Map<?, ?>) service).get("environment"));
+                final String environment = String.valueOf(service.environment());
                 assertFalse(
                         environment.contains("BUNQ_API_KEY") || environment.contains("BUNQ_ACCOUNT_ID"),
                         "compose.yml hands the bunq key or account to '" + name + "', but only "
@@ -377,11 +350,12 @@ class TopologyDeploymentTest {
                 AgentWire.SERVICE, Set.of(Topology.STEWARD, DATABASE, Compose.MIGRATE),
                 BankWire.SERVICE, Set.of(Topology.STEWARD));
         allowed.forEach((guarded, partners) -> {
-            final Set<String> theirs = networksOf(guarded);
-            services.keySet().stream()
+            final Set<String> theirs = compose.service(guarded).networks();
+            compose.services().keySet().stream()
                     .filter(name -> !name.equals(guarded) && !partners.contains(name))
                     .forEach(name -> {
-                        final Set<String> shared = new LinkedHashSet<>(networksOf(name));
+                        final Set<String> shared =
+                                new LinkedHashSet<>(compose.service(name).networks());
                         shared.retainAll(theirs);
                         assertTrue(
                                 shared.isEmpty(),
@@ -395,19 +369,21 @@ class TopologyDeploymentTest {
     @Test
     void theNetworksThatLeadToTheAgentOrTheBankHaveNoWayOut() {
         // An internal network has no gateway; only a network the guarded service has to itself may lead out.
-        final Set<String> bank = new LinkedHashSet<>(networksOf(BankWire.SERVICE));
-        bank.retainAll(networksOf(Topology.STEWARD));
+        final Set<String> bank =
+                new LinkedHashSet<>(compose.service(BankWire.SERVICE).networks());
+        bank.retainAll(compose.service(Topology.STEWARD).networks());
         assertFalse(bank.isEmpty(), "steward shares no network with " + BankWire.SERVICE + ", so it cannot call it");
-        final Set<String> agent = new LinkedHashSet<>(networksOf(AgentWire.SERVICE));
-        agent.retainAll(networksOf(Topology.STEWARD));
+        final Set<String> agent =
+                new LinkedHashSet<>(compose.service(AgentWire.SERVICE).networks());
+        agent.retainAll(compose.service(Topology.STEWARD).networks());
         assertFalse(agent.isEmpty(), "steward shares no network with " + AgentWire.SERVICE + ", so it cannot call it");
 
-        final Map<?, ?> declared = (Map<?, ?>) composeRoot().get("networks");
+        final Map<String, Object> declared = compose.block("networks");
         for (final String guarded : List.of(AgentWire.SERVICE, BankWire.SERVICE)) {
-            for (final String network : networksOf(guarded)) {
-                final boolean shared = services.keySet().stream()
-                        .anyMatch(name ->
-                                !name.equals(guarded) && networksOf(name).contains(network));
+            for (final String network : compose.service(guarded).networks()) {
+                final boolean shared = compose.services().keySet().stream()
+                        .anyMatch(name -> !name.equals(guarded)
+                                && compose.service(name).networks().contains(network));
                 final Object definition = declared.get(network);
                 assertTrue(
                         !shared || (definition instanceof Map<?, ?> map && Boolean.TRUE.equals(map.get("internal"))),
@@ -415,37 +391,6 @@ class TopologyDeploymentTest {
                                 + " `internal: true`, so it is also a way out to the internet and the host.");
             }
         }
-    }
-
-    /** The networks a service joins; a service that names none is on {@code default}. */
-    private Set<String> networksOf(final String service) {
-        final Object networks = ((Map<?, ?>) services.get(service)).get("networks");
-        if (networks == null) {
-            return Set.of("default");
-        }
-        if (networks instanceof Map<?, ?> map) {
-            return map.keySet().stream().map(String::valueOf).collect(java.util.stream.Collectors.toSet());
-        }
-        return ((List<?>) networks).stream().map(String::valueOf).collect(java.util.stream.Collectors.toSet());
-    }
-
-    /** The compose project name, which is the prefix Docker puts on every volume in it. */
-    private static String composeProject() {
-        final Object name = composeRoot().get("name");
-        assertNotNull(
-                name,
-                "compose.yml has no top-level name:, so the volume prefix is the"
-                        + " directory name and depends on where somebody cloned this repository");
-        return String.valueOf(name);
-    }
-
-    /** The keys under compose.yml's top-level {@code volumes:} block. */
-    private static Set<String> composeVolumes() {
-        final Map<?, ?> volumes = (Map<?, ?>) composeRoot().get("volumes");
-        assertNotNull(volumes, "compose.yml has no volumes block");
-        return volumes.keySet().stream()
-                .map(String::valueOf)
-                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
     }
 
     /** {@link RunSpec} answering nothing but its own defaults. */
@@ -484,16 +429,13 @@ class TopologyDeploymentTest {
 
     /** The volume behind a service's mount at {@code path}, insisting it is not read-only. */
     private String writableMountAt(final String service, final String path) {
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> definition = (Map<String, Object>) services.get(service);
-        assertNotNull(definition, "compose.yml has no service '" + service + "'");
-        final String mount = mountsOf(definition).stream()
+        final String mount = compose.service(service).mounts().stream()
                 .filter(each -> destinationOf(each).equals(path))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError(service + " mounts nothing at " + path
                         + ", and the nightly database dump" + " is written there by name."));
         assertFalse(mount.endsWith(":ro"), service + " mounts " + path + " read-only, and the dump is written to it.");
-        return sourceOf(mount);
+        return ComposeFile.sourceOf(mount);
     }
 
     /** The container path a mount lands on, whatever the source expression contains. */
@@ -505,10 +447,8 @@ class TopologyDeploymentTest {
 
     @Test
     void composeYmlLeavesBootstrapToTheRunsGroup() {
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> agent = (Map<String, Object>) services.get(AgentWire.SERVICE);
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> environment = (Map<String, Object>) agent.get("environment");
+        final Map<String, String> environment =
+                compose.service(AgentWire.SERVICE).environment();
 
         assertAll(
                 () -> assertNull(
@@ -530,8 +470,8 @@ class TopologyDeploymentTest {
     @Test
     void everyImageOfOursIsTheReleaseTheAgentRuns() {
         // A moving tag lets one service run another release than the agent that carries its schema.
-        services.forEach((name, definition) -> {
-            final String image = String.valueOf(((Map<?, ?>) definition).get("image"));
+        compose.services().forEach((name, service) -> {
+            final String image = service.text("image").orElse("");
             if (image.contains("nordtal")) {
                 assertTrue(
                         OURS.matcher(image).matches(),
@@ -543,16 +483,17 @@ class TopologyDeploymentTest {
     }
 
     @Test
-    void theReleaseWorkflowPushesEveryImageComposeYmlNamesUnderTheVersionAlone() throws IOException {
+    void theReleaseWorkflowPushesEveryImageComposeYmlNamesUnderTheVersionAlone() {
         // A deploy pulls and never builds, so an image the workflow does not push fails with `denied`.
-        final String workflow = Files.readString(findUpwards(".github/workflows/release.yml"), StandardCharsets.UTF_8);
+        final String workflow = RepositoryRoot.read(".github/workflows/release.yml");
         assertFalse(workflow.contains(":latest"), "release.yml pushes a moving tag again");
         assertTrue(
                 workflow.indexOf("Attach the artifacts") > workflow.lastIndexOf("docker/build-push-action"),
                 "release.yml attaches the jars before every image is pushed, and a running agent hands an update"
                         + " over as soon as the jars are there");
-        services.forEach((name, definition) -> {
-            final java.util.regex.Matcher ours = OURS.matcher(String.valueOf(((Map<?, ?>) definition).get("image")));
+        compose.services().forEach((name, service) -> {
+            final java.util.regex.Matcher ours =
+                    OURS.matcher(service.text("image").orElse(""));
             if (ours.matches()) {
                 assertTrue(
                         workflow.contains("ghcr.io/nordtal/" + ours.group(1) + ":${{ env.VERSION }}"),
@@ -563,14 +504,12 @@ class TopologyDeploymentTest {
     }
 
     @Test
-    void everyJvmServiceBuildsFromTheOneTemplateUnderItsOwnName() throws IOException {
-        final String template = Files.readString(findUpwards("deploy/jvm/Dockerfile"), StandardCharsets.UTF_8);
-        final List<String> admitted = Files.readAllLines(findUpwards(".dockerignore"), StandardCharsets.UTF_8).stream()
-                .map(String::strip)
-                .toList();
-        services.forEach((name, definition) -> {
-            final Object build = ((Map<?, ?>) definition).get("build");
-            if (build instanceof Map<?, ?> map && "deploy/jvm/Dockerfile".equals(map.get("dockerfile"))) {
+    void everyJvmServiceBuildsFromTheOneTemplateUnderItsOwnName() {
+        final String template = RepositoryRoot.read("deploy/jvm/Dockerfile");
+        final List<String> admitted =
+                RepositoryRoot.read(".dockerignore").lines().map(String::strip).toList();
+        compose.services().forEach((name, service) -> {
+            if ("deploy/jvm/Dockerfile".equals(service.block("build").get("dockerfile"))) {
                 assertTrue(
                         JVM_SERVICES.contains(name),
                         "'" + name + "' builds from the JVM template but is not in JVM_SERVICES, so nothing"
@@ -578,17 +517,15 @@ class TopologyDeploymentTest {
             }
         });
         assertAll(JVM_SERVICES.stream().map(name -> () -> {
-            final Object build = ((Map<?, ?>) services.get(name)).get("build");
-            assertTrue(build instanceof Map<?, ?>, "'" + name + "' has no build: block");
-            final Map<?, ?> map = (Map<?, ?>) build;
+            final Map<String, Object> map = compose.service(name).block("build");
+            assertFalse(map.isEmpty(), "'" + name + "' has no build: block");
             assertEquals(
                     ".", map.get("context"), "'" + name + "' builds from another context than the repository root");
             assertEquals(
                     "deploy/jvm/Dockerfile", map.get("dockerfile"), "'" + name + "' builds from its own Dockerfile");
-            final Object args = map.get("args");
             assertEquals(
                     name,
-                    args instanceof Map<?, ?> given ? given.get("MODULE") : null,
+                    ((Map<?, ?>) map.getOrDefault("args", Map.of())).get("MODULE"),
                     "'" + name + "' passes another MODULE, so its image runs another module's jar");
             assertTrue(
                     template.lines().anyMatch(line -> line.strip().equals("FROM jvm AS " + name)),
@@ -602,11 +539,7 @@ class TopologyDeploymentTest {
     @Test
     void theAgentDeploysTheProjectItWasStartedInNotOneOfItsOwn() {
         // A disagreeing `--project-name` fails nothing visibly: a second stack comes up beside the running one.
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> agent = (Map<String, Object>) services.get("steward-agent");
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> environment = (Map<String, Object>) agent.get("environment");
-        final String declared = String.valueOf(environment.get("COMPOSE_PROJECT_NAME"));
+        final String declared = compose.service(AgentWire.SERVICE).environment().get("COMPOSE_PROJECT_NAME");
         assertEquals(
                 "${COMPOSE_PROJECT_NAME:-" + Deployment.PROJECT + "}",
                 declared,
@@ -616,10 +549,10 @@ class TopologyDeploymentTest {
     }
 
     @Test
-    void packetEventsReallyIsRequiredBySmpWhichIsWhyTheTopologyListsIt() throws IOException {
+    void packetEventsReallyIsRequiredBySmpWhichIsWhyTheTopologyListsIt() {
         // Checked against the manifest that enforces it rather than against a comment about it.
-        final Path manifest = findUpwards("smp/src/main/resources/paper-plugin.yml");
-        final String text = Files.readString(manifest, StandardCharsets.UTF_8);
+        final String manifest = "smp/src/main/resources/paper-plugin.yml";
+        final String text = RepositoryRoot.read(manifest);
 
         assertTrue(text.contains("packetevents:"), manifest + " no longer names packetevents");
         assertTrue(text.contains("required: true"), manifest + " no longer requires it");
@@ -635,13 +568,10 @@ class TopologyDeploymentTest {
         final Set<String> known = new LinkedHashSet<>();
         SERVERS.forEach(service -> known.add(service.name()));
         // The standbys are Minecraft services too, deliberately no servers: their jars are copied.
-        known.addAll(ComposeFile.topology().standbys());
+        known.addAll(DeclaredTopology.topology().standbys());
 
-        services.forEach((name, definition) -> {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> environment =
-                    (Map<String, Object>) ((Map<String, Object>) definition).get("environment");
-            if (environment != null && environment.containsKey("SERVER_KIND")) {
+        compose.services().forEach((name, service) -> {
+            if (service.environment().containsKey("SERVER_KIND")) {
                 assertTrue(
                         known.contains(name),
                         "compose.yml runs a Minecraft service '" + name + "' that no label makes a server or a"
@@ -652,10 +582,9 @@ class TopologyDeploymentTest {
     }
 
     @Test
-    void everyVariableTheMinecraftEntrypointReadsIsAVariableComposeYmlPassesIn() throws IOException {
+    void everyVariableTheMinecraftEntrypointReadsIsAVariableComposeYmlPassesIn() {
         // Written as "every knob" rather than one name, so a variable added later arrives already covered.
-        final String entrypoint =
-                Files.readString(findUpwards("deploy/minecraft/entrypoint.sh"), StandardCharsets.UTF_8);
+        final String entrypoint = RepositoryRoot.read("deploy/minecraft/entrypoint.sh");
 
         // `VAR="${VAR:-...}"` is how the entrypoint states a knob with a default; the quote is part of the shape.
         final java.util.Set<String> knobs = new LinkedHashSet<>();
@@ -674,11 +603,9 @@ class TopologyDeploymentTest {
         knobs.removeAll(internal);
 
         final List<String> deaf = new java.util.ArrayList<>();
-        services.forEach((name, definition) -> {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> environment =
-                    (Map<String, Object>) ((Map<String, Object>) definition).get("environment");
-            if (environment == null || !environment.containsKey("SERVER_KIND")) {
+        compose.services().forEach((name, service) -> {
+            final Map<String, String> environment = service.environment();
+            if (!environment.containsKey("SERVER_KIND")) {
                 return;
             }
             knobs.stream()
@@ -693,56 +620,11 @@ class TopologyDeploymentTest {
                         + " setting somebody can write and nothing can apply.");
     }
 
-    /** The host side of a compose mount, everything before the last colon-separated field pair. */
-    private static String sourceOf(final String mount) {
-        final int split = mount.lastIndexOf(':');
-        return mount.substring(0, split);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static List<String> mountsOf(final Map<String, Object> service) {
-        final Object volumes = service.get("volumes");
-        assertNotNull(volumes, "service has no volumes block");
-        return ((List<Object>) volumes).stream().map(String::valueOf).toList();
-    }
-
     private static java.util.List<String> smpPlugins() {
         return SERVERS.stream()
                 .filter(service -> service.name().equals(Topology.SMP))
                 .findFirst()
                 .orElseThrow()
                 .plugins();
-    }
-
-    private static Map<String, Object> readComposeServices() {
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> services = (Map<String, Object>) composeRoot().get("services");
-        assertNotNull(services, "compose.yml has no services block");
-        return services;
-    }
-
-    /** compose.yml as SnakeYAML reads it, anchors and merge keys resolved. */
-    private static Map<String, Object> composeRoot() {
-        final Path compose = findUpwards("compose.yml");
-        try (Reader reader = Files.newBufferedReader(compose, StandardCharsets.UTF_8)) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> root = (Map<String, Object>) new Yaml().load(reader);
-            return root;
-        } catch (final IOException unreadable) {
-            throw new IllegalStateException("could not read " + compose, unreadable);
-        }
-    }
-
-    private static Path findUpwards(final String relative) {
-        Path directory = Path.of("").toAbsolutePath();
-        while (directory != null) {
-            final Path candidate = directory.resolve(relative);
-            if (Files.isRegularFile(candidate)) {
-                return candidate;
-            }
-            directory = directory.getParent();
-        }
-        throw new IllegalStateException(
-                "could not find " + relative + " above " + Path.of("").toAbsolutePath());
     }
 }

@@ -1,7 +1,7 @@
 plugins {
     id("nordtal.java-base")
     id("java-library")
-    // RepositoryRoot for tests that read a file outside their source set, ManualScheduler for timed work.
+    // RepositoryRoot and ComposeFile for tests that read a file outside their source set, ManualScheduler for timed work.
     id("java-test-fixtures")
 }
 
@@ -20,6 +20,8 @@ dependencies {
     compileOnly(libs.gson)
     testImplementation(libs.gson)
     testFixturesCompileOnly(libs.jspecify)
+    // ComposeFile parses compose.yml.
+    testFixturesImplementation(libs.snakeyaml)
 
     testRuntimeOnly(libs.logback.classic)
 }

@@ -39,6 +39,9 @@ dependencies {
     // For Adventure's Component; no test starts a proxy.
     testImplementation(libs.velocity.api)
 
+    // ComposeFile, which reads the deployment.
+    testImplementation(testFixtures(project(":common")))
+
     // PlaytimeDao's upsert runs against a real PostgreSQL; Flyway never reaches the shaded jar.
     testImplementation(testFixtures(project(":database")))
     testImplementation(testFixtures(project(":settings")))

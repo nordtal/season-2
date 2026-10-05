@@ -128,7 +128,7 @@ class ComposeTopologyTest {
     /** A wire to a service the page does not draw would end nowhere, so every name a wiring gives is drawn. */
     @Test
     void everyServiceTheRepositorysWiringNamesIsDrawn() {
-        final List<AgentWire.Service> drawn = ComposeFile.topology().services().stream()
+        final List<AgentWire.Service> drawn = DeclaredTopology.topology().services().stream()
                 .filter(service -> service.wiring() != null)
                 .toList();
         final List<String> names = drawn.stream().map(AgentWire.Service::name).toList();

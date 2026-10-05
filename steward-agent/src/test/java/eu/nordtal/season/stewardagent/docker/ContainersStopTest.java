@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.common.ComposeFile;
 import eu.nordtal.season.common.time.TestScheduler;
 import eu.nordtal.season.internalapi.agent.RedeployResult;
 import java.io.IOException;
@@ -13,7 +14,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -129,29 +129,24 @@ class ContainersStopTest {
     }
 
     @Test
-    void everyGraceInComposeFitsInsideTheClientsWait() throws IOException {
-        final String compose = Files.readString(repositoryRoot().resolve("compose.yml"), StandardCharsets.UTF_8);
-        final Matcher grace =
-                Pattern.compile("stop_grace_period:\\s*(\\d+)(s|m)").matcher(compose);
+    void everyGraceInComposeFitsInsideTheClientsWait() {
+        final Pattern grace = Pattern.compile("(\\d+)(s|m)");
         int found = 0;
-        while (grace.find()) {
+        for (final ComposeFile.Service service : ComposeFile.get().services().values()) {
+            final String written = service.text("stop_grace_period").orElse(null);
+            if (written == null) {
+                continue;
+            }
+            final Matcher parts = grace.matcher(written);
+            assertTrue(parts.matches(), service.name() + " writes stop_grace_period as '" + written + "'");
             found++;
-            final long seconds = Long.parseLong(grace.group(1)) * ("m".equals(grace.group(2)) ? 60 : 1);
+            final long seconds = Long.parseLong(parts.group(1)) * ("m".equals(parts.group(2)) ? 60 : 1);
             assertTrue(
                     seconds <= Containers.LONGEST_GRACE_SECONDS,
-                    "compose.yml gives a service " + seconds + " s to stop, but a stop through the agent is cut at "
+                    service.name() + " gets " + seconds + " s to stop, but a stop through the agent is cut at "
                             + Containers.LONGEST_GRACE_SECONDS + " s; raise AgentWire.LONGEST_STOP with it");
         }
         assertTrue(found > 0, "compose.yml no longer sets any stop_grace_period, so this holds nothing");
-    }
-
-    private static Path repositoryRoot() {
-        Path candidate = Path.of("").toAbsolutePath();
-        while (candidate != null && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {
-            candidate = candidate.getParent();
-        }
-        assertTrue(candidate != null, "no settings.gradle.kts above the working directory");
-        return candidate;
     }
 
     /** A Containers whose daemon answers the inspect before the stop, accepts the stop, then hangs up on the next. */

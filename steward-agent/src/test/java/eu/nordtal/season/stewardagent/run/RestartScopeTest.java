@@ -5,14 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.internalapi.agent.Topology;
-import eu.nordtal.season.stewardagent.topology.ComposeFile;
+import eu.nordtal.season.stewardagent.topology.DeclaredTopology;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /** What a recreate actually takes round: only the services its scope names. */
 class RestartScopeTest {
 
-    private static final List<String> ALL = ComposeFile.topology().servers().stream()
+    private static final List<String> ALL = DeclaredTopology.topology().servers().stream()
             .map(Topology.Service::name)
             .toList();
 

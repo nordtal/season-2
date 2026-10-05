@@ -6,15 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.common.ComposeFile;
 import eu.nordtal.season.common.Platform;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.Topology;
-import eu.nordtal.season.stewardagent.topology.ComposeFile;
-import java.io.IOException;
-import java.io.Reader;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import eu.nordtal.season.stewardagent.topology.DeclaredTopology;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -22,7 +18,6 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.yaml.snakeyaml.Yaml;
 
 /**
  * What compose.yml has to hold together: its labels, the entrypoint's view of them, and the mounts they imply.
@@ -32,11 +27,11 @@ import org.yaml.snakeyaml.Yaml;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TopologyTest {
 
-    private static final AgentWire.Topology TOPOLOGY = ComposeFile.topology();
+    private static final AgentWire.Topology TOPOLOGY = DeclaredTopology.topology();
 
     private static final List<Topology.Service> SERVERS = TOPOLOGY.servers();
 
-    private final Map<String, Object> services = readComposeServices();
+    private final ComposeFile compose = ComposeFile.get();
 
     @Test
     void theEntrypointReadsTheKindAndThePluginsTheAgentReads() {
@@ -56,12 +51,8 @@ class TopologyTest {
     }
 
     private void assertEntrypointReadsLabels(final String name, final String labelled) {
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> environment =
-                (Map<String, Object>) ((Map<String, Object>) services.get(name)).get("environment");
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> labels =
-                (Map<String, Object>) ((Map<String, Object>) services.get(labelled)).get("labels");
+        final Map<String, String> environment = compose.service(name).environment();
+        final Map<String, String> labels = compose.service(labelled).labels();
         assertEquals(
                 labels.get("eu.nordtal.server"),
                 environment.get("SERVER_KIND"),
@@ -92,31 +83,32 @@ class TopologyTest {
         for (final Topology.Service service : SERVERS) {
             assertEquals(
                     List.of(),
-                    ports(service.name()),
+                    compose.service(service.name()).ports(),
                     service.name() + " publishes "
-                            + ports(service.name()) + ". Nothing in the"
+                            + compose.service(service.name()).ports() + ". Nothing in the"
                             + " network is reachable from outside except through caddy - a port here is"
                             + " either a leftover or a second, disagreeing arrangement, and it takes the"
                             + " number away from the guard that needs it.");
         }
 
         // port: -1 binds whatever port Velocity bound and hands the client that number; a remap breaks it.
-        final String voice = udpPorts(GUARD).stream()
+        final String voice = compose.service(GUARD).udpPorts().stream()
                 .filter(port -> port.contains(":25565:25565/udp"))
                 .findFirst()
-                .orElseThrow(() -> new AssertionError(GUARD + " publishes " + udpPorts(GUARD)
-                        + " UDP and none of them is 25565 onto 25565. Voice chat needs exactly that"
-                        + " one, because the plugin binds the proxy's own port."));
-        final List<String> parts = fields(voice.substring(0, voice.length() - "/udp".length()));
+                .orElseThrow(() -> new AssertionError(
+                        GUARD + " publishes " + compose.service(GUARD).udpPorts()
+                                + " UDP and none of them is 25565 onto 25565. Voice chat needs exactly that"
+                                + " one, because the plugin binds the proxy's own port."));
+        final List<String> parts = ComposeFile.fields(voice.substring(0, voice.length() - "/udp".length()));
         assertEquals(3, parts.size(), voice + " is not bind:host:container");
 
         // The voice endpoint is the Minecraft endpoint under a different protocol; separated, the client hears no port.
-        final String game = ports(GUARD).stream()
+        final String game = compose.service(GUARD).ports().stream()
                 .filter(port -> !port.endsWith("/udp") && port.endsWith(":25565"))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError(GUARD + " publishes no TCP port onto 25565,"
                         + " so the guard is listening for Minecraft nowhere"));
-        final List<String> gameParts = fields(game);
+        final List<String> gameParts = ComposeFile.fields(game);
         assertEquals(
                 gameParts.getFirst(),
                 parts.getFirst(),
@@ -136,7 +128,7 @@ class TopologyTest {
     @Test
     void theGuardPrefersTheLiveProxyAndFallsBackToTheStandby() {
         // `first` and the order of the upstreams are the rule: the standby answers only when the live proxy refuses.
-        final String caddyfile = configContent("caddyfile");
+        final String caddyfile = compose.configContent("caddyfile");
         assertTrue(
                 caddyfile.contains("layer4 {"),
                 "the caddy config has no layer4 app any more, so"
@@ -159,9 +151,7 @@ class TopologyTest {
                 "the guard stopped writing a PROXY header, so Velocity sees the guard's address for"
                         + " every player - and with haproxy-protocol still true it sees nothing at"
                         + " all");
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> environment =
-                (Map<String, Object>) ((Map<String, Object>) services.get(Topology.PROXY)).get("environment");
+        final Map<String, String> environment = compose.service(Topology.PROXY).environment();
         assertTrue(
                 String.valueOf(environment.get("VELOCITY_HAPROXY")).contains("true"),
                 "the proxy is not told to expect a PROXY header (VELOCITY_HAPROXY is "
@@ -207,31 +197,12 @@ class TopologyTest {
                 .orElseThrow(() -> new AssertionError("compose.yml labels no server '" + name + "'"));
     }
 
-    /** Every published port of a compose service, as written. */
-    private List<String> ports(final String service) {
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> defined = (Map<String, Object>) services.get(service);
-        assertNotNull(defined, "compose.yml has no service '" + service + "'");
-        @SuppressWarnings("unchecked")
-        final List<Object> ports = (List<Object>) defined.get("ports");
-        return ports == null ? List.of() : ports.stream().map(String::valueOf).toList();
-    }
-
-    private List<String> udpPorts(final String service) {
-        return ports(service).stream().filter(port -> port.endsWith("/udp")).toList();
-    }
-
     @Test
     void noServiceIsGivenAPlayerLimit() {
         // The limit is the network's players setting, which the proxy alone enforces and an admin changes in Steward.
-        for (final Map.Entry<String, Object> service : services.entrySet()) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> environment =
-                    (Map<String, Object>) ((Map<String, Object>) service.getValue()).get("environment");
-            if (environment == null) {
-                continue;
-            }
-            for (final String variable : environment.keySet()) {
+        for (final Map.Entry<String, ComposeFile.Service> service :
+                compose.services().entrySet()) {
+            for (final String variable : service.getValue().environment().keySet()) {
                 assertFalse(
                         variable.contains("MAX_PLAYERS"),
                         service.getKey() + " is given " + variable + ", a second player limit beside the network's"
@@ -240,47 +211,11 @@ class TopologyTest {
         }
     }
 
-    /** Splits a {@code bind:host:container} mapping on its separating colons, not those inside a default. */
-    private static List<String> fields(final String mapping) {
-        final List<String> parts = new java.util.ArrayList<>();
-        final StringBuilder current = new StringBuilder();
-        int depth = 0;
-        for (int i = 0; i < mapping.length(); i++) {
-            final char c = mapping.charAt(i);
-            if (c == '$' && i + 1 < mapping.length() && mapping.charAt(i + 1) == '{') {
-                depth++;
-            } else if (c == '}' && depth > 0) {
-                depth--;
-            } else if (c == ':' && depth == 0) {
-                parts.add(current.toString());
-                current.setLength(0);
-                continue;
-            }
-            current.append(c);
-        }
-        parts.add(current.toString());
-        return List.copyOf(parts);
-    }
-
-    /** {@code ${SMP_PLUGINS:-…}}, what compose uses when .env says nothing. */
-    private static String defaultOf(final String value) {
-        final java.util.regex.Matcher matcher =
-                java.util.regex.Pattern.compile("^\\$\\{[A-Z0-9_]+:-(.*)}$").matcher(value);
-        assertTrue(matcher.matches(), value + " has no default an unfilled .env would fall back to");
-        return matcher.group(1);
-    }
-
     @Test
     void theServerVersionInComposeYmlIsTheOneCommonDeclaresAsALiteral() {
         // The literal is asserted, not merely required to exist, because a `${...:-26.2}` would pass a shape check.
         for (final Topology.Service service : SERVERS) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
-            assertNotNull(defined, "compose.yml has no service '" + service.name() + "'");
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> environment = (Map<String, Object>) defined.get("environment");
-
-            final Object version = environment.get("SERVER_VERSION");
+            final String version = compose.service(service.name()).environment().get("SERVER_VERSION");
             assertNotNull(
                     version,
                     service.name() + " sets no SERVER_VERSION, so its entrypoint" + " cannot name the jar it runs");
@@ -290,7 +225,7 @@ class TopologyTest {
                     "velocity".equals(service.kind().fillProject()) ? Platform.VELOCITY_FAMILY : Platform.MINECRAFT;
             assertEquals(
                     expected,
-                    String.valueOf(version),
+                    version,
                     service.name() + "'s SERVER_VERSION is '" + version + "' and eu.nordtal.season"
                             + ".common.Platform says '" + expected + "'. Those are the version the"
                             + " container runs and the version every plugin in it was compiled"
@@ -298,10 +233,8 @@ class TopologyTest {
         }
 
         // steward-agent reads Platform directly, so nothing here should feed it a version.
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> agent = (Map<String, Object>) services.get(AgentWire.SERVICE);
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> environment = (Map<String, Object>) agent.get("environment");
+        final Map<String, String> environment =
+                compose.service(AgentWire.SERVICE).environment();
         for (final String retired : List.of(
                 "NORDTAL_STEWARD_AGENT_MINECRAFT_VERSION",
                 "NORDTAL_STEWARD_AGENT_VELOCITY_VERSION",
@@ -320,17 +253,11 @@ class TopologyTest {
         // entrypoint.sh deletes every other plugin version by prefix; an environment PACK_SHA1 is never written back.
         for (final String forbidden :
                 List.of("SEASON_PLUGINS", "EXTRA_PLUGIN_URLS", "NORDTAL_PROXY_PACK_URL", "NORDTAL_PROXY_PACK_SHA1")) {
-            services.forEach((name, definition) -> {
-                @SuppressWarnings("unchecked")
-                final Map<String, Object> environment =
-                        (Map<String, Object>) ((Map<String, Object>) definition).get("environment");
-                if (environment != null) {
-                    assertFalse(
-                            environment.containsKey(forbidden),
+            compose.services()
+                    .forEach((name, service) -> assertFalse(
+                            service.environment().containsKey(forbidden),
                             "compose.yml sets " + forbidden + " on '" + name + "' again. Steward"
-                                    + " owns the jars and the pack now.");
-                }
-            });
+                                    + " owns the jars and the pack now."));
         }
     }
 
@@ -353,21 +280,14 @@ class TopologyTest {
                 "NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY");
         final Pattern optional = Pattern.compile("\\$\\{[A-Z0-9_]+:-}");
         final List<String> overrides = new java.util.ArrayList<>();
-        services.forEach((name, definition) -> {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> environment =
-                    (Map<String, Object>) ((Map<String, Object>) definition).get("environment");
-            if (environment == null) {
-                return;
-            }
-            environment.forEach((variable, value) -> {
-                if (variable.startsWith("NORDTAL_")
-                        && !bootstrap.contains(variable)
-                        && optional.matcher(String.valueOf(value)).matches()) {
-                    overrides.add(name + ": " + variable);
-                }
-            });
-        });
+        compose.services()
+                .forEach((name, service) -> service.environment().forEach((variable, value) -> {
+                    if (variable.startsWith("NORDTAL_")
+                            && !bootstrap.contains(variable)
+                            && optional.matcher(value).matches()) {
+                        overrides.add(name + ": " + variable);
+                    }
+                }));
         assertEquals(
                 List.of(),
                 overrides,
@@ -378,11 +298,7 @@ class TopologyTest {
 
     @Test
     void everyServerHasItsVolumeMountedIntoTheAgent() {
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> agent = (Map<String, Object>) services.get(AgentWire.SERVICE);
-        assertNotNull(agent, "compose.yml has no " + AgentWire.SERVICE + " service");
-
-        final String mounts = String.valueOf(agent.get("volumes"));
+        final String mounts = String.valueOf(compose.service(AgentWire.SERVICE).mounts());
         for (final Topology.Service service : SERVERS) {
             // A server whose volume is not mounted reports as "unknown" for ever. Caught here.
             assertTrue(
@@ -394,8 +310,7 @@ class TopologyTest {
 
     @Test
     void everyServersPluginsIsTheSameDirectoryForTheServerAndForTheAgent() {
-        @SuppressWarnings("unchecked")
-        final List<String> agentMounts = mountsOf((Map<String, Object>) services.get(AgentWire.SERVICE));
+        final List<String> agentMounts = compose.service(AgentWire.SERVICE).mounts();
 
         for (final Topology.Service service : SERVERS) {
             assertPluginsDirectoryIsShared(service, agentMounts);
@@ -403,11 +318,7 @@ class TopologyTest {
     }
 
     private void assertPluginsDirectoryIsShared(final Topology.Service service, final List<String> agentMounts) {
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> definition = (Map<String, Object>) services.get(service.name());
-        assertNotNull(definition, "compose.yml has no " + service.name() + " service");
-
-        final String onTheServer = mountsOf(definition).stream()
+        final String onTheServer = compose.service(service.name()).mounts().stream()
                 .filter(mount -> mount.endsWith(":/data/plugins"))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError(service.name() + " mounts nothing onto"
@@ -426,14 +337,14 @@ class TopologyTest {
 
         // Compared expression for expression: a variable spelt differently anywhere is a silent split.
         assertEquals(
-                sourceOf(onTheServer),
-                sourceOf(onSteward),
+                ComposeFile.sourceOf(onTheServer),
+                ComposeFile.sourceOf(onSteward),
                 service.name() + ": the server and the agent are pointed at two different plugin sources");
 
         assertPluginsBackupMatchesSpec(service, agentMounts, onTheServer);
 
         // The default is a path under NORDTAL_DIR, not bare and relative, which resolves inside the agent image.
-        final String fallback = defaultOf(sourceOf(onTheServer));
+        final String fallback = ComposeFile.defaultOf(ComposeFile.sourceOf(onTheServer));
         assertTrue(
                 fallback.startsWith("${NORDTAL_DIR"),
                 service.name() + "'s plugins/ defaults to '" + fallback + "', which does not"
@@ -459,19 +370,15 @@ class TopologyTest {
                 .findFirst();
         // The mount is the backup set, so a plugins volume mounted for it is saved and must be the server's own.
         forTheBackup.ifPresent(mount -> assertEquals(
-                sourceOf(onTheServer),
-                sourceOf(mount),
+                ComposeFile.sourceOf(onTheServer),
+                ComposeFile.sourceOf(mount),
                 service.name() + ": the backup reads a different plugin source than the server runs from"));
     }
 
     @Test
     void theBundlesTheInterfaceShowsAreTheBundlesTheServicesActuallyRead() {
-        // Saving a bundle IS the reload, so a volume spelt differently here shows a form and quietly changes nothing.
-        @SuppressWarnings("unchecked")
-        // steward-agent reads and saves them; steward only relays.
-        final Map<String, Object> editor = (Map<String, Object>) services.get(AgentWire.SERVICE);
-        assertNotNull(editor, "compose.yml has no " + AgentWire.SERVICE + " service");
-        final List<String> stewardMounts = mountsOf(editor);
+        // Saving a bundle IS the reload, so a volume spelt differently shows a form and quietly changes nothing.
+        final List<String> stewardMounts = compose.service(AgentWire.SERVICE).mounts();
 
         // The interface shows a bundle under the compose service name, the same name the server owns it under.
         for (final Topology.Service service : SERVERS) {
@@ -485,9 +392,7 @@ class TopologyTest {
     }
 
     private void assertServerConfigMatchesInterface(final Topology.Service service, final List<String> stewardMounts) {
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> definition = (Map<String, Object>) services.get(service.name());
-        final String onTheServer = mountsOf(definition).stream()
+        final String onTheServer = compose.service(service.name()).mounts().stream()
                 .filter(mount -> mount.endsWith(":/data/plugins"))
                 .findFirst()
                 .orElseThrow();
@@ -501,8 +406,8 @@ class TopologyTest {
                         + " what it finds - so this is invisible from the browser."));
 
         assertEquals(
-                sourceOf(onTheServer),
-                sourceOf(onTheInterface),
+                ComposeFile.sourceOf(onTheServer),
+                ComposeFile.sourceOf(onTheInterface),
                 service.name() + ": the interface edits one directory and the server reads"
                         + " another. Saving would report success and change nothing.");
 
@@ -510,65 +415,6 @@ class TopologyTest {
                 onTheInterface.endsWith(":ro"),
                 service.name() + "'s bundles are mounted read-only into the agent, so the form"
                         + " is drawn and the save fails: every bundle in the stack is editable from the interface.");
-    }
-
-    /** The host side of a compose mount, everything before the last colon-separated field pair. */
-    private static String sourceOf(final String mount) {
-        final int split = mount.lastIndexOf(':');
-        return mount.substring(0, split);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static List<String> mountsOf(final Map<String, Object> service) {
-        final Object volumes = service.get("volumes");
-        assertNotNull(volumes, "service has no volumes block");
-        return ((List<Object>) volumes).stream().map(String::valueOf).toList();
-    }
-
-    /** One entry of compose.yml's {@code configs:} block, where the caddy configuration is written inline. */
-    private static String configContent(final String name) {
-        final Path compose = findUpwards("compose.yml");
-        try (Reader reader = Files.newBufferedReader(compose, StandardCharsets.UTF_8)) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> root = (Map<String, Object>) new Yaml().load(reader);
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> configs = (Map<String, Object>) root.get("configs");
-            assertNotNull(configs, compose + " has no configs block");
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> one = (Map<String, Object>) configs.get(name);
-            assertNotNull(one, compose + " has no config '" + name + "'");
-            return String.valueOf(one.get("content"));
-        } catch (final IOException unreadable) {
-            throw new AssertionError("could not read " + compose, unreadable);
-        }
-    }
-
-    private static Map<String, Object> readComposeServices() {
-        final Path compose = findUpwards("compose.yml");
-        try (Reader reader = Files.newBufferedReader(compose, StandardCharsets.UTF_8)) {
-            final Object loaded = new Yaml().load(reader);
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> root = (Map<String, Object>) loaded;
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> services = (Map<String, Object>) root.get("services");
-            assertNotNull(services, compose + " has no services block");
-            return services;
-        } catch (final IOException unreadable) {
-            throw new IllegalStateException("could not read " + compose, unreadable);
-        }
-    }
-
-    private static Path findUpwards(final String relative) {
-        Path directory = Path.of("").toAbsolutePath();
-        while (directory != null) {
-            final Path candidate = directory.resolve(relative);
-            if (Files.isRegularFile(candidate)) {
-                return candidate;
-            }
-            directory = directory.getParent();
-        }
-        throw new IllegalStateException(
-                "could not find " + relative + " above " + Path.of("").toAbsolutePath());
     }
 
     @Test

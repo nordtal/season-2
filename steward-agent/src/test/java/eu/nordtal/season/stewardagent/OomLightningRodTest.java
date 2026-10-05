@@ -5,21 +5,16 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import eu.nordtal.season.common.ComposeFile;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
  * The kernel's OOM killer takes limbo and proxy first, as {@code oom_score_adj} in compose.yml says.
  *
- * Nothing else reads the value, so deleting it or equalising it would only show at the next OOM.
+ * Nothing else reads the value, so deleting it or equalising it would only show at the next OOM. A value a service
+ * inherits counts as its own.
  */
 class OomLightningRodTest {
 
@@ -33,8 +28,6 @@ class OomLightningRodTest {
             "hunger-games", false,
             "postgres", false,
             "steward", false));
-
-    private final String compose = read("compose.yml");
 
     @Test
     void onlyTheTwoThatHoldNothing() {
@@ -78,41 +71,12 @@ class OomLightningRodTest {
         });
     }
 
-    /**
-     * Returns the {@code oom_score_adj} of one service as written in the text, or {@code null}.
-     *
-     * A YAML parser would resolve merge keys and hide an inherited value.
-     */
-    private Integer oomScoreAdj(final String service) {
-        final Matcher start = Pattern.compile("^  " + Pattern.quote(service) + ":\\s*$", Pattern.MULTILINE)
-                .matcher(compose);
-        assertTrue(
-                start.find(),
-                "compose.yml declares no service `" + service + "`. If it was"
-                        + " renamed, rename it here too: a check that cannot find its subject silently"
-                        + " stops running.");
-
-        final Matcher next = Pattern.compile("^  [A-Za-z0-9][A-Za-z0-9._-]*:\\s*$", Pattern.MULTILINE)
-                .matcher(compose);
-        final int end = next.find(start.end()) ? next.start() : compose.length();
-
-        final Matcher value = Pattern.compile("^    oom_score_adj:\\s*(-?\\d+)\\s*$", Pattern.MULTILINE)
-                .matcher(compose.substring(start.end(), end));
-        return value.find() ? Integer.valueOf(value.group(1)) : null;
-    }
-
-    private static String read(final String relative) {
-        Path candidate = Path.of("").toAbsolutePath();
-        while (candidate != null && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {
-            candidate = candidate.getParent();
-        }
-        if (candidate == null) {
-            throw new IllegalStateException("no settings.gradle.kts above the working directory");
-        }
-        try {
-            return Files.readString(candidate.resolve(relative), StandardCharsets.UTF_8);
-        } catch (final IOException failure) {
-            throw new UncheckedIOException(failure);
-        }
+    /** Returns the {@code oom_score_adj} one service ends up with, inherited or its own, or {@code null}. */
+    private static Integer oomScoreAdj(final String service) {
+        return ComposeFile.get()
+                .service(service)
+                .text("oom_score_adj")
+                .map(Integer::valueOf)
+                .orElse(null);
     }
 }

@@ -4,9 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
+import eu.nordtal.season.common.ComposeFile;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -43,25 +41,13 @@ class ComposeSeesEveryProfileTest {
     }
 
     @Test
-    void theStandbysAreBehindAProfile() throws IOException {
+    void theStandbysAreBehindAProfile() {
         // The tests above only matter while the standbys stay behind a profile.
-        final String composeFile = Files.readString(repositoryRoot().resolve("compose.yml"), StandardCharsets.UTF_8);
-
         for (final String standby : List.of("proxy-standby", "limbo-standby")) {
-            final int at = composeFile.indexOf("\n  " + standby + ":");
-            assertTrue(at > 0, "compose.yml no longer declares " + standby);
-            assertTrue(
-                    composeFile.indexOf("profiles: [\"standby\"]", at) > 0,
-                    standby + " is no longer in the standby profile");
+            assertEquals(
+                    List.of("standby"),
+                    ComposeFile.get().service(standby).profiles(),
+                    standby + " is no longer in the standby profile alone");
         }
-    }
-
-    private static Path repositoryRoot() {
-        Path candidate = Path.of("").toAbsolutePath();
-        while (candidate != null && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {
-            candidate = candidate.getParent();
-        }
-        assertTrue(candidate != null, "no settings.gradle.kts above the working directory");
-        return candidate;
     }
 }

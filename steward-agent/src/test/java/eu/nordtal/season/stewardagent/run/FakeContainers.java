@@ -42,7 +42,7 @@ final class FakeContainers implements ContainerOps {
 
     /** compose.yml's services as they ship, with the backup set its mounts give. */
     private final AgentWire.Topology topology = new AgentWire.Topology(
-            eu.nordtal.season.stewardagent.topology.ComposeFile.topology().services(),
+            eu.nordtal.season.stewardagent.topology.DeclaredTopology.topology().services(),
             List.of(
                     "nordtal-s2_mc-smp",
                     "nordtal-s2_mc-smp-plugins",

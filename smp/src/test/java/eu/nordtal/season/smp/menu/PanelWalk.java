@@ -3,6 +3,7 @@ package eu.nordtal.season.smp.menu;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import eu.nordtal.season.common.RepositoryRoot;
 import eu.nordtal.season.packrendering.Glyphs;
 import eu.nordtal.season.papercommon.menu.MenuFont;
 import eu.nordtal.season.papercommon.menu.MenuTitle;
@@ -32,9 +33,9 @@ import net.kyori.adventure.text.TextComponent;
  */
 public final class PanelWalk {
 
-    private static final Path ROOT = repositoryRoot();
+    private static final Path ROOT = RepositoryRoot.path();
     /** The assembled pack's assets, which the build names in {@code nordtal.pack}: the row fonts are generated. */
-    private static final String ASSETS = packAssets();
+    private static final String ASSETS = RepositoryRoot.packAssets();
 
     /** The advances of {@code nordtal:gui}, derived from that font's own file and its PNGs. */
     private static final Map<Integer, Integer> GUI_ADVANCES = guiAdvances();
@@ -202,26 +203,5 @@ public final class PanelWalk {
         } catch (final IOException e) {
             throw new UncheckedIOException("cannot read " + path, e);
         }
-    }
-
-    private static String packAssets() {
-        final String pack = System.getProperty("nordtal.pack");
-        if (pack == null) {
-            throw new IllegalStateException("nordtal.pack is not set: smp/build.gradle.kts needs"
-                    + " resourcePack(project(\":resource-pack\", \"pack\"))");
-        }
-        return Path.of(pack).resolve("assets").toString();
-    }
-
-    private static Path repositoryRoot() {
-        Path at = Path.of("").toAbsolutePath();
-        while (at != null && !Files.isRegularFile(at.resolve("settings.gradle.kts"))) {
-            at = at.getParent();
-        }
-        if (at == null) {
-            throw new IllegalStateException(
-                    "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
-        }
-        return at;
     }
 }

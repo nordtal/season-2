@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.internalapi.agent.Topology;
-import eu.nordtal.season.stewardagent.topology.ComposeFile;
+import eu.nordtal.season.stewardagent.topology.DeclaredTopology;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -15,7 +15,8 @@ import org.junit.jupiter.api.Test;
 /** {@link PluginDirectory#servicesWith}, where the fixed plugin lists and the {@code service_plugin} rows meet. */
 class TopologyMergeTest {
 
-    private static final List<Topology.Service> SERVERS = ComposeFile.topology().servers();
+    private static final List<Topology.Service> SERVERS =
+            DeclaredTopology.topology().servers();
 
     private static List<Topology.Service> servicesWith(final List<ManagedPlugin> added) {
         return PluginDirectory.servicesWith(SERVERS, added);

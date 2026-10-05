@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.common.RepositoryRoot;
 import eu.nordtal.season.database.metric.Metric;
 import io.javalin.Javalin;
 import java.io.IOException;
@@ -170,7 +171,7 @@ class EveryCalledPathIsRoutedTest {
 
     /** Every {@code .ts} and {@code .tsx} source file of the frontend, one at a time. */
     private static void forEachSourceFile(final java.util.function.Consumer<Path> visitor) {
-        final Path root = repository().resolve(FRONTEND);
+        final Path root = RepositoryRoot.path().resolve(FRONTEND);
         assertTrue(
                 Files.isDirectory(root),
                 root + " is not there, so this test was reading" + " nothing. Fix the path rather than the assertion.");
@@ -195,15 +196,5 @@ class EveryCalledPathIsRoutedTest {
         } catch (final IOException unreadable) {
             throw new UncheckedIOException(unreadable);
         }
-    }
-
-    private static Path repository() {
-        Path directory = Path.of("").toAbsolutePath();
-        while (directory != null && !Files.isRegularFile(directory.resolve("settings.gradle.kts"))) {
-            directory = directory.getParent();
-        }
-        assertTrue(
-                directory != null, "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
-        return directory;
     }
 }

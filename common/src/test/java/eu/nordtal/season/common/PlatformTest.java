@@ -4,10 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeAll;
@@ -23,8 +19,8 @@ class PlatformTest {
     private static String catalog;
 
     @BeforeAll
-    static void read() throws IOException {
-        catalog = Files.readString(repositoryRoot().resolve("gradle/libs.versions.toml"), StandardCharsets.UTF_8);
+    static void read() {
+        catalog = RepositoryRoot.read("gradle/libs.versions.toml");
     }
 
     @Test
@@ -74,10 +70,9 @@ class PlatformTest {
     }
 
     @Test
-    void packFormatIsTheNumberTheShippedPackMcmetaCarries() throws IOException {
+    void packFormatIsTheNumberTheShippedPackMcmetaCarries() {
         // A client accepts an older pack format with only a warning, so drift would go unnoticed.
-        final String mcmeta =
-                Files.readString(repositoryRoot().resolve("resource-pack/src/pack.mcmeta"), StandardCharsets.UTF_8);
+        final String mcmeta = RepositoryRoot.read("resource-pack/src/pack.mcmeta");
         final Matcher format = Pattern.compile("\"pack_format\"\\s*:\\s*(\\d+)").matcher(mcmeta);
         assertTrue(format.find(), "resource-pack/src/pack.mcmeta declares no pack_format");
         assertEquals(
@@ -89,12 +84,11 @@ class PlatformTest {
     }
 
     @Test
-    void allThreePaperDescriptorsDeclareApiVersionAndItIsMinecraft() throws IOException {
+    void allThreePaperDescriptorsDeclareApiVersionAndItIsMinecraft() {
         // Paper accepts an older api-version silently and applies its compatibility behaviour.
         for (final String module : new String[] {"smp", "limbo", "hunger-games"}) {
-            final Path descriptor = repositoryRoot().resolve(module + "/src/main/resources/paper-plugin.yml");
             final Matcher declared = Pattern.compile("(?m)^api-version:\\s*[\"']?([^\"'\\s]+)[\"']?$")
-                    .matcher(Files.readString(descriptor, StandardCharsets.UTF_8));
+                    .matcher(RepositoryRoot.read(module + "/src/main/resources/paper-plugin.yml"));
             assertTrue(declared.find(), module + "'s paper-plugin.yml declares no api-version");
             assertEquals(
                     Platform.API_VERSION,
@@ -118,18 +112,5 @@ class PlatformTest {
         final String value = matcher.group(1);
         assertNotNull(value);
         return value;
-    }
-
-    /** The directory holding {@code settings.gradle.kts}, not the nearest file by name. */
-    private static Path repositoryRoot() {
-        Path directory = Path.of("").toAbsolutePath();
-        while (directory != null) {
-            if (Files.isRegularFile(directory.resolve("settings.gradle.kts"))) {
-                return directory;
-            }
-            directory = directory.getParent();
-        }
-        throw new IllegalStateException(
-                "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
     }
 }

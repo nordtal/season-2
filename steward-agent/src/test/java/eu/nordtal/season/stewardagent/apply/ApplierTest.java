@@ -16,7 +16,7 @@ import eu.nordtal.season.stewardagent.plan.UpdatePlan;
 import eu.nordtal.season.stewardagent.source.Checksum;
 import eu.nordtal.season.stewardagent.source.Fetcher;
 import eu.nordtal.season.stewardagent.source.RemoteFile;
-import eu.nordtal.season.stewardagent.topology.ComposeFile;
+import eu.nordtal.season.stewardagent.topology.DeclaredTopology;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -479,7 +479,7 @@ class ApplierTest {
                 };
             }
         };
-        return new Applier(config, fetcher, settings, ComposeFile.topology()).apply(plan);
+        return new Applier(config, fetcher, settings, DeclaredTopology.topology()).apply(plan);
     }
 
     private static UpdatePlan plan(final Change... changes) {

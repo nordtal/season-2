@@ -1,8 +1,11 @@
 package eu.nordtal.season.steward;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import eu.nordtal.season.common.ComposeFile;
+import eu.nordtal.season.common.RepositoryRoot;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -41,7 +44,7 @@ class DocumentedCommandsTest {
         final List<String> bare = new ArrayList<>();
 
         for (final String relative : DOCUMENTS) {
-            final Path document = repositoryRoot().resolve(relative);
+            final Path document = RepositoryRoot.path().resolve(relative);
             assertTrue(Files.isRegularFile(document), document + " is not where this test expects it");
 
             final String text = Files.readString(document, StandardCharsets.UTF_8);
@@ -66,25 +69,12 @@ class DocumentedCommandsTest {
     }
 
     @Test
-    void theStewardServiceStillRunsServeWhichIsTheWholeReasonARunInheritsIt() throws IOException {
-        final String compose = Files.readString(repositoryRoot().resolve("compose.yml"), StandardCharsets.UTF_8);
-        assertTrue(
-                compose.contains("command: [\"serve\"]"),
+    void theStewardServiceStillRunsServeWhichIsTheWholeReasonARunInheritsIt() {
+        assertEquals(
+                List.of("serve"),
+                ComposeFile.get().service("steward").list("command"),
                 "compose.yml no longer starts the steward service with `serve`. `docker compose up"
                         + " -d` would then run whatever the image defaults to, and nothing would be"
                         + " listening for update requests.");
-    }
-
-    /** The directory holding {@code settings.gradle.kts}, not the nearest file by name. */
-    private static Path repositoryRoot() {
-        Path directory = Path.of("").toAbsolutePath();
-        while (directory != null) {
-            if (Files.isRegularFile(directory.resolve("settings.gradle.kts"))) {
-                return directory;
-            }
-            directory = directory.getParent();
-        }
-        throw new IllegalStateException(
-                "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
     }
 }

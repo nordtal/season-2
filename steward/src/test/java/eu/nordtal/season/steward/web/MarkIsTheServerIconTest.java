@@ -8,6 +8,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import eu.nordtal.season.common.RepositoryRoot;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -69,7 +70,7 @@ class MarkIsTheServerIconTest {
 
     @Test
     void thePagePointsAtThem() throws IOException {
-        final String page = Files.readString(repository().resolve(PAGE), StandardCharsets.UTF_8);
+        final String page = Files.readString(RepositoryRoot.path().resolve(PAGE), StandardCharsets.UTF_8);
         assertTrue(page.contains("href=\"/icon.png\""), "index.html has no favicon");
         assertTrue(
                 page.contains("rel=\"apple-touch-icon\" href=\"/icon-512.png\""),
@@ -87,7 +88,9 @@ class MarkIsTheServerIconTest {
     @Test
     void theManifestIsReal() throws IOException {
         final JsonObject manifest = new Gson()
-                .fromJson(Files.readString(repository().resolve(MANIFEST), StandardCharsets.UTF_8), JsonObject.class);
+                .fromJson(
+                        Files.readString(RepositoryRoot.path().resolve(MANIFEST), StandardCharsets.UTF_8),
+                        JsonObject.class);
 
         assertEquals(
                 "standalone",
@@ -103,33 +106,22 @@ class MarkIsTheServerIconTest {
         assertTrue(icons.size() >= 2, "the manifest lists fewer than two icons");
         for (final JsonElement element : icons) {
             final String source = element.getAsJsonObject().get("src").getAsString();
-            final Path file = repository().resolve("steward/frontend/public" + source);
+            final Path file = RepositoryRoot.path().resolve("steward/frontend/public" + source);
             assertTrue(Files.isRegularFile(file), "the manifest names " + source + " and there is no such file");
         }
     }
 
     private static byte[] bytes(final String name) throws IOException {
-        final Path file = repository().resolve(name);
+        final Path file = RepositoryRoot.path().resolve(name);
         assertTrue(Files.isRegularFile(file), file + " is not there.");
         return Files.readAllBytes(file);
     }
 
     private static BufferedImage read(final String name) throws IOException {
-        final Path file = repository().resolve(name);
+        final Path file = RepositoryRoot.path().resolve(name);
         assertTrue(Files.isRegularFile(file), file + " is not there.");
         final BufferedImage image = ImageIO.read(file.toFile());
         assertTrue(image != null, file + " is not a picture ImageIO can read.");
         return image;
-    }
-
-    /** The repository root, found by walking up, since a test's working directory is its module. */
-    private static Path repository() {
-        Path directory = Path.of("").toAbsolutePath();
-        while (directory != null && !Files.isRegularFile(directory.resolve("settings.gradle.kts"))) {
-            directory = directory.getParent();
-        }
-        assertTrue(
-                directory != null, "no settings.gradle.kts above " + Path.of("").toAbsolutePath());
-        return directory;
     }
 }

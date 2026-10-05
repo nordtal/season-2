@@ -45,6 +45,8 @@ dependencies {
 
     // KillCountsIntegrationTest runs killCounts on the real schema: count(*) is bigint, which no fake catches.
     testImplementation(testFixtures(project(":database")))
+    // RepositoryRoot and ComposeFile, which the tests of the deployment files read through.
+    testImplementation(testFixtures(project(":common")))
     testImplementation(testFixtures(project(":settings")))
 
     // A test builds a PGSimpleDataSource by hand.

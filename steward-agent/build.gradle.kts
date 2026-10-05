@@ -18,6 +18,7 @@ repositoryRootTestInputs {
     reads("compose.yml")
     reads("deploy/dev.env.example")
     reads("deploy/jvm/Dockerfile")
+    reads("deploy/jvm/entrypoint.sh")
     reads("deploy/minecraft/entrypoint.sh")
     reads(".dockerignore")
     reads(".github/workflows/release.yml")
@@ -45,9 +46,6 @@ dependencies {
     implementation(project(":settings"))
 
     runtimeOnly(libs.logback.classic)
-
-    // The topology tests read compose.yml.
-    testImplementation(libs.snakeyaml)
 
     // The stand-in agent: the real routes over FakeDaemon, behind the real guard.
     testImplementation(testFixtures(project(":database")))

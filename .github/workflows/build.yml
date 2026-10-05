@@ -31,7 +31,8 @@ jobs:
           else
             range="${{ github.event.before }}..${{ github.sha }}"
           fi
-          for commit in $(git rev-list --no-merges "$range"); do
+          # First parent only: a subtree merge brings in another repository's history, which kept its own rules.
+          for commit in $(git rev-list --first-parent --no-merges "$range"); do
             git log -1 --format=%B "$commit" > "$RUNNER_TEMP/message"
             sh .githooks/commit-msg "$RUNNER_TEMP/message"
           done

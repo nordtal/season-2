@@ -297,6 +297,22 @@ It stops what mounts the volume without a countdown, asks for the volume's name 
 and starts the services again. A dump goes into a new database `restore_<stamp>` beside the live
 one; promoting it is up to you.
 
+## Watching from outside
+
+Every alert of the stack runs inside it, so a hung Steward, a stopped Docker daemon or a dead host
+says nothing. An uptime service outside the host checks three things every minute from four
+locations, and posts to a webhook in the admin channel on Discord:
+
+| check            | target                                                            | down means                                      |
+| ---------------- | ----------------------------------------------------------------- | ----------------------------------------------- |
+| Steward          | `https://<STEWARD_HOST>/api/health`, `"agent":true`               | Steward, Caddy or steward-agent does not answer |
+| game port        | TCP `<NETWORK_PUBLIC_ADDRESS>`                                    | the host, Docker or Caddy is down               |
+| game, end to end | `https://api.mcsrvstat.us/simple/<address>`, 200, every 5 minutes | no proxy answers a status ping                  |
+
+The game port alone stays green while both proxies are down, since Caddy accepts the connection
+before it looks for one. When all three fail, the host is down: reach it through the provider's
+console, and if it does not come back, the stack is set up again on a new host from the backups.
+
 ## Voice chat
 
 Simple Voice Chat needs **UDP 25565** open next to TCP 25565 and no configuration. It is optional:

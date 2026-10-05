@@ -593,7 +593,6 @@ public final class Web {
 
     private void registerDiscordAndSettingsRoutes(final JavalinConfig cfg) {
         // An unreachable Discord answers available: false and a typed id, never a failure.
-        cfg.routes.get("/api/discord/roles", guild::roles, Gate.KEY_HELD);
         cfg.routes.get("/api/discord/channels", guild::channels, Gate.KEY_HELD);
         cfg.routes.get("/api/settings", settings::get, Gate.KEY_HELD);
         cfg.routes.get("/api/game-data", gameData::read, Gate.KEY_HELD);

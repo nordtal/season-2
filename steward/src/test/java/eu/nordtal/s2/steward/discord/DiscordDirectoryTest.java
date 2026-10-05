@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The names behind the ids, against a stand-in Discord.
  *
- * A missing token is named, {@code @everyone} is not offered, the header is {@code Bot}, and the cache holds.
+ * A missing token is named, the channels come in the guild's order, the header is {@code Bot}, and the cache holds.
  */
 class DiscordDirectoryTest {
 
@@ -69,23 +69,22 @@ class DiscordDirectoryTest {
     }
 
     @Test
-    void everyoneIsNotARoleAnybodyMeansToConfigure() throws Exception {
-        // @everyone carries the guild's own id, and pinging it is done by accident exactly once.
+    void theChannelsComeInTheGuildsOwnOrder() throws Exception {
         final DiscordDirectory directory = directoryFor("""
-                [{"id":"1","name":"@everyone","position":0},
-                 {"id":"20","name":"Donor","position":3},
-                 {"id":"30","name":"Admin","position":9}]""");
+                [{"id":"30","name":"talk","position":9,"type":0},
+                 {"id":"20","name":"Lounge","position":3,"type":2},
+                 {"id":"10","name":"Text","position":0,"type":4}]""");
 
-        final List<DiscordDirectory.Entry> roles = directory.roles();
+        final List<DiscordDirectory.Entry> channels = directory.channels();
 
         assertEquals(
-                List.of("Admin", "Donor"),
-                roles.stream().map(DiscordDirectory.Entry::name).toList());
+                List.of("Text", "Lounge", "talk"),
+                channels.stream().map(DiscordDirectory.Entry::name).toList());
     }
 
     @Test
     void theTokenIsSentWithDiscordsOwnScheme() throws Exception {
-        directoryFor("[]").roles();
+        directoryFor("[]").channels();
 
         assertEquals(List.of("Bot a-token"), authorizations);
     }
@@ -94,9 +93,9 @@ class DiscordDirectoryTest {
     void oneAnswerServesAWholePageOfPickers() throws Exception {
         final DiscordDirectory directory = directoryFor("[]");
 
-        directory.roles();
-        directory.roles();
-        directory.roles();
+        directory.channels();
+        directory.channels();
+        directory.channels();
 
         assertEquals(1, authorizations.size());
     }
@@ -106,7 +105,7 @@ class DiscordDirectoryTest {
         final DiscordDirectory directory = directoryFor(401, "{\"message\":\"401: Unauthorized\"}");
 
         final DiscordDirectory.DirectoryException failure =
-                assertThrows(DiscordDirectory.DirectoryException.class, directory::roles);
+                assertThrows(DiscordDirectory.DirectoryException.class, directory::channels);
 
         assertEquals("Discord refused the bot token. Check discord.bot-token.", english(failure.why()));
     }

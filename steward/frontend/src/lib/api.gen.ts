@@ -840,7 +840,6 @@ export type ReferenceKind =
   | "SOUND_EVENT"
   | "DAMAGE_TYPE"
   | "COLOUR"
-  | "DISCORD_ROLE"
   | "DISCORD_CHANNEL"
   | "DISCORD_USER"
 

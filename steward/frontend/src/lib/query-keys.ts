@@ -33,7 +33,6 @@ export const keys = {
   configs: ["configs"] as const,
   agent: ["agent"] as const,
   config: (file: string) => ["config", file] as const,
-  guildRoles: ["guild-roles"] as const,
   guildChannels: ["guild-channels"] as const,
   messageBundles: ["message-bundles"] as const,
   descriptors: ["descriptors"] as const,

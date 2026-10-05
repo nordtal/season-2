@@ -23,7 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The guild's roles and channels, so a Discord id can be picked rather than typed.
+ * The guild's channels, so a Discord id can be picked rather than typed.
  *
  * Only {@code {id, name}} leaves here, never the bot's token; one answer is cached for {@link #TTL}.
  */
@@ -45,7 +45,6 @@ public final class DiscordDirectory {
     private final String api;
     private final WebClient web;
 
-    private @Nullable Cached roles;
     private @Nullable Cached channels;
 
     private final Clock clock;
@@ -67,31 +66,6 @@ public final class DiscordDirectory {
             return SAID.noBotToken();
         }
         return null;
-    }
-
-    /** The guild's roles without @everyone, highest first, as Discord draws them. */
-    public synchronized List<Entry> roles() {
-        final @Nullable Cached cached = roles;
-        if (cached != null && fresh(cached)) {
-            return cached.entries();
-        }
-        final List<Entry> fetched = new ArrayList<>();
-        for (final JsonElement element : fetch("/guilds/" + config.guildId() + "/roles")) {
-            final JsonObject role = element.getAsJsonObject();
-            final String id = role.get("id").getAsString();
-            // @everyone carries the guild's own id and is not a role anybody configures.
-            if (id.equals(config.guildId())) {
-                continue;
-            }
-            fetched.add(new Entry(
-                    id,
-                    role.get("name").getAsString(),
-                    role.has("position") ? role.get("position").getAsInt() : 0,
-                    null));
-        }
-        fetched.sort(Comparator.comparingInt(Entry::position).reversed());
-        roles = new Cached(List.copyOf(fetched), clock.instant());
-        return roles.entries();
     }
 
     /** The guild's channels in Discord's order, categories included since names repeat across them. */
@@ -143,7 +117,7 @@ public final class DiscordDirectory {
         return Json.decode(response.body(), JsonArray.class);
     }
 
-    /** One thing that can be picked; {@code type} is Discord's channel type, or {@code null} for a role. */
+    /** One channel that can be picked; {@code type} is Discord's channel type, or {@code null} where it sends none. */
     public record Entry(
             String id, String name, int position, @Nullable Integer type) {}
 

@@ -145,8 +145,8 @@ export function gameChoices(game: GameData | undefined, registry: string | null)
   return { choices, tags, tree: false }
 }
 
-/** What a guild list offers, channels under their category. */
-export function guildChoices(list: GuildList | undefined, what: "role" | "channel"): Choices {
+/** What a guild's channel list offers, channels under their category. */
+export function guildChoices(list: GuildList | undefined): Choices {
   if (!list) return { choices: [], tags: [], tree: false, unavailable: "Loading the guild." }
   if (!list.available)
     return {
@@ -155,9 +155,6 @@ export function guildChoices(list: GuildList | undefined, what: "role" | "channe
       tree: false,
       unavailable: list.reason ? message(list.reason) : t("steward.said.guild-not-listed"),
     }
-  if (what === "role") {
-    return { choices: list.entries.map((entry) => ({ id: entry.id, name: entry.name })), tags: [], tree: false }
-  }
   /** A category holds channels and is never one a message goes to. */
   const choices = list.entries
     .filter((entry) => entry.type !== 4)

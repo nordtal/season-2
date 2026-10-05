@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import type { ConfigReference, GameData } from "@/lib/api"
+import type { ConfigReference, GameData, GuildList } from "@/lib/api"
 import { queryResult, words } from "@/lib/query-fixtures"
 import { ReferencePicker } from "@/components/steward/reference-picker"
 
@@ -22,10 +22,13 @@ const GAME: GameData = {
 
 let game: GameData | undefined = GAME
 
+const CHANNELS: GuildList = { available: true, entries: [{ id: "11", name: "admin-log", type: 0 }] }
+
+let channels: GuildList = CHANNELS
+
 vi.mock("@/lib/queries", () => ({
   useGameData: () => queryResult(game),
-  useGuildRoles: () => queryResult({ available: true, entries: [{ id: "11", name: "Admin" }] }),
-  useGuildChannels: () => queryResult({ available: false, reason: words("no bot token in this test"), entries: [] }),
+  useGuildChannels: () => queryResult(channels),
   usePeople: () => queryResult([]),
 }))
 
@@ -51,6 +54,7 @@ function draw(reference: ConfigReference, values: string[], multi: boolean) {
 afterEach(() => {
   cleanup()
   game = GAME
+  channels = CHANNELS
 })
 
 describe("ReferencePicker", () => {
@@ -91,20 +95,21 @@ describe("ReferencePicker", () => {
   })
 
   it("picks one value, and clears it with none", async () => {
-    const onChange = draw({ to: "DISCORD_ROLE", optional: false }, [], false)
+    const onChange = draw({ to: "DISCORD_CHANNEL", optional: false }, [], false)
 
     fireEvent.click(screen.getByRole("button", { name: "none" }))
-    fireEvent.click(await screen.findByRole("option", { name: /^Admin/ }))
+    fireEvent.click(await screen.findByRole("option", { name: /^admin-log/ }))
     expect(onChange).toHaveBeenLastCalledWith(["11"])
 
     cleanup()
-    const cleared = draw({ to: "DISCORD_ROLE", optional: false }, ["11"], false)
-    fireEvent.click(screen.getByRole("button", { name: /Admin/ }))
+    const cleared = draw({ to: "DISCORD_CHANNEL", optional: false }, ["11"], false)
+    fireEvent.click(screen.getByRole("button", { name: /admin-log/ }))
     fireEvent.click(await screen.findByRole("option", { name: "none" }))
     expect(cleared).toHaveBeenLastCalledWith([])
   })
 
   it("falls back to typing, with the reason, where nothing can be listed", () => {
+    channels = { available: false, reason: words("no bot token in this test"), entries: [] }
     draw({ to: "DISCORD_CHANNEL", optional: false }, ["42"], false)
     expect(screen.getByText("typed")).toBeTruthy()
     expect(screen.getByText("no bot token in this test")).toBeTruthy()

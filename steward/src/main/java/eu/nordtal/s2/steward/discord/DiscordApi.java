@@ -6,9 +6,9 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Two routes over {@link DiscordDirectory}: the names of the guild's roles and of its channels.
+ * The route over {@link DiscordDirectory}: the names of the guild's channels.
  *
- * Neither fails the page: every failure is a {@code 200} with {@code available: false} and a reason.
+ * It never fails the page: every failure is a {@code 200} with {@code available: false} and a reason.
  */
 public final class DiscordApi {
 
@@ -18,15 +18,7 @@ public final class DiscordApi {
         this.directory = directory;
     }
 
-    public void roles(final Context ctx) {
-        answer(ctx, directory::roles);
-    }
-
     public void channels(final Context ctx) {
-        answer(ctx, directory::channels);
-    }
-
-    private void answer(final Context ctx, final Supplier lookup) {
         final MessageRef unavailable = directory.unavailable();
         if (unavailable != null) {
             ctx.json(new Guild(false, unavailable, List.of()));
@@ -36,7 +28,7 @@ public final class DiscordApi {
             ctx.json(new Guild(
                     true,
                     null,
-                    lookup.get().stream()
+                    directory.channels().stream()
                             .map(entry -> new Pick(entry.id(), entry.name(), entry.type()))
                             .toList()));
         } catch (final DiscordDirectory.DirectoryException failure) {
@@ -52,14 +44,9 @@ public final class DiscordApi {
     public record Guild(boolean available, @Nullable MessageRef reason, List<Pick> entries) {}
 
     /**
-     * One role or channel as a picker offers it, in the guild's own order.
+     * One channel as a picker offers it, in the guild's own order.
      *
-     * @param type Discord's channel type, absent for a role, so a category groups apart from its channels
+     * @param type Discord's channel type, so a category groups apart from its channels
      */
     public record Pick(String id, String name, @Nullable Integer type) {}
-
-    @FunctionalInterface
-    private interface Supplier {
-        List<DiscordDirectory.Entry> get();
-    }
 }

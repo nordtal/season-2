@@ -83,7 +83,7 @@ describe("registryOf", () => {
     expect(registryOf(subject, GAME, "MINE_BLOCK")).toBe("block")
     expect(registryOf(subject, GAME, "minecraft:jump")).toBeNull()
     expect(registryOf({ to: "ITEM", optional: false }, GAME)).toBe("item")
-    expect(registryOf({ to: "DISCORD_ROLE", optional: false }, GAME)).toBeNull()
+    expect(registryOf({ to: "DISCORD_CHANNEL", optional: false }, GAME)).toBeNull()
   })
 })
 
@@ -97,17 +97,14 @@ describe("choiceFor", () => {
 
 describe("guildChoices", () => {
   it("leaves categories out and marks voice channels", () => {
-    const channels = guildChoices(
-      {
-        available: true,
-        entries: [
-          { id: "1", name: "Talk", type: 4 },
-          { id: "2", name: "general", type: 0 },
-          { id: "3", name: "Lounge", type: 2 },
-        ],
-      },
-      "channel",
-    )
+    const channels = guildChoices({
+      available: true,
+      entries: [
+        { id: "1", name: "Talk", type: 4 },
+        { id: "2", name: "general", type: 0 },
+        { id: "3", name: "Lounge", type: 2 },
+      ],
+    })
     expect(channels.choices).toEqual([
       { id: "2", name: "general", channel: "text" },
       { id: "3", name: "Lounge", channel: "voice" },
@@ -115,7 +112,7 @@ describe("guildChoices", () => {
   })
 
   it("passes on why the guild cannot be listed", () => {
-    expect(guildChoices({ available: false, reason: words("no bot token"), entries: [] }, "role").unavailable).toBe(
+    expect(guildChoices({ available: false, reason: words("no bot token"), entries: [] }).unavailable).toBe(
       "no bot token",
     )
   })

@@ -138,7 +138,7 @@ describe("repeatable cards for a SECTIONS entry", () => {
           { service: "discord-bot", name: "access", path: file, label: "", live: true, readable: true, writable: true },
         ])
       }
-      if (url === "/api/discord/roles" || url === "/api/discord/channels") return json(GUILD_UNAVAILABLE)
+      if (url === "/api/discord/channels") return json(GUILD_UNAVAILABLE)
       if (url === `/api/setting-groups/${file}` && init?.method === "PUT") {
         const parsed: unknown = JSON.parse(requestBody(init.body))
         if (!isBodyWithChanges(parsed)) throw new Error("the save did not carry changes")

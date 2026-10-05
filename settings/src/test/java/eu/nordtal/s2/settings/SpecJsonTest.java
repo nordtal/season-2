@@ -19,7 +19,7 @@ class SpecJsonTest {
                 JsonParser.parseString(SpecJson.schema(Track.class)).getAsJsonObject();
 
         final JsonObject role = child(schema, "role");
-        assertEquals("DISCORD_ROLE", refers(role).get("to").getAsString());
+        assertEquals("DISCORD_CHANNEL", refers(role).get("to").getAsString());
         assertEquals(true, refers(role).get("optional").getAsBoolean());
         final JsonObject objective = child(child(schema, "objectives"), "subjects");
         assertEquals("SUBJECT", refers(objective).get("to").getAsString());
@@ -45,7 +45,7 @@ class SpecJsonTest {
     interface Track {
 
         @Key("role")
-        @Refers(value = Refers.To.DISCORD_ROLE, optional = true)
+        @Refers(value = Refers.To.DISCORD_CHANNEL, optional = true)
         default String role() {
             return "";
         }

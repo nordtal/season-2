@@ -342,20 +342,10 @@ export function useCommandRun(id: string | null) {
 }
 
 /**
- * The guild's roles and channels, for the pickers in the configuration editor.
+ * The guild's channels, for the pickers in the configuration editor.
  *
  * Five minutes and no refetch on focus, so a page with eleven pickers is not eleven requests per focus.
  */
-export function useGuildRoles(enabled = true) {
-  return useQuery({
-    queryKey: keys.guildRoles,
-    queryFn: () => api<GuildList>("/api/discord/roles"),
-    staleTime: 5 * 60 * SECOND,
-    refetchOnWindowFocus: false,
-    enabled,
-  })
-}
-
 export function useGuildChannels(enabled = true) {
   return useQuery({
     queryKey: keys.guildChannels,

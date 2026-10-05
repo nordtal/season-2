@@ -13,7 +13,7 @@ import {
   peopleChoices,
   registryOf,
 } from "@/lib/references"
-import { useGameData, useGuildChannels, useGuildRoles, usePeople } from "@/lib/queries"
+import { useGameData, useGuildChannels, usePeople } from "@/lib/queries"
 import { GameIcon } from "@/components/steward/game-icon"
 import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
@@ -35,7 +35,7 @@ const SHOWN = 200
 const ALL = "*"
 
 /** The kinds that name no game registry, so the catalogue is not fetched for them. */
-const NOT_GAME = new Set(["COLOUR", "DISCORD_ROLE", "DISCORD_CHANNEL", "DISCORD_USER"])
+const NOT_GAME = new Set(["COLOUR", "DISCORD_CHANNEL", "DISCORD_USER"])
 
 /** The choices for one reference, fetched from whichever directory it names, and only that one. */
 function useChoices(
@@ -44,17 +44,14 @@ function useChoices(
 ): { choices: Choices; icons?: GameIcons; pending: boolean } {
   const kind = reference.to
   const game = useGameData(!NOT_GAME.has(kind))
-  const roles = useGuildRoles(kind === "DISCORD_ROLE")
   const channels = useGuildChannels(kind === "DISCORD_CHANNEL")
   const people = usePeople(kind === "DISCORD_USER")
   const choices = useMemo(() => {
-    if (kind === "DISCORD_ROLE") return guildChoices(roles.data, "role")
-    if (kind === "DISCORD_CHANNEL") return guildChoices(channels.data, "channel")
+    if (kind === "DISCORD_CHANNEL") return guildChoices(channels.data)
     if (kind === "DISCORD_USER") return peopleChoices(people.data)
     return gameChoices(game.data, registryOf(reference, game.data, sibling))
-  }, [kind, reference, sibling, game.data, roles.data, channels.data, people.data])
-  const asked =
-    kind === "DISCORD_ROLE" ? roles : kind === "DISCORD_CHANNEL" ? channels : kind === "DISCORD_USER" ? people : game
+  }, [kind, reference, sibling, game.data, channels.data, people.data])
+  const asked = kind === "DISCORD_CHANNEL" ? channels : kind === "DISCORD_USER" ? people : game
   return { choices, icons: game.data?.icons, pending: asked.isPending }
 }
 

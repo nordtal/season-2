@@ -39,7 +39,6 @@ public @interface Refers {
         DAMAGE_TYPE,
         /** A colour as {@code #rrggbb}. */
         COLOUR,
-        DISCORD_ROLE,
         DISCORD_CHANNEL,
         DISCORD_USER
     }

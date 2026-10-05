@@ -1,0 +1,17 @@
+name: DisplayTags
+version: '${version}'
+main: eu.nordtal.displaytags.DisplayTags
+api-version: '26.2'
+authors: [ Nordtal ]
+description: Modern plugin for rich player nametags powered by Text Displays!
+dependencies:
+  server:
+    packetevents:
+      load: BEFORE
+      required: true
+    PlaceholderAPI:
+      load: BEFORE
+      required: false
+    TAB:
+      load: BEFORE
+      required: false

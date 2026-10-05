@@ -1,6 +1,5 @@
 package eu.nordtal.s2.stewardagent;
 
-import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.Deployment;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.time.NetworkTime;
@@ -16,6 +15,7 @@ import eu.nordtal.s2.database.notify.SignalHub;
 import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.internalapi.InternalServer;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
+import eu.nordtal.s2.settings.Database;
 import eu.nordtal.s2.settings.DatabaseSettings;
 import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.settings.DatabaseWaiting;
@@ -329,9 +329,8 @@ public final class StewardAgent {
      * @throws IllegalStateException if the migrate service could not bring the dump up to this release
      */
     private static void afterDatabaseRestore(final Database database, final Compose compose) {
-        if (database.dataSource() instanceof com.zaxxer.hikari.HikariDataSource pool
-                && pool.getHikariPoolMXBean() != null) {
-            pool.getHikariPoolMXBean().softEvictConnections();
+        if (database.dataSource().getHikariPoolMXBean() != null) {
+            database.dataSource().getHikariPoolMXBean().softEvictConnections();
         }
         final int status;
         try {

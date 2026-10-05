@@ -5,10 +5,6 @@ plugins {
     id("java-test-fixtures")
 }
 
-repositories {
-    maven("https://jitpack.io")
-}
-
 repositoryRootTestInputs {
     reads("compose.yml")
 }
@@ -19,18 +15,20 @@ dependencies {
     // The settings live in the database, and a change arrives on the signal hub.
     api(project(":database"))
 
-    // compileOnly: every consumer already carries jcore, Gson and HikariCP, shaded or not, in the version it needs.
-    compileOnly(libs.jcore)
+    // A group is a spec interface.
+    api(project(":spec"))
+
+    // compileOnly: every consumer already carries Gson and HikariCP, shaded or not, in the version it needs.
     compileOnly(libs.gson)
     compileOnly(libs.hikaricp)
+    compileOnly(libs.jdbi.core)
     compileOnly(libs.slf4j.api)
 
     testFixturesCompileOnly(libs.jspecify)
-    testFixturesImplementation(libs.jcore)
     testFixturesImplementation(libs.gson)
     testFixturesImplementation(libs.slf4j.api)
+    testFixturesImplementation(libs.bundles.access.persistence)
 
-    testImplementation(libs.jcore)
     testImplementation(libs.gson)
     testImplementation(libs.slf4j.api)
     testImplementation(testFixtures(project(":common")))

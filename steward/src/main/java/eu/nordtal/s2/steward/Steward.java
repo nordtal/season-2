@@ -1,6 +1,5 @@
 package eu.nordtal.s2.steward;
 
-import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.language.Languages;
 import eu.nordtal.s2.common.time.NetworkTime;
@@ -15,6 +14,7 @@ import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.internalapi.InternalClient;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
+import eu.nordtal.s2.settings.Database;
 import eu.nordtal.s2.settings.DatabaseSettings;
 import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.settings.DatabaseWaiting;

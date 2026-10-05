@@ -2,7 +2,6 @@ package eu.nordtal.s2.stewardagent.run;
 
 import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 
-import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.database.update.ServiceHold;
@@ -15,6 +14,7 @@ import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.RuntimeResult;
 import eu.nordtal.s2.internalapi.agent.Topology;
 import eu.nordtal.s2.messages.MessageRef;
+import eu.nordtal.s2.settings.Database;
 import eu.nordtal.s2.stewardagent.config.RunSpec;
 import java.time.Duration;
 import java.time.Instant;

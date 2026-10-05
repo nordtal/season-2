@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.spec.Specs;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.s2.papercommon.sound.SoundsSpec;
@@ -51,7 +50,7 @@ class SmpSettingsTest {
     void theNestedListsComeBackWithTheirValues() throws Exception {
         final SmpSpec written = Specs.createDefault(SmpSpec.class);
         final Map<String, Object> values = new LinkedHashMap<>();
-        storeLeaves(ConfigLoader.gsonBuilder().create().toJsonTree(written), "", values);
+        storeLeaves(Specs.gsonBuilder().create().toJsonTree(written), "", values);
         final SmpSpec reread = new MemorySettingStore().checked("smp", CONFIG, values);
 
         assertEquals(written.balloons().size(), reread.balloons().size());

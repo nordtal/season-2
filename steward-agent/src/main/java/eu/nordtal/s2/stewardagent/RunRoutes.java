@@ -1,11 +1,11 @@
 package eu.nordtal.s2.stewardagent;
 
-import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.Platform;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
 import eu.nordtal.s2.internalapi.agent.Topology;
+import eu.nordtal.s2.settings.Database;
 import eu.nordtal.s2.stewardagent.config.RunSpec;
 import eu.nordtal.s2.stewardagent.plan.PlanView;
 import eu.nordtal.s2.stewardagent.plan.PluginsApi;

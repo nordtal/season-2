@@ -1,13 +1,10 @@
 package eu.nordtal.s2.discordbot;
 
-import eu.nordtal.jcore.persistence.sql.Database;
-import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.common.time.ProcessScheduler;
 import eu.nordtal.s2.common.time.Waiting;
-import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.alert.AlertBook;
@@ -52,6 +49,7 @@ import eu.nordtal.s2.discordbot.roles.GuildRoles;
 import eu.nordtal.s2.discordbot.status.StatusChannels;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.Palette;
+import eu.nordtal.s2.settings.Database;
 import eu.nordtal.s2.settings.DatabaseSettings;
 import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.settings.Setting;
@@ -133,8 +131,7 @@ public class AccessBot implements AutoCloseable {
     public AccessBot() throws InterruptedException, SettingsException {
         final DatabaseSpec databaseConfig = BotSettings.database().get();
 
-        this.database = Database.create(toDatabaseConfig(databaseConfig));
-        this.database.jdbi().installPlugin(Jdbis.ids());
+        this.database = Database.open(databaseConfig, "access-bot");
 
         boolean started = false;
         try {
@@ -482,15 +479,6 @@ public class AccessBot implements AutoCloseable {
         } finally {
             database.close();
         }
-    }
-
-    private static DatabaseConfig toDatabaseConfig(final DatabaseSpec config) {
-        return DatabaseConfig.builder(config.jdbcUrl())
-                .username(config.username())
-                .password(config.password())
-                .poolName("access-bot")
-                .maximumPoolSize(config.maximumPoolSize())
-                .build();
     }
 
     /** How long a bot that cannot start waits before exiting, so Discord does not rate-limit repeated bad logins. */

@@ -10,10 +10,6 @@ pluginDescriptor {
     displayName.set("Steward agent")
 }
 
-repositories {
-    maven("https://jitpack.io")
-}
-
 application.mainClass.set("eu.nordtal.s2.stewardagent.StewardAgent")
 
 // ComposeRefusesItselfTest reads the real compose file, so it has to be a declared input.
@@ -36,19 +32,22 @@ dependencies {
     // The kernel, for the process clock; it depends on the JDK alone.
     implementation(project(":common"))
 
-    // The runs: the inbox, the settings and the schema. jcore carries the config specs and Flyway at runtime.
-    implementation(libs.jcore)
+    // The runs: the inbox, the settings and the schema.
     // :database takes the driver, JDBI, HikariCP and slf4j compileOnly; the bundle puts them on the runtime path.
     implementation(project(":database"))
     implementation(libs.bundles.access.persistence)
     implementation(libs.postgresql.driver)
-    // JdbiPluginDirectory installs JDBI's PostgresPlugin, which jcore declares at runtime scope only.
+    // JdbiPluginDirectory installs JDBI's PostgresPlugin.
     implementation(libs.jdbi.postgres)
-    // Compile-only for Schema, which passes the role placeholders: jcore ships Flyway at runtime.
-    compileOnly(libs.flyway.core)
+    // Only steward-agent migrates.
+    implementation(libs.flyway.core)
+    runtimeOnly(libs.flyway.postgresql)
     implementation(project(":settings"))
 
     runtimeOnly(libs.logback.classic)
+
+    // The topology tests read compose.yml.
+    testImplementation(libs.snakeyaml)
 
     // The stand-in agent: the real routes over FakeDaemon, behind the real guard.
     testImplementation(testFixtures(project(":database")))

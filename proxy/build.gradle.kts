@@ -26,10 +26,6 @@ repositoryRootTestInputs {
     reads("compose.yml")
 }
 
-repositories {
-    maven("https://jitpack.io")
-}
-
 dependencies {
     // The access reader, the inbox and the signal hub.
     implementation(project(":database"))
@@ -38,15 +34,14 @@ dependencies {
     implementation(project(":pack-rendering"))
     implementation(project(":limbo-protocol"))
 
-    // Flyway is excluded by group: this module never migrates, and a shadowJar exclude would leave its subtree.
-    implementation(libs.jcore) {
-        exclude(group = "org.flywaydb")
-    }
+    // JDBI, which :database and :settings only compile against.
+    implementation(libs.jdbi.core)
+    implementation(libs.jdbi.sqlobject)
 
     // The one database group, the colours group and pool every Minecraft process shares.
     implementation(project(":settings"))
 
-    // :settings opens the pool and only compiles against HikariCP; the catalog pins jcore's own version.
+    // :settings opens the pool and only compiles against HikariCP.
     implementation(libs.hikaricp)
 
     // PostgresPhaseNotifications needs PGConnection, and PlaytimeStore installs jdbi3-core's PostgresPlugin.

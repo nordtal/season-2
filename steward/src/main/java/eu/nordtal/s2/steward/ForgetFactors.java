@@ -2,12 +2,12 @@ package eu.nordtal.s2.steward;
 
 import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 
-import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.audit.JournalAction;
+import eu.nordtal.s2.settings.Database;
 import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.settings.DatabaseWaiting;
 import eu.nordtal.s2.steward.auth.Credentials;

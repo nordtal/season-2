@@ -1,13 +1,12 @@
 package eu.nordtal.s2.steward.web;
 
 import com.google.gson.Gson;
-import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.time.TestScheduler;
 import eu.nordtal.s2.database.DatabaseRole;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.internalapi.agent.AgentClient;
+import eu.nordtal.s2.settings.Database;
 import eu.nordtal.s2.settings.DatabaseSpec;
-import eu.nordtal.s2.settings.DatabaseWaiting;
 import eu.nordtal.s2.settings.network.NetworkSettings;
 import eu.nordtal.s2.steward.alert.Thresholds;
 import eu.nordtal.s2.steward.api.StackApi;
@@ -188,7 +187,7 @@ abstract class WebFixture {
     private static void startDatabase() {
         // A real database with the real migrations, not a stub that only agrees with itself.
         postgres = TestDatabase.fresh();
-        database = DatabaseWaiting.open(
+        database = Database.open(
                 new DatabaseSpec() {
                     @Override
                     public String jdbcUrl() {

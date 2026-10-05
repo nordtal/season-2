@@ -1,6 +1,5 @@
 package eu.nordtal.s2.settings;
 
-import eu.nordtal.jcore.config.internal.EnvOverlay;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;

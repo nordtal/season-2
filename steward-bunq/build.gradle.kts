@@ -6,6 +6,7 @@ plugins {
 
 application.mainClass.set("eu.nordtal.s2.stewardbunq.StewardBunq")
 
+// bunq publishes its SDK on JitPack only.
 repositories {
     maven("https://jitpack.io")
 }

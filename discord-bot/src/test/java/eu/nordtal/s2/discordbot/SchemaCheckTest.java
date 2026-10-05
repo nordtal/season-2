@@ -4,10 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.jcore.persistence.sql.Database;
-import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
-import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.TestDatabase;
+import eu.nordtal.s2.settings.Database;
+import eu.nordtal.s2.settings.TestPools;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -25,8 +24,7 @@ class SchemaCheckTest {
     static void startDatabase() {
         postgres = TestDatabase.empty();
 
-        database = Database.create(DatabaseConfig.of(postgres.jdbcUrl(), postgres.username(), postgres.password()));
-        database.jdbi().installPlugin(Jdbis.ids());
+        database = TestPools.open(postgres.jdbcUrl(), postgres.username(), postgres.password());
     }
 
     @AfterAll

@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.time.Waiting;
 import java.time.Clock;
 import java.time.Duration;

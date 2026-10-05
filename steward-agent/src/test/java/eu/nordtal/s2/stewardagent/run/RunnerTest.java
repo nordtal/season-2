@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.time.Waiting;
 import eu.nordtal.s2.database.TestDatabase;
@@ -17,8 +16,8 @@ import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateStatus;
 import eu.nordtal.s2.internalapi.agent.SnapshotResult;
+import eu.nordtal.s2.settings.Database;
 import eu.nordtal.s2.settings.DatabaseSpec;
-import eu.nordtal.s2.settings.DatabaseWaiting;
 import eu.nordtal.s2.stewardagent.Told;
 import eu.nordtal.s2.stewardagent.config.RunSpec;
 import eu.nordtal.s2.stewardagent.config.RunSpec.BackupSpec;
@@ -63,7 +62,7 @@ class RunnerTest {
     @BeforeEach
     void open() {
         postgres = TestDatabase.fresh();
-        database = DatabaseWaiting.open(
+        database = Database.open(
                 new DatabaseSpec() {
                     @Override
                     public String jdbcUrl() {

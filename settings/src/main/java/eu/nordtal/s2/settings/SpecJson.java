@@ -3,7 +3,6 @@ package eu.nordtal.s2.settings;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.internal.SpecPaths;
 import eu.nordtal.jcore.config.schema.SchemaNode;
 import eu.nordtal.jcore.config.schema.SchemaWriter;
@@ -22,8 +21,8 @@ import org.jspecify.annotations.Nullable;
 /** A spec's values as a JSON tree keyed like its YAML, and its leaves by dotted path. */
 final class SpecJson {
 
-    /** jcore's own Gson for specs, so a value reads back exactly as a file would have given it. */
-    static final Gson GSON = ConfigLoader.gsonBuilder().disableHtmlEscaping().create();
+    /** Spec's own Gson, so a value reads back exactly as a file would have given it. */
+    static final Gson GSON = Specs.gsonBuilder().disableHtmlEscaping().create();
 
     private SpecJson() {}
 

@@ -33,7 +33,6 @@
  */
 package eu.nordtal.jcore.config.spec;
 
-import static eu.nordtal.jcore.config.spec.CommentedConfiguration.NEW_LINE;
 import static java.util.stream.Collectors.toList;
 
 import com.google.gson.annotations.SerializedName;
@@ -53,6 +52,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 /** A property in a {@link ConfigSpec}. */
@@ -307,7 +307,9 @@ public final class SpecProperty {
         final Comment comment = method.getAnnotation(Comment.class);
         if (comment != null) {
             final String[] value = comment.value();
-            return Arrays.stream(value).flatMap(NEW_LINE::splitAsStream).collect(toList());
+            return Arrays.stream(value)
+                    .flatMap(Pattern.compile("\n", Pattern.LITERAL)::splitAsStream)
+                    .collect(toList());
         }
         return null;
     }
@@ -322,7 +324,9 @@ public final class SpecProperty {
         final ConfigSpec spec = type.getAnnotation(ConfigSpec.class);
         if (spec != null) {
             final String[] value = spec.header();
-            return Arrays.stream(value).flatMap(NEW_LINE::splitAsStream).collect(toList());
+            return Arrays.stream(value)
+                    .flatMap(Pattern.compile("\n", Pattern.LITERAL)::splitAsStream)
+                    .collect(toList());
         }
         return Collections.emptyList();
     }

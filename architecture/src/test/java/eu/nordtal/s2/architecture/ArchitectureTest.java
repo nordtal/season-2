@@ -20,8 +20,7 @@ import org.junit.jupiter.api.Test;
 
 class ArchitectureTest {
 
-    private static final Set<String> MIGRATORS =
-            Set.of("org.flywaydb.core.Flyway", "eu.nordtal.jcore.persistence.sql.Database");
+    private static final Set<String> MIGRATORS = Set.of("org.flywaydb.core.Flyway");
 
     private static final Set<String> WALL_CLOCK = Set.of(
             "java.time.Instant.now",
@@ -466,26 +465,6 @@ class ArchitectureTest {
                 .doNotHaveFullyQualifiedName("eu.nordtal.s2.proxy.ProxyPlugin")
                 .should()
                 .accessTargetWhere(BUILDS_A_RENDERER)
-                .check(classes);
-    }
-
-    /** Settings live in the database: only :settings reads a YAML file, the last installation's, to import it once. */
-    @Test
-    void onlyTheSettingsModuleReadsASettingsFile() {
-        noClasses()
-                .that()
-                .resideOutsideOfPackage("eu.nordtal.s2.settings..")
-                .should()
-                .dependOnClassesThat()
-                .haveFullyQualifiedName("eu.nordtal.jcore.config.spec.CommentedConfiguration")
-                .orShould()
-                .dependOnClassesThat()
-                .haveFullyQualifiedName("eu.nordtal.jcore.config.ConfigHandle")
-                .orShould()
-                .callMethodWhere(DescribedPredicate.describe(
-                        "a file read through jcore's ConfigLoader",
-                        call -> call.getTargetOwner().getName().equals("eu.nordtal.jcore.config.ConfigLoader")
-                                && !call.getName().equals("gsonBuilder")))
                 .check(classes);
     }
 

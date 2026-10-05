@@ -11,17 +11,6 @@ plugins {
 
 rootProject.name = "season-2"
 
-// -PuseLocalJcore builds against ../jcore; JitPack's group is com.github.nordtal, hence the substitution.
-if (providers.gradleProperty("useLocalJcore").isPresent) {
-    val jcore = file("../jcore")
-    require(jcore.isDirectory) { "-PuseLocalJcore was set but $jcore does not exist" }
-    includeBuild(jcore) {
-        dependencySubstitution {
-            substitute(module("com.github.nordtal:jcore")).using(project(":"))
-        }
-    }
-}
-
 // Paper plugins, one per backend server.
 include("limbo")
 include("hunger-games")
@@ -66,8 +55,14 @@ include("limbo-protocol")
 // Shared code that needs a Paper type, shaded into the three Paper plugins.
 include("paper-common")
 
+// Every player's name tag as a packet-only text display, shaded into smp.
+include("display-tags")
+
 // Where every process's settings come from, and the database and colour settings they share.
 include("settings")
+
+// A settings group as an annotated interface, and the schema Steward draws its forms from.
+include("spec")
 
 // The architecture rules of CONVENTIONS.md, checked across every module's classes.
 include("architecture")

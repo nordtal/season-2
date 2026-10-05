@@ -5,10 +5,6 @@ plugins {
     id("nordtal.message-spec")
 }
 
-repositories {
-    maven("https://jitpack.io")
-}
-
 // NordtalPlugin's fields are set in start(), which onEnable() runs before anything can read them.
 tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
@@ -22,10 +18,8 @@ dependencies {
     // `api`, since the plugin base hands its settings and its pool to the plugins built on it.
     api(project(":settings"))
 
-    // Every plugin shades jcore, which carries both; the base only compiles against them.
+    // Every plugin shades both; the base only compiles against them.
     compileOnly(libs.hikaricp)
-    // The shared sounds group is a spec; every plugin shades jcore, so the base only compiles against it.
-    compileOnly(libs.jcore)
     compileOnly(libs.jdbi.core)
 
     // The assembled resource pack: the fonts the menu tests measure against only exist there.
@@ -35,7 +29,6 @@ dependencies {
     testImplementation(testFixtures(project(":settings")))
     testImplementation(testFixtures(project(":common")))
     testImplementation(testFixtures(project(":pack-rendering")))
-    testImplementation(libs.jcore)
     testImplementation(libs.gson)
 }
 

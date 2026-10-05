@@ -11,10 +11,6 @@ pluginDescriptor {
     displayName.set("Limbo")
 }
 
-repositories {
-    maven("https://jitpack.io")
-}
-
 // The base runs prepare() and enable() before anything reads LimboPlugin's fields.
 tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
@@ -27,15 +23,14 @@ tasks.withType<JavaCompile>().configureEach {
 
 dependencies {
     implementation(project(":limbo-protocol"))
-    // jcore carries the config system and the database stack; Flyway is excluded, since this plugin never migrates.
-    implementation(libs.jcore) {
-        exclude(group = "org.flywaydb")
-    }
+    // JDBI, which :database and :settings only compile against.
+    implementation(libs.jdbi.core)
+    implementation(libs.jdbi.sqlobject)
 
     // The plugin base opens its pool through :settings, which only compiles against HikariCP.
     implementation(libs.hikaricp)
 
-    // :common's JdbiAccessDirectory installs JDBI's PostgresPlugin; jcore declares jdbi3-postgres at runtime only.
+    // :common's JdbiAccessDirectory installs JDBI's PostgresPlugin.
     implementation(libs.jdbi.postgres)
 
     // The settings, loaded in a test as the plugin loads them.

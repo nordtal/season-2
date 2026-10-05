@@ -33,12 +33,12 @@
  */
 package eu.nordtal.jcore.config.spec;
 
+import com.google.gson.GsonBuilder;
+import com.google.gson.ToNumberPolicy;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
-import java.io.File;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Array;
 import java.lang.reflect.Method;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -64,55 +64,11 @@ public final class Specs {
         return cl.isInterface() && cl.isAnnotationPresent(ConfigSpec.class);
     }
 
-    /**
-     * Generates a {@link SpecReference} for the specified config spec interface.
-     *
-     * A reference offers a flexible wrapper around the config spec value.
-     *
-     * @param type   The interface type
-     * @param config The config file
-     * @param <T>    The type
-     * @return The newly created {@link SpecReference}.
-     */
-    public static <T> SpecReference<T> reference(final Class<T> type, final CommentedConfiguration config) {
-        if (!isConfigSpec(type)) throw new IllegalArgumentException(type + " must be a spec class!");
-        return new SpecReference<>(type, config);
-    }
-
-    /**
-     * Generates a config spec from the specified config.
-     *
-     * @param type   The interface type
-     * @param config The config file
-     * @param <T>    The type
-     * @return The newly created config spec.
-     */
-    public static <T> T fromConfig(final Class<T> type, final CommentedConfiguration config) {
-        return reference(type, config).get();
-    }
-
-    /**
-     * Generates a config spec from the specified file.
-     *
-     * @param type   The interface type
-     * @param config The config file
-     * @param <T>    The type
-     * @return The newly created config spec.
-     */
-    public static <T> T fromFile(final Class<T> type, final Path config) {
-        return reference(type, CommentedConfiguration.from(config)).get();
-    }
-
-    /**
-     * Generates a config spec from the specified file.
-     *
-     * @param type   The interface type
-     * @param config The config file
-     * @param <T>    The type
-     * @return The newly created config spec.
-     */
-    public static <T> T fromFile(final Class<T> type, final File config) {
-        return reference(type, CommentedConfiguration.from(config.toPath())).get();
+    /** Returns a Gson builder that reads and writes spec interfaces, with whole numbers kept as {@code long}. */
+    public static GsonBuilder gsonBuilder() {
+        return new GsonBuilder()
+                .registerTypeAdapterFactory(SpecAdapterFactory.INSTANCE)
+                .setObjectToNumberStrategy(ToNumberPolicy.LONG_OR_DOUBLE);
     }
 
     /**

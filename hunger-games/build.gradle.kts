@@ -32,27 +32,22 @@ repositoryRootTestInputs {
     reads("hunger-games/src/main/resources/messages/hunger-games/de.properties")
 }
 
-repositories {
-    maven("https://jitpack.io")
-}
-
 dependencies {
-    // jcore brings the config system and the database stack; Flyway is excluded, since this plugin never migrates.
-    implementation(libs.jcore) {
-        exclude(group = "org.flywaydb")
-    }
+    // JDBI, which :database and :settings only compile against.
+    implementation(libs.jdbi.core)
+    implementation(libs.jdbi.sqlobject)
 
-    // Redeclared, since jcore declares HikariCP `implementation`; the pool is built here to tune its timeouts.
+    // The pool :settings opens.
     implementation(libs.hikaricp)
 
-    // HungerGamesDao installs JDBI's PostgresPlugin, which jcore only declares at runtime scope.
+    // HungerGamesDao installs JDBI's PostgresPlugin.
     implementation(libs.jdbi.postgres)
 
     // KillCountsIntegrationTest runs killCounts on the real schema: count(*) is bigint, which no fake catches.
     testImplementation(testFixtures(project(":database")))
     testImplementation(testFixtures(project(":settings")))
 
-    // jcore puts the driver on the runtime classpath only; a test builds a PGSimpleDataSource by hand.
+    // A test builds a PGSimpleDataSource by hand.
     testImplementation(libs.postgresql.driver)
 }
 

@@ -1,6 +1,5 @@
 package eu.nordtal.s2.steward.data;
 
-import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.audit.AuditDirectory;
 import eu.nordtal.s2.database.inbox.BotRequest;
@@ -13,6 +12,7 @@ import eu.nordtal.s2.database.payment.Bookings;
 import eu.nordtal.s2.database.payment.PaymentRequests;
 import eu.nordtal.s2.database.phase.PhaseDirectory;
 import eu.nordtal.s2.database.update.UpdateDirectory;
+import eu.nordtal.s2.settings.Database;
 import java.time.Clock;
 import java.time.Duration;
 

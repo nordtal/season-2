@@ -1,8 +1,8 @@
 package eu.nordtal.s2.stewardagent.run;
 
-import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.database.setting.SettingStore;
 import eu.nordtal.s2.internalapi.agent.AgentWire;
+import eu.nordtal.s2.settings.Database;
 import eu.nordtal.s2.stewardagent.apply.ApplyResult;
 import eu.nordtal.s2.stewardagent.config.RunSpec;
 import eu.nordtal.s2.stewardagent.plan.Change;

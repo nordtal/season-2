@@ -1,9 +1,5 @@
 package eu.nordtal.jcore.config.schema;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import eu.nordtal.jcore.config.AtomicConfigWriter;
-import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.config.spec.SpecProperty;
 import eu.nordtal.jcore.config.spec.Specs;
 import eu.nordtal.jcore.config.spec.annotation.AllowedValues;
@@ -16,8 +12,6 @@ import eu.nordtal.jcore.config.spec.annotation.Secret;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -45,19 +39,6 @@ import org.jspecify.annotations.Nullable;
  */
 public final class SchemaWriter {
 
-    /**
-     * Pretty-printed, and <b>not</b> HTML-escaped.
-     *
-     * Gson escapes apostrophes, angle brackets and ampersands by default, for a JSON document
-     * that is about to be pasted into HTML. A schema file is not: it is written beside a config
-     * file and read by a JVM, and the only other reader is a person opening it to see what the
-     * shape is. Leaving Gson's default escaping on turns every apostrophe in a header or
-     * explanation into its numeric character reference, which is legal JSON, correct on screen,
-     * and unreadable in the file itself.
-     */
-    private static final Gson GSON =
-            new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
-
     private SchemaWriter() {}
 
     /**
@@ -69,60 +50,6 @@ public final class SchemaWriter {
     public static SchemaNode build(final Class<?> specType) {
         return new SchemaNode(
                 SettingKind.MAP, "", headerOf(specType), false, false, null, null, childrenOf(specType), null);
-    }
-
-    /**
-     * The path {@link #write} uses for a given YAML file: the directory, with {@code .schema.json} for the extension.
-     *
-     * @param ymlFile the configuration file
-     * @return the sibling schema file
-     */
-    public static Path schemaFileFor(final Path ymlFile) {
-        final String name = ymlFile.getFileName().toString();
-        final String base;
-        if (name.endsWith(".yml")) {
-            base = name.substring(0, name.length() - ".yml".length());
-        } else if (name.endsWith(".yaml")) {
-            base = name.substring(0, name.length() - ".yaml".length());
-        } else {
-            base = name;
-        }
-        return ymlFile.resolveSibling(base + ".schema.json");
-    }
-
-    /**
-     * Builds the schema for {@code specType} and writes it next to {@code ymlFile}, atomically.
-     *
-     * @param ymlFile  the configuration file the schema describes
-     * @param specType the spec interface
-     */
-    public static void write(final Path ymlFile, final Class<?> specType) {
-        final String json = GSON.toJson(build(specType));
-        AtomicConfigWriter.write(schemaFileFor(ymlFile), json);
-    }
-
-    /**
-     * Asserts that {@code ymlFile} and its schema exist together, or that neither does.
-     *
-     * {@link #write} always writes both in the same call, so this can only fail if something
-     * outside this class removed one of the two afterwards - which is an error rather than a state
-     * to render around: a schema with no file behind it
-     * describes nothing real, and a file with no schema is exactly the staleness the whole
-     * arrangement exists to prevent.
-     *
-     * @param ymlFile the configuration file
-     * @throws ConfigException naming whichever of the two is missing
-     */
-    public static void checkPaired(final Path ymlFile) throws ConfigException {
-        final Path schemaFile = schemaFileFor(ymlFile);
-        final boolean fileExists = Files.isRegularFile(ymlFile);
-        final boolean schemaExists = Files.isRegularFile(schemaFile);
-        if (fileExists && !schemaExists) {
-            throw new ConfigException("Config file " + ymlFile + " exists but its schema " + schemaFile + " does not.");
-        }
-        if (schemaExists && !fileExists) {
-            throw new ConfigException("Schema " + schemaFile + " exists but its config file " + ymlFile + " does not.");
-        }
     }
 
     /**

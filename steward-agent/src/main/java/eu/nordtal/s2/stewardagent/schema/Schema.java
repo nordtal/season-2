@@ -1,7 +1,7 @@
 package eu.nordtal.s2.stewardagent.schema;
 
-import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.database.DatabaseRole;
+import eu.nordtal.s2.settings.Database;
 import java.sql.SQLException;
 import java.util.EnumMap;
 import java.util.Map;

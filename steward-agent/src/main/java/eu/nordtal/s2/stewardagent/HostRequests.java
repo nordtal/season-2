@@ -1,6 +1,5 @@
 package eu.nordtal.s2.stewardagent;
 
-import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.time.NetworkTime;
 import eu.nordtal.s2.common.time.Waiting;
@@ -10,6 +9,7 @@ import eu.nordtal.s2.database.update.UpdateKind;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.messages.Refused;
+import eu.nordtal.s2.settings.Database;
 import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.settings.DatabaseWaiting;
 import eu.nordtal.s2.settings.SettingsException;

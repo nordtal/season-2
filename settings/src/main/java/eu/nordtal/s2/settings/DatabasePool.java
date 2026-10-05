@@ -26,6 +26,17 @@ public final class DatabasePool {
 
     /** Opens a pool named {@code name}, whose timeout bounds both a connection wait and a query already running. */
     public static HikariDataSource open(final DatabaseSpec database, final String name) {
+        final HikariConfig hikari = config(database, name);
+        hikari.addDataSourceProperty("socketTimeout", String.valueOf(database.queryTimeoutSeconds()));
+        return new HikariDataSource(hikari);
+    }
+
+    /** Opens a pool named {@code name} whose timeout bounds only a connection wait, for a service that migrates. */
+    public static HikariDataSource openUnbounded(final DatabaseSpec database, final String name) {
+        return new HikariDataSource(config(database, name));
+    }
+
+    private static HikariConfig config(final DatabaseSpec database, final String name) {
         final HikariConfig hikari = new HikariConfig();
         hikari.setJdbcUrl(database.jdbcUrl());
         hikari.setUsername(database.username());
@@ -35,7 +46,6 @@ public final class DatabasePool {
         hikari.setConnectionTimeout(database.queryTimeoutSeconds() * 1000L);
         // DriverManager's ServiceLoader misses a driver that only a plugin's own classloader can see.
         hikari.setDriverClassName("org.postgresql.Driver");
-        hikari.addDataSourceProperty("socketTimeout", String.valueOf(database.queryTimeoutSeconds()));
-        return new HikariDataSource(hikari);
+        return hikari;
     }
 }

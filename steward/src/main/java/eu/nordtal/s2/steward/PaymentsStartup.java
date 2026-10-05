@@ -1,6 +1,5 @@
 package eu.nordtal.s2.steward;
 
-import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.time.Backoff;
 import eu.nordtal.s2.common.time.Scheduler;
 import eu.nordtal.s2.common.time.Waiting;
@@ -14,6 +13,7 @@ import eu.nordtal.s2.database.payment.Tiers;
 import eu.nordtal.s2.database.payment.Watermark;
 import eu.nordtal.s2.internalapi.BankWire;
 import eu.nordtal.s2.internalapi.InternalClient;
+import eu.nordtal.s2.settings.Database;
 import eu.nordtal.s2.steward.bunq.Bank;
 import eu.nordtal.s2.steward.bunq.PaymentLoop;
 import eu.nordtal.s2.steward.bunq.Payments;

@@ -1,16 +1,13 @@
 package eu.nordtal.jcore.config.schema;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.TestSpecs;
-import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Explain;
@@ -19,40 +16,19 @@ import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 import eu.nordtal.jcore.config.spec.annotation.Protected;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 /**
  * jcore writes a {@code config.schema.json} beside the YAML it writes; the YAML carries no comments.
  */
 class SchemaWriterTest {
 
-    @TempDir
-    Path directory;
-
     // the annotation split
 
     @Test
-    void explainTextGoesToSchemaAndNeverToYaml() throws Exception {
-        final Path file = directory.resolve("payments.yml");
-        ConfigLoader.builder(file, TestSpecs.Payments.class)
-                .withoutEnvironmentOverlay()
-                .load();
-
-        final String yaml = Files.readString(file);
-        assertAll(
-                () -> assertFalse(
-                        yaml.contains("How often the account is polled"),
-                        "the long @Comment text must never reach the YAML: " + yaml),
-                () -> assertFalse(
-                        yaml.lines().anyMatch(line -> line.strip().startsWith("#")),
-                        "the YAML must carry no comment lines at all: " + yaml));
-
+    void explainTextGoesToSchemaAndCommentTextDoesNot() {
         final SchemaNode schema = SchemaWriter.build(TestSpecs.Payments.class);
         final SchemaNode checkInterval = schema.children().get("check-interval-seconds");
         assertAll(
@@ -244,22 +220,6 @@ class SchemaWriterTest {
     }
 
     @Test
-    void headerIsInTheWrittenSchemaFile() throws Exception {
-        final Path file = directory.resolve("payments.yml");
-        ConfigLoader.builder(file, TestSpecs.Payments.class)
-                .withoutEnvironmentOverlay()
-                .load();
-
-        final String json = Files.readString(SchemaWriter.schemaFileFor(file));
-        assertTrue(
-                json.contains("Test configuration\\nSecond header line"),
-                "the schema file must carry the header text: " + json);
-
-        // And still not the YAML - 4.0.0's decision is not being walked back here.
-        assertFalse(Files.readString(file).contains("Test configuration"), "the header must not return to the YAML");
-    }
-
-    @Test
     void aNestedSpecsHeaderIsNotTheChildsExplanation() {
         // A child's explanation belongs to the declaring property, not the nested interface's own header.
         final SchemaNode outer = SchemaWriter.build(Outer.class);
@@ -383,103 +343,6 @@ class SchemaWriterTest {
         final SchemaNode payments = SchemaWriter.build(TestSpecs.Payments.class);
         assertFalse(payments.children().containsKey("reload"));
         assertFalse(payments.children().containsKey("save"));
-    }
-
-    // file and schema come into being together
-
-    @Test
-    void fileAndSchemaComeIntoBeingTogether() throws Exception {
-        final Path file = directory.resolve("payments.yml");
-        final Path schema = SchemaWriter.schemaFileFor(file);
-
-        assertAll(
-                () -> assertFalse(Files.exists(file), "precondition: nothing written yet"),
-                () -> assertFalse(Files.exists(schema), "precondition: nothing written yet"));
-
-        ConfigLoader.builder(file, TestSpecs.Payments.class)
-                .withoutEnvironmentOverlay()
-                .load();
-
-        assertAll(
-                () -> assertTrue(Files.isRegularFile(file), "the config file must exist"),
-                () -> assertTrue(
-                        Files.isRegularFile(schema),
-                        "the schema must be written beside it, found nothing at " + schema));
-    }
-
-    @Test
-    void schemaIsRefreshedEveryLoad() throws Exception {
-        final Path file = directory.resolve("payments.yml");
-        ConfigLoader.builder(file, TestSpecs.Payments.class)
-                .withoutEnvironmentOverlay()
-                .load();
-        final Path schema = SchemaWriter.schemaFileFor(file);
-        final long firstWrite = Files.getLastModifiedTime(schema).toMillis();
-
-        Thread.sleep(10);
-        // The YAML is byte-identical on this second load - nothing in the interface changed.
-        ConfigLoader.builder(file, TestSpecs.Payments.class)
-                .withoutEnvironmentOverlay()
-                .load();
-
-        assertTrue(
-                Files.getLastModifiedTime(schema).toMillis() >= firstWrite,
-                "the schema write must not be skipped just because the YAML did not change");
-    }
-
-    // a schema without a file, and back
-
-    @Test
-    void schemaWithoutFileIsAnError() throws Exception {
-        final Path file = directory.resolve("payments.yml");
-        SchemaWriter.write(file, TestSpecs.Payments.class);
-        assertTrue(Files.exists(SchemaWriter.schemaFileFor(file)), "precondition");
-
-        final ConfigException error = assertThrows(ConfigException.class, () -> SchemaWriter.checkPaired(file));
-        assertTrue(
-                error.getMessage().contains(file.toString()),
-                "the error must name the missing file: " + error.getMessage());
-    }
-
-    @Test
-    void fileWithoutSchemaIsAnError() throws Exception {
-        final Path file = directory.resolve("payments.yml");
-        ConfigLoader.builder(file, TestSpecs.Payments.class)
-                .withoutEnvironmentOverlay()
-                .load();
-        final Path schema = SchemaWriter.schemaFileFor(file);
-        Files.delete(schema);
-
-        final ConfigException error = assertThrows(ConfigException.class, () -> SchemaWriter.checkPaired(file));
-        assertTrue(
-                error.getMessage().contains(schema.toString()),
-                "the error must name the missing schema: " + error.getMessage());
-    }
-
-    @Test
-    void neitherExistingIsNotAnError() {
-        assertDoesNotThrow(() -> SchemaWriter.checkPaired(directory.resolve("nothing-here.yml")));
-    }
-
-    @Test
-    void theSchemaFileIsNotHtmlEscaped() throws Exception {
-        // Gson's default HTML escaping is for a browser; a schema file is read by a JVM or a person, never one.
-        final Path yml = directory.resolve("service.yml");
-        SchemaWriter.write(yml, EscapingHolder.class);
-
-        final String json = Files.readString(SchemaWriter.schemaFileFor(yml), StandardCharsets.UTF_8);
-        assertTrue(json.contains("the network's own name"), "the apostrophe has to survive into the file: " + json);
-        assertFalse(json.contains("&#39;"), "Gson's HTML escaping is still on: " + json);
-    }
-
-    @ConfigSpec
-    public interface EscapingHolder {
-        @Order(1)
-        @Key("name")
-        @Explain("the network's own name")
-        default String name() {
-            return "";
-        }
     }
 
     // @Protected

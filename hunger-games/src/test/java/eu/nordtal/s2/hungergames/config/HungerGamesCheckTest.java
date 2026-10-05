@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.Gson;
-import eu.nordtal.jcore.config.ConfigLoader;
+import eu.nordtal.jcore.config.spec.Specs;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.s2.papercommon.sound.SoundsSpec;
 import eu.nordtal.s2.settings.DatabaseSpec;
@@ -49,7 +49,7 @@ class HungerGamesCheckTest {
     @Test
     void aStoredListOfSectionsComesBackWithItsValues() throws Exception {
         final HungerGamesSpec defaults = store.checked("hunger-games", CONFIG, Map.of());
-        final Gson gson = ConfigLoader.gsonBuilder().create();
+        final Gson gson = Specs.gsonBuilder().create();
 
         final HungerGamesSpec reread = new MemorySettingStore()
                 .checked(

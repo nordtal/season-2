@@ -9,11 +9,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-import eu.nordtal.jcore.persistence.sql.Database;
-import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.id.DiscordId;
-import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.access.AccessDirectory;
 import eu.nordtal.s2.database.access.AccessGrant;
@@ -25,6 +22,8 @@ import eu.nordtal.s2.database.payment.PaymentRequest;
 import eu.nordtal.s2.database.payment.PaymentRequestStatus;
 import eu.nordtal.s2.database.payment.PaymentRequests;
 import eu.nordtal.s2.database.payment.Watermark;
+import eu.nordtal.s2.settings.Database;
+import eu.nordtal.s2.settings.TestPools;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -59,9 +58,7 @@ class PaymentRequestIntegrationTest {
     static void startDatabase() {
         postgres = TestDatabase.fresh();
 
-        database = Database.create(DatabaseConfig.of(postgres.jdbcUrl(), postgres.username(), postgres.password()));
-        database.jdbi().installPlugin(Jdbis.ids());
-        database.migrate();
+        database = TestPools.open(postgres.jdbcUrl(), postgres.username(), postgres.password());
     }
 
     @AfterAll

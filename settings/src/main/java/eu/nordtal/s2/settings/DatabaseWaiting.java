@@ -1,10 +1,7 @@
 package eu.nordtal.s2.settings;
 
-import eu.nordtal.jcore.persistence.sql.Database;
-import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.common.time.Backoff;
 import eu.nordtal.s2.common.time.Waiting;
-import eu.nordtal.s2.database.Jdbis;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -43,7 +40,7 @@ public final class DatabaseWaiting {
         final Optional<Database> opened = waiting.until(
                 () -> {
                     try {
-                        return Optional.of(open(config, name));
+                        return Optional.of(Database.open(config, name));
                     } catch (final RuntimeException unreachable) {
                         if (last.getAndSet(unreachable) == null) {
                             // Once, not per attempt, so the retries do not bury the migration line.
@@ -78,23 +75,6 @@ public final class DatabaseWaiting {
                 wait,
                 failure == null ? "no answer" : rootCauseOf(failure));
         return null;
-    }
-
-    /**
-     * Opens jcore's pool named {@code name} with the id mappers installed, without waiting.
-     *
-     * @return a pool the caller owns and must close
-     */
-    public static Database open(final DatabaseSpec config, final String name) {
-        final Database opened = Database.create(DatabaseConfig.builder(config.jdbcUrl())
-                .username(config.username())
-                .password(config.password())
-                .poolName(name)
-                .maximumPoolSize(config.maximumPoolSize())
-                .connectionTimeout(Duration.ofSeconds(config.queryTimeoutSeconds()))
-                .build());
-        opened.jdbi().installPlugin(Jdbis.ids());
-        return opened;
     }
 
     private static String rootCauseOf(final Throwable failure) {

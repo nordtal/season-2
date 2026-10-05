@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.jcore.config.ConfigLoader;
+import eu.nordtal.jcore.config.spec.Specs;
 import eu.nordtal.s2.settings.Group;
 import eu.nordtal.s2.settings.MemorySettingStore;
 import eu.nordtal.s2.settings.SettingsException;
@@ -38,7 +38,7 @@ class MilestonesTest {
         final MilestonesSpec written = load();
 
         // A SECOND load, over the whole track stored as the one value it is.
-        values.put("milestones", ConfigLoader.gsonBuilder().create().toJson(written.milestones()));
+        values.put("milestones", Specs.gsonBuilder().create().toJson(written.milestones()));
         final MilestonesSpec reread = load();
         final MilestoneTrack track = Milestones.read(reread).track();
 
@@ -245,7 +245,7 @@ class MilestonesTest {
     /** Stores every top-level value of {@code yaml} as Steward would, the track as one JSON value. */
     private void writeTrack(final String yaml) {
         final Map<String, Object> parsed = new Yaml().load(yaml);
-        parsed.forEach((key, value) ->
-                values.put(key, ConfigLoader.gsonBuilder().create().toJson(value)));
+        parsed.forEach(
+                (key, value) -> values.put(key, Specs.gsonBuilder().create().toJson(value)));
     }
 }

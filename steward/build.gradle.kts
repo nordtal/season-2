@@ -75,10 +75,6 @@ repositoryRootTestInputs {
     readsTree("steward/src", "steward/frontend/src")
 }
 
-repositories {
-    maven("https://jitpack.io")
-}
-
 // The frontend: a private Node under build/nodejs, built by Vite and packed into the jar under web/.
 
 val frontendDirectory = layout.projectDirectory.dir("frontend")
@@ -261,8 +257,10 @@ dependencies {
     // Only for JsonProcessingException, which javac must resolve; the runtime uses the library's own Jackson.
     compileOnly(libs.jackson.core)
 
-    // jcore exports gson and snakeyaml, so nothing here declares a parser of its own; the config forms read Spec.
-    implementation(libs.jcore)
+    // The settings forms read Spec, whose values are read and written through Gson.
+    implementation(libs.gson)
+    implementation(libs.bundles.access.persistence)
+    runtimeOnly(libs.postgresql.driver)
 
     // Web Push, VAPID and aes128gcm; the version catalog says why this library and not the Bouncy Castle fork.
     implementation(libs.webpush)
@@ -279,7 +277,7 @@ dependencies {
     implementation(project(":settings"))
     implementation(project(":messages"))
 
-    // jcore exports no logging backend, and without one every log line disappears.
+    // Without a logging backend every log line disappears.
     runtimeOnly(libs.logback.classic)
 
     // The shutdown tests count logged warnings.

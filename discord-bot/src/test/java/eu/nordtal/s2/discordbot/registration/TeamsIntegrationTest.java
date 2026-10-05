@@ -5,12 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-import eu.nordtal.jcore.persistence.sql.Database;
-import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.common.id.DiscordId;
-import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.TestDatabase;
 import eu.nordtal.s2.database.registration.Game;
+import eu.nordtal.s2.settings.Database;
+import eu.nordtal.s2.settings.TestPools;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
@@ -41,9 +40,7 @@ class TeamsIntegrationTest {
     static void startDatabase() {
         postgres = TestDatabase.fresh();
 
-        database = Database.create(DatabaseConfig.of(postgres.jdbcUrl(), postgres.username(), postgres.password()));
-        database.jdbi().installPlugin(Jdbis.ids());
-        database.migrate();
+        database = TestPools.open(postgres.jdbcUrl(), postgres.username(), postgres.password());
     }
 
     @AfterAll

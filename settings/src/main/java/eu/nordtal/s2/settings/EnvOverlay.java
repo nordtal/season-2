@@ -1,7 +1,8 @@
-package eu.nordtal.jcore.config.internal;
+package eu.nordtal.s2.settings;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
+import eu.nordtal.jcore.config.internal.SpecPaths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -12,22 +13,9 @@ import java.util.TreeMap;
 import java.util.function.Function;
 
 /**
- * Lets every single config value be overridden by an environment variable.
+ * Overrides any value of a spec with an environment variable, which wins and is never written back.
  *
- * The file declares every setting and the environment can override any of them, which is what a
- * container deploy needs.
- *
- * The environment always wins over the file, and an overridden value is <b>never</b> written
- * back - a secret handed in through the environment must not end up in a mounted volume.
- *
- * <b>Naming:</b> {@code <PREFIX>_<PATH>}, upper-cased, with both the path separator {@code .} and the hyphen
- * inside a key turned into {@code _}. So {@code nametag.display.text-shadow} with the prefix
- * {@code NORDTAL} is {@code NORDTAL_NAMETAG_DISPLAY_TEXT_SHADOW}.
- *
- * Because two different characters collapse onto {@code _}, two distinct paths could in
- * principle produce the same variable name. Rather than resolving that at runtime, where it
- * would be an operator's problem, {@link #forSpec} rejects the spec outright: a collision is a
- * mistake in the interface and shows up the first time the config is loaded.
+ * Its name is {@code <PREFIX>_<PATH>} upper-cased, dots and dashes as {@code _}; {@link #forSpec} refuses a clash.
  */
 public final class EnvOverlay {
 
@@ -102,7 +90,7 @@ public final class EnvOverlay {
      *
      * @param spec the spec instance to apply overrides to
      * @return the config paths that were overridden, in file order. The <b>values are
-     * deliberately not returned or logged</b> - any one of them could be a secret.
+     * deliberately not returned or logged</b>: any one of them could be a secret.
      */
     public List<String> applyTo(final Object spec) {
         final List<String> overridden = new ArrayList<>();
@@ -147,7 +135,7 @@ public final class EnvOverlay {
             }
             return gson.fromJson(raw, leaf.genericType());
         } catch (NumberFormatException | JsonSyntaxException e) {
-            // The value itself never appears in the message - it could be a secret.
+            // The value itself never appears in the message, since it could be a secret.
             throw new IllegalArgumentException(
                     variable + " cannot be read as " + type.getSimpleName() + " for config setting '" + leaf.path()
                             + "'.",

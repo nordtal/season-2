@@ -64,6 +64,9 @@ import eu.nordtal.s2.proxy.pack.PackOffer;
 import eu.nordtal.s2.proxy.pack.PackStation;
 import eu.nordtal.s2.proxy.pack.WaitingBook;
 import eu.nordtal.s2.proxy.command.CommandGate;
+import eu.nordtal.s2.proxy.command.CommandTrees;
+import eu.nordtal.s2.database.command.CommandTreeStore;
+import eu.nordtal.s2.database.command.CommandTreeWriter;
 import eu.nordtal.s2.proxy.command.InfoTexts;
 import eu.nordtal.s2.proxy.command.PrivateMessages;
 import eu.nordtal.s2.database.notify.Channel;
@@ -432,6 +435,13 @@ public final class ProxyPlugin {
         registered.addAll(infoTexts.commands());
         registered.forEach(command -> commands.register(
                 commands.metaBuilder(command).plugin(this).build(), command));
+        // The standby runs the same commands, so the console's suggestions come from the proxy players type in.
+        if (!role.isStandby()) {
+            final CommandTrees trees = new CommandTrees(commands, proxy.getConsoleCommandSource(),
+                    new CommandTreeWriter(CommandTreeStore.using(pool), "proxy"), scheduler, logger);
+            proxy.getEventManager().register(this, trees);
+            trees.readSoon();
+        }
 
         logger.info("Access login gate is up in phase {} (query timeout {}s, fallback cache window "
                         + "{}m, expiry check every {}s, play time flushed every "

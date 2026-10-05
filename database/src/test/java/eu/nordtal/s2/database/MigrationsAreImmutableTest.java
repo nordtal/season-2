@@ -121,6 +121,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V31__registration_has_one_shape.sql",
                 "f38f4a96a902127c552dee1a16a8e350660b1d59be116bf1bc493d281c306fa0");
+        FROZEN.put(
+                "V32__only_steward_writes_settings.sql",
+                "63e1642daaced7efad1283a27ac71b07912e4f5690a5a08514fd11734e781c72");
     }
 
     @Test

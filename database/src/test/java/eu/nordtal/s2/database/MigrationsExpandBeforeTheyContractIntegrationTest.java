@@ -139,6 +139,11 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
         listed(unused, "0.13.0", "nordtal_proxy", "SELECT", "hg_team", "colour_named", "created");
         listed(unused, "0.13.0", "nordtal_proxy", "SELECT", "hg_member", "id", "team_id", "game_id", "discord_id");
         listed(unused, "0.13.0", "nordtal_proxy", "SELECT", "hg_member", "state", "ready", "created");
+        // The settings-file import, the only writer of setting_override besides steward.
+        for (final String role : List.of("nordtal_proxy", "nordtal_limbo")) {
+            listed(unused, "0.14.0", role, "INSERT", "setting_override", "service", "name", "path", "value");
+            listed(unused, "0.14.0", role, "INSERT", "setting_override", "actor_kind", "actor_id", "changed");
+        }
         return Map.copyOf(unused);
     }
 

@@ -31,6 +31,10 @@ class DatabaseRoleIntegrationTest {
             DatabaseRole.SMP,
             DatabaseRole.STEWARD);
 
+    /** Only steward writes a setting; every other service reads its own. */
+    private static final String WRITE_SETTING = "INSERT INTO setting_override (service, name, path, value, actor_kind,"
+            + " changed) SELECT 'x', 'y', 'z', '1', 'HOST', now() WHERE false";
+
     private static TestDatabase database;
 
     @BeforeAll
@@ -101,6 +105,7 @@ class DatabaseRoleIntegrationTest {
             cases.add(mayNot(role, "DELETE FROM audit_log WHERE false"));
             cases.add(mayNot(role, "SELECT count(*) FROM service_plugin"));
             cases.add(mayNot(role, "SELECT count(*) FROM plugin_file"));
+            cases.add(new Case(role, WRITE_SETTING, role == DatabaseRole.STEWARD));
         }
         cases.addAll(serverInboxes());
         cases.addAll(registration());

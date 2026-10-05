@@ -21,6 +21,8 @@ dependencies {
     // Every plugin shades both; the base only compiles against them.
     compileOnly(libs.hikaricp)
     compileOnly(libs.jdbi.core)
+    // The base opens its pool by the driver's class name, so every plugin shades the driver as well.
+    runtimeOnly(libs.postgresql.driver)
 
     // The assembled resource pack: the fonts the menu tests measure against only exist there.
     "resourcePack"(project(":resource-pack", "pack"))

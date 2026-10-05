@@ -1,6 +1,8 @@
 // A Paper plugin: the Paper API, the shared code and a local test server via run-paper.
 
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.gradle.accessors.dm.LibrariesForLibs
+import java.util.zip.ZipFile
 
 plugins {
     id("nordtal.shaded")
@@ -27,11 +29,30 @@ tasks.named<xyz.jpenilla.runpaper.task.RunServer>("runServer") {
 }
 
 // Paper provides Gson and SnakeYAML to plugins, so a shaded copy only invites a version clash.
-tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
+tasks.named<ShadowJar>("shadowJar") {
     dependencies {
         exclude(dependency("com.google.code.gson:gson"))
         exclude(dependency("org.yaml:snakeyaml"))
     }
+}
+
+// The base opens its pool by the driver's class name, so the jar a server loads has to carry that class.
+val checkShadedDriver =
+    tasks.register("checkShadedDriver") {
+        val jar = tasks.named<ShadowJar>("shadowJar").flatMap { it.archiveFile }
+        inputs.file(jar)
+        doLast {
+            val file = jar.get().asFile
+            ZipFile(file).use { zip ->
+                check(zip.getEntry("org/postgresql/Driver.class") != null) {
+                    "${file.name} carries no org.postgresql.Driver, so the plugin cannot open its pool"
+                }
+            }
+        }
+    }
+
+tasks.named("check") {
+    dependsOn(checkShadedDriver)
 }
 
 // paper-plugin.yml carries ${version} so the descriptor never drifts from gradle.properties.

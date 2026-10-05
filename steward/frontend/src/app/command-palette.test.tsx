@@ -160,7 +160,7 @@ function accessFileScalar(path: string, key: string, label: string, explanation:
   }
 }
 
-/** The real `discord-bot/access` shape: no comments, so `roles.donor` is found by label, path and `@Explain`. */
+/** The real `discord-bot/access` shape: no comments, so `role-names.donor` is found by label, path and `@Explain`. */
 function accessFile() {
   const loc: ConfigLocation = {
     service: "discord-bot",
@@ -180,18 +180,18 @@ function accessFile() {
       "500",
     ),
     accessFileScalar(
-      "roles.access",
+      "role-names.access",
       "access",
-      "Access",
+      "Access role",
       "Bot-managed: granting it by hand only holds until the next reconcile. Use /grant-access instead.",
-      "1544515346940301384",
+      "Access",
     ),
     accessFileScalar(
-      "roles.donor",
+      "role-names.donor",
       "donor",
+      "Donor role",
+      "Granted on a donation and never revoked, so it is safe to hand out manually in Discord.",
       "Donor",
-      "Granted on a donation and never revoked - safe to hand out manually in Discord.",
-      "1544515504889139301",
     ),
   ]
   vi.mocked(useConfigs).mockReturnValue(queryResult([loc]))

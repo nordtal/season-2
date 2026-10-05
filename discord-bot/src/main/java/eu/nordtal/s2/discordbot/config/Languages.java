@@ -1,7 +1,6 @@
 package eu.nordtal.s2.discordbot.config;
 
 import eu.nordtal.s2.common.language.Locales;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -12,7 +11,7 @@ import java.util.Optional;
 /**
  * The language list from the {@code access} group, and every rule that reads it.
  *
- * The configured order is kept end to end; an id may be empty, so callers check {@link Configured#isSet(String)}.
+ * The configured order is kept throughout; an empty channel id is unset, see {@link Configured#isSet(String)}.
  */
 public final class Languages {
 
@@ -43,7 +42,7 @@ public final class Languages {
         return of(config.languages().stream()
                 .map(language -> new Language(
                         language.tag(),
-                        language.role(),
+                        roleNameOf(language),
                         language.contributionChannel(),
                         language.linkChannel(),
                         language.hungerGamesChannel(),
@@ -108,44 +107,23 @@ public final class Languages {
         return byTag(Locales.tag(locale)).orElse(fallback);
     }
 
-    /**
-     * Returns whether a role id is one of the configured language roles.
-     *
-     * @param roleId a Discord role id
-     */
-    public boolean isLanguageRole(final String roleId) {
-        return ordered.stream().anyMatch(language -> language.roleId().equals(roleId));
+    /** Returns the name of a language's role: the one configured, or else the language's own name in itself. */
+    static String roleNameOf(final AccessSpec.LanguageSpec language) {
+        final String configured =
+                language.roleName() == null ? "" : language.roleName().strip();
+        if (!configured.isEmpty()) {
+            return configured;
+        }
+        final Locale locale = Locales.parse(language.tag() == null ? "" : language.tag());
+        final String own = locale.getDisplayLanguage(locale);
+        return own.isEmpty() ? language.tag() : own.substring(0, 1).toUpperCase(locale) + own.substring(1);
     }
 
     /**
-     * Returns the language a member holding these roles speaks, or empty when they hold no language role.
-     *
-     * The fallback loses to any other language; between two others, the configured order wins.
-     */
-    public Optional<Language> resolve(final Collection<String> heldRoleIds) {
-        if (heldRoleIds == null || heldRoleIds.isEmpty()) {
-            return Optional.empty();
-        }
-
-        Language fallbackHeld = null;
-        for (final Language language : ordered) {
-            if (!heldRoleIds.contains(language.roleId())) {
-                continue;
-            }
-            if (!FALLBACK_TAG.equals(language.tag())) {
-                // The first real choice in configured order wins.
-                return Optional.of(language);
-            }
-            fallbackHeld = language;
-        }
-        return Optional.ofNullable(fallbackHeld);
-    }
-
-    /**
-     * One configured language; every id except the tag may be empty.
+     * One configured language; every channel id may be empty.
      *
      * @param tag the language tag, lower case; the bundle file name and the {@code discord_user.locale} value
-     * @param roleId the onboarding role that chooses it, read only by the bot
+     * @param roleName the name of the role that chooses it, by which the bot first finds or creates it
      * @param contributionChannelId where the buy-access message and the donation thank-yous go
      * @param linkChannelId where the account-link message goes
      * @param hungerGamesChannelId where the hunger games Register message goes
@@ -154,7 +132,7 @@ public final class Languages {
      */
     public record Language(
             String tag,
-            String roleId,
+            String roleName,
             String contributionChannelId,
             String linkChannelId,
             String hungerGamesChannelId,
@@ -164,12 +142,12 @@ public final class Languages {
         /** The six-id form, with no announcement channel. */
         public Language(
                 final String tag,
-                final String roleId,
+                final String roleName,
                 final String contributionChannelId,
                 final String linkChannelId,
                 final String hungerGamesChannelId,
                 final String statusChannelId) {
-            this(tag, roleId, contributionChannelId, linkChannelId, hungerGamesChannelId, statusChannelId, "");
+            this(tag, roleName, contributionChannelId, linkChannelId, hungerGamesChannelId, statusChannelId, "");
         }
 
         /** Returns whether this language has a status channel to rename. */

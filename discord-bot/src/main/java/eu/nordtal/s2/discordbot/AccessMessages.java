@@ -127,6 +127,63 @@ public interface AccessMessages {
         }
     }
 
+    AccessMessages.Onboarding onboarding();
+
+    /** The message where a member chooses a language and a region, one embed and button per language. */
+    @Name("Onboarding")
+    interface Onboarding {
+
+        @Name("Title")
+        @Shown(Display.DISCORD_EMBED)
+        MessageRef title();
+
+        @Name("Choose heading")
+        @Shown(Display.DISCORD_EMBED)
+        MessageRef chooseHeading();
+
+        @Name("Choose")
+        @Shown(Display.DISCORD_EMBED)
+        MessageRef choose(@Arg("button") @Example("Choose") String button);
+
+        @Name("Change heading")
+        @Shown(Display.DISCORD_EMBED)
+        MessageRef changeHeading();
+
+        @Name("Change")
+        @Shown(Display.DISCORD_EMBED)
+        MessageRef change();
+
+        @Name("Button")
+        @Shown(Display.DISCORD_BUTTON)
+        @Format(TextFormat.PLAIN)
+        MessageRef button();
+
+        @Name("Saved")
+        MessageRef saved(
+                @Arg("language") @Example("English") String language,
+                @Arg("region") @Example("Central Europe") String region);
+
+        @Name("Failed")
+        MessageRef failed();
+
+        Onboarding.Modal modal();
+
+        @Name("Modal")
+        @Shown(Display.DISCORD_MODAL)
+        @Format(TextFormat.PLAIN)
+        interface Modal {
+
+            @Name("Title")
+            MessageRef title();
+
+            @Name("Language")
+            MessageRef language();
+
+            @Name("Region")
+            MessageRef region();
+        }
+    }
+
     Unlink unlink();
 
     @Name("Unlink")

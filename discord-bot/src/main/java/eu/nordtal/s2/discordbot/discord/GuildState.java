@@ -6,7 +6,6 @@ import eu.nordtal.s2.database.access.AdminTree;
 import eu.nordtal.s2.database.access.MemberState;
 import eu.nordtal.s2.discordbot.access.discord.ReconcileDao;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
-import eu.nordtal.s2.discordbot.config.Languages;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -14,18 +13,15 @@ import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
-import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.events.guild.GuildBanEvent;
 import net.dv8tion.jda.api.events.guild.GuildUnbanEvent;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberRemoveEvent;
-import net.dv8tion.jda.api.events.guild.member.GuildMemberRoleAddEvent;
-import net.dv8tion.jda.api.events.guild.member.GuildMemberRoleRemoveEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jdbi.v3.core.Jdbi;
 
 /**
- * Mirrors guild membership, language, name and face into {@code discord_user}, from events and one startup reconcile.
+ * Mirrors guild membership, name and face into {@code discord_user}, from events and one startup reconcile.
  *
  * Leaving the guild drops the account link and the admin branch; a ban writes state and never touches a grant.
  */
@@ -34,7 +30,6 @@ public final class GuildState extends ListenerAdapter {
 
     private final JDA jda;
     private final AccessSpec config;
-    private final Languages languages;
     private final AccessDirectory access;
     private final AdminTree admins;
     private final ReconcileDao dao;
@@ -42,13 +37,11 @@ public final class GuildState extends ListenerAdapter {
     public GuildState(
             final JDA jda,
             final AccessSpec config,
-            final Languages languages,
             final AccessDirectory access,
             final AdminTree admins,
             final Jdbi jdbi) {
         this.jda = jda;
         this.config = config;
-        this.languages = languages;
         this.access = access;
         this.admins = admins;
         this.dao = jdbi.onDemand(ReconcileDao.class);
@@ -60,7 +53,6 @@ public final class GuildState extends ListenerAdapter {
             return;
         }
         access.setMemberState(DiscordId.of(event.getMember().getId()), MemberState.MEMBER);
-        mirrorLocale(event.getMember());
         mirrorProfile(event.getMember());
     }
 
@@ -100,26 +92,6 @@ public final class GuildState extends ListenerAdapter {
         }
         // Unbanning does not put anybody back in the guild, so LEFT, not MEMBER.
         access.setMemberState(DiscordId.of(event.getUser().getId()), MemberState.LEFT);
-    }
-
-    @Override
-    public void onGuildMemberRoleAdd(final GuildMemberRoleAddEvent event) {
-        if (!ours(event.getGuild())) {
-            return;
-        }
-        if (touchesLanguage(event.getRoles())) {
-            mirrorLocale(event.getMember());
-        }
-    }
-
-    @Override
-    public void onGuildMemberRoleRemove(final GuildMemberRoleRemoveEvent event) {
-        if (!ours(event.getGuild())) {
-            return;
-        }
-        if (touchesLanguage(event.getRoles())) {
-            mirrorLocale(event.getMember());
-        }
     }
 
     /**
@@ -174,7 +146,6 @@ public final class GuildState extends ListenerAdapter {
                 continue;
             }
             access.setMemberState(DiscordId.of(member.getId()), MemberState.MEMBER);
-            mirrorLocale(member);
             mirrorProfile(member);
             seen.add(member.getId());
         }
@@ -230,17 +201,6 @@ public final class GuildState extends ListenerAdapter {
 
     private boolean ours(final Guild guild) {
         return config.guildId().equals(guild.getId());
-    }
-
-    private boolean touchesLanguage(final List<Role> changed) {
-        return changed.stream().anyMatch(role -> languages.isLanguageRole(role.getId()));
-    }
-
-    /** Writes the member's language, and nothing when they hold no language role. */
-    private void mirrorLocale(final Member member) {
-        languages
-                .resolve(member.getRoles().stream().map(Role::getId).toList())
-                .ifPresent(language -> access.setLocale(DiscordId.of(member.getId()), language.locale()));
     }
 
     /** Drops an admin who left or was banned, with everybody they granted. */

@@ -2,7 +2,6 @@
 import type { Arg } from "@/lib/texts"
 
 export type TextArgs = {
-  "alert.admin-not-kept": Record<string, never>
   "alert.claimed": {
     payment: Arg["text"]
     amount: Arg["money"]
@@ -18,12 +17,13 @@ export type TextArgs = {
   "alert.docker-state": {
     state: Arg["text"]
   }
-  "alert.donor-not-given": {
-    person: Arg["mention"]
-  }
   "alert.dump-matters": Record<string, never>
   "alert.failed-for": {
     person: Arg["mention"]
+    error: Arg["text"]
+  }
+  "alert.failed-in": {
+    channel: Arg["text"]
     error: Arg["text"]
   }
   "alert.health-fails": Record<string, never>
@@ -32,6 +32,10 @@ export type TextArgs = {
   }
   "alert.link-failed": Record<string, never>
   "alert.link-refused": Record<string, never>
+  "alert.lock-not-kept": {
+    count: Arg["number"]
+  }
+  "alert.lock-without-channel": Record<string, never>
   "alert.memory": {
     percent: Arg["number"]
   }
@@ -40,14 +44,13 @@ export type TextArgs = {
   "alert.no-dump": Record<string, never>
   "alert.no-limit": Record<string, never>
   "alert.no-services": Record<string, never>
-  "alert.no-such-role": {
-    id: Arg["text"]
-  }
   "alert.no-tier": {
     payment: Arg["text"]
     amount: Arg["money"]
     reference: Arg["text"]
   }
+  "alert.nobody-locked": Record<string, never>
+  "alert.none-adopted": Record<string, never>
   "alert.not-compared": Record<string, never>
   "alert.not-open": {
     payment: Arg["text"]
@@ -75,19 +78,20 @@ export type TextArgs = {
     hours: Arg["number"]
   }
   "alert.purchase-failed": Record<string, never>
-  "alert.reconcile-idle": Record<string, never>
   "alert.refused": {
     reference: Arg["text"]
     error: Arg["text"]
   }
-  "alert.role-missing": {
-    role: Arg["choice"]
+  "alert.role-ambiguous": {
+    name: Arg["text"]
   }
   "alert.role-not-changed": {
     role: Arg["choice"]
     given: Arg["choice"]
   }
-  "alert.roles-not-kept": Record<string, never>
+  "alert.role-not-created": {
+    name: Arg["text"]
+  }
   "alert.run": {
     run: Arg["number"]
   }

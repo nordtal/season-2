@@ -15,7 +15,7 @@ import java.util.List;
 /**
  * The {@code access} group: the guild, its roles and channels, and the life of a purchase.
  *
- * The price list is the network's. Every id defaults to empty and the bot refuses to start while one is.
+ * The price list is the network's. Roles are named, channels are ids; the guild is required.
  */
 @ConfigSpec
 public interface AccessSpec {
@@ -34,13 +34,15 @@ public interface AccessSpec {
 
     @Order(2)
     @Name("Roles")
-    @Key("roles")
+    @Key("role-names")
     @Comment({
-        "Role ids that are not per-language, as strings, since a snowflake overflows a YAML",
-        "integer. Each language's own role is on its entry under 'languages'."
+        "The names of the roles that are not per-language. The bot takes the role of",
+        "exactly this name, or creates it, and follows it by id from then on, so renaming",
+        "it in Discord is fine. A language's own role is on its entry under 'languages'."
     })
-    @Explain("Role ids that are not specific to a language; a language's own role is on its entry under languages.")
-    RolesSpec roles();
+    @Explain(
+            "The bot takes the role of exactly this name, or creates it, and then follows it even when it is renamed in Discord.")
+    RoleNamesSpec roleNames();
 
     @Order(3)
     @Name("Channels")
@@ -57,8 +59,8 @@ public interface AccessSpec {
     @Name("Languages")
     @Key("languages")
     @Comment({
-        "Every language the network speaks. To add one: create its role and channels in",
-        "Discord, add an entry, add <tag>.properties to every module's messages/, restart.",
+        "Every language the network speaks. To add one: create its channels in Discord,",
+        "add an entry, add <tag>.properties to every module's messages/, restart.",
         "",
         "'en' is mandatory as the fallback. Tags are unique, lower case, and the bundle",
         "file names; changing 'tag' on an entry retires that language.",
@@ -67,7 +69,7 @@ public interface AccessSpec {
         "",
         "  languages:",
         "  - tag: en",
-        "    role: '000000000000000000'",
+        "    role-name: English",
         "    contribution-channel: '000000000000000000'",
         "    link-channel: '000000000000000000'",
         "    hunger-games-channel: '000000000000000000'"
@@ -100,8 +102,9 @@ public interface AccessSpec {
     @Name("Role sync interval (minutes)")
     @Key("role-reconcile-interval-minutes")
     @Comment({
-        "How often the access role is reconciled against the database. It walks only role",
-        "holders and grant holders, so it can be frequent without being expensive."
+        "How often the roles are reconciled: the access role against the database, and",
+        "each member's language, region and lock roles against one another. Both change",
+        "only what differs, so it can be frequent without being expensive."
     })
     @NoExplanationNeeded
     default int roleReconcileIntervalMinutes() {
@@ -127,7 +130,7 @@ public interface AccessSpec {
     @Reload
     void reload();
 
-    /** One language: its tag, the onboarding role that chooses it, and the channels that carry its messages. */
+    /** One language: its tag, the role that chooses it, and the channels that carry its messages. */
     @ConfigSpec
     interface LanguageSpec {
 
@@ -146,15 +149,15 @@ public interface AccessSpec {
         }
 
         @Order(2)
-        @Name("Discord role")
-        @Key("role")
+        @Name("Role name")
+        @Key("role-name")
         @Comment({
-            "The role Discord's onboarding assigns for this language. The bot only reads it",
-            "into discord_user.locale; no role at all means English."
+            "The name of the role that chooses this language; empty is the language's own",
+            "name, such as Deutsch. The bot takes or creates it and mirrors it into the",
+            "player's language."
         })
-        @Explain("The Discord onboarding role that selects this language; no role at all means English.")
-        @Refers(Refers.To.DISCORD_ROLE)
-        default String role() {
+        @Explain("The role that chooses this language. Empty is the language's own name, such as Deutsch.")
+        default String roleName() {
             return "";
         }
 
@@ -225,9 +228,9 @@ public interface AccessSpec {
         }
     }
 
-    /** Role ids the bot reads or writes. */
+    /** The names of the roles the bot keeps that are not per-language. */
     @ConfigSpec
-    interface RolesSpec {
+    interface RoleNamesSpec {
 
         @Order(1)
         @Name("Access role")
@@ -237,9 +240,8 @@ public interface AccessSpec {
             "hand holds only until the next reconcile. Use /grant-access."
         })
         @Explain("Bot-managed: granting it by hand only holds until the next reconcile. Use /grant-access instead.")
-        @Refers(Refers.To.DISCORD_ROLE)
         default String access() {
-            return "";
+            return "Access";
         }
 
         @Order(2)
@@ -247,9 +249,8 @@ public interface AccessSpec {
         @Key("donor")
         @Comment({"Granted on a donation and never taken away, so handing it out by hand is safe."})
         @Explain("Granted on a donation and never revoked, so it is safe to hand out manually in Discord.")
-        @Refers(Refers.To.DISCORD_ROLE)
         default String donor() {
-            return "";
+            return "Donor";
         }
 
         @Order(3)
@@ -262,9 +263,8 @@ public interface AccessSpec {
         })
         @Explain(
                 "Follows the admins decided in Steward: the bot adds and removes it, and never reads it as a permission.")
-        @Refers(Refers.To.DISCORD_ROLE)
         default String admin() {
-            return "";
+            return "Admin";
         }
     }
 

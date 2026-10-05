@@ -14,6 +14,7 @@ import eu.nordtal.s2.discordbot.DiscordRenderer;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.discordbot.config.Languages;
+import eu.nordtal.s2.discordbot.roles.GuildRoles;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.value.Mention;
 import java.time.Clock;
@@ -32,6 +33,7 @@ import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.requests.ErrorResponse;
 import org.jdbi.v3.core.Jdbi;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The access and donor roles, and the messages that go with them.
@@ -46,6 +48,7 @@ public final class AccessRoles {
 
     private final JDA jda;
     private final AccessSpec config;
+    private final GuildRoles roles;
     private final AccessDirectory access;
     private final DiscordRenderer messages;
     /** The page in Steward an alert about a member's access opens. */
@@ -59,6 +62,7 @@ public final class AccessRoles {
     public AccessRoles(
             final JDA jda,
             final AccessSpec config,
+            final GuildRoles roles,
             final AccessDirectory access,
             final DiscordRenderer messages,
             final AdminLog admin,
@@ -67,6 +71,7 @@ public final class AccessRoles {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.jda = jda;
         this.config = config;
+        this.roles = roles;
         this.access = access;
         this.messages = messages;
         this.admin = admin;
@@ -90,19 +95,10 @@ public final class AccessRoles {
 
     /** Brings one member's access role in line with the database, right now. */
     public void applyAccessRole(final DiscordId discordId, final boolean active) {
-        // No access role configured is not a failure: the grant stays in the database, which the proxy reads.
-        if (!Configured.isSet(config.roles().access())) {
-            return;
-        }
         final Guild guild = guild();
-        final Role role =
-                guild == null ? null : guild.getRoleById(config.roles().access());
-        if (guild == null || role == null) {
-            admin.alert(roleMissing(
-                    "access role",
-                    DiscordRole.ACCESS,
-                    config.roles().access(),
-                    TEXTS.alert().rolesNotKept()));
+        final Role role = guild == null ? null : role(guild, GuildRoles.ACCESS);
+        if (role == null) {
+            // GuildRoles has said why; the grant stays in the database, which the proxy reads.
             return;
         }
 
@@ -114,14 +110,14 @@ public final class AccessRoles {
                                 guild.addRoleToMember(member, role)
                                         .queue(
                                                 ok -> log.info("Gave the access role to {}", discordId),
-                                                failure -> admin.alert(
-                                                        roleNotChanged(DiscordRole.ACCESS, true, discordId, failure)));
+                                                failure -> admin.alert(GuildRoles.notChanged(
+                                                        DiscordRole.ACCESS, true, discordId, failure)));
                             } else if (!active && has) {
                                 guild.removeRoleFromMember(member, role)
                                         .queue(
                                                 ok -> log.info("Took the access role from {}", discordId),
-                                                failure -> admin.alert(
-                                                        roleNotChanged(DiscordRole.ACCESS, false, discordId, failure)));
+                                                failure -> admin.alert(GuildRoles.notChanged(
+                                                        DiscordRole.ACCESS, false, discordId, failure)));
                             }
                         },
                         failure -> log.debug("{} is not a member of the guild, so no access role to set", discordId));
@@ -130,42 +126,22 @@ public final class AccessRoles {
     /** Grants the permanent donor role; nothing removes it. */
     public void grantDonorRole(final DiscordId discordId) {
         // The donor flag in the database is already set by the caller; the role is the decoration.
-        if (!Configured.isSet(config.roles().donor())) {
-            return;
-        }
         final Guild guild = guild();
-        final Role role =
-                guild == null ? null : guild.getRoleById(config.roles().donor());
-        if (guild == null || role == null) {
-            admin.alert(roleMissing(
-                    "donor role",
-                    DiscordRole.DONOR,
-                    config.roles().donor(),
-                    TEXTS.alert().donorNotGiven(Mention.of(discordId))));
+        final Role role = guild == null ? null : role(guild, GuildRoles.DONOR);
+        if (role == null) {
             return;
         }
         guild.addRoleToMember(net.dv8tion.jda.api.entities.UserSnowflake.fromId(discordId.value()), role)
                 .queue(
                         ok -> log.info("Gave the donor role to {}", discordId),
-                        failure -> admin.alert(roleNotChanged(DiscordRole.DONOR, true, discordId, failure)));
+                        failure -> admin.alert(GuildRoles.notChanged(DiscordRole.DONOR, true, discordId, failure)));
     }
 
     /** Adds the access role to everyone a grant covers and removes it from everyone else. */
     public void reconcile() {
-        if (!Configured.isSet(config.roles().access())) {
-            return;
-        }
         final Guild guild = guild();
-        if (guild == null) {
-            return;
-        }
-        final Role role = guild.getRoleById(config.roles().access());
+        final Role role = guild == null ? null : role(guild, GuildRoles.ACCESS);
         if (role == null) {
-            admin.alert(roleMissing(
-                    "access role",
-                    DiscordRole.ACCESS,
-                    config.roles().access(),
-                    TEXTS.alert().reconcileIdle()));
             return;
         }
 
@@ -177,7 +153,7 @@ public final class AccessRoles {
                 guild.removeRoleFromMember(member, role)
                         .queue(
                                 ok -> log.info("Reconcile: took the access role from {}", member.getId()),
-                                failure -> admin.alert(roleNotChanged(
+                                failure -> admin.alert(GuildRoles.notChanged(
                                         DiscordRole.ACCESS, false, DiscordId.of(member.getId()), failure)));
             }
         }
@@ -192,7 +168,8 @@ public final class AccessRoles {
             guild.addRoleToMember(member, role)
                     .queue(
                             ok -> log.info("Reconcile: gave the access role to {}", discordId),
-                            failure -> admin.alert(roleNotChanged(DiscordRole.ACCESS, true, discordId, failure)));
+                            failure ->
+                                    admin.alert(GuildRoles.notChanged(DiscordRole.ACCESS, true, discordId, failure)));
         }
     }
 
@@ -277,26 +254,13 @@ public final class AccessRoles {
         }
     }
 
-    private static Alert roleMissing(
-            final String subject, final DiscordRole role, final String id, final MessageRef consequence) {
-        return new Alert(
-                AlertType.BOT,
-                Alert.Level.WARN,
-                subject,
-                TEXTS.alert().roleMissing(role),
-                List.of(TEXTS.alert().noSuchRole(id), consequence),
-                PAGE);
-    }
-
-    private static Alert roleNotChanged(
-            final DiscordRole role, final boolean given, final DiscordId discordId, final Throwable failure) {
-        return new Alert(
-                AlertType.BOT,
-                Alert.Level.WARN,
-                "role",
-                TEXTS.alert().roleNotChanged(role, given),
-                List.of(TEXTS.alert().failedFor(Mention.of(discordId), String.valueOf(failure.getMessage()))),
-                PAGE);
+    /** Returns the role kept for {@code key}, or {@code null} while there is none, which {@link GuildRoles} says. */
+    private @Nullable Role role(final Guild guild, final String key) {
+        final Role role = roles.role(guild, key).orElse(null);
+        if (role == null) {
+            log.warn("There is no {} role yet; nothing was changed", key);
+        }
+        return role;
     }
 
     private static Alert dmNotDelivered(final List<MessageRef> detail) {

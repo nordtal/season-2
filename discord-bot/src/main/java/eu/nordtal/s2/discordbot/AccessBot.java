@@ -36,19 +36,25 @@ import eu.nordtal.s2.discordbot.config.BotSettings;
 import eu.nordtal.s2.discordbot.config.BotSpec;
 import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.discordbot.config.Languages;
+import eu.nordtal.s2.discordbot.config.OnboardingSpec;
 import eu.nordtal.s2.discordbot.discord.AdminRole;
 import eu.nordtal.s2.discordbot.discord.BotAccessEffects;
 import eu.nordtal.s2.discordbot.discord.BotInbox;
 import eu.nordtal.s2.discordbot.discord.GuildState;
 import eu.nordtal.s2.discordbot.discord.UpdateFeed;
+import eu.nordtal.s2.discordbot.onboarding.Onboarding;
+import eu.nordtal.s2.discordbot.onboarding.OnboardingFlow;
 import eu.nordtal.s2.discordbot.registration.RegisterFlow;
 import eu.nordtal.s2.discordbot.registration.RegisterMessages;
 import eu.nordtal.s2.discordbot.registration.Teams;
+import eu.nordtal.s2.discordbot.roles.FormerAdminRole;
+import eu.nordtal.s2.discordbot.roles.GuildRoles;
 import eu.nordtal.s2.discordbot.status.StatusChannels;
 import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.messages.Palette;
 import eu.nordtal.s2.settings.DatabaseSettings;
 import eu.nordtal.s2.settings.DatabaseSpec;
+import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.SettingsException;
 import eu.nordtal.s2.settings.network.LanguageAndTimeSpec;
 import eu.nordtal.s2.settings.network.NetworkSettings;
@@ -62,6 +68,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Activity;
+import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.interactions.commands.build.CommandData;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.ChunkingFilter;
@@ -109,7 +116,9 @@ public class AccessBot implements AutoCloseable {
             DiscordRenderer messages,
             Tiers tiers,
             PaymentRequests requests,
-            Purchases purchases) {}
+            Purchases purchases,
+            Setting<OnboardingSpec> onboarding,
+            String networkZone) {}
 
     private record DiscordWiring(
             AdminLog admin,
@@ -118,6 +127,7 @@ public class AccessBot implements AutoCloseable {
             PurchaseFlow purchaseFlow,
             AdminRole adminRole,
             GuildState guildState,
+            Onboarding onboarding,
             BotAccessEffects inboxEffects,
             eu.nordtal.s2.discordbot.announce.Announcements announcements) {}
 
@@ -139,6 +149,7 @@ public class AccessBot implements AutoCloseable {
                     settings.load(NetworkSettings.LANGUAGE_AND_TIME).get();
             final Tiers tiers =
                     NetworkSettings.tiers(settings.load(NetworkSettings.PRICES).get());
+            final Setting<OnboardingSpec> onboarding = BotSettings.onboarding(settings);
 
             // Borrows the bot's pool; closing a borrowed pool is a no-op.
             this.access = AccessDirectory.using(database.dataSource(), clock);
@@ -146,13 +157,13 @@ public class AccessBot implements AutoCloseable {
             // steward's inbox: the bot writes requests and reads answers, never updating them.
             final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
 
-            final CoreServices core = loadCoreServices(accessConfig, season, languageAndTime, tiers);
+            final CoreServices core = loadCoreServices(accessConfig, season, languageAndTime, tiers, onboarding);
             this.jda = connectJda(botConfig);
 
             final DiscordWiring wiring = wireDiscord(jda, accessConfig, core, phases);
             publishAndReconcile(jda, core.languages(), core.tiers(), core.messages(), wiring);
 
-            this.signals = finishStartup(databaseConfig, accessConfig, core, wiring, phases, updates);
+            this.signals = finishStartup(databaseConfig, settings, accessConfig, core, wiring, phases, updates);
 
             started = true;
             log.info("access-bot is up");
@@ -165,6 +176,7 @@ public class AccessBot implements AutoCloseable {
 
     private SignalHub finishStartup(
             final DatabaseSpec databaseConfig,
+            final DatabaseSettings settings,
             final AccessSpec accessConfig,
             final CoreServices core,
             final DiscordWiring wiring,
@@ -185,11 +197,13 @@ public class AccessBot implements AutoCloseable {
                 new UpdateFeed(updates, UpdateFeed.Board.of(wiring.admin()), core.messages(), clock);
         updateFeed.start();
 
-        schedule(accessConfig, wiring.roles());
+        schedule(accessConfig, wiring.roles(), wiring.onboarding());
 
         // Started last: it refreshes immediately on connect and touches JDA.
         final SignalHub hub = listen(
                 databaseConfig,
+                settings,
+                wiring.onboarding(),
                 updateFeed,
                 status,
                 wiring.purchaseFlow(),
@@ -221,7 +235,8 @@ public class AccessBot implements AutoCloseable {
             final AccessSpec accessConfig,
             final SeasonSpec season,
             final LanguageAndTimeSpec languageAndTime,
-            final Tiers tiers) {
+            final Tiers tiers,
+            final Setting<OnboardingSpec> onboarding) {
         final Languages languages = Languages.of(accessConfig);
         final DiscordRenderer messages =
                 DiscordRenderer.of(Messages.load(AccessBot.class.getClassLoader(), BUNDLES, languages.locales())
@@ -232,7 +247,8 @@ public class AccessBot implements AutoCloseable {
         final PaymentRequests requests = new PaymentRequests(database.dataSource());
         final Purchases purchases = new Purchases(requests, tiers, accessConfig);
 
-        return new CoreServices(languages, messages, tiers, requests, purchases);
+        return new CoreServices(
+                languages, messages, tiers, requests, purchases, onboarding, languageAndTime.defaultTimeZone());
     }
 
     private JDA connectJda(final BotSpec botConfig) throws InterruptedException {
@@ -256,15 +272,37 @@ public class AccessBot implements AutoCloseable {
                 jda, accessConfig, database.jdbi(), AlertBook.using(database.dataSource()), core.messages());
         // A period sold while season_phase.smp_start is NULL starts now rather than at the SMP opening.
         final SeasonStart seasonStart = new SeasonStart(phases, admin);
+        final GuildRoles guildRoles = guildRoles(jda, accessConfig, admin);
         final AccessRoles roles =
-                new AccessRoles(jda, accessConfig, access, core.messages(), admin, database.jdbi(), clock);
+                new AccessRoles(jda, accessConfig, guildRoles, access, core.messages(), admin, database.jdbi(), clock);
         final BookingReaction bookings =
                 new BookingReaction(core.languages(), roles, admin, core.messages(), jda, seasonStart);
         // A grant tree decided in Steward; the bot drops a branch when its admin leaves the guild, never grants.
         final AdminTree adminTree = AdminTree.using(database.dataSource());
-        final GuildState guildState =
-                new GuildState(jda, accessConfig, core.languages(), access, adminTree, database.jdbi());
-        final AdminRole adminRole = new AdminRole(jda, accessConfig, adminTree, admin);
+        final GuildState guildState = new GuildState(jda, accessConfig, access, adminTree, database.jdbi());
+        final AdminRole adminRole = new AdminRole(jda, accessConfig, guildRoles, adminTree, admin);
+        // One lane for every onboarding change, so a choice and the settling it causes never overlap.
+        final Executor onboardingLane = scheduler.serial();
+        final Onboarding onboarding = new Onboarding(
+                jda,
+                accessConfig.guildId(),
+                core.languages(),
+                fixedRoles(accessConfig),
+                core.onboarding(),
+                guildRoles,
+                access,
+                database.jdbi(),
+                admin::alert,
+                core.messages(),
+                onboardingLane);
+        final OnboardingFlow onboardingFlow = new OnboardingFlow(
+                onboarding,
+                core.languages(),
+                guildRoles,
+                core.messages(),
+                core.networkZone(),
+                admin::alert,
+                onboardingLane);
         final Teams teams = new Teams(database.jdbi(), Game.HUNGER_GAMES);
 
         // Held because the payment seam finishes messages waiting for a link.
@@ -282,7 +320,30 @@ public class AccessBot implements AutoCloseable {
                 guildState,
                 adminRole,
                 teams,
-                purchaseFlow);
+                purchaseFlow,
+                onboarding,
+                onboardingFlow);
+    }
+
+    /** The roles the bot uses, with the admin role the environment named before roles had names taken once. */
+    private GuildRoles guildRoles(final JDA jda, final AccessSpec accessConfig, final AdminLog admin) {
+        final GuildRoles roles = GuildRoles.stored(database.jdbi(), admin::alert);
+        final Guild guild = jda.getGuildById(accessConfig.guildId());
+        if (guild != null) {
+            FormerAdminRole.adopt(guild, roles);
+        }
+        return roles;
+    }
+
+    /** The roles the bot uses apart from the choices, each found by the name the {@code access} group gives it. */
+    private static List<GuildRoles.Wanted> fixedRoles(final AccessSpec config) {
+        return List.of(
+                new GuildRoles.Wanted(
+                        GuildRoles.ACCESS, config.roleNames().access().strip()),
+                new GuildRoles.Wanted(
+                        GuildRoles.DONOR, config.roleNames().donor().strip()),
+                new GuildRoles.Wanted(
+                        GuildRoles.ADMIN, config.roleNames().admin().strip()));
     }
 
     private DiscordWiring finishWiring(
@@ -296,9 +357,13 @@ public class AccessBot implements AutoCloseable {
             final GuildState guildState,
             final AdminRole adminRole,
             final Teams teams,
-            final PurchaseFlow purchaseFlow) {
+            final PurchaseFlow purchaseFlow,
+            final Onboarding onboarding,
+            final OnboardingFlow onboardingFlow) {
         jda.addEventListener(
                 guildState,
+                onboarding,
+                onboardingFlow,
                 purchaseFlow,
                 new LinkFlow(
                         access,
@@ -319,7 +384,7 @@ public class AccessBot implements AutoCloseable {
         jda.updateCommands().addCommands(commands).queue();
 
         return new DiscordWiring(
-                admin, roles, bookings, purchaseFlow, adminRole, guildState, inboxEffects, announcements);
+                admin, roles, bookings, purchaseFlow, adminRole, guildState, onboarding, inboxEffects, announcements);
     }
 
     private void publishAndReconcile(
@@ -328,17 +393,21 @@ public class AccessBot implements AutoCloseable {
             final Tiers tiers,
             final DiscordRenderer messages,
             final DiscordWiring wiring) {
+        // First: every reconcile below reads a role it found or created.
+        wiring.onboarding().resolveRoles();
         new ManagedMessages(jda, languages, tiers, messages, database.jdbi()).publishAll();
         new RegisterMessages(jda, languages, messages, database.jdbi()).publishAll();
         wiring.guildState().reconcile();
         wiring.roles().reconcile();
         wiring.adminRole().reconcile();
+        wiring.onboarding().start();
     }
 
     /** Starts the recurring tasks. */
-    private void schedule(final AccessSpec config, final AccessRoles roles) {
+    private void schedule(final AccessSpec config, final AccessRoles roles, final Onboarding onboarding) {
         final Duration reconcile = Duration.ofMinutes(config.roleReconcileIntervalMinutes());
         final var _ = scheduler.every(reconcile, reconcile, roles::reconcile);
+        final var _ = scheduler.every(reconcile, reconcile, onboarding::reconcile);
 
         // An hour late at most, against a three-day lead.
         final var _ = scheduler.every(Duration.ofHours(1), Duration.ofHours(1), () -> {
@@ -363,6 +432,8 @@ public class AccessBot implements AutoCloseable {
      */
     private SignalHub listen(
             final DatabaseSpec databaseConfig,
+            final DatabaseSettings settings,
+            final Onboarding onboarding,
             final UpdateFeed updateFeed,
             final StatusChannels status,
             final PurchaseFlow purchaseFlow,
@@ -387,6 +458,7 @@ public class AccessBot implements AutoCloseable {
             log.info("No language has a status-channel; the sidebar status is off");
         }
         MessageOverrideStore.using(database.dataSource()).follow(messages.raw(), hub);
+        settings.listen(hub, onboarding::settingsChanged);
         hub.start();
         return hub;
     }

@@ -20,14 +20,33 @@ has succeeded.
 ## What it needs
 
 - A Discord application with the `GUILD_MEMBERS` privileged intent.
-- The guild id, three role ids, the admin channel id, and per language a role and its channel ids.
-  None has a usable default; the bot refuses to start until they are set.
+- The guild id, which `deploy/nordtal.sh` asks for. Every channel is an id set in Steward, and an empty one
+  switches its feature off.
+- The permission to manage roles and channels: the bot finds or creates every role it uses, and keeps the
+  onboarding's lock on every channel.
 
 ## Configuration
 
-the `access` group is edited in Steward. `compose.yml` passes the bot only its token, the database and
-the two ids `deploy/nordtal.sh` asks for, `NORDTAL_ACCESS_GUILD_ID` and `NORDTAL_ACCESS_ROLES_ADMIN`;
-those win over what is stored. The startup log lists every setting the environment overrode.
+The `access` and `onboarding` groups are edited in Steward. `compose.yml` passes the bot only its token, the
+database and `NORDTAL_ACCESS_GUILD_ID`, which wins over what is stored. The startup log lists every setting the
+environment overrode.
+
+## Roles
+
+Steward holds a name for every role the bot uses: access, donor and admin, one per language, one per region and
+the lock role. The first time the bot needs one it takes the role of exactly that name, or creates it, and stores
+its id in `discord_role`; from then on it follows that id, so an admin may rename the role in Discord. Only when
+that role is deleted does it look by name again. Two roles of the name are neither taken, and the admin channel
+is told. `GuildRoles` is the one place that does this.
+
+## Onboarding
+
+A member's language and region are Discord roles, and the roles are the source: every change is carried into
+`discord_user.locale` and `time_zone`, where no role means the network's. Holding two of a kind keeps the one
+just added and takes the other. The onboarding channel holds one message with a button per language, which opens
+a choice of both. With the lock switched on in Steward, a member missing either holds the lock role, which sees
+nothing but the onboarding channel; the bot keeps that on every channel, a new one included, and takes the role
+the moment both are held. Bots are never locked.
 
 ## Run it
 
@@ -52,9 +71,11 @@ a new version arrives as a new image. The whole deployment is described in
 
 - `access/`: purchases, grants, linking, the reaction to a booked payment and the managed messages.
 - `registration/`: team registration for a game, named by its key; the Hunger Games is the one game so far.
+- `onboarding/`: the language and region roles, the lock and the onboarding message.
+- `roles/`: every role the bot uses, found by name and then followed by its stored id.
 - `status/`: the status channel names.
 - `announce/`, `discord/`: announcements, admin commands and the update feed.
-- `config/`: the three config specs and their defaults.
+- `config/`: the bot's config specs (`bot`, `access`, `onboarding`) and their defaults.
 - `src/main/resources/messages/`: the translations.
 
 ## Registration

@@ -31,5 +31,17 @@ public final class Ids {
     /** The text input inside {@link #LINK_MODAL} carrying the code itself. */
     public static final String LINK_CODE_INPUT = "access:link-code";
 
+    /** The buttons on the onboarding message, each followed by the tag of the language it speaks. */
+    public static final String ONBOARD = "access:onboard:";
+
+    /** The modal a language and a region are chosen in, followed by the tag of the language it speaks. */
+    public static final String ONBOARD_MODAL = "access:onboard-modal:";
+
+    /** The select menu inside {@link #ONBOARD_MODAL} whose values are language tags. */
+    public static final String ONBOARD_LANGUAGE = "access:onboard-language";
+
+    /** The select menu inside {@link #ONBOARD_MODAL} whose values are time zones. */
+    public static final String ONBOARD_REGION = "access:onboard-region";
+
     private Ids() {}
 }

@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The languages the {@code access} group defaults to, {@code en} and {@code de}, with empty ids.
+ * The languages the {@code access} group defaults to, {@code en} and {@code de}, with empty ids and their own names.
  *
  * {@code createUnsafe} applies no defaults, so every {@code @Key} of {@link AccessSpec.LanguageSpec} is listed.
  */
@@ -20,7 +20,7 @@ final class DefaultLanguages {
     private static AccessSpec.LanguageSpec language(final String tag) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("tag", tag);
-        values.put("role", "");
+        values.put("role-name", "");
         values.put("contribution-channel", "");
         values.put("link-channel", "");
         values.put("hunger-games-channel", "");

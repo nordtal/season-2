@@ -4,5 +4,8 @@ package eu.nordtal.s2.database.alert;
 public enum DiscordRole {
     ACCESS,
     DONOR,
-    ADMIN
+    ADMIN,
+    LANGUAGE,
+    REGION,
+    LOCK
 }

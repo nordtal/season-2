@@ -406,7 +406,7 @@ describe("pending message jump", () => {
 describe("rankValue - a name outranks a mention, and a subsequence is not a match", () => {
   const donor = searchValue(
     "Donor",
-    "roles.donor",
+    "role-names.donor",
     "Granted on a donation and never revoked - safe to hand out manually in Discord.",
   )
   const donationCents = searchValue(

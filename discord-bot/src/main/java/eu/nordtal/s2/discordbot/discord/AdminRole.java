@@ -1,19 +1,14 @@
 package eu.nordtal.s2.discordbot.discord;
 
-import static eu.nordtal.s2.database.AdminTexts.TEXTS;
-
 import eu.nordtal.s2.common.id.DiscordId;
 import eu.nordtal.s2.database.access.AdminTree;
-import eu.nordtal.s2.database.alert.Alert;
-import eu.nordtal.s2.database.alert.AlertType;
 import eu.nordtal.s2.database.alert.DiscordRole;
 import eu.nordtal.s2.discordbot.AdminLog;
+import eu.nordtal.s2.discordbot.AlertOnce;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
-import eu.nordtal.s2.messages.value.Mention;
+import eu.nordtal.s2.discordbot.roles.GuildRoles;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
@@ -30,15 +25,21 @@ public final class AdminRole {
 
     private final JDA jda;
     private final AccessSpec config;
+    private final GuildRoles roles;
     private final AdminTree admins;
-    private final AdminLog adminLog;
-    private final Set<String> alerted = ConcurrentHashMap.newKeySet();
+    private final AlertOnce alerts;
 
-    public AdminRole(final JDA jda, final AccessSpec config, final AdminTree admins, final AdminLog adminLog) {
+    public AdminRole(
+            final JDA jda,
+            final AccessSpec config,
+            final GuildRoles roles,
+            final AdminTree admins,
+            final AdminLog adminLog) {
         this.jda = jda;
         this.config = config;
+        this.roles = roles;
         this.admins = admins;
-        this.adminLog = adminLog;
+        this.alerts = new AlertOnce(adminLog::alert);
     }
 
     public void reconcile() {
@@ -47,22 +48,12 @@ public final class AdminRole {
             log.error("Guild {} is not available; the admin role was not reconciled", config.guildId());
             return;
         }
-        final Role role = guild.getRoleById(config.roles().admin());
+        final Role role = roles.role(guild, GuildRoles.ADMIN).orElse(null);
         if (role == null) {
-            if (alerted.add("role")) {
-                adminLog.alert(new Alert(
-                        AlertType.BOT,
-                        Alert.Level.WARN,
-                        "admin role",
-                        TEXTS.alert().roleMissing(DiscordRole.ADMIN),
-                        List.of(
-                                TEXTS.alert().noSuchRole(config.roles().admin()),
-                                TEXTS.alert().adminNotKept()),
-                        "/access"));
-            }
+            // GuildRoles has said why.
+            log.warn("There is no admin role yet; it was not reconciled");
             return;
         }
-        alerted.remove("role");
 
         final Set<String> shouldHave = new HashSet<>();
         admins.admins().forEach(admin -> shouldHave.add(admin.discordId().value()));
@@ -90,20 +81,12 @@ public final class AdminRole {
     }
 
     private void succeeded(final DiscordId discordId, final String what) {
-        alerted.remove(discordId.value());
+        alerts.clear(discordId.value());
         log.info("Admin role: {} {}", what, discordId);
     }
 
     private void failed(final DiscordId discordId, final boolean given, final Throwable failure) {
-        if (alerted.add(discordId.value())) {
-            adminLog.alert(new Alert(
-                    AlertType.BOT,
-                    Alert.Level.WARN,
-                    "admin role",
-                    TEXTS.alert().roleNotChanged(DiscordRole.ADMIN, given),
-                    List.of(TEXTS.alert().failedFor(Mention.of(discordId), String.valueOf(failure.getMessage()))),
-                    "/access"));
-        } else {
+        if (!alerts.raise(discordId.value(), GuildRoles.notChanged(DiscordRole.ADMIN, given, discordId, failure))) {
             log.debug("Could still not change the admin role of {}: {}", discordId, failure.getMessage());
         }
     }

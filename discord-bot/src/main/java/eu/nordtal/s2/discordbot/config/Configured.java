@@ -9,7 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Reports once at startup which optional Discord ids are empty, and so which features are off.
  *
- * Only the guild and the admin role are required; every other empty id silently switches its feature off.
+ * Only the guild is required; every other empty id silently switches its feature off.
  */
 @Slf4j
 public final class Configured {
@@ -36,7 +36,7 @@ public final class Configured {
     public static void report(final AccessSpec config, final Tiers tiers, final PaymentGateway.State gateway) {
         final List<String> off = new ArrayList<>();
         addGateway(off, gateway);
-        addRolesAndChannels(off, config);
+        addChannels(off, config);
         if (tiers.all().isEmpty()) {
             off.add("prices.tiers - there is nothing to buy, so the contribution message offers only the donation");
         }
@@ -67,14 +67,7 @@ public final class Configured {
         }
     }
 
-    private static void addRolesAndChannels(final List<String> off, final AccessSpec config) {
-        if (!isSet(config.roles().access())) {
-            off.add("roles.access - nobody is given or taken the access role, and the reconcile "
-                    + "does nothing (the grants in the database are still correct)");
-        }
-        if (!isSet(config.roles().donor())) {
-            off.add("roles.donor - a donor is recorded in the database but gets no role");
-        }
+    private static void addChannels(final List<String> off, final AccessSpec config) {
         if (!isSet(config.channels().admin())) {
             off.add("channels.admin - nothing is posted to an admin channel at all; alerts are "
                     + "logged here instead");
@@ -84,9 +77,6 @@ public final class Configured {
     private static void addLanguages(final List<String> off, final AccessSpec config) {
         for (final AccessSpec.LanguageSpec language : config.languages()) {
             final String path = "languages[" + language.tag() + "]";
-            if (!isSet(language.role())) {
-                off.add(path + ".role - no member is ever recorded as speaking " + language.tag());
-            }
             if (!isSet(language.contributionChannel())) {
                 off.add(path + ".contribution-channel - no contribution message and no public " + "thank-you in "
                         + language.tag());

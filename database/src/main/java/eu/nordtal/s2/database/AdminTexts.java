@@ -347,23 +347,26 @@ public interface AdminTexts {
         MessageRef noTier(
                 @Arg("payment") String payment, @Arg("amount") Money amount, @Arg("reference") String reference);
 
-        @Name("A missing role")
-        MessageRef roleMissing(@Arg("role") DiscordRole role);
+        @Name("Several roles of one name")
+        MessageRef roleAmbiguous(@Arg("name") String name);
 
-        @Name("No such role")
-        MessageRef noSuchRole(@Arg("id") String id);
+        @Name("None of them taken")
+        MessageRef noneAdopted();
 
-        @Name("No access role kept")
-        MessageRef rolesNotKept();
+        @Name("A role not created")
+        MessageRef roleNotCreated(@Arg("name") String name);
 
-        @Name("The reconcile does nothing")
-        MessageRef reconcileIdle();
+        @Name("The lock without its channel")
+        MessageRef lockWithoutChannel();
 
-        @Name("No donor role given")
-        MessageRef donorNotGiven(@Arg("person") Mention person);
+        @Name("Nobody locked")
+        MessageRef nobodyLocked();
 
-        @Name("The admin role not kept")
-        MessageRef adminNotKept();
+        @Name("Channels the lock does not close")
+        MessageRef lockNotKept(@Arg("count") int count);
+
+        @Name("Which channel, and what went wrong")
+        MessageRef failedIn(@Arg("channel") String channel, @Arg("error") String error);
 
         @Name("A role not changed")
         MessageRef roleNotChanged(@Arg("role") DiscordRole role, @Arg("given") boolean given);

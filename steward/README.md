@@ -176,3 +176,8 @@ Where a run's versions come from is `steward-agent`'s `runs` group.
 
 `./gradlew :steward:test` needs no network; its stack tests talk to `AgentStandIn`, the agent's API
 over a fake daemon, through the real client.
+
+`./gradlew :steward:preview` serves the real interface on `http://localhost:18180` over the same stand-ins and a
+scratch database, signed in as an invented admin whose key counts as just held, until it is stopped. It is how a page
+is looked at without a security key: `--args="--dump FILE"` restores a `pg_dump` first, and the session cookie is
+written to `build/preview/state.json` as Playwright's `storageState`.

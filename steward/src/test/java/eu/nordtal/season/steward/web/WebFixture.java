@@ -16,8 +16,6 @@ import eu.nordtal.season.steward.config.WebSpec;
 import eu.nordtal.season.steward.data.Data;
 import eu.nordtal.season.stewardagent.AgentStandIn;
 import eu.nordtal.season.stewardagent.docker.FakeDaemon;
-import io.javalin.Javalin;
-import io.javalin.json.JavalinGson;
 import java.io.IOException;
 import java.net.http.HttpClient;
 import java.nio.file.Files;
@@ -27,7 +25,6 @@ import java.time.Duration;
 import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
@@ -43,26 +40,24 @@ abstract class WebFixture {
     static final int DISCORD_PORT = 18093;
     static final Gson GSON = new Gson();
 
-    static final String GUILD = "1234";
+    static final String GUILD = StandInDiscord.GUILD;
+
+    /** Discord's sign-in routes, answering for whom {@link #memberId} names. */
+    static final StandInDiscord fakeDiscord = new StandInDiscord();
 
     /** Who the stand-in Discord says is signing in, settable so a test can use a 32-character nickname. */
-    static final java.util.concurrent.atomic.AtomicReference<String> memberId =
-            new java.util.concurrent.atomic.AtomicReference<>("1");
+    static final java.util.concurrent.atomic.AtomicReference<String> memberId = fakeDiscord.memberId;
 
-    static final java.util.concurrent.atomic.AtomicReference<String> memberNick =
-            new java.util.concurrent.atomic.AtomicReference<>("Ally");
+    static final java.util.concurrent.atomic.AtomicReference<String> memberNick = fakeDiscord.memberNick;
 
     /** The client secret as it arrived at the stand-in Discord, or null if it never did. */
-    static final java.util.concurrent.atomic.AtomicReference<String> secretDiscordSaw =
-            new java.util.concurrent.atomic.AtomicReference<>();
+    static final java.util.concurrent.atomic.AtomicReference<String> secretDiscordSaw = fakeDiscord.secretSeen;
 
     /** steward-agent's real routes, over the daemon the stack routes reach through it. */
     static AgentStandIn agent;
 
     /** The agent's daemon, with one running {@code smp} container. */
     static FakeDaemon daemon;
-
-    static Javalin fakeDiscord;
 
     static Web web;
     static HttpClient http;
@@ -80,7 +75,7 @@ abstract class WebFixture {
     static void start() throws Exception {
         scratch = Files.createTempDirectory("steward-web");
         startAgent();
-        startFakeDiscord();
+        fakeDiscord.start(DISCORD_PORT);
         config = buildConfig();
         startDatabase();
         web = newWeb();
@@ -93,66 +88,6 @@ abstract class WebFixture {
         daemon = agent.daemon;
     }
 
-    private static void startFakeDiscord() {
-        // The one system boundary in the sign-in; everything else in the flow is the interface's own code.
-        fakeDiscord = Javalin.create(cfg -> {
-                    cfg.jsonMapper(new JavalinGson(new Gson(), true));
-                    cfg.startup.showJavalinBanner = false;
-                    cfg.routes.post("/oauth2/token", ctx -> {
-                        final Map<String, String> form = new java.util.LinkedHashMap<>();
-                        final String raw = ctx.body();
-                        int cursor = 0;
-                        while (cursor <= raw.length()) {
-                            final int amp = raw.indexOf('&', cursor);
-                            final String pair = amp == -1 ? raw.substring(cursor) : raw.substring(cursor, amp);
-                            final int equals = pair.indexOf('=');
-                            form.put(
-                                    pair.substring(0, equals),
-                                    java.net.URLDecoder.decode(
-                                            pair.substring(equals + 1), java.nio.charset.StandardCharsets.UTF_8));
-                            if (amp == -1) {
-                                break;
-                            }
-                            cursor = amp + 1;
-                        }
-                        secretDiscordSaw.set(form.get("client_secret"));
-                        if (!"the-code".equals(form.get("code"))) {
-                            ctx.status(400).json(Map.of("error", "invalid_grant"));
-                            return;
-                        }
-                        ctx.json(Map.of("access_token", "an-access-token", "token_type", "Bearer"));
-                    });
-                    cfg.routes.get("/users/@me", ctx -> ctx.json(Map.of("id", memberId.get(), "username", "ally")));
-                    cfg.routes.get("/users/@me/guilds/{guild}/member", ctx -> {
-                        if (!GUILD.equals(ctx.pathParam("guild"))) {
-                            ctx.status(404).json(Map.of("message", "Unknown Guild"));
-                            return;
-                        }
-                        ctx.json(Map.of("nick", memberNick.get(), "roles", List.of("9999")));
-                    });
-                })
-                .start(DISCORD_PORT);
-    }
-
-    private static WebSpec.DiscordSpec fakeDiscordSpec() {
-        return new WebSpec.DiscordSpec() {
-            @Override
-            public String clientId() {
-                return "an-application";
-            }
-
-            @Override
-            public String clientSecret() {
-                return "a-client-secret";
-            }
-
-            @Override
-            public String guildId() {
-                return GUILD;
-            }
-        };
-    }
-
     private static WebSpec buildConfig() {
         return new WebSpec() {
             @Override
@@ -162,7 +97,7 @@ abstract class WebFixture {
 
             @Override
             public DiscordSpec discord() {
-                return fakeDiscordSpec();
+                return StandInDiscord.spec();
             }
 
             @Override
@@ -264,9 +199,7 @@ abstract class WebFixture {
                 // A socket file left in a temp directory is not worth failing a test run over.
             }
         }
-        if (fakeDiscord != null) {
-            fakeDiscord.stop();
-        }
+        fakeDiscord.close();
         if (database != null) {
             database.close();
         }

@@ -116,7 +116,7 @@ public final class Steward {
      * @param languages the network's at this start, which the announcements are listed in
      * @param tiers the network's price list at this start, which payments are booked by
      */
-    private record Configs(
+    record Configs(
             Setting<StewardSpec> handle,
             StewardSpec config,
             WebSpec web,
@@ -128,7 +128,7 @@ public final class Steward {
             Tiers tiers) {}
 
     /** Takes both groups out of the database, or {@code null}. */
-    private static @Nullable Configs configsOf(final DatabaseSpec databaseConfig, final Database database) {
+    static @Nullable Configs configsOf(final DatabaseSpec databaseConfig, final Database database) {
         final DatabaseSettings settings = StewardSettings.stored(database.dataSource(), SETTINGS_LOG);
         try {
             final Setting<StewardSpec> handle = StewardSettings.steward(settings);
@@ -237,7 +237,7 @@ public final class Steward {
     }
 
     /** Builds the stack routes the web serves: services, logs, the console, files, the host and plugins. */
-    private static StackApi buildStack(
+    static StackApi buildStack(
             final StewardSpec config,
             final AgentClient agent,
             final Database database,

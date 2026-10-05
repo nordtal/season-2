@@ -159,18 +159,7 @@ abstract class WebTestSupport extends WebFixture {
 
     /** Makes this account an admin granted by the root, {@code "1"}, whatever it was before. */
     static void admitBelowRoot(final DiscordId discordId) throws Exception {
-        try (var connection = WebFixture.postgres.dataSource().getConnection();
-                var admit = connection.prepareStatement("""
-                     INSERT INTO discord_user (discord_id, member_state, admin, admin_granted_by,
-                                               admin_granted_at, updated)
-                     VALUES (?, 'MEMBER', true, '1', now(), now())
-                     ON CONFLICT (discord_id) DO UPDATE
-                         SET member_state = 'MEMBER', admin = true, admin_granted_by = '1',
-                             admin_granted_at = now(), updated = now()
-                     """)) {
-            admit.setString(1, discordId.value());
-            admit.executeUpdate();
-        }
+        StandInDiscord.admitBelow(WebFixture.postgres.dataSource(), discordId.value(), "1");
     }
 
     /** The one-time value the interface minted into the URL it sent the browser to. */

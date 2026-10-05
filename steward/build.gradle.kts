@@ -237,6 +237,15 @@ tasks.register<JavaExec>("generateApiTypes") {
     workingDir = projectDir
 }
 
+// The interface against a scratch database and stand-ins, signed in as an invented admin, for looking at pages.
+tasks.register<JavaExec>("preview") {
+    group = "application"
+    description = "Serves Steward on :18180 over a scratch database (--args=\"--dump FILE\" restores one) until stopped."
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("eu.nordtal.season.steward.StewardPreview")
+    workingDir = projectDir
+}
+
 tasks.named<JavaExec>("run") {
     environment(localEnvironment.get())
 }

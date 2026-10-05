@@ -53,6 +53,32 @@ public final class TestDatabase {
         return create("TEMPLATE template0");
     }
 
+    /**
+     * Returns a new database restored from a {@code pg_dump -Fc} file and migrated to the newest schema.
+     *
+     * The dump's owner role is created first, so ownership and grants come back as the dump has them.
+     */
+    public static TestDatabase restored(final java.nio.file.Path dump, final String owner) {
+        final TestDatabase restored = empty();
+        execute(
+                restored.running,
+                "DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '" + owner + "') THEN CREATE ROLE "
+                        + owner + "; END IF; END $$");
+        final String inside = "/tmp/" + restored.name + ".dump";
+        restored.running.copyFileToContainer(org.testcontainers.utility.MountableFile.forHostPath(dump), inside);
+        try {
+            final org.testcontainers.containers.Container.ExecResult result = restored.running.execInContainer(
+                    "pg_restore", "--exit-on-error", "-U", restored.username(), "-d", restored.name, inside);
+            if (result.getExitCode() != 0) {
+                throw new IllegalStateException("pg_restore refused " + dump + ": " + result.getStderr());
+            }
+        } catch (final java.io.IOException | InterruptedException failure) {
+            throw new IllegalStateException("pg_restore did not run in the test container", failure);
+        }
+        restored.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "latest");
+        return restored;
+    }
+
     private static TestDatabase create(final String template) {
         assumeTrue(DockerClientFactory.instance().isDockerAvailable(), "No Docker daemon reachable");
         final PostgreSQLContainer<?> running = Container.RUNNING;

@@ -7,6 +7,7 @@ import eu.nordtal.s2.stewardagent.run.Snapshots;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -215,7 +216,7 @@ public final class TarSnapshots {
                         since(startedAt),
                         archive + " could not be read through, so nothing was touched: " + problem);
             }
-            empty(target);
+            empty(target, Files::delete);
             log.info("unpacking {} into {}", archive, target);
             final Pipeline.Result unpacked = Pipeline.run(
                     wall,
@@ -238,16 +239,45 @@ public final class TarSnapshots {
         }
     }
 
-    /** Deletes everything inside {@code directory} and keeps the directory, which is a mount point. */
-    private static void empty(final Path directory) throws IOException {
+    /**
+     * Deletes everything inside {@code directory} and keeps the directory, which is a mount point.
+     *
+     * An empty directory another mount sits on, as a server's {@code plugins/}, is kept: the kernel refuses it as busy.
+     */
+    static void empty(final Path directory, final Deleter deleter) throws IOException {
         try (Stream<Path> inside = Files.walk(directory)) {
             for (final Path path :
                     inside.sorted(java.util.Comparator.reverseOrder()).toList()) {
-                if (!path.equals(directory)) {
-                    Files.delete(path);
+                if (path.equals(directory)) {
+                    continue;
+                }
+                try {
+                    deleter.delete(path);
+                } catch (final FileSystemException refused) {
+                    if (!BUSY.equals(refused.getReason()) || !isEmptyDirectory(path)) {
+                        throw refused;
+                    }
                 }
             }
         }
+    }
+
+    /** What the kernel's EBUSY reads as in a {@link FileSystemException}. */
+    private static final String BUSY = "Device or resource busy";
+
+    private static boolean isEmptyDirectory(final Path path) throws IOException {
+        if (!Files.isDirectory(path)) {
+            return false;
+        }
+        try (Stream<Path> inside = Files.list(path)) {
+            return inside.findAny().isEmpty();
+        }
+    }
+
+    /** Deletes one path, as {@link Files#delete} does. */
+    @FunctionalInterface
+    interface Deleter {
+        void delete(Path path) throws IOException;
     }
 
     /** Where one archive is written: its name, the partial file, and the name it gets once read back. */

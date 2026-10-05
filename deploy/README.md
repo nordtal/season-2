@@ -265,16 +265,15 @@ behind `caddy`, which also carries voice chat's UDP to whichever proxy answers.
 
 ## Backups
 
-Everything that cannot be rebuilt is in PostgreSQL and the world volume, and steward-agent backs
-up both. The nightly run is `steward#backup.at`; `/backup now` asks for one. A run counts down,
-dumps the database with `pg_dump` inside the postgres container (nothing stops for it), stops the
+Everything that cannot be rebuilt is in PostgreSQL and the two world volumes, and steward-agent backs
+them up. The nightly run is `steward#backup.at`; `/backup now` asks for one. A run counts down, dumps the database with `pg_dump` inside the postgres container (nothing stops for it), stops the
 configured services, tars each volume through `zstd`, applies retention and starts everything again.
 Every archive is read back before it loses its `.partial` suffix.
 
 compose.yml is the backup set: every volume mounted under steward-agent's `/backup-sources` is saved,
 and every service labelled `eu.nordtal.backup: stop` is stopped while it is. The set must include
-`mc-smp` and must never include `postgres-data`, since a copy of a running data directory is torn;
-`TopologyDeploymentTest` holds both. Retention defaults to 14 days, then 8 weeks, then 6 months.
+both worlds, `mc-smp` and `mc-hunger-games`, and must never include `postgres-data`, since a copy of a
+running data directory is torn; `TopologyDeploymentTest` holds both. Retention defaults to 14 days, then 8 weeks, then 6 months.
 
 ### The offsite copy
 

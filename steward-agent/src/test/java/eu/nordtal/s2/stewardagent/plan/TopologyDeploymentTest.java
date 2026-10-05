@@ -218,11 +218,14 @@ class TopologyDeploymentTest {
     }
 
     @Test
-    void theBackupSavesTheWorldAndNeverALiveDatabase() {
+    void theBackupSavesBothWorldsAndNeverALiveDatabase() {
         final List<String> saved = backupSet();
 
-        // Nordtal is a hand-built world in no repository or release; a backup without it would still report DONE.
+        // Both worlds are hand-built and in no repository or release; a backup without one would still report DONE.
         assertTrue(saved.contains(composeProject() + "_mc-smp"), "the backup does not save the world: " + saved);
+        assertTrue(
+                saved.contains(composeProject() + "_mc-hunger-games"),
+                "the backup does not save the hunger games world: " + saved);
         // A snapshot of a running PGDATA fails at RESTORE and nowhere else; the database is dumped instead.
         assertTrue(
                 saved.stream().noneMatch(volume -> volume.endsWith("postgres-data")),
@@ -230,8 +233,8 @@ class TopologyDeploymentTest {
     }
 
     @Test
-    void aBackupStopsTheWorldAndKeepsTheNetworkAndTheBotUp() {
-        // A running Paper server's snapshot is torn; proxy, limbo, hunger-games and the bot hold no world to save.
+    void aBackupStopsBothWorldsAndKeepsTheNetworkAndTheBotUp() {
+        // A running Paper server's snapshot is torn; proxy, limbo and the bot hold no world to save.
         final List<String> stopped = new java.util.ArrayList<>();
         for (final Map.Entry<String, Object> entry : services.entrySet()) {
             @SuppressWarnings("unchecked")
@@ -240,7 +243,7 @@ class TopologyDeploymentTest {
                 stopped.add(entry.getKey());
             }
         }
-        assertEquals(List.of(Topology.SMP), stopped);
+        assertEquals(List.of(Topology.HUNGER_GAMES, Topology.SMP), stopped);
     }
 
     @Test

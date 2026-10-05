@@ -298,7 +298,8 @@ final class Kinds {
                         List.of(UpdateRun.backedUp(dumped)),
                         dumped.ok() ? null : TEXTS.report().words(String.valueOf(dumped.message()))));
         progress.accept(planned);
-        for (final String service : topology.stoppedForBackup()) {
+        // A server that is down already holds a whole world, and one held down stays down.
+        for (final String service : running(runner, topology.stoppedForBackup())) {
             planned = planned.with(new UpdateReport.ServiceLine(
                     service,
                     UpdateReport.State.PLANNED,

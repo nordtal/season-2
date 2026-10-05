@@ -139,6 +139,7 @@ class RunnerTest {
                         "stop:smp-container",
                         "backup:nordtal-s2_mc-smp",
                         "backup:nordtal-s2_mc-smp-plugins",
+                        "backup:nordtal-s2_mc-hunger-games",
                         "backup:nordtal-s2_mc-hunger-games-plugins",
                         "prune:" + defaults().backup().retention().daily(),
                         "start:smp-container"),
@@ -159,6 +160,25 @@ class RunnerTest {
         assertTrue(english.contains("saved 7.3 MiB in 3s"), english);
         assertTrue(english.contains("saved 1.2 MiB in 12s"), english);
         assertTrue(english.contains("No offsite repository is configured"), english);
+    }
+
+    @Test
+    void aBackupStopsTheHungerGamesWhileItRunsAndLeavesItDownWhenItIsDown() {
+        containers.running("hunger-games");
+
+        final Outcome outcome = runner.run(claimed(UpdateKind.BACKUP, null), progress::add);
+
+        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
+        final List<String> stopsAndStarts = containers.calls.stream()
+                .filter(call -> call.startsWith("stop:") || call.startsWith("start:"))
+                .toList();
+        assertEquals(
+                List.of(
+                        "stop:hunger-games-container",
+                        "stop:smp-container",
+                        "start:hunger-games-container",
+                        "start:smp-container"),
+                stopsAndStarts);
     }
 
     @Test

@@ -300,12 +300,14 @@ services:
   # The start event; stoppable once the phase turns to SMP.
   hunger-games:
     <<: *minecraft
-    # As the proxy's. Voice chat runs where people play, not on limbo, and may be missing.
+    # As the proxy's. Voice chat runs where people play, not on limbo, and may be missing. A backup
+    # stops it, since its hand-built world has no other copy.
     labels:
       eu.nordtal.server: &hunger-games-kind paper
       eu.nordtal.plugins: &hunger-games-plugins "hunger-games voicechat?"
       eu.nordtal.renew: run
       eu.nordtal.console: "true"
+      eu.nordtal.backup: stop
       eu.nordtal.section: Paper
       eu.nordtal.stores-in: postgres
     environment:
@@ -509,6 +511,7 @@ services:
       # Plugin paths must match the servers' expressions exactly; TopologyTest holds that.
       - ${SMP_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp}:/backup-sources/nordtal-s2_mc-smp
       - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/backup-sources/nordtal-s2_mc-smp-plugins
+      - ${HUNGER_GAMES_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games}:/backup-sources/nordtal-s2_mc-hunger-games
       - ${HUNGER_GAMES_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games-plugins}:/backup-sources/nordtal-s2_mc-hunger-games-plugins
       # Archives land here, outside every backed-up volume; postgres writes its dump into the same one.
       - ${STEWARD_BACKUPS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/steward-backups}:/backups

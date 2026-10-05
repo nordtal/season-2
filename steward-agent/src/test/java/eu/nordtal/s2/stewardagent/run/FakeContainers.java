@@ -43,10 +43,15 @@ final class FakeContainers implements ContainerOps {
     /** compose.yml's services as they ship, with the backup set its mounts give. */
     private final AgentWire.Topology topology = new AgentWire.Topology(
             eu.nordtal.s2.stewardagent.topology.ComposeFile.topology().services(),
-            List.of("nordtal-s2_mc-smp", "nordtal-s2_mc-smp-plugins", "nordtal-s2_mc-hunger-games-plugins"),
+            List.of(
+                    "nordtal-s2_mc-smp",
+                    "nordtal-s2_mc-smp-plugins",
+                    "nordtal-s2_mc-hunger-games",
+                    "nordtal-s2_mc-hunger-games-plugins"),
             java.util.Map.of(
                     "nordtal-s2_mc-smp", List.of("smp"),
                     "nordtal-s2_mc-smp-plugins", List.of("smp"),
+                    "nordtal-s2_mc-hunger-games", List.of("hunger-games"),
                     "nordtal-s2_mc-hunger-games-plugins", List.of("hunger-games")));
 
     @Override

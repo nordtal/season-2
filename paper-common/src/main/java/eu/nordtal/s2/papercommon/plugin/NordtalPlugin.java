@@ -14,6 +14,8 @@ import eu.nordtal.s2.database.Jdbis;
 import eu.nordtal.s2.database.access.AccessReader;
 import eu.nordtal.s2.database.access.AdminOperators;
 import eu.nordtal.s2.database.access.Prestige;
+import eu.nordtal.s2.database.command.CommandTreeStore;
+import eu.nordtal.s2.database.command.CommandTreeWriter;
 import eu.nordtal.s2.database.game.GameCatalogue;
 import eu.nordtal.s2.database.game.GameDataStore;
 import eu.nordtal.s2.database.inbox.Inbox;
@@ -36,6 +38,7 @@ import eu.nordtal.s2.papercommon.chat.Previews;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
 import eu.nordtal.s2.papercommon.command.Answer;
 import eu.nordtal.s2.papercommon.command.CommandFilter;
+import eu.nordtal.s2.papercommon.command.CommandTrees;
 import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.papercommon.game.GameDataExport;
 import eu.nordtal.s2.papercommon.hud.Hud;
@@ -116,6 +119,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
     private Hud hud;
     private Menus menus;
     private AdminWatch adminWatch;
+    private CommandTrees commandTrees;
     private @Nullable SignalHub hub;
 
     /** Returns the prefix of every environment override of this plugin's settings, {@code NORDTAL_SMP} say. */
@@ -213,6 +217,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
 
         final SignalHub signals = openHub();
         hub = signals;
+        commandTrees = new CommandTrees(this, new CommandTreeWriter(CommandTreeStore.using(pool), getName()));
+        listen(commandTrees);
         registerCommands();
         enable();
         // After enable, which declared the lines; a plugin that declared none has no clock.
@@ -288,9 +294,14 @@ public abstract class NordtalPlugin extends JavaPlugin {
                 logger());
     }
 
-    /** Registers this plugin's command root with whatever {@link #commands} adds below it; an empty root stays out. */
+    /**
+     * Registers this plugin's command root with whatever {@link #commands} adds below it; an empty root stays out.
+     *
+     * The event is also where Paper hands out the dispatcher, whose whole tree {@link CommandTrees} publishes.
+     */
     private void registerCommands() {
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
+            commandTrees.take(event.registrar());
             final LiteralArgumentBuilder<CommandSourceStack> root =
                     Commands.literal(commandRoot()).requires(source -> playersUseCommandRoot() || isConsole(source));
             commands(root);

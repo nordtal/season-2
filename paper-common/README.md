@@ -32,6 +32,12 @@ What every Nordtal Paper plugin shares, and nothing a single plugin owns.
   tags), each entry with its translation key and the server's English for it, and publishes them as
   this server's row of `game_catalogue`, which Steward's pickers draw from. A failed write costs the
   pickers this server's entries and nothing else.
+- **The command tree**: `CommandTrees` publishes every command this server takes, the game's, every
+  plugin's and ours, each argument by its name, as this server's row of `command_tree`, which Steward's
+  console suggests from. It takes the game's own dispatcher from the commands event at start and after
+  every reload, and reads it again a tick after a plugin is enabled or disabled. The read runs on the main
+  thread and the write off it, only when the tree changed. A failed write costs the console this server's
+  suggestions and nothing else. The proxy publishes its own the same way.
 - **Game keys**: `GameKeys` is the one reading of a setting that names an item, a block, a
   statistic or an entity: a namespaced key, with `minecraft:` assumed where none is written and a
   bare upper-case Bukkit name accepted the same way, never a legacy material. Every plugin binds its

@@ -30,7 +30,7 @@ A deploy pulls and never builds. The images (`minecraft`, `steward`, `steward-ag
 [`release.yml`](../.github/workflows/release.yml) when a release is published.
 
 1. **Publish a release** and let `release.yml` finish.
-2. **Set all four packages to Public.** A package is private on its first push, a private package
+2. **Set all six packages to Public.** A package is private on its first push, a private package
    answers a pull with `denied`, and steward cannot read its digest, so drift shows as
    `UNKNOWN`.
 3. **Run the installer in the installation directory.** Every volume is a folder in it.

@@ -11,9 +11,9 @@ on:
         description: "Tag to build, e.g. v0.1.0"
         required: true
 
+# Write access is granted on the job, the only place that needs it.
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 # One build per tag, so a hand-started re-run cannot upload the same assets twice.
 concurrency:
@@ -23,11 +23,18 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+      packages: write
+    # The tag is a dispatch input or a tag name, so it reaches scripts as a variable, never as text in one.
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          ref: ${{ env.RELEASE_TAG }}
 
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
@@ -38,14 +45,12 @@ jobs:
 
       - name: Check the tag matches gradle.properties
         run: |
-          tag_name="${{ github.event.release.tag_name || inputs.tag }}"
-          tag="${tag_name#v}"
+          tag="${RELEASE_TAG#v}"
           declared="$(grep '^version=' gradle.properties | cut -d= -f2)"
           if [ "$tag" != "$declared" ]; then
-            echo "tag $tag_name does not match version=$declared in gradle.properties" >&2
+            echo "tag $RELEASE_TAG does not match version=$declared in gradle.properties" >&2
             exit 1
           fi
-          echo "TAG=$tag_name" >> "$GITHUB_ENV"
           echo "VERSION=$declared" >> "$GITHUB_ENV"
 
       # `check` runs before `releaseArtifacts` so a release never ships jars whose tests nobody ran.
@@ -91,7 +96,7 @@ jobs:
       - name: Put the release notes on the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release edit "${{ env.TAG }}" --notes-file "$RUNNER_TEMP/notes.md"
+        run: gh release edit "$RELEASE_TAG" --notes-file "$RUNNER_TEMP/notes.md"
 
       - name: Log in to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
@@ -168,5 +173,5 @@ jobs:
       - name: Attach the artifacts to the release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
-          tag_name: ${{ env.TAG }}
+          tag_name: ${{ env.RELEASE_TAG }}
           files: dist/*

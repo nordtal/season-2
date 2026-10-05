@@ -694,9 +694,50 @@ tag_name_of() {
     sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sed -n '1p'
 }
 
-# This file as the release carries it.
+# This file as the release carries it; NORDTAL_SH_URL names another source.
 self_url_for() {
-    printf 'https://raw.githubusercontent.com/nordtal/season-2/v%s/deploy/nordtal.sh' "$1"
+    printf '%s' "${NORDTAL_SH_URL:-https://raw.githubusercontent.com/nordtal/season-2/v$1/deploy/nordtal.sh}"
+}
+
+# The newest release's version, as GitHub names it; empty when GitHub does not answer.
+newest_release() {
+    local answer tag=""
+    answer="$(mktemp "${TMPDIR:-/tmp}/nordtal-release.XXXXXX")"
+    if fetch_url "$RELEASES_API" "$answer"; then
+        tag="$(tag_name_of <"$answer")"
+    fi
+    rm -f "$answer"
+    [[ -n "$tag" ]] && release_of_tag "$tag"
+    return 0
+}
+
+# Replaces the file $1 with the newest release's copy of this script. True only when it did; GitHub
+# unreachable or an incomplete download leaves the file as it is, since a run needs no network.
+renew_file() {
+    local file="$1" release candidate
+    release="$(newest_release)"
+    if [[ -z "$release" ]]; then
+        warn "GitHub did not say which release is the newest, so $file stays as it is"
+        return 1
+    fi
+    candidate="$(mktemp "${TMPDIR:-/tmp}/nordtal.sh.XXXXXX")"
+    if ! fetch_url "$(self_url_for "$release")" "$candidate" || ! looks_like_this_script "$candidate"; then
+        rm -f "$candidate"
+        warn "release $release's copy of this script could not be fetched, so $file stays as it is"
+        return 1
+    fi
+    if [[ "$(fingerprint "$candidate")" == "$(fingerprint "$file")" ]]; then
+        rm -f "$candidate"
+        return 1
+    fi
+    # A rename, so an interrupted copy never leaves half a script behind.
+    if ! install -m 755 "$candidate" "$file.new" || ! mv -f "$file.new" "$file"; then
+        rm -f "$candidate" "$file.new"
+        warn "could not write $file, so it stays as it is"
+        return 1
+    fi
+    rm -f "$candidate"
+    log "$file is now release $release's copy ($(fingerprint "$file"))"
 }
 
 # How a deploy reaches the stack: `request` when a healthy steward-agent runs, which carries out
@@ -716,7 +757,8 @@ if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "$0" ]]; then
     return 0
 fi
 
-# The `update` subcommand, before the self-update, so it never needs the network.
+# The `update` subcommand, before the deploy's self-update and its questions. It renews the file it
+# runs from first, so a host that is only ever updated runs the newest release's copy too.
 
 cmd_update() {
     parse_update_args "$@"
@@ -804,6 +846,13 @@ update_wait() {
 
 if [[ "${1:-}" == update ]]; then
     shift
+    if [[ -z "${NORDTAL_SH_RENEWED:-}" ]] && running_from_a_file && ! from_a_checkout; then
+        self="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+        if renew_file "$self"; then
+            export NORDTAL_SH_RENEWED=true
+            exec bash "$self" update "$@"
+        fi
+    fi
     cmd_update "$@"
     exit $?
 fi
@@ -855,16 +904,10 @@ resolve_release() {
         RELEASE_NAMED="${NORDTAL_RELEASE_NAMED:-true}"
         return 0
     fi
-    local answer tag
-    answer="$(mktemp "${TMPDIR:-/tmp}/nordtal-release.XXXXXX")"
-    if fetch_url "$RELEASES_API" "$answer"; then
-        tag="$(tag_name_of <"$answer")"
-    fi
-    rm -f "$answer"
-    [[ -n "${tag:-}" ]] || die "GitHub did not say which release is the newest ($RELEASES_API), and
+    RELEASE="$(newest_release)"
+    [[ -n "$RELEASE" ]] || die "GitHub did not say which release is the newest ($RELEASES_API), and
        nothing else may decide what this host runs. Try again once it answers, or name the release
        yourself: NORDTAL_RELEASE=0.11.0 ./nordtal.sh"
-    RELEASE="$(release_of_tag "$tag")"
     RELEASE_NAMED=false
 }
 RELEASE=""
@@ -872,7 +915,7 @@ RELEASE_NAMED=false
 resolve_release
 # For the renewed copy, which must neither ask again nor take GitHub's answer for a person's.
 export NORDTAL_RELEASE="$RELEASE" NORDTAL_RELEASE_NAMED="$RELEASE_NAMED"
-SELF_URL="${NORDTAL_SH_URL:-$(self_url_for "$RELEASE")}"
+SELF_URL="$(self_url_for "$RELEASE")"
 AGENT_IMAGE="$IMAGES/steward-agent:$RELEASE"
 log "release $RELEASE"
 

@@ -162,8 +162,9 @@ From the host, when neither is reachable:
 ./nordtal.sh update --no-wait      # print the request id and return
 ```
 
-`./nordtal.sh update` asks steward-agent through `docker exec`, so a request from the host passes
-the same refusals as a button. Each request is a row in `steward_inbox`, the run inbox; the report
+`./nordtal.sh update` first replaces itself with the newest release's copy, so a host that is only
+ever updated runs the same script as one that deploys; without GitHub it runs as it is. It asks
+steward-agent through `docker exec`, so a request from the host passes the same refusals as a button. Each request is a row in `steward_inbox`, the run inbox; the report
 is written to its `outcome` column. One run is open at a time: the database refuses a second request
 while one is pending or running.
 

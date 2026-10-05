@@ -496,6 +496,24 @@ case_begin "a running, healthy agent gets a request; everything else gets up"
 [[ "$(deploy_by true true)" == up ]]       || bad "--build did not deploy the agent it built"
 ok "request, up, --build"
 
+case_begin "update: the copy that asks for a run is renewed to the newest release's first"
+# A host that is only ever updated runs the release's script, not the one it was installed with.
+printf '{"tag_name": "v9.9.9"}\n' > "$WORK/latest.json"
+{ cat "$SETUP"; printf '# release 9.9.9\n'; } > "$WORK/release.sh"
+cp "$SETUP" "$WORK/installed.sh"
+renewed() { RELEASES_API="$1" NORDTAL_SH_URL="$2" renew_file "$WORK/installed.sh" >/dev/null 2>&1; }
+renewed "file://$WORK/latest.json" "file://$WORK/release.sh" || bad "an older copy was not replaced"
+cmp -s "$WORK/installed.sh" "$WORK/release.sh" || bad "the file is not the release's copy"
+[[ -x "$WORK/installed.sh" ]] || bad "the renewed file cannot be run"
+renewed "file://$WORK/latest.json" "file://$WORK/release.sh" && bad "the release's own copy was replaced again"
+ok "an older copy becomes the release's, and the release's copy stays"
+
+cp "$SETUP" "$WORK/installed.sh"
+renewed "file://$WORK/nothing.json" "file://$WORK/release.sh" && bad "a copy was replaced without a release"
+renewed "file://$WORK/latest.json" "file://$WORK/page.html" && bad "an error page replaced the script"
+cmp -s "$WORK/installed.sh" "$SETUP" || bad "a failed renewal changed the file"
+ok "without GitHub or with a broken download, the copy that is here runs"
+
 
 if (( failed > 0 )); then
     printf '\n%d case(s) failed\n' "$failed" >&2

@@ -304,6 +304,9 @@ counts down, stops what runs on it and starts it again. A volume archive **repla
 dump **replaces** the database in one transaction, and the run then runs the `migrate` service to
 bring it to this release's schema. Every process's settings are rows in that database, so they come back with the dump.
 
+After the countdown, a restore of the 4 GiB smp world keeps smp offline for about 40 seconds: the
+save of what it replaces and the unpack take some 15 seconds each, then the server starts.
+
 `deploy/restore.sh` is for a host where steward-agent does not run:
 
 ```bash

@@ -1,14 +1,12 @@
 package eu.nordtal.season.messages;
 
+import eu.nordtal.season.common.Sha256;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -92,16 +90,10 @@ public final class PackagedTexts {
      * @return the SHA-256 of the texts in order, each closed by a NUL, in lower-case hex
      */
     public static String hash(final List<String> texts) {
-        final MessageDigest digest;
-        try {
-            digest = MessageDigest.getInstance("SHA-256");
-        } catch (final NoSuchAlgorithmException absent) {
-            throw new IllegalStateException("every JDK has SHA-256", absent);
-        }
+        final StringBuilder closed = new StringBuilder();
         for (final String text : texts) {
-            digest.update(text.getBytes(StandardCharsets.UTF_8));
-            digest.update((byte) 0);
+            closed.append(text).append('\0');
         }
-        return HexFormat.of().formatHex(digest.digest());
+        return Sha256.hex(closed.toString());
     }
 }

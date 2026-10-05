@@ -88,7 +88,7 @@ final class AuthFlow {
         }
         // A one-time value tied to this browser's session; a callback carrying anything else is not it.
         final String state = random();
-        setSessionCookie(ctx, sessions().begin(state));
+        setSessionCookie(ctx, sessions().begin(state), Sessions.SIGN_IN_WINDOW);
         ctx.redirect(discord.authorizeUrl(state).toString());
     }
 
@@ -118,7 +118,7 @@ final class AuthFlow {
         // A new session id, so the one the sign-in started in cannot be fixated.
         final String id = sessions().signIn(DiscordId.of(who.id()), who.name(), who.roles());
         sessions().end(started);
-        setSessionCookie(ctx, id);
+        setSessionCookie(ctx, id, lifetime());
         ctx.redirect("/");
     }
 
@@ -151,13 +151,13 @@ final class AuthFlow {
     }
 
     /**
-     * Sets the session cookie, {@code Secure} whenever the request arrived over TLS.
+     * Sets the session cookie for {@code maxAge}, {@code Secure} whenever the request arrived over TLS.
      *
      * {@code X-Forwarded-Proto} can only turn the flag on, so a forged one costs only its forger's session.
      */
-    private void setSessionCookie(final Context ctx, final String id) {
-        final Cookie cookie = new Cookie(
-                Sessions.COOKIE, id, "/", (int) lifetime().toSeconds(), overTls(ctx), true, null, SameSite.LAX);
+    private static void setSessionCookie(final Context ctx, final String id, final Duration maxAge) {
+        final Cookie cookie =
+                new Cookie(Sessions.COOKIE, id, "/", (int) maxAge.toSeconds(), overTls(ctx), true, null, SameSite.LAX);
         ctx.cookie(cookie);
     }
 

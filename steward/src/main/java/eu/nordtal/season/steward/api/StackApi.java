@@ -416,18 +416,20 @@ public final class StackApi implements AutoCloseable {
     /**
      * Streams one finished archive from the agent to the browser as a download, never buffered.
      *
-     * The agent refuses a name that is not a finished archive with a 400 and a missing one with a 404.
+     * @return the archive as the list has it, empty when it was pruned meanwhile
      */
-    void download(final Context ctx, final String name) {
+    Optional<AgentWire.Archive> download(final Context ctx, final String name) {
+        // The agent refuses a name that is not a finished archive with a 400 and a missing one with a 404.
         final InputStream body = agent.archive(name);
         ctx.contentType("application/octet-stream");
         ctx.header("Content-Disposition", "attachment; filename=\"" + name + "\"");
         // The length from the list, so the browser can show progress; an archive pruned meanwhile has none.
-        archives().stream()
+        final Optional<AgentWire.Archive> listed = archives().stream()
                 .filter(archive -> archive.name().equals(name))
-                .findFirst()
-                .ifPresent(archive -> ctx.header("Content-Length", String.valueOf(archive.bytes())));
+                .findFirst();
+        listed.ifPresent(archive -> ctx.header("Content-Length", String.valueOf(archive.bytes())));
         ctx.result(body);
+        return listed;
     }
 
     /**

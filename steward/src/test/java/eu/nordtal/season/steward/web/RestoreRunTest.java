@@ -2,6 +2,7 @@ package eu.nordtal.season.steward.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.google.gson.JsonObject;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -62,6 +63,25 @@ class RestoreRunTest extends WebTestSupport {
 
         assertEquals(404, restore(gone, "nordtal-s2_mc-smp").statusCode());
         assertEquals(0, count("select count(*) from steward_inbox where kind = 'RESTORE'"));
+    }
+
+    @Test
+    void aDownloadIsJournalledWithTheArchiveAndItsSize() throws Exception {
+        final HttpResponse<String> downloaded = get("/api/backups/" + DUMP + "/download");
+        assertEquals(200, downloaded.statusCode(), downloaded.body());
+
+        final JsonObject args =
+                journalledBy("1", "DOWNLOAD_BACKUP").getAsJsonObject("line").getAsJsonObject("args");
+        assertEquals(DUMP, args.getAsJsonObject("archive").get("value").getAsString(), args.toString());
+        assertEquals(
+                "10",
+                args.getAsJsonObject("size")
+                        .getAsJsonObject("value")
+                        .getAsJsonObject("args")
+                        .getAsJsonObject("amount")
+                        .get("value")
+                        .getAsString(),
+                args.toString());
     }
 
     private HttpResponse<String> restore(final String archive, final String confirm) throws Exception {

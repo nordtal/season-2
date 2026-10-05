@@ -1,5 +1,6 @@
 package eu.nordtal.season.steward.auth;
 
+import eu.nordtal.season.common.Sha256;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.Jdbis;
@@ -20,9 +21,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Who is signed in, kept in PostgreSQL so a redeploy signs nobody out.
+ * Who is signed in, kept in PostgreSQL so a redeploy signs nobody out, under the SHA-256 of each cookie's id.
  *
- * The id is rotated at sign-in against session fixation; this class takes and returns ids and holds no cookie.
+ * The id is rotated at sign-in against session fixation; this class takes and returns the cookie's own id.
  */
 public final class Sessions {
 
@@ -30,6 +31,9 @@ public final class Sessions {
 
     /** The cookie this service issues, deliberately not {@code JSESSIONID}. */
     public static final String COOKIE = "steward_session";
+
+    /** How long a sign-in may take between {@code /auth/login} and Discord sending the browser back. */
+    public static final Duration SIGN_IN_WINDOW = Duration.ofMinutes(10);
 
     /** 256 bits, whose unpadded base64url is safe in a cookie. */
     private static final int BYTES = 32;
@@ -50,10 +54,14 @@ public final class Sessions {
         this.dao = Jdbis.over(dataSource).onDemand(SessionDao.class);
     }
 
-    /** Starts a sign-in with a row carrying only Discord's one-time state, and answers the cookie's id. */
+    /**
+     * Starts a sign-in with a row carrying only Discord's one-time state, and answers the cookie's id.
+     *
+     * The row lives for {@link #SIGN_IN_WINDOW}, so calls of {@code /auth/login} leave nothing behind for long.
+     */
     public String begin(final String oauthState) {
         final String id = random();
-        dao.begin(id, Objects.requireNonNull(oauthState, "oauthState"), random(), seconds);
+        dao.begin(stored(id), Objects.requireNonNull(oauthState, "oauthState"), random(), SIGN_IN_WINDOW.toSeconds());
         return id;
     }
 
@@ -63,7 +71,7 @@ public final class Sessions {
      * Empty for a missing, expired or already used state alike, on purpose.
      */
     public Optional<String> consumeState(final @Nullable String id) {
-        return id == null ? Optional.empty() : dao.consumeState(id);
+        return id == null ? Optional.empty() : dao.consumeState(stored(id));
     }
 
     /**
@@ -74,7 +82,7 @@ public final class Sessions {
     public String signIn(final DiscordId discordId, final String name, final List<String> roles) {
         final String id = random();
         dao.signIn(
-                id,
+                stored(id),
                 Objects.requireNonNull(discordId, "discordId"),
                 Objects.requireNonNull(name, "name"),
                 String.join(",", roles),
@@ -89,33 +97,33 @@ public final class Sessions {
         if (id == null || id.isBlank()) {
             return Optional.empty();
         }
-        return dao.find(id).filter(Session::signedIn);
+        return dao.find(stored(id), id).filter(Session::signedIn);
     }
 
     /** Hands this browser a WebAuthn ceremony, replacing any unfinished one; {@code request} is the library's JSON. */
     public void startCeremony(final @Nullable String id, final String request) {
         Objects.requireNonNull(request, "request");
         if (id != null && !id.isBlank()) {
-            dao.startCeremony(id, request);
+            dao.startCeremony(stored(id), request);
         }
     }
 
     /** The ceremony this browser started, readable exactly once, empty as in {@link #consumeState}. */
     public Optional<String> consumeCeremony(final @Nullable String id) {
-        return id == null || id.isBlank() ? Optional.empty() : dao.consumeCeremony(id);
+        return id == null || id.isBlank() ? Optional.empty() : dao.consumeCeremony(stored(id));
     }
 
     /** Records that this browser has just held its key. */
     public void markVerified(final @Nullable String id) {
         if (id != null && !id.isBlank()) {
-            dao.markVerified(id);
+            dao.markVerified(stored(id));
         }
     }
 
     /** Ends one session, on sign-out or when a sign-in drops the row it started in. */
     public void end(final @Nullable String id) {
         if (id != null && !id.isBlank()) {
-            dao.end(id);
+            dao.end(stored(id));
         }
     }
 
@@ -139,12 +147,17 @@ public final class Sessions {
 
     /** Moves a session's expiry, for a test. */
     void expireAt(final String id, final Instant at) {
-        dao.expireAt(id, at);
+        dao.expireAt(stored(id), at);
     }
 
     /** Ages the ceremony clock, for a test. */
     void ceremonyStartedAt(final String id, final Instant at) {
-        dao.ceremonyStartedAt(id, at);
+        dao.ceremonyStartedAt(stored(id), at);
+    }
+
+    /** What the table keeps of a cookie's id. */
+    static String stored(final String id) {
+        return Sha256.hex(id);
     }
 
     private static String random() {
@@ -156,7 +169,7 @@ public final class Sessions {
     /**
      * One row of {@code steward_session}, as everything above the sign-in sees it.
      *
-     * {@code roles} is a snapshot of the role ids held at sign-in.
+     * {@code id} is the cookie's, not the stored hash; {@code roles} is a snapshot of the role ids held at sign-in.
      */
     public record Session(
             String id,

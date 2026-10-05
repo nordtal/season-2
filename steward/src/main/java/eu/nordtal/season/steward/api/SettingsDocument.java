@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import eu.nordtal.season.common.Sha256;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.settings.Refers;
@@ -11,13 +12,9 @@ import eu.nordtal.season.spec.schema.SchemaNode;
 import eu.nordtal.season.spec.schema.SettingType;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -80,12 +77,7 @@ final class SettingsDocument {
                         .append('=')
                         .append(JsonParser.parseString(value.value()))
                         .append('\n'));
-        try {
-            final MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(text.toString().getBytes(StandardCharsets.UTF_8)));
-        } catch (final NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException("every JVM has SHA-256", impossible);
-        }
+        return Sha256.hex(text.toString());
     }
 
     /** Returns the document as the page reads it, with {@code reload} after a save and absent otherwise. */

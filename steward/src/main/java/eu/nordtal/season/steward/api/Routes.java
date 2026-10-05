@@ -4,12 +4,14 @@ import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
+import eu.nordtal.season.database.update.ByteSize;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.steward.auth.Gate;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.config.JavalinConfig;
 import io.javalin.http.BadRequestResponse;
+import java.util.Optional;
 
 /**
  * Every route {@link StackApi} serves, each with the {@link Gate} it needs.
@@ -135,7 +137,21 @@ final class Routes {
 
         // Streamed, not buffered, since these are hundreds of megabytes; reading a backup is a read.
         config.routes.get(
-                "/api/backups/{name}/download", ctx -> api.download(ctx, ctx.pathParam("name")), Gate.KEY_HELD);
+                "/api/backups/{name}/download",
+                ctx -> {
+                    final String name = ctx.pathParam("name");
+                    final Optional<AgentWire.Archive> listed = api.download(ctx, name);
+                    // A dump holds every account and payment, so taking one off the host is on the record.
+                    api.journal(AuditLine.of(
+                            JournalAction.DOWNLOAD_BACKUP,
+                            caller.actor(ctx),
+                            listed.map(archive -> TEXTS.journal()
+                                            .downloadBackup(
+                                                    name,
+                                                    ByteSize.of(archive.bytes()).message()))
+                                    .orElseGet(() -> TEXTS.journal().downloadBackupUnsized(name))));
+                },
+                Gate.KEY_HELD);
 
         // A run like every other stop: the body names what it replaces, so a wrong click restores nothing.
         config.routes.post("/api/backups/{name}/restore", ctx -> api.restore(ctx, caller.actor(ctx)), Gate.KEY_FRESH);

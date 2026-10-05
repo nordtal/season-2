@@ -9,7 +9,7 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 /**
- * The SQL behind {@link Sessions}, which is the API.
+ * The SQL behind {@link Sessions}, which is the API; every {@code id} here is the stored hash.
  *
  * Every read checks {@code expires_at > now()} itself; the hourly sweep is only housekeeping.
  */
@@ -59,13 +59,14 @@ interface SessionDao {
             @Bind("csrf") String csrf,
             @Bind("seconds") long seconds);
 
+    /** The row stored under {@code id}, answered under the cookie's own id, which the table does not hold. */
     @SqlQuery("""
-            SELECT id, discord_id, display_name, roles, csrf, created_at, expires_at, verified_at
+            SELECT :cookie AS id, discord_id, display_name, roles, csrf, created_at, expires_at, verified_at
             FROM steward_session
             WHERE id = :id
               AND expires_at > now()
             """)
-    Optional<Sessions.Session> find(@Bind("id") String id);
+    Optional<Sessions.Session> find(@Bind("id") String id, @Bind("cookie") String cookie);
 
     /** Parks the WebAuthn ceremony this browser has just been handed, one at a time. */
     @SqlUpdate("""

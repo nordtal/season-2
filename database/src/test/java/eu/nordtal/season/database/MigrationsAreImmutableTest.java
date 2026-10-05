@@ -127,6 +127,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V33__the_bot_s_role_ids_are_its_own.sql",
                 "42175449658e239ccc44d2281d18b34b2209db2a75df8e9f172682da599d4b99");
+        FROZEN.put(
+                "V34__a_session_row_keeps_the_hash_of_its_cookie.sql",
+                "f6908deaacb44e5a7055da3f123955cd0ad1872e4421259d4d70184a6613816e");
     }
 
     @Test

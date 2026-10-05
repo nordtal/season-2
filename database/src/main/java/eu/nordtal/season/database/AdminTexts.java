@@ -192,6 +192,12 @@ public interface AdminTexts {
         @Name("Run cancelled")
         MessageRef cancelRun(@Arg("run") long run, @Arg("kind") UpdateKind kind);
 
+        @Name("Backup downloaded")
+        MessageRef downloadBackup(@Arg("archive") String archive, @Arg("size") MessageRef size);
+
+        @Name("Backup downloaded, size unknown")
+        MessageRef downloadBackupUnsized(@Arg("archive") String archive);
+
         @Name("Announcement")
         MessageRef announce(@Arg("languages") List<String> languages);
 

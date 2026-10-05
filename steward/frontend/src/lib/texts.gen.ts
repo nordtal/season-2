@@ -282,6 +282,13 @@ export type TextArgs = {
     service: Arg["text"]
     command: Arg["text"]
   }
+  "journal.download-backup": {
+    archive: Arg["text"]
+    size: Arg["message"]
+  }
+  "journal.download-backup-unsized": {
+    archive: Arg["text"]
+  }
   "journal.enforce-pack": Record<string, never>
   "journal.exempt-pack": Record<string, never>
   "journal.forget-factors": {

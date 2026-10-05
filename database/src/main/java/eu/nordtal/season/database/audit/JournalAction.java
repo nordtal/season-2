@@ -33,6 +33,7 @@ public enum JournalAction {
     SAVE_MESSAGES,
     ADD_PLUGIN,
     CANCEL_RUN,
+    DOWNLOAD_BACKUP,
     ANNOUNCE,
     COMPLETE_OBJECTIVE,
     UNLOCK_MILESTONE,

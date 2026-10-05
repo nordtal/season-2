@@ -1,5 +1,6 @@
 package eu.nordtal.season.steward.live;
 
+import eu.nordtal.season.common.Sha256;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.common.time.Waiting;
@@ -7,12 +8,8 @@ import eu.nordtal.season.database.notify.Doorbell;
 import eu.nordtal.season.internalapi.sse.Follows;
 import io.javalin.http.sse.SseClient;
 import java.io.Closeable;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.EnumMap;
-import java.util.HexFormat;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -155,13 +152,7 @@ public final class LiveFeed implements AutoCloseable {
 
     /** The first twelve hex digits of the answer's SHA-256: enough to tell two answers apart. */
     static String versionOf(final @Nullable Object answer) {
-        try {
-            final byte[] digest = MessageDigest.getInstance("SHA-256")
-                    .digest(Json.encode(answer == null ? Map.of() : answer).getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(digest, 0, 6);
-        } catch (final NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException("every JVM has SHA-256", impossible);
-        }
+        return Sha256.hex(Json.encode(answer == null ? Map.of() : answer)).substring(0, 12);
     }
 
     private void run() {

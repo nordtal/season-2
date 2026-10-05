@@ -24,12 +24,41 @@ import org.junit.jupiter.api.Test;
 class SessionRowsTest {
 
     private static Sessions sessions;
+    private static DataSource source;
 
     @BeforeAll
     static void start() {
         // The role steward logs in as, so a statement it was never granted fails here first.
-        final DataSource source = TestDatabase.fresh().dataSourceAs(DatabaseRole.STEWARD);
+        source = TestDatabase.fresh().dataSourceAs(DatabaseRole.STEWARD);
         sessions = new Sessions(source, Duration.ofDays(30));
+    }
+
+    @Test
+    void theTableKeepsTheHashOfTheCookieAndNotTheCookie() throws Exception {
+        final String id = sessions.signIn(DiscordId.of("46"), "Hashed", List.of("4711"));
+
+        assertEquals(0, count("SELECT count(*) FROM steward_session WHERE id = '" + id + "'"));
+        assertEquals(1, count("SELECT count(*) FROM steward_session WHERE id = '" + Sessions.stored(id) + "'"));
+        assertEquals(id, sessions.find(id).orElseThrow().id(), "the session is answered under the cookie's id");
+    }
+
+    @Test
+    void aStartedSignInLivesForMinutesNotForTheSessionsLifetime() throws Exception {
+        final String id = sessions.begin("a-state");
+
+        assertEquals(
+                1,
+                count("SELECT count(*) FROM steward_session WHERE id = '" + Sessions.stored(id)
+                        + "' AND expires_at - created_at <= interval '10 minutes'"));
+    }
+
+    private static long count(final String sql) throws Exception {
+        try (var connection = source.getConnection();
+                var statement = connection.createStatement();
+                var row = statement.executeQuery(sql)) {
+            row.next();
+            return row.getLong(1);
+        }
     }
 
     @Test

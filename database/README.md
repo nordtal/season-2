@@ -22,6 +22,11 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
   emits and who listens on each.
 - **Game data**: `GameDataStore` holds each Paper server's `GameCatalogue` and the icons steward-agent
   drew per Minecraft version; `GameCatalogue.union` is the one merge of several servers' catalogues.
+- **Command trees**: `CommandTreeStore` holds each server's `CommandTree`, its Brigadier dispatcher flattened into
+  indexed nodes, a shared node and a redirect one index each. `CommandTree.of` is the one walk; Paper and Velocity
+  hand it their nodes through a `Shape`, since neither platform's Brigadier reaches this module, and
+  `CommandTreeWriter` writes a tree only when it differs from the last one written. A server reads only the names
+  of the rows, which its upsert needs, and steward reads the trees.
 - **Registration** is discord-bot's: a round per `Game`, named by its key, with its teams and members. The game's
   server only reads it and moves the round's `RegistrationState`: closed when a game starts, open again when a
   restart aborts the game, ended once one is decided. What a game writes is its own (`hg_game`, `hg_event`,

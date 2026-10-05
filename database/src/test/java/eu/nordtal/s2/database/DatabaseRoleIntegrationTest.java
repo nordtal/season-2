@@ -105,6 +105,7 @@ class DatabaseRoleIntegrationTest {
         cases.addAll(serverInboxes());
         cases.addAll(registration());
         cases.addAll(discordRoles());
+        cases.addAll(commandTrees());
         assertAll(cases.stream().map(DatabaseRoleIntegrationTest::check));
     }
 
@@ -159,6 +160,24 @@ class DatabaseRoleIntegrationTest {
                 may(DatabaseRole.DISCORD_BOT, "DELETE FROM discord_role WHERE false"),
                 mayNot(DatabaseRole.STEWARD, "SELECT count(*) FROM discord_role"),
                 mayNot(DatabaseRole.SMP, "SELECT count(*) FROM discord_role"));
+    }
+
+    /** Each server writes its command tree with the store's own upsert and reads none back; steward only reads. */
+    private static List<Case> commandTrees() {
+        final String upsert = "INSERT INTO command_tree (server, tree, published) SELECT 'x', '{}', now() WHERE false"
+                + " ON CONFLICT (server) DO UPDATE SET tree = '{}', published = now()";
+        final List<Case> cases = new ArrayList<>();
+        for (final DatabaseRole server :
+                List.of(DatabaseRole.PROXY, DatabaseRole.LIMBO, DatabaseRole.HUNGER_GAMES, DatabaseRole.SMP)) {
+            cases.add(may(server, upsert));
+            cases.add(mayNot(server, "SELECT tree FROM command_tree"));
+            cases.add(mayNot(server, "DELETE FROM command_tree WHERE false"));
+        }
+        cases.add(may(DatabaseRole.STEWARD, "SELECT server, tree, published FROM command_tree"));
+        cases.add(mayNot(DatabaseRole.STEWARD, upsert));
+        cases.add(mayNot(DatabaseRole.DISCORD_BOT, upsert));
+        cases.add(mayNot(DatabaseRole.DISCORD_BOT, "SELECT tree FROM command_tree"));
+        return cases;
     }
 
     /** The bot writes the registration and the game moves only its state; the game's own tables are the game's. */

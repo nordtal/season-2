@@ -115,6 +115,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V29__the_bot_finds_its_roles_by_name.sql",
                 "3de63a72c2ab0552d89ffae6e3d9a161a4fbd4374be2e35f3a3cc613f23ff507");
+        FROZEN.put(
+                "V30__servers_publish_their_command_trees.sql",
+                "120f4e6b38f5a65c9b50ed73e489fb045d2d2dce1b3d5bda4dd8007bb9a3e16b");
     }
 
     @Test

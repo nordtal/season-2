@@ -1,0 +1,296 @@
+import net.ltgt.gradle.errorprone.CheckSeverity
+import net.ltgt.gradle.errorprone.errorprone
+
+plugins {
+    id("java")
+    id("java-library")
+    id("com.gradleup.shadow") version "9.6.1"
+    id("maven-publish")
+    id("checkstyle")
+    id("com.diffplug.spotless") version "8.10.3"
+    id("net.ltgt.errorprone") version "5.1.1"
+}
+
+group = "eu.nordtal"
+version = System.getenv("VERSION") ?: "local"
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    // Every dependency below targets Java 17 bytecode or lower, so none blocks this toolchain.
+    toolchain.languageVersion.set(JavaLanguageVersion.of(25))
+}
+
+// Versions below come from the authoritative maven-metadata.xml on repo1.maven.org.
+dependencies {
+    // -- api: types that appear in jcore's own public signatures, plus the deliberate org-wide toolbox --
+
+    // https://mvnrepository.com/artifact/org.slf4j/slf4j-api  (facade only - the backend is the consumer's choice)
+    api("org.slf4j:slf4j-api:2.0.18")
+
+    // https://mvnrepository.com/artifact/org.apache.commons/commons-lang3  (org-wide toolbox, see README)
+    api("org.apache.commons:commons-lang3:3.18.0")
+
+    // https://mvnrepository.com/artifact/commons-io/commons-io  (org-wide toolbox, see README)
+    api("commons-io:commons-io:2.20.0")
+
+    // https://mvnrepository.com/artifact/com.google.code/gson  (config values are serialized through Gson)
+    // ConfigLoader#gsonBuilder() returns a GsonBuilder, so this is part of the public contract.
+    // 2.14.0 is both the current release and exactly what Paper 26.2 ships in its libraries/
+    // directory, so a Paper plugin can leave it out of its shaded jar.
+    api("com.google.code.gson:gson:2.14.0")
+
+    // https://mvnrepository.com/artifact/org.yaml/snakeyaml  (the YAML reader/writer under CommentedConfiguration)
+    // 2.6 for the same reason as Gson above: current release and Paper 26.2's own version.
+    api("org.yaml:snakeyaml:2.6")
+
+    // https://mvnrepository.com/artifact/org.jdbi/jdbi3-core  (Jdbi is returned by Database#jdbi())
+    api("org.jdbi:jdbi3-core:3.54.0")
+
+    // https://mvnrepository.com/artifact/org.jdbi/jdbi3-sqlobject
+    // Consumers must be able to declare @SqlQuery / @SqlUpdate DAO interfaces against jcore's Database.
+    api("org.jdbi:jdbi3-sqlobject:3.54.0")
+
+    // -- implementation / runtimeOnly: wiring the consumer needs at runtime but never compiles against --
+
+    // https://mvnrepository.com/artifact/org.jdbi/jdbi3-postgres  (installed inside Database, never exposed)
+    implementation("org.jdbi:jdbi3-postgres:3.54.0")
+
+    // https://mvnrepository.com/artifact/com.zaxxer/HikariCP  (Database#dataSource() returns javax.sql.DataSource)
+    implementation("com.zaxxer:HikariCP:7.1.0")
+
+    // https://mvnrepository.com/artifact/org.flywaydb/flyway-core  (Database#migrate() returns a plain int)
+    implementation("org.flywaydb:flyway-core:13.4.0")
+
+    // https://mvnrepository.com/artifact/org.flywaydb/flyway-database-postgresql
+    implementation("org.flywaydb:flyway-database-postgresql:13.4.0")
+
+    // https://mvnrepository.com/artifact/org.postgresql/postgresql  (JDBC driver, loaded by service lookup)
+    runtimeOnly("org.postgresql:postgresql:42.7.13")
+
+    api("org.jspecify:jspecify:1.0.1")
+
+    errorprone("com.google.errorprone:error_prone_core:2.50.0")
+    errorprone("com.uber.nullaway:nullaway:0.14.2")
+
+    // -- test --
+
+    testImplementation("com.tngtech.archunit:archunit-junit5:1.5.1")
+
+    testImplementation(platform("org.junit:junit-bom:5.14.4"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+    // https://mvnrepository.com/artifact/org.testcontainers/postgresql
+    testImplementation("org.testcontainers:postgresql:1.21.4")
+    testImplementation("org.testcontainers:junit-jupiter:1.21.4")
+
+    // https://mvnrepository.com/artifact/com.google.jimfs/jimfs  (an in-memory filesystem)
+    // Used by exactly one test: AtomicConfigWriter promises that a full disk cannot destroy the
+    // previous content, and Jimfs can be given a maximum size, so the promise is tested against
+    // the thing it is about. A directory with the write bit removed proves nothing when the build
+    // runs as uid 0, which the nordtal dev host does.
+    testImplementation("com.google.jimfs:jimfs:1.3.2")
+
+    // A logging backend for jcore's own tests only. Deliberately NOT exported - see README.
+    // https://mvnrepository.com/artifact/ch.qos.logback/logback-classic
+    testRuntimeOnly("ch.qos.logback:logback-classic:1.5.18")
+}
+
+tasks.register("sourcesJar", Jar::class) {
+    from(sourceSets.main.get().allSource)
+    archiveClassifier.set("sources")
+}
+
+tasks.register("javadocJar", Jar::class) {
+    from(tasks.javadoc)
+    archiveClassifier.set("javadoc")
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            from(components["java"])
+            // maven-publish does not pick these up by convention the way the Sonatype plugin
+            // did, so consumers get no in-IDE sources or docs unless they are added explicitly.
+            artifact(tasks["sourcesJar"])
+            artifact(tasks["javadocJar"])
+        }
+    }
+}
+
+tasks.test {
+    useJUnitPlatform()
+    testLogging {
+        events("passed", "skipped", "failed")
+    }
+}
+
+// A source file Git ignores compiles here and does not exist on a fresh checkout, which makes the
+// local build and CI two different programs - an unanchored directory pattern in .gitignore can
+// match a Java package as readily as a build artifact, and an *ignored* file is not an untracked
+// one, so `git status` stays clean regardless. .gitignore is anchored here for that reason; this
+// asks Git the question anyway, on every `./gradlew build`, before the commit that would hide it.
+val repositoryRootDirectory = layout.projectDirectory.asFile
+val sourceDirectoriesOfEverySourceSet = sourceSets.flatMap { it.allSource.srcDirs }
+
+val checkSourcesTracked =
+    tasks.register("checkSourcesTracked") {
+        group = "verification"
+        description = "Fails when a source file is ignored by Git and therefore missing from the repository."
+
+        // .gitignore, the global ignore file and the index are inputs no task can declare, so there is
+        // no honest up-to-date check here. The work is one `git` call.
+        outputs.upToDateWhen { false }
+
+        val taskPath = path
+        doLast {
+            if (!repositoryRootDirectory.resolve(".git").exists()) return@doLast
+
+            val pathspecs =
+                sourceDirectoriesOfEverySourceSet
+                    .filter { it.isDirectory }
+                    .map { repositoryRootDirectory.toPath().relativize(it.toPath()).joinToString("/") }
+                    .sorted()
+            if (pathspecs.isEmpty()) return@doLast
+
+            // Untracked *and* ignored: a tracked file that happens to match an ignore rule is still in
+            // the repository, which is all this cares about.
+            val command =
+                listOf(
+                    "git",
+                    "ls-files",
+                    "--others",
+                    "--ignored",
+                    "--exclude-standard",
+                    "-z",
+                    "--",
+                ) + pathspecs
+            val process =
+                ProcessBuilder(command)
+                    .directory(repositoryRootDirectory)
+                    .redirectErrorStream(true)
+                    .start()
+            process.outputStream.close()
+            val output = process.inputStream.bufferedReader().use { it.readText() }
+            val exit = process.waitFor()
+            if (exit != 0) {
+                throw GradleException("`${command.joinToString(" ")}` failed with exit code $exit:\n$output")
+            }
+
+            val ignored = output.split('\u0000').filter { it.isNotBlank() }
+            if (ignored.isNotEmpty()) {
+                throw GradleException(
+                    buildString {
+                        appendLine("Git ignores these files, so they are not in the repository:")
+                        ignored.forEach { appendLine("    $it") }
+                        appendLine()
+                        appendLine("They sit under a source directory covered by $taskPath, so this build sees them and a")
+                        appendLine("build from a fresh checkout does not. Find the rule with")
+                        appendLine("    git check-ignore -v <path>")
+                        appendLine("and anchor it in .gitignore (`/build/`, never a bare `build/`), then `git add` the files.")
+                    },
+                )
+            }
+        }
+    }
+
+tasks.named("check") {
+    dependsOn(checkSourcesTracked)
+}
+
+// CONVENTIONS.md, as far as a tool can check it. Formatting is always enforced. `conventions.comments`
+// enforces the comment and tracker-ID rules, `conventions.enforced` every rule; both are set in
+// gradle.properties once the code passes, or on the command line to see the findings.
+fun flag(name: String) = providers.gradleProperty(name).map { it.toBoolean() }.getOrElse(false)
+
+val conventionsEnforced = flag("conventions.enforced")
+val commentsEnforced = conventionsEnforced || flag("conventions.comments")
+
+spotless {
+    java {
+        target("src/*/java/**/*.java")
+        palantirJavaFormat("2.99.0")
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+    kotlinGradle {
+        target("*.gradle.kts")
+        ktlint("1.8.0")
+    }
+}
+
+checkstyle {
+    toolVersion = "14.1.0"
+    maxWarnings = 0
+    isIgnoreFailures = !commentsEnforced
+    isShowViolations = commentsEnforced
+    configProperties = mapOf("apiDocSeverity" to "error", "codeSeverity" to if (conventionsEnforced) "error" else "ignore")
+}
+
+tasks.named<Checkstyle>("checkstyleTest") {
+    configProperties = checkstyle.configProperties + ("apiDocSeverity" to "ignore")
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.errorprone {
+        enabled = conventionsEnforced
+        disableWarningsInGeneratedCode = true
+        // CONVENTIONS.md allows a doc comment of tags only when the name and tags say everything.
+        disable("MissingSummary")
+        check("NullAway", if (name == "compileJava") CheckSeverity.ERROR else CheckSeverity.OFF)
+        option("NullAway:AnnotatedPackages", "eu.nordtal")
+    }
+    if (conventionsEnforced) options.compilerArgs.add("-Werror")
+}
+
+tasks.test {
+    systemProperty("conventions.enforced", conventionsEnforced)
+}
+
+// Issue-tracker IDs never go into the repository; the pattern lists every prefix the trackers used.
+val trackerIdPattern = Regex("""\b(steward|season-2-ops|season-2-ingame|season-2-community|workspace)/\d+\b|\bNT\d+-\d+\b""")
+
+val checkNoTrackerIds =
+    tasks.register("checkNoTrackerIds") {
+        group = "verification"
+        description = "Fails when a tracked file mentions an issue-tracker ID."
+        outputs.upToDateWhen { false }
+        val root = repositoryRootDirectory
+        val enforced = commentsEnforced
+        doLast {
+            if (!root.resolve(".git").exists()) return@doLast
+            val process = ProcessBuilder("git", "ls-files", "-z").directory(root).start()
+            process.outputStream.close()
+            val files =
+                process.inputStream
+                    .bufferedReader()
+                    .use { it.readText() }
+                    .split('\u0000')
+                    .filter { it.isNotBlank() }
+            process.waitFor()
+            val hits =
+                files.flatMap { path ->
+                    val file = root.resolve(path)
+                    if (!file.isFile || file.length() > 1_000_000) return@flatMap emptyList()
+                    val text = runCatching { file.readText() }.getOrNull() ?: return@flatMap emptyList()
+                    if ('\u0000' in text) return@flatMap emptyList()
+                    text
+                        .lineSequence()
+                        .withIndex()
+                        .filter { trackerIdPattern.containsMatchIn(it.value) }
+                        .map { "$path:${it.index + 1}: ${trackerIdPattern.find(it.value)!!.value}" }
+                        .toList()
+                }
+            if (hits.isEmpty()) return@doLast
+            val report = "Issue-tracker IDs in the repository:\n" + hits.joinToString("\n") { "    $it" }
+            if (enforced) throw GradleException(report) else logger.lifecycle("${hits.size} issue-tracker IDs, not yet enforced.")
+        }
+    }
+
+tasks.named("check") {
+    dependsOn(checkNoTrackerIds)
+}

@@ -1,0 +1,25 @@
+# Actions are pinned to a commit SHA, since a tag can move; Dependabot updates the SHA and its `# vX.Y.Z`.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      # One pull request for all of them.
+      actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: ci
+
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      gradle:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: build

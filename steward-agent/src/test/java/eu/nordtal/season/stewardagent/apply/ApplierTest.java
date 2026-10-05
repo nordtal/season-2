@@ -112,9 +112,7 @@ class ApplierTest {
         apply(new Fake(), plan(outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar")));
 
         assertFalse(Files.exists(volumes.resolve("smp/plugins").resolve(Applier.STAGING)));
-        assertFalse(
-                Files.exists(volumes.resolve("smp").resolve(Applier.STAGING)),
-                "and not at the volume root either, which is where it used to be");
+        assertFalse(Files.exists(volumes.resolve("smp").resolve(Applier.STAGING)), "and not at the volume root either");
     }
 
     @Test
@@ -143,17 +141,6 @@ class ApplierTest {
         assertTrue(Files.exists(volumes.resolve("smp/.server/paper-26.2-125.jar")));
         assertFalse(Files.exists(volumes.resolve("smp/plugins").resolve(Applier.STAGING)));
         assertFalse(Files.exists(volumes.resolve("smp/.server").resolve(Applier.STAGING)));
-    }
-
-    @Test
-    void aStagingDirectoryLeftAtTheVolumeRootByAnOlderVersionIsSweptUp() throws IOException {
-        install("smp", "plugins/smp-0.1.0.jar");
-        install("smp", Applier.STAGING + "/smp-0.1.5.jar");
-
-        apply(new Fake(), plan(outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar")));
-
-        // A directory of jars nothing reads is a puzzle, not a harmless leftover.
-        assertFalse(Files.exists(volumes.resolve("smp").resolve(Applier.STAGING)));
     }
 
     @Test

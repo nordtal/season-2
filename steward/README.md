@@ -13,15 +13,12 @@ docker run --rm ghcr.io/nordtal/steward generate-vapid-keys            # a Web P
 
 Any other word is refused, so a typo never starts a second interface beside the running one.
 
-## Why one process
+## One process
 
-The interface and the runs used to be two services, joined by an internal HTTP API with a shared
-token, a proxy in the interface that forwarded every route to it, two configuration sets, two
-database pools and two ways to follow a container's log. All of that existed only to carry calls
-between two halves that serve the same admin. Now the stack routes (`api/Routes`) sit on the same
-Javalin as the rest and pass the same gates: a read needs a signed-in admin with a key
-(`KEY_HELD`), a change a fresh one (`KEY_FRESH`). The plugin "added by" comes from the session, and a
-long log follow re-checks the session once a second, so a sign-out ends it.
+The interface, the stack routes (`api/Routes`) and the runs' view share one Javalin and one set of gates:
+a read needs a signed-in admin with a key (`KEY_HELD`), a change a fresh one (`KEY_FRESH`). The plugin
+"added by" comes from the session, and a long log follow re-checks the session once a second, so a
+sign-out ends it.
 
 The process on the internet holds no Docker socket and mounts no volume.
 Everything Docker knows comes from `steward-agent` through `AgentClient`: the containers and their
@@ -30,19 +27,6 @@ next update. The managed plugins' list, search and add are passed through to the
 
 It logs in as `nordtal_steward` (`DatabaseRole.STEWARD`), never as the owner. Its tests open the
 database under that role too, so a statement steward was never granted fails in `check`.
-
-## Where a version comes from
-
-| what                                                 | source                                                     |
-| ---------------------------------------------------- | ---------------------------------------------------------- |
-| the season-2 jars, the resource pack and its `.sha1` | GitHub releases, `nordtal/season-2`                        |
-| PacketEvents                                         | Modrinth v2, filtered to the Minecraft version and `paper` |
-| Paper, Velocity                                      | PaperMC Fill v3, newest `STABLE` build                     |
-| what is installed                                    | the volumes under `volumes-root`                           |
-| what pack the proxy offers                           | the proxy's `pack` settings, `url` and `sha1`              |
-
-Every repository is read through `/releases/latest`, which skips drafts and pre-releases. There is no
-pin and no rollback: a bad release is corrected by publishing a better one.
 
 ## What it does
 

@@ -226,7 +226,7 @@ sourceSets.test {
 tasks.register<JavaExec>("generateApiTypes") {
     group = "build"
     description = "Writes frontend/src/lib/api.gen.ts and texts.gen.ts from steward's API records and bundles."
-    // Classes only, so the types can be written while the frontend does not build against the old ones.
+    // Classes only, so the types can be written while the frontend does not build.
     classpath =
         files(
             sourceSets["main"].output.classesDirs,

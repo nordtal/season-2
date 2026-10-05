@@ -185,8 +185,6 @@ public final class Applier {
 
     private Map<String, Path> stageWork(final Path volume, final List<Change> work, final Map<Path, Path> byDestination)
             throws IOException {
-        // Sweeps up the old layout's staging directory at the volume root.
-        deleteRecursively(volume.resolve(STAGING));
         final Map<String, Path> staged = new LinkedHashMap<>();
         for (final Change change : work) {
             final RemoteFile wanted = Objects.requireNonNull(change.wanted(), "work is filtered to wanted() != null");

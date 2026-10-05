@@ -59,25 +59,24 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
   it concerns and the line as a message of `AdminTexts`, its values typed; the row stores the message in `MessageJson`'s
   shape and never a sentence, so Steward's page and the bot's admin channel each render it through their own target.
   `AdminTexts` is the admin bundle, `messages/admin`, English only: the journal, the words for a run and the alerts,
-  which Steward and the bot share. A value keeps the name the journal's facts gave it before V21, which is what lets
-  the migration carry a typed line over as it was; a line from before typed values keeps its words as
+  which Steward and the bot share. A value keeps the name of the fact it states; a line without typed values keeps its words as
   `journal.written`.
 - **An alert**, a row of `admin_alert`, is told in the same bundle: its title a message and the lines below it a list
   of them, so a lock screen, the admin channel and Steward's page render one row three ways. Its subject stays a
-  name, which tells two alerts of a type apart. A row or a bot post from before V22 keeps its words as `alert.words`.
+  name, which tells two alerts of a type apart. A row or a bot post without typed words keeps them as `alert.words`.
   `DatabaseJson` is the kernel's codec with a message typed, and the one that writes a message into a row, the
   journal's, an alert's or an inbox payload; Steward's API is built on it.
 - **An announcement** is one message per language of this module's bundle, its `announcement` section, which the
   bot renders in that language and posts into that language's channel. The SMP writes a milestone, its name in each
   language; Steward writes an admin's words, declared `PLAIN` so the markdown in them stays theirs. Rendering at the
-  bot means an override of the text reaches a request already written. A request from before V24 keeps each language's finished text as `announcement.words`.
+  bot means an override of the text reaches a request already written. A request that carries finished text keeps each language's as `announcement.words`.
 - **The season phase** is one row every process follows on its hub. A switch into `SMP` from before the season stamps
   `fresh_start`, and smp starts its own track over once per stamp whenever it next sees the phase, so a server that
   was down at the switch still starts over and no other process writes smp's tables.
 - **A run** is a request in the run inbox, `steward_inbox`; a unique index keeps one open at a time. Its outcome is
   always an `UpdateReport`, stored through `DatabaseJson`: each note, each line's detail and each change no
   version names a message of the bundle's `report` section, its values typed, so Steward's page and the bot each render it and
-  `UpdateReports.english` prints it for the host. A report or a bare reason from before V26 keeps its words as
+  `UpdateReports.english` prints it for the host. A report or a bare reason without typed values keeps its words as
   `report.words`.
 - **A run's countdown** is typed columns the proxy reads: `scheduled_for` (when steward-agent may claim it),
   `countdown_end` (when the servers go down) and `moving` (what they are), never the report JSON.

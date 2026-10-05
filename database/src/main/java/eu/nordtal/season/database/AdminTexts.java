@@ -52,7 +52,7 @@ public interface AdminTexts {
     /**
      * One line per action, its values typed; the row stores the message, and each reader's target renders it.
      *
-     * A value keeps the name the old facts gave it, so a row the migration carried over renders as one written today.
+     * A value is named after the fact it states.
      */
     @Name("Journal")
     interface Journal {

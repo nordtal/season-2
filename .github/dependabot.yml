@@ -12,3 +12,25 @@ updates:
           - "*"
     commit-message:
       prefix: ci
+
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      gradle:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: build
+
+  - package-ecosystem: npm
+    directory: /steward/frontend
+    schedule:
+      interval: weekly
+    groups:
+      npm:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: build

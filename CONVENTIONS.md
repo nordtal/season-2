@@ -101,3 +101,44 @@ The release notes are generated from these subjects by git-cliff (`cliff.toml`).
 - **SQL migrations** are never reformatted: an applied migration whose checksum changes is refused
   by Flyway `validate()`.
 - The one file under `steward-bunq/src/main/java/com/bunq/sdk` keeps the vendor's package.
+- **Platform versions** have one source: the version catalog for Paper and Velocity, `Platform` for the
+  constants. `PlatformTest` holds them against their mirrors, and a new mirror is declared through
+  `repositoryRootTestInputs`, or the test cannot see it. _(checked)_ Minecraft versions read
+  `year.drop.hotfix`; Paper is an exact version, Velocity a family.
+- **No pin of a platform build**, in any form. steward-agent installs the newest `STABLE` build and the
+  entrypoint resolves the same one, each filtering the build list itself, since `/builds/latest` answers
+  any channel.
+- **Adventure comes from the platform** and is never pinned.
+- **Never shaded into a Paper plugin**: Gson, SnakeYAML and Brigadier, which the platforms ship, and
+  Flyway, which reaches neither `:common` nor `:database` either.
+- **Commands use Brigadier directly**, through each platform's own API. No command framework.
+- **jcore** reaches the shared modules at most `compileOnly`. A plugin takes it after deciding per
+  module, never by copying `discord-bot`'s dependency block.
+- **Signals**: no process keeps a poll of its own on database state; the hub's reconciliation is the
+  guarantee and a notification only makes a change feel instant. A notification is never the state, so
+  every wake-up and every reconnect re-reads in full. Every channel is a constant of `Channel`.
+- **Names are runtime identity.** A Paper plugin's `name:` matches its module directory and is its
+  `plugins/<name>/` data folder and permission prefix, so renaming one moves data folders on the host.
+  `proxy`'s annotated main class lives in `src/main/templates/`, Velocity's own recipe for a plugin
+  without a descriptor file.
+- **Production is one `docker compose` stack** of named services. No cloud or orchestrator dependency
+  without a concrete need.
+- **Compose**: every `${X:?}` in `compose.yml` has a value in `deploy/dev.env.example`, and a build arg
+  never uses `:?`, since Compose interpolates build args on a deploy that only pulls. steward schedules
+  nothing but request rows; carrying out a run is steward-agent's.
+
+### Design
+
+- **Steward is designed for the phone first.** The desktop layout follows from the narrow one, and
+  where the two disagree the phone wins.
+- **Steward shows data, not explanatory text.** A sentence stays when it says what the value beside it
+  does not and an admin would not know anyway, or when it keeps a state honest ("Some of the readings
+  could not be fetched"). Everything else goes into the doc comment.
+- **No text symbol as a separator**, such as the middle dot: one value, two values set apart, or the
+  second as an icon. _(middle dot checked)_
+- **Bordered elements are not nested.** Cards lie flat on the background, side by side; an inner card
+  becomes a heading.
+- **Every Discord embed carries the same dark blue line**, a success included. The outcome shows in the
+  content through one coordinated set of emojis, never mixed with text symbols.
+- **A visual change is accepted on screenshots** at phone and desktop width, compared with what was
+  intended, not on green tests alone.

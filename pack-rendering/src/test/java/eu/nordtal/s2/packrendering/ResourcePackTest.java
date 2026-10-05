@@ -205,9 +205,9 @@ class ResourcePackTest {
             final BufferedImage image = read(path);
             assertTrue(
                     !hasPixels(image, 0, 0, image.getWidth(), image.getHeight()),
-                    sprite + ".png has to be fully transparent: the owner asked for the hover"
-                            + " square to be gone everywhere a slot exists, chests included, and a"
-                            + " pixel in either layer puts it back.");
+                    sprite + ".png has to be fully transparent: the hover square is gone everywhere a"
+                            + " slot exists, chests included, and a pixel in either layer puts it"
+                            + " back.");
         }
     }
 

@@ -7,6 +7,7 @@ whether it is the network's, and any default of this process that differs from t
 - **Source**: `DatabaseSettings` publishes each group's schema and defaults into `setting_group` at
   load and composes its values: the spec's defaults, this process's own defaults, the rows an admin
   stored in `setting_override`, the environment, then the check. Only an admin's changes are rows.
+  So a changed default reaches every deployment at its next start, except where a row overrides that path.
   `listen` re-reads on the signal hub; a live group's holder keeps one instance whose values change.
   `EnvironmentSettings` is the bootstrap: the database connection, from the environment alone.
 - **Refusal**: a stored value the check refuses never stops a start. The group runs on its defaults,

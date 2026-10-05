@@ -109,12 +109,13 @@ final class SecondFactor {
     /**
      * Hands this browser a registration challenge.
      *
-     * A further key needs one already held this session, since adding an authenticator is as powerful as having one.
+     * A further key needs the key held within {@link Web#STEP_UP}: adding one is as powerful as having one.
      */
     void beginRegistration(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
-        if (credentials().any(who.signedInDiscordId()) && !who.verified()) {
-            throw new RequestRefused(403, ANSWER.keyFirst());
+        final boolean further = credentials().any(who.signedInDiscordId());
+        if (further) {
+            requireKeyRecently(who);
         }
         final WebAuthn.Ceremony ceremony =
                 webauthn().startRegistration(who.signedInDiscordId(), who.signedInDisplayName());
@@ -124,7 +125,7 @@ final class SecondFactor {
     }
 
     /**
-     * Takes the browser's answer, verifies it and writes the key down.
+     * Takes the browser's answer, verifies it and writes the key down, under the same rule as the start.
      *
      * The credential is a {@code String} field, since only the library may parse it and Gson must never see it.
      */
@@ -138,6 +139,11 @@ final class SecondFactor {
         if (label.isEmpty() || label.length() > MOST_LABEL) {
             throw new RequestRefused(400, ANSWER.keyName(MOST_LABEL));
         }
+        // Checked again here, since the window may have closed between the two routes.
+        final boolean further = credentials().any(who.signedInDiscordId());
+        if (further) {
+            requireKeyRecently(who);
+        }
         final String parked = sessions()
                 .consumeCeremony(who.id())
                 .orElseThrow(() -> new RequestRefused(400, ANSWER.ceremonyElsewhere(true)));
@@ -148,8 +154,10 @@ final class SecondFactor {
         } catch (WebAuthn.Refused refused) {
             throw new RequestRefused(400, refused.why());
         }
-        // Registering a key is holding it.
-        sessions().markVerified(who.id());
+        // Registering the first key is holding it; a further one leaves the window where the held key set it.
+        if (!further) {
+            sessions().markVerified(who.id());
+        }
         data().audit()
                 .record(who.ownLine(JournalAction.REGISTER_KEY, TEXTS.journal().registerKey(key.label())));
         ctx.json(new KeyRegistered(key.label(), key.userVerified(), key.backedUp()));

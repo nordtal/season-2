@@ -186,7 +186,10 @@ class WebAuthnKeyTest extends WebTestSupport {
 
         final HttpResponse<String> refused = post(stolen, "/auth/webauthn/register/start", "");
         assertEquals(403, refused.statusCode(), refused.body());
-        assertTrue(refused.body().contains("already has a key"), refused.body());
+        assertEquals(
+                "SECOND_FACTOR_REQUIRED",
+                GSON.fromJson(refused.body(), JsonObject.class).get("code").getAsString(),
+                refused.body());
     }
 
     @Test
@@ -381,5 +384,46 @@ class WebAuthnKeyTest extends WebTestSupport {
                 403,
                 put(browser, "/api/keys/" + authenticator.credentialId(), "{\"label\":\"mine now\"}")
                         .statusCode());
+        final HttpResponse<String> refused = post(browser, "/auth/webauthn/register/start", "");
+        assertEquals(403, refused.statusCode(), refused.body());
+        assertEquals(
+                "SECOND_FACTOR_REQUIRED",
+                GSON.fromJson(refused.body(), JsonObject.class).get("code").getAsString(),
+                refused.body());
+    }
+
+    @Test
+    void aFurtherKeyIsFinishedOnlyWhileTheKeyIsFresh() throws Exception {
+        final HttpClient browser = browser();
+        signIn(browser);
+        holdTheKey(browser, authenticator);
+        final HttpResponse<String> started = post(browser, "/auth/webauthn/register/start", "");
+        assertEquals(200, started.statusCode(), started.body());
+        heldLongAgo(browser);
+
+        final HttpResponse<String> refused =
+                finishRegistration(browser, new TestAuthenticator().register(started.body(), ORIGIN), "Too late");
+
+        assertEquals(403, refused.statusCode(), refused.body());
+        assertFalse(get(browser, "/api/me").body().contains("Too late"), "the key was registered after all");
+    }
+
+    @Test
+    void aFurtherKeyDoesNotRenewTheWindow() throws Exception {
+        final HttpClient browser = browser();
+        signIn(browser);
+        holdTheKey(browser, authenticator);
+        final String before = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
+                .get("verifiedAt")
+                .getAsString();
+
+        registerAKey(browser, new TestAuthenticator(), "Spare");
+
+        assertEquals(
+                before,
+                GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
+                        .get("verifiedAt")
+                        .getAsString(),
+                "registering a further key counted as holding one");
     }
 }

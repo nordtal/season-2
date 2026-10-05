@@ -81,7 +81,7 @@ export function useRegisterKey() {
       if (!browserHasSecurityKeys()) {
         throw new Error(t("steward.keys.browser-cannot"))
       }
-      const started = await api<CreationOptionsJson>("/auth/webauthn/register/start", { method: "POST" })
+      const started = await startRegistration()
       let credential: string
       try {
         credential = await createSecurityKey(started)
@@ -97,6 +97,22 @@ export function useRegisterKey() {
       return registered
     },
   })
+}
+
+/** Asks for a registration challenge once. */
+const askForRegistration = () => api<CreationOptionsJson>("/auth/webauthn/register/start", { method: "POST" })
+
+/** The registration challenge; a further key needs the key held recently, so a refusal holds it once and asks again. */
+async function startRegistration(): Promise<CreationOptionsJson> {
+  try {
+    return await askForRegistration()
+  } catch (refused) {
+    if (!(refused instanceof ApiError) || !refused.needsTheKeyAgain) {
+      throw refused
+    }
+    await holdTheKey()
+    return await askForRegistration()
+  }
 }
 
 /** Holds the key, then refetches `/api/me`, whose `verifiedAt` the shell and the step-up dialog read. */

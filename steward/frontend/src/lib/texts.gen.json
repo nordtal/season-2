@@ -678,7 +678,6 @@
     "steward.answer.guild-unreadable": [["The bot is in the guild but may not read it."]],
     "steward.answer.interrupted": [["Interrupted while talking to Discord."]],
     "steward.answer.keep-section": [[{"v":"path"}," has to keep the section whose ",{"v":"field"}," is ",{"v":"value"},"."]],
-    "steward.answer.key-first": [["This account already has a key, so adding another one needs the key you already have. Sign in again and use it first."]],
     "steward.answer.key-name": [["A key's name is 1 to ",{"v":"most","k":"number","s":"plain"}," characters."]],
     "steward.answer.key-not-accepted": [["That key was not accepted."]],
     "steward.answer.key-not-held": [["This sign-in has not used its security key yet."]],

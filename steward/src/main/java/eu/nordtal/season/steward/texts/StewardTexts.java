@@ -198,9 +198,6 @@ public interface StewardTexts {
             @Name("No key")
             MessageRef noKey();
 
-            @Name("Key first")
-            MessageRef keyFirst();
-
             @Name("Ceremony from elsewhere")
             MessageRef ceremonyElsewhere(@Arg("registration") boolean registration);
 

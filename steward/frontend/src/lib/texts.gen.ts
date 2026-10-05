@@ -808,7 +808,6 @@ export type TextArgs = {
     field: Arg["text"]
     value: Arg["text"]
   }
-  "steward.answer.key-first": Record<string, never>
   "steward.answer.key-name": {
     most: Arg["number"]
   }

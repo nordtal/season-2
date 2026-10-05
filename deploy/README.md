@@ -73,8 +73,9 @@ waits for the report, exactly like `./nordtal.sh update`. Only an install, or a 
 is down or unhealthy, gets a throwaway agent's `up`, which is the emergency repair.
 
 **The environment file** lives at the absolute path `STEWARD_ENV_FILE`, mode 600, outside the
-installation directory, and holds every secret. Edit it in place (`sed -i`); never `mv` a new file
-over it, because an older agent image binds the file itself and would keep the old inode.
+installation directory, and holds every secret. Edit it any way you like: steward-agent mounts its
+directory, not the file, so it sees a replaced file as well as one written in place, and every compose
+command it runs reads the file afresh. The next update run then renews whatever the edit changed.
 
 **Every hand-typed `docker compose` needs `--env-file` and the release.** Without the file Compose
 interpolates empty strings, which fails on `${X:?}` and silently changes everything else. The release

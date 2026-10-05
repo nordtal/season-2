@@ -20,6 +20,3 @@ the repository root, so the relative paths in `deploy/dev.env` resolve.
 The `resource pack` folder installs the pack into a Minecraft client; `resource-pack/README.md`
 explains it. The `tests:` folders are Gradle configurations, so results land in the test tree. The
 deploy script suites are skipped without bash 4 on the PATH; CI always runs them.
-
-There is one `mc` template rather than one configuration per console command, and none that wraps
-two commands.

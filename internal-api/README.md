@@ -21,9 +21,7 @@ The HTTP wire between `steward` and the services only it may call, `steward-agen
   a check whether the reader may still read, and every follow ended before Jetty stops. The agent's log streams and steward's
   relay of them are both one.
 
-The token is a second fence, not the only one. Both services sit on an internal Docker network
-shared with `steward` alone (see `compose.yml`), and `TopologyDeploymentTest` holds that shape.
+Both services also sit on an internal Docker network shared with `steward` alone;
+`TopologyDeploymentTest` holds that shape.
 
-Why a module of its own: the gate existed in `steward-agent` and was about to be written again for
-`steward-bunq`. `:architecture` keeps it to Javalin, Gson, slf4j and `:common`, so a service that depends
-on it takes nothing else along.
+`:architecture` keeps the module to Javalin, Gson, slf4j and `:common`.

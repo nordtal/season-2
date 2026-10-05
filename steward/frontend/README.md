@@ -6,7 +6,7 @@ Tailwind v4 and shadcn/ui. Every page talks to the Javalin process in `steward/s
 ## Running it
 
 The run configuration **dev ui** (or `./gradlew -q :dev:run --args="ui"`) starts the stack and runs
-Vite on http://localhost:5173; see [`deploy/README.md`](../../deploy/README.md#the-interface). With
+Vite on http://localhost:5173; see [`deploy/README.md`](../../deploy/README.md#locally). With
 the private Node from `steward/build/nodejs/` on `PATH`, or through `./gradlew :steward:viteTest`:
 
 ```sh

@@ -16,11 +16,9 @@ whether it is the network's, and any default of this process that differs from t
 - **References** (`@Refers`): a getter that names a game thing (an item, a statistic and the subject it
   counts, an advancement, a sound, a damage type and the like), a colour or a Discord role, channel or
   user says so, and `SpecJson.schema` puts it on the field as `refers`. Steward draws its picker from
-  that and from nothing else, so it never guesses from a key's name or a value's look. A subject
-  depends on its sibling `statistic`, whose registry it reads. Game values are namespaced keys
-  (`minecraft:oak_log`); the plugin binds each when it loads and refuses one it does not know, while
-  Steward stores whatever is picked or typed. The annotation lives here rather than in `:spec`'s schema
-  because it is the published schema that carries it, and that is `SpecJson`.
+  that alone. A subject depends on its sibling `statistic`, whose registry it reads. Game values are
+  namespaced keys (`minecraft:oak_log`); the plugin refuses one it does not know when it loads, while
+  Steward stores whatever is picked or typed.
 - **Shared groups**: `DatabaseSpec`, `ColoursSpec` (mapped onto the message tones by `Colours`) and
   `DistancesSpec`, whose defaults each Paper server sets for itself. `DatabasePool` opens the pool.
 - **The network's groups** (`network/`), stored once under the service `network` and read by every

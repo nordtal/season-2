@@ -2,25 +2,24 @@
 
 Everything nordtal.eu season 2 deploys: four Minecraft plugins, a Discord bot, the three Steward
 services and the resource pack. One Gradle build, one version in `gradle.properties`, one
-`docker compose` stack.
+`docker compose` stack. [`CONVENTIONS.md`](CONVENTIONS.md) holds the rules every change follows.
 
-## Installing
+## What it is
 
-On a host with Docker, in the directory the installation should live in:
+A Velocity proxy fronts three Paper backends. Every login lands in `limbo`, gets the resource pack and
+moves on to the backend the season phase names (the rows below). Access, language, phase and event state live in one
+PostgreSQL database, and Discord roles follow it. Steward is the admins' web interface and runs every
+update, restart and backup.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/nordtal/season-2/main/deploy/nordtal.sh | bash
-```
+| phase         | who lands where                                                   |
+| ------------- | ----------------------------------------------------------------- |
+| `PRE_LAUNCH`  | only admins get in; everybody else sees a countdown               |
+| `PRE_EVENT`   | every linked, non-banned member lands in the `hunger-games` lobby |
+| `START_EVENT` | the start event, admitted as in `PRE_EVENT`, on `hunger-games`    |
+| `SMP`         | the season on `smp`, for members with an active access period     |
+| `MAINTENANCE` | members wait in `limbo` while admins reach the servers            |
 
-The installation is that directory: worlds, database, plugin configuration and backups are folders
-in it. Secrets go to `/etc/nordtal/season-2.env`, mode 600. The script stays behind as
-`./nordtal.sh` to change a setting and redeploy. [`deploy/README.md`](deploy/README.md) is the
-runbook.
-
-## The network
-
-A Velocity proxy fronts three Paper backends. Every login lands on `limbo`, gets the resource pack,
-and moves on to the backend the current season phase names.
+## How it is built
 
 ```mermaid
 %%{init: {'themeVariables': {'fontSize': '16px'}}}%%
@@ -34,6 +33,7 @@ flowchart TB
             CADDY["<b>caddy</b><br/>HTTPS"]:::side
             UPD["<b>steward</b><br/><i>:steward</i><br/>the interface · payments · alerts"]:::app
             DEP["<b>steward-agent</b><br/><i>:steward-agent</i><br/>schema · every run · backups"]:::app
+            MIG["<b>migrate</b><br/><i>:steward-agent</i><br/>roles and schema, then exits"]:::app
             BANK["<b>steward-bunq</b><br/><i>:steward-bunq</i><br/>the only one that holds the bank key"]:::app
         end
         subgraph servers["Minecraft servers · one image"]
@@ -54,9 +54,11 @@ flowchart TB
     CADDY --> UPD
     UPD -->|"containers, plan, archives"| DEP
     UPD -->|"tabs, payments"| BANK
-    DEP ==>|"schema, then jars"| servers
+    DEP ==>|"jars, runs"| servers
     DEP ==> BOT
     DEP --> PG
+    MIG --> PG
+    DEP -.->|"runs first"| MIG
     NC -->|"pack"| LIMBO
     NC -->|"phase"| HG
     NC -->|"phase"| SMP
@@ -75,21 +77,23 @@ flowchart TB
     style steward fill:#e08c341a,stroke:#e08c34,stroke-width:1px
 ```
 
-Italic names are Gradle modules; every other box is a container in `compose.yml`. The libraries in
-the table below are compiled into the jars above.
+Italic names are Gradle modules; every other box is a container in `compose.yml`, which ships inside
+the `steward-agent` image. The libraries below are compiled into the jars above.
 
-- A standby instance of a service is its name plus `-standby` and runs the same jar and config.
-- The Steward services sit on their own Docker networks; the Minecraft servers do not, so no plugin
-  can reach the deploy API. `postgres` is on both. `steward-agent` and `steward-bunq` each share an
-  internal network with `steward` and nobody else; `steward-agent` also reaches postgres and the
-  release sources through `steward`'s network.
-- `steward` faces the internet and holds no Docker socket: `steward-agent` alone does, carries out
-  every run a row in `steward_inbox` asks for, and serves steward containers, logs, measurements,
-  archives and the plan of the next update.
-- The database is the source of truth for access, language, phase and event state. Discord roles
-  follow it.
+- **Networks.** The Minecraft servers share none with Steward, so no plugin reaches the agent.
+  `steward-agent` and `steward-bunq` each share an internal network with `steward` and nobody else.
+- **One door to Docker.** `steward` faces the internet and holds no Docker socket. `steward-agent`
+  does, and carries out every run a row in `steward_inbox` asks for.
+- **One holder of the bank key.** `steward-bunq` alone, and it decides nothing.
+- **Standbys.** `proxy-standby` and `limbo-standby` hold the network while an update replaces the real
+  service; Caddy hands port 25565 to whichever proxy is live.
+- **Commands** are Brigadier per plugin. An admin command is typed on that server's console, and what
+  Steward asks for is a typed request in that server's inbox, answered by the same action.
+- **Text** a player reads is German or English, looked up once per join off the main thread.
+- **Glyphs** are allocated in [`resource-pack/glyphs.json`](resource-pack/glyphs.json); the build writes
+  the fonts, `Glyphs` and the advance tables from it.
 
-## Modules
+### Modules
 
 | module              | platform        | what it owns                                                                                                     |
 | ------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -115,40 +119,42 @@ the table below are compiled into the jars above.
 | `resource-pack`     | assets          | The pack, the glyph allocation its fonts are written from, and the zip + SHA-1 a release ships.                  |
 | `architecture`      | tests           | The ArchUnit rules over every module's compiled classes: the dependency lists and the wiring.                    |
 
-## How the pieces fit
+[`architecture`](architecture/README.md) holds the dependency rules between them as tests.
 
-- **Commands** are native Brigadier per plugin. An admin command is typed on that server's console; what Steward
-  asks for is a typed request in that server's inbox, answered by the same action. Player commands also need
-  the network's command allowlist, a setting edited in Steward.
-- **Phases** are `PRE_EVENT`, `START_EVENT`, `SMP` and `MAINTENANCE`, one database row every process
-  re-reads through its signal hub.
-- **Access** is paid from `SMP` on; the start event is free for linked members. A bunq payment is
-  matched to an open reference and becomes an access period row.
-- **Text** a player reads is translated, German and English, looked up once per join off the main
-  thread.
-- **Glyphs** are allocated in [`resource-pack/glyphs.json`](resource-pack/glyphs.json), and the build
-  writes the font files, `Glyphs` and the advance tables from it.
-- **Update runs** park players on a `-standby` service while the real one is swapped. Caddy hands
-  port 25565 to whichever proxy is live.
-- **`compose.yml`** ships inside the `steward-agent` image. An update to a newer release runs in a
-  one-shot `steward-agent` at that release, which renews the long-running one last.
+## Operating it
 
-## Building
-
-Requires JDK 25.
+On a host with Docker, in the directory the installation should live in:
 
 ```bash
-./gradlew build
-./gradlew releaseArtifacts          # exactly what a release ships
-./gradlew :hunger-games:runServer   # a local Paper test server
-./gradlew -q :dev:run --args="init" # then --args="up": the whole network here
+curl -fsSL https://raw.githubusercontent.com/nordtal/season-2/main/deploy/nordtal.sh | bash
+```
+
+The installation is that directory: worlds, database, plugin configuration and backups are folders
+in it. Secrets go to `/etc/nordtal/season-2.env`, mode 600. The script stays behind as `./nordtal.sh`:
+
+```bash
+./nordtal.sh                 # the menu: what is set, change one, then deploy
+./nordtal.sh update          # update the whole network and wait for the report
+./nordtal.sh update --backup # one backup run
+```
+
+[`deploy/README.md`](deploy/README.md) is the runbook: first deployment, updates, backups, restore,
+firewall, troubleshooting.
+
+## Working on it
+
+Requires JDK 25. Build only the modules you touched.
+
+```bash
+./gradlew :smp:check                 # one module, with its tests and the convention checks
+./gradlew releaseArtifacts           # exactly what a release ships
+./gradlew :hunger-games:runServer    # a local Paper test server
+./gradlew -q :dev:run --args="init"  # then --args="up": the whole network here
 ```
 
 `dev deploy smp` rebuilds one module and restarts its container. `dev` is a Java program in `:dev`,
-run from IntelliJ's _dev: stack_ folder or as `./gradlew -q :dev:run --args="<command>"`; it needs
-Java and Docker on any operating system.
-
-## Releasing
+run from IntelliJ's _dev: stack_ folder or as `./gradlew -q :dev:run --args="<command>"`; it needs Java
+and Docker on any operating system. [`deploy/README.md`](deploy/README.md#locally) lists the commands.
 
 A release is a published GitHub release, not a pushed tag:
 
@@ -156,16 +162,11 @@ A release is a published GitHub release, not a pushed tag:
 gh release create v0.1.0 --target main --title v0.1.0 --generate-notes
 ```
 
-The `release` workflow refuses a tag that disagrees with `gradle.properties`, pushes every image
-tagged with the version alone, and only then attaches the four plugin jars and the pack. Rerun a failed build
-with `gh workflow run release.yml -f tag=v0.1.0`. A deploy only pulls, so an unpublished image fails
-with `denied`.
+The `release` workflow checks the tag against `gradle.properties`, pushes every image tagged with the
+version alone, then attaches the four plugin jars and the pack. Rerun a failed one with
+`gh workflow run release.yml -f tag=v0.1.0`.
 
-## Configuration
-
-Every config file is commented YAML described by a `@ConfigSpec` interface. Credentials arrive as
-environment variables; this public repository holds none.
-
-The one outbound call to a third party: Steward draws player heads from
-[mineatar](https://mineatar.io), sending it the `mc_uuid` on each render
-(the `web` group, `avatars.minecraft-head-base-url`; empty disables it).
+Every config file is commented YAML described by a `@ConfigSpec` interface, and credentials arrive as
+environment variables; this public repository holds none. The one outbound call to a third party is
+Steward drawing player heads from [mineatar](https://mineatar.io), sending it the `mc_uuid` (the `web`
+group, `avatars.minecraft-head-base-url`; empty disables it).

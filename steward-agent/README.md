@@ -2,140 +2,111 @@
 
 The one door to Docker and to the volumes, and the process that carries out every run. It holds the
 Docker socket and carries `compose.yml` inside its own image, so a change to the deployment is a new
-image of this service, renewed by the run of that release. Its image is also
-the `migrate` service, the only process that runs Flyway's `migrate`: it creates every role, applies
-the schema and exits, and every service with a database login waits for it to succeed. `serve`
-serves the API, installs whatever slot is still empty, reports ready and then claims runs from
-`steward_inbox`; the Minecraft services wait for it to become healthy. `steward` mounts no socket and reaches all of it through
-`:internal-api`'s `AgentClient`; `:architecture` refuses `java.net.UnixDomainSocketAddress` anywhere
-else, and any class of this module inside `steward`.
+image of this service. The same image is the `migrate` service, the only process that runs Flyway's
+`migrate`: it creates every role, applies the schema and exits, and every service with a database
+login waits for it. `steward` mounts no socket and reaches all of it through `:internal-api`'s
+`AgentClient`; `:architecture` refuses `java.net.UnixDomainSocketAddress` anywhere else.
+
+```bash
+steward-agent up                          # the setup script: pull, then up, wait, exit with the code
+steward-agent serve                       # the API, then runs (default in the container)
+steward-agent migrate                     # the migrate service: roles, schema, exit code
+steward-agent run ID                      # the one-shot: the run handed to it, then exit
+steward-agent request KIND [a,b] [MIN]    # ask for a run, as a button would; prints its id
+steward-agent status ID                   # the run's status, a tab and its report
+```
+
+`serve` serves the API, installs whatever slot is empty, reports ready and then claims runs from
+`steward_inbox`; the Minecraft services wait for it to be healthy. The host reaches `request` and
+`status` through `docker exec <project>-steward-agent-1`, writing and reading the row a button does.
 
 ## What it will not do
 
-- **Recreate itself.** `steward-agent` is refused wherever a service name is accepted, since
-  the new container would kill the process handling the request. A one-shot renews it.
+- **Recreate itself.** `steward-agent` is refused wherever a service name is accepted; a one-shot renews it.
 - **Run another release.** An update to a newer release goes to a one-shot at that release.
 - **Pull dependencies along.** Every `up` carries `--no-deps`.
-- **Schedule.** A run happens only when a row in `steward_inbox` asks for one: a button in steward,
-  `/update` in Discord or in game, a clock in steward, or `steward-agent request` on the host. The
-  sampler is the one thing it does on its own clock, and it only reads.
+- **Schedule.** A run starts only from a row in `steward_inbox`: a button, `/update`, a clock in
+  steward or `steward-agent request`. The sampler is the one thing on its own clock, and it only reads.
 - **Hand out secrets.** Nothing on the wire carries a container's environment or the env file.
-
-## Run it
-
-    steward-agent up                          # the setup script: pull, then up, wait, exit with the code
-    steward-agent serve                       # the API, then runs (default in the container)
-    steward-agent migrate                     # the migrate service: roles, schema, exit code
-    steward-agent run ID                      # the one-shot: the run handed to it, then exit
-    steward-agent request KIND [a,b] [MIN]    # ask for a run, as a button would; prints its id
-    steward-agent status ID                   # the run's status, a tab and its report
-
-The host reaches the last two through `docker exec <project>-steward-agent-1`, which is what
-`./nordtal.sh update` does. They write and read the same row a button does, so the open run in the
-inbox is the one lock for the host as well.
 
 ## Runs
 
-Every kind is one sequence, `Run`: plan, open the standbys, count down, evacuate, wait until empty,
-stop, carry out the payload, start, verify, close the standbys and settle. `Kinds` holds one planner
-per kind; a plan that stops nothing (a `START`, or an update with nothing to do) counts nobody down.
-The kinds are `UPDATE`, `RESTART`, `BACKUP`, `DOWN`, `START`, `RECREATE`, `DEPLOY`, `RESTORE` and
-`REMOVE_PLUGIN`; a kind's payload is the request's, typed in `StewardRequest`.
+```mermaid
+flowchart LR
+    row["steward_inbox row"] --> plan --> standbys["open standbys"] --> count["count down"] --> evac["evacuate"]
+    evac --> stop --> payload["carry out the payload"] --> start --> verify --> settle["close standbys, settle"]
+```
 
-A `RECREATE` makes the named containers again from the images on this host, a `DEPLOY` pulls first.
-Caddy, pack-host and postgres are made again only once the rest is back, and only in a run that
-counts down, since every server's connections go through them. A `REMOVE_PLUGIN` stops its one
-server, deletes the added plugin's jar and data folder and starts it again.
+Every kind is this one sequence, `Run`; `Kinds` holds one planner per kind, and a plan that stops
+nothing counts nobody down. The payload is the request's, typed in `StewardRequest`.
 
-A `RESTORE` puts one archive back. A volume archive stops what mounts the volume, saves the volume as
-it is, then unpacks the archive into it. A dump is preceded by a fresh dump with everything running,
-stops every service of ours that runs on the database, and replaces the `public` schema in one
-transaction, so a failed restore leaves the database as it was. The run then runs the `migrate` service
-against it, and the run's row, which the dump did not hold as it is now, is carried across; rows the dump
-held open are failed. `deploy/restore.sh` remains for the host when steward-agent itself is down.
+| kind            | payload                                                                                                                |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `UPDATE`        | resolve what is newer, stage it, migrate, move the jars, recreate moved images                                         |
+| `RESTART`       | restart the named services, install nothing                                                                            |
+| `BACKUP`        | dump and tar the backup set, then copy the newest archives offsite                                                     |
+| `DOWN`, `START` | stop a service and hold it down, release a hold                                                                        |
+| `RECREATE`      | make the named containers again from the images on this host; `DEPLOY` pulls first                                     |
+| `RESTORE`       | put one archive back; a dump is preceded by a fresh dump and replaces `public` in one transaction, then `migrate` runs |
+| `REMOVE_PLUGIN` | stop one server, delete the plugin's jar and data folder, start it                                                     |
 
-A `BACKUP` copies the newest archive of every series into the offsite restic repository once
-everything is started again, so the upload keeps nobody waiting; see `deploy/README.md`.
+Caddy, pack-host and postgres are made again only once the rest is back, in a run that counts down.
+A run's report is messages of the admin bundle (`report.*` in `:database`'s `AdminTexts`): every note,
+line detail and change but an installed version's is a message reference with typed values, which
+Steward's page and the bot's update feed render for their reader, and `status ID` prints in English.
+What a subsystem answered (a Docker or `pg_dump` error, a source's answer) is a value of the message
+that names it, or `report.words`.
 
-The run never stops steward-agent. A run that names it is refused.
+### Another release
 
-A run's report says what happened in messages of the admin bundle (`report.*` in `:database`'s
-`AdminTexts`): every note, every line's detail and every change but an installed version's
-(`Change.told`) is a message reference with typed values, a size or a duration included, which Steward's
-page and the bot's update feed render for their reader, and `status ID` prints in English.
-What a subsystem answered, a Docker or pg_dump error or a source's answer to the resolver, is carried
-as a value of the message that names it, or as `report.words` when the answer is all there is. The
-resolver's reasons are messages too, so a line that explains another (the pack left unchecked, a jar
-held back) carries the reason as a `message` value, and the updates page shows the same reason the
-report does. The
-kind of run a note speaks of is an `Undertaking`, so one message says "nothing was installed" for an
-update and "nothing was saved" for a backup. The directory refuses an outcome that is not a report.
+`serve` carries out runs of its own release. An update to a newer release, or one that finds the
+agent's own container out of date, goes to a one-shot:
 
-## Another release
-
-`serve` carries out runs of its own release only. An update whose newest release is later than the
-agent, or that finds the agent's own container out of date, is handed to a one-shot:
-
-1. `serve` writes the one-shot's name, `<project>-steward-agent-run`, into the row's `runner` column.
-   The row stays `RUNNING` and is the lock: the inbox holds one open run.
+1. `serve` writes `<project>-steward-agent-run` into the row's `runner` column; the row stays
+   `RUNNING` and is the lock.
 2. It pulls `steward-agent` at that release, copies that image's `compose.yml` out and starts the
-   one-shot from it with `compose run --rm`, so the one-shot is made exactly as that release defines
-   the agent. Nothing has stopped yet.
-3. The one-shot (`steward-agent run ID`) plans again at its release, counts down, stops what changes,
-   runs `migrate` with those servers stopped, installs, starts and verifies.
-4. Last it makes the long-running `steward-agent` again at its release and waits for it to be healthy,
-   then settles the row and exits.
+   one-shot from it with `compose run --rm`.
+3. The one-shot (`steward-agent run ID`) plans again, counts down, stops what changes, runs `migrate`,
+   installs, starts and verifies.
+4. Last it makes the long-running agent again at its release, waits for it to be healthy and settles the row.
 
-The one-shot stops the long-running agent only by replacing it in step 4, after `migrate`. From the
-hand-over until the row is settled the agent is up but paused: it serves state, logs, the console
-and the plan to Steward and to `nordtal.sh`'s waiter, and claims no request of any kind, a backup
-included. The agent made in step 4 starts paused for the same reason and claims again once the
-one-shot has settled the row. A row whose one-shot is gone without settling it is failed at the next
-wake-up, which lets the lock go and ends the pause.
-An older release is refused: no schema goes back.
-
-The one-shot's container is removed once it exits, so from its first line on it copies everything it
-writes into `runs/<id>.log` under the backups, `steward-backups/runs/` on the host, unbuffered; a run
-that failed or was killed leaves its log there. The newest ten stay. The archive list and the backup
-retention read only the files directly in the backups, so neither sees the folder.
+From the hand-over until the row is settled the agent is up but paused: it serves state, logs, the
+console and the plan, and claims no request. A row whose one-shot is gone without settling it is
+failed at the next wake-up. An older release is refused. The one-shot copies its output into
+`steward-backups/runs/<id>.log` (the newest ten stay); archive listing and retention read only the
+files directly in the backups.
 
 ## Where a version comes from
 
-| what                                                 | source                                                     |
-| ---------------------------------------------------- | ---------------------------------------------------------- |
-| the season-2 jars, the resource pack and its `.sha1` | GitHub releases, `nordtal/season-2`                        |
-| PacketEvents                                         | Modrinth v2, filtered to the Minecraft version and `paper` |
-| Paper, Velocity                                      | PaperMC Fill v3, newest `STABLE` build                     |
-| what is installed                                    | the volumes under `volumes-root`                           |
-| what pack the proxy offers                           | the proxy's `pack` settings, `url` and `sha1`              |
-
-The repository is read through `/releases/latest`, which skips drafts and pre-releases. There is no
-pin and no rollback: a bad release is corrected by publishing a better one.
+| what                                                 | source                                                          |
+| ---------------------------------------------------- | --------------------------------------------------------------- |
+| the season-2 jars, the resource pack and its `.sha1` | GitHub releases, `nordtal/season-2`, through `/releases/latest` |
+| PacketEvents                                         | Modrinth v2, filtered to the Minecraft version and `paper`      |
+| Paper, Velocity                                      | PaperMC Fill v3, newest `STABLE` build                          |
+| what is installed                                    | the volumes under `volumes-root`                                |
+| what pack the proxy offers                           | the proxy's `pack` settings, `url` and `sha1`                   |
 
 ## Rules
 
-- `serve` is not a scheduler. It acts only on rows in its inbox, `steward_inbox`, and never migrates.
-  The one other thing it does is draw item icons: when `mojang-assets` is on and a server exported a
-  Minecraft version without icons, it fetches that version's client jar from Mojang, checks its sha1,
-  draws every item at 32 pixels into one sheet in `game_assets` and deletes the jar. A version whose jar
-  could not be fetched waits an hour. Nothing of Mojang's is kept, baked or published.
+- `serve` acts only on rows in its inbox and never migrates. Its one other job is item icons: with
+  `mojang-assets` on and a server exporting a Minecraft version without icons, it fetches that
+  client jar, checks its sha1, draws every item at 32 pixels into one sheet in `game_assets` and
+  deletes the jar. Nothing of Mojang's is kept.
 - An update stops the services whose jars or containers change, runs `migrate`, installs, starts
   them and waits for healthy. `bootstrap` fills empty slots and restarts nothing. A report writes nothing.
-- Two steward processes cannot serve or move jars at once; both are advisory locks, and the second is
-  refused.
+- Two steward processes cannot serve or move jars at once (advisory locks).
 - Artefacts are staged in `.nordtal-staging` inside the server's volume and move only when all are
-  present. A server moves together or not at all.
-- Nothing it does not account for is deleted, and only after the new jar is in place.
-- Every file a run or `bootstrap` moves into place is noted in `plugin_file` with the agent's own
-  release, one row per server and artefact. Images carry their release in the tag; the plugins and
-  Paper and Velocity are files, so this note is how Steward's plugins tab names the release that
-  installed each jar. A jar copied in by hand has no note and shows none.
+  present; nothing it does not account for is deleted, and only after the new jar is in place.
+- Every file a run moves into place is noted in `plugin_file` with the agent's release, which is how
+  Steward's plugins tab names the release that installed a jar.
 - A version not tagged for the platform is refused. "Skipped" is distinct from success and failure.
+- A deployment pulls every image before it stops anything; a failed pull is tolerated only when the
+  image is already on the host.
 
 ## The contract
 
-The paths and records are `AgentWire`, the client is `AgentClient`; both live in `:internal-api`,
-so steward and this service compile against one definition. `{service}` is a compose service name.
+`AgentWire` holds the paths and records and `AgentClient` the client, both in `:internal-api`.
+`{service}` is a compose service name.
 
 | Route                                             | Answer                                                                                 |
 | ------------------------------------------------- | -------------------------------------------------------------------------------------- |
@@ -150,9 +121,9 @@ so steward and this service compile against one definition. `{service}` is a com
 | `GET /api/host`                                   | `Host`: `/proc`, the root filesystem and Docker's disk use                             |
 | `GET /api/volumes/{service}/disk`                 | `Disk`: `du` of that service's volume; `404` for one not mounted here                  |
 | `GET /api/bundles`                                | `BundleRef`s: every message bundle a jar carries, before it is opened                  |
-| `GET /api/bundles/{service}?module=`              | one `MessageBundle`, the packaged texts; Steward keeps the overrides in the database   |
+| `GET /api/bundles/{service}?module=`              | one `MessageBundle`, the packaged texts                                                |
 | `GET /api/descriptors`                            | `Descriptor`s: what each jar of ours says of itself, one per id                        |
-| `GET /api/samples?after=`                         | the sampler's `Round`s after an ISO instant, oldest first; all it holds without one    |
+| `GET /api/samples?after=`                         | the sampler's `Round`s after an ISO instant, oldest first                              |
 | `GET /api/backups`                                | `Archive`s, newest first                                                               |
 | `GET /api/backups/{name}`                         | one finished archive's bytes; `400` for a name that is not one, `404` when it is gone  |
 | `GET /api/plan`                                   | what the next update would change, resolved now; changes nothing                       |
@@ -160,30 +131,27 @@ so steward and this service compile against one definition. `{service}` is a com
 | `GET /api/plugins/{service}/search?q=`            | Modrinth's answer for that server's platform                                           |
 | `POST /api/plugins/{service}?by=`                 | adds a plugin to the list the next run installs; removing one is a `REMOVE_PLUGIN` run |
 
+Every route but `/api/health` needs `X-Steward-Token`, and the service refuses to start without it;
+the gate is `:internal-api`'s, shared with `steward-bunq`. A refusal is a `Refusal` (`error`, the
+sentence to show, `where`): `502` with `docker` or `compose` when the daemon or a Compose command
+failed, `400` with `steward-agent` for a request it will not run. `steward` passes `where` through.
+
 A descriptor is the `nordtal-plugin.json` the `nordtal.plugin-descriptor` convention writes into every
-jar of ours: the id its settings are published under, the name and logo Steward's sidebar shows, and
-per group the custom editor that draws it instead of the form from its schema. A plugin's jar is
-found beside its data under `/configs/<service>`; a service's own jar is copied out of its image.
+jar of ours: the id its settings are published under, the name and logo for Steward's sidebar and
+the custom editor per group. A plugin's jar is found beside its data under `/configs/<service>`.
 
-A refusal is a `Refusal` (`error`, the sentence to show, and `where`): `502` with `where` `docker`
-when the daemon failed, `502` with `compose` when a Compose command did, `400` with
-`steward-agent` for a request it will not run. steward passes `where` through, so the interface
-names the daemon and not the agent.
+**Networks.** `steward` reaches the agent on the internal `agent` network. The agent reaches postgres
+on `agent-database` and GitHub, Modrinth and PaperMC through `agent-egress`, which nobody else is on.
 
-Every route but `/api/health` needs `X-Steward-Token`, and the service refuses to start without it.
-The gate is `:internal-api`'s, the same one `steward-bunq` runs behind. steward reaches it on the
-internal `agent` network. It reaches postgres on the internal `agent-database` network and GitHub,
-Modrinth and PaperMC through `agent-egress`, a network nobody else is on.
+**Console.** The set is the label `eu.nordtal.console: "true"`, read through `docker compose config`.
+A line goes to `mc` as one argument, never through a shell, and the log names who typed it by the
+`Actor` the wire carries. An added plugin's row holds the same actor as `actor_kind` and `actor_id`,
+taken from the session and never from the browser.
 
-The console set is the label `eu.nordtal.console: "true"` in `compose.yml`, read through
-`docker compose config`; a line goes to `mc` as one argument, never through a shell, and the log
-names who typed it by the `Actor` the wire carries, its kind and Discord id. An added plugin's row holds
-the same actor as `actor_kind` and `actor_id`; steward takes it from the session, never from the browser. The backup set is the agent's own mounts under `/backup-sources`, and the stop
-set the label `eu.nordtal.backup: stop`; `/api/topology` serves both, and steward keeps no list of
-either.
+**Backup set and stop set.** The agent's own mounts under `/backup-sources` and the label
+`eu.nordtal.backup: stop`; `/api/topology` serves both, and steward keeps no list of either.
 
-The servers and the network page's picture are labels too, and nothing in Java or TypeScript mirrors
-them:
+**Labels** drive the servers and the network page, and nothing in Java or TypeScript mirrors them:
 
 | label                   | on                               | says                                                                         |
 | ----------------------- | -------------------------------- | ---------------------------------------------------------------------------- |
@@ -196,18 +164,17 @@ them:
 | `eu.nordtal.reaches`    | `proxy`, `steward`, `caddy`      | the services it sends requests to, space separated                           |
 | `eu.nordtal.stores-in`  | every service with a login       | the services it keeps its data in, space separated                           |
 
-The Minecraft entrypoint reads `eu.nordtal.server` and `eu.nordtal.plugins` as `SERVER_KIND` and
-`SERVER_PLUGINS`, YAML aliases of the labels, so the guard and the agent read one string. The sampler reads `docker stats` and `/proc` every 30 seconds and keeps the
-last hour; steward copies what it took into `metric_sample`, asking after the newest round it
-already holds, so a restart of either loses nothing.
+The entrypoint reads `eu.nordtal.server` and `eu.nordtal.plugins` as `SERVER_KIND` and
+`SERVER_PLUGINS`, YAML aliases of the labels, so the guard and the agent read one string. The sampler
+reads `docker stats` and `/proc` every 30 seconds and keeps the last hour; `steward` copies new
+rounds into `metric_sample`, asking after the newest it holds.
 
-A deployment pulls every image before it stops anything. A failed pull is tolerated only when the
-image is already on the host.
+## Settings
 
 The connection comes from the environment (`NORDTAL_STEWARD_AGENT_DATABASE_*`, with one
-`..._<ROLE>_PASSWORD` per service role it creates before migrating); everything a run reads is the
-`runs` group in the database, edited in Steward: the release sources, the volumes root, the timeouts,
-the backup retention and how long a backup waits for a server to stop.
+`..._<ROLE>_PASSWORD` per service role it creates before migrating). Everything a run reads is the
+`runs` group in the database, edited in Steward: release sources, volumes root, timeouts, backup
+retention and how long a backup waits for a server to stop.
 
 | Setting (`NORDTAL_STEWARD_AGENT_*`) | Default                | What                                                                |
 | ----------------------------------- | ---------------------- | ------------------------------------------------------------------- |
@@ -219,33 +186,26 @@ the backup retention and how long a backup waits for a server to stop.
 | `BACKUP_SOURCES`                    | `/backup-sources`      | one mount per volume a backup saves and a restore writes back       |
 | `BACKUPS`                           | `/backups`             | the archives, the same volume postgres dumps into                   |
 
-## Tests
+## Building and testing
 
-`./gradlew :steward-agent:test` needs no network. Fixtures in `src/test/resources/fixtures/` were
-recorded from the live GitHub, Modrinth and PaperMC APIs, and `TopologyTest` reads the real
-`compose.yml`.
+```bash
+./gradlew :steward-agent:test           # no network; fixtures in src/test/resources/fixtures/ are recorded API answers
+./gradlew :steward-agent:imageContext   # the jar and compose.yml, staged into build/image/
+docker build -f deploy/jvm/Dockerfile --build-arg MODULE=steward-agent -t ghcr.io/nordtal/steward-agent:dev .
+```
 
-## Building
-
-    ./gradlew :steward-agent:imageContext   # the jar and compose.yml, staged into build/image/
-    docker build -f deploy/jvm/Dockerfile --build-arg MODULE=steward-agent -t ghcr.io/nordtal/steward-agent:dev .
+`TopologyTest` reads the real `compose.yml`.
 
 ## Where things live
 
-- `Compose`: every `docker compose` command line, this service's and `dev`'s. `dev` builds its
-  lines here and runs them on its own terminal, so the local stack and the deployment cannot drift
-  apart in how they call Compose; `:architecture` lets it take nothing else of this module.
-- `StewardAgent`: the entry points; the server and its gate are `:internal-api`'s. `HostRequests`
-  is `request` and `status`.
-- `run`: the inbox loop (`UpdateServer`, `Runner`), the one sequence (`Run`, `Choreography`,
-  `UpdateRun`) and the kinds (`Kinds`). `LocalStack` and `LocalSnapshots` are the containers and the
-  archives a run acts on.
+- `Compose`: every `docker compose` command line, this service's and `dev`'s, so the local stack and
+  the deployment call Compose alike; `:architecture` lets `dev` take nothing else of this module.
+- `StewardAgent`: the entry points; `HostRequests` is `request` and `status`.
+- `run`: the inbox loop (`UpdateServer`, `Runner`), the sequence (`Run`, `Choreography`, `UpdateRun`)
+  and the kinds (`Kinds`). `LocalStack` and `LocalSnapshots` are the containers and archives a run acts on.
 - `plan`, `apply`, `source`, `plugin`: resolving what is current, placing it, where versions come
   from, and the managed plugins. `schema`: the migration and the roles.
-- `gamedata`: the icons. `MojangClient` finds and fetches a client jar, `IconPainter` draws one item
-  from its definition and models (`Raster`, `Model`, `Face`, `StandIns` for what the game draws in
-  code), `IconSheet` lays them out, `GameAssets` is the loop.
-- `AgentApi`: every other route, composed in one place: `docker` (the socket, containers, the
-  console), `logs`, `measure` (host, sampler), `backup` and `topology`.
+- `gamedata`: the icons (`MojangClient`, `IconPainter`, `IconSheet`, `GameAssets`).
+- `AgentApi`: every other route, composed in one place: `docker`, `logs`, `measure`, `backup`, `topology`.
 - Test fixtures: `FakeDaemon`, a socket that answers like Docker, and `AgentStandIn`, this API over
   it, which steward's own tests talk to through the real client.

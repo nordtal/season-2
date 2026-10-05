@@ -17,21 +17,16 @@ it buys are `steward`'s and the bot's. Without `NORDTAL_STEWARD_BUNQ_API_KEY` an
 
 A bank error is a `502` with bunq's own words as the body, so `steward` can show them unchanged.
 
-## Why it is a process of its own
+## Boundaries
 
-- **The key has one holder.** `steward` faces the internet; a key in its environment is a key every
-  bug there can leak. `:architecture` refuses `com.bunq` outside this
-  module, and `TopologyDeploymentTest` refuses the key in any other service's environment.
-- **Only `steward` reaches it.** It joins the internal `bank` network, shared with `steward` alone,
-  and `bank-egress`, its own way out to bunq. No Minecraft server, no Caddy and no Postgres can
-  open a connection to it.
-- **It keeps no business state.** No database, no schema, nothing to migrate. The only file it
-  writes is bunq's session context in `bunq-context`. bunq binds a context to the device and IP that
-  registered it, so a context made fresh on every start would register a new device at bunq each
-  time. The context is never copied to another host; a move registers anew.
-
-What crosses the wire is filtered here: only incoming euro payments with an id and a readable time.
-The watermark and the already-booked check stay in `steward`, which owns the requests.
+- **One holder of the key.** `:architecture` refuses `com.bunq` outside this module, and
+  `TopologyDeploymentTest` refuses the key in any other service's environment.
+- **Only `steward` reaches it**, over the internal `bank` network shared with `steward` alone; its own
+  way out to bunq is `bank-egress`.
+- **No business state.** No database and no schema; the one file it writes is bunq's session context
+  in `bunq-context`, which is bound to the device and IP that registered it and never copied to another host.
+- **Filtered here.** Only incoming euro payments with an id and a readable time cross the wire; the
+  watermark and the already-booked check stay in `steward`.
 
 ## Where things live
 

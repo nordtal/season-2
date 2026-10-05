@@ -50,6 +50,16 @@ public final class Data {
         this.bot = Inbox.over(database.dataSource(), BotRequest.TABLE);
     }
 
+    /** Whether PostgreSQL answers a trivial query now, within the pool's timeout; any failure is a no. */
+    public boolean answers() {
+        try (java.sql.Connection connection = database.dataSource().getConnection();
+                java.sql.Statement statement = connection.createStatement()) {
+            return statement.execute("SELECT 1");
+        } catch (final java.sql.SQLException | RuntimeException failed) {
+            return false;
+        }
+    }
+
     /** The pool itself, for {@code steward_session} and the tables only the web reads. */
     public javax.sql.DataSource dataSource() {
         return database.dataSource();

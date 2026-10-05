@@ -255,11 +255,11 @@ sudo bash deploy/restore.sh nordtal-<stamp>.dump                    # the databa
 Every alert runs inside the stack, so an uptime service outside the host checks three things every
 minute from four locations and posts to a webhook in the admin channel:
 
-| check            | target                                                            | down means                                      |
-| ---------------- | ----------------------------------------------------------------- | ----------------------------------------------- |
-| Steward          | `https://<STEWARD_HOST>/api/health`, `"agent":true`               | Steward, Caddy or steward-agent does not answer |
-| game port        | TCP `<NETWORK_PUBLIC_ADDRESS>`                                    | the host, Docker or Caddy is down               |
-| game, end to end | `https://api.mcsrvstat.us/simple/<address>`, 200, every 5 minutes | no proxy answers a status ping                  |
+| check            | target                                                            | down means                                                  |
+| ---------------- | ----------------------------------------------------------------- | ----------------------------------------------------------- |
+| Steward          | `https://<STEWARD_HOST>/api/health`, 200                          | Steward, Caddy, PostgreSQL or steward-agent does not answer |
+| game port        | TCP `<NETWORK_PUBLIC_ADDRESS>`                                    | the host, Docker or Caddy is down                           |
+| game, end to end | `https://api.mcsrvstat.us/simple/<address>`, 200, every 5 minutes | no proxy answers a status ping                              |
 
 All three failing means the host is down: reach it through the provider's console, or set the stack
 up again on a new host from the backups.

@@ -150,11 +150,15 @@ abstract class WebFixture {
      * A new {@link StackApi} each time, since stopping a {@link Web} closes the one it was given.
      */
     static Web newWeb() {
-        final AgentClient client = new AgentClient(agent.client());
+        return newWeb(data, new AgentClient(agent.client()));
+    }
+
+    /** The same interface over another database and another agent, for a test that breaks one of them. */
+    static Web newWeb(final Data over, final AgentClient client) {
         final StackApi stack = new StackApi(
                 client,
-                data.updates(),
-                data.audit(),
+                over.updates(),
+                over.audit(),
                 new StackApi.Nightly("04:45", List.of("MONDAY"), "05:15", List.of(), ZoneId.of("Europe/Berlin")),
                 Clock.systemUTC(),
                 TestScheduler.SHARED);
@@ -165,7 +169,7 @@ abstract class WebFixture {
                 stack,
                 client,
                 true,
-                data,
+                over,
                 NetworkSettings.defaultLanguages(),
                 Clock.systemUTC(),
                 TestScheduler.SHARED);

@@ -85,10 +85,13 @@ class WebRoutesTest extends WebTestSupport {
 
     @Test
     void healthIsOpen() throws Exception {
-        final JsonObject health = GSON.fromJson(get(browser(), "/api/health").body(), JsonObject.class);
+        final HttpResponse<String> answer = get(browser(), "/api/health");
+        final JsonObject health = GSON.fromJson(answer.body(), JsonObject.class);
 
-        assertEquals("ok", health.get("status").getAsString());
+        assertEquals(200, answer.statusCode(), answer.body());
+        assertTrue(health.get("database").getAsBoolean(), "the test database is up");
         assertTrue(health.get("agent").getAsBoolean(), "the stand-in agent is up");
+        assertEquals(2, health.size(), "a route open to anyone says nothing beyond the two booleans: " + health);
     }
 
     /**

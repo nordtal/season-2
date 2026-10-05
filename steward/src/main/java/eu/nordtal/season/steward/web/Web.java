@@ -55,6 +55,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -82,6 +83,9 @@ public final class Web {
     public static final String GENERATE_VAPID_KEYS = "generate-vapid-keys";
 
     private final WebSpec config;
+
+    /** Whether PostgreSQL answers right now, for the health route; false without a database. */
+    private final BooleanSupplier databaseAnswers;
 
     /** Services, logs, the console, config files, the host, backups and plugins. */
     private final StackApi stack;
@@ -201,6 +205,7 @@ public final class Web {
                 "messages/" + MessageSchema.bundle(DatabaseMessages.class),
                 languages.locales());
         this.stack = stack;
+        this.databaseAnswers = data == null ? () -> false : data::answers;
         this.sessions = data == null ? null : new Sessions(data.dataSource(), Duration.ofDays(config.sessionDays()));
         final @Nullable Credentials localCredentials = data == null ? null : new Credentials(data.dataSource());
         final @Nullable WebAuthn localWebauthn = webAuthnOver(config, localCredentials);
@@ -651,10 +656,14 @@ public final class Web {
                 Gate.ANYONE);
     }
 
-    /** Open to anyone, so a healthcheck needs no session: this process answers, and whether steward-agent does. */
+    /** Open to anyone: whether the database and steward-agent answer, and a 503 when either does not. */
     private void health(final Context ctx) {
-        ctx.json(java.util.Map.of("status", "ok", "agent", stack.agentReachable()));
+        final Health health = new Health(databaseAnswers.getAsBoolean(), stack.agentReachable());
+        ctx.status(health.database() && health.agent() ? 200 : 503).json(health);
     }
+
+    /** {@code GET /api/health}, open to anyone, so it carries these two booleans and nothing else. */
+    public record Health(boolean database, boolean agent) {}
 
     /** Who is asking, as the stack routes need it: the actor a row records, and whether the session still holds. */
     private Caller caller() {

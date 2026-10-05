@@ -1,0 +1,14 @@
+# Loads nordtal.nft before the network and Docker come up, so no published port is ever open unfiltered.
+[Unit]
+Description=nordtal inbound firewall
+DefaultDependencies=no
+Wants=network-pre.target
+Before=network-pre.target docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/nordtal/firewall.nft
+
+[Install]
+WantedBy=sysinit.target

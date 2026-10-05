@@ -17,6 +17,7 @@ deploy/
     scripts/console    attach to the server console
     scripts/mc         send one console command, no TTY needed
   nordtal.sh           the host's installer and menu; renews itself from the newest release
+  firewall/            the host's nftables table and the service that opens the standby port
   restore.sh           put one archive back: a volume, or a dump into a new database
   dev.env.example      the local stack's settings; see Locally
   *-test.sh            the scripts' checks, run on `check` without Docker
@@ -330,6 +331,27 @@ locations, and posts to a webhook in the admin channel on Discord:
 The game port alone stays green while both proxies are down, since Caddy accepts the connection
 before it looks for one. When all three fail, the host is down: reach it through the provider's
 console, and if it does not come back, the stack is set up again on a new host from the backups.
+
+## The firewall
+
+Docker publishes its ports past ufw and the `INPUT` chain, so the host's filter is an nftables table
+of its own, `inet nordtal`, which also filters the forward hook every published port passes and
+which Docker never touches. From outside it lets through SSH, 80 and 443 (UDP too, for HTTP/3) and
+the game port, TCP and UDP, and nothing else, whatever a container publishes. The standby port opens
+only while `proxy-standby` runs, which an update run starts to hold the network while the proxy is
+replaced: `standby-port.sh` follows Docker's events and keeps the table's `standby` set in step.
+
+```bash
+install -m 644 deploy/firewall/nordtal.nft /etc/nordtal/firewall.nft    # its interface and SSH port first
+install -m 755 deploy/firewall/standby-port.sh /usr/local/sbin/nordtal-standby-port
+install -m 644 deploy/firewall/*.service /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now nordtal-firewall nordtal-standby-port
+```
+
+`nordtal-firewall` loads the table before the network and Docker come up. A changed file is applied
+with `systemctl restart nordtal-firewall`, which restarts the standby service with it; try it with a
+timed rollback (`systemd-run --on-active=10min nft delete table inet nordtal`) and stop that timer
+once a new SSH connection works. `nft list set inet nordtal standby` shows whether the port is open.
 
 ## Voice chat
 

@@ -1,0 +1,15 @@
+# Runs standby-port.sh. Restarting the firewall empties the set, so PartOf restarts this with it.
+[Unit]
+Description=nordtal standby port, open while proxy-standby runs
+After=docker.service nordtal-firewall.service
+Requires=nordtal-firewall.service
+PartOf=nordtal-firewall.service
+Wants=docker.service
+
+[Service]
+ExecStart=/usr/local/sbin/nordtal-standby-port
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

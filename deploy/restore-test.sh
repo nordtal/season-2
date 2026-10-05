@@ -117,6 +117,14 @@ directory_for other_mc-smp nordtal-s2 /srv/nordtal \
     && bad "another deployment's volume answered anyway"
 ok "prefix off, directory under the installation; no prefix and no root answer nothing"
 
+case_begin "the holders of a bind-mounted directory are asked for by its path as well"
+# Every volume of this stack is a directory; the daemon finds nobody holding it by the volume's name.
+[[ "$(holder_filters nordtal-s2_mc-smp /srv/nordtal/mc-smp)" == $'nordtal-s2_mc-smp\n/srv/nordtal/mc-smp' ]] \
+    || bad "a directory target is not asked for by its path"
+[[ "$(holder_filters nordtal-s2_mc-smp nordtal-s2_mc-smp)" == "nordtal-s2_mc-smp" ]] \
+    || bad "a named volume is asked for twice"
+ok "a directory is asked for by name and path, a named volume once"
+
 
 if (( failed > 0 )); then
     printf '\n%d case(s) failed\n' "$failed" >&2

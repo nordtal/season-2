@@ -66,6 +66,16 @@ restore_confirmed() {
     [[ -n "$wanted" && "$typed" == "$wanted" ]]
 }
 
+# What the daemon's volume filter is asked for, one value a line: the volume's name and, when the
+# target is a directory, its path, since a bind-mounted directory is no volume to the daemon.
+holder_filters() {
+    local volume="$1" target="$2"
+    printf '%s\n' "$volume"
+    if [[ -n "$target" && "$target" != "$volume" ]]; then
+        printf '%s\n' "$target"
+    fi
+}
+
 # sourced rather than executed
 [[ "${BASH_SOURCE[0]}" == "${0}" ]] || return 0
 
@@ -224,9 +234,15 @@ if [[ -z "$TARGET" ]]; then
     mkdir -p "$TARGET"
 fi
 
-# The containers mounting it, running or not, as the daemon reports them.
-mapfile -t holders < <(docker ps -a --format '{{.Names}}' --filter "volume=$VOLUME" | sort)
-mapfile -t running < <(docker ps --format '{{.Names}}' --filter "volume=$VOLUME" | sort)
+# The containers mounting it by name or by path, running or not (`-a`), as the daemon reports them.
+holders_of() {
+    local filter
+    holder_filters "$VOLUME" "$TARGET" | while IFS= read -r filter; do
+        docker ps "$@" --format '{{.Names}}' --filter "volume=$filter"
+    done | sort -u
+}
+mapfile -t holders < <(holders_of -a)
+mapfile -t running < <(holders_of)
 
 size="$(in_backups "ls -lh '/backups/$ARCHIVE' | awk '{ print \$5 }'")"
 

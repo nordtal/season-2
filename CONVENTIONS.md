@@ -65,6 +65,12 @@ decision records.
 
 - JUnit Jupiter. A test method's name is the sentence it proves, in camelCase:
   `aRefusalIsNotAnError`. No `@DisplayName`.
+- **A test finds the repository root through `RepositoryRoot` and reads `compose.yml` through
+  `ComposeFile`**, both in `:common`'s test fixtures, which any module's tests may use. A test helper
+  that two modules need lives there too, never as a copy beside each test. A test source that names
+  `settings.gradle.kts` to find the root fails `check`. Every file reached this way is also declared in
+  the module's `repositoryRootTestInputs`, or the test stays up to date when the file changes.
+  _(checked)_
 
 ## Commits
 
@@ -119,7 +125,8 @@ run `git config core.hooksPath .githooks` once per clone.
   every wake-up and every reconnect re-reads in full. Every channel is a constant of `Channel`.
 - **Names are runtime identity.** A Paper plugin's `name:` matches its module directory and is its
   `plugins/<name>/` data folder and permission prefix, so renaming one moves data folders on the host.
-  `proxy`'s annotated main class lives in `src/main/templates/`, Velocity's own recipe for a plugin
+  `proxy`'s `@Plugin` reads its version from a generated class, a template in `src/main/templates/`
+  that Gradle expands with the version in `gradle.properties`, which is Velocity's own recipe for a plugin
   without a descriptor file.
 - **Production is one `docker compose` stack** of named services. No cloud or orchestrator dependency
   without a concrete need.

@@ -3,6 +3,7 @@
 
 import eu.nordtal.season.build.CheckNoDashPunctuation
 import eu.nordtal.season.build.CheckNoTrackerIds
+import eu.nordtal.season.build.CheckTestsFindNoRoot
 import net.ltgt.gradle.errorprone.CheckSeverity
 import net.ltgt.gradle.errorprone.errorprone
 import org.gradle.accessors.dm.LibrariesForLibs
@@ -100,6 +101,19 @@ val noDashPunctuation =
         enforced.set(commentsEnforced)
     }
 
+val checkTestsFindNoRoot =
+    tasks.register<CheckTestsFindNoRoot>("checkTestsFindNoRoot") {
+        repositoryRoot.set(rootProject.layout.projectDirectory)
+        pathspecs.set(
+            listOf(
+                rootProject.projectDir
+                    .toPath()
+                    .relativize(projectDir.toPath())
+                    .toString(),
+            ),
+        )
+    }
+
 tasks.named("check") {
-    dependsOn(checkNoTrackerIds, noDashPunctuation)
+    dependsOn(checkNoTrackerIds, noDashPunctuation, checkTestsFindNoRoot)
 }

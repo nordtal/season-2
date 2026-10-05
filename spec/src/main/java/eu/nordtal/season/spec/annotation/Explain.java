@@ -6,7 +6,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * The short sentence a person reads beside a setting in Steward; {@link Comment @Comment} is the long form.
+ * The short sentence a person reads beside a setting in Steward.
  *
  * nordtal.eu's own, not part of Spec.
  */

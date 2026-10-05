@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.spec.TestSpecs;
-import eu.nordtal.season.spec.annotation.Comment;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
@@ -20,23 +19,14 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** The schema carries each setting's explanation, not its {@code @Comment}. */
+/** The schema carries each setting's explanation. */
 class SchemaWriterTest {
 
-    // the annotation split
-
     @Test
-    void explainTextGoesToSchemaAndCommentTextDoesNot() {
+    void explainTextGoesToSchema() {
         final SchemaNode schema = SchemaWriter.build(TestSpecs.Payments.class);
         final SchemaNode checkInterval = schema.children().get("check-interval-seconds");
-        assertAll(
-                () -> assertEquals(
-                        "How often payments are checked, in seconds.",
-                        checkInterval.explanation(),
-                        "the schema must carry @Explain's short text"),
-                () -> assertFalse(
-                        checkInterval.explanation().contains("How often the account is polled"),
-                        "the schema must not carry @Comment's long text"));
+        assertEquals("How often payments are checked, in seconds.", checkInterval.explanation());
     }
 
     @Test
@@ -45,39 +35,6 @@ class SchemaWriterTest {
         final SchemaNode schema = SchemaWriter.build(TestSpecs.Colliding.class);
         final SchemaNode ab = schema.children().get("a-b");
         assertAll(() -> assertEquals("", ab.explanation()), () -> assertFalse(ab.noExplanationNeeded()));
-    }
-
-    @Test
-    void commentIsUsedAsAFallbackWhenNoExplainIsGiven() {
-        // Balance.channelId() has only @Comment, the ordinary unmigrated case, not an edge case.
-        final SchemaNode schema = SchemaWriter.build(TestSpecs.Balance.class);
-        final SchemaNode channelId = schema.children().get("channel-id");
-        assertEquals(
-                "The voice channel that shows the balance.",
-                channelId.explanation(),
-                "an unmigrated property must fall back to its @Comment text, not stay empty");
-    }
-
-    @Test
-    void multiLineCommentIsJoinedWithNewlines() {
-        final SchemaNode schema = SchemaWriter.build(MultiLineCommentOnly.class);
-        assertEquals(
-                "First line.\n\nSecond paragraph line.",
-                schema.children().get("option").explanation(),
-                "@Comment is a String[], one array entry per line - the browser already renders "
-                        + "a multi-line explanation, so a newline join keeps a blank-line paragraph "
-                        + "break intact instead of running everything onto one line");
-    }
-
-    // Not named `setting()`: the vendored Spec treats any `set*` method as a setter.
-    @ConfigSpec
-    public interface MultiLineCommentOnly {
-        @Order(1)
-        @Key("option")
-        @Comment({"First line.", "", "Second paragraph line."})
-        default String option() {
-            return "";
-        }
     }
 
     @Test

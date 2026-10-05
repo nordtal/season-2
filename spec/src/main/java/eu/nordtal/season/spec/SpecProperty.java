@@ -30,14 +30,13 @@
  * Modified by nordtal.eu:
  *   - package revxrsal.spec -> eu.nordtal.season.spec
  *   - de-Lombok: @RequiredArgsConstructor / @Getter replaced with explicit members
- *   - comment lines split with its own pattern
+ *   - @Comment and the comments it declared removed
  */
 package eu.nordtal.season.spec;
 
 import static java.util.stream.Collectors.toList;
 
 import com.google.gson.annotations.SerializedName;
-import eu.nordtal.season.spec.annotation.Comment;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.HandledByProxy;
 import eu.nordtal.season.spec.annotation.IgnoreMethod;
@@ -72,9 +71,6 @@ public final class SpecProperty {
 
     /** The property setter method, or {@code null} if the property has none. */
     private @Nullable Method setter;
-
-    /** The comments on this property, set by {@link Comment @Comment}. */
-    private List<String> comments = Collections.emptyList();
 
     /**
      * Whether this property is handled by the proxy rather than being an actual property. See {@link HandledByProxy}.
@@ -124,24 +120,6 @@ public final class SpecProperty {
      */
     public @Nullable Method setter() {
         return setter;
-    }
-
-    /**
-     * The comments on this property, set by {@link Comment @Comment}.
-     *
-     * @return the comments on this property
-     */
-    public List<String> comments() {
-        return comments;
-    }
-
-    /**
-     * Whether this property has any comments on it.
-     *
-     * @return {@code true} if this property has any comments on it
-     */
-    public boolean hasComments() {
-        return !comments.isEmpty();
     }
 
     /**
@@ -259,19 +237,11 @@ public final class SpecProperty {
     private static void parse(final Method method, final Map<String, SpecProperty> properties) {
         final String key = keyOf(method);
         final SpecProperty existing = properties.computeIfAbsent(key, SpecProperty::new);
-        final @Nullable List<String> comments = commentsOf(method);
         if (Arrays.stream(method.getAnnotations()).anyMatch(SpecProperty::isHandledByProxy)) {
             existing.isHandledByProxy = true;
             existing.getter = method;
             existing.setType(method.getReturnType());
             return;
-        }
-        if (comments != null) {
-            if (existing.comments.isEmpty()) {
-                existing.comments = comments;
-            } else {
-                throw new IllegalArgumentException("Inconsistent comments for property '" + key + "'");
-            }
         }
         if (method.getReturnType() == Void.TYPE || impliesSetter(method)) {
             if (existing.setter != null) {
@@ -302,17 +272,6 @@ public final class SpecProperty {
 
     private static boolean isHandledByProxy(final Annotation annotation) {
         return annotation.annotationType().isAnnotationPresent(HandledByProxy.class);
-    }
-
-    private static @Nullable List<String> commentsOf(final Method method) {
-        final Comment comment = method.getAnnotation(Comment.class);
-        if (comment != null) {
-            final String[] value = comment.value();
-            return Arrays.stream(value)
-                    .flatMap(Pattern.compile("\n", Pattern.LITERAL)::splitAsStream)
-                    .collect(toList());
-        }
-        return null;
     }
 
     /**

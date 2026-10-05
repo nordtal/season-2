@@ -1,7 +1,6 @@
 package eu.nordtal.season.settings;
 
 import eu.nordtal.season.messages.Tone;
-import eu.nordtal.season.spec.annotation.Comment;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
@@ -15,7 +14,6 @@ public interface ColoursSpec {
     @Order(1)
     @Name("Good")
     @Key("good")
-    @Comment("Arriving: it worked, it is current, it came back.")
     @Explain("For a reply that arrives: it worked, is current, or came back.")
     @Refers(Refers.To.COLOUR)
     default String good() {
@@ -25,7 +23,6 @@ public interface ColoursSpec {
     @Order(2)
     @Name("Bad")
     @Key("bad")
-    @Comment("Leaving: it failed. The one tone that has to stand out in a long list.")
     @Explain("For a reply that fails. Needs to stand out in a long list.")
     @Refers(Refers.To.COLOUR)
     default String bad() {
@@ -35,7 +32,6 @@ public interface ColoursSpec {
     @Order(3)
     @Name("Warning")
     @Key("warn")
-    @Comment("Not a failure, but not what was asked for either: stopped, too late, still waiting.")
     @Explain("Not a failure, but not what was asked for either: stopped, too late, still waiting.")
     @Refers(Refers.To.COLOUR)
     default String warn() {
@@ -45,7 +41,6 @@ public interface ColoursSpec {
     @Order(4)
     @Name("Neutral")
     @Key("neutral")
-    @Comment("An ordinary reply with nothing to flag. Lighter than muted, so the two stay distinguishable.")
     @Explain("An ordinary reply with nothing to flag.")
     @Refers(Refers.To.COLOUR)
     default String neutral() {
@@ -55,7 +50,6 @@ public interface ColoursSpec {
     @Order(5)
     @Name("Muted")
     @Key("muted")
-    @Comment("Supporting detail under a line that already carries the news.")
     @Explain("Supporting detail under a line that already carries the news.")
     @Refers(Refers.To.COLOUR)
     default String muted() {
@@ -65,7 +59,6 @@ public interface ColoursSpec {
     @Order(6)
     @Name("Accent")
     @Key("accent")
-    @Comment("A heading, a title, an icon that opens a line.")
     @Explain("A heading, a title, an icon that opens a line.")
     @Refers(Refers.To.COLOUR)
     default String accent() {
@@ -75,7 +68,6 @@ public interface ColoursSpec {
     @Order(7)
     @Name("Brand")
     @Key("brand")
-    @Comment("The network's own name and links.")
     @Explain("The network's own name and links.")
     @Refers(Refers.To.COLOUR)
     default String brand() {
@@ -85,7 +77,6 @@ public interface ColoursSpec {
     @Order(8)
     @Name("Emphasis")
     @Key("emphasis")
-    @Comment("The word in a line that matters most: a name, a number, a place.")
     @Explain("The word in a line that matters most: a name, a number, a place.")
     @Refers(Refers.To.COLOUR)
     default String emphasis() {
@@ -95,7 +86,6 @@ public interface ColoursSpec {
     @Order(9)
     @Name("Faint")
     @Key("faint")
-    @Comment("Barely there: a hint, a rule, a separator.")
     @Explain("Barely there: a hint, a rule, a separator.")
     @Refers(Refers.To.COLOUR)
     default String faint() {

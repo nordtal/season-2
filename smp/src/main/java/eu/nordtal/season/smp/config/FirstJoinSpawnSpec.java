@@ -1,6 +1,5 @@
 package eu.nordtal.season.smp.config;
 
-import eu.nordtal.season.spec.annotation.Comment;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
@@ -15,7 +14,6 @@ public interface FirstJoinSpawnSpec {
     @Order(1)
     @Name("World")
     @Key("world")
-    @Comment("Which world. Normally the same name as `world-nordtal` at the top of this file.")
     @Explain("Normally the same name as world-nordtal above, so a rename there has to be repeated here.")
     default String world() {
         return "nordtal";
@@ -48,7 +46,6 @@ public interface FirstJoinSpawnSpec {
     @Order(5)
     @Name("Yaw")
     @Key("yaw")
-    @Comment("Which way they face on arrival, in degrees. 0 is south, 90 west, 180 north, 270 east.")
     @NoExplanationNeeded
     default float yaw() {
         return 0.0f;
@@ -57,7 +54,6 @@ public interface FirstJoinSpawnSpec {
     @Order(6)
     @Name("Pitch")
     @Key("pitch")
-    @Comment("Up or down, in degrees. 0 is level, negative looks up, 90 looks at their feet.")
     @NoExplanationNeeded
     default float pitch() {
         return 0.0f;

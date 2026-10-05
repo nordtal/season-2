@@ -1,6 +1,5 @@
 package eu.nordtal.season.smp.config;
 
-import eu.nordtal.season.spec.annotation.Comment;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
@@ -14,7 +13,6 @@ public interface BalloonSpec {
     @Order(1)
     @Name("World")
     @Key("world")
-    @Comment("Which world this balloon stands in.")
     @NoExplanationNeeded
     default String world() {
         return "nordtal";

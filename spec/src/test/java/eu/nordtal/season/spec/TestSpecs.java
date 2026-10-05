@@ -1,7 +1,6 @@
 package eu.nordtal.season.spec;
 
 import eu.nordtal.season.spec.annotation.AllowedValues;
-import eu.nordtal.season.spec.annotation.Comment;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
@@ -23,7 +22,6 @@ public final class TestSpecs {
 
         @Order(1)
         @Key("check-interval-seconds")
-        @Comment("How often the account is polled, in seconds.")
         @Explain("How often payments are checked, in seconds.")
         default long checkIntervalSeconds() {
             return 10;
@@ -31,14 +29,14 @@ public final class TestSpecs {
 
         @Order(2)
         @Key("confirmation-channel-id")
-        @Comment("Where confirmations are posted.")
+        @Explain("Where confirmations are posted.")
         default String confirmationChannelId() {
             return "1397264662545957056";
         }
 
         @Order(3)
         @Key("balance")
-        @Comment("Balance channel settings")
+        @Explain("Balance channel settings")
         Balance balance();
 
         @Reload
@@ -53,14 +51,14 @@ public final class TestSpecs {
 
         @Order(1)
         @Key("channel-id")
-        @Comment("The voice channel that shows the balance.")
+        @Explain("The voice channel that shows the balance.")
         default String channelId() {
             return "1417574134958788720";
         }
 
         @Order(2)
         @Key("format")
-        @Comment("How the channel name is rendered.")
+        @Explain("How the channel name is rendered.")
         default String format() {
             return "%s EUR";
         }
@@ -72,14 +70,14 @@ public final class TestSpecs {
 
         @Order(1)
         @Key("worlds")
-        @Comment("The configured worlds.")
+        @Explain("The configured worlds.")
         default List<World> worlds() {
             return List.of();
         }
 
         @Order(2)
         @Key("reset-day")
-        @Comment("Day of the week the farm world resets.")
+        @Explain("Day of the week the farm world resets.")
         default String resetDay() {
             return "monday";
         }
@@ -90,21 +88,21 @@ public final class TestSpecs {
 
         @Order(1)
         @Key("name")
-        @Comment("The world's name.")
+        @Explain("The world's name.")
         default String name() {
             return "world";
         }
 
         @Order(2)
         @Key("display-colour")
-        @Comment("Hex colour used in the UI.")
+        @Explain("Hex colour used in the UI.")
         default String displayColour() {
             return "#ffffff";
         }
 
         @Order(3)
         @Key("preserved")
-        @Comment("Whether the world survives a reset.")
+        @Explain("Whether the world survives a reset.")
         default boolean preserved() {
             return false;
         }
@@ -138,7 +136,7 @@ public final class TestSpecs {
     /**
      * Covers every schema-only annotation in one place.
      *
-     * {@code @Explain} beside a long {@code @Comment}, {@code @NoExplanationNeeded}, {@code @Secret}, a strict
+     * {@code @Explain}, {@code @NoExplanationNeeded}, {@code @Secret}, a strict
      * and a suggestion {@code @AllowedValues}, and a plain {@code enum} property that needs none of them.
      */
     @ConfigSpec(header = "Schema example")
@@ -146,12 +144,6 @@ public final class TestSpecs {
 
         @Order(1)
         @Key("mode")
-        @Comment({
-            "Controls how strictly an input that is not on the known list is handled.",
-            "",
-            "STRICT refuses it outright. LOOSE accepts it and logs a warning instead of",
-            "failing the whole request over a value nobody has taught this setting about yet."
-        })
         @Explain("How strictly an unknown value is rejected.")
         default Mode mode() {
             return Mode.STRICT;

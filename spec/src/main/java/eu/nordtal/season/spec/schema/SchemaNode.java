@@ -11,8 +11,8 @@ import org.jspecify.annotations.Nullable;
  *
  * @param kind what sits under this key
  * @param label the name derived from the key, {@code base-url} as {@code Base url}; {@code ""} on the root
- * @param explanation the {@code @Explain} text, else the {@code @Comment} lines joined with {@code '\n'}, else
- *     {@code ""}; on the root, the spec's header, which may be several paragraphs
+ * @param explanation the {@code @Explain} text, else {@code ""}; on the root, the spec's header, which may span
+ *     several paragraphs
  * @param noExplanationNeeded whether {@code @NoExplanationNeeded} is present, so no explanation is shown at all
  * @param secret whether {@code @Secret} is present
  * @param type for a scalar the type of its value, for a list the type its entries share; {@code null} for a map

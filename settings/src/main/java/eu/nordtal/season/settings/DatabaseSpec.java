@@ -1,6 +1,5 @@
 package eu.nordtal.season.settings;
 
-import eu.nordtal.season.spec.annotation.Comment;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
@@ -16,7 +15,6 @@ public interface DatabaseSpec {
     @Order(1)
     @Name("JDBC URL")
     @Key("jdbc-url")
-    @Comment("JDBC URL of the PostgreSQL database that holds the season 2 schema.")
     @Explain("The full JDBC connection string, including the database name.")
     default String jdbcUrl() {
         return "jdbc:postgresql://localhost:5432/nordtal";
@@ -25,7 +23,6 @@ public interface DatabaseSpec {
     @Order(2)
     @Name("Username")
     @Key("username")
-    @Comment("Database user.")
     @NoExplanationNeeded
     default String username() {
         return "nordtal";
@@ -34,7 +31,6 @@ public interface DatabaseSpec {
     @Order(3)
     @Name("Password")
     @Key("password")
-    @Comment("Database password. Prefer the environment in production.")
     @Secret
     @NoExplanationNeeded
     default String password() {
@@ -44,7 +40,6 @@ public interface DatabaseSpec {
     @Order(4)
     @Name("Connection pool size")
     @Key("maximum-pool-size")
-    @Comment("Upper bound of the connection pool.")
     @NoExplanationNeeded
     default int maximumPoolSize() {
         return 5;
@@ -53,11 +48,6 @@ public interface DatabaseSpec {
     @Order(5)
     @Name("Query timeout (seconds)")
     @Key("query-timeout-seconds")
-    @Comment({
-        "How long this process waits for the database before giving up. Applies BOTH to acquiring",
-        "a connection and, through the driver's socketTimeout, to a query already running.",
-        "Kept short, so a struggling database fails fast."
-    })
     @Explain("Limits both waiting for a free connection and a query already running.")
     default int queryTimeoutSeconds() {
         return 3;

@@ -1,6 +1,5 @@
 package eu.nordtal.season.smp.config;
 
-import eu.nordtal.season.spec.annotation.Comment;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
@@ -46,7 +45,6 @@ public interface NpcSpec {
     @Order(5)
     @Name("Yaw")
     @Key("yaw")
-    @Comment("Which way it faces, in degrees. 0 is south, 90 west, 180 north, 270 east.")
     @NoExplanationNeeded
     default float yaw() {
         return 180.0f;
@@ -55,7 +53,6 @@ public interface NpcSpec {
     @Order(6)
     @Name("Skin name")
     @Key("skin-name")
-    @Comment("A Minecraft account name whose skin to wear, or empty for the default.")
     @NoExplanationNeeded
     default String skinName() {
         return "";
@@ -64,7 +61,6 @@ public interface NpcSpec {
     @Order(7)
     @Name("Name")
     @Key("name")
-    @Comment("The label above it. Empty for none.")
     @NoExplanationNeeded
     default String name() {
         return "Nordtal";

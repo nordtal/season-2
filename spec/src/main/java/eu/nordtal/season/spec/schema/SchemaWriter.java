@@ -3,7 +3,6 @@ package eu.nordtal.season.spec.schema;
 import eu.nordtal.season.spec.SpecProperty;
 import eu.nordtal.season.spec.Specs;
 import eu.nordtal.season.spec.annotation.AllowedValues;
-import eu.nordtal.season.spec.annotation.Comment;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
@@ -62,22 +61,20 @@ public final class SchemaWriter {
     }
 
     /**
-     * {@code @Explain} wins when present; otherwise {@code @Comment}'s text is used, so the field is never left empty.
+     * Reads the explanation off the getter: the {@code @Explain} text, else empty.
      *
-     * @param property the property to read {@code @Explain}/{@code @Comment}/{@code @NoExplanationNeeded} off
+     * @param property the property to read {@code @Explain}/{@code @NoExplanationNeeded} off
      * @return the explanation text and whether a missing one is deliberate
      */
     private static ExplanationInfo explanationOf(final SpecProperty property) {
         final Method getter = property.getter();
         final Explain explain = getter.getAnnotation(Explain.class);
-        final Comment comment = getter.getAnnotation(Comment.class);
         final NoExplanationNeeded noExplanationNeeded = getter.getAnnotation(NoExplanationNeeded.class);
         if (explain != null && noExplanationNeeded != null) {
             throw new IllegalArgumentException("Property '" + property.key() + "' carries both @Explain and"
                     + " @NoExplanationNeeded - decide which one this setting means.");
         }
-        final String explanation =
-                explain != null ? explain.value() : comment != null ? String.join("\n", comment.value()) : "";
+        final String explanation = explain != null ? explain.value() : "";
         return new ExplanationInfo(explanation, noExplanationNeeded != null);
     }
 

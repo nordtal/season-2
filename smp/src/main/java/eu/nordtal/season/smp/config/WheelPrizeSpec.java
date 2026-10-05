@@ -1,7 +1,6 @@
 package eu.nordtal.season.smp.config;
 
 import eu.nordtal.season.settings.Refers;
-import eu.nordtal.season.spec.annotation.Comment;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
@@ -15,7 +14,6 @@ public interface WheelPrizeSpec {
     @Order(1)
     @Name("Item")
     @Key("item")
-    @Comment("An item key, such as minecraft:cooked_beef.")
     @NoExplanationNeeded
     @Refers(Refers.To.ITEM)
     default String item() {
@@ -25,7 +23,6 @@ public interface WheelPrizeSpec {
     @Order(2)
     @Name("Amount")
     @Key("amount")
-    @Comment("How many.")
     @NoExplanationNeeded
     default int amount() {
         return 1;
@@ -34,7 +31,6 @@ public interface WheelPrizeSpec {
     @Order(3)
     @Name("Weight")
     @Key("weight")
-    @Comment("Relative weight on the wheel. A duel loadout, which is not drawn, ignores it.")
     @NoExplanationNeeded
     default int weight() {
         return 1;

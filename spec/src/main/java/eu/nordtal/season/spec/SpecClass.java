@@ -29,6 +29,7 @@
  *
  * Modified by nordtal.eu:
  *   - package revxrsal.spec -> eu.nordtal.season.spec
+ *   - the comments written beside each key removed
  */
 package eu.nordtal.season.spec;
 
@@ -36,84 +37,21 @@ import static eu.nordtal.season.spec.SpecProperty.headerOf;
 import static eu.nordtal.season.spec.SpecProperty.propertiesOf;
 
 import eu.nordtal.season.spec.annotation.ConfigSpec;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.StringJoiner;
-import org.jspecify.annotations.Nullable;
 
-/** The declared shape of one {@code @ConfigSpec} interface: its properties, headers and comments. */
+/** The declared shape of one {@code @ConfigSpec} interface: its properties and headers. */
 public final class SpecClass {
-
-    /** The synthetic key segment used for an element of an array/list in a dotted path. */
-    public static final String ARRAY_INDEX = "<arr>";
 
     private final Class<?> type;
     private final Map<String, SpecProperty> properties;
-    private @Nullable Map<String, String> comments;
     private final List<String> headers;
 
     SpecClass(final Class<?> type, final Map<String, SpecProperty> properties, final List<String> headers) {
         this.type = type;
         this.properties = properties;
         this.headers = headers;
-    }
-
-    private Map<String, String> computeComments() {
-        final Map<String, String> comments = new HashMap<>();
-        computeCommentsRecursively(comments, properties.values(), "", 0);
-        return comments;
-    }
-
-    private static void computeCommentsRecursively(
-            final Map<String, String> comments,
-            final Collection<SpecProperty> properties,
-            final String parentPath,
-            final int indent) {
-        for (final SpecProperty property : properties) {
-            final boolean isSpec = Specs.isConfigSpec(property.type());
-            if (!property.hasComments() && !isSpec) continue;
-            final String indentStr = spaces(indent);
-            final String commentPath = parentPath.isEmpty() ? property.key() : parentPath + '.' + property.key();
-            final StringJoiner commentsString = new StringJoiner(System.lineSeparator(), "\n", "");
-            for (final String comment : property.comments()) {
-                commentsString.add(indentStr + "# " + comment);
-            }
-            comments.put(commentPath, commentsString.toString());
-            if (isSpec) {
-                final SpecClass bpc = Specs.from(property.type());
-                computeCommentsRecursively(comments, bpc.properties().values(), commentPath, indent + 2);
-            } else if (isCollection(property.type())) {
-                final Class<?> type = getCollectionType(property.getter().getGenericReturnType());
-                if (Specs.isConfigSpec(type)) {
-                    final SpecClass bpc = Specs.from(type);
-                    computeCommentsRecursively(
-                            comments, bpc.properties().values(), commentPath + "." + ARRAY_INDEX, indent + 2);
-                }
-            }
-        }
-    }
-
-    private static Class<?> getCollectionType(final java.lang.reflect.Type returnType) {
-        final Class<?> rawType = Util.getRawType(returnType);
-        if (Collection.class.isAssignableFrom(rawType)) {
-            return Util.getRawType(Util.getFirstGeneric(returnType, Object.class));
-        } else {
-            return rawType.getComponentType();
-        }
-    }
-
-    private static boolean isCollection(final Class<?> aClass) {
-        return Collection.class.isAssignableFrom(aClass) || aClass.isArray();
-    }
-
-    private static String spaces(final int times) {
-        final char[] c = new char[times];
-        Arrays.fill(c, ' ');
-        return new String(c);
     }
 
     static SpecClass from(final Class<?> type) {
@@ -124,16 +62,6 @@ public final class SpecClass {
         final List<String> headers = headerOf(type);
         final Map<String, SpecProperty> properties = propertiesOf(type);
         return new SpecClass(type, properties, headers);
-    }
-
-    /**
-     * The comments to write beside each key, keyed by dotted path.
-     *
-     * @return the comments, keyed by dotted path
-     */
-    public Map<String, String> comments() {
-        if (comments == null) comments = computeComments();
-        return comments;
     }
 
     public List<String> headers() {

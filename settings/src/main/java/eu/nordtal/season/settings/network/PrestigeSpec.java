@@ -2,7 +2,6 @@ package eu.nordtal.season.settings.network;
 
 import eu.nordtal.season.settings.Refers;
 import eu.nordtal.season.spec.Specs;
-import eu.nordtal.season.spec.annotation.Comment;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
@@ -21,7 +20,6 @@ public interface PrestigeSpec {
     @Order(1)
     @Name("Admin")
     @Key("admin")
-    @Comment("Wins over every prestige tier. Keep it far from every tier's colour, as vanilla RED is.")
     @Explain("Overrides every prestige tier below, rather than being a fourteenth tier of its own.")
     @Refers(Refers.To.COLOUR)
     default String admin() {
@@ -31,10 +29,6 @@ public interface PrestigeSpec {
     @Order(2)
     @Name("Hours per tier")
     @Key("hours")
-    @Comment({
-        "When each tier is reached, in hours of network-wide online time. Exactly thirteen,",
-        "the first 0, rising strictly."
-    })
     @NoExplanationNeeded
     default TierHoursSpec hours() {
         return Specs.createDefault(TierHoursSpec.class);
@@ -43,7 +37,6 @@ public interface PrestigeSpec {
     @Order(3)
     @Name("Tier colours")
     @Key("colours")
-    @Comment("The thirteen tiers' name colours, low to high. Tier 1 is everybody's from their first second.")
     @NoExplanationNeeded
     default TierColoursSpec colours() {
         return Specs.createDefault(TierColoursSpec.class);
@@ -56,7 +49,6 @@ public interface PrestigeSpec {
         @Order(1)
         @Name("Tier 1")
         @Key("tier-01")
-        @Comment("Tier 1 is everybody's from their first second, so this one is 0 and stays 0.")
         @NoExplanationNeeded
         default int tier01() {
             return 0;
@@ -65,7 +57,6 @@ public interface PrestigeSpec {
         @Order(2)
         @Name("Tier 2")
         @Key("tier-02")
-        @Comment("An evening.")
         @NoExplanationNeeded
         default int tier02() {
             return 2;
@@ -74,7 +65,6 @@ public interface PrestigeSpec {
         @Order(3)
         @Name("Tier 3")
         @Key("tier-03")
-        @Comment("A first weekend.")
         @NoExplanationNeeded
         default int tier03() {
             return 5;
@@ -83,7 +73,6 @@ public interface PrestigeSpec {
         @Order(4)
         @Name("Tier 4")
         @Key("tier-04")
-        @Comment("A week of evenings.")
         @NoExplanationNeeded
         default int tier04() {
             return 10;
@@ -92,7 +81,6 @@ public interface PrestigeSpec {
         @Order(5)
         @Name("Tier 5")
         @Key("tier-05")
-        @Comment("Two weeks.")
         @NoExplanationNeeded
         default int tier05() {
             return 20;
@@ -101,7 +89,6 @@ public interface PrestigeSpec {
         @Order(6)
         @Name("Tier 6")
         @Key("tier-06")
-        @Comment("A month of evenings.")
         @NoExplanationNeeded
         default int tier06() {
             return 35;
@@ -110,7 +97,6 @@ public interface PrestigeSpec {
         @Order(7)
         @Name("Tier 7")
         @Key("tier-07")
-        @Comment("Six weeks.")
         @NoExplanationNeeded
         default int tier07() {
             return 55;
@@ -119,7 +105,6 @@ public interface PrestigeSpec {
         @Order(8)
         @Name("Tier 8")
         @Key("tier-08")
-        @Comment("Two months.")
         @NoExplanationNeeded
         default int tier08() {
             return 85;
@@ -128,7 +113,6 @@ public interface PrestigeSpec {
         @Order(9)
         @Name("Tier 9")
         @Key("tier-09")
-        @Comment("Ten weeks.")
         @NoExplanationNeeded
         default int tier09() {
             return 125;
@@ -137,7 +121,6 @@ public interface PrestigeSpec {
         @Order(10)
         @Name("Tier 10")
         @Key("tier-10")
-        @Comment("Three months of regular play.")
         @NoExplanationNeeded
         default int tier10() {
             return 175;
@@ -146,7 +129,6 @@ public interface PrestigeSpec {
         @Order(11)
         @Name("Tier 11")
         @Key("tier-11")
-        @Comment("The long middle of the season.")
         @NoExplanationNeeded
         default int tier11() {
             return 250;
@@ -155,7 +137,6 @@ public interface PrestigeSpec {
         @Order(12)
         @Name("Tier 12")
         @Key("tier-12")
-        @Comment("The second-to-last crest; reachable, not guaranteed.")
         @NoExplanationNeeded
         default int tier12() {
             return 350;
@@ -164,8 +145,6 @@ public interface PrestigeSpec {
         @Order(13)
         @Name("Tier 13")
         @Key("tier-13")
-        @Comment(
-                "Legend. Two to three months for somebody who plays regularly and leaves the client running some nights.")
         @NoExplanationNeeded
         default int tier13() {
             return 500;
@@ -179,7 +158,6 @@ public interface PrestigeSpec {
         @Order(1)
         @Name("Tier 1")
         @Key("tier-01")
-        @Comment("Teal, the colour of a crest nobody has worn for long.")
         @NoExplanationNeeded
         @Refers(Refers.To.COLOUR)
         default String tier01() {
@@ -189,7 +167,6 @@ public interface PrestigeSpec {
         @Order(2)
         @Name("Tier 2")
         @Key("tier-02")
-        @Comment("Sky blue.")
         @NoExplanationNeeded
         @Refers(Refers.To.COLOUR)
         default String tier02() {
@@ -199,7 +176,6 @@ public interface PrestigeSpec {
         @Order(3)
         @Name("Tier 3")
         @Key("tier-03")
-        @Comment("Cornflower.")
         @NoExplanationNeeded
         @Refers(Refers.To.COLOUR)
         default String tier03() {
@@ -209,7 +185,6 @@ public interface PrestigeSpec {
         @Order(4)
         @Name("Tier 4")
         @Key("tier-04")
-        @Comment("Periwinkle.")
         @NoExplanationNeeded
         @Refers(Refers.To.COLOUR)
         default String tier04() {
@@ -219,7 +194,6 @@ public interface PrestigeSpec {
         @Order(5)
         @Name("Tier 5")
         @Key("tier-05")
-        @Comment("Violet.")
         @NoExplanationNeeded
         @Refers(Refers.To.COLOUR)
         default String tier05() {
@@ -229,7 +203,6 @@ public interface PrestigeSpec {
         @Order(6)
         @Name("Tier 6")
         @Key("tier-06")
-        @Comment("Orchid.")
         @NoExplanationNeeded
         @Refers(Refers.To.COLOUR)
         default String tier06() {
@@ -239,7 +212,6 @@ public interface PrestigeSpec {
         @Order(7)
         @Name("Tier 7")
         @Key("tier-07")
-        @Comment("Rose.")
         @NoExplanationNeeded
         @Refers(Refers.To.COLOUR)
         default String tier07() {
@@ -249,7 +221,6 @@ public interface PrestigeSpec {
         @Order(8)
         @Name("Tier 8")
         @Key("tier-08")
-        @Comment("Coral.")
         @NoExplanationNeeded
         @Refers(Refers.To.COLOUR)
         default String tier08() {
@@ -259,7 +230,6 @@ public interface PrestigeSpec {
         @Order(9)
         @Name("Tier 9")
         @Key("tier-09")
-        @Comment("Orange.")
         @NoExplanationNeeded
         @Refers(Refers.To.COLOUR)
         default String tier09() {
@@ -269,7 +239,6 @@ public interface PrestigeSpec {
         @Order(10)
         @Name("Tier 10")
         @Key("tier-10")
-        @Comment("Gold.")
         @NoExplanationNeeded
         @Refers(Refers.To.COLOUR)
         default String tier10() {
@@ -279,7 +248,6 @@ public interface PrestigeSpec {
         @Order(11)
         @Name("Tier 11")
         @Key("tier-11")
-        @Comment("Bright gold.")
         @NoExplanationNeeded
         @Refers(Refers.To.COLOUR)
         default String tier11() {
@@ -289,7 +257,6 @@ public interface PrestigeSpec {
         @Order(12)
         @Name("Tier 12")
         @Key("tier-12")
-        @Comment("Radiant gold.")
         @NoExplanationNeeded
         @Refers(Refers.To.COLOUR)
         default String tier12() {
@@ -299,7 +266,6 @@ public interface PrestigeSpec {
         @Order(13)
         @Name("Tier 13")
         @Key("tier-13")
-        @Comment("Legend, the brightest and warmest colour of all fourteen, admin included.")
         @NoExplanationNeeded
         @Refers(Refers.To.COLOUR)
         default String tier13() {

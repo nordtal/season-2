@@ -1,6 +1,5 @@
 package eu.nordtal.season.smp.config;
 
-import eu.nordtal.season.spec.annotation.Comment;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
@@ -14,7 +13,6 @@ public interface DuelPlatformSpec {
     @Order(1)
     @Name("Type")
     @Key("type")
-    @Comment("SWORD or BOW.")
     @NoExplanationNeeded
     default String type() {
         return "SWORD";

@@ -1,7 +1,6 @@
 package eu.nordtal.season.settings.network;
 
 import eu.nordtal.season.spec.Specs;
-import eu.nordtal.season.spec.annotation.Comment;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
@@ -19,19 +18,6 @@ public interface PricesSpec {
     @Order(1)
     @Name("Tiers")
     @Key("tiers")
-    @Comment({
-        "What can be bought: a number of days and its price in cents per entry.",
-        "More days must cost more, and no two entries may offer the same days.",
-        "A tier is identified by its day count, so changing 'days' retires it.",
-        "",
-        "The list may not be empty. If you have emptied it, this is the shape:",
-        "",
-        "  tiers:",
-        "  - days: 30",
-        "    price-cents: 300",
-        "  - days: 60",
-        "    price-cents: 500"
-    })
     @Explain(
             "What can be bought. Entries must be ordered by days ascending with price rising to match; changing 'days' on an entry retires that tier.")
     default List<TierSpec> tiers() {
@@ -41,11 +27,6 @@ public interface PricesSpec {
     @Order(2)
     @Name("Donation (cents)")
     @Key("donation-cents")
-    @Comment({
-        "The optional surcharge that grants the permanent donor role, in cents.",
-        "",
-        "Money above the ordered total is a donation once it reaches this amount."
-    })
     @Explain(
             "The extra amount that grants the donor role; a surplus of at least this much above the order is a donation.")
     default int donationCents() {
@@ -59,7 +40,6 @@ public interface PricesSpec {
         @Order(1)
         @Name("Duration (days)")
         @Key("days")
-        @Comment("How many days of access this buys. A day is exactly 24 hours.")
         @NoExplanationNeeded
         default int days() {
             return 30;
@@ -68,7 +48,6 @@ public interface PricesSpec {
         @Order(2)
         @Name("Price (cents)")
         @Key("price-cents")
-        @Comment("What it costs, in cents. Integer cents everywhere; never a float.")
         @NoExplanationNeeded
         default int priceCents() {
             return 300;

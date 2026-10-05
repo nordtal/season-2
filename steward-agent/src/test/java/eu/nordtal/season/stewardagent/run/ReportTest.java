@@ -107,7 +107,6 @@ class ReportTest {
         }
         changes.add(Change.unresolved(
                 "proxy", Topology.RESOURCE_PACK, TEXTS.report().words(GITHUB_403)));
-        changes.add(Change.unresolved("smp", "display-tags", TEXTS.report().words(GITHUB_403)));
         changes.add(
                 Change.unresolved("discord-bot", "discord-bot", TEXTS.report().words(GITHUB_403)));
         changes.add(Change.unresolved("steward", "steward", TEXTS.report().words(GITHUB_403)));

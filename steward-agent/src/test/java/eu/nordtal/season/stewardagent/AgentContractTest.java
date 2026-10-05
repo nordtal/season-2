@@ -66,9 +66,9 @@ class AgentContractTest {
                                 new Topology.Service(
                                         "smp",
                                         Topology.Kind.PAPER,
-                                        List.of("smp", "display-tags", "voicechat"),
+                                        List.of("smp", "packetevents", "voicechat"),
                                         List.of("voicechat"),
-                                        java.util.Map.of("display-tags", "papermc-display-tags")),
+                                        java.util.Map.of("packetevents", "packetevents-spigot")),
                                 null,
                                 AgentWire.Renewal.RUN),
                         new AgentWire.Service("steward-agent", "ghcr.io/nordtal/steward-agent:latest", false, false),

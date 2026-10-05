@@ -93,7 +93,6 @@ public final class Topology {
     /** The service that applies the schema from steward-agent's image and exits; an update's install runs it. */
     public static final String MIGRATE = "migrate";
 
-    public static final String DISPLAY_TAGS = "display-tags";
     public static final String PACKETEVENTS = "packetevents";
 
     /** Simple Voice Chat's Bukkit plugin, optional since a missing voice chat must not stop a server from starting. */
@@ -121,21 +120,12 @@ public final class Topology {
     public static final List<String> SEASON_JARS = List.of(PROXY, LIMBO, HUNGER_GAMES, SMP);
 
     /** Every plugin Nordtal publishes itself, keyed by filename prefix, in the order the plugins tab lists them. */
-    public static final Map<String, String> NORDTAL_PLUGINS = orderedMap(
-            "papermc-display-tags",
-            "Display Tags",
-            SMP,
-            "SMP",
-            PROXY,
-            "Proxy",
-            LIMBO,
-            "Limbo",
-            HUNGER_GAMES,
-            "Hunger Games");
+    public static final Map<String, String> NORDTAL_PLUGINS =
+            orderedMap(SMP, "SMP", PROXY, "Proxy", LIMBO, "Limbo", HUNGER_GAMES, "Hunger Games");
 
     /** The data folder each Nordtal plugin keeps its config in, with the name the plugins tab shows. */
-    public static final Map<String, String> NORDTAL_DATA_FOLDERS = orderedMap(
-            "DisplayTags", "Display Tags", SMP, "SMP", PROXY, "Proxy", LIMBO, "Limbo", HUNGER_GAMES, "Hunger Games");
+    public static final Map<String, String> NORDTAL_DATA_FOLDERS =
+            orderedMap(SMP, "SMP", PROXY, "Proxy", LIMBO, "Limbo", HUNGER_GAMES, "Hunger Games");
 
     /** Whether a jar with this filename prefix is one Nordtal publishes. */
     public static boolean isNordtal(final @Nullable String prefix) {

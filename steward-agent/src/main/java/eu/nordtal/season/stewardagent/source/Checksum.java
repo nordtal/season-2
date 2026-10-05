@@ -5,7 +5,7 @@ import java.util.Locale;
 /**
  * A digest as the API that published it writes it: sha256 from Fill, sha512 from Modrinth, sha1 for the pack.
  *
- * GitHub assets carry no digest, so our own jars and DisplayTags are fetched over TLS unverified.
+ * GitHub assets carry no digest, so our own jars are fetched over TLS unverified.
  */
 public record Checksum(String algorithm, String hex) {
 

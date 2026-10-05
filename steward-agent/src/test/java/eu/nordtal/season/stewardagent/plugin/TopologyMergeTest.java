@@ -57,9 +57,9 @@ class TopologyMergeTest {
         assertTrue(smp.optional().contains("worldedit"));
         // An added plugin must not hold the SMP for lacking a build, like CoreProtect; the label's own stay required.
         assertFalse(smp.optional().contains(Topology.SMP));
-        assertFalse(smp.optional().contains(Topology.DISPLAY_TAGS));
+        assertFalse(smp.optional().contains(Topology.PACKETEVENTS));
         // The jar prefixes the label gives survive the merge, since the plugins tab names a jar by them.
-        assertEquals("papermc-display-tags", smp.prefixOf(Topology.DISPLAY_TAGS));
+        assertEquals("packetevents-spigot", smp.prefixOf(Topology.PACKETEVENTS));
     }
 
     @Test

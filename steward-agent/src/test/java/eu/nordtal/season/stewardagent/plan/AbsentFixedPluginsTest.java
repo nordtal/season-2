@@ -32,11 +32,8 @@ class AbsentFixedPluginsTest {
     }
 
     /** What the smp volume on the dev host holds: everything but CoreProtect. */
-    private static final List<Installation.Jar> SMP_TODAY = List.of(
-            jar("packetevents-spigot-2.13.0.jar"),
-            jar("papermc-display-tags-2.2.0.jar"),
-            jar("smp-0.9.5.jar"),
-            jar("voicechat-bukkit-2.6.24.jar"));
+    private static final List<Installation.Jar> SMP_TODAY =
+            List.of(jar("packetevents-spigot-2.13.0.jar"), jar("smp-0.9.5.jar"), jar("voicechat-bukkit-2.6.24.jar"));
 
     @Test
     void namesOnlyTheFixedPluginThatIsNotOnTheDisk() {
@@ -47,7 +44,6 @@ class AbsentFixedPluginsTest {
     void recognisesAModrinthJarByItsProjectWhateverItsFileIsCalled() {
         final List<Installation.Jar> renamed = List.of(
                 jar("smp-0.9.5.jar"),
-                jar("papermc-display-tags-2.2.0.jar"),
                 jar("packetevents-spigot-2.13.0.jar"),
                 jar("voicechat-bukkit-2.6.24.jar"),
                 jar("BlockLog-24.1.jar"));
@@ -60,22 +56,19 @@ class AbsentFixedPluginsTest {
 
     @Test
     void listsAMissingNordtalJarToo() {
-        final List<Installation.Jar> noTags = SMP_TODAY.stream()
-                .filter(jar -> !jar.fileName().startsWith("papermc"))
+        final List<Installation.Jar> noSmp = SMP_TODAY.stream()
+                .filter(jar -> !jar.fileName().startsWith("smp"))
                 .toList();
         assertEquals(
-                List.of(Topology.DISPLAY_TAGS, Topology.CORE_PROTECT),
-                PluginsApi.absentFixed(smp(), noTags, Map.of(), PROJECTS));
+                List.of(Topology.SMP, Topology.CORE_PROTECT), PluginsApi.absentFixed(smp(), noSmp, Map.of(), PROJECTS));
     }
 
     @Test
-    void countsTheNameTagForkAsNordtalAndListsItFirst() {
-        assertTrue(Topology.isNordtal("papermc-display-tags"));
+    void countsTheSeasonsJarsAsNordtalAndListsTheSmpFirst() {
         assertTrue(Topology.isNordtal("smp"));
         assertFalse(Topology.isNordtal("packetevents-spigot"));
-        assertEquals(
-                "papermc-display-tags",
-                Topology.NORDTAL_PLUGINS.keySet().iterator().next());
-        assertEquals("Display Tags", Topology.NORDTAL_PLUGINS.get("papermc-display-tags"));
+        assertFalse(Topology.isNordtal("papermc-display-tags"));
+        assertEquals(Topology.SMP, Topology.NORDTAL_PLUGINS.keySet().iterator().next());
+        assertEquals("SMP", Topology.NORDTAL_PLUGINS.get(Topology.SMP));
     }
 }

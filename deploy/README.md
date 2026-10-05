@@ -363,7 +363,7 @@ a player without the mod notices nothing, and no server requires it.
 
 ## Third-party plugins
 
-- **DisplayTags and PacketEvents** are required on `smp`; steward-agent resolves both.
+- **PacketEvents** is required on `smp`, whose name tags draw through it; steward-agent resolves it.
 - **CoreProtect** is optional, with its own SQLite file.
 - **Terralith and Dungeons and Taverns** are the season's terrain, fetched from `SMP_DATAPACK_URLS`
   before the first start; `smp` refuses to start without them.

@@ -67,15 +67,15 @@ class ComposeTopologyTest {
     void aServersLabelsSayItsKindItsPluginsTheirJarPrefixesAndWhichItMayLack() {
         final AgentWire.Topology read = parse("""
                 {"smp": {"labels": {"eu.nordtal.server": "paper",
-                  "eu.nordtal.plugins": "smp display-tags=papermc-display-tags voicechat? tags=other-tags?"}}}
+                  "eu.nordtal.plugins": "smp packetevents=packetevents-spigot voicechat? tags=other-tags?"}}}
                 """);
 
         final Topology.Service smp = read.servers().getFirst();
         assertEquals(Topology.Kind.PAPER, smp.kind());
-        assertEquals(List.of("smp", "display-tags", "voicechat", "tags"), smp.plugins());
+        assertEquals(List.of("smp", "packetevents", "voicechat", "tags"), smp.plugins());
         assertEquals(List.of("voicechat", "tags"), smp.optional());
-        assertEquals(Map.of("display-tags", "papermc-display-tags", "tags", "other-tags"), smp.prefixes());
-        assertEquals("papermc-display-tags", smp.prefixOf("display-tags"));
+        assertEquals(Map.of("packetevents", "packetevents-spigot", "tags", "other-tags"), smp.prefixes());
+        assertEquals("packetevents-spigot", smp.prefixOf("packetevents"));
         assertEquals("smp", smp.prefixOf("smp"));
     }
 

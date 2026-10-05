@@ -104,13 +104,12 @@ retention read only the files directly in the backups, so neither sees the folde
 | what                                                 | source                                                     |
 | ---------------------------------------------------- | ---------------------------------------------------------- |
 | the season-2 jars, the resource pack and its `.sha1` | GitHub releases, `nordtal/season-2`                        |
-| DisplayTags                                          | GitHub releases, `nordtal/papermc-display-tags`            |
 | PacketEvents                                         | Modrinth v2, filtered to the Minecraft version and `paper` |
 | Paper, Velocity                                      | PaperMC Fill v3, newest `STABLE` build                     |
 | what is installed                                    | the volumes under `volumes-root`                           |
 | what pack the proxy offers                           | the proxy's `pack` settings, `url` and `sha1`              |
 
-Every repository is read through `/releases/latest`, which skips drafts and pre-releases. There is no
+The repository is read through `/releases/latest`, which skips drafts and pre-releases. There is no
 pin and no rollback: a bad release is corrected by publishing a better one.
 
 ## Rules

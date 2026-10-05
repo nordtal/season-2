@@ -9,7 +9,7 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The GitHub releases API, for {@code nordtal/season-2} and {@code nordtal/papermc-display-tags}.
+ * The GitHub releases API, for the season repository.
  *
  * An asset carries no digest; the pack's SHA-1 is its own 41-byte asset, read rather than computed.
  */

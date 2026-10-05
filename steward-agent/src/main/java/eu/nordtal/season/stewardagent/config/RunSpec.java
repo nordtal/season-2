@@ -28,20 +28,11 @@ public interface RunSpec {
         return "nordtal/season-2";
     }
 
-    @Order(2)
-    @Name("Display tags repository")
-    @Key("display-tags-repo")
-    @Comment("Our fork of the Text Display nametag plugin, which smp requires to enable.")
-    @Explain("Required on the SMP server: smp refuses to enable without a release fetched from here.")
-    default String displayTagsRepo() {
-        return "nordtal/papermc-display-tags";
-    }
-
     @Order(3)
     @Name("PacketEvents project")
     @Key("packetevents-project")
     @Comment({
-        "The Modrinth project id of PacketEvents, which DisplayTags is built on.",
+        "The Modrinth project id of PacketEvents, which smp's name tags are built on.",
         "The id, not the slug, since an author can rename a slug."
     })
     @Explain("The Modrinth project id, not the slug, since an author can rename a slug.")

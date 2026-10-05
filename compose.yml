@@ -337,7 +337,7 @@ services:
     # no build for every version and voice chat is optional, so neither may stop it.
     labels:
       eu.nordtal.server: &smp-kind paper
-      eu.nordtal.plugins: &smp-plugins "smp display-tags=papermc-display-tags packetevents=packetevents-spigot voicechat? coreprotect?"
+      eu.nordtal.plugins: &smp-plugins "smp packetevents=packetevents-spigot voicechat? coreprotect?"
       eu.nordtal.renew: run
       eu.nordtal.console: "true"
       eu.nordtal.backup: stop

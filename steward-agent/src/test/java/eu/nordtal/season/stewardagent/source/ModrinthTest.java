@@ -16,7 +16,7 @@ class ModrinthTest {
 
     @Test
     void packeteventsThePrimaryFileIsTakenAndTheSourcesJarInTheSameVersionIsNot() throws IOException {
-        // Matching on '.jar' alone would let source code load as a plugin, one with no code DisplayTags can find.
+        // Matching on '.jar' alone would let source code load as a plugin, one with no code the server can find.
         final Modrinth modrinth =
                 new Modrinth(new FakeHttp().serving("/project/HYKaKraK/version", "modrinth-packetevents.json"));
 

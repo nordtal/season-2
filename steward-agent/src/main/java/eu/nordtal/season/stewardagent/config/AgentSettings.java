@@ -62,7 +62,6 @@ public final class AgentSettings {
 
     static void checkRuns(final RunSpec config) {
         requireRepo("season-repo", config.seasonRepo());
-        requireRepo("display-tags-repo", config.displayTagsRepo());
         requireModrinthId("packetevents-project", config.packetEventsProject());
         Checks.requireText("volumes-root", config.volumesRoot());
         Checks.requirePositive("http-timeout-seconds", config.httpTimeoutSeconds());

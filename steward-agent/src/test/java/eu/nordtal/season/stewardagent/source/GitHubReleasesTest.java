@@ -32,17 +32,6 @@ class GitHubReleasesTest {
     }
 
     @Test
-    void theForksTagHasNoLeadingVAndThatIsReadRatherThanAssumed() throws IOException {
-        final GitHubReleases github =
-                new GitHubReleases(new FakeHttp().serving("/releases/latest", "github-display-tags.json"));
-
-        final GitHubReleases.Release release = github.latest("nordtal/papermc-display-tags");
-
-        assertEquals("2.0.0", release.tag());
-        assertNotNull(release.asset("papermc-display-tags-2.0.0.jar"));
-    }
-
-    @Test
     void thereIsOneEndpointAndItIsReleasesLatestATagCannotBeAskedFor() throws IOException {
         // There is no pin and no tags endpoint: the one call goes to the endpoint that skips drafts and pre-releases.
         final FakeHttp http = new FakeHttp().serving("/releases/", "github-season-v0.1.0.json");

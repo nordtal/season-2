@@ -52,7 +52,6 @@ class ResolverTest {
     void wireEverySourceToItsRecordedResponse() {
         http = new FakeHttp()
                 .serving("/repos/nordtal/season-2/releases", "github-season-v0.1.0.json")
-                .serving("/repos/nordtal/papermc-display-tags/releases", "github-display-tags.json")
                 .serving("/project/HYKaKraK/version", "modrinth-packetevents.json")
                 .serving("/project/9eGKb6K1/version", "modrinth-voicechat.json")
                 // Velocity is asked again by loader filter, not project; the longer substring wins in FakeHttp.
@@ -307,7 +306,6 @@ class ResolverTest {
         assertEquals(Change.Status.UNRESOLVED, statusOf(plan, "smp", "voicechat"));
         // An operator asks about our own jars; losing that to a third-party CDN outage makes the report worth less.
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "smp", "smp"));
-        assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "smp", "display-tags"));
         assertTrue(plan.hasFailures());
         assertFalse(plan.hasWork());
     }
@@ -565,7 +563,6 @@ class ResolverTest {
         write("hunger-games", "plugins/voicechat-bukkit-2.6.23.jar");
         write("hunger-games", ".server/paper-26.2-121.jar");
         write("smp", "plugins/smp-0.1.0.jar");
-        write("smp", "plugins/papermc-display-tags-2.0.0.jar");
         write("smp", "plugins/packetevents-spigot-2.13.0.jar");
         write("smp", "plugins/voicechat-bukkit-2.6.23.jar");
         write("smp", ".server/paper-26.2-121.jar");

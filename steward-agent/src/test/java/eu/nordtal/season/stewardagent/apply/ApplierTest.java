@@ -216,7 +216,7 @@ class ApplierTest {
                         outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar"),
                         Change.unresolved("smp", "packetevents", TEXTS.report().words("Modrinth: connect timed out"))));
 
-        // DisplayTags and PacketEvents are both required under smp; a partial swap here fails to start.
+        // PacketEvents is required under smp; a partial swap here fails to start.
         assertTrue(Files.exists(volumes.resolve("smp/plugins/smp-0.1.0.jar")));
         assertFalse(Files.exists(volumes.resolve("smp/plugins/smp-0.2.0.jar")));
         assertEquals(ApplyResult.Status.SKIPPED, outcome(result, "smp", "smp").status());

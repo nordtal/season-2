@@ -30,7 +30,7 @@ class UpdatePlanTest {
     @Test
     void anOutdatedJarIsNotSomethingABootstrapMayTouch() {
         final UpdatePlan plan =
-                planOf(change("smp", Change.Status.OUTDATED), change("DisplayTags", Change.Status.MISSING));
+                planOf(change("smp", Change.Status.OUTDATED), change("packetevents", Change.Status.MISSING));
 
         final UpdatePlan bootstrap = plan.onlyMissing();
 
@@ -39,13 +39,13 @@ class UpdatePlanTest {
                 bootstrap.changes().size(),
                 "onlyMissing() kept something that is not MISSING. An OUTDATED row here would make"
                         + " a crash restart at three in the morning move a version.");
-        assertEquals("DisplayTags", bootstrap.changes().getFirst().artifact());
+        assertEquals("packetevents", bootstrap.changes().getFirst().artifact());
     }
 
     @Test
     void aVolumeThatHasEverythingGivesABootstrapNothingToDo() {
         final UpdatePlan plan =
-                planOf(change("smp", Change.Status.UP_TO_DATE), change("DisplayTags", Change.Status.OUTDATED));
+                planOf(change("smp", Change.Status.UP_TO_DATE), change("packetevents", Change.Status.OUTDATED));
 
         assertTrue(plan.onlyMissing().changes().isEmpty(), "a restart of a live network must install nothing at all");
     }
@@ -94,7 +94,7 @@ class UpdatePlanTest {
 
     @Test
     void theRestOfThePlanIsCarriedOverSoBothReportsDescribeTheSameVolumes() {
-        final UpdatePlan plan = planOf(change("DisplayTags", Change.Status.MISSING));
+        final UpdatePlan plan = planOf(change("packetevents", Change.Status.MISSING));
         final UpdatePlan bootstrap = plan.onlyMissing();
 
         assertEquals(plan.resolvedAt(), bootstrap.resolvedAt());

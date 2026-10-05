@@ -83,7 +83,6 @@ public final class Resolver {
         final Set<String> unreleased = new HashSet<>();
 
         final GitHubReleases.Release season = resolveSeason(newest, failures, unreleased);
-        resolveDisplayTags(newest, failures);
         resolveModrinth(newest, failures, unsupported, Topology.PACKETEVENTS, config.packetEventsProject(), "paper");
         resolveModrinth(newest, failures, unsupported, Topology.VOICE_CHAT, config.voiceChatProject(), "paper");
         // The same Modrinth project asked again for the Velocity build; the loader tells the two jars apart.
@@ -280,36 +279,6 @@ public final class Resolver {
             failures.put(
                     Topology.RESOURCE_PACK,
                     TEXTS.report().sha1Unread(sha1.name(), String.valueOf(failed.getMessage())));
-        }
-    }
-
-    private void resolveDisplayTags(final Map<String, RemoteFile> newest, final Map<String, MessageRef> failures) {
-        try {
-            final GitHubReleases.Release release = github.latest(config.displayTagsRepo());
-            GitHubReleases.Asset jar = null;
-            for (final GitHubReleases.Asset asset : release.assets()) {
-                if (JarName.isJar(asset.name()) && !asset.name().endsWith("-sources.jar")) {
-                    jar = asset;
-                    break;
-                }
-            }
-            if (jar == null) {
-                failures.put(
-                        Topology.DISPLAY_TAGS, TEXTS.report().releaseWithoutJar(release.tag(), Topology.DISPLAY_TAGS));
-                return;
-            }
-            newest.put(
-                    Topology.DISPLAY_TAGS,
-                    new RemoteFile(
-                            Topology.DISPLAY_TAGS,
-                            versionOrTag(jar.name(), release.tag()),
-                            jar.name(),
-                            jar.url(),
-                            null));
-        } catch (final IOException failed) {
-            failures.put(
-                    Topology.DISPLAY_TAGS,
-                    TEXTS.report().releaseUnread(config.displayTagsRepo(), String.valueOf(failed.getMessage())));
         }
     }
 

@@ -37,7 +37,7 @@ public final class AgentStandIn implements AutoCloseable {
     public static final String SERVICES = """
             {"smp":{"image":"ghcr.io/nordtal/minecraft:latest",
                     "labels":{"eu.nordtal.console":"true","eu.nordtal.backup":"stop","eu.nordtal.server":"paper",
-                              "eu.nordtal.plugins":"smp display-tags=papermc-display-tags voicechat?",
+                              "eu.nordtal.plugins":"smp packetevents=packetevents-spigot voicechat?",
                               "eu.nordtal.renew":"run"}},
              "steward-agent":{"image":"ghcr.io/nordtal/steward-agent:latest",
                     "volumes":[{"type":"bind","source":"/srv/mc-smp","target":"%s/nordtal-s2_mc-smp"}]},

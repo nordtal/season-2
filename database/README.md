@@ -65,8 +65,7 @@ migrations under `src/main/resources/db/migration`. JDBI, HikariCP and the drive
 - **An announcement** is one message per language of this module's bundle, its `announcement` section, which the
   bot renders in that language and posts into that language's channel. The SMP writes a milestone, its name in each
   language; Steward writes an admin's words, declared `PLAIN` so the markdown in them stays theirs. Rendering at the
-  bot means an override of the text reaches a request already written, and Steward's list renders the same messages
-  with the same overrides. A request from before V24 keeps each language's finished text as `announcement.words`.
+  bot means an override of the text reaches a request already written. A request from before V24 keeps each language's finished text as `announcement.words`.
 - **The season phase** is one row every process follows on its hub. A switch into `SMP` from before the season stamps
   `fresh_start`, and smp starts its own track over once per stamp whenever it next sees the phase, so a server that
   was down at the switch still starts over and no other process writes smp's tables.

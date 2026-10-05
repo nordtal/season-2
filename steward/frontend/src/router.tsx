@@ -7,7 +7,6 @@ import { UpdatesPage } from "@/pages/updates"
 import { BackupsPage, BackupRunDetailPage } from "@/pages/backups"
 import { ServicePage, serviceSearch } from "@/pages/service"
 import { SeasonPage, seasonSearch } from "@/pages/season"
-import { AnnouncementsPage } from "@/pages/announcements"
 import { AccessPage } from "@/pages/access"
 import { JournalPage } from "@/pages/journal"
 import { PaymentsPage } from "@/pages/payments"
@@ -70,7 +69,6 @@ const routes = [
     component: SeasonPage,
     validateSearch: seasonSearch,
   }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/announcements", component: AnnouncementsPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/access", component: AccessPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/payments", component: PaymentsPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/journal", component: JournalPage }),

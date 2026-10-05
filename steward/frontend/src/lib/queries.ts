@@ -9,7 +9,6 @@ import {
   type Backup,
   type CommandRun,
   type SmpTrack,
-  type Announcements,
   type HungerGamesRound,
   type KeyRegistered,
   type KeyRenamed,
@@ -313,15 +312,6 @@ export function useGameAction() {
   })
 }
 
-/** The latest announcements, by the SMP and by admins, newest first. */
-export function useAnnouncements() {
-  return useQuery({
-    queryKey: keys.announcements,
-    queryFn: () => api<Announcements>("/api/announcements"),
-    ...live("REQUESTS"),
-  })
-}
-
 /** One announcement, one text per language; the answer is one row id per language. */
 export function useSendAnnouncement() {
   const client = useQueryClient()
@@ -329,7 +319,6 @@ export function useSendAnnouncement() {
     mutationFn: (texts: Record<string, string>) =>
       api<AnnouncementsAsked>("/api/announcements", { method: "POST", body: { texts } }),
     onSuccess: () => {
-      void client.invalidateQueries({ queryKey: keys.announcements })
       void client.invalidateQueries({ queryKey: ["journal"] })
     },
   })

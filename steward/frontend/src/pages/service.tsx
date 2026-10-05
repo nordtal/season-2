@@ -17,6 +17,7 @@ import { ServiceSettings } from "@/components/steward/settings"
 import { ServicePlugins } from "@/components/steward/plugins"
 import { HungerGamesActions } from "@/components/steward/game-actions"
 import { SmpActions } from "@/components/steward/milestone-track"
+import { AnnouncementForm } from "@/components/steward/announcement"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
 import { RecreateButton, useRecreateGate } from "@/components/steward/recreate"
@@ -150,6 +151,7 @@ export function ServicePage() {
           {/* Their own area under the console, not the header: the header's actions are about the container. */}
           {name === "smp" ? <SmpActions /> : null}
           {name === "hunger-games" ? <HungerGamesActions /> : null}
+          {name === "discord-bot" ? <AnnouncementForm /> : null}
         </TabsContent>
 
         <TabsContent value="settings">

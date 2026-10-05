@@ -132,10 +132,6 @@ export type CommandRun = {
   reason?: string
 }
 
-export type Announcements = {
-  recent: Announcement[]
-}
-
 export type AnnouncementsAsked = {
   ids: Record<string, string>
 }
@@ -550,17 +546,6 @@ export type SmpMilestone = {
 }
 
 export type InboxStatus = "PENDING" | "RUNNING" | "DONE" | "REFUSED" | "FAILED" | "EXPIRED" | "CANCELLED"
-
-export type Announcement = {
-  id: string
-  language: string
-  text: string
-  actorKind: ActorKind
-  actorId: string
-  requested: string
-  status: InboxStatus
-  result?: MessageRef
-}
 
 export type SettleOutcome = "BOOKED" | "NOT_OPEN" | "UNKNOWN"
 

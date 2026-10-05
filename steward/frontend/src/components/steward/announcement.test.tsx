@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { ConfigEntry, ConfigDocument } from "@/lib/api"
 import { announcementTargets } from "@/lib/announcement-targets"
-import { AnnouncementsPage } from "@/pages/announcements"
+import { AnnouncementForm } from "@/components/steward/announcement"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { asButton, asTextArea } from "@/lib/test-elements"
 import { words } from "@/lib/query-fixtures"
@@ -69,30 +69,6 @@ function accessFile({ en = "111", de = "", overridden = false } = {}): ConfigDoc
   }
 }
 
-const RECENT = {
-  recent: [
-    {
-      id: "9",
-      language: "de",
-      text: "The second language, lately.",
-      actorKind: "PERSON",
-      actorId: "123456",
-      requested: new Date().toISOString(),
-      status: "DONE",
-      result: words("Posted."),
-    },
-    {
-      id: "8",
-      language: "en",
-      text: "The end is open.",
-      actorKind: "STEWARD",
-      actorId: "",
-      requested: new Date().toISOString(),
-      status: "EXPIRED",
-    },
-  ],
-}
-
 function backend(file: unknown = accessFile()) {
   const sent: unknown[] = []
   vi.stubGlobal(
@@ -102,7 +78,6 @@ function backend(file: unknown = accessFile()) {
         sent.push(JSON.parse(init.body ?? ""))
         return json(202, { ids: { en: "21", de: "22" } })
       }
-      if (url === "/api/announcements") return json(200, RECENT)
       if (url === "/api/setting-groups/discord-bot/access") return json(200, file)
       if (url === "/api/discord/channels") {
         return json(200, { available: true, entries: [{ id: "111", name: "announcements", type: 0 }] })
@@ -137,10 +112,10 @@ function send() {
   return asButton(screen.getByRole("button", { name: "Send" }))
 }
 
-describe("AnnouncementsPage", () => {
+describe("AnnouncementForm", () => {
   it("sends nothing until every language has its text, then one text per language", async () => {
     const sent = backend()
-    draw(<AnnouncementsPage />)
+    draw(<AnnouncementForm />)
 
     const english = await screen.findByLabelText("English")
     const german = screen.getByLabelText("Deutsch")
@@ -160,14 +135,14 @@ describe("AnnouncementsPage", () => {
     await waitFor(() =>
       expect(sent).toEqual([{ texts: { en: "The end opens tonight.", de: "The second language, tonight." } }]),
     )
-    // Twice for the two rows just sent, once in the list of recent ones.
-    await waitFor(() => expect(screen.getAllByText("Posted.")).toHaveLength(3))
+    // Once for each row just sent.
+    await waitFor(() => expect(screen.getAllByText("Posted.")).toHaveLength(2))
     expect(asTextArea(screen.getByLabelText("English")).value).toBe("")
   })
 
   it("names the channel each language lands in, and says when one has none", async () => {
     backend()
-    draw(<AnnouncementsPage />)
+    draw(<AnnouncementForm />)
 
     expect(await screen.findByText("announcements")).toBeTruthy()
     expect(screen.getByText("no channel")).toBeTruthy()
@@ -175,20 +150,10 @@ describe("AnnouncementsPage", () => {
 
   it("does not name the file's channels when the host environment sets them", async () => {
     backend(accessFile({ overridden: true }))
-    draw(<AnnouncementsPage />)
+    draw(<AnnouncementForm />)
 
     expect(await screen.findAllByText("channel set by the host")).toHaveLength(2)
     expect(screen.queryByText("no channel")).toBeNull()
-  })
-
-  it("lists the latest lines of both senders, with what became of them", async () => {
-    backend()
-    draw(<AnnouncementsPage />)
-
-    expect(await screen.findByText("The second language, lately.")).toBeTruthy()
-    // A line a server sent by itself is nobody's: Steward, as every actor-less request shows.
-    expect(screen.getByText("Steward")).toBeTruthy()
-    expect(screen.getByText("expired")).toBeTruthy()
   })
 })
 

@@ -1,23 +1,19 @@
 import { HashIcon, MegaphoneIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 
-import type { Announcement, GuildList } from "@/lib/api"
+import type { GuildList } from "@/lib/api"
 import {
   ACCESS_FILE,
   FALLBACK_LANGUAGES,
   announcementTargets,
   type AnnouncementTargets,
 } from "@/lib/announcement-targets"
-import { relative } from "@/lib/format"
-import { message, t } from "@/lib/texts"
-import { runStatus } from "@/components/steward/status"
+import { t } from "@/lib/texts"
 import { languageName } from "@/lib/language-names"
-import { useAnnouncements, useCommandRun, useConfig, useGuildChannels, useSendAnnouncement } from "@/lib/queries"
+import { useCommandRun, useConfig, useGuildChannels, useSendAnnouncement } from "@/lib/queries"
 import { AskThenAct } from "@/components/steward/ask-then-act"
-import { Actor } from "@/components/steward/entity"
 import { RequestOutcome } from "@/components/steward/game-actions"
-import { PageHeader } from "@/components/steward/page-header"
-import { Failure, QueryState, SkeletonText } from "@/components/steward/query-state"
+import { Failure, SkeletonText } from "@/components/steward/query-state"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,23 +24,11 @@ import { Textarea } from "@/components/ui/textarea"
 const MAX_LENGTH = 2000
 
 /**
- * Announcements: one text per language, each posted by the bot into that language's channel.
+ * An announcement: one text per language, each posted by the bot into that language's channel.
  *
- * Nothing is sent until every language has its text. The list shares the bot's inbox with the SMP's milestones.
+ * Nothing is sent until every language has its text.
  */
-export function AnnouncementsPage() {
-  return (
-    <div className="flex flex-col gap-6">
-      <PageHeader title={t("steward.shell.page", { page: "announcements" })} />
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:items-start">
-        <Compose />
-        <Recent />
-      </div>
-    </div>
-  )
-}
-
-function Compose() {
+export function AnnouncementForm() {
   const file = useConfig(ACCESS_FILE)
   const channels = useGuildChannels()
   const send = useSendAnnouncement()
@@ -164,55 +148,5 @@ function SentLine({ tag, id }: { tag: string; id: string }) {
       {run.error ? <Failure error={run.error} onRetry={run.refetch} /> : null}
       {run.data ? <RequestOutcome run={run.data} /> : <SkeletonText width="medium" />}
     </div>
-  )
-}
-
-function Recent() {
-  const announcements = useAnnouncements()
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("steward.announcements.recent")}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <QueryState
-          query={announcements}
-          isEmpty={(data) => data.recent.length === 0}
-          empty={{ title: t("steward.announcements.none") }}
-        >
-          {(data) =>
-            data ? (
-              <ul className="flex flex-col divide-y divide-border">
-                {data.recent.map((line) => (
-                  <RecentLine key={line.id} line={line} />
-                ))}
-              </ul>
-            ) : (
-              <SkeletonText width="long" />
-            )
-          }
-        </QueryState>
-      </CardContent>
-    </Card>
-  )
-}
-
-function RecentLine({ line }: { line: Announcement }) {
-  const failed = line.status === "FAILED" || line.status === "EXPIRED"
-  return (
-    <li className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0">
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <Badge variant="secondary">{line.language}</Badge>
-        <Actor kind={line.actorKind} id={line.actorId} className="min-w-0" />
-        <span className="tabular-nums">{relative(line.requested)}</span>
-        {line.status !== "DONE" ? (
-          <Badge variant="outline" className={failed ? "text-destructive" : undefined}>
-            {runStatus(line.status)}
-          </Badge>
-        ) : null}
-      </div>
-      <p className="whitespace-pre-wrap break-words text-sm">{line.text}</p>
-      {line.result ? <p className="text-xs text-muted-foreground">{message(line.result)}</p> : null}
-    </li>
   )
 }

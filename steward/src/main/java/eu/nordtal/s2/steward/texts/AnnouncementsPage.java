@@ -4,7 +4,7 @@ import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.spec.Arg;
 import eu.nordtal.s2.messages.spec.Name;
 
-/** The announcements page: one text per language, and the latest ones. */
+/** The announcement form under the bot's console: one text per language. */
 @Name("Announcements")
 public interface AnnouncementsPage {
 
@@ -25,10 +25,4 @@ public interface AnnouncementsPage {
 
     @Name("No channel")
     MessageRef noChannel();
-
-    @Name("Recent")
-    MessageRef recent();
-
-    @Name("None")
-    MessageRef none();
 }

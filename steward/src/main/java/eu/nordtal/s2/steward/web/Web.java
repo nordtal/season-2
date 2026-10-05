@@ -145,7 +145,7 @@ public final class Web {
     /** The page's own texts, which the browser renders and an admin's override changes at once. */
     private final WebTexts texts = WebTexts.load();
 
-    /** The database bundle in the network's languages: a refused write, a server's refusal and an announcement. */
+    /** The database bundle in the network's languages: a refused write and a server's refusal. */
     private final Messages database;
 
     private final @Nullable MessageOverrideStore overrides;
@@ -209,7 +209,7 @@ public final class Web {
         this.guild = new DiscordApi(new DiscordDirectory(config.discord(), DiscordAuth.DISCORD_API, clock));
         this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow(), database);
         this.games = new GameActions(data == null ? null : data.dataSource(), commands);
-        this.announcements = new Announcements(data, ctx -> account(ctx).orElseThrow(), database);
+        this.announcements = new Announcements(data, ctx -> account(ctx).orElseThrow());
         this.access = new AccessApi(data, ctx -> account(ctx).orElseThrow());
         this.roster = new RosterRoutes(data);
         this.gameData = new GameDataRoutes(data == null ? null : GameDataStore.using(data.dataSource()));
@@ -573,7 +573,6 @@ public final class Web {
         cfg.routes.post("/api/smp/milestone", games::unlockMilestone, Gate.KEY_FRESH);
         cfg.routes.get("/api/hunger-games/round", games::round, Gate.KEY_HELD);
         cfg.routes.post("/api/hunger-games/start", games::startRound, Gate.KEY_FRESH);
-        cfg.routes.get("/api/announcements", announcements::recent, Gate.KEY_HELD);
         cfg.routes.post("/api/announcements", announcements::send, Gate.KEY_FRESH);
         // A text an admin is trying, shown to them alone by whichever process shows its key.
         cfg.routes.post(

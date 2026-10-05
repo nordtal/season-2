@@ -6,7 +6,6 @@ import {
   CalendarIcon,
   CreditCardIcon,
   HardDrivesIcon,
-  MegaphoneIcon,
   PulseIcon,
   SlidersHorizontalIcon,
   UsersIcon,
@@ -121,14 +120,6 @@ export function navigation(services: readonly string[]): NavGroup[] {
           note: t("steward.shell.note", { page: "season" }),
           icon: CalendarIcon,
           keywords: ["season", "phase", "reset", "launch"],
-        },
-        {
-          id: "announcements",
-          label: t("steward.shell.page", { page: "announcements" }),
-          to: "/announcements",
-          note: t("steward.shell.note", { page: "announcements" }),
-          icon: MegaphoneIcon,
-          keywords: ["announce", "announcement", "discord", "news", "broadcast"],
         },
         {
           id: "access",

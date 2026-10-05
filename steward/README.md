@@ -100,7 +100,7 @@ pin and no rollback: a bad release is corrected by publishing a better one.
   case (`choice`). A refusal a person meets is a `texts.RequestRefused`: the status, a message of the bundle and the
   code the page branches on, rendered with the overrides by the error handlers, so the page shows the error as it
   comes. A refused write of `:database` (`Refused`) reaches the same handlers and is worded by the database bundle
-  with its overrides, the bundle the announcements list renders in; a stale key on the track is refused as the SMP
+  with its overrides; a stale key on the track is refused as the SMP
   refuses it, with its reason and its words. What answers a malformed request is read by whoever wrote the client and stays a literal, like a log line.
   A page's own words are a section of their own, one interface per page beside `texts.StewardTexts`, and the words
   every settings dialog shares are `texts.Forms`.

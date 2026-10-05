@@ -755,8 +755,6 @@ export type TextArgs = {
   "steward.announcements.compose": Record<string, never>
   "steward.announcements.host-channel": Record<string, never>
   "steward.announcements.no-channel": Record<string, never>
-  "steward.announcements.none": Record<string, never>
-  "steward.announcements.recent": Record<string, never>
   "steward.announcements.send": Record<string, never>
   "steward.announcements.where": {
     languages: Arg["number"]

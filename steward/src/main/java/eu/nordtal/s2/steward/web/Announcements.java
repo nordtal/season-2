@@ -4,9 +4,7 @@ import static eu.nordtal.s2.database.AdminTexts.TEXTS;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import eu.nordtal.s2.common.id.Actor;
 import eu.nordtal.s2.common.json.Json;
-import eu.nordtal.s2.common.language.Locales;
 import eu.nordtal.s2.database.DatabaseMessages;
 import eu.nordtal.s2.database.audit.AuditLine;
 import eu.nordtal.s2.database.audit.JournalAction;
@@ -16,7 +14,6 @@ import eu.nordtal.s2.database.inbox.InboxStatus;
 import eu.nordtal.s2.database.inbox.Request;
 import eu.nordtal.s2.database.inbox.Schedule;
 import eu.nordtal.s2.messages.MessageRef;
-import eu.nordtal.s2.messages.Messages;
 import eu.nordtal.s2.steward.auth.DiscordAuth;
 import eu.nordtal.s2.steward.data.Data;
 import eu.nordtal.s2.steward.texts.RequestRefused;
@@ -24,8 +21,6 @@ import eu.nordtal.s2.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,10 +30,7 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Announcements an admin writes by hand: one request in the bot's inbox, a message per language, as the SMP sends.
- * The bot renders each; the list renders them here, from the same bundle with the same overrides.
- */
+/** Announcements an admin writes by hand: one request in the bot's inbox, a message per language, as the SMP sends. */
 final class Announcements {
 
     private static final StewardTexts.Steward.Answer ANSWER =
@@ -53,20 +45,13 @@ final class Announcements {
     private static final Duration PATIENCE = Duration.ofMinutes(2);
 
     private static final Pattern TAG = Pattern.compile("[a-z]{2,8}");
-    private static final int RECENT = 20;
 
     private final @Nullable Data data;
     private final Function<Context, DiscordAuth.Account> accounts;
-    private final Messages announced;
 
-    /** @param announced the database bundle in the network's languages, with the admins' overrides */
-    Announcements(
-            final @Nullable Data data,
-            final Function<Context, DiscordAuth.Account> accounts,
-            final Messages announced) {
+    Announcements(final @Nullable Data data, final Function<Context, DiscordAuth.Account> accounts) {
         this.data = data;
         this.accounts = accounts;
-        this.announced = Objects.requireNonNull(announced, "announced");
     }
 
     private Inbox<BotRequest> bot() {
@@ -74,48 +59,8 @@ final class Announcements {
                 .bot();
     }
 
-    /**
-     * One language's line of an announcement; {@code result} is what became of it once the bot answered.
-     *
-     * @param id what {@code GET /api/commands/{id}} is asked with
-     */
-    public record Announcement(
-            String id,
-            String language,
-            String text,
-            Actor.Kind actorKind,
-            String actorId,
-            Instant requested,
-            InboxStatus status,
-            @Nullable MessageRef result) {}
-
-    /** {@code GET /api/announcements}: the latest, by either sender, newest first. */
-    public record RecentAnnouncements(List<Announcement> recent) {}
-
     /** {@code POST /api/announcements}: each language's line to follow, by its tag. */
     public record AnnouncementsAsked(Map<String, String> ids) {}
-
-    /** {@code GET /api/announcements}: the latest, by either sender, newest first, one line per language. */
-    void recent(final Context ctx) {
-        final List<Announcement> recent = new ArrayList<>();
-        for (final Request<BotRequest> row : bot().recent(BotRequest.Announce.class, RECENT)) {
-            if (!(row.payload() instanceof BotRequest.Announce announcement)) {
-                continue;
-            }
-            announcement
-                    .messages()
-                    .forEach((language, message) -> recent.add(new Announcement(
-                            "announce:" + row.id() + ":" + language,
-                            language,
-                            announced.format(Locales.parse(language), message),
-                            row.actor().kind(),
-                            Objects.requireNonNullElse(row.actor().id(), ""),
-                            row.requested(),
-                            status(row.status()),
-                            result(row, language).orElse(null))));
-        }
-        ctx.json(new RecentAnnouncements(recent));
-    }
 
     /**
      * {@code POST /api/announcements} with {@code {texts: {<tag>: <text>, ...}}}: one request with every language.

@@ -28,7 +28,6 @@ export const keys = {
   settings: ["settings"] as const,
   commandRun: (id: string) => ["command-run", id] as const,
   smpTrack: ["smp-track"] as const,
-  announcements: ["announcements"] as const,
   hungerGamesRound: ["hunger-games-round"] as const,
   configs: ["configs"] as const,
   agent: ["agent"] as const,

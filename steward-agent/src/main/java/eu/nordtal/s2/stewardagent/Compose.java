@@ -11,13 +11,18 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,6 +34,9 @@ import org.slf4j.LoggerFactory;
 public final class Compose {
 
     private static final Logger log = LoggerFactory.getLogger(Compose.class);
+
+    /** A name an env file sets, as compose reads one: optionally exported, then the name and an equals sign. */
+    private static final Pattern ENV_FILE_NAME = Pattern.compile("^\\s*(?:export\\s+)?([A-Za-z_][A-Za-z0-9_]*)\\s*=");
 
     /**
      * This service's compose name, refused everywhere a service name is accepted.
@@ -393,11 +401,40 @@ public final class Compose {
         return service;
     }
 
+    /**
+     * Returns a command's environment: the inherited one less every name the env file sets, then the release.
+     *
+     * Compose ranks a process's environment above the file, and this container's was copied from the file when made.
+     */
+    Map<String, String> commandEnvironment(final Map<String, String> inherited) throws IOException {
+        final Map<String, String> result = new HashMap<>(inherited);
+        result.keySet().removeAll(envFileNames());
+        result.putAll(environment);
+        return result;
+    }
+
+    /** Returns every name the env file sets, none when there is no file. */
+    private Set<String> envFileNames() throws IOException {
+        final Set<String> names = new LinkedHashSet<>();
+        if (!Files.isRegularFile(envFile)) {
+            return names;
+        }
+        for (final String line : Files.readAllLines(envFile, StandardCharsets.UTF_8)) {
+            final Matcher name = ENV_FILE_NAME.matcher(line);
+            if (name.find()) {
+                names.add(name.group(1));
+            }
+        }
+        return names;
+    }
+
     /** Runs one command and hands every line to {@code output} as it arrives, stderr included. */
     private int run(final List<String> command, final Consumer<String> output) throws IOException {
         log.info("$ {}", String.join(" ", command));
         final ProcessBuilder builder = new ProcessBuilder(command).redirectErrorStream(true);
-        builder.environment().putAll(environment);
+        final Map<String, String> inherited = new HashMap<>(builder.environment());
+        builder.environment().clear();
+        builder.environment().putAll(commandEnvironment(inherited));
         final Process process = builder.start();
         try (BufferedReader reader =
                 new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {

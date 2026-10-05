@@ -477,14 +477,11 @@ services:
       TZ: ${TZ:-Europe/Berlin}
       # Required; it refuses to serve without one.
       NORDTAL_STEWARD_AGENT_TOKEN: ${STEWARD_AGENT_TOKEN:?set STEWARD_AGENT_TOKEN in .env - the secret steward and steward-agent share, `openssl rand -hex 32`}
-      # The env file decides; repeated so host and interface select the same services.
-      COMPOSE_PROFILES: ${COMPOSE_PROFILES:-db,bot,mc,steward}
       # Must match the host's project, or a deploy starts a second, empty stack.
       COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-nordtal-s2}
-      # The release this container was made as. Every compose command it runs inherits both, so the
-      # agent's release is the stack's; the environment of a process outranks the env file.
+      # The release this container was made as, which every compose command it runs is given, so the
+      # agent's release is the stack's. Every other value those commands read comes from the env file.
       NORDTAL_RELEASE: ${NORDTAL_RELEASE:?the release every image of ours runs - steward-agent and deploy/nordtal.sh pass it}
-      NORDTAL_IMAGES: ${NORDTAL_IMAGES:-ghcr.io/nordtal}
       # A file name inside the directory mounted below, not a path.
       NORDTAL_STEWARD_AGENT_ENV_FILE: /app/env/${STEWARD_ENV_FILE_NAME:?set STEWARD_ENV_FILE_NAME in .env - the file name (not the path) of the environment file, derived from STEWARD_ENV_FILE by deploy/nordtal.sh}
 

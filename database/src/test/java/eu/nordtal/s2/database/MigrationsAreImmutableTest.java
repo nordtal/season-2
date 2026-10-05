@@ -124,6 +124,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V32__only_steward_writes_settings.sql",
                 "63e1642daaced7efad1283a27ac71b07912e4f5690a5a08514fd11734e781c72");
+        FROZEN.put(
+                "V33__the_bot_s_role_ids_are_its_own.sql",
+                "42175449658e239ccc44d2281d18b34b2209db2a75df8e9f172682da599d4b99");
     }
 
     @Test

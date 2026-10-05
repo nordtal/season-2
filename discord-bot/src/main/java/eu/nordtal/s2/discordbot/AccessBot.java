@@ -48,7 +48,6 @@ import eu.nordtal.s2.discordbot.onboarding.OnboardingFlow;
 import eu.nordtal.s2.discordbot.registration.RegisterFlow;
 import eu.nordtal.s2.discordbot.registration.RegisterMessages;
 import eu.nordtal.s2.discordbot.registration.Teams;
-import eu.nordtal.s2.discordbot.roles.FormerAdminRole;
 import eu.nordtal.s2.discordbot.roles.GuildRoles;
 import eu.nordtal.s2.discordbot.status.StatusChannels;
 import eu.nordtal.s2.messages.Messages;
@@ -69,7 +68,6 @@ import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Activity;
-import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.interactions.commands.build.CommandData;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.ChunkingFilter;
@@ -273,7 +271,7 @@ public class AccessBot implements AutoCloseable {
                 jda, accessConfig, database.jdbi(), AlertBook.using(database.dataSource()), core.messages());
         // A period sold while season_phase.smp_start is NULL starts now rather than at the SMP opening.
         final SeasonStart seasonStart = new SeasonStart(phases, admin);
-        final GuildRoles guildRoles = guildRoles(jda, accessConfig, admin);
+        final GuildRoles guildRoles = GuildRoles.stored(database.jdbi(), admin::alert);
         // One lane for every onboarding change, so a choice and the settling it causes never overlap.
         final Executor onboardingLane = scheduler.serial();
         final Onboarding onboarding = onboarding(jda, accessConfig, core, guildRoles, admin, onboardingLane);
@@ -337,16 +335,6 @@ public class AccessBot implements AutoCloseable {
                 admin::alert,
                 core.messages(),
                 lane);
-    }
-
-    /** The roles the bot uses, with the admin role the environment named before roles had names taken once. */
-    private GuildRoles guildRoles(final JDA jda, final AccessSpec accessConfig, final AdminLog admin) {
-        final GuildRoles roles = GuildRoles.stored(database.jdbi(), admin::alert);
-        final Guild guild = jda.getGuildById(accessConfig.guildId());
-        if (guild != null) {
-            FormerAdminRole.adopt(guild, roles);
-        }
-        return roles;
     }
 
     /** The roles the bot uses apart from the choices, each found by the name the {@code access} group gives it. */

@@ -349,8 +349,6 @@ class TopologyTest {
                 "NORDTAL_STEWARD_WEB_DISCORD_BOT_TOKEN",
                 "NORDTAL_STEWARD_WEB_WEB_PUSH_PUBLIC_KEY",
                 "NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY");
-        // No setting: the bot reads it once to keep the admin role an installation named by id, and it goes after.
-        final Set<String> oneTime = Set.of("NORDTAL_ACCESS_ROLES_ADMIN");
         final Pattern optional = Pattern.compile("\\$\\{[A-Z0-9_]+:-}");
         final List<String> overrides = new java.util.ArrayList<>();
         services.forEach((name, definition) -> {
@@ -363,7 +361,6 @@ class TopologyTest {
             environment.forEach((variable, value) -> {
                 if (variable.startsWith("NORDTAL_")
                         && !bootstrap.contains(variable)
-                        && !oneTime.contains(variable)
                         && optional.matcher(String.valueOf(value)).matches()) {
                     overrides.add(name + ": " + variable);
                 }

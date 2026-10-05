@@ -140,7 +140,7 @@ class GuildRolesTest {
                 () -> assertTrue(table.all().isEmpty()),
                 () -> assertTrue(guild.created.isEmpty(), "creating a third would only make it worse"),
                 () -> assertEquals(1, alerts.size()),
-                () -> assertFalse(roles.stores(GuildRoles.ACCESS)));
+                () -> assertTrue(roles.id(GuildRoles.ACCESS).isEmpty()));
     }
 
     @Test
@@ -191,17 +191,8 @@ class GuildRolesTest {
         final GuildRoles restarted = roles();
 
         assertAll(
-                () -> assertTrue(restarted.stores(GuildRoles.ACCESS)),
+                () -> assertEquals(Optional.of("10"), restarted.id(GuildRoles.ACCESS)),
                 () -> assertTrue(restarted.isStored("10")),
                 () -> assertFalse(restarted.isStored("11")));
-    }
-
-    @Test
-    void anAdoptedRoleIsStoredWithoutLookingAtItsName() {
-        final GuildRoles roles = roles();
-
-        roles.adopt(GuildRoles.ADMIN, "14");
-
-        assertEquals(Map.of(GuildRoles.ADMIN, "14"), table.all());
     }
 }

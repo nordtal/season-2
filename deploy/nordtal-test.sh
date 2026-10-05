@@ -300,11 +300,7 @@ for name in NORDTAL_STEWARD_BUNQ_API_KEY NORDTAL_STEWARD_BUNQ_ACCOUNT_ID; do
     fi
 done
 contains NORDTAL_DIR "${REQUIRED[@]}" || bad "NORDTAL_DIR is not required and should be"
-# The bot finds its roles by name, so no role id is asked for.
-if contains NORDTAL_ACCESS_ROLES_ADMIN "${REQUIRED[@]}" "${QUESTIONS[@]}"; then
-    bad "the admin role is still asked for by id"
-fi
-ok "fourteen required; bunq is not, and no role is"
+ok "fourteen required; bunq is not"
 
 case_begin "a value full of shell metacharacters survives the round trip"
 # A value is written literally, never as shell.

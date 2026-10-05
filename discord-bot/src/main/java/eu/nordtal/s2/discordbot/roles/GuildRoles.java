@@ -137,16 +137,6 @@ public final class GuildRoles {
         log.info("Created the role {} ({}) for {}", wanted.name(), created, wanted.key());
     }
 
-    /** Returns whether a role is stored for {@code key}, whether or not the guild still has it. */
-    public boolean stores(final String key) {
-        return stored.containsKey(key);
-    }
-
-    /** Stores {@code roleId} for {@code key} without looking at its name. */
-    public synchronized void adopt(final String key, final String roleId) {
-        store(key, roleId);
-    }
-
     private void store(final String key, final String roleId) {
         dao.store(key, roleId);
         stored.put(key, roleId);

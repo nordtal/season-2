@@ -165,8 +165,6 @@ services:
 
       # The access group: the guild is required; deploy/nordtal.sh asks for it. Every role is found by its name.
       NORDTAL_ACCESS_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in the environment file - deploy/nordtal.sh asks for it}
-      # Read once: an installation that named its admin role by id keeps that role. It goes in the release after.
-      NORDTAL_ACCESS_ROLES_ADMIN: ${NORDTAL_ACCESS_ROLES_ADMIN:-}
     logging: *logging
 
   # Serves a locally built resource pack on loopback; `devpack` is never selected in production.

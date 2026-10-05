@@ -1,6 +1,7 @@
 // Checks CONVENTIONS.md for one Java module; formatting always, the rest per gradle.properties.
 // `conventions.comments=true` enforces the comment rules, `conventions.enforced=true` every rule.
 
+import eu.nordtal.season.build.CheckMarkdownHistory
 import eu.nordtal.season.build.CheckNoDashPunctuation
 import eu.nordtal.season.build.CheckNoTrackerIds
 import eu.nordtal.season.build.CheckTestsFindNoRoot
@@ -101,6 +102,19 @@ val noDashPunctuation =
         enforced.set(commentsEnforced)
     }
 
+val checkMarkdownHistory =
+    tasks.register<CheckMarkdownHistory>("checkMarkdownHistory") {
+        repositoryRoot.set(rootProject.layout.projectDirectory)
+        pathspecs.set(
+            listOf(
+                rootProject.projectDir
+                    .toPath()
+                    .relativize(projectDir.toPath())
+                    .toString(),
+            ),
+        )
+    }
+
 val checkTestsFindNoRoot =
     tasks.register<CheckTestsFindNoRoot>("checkTestsFindNoRoot") {
         repositoryRoot.set(rootProject.layout.projectDirectory)
@@ -115,5 +129,5 @@ val checkTestsFindNoRoot =
     }
 
 tasks.named("check") {
-    dependsOn(checkNoTrackerIds, noDashPunctuation, checkTestsFindNoRoot)
+    dependsOn(checkNoTrackerIds, noDashPunctuation, checkMarkdownHistory, checkTestsFindNoRoot)
 }

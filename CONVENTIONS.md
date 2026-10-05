@@ -17,8 +17,8 @@ A comment says what the code cannot. It describes the code as it is now.
   hyphen inside a word or at the start of a list item is fine. _(checked)_
 - **No sentence the signature already says.** If the name together with `@param`, `@return` and
   `@throws` explains the element, the doc comment has tags only, or does not exist.
-- **Present tense only.** No history, no dates, no "used to", "until", "since" or "no longer".
-  _(dates checked)_ Why a change was made belongs in its commit message.
+- **Present tense only.** No history, no dates, no `used to`, `until`, `since` or `no longer`.
+  _(dates checked, and the history words of Markdown)_ Why a change was made belongs in its commit message.
 - **No recorded reasoning** unless a later change to that code would go wrong without it. Then it
   is that one line.
 - **Inline `//` only for a non-obvious why**: a workaround, an ordering constraint, a vendor quirk.
@@ -32,8 +32,11 @@ A comment says what the code cannot. It describes the code as it is now.
 - These rules apply to every file type: Java, Kotlin and Groovy build scripts, TypeScript, YAML,
   shell and SQL.
 
-A README gives a rough overview for finding one's way around the code. It holds no details and no
-decision records.
+A README states the present state and gives an overview of what sits where. It holds no history, no
+rejected alternatives and no dates; the history of a decision is its tracker item and its commit.
+Diagrams and snippets are preferred over prose, and reasoning stays as the one line next to what it
+constrains. The present-tense rule also holds for every tracked Markdown file: a date, `used to`,
+`formerly`, `previously`, `originally` or `before V21` fails `check`. _(checked)_
 
 ## Formatting
 

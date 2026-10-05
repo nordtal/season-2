@@ -1,5 +1,6 @@
 // Checks CONVENTIONS.md outside the modules; `conventions.root.comments=true` enforces the comment rules.
 
+import eu.nordtal.season.build.CheckMarkdownHistory
 import eu.nordtal.season.build.CheckNoDashPunctuation
 import eu.nordtal.season.build.CheckNoTrackerIds
 import org.gradle.accessors.dm.LibrariesForLibs
@@ -40,6 +41,12 @@ val noDashPunctuation =
         enforced.set(findProperty("conventions.root.comments")?.toString()?.toBoolean() ?: false)
     }
 
+val checkMarkdownHistory =
+    tasks.register<CheckMarkdownHistory>("checkMarkdownHistory") {
+        repositoryRoot.set(layout.projectDirectory)
+        pathspecs.set(listOf(".") + subprojects.map { ":(exclude)" + projectDir.toPath().relativize(it.projectDir.toPath()) })
+    }
+
 tasks.named("check") {
-    dependsOn(checkNoTrackerIds, noDashPunctuation)
+    dependsOn(checkNoTrackerIds, noDashPunctuation, checkMarkdownHistory)
 }

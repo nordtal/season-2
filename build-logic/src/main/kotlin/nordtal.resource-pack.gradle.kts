@@ -1,6 +1,7 @@
 // Assembles src/ and the fonts generated from glyphs.json into one pack, zips it with its SHA-1, which the
 // client checks, and installs it into a local Minecraft instance.
 
+import eu.nordtal.season.build.CheckMarkdownHistory
 import eu.nordtal.season.build.CheckNoDashPunctuation
 import eu.nordtal.season.build.CheckNoTrackerIds
 import eu.nordtal.season.build.CheckPack
@@ -135,8 +136,21 @@ val noDashPunctuation =
         enforced.set(findProperty("conventions.comments")?.toString()?.toBoolean() ?: false)
     }
 
+val checkMarkdownHistory =
+    tasks.register<CheckMarkdownHistory>("checkMarkdownHistory") {
+        repositoryRoot.set(rootProject.layout.projectDirectory)
+        pathspecs.set(
+            listOf(
+                rootProject.projectDir
+                    .toPath()
+                    .relativize(projectDir.toPath())
+                    .toString(),
+            ),
+        )
+    }
+
 tasks.named("check") {
-    dependsOn(checkNoTrackerIds, noDashPunctuation)
+    dependsOn(checkNoTrackerIds, noDashPunctuation, checkMarkdownHistory)
 }
 
 val checkPack =

@@ -26,7 +26,7 @@ public interface AdminTree {
 
     /**
      * Makes this account the root, but only while nobody at all is an admin.
-     * The first sign-in into an empty tree wins, deliberately a race.
+     * Steward asks it only for the one account its {@code discord.root-id} names.
      *
      * @return whether this account is now the root; false when anybody already was an admin
      */

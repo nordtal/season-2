@@ -82,7 +82,6 @@ public final class Web {
     public static final String GENERATE_VAPID_KEYS = "generate-vapid-keys";
 
     private final WebSpec config;
-    private final DiscordAuth discord;
 
     /** Services, logs, the console, config files, the host, backups and plugins. */
     private final StackApi stack;
@@ -201,7 +200,6 @@ public final class Web {
                 Web.class.getClassLoader(),
                 "messages/" + MessageSchema.bundle(DatabaseMessages.class),
                 languages.locales());
-        this.discord = discord;
         this.stack = stack;
         this.sessions = data == null ? null : new Sessions(data.dataSource(), Duration.ofDays(config.sessionDays()));
         final @Nullable Credentials localCredentials = data == null ? null : new Credentials(data.dataSource());
@@ -237,7 +235,7 @@ public final class Web {
                 this::session,
                 localCredentials,
                 data,
-                discord,
+                authFlow::whatIsMissing,
                 localWebauthn,
                 this.exampleValues);
         final com.interaso.webpush.@Nullable VapidKeys localVapidKeys = vapidKeysOf(config.webPush());
@@ -449,7 +447,7 @@ public final class Web {
             timed.add(scheduler.every(Duration.ZERO, ALERT_POLL, () -> alertLane.execute(monitor::poll)));
         }
         live.start();
-        discord.whatIsMissing()
+        authFlow.whatIsMissing()
                 .ifPresent(missing ->
                         log.warn("Nobody can sign in yet: {} is empty. Everything else is running.", missing));
         log.info("Nordtal Steward is on {} - public address {}", port, config.publicUrl());

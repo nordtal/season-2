@@ -294,7 +294,7 @@ for name in COMPOSE_PROFILES POSTGRES_PASSWORD VELOCITY_FORWARDING_SECRET EULA N
             STEWARD_DISCORD_CLIENT_SECRET; do
     contains "$name" "${REQUIRED[@]}" || bad "$name is not required and should be"
 done
-for name in NORDTAL_STEWARD_BUNQ_API_KEY NORDTAL_STEWARD_BUNQ_ACCOUNT_ID; do
+for name in NORDTAL_STEWARD_BUNQ_API_KEY NORDTAL_STEWARD_BUNQ_ACCOUNT_ID STEWARD_ROOT_DISCORD_ID; do
     if contains "$name" "${REQUIRED[@]}"; then
         bad "$name is required, and a deployment must not stop for it"
     fi

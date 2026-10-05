@@ -43,8 +43,9 @@ class LocalQuestionsTest {
     @Test
     void discordIsSkippableHereAndTheLicenceAndTheAddressAreNot() {
         for (final LocalQuestions.Question question : LocalQuestions.ALL) {
-            final boolean discord =
-                    question.name().startsWith("NORDTAL_") || question.name().startsWith("STEWARD_DISCORD_");
+            final boolean discord = question.name().startsWith("NORDTAL_")
+                    || question.name().startsWith("STEWARD_DISCORD_")
+                    || question.name().equals("STEWARD_ROOT_DISCORD_ID");
             if (discord) {
                 assertTrue(
                         question.kind() == LocalQuestions.Kind.OPTIONAL_PLAIN

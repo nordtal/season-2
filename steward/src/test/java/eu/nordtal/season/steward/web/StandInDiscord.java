@@ -33,6 +33,9 @@ public final class StandInDiscord implements AutoCloseable {
 
     public final AtomicReference<String> memberNick = new AtomicReference<>("Ally");
 
+    /** The account {@link #spec()} names as the one that may claim an empty admin tree; blank for none. */
+    public final AtomicReference<String> rootId = new AtomicReference<>("1");
+
     /** The client secret as it arrived at the token route, or null if it never did. */
     public final AtomicReference<String> secretSeen = new AtomicReference<>();
 
@@ -66,8 +69,8 @@ public final class StandInDiscord implements AutoCloseable {
         return "http://127.0.0.1:" + started.port();
     }
 
-    /** The interface's Discord settings for this stand-in: no bot token, so the guild is never listed. */
-    public static WebSpec.DiscordSpec spec() {
+    /** The interface's Discord settings for this stand-in, read live: no bot token, so the guild is never listed. */
+    public WebSpec.DiscordSpec spec() {
         return new WebSpec.DiscordSpec() {
             @Override
             public String clientId() {
@@ -82,6 +85,11 @@ public final class StandInDiscord implements AutoCloseable {
             @Override
             public String guildId() {
                 return GUILD;
+            }
+
+            @Override
+            public String rootId() {
+                return rootId.get();
             }
         };
     }

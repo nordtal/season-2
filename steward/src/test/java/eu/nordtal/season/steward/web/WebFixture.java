@@ -97,7 +97,7 @@ abstract class WebFixture {
 
             @Override
             public DiscordSpec discord() {
-                return StandInDiscord.spec();
+                return fakeDiscord.spec();
             }
 
             @Override

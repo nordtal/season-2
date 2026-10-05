@@ -63,8 +63,26 @@ final class AuthFlow {
         return Objects.requireNonNull(admins, "this route needs admins, which this instance has none of");
     }
 
+    /**
+     * What is missing before anybody can sign in, or empty when somebody can.
+     *
+     * An empty admin tree without a root id is such a gap, since nobody may claim it.
+     */
+    Optional<String> whatIsMissing() {
+        return discord.whatIsMissing().or(this::rootUnclaimable);
+    }
+
+    private Optional<String> rootUnclaimable() {
+        if (admins == null
+                || !config.discord().rootId().isBlank()
+                || !admins().admins().isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of("discord.root-id (nobody is an admin yet)");
+    }
+
     void login(final Context ctx) {
-        final Optional<String> missing = discord.whatIsMissing();
+        final Optional<String> missing = whatIsMissing();
         if (missing.isPresent()) {
             throw new RequestRefused(503, ANSWER.signInUnconfigured(missing.get()));
         }
@@ -91,7 +109,7 @@ final class AuthFlow {
             throw new RequestRefused(403, Objects.requireNonNull(outcome.refusal(), "a refused sign-in says why"));
         }
         final DiscordAuth.Account who = Objects.requireNonNull(outcome.account());
-        // A tree with nobody in it lets the first sign-in claim root.
+        // A tree with nobody in it lets the account of discord.root-id claim root, and nobody else.
         final String signingIn = who.id();
         if (admins == null || !(admins().isAdmin(DiscordId.of(signingIn)) || claimRoot(who))) {
             log.info("refused {} ({}): not an admin", who.name(), signingIn);
@@ -104,9 +122,10 @@ final class AuthFlow {
         ctx.redirect("/");
     }
 
-    /** True when this sign-in just became the root of an empty admin tree. */
+    /** True when this sign-in is the root id's and just became the root of an empty admin tree. */
     private boolean claimRoot(final DiscordAuth.Account who) {
-        if (!admins().claimRootIfNobody(DiscordId.of(who.id()))) {
+        if (!who.id().equals(config.discord().rootId().strip())
+                || !admins().claimRootIfNobody(DiscordId.of(who.id()))) {
             return false;
         }
         log.warn(

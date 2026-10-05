@@ -78,6 +78,14 @@ final class LocalQuestions {
                     Kind.OPTIONAL_PLAIN,
                     "The id of the guild this deployment belongs to.",
                     "A test guild, not the real one. " + SKIP,
+                    LocalQuestions::looksLikeSnowflake),
+            new Question(
+                    "STEWARD_ROOT_DISCORD_ID",
+                    Kind.OPTIONAL_PLAIN,
+                    "Your own Discord id: the one account that may become root of the interface.",
+                    "Discord -> Developer Mode -> right-click your own name -> Copy User ID. Your first sign-in"
+                            + " then becomes root of the empty admin tree. Press Enter to skip: nobody can"
+                            + " become root, and the sign-in page says so.",
                     LocalQuestions::looksLikeSnowflake));
 
     private LocalQuestions() {}

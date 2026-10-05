@@ -163,5 +163,14 @@ public interface WebSpec {
         default String botToken() {
             return "";
         }
+
+        @Order(5)
+        @Name("Root's Discord ID")
+        @Key("root-id")
+        @Explain(
+                "The one account that may become root while nobody is an admin, as after a fresh install or the restore of an early dump; empty means nobody can.")
+        default String rootId() {
+            return "";
+        }
     }
 }

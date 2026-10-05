@@ -74,7 +74,7 @@ public final class StewardPreview {
                     Steward.configsOf(asSteward(postgres), database), "the stored settings were refused");
             final Data data = new Data(database, Clock.systemUTC());
             final AgentClient client = new AgentClient(agent.client());
-            final WebSpec config = config(options.port());
+            final WebSpec config = config(options.port(), discord);
             final String discordBase = discord.start(0);
             final Web web = new Web(
                     config,
@@ -130,6 +130,7 @@ public final class StewardPreview {
     private static void admit(final Data data, final StandInDiscord discord) throws Exception {
         discord.memberId.set(ADMIN);
         discord.memberNick.set(ADMIN_NAME);
+        discord.rootId.set(ADMIN);
         final List<AdminTree.Admin> admins = AdminTree.using(data.dataSource()).admins();
         if (!admins.isEmpty()) {
             StandInDiscord.admitBelow(
@@ -236,7 +237,7 @@ public final class StewardPreview {
     }
 
     /** The {@code web} group for {@code http://localhost:<port>}, with the stand-in Discord and no Web Push. */
-    private static WebSpec config(final int port) {
+    private static WebSpec config(final int port, final StandInDiscord discord) {
         return new WebSpec() {
             @Override
             public int port() {
@@ -250,7 +251,7 @@ public final class StewardPreview {
 
             @Override
             public DiscordSpec discord() {
-                return StandInDiscord.spec();
+                return discord.spec();
             }
 
             @Override

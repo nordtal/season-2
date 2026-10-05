@@ -274,6 +274,7 @@ QUESTIONS=(
     STEWARD_DISCORD_CLIENT_ID
     STEWARD_DISCORD_CLIENT_SECRET
     NORDTAL_ACCESS_GUILD_ID
+    STEWARD_ROOT_DISCORD_ID
     NORDTAL_STEWARD_BUNQ_API_KEY
     NORDTAL_STEWARD_BUNQ_ACCOUNT_ID
     COMPOSE_PROFILES
@@ -288,6 +289,7 @@ declare -A QUESTION_KIND=(
     [STEWARD_DISCORD_CLIENT_ID]=plain
     [STEWARD_DISCORD_CLIENT_SECRET]=secret
     [NORDTAL_ACCESS_GUILD_ID]=plain
+    [STEWARD_ROOT_DISCORD_ID]=optional-plain
     [NORDTAL_STEWARD_BUNQ_API_KEY]=optional-secret
     [NORDTAL_STEWARD_BUNQ_ACCOUNT_ID]=plain
     [COMPOSE_PROFILES]=plain
@@ -302,6 +304,7 @@ declare -A QUESTION_CHECK=(
     [STEWARD_DISCORD_CLIENT_ID]=looks_like_snowflake
     [STEWARD_DISCORD_CLIENT_SECRET]=-
     [NORDTAL_ACCESS_GUILD_ID]=looks_like_snowflake
+    [STEWARD_ROOT_DISCORD_ID]=looks_like_snowflake
     [NORDTAL_STEWARD_BUNQ_API_KEY]=-
     [NORDTAL_STEWARD_BUNQ_ACCOUNT_ID]=-
     [COMPOSE_PROFILES]=looks_like_profiles
@@ -316,6 +319,7 @@ declare -A QUESTION_PROMPT=(
     [STEWARD_DISCORD_CLIENT_ID]="The Discord application's Client ID - this is what the interface signs you in with."
     [STEWARD_DISCORD_CLIENT_SECRET]="The same application's Client Secret."
     [NORDTAL_ACCESS_GUILD_ID]="The id of the guild this deployment belongs to."
+    [STEWARD_ROOT_DISCORD_ID]="Your own Discord id: the one account that may become root of the interface."
     [NORDTAL_STEWARD_BUNQ_API_KEY]="The bunq API key, if payments should work. Press Enter to skip."
     [NORDTAL_STEWARD_BUNQ_ACCOUNT_ID]="The bunq monetary account id the payments arrive in."
     [COMPOSE_PROFILES]="Which parts of the stack come up?"
@@ -337,6 +341,9 @@ declare -A QUESTION_HINT=(
     [STEWARD_DISCORD_CLIENT_SECRET]="OAuth2 -> Reset Secret. Discord shows it once; if you have lost it, reset it and paste the new
         one - nothing else in this deployment holds a copy."
     [NORDTAL_ACCESS_GUILD_ID]="Discord -> Developer Mode -> right-click the server -> Copy Server ID."
+    [STEWARD_ROOT_DISCORD_ID]="Discord -> Developer Mode -> right-click your own name -> Copy User ID. It counts only
+        while nobody is an admin, as on a fresh install or after restoring an early dump; the root then
+        grants everyone else. Press Enter to skip: then nobody can become root, and the sign-in page says so."
     [NORDTAL_STEWARD_BUNQ_API_KEY]="Without it the whole stack starts and runs; steward just never polls bunq, and access
         can only be granted by hand - through the interface or through /access in Discord."
     [NORDTAL_STEWARD_BUNQ_ACCOUNT_ID]="A number. steward-bunq refuses to start with a key and no account, because a poll
@@ -1088,10 +1095,10 @@ default_for NORDTAL_DIR           "$INSTALL_DIR"
 default_for STEWARD_ENV_DIR       "$(dirname "$ENV_FILE")"
 default_for STEWARD_ENV_FILE_NAME "$(basename "$ENV_FILE")"
 
-# The bunq pair is asked below; COMPOSE_PROFILES has a default and is changed in the menu.
+# The bunq pair and the root id are asked below; COMPOSE_PROFILES has a default and is changed in the menu.
 for question in "${QUESTIONS[@]}"; do
     case "$question" in
-        NORDTAL_STEWARD_BUNQ_*|COMPOSE_PROFILES) continue ;;
+        NORDTAL_STEWARD_BUNQ_*|STEWARD_ROOT_DISCORD_ID|COMPOSE_PROFILES) continue ;;
     esac
     if [[ "$question" == EULA ]]; then
         # A refused licence ends the run.
@@ -1101,6 +1108,9 @@ for question in "${QUESTIONS[@]}"; do
     fi
     ask_question "$question"
 done
+
+# The root id is optional: a tree that already has admins never reads it.
+ask_question STEWARD_ROOT_DISCORD_ID || true
 
 # bunq is optional: without it nothing polls for payments. The key lives in steward-bunq alone.
 if ask_question NORDTAL_STEWARD_BUNQ_API_KEY; then

@@ -4,7 +4,6 @@ import com.yubico.webauthn.data.ByteArray;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.access.Person;
 import eu.nordtal.season.steward.auth.Credentials;
-import eu.nordtal.season.steward.auth.DiscordAuth;
 import eu.nordtal.season.steward.auth.Sessions;
 import eu.nordtal.season.steward.auth.WebAuthn;
 import eu.nordtal.season.steward.data.Data;
@@ -16,6 +15,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,7 +29,7 @@ final class Profile {
     private final Function<Context, Optional<Sessions.Session>> session;
     private final @Nullable Credentials credentials;
     private final @Nullable Data data;
-    private final DiscordAuth discord;
+    private final Supplier<Optional<String>> signInMissing;
     private final @Nullable WebAuthn webauthn;
     private final @Nullable ExampleValues exampleValues;
 
@@ -38,14 +38,14 @@ final class Profile {
             final Function<Context, Optional<Sessions.Session>> session,
             final @Nullable Credentials credentials,
             final @Nullable Data data,
-            final DiscordAuth discord,
+            final Supplier<Optional<String>> signInMissing,
             final @Nullable WebAuthn webauthn,
             final @Nullable ExampleValues exampleValues) {
         this.requireSession = requireSession;
         this.session = session;
         this.credentials = credentials;
         this.data = data;
-        this.discord = discord;
+        this.signInMissing = signInMissing;
         this.webauthn = webauthn;
         this.exampleValues = exampleValues;
     }
@@ -136,7 +136,7 @@ final class Profile {
 
     void whoAmI(final Context ctx) {
         final Optional<Sessions.Session> found = session.apply(ctx);
-        final @Nullable String missing = discord.whatIsMissing().orElse(null);
+        final @Nullable String missing = signInMissing.get().orElse(null);
         if (found.isEmpty()) {
             ctx.json(new Me(
                     false,

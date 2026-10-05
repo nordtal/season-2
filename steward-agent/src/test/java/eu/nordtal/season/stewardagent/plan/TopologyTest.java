@@ -276,6 +276,7 @@ class TopologyTest {
                 "NORDTAL_STEWARD_WEB_DISCORD_CLIENT_ID",
                 "NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET",
                 "NORDTAL_STEWARD_WEB_DISCORD_BOT_TOKEN",
+                "NORDTAL_STEWARD_WEB_DISCORD_ROOT_ID",
                 "NORDTAL_STEWARD_WEB_WEB_PUSH_PUBLIC_KEY",
                 "NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY");
         final Pattern optional = Pattern.compile("\\$\\{[A-Z0-9_]+:-}");

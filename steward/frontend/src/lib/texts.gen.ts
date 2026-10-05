@@ -43,6 +43,7 @@ export type TextArgs = {
   "alert.no-backup": Record<string, never>
   "alert.no-dump": Record<string, never>
   "alert.no-limit": Record<string, never>
+  "alert.no-offsite": Record<string, never>
   "alert.no-services": Record<string, never>
   "alert.no-tier": {
     payment: Arg["text"]
@@ -66,6 +67,9 @@ export type TextArgs = {
     hours: Arg["number"]
   }
   "alert.old-dump": {
+    hours: Arg["number"]
+  }
+  "alert.old-offsite": {
     hours: Arg["number"]
   }
   "alert.older-image": {
@@ -478,6 +482,7 @@ export type TextArgs = {
   "report.no-container-to-start": Record<string, never>
   "report.no-container-to-stop": Record<string, never>
   "report.no-database": Record<string, never>
+  "report.no-offsite": Record<string, never>
   "report.no-source": {
     artefact: Arg["text"]
   }
@@ -917,17 +922,12 @@ export type TextArgs = {
   "steward.backup-settings.daily": {
     days: Arg["number"]
   }
-  "steward.backup-settings.destination": Record<string, never>
-  "steward.backup-settings.destination-note": Record<string, never>
-  "steward.backup-settings.destination-saved": Record<string, never>
   "steward.backup-settings.monthly": {
     months: Arg["number"]
   }
   "steward.backup-settings.no-at": Record<string, never>
   "steward.backup-settings.no-days": Record<string, never>
   "steward.backup-settings.no-night": Record<string, never>
-  "steward.backup-settings.no-remote": Record<string, never>
-  "steward.backup-settings.no-remote-note": Record<string, never>
   "steward.backup-settings.retention": {
     steps: Arg["list"]
     total: Arg["number"]

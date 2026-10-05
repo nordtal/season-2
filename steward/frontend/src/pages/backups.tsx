@@ -22,10 +22,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AskButton } from "@/pages/operations"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { entryAt, useStewardConfig } from "@/components/steward/group-form"
-import { DestinationDialog, ScheduleDialog } from "@/pages/backup-dialogs"
+import { ScheduleDialog } from "@/pages/backup-dialogs"
 
 /**
- * Everything about the backups: the numbers, the runs, the offsite target and the schedule.
+ * Everything about the backups: the numbers, the runs and the schedule.
  *
  * A secret is never drawn; a backup and a restore are runs like every other.
  */
@@ -36,7 +36,6 @@ export function BackupsPage() {
         title={t("steward.backups.title")}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <DestinationDialog />
             <ScheduleDialog />
             <RestoreDialog />
             <AskButton kind="BACKUP" variant="default" label={t("steward.backups.back-up-now")} size="sm" />

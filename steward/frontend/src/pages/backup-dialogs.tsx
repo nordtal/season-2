@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ClockIcon, CloudIcon } from "@phosphor-icons/react"
+import { ClockIcon } from "@phosphor-icons/react"
 import { toast } from "sonner"
 
 import type { ConfigChanges } from "@/lib/api"
@@ -27,93 +27,6 @@ import {
   useGroupConfig,
   useStewardConfig,
 } from "@/components/steward/group-form"
-
-/** The two dialogs that change how backups run: the offsite target, and the schedule with its retention. */
-
-/** The five keys of `backup.remote`, in the order the form draws them. */
-const REMOTE_KEYS = [
-  "backup.remote.endpoint",
-  "backup.remote.bucket",
-  "backup.remote.prefix",
-  "backup.remote.access-key",
-  "backup.remote.secret-key",
-] as const
-
-/**
- * Where a copy goes that is not on this disk.
- *
- * Saves the three keys of `backup.remote` that are not secrets; the two keys are the host environment's.
- */
-export function DestinationDialog() {
-  const { file, document, pending } = useStewardConfig()
-  const save = useSaveConfig(file ?? "")
-  const { entries, draft, setDraft, changes, changed } = useConfigDraft(document, REMOTE_KEYS)
-
-  return (
-    <ResponsiveDialog>
-      <ResponsiveDialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <CloudIcon />
-          {t("steward.backup-settings.destination")}
-        </Button>
-      </ResponsiveDialogTrigger>
-      <ResponsiveDialogContent>
-        <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>{t("steward.backup-settings.destination")}</ResponsiveDialogTitle>
-          <ResponsiveDialogDescription>{t("steward.backup-settings.destination-note")}</ResponsiveDialogDescription>
-        </ResponsiveDialogHeader>
-
-        {pending ? (
-          <Loading rows={3} />
-        ) : !document || entries.length === 0 ? (
-          <Empty title={t("steward.backup-settings.no-remote")} note={t("steward.backup-settings.no-remote-note")} />
-        ) : (
-          <div className="flex flex-col gap-4">
-            {entries.map((entry) => (
-              <div key={entry.path} className="flex flex-col gap-1.5">
-                <Label htmlFor={entry.path}>{entry.label || entry.key}</Label>
-                <ScalarControl
-                  id={entry.path}
-                  entry={entry}
-                  value={draft[entry.path] ?? (entry.secret ? "" : (entry.value ?? ""))}
-                  disabled={!document.writable || save.isPending}
-                  onChange={(value) => setDraft((was) => ({ ...was, [entry.path]: value }))}
-                />
-              </div>
-            ))}
-
-            <div className="flex items-center gap-3">
-              <Button
-                disabled={changed === 0 || !document.writable || save.isPending}
-                onClick={() =>
-                  save.mutate(
-                    { revision: document.revision, changes },
-                    {
-                      onSuccess: () => toast.success(t("steward.backup-settings.destination-saved")),
-                      onError: (failure) =>
-                        toast.error(
-                          failure instanceof ApiError && failure.status === 409
-                            ? t("steward.form.changed-meanwhile")
-                            : String(failure),
-                        ),
-                    },
-                  )
-                }
-              >
-                {t("steward.form.save")}
-              </Button>
-              {changed > 0 ? (
-                <span className="text-sm text-muted-foreground tnum">
-                  {t("steward.form.changed", { count: changed })}
-                </span>
-              ) : null}
-            </div>
-          </div>
-        )}
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
-  )
-}
 
 /** steward's `backup.at`, the clock that writes the request row. */
 const SCHEDULE_KEYS = ["backup.at"] as const

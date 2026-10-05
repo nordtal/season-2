@@ -16,6 +16,7 @@ import eu.nordtal.s2.database.update.UpdateReport;
 import eu.nordtal.s2.database.update.UpdateReports;
 import eu.nordtal.s2.database.update.UpdateRequest;
 import eu.nordtal.s2.database.update.UpdateStatus;
+import eu.nordtal.s2.internalapi.agent.SnapshotResult;
 import eu.nordtal.s2.settings.DatabaseSpec;
 import eu.nordtal.s2.settings.DatabaseWaiting;
 import eu.nordtal.s2.stewardagent.Told;
@@ -158,6 +159,45 @@ class RunnerTest {
         final String english = Told.report(outcome.report());
         assertTrue(english.contains("saved 7.3 MiB in 3s"), english);
         assertTrue(english.contains("saved 1.2 MiB in 12s"), english);
+        assertTrue(english.contains("No offsite repository is configured"), english);
+    }
+
+    @Test
+    void aBackupCopiesItsArchivesOffTheHostOnlyOnceItsServersAreBack() {
+        snapshots.copiesOffsite(SnapshotResult.saved(
+                Snapshots.OFFSITE, 4_321_000_000L, Duration.ofSeconds(95), "sftp://box/nordtal-s2"));
+        final UpdateRequest request = claimed(UpdateKind.BACKUP, null);
+
+        final Outcome outcome = runner.run(request, progress::add);
+
+        assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
+        final int started = containers.calls.indexOf("start:smp-container");
+        final int copied = containers.calls.indexOf(
+                "offsite:" + defaults().backup().retention().daily());
+        assertTrue(started >= 0 && copied > started, "the upload must not keep the servers down: " + containers.calls);
+        assertEquals(List.of("report.saved"), Told.toldKeys(outcome.report(), Snapshots.OFFSITE));
+        assertEquals(
+                UpdateReport.State.SAVED,
+                UpdateReports.parse(outcome.report())
+                        .orElseThrow()
+                        .line(Snapshots.OFFSITE)
+                        .state());
+        assertFalse(Told.report(outcome.report()).contains("No offsite repository"), outcome.report());
+    }
+
+    @Test
+    void aFailedCopyOffTheHostFailsTheBackupAndLeavesTheServersRunning() {
+        snapshots.copiesOffsite(
+                SnapshotResult.failed(Snapshots.OFFSITE, Duration.ofSeconds(2), "the copy failed: exit [1]"));
+        final UpdateRequest request = claimed(UpdateKind.BACKUP, null);
+
+        final Outcome outcome = runner.run(request, progress::add);
+
+        assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
+        assertEquals(
+                "start:smp-container", containers.calls.get(containers.calls.size() - 2), containers.calls.toString());
+        final String english = Told.report(outcome.report());
+        assertTrue(english.contains("the copy failed: exit [1]"), english);
     }
 
     @Test

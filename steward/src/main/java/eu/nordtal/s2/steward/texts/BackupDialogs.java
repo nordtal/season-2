@@ -5,24 +5,9 @@ import eu.nordtal.s2.messages.spec.Arg;
 import eu.nordtal.s2.messages.spec.Name;
 import java.util.List;
 
-/** The words of the backup page's two dialogs. */
+/** The words of the backup page's schedule dialog. */
 @Name("Backup settings")
 public interface BackupDialogs {
-
-    @Name("Destination")
-    MessageRef destination();
-
-    @Name("Destination, said")
-    MessageRef destinationNote();
-
-    @Name("No remote section")
-    MessageRef noRemote();
-
-    @Name("No remote section, said")
-    MessageRef noRemoteNote();
-
-    @Name("Destination saved")
-    MessageRef destinationSaved();
 
     @Name("Schedule, said")
     MessageRef scheduleNote();

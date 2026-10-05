@@ -310,6 +310,12 @@ public interface AdminTexts {
         @Name("An old archive")
         MessageRef oldArchive(@Arg("volume") String volume, @Arg("hours") long hours);
 
+        @Name("No copy off the host")
+        MessageRef noOffsite();
+
+        @Name("An old copy off the host")
+        MessageRef oldOffsite(@Arg("hours") long hours);
+
         @Name("The permitted age")
         MessageRef permittedAge(@Arg("hours") long hours);
 
@@ -531,6 +537,9 @@ public interface AdminTexts {
 
         @Name("No volume to back up")
         MessageRef noBackupVolumes();
+
+        @Name("No offsite target")
+        MessageRef noOffsite();
 
         @Name("Old archives removed")
         MessageRef pruned(

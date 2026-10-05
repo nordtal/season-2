@@ -6,10 +6,9 @@ import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Name;
 import eu.nordtal.jcore.config.spec.annotation.Order;
-import eu.nordtal.jcore.config.spec.annotation.Secret;
 import java.util.List;
 
-/** When the nightly {@code BACKUP} is asked for, and where an offsite copy would go; what it keeps is the agent's. */
+/** When the nightly {@code BACKUP} is asked for; what it saves, keeps and copies off the host is the agent's. */
 @ConfigSpec
 public interface BackupSpec {
 
@@ -37,73 +36,5 @@ public interface BackupSpec {
             "Which weekdays the nightly backup runs on. All seven by default. An empty list means no nightly backup at all.")
     default List<String> days() {
         return List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY");
-    }
-
-    @Order(10)
-    @Name("Remote")
-    @Key("remote")
-    @Comment({
-        "Where an offsite copy goes. An empty endpoint means none, so every archive stays on",
-        "the same disk as its volume. Nothing uploads to it yet."
-    })
-    @Explain("Where a copy goes that is not on this disk. An empty endpoint means there is none.")
-    RemoteSpec remote();
-
-    /** The offsite target: an S3 bucket and its two credentials, which the interface only reports as set or not. */
-    @ConfigSpec
-    interface RemoteSpec {
-
-        @Order(1)
-        @Name("Endpoint")
-        @Key("endpoint")
-        @Comment({
-            "The S3 endpoint, with scheme. Empty means no offsite copy, and every other key here",
-            "is then unread."
-        })
-        @Explain("Empty means there is no offsite copy.")
-        default String endpoint() {
-            return "";
-        }
-
-        @Order(2)
-        @Name("Bucket")
-        @Key("bucket")
-        @Comment("The bucket the archives are written into.")
-        @Explain("The bucket the archives are written into.")
-        default String bucket() {
-            return "";
-        }
-
-        @Order(3)
-        @Name("Prefix")
-        @Key("prefix")
-        @Comment({
-            "A path inside the bucket, so one bucket can hold more than one deployment.",
-            "Empty writes to the root of the bucket."
-        })
-        @Explain("Lets one bucket hold more than one deployment. Empty writes to the root of the bucket.")
-        default String prefix() {
-            return "";
-        }
-
-        @Order(4)
-        @Name("Access key")
-        @Key("access-key")
-        @Secret
-        @Comment("The access key id. Sent to a browser as \"set\" or \"not set\", never as itself.")
-        @Explain("Never leaves this process: the interface is told whether it is set, not what it is.")
-        default String accessKey() {
-            return "";
-        }
-
-        @Order(5)
-        @Name("Secret key")
-        @Key("secret-key")
-        @Secret
-        @Comment("The secret access key. Sent to a browser as \"set\" or \"not set\", never as itself.")
-        @Explain("Never leaves this process: the interface is told whether it is set, not what it is.")
-        default String secretKey() {
-            return "";
-        }
     }
 }

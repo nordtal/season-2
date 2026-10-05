@@ -477,7 +477,8 @@ public final class StackApi implements AutoCloseable {
                 ? null
                 : java.util.Objects.requireNonNullElse(images.message(), "the registry did not answer");
         final List<StackReading.Archive> archives = archives().stream()
-                .map(archive -> new StackReading.Archive(archive.name(), archive.modified(), archive.partial()))
+                .map(archive -> new StackReading.Archive(
+                        archive.name(), archive.modified(), archive.partial(), archive.offsite()))
                 .toList();
         return new StackReading(services, registryProblem, archives, host());
     }

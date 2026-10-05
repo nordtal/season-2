@@ -452,7 +452,7 @@ class TopologyDeploymentTest {
             @Override
             public BackupSpec backup() {
                 return new BackupSpec() {
-                    // backup.remote has no default of its own, so this hands its defaults back by name.
+                    // backup.retention has no default of its own, so this hands its defaults back by name.
 
                     @Override
                     public RetentionSpec retention() {

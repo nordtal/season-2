@@ -18,6 +18,7 @@ final class FakeSnapshots implements Snapshots {
     private final Set<String> failing = new HashSet<>();
     private final Set<String> empty = new HashSet<>();
     private final Map<String, String> marks = new LinkedHashMap<>();
+    private @Nullable SnapshotResult offsite;
 
     FakeSnapshots(final List<String> calls) {
         this.calls = calls;
@@ -29,6 +30,12 @@ final class FakeSnapshots implements Snapshots {
 
     FakeSnapshots fails(final String volume) {
         failing.add(volume);
+        return this;
+    }
+
+    /** An offsite repository that answers a copy with {@code result}; without one none is configured. */
+    FakeSnapshots copiesOffsite(final SnapshotResult result) {
+        offsite = result;
         return this;
     }
 
@@ -98,6 +105,15 @@ final class FakeSnapshots implements Snapshots {
         return failing.contains("restore")
                 ? SnapshotResult.failed(DATABASE, Duration.ofSeconds(1), "the restore was rolled back")
                 : SnapshotResult.saved(DATABASE, 7_654_321, Duration.ofSeconds(4), "/backups/" + dump);
+    }
+
+    @Override
+    public java.util.Optional<SnapshotResult> copyOffsite(final eu.nordtal.s2.internalapi.agent.Retention policy) {
+        if (offsite == null) {
+            return java.util.Optional.empty();
+        }
+        calls.add("offsite:" + policy.daily());
+        return java.util.Optional.of(offsite);
     }
 
     @Override

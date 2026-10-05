@@ -68,8 +68,8 @@ class AlertMonitorTest {
                 List.of(new StackReading.Service("smp", state, null, false, false)),
                 null,
                 List.of(
-                        new StackReading.Archive("db-20261002T110000Z.dump", fresh, false),
-                        new StackReading.Archive("smp-world-20261002T110000Z.tar.zst", fresh, false)),
+                        new StackReading.Archive("db-20261002T110000Z.dump", fresh, false, true),
+                        new StackReading.Archive("smp-world-20261002T110000Z.tar.zst", fresh, false, true)),
                 new StackReading.Host(diskGib * GIB, 100 * GIB, 50 * GIB, 100 * GIB));
     }
 

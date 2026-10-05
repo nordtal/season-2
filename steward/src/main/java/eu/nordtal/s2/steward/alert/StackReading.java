@@ -31,8 +31,12 @@ public record StackReading(
     public record Service(
             String name, String state, @Nullable String health, boolean quiet, boolean outdated) {}
 
-    /** One file in the backup folder; a partial one is still being written. */
-    public record Archive(String name, Instant modified, boolean partial) {}
+    /**
+     * One file in the backup folder; a partial one is still being written.
+     *
+     * @param offsite whether a copy of it is in the offsite repository
+     */
+    public record Archive(String name, Instant modified, boolean partial, boolean offsite) {}
 
     /** The disk and memory numbers, in bytes. */
     public record Host(long diskUsed, long diskTotal, long memoryAvailable, long memoryTotal) {}

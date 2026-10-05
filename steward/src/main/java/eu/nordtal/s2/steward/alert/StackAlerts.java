@@ -30,6 +30,7 @@ public final class StackAlerts {
     private static final Pattern DATABASE_DUMP = Pattern.compile("^(.+)-(\\d{8}T\\d{6}Z)\\.dump(\\.partial)?$");
 
     private static final String DUMP = "database dump";
+    private static final String OFFSITE = "offsite copy";
     private static final String BACKUPS_PAGE = "/operations/backups";
     private static final String UPDATES_PAGE = "/operations/updates";
     private static final double MILLIS_PER_HOUR = 3_600_000d;
@@ -148,6 +149,7 @@ public final class StackAlerts {
             alerts.add(new Alert(
                     AlertType.BACKUP, Alert.Level.DOWN, "backups", TEXTS.alert().noArchive(), BACKUPS_PAGE));
         }
+        offsite(finished, thresholds, now, alerts);
         newest.forEach((series, at) -> {
             final double hours = Duration.between(at, now).toMillis() / MILLIS_PER_HOUR;
             if (hours > thresholds.backupAgeHours()) {
@@ -162,6 +164,34 @@ public final class StackAlerts {
                         BACKUPS_PAGE));
             }
         });
+    }
+
+    /** The newest archive copied off this host must be young enough; none is yellow, since the disk still has them. */
+    private static void offsite(
+            final List<StackReading.Archive> finished,
+            final Thresholds thresholds,
+            final Instant now,
+            final List<Alert> alerts) {
+        final Instant newest = finished.stream()
+                .filter(StackReading.Archive::offsite)
+                .map(StackReading.Archive::modified)
+                .max(Comparator.naturalOrder())
+                .orElse(null);
+        if (newest == null) {
+            alerts.add(new Alert(
+                    AlertType.BACKUP, Alert.Level.WARN, OFFSITE, TEXTS.alert().noOffsite(), BACKUPS_PAGE));
+            return;
+        }
+        final double hours = Duration.between(newest, now).toMillis() / MILLIS_PER_HOUR;
+        if (hours > thresholds.backupAgeHours()) {
+            alerts.add(alert(
+                    AlertType.BACKUP,
+                    Alert.Level.DOWN,
+                    OFFSITE,
+                    TEXTS.alert().oldOffsite((long) hours),
+                    TEXTS.alert().permittedAge(thresholds.backupAgeHours()),
+                    BACKUPS_PAGE));
+        }
     }
 
     /** Disk and memory at or over their thresholds are yellow; numbers that could not be read are never over. */

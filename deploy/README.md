@@ -271,8 +271,25 @@ Every archive is read back before it loses its `.partial` suffix.
 compose.yml is the backup set: every volume mounted under steward-agent's `/backup-sources` is saved,
 and every service labelled `eu.nordtal.backup: stop` is stopped while it is. The set must include
 `mc-smp` and must never include `postgres-data`, since a copy of a running data directory is torn;
-`TopologyDeploymentTest` holds both. Retention defaults to 14 days, then 8 weeks, then 6 months. There is no
-offsite copy yet, so every archive shares a disk with its source.
+`TopologyDeploymentTest` holds both. Retention defaults to 14 days, then 8 weeks, then 6 months.
+
+### The offsite copy
+
+Once everything is started again, the run copies the newest archive of every series with restic
+into `STEWARD_OFFSITE_REPOSITORY`, a Storage Box over SFTP, encrypted with
+`STEWARD_OFFSITE_PASSWORD`, and applies the same retention there. The SSH key and the box's host
+keys are `offsite-key` and `offsite-known-hosts` beside the environment file. A failed copy fails
+the run, a copied archive is marked under `steward-backups/offsite/`, and the backup alert turns
+red when the newest copied archive is older than the backup age, yellow while nothing was ever
+copied. Without the repository the report says so and every archive shares a disk with its source.
+
+To get the copy back on a new host, with restic, the key and the password:
+
+```bash
+export RESTIC_REPOSITORY=sftp://u123456@u123456.your-storagebox.de:23/nordtal-s2 RESTIC_PASSWORD=...
+restic -o sftp.args="-i offsite-key" snapshots
+restic -o sftp.args="-i offsite-key" restore latest --target ./restored
+```
 
 A `<archive>.unverified` file means a service's stop could not be confirmed; the archive is readable,
 but the moment it was taken is uncertain.

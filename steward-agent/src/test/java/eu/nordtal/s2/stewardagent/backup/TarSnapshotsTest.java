@@ -429,7 +429,7 @@ class TarSnapshotsTest {
         final List<Process> sleeping = sleepers(0.8, 1.6, 2.4);
         try {
             assertTrue(
-                    TarSnapshots.awaitAll(sleeping, Duration.ofSeconds(1)).isEmpty(),
+                    Pipeline.awaitAll(sleeping, Duration.ofSeconds(1)).isEmpty(),
                     "one second is the pipeline's whole allowance, not each stage's");
             // destroyForcibly is a signal, not a funeral; this waits for the process to actually be gone.
             assertTrue(
@@ -446,7 +446,7 @@ class TarSnapshotsTest {
         try {
             assertEquals(
                     List.of(0, 0, 0),
-                    TarSnapshots.awaitAll(sleeping, Duration.ofSeconds(20)).orElseThrow());
+                    Pipeline.awaitAll(sleeping, Duration.ofSeconds(20)).orElseThrow());
         } finally {
             sleeping.forEach(Process::destroyForcibly);
         }

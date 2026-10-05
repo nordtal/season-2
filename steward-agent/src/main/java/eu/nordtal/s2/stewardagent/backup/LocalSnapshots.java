@@ -27,12 +27,14 @@ public final class LocalSnapshots implements Snapshots {
     private final DatabaseDump dump;
     private final Supplier<RunSpec> config;
     private final Runnable afterDatabaseRestore;
+    private final OffsiteCopy offsite;
 
     /**
      * Saves into {@code backups}, which the database's container mounts at the same path.
      *
      * @param sourcesRoot where the volumes being saved are mounted, one directory per volume name
      * @param afterDatabaseRestore what a replaced database needs before anything uses it: fresh connections, the schema
+     * @param offsite where the newest archives are copied off this host, read at every copy
      */
     public LocalSnapshots(
             final Docker docker,
@@ -41,8 +43,10 @@ public final class LocalSnapshots implements Snapshots {
             final Path backups,
             final Clock clock,
             final Supplier<RunSpec> config,
-            final Runnable afterDatabaseRestore) {
+            final Runnable afterDatabaseRestore,
+            final Supplier<java.util.Optional<OffsiteCopy.Target>> offsite) {
         this.tars = new TarSnapshots(sourcesRoot, backups, clock);
+        this.offsite = new OffsiteCopy(backups, offsite);
         this.dump = new DatabaseDump(docker, project, backups.toString(), clock);
         this.config = config;
         this.afterDatabaseRestore = afterDatabaseRestore;
@@ -79,6 +83,11 @@ public final class LocalSnapshots implements Snapshots {
     @Override
     public java.util.Optional<String> seriesOf(final String archive) {
         return tars.seriesOf(archive);
+    }
+
+    @Override
+    public java.util.Optional<SnapshotResult> copyOffsite(final Retention policy) {
+        return offsite.copy(policy);
     }
 
     @Override

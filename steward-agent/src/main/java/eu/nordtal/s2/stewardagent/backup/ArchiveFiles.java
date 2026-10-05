@@ -97,6 +97,7 @@ final class ArchiveFiles {
                 ByteSize.of(attributes.size()).toString(),
                 attributes.lastModifiedTime().toInstant(),
                 name.endsWith(".partial"),
-                TarSnapshots.restoresInto(name).orElse(null)));
+                TarSnapshots.restoresInto(name).orElse(null),
+                entry.getParent() != null && OffsiteCopy.isCopied(entry.getParent(), name)));
     }
 }

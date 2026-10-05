@@ -22,6 +22,7 @@ import eu.nordtal.s2.settings.DatabaseWaiting;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.SettingsException;
 import eu.nordtal.s2.stewardagent.backup.LocalSnapshots;
+import eu.nordtal.s2.stewardagent.backup.OffsiteCopy;
 import eu.nordtal.s2.stewardagent.config.AgentSettings;
 import eu.nordtal.s2.stewardagent.config.RunSpec;
 import eu.nordtal.s2.stewardagent.docker.Containers;
@@ -41,6 +42,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Predicate;
 
 /**
@@ -255,7 +257,7 @@ public final class StewardAgent {
                 runs.get(),
                 database,
                 stack,
-                snapshotsOf(docker, compose, paths, clock, runs, database),
+                snapshotsOf(server, docker, compose, paths, clock, runs, database),
                 updates,
                 Waiting.on(clock),
                 PluginDirectory.using(database.dataSource()),
@@ -430,6 +432,7 @@ public final class StewardAgent {
 
     /** The backups and restores, which run the migrate service again after a dump has replaced the database. */
     private static LocalSnapshots snapshotsOf(
+            final InternalServer server,
             final Docker docker,
             final Compose compose,
             final AgentApi.Paths paths,
@@ -443,7 +446,25 @@ public final class StewardAgent {
                 paths.backups(),
                 clock,
                 runs::get,
-                () -> afterDatabaseRestore(database, compose));
+                () -> afterDatabaseRestore(database, compose),
+                () -> offsiteTarget(server, compose));
+    }
+
+    /** The offsite repository from the environment, the SSH files beside the environment file; empty without one. */
+    private static Optional<OffsiteCopy.Target> offsiteTarget(final InternalServer server, final Compose compose) {
+        final String repository = server.setting("OFFSITE_REPOSITORY", "");
+        if (repository.isEmpty()) {
+            return Optional.empty();
+        }
+        final Path environment = Path.of(server.setting("ENV_FILE", "/app/env/.env"));
+        final Path directory = environment.toAbsolutePath().getParent();
+        final Path keys = directory == null ? Path.of("/app/env") : directory;
+        return Optional.of(new OffsiteCopy.Target(
+                repository,
+                server.setting("OFFSITE_PASSWORD", ""),
+                keys.resolve("offsite-key"),
+                keys.resolve("offsite-known-hosts"),
+                compose.projectName()));
     }
 
     /** Takes the runs group again after a change in Steward; a refused change keeps the values in use. */

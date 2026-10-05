@@ -62,8 +62,14 @@ final class Run {
      * What a payload left behind.
      *
      * @param failed whether something in it failed that the report's lines do not show
+     * @param afterwards what the run does once everything it stopped is back, before it settles
      */
-    record Done(UpdateReport report, boolean failed) {}
+    record Done(UpdateReport report, boolean failed, java.util.function.UnaryOperator<UpdateReport> afterwards) {
+
+        Done(final UpdateReport report, final boolean failed) {
+            this(report, failed, java.util.function.UnaryOperator.identity());
+        }
+    }
 
     /** Ends a payload early: everything stopped is started again and the run fails with this report. */
     static final class Abort extends RuntimeException {
@@ -331,8 +337,9 @@ final class Run {
         }
 
         // Last, once the Minecraft services are healthy again, and postgres last of all.
-        final UpdateReport foreign = ForeignImages.renewForeign(
+        final UpdateReport renewedForeign = ForeignImages.renewForeign(
                 runner.containers, steps, report, plan.foreign(), plan.pulls(), progress, runner.waiting);
+        final UpdateReport foreign = done.afterwards().apply(renewedForeign);
         // Last of all: the one-shot's run is over but for its row, which the agent it makes leaves alone.
         final UpdateReport renewed = runner.oneShot ? renewAgent(foreign) : foreign;
 

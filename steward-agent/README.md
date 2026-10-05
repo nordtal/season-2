@@ -54,6 +54,9 @@ transaction, so a failed restore leaves the database as it was. The run then run
 against it, and the run's row, which the dump did not hold as it is now, is carried across; rows the dump
 held open are failed. `deploy/restore.sh` remains for the host when steward-agent itself is down.
 
+A `BACKUP` copies the newest archive of every series into the offsite restic repository once
+everything is started again, so the upload keeps nobody waiting; see `deploy/README.md`.
+
 The run never stops steward-agent. A run that names it is refused.
 
 A run's report says what happened in messages of the admin bundle (`report.*` in `:database`'s

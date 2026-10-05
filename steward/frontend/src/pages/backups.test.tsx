@@ -20,9 +20,9 @@ const IDENTIFIER_PATTERN = /\b\d{17,20}\b/
 
 function entry(over: Record<string, unknown>) {
   return {
-    path: "backup.remote.endpoint",
-    key: "endpoint",
-    label: "Endpoint",
+    path: "backup.at",
+    key: "at",
+    label: "At",
     explanation: "",
     noExplanationNeeded: true,
     filled: false,
@@ -37,8 +37,8 @@ function entry(over: Record<string, unknown>) {
   }
 }
 
-/** `steward.yml` as steward sends it: the schedule, the retention block and the remote keys. */
-function stewardConfig(over: { secretValue?: string } = {}) {
+/** `steward.yml` as steward sends it: the schedule. */
+function stewardConfig() {
   return {
     service: "steward",
     name: "steward",
@@ -59,28 +59,6 @@ function stewardConfig(over: { secretValue?: string } = {}) {
         kind: "LIST",
         value: undefined,
         items: ["MONDAY", "THURSDAY"],
-      }),
-      entry({ path: "backup.remote.endpoint", key: "endpoint", label: "Endpoint", value: "" }),
-      entry({ path: "backup.remote.bucket", key: "bucket", label: "Bucket", value: "" }),
-      entry({ path: "backup.remote.prefix", key: "prefix", label: "Prefix", value: "" }),
-      entry({
-        path: "backup.remote.access-key",
-        key: "access-key",
-        label: "Access key",
-        secret: true,
-        environmentOverridden: false,
-        filled: true,
-        /** A value steward never sends on a secret, so the test proves this page's own refusal to draw it. */
-        value: over.secretValue,
-      }),
-      entry({
-        path: "backup.remote.secret-key",
-        key: "secret-key",
-        label: "Secret key",
-        secret: true,
-        environmentOverridden: false,
-        filled: false,
-        value: undefined,
       }),
     ],
   }
@@ -167,6 +145,7 @@ function backup(over: Record<string, unknown> = {}) {
     human: "1.5 GB",
     modified: "2026-09-17T04:45:00Z",
     partial: false,
+    offsite: true,
     ...over,
   }
 }
@@ -277,70 +256,6 @@ function drawDetail(id: string) {
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
-})
-
-/** The backup page never draws a secret or a raw Discord id, even when a fixture sends one. */
-describe("BackupsPage - the destination dialog never draws a secret", () => {
-  it("leaves a secret's field empty even when a value arrives with it", async () => {
-    vi.stubGlobal("fetch", backend({ config: stewardConfig({ secretValue: "AKIAsecret" }) }))
-    draw()
-
-    fireEvent.click(await screen.findByRole("button", { name: "Destination" }))
-
-    const key = asInput(await screen.findByLabelText("Access key"))
-    expect(key.type).toBe("password")
-    expect(key.value).toBe("")
-    expect(document.body.textContent).not.toContain("AKIAsecret")
-  })
-
-  it("says which of the two keys is set, without saying what either is", async () => {
-    vi.stubGlobal("fetch", backend({}))
-    draw()
-
-    fireEvent.click(await screen.findByRole("button", { name: "Destination" }))
-
-    const set = asInput(await screen.findByLabelText("Access key"))
-    const unset = asInput(screen.getByLabelText("Secret key"))
-    expect(set.placeholder).toBe("set")
-    expect(unset.placeholder).toBe("not set")
-    expect(set.disabled).toBe(true)
-  })
-
-  it("has nothing to save once a typed value is put back the way it was", async () => {
-    vi.stubGlobal("fetch", backend({}))
-    draw()
-    fireEvent.click(await screen.findByRole("button", { name: "Destination" }))
-
-    const endpoint = await screen.findByLabelText("Endpoint")
-    fireEvent.change(endpoint, { target: { value: "https://fsn1.your-objectstorage.com" } })
-    await waitFor(() => expect(asButton(screen.getByRole("button", { name: "Save" })).disabled).toBe(false))
-
-    fireEvent.change(endpoint, { target: { value: "" } })
-    await waitFor(() => expect(asButton(screen.getByRole("button", { name: "Save" })).disabled).toBe(true))
-  })
-
-  it("sends only what was typed, together with the revision it was drawn from", async () => {
-    const sent: unknown[] = []
-    const fetch = backend({
-      put: (body) => {
-        sent.push(body)
-        return json(200, stewardConfig())
-      },
-    })
-    vi.stubGlobal("fetch", fetch)
-    draw()
-    fireEvent.click(await screen.findByRole("button", { name: "Destination" }))
-
-    const endpoint = await screen.findByLabelText("Endpoint")
-    fireEvent.change(endpoint, { target: { value: "https://fsn1.your-objectstorage.com" } })
-    fireEvent.click(screen.getByRole("button", { name: "Save" }))
-
-    await waitFor(() => expect(sent).toHaveLength(1))
-    expect(sent[0]).toEqual({
-      revision: "rev-1",
-      changes: { "backup.remote.endpoint": "https://fsn1.your-objectstorage.com" },
-    })
-  })
 })
 
 describe("BackupsPage - the schedule dialog carries the retention numbers now (item 9)", () => {

@@ -28,8 +28,14 @@ class StackAlertsTest {
         return List.of(archive("db-20261002T110000Z.dump", 1), archive("smp-world-20261002T110000Z.tar.zst", 1));
     }
 
+    /** An archive the offsite repository also has. */
     private static StackReading.Archive archive(final String name, final long hoursOld) {
-        return new StackReading.Archive(name, NOW.minus(Duration.ofHours(hoursOld)), false);
+        return new StackReading.Archive(name, NOW.minus(Duration.ofHours(hoursOld)), false, true);
+    }
+
+    /** An archive only this host's disk has. */
+    private static StackReading.Archive local(final String name, final long hoursOld) {
+        return new StackReading.Archive(name, NOW.minus(Duration.ofHours(hoursOld)), false, false);
     }
 
     private static StackReading.Host host(final long diskUsedGib, final long memoryAvailableGib) {
@@ -109,7 +115,7 @@ class StackAlertsTest {
                 titles(of(
                         List.of(smp),
                         null,
-                        List.of(new StackReading.Archive("db-20261002T110000Z.dump.partial", NOW, true)),
+                        List.of(new StackReading.Archive("db-20261002T110000Z.dump.partial", NOW, true, false)),
                         null)));
         assertEquals(
                 List.of("There is no database dump"),
@@ -127,6 +133,32 @@ class StackAlertsTest {
         final List<Alert> alerts = of(List.of(service("smp", "running")), null, archives, null);
         assertEquals(List.of("The newest archive of limbo-world is 37 hours old"), titles(alerts));
         assertEquals("limbo-world", alerts.getFirst().subject());
+    }
+
+    @Test
+    void backupsNeverCopiedOffTheHostAreYellow() {
+        final List<Alert> alerts = of(
+                List.of(service("smp", "running")),
+                null,
+                List.of(local("db-20261002T110000Z.dump", 1), local("smp-world-20261002T110000Z.tar.zst", 1)),
+                null);
+        assertEquals(List.of("No backup has been copied off this host"), titles(alerts));
+        assertEquals(Alert.Level.WARN, alerts.getFirst().level());
+        assertEquals(AlertType.BACKUP, alerts.getFirst().type());
+    }
+
+    @Test
+    void anOldCopyOffTheHostIsRedWhileTheArchivesOnTheDiskAreFresh() {
+        final List<Alert> alerts = of(
+                List.of(service("smp", "running")),
+                null,
+                List.of(
+                        local("db-20261002T110000Z.dump", 1),
+                        local("smp-world-20261002T110000Z.tar.zst", 1),
+                        archive("db-20261001T020000Z.dump", 40)),
+                null);
+        assertEquals(List.of("The newest backup copied off this host is 40 hours old"), titles(alerts));
+        assertEquals(Alert.Level.DOWN, alerts.getFirst().level());
     }
 
     @Test

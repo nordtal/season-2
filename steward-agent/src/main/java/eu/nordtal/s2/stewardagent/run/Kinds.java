@@ -21,6 +21,7 @@ import eu.nordtal.s2.stewardagent.plan.PlanReport;
 import eu.nordtal.s2.stewardagent.plan.UpdatePlan;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
@@ -270,7 +271,7 @@ final class Kinds {
     }
 
     /**
-     * Dumps the database with everything running, then stops what compose.yml labels, saves the volumes and prunes.
+     * Dumps the database, saves the volumes, prunes, and copies the newest archives off this host once all is back.
      *
      * compose.yml says what a backup saves and stops: the agent's mounts and the label {@code eu.nordtal.backup}.
      */
@@ -309,16 +310,37 @@ final class Kinds {
         final Run.Payload save = (steps, stopped) -> {
             final UpdateReport saved = steps.save(stopped.report(), volumes);
             // While the servers are still down: quick, and it frees disk before the next run.
-            return new Run.Done(prune(runner, saved), false);
+            return new Run.Done(prune(runner, saved), false, back -> offsite(runner, back, progress));
         };
         return Planned.plan(
                 Run.Plan.of(planned, save, UpdateReport.Undertaking.BACKUP, true, Runner.Doubt.FAILS_THE_RUN));
     }
 
+    /** The newest archives copied off this host once the servers are back, as a line of the report. */
+    private static UpdateReport offsite(
+            final Runner runner, final UpdateReport back, final Consumer<UpdateReport> progress) {
+        final Optional<SnapshotResult> copied = runner.backups.copyOffsite(policyOf(runner));
+        if (copied.isEmpty()) {
+            return back.withNote(TEXTS.report().noOffsite());
+        }
+        final SnapshotResult result = copied.get();
+        final UpdateReport reported = back.with(new UpdateReport.ServiceLine(
+                Snapshots.OFFSITE,
+                result.ok() ? UpdateReport.State.SAVED : UpdateReport.State.FAILED,
+                List.of(UpdateRun.backedUp(result)),
+                result.ok() ? null : TEXTS.report().words(String.valueOf(result.message()))));
+        progress.accept(reported);
+        return reported;
+    }
+
+    private static Retention policyOf(final Runner runner) {
+        final BackupSpec.RetentionSpec keep = runner.config.backup().retention();
+        return new Retention(keep.daily(), keep.weekly(), keep.monthly(), keep.collapseAfterDays());
+    }
+
     /** What was kept and what was removed, put into the report so a wrong retention shows. */
     private static UpdateReport prune(final Runner runner, final UpdateReport saved) {
-        final BackupSpec.RetentionSpec keep = runner.config.backup().retention();
-        final Retention policy = new Retention(keep.daily(), keep.weekly(), keep.monthly(), keep.collapseAfterDays());
+        final Retention policy = policyOf(runner);
         final List<String> pruned = runner.backups.prune(policy);
         return pruned.isEmpty()
                 ? saved

@@ -22,7 +22,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -218,7 +217,7 @@ public final class TarSnapshots {
             }
             empty(target);
             log.info("unpacking {} into {}", archive, target);
-            final Shell unpacked = pipeline(
+            final Pipeline.Result unpacked = Pipeline.run(
                     wall,
                     null,
                     List.of(
@@ -260,13 +259,14 @@ public final class TarSnapshots {
         final String name = target.name();
         final Path partial = target.partial();
         final Path finished = target.finished();
-        final Shell created = pipeline(
+        final Pipeline.Result created = Pipeline.run(
                 wall,
                 null,
                 List.of(
                         // `.` and -C so the archive holds relative names.
                         List.of("tar", "-cf", "-", "-C", source.toString(), "."),
-                        List.of("zstd", LEVEL, "-T0", "-q", "-", "-o", partial.toString())));
+                        // --rsyncable keeps an unchanged region's bytes alike, so the offsite copy deduplicates it.
+                        List.of("zstd", LEVEL, "-T0", "--rsyncable", "-q", "-", "-o", partial.toString())));
         if (created.failed()) {
             Files.deleteIfExists(partial);
             return SnapshotResult.failed(
@@ -428,7 +428,8 @@ public final class TarSnapshots {
     String unreadable(final Path archive, final Duration wall) throws IOException, InterruptedException {
         final Path listing = Files.createTempFile("snapshot-listing-", ".txt");
         try {
-            final Shell read = pipeline(wall, listing, List.of(List.of("tar", "--zstd", "-tf", archive.toString())));
+            final Pipeline.Result read =
+                    Pipeline.run(wall, listing, List.of(List.of("tar", "--zstd", "-tf", archive.toString())));
             if (read.failed()) {
                 return read.describe();
             }
@@ -442,26 +443,6 @@ public final class TarSnapshots {
         } finally {
             Files.deleteIfExists(listing);
         }
-    }
-
-    /**
-     * Waits for every stage against one deadline, or kills the whole pipeline.
-     *
-     * @return the exit codes in stage order, or empty if the wall was reached
-     */
-    static Optional<List<Integer>> awaitAll(final List<Process> running, final Duration wall)
-            throws InterruptedException {
-        final long deadline = System.nanoTime() + wall.toNanos();
-        final List<Integer> codes = new ArrayList<>();
-        for (final Process process : running) {
-            final long remaining = deadline - System.nanoTime();
-            if (remaining <= 0 || !process.waitFor(remaining, TimeUnit.NANOSECONDS)) {
-                running.forEach(Process::destroyForcibly);
-                return Optional.empty();
-            }
-            codes.add(process.exitValue());
-        }
-        return Optional.of(List.copyOf(codes));
     }
 
     private static Instant stampOf(final String stamp) {
@@ -504,67 +485,6 @@ public final class TarSnapshots {
         } catch (final UncheckedIOException undecodable) {
             // A file name on a world volume need not be valid UTF-8.
             return 1;
-        }
-    }
-
-    /** What a pipeline came to: every stage's status, and whatever any of them said on stderr. */
-    private record Shell(List<Integer> exitCodes, String stderr) {
-
-        boolean failed() {
-            return exitCodes.stream().anyMatch(code -> code != 0);
-        }
-
-        String describe() {
-            final String said = stderr.isBlank() ? "and said nothing" : "saying: " + stderr;
-            return "exit " + exitCodes + " " + said;
-        }
-    }
-
-    /**
-     * Runs the stages as one pipeline, writing the last one's output to {@code stdout} or discarding it.
-     *
-     * Each stage's stderr goes to its own temporary file, since merging it would splice warnings into the archive.
-     */
-    private Shell pipeline(final Duration wall, final @Nullable Path stdout, final List<List<String>> stages)
-            throws IOException, InterruptedException {
-        final List<ProcessBuilder> builders = new ArrayList<>();
-        final List<Path> errors = new ArrayList<>();
-        for (final List<String> stage : stages) {
-            final Path error = Files.createTempFile("snapshot-stderr-", ".log");
-            errors.add(error);
-            builders.add(new ProcessBuilder(stage).redirectError(error.toFile()));
-        }
-        builders.getLast()
-                .redirectOutput(
-                        stdout == null ? ProcessBuilder.Redirect.DISCARD : ProcessBuilder.Redirect.to(stdout.toFile()));
-
-        List<Process> running = List.of();
-        try {
-            running = ProcessBuilder.startPipeline(builders);
-            final Optional<List<Integer>> codes = awaitAll(running, wall);
-            if (codes.isEmpty()) {
-                return new Shell(
-                        List.of(-1),
-                        "gave up after " + wall.toMinutes() + " minutes - " + String.join(" ", stages.getFirst())
-                                + " did not finish");
-            }
-            final StringBuilder said = new StringBuilder();
-            for (final Path error : errors) {
-                final String text =
-                        Files.readString(error, StandardCharsets.UTF_8).strip();
-                if (!text.isBlank()) {
-                    said.append(said.isEmpty() ? "" : "; ").append(text);
-                }
-            }
-            return new Shell(codes.get(), said.toString());
-        } catch (final InterruptedException interrupted) {
-            // A shutdown must not leave tar and zstd writing with nobody waiting on them.
-            running.forEach(Process::destroyForcibly);
-            throw interrupted;
-        } finally {
-            for (final Path error : errors) {
-                Files.deleteIfExists(error);
-            }
         }
     }
 

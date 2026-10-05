@@ -61,7 +61,7 @@ pin and no rollback: a bad release is corrected by publishing a better one.
   folds them into hourly means after 30 days.
 - **Backups.** The nightly clock only writes a request row; `steward-agent` runs `pg_dump` inside
   the postgres container and writes the volumes as zstd tars. steward lists and downloads them
-  through the agent. There is no offsite copy.
+  through the agent, which also copies the newest of them off the host when a repository is configured.
 - **The journal.** Every route that changes something writes its line through `:database`'s `Journal` with the
   signed-in admin as a structured actor (`DiscordAuth.Account.actor()`, `Sessions.Session.ownLine` for one's own
   keys and browsers) and the line as a message of the admin bundle. The Journal page draws the actor as a profile and

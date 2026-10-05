@@ -497,6 +497,10 @@ services:
       NORDTAL_STEWARD_AGENT_SEASON_REPO: ${SEASON_REPO:-}
       # Optional; raises GitHub's rate limit.
       NORDTAL_STEWARD_AGENT_GITHUB_TOKEN: ${STEWARD_GITHUB_TOKEN:-}
+      # Optional; the restic repository every backup run copies its newest archives into, and its key. The SSH
+      # key and the host keys are the files offsite-key and offsite-known-hosts beside the environment file.
+      NORDTAL_STEWARD_AGENT_OFFSITE_REPOSITORY: ${STEWARD_OFFSITE_REPOSITORY:-}
+      NORDTAL_STEWARD_AGENT_OFFSITE_PASSWORD: ${STEWARD_OFFSITE_PASSWORD:-}
       # The installer's one question: whether Mojang's client jar may be fetched to draw item icons.
       NORDTAL_STEWARD_AGENT_MOJANG_ASSETS: ${NORDTAL_MOJANG_ASSETS:-false}
     volumes:

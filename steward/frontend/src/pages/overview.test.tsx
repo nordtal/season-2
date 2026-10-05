@@ -51,6 +51,7 @@ function backup(hoursAgo: number) {
     human: "1.5 GB",
     modified: new Date(Date.now() - hoursAgo * HOUR).toISOString(),
     partial: false,
+    offsite: true,
   }
 }
 

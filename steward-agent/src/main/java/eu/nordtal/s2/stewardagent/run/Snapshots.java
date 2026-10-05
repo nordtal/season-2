@@ -15,6 +15,9 @@ public interface Snapshots {
     /** The name the database dump goes by, in a result and on a run's report line. */
     String DATABASE = "database";
 
+    /** The name the copy off this host goes by, in a result and on a run's report line. */
+    String OFFSITE = "offsite";
+
     /**
      * Dumps the database while everything runs, since pg_dump's snapshot needs nothing stopped.
      *
@@ -53,6 +56,15 @@ public interface Snapshots {
      * @return empty when there is no such finished archive
      */
     java.util.Optional<String> seriesOf(String archive);
+
+    /**
+     * Copies the newest finished archive of every series off this host and applies the policy there too.
+     *
+     * @return empty when no offsite target is configured
+     */
+    default java.util.Optional<SnapshotResult> copyOffsite(final Retention policy) {
+        return java.util.Optional.empty();
+    }
 
     /** Puts a volume archive back into its volume, which every server on it has stopped for. */
     SnapshotResult restore(String archive);

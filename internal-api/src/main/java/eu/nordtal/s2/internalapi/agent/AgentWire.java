@@ -331,6 +331,7 @@ public final class AgentWire {
      * One file in the backup directory; a {@code partial} one is being written or died halfway.
      *
      * @param restoresInto the volume a restore of it replaces, or the database's name for a dump, typed to confirm
+     * @param offsite whether a copy of it is in the offsite repository
      */
     public record Archive(
             String name,
@@ -338,7 +339,8 @@ public final class AgentWire {
             String human,
             Instant modified,
             boolean partial,
-            @Nullable String restoresInto) {}
+            @Nullable String restoresInto,
+            boolean offsite) {}
 
     /**
      * One server's plugins, sorted by name; {@code mounted} is false when the agent cannot see the volume.

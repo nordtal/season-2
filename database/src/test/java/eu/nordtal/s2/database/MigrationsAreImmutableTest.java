@@ -118,6 +118,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V30__servers_publish_their_command_trees.sql",
                 "120f4e6b38f5a65c9b50ed73e489fb045d2d2dce1b3d5bda4dd8007bb9a3e16b");
+        FROZEN.put(
+                "V31__registration_has_one_shape.sql",
+                "f38f4a96a902127c552dee1a16a8e350660b1d59be116bf1bc493d281c306fa0");
     }
 
     @Test

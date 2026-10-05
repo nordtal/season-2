@@ -11,6 +11,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -43,7 +44,7 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
      *
      * A grant listed here may go in the release after the one named, and the line goes with the grant.
      */
-    private static final Map<String, String> NO_LONGER_USED = Map.of();
+    private static final Map<String, String> NO_LONGER_USED = noLongerUsed();
 
     /** Every column and table privilege a role holds, one line each, as {@code relation.column PRIVILEGE}. */
     private static final String PRIVILEGES = """
@@ -129,6 +130,28 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
                 newlyRequired,
                 "a migration added a required column without a default to a table release " + release
                         + "'s standbys insert into");
+    }
+
+    private static Map<String, String> noLongerUsed() {
+        final Map<String, String> unused = new HashMap<>();
+        // The legacy team tables, which the proxy's snapshot read before registration was the bot's.
+        listed(unused, "0.13.0", "nordtal_proxy", "SELECT", "hg_team", "id", "game_id", "name", "colour_rgb");
+        listed(unused, "0.13.0", "nordtal_proxy", "SELECT", "hg_team", "colour_named", "created");
+        listed(unused, "0.13.0", "nordtal_proxy", "SELECT", "hg_member", "id", "team_id", "game_id", "discord_id");
+        listed(unused, "0.13.0", "nordtal_proxy", "SELECT", "hg_member", "state", "ready", "created");
+        return Map.copyOf(unused);
+    }
+
+    private static void listed(
+            final Map<String, String> unused,
+            final String release,
+            final String role,
+            final String privilege,
+            final String relation,
+            final String... columns) {
+        for (final String column : columns) {
+            unused.put(role + " " + relation + "." + column + " " + privilege, release);
+        }
     }
 
     /** Returns whether a release up to the baseline listed the privilege as no longer used. */

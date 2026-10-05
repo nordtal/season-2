@@ -15,6 +15,7 @@ import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.discordbot.config.Languages;
 import eu.nordtal.s2.discordbot.config.OnboardingSpec;
 import eu.nordtal.s2.discordbot.roles.GuildRoles;
+import eu.nordtal.s2.discordbot.roles.Withholding;
 import eu.nordtal.s2.settings.Setting;
 import eu.nordtal.s2.settings.SettingsException;
 import java.time.ZoneId;
@@ -50,7 +51,7 @@ import org.jspecify.annotations.Nullable;
  * All of it runs on one lane: a member's change, a new channel, a lost role, the sweep and a changed setting.
  */
 @Slf4j
-public final class Onboarding extends ListenerAdapter {
+public final class Onboarding extends ListenerAdapter implements Withholding {
 
     /** The page in Steward an alert about the onboarding opens: the bot's settings. */
     static final String PAGE = "/services/discord-bot";
@@ -71,8 +72,8 @@ public final class Onboarding extends ListenerAdapter {
     private final Executor lane;
     private volatile Choices choices;
 
-    /** The lock role and whether a member without both choices holds it now. */
-    private record Lock(@Nullable Role role, boolean locking) {}
+    /** The lock role, whether a member without both choices holds it now, and whether it is on without a channel. */
+    private record Lock(@Nullable Role role, boolean locking, boolean withoutChannel) {}
 
     /**
      * Creates it; nothing touches Discord before {@link #resolveRoles()}.
@@ -295,15 +296,21 @@ public final class Onboarding extends ListenerAdapter {
         }
     }
 
+    /** Returns whether {@code member} holds the lock role while the lock is in force, which withholds the rest. */
+    @Override
+    public boolean withholds(final Member member) {
+        if (!ours(member.getGuild()) || member.getUser().isBot()) {
+            return false;
+        }
+        final Lock lock = state(member.getGuild());
+        final Role role = lock.role();
+        return lock.locking() && role != null && member.getRoles().contains(role);
+    }
+
     /** Returns the lock role, and whether it locks now, saying once when it is on without a channel. */
     private Lock lock(final Guild guild) {
-        final OnboardingSpec spec = setting.get();
-        final Role role = roles.role(guild, GuildRoles.LOCK).orElse(null);
-        if (!spec.lock()) {
-            alerts.clear(WITHOUT_CHANNEL);
-            return new Lock(role, false);
-        }
-        if (!Configured.isSet(spec.channel()) || guild.getGuildChannelById(spec.channel()) == null) {
+        final Lock lock = state(guild);
+        if (lock.withoutChannel()) {
             alerts.raise(
                     WITHOUT_CHANNEL,
                     new Alert(
@@ -313,13 +320,27 @@ public final class Onboarding extends ListenerAdapter {
                             TEXTS.alert().lockWithoutChannel(),
                             List.of(TEXTS.alert().nobodyLocked()),
                             PAGE));
-            return new Lock(role, false);
+        } else {
+            alerts.clear(WITHOUT_CHANNEL);
         }
-        alerts.clear(WITHOUT_CHANNEL);
+        return lock;
+    }
+
+    /** Returns the lock role and whether it locks now, without a word to anyone, so any thread may ask. */
+    private Lock state(final Guild guild) {
+        final OnboardingSpec spec = setting.get();
+        final Role role = roles.role(guild, GuildRoles.LOCK).orElse(null);
+        if (!spec.lock()) {
+            return new Lock(role, false, false);
+        }
+        if (!Configured.isSet(spec.channel()) || guild.getGuildChannelById(spec.channel()) == null) {
+            return new Lock(role, false, true);
+        }
         final Function<String, Optional<String>> idOf = idOf(guild);
         return new Lock(
                 role,
-                role != null && choices.ready(Choices.Kind.LANGUAGE, idOf) && choices.ready(Choices.Kind.REGION, idOf));
+                role != null && choices.ready(Choices.Kind.LANGUAGE, idOf) && choices.ready(Choices.Kind.REGION, idOf),
+                false);
     }
 
     private DiscordRole kindOf(final Guild guild, final String roleId) {

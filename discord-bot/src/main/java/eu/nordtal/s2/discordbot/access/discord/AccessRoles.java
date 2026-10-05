@@ -15,16 +15,19 @@ import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.discordbot.config.Languages;
 import eu.nordtal.s2.discordbot.roles.GuildRoles;
+import eu.nordtal.s2.discordbot.roles.Withholding;
 import eu.nordtal.s2.messages.MessageRef;
 import eu.nordtal.s2.messages.value.Mention;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
@@ -38,7 +41,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * The access and donor roles, and the messages that go with them.
  *
- * The access role mirrors the database, so {@link #reconcile()} undoes manual changes; the donor role is never removed.
+ * The access role mirrors the database, so {@link #reconcile()} undoes manual changes; the lock withholds both roles.
  */
 @Slf4j
 public final class AccessRoles {
@@ -49,6 +52,7 @@ public final class AccessRoles {
     private final JDA jda;
     private final AccessSpec config;
     private final GuildRoles roles;
+    private final Withholding withholding;
     private final AccessDirectory access;
     private final DiscordRenderer messages;
     /** The page in Steward an alert about a member's access opens. */
@@ -63,6 +67,7 @@ public final class AccessRoles {
             final JDA jda,
             final AccessSpec config,
             final GuildRoles roles,
+            final Withholding withholding,
             final AccessDirectory access,
             final DiscordRenderer messages,
             final AdminLog admin,
@@ -72,6 +77,7 @@ public final class AccessRoles {
         this.jda = jda;
         this.config = config;
         this.roles = roles;
+        this.withholding = withholding;
         this.access = access;
         this.messages = messages;
         this.admin = admin;
@@ -93,7 +99,7 @@ public final class AccessRoles {
                 .max(Instant::compareTo);
     }
 
-    /** Brings one member's access role in line with the database, right now. */
+    /** Brings one member's access role in line with the database and the lock, right now. */
     public void applyAccessRole(final DiscordId discordId, final boolean active) {
         final Guild guild = guild();
         final Role role = guild == null ? null : role(guild, GuildRoles.ACCESS);
@@ -104,26 +110,18 @@ public final class AccessRoles {
 
         guild.retrieveMemberById(discordId.value())
                 .queue(
-                        member -> {
-                            final boolean has = member.getRoles().contains(role);
-                            if (active && !has) {
-                                guild.addRoleToMember(member, role)
-                                        .queue(
-                                                ok -> log.info("Gave the access role to {}", discordId),
-                                                failure -> admin.alert(GuildRoles.notChanged(
-                                                        DiscordRole.ACCESS, true, discordId, failure)));
-                            } else if (!active && has) {
-                                guild.removeRoleFromMember(member, role)
-                                        .queue(
-                                                ok -> log.info("Took the access role from {}", discordId),
-                                                failure -> admin.alert(GuildRoles.notChanged(
-                                                        DiscordRole.ACCESS, false, discordId, failure)));
-                            }
-                        },
+                        member -> change(
+                                member,
+                                role,
+                                DiscordRole.ACCESS,
+                                accessChange(
+                                        active,
+                                        withholding.withholds(member),
+                                        member.getRoles().contains(role))),
                         failure -> log.debug("{} is not a member of the guild, so no access role to set", discordId));
     }
 
-    /** Grants the permanent donor role; nothing removes it. */
+    /** Gives the donor role unless the lock withholds it; nothing else ever takes it. */
     public void grantDonorRole(final DiscordId discordId) {
         // The donor flag in the database is already set by the caller; the role is the decoration.
         final Guild guild = guild();
@@ -131,46 +129,108 @@ public final class AccessRoles {
         if (role == null) {
             return;
         }
-        guild.addRoleToMember(net.dv8tion.jda.api.entities.UserSnowflake.fromId(discordId.value()), role)
+        guild.retrieveMemberById(discordId.value())
                 .queue(
-                        ok -> log.info("Gave the donor role to {}", discordId),
+                        member -> change(
+                                member,
+                                role,
+                                DiscordRole.DONOR,
+                                donorChange(
+                                        true,
+                                        withholding.withholds(member),
+                                        member.getRoles().contains(role))),
                         failure -> admin.alert(GuildRoles.notChanged(DiscordRole.DONOR, true, discordId, failure)));
     }
 
-    /** Adds the access role to everyone a grant covers and removes it from everyone else. */
+    /**
+     * Brings a member's access and donor roles in line with the database and the lock.
+     *
+     * The lock coming or going calls it, so the roles come back from what the member is owed now, not from a copy.
+     */
+    public void applyEntitlement(final Member member) {
+        final DiscordId discordId = DiscordId.of(member.getId());
+        final boolean withheld = withholding.withholds(member);
+        final Role accessRole = role(member.getGuild(), GuildRoles.ACCESS);
+        if (accessRole != null) {
+            change(
+                    member,
+                    accessRole,
+                    DiscordRole.ACCESS,
+                    accessChange(
+                            hasActiveAccess(discordId),
+                            withheld,
+                            member.getRoles().contains(accessRole)));
+        }
+        final Role donorRole = role(member.getGuild(), GuildRoles.DONOR);
+        if (donorRole != null) {
+            change(
+                    member,
+                    donorRole,
+                    DiscordRole.DONOR,
+                    donorChange(
+                            access.isDonor(discordId),
+                            withheld,
+                            member.getRoles().contains(donorRole)));
+        }
+    }
+
+    /** Gives the access role to everyone a grant covers and the lock leaves alone, takes it from everyone else. */
     public void reconcile() {
         final Guild guild = guild();
-        final Role role = guild == null ? null : role(guild, GuildRoles.ACCESS);
-        if (role == null) {
+        if (guild == null) {
             return;
         }
-
-        final Set<String> shouldHave = new HashSet<>(dao.withActiveAccess());
-        final List<Member> hasRole = guild.getMembersWithRoles(role);
-
-        for (final Member member : hasRole) {
-            if (!shouldHave.remove(member.getId())) {
-                guild.removeRoleFromMember(member, role)
-                        .queue(
-                                ok -> log.info("Reconcile: took the access role from {}", member.getId()),
-                                failure -> admin.alert(GuildRoles.notChanged(
-                                        DiscordRole.ACCESS, false, DiscordId.of(member.getId()), failure)));
-            }
+        final Role role = role(guild, GuildRoles.ACCESS);
+        if (role != null) {
+            final List<Member> holding = guild.getMembersWithRoles(role);
+            final Reconciled reconciled = reconciled(
+                    Set.copyOf(dao.withActiveAccess()),
+                    holding.stream().map(Member::getId).toList(),
+                    // Paid and not in the guild: not an error, the role waits for a return.
+                    id -> guild.getMemberById(id) != null,
+                    id -> withheld(guild, id));
+            reconciled.take().forEach(id -> changeAccess(guild, id, role, Change.TAKE));
+            reconciled.give().forEach(id -> changeAccess(guild, id, role, Change.GIVE));
         }
-
-        // Whatever is left had a grant and no role.
-        for (final DiscordId discordId : shouldHave.stream().map(DiscordId::of).toList()) {
-            final Member member = guild.getMemberById(discordId.value());
-            if (member == null) {
-                // Paid and not in the guild: not an error, the role waits for a return.
-                continue;
-            }
-            guild.addRoleToMember(member, role)
-                    .queue(
-                            ok -> log.info("Reconcile: gave the access role to {}", discordId),
-                            failure ->
-                                    admin.alert(GuildRoles.notChanged(DiscordRole.ACCESS, true, discordId, failure)));
+        final Role donor = role(guild, GuildRoles.DONOR);
+        if (donor != null) {
+            // Every holder is owed it as far as the role goes, so only the lock decides.
+            guild.getMembersWithRoles(donor)
+                    .forEach(member -> change(
+                            member, donor, DiscordRole.DONOR, donorChange(true, withholding.withholds(member), true)));
         }
+    }
+
+    private boolean withheld(final Guild guild, final String memberId) {
+        final Member member = guild.getMemberById(memberId);
+        return member != null && withholding.withholds(member);
+    }
+
+    private void changeAccess(final Guild guild, final String memberId, final Role role, final Change change) {
+        final Member member = guild.getMemberById(memberId);
+        if (member != null) {
+            change(member, role, DiscordRole.ACCESS, change);
+        }
+    }
+
+    /** Gives or takes one role of one member as decided, and raises an alert when Discord refuses. */
+    private void change(final Member member, final Role role, final DiscordRole kind, final Change change) {
+        if (change == Change.KEEP) {
+            return;
+        }
+        final boolean given = change == Change.GIVE;
+        final DiscordId discordId = DiscordId.of(member.getId());
+        (given
+                        ? member.getGuild().addRoleToMember(member, role)
+                        : member.getGuild().removeRoleFromMember(member, role))
+                .queue(
+                        ok -> log.info(
+                                "{} the role {} {} {}",
+                                given ? "Gave" : "Took",
+                                role.getName(),
+                                given ? "to" : "from",
+                                discordId),
+                        failure -> admin.alert(GuildRoles.notChanged(kind, given, discordId, failure)));
     }
 
     /**
@@ -252,6 +312,63 @@ public final class AccessRoles {
             log.info("Discord did not deliver a direct message to {}: {}", discordId, bounced.getMessage());
             return false;
         }
+    }
+
+    /** What one role does for one member: given, taken, or left as it is. */
+    enum Change {
+        GIVE,
+        TAKE,
+        KEEP
+    }
+
+    /**
+     * Who the reconcile gives the access role and who it takes it from.
+     *
+     * @param give the ids of members who are given it
+     * @param take the ids of members who lose it
+     */
+    record Reconciled(Set<String> give, Set<String> take) {}
+
+    /** Decides the access role: held while a grant covers the member and the lock does not withhold it. */
+    static Change accessChange(final boolean entitled, final boolean withheld, final boolean held) {
+        final boolean wanted = entitled && !withheld;
+        if (wanted == held) {
+            return Change.KEEP;
+        }
+        return wanted ? Change.GIVE : Change.TAKE;
+    }
+
+    /** Decides the donor role, which only the lock ever takes: otherwise a donor keeps it for good. */
+    static Change donorChange(final boolean donor, final boolean withheld, final boolean held) {
+        if (withheld) {
+            return held ? Change.TAKE : Change.KEEP;
+        }
+        return donor && !held ? Change.GIVE : Change.KEEP;
+    }
+
+    /**
+     * Decides the reconcile of the access role over the whole guild.
+     *
+     * @param entitled the ids a grant covers now
+     * @param holding the ids of the members who hold the role
+     * @param present whether a member of that id is in the guild
+     * @param withheld whether the lock withholds the role from the member of that id
+     */
+    static Reconciled reconciled(
+            final Set<String> entitled,
+            final Collection<String> holding,
+            final Predicate<String> present,
+            final Predicate<String> withheld) {
+        final Set<String> give = new HashSet<>(entitled);
+        holding.forEach(give::remove);
+        give.removeIf(id -> !present.test(id) || withheld.test(id));
+        final Set<String> take = new HashSet<>();
+        for (final String id : holding) {
+            if (!entitled.contains(id) || withheld.test(id)) {
+                take.add(id);
+            }
+        }
+        return new Reconciled(Set.copyOf(give), Set.copyOf(take));
     }
 
     /** Returns the role kept for {@code key}, or {@code null} while there is none, which {@link GuildRoles} says. */

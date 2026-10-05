@@ -26,6 +26,7 @@ import eu.nordtal.s2.database.update.UpdateDirectory;
 import eu.nordtal.s2.discordbot.access.SeasonStart;
 import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
 import eu.nordtal.s2.discordbot.access.discord.LinkFlow;
+import eu.nordtal.s2.discordbot.access.discord.LockedRoles;
 import eu.nordtal.s2.discordbot.access.discord.ManagedMessages;
 import eu.nordtal.s2.discordbot.access.discord.PurchaseFlow;
 import eu.nordtal.s2.discordbot.access.discord.RedemptionLimit;
@@ -273,28 +274,18 @@ public class AccessBot implements AutoCloseable {
         // A period sold while season_phase.smp_start is NULL starts now rather than at the SMP opening.
         final SeasonStart seasonStart = new SeasonStart(phases, admin);
         final GuildRoles guildRoles = guildRoles(jda, accessConfig, admin);
-        final AccessRoles roles =
-                new AccessRoles(jda, accessConfig, guildRoles, access, core.messages(), admin, database.jdbi(), clock);
+        // One lane for every onboarding change, so a choice and the settling it causes never overlap.
+        final Executor onboardingLane = scheduler.serial();
+        final Onboarding onboarding = onboarding(jda, accessConfig, core, guildRoles, admin, onboardingLane);
+        // The onboarding's lock withholds the access and donor roles from whoever it holds.
+        final AccessRoles roles = new AccessRoles(
+                jda, accessConfig, guildRoles, onboarding, access, core.messages(), admin, database.jdbi(), clock);
         final BookingReaction bookings =
                 new BookingReaction(core.languages(), roles, admin, core.messages(), jda, seasonStart);
         // A grant tree decided in Steward; the bot drops a branch when its admin leaves the guild, never grants.
         final AdminTree adminTree = AdminTree.using(database.dataSource());
         final GuildState guildState = new GuildState(jda, accessConfig, access, adminTree, database.jdbi());
         final AdminRole adminRole = new AdminRole(jda, accessConfig, guildRoles, adminTree, admin);
-        // One lane for every onboarding change, so a choice and the settling it causes never overlap.
-        final Executor onboardingLane = scheduler.serial();
-        final Onboarding onboarding = new Onboarding(
-                jda,
-                accessConfig.guildId(),
-                core.languages(),
-                fixedRoles(accessConfig),
-                core.onboarding(),
-                guildRoles,
-                access,
-                database.jdbi(),
-                admin::alert,
-                core.messages(),
-                onboardingLane);
         final OnboardingFlow onboardingFlow = new OnboardingFlow(
                 onboarding,
                 core.languages(),
@@ -322,7 +313,30 @@ public class AccessBot implements AutoCloseable {
                 teams,
                 purchaseFlow,
                 onboarding,
-                onboardingFlow);
+                onboardingFlow,
+                new LockedRoles(accessConfig.guildId(), guildRoles, roles, scheduler.serial()));
+    }
+
+    /** The onboarding, which keeps the language, region and lock roles and finds every role the bot uses. */
+    private Onboarding onboarding(
+            final JDA jda,
+            final AccessSpec accessConfig,
+            final CoreServices core,
+            final GuildRoles guildRoles,
+            final AdminLog admin,
+            final Executor lane) {
+        return new Onboarding(
+                jda,
+                accessConfig.guildId(),
+                core.languages(),
+                fixedRoles(accessConfig),
+                core.onboarding(),
+                guildRoles,
+                access,
+                database.jdbi(),
+                admin::alert,
+                core.messages(),
+                lane);
     }
 
     /** The roles the bot uses, with the admin role the environment named before roles had names taken once. */
@@ -359,11 +373,13 @@ public class AccessBot implements AutoCloseable {
             final Teams teams,
             final PurchaseFlow purchaseFlow,
             final Onboarding onboarding,
-            final OnboardingFlow onboardingFlow) {
+            final OnboardingFlow onboardingFlow,
+            final LockedRoles lockedRoles) {
         jda.addEventListener(
                 guildState,
                 onboarding,
                 onboardingFlow,
+                lockedRoles,
                 purchaseFlow,
                 new LinkFlow(
                         access,

@@ -48,6 +48,12 @@ a choice of both. With the lock switched on in Steward, a member missing either 
 nothing but the onboarding channel; the bot keeps that on every channel, a new one included, and takes the role
 the moment both are held. Bots are never locked.
 
+While a member holds the lock role, the bot withholds the access and donor roles it grants, so a role's allow
+cannot open a channel past the lock; only what the member's language role opens stays visible. The moment the
+lock role goes, both come back as the database has them then: the access role while a grant covers the member,
+the donor role while the donor flag is set. A grant, a booked payment and the reconcile give a locked member
+neither. The game is unaffected, since the proxy reads the database and not the role.
+
 ## Run it
 
 The bot is the `bot` profile of the stack at the repository root. From the installation directory:

@@ -1,14 +1,14 @@
 // Assembles src/ and the fonts generated from glyphs.json into one pack, zips it with its SHA-1, which the
 // client checks, and installs it into a local Minecraft instance.
 
-import eu.nordtal.s2.build.CheckNoDashPunctuation
-import eu.nordtal.s2.build.CheckNoTrackerIds
-import eu.nordtal.s2.build.CheckPack
-import eu.nordtal.s2.build.CheckSourcesTracked
-import eu.nordtal.s2.build.GenerateGlyphs
-import eu.nordtal.s2.build.InstallPack
-import eu.nordtal.s2.build.MinecraftInstanceChooser
-import eu.nordtal.s2.build.Sha1File
+import eu.nordtal.season.build.CheckNoDashPunctuation
+import eu.nordtal.season.build.CheckNoTrackerIds
+import eu.nordtal.season.build.CheckPack
+import eu.nordtal.season.build.CheckSourcesTracked
+import eu.nordtal.season.build.GenerateGlyphs
+import eu.nordtal.season.build.InstallPack
+import eu.nordtal.season.build.MinecraftInstanceChooser
+import eu.nordtal.season.build.Sha1File
 
 plugins {
     id("base")
@@ -22,7 +22,7 @@ val generateGlyphs =
     tasks.register<GenerateGlyphs>("generateGlyphs") {
         allocation.set(layout.projectDirectory.file("glyphs.json"))
         assets.set(packSource.dir("assets"))
-        className.set("eu.nordtal.s2.packrendering.Glyphs")
+        className.set("eu.nordtal.season.packrendering.Glyphs")
         // The paths BossBarAdvances and MenuFont read the tables from.
         advanceTables.put("nordtal:bossbar", "nordtal/hud/bossbar-advances.properties")
         advanceTables.put("nordtal:gui_r0", "nordtal/menu/gui-row-advances.properties")

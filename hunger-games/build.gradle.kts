@@ -16,11 +16,11 @@ tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
         option(
             "NullAway:KnownInitializers",
-            "eu.nordtal.s2.hungergames.HungerGamesPlugin.prepare," +
-                "eu.nordtal.s2.hungergames.HungerGamesPlugin.enable," +
-                "eu.nordtal.s2.hungergames.HungerGamesPlugin.wireGameSystems," +
-                "eu.nordtal.s2.hungergames.HungerGamesPlugin.wireListeners," +
-                "eu.nordtal.s2.hungergames.HungerGamesPlugin.wireCommands",
+            "eu.nordtal.season.hungergames.HungerGamesPlugin.prepare," +
+                "eu.nordtal.season.hungergames.HungerGamesPlugin.enable," +
+                "eu.nordtal.season.hungergames.HungerGamesPlugin.wireGameSystems," +
+                "eu.nordtal.season.hungergames.HungerGamesPlugin.wireListeners," +
+                "eu.nordtal.season.hungergames.HungerGamesPlugin.wireCommands",
         )
     }
 }
@@ -52,5 +52,5 @@ dependencies {
 }
 
 messageSpec {
-    specClasses.add("eu.nordtal.s2.hungergames.HungerGamesMessages")
+    specClasses.add("eu.nordtal.season.hungergames.HungerGamesMessages")
 }

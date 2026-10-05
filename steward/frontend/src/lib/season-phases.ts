@@ -1,4 +1,4 @@
-/** The five phases of `eu.nordtal.s2.common.SeasonPhase`; `season-phases.test.ts` holds this list against it. */
+/** The five phases of `eu.nordtal.season.common.SeasonPhase`; `season-phases.test.ts` holds this list against it. */
 export type SeasonPhaseName = "PRE_LAUNCH" | "PRE_EVENT" | "START_EVENT" | "SMP" | "MAINTENANCE"
 
 /** A phase and where a player lands in it; its name and admission rule are `steward.season.phase` and `who`. */

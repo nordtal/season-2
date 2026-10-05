@@ -1,7 +1,7 @@
 // Checks CONVENTIONS.md outside the modules; `conventions.root.comments=true` enforces the comment rules.
 
-import eu.nordtal.s2.build.CheckNoDashPunctuation
-import eu.nordtal.s2.build.CheckNoTrackerIds
+import eu.nordtal.season.build.CheckNoDashPunctuation
+import eu.nordtal.season.build.CheckNoTrackerIds
 import org.gradle.accessors.dm.LibrariesForLibs
 
 plugins {

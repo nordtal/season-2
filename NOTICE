@@ -14,7 +14,7 @@ Vendored on 2026-08-30 from io.github.revxrsal:spec:1.5
   Artifact: https://repo1.maven.org/maven2/io/github/revxrsal/spec/1.5/spec-1.5-sources.jar
 
 Location in this repository:
-  spec/src/main/java/eu/nordtal/jcore/config/spec/
+  spec/src/main/java/eu/nordtal/season/spec/
 
 The sources were copied, renamed from package `revxrsal.spec`, and modified. Every modified
 file records what was changed in a comment block directly below the original licence header.

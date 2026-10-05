@@ -17,7 +17,7 @@ val descriptor = extensions.create<PluginDescriptorExtension>("pluginDescriptor"
 descriptor.editors.convention(emptyMap())
 
 val pluginDescriptor =
-    tasks.register<eu.nordtal.s2.build.WritePluginDescriptor>("pluginDescriptor") {
+    tasks.register<eu.nordtal.season.build.WritePluginDescriptor>("pluginDescriptor") {
         description = "Writes nordtal-plugin.json and nordtal/logo.png for steward-agent."
         // The module's name is the service its settings are published under.
         id.set(project.name)

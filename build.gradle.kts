@@ -124,7 +124,7 @@ val checkPipeSafety =
 listOf(checkEntrypoint, checkSetup, checkRestore, checkPipeSafety).forEach { suite ->
     suite.configure {
         onlyIf("bash 4 or later is on the PATH") {
-            eu.nordtal.s2.build.Bash
+            eu.nordtal.season.build.Bash
                 .atLeast4()
         }
     }

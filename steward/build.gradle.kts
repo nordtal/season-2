@@ -1,7 +1,7 @@
 import com.github.gradle.node.npm.task.NpmInstallTask
 import com.github.gradle.node.npm.task.NpmTask
 import com.github.gradle.node.task.NodeTask
-import eu.nordtal.s2.build.CheckCommentShape
+import eu.nordtal.season.build.CheckCommentShape
 import net.ltgt.gradle.errorprone.errorprone
 
 plugins {
@@ -13,7 +13,7 @@ plugins {
 
 // Steward's own texts, English only, which the browser renders and an admin may override.
 messageSpec {
-    specClasses.add("eu.nordtal.s2.steward.texts.StewardTexts")
+    specClasses.add("eu.nordtal.season.steward.texts.StewardTexts")
 }
 
 // How Steward shows this module's settings; steward-agent reads it out of the jar.
@@ -21,14 +21,14 @@ pluginDescriptor {
     displayName.set("Steward")
 }
 
-application.mainClass.set("eu.nordtal.s2.steward.Steward")
+application.mainClass.set("eu.nordtal.season.steward.Steward")
 
 tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
         // Names start() as NullAway's initializer, since Web's app field is set there.
         option(
             "NullAway:KnownInitializers",
-            "eu.nordtal.s2.steward.web.Web.start",
+            "eu.nordtal.season.steward.web.Web.start",
         )
         // Credentials.Key maps bytea to byte[] through JDBI's reflection, which accepts nothing else.
         disable("ArrayRecordComponent")
@@ -233,7 +233,7 @@ tasks.register<JavaExec>("generateApiTypes") {
             sourceSets["test"].output.classesDirs,
             configurations["testRuntimeClasspath"],
         )
-    mainClass.set("eu.nordtal.s2.steward.ApiTypes")
+    mainClass.set("eu.nordtal.season.steward.ApiTypes")
     workingDir = projectDir
 }
 

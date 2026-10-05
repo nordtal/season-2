@@ -16,7 +16,7 @@ tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
         option(
             "NullAway:KnownInitializers",
-            "eu.nordtal.s2.limbo.LimboPlugin.prepare,eu.nordtal.s2.limbo.LimboPlugin.enable",
+            "eu.nordtal.season.limbo.LimboPlugin.prepare,eu.nordtal.season.limbo.LimboPlugin.enable",
         )
     }
 }
@@ -38,5 +38,5 @@ dependencies {
 }
 
 messageSpec {
-    specClasses.add("eu.nordtal.s2.limbo.LimboMessages")
+    specClasses.add("eu.nordtal.season.limbo.LimboMessages")
 }

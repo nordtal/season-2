@@ -5,8 +5,8 @@ plugins {
 }
 
 messageSpec {
-    specClasses.add("eu.nordtal.s2.messages.ValueMessages")
-    specClasses.add("eu.nordtal.s2.messages.CheckMessages")
+    specClasses.add("eu.nordtal.season.messages.ValueMessages")
+    specClasses.add("eu.nordtal.season.messages.CheckMessages")
 }
 
 // Every message bundle, which the bundle tests read off the file.

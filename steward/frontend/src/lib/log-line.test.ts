@@ -49,7 +49,7 @@ describe("parseLogLine", () => {
   it("reads Logback, with and without a thread, and drops the milliseconds", () => {
     expect(
       parseLogLine(
-        "2026-09-23T02:46:48.902562213Z 04:46:21.317 [main] INFO  eu.nordtal.s2.discordbot.AccessBot - access-bot is up",
+        "2026-09-23T02:46:48.902562213Z 04:46:21.317 [main] INFO  eu.nordtal.season.discordbot.AccessBot - access-bot is up",
       ),
     ).toEqual({
       kind: "parsed",
@@ -66,8 +66,8 @@ describe("parseLogLine", () => {
   })
 
   it("leaves a stack trace raw and lets it carry on the error above", () => {
-    const at = parseLogLine("2026-09-23T21:43:12.7Z \tat eu.nordtal.s2.smp.Smp.onEnable(Smp.java:42)")
-    expect(at).toEqual({ kind: "raw", text: "\tat eu.nordtal.s2.smp.Smp.onEnable(Smp.java:42)" })
+    const at = parseLogLine("2026-09-23T21:43:12.7Z \tat eu.nordtal.season.smp.Smp.onEnable(Smp.java:42)")
+    expect(at).toEqual({ kind: "raw", text: "\tat eu.nordtal.season.smp.Smp.onEnable(Smp.java:42)" })
     expect(continuesPrevious(at.text)).toBe(true)
     expect(continuesPrevious("Caused by: java.io.IOException: gone")).toBe(true)
     expect(parseLogLine("There are 0 of a max of 40 players online:")).toEqual({

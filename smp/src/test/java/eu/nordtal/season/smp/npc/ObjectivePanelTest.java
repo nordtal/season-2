@@ -1,0 +1,440 @@
+package eu.nordtal.season.smp.npc;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.packrendering.Glyphs;
+import eu.nordtal.season.papercommon.menu.MenuFont;
+import eu.nordtal.season.papercommon.menu.MenuTitle;
+import eu.nordtal.season.papercommon.menu.SlotGeometry;
+import eu.nordtal.season.smp.SmpMessages;
+import eu.nordtal.season.smp.menu.PanelWalk;
+import eu.nordtal.season.smp.menu.PanelWalk.Run;
+import eu.nordtal.season.smp.milestone.ObjectiveType;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Properties;
+import java.util.Set;
+import net.kyori.adventure.text.Component;
+import org.junit.jupiter.api.Test;
+
+/**
+ * Walks the spawn NPC's composed window and holds it against the PNGs the pack drew.
+ *
+ * The bar matters most: its width is computed, so it is the one thing that can be wrong by a little.
+ */
+class ObjectivePanelTest {
+
+    private static final Messages BUNDLE = Messages.load("messages/smp", Locale.ENGLISH, Locale.GERMAN);
+
+    private static final List<ObjectivePanel.Card> FOUR = List.of(
+            new ObjectivePanel.Card(Glyphs.GUI_ROW_ICON_HAND_IN, "Logs", "1240/2048", 0.605, false),
+            new ObjectivePanel.Card(Glyphs.GUI_ROW_ICON_DONE, "Mine coal", "1500/1500", 1.0, true),
+            new ObjectivePanel.Card(Glyphs.GUI_ROW_ICON_STATISTIC, "Kill zombies", "212/500", 0.424, false),
+            new ObjectivePanel.Card(Glyphs.GUI_ROW_ICON_ADVANCEMENT, "Iron tools", "4/10", 0.4, false));
+
+    @Test
+    void theReadableTitleStillLandsWhereItWould() {
+        final List<Run> runs = PanelWalk.runs(surface(FOUR, false, false));
+        assertEquals(
+                MenuTitle.ANCHOR_X,
+                runs.get(runs.size() - 1).end(),
+                "the panel, a heading, four cards and a share line have to add up to nothing."
+                        + " They do not merely move the readable title if they do not - the title"
+                        + " is drawn after all of it, and nothing fails");
+    }
+
+    @Test
+    void everyCardIsWhereItSaysItIs() {
+        final List<Run> runs = PanelWalk.runs(surface(FOUR, false, false));
+
+        for (int index = 0; index < FOUR.size(); index++) {
+            final ObjectivePanel.Card card = FOUR.get(index);
+            final int x = ObjectivePanel.CARD_X.get(index % 2);
+            final int upper = ObjectivePanel.CARD_ROW.get(index / 2);
+            final String plate = index < 2 ? Glyphs.GUI_CARD_TOP : Glyphs.GUI_CARD_BOTTOM;
+
+            final List<Run> plates = runs.stream()
+                    .filter(run -> run.font().equals(Glyphs.FONT_GUI))
+                    .filter(run -> run.content().equals(plate))
+                    .filter(run -> run.x() == x)
+                    .toList();
+            assertEquals(1, plates.size(), "card " + index + "'s plate is not at x " + x);
+
+            assertEquals(
+                    x + 3,
+                    PanelWalk.find(runs, Glyphs.FONT_GUI_ROWS.get(upper), card.icon())
+                            .x(),
+                    "card " + index + "'s type icon sits three pixels inside its own plate");
+
+            // The name sits on the card's upper row, the numbers below it; that is the whole reason for two rows.
+            final List<Run> name = PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS.get(upper));
+            assertTrue(
+                    name.stream()
+                            .anyMatch(run ->
+                                    run.content().equals(MenuFont.fit(card.name(), ObjectivePanel.CARD_NAME_WIDTH))
+                                            && run.x() == x + 15),
+                    "card " + index + "'s name is not at x " + (x + 15) + " on row " + upper + ": " + name);
+            assertTrue(
+                    PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS.get(upper + 1)).stream()
+                            .anyMatch(run -> run.content().equals(MenuFont.fold(card.numbers())) && run.x() == x + 3),
+                    "card " + index + "'s numbers are not on the row under its name");
+        }
+    }
+
+    @Test
+    void nothingOnACardRunsOffIt() {
+        final ObjectivePanel.Card long_ = new ObjectivePanel.Card(
+                Glyphs.GUI_ROW_ICON_HAND_IN,
+                "Build a cathedral out of polished deepslate",
+                "1234567/9999999",
+                0.5,
+                false);
+        final List<Run> runs = PanelWalk.runs(surface(List.of(long_), false, false));
+        final int right = ObjectivePanel.CARD_X.get(0) + ObjectivePanel.CARD_WIDTH;
+
+        for (final int row : new int[] {ObjectivePanel.CARD_ROW.get(0), ObjectivePanel.CARD_ROW.get(0) + 1}) {
+            for (final Run run : PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS.get(row))) {
+                assertTrue(
+                        run.end() <= right,
+                        "'" + run.content() + "' ends at " + run.end() + " and the card ends at "
+                                + right + ". A name that runs off a card runs onto the card beside"
+                                + " it, and MenuFont.fit is what has to be given the right width");
+            }
+        }
+    }
+
+    @Test
+    void theBarIsTheRatioAndTheTrackIsTheCard() {
+        // Read off the card PNG rather than restated, since Java's idea of the bar and the pack's groove can disagree.
+        final var card = PanelWalk.image("objective_card.png");
+        assertEquals(ObjectivePanel.CARD_WIDTH, card.getWidth());
+        assertEquals(ObjectivePanel.CARD_HEIGHT, card.getHeight());
+
+        for (final double ratio : new double[] {0.0, 0.001, 0.25, 0.5, 0.605, 0.999, 1.0}) {
+            final List<Run> runs = PanelWalk.runs(surface(
+                    List.of(new ObjectivePanel.Card(Glyphs.GUI_ROW_ICON_HAND_IN, "X", "1/2", ratio, false)),
+                    false,
+                    false));
+            final List<Run> fills = runs.stream()
+                    .filter(run -> run.font().equals(Glyphs.FONT_GUI))
+                    .filter(run -> Glyphs.GUI_BAR_FILL_TOP.contains(run.content()))
+                    .toList();
+
+            // A bitmap glyph advances width-plus-one, so measuring the advance doubles a single-pixel slice's length.
+            final int expected = expectedFill(ratio);
+            final int drawn = fills.stream().mapToInt(run -> run.advance() - 1).sum();
+            assertEquals(expected, drawn, "a ratio of " + ratio + " should paint " + expected + " pixels of fill");
+            if (expected == 0) {
+                continue;
+            }
+            assertEquals(
+                    ObjectivePanel.CARD_X.get(0) + 4,
+                    fills.get(0).x(),
+                    "the fill starts one pixel inside the track, which starts three inside the card");
+            final Run last = fills.get(fills.size() - 1);
+            assertTrue(
+                    last.x() + last.advance() - 1 <= ObjectivePanel.CARD_X.get(0) + 4 + ObjectivePanel.BAR_MAX,
+                    "a fill of " + drawn + " ran past the track's right edge");
+            // Largest slice first, so the run is the number's binary form and there is exactly one way to draw a width.
+            for (int index = 1; index < fills.size(); index++) {
+                assertTrue(
+                        fills.get(index).advance() < fills.get(index - 1).advance(),
+                        "the fill slices are not in descending order, so the same width can be"
+                                + " drawn two ways and two cards at the same ratio can differ");
+                assertEquals(
+                        fills.get(index - 1).x() + fills.get(index - 1).advance() - 1,
+                        fills.get(index).x(),
+                        "the fill has a gap in it at " + fills.get(index).x());
+            }
+        }
+    }
+
+    @Test
+    void aStartedBarIsNeverEmpty() {
+        // The same rule ProgressBar floors to one character for: "1 of 3000" must not read as not begun.
+        assertEquals(0, expectedFill(0.0));
+        assertEquals(1, expectedFill(0.0001));
+    }
+
+    @Test
+    void theDoneWashIsLast() {
+        final List<Run> runs = PanelWalk.runs(surface(FOUR, false, false));
+        final List<Run> washes = runs.stream()
+                .filter(run -> run.content().equals(Glyphs.GUI_CARD_DONE_TOP)
+                        || run.content().equals(Glyphs.GUI_CARD_DONE_BOTTOM))
+                .toList();
+
+        assertEquals(1, washes.size(), "exactly one of the four cards is finished");
+        assertEquals(ObjectivePanel.CARD_X.get(1), washes.get(0).x(), "the second card is the done one");
+
+        final int washAt = runs.indexOf(washes.get(0));
+        final int lastOnThatCard = runs.stream()
+                .filter(run -> run.x() >= ObjectivePanel.CARD_X.get(1))
+                .filter(run -> run.font().equals(Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.CARD_ROW.get(0)))
+                        || run.font().equals(Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.CARD_ROW.get(0) + 1))
+                        || run.content().equals(Glyphs.GUI_CARD_TOP))
+                .mapToInt(runs::indexOf)
+                .max()
+                .orElseThrow();
+        assertTrue(
+                washAt > lastOnThatCard,
+                "the wash has to tint what is under it, the bar included - a finished objective's"
+                        + " bar is full, and washing only its heading says the card is half settled");
+    }
+
+    @Test
+    void theHeadingReadsLeftToRight() {
+        final List<Run> runs = PanelWalk.runs(surface(FOUR, false, false));
+        assertEquals(
+                ObjectivePanel.PILL_X,
+                PanelWalk.find(runs, Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.HEADING_ROW), Glyphs.GUI_ROW_PILL_DARK)
+                        .x(),
+                "the heading is the darker plate, so it does not read as a fifth thing to click");
+
+        final List<Run> text = PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.HEADING_ROW));
+        assertEquals(3, text.size(), "the heading draws a name, a bar and a counter: " + text);
+        // Draw order is right to left: the counter comes first so the bar fits against it; this checks x, not order.
+        final List<Run> sorted =
+                text.stream().sorted(java.util.Comparator.comparingInt(Run::x)).toList();
+        assertEquals("FOOTHOLD", sorted.get(0).content());
+        assertEquals(
+                ObjectivePanel.HEADING_BAR_WIDTH,
+                sorted.get(1).content().length(),
+                "the heading's bar is a text bar and its width is fixed");
+        assertEquals(
+                ObjectivePanel.PILL_X + ObjectivePanel.PILL_WIDTH - 3,
+                sorted.get(2).end(),
+                "the counter is flush with the heading plate's right edge");
+        for (int index = 1; index < sorted.size(); index++) {
+            assertTrue(
+                    sorted.get(index - 1).end() <= sorted.get(index).x(),
+                    "the heading's three parts overlap: " + sorted);
+        }
+    }
+
+    @Test
+    void thePageButtonsAppearWithTheSecondPage() {
+        final String font = Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.SHARE_ROW);
+
+        assertEquals(
+                0,
+                PanelWalk.runs(surface(FOUR, false, false)).stream()
+                        .filter(run -> run.font().equals(font))
+                        .filter(run -> run.content().equals(Glyphs.GUI_ROW_BUTTON_SMALL)
+                                || run.content().equals(Glyphs.GUI_ROW_BUTTON_SMALL_OFF))
+                        .count(),
+                "a milestone with four objectives is exactly the artifact's drawing: one heading,"
+                        + " four cards, one share line and no controls at all");
+
+        final List<Run> paged = PanelWalk.runs(surface(FOUR, false, true));
+        for (final int slot : new int[] {ObjectivePanel.PREV_SLOT, ObjectivePanel.NEXT_SLOT}) {
+            final int cell = SlotGeometry.x(SlotGeometry.column(slot));
+            final Run plate = paged.stream()
+                    .filter(run -> run.font().equals(font))
+                    .filter(run -> run.content().equals(Glyphs.GUI_ROW_BUTTON_SMALL)
+                            || run.content().equals(Glyphs.GUI_ROW_BUTTON_SMALL_OFF))
+                    .filter(run -> run.x() == cell + ObjectivePanel.INSET)
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("no page button on the cell of slot " + slot));
+            assertTrue(plate.end() - 1 < cell + SlotGeometry.PITCH, "a page button has to stay inside its own cell");
+            assertEquals(ObjectivePanel.SHARE_ROW, SlotGeometry.row(slot));
+        }
+    }
+
+    @Test
+    void theSharePlateShortensForTheControls() {
+        final String font = Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.SHARE_ROW);
+
+        final Run full = PanelWalk.find(PanelWalk.runs(surface(FOUR, false, false)), font, Glyphs.GUI_ROW_PILL);
+        assertEquals(
+                ObjectivePanel.PILL_X,
+                full.x(),
+                "with no controls the share line keeps the full-width plate every other row has");
+
+        final Run short_ = PanelWalk.find(PanelWalk.runs(surface(FOUR, false, true)), font, Glyphs.GUI_ROW_PILL_SHORT);
+        assertEquals(ObjectivePanel.PILL_X, short_.x(), "the plate still starts where every plate does");
+        // end is x + advance and advance is drawn width plus one, so the last grey pixel must land before the buttons.
+        assertTrue(
+                short_.end() - 2 < SlotGeometry.x(7) + ObjectivePanel.INSET,
+                "the grey island runs under the page buttons: it ends at " + (short_.end() - 2)
+                        + " and the first button plate starts at "
+                        + (SlotGeometry.x(7) + ObjectivePanel.INSET));
+        assertEquals(
+                0,
+                PanelWalk.runs(surface(FOUR, false, true)).stream()
+                        .filter(run -> run.font().equals(font))
+                        .filter(run -> run.content().equals(Glyphs.GUI_ROW_PILL))
+                        .count(),
+                "the full-width plate is replaced on a paged menu, not drawn underneath the short one");
+    }
+
+    @Test
+    void theShareLineShortensForTheControls() {
+        final String font = Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.SHARE_ROW);
+        final String share = "Your share 100.0 % - spins: 12 and some more words after it";
+
+        final Run unpaged = PanelWalk.textRuns(PanelWalk.runs(surface(FOUR, false, false, share)), font)
+                .get(0);
+        final Run paged = PanelWalk.textRuns(PanelWalk.runs(surface(FOUR, false, true, share)), font)
+                .get(0);
+
+        assertTrue(
+                paged.end() <= SlotGeometry.x(7) - 2,
+                "the share sentence runs under the page buttons, where the last words of it are"
+                        + " simply invisible and nothing says so");
+        assertTrue(
+                paged.advance() < unpaged.advance(),
+                "the same sentence has to be shortened when the controls are there, or the fit is"
+                        + " being computed against the wrong width in one of the two cases");
+    }
+
+    @Test
+    void aPageIsFourCards() {
+        final List<ObjectivePanel.Card> five = new ArrayList<>(FOUR);
+        five.add(FOUR.get(0));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ObjectivePanel.title(Component.empty(), "M", "██░░░░", "1/5", five, "s", false, false));
+    }
+
+    @Test
+    void theSlotMapIsTheDrawing() {
+        final List<Integer> all = new ArrayList<>();
+        for (int index = 0; index < ObjectivePanel.CARDS_PER_PAGE; index++) {
+            final int card = index;
+            final List<Integer> slots = ObjectivePanel.slotsOf(card);
+            assertEquals(8, slots.size(), "a card is four columns on each of its two rows");
+            slots.forEach(slot -> {
+                assertEquals(
+                        card, ObjectivePanel.cardOf(slot), "slot " + slot + " does not answer the card it belongs to");
+                assertTrue(
+                        SlotGeometry.column(slot) != 4,
+                        "column 4 is the gap between the two cards, as it is on the balloon");
+            });
+            all.addAll(slots);
+        }
+        assertEquals(all.size(), Set.copyOf(all).size(), "two cards claim the same slot");
+        assertEquals(-1, ObjectivePanel.cardOf(SlotGeometry.slot(4, 1)), "the gap column belongs to no card");
+        assertEquals(-1, ObjectivePanel.cardOf(SlotGeometry.slot(0, ObjectivePanel.HEADING_ROW)));
+        assertEquals(-1, ObjectivePanel.cardOf(SlotGeometry.slot(0, ObjectivePanel.SHARE_ROW)));
+    }
+
+    @Test
+    void nothingIsDrawnOutOfAFontThatLacksIt() {
+        final List<String> missing = new ArrayList<>();
+        for (final Run run : PanelWalk.runs(surface(FOUR, true, true))) {
+            final Set<Integer> declared = PanelWalk.declared(run.font());
+            run.whole().codePoints().forEach(codePoint -> {
+                if (!declared.contains(codePoint)) {
+                    missing.add("U+%X in %s".formatted(codePoint, run.font()));
+                }
+            });
+        }
+        assertEquals(
+                List.of(),
+                missing,
+                "a code point a font does not declare reaches the player as the missing-glyph box,"
+                        + " which is also six pixels wide - so the row is not merely ugly, every"
+                        + " position after it is wrong");
+    }
+
+    @Test
+    void theDrawnKeysAreTagless() {
+        final List<String> tagged = new ArrayList<>();
+        for (final String language : new String[] {"en", "de"}) {
+            final Properties bundle = PanelWalk.bundle(language);
+            for (final String key : new String[] {"smp.objectives.share", "smp.objectives.share-none"}) {
+                final String value = bundle.getProperty(key);
+                assertTrue(value != null, language + " does not declare " + key);
+                if (value.indexOf('<') >= 0 || value.indexOf('>') >= 0) {
+                    tagged.add(language + " " + key + " = " + value);
+                }
+            }
+        }
+        assertEquals(
+                List.of(),
+                tagged,
+                "these two are drawn in the pack's five-pixel sheet by MenuFont, which folds them to"
+                        + " capitals and prints them character for character. A MiniMessage tag in"
+                        + " one of them is not parsed - it is printed, and the sheet has no angle"
+                        + " brackets so it would come out as ?GRAY?");
+    }
+
+    @Test
+    void theRealShareLinesNeverNeedTruncation() {
+        final String font = Glyphs.FONT_GUI_ROWS.get(ObjectivePanel.SHARE_ROW);
+        for (final String language : new String[] {"en", "de"}) {
+            final Properties bundle = PanelWalk.bundle(language);
+            final String withSpins = BUNDLE.format(
+                    Locale.forLanguageTag(language),
+                    SmpMessages.MESSAGES.smp().objectives().share(999));
+            final String none = bundle.getProperty("smp.objectives.share-none");
+            for (final String share : new String[] {withSpins, none}) {
+                for (final boolean hasNext : new boolean[] {false, true}) {
+                    final Run run = PanelWalk.textRuns(PanelWalk.runs(surface(FOUR, false, hasNext, share)), font)
+                            .get(0);
+                    assertEquals(
+                            MenuFont.fold(share),
+                            run.content(),
+                            language + " \"" + share + "\" is shortened even at a generous three"
+                                    + " digit spin count - the whole point of shortening"
+                                    + " smp.objectives.share was to give the page buttons room,"
+                                    + " not to make the truncation less frequent");
+                }
+            }
+        }
+    }
+
+    @Test
+    void theIconIsTheState() {
+        assertEquals(Glyphs.GUI_ROW_ICON_HAND_IN, ObjectivePanel.icon(ObjectiveType.HAND_IN, false));
+        assertEquals(Glyphs.GUI_ROW_ICON_STATISTIC, ObjectivePanel.icon(ObjectiveType.STATISTIC, false));
+        assertEquals(Glyphs.GUI_ROW_ICON_ADVANCEMENT, ObjectivePanel.icon(ObjectiveType.ADVANCEMENT, false));
+        for (final ObjectiveType type : ObjectiveType.values()) {
+            assertEquals(
+                    Glyphs.GUI_ROW_ICON_DONE,
+                    ObjectivePanel.icon(type, true),
+                    "a finished objective wears the tick whichever kind it was - the icon on a card"
+                            + " IS its state, and a done HAND_IN that still shows a hand invites a"
+                            + " click that will be refused");
+        }
+    }
+
+    @Test
+    void theTwoHalvesAreSeparate() {
+        final Component title = ObjectivePanel.title(
+                Component.text("Current objective"),
+                "Foothold",
+                "██░░░░",
+                "1/4",
+                FOUR,
+                "Your share 4.2 %",
+                false,
+                false);
+        assertEquals(2, title.children().size());
+        assertEquals(Glyphs.FONT_GUI, title.children().get(0).style().font().asString());
+        assertTrue(title.children().get(1).style().font() == null);
+    }
+
+    /** What {@code ObjectivePanel#fill} should paint, computed here rather than read from it. */
+    private static int expectedFill(final double ratio) {
+        final double clamped = Math.max(0.0, Math.min(1.0, ratio));
+        final int width = (int) Math.floor(clamped * ObjectivePanel.BAR_MAX);
+        return width == 0 && clamped > 0.0 ? 1 : width;
+    }
+
+    private static Component surface(
+            final List<ObjectivePanel.Card> cards, final boolean hasPrev, final boolean hasNext) {
+        return surface(cards, hasPrev, hasNext, "Your share 4.2 % - spins: 1");
+    }
+
+    private static Component surface(
+            final List<ObjectivePanel.Card> cards, final boolean hasPrev, final boolean hasNext, final String share) {
+        return PanelWalk.surface(ObjectivePanel.title(
+                Component.text("Current objective"), "Foothold", "██░░░░", "1/4", cards, share, hasPrev, hasNext));
+    }
+}

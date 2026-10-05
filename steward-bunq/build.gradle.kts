@@ -4,7 +4,7 @@ plugins {
     id("nordtal.jvm-app")
 }
 
-application.mainClass.set("eu.nordtal.s2.stewardbunq.StewardBunq")
+application.mainClass.set("eu.nordtal.season.stewardbunq.StewardBunq")
 
 // bunq publishes its SDK on JitPack only.
 repositories {

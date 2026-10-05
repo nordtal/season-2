@@ -9,7 +9,7 @@ pluginDescriptor {
     displayName.set("Discord bot")
 }
 
-application.mainClass.set("eu.nordtal.s2.discordbot.AccessBot")
+application.mainClass.set("eu.nordtal.season.discordbot.AccessBot")
 
 // ConfigsTest reads the access blocks of the real .env.example, so the file is a declared input.
 repositoryRootTestInputs {
@@ -50,5 +50,5 @@ dependencies {
 }
 
 messageSpec {
-    specClasses.add("eu.nordtal.s2.discordbot.AccessMessages")
+    specClasses.add("eu.nordtal.season.discordbot.AccessMessages")
 }

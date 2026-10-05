@@ -52,6 +52,6 @@ dependencies {
 }
 
 messageSpec {
-    specClasses.add("eu.nordtal.s2.database.DatabaseMessages")
-    specClasses.add("eu.nordtal.s2.database.AdminTexts")
+    specClasses.add("eu.nordtal.season.database.DatabaseMessages")
+    specClasses.add("eu.nordtal.season.database.AdminTexts")
 }

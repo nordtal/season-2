@@ -16,6 +16,8 @@ repositories {
 dependencies {
     // A settings group is a spec.
     api(project(":spec"))
+    // Its tasks run through paper-common's scheduler; smp, which hosts it, ships paper-common.
+    compileOnly(project(":paper-common"))
 
     compileOnly(libs.paper.api)
     compileOnly(libs.packetevents)

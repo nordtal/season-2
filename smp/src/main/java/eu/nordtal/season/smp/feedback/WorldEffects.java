@@ -1,0 +1,103 @@
+package eu.nordtal.season.smp.feedback;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.ThreadLocalRandom;
+import org.bukkit.Color;
+import org.bukkit.FireworkEffect;
+import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Particle;
+import org.bukkit.entity.Firework;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.inventory.meta.FireworkMeta;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.Plugin;
+
+/**
+ * The one place in {@code smp} that names a particle or spawns a firework.
+ *
+ * Every rocket spawned here is stamped, and {@link #onDamage} refuses damage from a stamped one.
+ */
+public final class WorldEffects implements Listener {
+
+    /** How far from the player the milestone rockets go up, in blocks. */
+    private static final double RING_RADIUS = 2.5;
+
+    /** Three: enough to read as a ring, few enough that forty players is not a lag spike. */
+    private static final int RING_ROCKETS = 3;
+
+    /** The palette the rockets burst in: the resource pack's accent and highlight, plus white. */
+    private static final List<Color> PALETTE = List.of(
+            Color.fromRGB(176, 138, 74), // accent
+            Color.fromRGB(78, 86, 104), // highlight
+            Color.WHITE);
+
+    private final NamespacedKey celebration;
+
+    public WorldEffects(final Plugin plugin) {
+        this.celebration = new NamespacedKey(plugin, "celebration");
+    }
+
+    /**
+     * A milestone around one player, on the main thread.
+     *
+     * Called once per online player, so it happens where each of them is.
+     */
+    public void celebrate(final Player player) {
+        final Location at = Objects.requireNonNull(player.getLocation());
+        for (int i = 0; i < RING_ROCKETS; i++) {
+            final double angle = (2 * Math.PI * i) / RING_ROCKETS
+                    + ThreadLocalRandom.current().nextDouble(0.6);
+            launch(at.clone().add(Math.cos(angle) * RING_RADIUS, 0, Math.sin(angle) * RING_RADIUS));
+        }
+    }
+
+    /** Somebody leaving or arriving by balloon. Main thread. */
+    public void travelled(final Location at) {
+        at.getWorld().spawnParticle(Particle.CLOUD, at.clone().add(0, 1, 0), 30, 0.4, 0.6, 0.4, 0.02);
+    }
+
+    /** A grave being opened, where it stands. Main thread. */
+    public void graveOpened(final Location at) {
+        at.getWorld().spawnParticle(Particle.SOUL, at.clone().add(0.5, 1.0, 0.5), 14, 0.25, 0.35, 0.25, 0.01);
+    }
+
+    /** Somebody arriving on an arena platform. Main thread. */
+    public void arenaEntered(final Location at) {
+        at.getWorld().spawnParticle(Particle.CRIT, at.clone().add(0, 1, 0), 24, 0.35, 0.5, 0.35, 0.15);
+    }
+
+    /**
+     * Nothing this class launched may damage anything.
+     *
+     * {@code LOWEST}, so later protection plugins see an already cancelled event.
+     */
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onDamage(final EntityDamageByEntityEvent event) {
+        if (event.getDamager() instanceof Firework rocket
+                && rocket.getPersistentDataContainer().has(celebration, PersistentDataType.BYTE)) {
+            event.setCancelled(true);
+        }
+    }
+
+    private void launch(final Location at) {
+        at.getWorld().spawn(at, Firework.class, rocket -> {
+            final FireworkMeta meta = rocket.getFireworkMeta();
+            meta.addEffect(FireworkEffect.builder()
+                    .with(FireworkEffect.Type.BALL_LARGE)
+                    .withColor(PALETTE)
+                    .withFade(Color.WHITE)
+                    .flicker(true)
+                    .build());
+            // One, so it bursts a second up rather than out of sight.
+            meta.setPower(1);
+            rocket.setFireworkMeta(meta);
+            rocket.getPersistentDataContainer().set(celebration, PersistentDataType.BYTE, (byte) 1);
+        });
+    }
+}

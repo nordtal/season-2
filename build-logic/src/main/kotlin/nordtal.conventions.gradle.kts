@@ -1,8 +1,8 @@
 // Checks CONVENTIONS.md for one Java module; formatting always, the rest per gradle.properties.
 // `conventions.comments=true` enforces the comment rules, `conventions.enforced=true` every rule.
 
-import eu.nordtal.s2.build.CheckNoDashPunctuation
-import eu.nordtal.s2.build.CheckNoTrackerIds
+import eu.nordtal.season.build.CheckNoDashPunctuation
+import eu.nordtal.season.build.CheckNoTrackerIds
 import net.ltgt.gradle.errorprone.CheckSeverity
 import net.ltgt.gradle.errorprone.errorprone
 import org.gradle.accessors.dm.LibrariesForLibs

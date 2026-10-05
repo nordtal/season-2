@@ -69,7 +69,7 @@ x-minecraft: &minecraft
     start_period: 300s
   environment: &minecraft-env
     TZ: ${TZ:-Europe/Berlin}
-    # SERVER_VERSION is a literal per service, mirroring eu.nordtal.s2.common.Platform.
+    # SERVER_VERSION is a literal per service, mirroring eu.nordtal.season.common.Platform.
   logging: &logging
     driver: json-file
     options:

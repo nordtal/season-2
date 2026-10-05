@@ -1,4 +1,4 @@
-package eu.nordtal.s2.build
+package eu.nordtal.season.build
 
 /**
  * Whether a Minecraft client appears to be running on this machine.

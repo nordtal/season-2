@@ -1,0 +1,10 @@
+package eu.nordtal.season.common;
+
+/** The one compose deployment of this network, as every process that drives Docker names it. */
+public final class Deployment {
+
+    /** The compose project every container belongs to unless {@code COMPOSE_PROJECT_NAME} says otherwise. */
+    public static final String PROJECT = "nordtal-s2";
+
+    private Deployment() {}
+}

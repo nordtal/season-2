@@ -107,7 +107,7 @@ describe("ServiceConsole", () => {
     mount()
     feed(
       ["line", "[10:00:00] [Server thread/ERROR]: [smp] it broke"],
-      ["line", "\tat eu.nordtal.s2.smp.Smp.onEnable(Smp.java:42)"],
+      ["line", "\tat eu.nordtal.season.smp.Smp.onEnable(Smp.java:42)"],
       ["line", "[10:00:01] [Server thread/WARN]: Can't keep up!"],
       ["line", "There are 0 of a max of 40 players online:"],
     )

@@ -16,7 +16,7 @@ tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
         option(
             "NullAway:KnownInitializers",
-            "eu.nordtal.s2.proxy.ProxyPlugin.start",
+            "eu.nordtal.season.proxy.ProxyPlugin.start",
         )
     }
 }
@@ -57,5 +57,5 @@ dependencies {
 }
 
 messageSpec {
-    specClasses.add("eu.nordtal.s2.proxy.ProxyMessages")
+    specClasses.add("eu.nordtal.season.proxy.ProxyMessages")
 }

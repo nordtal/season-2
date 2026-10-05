@@ -1,4 +1,4 @@
-package eu.nordtal.s2.build
+package eu.nordtal.season.build
 
 import groovy.json.JsonOutput
 import org.gradle.api.DefaultTask

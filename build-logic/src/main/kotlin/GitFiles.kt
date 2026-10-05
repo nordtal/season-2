@@ -1,4 +1,4 @@
-package eu.nordtal.s2.build
+package eu.nordtal.season.build
 
 import org.gradle.api.GradleException
 import java.io.File

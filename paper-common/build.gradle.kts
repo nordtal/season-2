@@ -8,7 +8,7 @@ plugins {
 // NordtalPlugin's fields are set in start(), which onEnable() runs before anything can read them.
 tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
-        option("NullAway:KnownInitializers", "eu.nordtal.s2.papercommon.plugin.NordtalPlugin.start")
+        option("NullAway:KnownInitializers", "eu.nordtal.season.papercommon.plugin.NordtalPlugin.start")
     }
 }
 
@@ -33,5 +33,5 @@ dependencies {
 }
 
 messageSpec {
-    specClasses.add("eu.nordtal.s2.papercommon.PaperCommonMessages")
+    specClasses.add("eu.nordtal.season.papercommon.PaperCommonMessages")
 }

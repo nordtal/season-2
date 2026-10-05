@@ -6,7 +6,7 @@ plugins {
 }
 
 application {
-    mainClass.set("eu.nordtal.s2.dev.Dev")
+    mainClass.set("eu.nordtal.season.dev.Dev")
 }
 
 tasks.named<JavaExec>("run") {

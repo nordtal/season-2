@@ -21,7 +21,7 @@ val messageSchema =
         classpath =
             main.output.classesDirs + files(main.resources.srcDirs) + main.compileClasspath +
             configurations["runtimeClasspath"]
-        mainClass.set("eu.nordtal.s2.messages.spec.MessageSchema")
+        mainClass.set("eu.nordtal.season.messages.spec.MessageSchema")
         inputs.property("specClasses", messageSpec.specClasses)
         inputs.files(main.output.classesDirs, main.resources.srcDirs)
         outputs.dir(schemaDirectory)

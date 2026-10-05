@@ -5,5 +5,5 @@ its forms from. `Specs` creates and inspects a spec's values, `SchemaWriter` bui
 tree, and `:settings` stores both in the database.
 
 The proxy machinery is [Spec](https://github.com/Revxrsal/spec) (MIT), vendored into
-`eu.nordtal.jcore.config.spec`. The repository's [NOTICE](../NOTICE) carries its licence; the
+`eu.nordtal.season.spec`. The repository's [NOTICE](../NOTICE) carries its licence; the
 header of each vendored file says what changed.

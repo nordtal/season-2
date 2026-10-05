@@ -1,0 +1,71 @@
+package eu.nordtal.season.smp.milestone;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
+
+/** Advancing an objective, and the one moment that fires everything else, exactly once. */
+class ObjectiveProgressTest {
+
+    @Test
+    void addingBelowTheTargetDoesNotComplete() {
+        final ObjectiveProgress.Advance advance = ObjectiveProgress.advance(100, 2048, 400);
+
+        assertEquals(500, advance.amount());
+        assertEquals(400, advance.credited());
+        assertFalse(advance.completes());
+    }
+
+    @Test
+    void crossingTheTargetCompletesExactlyOnce() {
+        final ObjectiveProgress.Advance crossing = ObjectiveProgress.advance(2000, 2048, 100);
+        assertTrue(crossing.completes());
+        assertEquals(2100, crossing.amount(), "an overshoot is kept, not clipped to the target");
+
+        // A delivery against a finished objective must not complete it again; `completes` reads the PREVIOUS amount.
+        assertFalse(ObjectiveProgress.advance(2100, 2048, 100).completes());
+    }
+
+    @Test
+    void landingExactlyOnTheTargetCompletes() {
+        assertTrue(ObjectiveProgress.advance(2000, 2048, 48).completes());
+    }
+
+    @Test
+    void nothingIsCreditedForNothing() {
+        assertEquals(0, ObjectiveProgress.advance(100, 2048, 0).credited());
+        assertEquals(100, ObjectiveProgress.advance(100, 2048, 0).amount());
+        assertEquals(
+                100,
+                ObjectiveProgress.advance(100, 2048, -50).amount(),
+                "a negative delta credits nothing rather than taking progress away");
+    }
+
+    @Test
+    void anAbsurdDeltaSaturatesRatherThanWrapping() {
+        // Nothing here reaches a bigint's limit; an overflowing counter reading as going backwards is the worse case.
+        assertEquals(
+                Long.MAX_VALUE,
+                ObjectiveProgress.advance(Long.MAX_VALUE - 1, 100, 1000).amount());
+    }
+
+    @Test
+    void aLoweredTargetCompletesAnObjectiveOnReload() {
+        // The first escape hatch: reaching the new target on the spot completes and pays the FULL pot, nothing rescued.
+        assertTrue(ObjectiveProgress.completesOnReload(1500, 1000));
+        assertTrue(ObjectiveProgress.completesOnReload(1000, 1000));
+        assertFalse(ObjectiveProgress.completesOnReload(999, 1000));
+        assertFalse(ObjectiveProgress.completesOnReload(0, 1000));
+    }
+
+    @Test
+    void thePercentageIsWhatABoardWouldPrint() {
+        assertEquals(0, ObjectiveProgress.percentOf(0, 2048));
+        assertEquals(50, ObjectiveProgress.percentOf(1024, 2048));
+        assertEquals(99, ObjectiveProgress.percentOf(2047, 2048), "floored, so 100 % means done");
+        assertEquals(100, ObjectiveProgress.percentOf(2048, 2048));
+        assertEquals(100, ObjectiveProgress.percentOf(9000, 2048), "an overshoot still reads 100");
+    }
+}

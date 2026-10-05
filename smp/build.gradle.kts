@@ -16,7 +16,7 @@ pluginDescriptor {
 // The base runs prepare() and enable() before anything reads SmpPlugin's fields.
 tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
-        option("NullAway:KnownInitializers", "eu.nordtal.s2.smp.SmpPlugin.prepare,eu.nordtal.s2.smp.SmpPlugin.enable")
+        option("NullAway:KnownInitializers", "eu.nordtal.season.smp.SmpPlugin.prepare,eu.nordtal.season.smp.SmpPlugin.enable")
     }
 }
 
@@ -50,5 +50,5 @@ dependencies {
 }
 
 messageSpec {
-    specClasses.add("eu.nordtal.s2.smp.SmpMessages")
+    specClasses.add("eu.nordtal.season.smp.SmpMessages")
 }

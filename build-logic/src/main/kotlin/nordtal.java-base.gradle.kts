@@ -1,7 +1,7 @@
 // Shared by every module: Java 25, UTF-8, JUnit, the group and the repo-wide version.
 
-import eu.nordtal.s2.build.CheckSourcesTracked
-import eu.nordtal.s2.build.RepositoryRootTestInputs
+import eu.nordtal.season.build.CheckSourcesTracked
+import eu.nordtal.season.build.RepositoryRootTestInputs
 import org.gradle.accessors.dm.LibrariesForLibs
 import org.gradle.process.CommandLineArgumentProvider
 

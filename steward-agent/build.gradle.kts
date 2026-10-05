@@ -10,7 +10,7 @@ pluginDescriptor {
     displayName.set("Steward agent")
 }
 
-application.mainClass.set("eu.nordtal.s2.stewardagent.StewardAgent")
+application.mainClass.set("eu.nordtal.season.stewardagent.StewardAgent")
 
 // ComposeRefusesItselfTest reads the real compose file, so it has to be a declared input.
 // Files outside this module that the topology tests read as text, so an edit to one reruns :steward-agent:test.

@@ -6,7 +6,7 @@
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev mc smp list" type="Application" factoryName="Application" folderName="dev: console and database">
-    <option name="MAIN_CLASS_NAME" value="eu.nordtal.s2.dev.Dev" />
+    <option name="MAIN_CLASS_NAME" value="eu.nordtal.season.dev.Dev" />
     <module name="season-2.dev.main" />
     <option name="PROGRAM_PARAMETERS" value="mc smp list" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />

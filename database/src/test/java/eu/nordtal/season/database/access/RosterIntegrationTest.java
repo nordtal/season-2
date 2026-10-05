@@ -1,0 +1,402 @@
+package eu.nordtal.season.database.access;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.TestDatabase;
+import eu.nordtal.season.database.payment.PaymentRequest;
+import eu.nordtal.season.database.payment.PaymentRequestStatus;
+import eu.nordtal.season.database.payment.PaymentRequests;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+import javax.sql.DataSource;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+
+/**
+ * Exercises the roster reads of {@link AccessReader} and {@link PaymentRequests} against the real migrations.
+ *
+ * The joins and the aggregate on the database clock have no in-JVM stand-in; tests skip without Docker.
+ */
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+class RosterIntegrationTest {
+
+    private static final String ALICE = "100000000000000001";
+    private static final String BOB = "100000000000000002";
+    private static final String CAROL = "100000000000000003";
+
+    private static final UUID ALICE_MC = UUID.fromString("11111111-1111-1111-1111-111111111111");
+    private static DataSource dataSource;
+
+    private AccessReader directory;
+    private PaymentRequests payments;
+
+    @BeforeAll
+    static void startDatabase() {
+        dataSource = TestDatabase.fresh().dataSource();
+    }
+
+    @BeforeEach
+    void freshDirectory() {
+        // TRUNCATE ... CASCADE keeps the migration applied once per class while every test starts empty.
+        execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, audit_log, "
+                + "player_playtime, discord_user CASCADE");
+        directory = AccessReader.using(dataSource, Clock.systemUTC());
+        payments = new PaymentRequests(dataSource);
+    }
+
+    @Test
+    void somebodyWithNoLinkAndNoGrantIsListedWithNulls() {
+        person(DiscordId.of(ALICE));
+
+        final List<Person> people = directory.people(10);
+
+        assertEquals(1, people.size(), "a person with nothing attached must still be in the list");
+        final Person alice = people.getFirst();
+        assertEquals(DiscordId.of(ALICE), alice.discordId());
+        assertEquals("MEMBER", alice.memberState());
+        assertEquals("en", alice.locale());
+        assertFalse(alice.donor());
+        assertFalse(alice.admin());
+        assertNotNull(alice.updated());
+        assertNull(alice.minecraftUuid(), "no account_link row means no UUID");
+        assertNull(alice.linked());
+        assertNull(alice.accessUntil(), "never a grant means nothing to show");
+        assertFalse(alice.accessActive());
+    }
+
+    /** Checks that play time is null, not zero, for somebody who has never been online. */
+    @Test
+    void thePlayTimeRidesAlongOnTheSameRow() {
+        person(DiscordId.of(ALICE));
+        person(DiscordId.of(BOB));
+        execute("INSERT INTO player_playtime (discord_id, seconds) VALUES ('" + ALICE + "', 7200)");
+
+        final List<Person> people = directory.people(10);
+        final Person alice = people.stream()
+                .filter(person -> person.discordId().equals(DiscordId.of(ALICE)))
+                .findFirst()
+                .orElseThrow();
+        final Person bob = people.stream()
+                .filter(person -> person.discordId().equals(DiscordId.of(BOB)))
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals(7200L, alice.playtimeSeconds());
+        assertNull(bob.playtimeSeconds(), "no player_playtime row is not a play time of zero");
+    }
+
+    @Test
+    void theLinkAndTheFlagsRideAlongOnTheSameRow() {
+        person(DiscordId.of(ALICE));
+        execute("UPDATE discord_user SET donor = true, admin = true, admin_granted_at = now(), locale = 'de', "
+                + "member_state = 'BANNED' WHERE discord_id = '" + ALICE + "'");
+        execute("INSERT INTO account_link (discord_id, mc_uuid) VALUES ('" + ALICE + "', '" + ALICE_MC + "')");
+
+        final Person alice = directory.people(10).getFirst();
+
+        assertEquals(ALICE_MC, alice.minecraftUuid());
+        assertNotNull(alice.linked());
+        assertTrue(alice.donor());
+        assertTrue(alice.admin());
+        assertEquals("de", alice.locale());
+        assertEquals("BANNED", alice.memberState());
+    }
+
+    @Test
+    void aGrantCoveringNowIsActive() {
+        person(DiscordId.of(ALICE));
+        grant(DiscordId.of(ALICE), "-1 hours", "+47 hours", false);
+
+        final Person alice = directory.people(10).getFirst();
+
+        assertTrue(alice.accessActive(), "a live grant is active");
+        assertNotNull(alice.accessUntil());
+        assertTrue(alice.accessUntil().isAfter(Instant.now()));
+    }
+
+    @Test
+    void aGrantThatExpiredYesterdayIsNotActive() {
+        person(DiscordId.of(ALICE));
+        grant(DiscordId.of(ALICE), "-31 days", "-1 days", false);
+
+        final Person alice = directory.people(10).getFirst();
+
+        assertFalse(alice.accessActive(), "a window that has run out is not active");
+        assertNotNull(alice.accessUntil(), "but it is still the latest end on record");
+        assertTrue(alice.accessUntil().isBefore(Instant.now()));
+    }
+
+    @Test
+    void aRevokedGrantIsNotActiveButKeepsItsEnd() {
+        person(DiscordId.of(ALICE));
+        // Revoked inside its own window: login says no while the list still shows the period's end.
+        grant(DiscordId.of(ALICE), "-1 days", "+29 days", true);
+
+        final Person alice = directory.people(10).getFirst();
+
+        assertFalse(alice.accessActive(), "a revoked grant never counts, not even inside its window");
+        assertNotNull(alice.accessUntil(), "a revoked person is not the same as one who never paid");
+        assertTrue(alice.accessUntil().isAfter(Instant.now()));
+    }
+
+    @Test
+    void aLiveGrantBesideARevokedOneStillCounts() {
+        person(DiscordId.of(ALICE));
+        grant(DiscordId.of(ALICE), "-10 days", "-5 days", true);
+        grant(DiscordId.of(ALICE), "-1 hours", "+47 hours", false);
+
+        final Person alice = directory.people(10).getFirst();
+
+        assertTrue(alice.accessActive());
+    }
+
+    @Test
+    void accessUntilIsTheLatestEndAndNotTheFirstFound() {
+        person(DiscordId.of(ALICE));
+        grant(DiscordId.of(ALICE), "-60 days", "-30 days", false);
+        grant(DiscordId.of(ALICE), "-30 days", "+30 days", false);
+
+        final Person alice = directory.people(10).getFirst();
+
+        assertTrue(
+                alice.accessUntil().isAfter(Instant.now().plusSeconds(25 * 24 * 3600)),
+                "max(valid_until), not whichever row the planner reached first: " + alice.accessUntil());
+    }
+
+    @Test
+    void peopleComeBackNewestChangeFirstAndTheLimitIsHonoured() {
+        person(DiscordId.of(ALICE));
+        person(DiscordId.of(BOB));
+        person(DiscordId.of(CAROL));
+        touched(DiscordId.of(ALICE), "-3 days");
+        touched(DiscordId.of(BOB), "-1 days");
+        touched(DiscordId.of(CAROL), "-2 days");
+
+        assertEquals(List.of(BOB, CAROL, ALICE), ids(directory.people(10)), "newest change first");
+        assertEquals(List.of(BOB), ids(directory.people(1)), "the limit is a limit");
+        assertEquals(List.of(BOB, CAROL), ids(directory.people(2)));
+    }
+
+    @Test
+    void aLimitBelowOneIsClampedRatherThanRejected() {
+        person(DiscordId.of(ALICE));
+
+        assertEquals(1, directory.people(0).size(), "0 would be an empty list that looks like an empty database");
+        assertEquals(1, directory.people(-5).size());
+    }
+
+    @Test
+    void theDiscordAndMinecraftProfileCacheRideAlongToo() {
+        // The identity columns come in the same statement as people(), not one round trip per person.
+        person(DiscordId.of(ALICE));
+        execute("INSERT INTO account_link (discord_id, mc_uuid) VALUES ('" + ALICE + "', '" + ALICE_MC + "')");
+        execute("UPDATE discord_user SET discord_username = 'alice#0', "
+                + "discord_username_updated = now(), discord_display_name = 'Ally', "
+                + "discord_display_name_updated = now(), "
+                + "discord_avatar_url = 'https://cdn.discordapp.com/a.png', "
+                + "discord_avatar_url_updated = now() WHERE discord_id = '" + ALICE + "'");
+        execute("UPDATE account_link SET mc_name = 'AliceMC', mc_name_updated = now() " + "WHERE discord_id = '" + ALICE
+                + "'");
+
+        final Person alice = directory.people(10).getFirst();
+
+        assertEquals("alice#0", alice.discordUsername());
+        assertNotNull(alice.discordUsernameUpdated());
+        assertEquals("Ally", alice.discordDisplayName());
+        assertNotNull(alice.discordDisplayNameUpdated());
+        assertEquals("https://cdn.discordapp.com/a.png", alice.discordAvatarUrl());
+        assertNotNull(alice.discordAvatarUrlUpdated());
+        assertEquals("AliceMC", alice.mcName());
+        assertNotNull(alice.mcNameUpdated());
+    }
+
+    @Test
+    void aPersonNobodyHasEverMirroredAProfileOntoReadsAllSixColumnsAsNull() {
+        person(DiscordId.of(BOB));
+
+        final Person bob = directory.people(10).getFirst();
+
+        assertNull(bob.discordUsername());
+        assertNull(bob.discordUsernameUpdated());
+        assertNull(bob.discordDisplayName());
+        assertNull(bob.discordDisplayNameUpdated());
+        assertNull(bob.discordAvatarUrl());
+        assertNull(bob.discordAvatarUrlUpdated());
+        assertNull(bob.mcName());
+        assertNull(bob.mcNameUpdated());
+    }
+
+    @Test
+    void oneRowPerPersonEvenWithSeveralGrants() {
+        person(DiscordId.of(ALICE));
+        grant(DiscordId.of(ALICE), "-60 days", "-30 days", false);
+        grant(DiscordId.of(ALICE), "-30 days", "-10 days", true);
+        grant(DiscordId.of(ALICE), "-1 hours", "+47 hours", false);
+
+        assertEquals(1, directory.people(10).size(), "the lateral must not multiply the person out once per grant");
+    }
+
+    @Test
+    void personOfIsTheSameRowPeopleWouldPrint() {
+        // Read by discord id rather than by paging the roster, compared against people().
+        person(DiscordId.of(ALICE));
+        execute("INSERT INTO account_link (discord_id, mc_uuid) VALUES ('" + ALICE + "', '" + ALICE_MC + "')");
+        execute("UPDATE discord_user SET discord_avatar_url = 'https://cdn.discordapp.com/a.png', "
+                + "discord_avatar_url_updated = now() WHERE discord_id = '" + ALICE + "'");
+        grant(DiscordId.of(ALICE), "-1 hours", "+47 hours", false);
+        person(DiscordId.of(BOB));
+
+        final Person alice = directory.personOf(DiscordId.of(ALICE)).orElseThrow();
+
+        assertEquals(
+                directory.people(10).stream()
+                        .filter(p -> p.discordId().equals(DiscordId.of(ALICE)))
+                        .findFirst()
+                        .orElseThrow(),
+                alice);
+        assertEquals("https://cdn.discordapp.com/a.png", alice.discordAvatarUrl());
+        assertTrue(alice.accessActive());
+    }
+
+    @Test
+    void personOfSomebodyUnknownIsEmptyRatherThanAFailure() {
+        person(DiscordId.of(ALICE));
+
+        assertTrue(directory.personOf(DiscordId.of("999999999999999999")).isEmpty());
+    }
+
+    @Test
+    void paymentsComeBackNewestFirstWithEveryColumn() {
+        person(DiscordId.of(ALICE));
+        person(DiscordId.of(BOB));
+        execute("""
+                INSERT INTO payment_request (reference, discord_id, days, amount_cents,
+                                             donation_cents, status, bunq_tab_id, share_url,
+                                             created, expires, settled)
+                VALUES ('NT-AAAAAA', '%s', 30, 500, 150, 'PAID', 4242, 'https://bunq.me/x',
+                        now() - interval '2 days', now() + interval '1 days', now() - interval '2 days')
+                """.formatted(ALICE));
+        execute("""
+                INSERT INTO payment_request (reference, discord_id, days, amount_cents,
+                                             donation_cents, status, created, expires)
+                VALUES ('NT-BBBBBB', '%s', 60, 900, 0, 'OPEN',
+                        now() - interval '1 days', now() + interval '1 days')
+                """.formatted(BOB));
+
+        final List<PaymentRequest> recent = payments.recent(10);
+
+        assertEquals(
+                List.of("NT-BBBBBB", "NT-AAAAAA"),
+                recent.stream().map(PaymentRequest::reference).toList());
+
+        final PaymentRequest open = recent.getFirst();
+        assertEquals(DiscordId.of(BOB), open.discordId());
+        assertEquals(60, open.days());
+        assertEquals(900, open.amountCents());
+        assertEquals(0, open.donationCents());
+        assertEquals(PaymentRequestStatus.OPEN, open.status());
+        assertNull(open.bunqTabId(), "no tab asked for yet - and 0 is a tab id, so null must be null");
+        assertNull(open.shareUrl());
+        assertNull(open.settled());
+        assertNotNull(open.id());
+        assertNotNull(open.created());
+        assertNotNull(open.expires());
+
+        final PaymentRequest paid = recent.get(1);
+        assertEquals(DiscordId.of(ALICE), paid.discordId());
+        assertEquals(PaymentRequestStatus.PAID, paid.status());
+        assertEquals(150, paid.donationCents());
+        assertEquals(4242L, paid.bunqTabId());
+        assertEquals("https://bunq.me/x", paid.shareUrl());
+        assertNotNull(paid.settled());
+    }
+
+    @Test
+    void thePaymentLimitIsHonouredAndClamped() {
+        person(DiscordId.of(ALICE));
+        execute("""
+                INSERT INTO payment_request (reference, discord_id, days, amount_cents, status, created, expires)
+                VALUES ('NT-000001', '%1$s', 30, 500, 'EXPIRED', now() - interval '3 days', now() - interval '2 days'),
+                       ('NT-000002', '%1$s', 30, 500, 'EXPIRED', now() - interval '2 days', now() - interval '1 days'),
+                       ('NT-000003', '%1$s', 30, 500, 'OPEN',    now() - interval '1 days', now() + interval '1 days')
+                """.formatted(ALICE));
+
+        assertEquals(
+                List.of("NT-000003", "NT-000002"),
+                payments.recent(2).stream().map(PaymentRequest::reference).toList());
+        assertEquals(1, payments.recent(0).size());
+    }
+
+    @Test
+    void grantsOfOnePersonComeBackNewestFirstAndOnlyTheirs() {
+        person(DiscordId.of(ALICE));
+        person(DiscordId.of(BOB));
+        grant(DiscordId.of(ALICE), "-60 days", "-30 days", false);
+        grant(DiscordId.of(ALICE), "-1 hours", "+47 hours", true);
+        grant(DiscordId.of(BOB), "-1 hours", "+47 hours", false);
+
+        final List<AccessGrant> grants = directory.grantsOf(DiscordId.of(ALICE));
+
+        assertEquals(2, grants.size(), "Bob's grant is not Alice's");
+        assertTrue(grants.getFirst().validFrom().isAfter(grants.get(1).validFrom()), "newest first");
+        assertNotNull(grants.getFirst().revoked(), "the revoked one is the newest here");
+        assertNull(grants.get(1).revoked());
+        assertEquals(AccessSource.PURCHASE, grants.getFirst().source());
+        assertEquals(DiscordId.of(ALICE), grants.getFirst().discordId());
+        assertNotNull(grants.getFirst().id());
+        assertNotNull(grants.getFirst().created());
+        assertNull(grants.getFirst().paymentRequestId(), "no payment behind a hand-written grant");
+    }
+
+    @Test
+    void grantsOfSomebodyUnknownIsEmptyRatherThanAFailure() {
+        assertTrue(directory.grantsOf(DiscordId.of("999999999999999999")).isEmpty());
+    }
+
+    private static List<String> ids(final List<Person> people) {
+        return people.stream().map(person -> person.discordId().value()).toList();
+    }
+
+    private static void person(final DiscordId discordId) {
+        execute("INSERT INTO discord_user (discord_id) VALUES ('" + discordId + "')");
+    }
+
+    /** Moves a person's {@code updated} column, which is what {@code people} orders by. */
+    private static void touched(final DiscordId discordId, final String interval) {
+        execute("UPDATE discord_user SET updated = now() + interval '" + interval + "' WHERE discord_id = '" + discordId
+                + "'");
+    }
+
+    /**
+     * Writes one {@code access_grant} row with a window relative to the database's clock.
+     *
+     * Raw SQL, since {@code AccessDirectory#grantAccess} appends and cannot express a window that already ended.
+     */
+    private static void grant(final DiscordId discordId, final String from, final String until, final boolean revoked) {
+        execute("""
+                INSERT INTO access_grant (discord_id, valid_from, valid_until, source, revoked)
+                VALUES ('%s', now() + interval '%s', now() + interval '%s', 'PURCHASE', %s)
+                """.formatted(discordId, from, until, revoked ? "now()" : "NULL"));
+    }
+
+    private static void execute(final String sql) {
+        try (Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        } catch (final SQLException exception) {
+            throw new IllegalStateException("Test setup statement failed: " + sql, exception);
+        }
+    }
+}

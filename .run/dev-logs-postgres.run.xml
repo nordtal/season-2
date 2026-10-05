@@ -5,7 +5,7 @@
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev logs postgres" type="Application" factoryName="Application" folderName="dev: logs">
-    <option name="MAIN_CLASS_NAME" value="eu.nordtal.s2.dev.Dev" />
+    <option name="MAIN_CLASS_NAME" value="eu.nordtal.season.dev.Dev" />
     <module name="season-2.dev.main" />
     <option name="PROGRAM_PARAMETERS" value="logs postgres" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />

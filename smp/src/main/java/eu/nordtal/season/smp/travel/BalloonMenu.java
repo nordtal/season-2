@@ -1,0 +1,121 @@
+package eu.nordtal.season.smp.travel;
+
+import eu.nordtal.season.papercommon.menu.SlotGeometry;
+import eu.nordtal.season.smp.milestone.Unlock;
+import eu.nordtal.season.smp.world.WorldRole;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+/**
+ * What a balloon shows, worked out without a server so it can be tested as a table.
+ *
+ * Every world keeps a fixed card: the current one is marked and a locked one greyed, never moved or hidden.
+ */
+public final class BalloonMenu {
+
+    /** Where a balloon can send somebody, and whether it can right now. */
+    public enum State {
+        /** The world the player is standing in. Shown, never travelled to. */
+        HERE,
+        /** Unlocked and one click away. */
+        OPEN,
+        /** Its milestone is not finished. Greyed, in place, with the reason. */
+        LOCKED
+    }
+
+    /**
+     * One card in the grid.
+     *
+     * @param destination which world it goes to
+     * @param state       whether it can be used
+     * @param column      0 for the left card, 1 for the right
+     * @param row         0 for the upper card, 1 for the lower
+     * @param slots       the twelve inventory slots the card covers
+     */
+    public record Entry(WorldRole destination, State state, int column, int row, List<Integer> slots) {
+
+        public Entry {
+            slots = List.copyOf(slots);
+        }
+
+        public boolean travellable() {
+            return state == State.OPEN;
+        }
+    }
+
+    /** The inventory is six rows of nine; the cards cover all of it but column 4 and the hole. */
+    public static final int ROWS = 6;
+
+    /** A card is three slot rows tall and four slot columns wide. */
+    public static final int CARD_ROWS = 3;
+
+    public static final int CARD_COLUMNS = 4;
+
+    /** The slot column each card column starts at: 0..3 and 5..8, leaving 4 as the gap. */
+    private static final int[] CARD_COLUMN_START = {0, 5};
+
+    /** The three cards' places in the 2 x 2 grid, read left to right; the empty cell comes last. */
+    private static final WorldRole[][] PLACES = {
+        {WorldRole.NORDTAL, WorldRole.NETHER},
+        {WorldRole.END},
+    };
+
+    private BalloonMenu() {}
+
+    /**
+     * Builds the grid for a player standing at the balloon in {@code here}.
+     *
+     * @param here     the world the balloon stands in
+     * @param unlocked which unlocks the completed milestones have handed out
+     */
+    public static List<Entry> of(final WorldRole here, final Set<Unlock> unlocked) {
+        final List<Entry> entries = new ArrayList<>(3);
+        for (int row = 0; row < PLACES.length; row++) {
+            for (int column = 0; column < PLACES[row].length; column++) {
+                final WorldRole destination = PLACES[row][column];
+                entries.add(
+                        new Entry(destination, state(here, destination, unlocked), column, row, slots(column, row)));
+            }
+        }
+        return List.copyOf(entries);
+    }
+
+    /** The slot column a card column starts at. */
+    public static int slotColumn(final int column) {
+        return CARD_COLUMN_START[column];
+    }
+
+    /** The slot row a card row starts at. */
+    public static int slotRow(final int row) {
+        return row * CARD_ROWS;
+    }
+
+    private static List<Integer> slots(final int column, final int row) {
+        final List<Integer> slots = new ArrayList<>(CARD_ROWS * CARD_COLUMNS);
+        for (int r = 0; r < CARD_ROWS; r++) {
+            for (int c = 0; c < CARD_COLUMNS; c++) {
+                slots.add(SlotGeometry.slot(slotColumn(column) + c, slotRow(row) + r));
+            }
+        }
+        return slots;
+    }
+
+    private static State state(final WorldRole here, final WorldRole destination, final Set<Unlock> unlocked) {
+        if (here == destination) {
+            return State.HERE;
+        }
+        return switch (destination) {
+            case NETHER -> unlocked.contains(Unlock.NETHER) ? State.OPEN : State.LOCKED;
+            case END -> unlocked.contains(Unlock.END) ? State.OPEN : State.LOCKED;
+            // Nordtal is never locked here: it is where a player already is or is coming back to.
+            case NORDTAL -> State.OPEN;
+        };
+    }
+
+    /** The card occupying a clicked slot, or empty for the gap column. */
+    public static Optional<Entry> at(final List<Entry> entries, final int slot) {
+        return entries.stream().filter(entry -> entry.slots().contains(slot)).findFirst();
+    }
+}

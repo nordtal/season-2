@@ -6,7 +6,7 @@
 -->
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="dev pack" type="Application" factoryName="Application" folderName="dev: build and deploy">
-    <option name="MAIN_CLASS_NAME" value="eu.nordtal.s2.dev.Dev" />
+    <option name="MAIN_CLASS_NAME" value="eu.nordtal.season.dev.Dev" />
     <module name="season-2.dev.main" />
     <option name="PROGRAM_PARAMETERS" value="pack" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />

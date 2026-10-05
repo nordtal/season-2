@@ -8,7 +8,7 @@ import { SEASON_PHASES } from "@/lib/season-phases"
 
 /** Nothing here may name a phase `SeasonPhase.java` does not declare; the names are read off its source text. */
 const here = path.dirname(fileURLToPath(import.meta.url))
-const javaSource = path.join(here, "../../../../common/src/main/java/eu/nordtal/s2/common/SeasonPhase.java")
+const javaSource = path.join(here, "../../../../common/src/main/java/eu/nordtal/season/common/SeasonPhase.java")
 
 /** Every enum constant `SeasonPhase.java` declares, read off the source rather than remembered. */
 function realPhaseNames(): string[] {

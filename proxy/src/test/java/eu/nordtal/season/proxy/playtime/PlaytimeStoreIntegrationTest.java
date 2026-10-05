@@ -1,0 +1,151 @@
+package eu.nordtal.season.proxy.playtime;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.TestDatabase;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import javax.sql.DataSource;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+
+/**
+ * {@link PlaytimeStore}'s one statement, against PostgreSQL with the real {@code V4}.
+ *
+ * Covers row creation, addition, the foreign key and racing flushes; skips without Docker.
+ */
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+class PlaytimeStoreIntegrationTest {
+
+    private static final String DISCORD_ID = "100000000000000001";
+    private static DataSource dataSource;
+
+    private PlaytimeStore store;
+
+    @BeforeAll
+    static void startDatabase() {
+        dataSource = TestDatabase.fresh().dataSource();
+    }
+
+    @BeforeEach
+    void freshStore() {
+        execute("TRUNCATE TABLE player_playtime, discord_user CASCADE");
+        execute("INSERT INTO discord_user (discord_id) VALUES ('" + DISCORD_ID + "')");
+        store = PlaytimeStore.using(dataSource);
+    }
+
+    @Test
+    void theFirstFlushOfASeasonCreatesTheRow() {
+        store.add(DiscordId.of(DISCORD_ID), 90);
+
+        assertEquals(90, seconds(DiscordId.of(DISCORD_ID)));
+        assertEquals(1, count("SELECT count(*) FROM player_playtime"));
+    }
+
+    @Test
+    void everyFlushAddsRatherThanReplaces() {
+        store.add(DiscordId.of(DISCORD_ID), 60);
+        store.add(DiscordId.of(DISCORD_ID), 60);
+        store.add(DiscordId.of(DISCORD_ID), 15);
+
+        assertEquals(
+                135,
+                seconds(DiscordId.of(DISCORD_ID)),
+                "the proxy sends slices, never totals - a writer that replaced would lose a session "
+                        + "every time two of them overlapped");
+    }
+
+    @Test
+    void theUpdatedStampMovesWithEveryFlush() {
+        store.add(DiscordId.of(DISCORD_ID), 10);
+        final String first = single("SELECT updated FROM player_playtime WHERE discord_id = '" + DISCORD_ID + "'");
+
+        store.add(DiscordId.of(DISCORD_ID), 10);
+        final String second = single("SELECT updated FROM player_playtime WHERE discord_id = '" + DISCORD_ID + "'");
+
+        assertTrue(second.compareTo(first) >= 0, first + " -> " + second);
+    }
+
+    @Test
+    void concurrentFlushesAddUpInsteadOfOverwritingEachOther() throws Exception {
+        // Two proxies, or a sweep racing a disconnect: PostgreSQL adds, so both slices land.
+        final int writers = 8;
+        final ExecutorService pool = Executors.newFixedThreadPool(writers);
+        final CountDownLatch go = new CountDownLatch(1);
+        try {
+            for (int index = 0; index < writers; index++) {
+                final var _ = pool.submit(() -> {
+                    go.await();
+                    store.add(DiscordId.of(DISCORD_ID), 30);
+                    return null;
+                });
+            }
+            go.countDown();
+            pool.shutdown();
+            assertTrue(pool.awaitTermination(30, TimeUnit.SECONDS));
+        } finally {
+            pool.shutdownNow();
+        }
+
+        assertEquals(writers * 30L, seconds(DiscordId.of(DISCORD_ID)));
+    }
+
+    @Test
+    void aDiscordAccountTheDatabaseHasNeverSeenIsRefusedByTheForeignKey() {
+        // A play-time row for a user that does not exist is refused.
+        assertThrows(RuntimeException.class, () -> store.add(DiscordId.of("999999999999999999"), 60));
+    }
+
+    @Test
+    void deletingTheUserTakesTheirPlayTimeWithIt() {
+        store.add(DiscordId.of(DISCORD_ID), 120);
+
+        execute("DELETE FROM discord_user WHERE discord_id = '" + DISCORD_ID + "'");
+
+        assertEquals(
+                0,
+                count("SELECT count(*) FROM player_playtime"),
+                "ON DELETE CASCADE, so nothing is left keyed by an account that is gone");
+    }
+
+    // helpers
+
+    private static long seconds(final DiscordId discordId) {
+        return count("SELECT seconds FROM player_playtime WHERE discord_id = '" + discordId + "'");
+    }
+
+    private static void execute(final String sql) {
+        try (Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        } catch (final SQLException exception) {
+            throw new IllegalStateException("Test setup statement failed: " + sql, exception);
+        }
+    }
+
+    private static long count(final String sql) {
+        final String value = single(sql);
+        return value == null ? 0 : Long.parseLong(value);
+    }
+
+    private static String single(final String sql) {
+        try (Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery(sql)) {
+            return rs.next() ? rs.getString(1) : null;
+        } catch (final SQLException exception) {
+            throw new IllegalStateException("Test query failed: " + sql, exception);
+        }
+    }
+}

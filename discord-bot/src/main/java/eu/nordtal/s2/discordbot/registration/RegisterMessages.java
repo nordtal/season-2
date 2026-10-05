@@ -5,36 +5,28 @@ import static eu.nordtal.s2.discordbot.AccessMessages.MESSAGES;
 import eu.nordtal.s2.database.registration.Game;
 import eu.nordtal.s2.discordbot.Card;
 import eu.nordtal.s2.discordbot.DiscordRenderer;
-import eu.nordtal.s2.discordbot.ManagedMessageDao;
-import eu.nordtal.s2.discordbot.config.Configured;
+import eu.nordtal.s2.discordbot.ManagedMessage;
 import eu.nordtal.s2.discordbot.config.Languages;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
-import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.MessageEmbed;
-import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
-import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
 import org.jdbi.v3.core.Jdbi;
 
-/** Posts and edits a game's Register message, one per configured language, through {@link ManagedMessageDao}. */
-@Slf4j
+/** Posts and edits a game's Register message, one per configured language, each a {@link ManagedMessage}. */
 public final class RegisterMessages {
 
-    private final JDA jda;
     private final Languages languages;
     private final DiscordRenderer messages;
-    private final ManagedMessageDao dao;
+    private final ManagedMessage managed;
     private final Ids ids = Ids.of(Game.HUNGER_GAMES);
 
     public RegisterMessages(final JDA jda, final Languages languages, final DiscordRenderer messages, final Jdbi jdbi) {
-        this.jda = jda;
         this.languages = languages;
         this.messages = messages;
-        this.dao = jdbi.onDemand(ManagedMessageDao.class);
+        this.managed = new ManagedMessage(jda, jdbi);
     }
 
     /** Posts or edits the Register message in every configured language's channel. */
@@ -45,62 +37,9 @@ public final class RegisterMessages {
     }
 
     private void publish(final String kind, final String channelId, final Locale locale) {
-        // No channel means no message; checked first, since getChannelById throws on empty.
-        if (!Configured.isSet(channelId)) {
-            return;
-        }
-        final MessageChannel channel = jda.getChannelById(MessageChannel.class, channelId);
-        if (channel == null) {
-            log.error(
-                    "Channel {} for the {} message does not exist, or the bot cannot see it. "
-                            + "That message is not being maintained.",
-                    channelId,
-                    kind);
-            return;
-        }
-
-        final MessageEmbed embed = registerEmbed(locale);
         final List<ActionRow> components = List.of(ActionRow.of(Button.primary(
                 ids.register(), messages.format(locale, MESSAGES.register().button()))));
-
-        try {
-            final Optional<String> existing = dao.messageIdOf(kind, channelId);
-            if (existing.isPresent() && edit(channel, existing.get(), embed, components)) {
-                return;
-            }
-            final String posted = channel.sendMessageEmbeds(embed)
-                    .addComponents(components)
-                    .complete()
-                    .getId();
-            dao.remember(kind, channelId, posted);
-            log.info("Posted the {} message as {} in {}", kind, posted, channelId);
-        } catch (final RuntimeException exception) {
-            log.error("Could not maintain the {} message in channel {}", kind, channelId, exception);
-        }
-    }
-
-    private boolean edit(
-            final MessageChannel channel,
-            final String messageId,
-            final MessageEmbed embed,
-            final List<ActionRow> components) {
-        try {
-            channel.editMessageById(
-                            messageId,
-                            new MessageEditBuilder()
-                                    .setEmbeds(embed)
-                                    .setComponents(components)
-                                    .build())
-                    .complete();
-            return true;
-        } catch (final RuntimeException exception) {
-            log.info(
-                    "The remembered message {} in {} could not be edited ({}); posting a new one",
-                    messageId,
-                    channel.getId(),
-                    exception.toString());
-            return false;
-        }
+        managed.publish(kind, channelId, new ManagedMessage.Content(List.of(registerEmbed(locale)), components, null));
     }
 
     private MessageEmbed registerEmbed(final Locale locale) {

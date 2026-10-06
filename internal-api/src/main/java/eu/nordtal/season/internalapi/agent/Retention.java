@@ -1,5 +1,6 @@
 package eu.nordtal.season.internalapi.agent;
 
+import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -48,6 +49,19 @@ public record Retention(int daily, int weekly, int monthly, int collapseAfterDay
      * @param now the moment of the sweep, which decides what is still inside the grace
      */
     public List<Dated> expired(final List<Dated> all, final Instant now) {
+        return expired(all, now, false);
+    }
+
+    /**
+     * Returns which archives of a series that is no longer taken may go, oldest first.
+     * The days, weeks and months to keep are counted back from {@code now} on the calendar, so the series ages out.
+     */
+    public List<Dated> expiredByCalendar(final List<Dated> all, final Instant now) {
+        return expired(all, now, true);
+    }
+
+    private List<Dated> expired(final List<Dated> all, final Instant now, final boolean byCalendar) {
+        final LocalDate today = LocalDate.ofInstant(now, ZoneOffset.UTC);
         final Instant settledBefore = now.minus(Duration.ofDays(collapseAfterDays));
 
         // Newest first, so "the last run of a day" and "the newest day of a week" are both the first entry a loop sees.
@@ -71,16 +85,29 @@ public record Retention(int daily, int weekly, int monthly, int collapseAfterDay
         // A day's representative survives only if the schedule keeps its day.
         final List<Dated> days = List.copyOf(perDay.values());
 
-        keep.addAll(days.stream().limit(daily).toList());
+        // By the calendar, each schedule only sees the days inside its own window, counted back from today.
+        final List<Dated> dailyDays = byCalendar ? since(days, today.minusDays(daily - 1L)) : days;
+        final List<Dated> weeklyDays =
+                byCalendar ? since(days, today.minusWeeks(weekly - 1L).with(DayOfWeek.MONDAY)) : days;
+        final List<Dated> monthlyDays =
+                byCalendar ? since(days, today.minusMonths(monthly - 1L).withDayOfMonth(1)) : days;
+
+        keep.addAll(dailyDays.stream().limit(daily).toList());
         keep.addAll(newestOfEach(
-                days,
+                weeklyDays,
                 weekly,
                 day -> day.get(IsoFields.WEEK_BASED_YEAR) * 100 + day.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)));
-        keep.addAll(newestOfEach(days, monthly, day -> day.getYear() * 100 + day.getMonthValue()));
+        keep.addAll(newestOfEach(monthlyDays, monthly, day -> day.getYear() * 100 + day.getMonthValue()));
 
         return all.stream()
                 .filter(one -> !keep.contains(one))
                 .sorted(Comparator.comparing(Dated::name))
+                .toList();
+    }
+
+    private static List<Dated> since(final List<Dated> days, final LocalDate from) {
+        return days.stream()
+                .filter(one -> !LocalDate.ofInstant(one.taken(), ZoneOffset.UTC).isBefore(from))
                 .toList();
     }
 

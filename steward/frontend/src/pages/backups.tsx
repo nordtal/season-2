@@ -267,7 +267,8 @@ function RestoreDialog() {
               <SelectContent>
                 {restorable.map((backup) => (
                   <SelectItem key={backup.name} value={backup.name}>
-                    {backup.name} ({bytes(backup.bytes)}, {relative(backup.modified)})
+                    {backup.name} ({bytes(backup.bytes)}, {relative(backup.modified)}
+                    {backup.inBackup ? "" : `, ${t("steward.backups.left")}`})
                   </SelectItem>
                 ))}
               </SelectContent>

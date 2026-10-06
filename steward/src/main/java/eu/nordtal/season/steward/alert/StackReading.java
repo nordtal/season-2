@@ -10,6 +10,7 @@ import org.jspecify.annotations.Nullable;
  *
  * @param registryProblem why the images were not compared, or null when the registry answered
  * @param host the machine's numbers, or null when they could not be read
+ * @param backupVolumes the volumes a backup saves now, by the name their archives carry
  * @param mountedBy for each saved volume, by the name its archives carry, the services that run on it
  */
 public record StackReading(
@@ -17,11 +18,13 @@ public record StackReading(
         @Nullable String registryProblem,
         List<Archive> archives,
         @Nullable Host host,
+        List<String> backupVolumes,
         Map<String, List<String>> mountedBy) {
 
     public StackReading {
         services = List.copyOf(services);
         archives = List.copyOf(archives);
+        backupVolumes = List.copyOf(backupVolumes);
         mountedBy = Map.copyOf(mountedBy);
     }
 

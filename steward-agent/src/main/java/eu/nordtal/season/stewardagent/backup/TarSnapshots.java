@@ -19,6 +19,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -364,10 +365,11 @@ public final class TarSnapshots {
 
     /**
      * Applies the retention policy to each volume and to the database dump as separate series.
+     * A volume outside {@code inBackup} is counted by the calendar; a day-old {@code .partial} is swept too.
      *
-     * A {@code .partial} older than a day is debris from a killed run and is swept too, whatever the policy says.
+     * @param inBackup the volumes a backup saves now, by the name an archive carries
      */
-    public List<String> prune(final Retention policy) {
+    public List<String> prune(final Retention policy, final Collection<String> inBackup) {
         final List<Path> files;
         try (Stream<Path> listing = Files.list(outputRoot)) {
             files = listing.filter(Files::isRegularFile).toList();
@@ -381,7 +383,10 @@ public final class TarSnapshots {
         final Map<String, List<Retention.Dated>> byVolume = classify(files, now, removed);
 
         for (final Map.Entry<String, List<Retention.Dated>> series : byVolume.entrySet()) {
-            for (final Retention.Dated old : policy.expired(series.getValue(), now)) {
+            final boolean taken = DUMP_SERIES.equals(series.getKey()) || inBackup.contains(series.getKey());
+            final List<Retention.Dated> expired =
+                    taken ? policy.expired(series.getValue(), now) : policy.expiredByCalendar(series.getValue(), now);
+            for (final Retention.Dated old : expired) {
                 final Path file = outputRoot.resolve(old.name());
                 if (delete(file)) {
                     log.info(

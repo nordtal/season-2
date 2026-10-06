@@ -9,6 +9,7 @@ import eu.nordtal.season.stewardagent.run.Snapshots;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
@@ -76,8 +77,8 @@ public final class LocalSnapshots implements Snapshots {
     }
 
     @Override
-    public List<String> prune(final Retention policy) {
-        return tars.prune(policy);
+    public List<String> prune(final Retention policy, final Collection<String> inBackup) {
+        return tars.prune(policy, inBackup);
     }
 
     @Override

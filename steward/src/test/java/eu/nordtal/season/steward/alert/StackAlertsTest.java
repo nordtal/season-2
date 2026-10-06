@@ -50,7 +50,20 @@ class StackAlertsTest {
             final @Nullable String registryProblem,
             final List<StackReading.Archive> archives,
             final StackReading.@Nullable Host host) {
-        return StackAlerts.of(new StackReading(services, registryProblem, archives, host, MOUNTS), THRESHOLDS, NOW);
+        return StackAlerts.of(
+                new StackReading(services, registryProblem, archives, host, volumesOf(archives), MOUNTS),
+                THRESHOLDS,
+                NOW);
+    }
+
+    /** The backup set a reading would have if every volume that has an archive is in it. */
+    private static List<String> volumesOf(final List<StackReading.Archive> archives) {
+        return archives.stream()
+                .map(StackReading.Archive::name)
+                .filter(name -> name.endsWith(".tar.zst"))
+                .map(name -> name.substring(0, name.lastIndexOf('-')))
+                .distinct()
+                .toList();
     }
 
     private static List<Alert> withServices(final StackReading.Service... services) {
@@ -123,9 +136,31 @@ class StackAlertsTest {
         assertEquals(
                 List.of("There is no database dump"),
                 titles(of(List.of(smp), null, List.of(archive("smp-world-20261002T110000Z.tar.zst", 1)), null)));
+        final List<Alert> noArchive = StackAlerts.of(
+                new StackReading(
+                        List.of(smp),
+                        null,
+                        List.of(archive("db-20261002T110000Z.dump", 1)),
+                        null,
+                        List.of("nordtal-s2_mc-smp", "nordtal-s2_mc-limbo"),
+                        MOUNTS),
+                THRESHOLDS,
+                NOW);
         assertEquals(
-                List.of("There is no volume archive"),
-                titles(of(List.of(smp), null, List.of(archive("db-20261002T110000Z.dump", 1)), null)));
+                List.of("mc-smp: there is no archive yet", "mc-limbo: there is no archive yet"), titles(noArchive));
+        assertEquals(Alert.Level.DOWN, noArchive.getFirst().level());
+    }
+
+    @Test
+    void aSeriesOfAVolumeThatLeftTheBackupRaisesNoAlertHoweverOldItsNewestArchiveIs() {
+        final List<StackReading.Archive> archives = new ArrayList<>(freshBackups());
+        archives.add(archive("nordtal-s2_mc-proxy-20260915T110000Z.tar.zst", 400));
+        final List<Alert> alerts = StackAlerts.of(
+                new StackReading(
+                        List.of(service("smp", "running")), null, archives, null, List.of("smp-world"), MOUNTS),
+                THRESHOLDS,
+                NOW);
+        assertEquals(List.of(), alerts);
     }
 
     @Test

@@ -311,7 +311,7 @@ final class Kinds {
         final Run.Payload save = (steps, stopped) -> {
             final UpdateReport saved = steps.save(stopped.report(), volumes);
             // While the servers are still down: quick, and it frees disk before the next run.
-            return new Run.Done(prune(runner, saved), false, back -> offsite(runner, back, progress));
+            return new Run.Done(prune(runner, saved, volumes), false, back -> offsite(runner, back, progress));
         };
         return Planned.plan(
                 Run.Plan.of(planned, save, UpdateReport.Undertaking.BACKUP, true, Runner.Doubt.FAILS_THE_RUN));
@@ -340,9 +340,9 @@ final class Kinds {
     }
 
     /** What was kept and what was removed, put into the report so a wrong retention shows. */
-    private static UpdateReport prune(final Runner runner, final UpdateReport saved) {
+    private static UpdateReport prune(final Runner runner, final UpdateReport saved, final List<String> inBackup) {
         final Retention policy = policyOf(runner);
-        final List<String> pruned = runner.backups.prune(policy);
+        final List<String> pruned = runner.backups.prune(policy, inBackup);
         return pruned.isEmpty()
                 ? saved
                 : saved.withNote(TEXTS.report()

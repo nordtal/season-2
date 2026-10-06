@@ -117,7 +117,8 @@ final class FakeSnapshots implements Snapshots {
     }
 
     @Override
-    public List<String> prune(final eu.nordtal.season.internalapi.agent.Retention policy) {
+    public List<String> prune(
+            final eu.nordtal.season.internalapi.agent.Retention policy, final java.util.Collection<String> inBackup) {
         calls.add("prune:" + policy.daily());
         return List.of();
     }

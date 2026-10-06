@@ -480,16 +480,13 @@ public final class StackApi implements AutoCloseable {
         final String registryProblem = images.reached()
                 ? null
                 : java.util.Objects.requireNonNullElse(images.message(), "the registry did not answer");
+        final AgentWire.Topology topology = serviceRows.topology();
         final List<StackReading.Archive> archives = archives().stream()
                 .map(archive -> new StackReading.Archive(
                         archive.name(), archive.modified(), archive.partial(), archive.offsite()))
                 .toList();
         return new StackReading(
-                services,
-                registryProblem,
-                archives,
-                host(),
-                serviceRows.topology().mountedBy());
+                services, registryProblem, archives, host(), topology.backupVolumes(), topology.mountedBy());
     }
 
     /** The disk and memory numbers, or null when the agent could not read them. */

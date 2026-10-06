@@ -58,7 +58,7 @@ public final class AgentApi implements AutoCloseable {
                 new Console(docker, project, topology::consoles),
                 sampler,
                 topology);
-        this.backups = new BackupRoutes(paths.backups());
+        this.backups = new BackupRoutes(paths.backups(), () -> topology.read().backupVolumes());
         final ImageJars images = ImageJars.fromContainers(
                 docker, project, java.nio.file.Path.of(System.getProperty("java.io.tmpdir"), "image-jars"));
         this.bundles = new BundleRoutes(paths.configs(), images);

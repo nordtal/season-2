@@ -2,6 +2,7 @@ package eu.nordtal.season.stewardagent.run;
 
 import eu.nordtal.season.internalapi.agent.Retention;
 import eu.nordtal.season.internalapi.agent.SnapshotResult;
+import java.util.Collection;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
@@ -44,11 +45,13 @@ public interface Snapshots {
 
     /**
      * Deletes whatever the policy no longer keeps, one series at a time.
+     * A volume outside {@code inBackup} is counted by the calendar, so its archives age out.
      *
      * @param policy the staggered schedule and the one-per-day collapse; see {@link Retention}
+     * @param inBackup the volumes a backup saves now
      * @return what was removed, for the report
      */
-    List<String> prune(Retention policy);
+    List<String> prune(Retention policy, Collection<String> inBackup);
 
     /**
      * The series a finished archive in the backups belongs to: its volume, or {@link #DATABASE} for a dump.

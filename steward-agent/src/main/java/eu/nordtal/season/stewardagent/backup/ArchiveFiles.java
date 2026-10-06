@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,15 +25,19 @@ final class ArchiveFiles {
 
     private ArchiveFiles() {}
 
-    /** Every file in {@code backups}, newest first. */
-    static List<AgentWire.Archive> list(final Path backups) {
+    /**
+     * Every file in {@code backups}, newest first.
+     *
+     * @param inBackup whether a volume is in the backup set, which marks the archives of one that has left it
+     */
+    static List<AgentWire.Archive> list(final Path backups, final Predicate<String> inBackup) {
         final List<AgentWire.Archive> all = new ArrayList<>();
         if (!Files.isDirectory(backups)) {
             return all;
         }
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(backups)) {
             for (final Path entry : entries) {
-                row(entry).ifPresent(all::add);
+                row(entry, inBackup).ifPresent(all::add);
             }
         } catch (final IOException e) {
             log.warn("could not list {}", backups, e);
@@ -76,10 +81,9 @@ final class ArchiveFiles {
 
     /**
      * One row of the archive list, or nothing if that entry is not a file any more.
-     *
-     * One stat per entry, so a file growing or renamed meanwhile cannot yield a row that disagrees with itself.
+     * One stat per entry, so a file changing meanwhile cannot disagree with itself; the database is in the backup.
      */
-    static Optional<AgentWire.Archive> row(final Path entry) {
+    static Optional<AgentWire.Archive> row(final Path entry, final Predicate<String> inBackup) {
         final BasicFileAttributes attributes;
         try {
             attributes = Files.readAttributes(entry, BasicFileAttributes.class);
@@ -91,13 +95,17 @@ final class ArchiveFiles {
         }
         final String name = entry.getFileName().toString();
         // A .partial is running now or died halfway, and showing it is the point.
+        final String restoresInto = TarSnapshots.restoresInto(name).orElse(null);
         return Optional.of(new AgentWire.Archive(
                 name,
                 attributes.size(),
                 ByteSize.of(attributes.size()).toString(),
                 attributes.lastModifiedTime().toInstant(),
                 name.endsWith(".partial"),
-                TarSnapshots.restoresInto(name).orElse(null),
-                entry.getParent() != null && OffsiteCopy.isCopied(entry.getParent(), name)));
+                restoresInto,
+                entry.getParent() != null && OffsiteCopy.isCopied(entry.getParent(), name),
+                restoresInto == null
+                        || DatabaseDump.DATABASE_NAME.equals(restoresInto)
+                        || inBackup.test(restoresInto)));
     }
 }

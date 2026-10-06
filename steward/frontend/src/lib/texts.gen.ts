@@ -39,7 +39,9 @@ export type TextArgs = {
   "alert.memory": {
     percent: Arg["number"]
   }
-  "alert.no-archive": Record<string, never>
+  "alert.no-archive": {
+    volume: Arg["text"]
+  }
   "alert.no-backup": Record<string, never>
   "alert.no-dump": Record<string, never>
   "alert.no-limit": Record<string, never>
@@ -967,6 +969,7 @@ export type TextArgs = {
   "steward.backups.holds-column": Record<string, never>
   "steward.backups.initiated-by": Record<string, never>
   "steward.backups.latest": Record<string, never>
+  "steward.backups.left": Record<string, never>
   "steward.backups.next": Record<string, never>
   "steward.backups.no-archive": Record<string, never>
   "steward.backups.no-clock": Record<string, never>

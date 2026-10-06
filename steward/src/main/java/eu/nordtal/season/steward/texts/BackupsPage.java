@@ -98,6 +98,9 @@ public interface BackupsPage {
     @Name("What a file holds")
     MessageRef holds(@Arg("subject") String subject, @Arg("partial") boolean partial);
 
+    @Name("An archive of a volume that left the backup")
+    MessageRef left();
+
     @Name("The database")
     MessageRef database();
 

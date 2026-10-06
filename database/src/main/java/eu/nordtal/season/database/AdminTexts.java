@@ -307,8 +307,8 @@ public interface AdminTexts {
         @Name("What a missing dump means")
         MessageRef dumpMatters();
 
-        @Name("No volume archive")
-        MessageRef noArchive();
+        @Name("No archive of a volume")
+        MessageRef noArchive(@Arg("volume") String volume);
 
         @Name("An old dump")
         MessageRef oldDump(@Arg("hours") long hours);

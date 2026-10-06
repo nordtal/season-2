@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -37,6 +38,8 @@ class TarSnapshotsTest {
     private static final Instant NIGHT = Instant.parse("2026-09-13T04:45:07Z");
 
     private static final String VOLUME = "nordtal-s2_mc-smp";
+
+    private static final Set<String> IN_BACKUP = Set.of(VOLUME, "nordtal-s2_mc-limbo", "nordtal-s2_mc-hunger-games");
 
     /** How long one save may take, as {@code backup.patience-minutes} says by default. */
     private static final Duration WALL = Duration.ofMinutes(30);
@@ -242,7 +245,7 @@ class TarSnapshotsTest {
         // Not ours: an operator's own file in the same directory, which must survive untouched.
         Files.writeString(outputRoot().resolve("README.txt"), "restore instructions");
 
-        final List<String> removed = snapshots(NIGHT).prune(days(2));
+        final List<String> removed = snapshots(NIGHT).prune(days(2), IN_BACKUP);
 
         assertEquals(
                 List.of(
@@ -267,6 +270,25 @@ class TarSnapshotsTest {
     }
 
     @Test
+    void aVolumeOutsideTheBackupAgesOutInsteadOfKeepingItsNewestArchives() throws IOException {
+        archive("nordtal-s2_mc-smp", "20260912T044500Z", "20260913T044500Z");
+        archive("nordtal-s2_mc-proxy", "20260901T044500Z", "20260902T044500Z");
+        dump("20260901T044500Z");
+
+        final List<String> removed = snapshots(NIGHT).prune(days(7), IN_BACKUP);
+
+        assertEquals(
+                List.of("nordtal-20260901T044500Z.dump"),
+                dumpsIn(outputRoot()),
+                "the dump is always in the backup, so its newest is held however old");
+        assertEquals(
+                List.of("nordtal-s2_mc-proxy-20260901T044500Z.tar.zst", "nordtal-s2_mc-proxy-20260902T044500Z.tar.zst"),
+                sorted(removed).stream().filter(name -> name.contains("proxy")).toList(),
+                "a week back on the calendar holds neither, and nothing keeps the newest for being the newest");
+        assertTrue(archivesIn(outputRoot()).contains("nordtal-s2_mc-smp-20260913T044500Z.tar.zst"));
+    }
+
+    @Test
     void aDayThatHasSettledKeepsItsLastRunOnTheDiskAndNotOnlyOnPaper() throws IOException {
         // Three runs on one day and two on the next, all inside the grace window measured from the newest one.
         archive(
@@ -277,7 +299,7 @@ class TarSnapshotsTest {
                 "20260912T044500Z",
                 "20260912T190000Z");
 
-        final List<String> removed = snapshots(NIGHT).prune(new Retention(30, 0, 0, 2));
+        final List<String> removed = snapshots(NIGHT).prune(new Retention(30, 0, 0, 2), IN_BACKUP);
 
         assertEquals(
                 List.of("nordtal-s2_mc-smp-20260910T044500Z.tar.zst", "nordtal-s2_mc-smp-20260910T113000Z.tar.zst"),
@@ -336,7 +358,7 @@ class TarSnapshotsTest {
         mark("nordtal-s2_mc-smp-20260910T044500Z.tar.zst");
         mark("nordtal-s2_mc-smp-20260912T044500Z.tar.zst");
 
-        final List<String> removed = snapshots(NIGHT).prune(days(2));
+        final List<String> removed = snapshots(NIGHT).prune(days(2), IN_BACKUP);
 
         assertEquals(
                 List.of("nordtal-s2_mc-smp-20260910T044500Z.tar.zst"),
@@ -362,7 +384,7 @@ class TarSnapshotsTest {
         archive("nordtal-s2_mc-smp", "20260910T044500Z", "20260911T044500Z", "20260912T044500Z");
         dump("20260910T044500Z", "20260911T044500Z", "20260912T044500Z", "20260913T044500Z");
 
-        final List<String> removed = snapshots(NIGHT).prune(days(2));
+        final List<String> removed = snapshots(NIGHT).prune(days(2), IN_BACKUP);
 
         assertEquals(
                 List.of(
@@ -384,7 +406,7 @@ class TarSnapshotsTest {
         Files.writeString(outputRoot().resolve("nordtal-20260912T044500Z.dump.partial"), "old");
         Files.writeString(outputRoot().resolve("nordtal-20260913T044500Z.dump.partial"), "running");
 
-        final List<String> removed = snapshots(NIGHT).prune(days(7));
+        final List<String> removed = snapshots(NIGHT).prune(days(7), IN_BACKUP);
 
         assertEquals(
                 List.of("nordtal-20260912T044500Z.dump.partial"),
@@ -400,7 +422,7 @@ class TarSnapshotsTest {
         Files.writeString(stale, "debris from a killed run");
         Files.writeString(fresh, "a save that may be running right now");
 
-        final List<String> removed = snapshots(NIGHT).prune(days(7));
+        final List<String> removed = snapshots(NIGHT).prune(days(7), IN_BACKUP);
 
         assertEquals(List.of(stale.getFileName().toString()), removed);
         assertFalse(Files.exists(stale));
@@ -414,7 +436,7 @@ class TarSnapshotsTest {
         final Path impossible = outputRoot().resolve(VOLUME + "-99999999T999999Z.tar.zst.partial");
         Files.writeString(impossible, "whatever this is");
 
-        final List<String> removed = snapshots(NIGHT).prune(days(1));
+        final List<String> removed = snapshots(NIGHT).prune(days(1), IN_BACKUP);
 
         assertEquals(
                 List.of("nordtal-s2_mc-smp-20260910T044500Z.tar.zst", "nordtal-s2_mc-smp-20260911T044500Z.tar.zst"),

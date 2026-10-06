@@ -303,6 +303,7 @@ export type Backup = {
   partial: boolean
   restoresInto?: string
   offsite: boolean
+  inBackup: boolean
 }
 
 export type ServicePlugins = {

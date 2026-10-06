@@ -146,6 +146,7 @@ function backup(over: Record<string, unknown> = {}) {
     modified: "2026-09-17T04:45:00Z",
     partial: false,
     offsite: true,
+    inBackup: true,
     ...over,
   }
 }
@@ -529,6 +530,31 @@ describe("BackupsPage - what moved here from Operations", () => {
         ["/api/backups/nordtal-s2_mc-smp-20260917T044500Z.tar.zst/restore", { confirm: "nordtal-s2_mc-smp" }],
       ])
     })
+  })
+
+  it("marks the archive of a volume that left the backup", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        backups: [
+          backup({ restoresInto: "nordtal-s2_mc-smp" }),
+          backup({
+            name: "nordtal-s2_mc-proxy-20260917T044500Z.tar.zst",
+            restoresInto: "nordtal-s2_mc-proxy",
+            inBackup: false,
+          }),
+        ],
+      }),
+    )
+    draw()
+
+    fireEvent.click(await screen.findByRole("button", { name: "Restore" }))
+    fireEvent.keyDown(await screen.findByRole("combobox"), { key: "Enter" })
+
+    const left = await screen.findByRole("option", { name: /nordtal-s2_mc-proxy-20260917T044500Z/ })
+    expect(left.textContent).toContain("no longer in the backup")
+    const kept = await screen.findByRole("option", { name: /nordtal-s2_mc-smp-20260917T044500Z/ })
+    expect(kept.textContent).not.toContain("no longer in the backup")
   })
 
   it("offers no archive that is still being written", async () => {

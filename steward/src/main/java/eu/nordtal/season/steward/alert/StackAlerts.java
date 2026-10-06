@@ -111,7 +111,11 @@ public final class StackAlerts {
         }
     }
 
-    /** Both kinds of backup must exist, and the newest file of every series must be young enough. */
+    /**
+     * Both kinds of backup must exist, and the newest file of every series in the backup set must be young enough.
+     *
+     * A series of a volume that left the set is not judged: its last archives age out by retention.
+     */
     private static void backups(
             final StackReading reading, final Thresholds thresholds, final Instant now, final List<Alert> alerts) {
         final List<StackReading.Archive> archives = reading.archives();
@@ -130,7 +134,8 @@ public final class StackAlerts {
         final Map<String, Instant> newest = new LinkedHashMap<>();
         for (final StackReading.Archive archive : finished) {
             final String series = seriesOf(archive.name());
-            if (series != null) {
+            if (series != null
+                    && (DUMP.equals(series) || reading.backupVolumes().contains(series))) {
                 newest.merge(series, archive.modified(), (one, two) -> one.isAfter(two) ? one : two);
             }
         }
@@ -143,9 +148,12 @@ public final class StackAlerts {
                     TEXTS.alert().dumpMatters(),
                     BACKUPS_PAGE));
         }
-        if (newest.size() == (newest.containsKey(DUMP) ? 1 : 0)) {
-            alerts.add(new Alert(
-                    AlertType.BACKUP, Alert.Level.DOWN, "backups", TEXTS.alert().noArchive(), BACKUPS_PAGE));
+        for (final String volume : reading.backupVolumes()) {
+            if (!newest.containsKey(volume)) {
+                final String name = volumeName(volume);
+                alerts.add(new Alert(
+                        AlertType.BACKUP, Alert.Level.DOWN, name, TEXTS.alert().noArchive(name), BACKUPS_PAGE));
+            }
         }
         offsite(finished, thresholds, now, alerts);
         newest.forEach((series, at) -> stale(reading, series, at, thresholds, now, alerts));

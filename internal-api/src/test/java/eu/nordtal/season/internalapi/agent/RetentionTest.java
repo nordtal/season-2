@@ -136,4 +136,34 @@ class RetentionTest {
         assertThrows(IllegalArgumentException.class, () -> new Retention(-1, 2, 2, 3));
         assertThrows(IllegalArgumentException.class, () -> new Retention(2, 2, 2, -1));
     }
+
+    @Test
+    void aSeriesNobodyWritesToAgesOutWhereTheOrdinaryScheduleWouldKeepItsNewest() {
+        final Retention policy = new Retention(2, 1, 1, 0);
+        final List<Retention.Dated> stopped = List.of(stamp("2026-08-30", "03:00"), stamp("2026-08-29", "03:00"));
+
+        assertEquals(List.of(), deleted(policy, stopped), "counted by archives, the newest days are kept for good");
+        assertEquals(
+                List.of("20260829T030000Z", "20260830T030000Z"),
+                policy.expiredByCalendar(stopped, NOW).stream()
+                        .map(Retention.Dated::name)
+                        .toList());
+    }
+
+    @Test
+    void byTheCalendarTheDaysWeeksAndMonthsInsideTheirWindowsStillStay() {
+        final Retention policy = new Retention(2, 2, 2, 0);
+        final List<Retention.Dated> all = List.of(
+                stamp("2026-09-16", "03:00"),
+                stamp("2026-09-09", "03:00"),
+                stamp("2026-08-20", "03:00"),
+                stamp("2026-06-01", "03:00"));
+
+        assertEquals(
+                List.of("20260601T030000Z"),
+                policy.expiredByCalendar(all, NOW).stream()
+                        .map(Retention.Dated::name)
+                        .toList(),
+                "yesterday, last week and last month are inside their windows; June is outside all three");
+    }
 }

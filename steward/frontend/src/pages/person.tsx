@@ -79,7 +79,7 @@ function PersonView({ person, people }: { person: Person; people: readonly Perso
           empty={{ title: t("steward.people.no-entry") }}
           isEmpty={(list) => list.length === 0}
         >
-          {(list) => <JournalTable entries={list} />}
+          {(list) => <JournalTable entries={list} concerns={false} />}
         </QueryState>
       </Panel>
     </div>

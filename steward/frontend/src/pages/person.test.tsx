@@ -92,6 +92,15 @@ describe("PersonPage - one person on an address of their own", () => {
     expect(asked.some((url) => url.startsWith("/api/journal") && url.includes(`subject=${ALLY}`))).toBe(true)
   })
 
+  it("leaves the journal's Concerns column out, since every entry there concerns them", async () => {
+    vi.stubGlobal("fetch", allysBackend())
+    draw(<PersonPage />, `/access/${ALLY}`)
+
+    const journal = assertElement((await screen.findByText("Journal")).closest("section"), "the journal panel")
+    await within(journal).findAllByText("Access granted")
+    expect(within(journal).queryByText("Concerns")).toBeNull()
+  })
+
   it("lists their periods without a dialog to open first", async () => {
     vi.stubGlobal("fetch", allysBackend())
     draw(<PersonPage />, `/access/${ALLY}`)

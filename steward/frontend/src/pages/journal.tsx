@@ -46,7 +46,14 @@ function concernsAnother(entry: JournalEntry): boolean {
 }
 
 /** Journal entries as rows, ten waiting ones while `entries` is undefined; a person's page shows theirs with it. */
-export function JournalTable({ entries }: { entries: JournalEntry[] | undefined }) {
+export function JournalTable({
+  entries,
+  concerns = true,
+}: {
+  entries: JournalEntry[] | undefined
+  /** `false` on a person's page, where every entry concerns them and Detail needs the room. */
+  concerns?: boolean
+}) {
   const columns = {
     when: t("steward.journal.when"),
     action: t("steward.journal.action"),
@@ -61,7 +68,7 @@ export function JournalTable({ entries }: { entries: JournalEntry[] | undefined 
           <TableHead className="w-[13rem]">{columns.when}</TableHead>
           <TableHead className="w-[12rem]">{columns.action}</TableHead>
           <TableHead className="w-[16rem]">{columns.actor}</TableHead>
-          <TableHead className="w-[14rem]">{columns.concerns}</TableHead>
+          {concerns ? <TableHead className="w-[14rem]">{columns.concerns}</TableHead> : null}
           <TableHead>{columns.detail}</TableHead>
         </TableRow>
       </TableHeader>
@@ -81,12 +88,14 @@ export function JournalTable({ entries }: { entries: JournalEntry[] | undefined 
                     <SkeletonText width="long" className="max-w-[8rem]" />
                   </div>
                 </TableCell>
-                <TableCell data-label={columns.concerns}>
-                  <div className="flex items-center gap-2">
-                    <Skeleton className="size-6 shrink-0 rounded-full" />
-                    <SkeletonText width="long" className="max-w-[7rem]" />
-                  </div>
-                </TableCell>
+                {concerns ? (
+                  <TableCell data-label={columns.concerns}>
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="size-6 shrink-0 rounded-full" />
+                      <SkeletonText width="long" className="max-w-[7rem]" />
+                    </div>
+                  </TableCell>
+                ) : null}
                 <TableCell data-label={columns.detail}>
                   <SkeletonText width="full" />
                 </TableCell>
@@ -108,17 +117,19 @@ export function JournalTable({ entries }: { entries: JournalEntry[] | undefined 
                 <TableCell data-label={columns.actor} className="text-muted-foreground">
                   <Actor kind={entry.actor.kind} id={entry.actor.person ?? ""} />
                 </TableCell>
-                <TableCell
-                  data-label={columns.concerns}
-                  data-phone={concernsAnother(entry) ? undefined : "off"}
-                  className="text-muted-foreground"
-                >
-                  {entry.subject ? (
-                    <Entity id={entry.subject} />
-                  ) : entry.mcUuid ? (
-                    <Entity id={entry.mcUuid} kind="minecraft" />
-                  ) : null}
-                </TableCell>
+                {concerns ? (
+                  <TableCell
+                    data-label={columns.concerns}
+                    data-phone={concernsAnother(entry) ? undefined : "off"}
+                    className="text-muted-foreground"
+                  >
+                    {entry.subject ? (
+                      <Entity id={entry.subject} />
+                    ) : entry.mcUuid ? (
+                      <Entity id={entry.mcUuid} kind="minecraft" />
+                    ) : null}
+                  </TableCell>
+                ) : null}
                 {/* The line, rendered from its key and typed values, wrapping where TableCell would not. */}
                 <TableCell
                   data-label={columns.detail}

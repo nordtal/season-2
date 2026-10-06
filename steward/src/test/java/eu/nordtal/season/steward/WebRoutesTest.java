@@ -32,7 +32,7 @@ class WebRoutesTest extends WebTestSupport {
     void theCookieAloneIsNotEnough() throws Exception {
         // A form posted from another site carries the cookie. It cannot read /api/me.
         final HttpResponse<String> refused = http.send(
-                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + WEB_PORT + "/api/services/smp/console"))
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + "/api/services/smp/console"))
                         .header("Content-Type", "application/json")
                         .POST(HttpRequest.BodyPublishers.ofString("{\"command\":\"list\"}"))
                         .build(),
@@ -47,7 +47,7 @@ class WebRoutesTest extends WebTestSupport {
         final String csrf = me.get("csrf").getAsString();
 
         final HttpResponse<String> accepted = http.send(
-                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + WEB_PORT + "/api/services/smp/console"))
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + "/api/services/smp/console"))
                         .header("Content-Type", "application/json")
                         .header("X-Steward-CSRF", csrf)
                         .POST(HttpRequest.BodyPublishers.ofString("{\"command\":\"list\"}"))
@@ -103,7 +103,7 @@ class WebRoutesTest extends WebTestSupport {
     void headOnHealthIsNotUndecided() throws Exception {
         final HttpResponse<Void> head = browser()
                 .send(
-                        HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + WEB_PORT + "/api/health"))
+                        HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + "/api/health"))
                                 .method("HEAD", HttpRequest.BodyPublishers.noBody())
                                 .build(),
                         HttpResponse.BodyHandlers.discarding());
@@ -116,7 +116,7 @@ class WebRoutesTest extends WebTestSupport {
         settleOpenRuns();
         final JsonObject me = GSON.fromJson(get("/api/me").body(), JsonObject.class);
         final HttpResponse<String> asked = http.send(
-                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + WEB_PORT + "/api/updates"))
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + "/api/updates"))
                         .header("Content-Type", "application/json")
                         .header("X-Steward-CSRF", me.get("csrf").getAsString())
                         .POST(HttpRequest.BodyPublishers.ofString("{\"kind\":\"BACKUP\"}"))
@@ -176,7 +176,7 @@ class WebRoutesTest extends WebTestSupport {
     void nonsenseIsNotARun() throws Exception {
         final JsonObject me = GSON.fromJson(get("/api/me").body(), JsonObject.class);
         final HttpResponse<String> refused = http.send(
-                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + WEB_PORT + "/api/updates"))
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + "/api/updates"))
                         .header("Content-Type", "application/json")
                         .header("X-Steward-CSRF", me.get("csrf").getAsString())
                         .POST(HttpRequest.BodyPublishers.ofString("{\"kind\":\"DELETE_EVERYTHING\"}"))

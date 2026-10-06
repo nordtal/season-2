@@ -63,7 +63,7 @@ class GameDataApiTest extends WebTestSupport {
         assertEquals("/api/game-data/26.2/icons.png", url);
 
         final HttpResponse<byte[]> sheet = http.send(
-                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + WEB_PORT + url))
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + url))
                         .GET()
                         .build(),
                 HttpResponse.BodyHandlers.ofByteArray());

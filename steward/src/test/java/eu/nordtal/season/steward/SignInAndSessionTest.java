@@ -90,7 +90,7 @@ class SignInAndSessionTest extends WebTestSupport {
         final HttpClient stranger = browser();
         for (final String path : new String[] {"/auth/webauthn/register/start", "/auth/webauthn/register/finish"}) {
             final HttpResponse<String> refused = stranger.send(
-                    HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + WEB_PORT + path))
+                    HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + path))
                             .header("Content-Type", "application/json")
                             .POST(HttpRequest.BodyPublishers.ofString("{}"))
                             .build(),
@@ -182,7 +182,7 @@ class SignInAndSessionTest extends WebTestSupport {
         // The other half of the same decision, which is the one the deployment runs.
         final HttpClient throughCaddy = browser();
         final HttpResponse<String> behindTls = throughCaddy.send(
-                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + WEB_PORT + "/auth/login"))
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + "/auth/login"))
                         .header("X-Forwarded-Proto", "https")
                         .GET()
                         .build(),
@@ -236,7 +236,7 @@ class SignInAndSessionTest extends WebTestSupport {
         // The old one is gone, so it can no longer be a valid cookie for anybody.
         final HttpClient planted = browser();
         final HttpResponse<String> withTheOldId = planted.send(
-                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + WEB_PORT + "/api/me"))
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + "/api/me"))
                         .header("Cookie", Sessions.COOKIE + "=" + before)
                         .GET()
                         .build(),
@@ -423,7 +423,7 @@ class SignInAndSessionTest extends WebTestSupport {
         signIn(browser);
 
         final HttpResponse<String> withoutToken = browser.send(
-                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + WEB_PORT + "/auth/logout"))
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + "/auth/logout"))
                         .POST(HttpRequest.BodyPublishers.noBody())
                         .build(),
                 HttpResponse.BodyHandlers.ofString());

@@ -99,7 +99,7 @@ abstract class WebTestSupport extends WebFixture {
     static HttpResponse<String> delete(final HttpClient browser, final String path) throws Exception {
         final JsonObject me = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class);
         return browser.send(
-                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + WEB_PORT + path))
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + path))
                         .header("X-Steward-CSRF", me.get("csrf").getAsString())
                         .DELETE()
                         .build(),
@@ -109,7 +109,7 @@ abstract class WebTestSupport extends WebFixture {
     static HttpResponse<String> put(final HttpClient browser, final String path, final String body) throws Exception {
         final JsonObject me = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class);
         return browser.send(
-                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + WEB_PORT + path))
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + path))
                         .header("Content-Type", "application/json")
                         .header("X-Steward-CSRF", me.get("csrf").getAsString())
                         .PUT(HttpRequest.BodyPublishers.ofString(body))
@@ -189,13 +189,13 @@ abstract class WebTestSupport extends WebFixture {
     static void restartTheInterface() throws Exception {
         web.stop();
         web = newWeb();
-        web.start(WEB_PORT);
+        webPort = web.start(0).port();
     }
 
     static HttpResponse<String> logout(final HttpClient browser) throws Exception {
         final JsonObject me = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class);
         return browser.send(
-                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + WEB_PORT + "/auth/logout"))
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + "/auth/logout"))
                         .header("X-Steward-CSRF", me.get("csrf").getAsString())
                         .POST(HttpRequest.BodyPublishers.noBody())
                         .build(),
@@ -209,7 +209,7 @@ abstract class WebTestSupport extends WebFixture {
     static HttpResponse<String> post(final HttpClient browser, final String path, final String body) throws Exception {
         final JsonObject me = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class);
         return browser.send(
-                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + WEB_PORT + path))
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + path))
                         .header("Content-Type", "application/json")
                         .header("X-Steward-CSRF", me.get("csrf").getAsString())
                         .POST(HttpRequest.BodyPublishers.ofString(body))
@@ -228,7 +228,7 @@ abstract class WebTestSupport extends WebFixture {
     static HttpResponse<String> put(final String path, final String body) throws Exception {
         final JsonObject me = GSON.fromJson(get("/api/me").body(), JsonObject.class);
         return http.send(
-                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + WEB_PORT + path))
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + path))
                         .header("Content-Type", "application/json")
                         .header("X-Steward-CSRF", me.get("csrf").getAsString())
                         .PUT(HttpRequest.BodyPublishers.ofString(body))
@@ -242,7 +242,7 @@ abstract class WebTestSupport extends WebFixture {
 
     static HttpResponse<String> get(final HttpClient browser, final String path) throws Exception {
         return browser.send(
-                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + WEB_PORT + path))
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + path))
                         .GET()
                         .build(),
                 HttpResponse.BodyHandlers.ofString());

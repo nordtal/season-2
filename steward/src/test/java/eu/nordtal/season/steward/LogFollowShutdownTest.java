@@ -62,9 +62,9 @@ class LogFollowShutdownTest extends WebTestSupport {
                         .map(cookie -> cookie.getName() + "=" + cookie.getValue())
                         .reduce((left, right) -> left + "; " + right)
                         .orElseThrow();
-        final Socket tab = new Socket(InetAddress.getLoopbackAddress(), WEB_PORT);
+        final Socket tab = new Socket(InetAddress.getLoopbackAddress(), webPort);
         tab.getOutputStream()
-                .write(("GET /api/services/smp/logs HTTP/1.1\r\nHost: 127.0.0.1:" + WEB_PORT
+                .write(("GET /api/services/smp/logs HTTP/1.1\r\nHost: 127.0.0.1:" + webPort
                                 + "\r\nAccept: text/event-stream\r\nCookie: " + cookies + "\r\n\r\n")
                         .getBytes(StandardCharsets.UTF_8));
         tab.getOutputStream().flush();

@@ -72,10 +72,10 @@ class LiveStreamTest extends WebTestSupport {
                         .map(cookie -> cookie.getName() + "=" + cookie.getValue())
                         .reduce((left, right) -> left + "; " + right)
                         .orElseThrow(() -> new AssertionError("this browser has no session cookie"));
-        final Socket tab = new Socket(InetAddress.getLoopbackAddress(), WEB_PORT);
+        final Socket tab = new Socket(InetAddress.getLoopbackAddress(), webPort);
         tab.getOutputStream()
                 .write(("GET /api/live HTTP/1.1\r\n"
-                                + "Host: 127.0.0.1:" + WEB_PORT + "\r\n"
+                                + "Host: 127.0.0.1:" + webPort + "\r\n"
                                 + "Accept: text/event-stream\r\n"
                                 + "Cookie: " + cookies + "\r\n"
                                 + "\r\n")

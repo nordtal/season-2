@@ -104,10 +104,10 @@ class LogFollowTest extends WebTestSupport {
                         .map(cookie -> cookie.getName() + "=" + cookie.getValue())
                         .reduce((left, right) -> left + "; " + right)
                         .orElseThrow(() -> new AssertionError("this browser has no session cookie"));
-        final java.net.Socket tab = new java.net.Socket(java.net.InetAddress.getLoopbackAddress(), WEB_PORT);
+        final java.net.Socket tab = new java.net.Socket(java.net.InetAddress.getLoopbackAddress(), webPort);
         tab.getOutputStream()
                 .write(("GET /api/services/smp/logs HTTP/1.1\r\n"
-                                + "Host: 127.0.0.1:" + WEB_PORT + "\r\n"
+                                + "Host: 127.0.0.1:" + webPort + "\r\n"
                                 + "Accept: text/event-stream\r\n"
                                 + "Cookie: " + cookies + "\r\n"
                                 + "\r\n")
@@ -118,7 +118,7 @@ class LogFollowTest extends WebTestSupport {
 
     private static HttpResponse<InputStream> openTheLog(final HttpClient browser) throws Exception {
         final HttpResponse<InputStream> follow = browser.send(
-                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + WEB_PORT + "/api/services/smp/logs"))
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + "/api/services/smp/logs"))
                         .header("Accept", "text/event-stream")
                         .GET()
                         .build(),

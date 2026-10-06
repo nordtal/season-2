@@ -149,7 +149,7 @@ class DiscordAuthTest {
                 IllegalArgumentException.class,
                 () -> new DiscordAuth(config, "https://steward.example", "http://10.0.0.5:8080"));
 
-        // The two that are allowed: the real one, and the stand-in every test here uses.
+        // The two that are allowed: the real one, and a stand-in on a loopback port.
         assertDoesNotThrow(() -> new DiscordAuth(config, "https://steward.example", DiscordAuth.DISCORD_API));
         assertDoesNotThrow(() -> new DiscordAuth(config, "https://steward.example", "http://127.0.0.1:18093"));
     }

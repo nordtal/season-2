@@ -35,9 +35,6 @@ import org.junit.jupiter.api.BeforeAll;
  */
 abstract class WebFixture {
 
-    static final int AGENT_PORT = 18092;
-    static final int WEB_PORT = 18090;
-    static final int DISCORD_PORT = 18093;
     static final Gson GSON = new Gson();
 
     static final String GUILD = StandInDiscord.GUILD;
@@ -59,6 +56,9 @@ abstract class WebFixture {
     /** The agent's daemon, with one running {@code smp} container. */
     static FakeDaemon daemon;
 
+    /** The port the running {@link #web} answers on, which the operating system chose. */
+    static int webPort;
+
     static Web web;
     static HttpClient http;
     static TestDatabase postgres;
@@ -68,6 +68,9 @@ abstract class WebFixture {
     /** Kept, so a test can build a second interface against the same database. */
     static WebSpec config;
 
+    /** Where the stand-in Discord answers, on a port the operating system chose. */
+    static String discordBase;
+
     /** Holds the daemon's socket and the backups directory, both short paths a Unix socket can bind. */
     static Path scratch;
 
@@ -75,26 +78,21 @@ abstract class WebFixture {
     static void start() throws Exception {
         scratch = Files.createTempDirectory("steward-web");
         startAgent();
-        fakeDiscord.start(DISCORD_PORT);
+        discordBase = fakeDiscord.start(0);
         config = buildConfig();
         startDatabase();
         web = newWeb();
-        web.start(WEB_PORT);
+        webPort = web.start(0).port();
     }
 
     private static void startAgent() throws IOException {
         // The real agent routes behind the real guard.
-        agent = new AgentStandIn(scratch, AGENT_PORT, cfg -> {});
+        agent = new AgentStandIn(scratch, 0, cfg -> {});
         daemon = agent.daemon;
     }
 
     private static WebSpec buildConfig() {
         return new WebSpec() {
-            @Override
-            public int port() {
-                return WEB_PORT;
-            }
-
             @Override
             public DiscordSpec discord() {
                 return fakeDiscord.spec();
@@ -165,7 +163,7 @@ abstract class WebFixture {
         return new Web(
                 config,
                 () -> new Thresholds(85, 90, 36),
-                new DiscordAuth(config.discord(), config.publicUrl(), "http://127.0.0.1:" + DISCORD_PORT),
+                new DiscordAuth(config.discord(), config.publicUrl(), discordBase),
                 stack,
                 client,
                 true,

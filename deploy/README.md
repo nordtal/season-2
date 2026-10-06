@@ -177,6 +177,14 @@ docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f ./compose.yml build stewa
 docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f ./compose.yml up -d --no-deps steward-agent
 ```
 
+A container the host's own `docker compose` recreated shows as outdated in Steward, because its config
+hash comes from another Compose version than the agent's. After a build, recreate through the agent
+instead: `docker exec <project>-steward-agent-1 steward-agent request recreate <service>`. For
+steward-agent itself, run `up --detach --no-deps --force-recreate steward-agent` from a one-shot of its
+own image (`docker run --rm --entrypoint docker`, with the mounts and variables `nordtal.sh` gives its
+setup container, then `compose --project-directory /app --file /app/compose.yml --env-file
+/app/env/<file>`).
+
 `docker exec <container> cat /proc/1/cmdline | tr '\0' ' '` shows which jar runs.
 
 ## Locally

@@ -79,15 +79,21 @@ any means is read by the next compose command, and the next update run renews wh
 `NORDTAL_SECRETS_DIR` (`/etc/nordtal-secrets/season-2/<service>/`), mode 600 and owned by the uid the
 service runs as. compose mounts that directory read only at `/app/secrets` into the service alone and
 never interpolates its values; [`jvm/secrets.sh`](jvm/secrets.sh) exports them before the JVM starts.
-steward-agent never mounts it, so the agent does not read the bank key:
+steward-agent mounts only its own, so the agent does not read the bank key or the bot's token:
 
-| service        | its own secrets                                                   |
-| -------------- | ----------------------------------------------------------------- |
-| `steward-bunq` | `NORDTAL_STEWARD_BUNQ_API_KEY`, `NORDTAL_STEWARD_BUNQ_ACCOUNT_ID` |
+| service         | its own secrets (the environment file's name, where it differs)                                                                     |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `steward-bunq`  | `NORDTAL_STEWARD_BUNQ_API_KEY`, `NORDTAL_STEWARD_BUNQ_ACCOUNT_ID`                                                                   |
+| `discord-bot`   | `NORDTAL_BOT_TOKEN`                                                                                                                 |
+| `steward`       | `NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET` (`STEWARD_DISCORD_CLIENT_SECRET`), `NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY` (`STEWARD_WEB_PUSH_PRIVATE_KEY`) |
+| `steward-agent` | `NORDTAL_STEWARD_AGENT_OFFSITE_PASSWORD` (`STEWARD_OFFSITE_PASSWORD`)                                                               |
 
 `nordtal.sh` asks for them into that file, and every run (the menu, `--deploy`, `update`) moves such a
-line out of the environment file, where a line put back by hand counts as newer. `--check` fails while
-one is still there. An edited file is read when the service is next recreated.
+line out of the environment file, where a line put back by hand counts as newer. While the running
+steward-agent is of a release whose compose.yml still reads them from the environment file, a run only
+copies them, and `update` moves them once the run has renewed the agent. `--check` fails while one is
+still there. compose sees nothing of these files, so a change gives the service a new
+`SECRETS_REVISION_<SERVICE>` in the environment file, and the next run recreates it.
 
 **A hand-typed `docker compose` needs `--env-file` and the release**; without the file Compose
 interpolates empty strings. The release is the tag of the running steward-agent:

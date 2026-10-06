@@ -30,9 +30,10 @@ starts it only after the `migrate` service succeeded. An admin's preview of a te
 The languages are the network's (`language-and-time.languages`). The `access` group's `languages` holds one entry
 for each tag, with its role name and channels, and no other: the bot refuses to take a list that differs.
 
-The `access` and `onboarding` groups are edited in Steward. `compose.yml` passes the bot only its
-token, the database and `NORDTAL_ACCESS_GUILD_ID`, which wins over what is stored; the startup log
-lists every setting the environment overrode.
+The `access` and `onboarding` groups are edited in Steward. `compose.yml` passes the bot only the
+database and `NORDTAL_ACCESS_GUILD_ID`, which wins over what is stored; the startup log lists every
+setting the environment overrode. The token, `NORDTAL_BOT_TOKEN`, is the bot's own `secrets.env`, which
+compose mounts into it alone (see `deploy/README.md`).
 
 ```bash
 COMPOSE_PROFILES=db,bot docker compose --env-file /etc/nordtal/season-2.env up -d

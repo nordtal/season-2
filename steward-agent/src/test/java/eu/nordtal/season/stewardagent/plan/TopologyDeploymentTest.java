@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import eu.nordtal.season.common.ComposeFile;
 import eu.nordtal.season.common.Deployment;
@@ -329,23 +330,36 @@ class TopologyDeploymentTest {
     }
 
     @Test
-    void composeNeverInterpolatesTheBankKeySoTheAgentNeverReadsIt() {
+    void composeNeverInterpolatesASecretOnlyOneServiceReadsSoTheAgentNeverReadsIt() {
         // steward-agent runs every compose command with the shared file, so whatever compose interpolates it reads.
-        assertFalse(
-                compose.text().contains("${NORDTAL_STEWARD_BUNQ_"),
-                "compose.yml interpolates a NORDTAL_STEWARD_BUNQ_* variable from the shared environment file,"
-                        + " which steward-agent mounts whole. The bank key is steward-bunq's own secrets.env.");
-        compose.services().forEach((name, service) -> {
-            final String environment = String.valueOf(service.environment());
+        final List<String> shared = List.of(
+                "NORDTAL_STEWARD_BUNQ_",
+                "NORDTAL_BOT_TOKEN",
+                "STEWARD_DISCORD_CLIENT_SECRET",
+                "STEWARD_WEB_PUSH_PRIVATE_KEY",
+                "STEWARD_OFFSITE_PASSWORD");
+        final List<String> handed = List.of(
+                "BUNQ_API_KEY",
+                "BUNQ_ACCOUNT_ID",
+                "NORDTAL_BOT_TOKEN",
+                "DISCORD_CLIENT_SECRET",
+                "WEB_PUSH_PRIVATE_KEY",
+                "OFFSITE_PASSWORD");
+        for (final String name : shared) {
             assertFalse(
-                    environment.contains("BUNQ_API_KEY") || environment.contains("BUNQ_ACCOUNT_ID"),
-                    "compose.yml hands the bunq key or account to '" + name + "' through its environment, where"
-                            + " `docker inspect` and every compose command see it.");
-        });
+                    compose.text().contains("${" + name),
+                    "compose.yml interpolates " + name + " from the shared environment file, which"
+                            + " steward-agent mounts whole. It belongs in its service's own secrets.env.");
+        }
+        compose.services()
+                .forEach((service, definition) -> definition.environment().keySet().stream()
+                        .filter(variable -> handed.stream().anyMatch(variable::contains))
+                        .forEach(variable -> fail("compose.yml hands " + variable + " to '" + service + "' through its"
+                                + " environment, where `docker inspect` and every compose command see it.")));
     }
 
     @Test
-    void stewardBunqMountsItsOwnSecretsReadOnlyAndNoOtherServiceMountsThem() {
+    void everyServiceMountsOnlyItsOwnSecretsReadOnly() {
         final String own = "${NORDTAL_SECRETS_DIR:?";
         compose.services()
                 .forEach((name, service) -> service.mounts().stream()
@@ -365,10 +379,13 @@ class TopologyDeploymentTest {
                                             "'" + name + "' must mount its secrets read only at /app/secrets, where"
                                                     + " deploy/jvm/secrets.sh reads them and no hand-over writes."));
                         }));
-        assertTrue(
-                compose.service(BankWire.SERVICE).mounts().stream()
-                        .anyMatch(mount -> mount.endsWith("}/" + BankWire.SERVICE + ":/app/secrets:ro")),
-                BankWire.SERVICE + " does not mount its own secrets, so it would start without the bank key.");
+        for (final String service :
+                List.of(BankWire.SERVICE, Topology.DISCORD_BOT, Topology.STEWARD, AgentWire.SERVICE)) {
+            assertTrue(
+                    compose.service(service).mounts().stream()
+                            .anyMatch(mount -> mount.endsWith("}/" + service + ":/app/secrets:ro")),
+                    service + " does not mount its own secrets, so it would start without them.");
+        }
     }
 
     @Test

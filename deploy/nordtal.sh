@@ -208,16 +208,26 @@ remove_assignment() {
 }
 
 # Each secret only one service reads, kept in that service's own file instead of the shared one, which
-# steward-agent mounts whole and compose interpolates: `<name> <service>`, the name being the one the
-# service reads and the shared file held. nordtal-test.sh holds the services to compose.yml's mounts.
+# steward-agent mounts whole and compose interpolates: `<name> <service> [<name in the service>]`, the
+# first being the one this script asks for and the shared file held, the last the variable the service
+# reads where that differs. A value two services share stays in the shared file. nordtal-test.sh holds
+# the services to compose.yml's mounts.
 SERVICE_SECRETS=(
     "NORDTAL_STEWARD_BUNQ_API_KEY steward-bunq"
     "NORDTAL_STEWARD_BUNQ_ACCOUNT_ID steward-bunq"
+    "NORDTAL_BOT_TOKEN discord-bot"
+    "STEWARD_DISCORD_CLIENT_SECRET steward NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET"
+    "STEWARD_WEB_PUSH_PRIVATE_KEY steward NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY"
+    "STEWARD_OFFSITE_PASSWORD steward-agent NORDTAL_STEWARD_AGENT_OFFSITE_PASSWORD"
 )
 
-# The uid each of those services runs as, which owns its file; nordtal-test.sh holds it to compose.yml's `user:`.
+# The uid each of those services runs as, which owns its file; nordtal-test.sh holds it to compose.yml's
+# `user:`, and steward-agent, which has none, runs as root.
 declare -A SERVICE_UID=(
     [steward-bunq]=10003
+    [discord-bot]=10001
+    [steward]=10002
+    [steward-agent]=0
 )
 
 # Where the services' own files live when the shared file names no place: beside the shared file's
@@ -239,21 +249,39 @@ secrets_dir_ok() {
 
 # The service whose own file holds the name, nothing for a name of the shared file.
 secret_service() {
-    local wanted="$1" entry name service
+    local wanted="$1" entry name service own
     for entry in "${SERVICE_SECRETS[@]}"; do
-        read -r name service <<<"$entry"
+        read -r name service own <<<"$entry"
         [[ "$name" == "$wanted" ]] && { printf '%s' "$service"; return 0; }
     done
     return 0
 }
 
+# The variable a single-reader secret has in its service's own file; any other name is itself.
+service_name() {
+    local wanted="$1" entry name service own
+    for entry in "${SERVICE_SECRETS[@]}"; do
+        read -r name service own <<<"$entry"
+        [[ "$name" == "$wanted" ]] && { printf '%s' "${own:-$name}"; return 0; }
+    done
+    printf '%s' "$wanted"
+}
+
 # The services that have a file of their own, once each.
 secret_services() {
-    local entry name service
+    local entry name service own
     for entry in "${SERVICE_SECRETS[@]}"; do
-        read -r name service <<<"$entry"
+        read -r name service own <<<"$entry"
         printf '%s\n' "$service"
     done | awk '!seen[$0]++'
+}
+
+# The shared file's variable compose.yml hands a service as SECRETS_REVISION, so a changed secret
+# changes the service's configuration and the next run recreates it: SECRETS_REVISION_STEWARD_BUNQ.
+revision_name() {
+    local service="$1"
+    service="${service^^}"
+    printf 'SECRETS_REVISION_%s' "${service//-/_}"
 }
 
 # One service's own file under the secrets directory, which compose.yml mounts at /app/secrets.
@@ -276,22 +304,24 @@ home_of() {
 
 # Which single-reader names the shared file still assigns, one per line; never a value.
 stale_service_secrets() {
-    local env_file="$1" entry name service
+    local env_file="$1" entry name service own
     for entry in "${SERVICE_SECRETS[@]}"; do
-        read -r name service <<<"$entry"
+        read -r name service own <<<"$entry"
         has_assignment "$env_file" "$name" && printf '%s\n' "$name"
     done
     return 0
 }
 
-# Moves every single-reader secret out of the shared file into its service's own file and hands each
+# Copies every single-reader secret from the shared file into its service's own file and hands each
 # directory (mode 700) and file (mode 600) to the service's uid; the secrets directory itself stays
-# root's, mode 700. A line still in the shared file is newer than the service's file, since every run
-# empties it, so its value wins; an empty one is only dropped. Written before removed, so an interrupted
-# run leaves a copy, never nothing. MOVED_SECRETS lists each moved name; never a value.
+# root's, mode 700. A line still in the shared file is newer than the service's file, since a move
+# empties it, so its value wins; an empty one is only dropped. With `keep` the shared file keeps its
+# lines, for a running steward-agent whose compose.yml still reads them there; without, each line goes,
+# after its copy is written, so an interrupted run leaves a copy, never nothing. MOVED_SECRETS lists
+# each name copied or dropped; never a value.
 MOVED_SECRETS=()
 move_service_secrets() {
-    local env_file="$1" dir="$2" entry name service value file
+    local env_file="$1" dir="$2" keep="${3:-}" entry name service own value file
     install -d -m 700 "$dir"
     while IFS= read -r service; do
         install -d -m 700 "$dir/$service"
@@ -299,17 +329,28 @@ move_service_secrets() {
         [[ -f "$file" ]] || install -m 600 /dev/null "$file"
     done < <(secret_services)
     for entry in "${SERVICE_SECRETS[@]}"; do
-        read -r name service <<<"$entry"
+        read -r name service own <<<"$entry"
         has_assignment "$env_file" "$name" || continue
         value="$(env_value "$env_file" "$name")"
-        file="$(service_secrets_file "$dir" "$service")"
-        [[ -z "${value//[[:space:]]/}" ]] || set_assignment "$file" "$name" "$value"
-        remove_assignment "$env_file" "$name"
+        [[ -z "${value//[[:space:]]/}" ]] || write_service_secret "$env_file" "$dir" "$service" "${own:-$name}" "$value"
+        [[ "$keep" == keep ]] || remove_assignment "$env_file" "$name"
         MOVED_SECRETS+=("$name")
     done
     while IFS= read -r service; do
         hand_secrets_to "$dir" "$service"
     done < <(secret_services)
+}
+
+# Writes one value into a service's own file and, when that changes the file, gives the service a new
+# SECRETS_REVISION, since compose sees nothing of the file and would leave the service running as it was.
+write_service_secret() {
+    local env_file="$1" dir="$2" service="$3" name="$4" value="$5" file
+    file="$(service_secrets_file "$dir" "$service")"
+    if has_assignment "$file" "$name" && [[ "$(env_value "$file" "$name")" == "$value" ]]; then
+        return 0
+    fi
+    set_assignment "$file" "$name" "$value"
+    set_assignment "$env_file" "$(revision_name "$service")" "$(openssl rand -hex 8)"
 }
 
 # Gives one service's directory and file to its uid, as compose.yml's `user:` runs it.
@@ -322,10 +363,11 @@ hand_secrets_to() {
 }
 
 # Makes sure the shared file names a secrets directory outside the one steward-agent mounts, then moves
-# every single-reader secret into its service's own file there. Needs root, since each file belongs to
-# its service's uid, and dies rather than leave a secret where the agent reads it.
+# every single-reader secret into its service's own file there, or with `keep` only copies it. Needs
+# root, since each file belongs to its service's uid, and dies rather than leave a secret where the agent
+# reads it.
 settle_service_secrets() {
-    local env_file="$1" dir
+    local env_file="$1" keep="${2:-}" dir
     dir="$(env_value "$env_file" NORDTAL_SECRETS_DIR)"
     if [[ -z "${dir//[[:space:]]/}" ]]; then
         dir="$(default_secrets_dir "$env_file")"
@@ -338,8 +380,11 @@ settle_service_secrets() {
     [[ "${EUID:-$(id -u)}" -eq 0 ]] || die "each service's own secrets file under $dir belongs to the uid
        that service runs as, and only root can hand it over. Run this as root. Nothing was moved."
     MOVED_SECRETS=()
-    move_service_secrets "$env_file" "$dir"
-    if (( ${#MOVED_SECRETS[@]} > 0 )); then
+    move_service_secrets "$env_file" "$dir" "$keep"
+    if (( ${#MOVED_SECRETS[@]} > 0 )) && [[ "$keep" == keep ]]; then
+        log "copied ${MOVED_SECRETS[*]} into each service's own file under $dir; $env_file keeps them
+       until the running steward-agent reads them there"
+    elif (( ${#MOVED_SECRETS[@]} > 0 )); then
         log "moved ${MOVED_SECRETS[*]} out of $env_file into each service's own file under $dir"
     fi
     local copy
@@ -347,6 +392,17 @@ settle_service_secrets() {
         warn "$copy holds $(tr '\n' ' ' <<<"$(stale_service_secrets "$copy")")as well, and steward-agent
        reads every file in $(dirname "$env_file"). Move that copy somewhere the agent does not mount."
     done < <(stale_copies "$env_file")
+}
+
+# Moves the single-reader secrets once the running agent's compose.yml mounts each service's own file,
+# and only copies them while it still reads them from the shared file.
+settle_for_agent() {
+    local env_file="$1" container="$2"
+    if docker exec "$container" grep -q NORDTAL_SECRETS_DIR /app/compose.yml 2>/dev/null; then
+        settle_service_secrets "$env_file"
+    else
+        settle_service_secrets "$env_file" keep
+    fi
 }
 
 # Every other file beside the shared one that still assigns a single-reader secret, such as a backup.
@@ -359,28 +415,37 @@ stale_copies() {
     return 0
 }
 
-# Reads a name from the file it lives in.
+# Reads a name from the file it lives in, under the variable it has there.
 value_of() {
-    local env_file="$1" name="$2"
-    env_value "$(home_of "$env_file" "$name")" "$name"
+    local env_file="$1" name="$2" home
+    home="$(home_of "$env_file" "$name")"
+    if [[ "$home" == "$env_file" ]]; then
+        env_value "$env_file" "$name"
+    else
+        env_value "$home" "$(service_name "$name")"
+    fi
 }
 
 # Writes a name into the file it lives in, which a service's own file stays that service's.
 assign() {
-    local env_file="$1" name="$2" value="$3" service
-    set_assignment "$(home_of "$env_file" "$name")" "$name" "$value"
-    service="$(secret_service "$name")"
-    if [[ -n "$service" && "$(home_of "$env_file" "$name")" != "$env_file" ]]; then
-        hand_secrets_to "$(env_value "$env_file" NORDTAL_SECRETS_DIR)" "$service"
+    local env_file="$1" name="$2" value="$3" service dir
+    if [[ "$(home_of "$env_file" "$name")" == "$env_file" ]]; then
+        set_assignment "$env_file" "$name" "$value"
+        return 0
     fi
+    service="$(secret_service "$name")"
+    dir="$(env_value "$env_file" NORDTAL_SECRETS_DIR)"
+    install -d -m 700 "$dir/$service"
+    write_service_secret "$env_file" "$dir" "$service" "$(service_name "$name")" "$value"
+    hand_secrets_to "$dir" "$service"
 }
 
-# Which of the given names have no usable value. Prints names, one per line, and never a value.
+# Which of the given names have no usable value where they live. Prints names, one per line, never a value.
 env_missing() {
     local file="$1" name value
     shift
     for name in "$@"; do
-        value="$(env_value "$file" "$name")"
+        value="$(value_of "$file" "$name")"
         if [[ -z "${value//[[:space:]]/}" || "$value" == *REPLACE_ME* ]]; then
             printf '%s\n' "$name"
         fi
@@ -1070,12 +1135,10 @@ cmd_update() {
         || die "$container is not running, so there is nobody to ask for a run.
        \`docker compose -p $project ps\` says what is up."
 
-    # An update installs this copy's release, whose compose.yml mounts each service's own file; any other
-    # run moves them only once the running agent's compose.yml does, so no service starts without them.
-    if [[ "$UPDATE_KIND" == UPDATE ]] \
-        || docker exec "$container" grep -q NORDTAL_SECRETS_DIR /app/compose.yml 2>/dev/null; then
-        settle_service_secrets "$UPDATE_ENV_FILE"
-    fi
+    # Each service's own file is written before the run, whose release mounts it. The shared file keeps
+    # the lines while the running agent's compose.yml still reads them there, since compose refuses a
+    # file that lacks one it requires; they go once that agent reads the services' files.
+    settle_for_agent "$UPDATE_ENV_FILE" "$container"
 
     local id
     # A subshell, so its die ends only it; the exit here ends the command.
@@ -1087,6 +1150,7 @@ cmd_update() {
 
     local code=0
     update_wait "$id" "$container" || code=$?
+    (( code != 0 )) || settle_for_agent "$UPDATE_ENV_FILE" "$container"
     (( code == UPDATE_KEPT_LOCAL )) || return "$code"
 
     # The run stopped before anything moved, since it would have replaced a build made on this host.
@@ -1374,7 +1438,14 @@ if $CHECK_ONLY; then
     [[ -n "$(env_value "$ENV_FILE" NORDTAL_SECRETS_DIR)" ]] \
         || warn "NORDTAL_SECRETS_DIR is not set; a real run would write the default"
 else
-    settle_service_secrets "$ENV_FILE"
+    # A running agent may still read them from the shared file; without one, this release's compose.yml deploys.
+    agent="$(env_value "$ENV_FILE" COMPOSE_PROJECT_NAME)"
+    agent="${agent:-$DEFAULT_PROJECT}-steward-agent-1"
+    if grep -qxF "$agent" <<<"$(docker ps --format '{{.Names}}' 2>/dev/null)"; then
+        settle_for_agent "$ENV_FILE" "$agent"
+    else
+        settle_service_secrets "$ENV_FILE"
+    fi
 fi
 
 # The bunq pair and the root id are asked below; COMPOSE_PROFILES has a default and is changed in the menu.
@@ -1547,7 +1618,7 @@ generate_vapid_keys() {
     local image="${STEWARD_IMAGE:-$IMAGES/steward:$RELEASE}"
     local pub priv output
     pub="$(env_value "$ENV_FILE" STEWARD_WEB_PUSH_PUBLIC_KEY)"
-    priv="$(env_value "$ENV_FILE" STEWARD_WEB_PUSH_PRIVATE_KEY)"
+    priv="$(value_of "$ENV_FILE" STEWARD_WEB_PUSH_PRIVATE_KEY)"
 
     if [[ -n "${pub//[[:space:]]/}" && -n "${priv//[[:space:]]/}" ]]; then
         log "STEWARD_WEB_PUSH_PUBLIC_KEY / _PRIVATE_KEY are already set (left alone)"
@@ -1558,14 +1629,15 @@ generate_vapid_keys() {
         return
     fi
     if [[ -n "${pub//[[:space:]]/}" || -n "${priv//[[:space:]]/}" ]]; then
-        warn "exactly one half of the Web Push VAPID keypair is set in $ENV_FILE - WebPushSpec
+        warn "exactly one half of the Web Push VAPID keypair is set - WebPushSpec
        reads that as broken, not as 'not configured', so a fresh pair replaces both halves."
     fi
 
     local fallback="web-push stays unconfigured for now - the subscribe button is simply not
        drawn. Generate a pair once the stack is up with \`docker exec ${PROJECT}-steward-1
        steward generate-vapid-keys\`, paste the two lines into STEWARD_WEB_PUSH_PUBLIC_KEY
-       and STEWARD_WEB_PUSH_PRIVATE_KEY in $ENV_FILE, and recreate steward so it reads them."
+       and STEWARD_WEB_PUSH_PRIVATE_KEY in $ENV_FILE, and run this again: it moves the private
+       key into steward's own file, and the deploy recreates steward so it reads both."
 
     if ! docker image inspect "$image" >/dev/null 2>&1; then
         log "pulling $image to mint a Web Push VAPID keypair (no database and no config needed for
@@ -1589,7 +1661,7 @@ generate_vapid_keys() {
     fi
 
     set_assignment "$ENV_FILE" STEWARD_WEB_PUSH_PUBLIC_KEY "$pub"
-    set_assignment "$ENV_FILE" STEWARD_WEB_PUSH_PRIVATE_KEY "$priv"
+    assign "$ENV_FILE" STEWARD_WEB_PUSH_PRIVATE_KEY "$priv"
     log "STEWARD_WEB_PUSH_PUBLIC_KEY / _PRIVATE_KEY generated (a fresh VAPID keypair)"
 }
 generate_vapid_keys

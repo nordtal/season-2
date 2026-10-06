@@ -3,6 +3,7 @@ package eu.nordtal.season.dev;
 import java.util.List;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What {@code init} asks: the few things only a person knows, in the installer's own words.
@@ -26,10 +27,33 @@ final class LocalQuestions {
     /**
      * One question.
      *
-     * @param name   the variable in {@code deploy/dev.env}
+     * @param name   the installer's name for it, which is the variable in {@code deploy/dev.env} unless
+     *               {@code home} is set
      * @param check  what an answer has to look like; anything non-empty passes when there is no rule
+     * @param home   where a secret only one service reads is written instead, as {@code deploy/nordtal.sh} does
      */
-    record Question(String name, Kind kind, String prompt, String hint, Predicate<String> check) {}
+    record Question(
+            String name,
+            Kind kind,
+            String prompt,
+            String hint,
+            Predicate<String> check,
+            @Nullable Home home) {
+
+        Question(
+                final String name,
+                final Kind kind,
+                final String prompt,
+                final String hint,
+                final Predicate<String> check) {
+            this(name, kind, prompt, hint, check, null);
+        }
+    }
+
+    /**
+     * A service's own {@code secrets.env} under {@code NORDTAL_SECRETS_DIR}, and the name that service reads.
+     */
+    record Home(String service, String name) {}
 
     private static final Pattern SNOWFLAKE = Pattern.compile("[0-9]{15,21}");
 
@@ -59,7 +83,8 @@ final class LocalQuestions {
                     "The Discord bot token.",
                     "A TEST application's token, never the production bot's - it would join the real guild from"
                             + " your laptop. " + SKIP,
-                    answer -> true),
+                    answer -> true,
+                    new Home("discord-bot", "NORDTAL_BOT_TOKEN")),
             new Question(
                     "STEWARD_DISCORD_CLIENT_ID",
                     Kind.OPTIONAL_PLAIN,
@@ -72,7 +97,8 @@ final class LocalQuestions {
                     Kind.OPTIONAL_SECRET,
                     "The same application's Client Secret.",
                     "OAuth2 -> Reset Secret, on the test application. " + SKIP,
-                    answer -> true),
+                    answer -> true,
+                    new Home("steward", "NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET")),
             new Question(
                     "NORDTAL_ACCESS_GUILD_ID",
                     Kind.OPTIONAL_PLAIN,

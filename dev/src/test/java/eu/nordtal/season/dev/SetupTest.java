@@ -12,6 +12,7 @@ import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -32,9 +33,17 @@ class SetupTest {
     }
 
     private EnvFile env() throws IOException {
-        final Path file = root.resolve("dev.env");
-        Files.writeString(file, "NORDTAL_ACCESS_GUILD_ID=0\n", StandardCharsets.UTF_8);
+        final Path file = root.resolve(LocalProject.ENV_FILE);
+        Files.createDirectories(file.getParent());
+        Files.writeString(
+                file,
+                "NORDTAL_ACCESS_GUILD_ID=0\nNORDTAL_SECRETS_DIR=./deploy/local/secrets\n",
+                StandardCharsets.UTF_8);
         return new EnvFile(file);
+    }
+
+    private EnvFile secrets(final String service) {
+        return new EnvFile(root.resolve("deploy/local/secrets").resolve(service).resolve("secrets.env"));
     }
 
     private static LocalQuestions.Question question(final String name) {
@@ -62,8 +71,23 @@ class SetupTest {
     void aSecretIsNeverPrintedBack() throws IOException {
         final EnvFile env = env();
         setup("very-secret-token\n").ask(env, question("NORDTAL_BOT_TOKEN"));
-        assertEquals(Optional.of("very-secret-token"), env.value("NORDTAL_BOT_TOKEN"));
+        assertEquals(Optional.of("very-secret-token"), secrets("discord-bot").value("NORDTAL_BOT_TOKEN"));
         assertFalse(printed.toString(StandardCharsets.UTF_8).contains("very-secret-token"));
+    }
+
+    @Test
+    void aSecretOnlyOneServiceReadsGoesIntoThatServicesOwnFileUnderTheNameItReads() throws IOException {
+        final EnvFile env = env();
+        setup("client-secret\n").ask(env, question("STEWARD_DISCORD_CLIENT_SECRET"));
+        assertEquals(Optional.empty(), env.value("STEWARD_DISCORD_CLIENT_SECRET"));
+        final EnvFile own = secrets("steward");
+        assertEquals(Optional.of("client-secret"), own.value("NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET"));
+        if (Files.getFileStore(root).supportsFileAttributeView("posix")) {
+            assertEquals(
+                    "rw-r--r--",
+                    PosixFilePermissions.toString(Files.getPosixFilePermissions(own.path())),
+                    "the container runs as a uid of its own and could not read an owner-only file");
+        }
     }
 
     @Test

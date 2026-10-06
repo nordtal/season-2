@@ -23,10 +23,29 @@ final class EnvFile {
 
     private static final Pattern ASSIGNMENT = Pattern.compile("^\\s*(?:export\\s+)?([A-Za-z_][A-Za-z0-9_]*)\\s*=(.*)$");
 
+    private static final String OWNER_ONLY = "rw-------";
+
+    /**
+     * A container runs as its own uid, which on Linux is not the developer's, so a service's file is read by all.
+     */
+    private static final String READABLE = "rw-r--r--";
+
     private final Path file;
 
+    private final String mode;
+
     EnvFile(final Path file) {
+        this(file, OWNER_ONLY);
+    }
+
+    private EnvFile(final Path file, final String mode) {
         this.file = file;
+        this.mode = mode;
+    }
+
+    /** A service's own {@code secrets.env} on a developer's machine, which holds a test application's secrets. */
+    static EnvFile readableByItsService(final Path file) {
+        return new EnvFile(file, READABLE);
     }
 
     Path path() {
@@ -56,7 +75,7 @@ final class EnvFile {
                 .isPresent();
     }
 
-    /** Writes {@code name=value} over every assignment of it, or appends one; the file stays owner-only. */
+    /** Writes {@code name=value} over every assignment of it, or appends one; the file keeps its mode. */
     void set(final String name, final String value) {
         final List<String> out = new ArrayList<>();
         boolean replaced = false;
@@ -103,7 +122,7 @@ final class EnvFile {
         try {
             final Path directory = file.toAbsolutePath().getParent();
             final Path temporary = Files.createTempFile(directory, ".env", ".tmp");
-            ownerOnly(temporary);
+            permit(temporary, mode);
             Files.write(temporary, lines, StandardCharsets.UTF_8);
             try {
                 Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
@@ -115,9 +134,9 @@ final class EnvFile {
         }
     }
 
-    private static void ownerOnly(final Path path) throws IOException {
+    private static void permit(final Path path, final String mode) throws IOException {
         try {
-            Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rw-------"));
+            Files.setPosixFilePermissions(path, PosixFilePermissions.fromString(mode));
         } catch (final UnsupportedOperationException e) {
             // Windows has no POSIX modes; the directory's permissions apply.
         }

@@ -591,21 +591,39 @@ move_case() {
     MOVED_SECRETS=()
     move_service_secrets "$WORK/move/season-2.env" "$WORK/move/secrets"
 }
-move_case '# bunq\nPLAIN=kept\nNORDTAL_STEWARD_BUNQ_API_KEY=the-key\nexport NORDTAL_STEWARD_BUNQ_ACCOUNT_ID="42"\nLAST=kept\n'
+move_case '# bunq\nPLAIN=kept\nNORDTAL_STEWARD_BUNQ_API_KEY=the-key\nexport NORDTAL_STEWARD_BUNQ_ACCOUNT_ID="42"\nLAST=kept\nNORDTAL_BOT_TOKEN=bot\nSTEWARD_DISCORD_CLIENT_SECRET=client\nSTEWARD_WEB_PUSH_PRIVATE_KEY=push\nSTEWARD_OFFSITE_PASSWORD=offsite\n'
 bunq="$WORK/move/secrets/steward-bunq/secrets.env"
+steward="$WORK/move/secrets/steward/secrets.env"
 [[ "$(env_value "$bunq" NORDTAL_STEWARD_BUNQ_API_KEY)" == the-key ]] || bad "the key did not reach steward-bunq's file"
 [[ "$(env_value "$bunq" NORDTAL_STEWARD_BUNQ_ACCOUNT_ID)" == 42 ]] || bad "the account did not reach steward-bunq's file"
-[[ -z "$(stale_service_secrets "$WORK/move/season-2.env")" ]] || bad "the shared file still holds a bunq line"
-[[ "$(cat "$WORK/move/season-2.env")" == $'# bunq\nPLAIN=kept\nLAST=kept' ]] || bad "the rest of the shared file changed"
-[[ "${MOVED_SECRETS[*]}" == "NORDTAL_STEWARD_BUNQ_API_KEY NORDTAL_STEWARD_BUNQ_ACCOUNT_ID" ]] \
+[[ "$(env_value "$WORK/move/secrets/discord-bot/secrets.env" NORDTAL_BOT_TOKEN)" == bot ]] \
+    || bad "the bot token did not reach the bot's file"
+[[ "$(env_value "$steward" NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET)" == client ]] \
+    || bad "the client secret did not reach steward's file under the name steward reads"
+[[ "$(env_value "$steward" NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY)" == push ]] \
+    || bad "the Web Push key did not reach steward's file under the name steward reads"
+[[ "$(env_value "$WORK/move/secrets/steward-agent/secrets.env" NORDTAL_STEWARD_AGENT_OFFSITE_PASSWORD)" == offsite ]] \
+    || bad "the offsite password did not reach the agent's file under the name the agent reads"
+has_assignment "$steward" STEWARD_DISCORD_CLIENT_SECRET && bad "steward's file holds the shared file's name"
+[[ -z "$(stale_service_secrets "$WORK/move/season-2.env")" ]] || bad "the shared file still holds a moved line"
+[[ "$(grep -v '^SECRETS_REVISION_' "$WORK/move/season-2.env")" == $'# bunq\nPLAIN=kept\nLAST=kept' ]] \
+    || bad "the rest of the shared file changed"
+[[ "${MOVED_SECRETS[*]}" == "NORDTAL_STEWARD_BUNQ_API_KEY NORDTAL_STEWARD_BUNQ_ACCOUNT_ID NORDTAL_BOT_TOKEN STEWARD_DISCORD_CLIENT_SECRET STEWARD_WEB_PUSH_PRIVATE_KEY STEWARD_OFFSITE_PASSWORD" ]] \
     || bad "the moved names were '${MOVED_SECRETS[*]}'"
+for service in steward-bunq discord-bot steward steward-agent; do
+    [[ "$(env_value "$WORK/move/season-2.env" "$(revision_name "$service")")" =~ ^[0-9a-f]{16}$ ]] \
+        || bad "$service was given no new SECRETS_REVISION"
+done
 # find's exact -perm reads the same on GNU and BSD, unlike stat.
 mode_is() { [[ -n "$(find "$1" -maxdepth 0 -perm "$2")" ]]; }
 mode_is "$bunq" 600 || bad "steward-bunq's file is not mode 600"
 mode_is "$WORK/move/secrets/steward-bunq" 700 || bad "steward-bunq's directory is not mode 700"
 mode_is "$WORK/move/secrets" 700 || bad "the secrets directory is not mode 700"
 grep -qx "10003:10003 move/secrets/steward-bunq" "$WORK/chowned" || bad "steward-bunq's directory was not handed to 10003"
-ok "both bunq lines moved, the rest untouched, the file 600 and its directory 10003's"
+grep -qx "10001:10001 move/secrets/discord-bot" "$WORK/chowned" || bad "the bot's directory was not handed to 10001"
+grep -qx "10002:10002 move/secrets/steward" "$WORK/chowned" || bad "steward's directory was not handed to 10002"
+grep -qx "0:0 move/secrets/steward-agent" "$WORK/chowned" || bad "the agent's directory was not handed to root"
+ok "every moved line in its service's file under the name it reads, the rest untouched, each file its uid's"
 
 move_case 'NORDTAL_STEWARD_BUNQ_API_KEY=\nPLAIN=kept\n'
 [[ -z "$(stale_service_secrets "$WORK/move/season-2.env")" ]] || bad "an empty line stayed in the shared file"
@@ -618,10 +636,37 @@ MOVED_SECRETS=()
 move_service_secrets "$WORK/move/season-2.env" "$WORK/move/secrets"
 [[ "$(env_value "$bunq" NORDTAL_STEWARD_BUNQ_API_KEY)" == old ]] || bad "a second run without a line changed the service's file"
 (( ${#MOVED_SECRETS[@]} == 0 )) || bad "a second run moved '${MOVED_SECRETS[*]}'"
+has_assignment "$WORK/move/season-2.env" SECRETS_REVISION_STEWARD_BUNQ && bad "a run that changed nothing gave a new revision"
+printf 'NORDTAL_STEWARD_BUNQ_API_KEY=old\n' >> "$WORK/move/season-2.env"
+move_service_secrets "$WORK/move/season-2.env" "$WORK/move/secrets"
+has_assignment "$WORK/move/season-2.env" SECRETS_REVISION_STEWARD_BUNQ && bad "the same value put back gave a new revision"
 printf 'NORDTAL_STEWARD_BUNQ_API_KEY=rotated\n' >> "$WORK/move/season-2.env"
 move_service_secrets "$WORK/move/season-2.env" "$WORK/move/secrets"
 [[ "$(env_value "$bunq" NORDTAL_STEWARD_BUNQ_API_KEY)" == rotated ]] || bad "a line put back into the shared file did not win"
-ok "a second run changes nothing, and a line put back is newer and wins"
+has_assignment "$WORK/move/season-2.env" SECRETS_REVISION_STEWARD_BUNQ || bad "a rotated key gave steward-bunq no new revision"
+has_assignment "$WORK/move/season-2.env" SECRETS_REVISION_STEWARD && bad "a rotated bank key gave steward a new revision"
+ok "a second run changes nothing, a line put back is newer and wins, and only a change is a new revision"
+
+case_begin "keep copies a line and leaves it in the shared file"
+move_case 'PLAIN=kept\n'
+printf 'NORDTAL_BOT_TOKEN=bot\n' >> "$WORK/move/season-2.env"
+MOVED_SECRETS=()
+move_service_secrets "$WORK/move/season-2.env" "$WORK/move/secrets" keep
+[[ "$(env_value "$WORK/move/season-2.env" NORDTAL_BOT_TOKEN)" == bot ]] || bad "keep took the line out of the shared file"
+[[ "$(env_value "$WORK/move/secrets/discord-bot/secrets.env" NORDTAL_BOT_TOKEN)" == bot ]] || bad "keep wrote no copy"
+ok "keep copies a line and leaves it in the shared file"
+
+case_begin "the shared file keeps its lines while the running agent's compose.yml still reads them there"
+real_settle="$(declare -f settle_service_secrets)"
+settle_service_secrets() { printf '%s\n' "${2:-move}" > "$WORK/settled"; }
+docker() { [[ "$*" == "exec agent grep -q NORDTAL_SECRETS_DIR /app/compose.yml" ]] && "$AGENT_READS_FILES"; }
+AGENT_READS_FILES=false settle_for_agent "$WORK/move/season-2.env" agent
+[[ "$(cat "$WORK/settled")" == keep ]] || bad "an agent of an older release had the lines taken from it"
+AGENT_READS_FILES=true settle_for_agent "$WORK/move/season-2.env" agent
+[[ "$(cat "$WORK/settled")" == move ]] || bad "an agent that mounts each service's file left the lines in the shared file"
+unset -f docker
+eval "$real_settle"
+ok "copied for an older agent, moved for one that reads each service's file"
 unset -f chown
 
 case_begin "a copy beside the shared file that still holds a moved secret is named"
@@ -642,6 +687,12 @@ printf 'NORDTAL_STEWARD_BUNQ_API_KEY=own\n' > "$WORK/home/secrets/steward-bunq/s
 [[ "$(home_of "$WORK/home.env" NORDTAL_STEWARD_BUNQ_API_KEY)" == "$WORK/home/secrets/steward-bunq/secrets.env" ]] \
     || bad "the bank key is not read from steward-bunq's file"
 [[ "$(value_of "$WORK/home.env" NORDTAL_STEWARD_BUNQ_API_KEY)" == own ]] || bad "value_of did not read the service's file"
+mkdir -p "$WORK/home/secrets/steward"
+printf 'NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET=renamed\n' > "$WORK/home/secrets/steward/secrets.env"
+[[ "$(value_of "$WORK/home.env" STEWARD_DISCORD_CLIENT_SECRET)" == renamed ]] \
+    || bad "value_of did not read a secret under the name its service reads"
+[[ "$(env_missing "$WORK/home.env" STEWARD_DISCORD_CLIENT_SECRET NORDTAL_BOT_TOKEN)" == NORDTAL_BOT_TOKEN ]] \
+    || bad "env_missing did not look where each name lives"
 printf 'PLAIN=shared\n' > "$WORK/no-dir.env"
 [[ "$(home_of "$WORK/no-dir.env" NORDTAL_STEWARD_BUNQ_API_KEY)" == "$WORK/no-dir.env" ]] \
     || bad "without a secrets directory a name was looked for elsewhere"
@@ -656,6 +707,8 @@ while IFS= read -r service; do
         $0 == service { inside = 1; next }
         inside && /^  [a-z]/ { inside = 0 }
         inside && /^    user:/ { gsub(/[" ]/, "", $2); print $2 }' FS='user:' "$HERE/../compose.yml")"
+    # A service without a user runs as root.
+    user="${user:-0:0}"
     [[ "$user" == "${SERVICE_UID[$service]}:${SERVICE_UID[$service]}" ]] \
         || bad "$service runs as '$user' in compose.yml and nordtal.sh hands its file to ${SERVICE_UID[$service]}"
 done < <(secret_services)

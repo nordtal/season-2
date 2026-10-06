@@ -33,6 +33,9 @@ final class Setup {
 
     private record Secret(String name, int bytes) {}
 
+    /** The services compose.yml mounts a directory of {@code NORDTAL_SECRETS_DIR} into. */
+    static final List<String> SECRET_SERVICES = List.of("steward-bunq", "discord-bot", "steward", "steward-agent");
+
     private final Path root;
     private final LocalProject compose;
     private final Terminal terminal;
@@ -63,8 +66,10 @@ final class Setup {
             createDirectories(compose.pluginsDir(service));
         }
         createDirectories(compose.packRoot());
-        // Made here, so Docker does not make it as root where a developer could not write the bank key.
-        createDirectories(compose.secretsDir("steward-bunq"));
+        // Made here, so Docker does not make them as root where a developer could not write a secret.
+        for (final String service : SECRET_SERVICES) {
+            createDirectories(compose.secretsDir(service));
+        }
         terminal.log("plugin directories: " + compose.pluginsDir("smp") + " and its three siblings - jars and"
                 + " configs live there");
         terminal.log("next: dev up");
@@ -122,8 +127,17 @@ final class Setup {
                 terminal.warn("that does not look like it can be right. Try again.");
                 continue;
             }
-            env.set(question.name(), answer);
-            terminal.log(question.name() + " written to " + LocalProject.ENV_FILE);
+            final LocalQuestions.Home home = question.home();
+            if (home == null) {
+                env.set(question.name(), answer);
+                terminal.log(question.name() + " written to " + LocalProject.ENV_FILE);
+            } else {
+                final Path directory = compose.secretsDir(home.service());
+                createDirectories(directory);
+                EnvFile.readableByItsService(directory.resolve("secrets.env")).set(home.name(), answer);
+                terminal.log(question.name() + " written to " + root.relativize(directory) + "/secrets.env,"
+                        + " which only " + home.service() + " mounts");
+            }
             return;
         }
     }

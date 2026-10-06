@@ -268,14 +268,11 @@ class TopologyTest {
                 "NORDTAL_STEWARD_AGENT_SEASON_REPO",
                 "NORDTAL_STEWARD_AGENT_GITHUB_TOKEN",
                 "NORDTAL_STEWARD_AGENT_OFFSITE_REPOSITORY",
-                "NORDTAL_STEWARD_AGENT_OFFSITE_PASSWORD",
                 "NORDTAL_PROXY_NETWORK_PUBLIC_ADDRESS",
                 "NORDTAL_STEWARD_WEB_WEBAUTHN_RELYING_PARTY_ID",
                 "NORDTAL_STEWARD_WEB_DISCORD_CLIENT_ID",
-                "NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET",
                 "NORDTAL_STEWARD_WEB_DISCORD_ROOT_ID",
-                "NORDTAL_STEWARD_WEB_WEB_PUSH_PUBLIC_KEY",
-                "NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY");
+                "NORDTAL_STEWARD_WEB_WEB_PUSH_PUBLIC_KEY");
         final Pattern optional = Pattern.compile("\\$\\{[A-Z0-9_]+:-}");
         final List<String> overrides = new java.util.ArrayList<>();
         compose.services()

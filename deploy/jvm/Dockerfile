@@ -15,12 +15,20 @@ WORKDIR /app
 COPY deploy/jvm/entrypoint.sh /app/entrypoint.sh
 ENTRYPOINT ["/app/entrypoint.sh"]
 
+# Each service but steward-agent runs as an account of its own, whose uid compose.yml's `user:` names too.
+# steward-agent stays root: it holds the Docker socket, which is root on the host whatever the uid.
 FROM jvm AS discord-bot
+RUN groupadd --gid 10001 discord-bot \
+    && useradd --uid 10001 --gid 10001 --home-dir /app --no-create-home --shell /usr/sbin/nologin discord-bot
+USER discord-bot
 
 # `steward` is a command too, for `docker exec nordtal-s2-steward-1 steward forget-factors <discord-id>`.
 FROM jvm AS steward
 RUN printf '#!/bin/sh\nexec /app/entrypoint.sh "$@"\n' > /usr/local/bin/steward \
-    && chmod 0755 /usr/local/bin/steward
+    && chmod 0755 /usr/local/bin/steward \
+    && groupadd --gid 10002 steward \
+    && useradd --uid 10002 --gid 10002 --home-dir /app --no-create-home --shell /usr/sbin/nologin steward
+USER steward
 EXPOSE 8080
 
 # The docker CLI and compose plugin are static binaries. Mounted, not baked: the Docker socket, the
@@ -47,7 +55,10 @@ CMD ["serve"]
 
 # bunq binds the context to the device and IP that registered it, so it is regenerated after a move.
 FROM jvm AS steward-bunq
-RUN mkdir -p bunq && chmod 700 bunq
+RUN groupadd --gid 10003 steward-bunq \
+    && useradd --uid 10003 --gid 10003 --home-dir /app --no-create-home --shell /usr/sbin/nologin steward-bunq \
+    && mkdir -p bunq && chown steward-bunq:steward-bunq bunq && chmod 700 bunq
+USER steward-bunq
 ENV NORDTAL_STEWARD_BUNQ_CONTEXT_PATH=/app/bunq/bunq-config.conf
 EXPOSE 8082
 VOLUME ["/app/bunq"]

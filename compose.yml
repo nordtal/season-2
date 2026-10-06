@@ -33,8 +33,18 @@ x-jvm-build: &jvm-build # `./gradlew imageContexts` first: the template copies e
 # Readiness.STALE_AFTER by TopologyTest. Every JVM service of ours writes it.
 x-readiness: &readiness ["CMD-SHELL", "test $$(( $$(date +%s) - $$(stat -c %Y /tmp/nordtal-ready) )) -lt 90"]
 
+# Every service with an account of its own in its image: that uid, no capability and no way to gain one.
+# steward-agent hands each such service's mounts to its `user:` before the container starts, so a volume
+# that was written as root is the uid's again; TopologyDeploymentTest holds each uid to its Dockerfile.
+x-confined: &confined
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+
 # Shared by the four Minecraft services, which differ only in environment.
 x-minecraft: &minecraft
+  <<: *confined
+  # The account deploy/minecraft/Dockerfile makes; the servers run third-party plugins.
+  user: "10000:10000"
   profiles: ["mc"]
   # For local development only; a deploy pulls.
   build:
@@ -126,6 +136,8 @@ services:
   # steward for payment links through a table. The name matches the module and the artefact id,
   # held equal by TopologyTest; the profile stays `bot`.
   discord-bot:
+    <<: *confined
+    user: "10001:10001"
     profiles: ["bot"]
     # A run renews it.
     labels:
@@ -370,6 +382,8 @@ services:
   # steward: the web interface and its API, payments, alerts and the clocks that ask for runs. It
   # carries out no run. One-shot commands: `forget-factors` and `generate-vapid-keys`.
   steward:
+    <<: *confined
+    user: "10002:10002"
     labels:
       eu.nordtal.renew: run
       eu.nordtal.section: Steward
@@ -387,9 +401,6 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
-    # Makes http://host.docker.internal:<port> reach the host on Linux too.
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     healthcheck:
       test: *readiness
       interval: 10s
@@ -542,6 +553,8 @@ services:
   # steward-bunq: the only process that holds the bank key. It decides nothing and keeps nothing but
   # bunq's session for this device, which bunq binds to the device and IP that registered it.
   steward-bunq:
+    <<: *confined
+    user: "10003:10003"
     profiles: ["steward"]
     labels: { eu.nordtal.renew: run, eu.nordtal.section: Steward }
     build:

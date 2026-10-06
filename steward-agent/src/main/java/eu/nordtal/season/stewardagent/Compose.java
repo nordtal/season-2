@@ -1,5 +1,6 @@
 package eu.nordtal.season.stewardagent;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.internalapi.agent.AgentWire;
@@ -29,7 +30,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Every {@code docker compose} command line there is, this service's and the ones {@code dev} runs on its terminal.
  *
- * Every {@code up} carries {@code --no-deps}, so recreating one service never drags in another.
+ * Every {@code up} carries {@code --no-deps}, so recreating one service never drags in another, and hands over first.
  */
 public final class Compose {
 
@@ -203,6 +204,7 @@ public final class Compose {
      */
     public int up(final List<String> services, final Consumer<String> output) throws IOException {
         assertEnvFileFresh();
+        handOver(refuseSelf(services), output);
         final List<String> command = command(List.of("up", "--detach", "--no-deps"));
         command.addAll(refuseSelf(services));
         return run(command, output);
@@ -215,6 +217,7 @@ public final class Compose {
      */
     public int bootstrap(final List<String> services, final Consumer<String> output) throws IOException {
         assertEnvFileFresh();
+        handOver(services, output);
         final List<String> command = command(List.of("up", "--detach", "--no-deps"));
         command.addAll(services);
         return run(command, output);
@@ -243,7 +246,115 @@ public final class Compose {
      */
     public int recreate(final String service, final Consumer<String> output) throws IOException {
         assertEnvFileFresh();
+        handOver(List.of(refuseSelf(service)), output);
         return run(recreateCommand(service), output);
+    }
+
+    /**
+     * Who a service runs as and what it may write, from its {@code user:} and its mounts.
+     *
+     * @param uid the numeric uid, never 0
+     * @param gid the numeric gid, the uid's when {@code user:} names none
+     * @param targets where each writable mount appears inside the container
+     */
+    record Owner(String uid, String gid, List<String> targets) {
+
+        Owner {
+            targets = List.copyOf(targets);
+        }
+    }
+
+    /**
+     * Reads a service's owner from its definition as {@code config} resolves it.
+     *
+     * Empty for a service that runs as root, names its user by name or mounts nothing writable: nothing to hand over.
+     */
+    static Optional<Owner> ownerOf(final JsonObject service) {
+        if (!service.has("user")) {
+            return Optional.empty();
+        }
+        final String[] user = service.get("user").getAsString().strip().split(":", 2);
+        final String uid = user[0];
+        final String gid = user.length > 1 && !user[1].isBlank() ? user[1] : uid;
+        if (!uid.matches("\\d+") || !gid.matches("\\d+") || Long.parseLong(uid) == 0) {
+            return Optional.empty();
+        }
+        final List<String> targets = new ArrayList<>();
+        if (service.has("volumes")) {
+            for (final JsonElement element : service.getAsJsonArray("volumes")) {
+                final JsonObject mount = element.getAsJsonObject();
+                final String type = mount.has("type") ? mount.get("type").getAsString() : "";
+                final boolean readOnly =
+                        mount.has("read_only") && mount.get("read_only").getAsBoolean();
+                if (("bind".equals(type) || "volume".equals(type)) && !readOnly && mount.has("target")) {
+                    targets.add(mount.get("target").getAsString());
+                }
+            }
+        }
+        return targets.isEmpty() ? Optional.empty() : Optional.of(new Owner(uid, gid, targets));
+    }
+
+    /**
+     * Makes everything each service mounts its own user's, before its container starts or is made.
+     *
+     * In a throwaway of the service's image, so this process reads nothing of it; a failure is said, the start goes on.
+     */
+    public void handOver(final List<String> services, final Consumer<String> output) throws IOException {
+        final JsonObject definitions = definitions(true);
+        for (final String service : services) {
+            final Optional<Owner> owner =
+                    definitions.has(service) ? ownerOf(definitions.getAsJsonObject(service)) : Optional.empty();
+            if (owner.isEmpty()) {
+                continue;
+            }
+            final int code = run(handOverCommand(service, owner.get()), output);
+            if (code != 0) {
+                output.accept("handing " + service + "'s volumes to "
+                        + owner.get().uid() + ":" + owner.get().gid() + " exited " + code + "; starting it anyway");
+                log.warn("handing {}'s volumes to its user exited {}", service, code);
+            }
+        }
+    }
+
+    /** Returns the command line {@link #handOver} runs: {@code find} as root in the service's image, never pulled. */
+    List<String> handOverCommand(final String service, final Owner owner) {
+        final String uid = owner.uid();
+        final String gid = owner.gid();
+        final List<String> arguments = new ArrayList<>(List.of(
+                "run",
+                "--rm",
+                "--no-deps",
+                "-T",
+                "--pull",
+                "never",
+                "--user",
+                "0:0",
+                "--cap-add",
+                "CHOWN",
+                // Root without it cannot list a directory the user made private, such as bunq's context.
+                "--cap-add",
+                "DAC_READ_SEARCH",
+                "--entrypoint",
+                "find",
+                service));
+        arguments.addAll(owner.targets());
+        arguments.addAll(List.of(
+                "(",
+                "!",
+                "-user",
+                uid,
+                "-o",
+                "!",
+                "-group",
+                gid,
+                ")",
+                "-exec",
+                "chown",
+                "-h",
+                uid + ":" + gid,
+                "{}",
+                "+"));
+        return command(arguments);
     }
 
     /** Returns the command line {@link #recreate} runs, so a test can check that no token pulls. */

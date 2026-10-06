@@ -9,6 +9,14 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends tmux curl jq ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# The servers run third-party plugins, so never as root. compose.yml's `user:` names the same uid, and
+# steward-agent hands every volume to it before a server starts. A login shell, since tmux runs the server
+# through the account's shell.
+RUN groupadd --gid 10000 minecraft \
+    && useradd --uid 10000 --gid 10000 --home-dir /data --no-create-home --shell /bin/bash minecraft \
+    && mkdir -p /data /run/mc \
+    && chown minecraft:minecraft /data /run/mc
+
 # The world, the server configs and the cached server jar.
 WORKDIR /data
 VOLUME ["/data"]
@@ -29,4 +37,5 @@ ENV MC_TMUX_SOCKET=/run/mc/tmux.sock \
 HEALTHCHECK --interval=15s --timeout=5s --start-period=180s --retries=4 \
     CMD bash -c 'exec 3<>/dev/tcp/127.0.0.1/${SERVER_PORT:-25565}' 2>/dev/null
 
+USER minecraft
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

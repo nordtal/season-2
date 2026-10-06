@@ -620,6 +620,76 @@ class TopologyDeploymentTest {
                         + " setting somebody can write and nothing can apply.");
     }
 
+    /** The account a Dockerfile or one of its stages makes, as {@code useradd --uid U --gid G}. */
+    private static final java.util.regex.Pattern ACCOUNT =
+            java.util.regex.Pattern.compile("useradd --uid (\\d+) --gid (\\d+) ");
+
+    /**
+     * Every server and every JVM service but steward-agent runs as the uid its image makes, without a capability.
+     *
+     * The servers run third-party plugins; steward-agent alone keeps root, since the Docker socket it holds is root
+     * on the host whatever its uid, and it hands every other service's volumes to that service's {@code user:}.
+     */
+    @Test
+    void everyServiceOfOursButTheAgentRunsAsTheAccountItsImageMakesWithoutACapability() {
+        final Map<String, String> confined = new java.util.LinkedHashMap<>();
+        compose.services().forEach((name, service) -> {
+            final Map<String, Object> build = service.block("build");
+            if ("./deploy/minecraft".equals(build.get("context"))) {
+                confined.put(name, RepositoryRoot.read("deploy/minecraft/Dockerfile"));
+            } else if ("deploy/jvm/Dockerfile".equals(build.get("dockerfile")) && !AgentWire.SERVICE.equals(name)) {
+                confined.put(name, stage(RepositoryRoot.read("deploy/jvm/Dockerfile"), name));
+            }
+        });
+        assertTrue(
+                confined.keySet().containsAll(List.of(Topology.DISCORD_BOT, Topology.STEWARD, BankWire.SERVICE)),
+                "a JVM service lost its build block, so nothing here holds its user: " + confined.keySet());
+        SERVERS.forEach(server ->
+                assertTrue(confined.containsKey(server.name()), server.name() + " is not built from deploy/minecraft"));
+
+        assertAll(confined.entrySet().stream().map(entry -> () -> {
+            final String name = entry.getKey();
+            final ComposeFile.Service service = compose.service(name);
+            final java.util.regex.Matcher account = ACCOUNT.matcher(entry.getValue());
+            assertTrue(account.find(), "the image of '" + name + "' makes no account with a fixed uid and gid");
+            assertTrue(
+                    entry.getValue().lines().anyMatch(line -> line.startsWith("USER ")),
+                    "the image of '" + name + "' never switches to its account");
+            assertEquals(
+                    Optional.of(account.group(1) + ":" + account.group(2)),
+                    service.text("user"),
+                    "'" + name + "' must run as the account its image makes; steward-agent hands its volumes to"
+                            + " this user: before it starts");
+            assertEquals(List.of("ALL"), service.list("cap_drop"), "'" + name + "' keeps capabilities");
+            assertTrue(
+                    service.list("security_opt").contains("no-new-privileges:true"),
+                    "'" + name + "' could gain privileges through a setuid binary");
+        }));
+    }
+
+    @Test
+    void noContainerIsGivenAWayToTheHost() {
+        compose.services()
+                .forEach((name, service) -> assertFalse(
+                        service.has("extra_hosts"),
+                        "'" + name + "' maps a name to the host again: " + service.list("extra_hosts")));
+    }
+
+    /** The lines of one {@code FROM jvm AS name} stage, up to the next {@code FROM}. */
+    private static String stage(final String dockerfile, final String name) {
+        final StringBuilder lines = new StringBuilder();
+        boolean inside = false;
+        for (final String line : dockerfile.lines().toList()) {
+            if (line.startsWith("FROM ")) {
+                inside = line.strip().equals("FROM jvm AS " + name);
+            }
+            if (inside) {
+                lines.append(line).append('\n');
+            }
+        }
+        return lines.toString();
+    }
+
     private static java.util.List<String> smpPlugins() {
         return SERVERS.stream()
                 .filter(service -> service.name().equals(Topology.SMP))

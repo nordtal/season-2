@@ -61,6 +61,16 @@ installer matches the images it installs; `NORDTAL_RELEASE=<version>` names anot
 healthy steward-agent runs, a deploy is an ordinary update run; otherwise a throwaway agent's `up`
 repairs the stack.
 
+**Users.** Every container of ours but steward-agent runs as the account its image makes, with no
+capability and `no-new-privileges`: the Minecraft image as `minecraft` (10000), discord-bot, steward and
+steward-bunq as accounts of their own (10001 to 10003); `compose.yml`'s `user:` names the same uids.
+Before it starts or makes such a container, steward-agent hands everything the service mounts to that
+uid, with a throwaway of the service's own image (`find … -exec chown`, as root with `CHOWN` and
+`DAC_READ_SEARCH` only), so a volume written as root, an older archive put back or a jar the agent
+installed is the server's again; on a volume that already is, it changes nothing. A hand-typed
+`docker compose up` skips that step, so the first start of a volume that is still root's fails with
+`Permission denied` in the container log.
+
 **The environment file** is at `STEWARD_ENV_FILE`, mode 600, outside the installation directory, and
 holds every secret. steward-agent mounts its directory, so an edit by any means is read by the next
 compose command, and the next update run renews what it changed.

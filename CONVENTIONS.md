@@ -142,6 +142,10 @@ run `git config core.hooksPath .githooks` once per clone.
 - **Compose**: every `${X:?}` in `compose.yml` has a value in `deploy/dev.env.example`, and a build arg
   never uses `:?`, since Compose interpolates build args on a deploy that only pulls. steward schedules
   nothing but request rows; carrying out a run is steward-agent's.
+- **No container of ours runs as root but steward-agent**: each image makes an account with a fixed uid,
+  `compose.yml` names it in `user:` and gives the service `cap_drop: [ALL]` and `no-new-privileges`.
+  steward-agent keeps root, since the Docker socket is root on the host anyway. _(checked by
+  `TopologyDeploymentTest`)_
 
 ### Design
 

@@ -19,6 +19,7 @@ repositoryRootTestInputs {
     reads("deploy/dev.env.example")
     reads("deploy/jvm/Dockerfile")
     reads("deploy/jvm/entrypoint.sh")
+    reads("deploy/minecraft/Dockerfile")
     reads("deploy/minecraft/entrypoint.sh")
     reads(".dockerignore")
     reads(".github/workflows/release.yml")

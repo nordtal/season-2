@@ -54,8 +54,20 @@ final class LocalStack implements ContainerOps {
         return containers.stop(containerId);
     }
 
+    /** Hands the service's volumes to its user first, as every compose command that makes a container does. */
     @Override
     public RedeployResult start(final String containerId) {
+        containers.runtime().services().stream()
+                .filter(entry -> containerId.equals(entry.containerId()))
+                .findFirst()
+                .ifPresent(entry -> {
+                    try {
+                        compose.handOver(
+                                List.of(entry.service()), line -> log.info("[hand-over {}] {}", entry.service(), line));
+                    } catch (final java.io.IOException | RuntimeException failure) {
+                        log.warn("could not hand {}'s volumes to its user: {}", entry.service(), failure.getMessage());
+                    }
+                });
         return containers.start(containerId);
     }
 

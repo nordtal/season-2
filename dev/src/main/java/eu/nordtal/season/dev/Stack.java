@@ -2,7 +2,6 @@ package eu.nordtal.season.dev;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -12,10 +11,23 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
-import java.util.regex.Pattern;
 
 /** Every command that builds, installs or drives the running stack. */
 final class Stack {
+
+    /** Where {@link #installArguments} mounts the jar inside the throwaway container. */
+    private static final String MOUNTED_JAR = "/tmp/nordtal-install.jar";
+
+    /**
+     * Removes every other jar of the plugin, copies the new one in and gives it the folder's owner.
+     *
+     * Paper splits a jar's name on its last hyphen, so two versions of one plugin side by side both load.
+     */
+    private static final String INSTALL_SCRIPT = "set -e; dir=/data/plugins; name=\"$1\"; module=\"$2\";"
+            + " for old in \"$dir/$module\"-*.jar; do"
+            + " [ -e \"$old\" ] && [ \"${old##*/}\" != \"$name\" ] || continue;"
+            + " rm -f \"$old\"; echo \"removed superseded ${old##*/}\"; done;"
+            + " cp " + MOUNTED_JAR + " \"$dir/$name\"; chown --reference=\"$dir\" \"$dir/$name\"";
 
     private final Path root;
     private final LocalProject compose;
@@ -34,10 +46,10 @@ final class Stack {
         compose.requireEnv();
         build(ResetGuard.SERVICES);
         processes.gradle(":imageContexts");
-        ResetGuard.SERVICES.forEach(this::install);
-        // Built, never pulled: every image of ours is nordtal/<name>:dev, which no registry has.
+        // Built, never pulled, and before the plugins, which are installed through the Minecraft image.
         terminal.log("building every image of ours the selected profiles use");
         compose.run("build");
+        ResetGuard.SERVICES.forEach(this::install);
         compose.run("up", "-d");
         terminal.log("up. First start downloads Paper, Velocity and the third-party plugins; give it a few");
         terminal.log("minutes and watch with: dev logs");
@@ -220,9 +232,9 @@ final class Stack {
     }
 
     /**
-     * Copies a module's jar into its server's plugins/, removing every other jar of that plugin first.
+     * Copies a module's jar into its server's plugins/, as root in a throwaway of the server's image.
      *
-     * Paper splits a jar's name on its last hyphen, so two versions of one plugin side by side both load.
+     * Once started, the folder is the server's uid's, on Linux not the developer's. See {@link #INSTALL_SCRIPT}.
      */
     private void install(final String module) {
         final Path jar = Repository.jar(root, module);
@@ -230,24 +242,45 @@ final class Stack {
             throw new Processes.Failure(jar + " was not built");
         }
         final Path target = compose.pluginsDir(module);
-        final Pattern sibling = Pattern.compile(Pattern.quote(module) + "-.+\\.jar");
         try {
+            // Docker would make a missing one as root.
             Files.createDirectories(target);
-            try (DirectoryStream<Path> existing = Files.newDirectoryStream(target, "*.jar")) {
-                for (final Path old : existing) {
-                    final String name = old.getFileName().toString();
-                    if (sibling.matcher(name).matches()
-                            && !name.equals(jar.getFileName().toString())) {
-                        Files.delete(old);
-                        terminal.log("removed superseded " + name);
-                    }
-                }
-            }
-            Files.copy(jar, target.resolve(jar.getFileName()), StandardCopyOption.REPLACE_EXISTING);
         } catch (final IOException e) {
-            throw new UncheckedIOException("cannot install " + jar, e);
+            throw new UncheckedIOException("cannot create " + target, e);
         }
+        compose.run(installArguments(module, jar.toAbsolutePath()).toArray(String[]::new));
         terminal.log("installed " + jar.getFileName() + " into " + target);
+    }
+
+    /**
+     * Returns the compose arguments that install {@code jar} into {@code module}'s plugins/ through its image.
+     *
+     * Root keeps only what the copy needs: writing into a folder it does not own, and handing the jar over.
+     */
+    static List<String> installArguments(final String module, final Path jar) {
+        return List.of(
+                "run",
+                "--rm",
+                "--no-deps",
+                "-T",
+                "--pull",
+                "never",
+                "--user",
+                "0:0",
+                "--cap-add",
+                "DAC_OVERRIDE",
+                "--cap-add",
+                "CHOWN",
+                "--volume",
+                jar + ":" + MOUNTED_JAR + ":ro",
+                "--entrypoint",
+                "sh",
+                module,
+                "-c",
+                INSTALL_SCRIPT,
+                "sh",
+                jar.getFileName().toString(),
+                module);
     }
 
     private static List<String> lines(final String output) {

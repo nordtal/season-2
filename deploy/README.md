@@ -225,6 +225,8 @@ dev help          # every command
 Then join `localhost`. After editing `deploy/dev.env` run `dev up`; `deploy` restarts a container with
 its old environment. The local stack has no `bot` profile by default, images on a `:dev` tag, plugin
 folders as bind mounts under `deploy/servers/`, small heaps, no hand-built world and no Discord guild.
+A started server owns its plugin folder, so `up` and `deploy` copy a jar in through a throwaway of the
+Minecraft image as root, and a developer who is not root on Linux can still replace it.
 
 - `dev ui` stops only Vite when interrupted; `dev stop` stops the rest. Vite proxies `/api` and
   `/auth` to `127.0.0.1:8080`, so `:steward:run` needs the container stopped. Node comes from Gradle

@@ -51,7 +51,7 @@ nothing counts nobody down. The payload is the request's, typed in `StewardReque
 | `REMOVE_PLUGIN` | stop one server, delete the plugin's jar and data folder, start it                                                                                                            |
 
 Caddy, pack-host and postgres are made again only once the rest is back, in a run that counts down.
-A run's report is messages of the admin bundle (`report.*` in `:database`'s `AdminTexts`): every note,
+A run's report is messages of the admin bundle (`report.*` in `:database`'s `ReportTexts`): every note,
 line detail and change but an installed version's is a message reference with typed values, which
 Steward's page and the bot's update feed render for their reader, and `status ID` prints in English.
 What a subsystem answered (a Docker or `pg_dump` error, a source's answer) is a value of the message

@@ -25,6 +25,9 @@ public final class PlayerComposition {
     /** The leave line's colour, for aura at zero or below. */
     private static final TextColor AURA_EMPTY = Objects.requireNonNull(TextColor.fromHexString("#a8888b"));
 
+    /** The donor star's colour: a warm amber, distinct from the prestige hues and readable on the dark tab list. */
+    private static final TextColor DONOR = Objects.requireNonNull(TextColor.fromHexString("#f2b84b"));
+
     private final Supplier<Prestige> prestige;
 
     /** A supplier, because a settings change replaces the colour table. */
@@ -91,15 +94,19 @@ public final class PlayerComposition {
             out = out.append(Component.text(" " + Glyphs.TAG_ADMIN));
         }
         if (identity.donor()) {
-            out = out.append(Component.text(" " + Glyphs.BADGE_DONOR_STAR));
+            out = out.append(Component.text(" " + Glyphs.BADGE_DONOR_STAR)
+                    .color(DONOR)
+                    .decoration(TextDecoration.ITALIC, false));
         }
         return out;
     }
 
-    /** The crest for however long somebody has been here, never empty since tiers start at 1. */
+    /** The crest for the time spent here, never empty; its white texture takes the tier's colour, even for an admin. */
     private Component crest(final PlayerIdentity identity) {
         final int tier = tierOf(identity);
-        return Component.text(" " + Glyphs.PRESTIGE_CRESTS.get(tier - 1)).decoration(TextDecoration.ITALIC, false);
+        return Component.text(" " + Glyphs.PRESTIGE_CRESTS.get(tier - 1))
+                .color(colours.get().tier(tier))
+                .decoration(TextDecoration.ITALIC, false);
     }
 
     /** Green when positive, red at zero or below, in the palette's colours to match the join and leave lines. */

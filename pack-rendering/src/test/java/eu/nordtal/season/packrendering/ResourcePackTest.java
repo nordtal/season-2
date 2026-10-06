@@ -182,6 +182,34 @@ class ResourcePackTest {
     }
 
     @Test
+    void aPictogramTheCodeTintsIsDrawnWhite() throws IOException {
+        // The client multiplies a glyph by its text colour, so a dark pixel stays dark whatever colour is asked for.
+        final Path textures = RepositoryRoot.resolve(ASSETS + "/nordtal/textures");
+        final List<String> notWhite = new ArrayList<>();
+        for (final String folder : List.of("prestige", "badges/donor_star.png", "ui/bossbar/arrows")) {
+            try (Stream<Path> files = Files.walk(textures.resolve(folder))) {
+                for (final Path file :
+                        files.filter(f -> f.toString().endsWith(".png")).toList()) {
+                    final BufferedImage image = read(file);
+                    for (int y = 0; y < image.getHeight(); y++) {
+                        for (int x = 0; x < image.getWidth(); x++) {
+                            final int argb = image.getRGB(x, y);
+                            if (argb >>> 24 != 0 && (argb & 0xFFFFFF) != 0xFFFFFF) {
+                                notWhite.add(textures.relativize(file).toString());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assertEquals(
+                List.of(),
+                notWhite.stream().distinct().toList(),
+                "the crests, the donor star and the bearing arrows are tinted by the component that draws them,"
+                        + " so every visible pixel has to be white");
+    }
+
+    @Test
     void theVanillaBossBarSpritesAreFullyTransparent() {
         for (final String sprite : List.of("white_background", "white_progress")) {
             final Path path =

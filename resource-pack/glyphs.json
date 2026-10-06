@@ -16,7 +16,7 @@
               "name": "donor-star",
               "texture": "nordtal:badges/donor_star.png",
               "status": "final candidate",
-              "about": "Donor star, from the permanent donor role, 7 by 7."
+              "about": "Donor star, from the permanent donor role, 7 by 7, drawn white and tinted amber by the component."
             },
             {
               "code": "FE004",
@@ -101,7 +101,7 @@
         {
           "range": "FE030-FE03F",
           "title": "Prestige crests",
-          "about": "Thirteen tiers of one coat of arms, derived from player_playtime.seconds when drawn; height 9 and ascent 8 fill a text row without touching the lines above and below.",
+          "about": "Thirteen tiers of one coat of arms, derived from player_playtime.seconds when drawn, drawn white and tinted in the tier's colour by the component; height 9 and ascent 8 fill a text row without touching the lines above and below.",
           "height": 9,
           "ascent": 8,
           "status": "placeholder",
@@ -650,7 +650,7 @@
         {
           "range": "FEF10-FEF1F",
           "title": "Bearing arrows",
-          "about": "Sixteen clockwise steps of 22.5 degrees, rasterized from the angle so they agree exactly, for /navigate, the hunger games' nearest player and the nearest loot point.",
+          "about": "Sixteen clockwise steps of 22.5 degrees, rasterized from the angle so they agree exactly, for /navigate, the hunger games' nearest player and the nearest loot point, drawn white because the line's text is white.",
           "height": 10,
           "ascent": 4,
           "status": "final candidate",

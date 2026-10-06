@@ -170,6 +170,20 @@ class PlayerCompositionTest {
         assertEquals(expected, colourOfName(composition.tabList("Cara", tierFive), "Cara"));
     }
 
+    /** The crest and star textures are white, and the client multiplies them by the colour asked for. */
+    @Test
+    void theCrestAndTheStarAreTintedBecauseTheirTexturesAreWhite() {
+        final PlayerIdentity donorAtTopTier =
+                identity(Locale.GERMAN, true, true, 0, Prestige.defaults().secondsFor(Prestige.TIER_COUNT));
+        final Component line = composition.tabList("Root", donorAtTopTier);
+
+        assertEquals(
+                PrestigeColours.DEFAULTS.tier(Prestige.TIER_COUNT),
+                colourOfName(line, " " + Glyphs.PRESTIGE_CRESTS.get(Prestige.TIER_COUNT - 1)),
+                "the crest takes its tier's colour, not the admin colour of the name");
+        assertNotNull(colourOfName(line, " " + Glyphs.BADGE_DONOR_STAR), "a white star with no colour shows white");
+    }
+
     /** The admin colour wins over the tier on every surface, even at tier 13. */
     @Test
     void theAdminColourWinsOverTheProminentTier() {

@@ -11,6 +11,8 @@ repositoryRootTestInputs {
     reads("compose.yml")
     // The release whose standbys a migration must not break.
     reads("gradle.properties")
+    // ChannelTest reads every module's main sources for the channels they notify on.
+    rootProject.subprojects.forEach { readsTree("${it.name}/src/main") }
 }
 
 dependencies {

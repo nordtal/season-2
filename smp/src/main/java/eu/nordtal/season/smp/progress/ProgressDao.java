@@ -1,6 +1,8 @@
 package eu.nordtal.season.smp.progress;
 
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.notify.Channel;
+import eu.nordtal.season.database.notify.Notifies;
 import eu.nordtal.season.smp.port.OwnContributionRow;
 import java.util.List;
 import java.util.Optional;
@@ -15,6 +17,7 @@ import org.jdbi.v3.sqlobject.statement.SqlUpdate;
  *
  * A JDBI SqlObject, never called from the main thread; {@link ObjectiveEngine} runs it inside its transactions.
  */
+@Notifies(Channel.SMP)
 public interface ProgressDao {
 
     /**
@@ -24,7 +27,7 @@ public interface ProgressDao {
      */
     @SqlQuery("""
             WITH updated AS (UPDATE smp_objective SET amount = amount + :delta WHERE id = :id RETURNING id)
-            SELECT count(*) FROM (SELECT pg_notify('nordtal_smp', '') FROM updated) AS notified
+            SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM updated) AS notified
             """)
     int addObjectiveProgress(@Bind("id") UUID id, @Bind("delta") long delta);
 
@@ -59,7 +62,7 @@ public interface ProgressDao {
                 WHERE obj.id = counted.objective_id
                 RETURNING obj.amount
             )
-            SELECT updated.amount, pg_notify('nordtal_smp', '') AS notified FROM updated
+            SELECT updated.amount, pg_notify(:channel, '') AS notified FROM updated
             """)
     Optional<Long> countOnce(@Bind("objectiveId") UUID objectiveId, @Bind("discordId") DiscordId discordId);
 
@@ -98,7 +101,7 @@ public interface ProgressDao {
             WITH updated AS (
                 UPDATE smp_objective SET completed = now() WHERE id = :id AND completed IS NULL RETURNING id
             )
-            SELECT count(*) FROM (SELECT pg_notify('nordtal_smp', '') FROM updated) AS notified
+            SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM updated) AS notified
             """)
     int completeObjective(@Bind("id") UUID id);
 }

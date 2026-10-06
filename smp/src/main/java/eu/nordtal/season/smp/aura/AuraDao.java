@@ -1,6 +1,8 @@
 package eu.nordtal.season.smp.aura;
 
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.notify.Channel;
+import eu.nordtal.season.database.notify.Notifies;
 import java.util.List;
 import java.util.Optional;
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
@@ -15,6 +17,7 @@ import org.jspecify.annotations.Nullable;
  *
  * A JDBI SqlObject, never called from the main thread.
  */
+@Notifies(Channel.SMP)
 public interface AuraDao {
 
     /** Books an aura change and its audit row together, the balance and the reason for it. */
@@ -38,7 +41,7 @@ public interface AuraDao {
                 VALUES (:discordId, :delta, :reason, :ref)
                 RETURNING id
             )
-            SELECT count(*) FROM (SELECT pg_notify('nordtal_smp', '') FROM inserted) AS notified
+            SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM inserted) AS notified
             """)
     int recordAuraEvent(
             @Bind("discordId") DiscordId discordId,

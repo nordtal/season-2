@@ -1,5 +1,7 @@
 package eu.nordtal.season.smp.milestone;
 
+import eu.nordtal.season.database.notify.Channel;
+import eu.nordtal.season.database.notify.Notifies;
 import java.util.List;
 import java.util.Optional;
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
@@ -12,6 +14,7 @@ import org.jdbi.v3.sqlobject.statement.SqlUpdate;
  *
  * A JDBI SqlObject, never called from the main thread; the credits that move an objective are {@code ProgressDao}'s.
  */
+@Notifies(Channel.SMP)
 public interface TrackDao {
 
     /**
@@ -84,7 +87,7 @@ public interface TrackDao {
             UPDATE smp_milestone
             SET state = 'UNLOCKED', unlocked = now()
             WHERE key = :key AND state = 'ACTIVE'
-            RETURNING key, pg_notify('nordtal_smp', 'milestone:' || key) AS notified
+            RETURNING key, pg_notify(:channel, 'milestone:' || key) AS notified
             """)
     Optional<String> completeMilestone(@Bind("key") String key);
 
@@ -145,7 +148,7 @@ public interface TrackDao {
                  locked_milestones AS (
                      UPDATE smp_milestone SET state = 'LOCKED', unlocked = NULL WHERE EXISTS (SELECT 1 FROM marked)
                  )
-            SELECT count(*) FROM (SELECT pg_notify('nordtal_smp', '') FROM marked) AS notified
+            SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM marked) AS notified
             """)
     int startOverIfDue();
 
@@ -153,7 +156,7 @@ public interface TrackDao {
             WITH updated AS (
                 UPDATE smp_milestone SET state = 'ACTIVE' WHERE key = :key AND state = 'LOCKED' RETURNING key
             )
-            SELECT count(*) FROM (SELECT pg_notify('nordtal_smp', '') FROM updated) AS notified
+            SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM updated) AS notified
             """)
     int activateMilestone(@Bind("key") String key);
 
@@ -166,7 +169,7 @@ public interface TrackDao {
                   AND (SELECT count(*) FROM smp_milestone WHERE state = 'UNLOCKED') = :completed
                 RETURNING key
             )
-            SELECT count(*) FROM (SELECT pg_notify('nordtal_smp', '') FROM updated) AS notified
+            SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM updated) AS notified
             """)
     int activateAfter(@Bind("key") String key, @Bind("completed") int completed);
 }

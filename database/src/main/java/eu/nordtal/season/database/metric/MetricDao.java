@@ -2,6 +2,7 @@ package eu.nordtal.season.database.metric;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.customizer.BindMethods;
@@ -66,10 +67,26 @@ interface MetricDao {
             @Bind("to") OffsetDateTime to);
 
     /**
-     * Averages every raw sample before {@code cut} into its UTC hour and writes each mean once.
+     * Returns the instant of the oldest raw sample in {@code [from, to)}, or nothing when there is none.
+     * The partial index on raw rows by age answers it.
+     *
+     * @param from inclusive
+     * @param to   exclusive
+     */
+    @SqlQuery("""
+            SELECT min(at)
+            FROM metric_sample
+            WHERE resolution = 'RAW'
+              AND at >= :from
+              AND at < :to
+            """)
+    Optional<OffsetDateTime> oldestRaw(@Bind("from") OffsetDateTime from, @Bind("to") OffsetDateTime to);
+
+    /**
+     * Averages the raw samples of the one UTC hour starting at {@code hour} and writes each mean once.
      * The bucket is the migration's alignment CHECK verbatim, since {@code date_trunc} is not immutable.
      *
-     * @param cut exclusive, and an exact UTC hour
+     * @param hour inclusive, and an exact UTC hour
      * @return how many hourly rows were written
      */
     @SqlUpdate("""
@@ -81,16 +98,17 @@ interface MetricDao {
                    avg(value)
             FROM metric_sample
             WHERE resolution = 'RAW'
-              AND at < :cut
+              AND at >= :hour
+              AND at < :hour + interval '1 hour'
             GROUP BY subject, metric, to_timestamp(floor(extract(epoch FROM at) / 3600) * 3600)
             ON CONFLICT (subject, metric, resolution, at) DO NOTHING
             """)
-    int compactInto(@Bind("cut") OffsetDateTime cut);
+    int compactHour(@Bind("hour") OffsetDateTime hour);
 
     /**
-     * Deletes raw samples before {@code cut} whose hour already has a mean.
+     * Deletes the raw samples of the one UTC hour starting at {@code hour} whose hour already has a mean.
      *
-     * @param cut exclusive, and an exact UTC hour
+     * @param hour inclusive, and an exact UTC hour
      * @return how many raw rows went
      */
     @SqlUpdate("""
@@ -98,14 +116,14 @@ interface MetricDao {
             USING (SELECT subject, metric, at
                    FROM metric_sample
                    WHERE resolution = 'HOUR'
-                     AND at < :cut) hourly
+                     AND at = :hour) hourly
             WHERE raw.resolution = 'RAW'
-              AND raw.at < :cut
+              AND raw.at >= :hour
+              AND raw.at < :hour + interval '1 hour'
               AND hourly.subject = raw.subject
               AND hourly.metric = raw.metric
-              AND hourly.at = to_timestamp(floor(extract(epoch FROM raw.at) / 3600) * 3600)
             """)
-    int forget(@Bind("cut") OffsetDateTime cut);
+    int forgetHour(@Bind("hour") OffsetDateTime hour);
 
     /** A {@link MetricSample} with its instant as an {@link OffsetDateTime}. */
     record BoundSample(String subject, String metric, OffsetDateTime at, double value) {}

@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.IntSupplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -103,20 +104,24 @@ public final class MetricRecorder implements AutoCloseable {
         return samples;
     }
 
-    private void compactQuietly() {
+    /** Compacts and forgets the raw samples past their retention; each is tried even when the other failed. */
+    void compactQuietly() {
+        final Instant boundary = clock.instant().minus(MetricDirectory.RAW_RETENTION);
+        final int written = attempt("compacting", () -> metrics.compact(boundary));
+        final int forgotten = attempt("forgetting", () -> metrics.forget(boundary));
+        if (written > 0 || forgotten > 0) {
+            log.info(
+                    "compacted {} hours of samples and forgot {} raw rows older than {}", written, forgotten, boundary);
+        }
+    }
+
+    /** Runs one of the two walks, whose hours each commit on their own; a failure leaves the rest for the next hour. */
+    private static int attempt(final String what, final IntSupplier work) {
         try {
-            final Instant boundary = clock.instant().minus(MetricDirectory.RAW_RETENTION);
-            final int written = metrics.compact(boundary);
-            final int forgotten = metrics.forget(boundary);
-            if (written > 0 || forgotten > 0) {
-                log.info(
-                        "compacted {} hours of samples and forgot {} raw rows older than {}",
-                        written,
-                        forgotten,
-                        boundary);
-            }
+            return work.getAsInt();
         } catch (final RuntimeException e) {
-            log.warn("compacting the metric table failed; it will be tried again in an hour", e);
+            log.warn("{} the metric table failed; the hours left will be tried again in an hour", what, e);
+            return 0;
         }
     }
 

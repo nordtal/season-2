@@ -7,6 +7,8 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.function.ToIntFunction;
 import javax.sql.DataSource;
 
 /** The only implementation of {@link MetricDirectory}; it borrows its pool and owns nothing. */
@@ -52,13 +54,32 @@ final class JdbiMetrics implements MetricDirectory {
     @Override
     public int compact(final Instant olderThan) {
         Objects.requireNonNull(olderThan, "olderThan");
-        return dao.compactInto(utc(Resolution.hourOf(olderThan)));
+        return walk(olderThan, dao::compactHour);
     }
 
     @Override
     public int forget(final Instant olderThan) {
         Objects.requireNonNull(olderThan, "olderThan");
-        return dao.forget(utc(Resolution.hourOf(olderThan)));
+        return walk(olderThan, dao::forgetHour);
+    }
+
+    /**
+     * Applies a statement to each UTC hour holding raw samples before {@code olderThan}'s hour, oldest first.
+     * No statement touches more than an hour of samples, and each commits on its own: a failure leaves the hours
+     * before it done and the rest for the next call.
+     */
+    private int walk(final Instant olderThan, final ToIntFunction<OffsetDateTime> statement) {
+        final OffsetDateTime cut = utc(Resolution.hourOf(olderThan));
+        int total = 0;
+        OffsetDateTime from = utc(Instant.EPOCH);
+        for (Optional<OffsetDateTime> oldest = dao.oldestRaw(from, cut);
+                oldest.isPresent();
+                oldest = dao.oldestRaw(from, cut)) {
+            final OffsetDateTime hour = utc(Resolution.hourOf(oldest.get().toInstant()));
+            total += statement.applyAsInt(hour);
+            from = hour.plusHours(1);
+        }
+        return total;
     }
 
     /** Converts to an {@code OffsetDateTime} at UTC, so no JVM or server zone is assumed. */

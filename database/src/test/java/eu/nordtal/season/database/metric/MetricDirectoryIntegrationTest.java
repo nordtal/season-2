@@ -11,6 +11,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeAll;
@@ -42,6 +43,7 @@ class MetricDirectoryIntegrationTest {
 
     @BeforeEach
     void freshTable() {
+        execute("DROP TRIGGER IF EXISTS fails ON metric_sample");
         execute("TRUNCATE TABLE metric_sample");
         metrics = MetricDirectory.using(dataSource);
     }
@@ -329,6 +331,78 @@ class MetricDirectoryIntegrationTest {
 
         assertEquals(1, metrics.range("host", "cpu_percent", TEN, ELEVEN).size());
         assertEquals(1, metrics.range("host", "cpu_percent", ELEVEN, TWELVE).size());
+    }
+
+    @Test
+    void aBacklogIsCompactedOneHourPerStatementOldestFirst() {
+        recordHours(TEN, 4);
+        execute(failingTrigger("INSERT", "timestamptz '2026-08-01 12:00:00+00'"));
+
+        assertThrows(RuntimeException.class, () -> metrics.compact(TEN.plus(Duration.ofHours(4))));
+
+        assertEquals(
+                2,
+                count("SELECT count(*) FROM metric_sample WHERE resolution = 'HOUR'"),
+                "the two hours before the failing one are kept, and the failing hour and the one after are untouched");
+        assertEquals(15.0, hourly("host", "cpu_percent", TEN));
+
+        execute("DROP TRIGGER fails ON metric_sample");
+        assertEquals(
+                2, metrics.compact(TEN.plus(Duration.ofHours(4))), "the next tick takes up where the last stopped");
+        assertEquals(4, count("SELECT count(*) FROM metric_sample WHERE resolution = 'HOUR'"));
+    }
+
+    @Test
+    void aBacklogIsForgottenOneHourPerStatementOldestFirst() {
+        recordHours(TEN, 4);
+        metrics.compact(TEN.plus(Duration.ofHours(4)));
+        execute(failingTrigger("DELETE", "timestamptz '2026-08-01 12:00:00+00'"));
+
+        assertThrows(RuntimeException.class, () -> metrics.forget(TEN.plus(Duration.ofHours(4))));
+
+        assertEquals(
+                4,
+                count("SELECT count(*) FROM metric_sample WHERE resolution = 'RAW'"),
+                "the first two hours' raw rows are gone and the failing hour and the one after it keep theirs");
+
+        execute("DROP TRIGGER fails ON metric_sample");
+        assertEquals(4, metrics.forget(TEN.plus(Duration.ofHours(4))));
+        assertEquals(0, count("SELECT count(*) FROM metric_sample WHERE resolution = 'RAW'"));
+    }
+
+    @Test
+    void aBacklogOfSeveralHoursEndsAsOneCallWouldHaveLeftIt() {
+        recordHours(TEN, 5);
+        final Instant cut = TEN.plus(Duration.ofHours(4));
+
+        assertEquals(4, metrics.compact(cut), "one mean per whole hour before the cut");
+        assertEquals(8, metrics.forget(cut), "two raw rows of each of those hours");
+        assertEquals(2, count("SELECT count(*) FROM metric_sample WHERE resolution = 'RAW'"));
+        assertEquals(0, metrics.compact(cut));
+        assertEquals(0, metrics.forget(cut));
+    }
+
+    /** Writes two samples, 10 and 20, into each of {@code hours} consecutive UTC hours from {@code first}. */
+    private void recordHours(final Instant first, final int hours) {
+        final List<MetricSample> samples = new ArrayList<>();
+        for (int hour = 0; hour < hours; hour++) {
+            final Instant start = first.plus(Duration.ofHours(hour));
+            samples.add(new MetricSample("host", Metric.CPU_PERCENT, start, 10.0));
+            samples.add(new MetricSample("host", Metric.CPU_PERCENT, start.plusSeconds(1800), 20.0));
+        }
+        metrics.record(samples);
+    }
+
+    /** A trigger that refuses an INSERT of the hourly row, or a DELETE of a raw row, of the hour at {@code hour}. */
+    private static String failingTrigger(final String event, final String hour) {
+        final String row = event.equals("INSERT") ? "NEW" : "OLD";
+        final String kind = event.equals("INSERT") ? "HOUR" : "RAW";
+        final String at = event.equals("INSERT") ? row + ".at" : "date_trunc('hour', " + row + ".at)";
+        return "CREATE OR REPLACE FUNCTION fail_in_hour() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN "
+                + "IF " + row + ".resolution = '" + kind + "' AND " + at + " = " + hour
+                + " THEN RAISE EXCEPTION 'the statement for this hour fails'; END IF; RETURN " + row + "; END $$; "
+                + "CREATE TRIGGER fails BEFORE " + event
+                + " ON metric_sample FOR EACH ROW EXECUTE FUNCTION fail_in_hour()";
     }
 
     private double hourly(final String subject, final String metric, final Instant hour) {

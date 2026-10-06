@@ -41,7 +41,7 @@ public interface MetricDirectory {
 
     /**
      * Turns raw samples before the start of the given instant's UTC hour into hourly means; steward only.
-     * Nothing is deleted, and an hour that already has its mean is left alone.
+     * Nothing is deleted, an hour with its mean is left alone, and each hour is its own statement, oldest first.
      *
      * @return how many hourly rows were written
      */
@@ -49,6 +49,7 @@ public interface MetricDirectory {
 
     /**
      * Deletes raw samples before the given instant's UTC hour whose hour already has a mean; steward only.
+     * Each hour is its own statement, oldest first.
      *
      * @return how many raw rows were deleted
      */

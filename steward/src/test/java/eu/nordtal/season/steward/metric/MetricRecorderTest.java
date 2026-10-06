@@ -26,7 +26,9 @@ class MetricRecorderTest {
 
     private final List<@Nullable Instant> asked = new ArrayList<>();
     private final List<MetricSample> written = new ArrayList<>();
+    private final List<Instant> forgotten = new ArrayList<>();
     private List<AgentWire.Round> held = List.of();
+    private boolean compactFails;
 
     private final MetricRecorder recorder = new MetricRecorder(
             after -> {
@@ -67,6 +69,15 @@ class MetricRecorderTest {
                         .toList());
     }
 
+    @Test
+    void aFailedCompactionDoesNotKeepTheForgettingFromRunning() {
+        compactFails = true;
+
+        recorder.compactQuietly();
+
+        assertEquals(List.of(FIRST.minus(MetricDirectory.RAW_RETENTION)), forgotten);
+    }
+
     private static AgentWire.Round round(final Instant at) {
         return new AgentWire.Round(
                 at,
@@ -91,11 +102,15 @@ class MetricRecorderTest {
 
         @Override
         public int compact(final Instant olderThan) {
+            if (compactFails) {
+                throw new IllegalStateException("the statement for an hour failed");
+            }
             return 0;
         }
 
         @Override
         public int forget(final Instant olderThan) {
+            forgotten.add(olderThan);
             return 0;
         }
     }

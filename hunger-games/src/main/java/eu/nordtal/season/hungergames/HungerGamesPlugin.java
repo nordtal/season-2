@@ -31,7 +31,7 @@ import eu.nordtal.season.hungergames.lobby.Lobby;
 import eu.nordtal.season.hungergames.lobby.LobbyMaps;
 import eu.nordtal.season.hungergames.loot.LootRefill;
 import eu.nordtal.season.hungergames.player.ArenaComposition;
-import eu.nordtal.season.hungergames.presence.PresenceListener;
+import eu.nordtal.season.hungergames.presence.DisconnectBodies;
 import eu.nordtal.season.hungergames.roster.RosterDao;
 import eu.nordtal.season.hungergames.roster.RosterEntry;
 import eu.nordtal.season.messages.Refusal;
@@ -92,7 +92,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
     private WinTracker winTracker;
     private Ceremony ceremony;
     private HungerGamesManager manager;
-    private PresenceListener presence;
+    private DisconnectBodies presence;
 
     @Override
     protected String settingsPrefix() {
@@ -218,7 +218,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         listen(new FreezeListener(manager));
         // The five system lines; the death line keeps the game's own line for killer and weapon.
         final SystemLines systemLines = systemLines();
-        presence = new PresenceListener(this, identities(), bodies, state, renderer(), systemLines, players());
+        presence = new DisconnectBodies(this, identities(), bodies, state, renderer(), systemLines, players());
         listen(presence);
         listen(new CombatListener(
                 this,

@@ -20,7 +20,7 @@ class ServerRulesTest {
     private static final String FREEZE = "eu.nordtal.season.hungergames.freeze.FreezeListener";
     private static final String HUD = "eu.nordtal.season.hungergames.hud.GameHud";
     private static final String COMBAT = "eu.nordtal.season.hungergames.combat.CombatListener";
-    private static final String LIMBO_PRESENCE = "eu.nordtal.season.limbo.presence.PresenceListener";
+    private static final String LIMBO_PRESENCE = "eu.nordtal.season.limbo.presence.WaitingRoomRules";
     private static final String BOT = "eu.nordtal.season.discordbot.AccessBot";
 
     private static JavaClasses classes;
@@ -93,7 +93,7 @@ class ServerRulesTest {
         final JavaCodeUnit hiding = classes.get(LIMBO_PRESENCE).getCodeUnits().stream()
                 .filter(unit -> unit.getName().equals("hideEverybodyFromEachOther"))
                 .findFirst()
-                .orElseThrow(() -> new AssertionError("the limbo's PresenceListener hides nobody any more"));
+                .orElseThrow(() -> new AssertionError("the limbo's WaitingRoomRules hides nobody any more"));
         assertTrue(
                 hiding.getMethodCallsFromSelf().stream()
                                 .filter(call -> call.getName().equals("hidePlayer"))

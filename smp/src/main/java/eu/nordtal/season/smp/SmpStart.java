@@ -22,7 +22,7 @@ import eu.nordtal.season.smp.npc.NpcProtection;
 import eu.nordtal.season.smp.npc.SpawnNpc;
 import eu.nordtal.season.smp.player.PlayerComposition;
 import eu.nordtal.season.smp.player.PlayerSurfaces;
-import eu.nordtal.season.smp.player.PresenceListener;
+import eu.nordtal.season.smp.player.PlayerSurfacesListener;
 import eu.nordtal.season.smp.port.PrizeSource;
 import eu.nordtal.season.smp.progress.AdvancementListener;
 import eu.nordtal.season.smp.progress.GateHolders;
@@ -109,9 +109,9 @@ final class SmpStart {
         return new Presence(systemLines, cinematics, welcome);
     }
 
-    static PresenceListener registerPresenceListeners(
+    static PlayerSurfacesListener registerSurfaceListener(
             final SmpPlugin plugin, final SmpSpec config, final Surfaces surfaces, final Presence presence) {
-        final PresenceListener listener = new PresenceListener(
+        final PlayerSurfacesListener listener = new PlayerSurfacesListener(
                 plugin, surfaces.surfaces(), presence.systemLines(), presence.welcome()::onLanguageReady);
         plugin.getServer().getPluginManager().registerEvents(listener, plugin);
         plugin.getServer()

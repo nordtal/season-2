@@ -1,6 +1,5 @@
 package eu.nordtal.season.packrendering.hud;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -22,8 +21,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Keeps the three servers' tab list frames alike, since the client carries one across servers.
  *
- * The header is written once, in paper-common's bundle, which every server loads beneath its own. Only limbo's footer
- * differs: everybody there is hidden, so a player count would contradict the list.
+ * The header and the counting footer are written once, in paper-common's bundle, which every server loads beneath its
+ * own. Only limbo's footer differs: everybody there is hidden, so a player count would contradict the list.
  */
 class TabListTest {
 
@@ -49,12 +48,20 @@ class TabListTest {
     }
 
     @Test
-    void theSmpAndTheHungerGamesWriteTheSameFooter() {
+    void onlyLimboWritesAFooterOfItsOwn() {
         for (final String language : LANGUAGES) {
-            assertEquals(
-                    required(BUNDLES.get("smp"), language, "tab.footer"),
-                    required(BUNDLES.get("hunger-games"), language, "tab.footer"),
-                    "both servers show a real player list, so both footers count the same thing");
+            BUNDLES.forEach((module, directory) -> {
+                if (!module.equals("limbo")) {
+                    assertNull(
+                            value(directory, language, "tab.footer"),
+                            module + "/" + language + ".properties writes its own tab.footer. Both servers that"
+                                    + " list their players show paper-common's, so both count the same thing");
+                }
+            });
+            final String footer = required(PAPER_COMMON, language, "tab.footer");
+            assertTrue(
+                    footer.contains("{online}") && footer.contains("{max}"),
+                    "paper-common's footer counts the players online against the network's limit");
         }
     }
 
@@ -66,7 +73,7 @@ class TabListTest {
                     !footer.contains("{online}") && !footer.contains("{max}"),
                     "limbo hides every player from every other, so its list holds exactly one name."
                             + " A count in the footer would sit directly over a list of one."
-                            + " If that changes, PresenceListener#hideEverybodyFromEachOther is the"
+                            + " If that changes, WaitingRoomRules#hideEverybodyFromEachOther is the"
                             + " thing to look at first");
         }
     }

@@ -6,8 +6,8 @@ import eu.nordtal.season.limbo.net.LimboChannel;
 import eu.nordtal.season.limbo.waiting.WaitingRoom;
 import eu.nordtal.season.limbo.world.WaitingWorld;
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.papercommon.PaperCommonMessages;
 import eu.nordtal.season.papercommon.player.Identities;
+import eu.nordtal.season.papercommon.tab.TabList;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import io.papermc.paper.event.player.AsyncPlayerSpawnLocationEvent;
@@ -32,18 +32,18 @@ import org.bukkit.plugin.Plugin;
  *
  * Nobody here can see, hear, speak to or hurt anybody; each handler covers an event a gamerule does not stop.
  */
-public final class PresenceListener implements Listener {
+public final class WaitingRoomRules implements Listener {
 
     private final Plugin plugin;
     private final WaitingWorld world;
     private final WaitingRoom room;
     private final LimboChannel channel;
-    private final MessageRenderer renderer;
+    private final TabList tabList;
 
     /** Who everybody here is, held since pre-login; read here, never queried. */
     private final Identities identities;
 
-    public PresenceListener(
+    public WaitingRoomRules(
             final Plugin plugin,
             final WaitingWorld world,
             final WaitingRoom room,
@@ -55,15 +55,13 @@ public final class PresenceListener implements Listener {
         this.room = Objects.requireNonNull(room, "room");
         this.channel = Objects.requireNonNull(channel, "channel");
         this.identities = Objects.requireNonNull(identities, "identities");
-        this.renderer = Objects.requireNonNull(renderer, "renderer");
+        this.tabList = new TabList(renderer);
     }
 
     /** Draws this player's tab list; the footer shows no count, since the list holds only their own name. */
     public void sendTabList(final Player player) {
         final java.util.Locale locale = identities.languageOf(player.getUniqueId());
-        player.sendPlayerListHeaderAndFooter(
-                renderer.format(locale, PaperCommonMessages.MESSAGES.tab().header()),
-                renderer.format(locale, LimboMessages.MESSAGES.tab().footer()));
+        tabList.draw(player, locale, LimboMessages.MESSAGES.tab().footer());
     }
 
     /**

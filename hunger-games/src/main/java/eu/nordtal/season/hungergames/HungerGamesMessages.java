@@ -188,14 +188,4 @@ public interface HungerGamesMessages {
             }
         }
     }
-
-    Tab tab();
-
-    @Name("Tab")
-    @Shown(Display.TAB_LIST)
-    interface Tab {
-
-        @Name("Footer")
-        MessageRef footer(@Arg("online") int online, @Arg("max") int max);
-    }
 }

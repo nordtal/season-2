@@ -41,7 +41,7 @@ class SmpRulesTest {
     private static final String NPC = "eu.nordtal.season.smp.npc.SpawnNpc";
     private static final String NPC_GUARD = "eu.nordtal.season.smp.npc.NpcProtection";
     private static final String PORTAL_GATE = "eu.nordtal.season.smp.travel.PortalGate";
-    private static final String PRESENCE = "eu.nordtal.season.smp.player.PresenceListener";
+    private static final String PRESENCE = "eu.nordtal.season.smp.player.PlayerSurfacesListener";
     private static final String LANDING = "eu.nordtal.season.smp.world.LandingSite";
 
     private static final String SMP = "eu.nordtal.season.smp.";
@@ -342,11 +342,11 @@ class SmpRulesTest {
                         "PluginManager#registerEvents",
                         "SeasonWelcome#<init>"))
                 .andShould(callFrom(
-                        "registerPresenceListeners", "PresenceListener#<init>", "SeasonWelcome#onLanguageReady"))
+                        "registerSurfaceListener", "PlayerSurfacesListener#<init>", "SeasonWelcome#onLanguageReady"))
                 .check(classes);
         classes()
                 .that(isListed(PLUGIN))
-                .should(callFrom("languageKnown", "PresenceListener#languageKnown"))
+                .should(callFrom("languageKnown", "PlayerSurfacesListener#languageKnown"))
                 .andShould(callFrom("disable", "BukkitCinematics#stop"))
                 .because("Paper disables plugins before it saves players, so a running staging saves its blindness")
                 .check(classes);

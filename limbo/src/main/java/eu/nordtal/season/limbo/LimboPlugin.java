@@ -3,7 +3,7 @@ package eu.nordtal.season.limbo;
 import eu.nordtal.season.limbo.config.LimboCheck;
 import eu.nordtal.season.limbo.config.LimboSpec;
 import eu.nordtal.season.limbo.net.LimboChannel;
-import eu.nordtal.season.limbo.presence.PresenceListener;
+import eu.nordtal.season.limbo.presence.WaitingRoomRules;
 import eu.nordtal.season.limbo.waiting.WaitingRoom;
 import eu.nordtal.season.limbo.world.WaitingWorld;
 import eu.nordtal.season.limboprotocol.LimboProtocol;
@@ -24,7 +24,7 @@ public final class LimboPlugin extends NordtalPlugin {
     private Setting<LimboSpec> config;
     private WaitingWorld world;
     private WaitingRoom room;
-    private PresenceListener presence;
+    private WaitingRoomRules presence;
     private @Nullable LimboChannel channel;
 
     @Override
@@ -62,7 +62,7 @@ public final class LimboPlugin extends NordtalPlugin {
         final LimboChannel speaking = new LimboChannel(this, room);
         speaking.register();
         channel = speaking;
-        presence = new PresenceListener(this, world, room, speaking, renderer(), identities());
+        presence = new WaitingRoomRules(this, world, room, speaking, renderer(), identities());
         listen(presence);
         getLogger()
                 .info("waiting world '" + config.get().worldName() + "', title refreshed every "

@@ -3,7 +3,7 @@ package eu.nordtal.season.limbo;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.limbo.presence.PresenceListener;
+import eu.nordtal.season.limbo.presence.WaitingRoomRules;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -15,9 +15,9 @@ class ThePassageIsSilentTest {
 
     @Test
     void aPlayersCommandsAreSwallowedAndAnAdminsAreNot() {
-        assertTrue(PresenceListener.mutes(false), "a player on the limbo can reach somebody with /msg");
+        assertTrue(WaitingRoomRules.mutes(false), "a player on the limbo can reach somebody with /msg");
         assertFalse(
-                PresenceListener.mutes(true),
+                WaitingRoomRules.mutes(true),
                 "/limbo is the one command anybody would run here, and an admin is who runs it");
     }
 }

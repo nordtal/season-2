@@ -1,13 +1,11 @@
 package eu.nordtal.season.smp.player;
 
-import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
-
 import eu.nordtal.season.database.access.PlayerIdentity;
 import eu.nordtal.season.displaytags.nametag.NameTagManager;
 import eu.nordtal.season.displaytags.nametag.PlayerNameTag;
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.papercommon.PaperCommonMessages;
 import eu.nordtal.season.papercommon.player.Identities;
+import eu.nordtal.season.papercommon.tab.TabList;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.settings.network.PlayersSpec;
 import java.util.List;
@@ -27,7 +25,7 @@ public final class PlayerSurfaces {
     private final Plugin plugin;
     private final Identities identities;
     private final PlayerComposition composition;
-    private final MessageRenderer messages;
+    private final TabList tabList;
     private final NameTagManager nameTags;
 
     /** The network's limit, which the footer shows: no server has one of its own. */
@@ -45,7 +43,7 @@ public final class PlayerSurfaces {
         this.plugin = plugin;
         this.identities = identities;
         this.composition = composition;
-        this.messages = messages;
+        this.tabList = new TabList(messages);
     }
 
     /** Redraws one player everywhere they appear, on the main thread. */
@@ -110,11 +108,6 @@ public final class PlayerSurfaces {
      * The logo comes in as a placeholder from {@link Glyphs}, never a private-use character in a properties file.
      */
     private void sendTabListFrame(final Player player, final PlayerIdentity identity) {
-        player.sendPlayerListHeaderAndFooter(
-                messages.format(
-                        identity.language(), PaperCommonMessages.MESSAGES.tab().header()),
-                messages.format(
-                        identity.language(),
-                        MESSAGES.tab().footer(Bukkit.getOnlinePlayers().size(), network.maxPlayers())));
+        tabList.drawCounted(player, identity.language(), network);
     }
 }

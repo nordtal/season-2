@@ -1,13 +1,11 @@
 package eu.nordtal.season.hungergames.presence;
 
-import static eu.nordtal.season.hungergames.HungerGamesMessages.MESSAGES;
-
 import eu.nordtal.season.hungergames.GameState;
 import eu.nordtal.season.hungergames.body.PlayerBodies;
 import eu.nordtal.season.messagerendering.MessageRenderer;
-import eu.nordtal.season.papercommon.PaperCommonMessages;
 import eu.nordtal.season.papercommon.chat.SystemLines;
 import eu.nordtal.season.papercommon.player.Identities;
+import eu.nordtal.season.papercommon.tab.TabList;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.settings.network.PlayersSpec;
 import java.util.Objects;
@@ -26,16 +24,20 @@ import org.bukkit.plugin.Plugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Draws the tab list for whoever joins and leaves, and puts a body in place of a player who quits mid-game. */
-public final class PresenceListener implements Listener {
+/**
+ * Puts a body in place of a player who quits mid-game and hands the gear back on their return.
+ *
+ * The tab list's player count is redrawn as people come and go.
+ */
+public final class DisconnectBodies implements Listener {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(PresenceListener.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DisconnectBodies.class);
 
     private final Plugin plugin;
     private final Identities identities;
     private final PlayerBodies bodies;
     private final GameState state;
-    private final MessageRenderer renderer;
+    private final TabList tabList;
 
     /** The shared system lines, held for the join line. */
     private final SystemLines lines;
@@ -43,7 +45,7 @@ public final class PresenceListener implements Listener {
     /** The network's limit, which the footer shows: no server has one of its own. */
     private final PlayersSpec network;
 
-    public PresenceListener(
+    public DisconnectBodies(
             final Plugin plugin,
             final Identities identities,
             final PlayerBodies bodies,
@@ -56,7 +58,7 @@ public final class PresenceListener implements Listener {
         this.identities = identities;
         this.bodies = bodies;
         this.state = state;
-        this.renderer = renderer;
+        this.tabList = new TabList(renderer);
         this.lines = lines;
     }
 
@@ -64,11 +66,7 @@ public final class PresenceListener implements Listener {
     private void refreshTabList() {
         for (final Player online : Bukkit.getOnlinePlayers()) {
             final java.util.Locale locale = identities.languageOf(online.getUniqueId());
-            online.sendPlayerListHeaderAndFooter(
-                    renderer.format(locale, PaperCommonMessages.MESSAGES.tab().header()),
-                    renderer.format(
-                            locale,
-                            MESSAGES.tab().footer(Bukkit.getOnlinePlayers().size(), network.maxPlayers())));
+            tabList.drawCounted(online, locale, network);
         }
     }
 

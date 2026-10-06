@@ -31,6 +31,10 @@ public interface PaperCommonMessages {
         /** The one header of every server, since the client keeps it across a server change. */
         @Name("Header")
         MessageRef header();
+
+        /** The footer of every server that lists its players: the count against the network's limit. */
+        @Name("Footer")
+        MessageRef footer(@Arg("online") int online, @Arg("max") int max);
     }
 
     CommandMessages command();

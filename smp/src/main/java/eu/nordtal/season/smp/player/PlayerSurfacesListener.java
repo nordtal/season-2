@@ -15,7 +15,7 @@ import org.bukkit.plugin.Plugin;
  *
  * An admin is a server operator from join to quit, through {@link AdminOperators}.
  */
-public final class PresenceListener implements Listener {
+public final class PlayerSurfacesListener implements Listener {
 
     private final Plugin plugin;
     private final PlayerSurfaces surfaces;
@@ -23,7 +23,7 @@ public final class PresenceListener implements Listener {
     // The season's opening moment; a callback so this package does not depend on the welcome feature.
     private final Consumer<Player> languageReady;
 
-    public PresenceListener(
+    public PlayerSurfacesListener(
             final Plugin plugin,
             final PlayerSurfaces surfaces,
             final SystemLines lines,

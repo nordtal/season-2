@@ -47,7 +47,7 @@ import eu.nordtal.season.smp.milestone.TrackValidation;
 import eu.nordtal.season.smp.navigate.Navigation;
 import eu.nordtal.season.smp.navigate.PlaceDao;
 import eu.nordtal.season.smp.npc.SpawnNpc;
-import eu.nordtal.season.smp.player.PresenceListener;
+import eu.nordtal.season.smp.player.PlayerSurfacesListener;
 import eu.nordtal.season.smp.port.PrizeSource;
 import eu.nordtal.season.smp.prestige.PrestigeColours;
 import eu.nordtal.season.smp.progress.GateHolders;
@@ -143,7 +143,7 @@ public final class SmpPlugin extends NordtalPlugin {
     @Nullable
     BalloonDisplay balloonDisplay;
 
-    private PresenceListener presence;
+    private PlayerSurfacesListener presence;
 
     @Override
     protected String settingsPrefix() {
@@ -255,7 +255,7 @@ public final class SmpPlugin extends NordtalPlugin {
         boards = wired.boards();
         final SmpStart.Presence inputs = SmpStart.wirePresenceInputs(this, spec, wired);
         cinematics = inputs.cinematics();
-        presence = SmpStart.registerPresenceListeners(this, spec, wired, inputs);
+        presence = SmpStart.registerSurfaceListener(this, spec, wired, inputs);
 
         final SmpStart.Progress progress = SmpStart.wireProgressEngine(this, spec, wired.effects());
         prizes = progress.prizes();

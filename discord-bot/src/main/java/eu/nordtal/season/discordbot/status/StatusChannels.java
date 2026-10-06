@@ -3,8 +3,12 @@ package eu.nordtal.season.discordbot.status;
 import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.season.common.SeasonPhase;
+import eu.nordtal.season.common.time.Coalescing;
+import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.network.NetworkSnapshot;
 import eu.nordtal.season.database.network.SnapshotDirectory;
+import eu.nordtal.season.database.notify.Channel;
+import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.database.phase.PhaseDirectory;
 import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.announce.Announcements;
@@ -12,9 +16,12 @@ import eu.nordtal.season.discordbot.config.GuildLanguages;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
@@ -30,6 +37,12 @@ public final class StatusChannels {
 
     /** The floor between two renames of the same channel, half of Discord's budget. */
     static final int MINIMUM_RENAME_MINUTES = 6;
+
+    /** How long the first signal of a burst waits for the ones behind it; the rename floor, not this, paces Discord. */
+    static final Duration SETTLE = Duration.ofSeconds(2);
+
+    /** The channels that move a name: the phase, and the rounds, teams and games; the busy SMP waits for the hub. */
+    static final Set<Channel> CHANNELS = EnumSet.of(Channel.PHASE, Channel.HUNGER_GAMES);
 
     private final JDA jda;
     private final GuildLanguages languages;
@@ -82,6 +95,24 @@ public final class StatusChannels {
         return languages.all().stream()
                 .anyMatch(language ->
                         language.hasStatusChannel() || (announcements != null && language.hasAnnouncementChannel()));
+    }
+
+    /**
+     * Ticks whenever the hub wakes on a channel that moves a name, with signals close together as one tick.
+     * Call before {@link SignalHub#start}.
+     *
+     * @param lane runs the tick, one at a time
+     */
+    public void follow(final SignalHub hub, final Scheduler scheduler, final Executor lane) {
+        final Runnable signal = tickOnSignal(scheduler, lane);
+        for (final Channel channel : CHANNELS) {
+            hub.on(channel, "the status channels", signal);
+        }
+    }
+
+    /** Returns what a signal calls: one tick on the lane after {@link #SETTLE}, shared by the signals of a burst. */
+    Runnable tickOnSignal(final Scheduler scheduler, final Executor lane) {
+        return new Coalescing(scheduler, SETTLE, () -> lane.execute(this::tick))::request;
     }
 
     /** Reads the state, renders a name per language and renames what changed, on every signal of the bot's hub. */

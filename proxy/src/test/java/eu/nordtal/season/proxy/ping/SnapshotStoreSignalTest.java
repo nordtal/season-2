@@ -32,9 +32,10 @@ class SnapshotStoreSignalTest {
             reads.incrementAndGet();
             return NetworkSnapshot.EMPTY;
         });
+        final Runnable signal = store.refreshOnSignal(scheduler);
 
-        for (int signal = 0; signal < 5; signal++) {
-            store.refreshSoon(scheduler);
+        for (int write = 0; write < 5; write++) {
+            signal.run();
         }
         assertEquals(1, scheduler.pending().size(), "five signals share the one read that is waiting");
         assertEquals(0, reads.get(), "the read waits, so the signals that follow the first can join it");
@@ -44,31 +45,16 @@ class SnapshotStoreSignalTest {
     }
 
     @Test
-    void aSignalAfterTheReadStartsAsksForAnother() {
-        final SnapshotStore store = storeReading(() -> {
-            reads.incrementAndGet();
-            return NetworkSnapshot.EMPTY;
-        });
-        store.refreshSoon(scheduler);
-        scheduler.runPending();
-
-        store.refreshSoon(scheduler);
-        assertEquals(1, scheduler.pending().size(), "what changed after the first read is not in it");
-        scheduler.runPending();
-
-        assertEquals(2, reads.get());
-    }
-
-    @Test
     void aFailedReadDoesNotSilenceTheSignalsAfterIt() {
         final SnapshotStore store = storeReading(() -> {
             reads.incrementAndGet();
             throw new IllegalStateException("the database is away");
         });
-        store.refreshSoon(scheduler);
+        final Runnable signal = store.refreshOnSignal(scheduler);
+        signal.run();
         scheduler.runPending();
 
-        store.refreshSoon(scheduler);
+        signal.run();
 
         assertEquals(1, scheduler.pending().size());
     }

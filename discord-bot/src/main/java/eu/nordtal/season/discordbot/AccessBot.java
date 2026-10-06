@@ -468,7 +468,7 @@ public class AccessBot implements AutoCloseable {
         hub.on(Channel.ADMIN, "admin role", () -> scheduler.execute(adminRole::reconcile));
         hub.on(Channel.UPDATE, "the update feed", () -> updateFeed.submit(scheduler));
         if (status.configured()) {
-            hub.on(Channel.PHASE, "the status channels", () -> statusLane.execute(status::tick));
+            status.follow(hub, scheduler, statusLane);
         } else {
             log.info("No language has a status-channel; the sidebar status is off");
         }

@@ -73,7 +73,7 @@ class ProcessRulesTest {
     void theBotSeesThePhaseThroughItsHubAndNotOnATimer() {
         classes()
                 .that(isListed(BOT))
-                .should(callFrom("listen", "Channel#PHASE", "StatusChannels#tick"))
+                .should(callFrom("listen", "StatusChannels#follow"))
                 .andShould(neverCallFrom("schedule", "StatusChannels#tick"))
                 .check(classes);
     }

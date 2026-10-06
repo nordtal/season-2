@@ -19,7 +19,7 @@ class BundleTypographyTest {
     private static final Pattern TAG = Pattern.compile("<[^>]*>");
     private static final Pattern SPACED_HYPHEN = Pattern.compile("(^|\\s)-(\\s|$)");
     private static final Pattern DOUBLE_SPACE = Pattern.compile("\\s{2,}");
-    private static final Pattern DASH = Pattern.compile("[–—]");
+    private static final Pattern DASH = Pattern.compile("[\\u2013\\u2014]");
     private static final Pattern BANNER = Pattern.compile("-{4,}|={4,}|\\*{4,}|#{4,}|/{4,}|_{4,}|~{4,}");
 
     @Test

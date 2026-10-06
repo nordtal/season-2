@@ -58,9 +58,11 @@ describe("reading the version out of a jar's name", () => {
   })
 })
 
-describe("the version a row shows", () => {
-  const texts = (over: Partial<ServicePlugin>) => versionLine(plugin(over)).map((piece) => piece.text)
+function texts(over: Partial<ServicePlugin>): string[] {
+  return versionLine(plugin(over)).map((piece) => piece.text)
+}
 
+describe("the version a row shows", () => {
   it("is the release's alone when the jar is the one it ships", () => {
     expect(texts({ fileName: "smp-0.16.1.jar", release: "0.16.1" })).toEqual(["0.16.1"])
   })

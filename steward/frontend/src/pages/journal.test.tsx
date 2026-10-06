@@ -141,6 +141,13 @@ describe("JournalPage - profiles, never user ids", () => {
 })
 
 /** On a phone an entry is its time and action, and only what they do not already say. */
+/** The labels of the cells a phone leaves out of the card of the row that holds `detail`. */
+async function off(detail: string | RegExp): Promise<string[]> {
+  return [...assertElement((await screen.findByText(detail)).closest("tr"), "a row").querySelectorAll("td")]
+    .filter((cell) => cell.getAttribute("data-phone") === "off")
+    .map((cell) => cell.getAttribute("data-label") ?? "action")
+}
+
 describe("JournalPage - the phone card says each thing once", () => {
   it("leaves out a detail without values and a concerned person who is the actor", async () => {
     vi.stubGlobal(
@@ -168,10 +175,6 @@ describe("JournalPage - the phone card says each thing once", () => {
     )
     draw(<JournalPage />)
 
-    const off = async (detail: string | RegExp) =>
-      [...assertElement((await screen.findByText(detail)).closest("tr"), "a row").querySelectorAll("td")]
-        .filter((cell) => cell.getAttribute("data-phone") === "off")
-        .map((cell) => cell.getAttribute("data-label") ?? "action")
     expect(await off("Started the Hunger Games.")).toEqual(["action", "Concerns", "Detail"])
     expect(await off("This browser gets no push alerts.")).toEqual(["action", "Concerns", "Detail"])
     expect(await off(/^30 days of access, until /)).toEqual(["action"])

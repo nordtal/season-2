@@ -322,6 +322,11 @@ describe("AccessPage - unlink as a row action", () => {
 })
 
 /** An action is drawn only when the row's state allows it, so linked Ally and bare bob differ. */
+/** The labels of the cells a phone leaves out of a row's card. */
+function absent(row: HTMLElement): (string | null)[] {
+  return [...row.querySelectorAll('[data-phone="off"]')].map((cell) => cell.getAttribute("data-label"))
+}
+
 describe("AccessPage - the actions of a row depend on that row", () => {
   it("offers nothing to unlink for somebody with no Minecraft account", async () => {
     vi.stubGlobal("fetch", backend())
@@ -382,8 +387,6 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     draw(<AccessPage />)
 
     const quiet = await rowFor("quiet")
-    const absent = (row: HTMLElement) =>
-      [...row.querySelectorAll('[data-phone="off"]')].map((cell) => cell.getAttribute("data-label"))
     expect(absent(quiet)).toEqual(["Minecraft", "Roles", "Playtime"])
     expect(absent(await rowFor("payer"))).toEqual(["Roles", "Playtime"])
   })

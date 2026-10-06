@@ -98,7 +98,7 @@ final class IconPainter {
             }
             case "condition" ->
                 node.get("on_false") instanceof JsonObject otherwise && draw(raster, otherwise, transformation, item);
-            case "special" -> special(raster, node, item);
+            case "special" -> special(raster, node, item, transformation);
             default -> false;
         };
     }
@@ -213,7 +213,8 @@ final class IconPainter {
      *
      * The flat base model, the entity's boxes or face, a block texture named like the item, else the particle.
      */
-    private boolean special(final Raster raster, final JsonObject node, final String item) {
+    private boolean special(
+            final Raster raster, final JsonObject node, final String item, final Transformation transformation) {
         final String base = text(node, "base");
         final Model model = base == null ? null : Model.resolve(assets, base);
         if (model != null && model.generated() && layers(raster, model, List.of())) {
@@ -230,7 +231,7 @@ final class IconPainter {
         if (FACES.containsKey(kind) && crop(raster, FACES.get(kind))) {
             return true;
         }
-        if (kind.equals("banner") && banner(raster, text(renderer, "color"))) {
+        if (kind.equals("banner") && model != null && banner(raster, model, text(renderer, "color"), transformation)) {
             return true;
         }
         final String path = AssetSource.id(item).substring("minecraft:".length());
@@ -287,19 +288,20 @@ final class IconPainter {
         return boxes(raster, model, List.of(), Transformation.NONE);
     }
 
-    /** A banner as its cloth, the front of the base texture tinted with the banner's dye. */
-    private boolean banner(final Raster raster, final @Nullable String colour) {
-        final BufferedImage base = assets.texture("minecraft:entity/banner/base");
-        if (base == null) {
-            return false;
-        }
-        final int unit = base.getWidth() / 64;
-        final BufferedImage cloth = base.getSubimage(unit, unit, 20 * unit, 40 * unit);
-        final BufferedImage square = new BufferedImage(40 * unit, 40 * unit, BufferedImage.TYPE_INT_ARGB);
-        square.getGraphics().drawImage(cloth, 10 * unit, 0, null);
+    /**
+     * A banner as the game draws it, its cloth tinted with its dye.
+     *
+     * The pole, the bar and the cloth are placed by the item's transformation and posed like the base model.
+     */
+    private boolean banner(
+            final Raster raster, final Model base, final @Nullable String colour, final Transformation transformation) {
+        final Model banner = new Model(
+                Map.of("pole", "minecraft:entity/banner/banner_base", "flag", "minecraft:entity/banner/base"),
+                StandIns.BANNER,
+                base.gui(),
+                false);
         final Integer dye = colour == null ? null : DYES.get(colour.toLowerCase(Locale.ROOT));
-        raster.flat(square, dye == null ? WHITE : 0xFF000000 | dye);
-        return true;
+        return boxes(raster, banner, List.of(dye == null ? WHITE : 0xFF000000 | dye), transformation);
     }
 
     /** A full block of one texture in the GUI pose of {@code block/block}. */

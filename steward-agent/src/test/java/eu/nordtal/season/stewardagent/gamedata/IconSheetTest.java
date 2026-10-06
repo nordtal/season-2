@@ -17,11 +17,12 @@ import java.util.Map;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 
-/** Icons drawn from a client jar's files: a flat item, a block in its inventory pose, and a head's stand-in. */
+/** Icons drawn from a client jar's files: a flat item, a block in its inventory pose, and stand-ins drawn in code. */
 class IconSheetTest {
 
     private static final int RED = 0xFFC00000;
     private static final int GREEN = 0xFF00A000;
+    private static final int WOOD = 0xFF8A7040;
 
     private final Map<String, byte[]> files = new HashMap<>();
     private final AssetSource assets = files::get;
@@ -83,6 +84,37 @@ class IconSheetTest {
     }
 
     @Test
+    void aBannerShowsItsPoleAndItsBarBesideTheDyedCloth() throws IOException {
+        definition("red_banner", """
+                {"model": {"type": "minecraft:special", "base": "minecraft:item/template_banner",
+                  "model": {"type": "minecraft:banner", "color": "red"},
+                  "transformation": {"scale": [0.6666667, -0.6666667, -0.6666667], "translation": [0.5, 0.0, 0.5]}}}""");
+        model("item/template_banner", """
+                {"display": {"gui": {"rotation": [30, 20, 0], "translation": [0, -3.25, 0],
+                  "scale": [0.5325, 0.5325, 0.5325]}}}""");
+        texture("entity/banner/banner_base", square(64, 0, WOOD));
+        texture("entity/banner/base", square(64, 0, 0xFFFFFFFF));
+
+        final BufferedImage icon =
+                only(IconSheet.draw(assets, List.of("minecraft:red_banner")), "minecraft:red_banner");
+
+        int wood = 0;
+        int cloth = 0;
+        for (int x = 0; x < icon.getWidth(); x++) {
+            for (int y = 0; y < icon.getHeight(); y++) {
+                final int pixel = icon.getRGB(x, y);
+                if (pixel >>> 24 != 0 && green(pixel) > blue(pixel) + 10) {
+                    wood++;
+                } else if (pixel >>> 24 != 0 && red(pixel) > 2 * green(pixel)) {
+                    cloth++;
+                }
+            }
+        }
+        assertTrue(wood > 0, "the pole and the bar are drawn in their wood");
+        assertTrue(cloth > wood, "the cloth is the largest part and takes the banner's dye: " + cloth + " " + wood);
+    }
+
+    @Test
     void anItemTheJarDrawsNothingForHasNoSlot() {
         definition("ruby", "{\"model\":{\"type\":\"minecraft:model\",\"model\":\"minecraft:item/ruby\"}}");
         model(
@@ -111,6 +143,14 @@ class IconSheetTest {
 
     private static int red(final int argb) {
         return (argb >> 16) & 0xFF;
+    }
+
+    private static int green(final int argb) {
+        return (argb >> 8) & 0xFF;
+    }
+
+    private static int blue(final int argb) {
+        return argb & 0xFF;
     }
 
     private void definition(final String item, final String json) {

@@ -53,14 +53,6 @@ class EvacuationTest {
     }
 
     @Test
-    void theSweepIsOnlyTheGuarantee() {
-        // The zero beat runs the sweep too; the sweep alone could move people up to RestartWatch.INTERVAL late.
-        assertTrue(
-                RestartWatch.INTERVAL.compareTo(java.time.Duration.ZERO) > 0,
-                "a sweep with no interval would be the decision rather than the guarantee");
-    }
-
-    @Test
     void theRowsMovingServicesAreTheEvacuationWhateverTheReportSays() {
         // Steward decides what moves when its countdown starts; the proxy never reads the report.
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.STOPPING)

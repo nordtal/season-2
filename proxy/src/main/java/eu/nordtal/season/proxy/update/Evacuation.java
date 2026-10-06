@@ -69,11 +69,11 @@ public final class Evacuation {
     }
 
     /**
-     * One pass, beside {@code RestartWatch} on the same interval and notification.
+     * One pass, beside {@code RestartWatch} on the same notification and at its zero.
      *
      * Never throws: Velocity stops running a task that does.
      */
-    public void check() {
+    public synchronized void check() {
         final Set<String> next;
         try {
             // Read first: a pass with no run to report still needs the holds.

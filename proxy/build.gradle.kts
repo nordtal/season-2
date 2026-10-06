@@ -10,8 +10,10 @@ pluginDescriptor {
 }
 
 // ComposeTellsTheStandbyApartTest reads the deployment file itself, so Gradle has to see it as a test input.
+// ProxyTimersTest reads the plugin's own wiring, so Gradle has to see that as a test input too.
 repositoryRootTestInputs {
     reads("compose.yml")
+    reads("proxy/src/main/java/eu/nordtal/season/proxy/ProxyPlugin.java")
 }
 
 dependencies {

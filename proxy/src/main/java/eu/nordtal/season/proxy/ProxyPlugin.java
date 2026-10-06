@@ -172,6 +172,9 @@ public final class ProxyPlugin {
     /** The two update duties the signal hub wakes. */
     private record Updates(RestartWatch restartWatch, Evacuation evacuation) {}
 
+    /** The other reads of database state, which the signal hub wakes too and no timer repeats. */
+    private record Reads(ProxySwap swap, ExpiryWatch expiry, SnapshotStore snapshots) {}
+
     @Inject
     public ProxyPlugin(final ProxyServer proxy, final Logger logger, @DataDirectory final Path dataDirectory) {
         this.proxy = proxy;
@@ -206,7 +209,7 @@ public final class ProxyPlugin {
         final PackSpec pack = settings.load(Group.of("pack", PackSpec.class).checkedBy(ProxySettings::checkPack))
                 .get();
         final NetworkSpec network = settings.load(
-                        Group.of("network", NetworkSpec.class).checkedBy(ProxySettings::checkNetwork))
+                        Group.of("network", NetworkSpec.class).whileRunning())
                 .get();
         // The reply and tone colours, read once here; see Colours.GROUP.
         final ToneColours colours =
@@ -234,14 +237,14 @@ public final class ProxyPlugin {
         final Shared shared = shared(loaded);
         final PackStation packs = wirePackStation(shared);
         final PlayerRouter router = wireRouting(shared, packs);
-        wireLoginGate(shared);
-        wireServerList(shared);
+        final ExpiryWatch expiry = wireLoginGate(shared);
+        final SnapshotStore snapshots = wireServerList(shared);
         final OnlineWriter onlineWriter = wireOnlineCounts(shared);
         wirePlaytime(shared);
         final Updates updates = wireUpdates(shared, packs, onlineWriter);
-        wireProxySwap(shared, updates);
+        final ProxySwap swap = wireProxySwap(shared, updates);
         wireCommands(shared);
-        final SignalHub hub = wireSignals(shared, router, updates);
+        final SignalHub hub = wireSignals(shared, router, updates, new Reads(swap, expiry, snapshots));
         logStartup(shared);
         hub.start();
         startHeartbeat();
@@ -385,7 +388,7 @@ public final class ProxyPlugin {
     }
 
     /** Refuses or admits each login and warns players whose access is about to end. */
-    private void wireLoginGate(final Shared shared) {
+    private ExpiryWatch wireLoginGate(final Shared shared) {
         final GateSpec gate = shared.loaded().gate();
         final LoginGate loginGate = new LoginGate(
                 logger,
@@ -398,6 +401,7 @@ public final class ProxyPlugin {
                 shared.loaded().players().get(),
                 clock);
         final ExpiryWatch expiryWatch = new ExpiryWatch(
+                scheduler,
                 proxy,
                 logger,
                 shared.access(),
@@ -419,16 +423,13 @@ public final class ProxyPlugin {
                                 shared.gateMessages(),
                                 shared.roster(),
                                 logger));
-        final Duration expiryInterval = Duration.ofSeconds(gate.expiryCheckIntervalSeconds());
-        final var _ = scheduler.every(expiryInterval, expiryInterval, expiryWatch::check);
+        return expiryWatch;
     }
 
-    /** Answers the server list from numbers refreshed on a timer, never on the unauthenticated ping itself. */
-    private void wireServerList(final Shared shared) {
+    /** Answers the server list from numbers the signal hub refreshes, never on the unauthenticated ping itself. */
+    private SnapshotStore wireServerList(final Shared shared) {
         final SnapshotStore snapshots = SnapshotStore.using(shared.loaded().pool(), logger);
-        final Duration interval = Duration.ofSeconds(shared.loaded().network().snapshotRefreshSeconds());
         snapshots.refresh();
-        final var _ = scheduler.every(interval, interval, snapshots::refresh);
         proxy.getEventManager()
                 .register(
                         this,
@@ -441,6 +442,7 @@ public final class ProxyPlugin {
                                 languages.locales()[0],
                                 clock,
                                 ServerIcon.load(dataDirectory, logger)));
+        return snapshots;
     }
 
     /** Writes the counts and who is connected, since this proxy knows every connection. */
@@ -482,20 +484,18 @@ public final class ProxyPlugin {
                 shared.renderer(),
                 shared.phaseServers(),
                 clock);
-        final var _ = scheduler.every(RestartWatch.INTERVAL, RestartWatch.INTERVAL, restartWatch::check);
         final Evacuation evacuation =
                 new Evacuation(proxy, logger, UpdateDirectory.using(pool), shared.phaseServers(), shared.homecoming());
         packs.whenUpdating(evacuation::isMoving);
         packs.whenHeld(evacuation::isHeld);
         // The counts hurry from the countdown on, not from the move; see OnlineWriter#tick.
         onlineWriter.whenHurrying(() -> restartWatch.isCountingDown() || evacuation.isAnyMoving());
-        // The countdown already schedules a task on the zero instant; the evacuation rides it.
-        final var _ = scheduler.every(RestartWatch.INTERVAL, RestartWatch.INTERVAL, evacuation::check);
+        // The countdown schedules a task on the zero instant and the commit's notification follows; both wake it.
         return new Updates(restartWatch, evacuation);
     }
 
     /** Parks the network on the standby proxy when this one stops, and takes it back when this one is the standby. */
-    private void wireProxySwap(final Shared shared, final Updates updates) {
+    private ProxySwap wireProxySwap(final Shared shared, final Updates updates) {
         final ProxySwap swap = new ProxySwap(
                 proxy,
                 logger,
@@ -508,7 +508,6 @@ public final class ProxyPlugin {
         updates.restartWatch().whenZeroReached(() -> atZero(updates.evacuation(), swap));
         // Lets the announcement say whether a standby catches players, once per countdown.
         updates.restartWatch().standbyProxyAnswers(swap::canPark);
-        final var _ = scheduler.every(RestartWatch.INTERVAL, RestartWatch.INTERVAL, swap::check);
         // An arrival between zero and the stop gets a sentence and goes to the standby too.
         proxy.getEventManager()
                 .register(
@@ -531,6 +530,7 @@ public final class ProxyPlugin {
                 shared.homecoming());
         final var _ = scheduler.every(StandbyReturn.INTERVAL, StandbyReturn.INTERVAL, standbyReturn::check);
         logSwapPosture(shared, swap);
+        return swap;
     }
 
     /** Says at start how a swap will go, since a silent swap failure would look like a network that went down. */
@@ -602,7 +602,8 @@ public final class ProxyPlugin {
     }
 
     /** Opens the proxy's one LISTEN connection and subscribes every refresh to its channel, without starting it. */
-    private SignalHub wireSignals(final Shared shared, final PlayerRouter router, final Updates updates) {
+    private SignalHub wireSignals(
+            final Shared shared, final PlayerRouter router, final Updates updates, final Reads reads) {
         final Loaded loaded = shared.loaded();
         final DatabaseSpec database = loaded.database();
         final SignalHub hub = SignalHub.open(
@@ -621,6 +622,10 @@ public final class ProxyPlugin {
         // Latency here would drop the 30 second beat.
         hub.on(Channel.UPDATE, "the restart countdown", updates.restartWatch()::check);
         hub.on(Channel.UPDATE, "the update evacuation", updates.evacuation()::check);
+        hub.on(Channel.UPDATE, "the proxy swap", reads.swap()::check);
+        // Every wake-up also runs these, so a change no signal announced waits one quiet minute at most.
+        hub.on(Channel.PHASE, "the players' access", () -> scheduler.execute(reads.expiry()::check));
+        hub.on(Channel.PHASE, "the server list numbers", () -> scheduler.execute(reads.snapshots()::refresh));
         return hub;
     }
 
@@ -640,19 +645,15 @@ public final class ProxyPlugin {
         final SeasonPhase phase = shared.phaseWatch().lastKnown();
         logger.info(
                 "Access login gate is up in phase {} (query timeout {}s, fallback cache window "
-                        + "{}m, expiry check every {}s, play time flushed every "
+                        + "{}m, play time flushed every "
                         + "{}s, waiting room '{}' swept every {}s)",
                 phase,
                 shared.loaded().database().queryTimeoutSeconds(),
                 gate.fallbackCacheWindowMinutes(),
-                gate.expiryCheckIntervalSeconds(),
                 gate.playtimeFlushIntervalSeconds(),
                 shared.phaseServers().limbo(),
                 gate.limboSweepIntervalSeconds());
-        logger.info(
-                "The network takes {} players, enforced here alone. MOTD refreshed every {}s.",
-                players.maxPlayers(),
-                shared.loaded().network().snapshotRefreshSeconds());
+        logger.info("The network takes {} players, enforced here alone.", players.maxPlayers());
         if (phase == SeasonPhase.PRE_LAUNCH) {
             logger.info(
                     "The network has not opened yet: only admins get in, everybody else is shown "

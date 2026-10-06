@@ -7,19 +7,11 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.Order;
 
 /**
- * The proxy's own place in the network: whether it is the standby, where players reach it, how often numbers are read.
+ * The proxy's own place in the network: whether it is the standby, where players reach it.
  * The limit and the allowlist are the network's, in {@code eu.nordtal.season.settings.network}; the MOTD is a message.
  */
 @ConfigSpec
 public interface NetworkSpec {
-
-    @Order(1)
-    @Name("Snapshot refresh (seconds)")
-    @Key("snapshot-refresh-seconds")
-    @Explain("How often the MOTD's live numbers are refreshed from the database; a ping itself never touches it.")
-    default int snapshotRefreshSeconds() {
-        return 10;
-    }
 
     @Order(2)
     @Name("Public address")

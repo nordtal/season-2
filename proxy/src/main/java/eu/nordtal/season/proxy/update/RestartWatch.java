@@ -31,12 +31,9 @@ import org.slf4j.Logger;
 /**
  * Tells every player on the network that it is about to go down, and how long they have.
  *
- * Counts towards the row's {@link UpdateRequest#due()}; the poll catches withdrawals, the notification makes it prompt.
+ * Counts towards the row's {@link UpdateRequest#due()}; a notification, including a withdrawal's, makes it look again.
  */
 public final class RestartWatch {
-
-    /** How often the counting-down row is looked for. */
-    public static final Duration INTERVAL = Duration.ofSeconds(5);
 
     /** How long a tick's subtitle stays up; longer than a second, so the counter does not flicker between ticks. */
     private static final Title.Times TIMES =
@@ -117,7 +114,7 @@ public final class RestartWatch {
         return countdown.watching() != null;
     }
 
-    /** One pass, every {@link #INTERVAL} and on every {@code nordtal_update} notification; never throws. */
+    /** One pass, on every {@code nordtal_update} notification and the hub's quiet minute; never throws. */
     public synchronized void check() {
         final Optional<UpdateRequest> pending;
         try {
@@ -193,8 +190,8 @@ public final class RestartWatch {
                     atZero.run();
                 } catch (final RuntimeException failure) {
                     logger.warn(
-                            "What was scheduled for the end of the countdown failed; the"
-                                    + " five-second sweep behind it is what still has to catch this",
+                            "What was scheduled for the end of the countdown failed; the commit's"
+                                    + " notification is what still has to catch this",
                             failure);
                 }
             }

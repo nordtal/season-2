@@ -10,7 +10,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * The proxy's view of the season phase, refreshed by a poll and a {@code LISTEN} connection.
+ * The proxy's view of the season phase, refreshed by the signal hub's {@code LISTEN} connection.
  *
  * Not read by the login path. Before the first read the phase is {@code MAINTENANCE}, which lets nobody in.
  */

@@ -23,7 +23,6 @@ public final class ProxySettings {
     public static void checkGate(final GateSpec config) {
         Checks.requirePositive("link-code-ttl-minutes", config.linkCodeTtlMinutes());
         Checks.requirePositive("fallback-cache-window-minutes", config.fallbackCacheWindowMinutes());
-        Checks.requirePositive("expiry-check-interval-seconds", config.expiryCheckIntervalSeconds());
         Checks.requirePositive("expiry-warning-lead-minutes", config.expiryWarningLeadMinutes());
         Checks.requirePositive("playtime-flush-interval-seconds", config.playtimeFlushIntervalSeconds());
         Checks.requirePositive("limbo-sweep-interval-seconds", config.limboSweepIntervalSeconds());
@@ -31,15 +30,6 @@ public final class ProxySettings {
         Checks.requireText("server-limbo", config.serverLimbo());
         Checks.requireText("server-hunger-games", config.serverHungerGames());
         Checks.requireText("server-smp", config.serverSmp());
-    }
-
-    /**
-     * Refuses a proxy network group the proxy cannot run on.
-     *
-     * @throws IllegalArgumentException naming the first value that is wrong
-     */
-    public static void checkNetwork(final NetworkSpec config) {
-        Checks.requirePositive("snapshot-refresh-seconds", config.snapshotRefreshSeconds());
     }
 
     /**

@@ -111,8 +111,8 @@ public final class ProxySwap {
         return target != null && isArmed() && probe.answers(target, STANDBY_ANSWERS_WITHIN);
     }
 
-    /** One pass; never throws, since Velocity stops running a task that throws. */
-    public void check() {
+    /** One pass, on every {@code nordtal_update} notification and at zero; never throws. */
+    public synchronized void check() {
         final InetSocketAddress target = standby;
         if (target == null || !isArmed()) {
             return;

@@ -80,7 +80,7 @@ public final class Countdown {
             return Optional.of(new Announcement(Announcement.Kind.CANCELLED, 0L));
         }
         return switch (status) {
-            // Reachable when the poll lands between the countdown running out and the zero beat firing.
+            // Reachable when a signal lands between the countdown running out and the zero beat firing.
             case RUNNING, DONE -> Optional.of(new Announcement(Announcement.Kind.NOW, 0L));
             case FAILED -> Optional.of(new Announcement(Announcement.Kind.FAILED, 0L));
             case CANCELLED -> Optional.of(new Announcement(Announcement.Kind.CANCELLED, 0L));

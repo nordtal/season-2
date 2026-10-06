@@ -35,14 +35,6 @@ public interface GateSpec {
         return 15;
     }
 
-    @Order(4)
-    @Name("Expiry check interval (seconds)")
-    @Key("expiry-check-interval-seconds")
-    @Explain("How often a connected player's access is re-checked live, so a mid-session revoke or renewal is noticed.")
-    default int expiryCheckIntervalSeconds() {
-        return 60;
-    }
-
     @Order(5)
     @Name("Warning before expiry (minutes)")
     @Key("expiry-warning-lead-minutes")

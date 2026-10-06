@@ -8,7 +8,7 @@ import javax.sql.DataSource;
 import org.slf4j.Logger;
 
 /**
- * Holds the last snapshot that came back, and refreshes it on a timer.
+ * Holds the last snapshot that came back, and refreshes it when the signal hub wakes.
  *
  * A failed refresh keeps the previous snapshot; {@link #current()} is a field read for the ping path.
  */
@@ -36,7 +36,7 @@ public final class SnapshotStore {
                 current.get(), "current is seeded with NetworkSnapshot.EMPTY and never set to null");
     }
 
-    /** Runs the query and replaces the snapshot; called from the scheduler, never from a ping. */
+    /** Runs the query and replaces the snapshot; called off the hub's thread, never from a ping. */
     public void refresh() {
         try {
             final NetworkSnapshot snapshot = snapshots.snapshot();
@@ -44,7 +44,7 @@ public final class SnapshotStore {
                 current.set(snapshot);
             }
         } catch (final RuntimeException failure) {
-            // The next tick retries, and a stale snapshot beats no numbers at all.
+            // The hub's next wake-up retries, and a stale snapshot beats no numbers at all.
             logger.warn(
                     "Could not refresh the MOTD snapshot; the server browser keeps showing the " + "previous numbers",
                     failure);

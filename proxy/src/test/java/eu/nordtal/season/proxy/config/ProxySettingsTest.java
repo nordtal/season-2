@@ -65,7 +65,6 @@ class ProxySettingsTest {
                         + "Discord and an address that never changes beats one that can expire");
         assertEquals(10, config.linkCodeTtlMinutes());
         assertEquals(15, config.fallbackCacheWindowMinutes());
-        assertEquals(60, config.expiryCheckIntervalSeconds());
         assertEquals(5, config.expiryWarningLeadMinutes());
         assertEquals(
                 300,
@@ -257,25 +256,11 @@ class ProxySettingsTest {
 
     @Test
     void aFreshNetworkGroupIsTheMainProxyWithoutATransferAddress() throws Exception {
-        final NetworkSpec config = store.checked(
-                "proxy", Group.of("network", NetworkSpec.class).checkedBy(ProxySettings::checkNetwork), values);
+        final NetworkSpec config =
+                store.checked("proxy", Group.of("network", NetworkSpec.class).whileRunning(), values);
 
         assertFalse(config.standby());
         assertEquals("", config.publicAddress());
-        assertEquals(10, config.snapshotRefreshSeconds());
-    }
-
-    @Test
-    void aRefreshThatNeverComesIsRefused() {
-        values.put("snapshot-refresh-seconds", 0);
-
-        final SettingsException error = assertThrows(
-                SettingsException.class,
-                () -> store.checked(
-                        "proxy",
-                        Group.of("network", NetworkSpec.class).checkedBy(ProxySettings::checkNetwork),
-                        values));
-        assertTrue(error.getMessage().contains("snapshot-refresh-seconds"), error.getMessage());
     }
 
     /** Takes the proxy's database settings from an environment holding what {@link #values} names. */

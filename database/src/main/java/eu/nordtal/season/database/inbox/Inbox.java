@@ -309,6 +309,11 @@ public final class Inbox<P> {
                     .define("table", table.name())
                     .bind("row", row)
                     .execute();
+            // The proxy and the agent may hold a countdown the dump knows nothing of; this tells them to look again.
+            handle.createQuery("SELECT pg_notify(:channel, '') IS NULL")
+                    .bind("channel", table.channel().sqlName())
+                    .mapTo(Boolean.class)
+                    .one();
             handle.createQuery("SELECT setval(pg_get_serial_sequence(:name, 'id'), (SELECT max(id) FROM <table>))")
                     .define("table", table.name())
                     .bind("name", table.name())

@@ -1,5 +1,7 @@
 package eu.nordtal.season.database.update;
 
+import eu.nordtal.season.database.notify.Channel;
+import eu.nordtal.season.database.notify.Notifies;
 import java.util.List;
 import java.util.Optional;
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
@@ -11,6 +13,7 @@ import org.jspecify.annotations.Nullable;
 
 /** The SQL a run adds to the run inbox, whose state machine is the inbox's; {@link UpdateDirectory} is the API. */
 @RegisterRowMapper(UpdateRequestMapper.class)
+@Notifies(Channel.UPDATE)
 interface UpdateDao {
 
     /** Returns the oldest run that is pending or running, which is what refuses a new one. */
@@ -84,7 +87,7 @@ interface UpdateDao {
                 WHERE id = :id AND status = 'RUNNING'
                 RETURNING *
             )
-            SELECT updated.*, pg_notify('nordtal_update', '') AS notified
+            SELECT updated.*, pg_notify(:channel, '') AS notified
             FROM updated
             """)
     Optional<UpdateRequest> startCountdown(
@@ -102,7 +105,7 @@ interface UpdateDao {
                 WHERE id = :id AND status = 'RUNNING'
                 RETURNING id
             )
-            SELECT committed.id, pg_notify('nordtal_update', '') AS notified FROM committed
+            SELECT committed.id, pg_notify(:channel, '') AS notified FROM committed
             """)
     Optional<Long> commitCountdown(@Bind("id") long id);
 
@@ -163,7 +166,7 @@ interface UpdateDao {
                 WHERE id IN (SELECT id FROM cancellable)
                 RETURNING *
             )
-            SELECT cancelled.*, pg_notify('nordtal_update', '') AS notified FROM cancelled
+            SELECT cancelled.*, pg_notify(:channel, '') AS notified FROM cancelled
             """)
     Optional<UpdateRequest> cancelCountdown();
 
@@ -187,21 +190,28 @@ interface UpdateDao {
     @RegisterRowMapper(ServiceHoldMapper.class)
     List<ServiceHold> holds();
 
-    /** Writes the hold, or refreshes the one already there so the newest press says who holds it. */
-    @SqlUpdate("""
-            INSERT INTO service_hold (service, actor_kind, actor_id, request_id)
-            VALUES (:service, :actorKind, :actorId, :requestId)
-            ON CONFLICT (service) DO UPDATE
-                SET since = now(), actor_kind = EXCLUDED.actor_kind, actor_id = EXCLUDED.actor_id,
-                    request_id = EXCLUDED.request_id
+    /** Writes the hold, or refreshes the one already there so the newest press says who holds it; announced. */
+    @SqlQuery("""
+            WITH held AS (
+                INSERT INTO service_hold (service, actor_kind, actor_id, request_id)
+                VALUES (:service, :actorKind, :actorId, :requestId)
+                ON CONFLICT (service) DO UPDATE
+                    SET since = now(), actor_kind = EXCLUDED.actor_kind, actor_id = EXCLUDED.actor_id,
+                        request_id = EXCLUDED.request_id
+                RETURNING service
+            )
+            SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM held) AS announced
             """)
-    void hold(
+    int hold(
             @Bind("service") String service,
             @Bind("actorKind") String actorKind,
             @Bind("actorId") @Nullable String actorId,
             @Bind("requestId") @Nullable Long requestId);
 
-    /** Returns how many rows went away; zero when it was not being held. */
-    @SqlUpdate("DELETE FROM service_hold WHERE service = :service")
+    /** Returns how many rows went away, zero when it was not being held; announced when one did. */
+    @SqlQuery("""
+            WITH released AS (DELETE FROM service_hold WHERE service = :service RETURNING service)
+            SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM released) AS announced
+            """)
     int release(@Bind("service") String service);
 }

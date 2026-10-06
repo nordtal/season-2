@@ -118,6 +118,7 @@ the `steward-agent` image. The libraries below are compiled into the jars above.
 | `spec`              | library         | The spec interfaces every settings group is written as, and the schema Steward draws its forms from.             |
 | `resource-pack`     | assets          | The pack, the glyph allocation its fonts are written from, and the zip + SHA-1 a release ships.                  |
 | `architecture`      | tests           | The ArchUnit rules over every module's compiled classes: the dependency lists and the wiring.                    |
+| `shipped-jars`      | tests           | Every shipped jar loaded as its host loads it, and its database pool opened on a throwaway PostgreSQL.           |
 
 [`architecture`](architecture/README.md) holds the dependency rules between them as tests.
 

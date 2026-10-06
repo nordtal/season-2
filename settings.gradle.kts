@@ -87,3 +87,6 @@ if (buildRoot.isPresent) {
         }
     }
 }
+
+// Every shipped jar opened the way its host opens it, against a throwaway PostgreSQL.
+include("shipped-jars")

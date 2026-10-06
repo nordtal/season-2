@@ -21,8 +21,15 @@ public interface ContainerOps {
     /** Stops one container within the implementation's grace period, after which Docker kills it. */
     RedeployResult stop(String containerId);
 
-    /** Starts one container again; {@link #runtime()} answers whether it is back. */
+    /** Starts one container again, its mounts handed over first; {@link #runtime()} answers whether it is back. */
     RedeployResult start(String containerId);
+
+    /**
+     * Hands everything one service mounts to the user it runs as, as every start does first.
+     *
+     * A failure is logged and not answered: the service still reads what it was handed last.
+     */
+    void handOverMounts(String service);
 
     /** Which services run an image the registry has moved past, read before anything stops so the plan can show it. */
     ImageResult images();

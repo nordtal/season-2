@@ -191,11 +191,30 @@ class ChoreographyTest {
         assertEquals(1, said.size(), said.toString());
         assertTrue(said.get(0).contains("limbo-standby"), said.toString());
         assertTrue(said.get(0).contains("stopped again"), said.toString());
-        assertEquals(List.of("stop:limbo-standby-container-2"), containers.calls);
+        assertEquals(List.of("stop:limbo-standby-container-2", "hand-over-mounts:limbo-standby"), containers.calls);
 
         // Idempotent, because the run closes its window on the ordinary path AND in a finally.
         assertEquals(List.of(), choreography.close());
-        assertEquals(List.of("stop:limbo-standby-container-2"), containers.calls);
+        assertEquals(List.of("stop:limbo-standby-container-2", "hand-over-mounts:limbo-standby"), containers.calls);
+    }
+
+    @Test
+    void aStoppedStandbyIsHandedItsMountsAgainSinceTheInstallMirroredIntoThemAsRoot() {
+        final FakeContainers containers = new FakeContainers().running("proxy", "limbo");
+        final Choreography choreography = new Choreography(containers, Occupancy.NONE, driven());
+        choreography.open(List.of("proxy", "limbo"));
+        containers.calls.clear();
+
+        choreography.close();
+
+        assertEquals(
+                List.of(
+                        "stop:proxy-standby-container-2",
+                        "hand-over-mounts:proxy-standby",
+                        "stop:limbo-standby-container-2",
+                        "hand-over-mounts:limbo-standby"),
+                containers.calls,
+                "the jars the install copied in belong to root until the standby's own user is handed them");
     }
 
     @Test
@@ -210,7 +229,7 @@ class ChoreographyTest {
 
         final List<String> said = Told.english(choreography.close());
 
-        assertEquals(List.of("stop:proxy-standby-container-2"), containers.calls);
+        assertEquals(List.of("stop:proxy-standby-container-2", "hand-over-mounts:proxy-standby"), containers.calls);
         assertTrue(said.get(0).endsWith("has been stopped again"), said.toString());
         assertEquals(
                 Duration.ofSeconds(1),

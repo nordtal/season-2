@@ -250,6 +250,11 @@ final class FakeContainers implements ContainerOps {
     }
 
     @Override
+    public void handOverMounts(final String service) {
+        calls.add("hand-over-mounts:" + service);
+    }
+
+    @Override
     public RedeployResult start(final String containerId) {
         calls.add("start:" + containerId);
         // Started, and NOT healthy: that is the whole distinction the verify step exists for.

@@ -96,7 +96,8 @@ files directly in the backups.
   the running painter differs. Nothing of Mojang's is kept.
 - Every `up`, recreate and start of a service whose `user:` is a uid first hands its mounts to that
   uid (`Compose#handOver`), in a throwaway of the service's own image with `--pull never`, so the agent
-  reads nothing of the volume and a volume that is already the uid's is left as it is.
+  reads nothing of the volume and a volume that is already the uid's is left as it is. A standby is
+  handed its mounts again once a run stops it, since the install mirrors into them while it runs.
 - An update stops the services whose jars or containers change, runs `migrate`, installs, starts
   them and waits for healthy. `bootstrap` fills empty slots and restarts nothing. A report writes nothing.
 - Two steward processes cannot serve or move jars at once (advisory locks).

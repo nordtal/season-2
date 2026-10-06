@@ -218,6 +218,8 @@ final class Choreography {
             }
             final RedeployResult stopped = containers.stop(id);
             standing.remove(standby);
+            // The install mirrored its service's plugins into it as root while it ran.
+            containers.handOverMounts(standby);
             if (!stopped.triggered()) {
                 said.add(TEXTS.report().standbyNotStopped(standby, stopped.message()));
             } else if (waited == null) {

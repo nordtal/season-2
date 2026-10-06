@@ -11,6 +11,12 @@ import org.junit.jupiter.api.Test;
 class LanguagesTest {
 
     @Test
+    void theDefaultTagIsTheDefaultLocalesOwn() {
+        assertEquals(Locales.DEFAULT_TAG, Locales.tag(Locales.DEFAULT));
+        assertEquals(Locales.DEFAULT, Locales.parse(Locales.DEFAULT_TAG));
+    }
+
+    @Test
     void theFallbackComesFirstThenTheOthersInOrder() {
         final Languages languages = new Languages(List.of("en", "de"));
         assertArrayEquals(new Locale[] {Locale.ENGLISH, Locale.GERMAN}, languages.locales());

@@ -1,7 +1,7 @@
 package eu.nordtal.season.discordbot.onboarding;
 
 import eu.nordtal.season.common.language.Locales;
-import eu.nordtal.season.discordbot.config.Languages;
+import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.discordbot.config.OnboardingSpec;
 import eu.nordtal.season.discordbot.roles.GuildRoles;
 import java.util.ArrayList;
@@ -42,7 +42,7 @@ final class Choices {
         this.lockName = lockName;
     }
 
-    static Choices of(final Languages languages, final OnboardingSpec onboarding) {
+    static Choices of(final GuildLanguages languages, final OnboardingSpec onboarding) {
         final List<Choice> spoken = languages.all().stream()
                 .map(language -> new Choice(
                         Kind.LANGUAGE,

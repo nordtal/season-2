@@ -1,6 +1,7 @@
 package eu.nordtal.season.discordbot;
 
 import eu.nordtal.season.common.health.Readiness;
+import eu.nordtal.season.common.language.Languages;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.common.time.NetworkTime;
 import eu.nordtal.season.common.time.ProcessScheduler;
@@ -33,7 +34,7 @@ import eu.nordtal.season.discordbot.config.AccessSpec;
 import eu.nordtal.season.discordbot.config.BotSettings;
 import eu.nordtal.season.discordbot.config.BotSpec;
 import eu.nordtal.season.discordbot.config.Configured;
-import eu.nordtal.season.discordbot.config.Languages;
+import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.discordbot.config.OnboardingSpec;
 import eu.nordtal.season.discordbot.discord.AdminRole;
 import eu.nordtal.season.discordbot.discord.BotAccessEffects;
@@ -109,7 +110,7 @@ public class AccessBot implements AutoCloseable {
     private final Executor statusLane = scheduler.serial();
 
     private record CoreServices(
-            Languages languages,
+            GuildLanguages languages,
             DiscordRenderer messages,
             Tiers tiers,
             PaymentRequests requests,
@@ -139,10 +140,12 @@ public class AccessBot implements AutoCloseable {
             SchemaCheck.validate(database.dataSource());
             final DatabaseSettings settings = BotSettings.stored(database.dataSource());
             final BotSpec botConfig = BotSettings.bot(settings).get();
-            final AccessSpec accessConfig = BotSettings.access(settings).get();
-            final SeasonSpec season = settings.load(NetworkSettings.SEASON).get();
             final LanguageAndTimeSpec languageAndTime =
                     settings.load(NetworkSettings.LANGUAGE_AND_TIME).get();
+            final Languages network = NetworkSettings.languages(languageAndTime);
+            final AccessSpec accessConfig =
+                    BotSettings.access(settings, network).get();
+            final SeasonSpec season = settings.load(NetworkSettings.SEASON).get();
             final Tiers tiers =
                     NetworkSettings.tiers(settings.load(NetworkSettings.PRICES).get());
             final Setting<OnboardingSpec> onboarding = BotSettings.onboarding(settings);
@@ -153,7 +156,8 @@ public class AccessBot implements AutoCloseable {
             // steward's inbox: the bot writes requests and reads answers, never updating them.
             final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
 
-            final CoreServices core = loadCoreServices(accessConfig, season, languageAndTime, tiers, onboarding);
+            final CoreServices core =
+                    loadCoreServices(accessConfig, network, season, languageAndTime, tiers, onboarding);
             this.jda = connectJda(botConfig);
 
             final DiscordWiring wiring = wireDiscord(jda, accessConfig, core, phases);
@@ -229,11 +233,12 @@ public class AccessBot implements AutoCloseable {
 
     private CoreServices loadCoreServices(
             final AccessSpec accessConfig,
+            final Languages network,
             final SeasonSpec season,
             final LanguageAndTimeSpec languageAndTime,
             final Tiers tiers,
             final Setting<OnboardingSpec> onboarding) {
-        final Languages languages = Languages.of(accessConfig);
+        final GuildLanguages languages = GuildLanguages.of(accessConfig, network);
         final DiscordRenderer messages =
                 DiscordRenderer.of(Messages.load(AccessBot.class.getClassLoader(), BUNDLES, languages.locales())
                         // Discord paints no tones.
@@ -274,7 +279,16 @@ public class AccessBot implements AutoCloseable {
         final Onboarding onboarding = onboarding(jda, accessConfig, core, guildRoles, admin, onboardingLane);
         // The onboarding's lock withholds the access and donor roles from whoever it holds.
         final AccessRoles roles = new AccessRoles(
-                jda, accessConfig, guildRoles, onboarding, access, core.messages(), admin, database.jdbi(), clock);
+                jda,
+                accessConfig,
+                core.languages(),
+                guildRoles,
+                onboarding,
+                access,
+                core.messages(),
+                admin,
+                database.jdbi(),
+                clock);
         final BookingReaction bookings =
                 new BookingReaction(core.languages(), roles, admin, core.messages(), jda, seasonStart);
         // A grant tree decided in Steward; the bot drops a branch when its admin leaves the guild, never grants.
@@ -390,7 +404,7 @@ public class AccessBot implements AutoCloseable {
 
     private void publishAndReconcile(
             final JDA jda,
-            final Languages languages,
+            final GuildLanguages languages,
             final Tiers tiers,
             final DiscordRenderer messages,
             final DiscordWiring wiring) {

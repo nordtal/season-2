@@ -1,5 +1,6 @@
 package eu.nordtal.season.internalapi.agent;
 
+import eu.nordtal.season.common.language.Locales;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -39,8 +40,9 @@ public record MessageEntry(
         @Nullable String shown) {
 
     /** English first, as the fallback every process shows, then by tag. */
-    private static final Comparator<String> BY_LANGUAGE =
-            Comparator.comparing((String language) -> !"en".equals(language)).thenComparing(language -> language);
+    private static final Comparator<String> BY_LANGUAGE = Comparator.comparing(
+                    (String language) -> !Locales.DEFAULT_TAG.equals(language))
+            .thenComparing(language -> language);
 
     public MessageEntry {
         texts = ordered(texts);

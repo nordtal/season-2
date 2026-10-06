@@ -6,7 +6,7 @@ import eu.nordtal.season.discordbot.Card;
 import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.Ids;
 import eu.nordtal.season.discordbot.ManagedMessage;
-import eu.nordtal.season.discordbot.config.Languages;
+import eu.nordtal.season.discordbot.config.GuildLanguages;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -30,11 +30,11 @@ final class OnboardingMessage {
     /** And at most five buttons in one row. */
     private static final int ROW = 5;
 
-    private final Languages languages;
+    private final GuildLanguages languages;
     private final DiscordRenderer messages;
     private final ManagedMessage managed;
 
-    OnboardingMessage(final Languages languages, final DiscordRenderer messages, final ManagedMessage managed) {
+    OnboardingMessage(final GuildLanguages languages, final DiscordRenderer messages, final ManagedMessage managed) {
         this.languages = languages;
         this.messages = messages;
         this.managed = managed;
@@ -42,11 +42,11 @@ final class OnboardingMessage {
 
     /** Posts or edits the message in {@code channelId}; an empty id means none. */
     void publish(final String channelId) {
-        final List<Languages.Language> shown =
+        final List<GuildLanguages.Language> shown =
                 languages.all().stream().limit(EMBEDS).toList();
         final List<MessageEmbed> embeds = new ArrayList<>();
         final List<Button> buttons = new ArrayList<>();
-        for (final Languages.Language language : shown) {
+        for (final GuildLanguages.Language language : shown) {
             final Locale locale = language.locale();
             final String button = messages.format(locale, MESSAGES.onboarding().button());
             embeds.add(Card.of(messages.format(locale, MESSAGES.onboarding().title()))

@@ -1,5 +1,6 @@
 package eu.nordtal.season.discordbot.config;
 
+import eu.nordtal.season.common.language.Languages;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.settings.Checks;
 import eu.nordtal.season.settings.DatabasePool;
@@ -14,7 +15,6 @@ import eu.nordtal.season.settings.SettingsException;
 import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import javax.sql.DataSource;
 import org.slf4j.LoggerFactory;
@@ -32,9 +32,6 @@ public final class BotSettings {
     /** The bot's environment: every group under {@code NORDTAL_<GROUP>}. */
     static final Environment ENVIRONMENT = Environment.of("NORDTAL");
 
-    /** The guild, its roles and channels, and the languages. */
-    static final Group<AccessSpec> ACCESS = Group.of("access", AccessSpec.class).checkedBy(BotSettings::validateAccess);
-
     /** Where a member chooses a language and a region, and the lock; taken while the bot runs. */
     static final Group<OnboardingSpec> ONBOARDING = Group.of("onboarding", OnboardingSpec.class)
             .checkedBy(BotSettings::validateOnboarding)
@@ -46,24 +43,10 @@ public final class BotSettings {
     /** As long as Discord lets a role's name be. */
     private static final int MAX_ROLE_NAME = 100;
 
-    /** The one language the access settings may not leave out, the one {@link AccessSpec#languages()} protects. */
-    private static final String FALLBACK_LANGUAGE = Languages.FALLBACK_TAG;
-
     /**
      * The longest tag {@code managed_message.kind}, a {@code varchar(32)} holding {@code "CONTRIBUTION_" + TAG}, fits.
      */
     private static final int MAX_TAG_LENGTH = 32 - "CONTRIBUTION_".length();
-
-    /** The usable shape of the language list, with a slot for why the current one is not. */
-    private static final String SHAPE_OF_LANGUAGES = """
-            %s Write at least the fallback:
-
-              languages:
-              - tag: en
-                role-name: English
-                contribution-channel: '000000000000000000'
-                link-channel: '000000000000000000'
-                hunger-games-channel: '000000000000000000'""";
 
     private BotSettings() {}
 
@@ -85,9 +68,19 @@ public final class BotSettings {
                 .checkedBy(config -> Checks.requireSecret("token", "NORDTAL_BOT_TOKEN", config.token())));
     }
 
-    /** Loads the guild, its roles and channels, the price list and the languages. */
-    public static Setting<AccessSpec> access(final Settings settings) throws SettingsException {
-        return settings.load(ACCESS);
+    /** The guild, its roles and channels, and the Discord data of each language the network speaks. */
+    static Group<AccessSpec> accessGroup(final Languages network) {
+        return Group.of("access", AccessSpec.class).checkedBy(config -> validateAccess(config, network));
+    }
+
+    /**
+     * Loads the guild, its roles and channels and the Discord data of each network language.
+     *
+     * @param network the languages the network speaks, which the access group has an entry for each of
+     */
+    public static Setting<AccessSpec> access(final Settings settings, final Languages network)
+            throws SettingsException {
+        return settings.load(accessGroup(network));
     }
 
     /** Loads the onboarding: its channel, the lock and the regions. */
@@ -96,7 +89,7 @@ public final class BotSettings {
     }
 
     /** Validates the access settings; snowflakes must be numeric, not merely non-empty. */
-    private static void validateAccess(final AccessSpec config) {
+    private static void validateAccess(final AccessSpec config, final Languages network) {
         // No guild means nothing to act on.
         requireSnowflake("guild-id", config.guildId());
 
@@ -108,9 +101,9 @@ public final class BotSettings {
         // Optional; empty means the feature is not served.
         requireSnowflakeIfSet("channels.admin", config.channels().admin());
 
-        validateLanguages(config.languages());
+        validateLanguages(config.languages(), network);
         for (final AccessSpec.LanguageSpec language : config.languages()) {
-            requireRoleName("languages[" + language.tag() + "].role-name", Languages.roleNameOf(language), names);
+            requireRoleName("languages[" + language.tag() + "].role-name", GuildLanguages.roleNameOf(language), names);
         }
 
         Checks.requirePositive("expiry-reminder-lead-days", config.expiryReminderLeadDays());
@@ -119,34 +112,18 @@ public final class BotSettings {
         Checks.requirePositive("payment.request-ttl-hours", config.payment().requestTtlHours());
     }
 
-    /** Validates the language list: non-empty, unique lower case tags, {@code en} present. */
-    private static void validateLanguages(final List<AccessSpec.LanguageSpec> languages) {
-        if (languages == null || languages.isEmpty()) {
-            throw new IllegalArgumentException(
-                    SHAPE_OF_LANGUAGES.formatted("languages is empty, so nothing can be said to anybody."));
-        }
+    /** Validates the language list: one entry for each network language, tags a managed message fits, snowflakes. */
+    private static void validateLanguages(final List<AccessSpec.LanguageSpec> languages, final Languages network) {
+        GuildLanguages.requireTagsOf(
+                network, languages.stream().map(AccessSpec.LanguageSpec::tag).toList());
 
-        final Set<String> tags = new HashSet<>();
         for (int index = 0; index < languages.size(); index++) {
             final AccessSpec.LanguageSpec language = languages.get(index);
             final String path = "languages[" + index + "]";
-            final String tag = language.tag() == null ? "" : language.tag();
-
-            if (tag.isBlank()) {
-                throw new IllegalArgumentException(path + ".tag is empty. A language is identified "
-                        + "by its tag; it is also the name of its .properties bundle.");
-            }
-            if (!tag.equals(tag.toLowerCase(Locale.ROOT))) {
-                throw new IllegalArgumentException(path + ".tag must be lower case, was: " + tag);
-            }
-            if (tag.length() > MAX_TAG_LENGTH) {
+            if (language.tag().length() > MAX_TAG_LENGTH) {
                 // A longer tag would load here and fail on the INSERT instead.
                 throw new IllegalArgumentException(path + ".tag is longer than " + MAX_TAG_LENGTH
-                        + " characters, which is as long as a managed message's key can be: " + tag);
-            }
-            if (!tags.add(tag)) {
-                throw new IllegalArgumentException(path + " uses the tag '" + tag + "', which "
-                        + "another entry already uses. Tags identify a language and must be unique.");
+                        + " characters, which is as long as a managed message's key can be: " + language.tag());
             }
 
             // All optional; present, each must be a snowflake.
@@ -160,11 +137,6 @@ public final class BotSettings {
         if (languages.size() > MAX_CHOICES) {
             throw new IllegalArgumentException("languages holds " + languages.size() + " entries; a member chooses"
                     + " from at most " + MAX_CHOICES + ".");
-        }
-        if (!tags.contains(FALLBACK_LANGUAGE)) {
-            throw new IllegalArgumentException(SHAPE_OF_LANGUAGES.formatted(
-                    "languages has no '" + FALLBACK_LANGUAGE + "' entry. English is the fallback "
-                            + "every missing translation degrades to and cannot be left out."));
         }
     }
 

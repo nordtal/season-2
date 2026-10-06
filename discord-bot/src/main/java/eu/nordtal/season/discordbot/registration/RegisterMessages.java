@@ -6,7 +6,7 @@ import eu.nordtal.season.database.registration.Game;
 import eu.nordtal.season.discordbot.Card;
 import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.ManagedMessage;
-import eu.nordtal.season.discordbot.config.Languages;
+import eu.nordtal.season.discordbot.config.GuildLanguages;
 import java.util.List;
 import java.util.Locale;
 import net.dv8tion.jda.api.JDA;
@@ -18,12 +18,13 @@ import org.jdbi.v3.core.Jdbi;
 /** Posts and edits a game's Register message, one per configured language, each a {@link ManagedMessage}. */
 public final class RegisterMessages {
 
-    private final Languages languages;
+    private final GuildLanguages languages;
     private final DiscordRenderer messages;
     private final ManagedMessage managed;
     private final Ids ids = Ids.of(Game.HUNGER_GAMES);
 
-    public RegisterMessages(final JDA jda, final Languages languages, final DiscordRenderer messages, final Jdbi jdbi) {
+    public RegisterMessages(
+            final JDA jda, final GuildLanguages languages, final DiscordRenderer messages, final Jdbi jdbi) {
         this.languages = languages;
         this.messages = messages;
         this.managed = new ManagedMessage(jda, jdbi);
@@ -31,7 +32,7 @@ public final class RegisterMessages {
 
     /** Posts or edits the Register message in every configured language's channel. */
     public void publishAll() {
-        for (final Languages.Language language : languages.all()) {
+        for (final GuildLanguages.Language language : languages.all()) {
             publish(language.hungerGamesRegisterKind(), language.hungerGamesChannelId(), language.locale());
         }
     }

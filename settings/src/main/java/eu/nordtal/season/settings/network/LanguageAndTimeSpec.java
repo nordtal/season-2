@@ -1,5 +1,6 @@
 package eu.nordtal.season.settings.network;
 
+import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
@@ -16,7 +17,7 @@ public interface LanguageAndTimeSpec {
     @Key("default-language")
     @Explain("What a reader with no language of their own is shown; en, since only English is complete.")
     default String defaultLanguage() {
-        return "en";
+        return Locales.DEFAULT_TAG;
     }
 
     @Order(2)
@@ -24,7 +25,7 @@ public interface LanguageAndTimeSpec {
     @Key("languages")
     @Explain("Every language the network speaks, as lower case tags; taken at the next start.")
     default List<String> languages() {
-        return List.of("en", "de");
+        return List.of(Locales.DEFAULT_TAG, "de");
     }
 
     @Order(3)

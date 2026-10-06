@@ -1,5 +1,6 @@
 package eu.nordtal.season.messages.spec;
 
+import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.messages.text.Declaration;
 import eu.nordtal.season.messages.text.MessageCheck;
 import java.util.ArrayList;
@@ -27,7 +28,7 @@ public final class MessageSpecCheck {
         final List<String> problems = new ArrayList<>();
         final MessageSchema.Bundle schema = MessageSchema.of(spec);
         final List<MessageSchema.Entry> entries = schema.messages();
-        final Map<String, List<String>> english = MessageSchema.texts(spec, "en");
+        final Map<String, List<String>> english = MessageSchema.texts(spec, Locales.DEFAULT_TAG);
         final Map<String, List<String>> german = MessageSchema.texts(spec, "de");
         if (english.isEmpty()) {
             problems.add("messages/" + MessageSchema.bundle(spec) + "/en.properties is missing or empty");
@@ -58,7 +59,7 @@ public final class MessageSpecCheck {
                 continue;
             }
             final Declaration declaration = schema.declaration(entry);
-            check(problems, key, "en", english.get(key), declaration);
+            check(problems, key, Locales.DEFAULT_TAG, english.get(key), declaration);
             check(problems, key, "de", german.getOrDefault(key, List.of()), declaration);
         }
         problems.addAll(formerNames(spec, entries, declared));

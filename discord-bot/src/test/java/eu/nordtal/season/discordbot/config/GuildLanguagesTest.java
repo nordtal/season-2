@@ -7,27 +7,33 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.common.language.Languages;
 import java.util.List;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
-/** The language rules {@link Languages} owns, which the guild-facing classes cannot exercise without a guild. */
+/** The language rules {@link GuildLanguages} owns, which the guild-facing classes cannot exercise without a guild. */
 class LanguagesTest {
 
-    private static final Languages.Language EN = new Languages.Language("en", "English", "11", "12", "13", "14");
-    private static final Languages.Language DE = new Languages.Language("de", "Deutsch", "21", "22", "23", "24");
-    private static final Languages.Language FR = new Languages.Language("fr", "Français", "31", "32", "33", "");
+    private static final Languages NETWORK = new Languages(List.of("en", "de"));
+    private static final GuildLanguages.Language EN =
+            new GuildLanguages.Language("en", "English", "11", "12", "13", "14");
+    private static final GuildLanguages.Language DE =
+            new GuildLanguages.Language("de", "Deutsch", "21", "22", "23", "24");
+    private static final GuildLanguages.Language FR =
+            new GuildLanguages.Language("fr", "Français", "31", "32", "33", "");
 
     /** The two languages that exist today, in the order {@code DefaultLanguages} writes them. */
-    private static Languages today() {
-        return Languages.of(List.of(EN, DE));
+    private static GuildLanguages today() {
+        return GuildLanguages.of(List.of(EN, DE), NETWORK);
     }
 
     @Test
     void theAnnouncementChannelIsTheSecondOptionalId() {
         // The six-id constructor has no announcement channel; the seventh id switches it on.
         assertFalse(EN.hasAnnouncementChannel());
-        final Languages.Language withChannel = new Languages.Language("en", "English", "11", "12", "13", "14", "15");
+        final GuildLanguages.Language withChannel =
+                new GuildLanguages.Language("en", "English", "11", "12", "13", "14", "15");
         assertTrue(withChannel.hasAnnouncementChannel());
         assertEquals("15", withChannel.announcementChannelId());
         assertTrue(withChannel.hasStatusChannel());
@@ -35,7 +41,7 @@ class LanguagesTest {
 
     @Test
     void aThirdLanguageNeedsNoCodeChangeRolesChannelsBundlesAndMessageKeys() {
-        final Languages three = Languages.of(List.of(EN, DE, FR));
+        final GuildLanguages three = GuildLanguages.of(List.of(EN, DE, FR), new Languages(List.of("en", "de", "fr")));
 
         assertAll(
                 () -> assertEquals(
@@ -90,34 +96,35 @@ class LanguagesTest {
     }
 
     @Test
-    void theConfiguredOrderIsPreservedBecauseItIsWhatEverythingElseWalks() {
+    void theNetworksOrderIsKeptBecauseItIsWhatEverythingElseWalks() {
         assertEquals(
-                List.of("fr", "en", "de"),
-                Languages.of(List.of(FR, EN, DE)).all().stream()
-                        .map(Languages.Language::tag)
+                List.of("en", "fr", "de"),
+                GuildLanguages.of(List.of(FR, DE, EN), new Languages(List.of("en", "fr", "de"))).all().stream()
+                        .map(GuildLanguages.Language::tag)
                         .toList());
     }
 
     @Test
-    void aListWithNoEnEntryIsRefused() {
+    void aListWithNoEntryForTheDefaultLanguageIsRefused() {
         final IllegalArgumentException error =
-                assertThrows(IllegalArgumentException.class, () -> Languages.of(List.of(DE, FR)));
-        assertTrue(error.getMessage().contains("fallback"), error.getMessage());
+                assertThrows(IllegalArgumentException.class, () -> GuildLanguages.of(List.of(DE), NETWORK));
+        assertTrue(error.getMessage().contains("no entry for 'en'"), error.getMessage());
+    }
+
+    @Test
+    void aListWithAnEntryTheNetworkDoesNotSpeakIsRefused() {
+        final IllegalArgumentException error =
+                assertThrows(IllegalArgumentException.class, () -> GuildLanguages.of(List.of(EN, DE, FR), NETWORK));
+        assertTrue(error.getMessage().contains("entry for 'fr'"), error.getMessage());
     }
 
     @Test
     void aListWithADuplicateTagIsRefused() {
         final IllegalArgumentException error = assertThrows(
                 IllegalArgumentException.class,
-                () -> Languages.of(List.of(EN, new Languages.Language("en", "English", "41", "42", "43", "44"))));
+                () -> GuildLanguages.of(
+                        List.of(EN, new GuildLanguages.Language("en", "English", "41", "42", "43", "44"), DE),
+                        NETWORK));
         assertTrue(error.getMessage().contains("unique"), error.getMessage());
-    }
-
-    @Test
-    void anEmptyListIsRefused() {
-        assertAll(
-                () -> assertThrows(IllegalArgumentException.class, () -> Languages.of(List.of())),
-                () -> assertThrows(
-                        IllegalArgumentException.class, () -> Languages.of((List<Languages.Language>) null)));
     }
 }

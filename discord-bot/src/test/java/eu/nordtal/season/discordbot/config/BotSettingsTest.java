@@ -8,8 +8,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.common.language.Languages;
 import eu.nordtal.season.settings.MemorySettingStore;
 import eu.nordtal.season.settings.SettingsException;
+import eu.nordtal.season.settings.network.NetworkSettings;
 import eu.nordtal.season.spec.annotation.Protected;
 import java.lang.reflect.Method;
 import java.time.ZoneId;
@@ -55,14 +57,26 @@ class BotSettingsTest {
         return entry;
     }
 
-    /** Takes the access group over {@code values} the way the bot does at its start. */
+    /** The languages the network speaks in most of these tests. */
+    private static final Languages NETWORK = new Languages(List.of("en", "de"));
+
+    /** Takes the access group over {@code values} as the bot does at its start, on the English and German network. */
     private AccessSpec taken(final Map<String, Object> values) throws SettingsException {
-        return store.checked(BotSettings.SERVICE, BotSettings.ACCESS, values);
+        return taken(values, NETWORK);
+    }
+
+    private AccessSpec taken(final Map<String, Object> values, final Languages network) throws SettingsException {
+        return store.checked(BotSettings.SERVICE, BotSettings.accessGroup(network), values);
     }
 
     /** The message the check refuses {@code values} with. */
     private String refused(final Map<String, Object> values) {
-        return assertThrows(SettingsException.class, () -> taken(values)).getMessage();
+        return refused(values, NETWORK);
+    }
+
+    private String refused(final Map<String, Object> values, final Languages network) {
+        return assertThrows(SettingsException.class, () -> taken(values, network))
+                .getMessage();
     }
 
     /** English, and German with {@code key} set to {@code value}. */
@@ -109,7 +123,7 @@ class BotSettingsTest {
                 () -> assertEquals("Access", config.roleNames().access()),
                 () -> assertEquals("35", config.languages().get(1).linkChannel()),
                 () -> assertEquals(
-                        "Deutsch", Languages.roleNameOf(config.languages().get(1))));
+                        "Deutsch", GuildLanguages.roleNameOf(config.languages().get(1))));
     }
 
     @Test
@@ -160,7 +174,7 @@ class BotSettingsTest {
 
     @Test
     void aLanguageRoleIsNamedAfterTheLanguageInItselfUnlessItsEntryNamesIt() throws Exception {
-        final Languages languages = Languages.of(taken(germanWith("role-name", "German")));
+        final GuildLanguages languages = GuildLanguages.of(taken(germanWith("role-name", "German")), NETWORK);
 
         assertAll(
                 () -> assertEquals(
@@ -168,7 +182,10 @@ class BotSettingsTest {
                 () -> assertEquals("German", languages.byTag("de").orElseThrow().roleName()),
                 () -> assertEquals(
                         "Deutsch",
-                        Languages.of(taken(access())).byTag("de").orElseThrow().roleName()));
+                        GuildLanguages.of(taken(access()), NETWORK)
+                                .byTag("de")
+                                .orElseThrow()
+                                .roleName()));
     }
 
     @Test
@@ -203,23 +220,39 @@ class BotSettingsTest {
     }
 
     @Test
-    void aLanguageListWithoutEnStopsTheBotAndPrintsTheShapeToWrite() {
-        // English is the floor every missing translation degrades to.
+    void aLanguageListWithoutTheDefaultLanguageStopsTheBotNamingIt() {
+        // The network's default is the floor every missing translation degrades to.
         final String message = refused(access(List.of(language("de", 33, 40))));
 
+        assertTrue(message.contains("no entry for 'en'"), message);
+    }
+
+    @Test
+    void aNetworkLanguageWithoutAnEntryStopsTheBotNamingIt() {
+        final String message = refused(
+                access(List.of(language("en", 30, 39), language("de", 33, 40))),
+                new Languages(List.of("en", "de", "fr")));
+
         assertAll(
-                () -> assertTrue(message.contains("no 'en' entry"), message),
-                () -> assertTrue(message.contains("tag: en"), "the message has to show what to write: " + message));
+                () -> assertTrue(message.contains("no entry for 'fr'"), message),
+                () -> assertTrue(message.contains("the network speaks"), message));
+    }
+
+    @Test
+    void anEntryForALanguageTheNetworkDoesNotSpeakStopsTheBotNamingIt() {
+        final String message =
+                refused(access(List.of(language("en", 30, 39), language("de", 33, 40), language("fr", 36, 41))));
+
+        assertAll(
+                () -> assertTrue(message.contains("entry for 'fr'"), message),
+                () -> assertTrue(message.contains("does not speak"), message));
     }
 
     @Test
     void anEmptyLanguageListStopsTheBot() {
         final String message = refused(access(List.of()));
 
-        assertAll(
-                () -> assertTrue(message.contains("languages is empty"), message),
-                () -> assertTrue(
-                        message.contains("link-channel"), "the message has to show the whole entry: " + message));
+        assertTrue(message.contains("no entry for 'en'"), message);
     }
 
     @Test
@@ -231,11 +264,11 @@ class BotSettingsTest {
     }
 
     @Test
-    void anUpperCaseTagStopsTheBot() {
-        // Nothing downstream case-folds a .properties file name.
+    void anUpperCaseTagIsNotTheNetworksTag() {
+        // The network refuses an upper case tag itself, so an entry written so matches no language.
         final String message = refused(access(List.of(language("en", 30, 39), language("DE", 33, 40))));
 
-        assertTrue(message.contains("must be lower case"), message);
+        assertTrue(message.contains("entry for 'DE'"), message);
     }
 
     @Test
@@ -268,7 +301,7 @@ class BotSettingsTest {
         final AccessSpec config = taken(access());
 
         assertEquals("", config.languages().getFirst().statusChannel());
-        assertFalse(Languages.of(config).all().getFirst().hasStatusChannel());
+        assertFalse(GuildLanguages.of(config, NETWORK).all().getFirst().hasStatusChannel());
     }
 
     @Test
@@ -277,7 +310,7 @@ class BotSettingsTest {
         final AccessSpec config = taken(access());
 
         assertEquals("", config.languages().getFirst().announcementChannel());
-        assertFalse(Languages.of(config).all().getFirst().hasAnnouncementChannel());
+        assertFalse(GuildLanguages.of(config, NETWORK).all().getFirst().hasAnnouncementChannel());
     }
 
     @Test
@@ -307,7 +340,9 @@ class BotSettingsTest {
     @Test
     void aTagTooLongForManagedMessageKindStopsTheBot() {
         // managed_message.kind is varchar(32) and holds "CONTRIBUTION_<TAG>".
-        final String message = refused(access(List.of(language("en", 30, 39), language("a".repeat(20), 33, 40))));
+        final String message = refused(
+                access(List.of(language("en", 30, 39), language("a".repeat(20), 33, 40))),
+                new Languages(List.of("en", "a".repeat(20))));
 
         assertTrue(message.contains("as long as a managed message's key"), message);
     }
@@ -315,9 +350,11 @@ class BotSettingsTest {
     @Test
     void aThirdLanguageIsASettingEditAndNothingElse() throws Exception {
         // Nothing in the bot's source mentions 'fr'; this entry is the entire change per language.
-        final Languages languages = Languages.of(
-                taken(access(List.of(language("en", 30, 39), language("de", 33, 40), language("fr", 36, 41)))));
-        final Languages.Language french = languages.byTag("fr").orElseThrow();
+        final Languages network = new Languages(List.of("en", "de", "fr"));
+        final GuildLanguages languages = GuildLanguages.of(
+                taken(access(List.of(language("en", 30, 39), language("de", 33, 40), language("fr", 36, 41))), network),
+                network);
+        final GuildLanguages.Language french = languages.byTag("fr").orElseThrow();
 
         assertAll(
                 () -> assertEquals(3, languages.all().size()),
@@ -361,10 +398,17 @@ class BotSettingsTest {
                         + " and the bot only notices on its next restart");
         assertEquals("tag", annotation.field(), "@Protected has to match on the element's own tag field");
         assertEquals(
-                Languages.FALLBACK_TAG,
+                NetworkSettings.defaultLanguages().tags().getFirst(),
                 annotation.value(),
                 "the protected tag and the fallback tag are the same language or the rule protects"
                         + " the wrong entry");
+    }
+
+    @Test
+    void theDefaultEntriesAreTheNetworksDefaultLanguagesSoTheTwoNeverStartApart() {
+        assertEquals(
+                NetworkSettings.defaultLanguages().tags(),
+                DefaultLanguages.LIST.stream().map(AccessSpec.LanguageSpec::tag).toList());
     }
 
     /** A value under {@code NORDTAL_ACCESS_} wins over what is stored, and Steward is told which path it holds. */
@@ -372,9 +416,11 @@ class BotSettingsTest {
     void theEnvironmentWinsAndStewardIsToldWhichPathItHolds() throws Exception {
         access().forEach((path, value) -> store.set(BotSettings.SERVICE, "access", path, value));
 
-        final AccessSpec taken = BotSettings.access(store.settings(
-                        BotSettings.SERVICE,
-                        BotSettings.ENVIRONMENT.reading(Map.of("NORDTAL_ACCESS_GUILD_ID", "2")::get)))
+        final AccessSpec taken = BotSettings.access(
+                        store.settings(
+                                BotSettings.SERVICE,
+                                BotSettings.ENVIRONMENT.reading(Map.of("NORDTAL_ACCESS_GUILD_ID", "2")::get)),
+                        NETWORK)
                 .get();
 
         assertEquals("2", taken.guildId());

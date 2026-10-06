@@ -25,6 +25,9 @@ starts it only after the `migrate` service succeeded. An admin's preview of a te
 - The guild id, which `deploy/nordtal.sh` asks for. Every channel is an id set in Steward, and an empty one switches its feature off.
 - The permission to manage roles and channels: the bot finds or creates every role it uses and keeps the onboarding lock on every channel.
 
+The languages are the network's (`language-and-time.languages`). The `access` group's `languages` holds one entry
+for each tag, with its role name and channels, and no other: the bot refuses to take a list that differs.
+
 The `access` and `onboarding` groups are edited in Steward. `compose.yml` passes the bot only its
 token, the database and `NORDTAL_ACCESS_GUILD_ID`, which wins over what is stored; the startup log
 lists every setting the environment overrode.

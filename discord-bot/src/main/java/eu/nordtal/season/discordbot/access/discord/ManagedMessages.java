@@ -8,7 +8,7 @@ import eu.nordtal.season.discordbot.Card;
 import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.Ids;
 import eu.nordtal.season.discordbot.ManagedMessage;
-import eu.nordtal.season.discordbot.config.Languages;
+import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.messages.value.Money;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,14 +29,14 @@ public final class ManagedMessages {
     private static final String CONTRIBUTION_BANNER = "contribution.png";
     private static final String LINK_BANNER = "link.png";
 
-    private final Languages languages;
+    private final GuildLanguages languages;
     private final Tiers tiers;
     private final DiscordRenderer messages;
     private final ManagedMessage managed;
 
     public ManagedMessages(
             final JDA jda,
-            final Languages languages,
+            final GuildLanguages languages,
             final Tiers tiers,
             final DiscordRenderer messages,
             final Jdbi jdbi) {
@@ -52,7 +52,7 @@ public final class ManagedMessages {
      * Failures are logged per message: one bad channel id must not stop the others.
      */
     public void publishAll() {
-        for (final Languages.Language language : languages.all()) {
+        for (final GuildLanguages.Language language : languages.all()) {
             final Locale locale = language.locale();
             publish(language.contributionKind(), true, language.contributionChannelId(), locale);
             publish(language.linkKind(), false, language.linkChannelId(), locale);

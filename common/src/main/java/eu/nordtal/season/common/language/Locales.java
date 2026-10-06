@@ -10,8 +10,11 @@ import org.jspecify.annotations.Nullable;
  */
 public final class Locales {
 
+    /** The tag of {@link #DEFAULT}, the network's default language and the one every translation falls back to. */
+    public static final String DEFAULT_TAG = "en";
+
     /** The default and the fallback for every user-visible string in season 2. */
-    public static final Locale DEFAULT = Locale.ENGLISH;
+    public static final Locale DEFAULT = Locale.of(DEFAULT_TAG);
 
     private Locales() {}
 

@@ -1,90 +1,116 @@
 package eu.nordtal.season.discordbot.config;
 
+import eu.nordtal.season.common.language.Languages;
 import eu.nordtal.season.common.language.Locales;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
- * The language list from the {@code access} group, and every rule that reads it.
+ * The Discord side of the network's languages: each one's role name and channels, keyed by its tag.
  *
- * The configured order is kept throughout; an empty channel id is unset, see {@link Configured#isSet(String)}.
+ * One entry for each network language, in its order with the default first; an empty id is unset.
  */
-public final class Languages {
-
-    /** The one tag that has to be configured. */
-    public static final String FALLBACK_TAG = "en";
+public final class GuildLanguages {
 
     private final List<Language> ordered;
     private final Map<String, Language> byTag;
     private final Language fallback;
 
-    private Languages(final List<Language> ordered) {
+    private GuildLanguages(final List<Language> ordered) {
         this.ordered = ordered;
         final Map<String, Language> index = new LinkedHashMap<>();
         for (final Language language : ordered) {
             index.put(language.tag(), language);
         }
         this.byTag = Map.copyOf(index);
-        this.fallback = Objects.requireNonNull(index.get(FALLBACK_TAG), "fallback language");
+        this.fallback = Objects.requireNonNull(index.get(Locales.DEFAULT_TAG), "fallback language");
     }
 
     /**
-     * Reads the language list from the configuration.
+     * Reads the Discord data of each network language from the configuration.
      *
      * @param config the loaded and validated access configuration
-     * @return the languages, in the order the file lists them
+     * @param network the languages the network speaks
+     * @return the languages, in the network's order
+     * @throws IllegalArgumentException if the entries and the network's tags are not the same set
      */
-    public static Languages of(final AccessSpec config) {
-        return of(config.languages().stream()
-                .map(language -> new Language(
-                        language.tag(),
-                        roleNameOf(language),
-                        language.contributionChannel(),
-                        language.linkChannel(),
-                        language.hungerGamesChannel(),
-                        language.statusChannel(),
-                        language.announcementChannel()))
-                .toList());
+    public static GuildLanguages of(final AccessSpec config, final Languages network) {
+        return of(
+                config.languages().stream()
+                        .map(language -> new Language(
+                                language.tag(),
+                                roleNameOf(language),
+                                language.contributionChannel(),
+                                language.linkChannel(),
+                                language.hungerGamesChannel(),
+                                language.statusChannel(),
+                                language.announcementChannel()))
+                        .toList(),
+                network);
     }
 
     /**
      * Builds the list without a config file.
      *
-     * @param languages the languages, in the order they should be used
-     * @return the languages
-     * @throws IllegalArgumentException if the list is empty, has a duplicate tag, or has no {@code en} entry
+     * @param languages one entry per network language, in any order
+     * @param network the languages the network speaks
+     * @return the languages, in the network's order
+     * @throws IllegalArgumentException if the entries and the network's tags are not the same set
      */
-    public static Languages of(final List<Language> languages) {
-        if (languages == null || languages.isEmpty()) {
-            throw new IllegalArgumentException("there has to be at least one language");
-        }
-        final List<Language> copy = List.copyOf(languages);
-        if (copy.stream().map(Language::tag).distinct().count() != copy.size()) {
-            throw new IllegalArgumentException("language tags must be unique: "
-                    + copy.stream().map(Language::tag).toList());
-        }
-        if (copy.stream().noneMatch(language -> FALLBACK_TAG.equals(language.tag()))) {
-            throw new IllegalArgumentException("'" + FALLBACK_TAG + "' is the fallback and must be " + "present: "
-                    + copy.stream().map(Language::tag).toList());
-        }
-        return new Languages(copy);
+    public static GuildLanguages of(final List<Language> languages, final Languages network) {
+        final List<String> tags = languages.stream().map(Language::tag).toList();
+        requireTagsOf(network, tags);
+        final Map<String, Language> entries = new LinkedHashMap<>();
+        languages.forEach(language -> entries.put(language.tag(), language));
+        return new GuildLanguages(network.tags().stream().map(entries::get).toList());
     }
 
-    /** Returns every configured language, in the order the {@code access} group lists them. */
+    /**
+     * Refuses entry tags that are not exactly the network's languages.
+     *
+     * @param network the languages the network speaks
+     * @param tags the tags of the {@code access} group's language entries
+     * @throws IllegalArgumentException naming the first tag listed twice, missing or not spoken
+     */
+    public static void requireTagsOf(final Languages network, final List<String> tags) {
+        final Set<String> seen = new HashSet<>();
+        for (final String tag : tags) {
+            if (!seen.add(tag)) {
+                throw new IllegalArgumentException(
+                        "languages has two entries for '" + tag + "'. Tags identify a language and must be unique.");
+            }
+            if (!network.tags().contains(tag)) {
+                throw new IllegalArgumentException(
+                        "languages has an entry for '" + tag
+                                + "', which the network does not speak. Add it to the network's languages or remove the entry.");
+            }
+        }
+        for (final String tag : network.tags()) {
+            if (!seen.contains(tag)) {
+                throw new IllegalArgumentException(
+                        "languages has no entry for '" + tag
+                                + "', which the network speaks. Every network language needs the role and channels of its entry.");
+            }
+        }
+    }
+
+    /** Returns every language, in the network's order. */
     public List<Language> all() {
         return ordered;
     }
 
-    /** Returns the {@code en} entry, which always exists. */
+    /** Returns the default language's entry, which always exists. */
     public Language fallback() {
         return fallback;
     }
 
-    /** Returns the locales to load message bundles for; one without a bundle reads English. */
+    /** Returns the locales to load message bundles for; one without a bundle reads the default's. */
     public Locale[] locales() {
         return ordered.stream().map(Language::locale).toArray(Locale[]::new);
     }
@@ -99,7 +125,7 @@ public final class Languages {
     }
 
     /**
-     * Returns the configured language of a locale, or {@code en} when that language is not configured.
+     * Returns the configured language of a locale, or the default's when that language is not configured.
      *
      * @param locale a locale, typically read out of {@code discord_user.locale}
      */

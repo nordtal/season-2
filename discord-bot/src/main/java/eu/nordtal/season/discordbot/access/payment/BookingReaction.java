@@ -10,7 +10,7 @@ import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.access.SeasonStart;
 import eu.nordtal.season.discordbot.access.discord.AccessRoles;
 import eu.nordtal.season.discordbot.config.Configured;
-import eu.nordtal.season.discordbot.config.Languages;
+import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.messages.context.DiscordMemberContext;
 import eu.nordtal.season.messages.value.Mention;
 import eu.nordtal.season.messages.value.Money;
@@ -27,7 +27,7 @@ import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 @Slf4j
 public final class BookingReaction {
 
-    private final Languages languages;
+    private final GuildLanguages languages;
     private final AccessRoles roles;
     private final AdminLog admin;
     private final DiscordRenderer messages;
@@ -35,7 +35,7 @@ public final class BookingReaction {
     private final SeasonStart seasonStart;
 
     public BookingReaction(
-            final Languages languages,
+            final GuildLanguages languages,
             final AccessRoles roles,
             final AdminLog admin,
             final DiscordRenderer messages,

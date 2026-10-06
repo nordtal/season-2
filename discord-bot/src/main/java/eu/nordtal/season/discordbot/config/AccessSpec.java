@@ -1,5 +1,6 @@
 package eu.nordtal.season.discordbot.config;
 
+import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.settings.Refers;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
@@ -45,9 +46,9 @@ public interface AccessSpec {
     @Name("Languages")
     @Key("languages")
     // BotSettings#validateLanguages and steward's schema reader both read this annotation.
-    @Protected(field = "tag", value = Languages.FALLBACK_TAG)
+    @Protected(field = "tag", value = Locales.DEFAULT_TAG)
     @Explain(
-            "Every language the network speaks. The 'en' entry cannot be removed: a missing translation falls back to it.")
+            "One entry for each language the network speaks, by its tag, and no other. The 'en' entry cannot be removed: a missing translation falls back to it.")
     default List<LanguageSpec> languages() {
         return DefaultLanguages.LIST;
     }

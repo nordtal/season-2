@@ -1,7 +1,7 @@
 package eu.nordtal.season.discordbot.announce;
 
 import eu.nordtal.season.discordbot.DiscordRenderer;
-import eu.nordtal.season.discordbot.config.Languages;
+import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.messages.MessageRef;
 import java.util.Objects;
 import java.util.Optional;
@@ -19,16 +19,17 @@ import org.slf4j.Logger;
 public final class Announcements {
 
     private final Channels channels;
-    private final Languages languages;
+    private final GuildLanguages languages;
     private final DiscordRenderer messages;
     private final Logger log;
 
-    public Announcements(final JDA jda, final Languages languages, final DiscordRenderer messages, final Logger log) {
+    public Announcements(
+            final JDA jda, final GuildLanguages languages, final DiscordRenderer messages, final Logger log) {
         this(Channels.of(jda), languages, messages, log);
     }
 
     Announcements(
-            final Channels channels, final Languages languages, final DiscordRenderer messages, final Logger log) {
+            final Channels channels, final GuildLanguages languages, final DiscordRenderer messages, final Logger log) {
         this.channels = Objects.requireNonNull(channels, "channels");
         this.languages = Objects.requireNonNull(languages, "languages");
         this.messages = Objects.requireNonNull(messages, "messages");
@@ -42,7 +43,7 @@ public final class Announcements {
      * @return whether it was posted; {@code false} when that language has no channel or Discord refused
      */
     public boolean post(final String languageTag, final MessageRef message) {
-        final Optional<Languages.Language> language = languages.byTag(languageTag);
+        final Optional<GuildLanguages.Language> language = languages.byTag(languageTag);
         if (language.isEmpty() || !language.get().hasAnnouncementChannel()) {
             // Not a fault: a language without a channel gets no announcements.
             return false;
@@ -114,7 +115,7 @@ public final class Announcements {
 
     /** Posts one message into every language's channel, each rendered in its language. */
     public void postAll(final MessageRef message) {
-        for (final Languages.Language language : languages.all()) {
+        for (final GuildLanguages.Language language : languages.all()) {
             if (language.hasAnnouncementChannel()) {
                 post(language.tag(), message);
             }

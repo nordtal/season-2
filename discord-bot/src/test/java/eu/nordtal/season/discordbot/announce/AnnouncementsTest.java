@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.season.database.DatabaseMessages;
 import eu.nordtal.season.discordbot.AccessBot;
 import eu.nordtal.season.discordbot.DiscordRenderer;
-import eu.nordtal.season.discordbot.config.Languages;
+import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.context.MilestoneContext;
 import java.lang.reflect.Proxy;
@@ -64,9 +64,11 @@ class AnnouncementsTest {
         }
     };
 
-    private final Languages languages = Languages.of(List.of(
-            new Languages.Language("en", "", "", "", "", "", "111"),
-            new Languages.Language("de", "", "", "", "", "", "222")));
+    private final GuildLanguages languages = GuildLanguages.of(
+            List.of(
+                    new GuildLanguages.Language("en", "", "", "", "", "", "111"),
+                    new GuildLanguages.Language("de", "", "", "", "", "", "222")),
+            new eu.nordtal.season.common.language.Languages(List.of("en", "de")));
 
     private final Announcements subject = new Announcements(channels, languages, BUNDLES, log);
 

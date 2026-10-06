@@ -12,7 +12,7 @@ import eu.nordtal.season.discordbot.AlertOnce;
 import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.ManagedMessage;
 import eu.nordtal.season.discordbot.config.Configured;
-import eu.nordtal.season.discordbot.config.Languages;
+import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.discordbot.config.OnboardingSpec;
 import eu.nordtal.season.discordbot.roles.GuildRoles;
 import eu.nordtal.season.discordbot.roles.Withholding;
@@ -60,7 +60,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
 
     private final JDA jda;
     private final String guildId;
-    private final Languages languages;
+    private final GuildLanguages languages;
     private final List<GuildRoles.Wanted> fixed;
     private final Setting<OnboardingSpec> setting;
     private final GuildRoles roles;
@@ -84,7 +84,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
     public Onboarding(
             final JDA jda,
             final String guildId,
-            final Languages languages,
+            final GuildLanguages languages,
             final List<GuildRoles.Wanted> fixed,
             final Setting<OnboardingSpec> setting,
             final GuildRoles roles,

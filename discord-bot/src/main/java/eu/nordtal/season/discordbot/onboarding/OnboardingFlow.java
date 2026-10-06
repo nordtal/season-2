@@ -8,7 +8,7 @@ import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.DiscordRole;
 import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.Ids;
-import eu.nordtal.season.discordbot.config.Languages;
+import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.discordbot.roles.GuildRoles;
 import java.util.List;
 import java.util.Locale;
@@ -40,7 +40,7 @@ import org.jspecify.annotations.Nullable;
 public final class OnboardingFlow extends ListenerAdapter {
 
     private final Onboarding onboarding;
-    private final Languages languages;
+    private final GuildLanguages languages;
     private final GuildRoles roles;
     private final DiscordRenderer messages;
     private final String networkZone;
@@ -55,7 +55,7 @@ public final class OnboardingFlow extends ListenerAdapter {
      */
     public OnboardingFlow(
             final Onboarding onboarding,
-            final Languages languages,
+            final GuildLanguages languages,
             final GuildRoles roles,
             final DiscordRenderer messages,
             final String networkZone,
@@ -76,7 +76,7 @@ public final class OnboardingFlow extends ListenerAdapter {
         if (!event.getComponentId().startsWith(Ids.ONBOARD) || member == null) {
             return;
         }
-        final Languages.Language language = spoken(event.getComponentId(), Ids.ONBOARD);
+        final GuildLanguages.Language language = spoken(event.getComponentId(), Ids.ONBOARD);
         final Locale locale = language.locale();
         final Guild guild = member.getGuild();
         final Choices choices = onboarding.choices();
@@ -192,7 +192,7 @@ public final class OnboardingFlow extends ListenerAdapter {
         return choice.flatMap(chosen -> roles.role(guild, chosen.key()));
     }
 
-    private Languages.Language spoken(final String id, final String prefix) {
+    private GuildLanguages.Language spoken(final String id, final String prefix) {
         return languages.byTag(id.substring(prefix.length())).orElse(languages.fallback());
     }
 

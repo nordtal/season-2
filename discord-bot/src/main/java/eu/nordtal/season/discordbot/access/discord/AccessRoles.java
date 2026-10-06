@@ -13,7 +13,7 @@ import eu.nordtal.season.discordbot.AdminLog;
 import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.config.AccessSpec;
 import eu.nordtal.season.discordbot.config.Configured;
-import eu.nordtal.season.discordbot.config.Languages;
+import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.discordbot.roles.GuildRoles;
 import eu.nordtal.season.discordbot.roles.Withholding;
 import eu.nordtal.season.messages.MessageRef;
@@ -51,6 +51,7 @@ public final class AccessRoles {
 
     private final JDA jda;
     private final AccessSpec config;
+    private final GuildLanguages languages;
     private final GuildRoles roles;
     private final Withholding withholding;
     private final AccessDirectory access;
@@ -66,6 +67,7 @@ public final class AccessRoles {
     public AccessRoles(
             final JDA jda,
             final AccessSpec config,
+            final GuildLanguages languages,
             final GuildRoles roles,
             final Withholding withholding,
             final AccessDirectory access,
@@ -76,6 +78,7 @@ public final class AccessRoles {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.jda = jda;
         this.config = config;
+        this.languages = languages;
         this.roles = roles;
         this.withholding = withholding;
         this.access = access;
@@ -387,7 +390,7 @@ public final class AccessRoles {
 
     /** Returns the contribution channel of a language as a mention, or its name when none is configured. */
     private String contributionChannel(final Locale locale) {
-        final String id = Languages.of(config).forLocale(locale).contributionChannelId();
+        final String id = languages.forLocale(locale).contributionChannelId();
         return Configured.isSet(id)
                 ? "<#" + id + ">"
                 : messages.format(locale, MESSAGES.dm().channel());

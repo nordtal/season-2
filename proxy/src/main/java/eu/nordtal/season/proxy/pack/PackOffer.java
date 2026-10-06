@@ -2,6 +2,7 @@ package eu.nordtal.season.proxy.pack;
 
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.player.ResourcePackInfo;
+import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.proxy.config.PackSpec;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
@@ -42,7 +43,8 @@ public final class PackOffer {
      * @return the offer to send them
      */
     public ResourcePackInfo forLocale(final Locale locale) {
-        final String language = locale == null ? "en" : locale.getLanguage().toLowerCase(Locale.ROOT);
+        final String language =
+                locale == null ? Locales.DEFAULT_TAG : locale.getLanguage().toLowerCase(Locale.ROOT);
         return byLanguage.computeIfAbsent(
                 language,
                 ignored -> proxy.createResourcePackBuilder(config.url())

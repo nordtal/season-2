@@ -8,7 +8,7 @@ import eu.nordtal.season.database.network.SnapshotDirectory;
 import eu.nordtal.season.database.phase.PhaseDirectory;
 import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.announce.Announcements;
-import eu.nordtal.season.discordbot.config.Languages;
+import eu.nordtal.season.discordbot.config.GuildLanguages;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -32,7 +32,7 @@ public final class StatusChannels {
     static final int MINIMUM_RENAME_MINUTES = 6;
 
     private final JDA jda;
-    private final Languages languages;
+    private final GuildLanguages languages;
     private final DiscordRenderer messages;
     private final PhaseDirectory phases;
     private final SnapshotDirectory snapshots;
@@ -43,7 +43,7 @@ public final class StatusChannels {
 
     public StatusChannels(
             final JDA jda,
-            final Languages languages,
+            final GuildLanguages languages,
             final DiscordRenderer messages,
             final PhaseDirectory phases,
             final SnapshotDirectory snapshots,
@@ -58,7 +58,7 @@ public final class StatusChannels {
      */
     public StatusChannels(
             final JDA jda,
-            final Languages languages,
+            final GuildLanguages languages,
             final DiscordRenderer messages,
             final PhaseDirectory phases,
             final SnapshotDirectory snapshots,
@@ -89,8 +89,8 @@ public final class StatusChannels {
         final SeasonPhase phase = phases.currentPhase();
         announceIfChanged(phase);
 
-        final List<Languages.Language> configured = languages.all().stream()
-                .filter(Languages.Language::hasStatusChannel)
+        final List<GuildLanguages.Language> configured = languages.all().stream()
+                .filter(GuildLanguages.Language::hasStatusChannel)
                 .toList();
         if (configured.isEmpty()) {
             return;
@@ -101,7 +101,7 @@ public final class StatusChannels {
         final NetworkSnapshot snapshot = needsCounts(phase) ? snapshots.snapshot() : NetworkSnapshot.EMPTY;
         final Instant now = clock.instant();
 
-        for (final Languages.Language language : configured) {
+        for (final GuildLanguages.Language language : configured) {
             rename(language, StatusName.render(messages, language.locale(), phase, snapshot, launch, now), now);
         }
     }
@@ -124,7 +124,7 @@ public final class StatusChannels {
         return phase == SeasonPhase.PRE_EVENT || phase == SeasonPhase.START_EVENT || phase == SeasonPhase.SMP;
     }
 
-    private void rename(final Languages.Language language, final String name, final Instant now) {
+    private void rename(final GuildLanguages.Language language, final String name, final Instant now) {
         final String channelId = language.statusChannelId();
         final Rename previous = attempts.get(channelId);
         if (previous != null && name.equals(previous.confirmed())) {

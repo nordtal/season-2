@@ -23,8 +23,6 @@ import eu.nordtal.season.settings.SettingsException;
 import eu.nordtal.season.settings.network.LanguageAndTimeSpec;
 import eu.nordtal.season.settings.network.NetworkSettings;
 import eu.nordtal.season.steward.alert.Thresholds;
-import eu.nordtal.season.steward.api.PluginsForward;
-import eu.nordtal.season.steward.api.StackApi;
 import eu.nordtal.season.steward.auth.DiscordAuth;
 import eu.nordtal.season.steward.backup.Schedules;
 import eu.nordtal.season.steward.bunq.PaymentLoop;
@@ -34,7 +32,8 @@ import eu.nordtal.season.steward.config.StewardSpec;
 import eu.nordtal.season.steward.config.WebSpec;
 import eu.nordtal.season.steward.data.Data;
 import eu.nordtal.season.steward.metric.MetricRecorder;
-import eu.nordtal.season.steward.web.Web;
+import eu.nordtal.season.steward.stack.PluginsForward;
+import eu.nordtal.season.steward.stack.StackApi;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.ZoneId;
@@ -257,7 +256,7 @@ public final class Steward {
                         config.update().days(),
                         zone),
                 // The player counts proxy writes, and the player list next to them.
-                new eu.nordtal.season.steward.api.ServicesApi(
+                new eu.nordtal.season.steward.stack.ServicesApi(
                         OnlineDirectory.using(database.dataSource(), CLOCK), data.roster(), CLOCK),
                 // The agent's resolve, so the page can ask what is newest without a run.
                 agent::plan,

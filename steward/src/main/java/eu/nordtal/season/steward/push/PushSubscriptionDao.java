@@ -10,7 +10,7 @@ import org.jspecify.annotations.Nullable;
 
 /** The SQL behind {@link PushSubscriptions}, which is the API. */
 @RegisterConstructorMapper(PushSubscriptions.Subscription.class)
-interface PushSubscriptionDao {
+public interface PushSubscriptionDao {
 
     /** Subscribes a browser, or resubscribes it by endpoint and leaves {@code created_at} alone. */
     @SqlUpdate("""

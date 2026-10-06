@@ -24,7 +24,7 @@ flowchart LR
 
 ## One process
 
-The interface, the stack routes (`api/Routes`) and the runs' view share one Javalin and one set of
+The interface, the stack routes (`stack/Routes`) and the runs' view share one Javalin and one set of
 gates: a read needs a signed-in admin with a key (`KEY_HELD`), a change a fresh one (`KEY_FRESH`).
 The plugin "added by" comes from the session, and a long log follow re-checks it once a second.
 
@@ -75,7 +75,7 @@ Every route answers and reads records, declared in the route's feature package. 
 in `frontend/src/lib/api.gen.ts` are written from them by `./gradlew :steward:generateApiTypes`, and
 `ApiTypesTest` fails on `check` while the committed file differs. `ApiTypes` (test sources) is a small
 reflection over record components, since no maintained generator reads JSpecify's type-use
-`@Nullable`. Each package lists its top-level records in a `*Wire` class gathered by `ApiRoots`. A
+`@Nullable`. `StewardWire` (test sources) lists the top-level records and `ApiRoots` gathers them. A
 `@Nullable` component is an absent field, never `null`. `WireJson` is the one codec of the routes.
 Three types stay hand-written in `lib/api.ts`: the bodies of a settings save and a message save
 (where `null` resets and absent leaves) and the glyph manifest.

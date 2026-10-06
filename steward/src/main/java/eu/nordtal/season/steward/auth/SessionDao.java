@@ -14,7 +14,7 @@ import org.jdbi.v3.sqlobject.statement.SqlUpdate;
  * Every read checks {@code expires_at > now()} itself; the hourly sweep is only housekeeping.
  */
 @RegisterConstructorMapper(Sessions.Session.class)
-interface SessionDao {
+public interface SessionDao {
 
     /** The row between {@code /auth/login} and {@code /auth/callback}, with no account yet. */
     @SqlUpdate("""

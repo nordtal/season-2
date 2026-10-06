@@ -3,7 +3,7 @@ package eu.nordtal.season.steward.push;
 import org.jspecify.annotations.Nullable;
 
 /** What to call a browser in a list of them, read coarsely from the subscribing request's User-Agent. */
-final class Devices {
+public final class Devices {
 
     /** The longest User-Agent worth reading. */
     private static final int LONGEST = 512;

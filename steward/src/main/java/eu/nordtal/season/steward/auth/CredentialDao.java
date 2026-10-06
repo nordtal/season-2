@@ -15,7 +15,7 @@ import org.jspecify.annotations.Nullable;
  * Nothing in here is secret: a public key is public, and a credential id is handed to any browser signing in.
  */
 @RegisterConstructorMapper(Credentials.Key.class)
-interface CredentialDao {
+public interface CredentialDao {
 
     @SqlUpdate("""
             INSERT INTO steward_credential

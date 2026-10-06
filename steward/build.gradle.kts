@@ -28,7 +28,7 @@ tasks.withType<JavaCompile>().configureEach {
         // Names start() as NullAway's initializer, since Web's app field is set there.
         option(
             "NullAway:KnownInitializers",
-            "eu.nordtal.season.steward.web.Web.start",
+            "eu.nordtal.season.steward.Web.start",
         )
         // Credentials.Key maps bytea to byte[] through JDBI's reflection, which accepts nothing else.
         disable("ArrayRecordComponent")

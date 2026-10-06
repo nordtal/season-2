@@ -4,10 +4,8 @@ import com.google.gson.reflect.TypeToken;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
-import eu.nordtal.season.steward.api.ApiWire;
 import eu.nordtal.season.steward.discord.DiscordApi;
 import eu.nordtal.season.steward.live.LiveEvent;
-import eu.nordtal.season.steward.web.WebWire;
 import java.lang.reflect.Type;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,7 +17,7 @@ final class ApiRoots {
 
     /** The records and enums a route answers or reads; whatever they hold is reached from them. */
     static final List<Class<?>> ROOTS = Stream.of(
-                    List.<Class<?>>of(LiveEvent.class, DiscordApi.Guild.class), WebWire.ROOTS, ApiWire.ROOTS)
+                    List.<Class<?>>of(LiveEvent.class, DiscordApi.Guild.class), StewardWire.ROOTS)
             .flatMap(List::stream)
             .toList();
 
@@ -36,8 +34,7 @@ final class ApiRoots {
         names.put(Alert.Level.class, "AlertLevel");
         names.put(DiscordApi.Guild.class, "GuildList");
         names.put(DiscordApi.Pick.class, "GuildEntry");
-        names.putAll(WebWire.NAMES);
-        names.putAll(ApiWire.NAMES);
+        names.putAll(StewardWire.NAMES);
         return Map.copyOf(names);
     }
 

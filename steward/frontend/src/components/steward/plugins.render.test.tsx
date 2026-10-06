@@ -210,7 +210,8 @@ describe("ServicePlugins", () => {
     draw()
 
     const smp = (await screen.findByText("SMP")).closest("li")!
-    expect(within(smp).getByTitle("Installed by release v0.10.3").textContent).toBe("v0.10.3")
+    expect(within(smp).getByText("jar 0.9.4")).toBeTruthy()
+    expect(within(smp).getByTitle("Installed by release v0.10.3").textContent).toBe("release v0.10.3")
     const chunky = screen.getByText("Chunky").closest("li")!
     expect(within(chunky).queryByTitle(/Installed by release/)).toBeNull()
   })

@@ -10,6 +10,7 @@ import { SeasonPage, seasonSearch } from "@/pages/season"
 import { AccessPage } from "@/pages/access"
 import { JournalPage } from "@/pages/journal"
 import { PaymentsPage } from "@/pages/payments"
+import { PersonPage } from "@/pages/person"
 import { OverviewPage } from "@/pages/overview"
 import { AlertsPage } from "@/pages/alerts"
 
@@ -70,6 +71,8 @@ const routes = [
     validateSearch: seasonSearch,
   }),
   createRoute({ getParentRoute: () => rootRoute, path: "/access", component: AccessPage }),
+  /** The id is the person's Discord id, which every surface already carries. */
+  createRoute({ getParentRoute: () => rootRoute, path: "/access/$id", component: PersonPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/payments", component: PaymentsPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/journal", component: JournalPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/alerts", component: AlertsPage }),

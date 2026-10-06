@@ -77,6 +77,15 @@ export function useOpenPayments(enabled = true) {
   })
 }
 
+/** One person's requests, from their own route, so a page of everybody's cannot cut theirs off. */
+export function usePersonPayments(discordId: string) {
+  return useQuery({
+    queryKey: keys.personPayments(discordId),
+    queryFn: () => api<Payment[]>(`/api/people/${encodeURIComponent(discordId)}/payments`),
+    ...live("PEOPLE"),
+  })
+}
+
 export function useGrants(discordId: string | null) {
   return useQuery({
     queryKey: keys.grants(discordId ?? ""),

@@ -124,6 +124,9 @@ export function backend(
     people?: () => Record<string, unknown>[]
     payments?: () => Record<string, unknown>[]
     journal?: () => Record<string, unknown>[]
+    /** One person's own requests and periods, which their page asks for by their Discord id. */
+    personPayments?: (discordId: string) => Record<string, unknown>[]
+    grants?: (discordId: string) => Record<string, unknown>[]
     playtimePost?: (url: string, body: unknown) => { status: number; body: unknown }
     /** What the bot answered, by kind; DONE with an empty result unless a test says otherwise. */
     answer?: (kind: string) => Record<string, unknown>
@@ -163,6 +166,11 @@ export function backend(
     }
     if (url === "/api/me") return json(200, { signedIn: true, id: ME })
     if (url === "/api/people") return json(200, over.people ? over.people() : PEOPLE)
+    const own = /^\/api\/people\/(\d+)\/(payments|grants)$/.exec(url)
+    if (own) {
+      const [, discordId, what] = own
+      return json(200, (what === "payments" ? over.personPayments : over.grants)?.(discordId) ?? [])
+    }
     if (url === "/api/topology") return json(200, NETWORK_MAP)
     if (url === "/api/payments") return json(200, over.payments ? over.payments() : [])
     if (url.startsWith("/api/journal")) return json(200, over.journal ? over.journal() : [])
@@ -173,16 +181,17 @@ export function backend(
   })
 }
 
-export function draw(node: ReactNode) {
+export function draw(node: ReactNode, at = "/") {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
-  // A router, because Entity draws a service as a link to its page.
+  // A router, because Entity draws a service as a link to its page and the roster a person as one to theirs.
   const root = createRootRoute({ component: () => <>{node}</> })
   const service = createRoute({ getParentRoute: () => root, path: "/services/$name" })
+  const personPage = createRoute({ getParentRoute: () => root, path: "/access/$id" })
   const router = createRouter({
-    routeTree: root.addChildren([service]),
-    history: createMemoryHistory({ initialEntries: ["/"] }),
+    routeTree: root.addChildren([service, personPage]),
+    history: createMemoryHistory({ initialEntries: [at] }),
   })
   return render(
     <QueryClientProvider client={queryClient}>

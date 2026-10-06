@@ -43,16 +43,14 @@ describe("AccessPage - faces instead of identifiers", () => {
     expect(document.body.textContent).not.toContain("11111111-2222-3333-4444-555555555555")
   })
 
-  it("reveals the Discord id in the identity popover, on request", async () => {
+  it("links a name to that person's page, where the identity card is", async () => {
     vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
-    const trigger = await screen.findByText("Ally")
-    fireEvent.click(assertElement(trigger.closest("button"), "the Ally trigger button"))
-
-    const field = await screen.findByLabelText("Discord-ID")
-    if (!(field instanceof HTMLInputElement)) throw new Error("expected an <input>")
-    expect(field.value).toBe("214906139328839681")
+    const name = await screen.findByText("Ally")
+    const link = assertElement(name.closest("a"), "a link around Ally")
+    expect(link.getAttribute("href")).toBe("/access/214906139328839681")
+    expect(name.closest("button")).toBeNull()
   })
 })
 
@@ -324,7 +322,7 @@ describe("AccessPage - unlink as a row action", () => {
 /** An action is drawn only when the row's state allows it, so linked Ally and bare bob differ. */
 /** The labels of the cells a phone leaves out of a row's card. */
 function absent(row: HTMLElement): (string | null)[] {
-  return [...row.querySelectorAll('[data-phone="off"]')].map((cell) => cell.getAttribute("data-label"))
+  return [...row.querySelectorAll('[data-phone="off"][data-label]')].map((cell) => cell.getAttribute("data-label"))
 }
 
 describe("AccessPage - the actions of a row depend on that row", () => {
@@ -337,13 +335,11 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     expect(await actionsOf("Ally")).toContain("Unlink")
   })
 
-  it("offers no Periods to somebody who has never had one", async () => {
+  it("offers no Periods, which are on the person's page rather than behind a dialog", async () => {
     vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
-    // No `accessUntil` means no period was ever written, so the dialog would open on nothing.
-    expect(await actionsOf("bob")).not.toContain("Periods")
-    expect(await actionsOf("Ally")).toContain("Periods")
+    expect(await actionsOf("Ally")).not.toContain("Periods")
   })
 
   it("offers no Revoke where there is nothing running to take away", async () => {
@@ -389,6 +385,19 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     const quiet = await rowFor("quiet")
     expect(absent(quiet)).toEqual(["Minecraft", "Roles", "Playtime"])
     expect(absent(await rowFor("payer"))).toEqual(["Roles", "Playtime"])
+  })
+
+  it("leaves the actions off a phone's card, whose name leads to the page that has them", async () => {
+    vi.stubGlobal("fetch", backend())
+    draw(<AccessPage />)
+
+    const actions = assertElement(
+      within(await rowFor("Ally"))
+        .getByRole("button", { name: /^Actions for/ })
+        .closest("td"),
+      "the actions cell",
+    )
+    expect(actions.getAttribute("data-phone")).toBe("off")
   })
 })
 

@@ -8,7 +8,7 @@ import eu.nordtal.season.messages.spec.Name;
 import java.time.Duration;
 import java.time.Instant;
 
-/** The Users page and one person's dialogs: access, periods, roles and the writes on them. */
+/** The Users page and one person's page: access, periods, roles and the writes on them. */
 @Name("People")
 public interface PeoplePage {
 
@@ -322,11 +322,20 @@ public interface PeoplePage {
     @Name("Entry stays")
     MessageRef entryStays();
 
-    @Name("Chain")
-    MessageRef chain();
-
     @Name("Guild")
     MessageRef guild();
+
+    @Name("Unknown person")
+    MessageRef unknownPerson();
+
+    @Name("Unknown person note")
+    MessageRef unknownPersonNote(@Arg("id") String id);
+
+    @Name("No payment request")
+    MessageRef noPayment();
+
+    @Name("No journal entry")
+    MessageRef noEntry();
 
     @Name("Linked at")
     MessageRef linkedAt(@Arg("at") Instant at);

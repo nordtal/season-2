@@ -1562,7 +1562,6 @@ export type TextArgs = {
   "steward.people.below-too": {
     count: Arg["number"]
   }
-  "steward.people.chain": Record<string, never>
   "steward.people.count": {
     count: Arg["number"]
   }
@@ -1623,6 +1622,7 @@ export type TextArgs = {
   "steward.people.no-access-tip": {
     until: Arg["instant"]
   }
+  "steward.people.no-entry": Record<string, never>
   "steward.people.no-longer-admin": Record<string, never>
   "steward.people.no-match": Record<string, never>
   "steward.people.no-match-note": {
@@ -1633,6 +1633,7 @@ export type TextArgs = {
     by: Arg["text"]
     at: Arg["instant"]
   }
+  "steward.people.no-payment": Record<string, never>
   "steward.people.no-period": Record<string, never>
   "steward.people.no-period-note": Record<string, never>
   "steward.people.no-refund": Record<string, never>
@@ -1722,6 +1723,10 @@ export type TextArgs = {
   "steward.people.thrown-out": Record<string, never>
   "steward.people.title": Record<string, never>
   "steward.people.unknown-id": Record<string, never>
+  "steward.people.unknown-person": Record<string, never>
+  "steward.people.unknown-person-note": {
+    id: Arg["text"]
+  }
   "steward.people.unlink": Record<string, never>
   "steward.people.unlink-note": Record<string, never>
   "steward.people.unlink-title": Record<string, never>

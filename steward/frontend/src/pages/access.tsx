@@ -1,28 +1,15 @@
-import {
-  ClockCounterClockwiseIcon,
-  CrownCrossIcon,
-  CrownIcon,
-  HourglassIcon,
-  LinkBreakIcon,
-  PackageIcon,
-  MagnifyingGlassIcon,
-  ShieldSlashIcon,
-  UserPlusIcon,
-} from "@phosphor-icons/react"
+import { MagnifyingGlassIcon } from "@phosphor-icons/react"
+import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 import { useState } from "react"
 
-import { adminsBelow } from "@/lib/admin-tree"
 import type { Person } from "@/lib/api"
 import { span, t } from "@/lib/texts"
 import { useNow } from "@/lib/use-now"
-import { useMe, usePeople } from "@/lib/queries"
+import { usePeople } from "@/lib/queries"
 import { Entity } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
-import { RowActions, type RowAction } from "@/components/steward/row-actions"
-import { StatusBadge } from "@/components/steward/status"
 import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
-import { ResponsiveDialog, ResponsiveDialogContent } from "@/components/ui/responsive-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -30,16 +17,13 @@ import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
+  AccessBadge,
   GrantDialog,
-  MakeAdminDialog,
+  LinkBadge,
   MemberBadge,
-  PackExemptionDialog,
-  PersonGrants,
-  PlaytimeDialog,
-  RevokeAdminDialog,
-  RevokeDialog,
-  UnlinkDialog,
-  personName,
+  PersonActions,
+  RoleBadges,
+  hasRole,
 } from "@/pages/access-person"
 
 /**
@@ -47,54 +31,6 @@ import {
  *
  * Payments and Journal are pages of their own and share its vocabulary: the chain request, tab, paid, access.
  */
-
-/**
- * Access, from `accessActive` (the login decision) and `accessUntil` (the latest period on record).
- *
- * Inactive with a future period is revoked or not yet started; the tooltip names both.
- */
-function AccessBadge({ person, now }: { person: Person; now: number }) {
-  const until = person.accessUntil ? new Date(person.accessUntil).getTime() : null
-
-  if (person.accessActive) {
-    return (
-      <StatusBadge tone="ok" tipContent={t("steward.people.active-tip", { until: person.accessUntil ?? "" })}>
-        {t("steward.people.active-until", { until: person.accessUntil ?? "" })}
-      </StatusBadge>
-    )
-  }
-  if (until === null) {
-    return (
-      <StatusBadge tone="idle" tipContent={t("steward.people.never-tip")}>
-        {t("steward.people.never")}
-      </StatusBadge>
-    )
-  }
-  if (until > now) {
-    return (
-      <StatusBadge tone="down" tipContent={t("steward.people.no-access-tip", { until: person.accessUntil ?? "" })}>
-        {t("steward.people.no-access")}
-      </StatusBadge>
-    )
-  }
-  return (
-    <StatusBadge tone="idle" tipContent={t("steward.people.expired-tip")}>
-      {t("steward.people.expired", { at: person.accessUntil ?? "" })}
-    </StatusBadge>
-  )
-}
-
-/** Warns about the one state with no face to draw: paid but no Minecraft account linked. */
-function LinkBadge({ person }: { person: Person }) {
-  return (
-    <StatusBadge
-      tone={person.accessActive ? "warn" : "idle"}
-      tipContent={t("steward.people.not-linked-tip", { paid: person.accessActive })}
-    >
-      {t("steward.people.not-linked")}
-    </StatusBadge>
-  )
-}
 
 /** Rows per page of the People table, paged after filtering. */
 const PEOPLE_PAGE_SIZE = 20
@@ -158,27 +94,13 @@ function WaitingPersonRow() {
 /**
  * The roster: everyone the bot knows, and what they may.
  *
- * Every write here is a request the bot carries out, as `/access` in Discord does.
+ * Every write here is a request the bot carries out, as `/access` in Discord does; a name opens the person's page.
  */
 export function AccessPage() {
   const people = usePeople()
-  const me = useMe()
   const [needle, setNeedle] = useState("")
   const [onlyWithAccess, setOnlyWithAccess] = useState(false)
   const [page, setPage] = useState(0)
-  const [selected, setSelected] = useState<Person | null>(null)
-  /** The person being revoked; separate from `selected`, so there is never a dialog inside a dialog. */
-  const [revoking, setRevoking] = useState<Person | null>(null)
-  /** Every dialog is rendered beside the table, since a Radix popover unmounts one opened from inside it. */
-  const [unlinking, setUnlinking] = useState<Person | null>(null)
-  const [granting, setGranting] = useState<Person | null>(null)
-  // Not `playtime`: that name is the formatter this page draws the column with.
-  const [playtimeFor, setPlaytimeFor] = useState<Person | null>(null)
-  const [makingAdmin, setMakingAdmin] = useState<Person | null>(null)
-  const [unmakingAdmin, setUnmakingAdmin] = useState<Person | null>(null)
-  const [packFor, setPackFor] = useState<Person | null>(null)
-  // Which admins the signed-in one may revoke: their own branch, and nobody else's.
-  const below = adminsBelow(people.data ?? [], me.data?.id)
   // One clock for the whole render, so that two badges in one row cannot disagree about "now".
   const now = useNow()
 
@@ -275,7 +197,14 @@ export function AccessPage() {
                       {/* No `data-label`, so on a phone the name heads the card on a line of its own. */}
                       <TableCell className="font-medium">
                         <div className="flex flex-wrap items-center gap-2">
-                          <Entity id={person.discordId} kind="discord" />
+                          {/* The closed face, since the link is the way to everything else about them. */}
+                          <Link
+                            to="/access/$id"
+                            params={{ id: person.discordId }}
+                            className="min-w-0 underline-offset-4 hover:text-primary hover:underline"
+                          >
+                            <Entity id={person.discordId} kind="discord" interactive={false} />
+                          </Link>
                           {/* "Member" is left unsaid; LEFT and BANNED get a badge beside the name. */}
                           {person.memberState !== "MEMBER" ? <MemberBadge state={person.memberState} /> : null}
                         </div>
@@ -296,28 +225,9 @@ export function AccessPage() {
                       </TableCell>
                       <TableCell
                         data-label={t("steward.people.roles")}
-                        data-phone={person.donor || person.admin || person.packExemptAt ? undefined : "off"}
+                        data-phone={hasRole(person) ? undefined : "off"}
                       >
-                        <div className="flex items-center gap-1">
-                          {person.donor ? (
-                            <StatusBadge tone="idle" tipContent={t("steward.people.supporter-tip")}>
-                              {t("steward.people.supporter")}
-                            </StatusBadge>
-                          ) : null}
-                          {person.admin ? (
-                            <StatusBadge tone="idle" tipContent={grantedByText(person, list)}>
-                              {t("steward.people.admin")}
-                            </StatusBadge>
-                          ) : null}
-                          {person.packExemptAt ? (
-                            <StatusBadge tone="warn" tipContent={packExemptText(person, list)}>
-                              {t("steward.people.no-pack")}
-                            </StatusBadge>
-                          ) : null}
-                          {!person.donor && !person.admin && !person.packExemptAt ? (
-                            <span className="text-xs text-muted-foreground">{"\u2013"}</span>
-                          ) : null}
-                        </div>
+                        <RoleBadges person={person} people={list} />
                       </TableCell>
                       <TableCell
                         data-label={t("steward.people.playtime")}
@@ -326,21 +236,9 @@ export function AccessPage() {
                         {/* `playtime` draws the dash for somebody who has never been online. */}
                         <span className="text-sm tabular-nums">{span(person.playtimeSeconds, "minutes")}</span>
                       </TableCell>
-                      <TableCell>
-                        <RowActions
-                          menu
-                          label={t("steward.people.actions-for", { name: personName(person) })}
-                          actions={rowActions(person, {
-                            onPeriods: () => setSelected(person),
-                            onGrant: () => setGranting(person),
-                            onPlaytime: () => setPlaytimeFor(person),
-                            onRevoke: () => setRevoking(person),
-                            onUnlink: () => setUnlinking(person),
-                            onMakeAdmin: () => setMakingAdmin(person),
-                            onRevokeAdmin: below.has(person.discordId) ? () => setUnmakingAdmin(person) : undefined,
-                            onPack: () => setPackFor(person),
-                          })}
-                        />
+                      {/* Off on a phone, where the card is a link's worth and the page has the actions as buttons. */}
+                      <TableCell data-phone="off">
+                        <PersonActions person={person} menu />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -384,189 +282,8 @@ export function AccessPage() {
           }}
         </QueryState>
       </div>
-
-      <ResponsiveDialog open={selected !== null} onOpenChange={(open) => (open ? null : setSelected(null))}>
-        <ResponsiveDialogContent className="sm:max-w-2xl">
-          {selected ? (
-            <PersonGrants
-              person={selected}
-              now={now}
-              onRevoke={() => {
-                const person = selected
-                setSelected(null)
-                setRevoking(person)
-              }}
-            />
-          ) : null}
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
-
-      {revoking ? (
-        <RevokeDialog person={revoking} open onOpenChange={(open) => (open ? null : setRevoking(null))} />
-      ) : null}
-
-      {/* Rendered here rather than in the row, for the reason `unlinking` is declared with. */}
-      {unlinking ? (
-        <UnlinkDialog person={unlinking} open onOpenChange={(open) => (open ? null : setUnlinking(null))} />
-      ) : null}
-
-      {makingAdmin ? (
-        <MakeAdminDialog person={makingAdmin} open onOpenChange={(open) => (open ? null : setMakingAdmin(null))} />
-      ) : null}
-
-      {packFor ? (
-        <PackExemptionDialog person={packFor} open onOpenChange={(open) => (open ? null : setPackFor(null))} />
-      ) : null}
-
-      {unmakingAdmin ? (
-        <RevokeAdminDialog
-          person={unmakingAdmin}
-          branch={adminsBelow(people.data ?? [], unmakingAdmin.discordId).size}
-          open
-          onOpenChange={(open) => (open ? null : setUnmakingAdmin(null))}
-        />
-      ) : null}
-
-      {granting ? (
-        <GrantDialog person={granting} open onOpenChange={(open) => (open ? null : setGranting(null))} />
-      ) : null}
-
-      {playtimeFor ? (
-        <PlaytimeDialog person={playtimeFor} open onOpenChange={(open) => (open ? null : setPlaytimeFor(null))} />
-      ) : null}
     </div>
   )
-}
-
-/**
- * The actions one row offers, each only where it applies.
- *
- * Periods need a period, Revoke active access, Unlink a linked account; Grant is always there.
- */
-function rowActions(
-  person: Person,
-  on: {
-    onPeriods: () => void
-    onGrant: () => void
-    onPlaytime: () => void
-    onRevoke: () => void
-    onUnlink: () => void
-    onMakeAdmin: () => void
-    /** Absent unless this admin is below the signed-in one. */
-    onRevokeAdmin?: () => void
-    onPack: () => void
-  },
-): RowAction[] {
-  const actions: RowAction[] = []
-
-  if (person.accessUntil) {
-    actions.push({
-      key: "periods",
-      node: (
-        <Button type="button" variant="ghost" size="sm" onClick={on.onPeriods}>
-          <ClockCounterClockwiseIcon aria-hidden />
-          {t("steward.people.periods")}
-        </Button>
-      ),
-    })
-  }
-
-  actions.push({
-    key: "grant",
-    node: (
-      <Button type="button" variant="ghost" size="sm" onClick={on.onGrant}>
-        <UserPlusIcon aria-hidden />
-        {t("steward.people.grant")}
-      </Button>
-    ),
-  })
-
-  actions.push({
-    key: "playtime",
-    node: (
-      <Button type="button" variant="ghost" size="sm" onClick={on.onPlaytime}>
-        <HourglassIcon aria-hidden />
-        {t("steward.people.playtime")}
-      </Button>
-    ),
-  })
-
-  if (person.accessActive) {
-    actions.push({
-      key: "revoke",
-      node: (
-        <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={on.onRevoke}>
-          <ShieldSlashIcon aria-hidden />
-          {t("steward.people.revoke")}
-        </Button>
-      ),
-    })
-  }
-
-  if (person.minecraftUuid) {
-    actions.push({
-      key: "unlink",
-      node: (
-        <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={on.onUnlink}>
-          <LinkBreakIcon aria-hidden />
-          {t("steward.people.unlink")}
-        </Button>
-      ),
-    })
-  }
-
-  if (!person.admin && person.memberState === "MEMBER") {
-    actions.push({
-      key: "make-admin",
-      node: (
-        <Button type="button" variant="ghost" size="sm" onClick={on.onMakeAdmin}>
-          <CrownIcon aria-hidden />
-          {t("steward.people.make-admin")}
-        </Button>
-      ),
-    })
-  }
-
-  if (person.admin && on.onRevokeAdmin) {
-    actions.push({
-      key: "revoke-admin",
-      node: (
-        <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={on.onRevokeAdmin}>
-          <CrownCrossIcon aria-hidden />
-          {t("steward.people.revoke-admin")}
-        </Button>
-      ),
-    })
-  }
-
-  // Last on purpose: this is for whoever draws the pack, not a routine action.
-  if (person.packExemptAt || person.minecraftUuid) {
-    actions.push({
-      key: "pack",
-      node: (
-        <Button type="button" variant="ghost" size="sm" onClick={on.onPack}>
-          <PackageIcon aria-hidden />
-          {t("steward.people.pack", { exempted: Boolean(person.packExemptAt) })}
-        </Button>
-      ),
-    })
-  }
-
-  return actions
-}
-
-/** The exemption badge's tooltip: who let them through without the pack, and when. */
-function packExemptText(person: Person, people: readonly Person[]): string {
-  const admin = people.find((other) => other.discordId === person.packExemptBy)
-  const by = admin ? personName(admin) : (person.packExemptBy ?? t("steward.people.some-admin"))
-  return t("steward.people.no-pack-tip", { by, at: person.packExemptAt ?? "" })
-}
-
-/** The admin badge's tooltip: who granted this one, by the name the roster knows them by. */
-function grantedByText(person: Person, people: readonly Person[]): string {
-  if (!person.adminGrantedBy) return t("steward.people.root-admin")
-  const granter = people.find((other) => other.discordId === person.adminGrantedBy)
-  return t("steward.people.granted-by", { name: granter ? personName(granter) : person.adminGrantedBy })
 }
 
 /** The header of the access column, with the reason its two halves disagree. */

@@ -23,6 +23,8 @@ export const keys = {
   people: ["people"] as const,
   payments: ["payments"] as const,
   openPayments: ["payments", "open"] as const,
+  /** Under `payments`, so whatever moves the payments moves these too. */
+  personPayments: (discordId: string) => ["payments", "person", discordId] as const,
   grants: (discordId: string) => ["grants", discordId] as const,
   journal: (action: string, subject: string) => ["journal", action, subject] as const,
   actions: (limit: number) => ["actions", limit] as const,

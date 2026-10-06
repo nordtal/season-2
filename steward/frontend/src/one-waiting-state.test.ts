@@ -34,6 +34,11 @@ const NO_WAITING_SHAPE = new Map<string, string>([
   ],
   ["app/hold-key.tsx", "useHoldKey is a mutation. Nothing here is read."],
   [
+    "pages/access-person.tsx",
+    "The dialogs' hooks are mutations. usePeople and useMe only decide whether Revoke admin is offered, and the" +
+      " pages that draw a person wait for the roster before they do.",
+  ],
+  [
     "components/steward/group-form.tsx",
     "Hooks over a settings group and a day picker; the dialogs that call them draw the wait.",
   ],

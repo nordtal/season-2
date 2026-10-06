@@ -2,8 +2,9 @@ package eu.nordtal.season.settings;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import java.time.Duration;
 
-/** The connection pool a Minecraft process opens from its {@code database} group. */
+/** The one builder of a connection pool, for every process that opens one from its {@code database} group. */
 public final class DatabasePool {
 
     private DatabasePool() {}
@@ -26,17 +27,18 @@ public final class DatabasePool {
 
     /** Opens a pool named {@code name}, whose timeout bounds both a connection wait and a query already running. */
     public static HikariDataSource open(final DatabaseSpec database, final String name) {
-        final HikariConfig hikari = config(database, name);
-        hikari.addDataSourceProperty("socketTimeout", String.valueOf(database.queryTimeoutSeconds()));
-        return new HikariDataSource(hikari);
+        return open(database, name, Duration.ofSeconds(database.queryTimeoutSeconds()));
     }
 
-    /** Opens a pool named {@code name} whose timeout bounds only a connection wait, for a service that migrates. */
-    public static HikariDataSource openUnbounded(final DatabaseSpec database, final String name) {
-        return new HikariDataSource(config(database, name));
-    }
-
-    private static HikariConfig config(final DatabaseSpec database, final String name) {
+    /**
+     * Opens a pool named {@code name} whose running query is bounded by {@code queryBound}, for a longer one.
+     *
+     * The connection wait stays at {@code query-timeout-seconds}.
+     */
+    public static HikariDataSource open(final DatabaseSpec database, final String name, final Duration queryBound) {
+        if (queryBound.isNegative() || queryBound.isZero()) {
+            throw new IllegalArgumentException("the query bound must be positive, was " + queryBound);
+        }
         final HikariConfig hikari = new HikariConfig();
         hikari.setJdbcUrl(database.jdbcUrl());
         hikari.setUsername(database.username());
@@ -44,8 +46,9 @@ public final class DatabasePool {
         hikari.setPoolName(name);
         hikari.setMaximumPoolSize(database.maximumPoolSize());
         hikari.setConnectionTimeout(database.queryTimeoutSeconds() * 1000L);
+        hikari.addDataSourceProperty("socketTimeout", String.valueOf(Math.max(1, queryBound.toSeconds())));
         // DriverManager's ServiceLoader misses a driver that only a plugin's own classloader can see.
         hikari.setDriverClassName("org.postgresql.Driver");
-        return hikari;
+        return new HikariDataSource(hikari);
     }
 }

@@ -57,6 +57,9 @@ public final class StewardAgent {
     /** How long a settled request is kept in its inbox. */
     private static final Duration REQUEST_RETENTION = Duration.ofDays(30);
 
+    /** How long one statement of a migration may run, which a request-sized query timeout would cut short. */
+    private static final Duration MIGRATION_QUERY_BOUND = Duration.ofMinutes(30);
+
     private StewardAgent() {}
 
     public static void main(final String[] args) throws Exception {
@@ -177,8 +180,8 @@ public final class StewardAgent {
             log.error("Refusing to touch the database on settings that cannot be read: {}", broken.getMessage());
             return 1;
         }
-        final Database opened =
-                DatabaseWaiting.openDatabase(databaseConfig, Compose.MIGRATE, Waiting.on(NetworkTime.clock()));
+        final Database opened = DatabaseWaiting.openDatabase(
+                databaseConfig, Compose.MIGRATE, MIGRATION_QUERY_BOUND, Waiting.on(NetworkTime.clock()));
         if (opened == null) {
             return 1;
         }

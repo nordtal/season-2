@@ -29,6 +29,12 @@ public final class DatabaseWaiting {
         return openDatabase(config, name, DATABASE_WAIT, DATABASE_RETRY, waiting);
     }
 
+    /** The same, for a process whose queries may run up to {@code queryBound}, longer than the usual timeout. */
+    public static @Nullable Database openDatabase(
+            final DatabaseSpec config, final String name, final Duration queryBound, final Waiting waiting) {
+        return openDatabase(config, name, queryBound, DATABASE_WAIT, DATABASE_RETRY, waiting);
+    }
+
     /** The same, with the windows as arguments so a test need not wait minutes. */
     public static @Nullable Database openDatabase(
             final DatabaseSpec config,
@@ -36,11 +42,21 @@ public final class DatabaseWaiting {
             final Duration wait,
             final Duration between,
             final Waiting waiting) {
+        return openDatabase(config, name, Duration.ofSeconds(config.queryTimeoutSeconds()), wait, between, waiting);
+    }
+
+    private static @Nullable Database openDatabase(
+            final DatabaseSpec config,
+            final String name,
+            final Duration queryBound,
+            final Duration wait,
+            final Duration between,
+            final Waiting waiting) {
         final AtomicReference<@Nullable RuntimeException> last = new AtomicReference<>();
         final Optional<Database> opened = waiting.until(
                 () -> {
                     try {
-                        return Optional.of(Database.open(config, name));
+                        return Optional.of(Database.open(config, name, queryBound));
                     } catch (final RuntimeException unreachable) {
                         if (last.getAndSet(unreachable) == null) {
                             // Once, not per attempt, so the retries do not bury the migration line.

@@ -134,7 +134,9 @@ public final class ComposeTopology {
                     server(name, labels),
                     text(labels, STANDBY_OF),
                     renewal(name, text(labels, RENEW)),
-                    wiring(labels)));
+                    wiring(labels),
+                    // Compose's word for a process that exits by design; a missing policy is left long-running.
+                    "no".equals(text(service, "restart"))));
             for (final JsonObject mount : mounts(service)) {
                 final String target = text(mount, "target");
                 if (target != null && target.startsWith(root) && target.length() > root.length()) {

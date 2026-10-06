@@ -39,6 +39,21 @@ public final class FakeDaemon implements AutoCloseable {
     /** Every exec request body, so a test can see what reached the console. */
     public final List<String> execs = new CopyOnWriteArrayList<>();
 
+    /** Stopped containers beside smp, as a one-shot or a standby leaves one, listed and inspected but without a log. */
+    public final List<Stopped> stopped = new CopyOnWriteArrayList<>();
+
+    /**
+     * One stopped container.
+     *
+     * @param finishedAt when it last ended, Docker's {@code 0001-01-01T00:00:00Z} for one that never ran
+     */
+    public record Stopped(String service, int exitCode, String finishedAt) {
+
+        String id() {
+            return "stopped-" + service;
+        }
+    }
+
     private final Path socket;
     private final ServerSocketChannel server;
     private final Thread acceptor;
@@ -88,17 +103,33 @@ public final class FakeDaemon implements AutoCloseable {
                 json(client, 500, "{\"message\":\"the daemon is not answering\"}");
                 return;
             }
-            json(client, 200, """
+            final StringBuilder list = new StringBuilder("""
                     [{"Id":"%s","Names":["/nordtal-s2-smp-1"],"Image":"ghcr.io/nordtal/minecraft:latest",
                       "ImageID":"sha256:5eed","State":"running","Status":"Up 2 hours",
-                      "Labels":{"com.docker.compose.project":"%s","com.docker.compose.service":"smp"}}]
+                      "Labels":{"com.docker.compose.project":"%s","com.docker.compose.service":"smp"}}
                     """.formatted(CONTAINER, PROJECT));
+            for (final Stopped one : stopped) {
+                list.append(",{\"Id\":\"%s\",\"Names\":[\"/nordtal-s2-%s-1\"],\"Image\":\"ghcr.io/nordtal/x:latest\","
+                                .formatted(one.id(), one.service()))
+                        .append("\"ImageID\":\"sha256:5eed\",\"State\":\"exited\",\"Status\":\"Exited\",")
+                        .append(
+                                "\"Labels\":{\"com.docker.compose.project\":\"%s\",\"com.docker.compose.service\":\"%s\"}}"
+                                        .formatted(PROJECT, one.service()));
+            }
+            json(client, 200, list.append(']').toString());
         } else if (path.equals("/containers/" + CONTAINER + "/json")) {
             json(client, 200, """
                     {"Id":"%s","Name":"/nordtal-s2-smp-1","Image":"sha256:5eed",
                      "Config":{"Image":"ghcr.io/nordtal/minecraft:latest","Tty":true},
                      "State":{"Status":"running","StartedAt":"2026-10-01T08:00:00Z","ExitCode":0}}
                     """.formatted(CONTAINER));
+        } else if (stoppedAt(path).isPresent()) {
+            final Stopped one = stoppedAt(path).orElseThrow();
+            json(client, 200, """
+                    {"Id":"%s","Name":"/nordtal-s2-%s-1","Image":"sha256:5eed",
+                     "Config":{"Image":"ghcr.io/nordtal/x:latest","Tty":false},
+                     "State":{"Status":"exited","StartedAt":"2026-10-06T01:00:00Z","ExitCode":%d,"FinishedAt":"%s"}}
+                    """.formatted(one.id(), one.service(), one.exitCode(), one.finishedAt()));
         } else if (path.startsWith("/containers/" + CONTAINER + "/stats")) {
             json(client, 200, "{}");
         } else if (path.startsWith("/containers/" + CONTAINER + "/logs") && path.contains("follow=1")) {
@@ -119,6 +150,12 @@ public final class FakeDaemon implements AutoCloseable {
         } else {
             json(client, 404, "{\"message\":\"not in this stand-in: " + method + " " + path + "\"}");
         }
+    }
+
+    private java.util.Optional<Stopped> stoppedAt(final String path) {
+        return stopped.stream()
+                .filter(one -> path.equals("/containers/" + one.id() + "/json"))
+                .findFirst();
     }
 
     /** A follow: a line now, then one every 120 ms while chatty, until the reader closes its end. */

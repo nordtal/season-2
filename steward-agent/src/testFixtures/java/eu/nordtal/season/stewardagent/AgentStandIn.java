@@ -64,6 +64,16 @@ public final class AgentStandIn implements AutoCloseable {
      * @param more routes beside the real ones, such as stand-in deployments
      */
     public AgentStandIn(final Path scratch, final int port, final Consumer<JavalinConfig> more) throws IOException {
+        this(scratch, port, more, new JsonObject());
+    }
+
+    /**
+     * The same with more services in compose.yml than {@link #SERVICES}, for a page that draws them.
+     *
+     * @param extra compose config's object of the services to add, by name
+     */
+    public AgentStandIn(final Path scratch, final int port, final Consumer<JavalinConfig> more, final JsonObject extra)
+            throws IOException {
         this.daemon = new FakeDaemon(scratch);
         this.backups = Files.createDirectories(scratch.resolve("backups"));
         this.configs = Files.createDirectories(scratch.resolve("configs"));
@@ -71,6 +81,7 @@ public final class AgentStandIn implements AutoCloseable {
         final Path sources = Files.createDirectories(scratch.resolve("sources"));
         final JsonObject services =
                 JsonParser.parseString(SERVICES.formatted(sources)).getAsJsonObject();
+        extra.entrySet().forEach(service -> services.add(service.getKey(), service.getValue()));
         this.api = new AgentApi(
                 new Docker(new DockerSocket(daemon.socket(), Duration.ofSeconds(5), TestScheduler.SHARED)),
                 FakeDaemon.PROJECT,

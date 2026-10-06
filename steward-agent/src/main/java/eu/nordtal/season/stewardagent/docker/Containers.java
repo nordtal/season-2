@@ -96,11 +96,15 @@ public final class Containers {
         String state = String.valueOf(container.state());
         String health = null;
         String startedAt = null;
+        String finishedAt = null;
+        Integer exitCode = null;
         try {
             final Docker.Inspection inspection = docker.inspect(container.id());
             state = String.valueOf(inspection.state());
             health = inspection.health();
             startedAt = inspection.startedAt();
+            finishedAt = inspection.finishedAt();
+            exitCode = finishedAt == null || inspection.exitCode() < 0 ? null : inspection.exitCode();
         } catch (DockerException e) {
             log.debug("could not inspect {}", container.id(), e);
         }
@@ -114,7 +118,9 @@ public final class Containers {
                 health,
                 startedAt,
                 "running".equalsIgnoreCase(state) ? sample : null,
-                digests);
+                digests,
+                "running".equalsIgnoreCase(state) ? null : finishedAt,
+                "running".equalsIgnoreCase(state) ? null : exitCode);
     }
 
     public RuntimeResult runtime() {

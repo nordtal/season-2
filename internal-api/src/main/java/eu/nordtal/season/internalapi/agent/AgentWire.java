@@ -153,6 +153,11 @@ public final class AgentWire {
                     .toList();
         }
 
+        /** Every service that runs once and exits, in file order. */
+        public List<String> oneShots() {
+            return services.stream().filter(Service::oneShot).map(Service::name).toList();
+        }
+
         /** The services a run renews at that point, in file order. */
         public List<String> renewed(final Renewal when) {
             return services.stream()
@@ -198,6 +203,7 @@ public final class AgentWire {
      * @param standbyOf the service it stands in for, from {@code eu.nordtal.standby-of}, or none
      * @param renewal when a run makes it again, from {@code eu.nordtal.renew}, or never
      * @param wiring where the network page draws it and what it is wired to, or none for a service it leaves out
+     * @param oneShot whether it runs once and exits, which compose's {@code restart} says when it is {@code no}
      */
     public record Service(
             String name,
@@ -207,9 +213,10 @@ public final class AgentWire {
             eu.nordtal.season.internalapi.agent.Topology.@Nullable Service server,
             @Nullable String standbyOf,
             @Nullable Renewal renewal,
-            @Nullable Wiring wiring) {
+            @Nullable Wiring wiring,
+            boolean oneShot) {
 
-        /** A service the network page does not draw. */
+        /** A long-running service the network page does not draw. */
         public Service(
                 final String name,
                 final @Nullable String image,
@@ -218,7 +225,7 @@ public final class AgentWire {
                 final eu.nordtal.season.internalapi.agent.Topology.@Nullable Service server,
                 final @Nullable String standbyOf,
                 final @Nullable Renewal renewal) {
-            this(name, image, console, stoppedForBackup, server, standbyOf, renewal, null);
+            this(name, image, console, stoppedForBackup, server, standbyOf, renewal, null, false);
         }
 
         /** A service that is no server and no standby, and that no run makes again. */
@@ -238,6 +245,8 @@ public final class AgentWire {
      * @param health Docker's health word, or {@code null} for a container without a healthcheck
      * @param sample the sampler's last reading of it, or {@code null} while it is stopped or not yet read
      * @param digests the registry digests of its image, filled only by {@link #CONTAINER}
+     * @param finishedAt when its process last ended, or {@code null} while it runs or when it never ran
+     * @param exitCode what that process exited with, or {@code null} beside a {@code null} {@code finishedAt}
      */
     public record Container(
             String service,
@@ -249,7 +258,9 @@ public final class AgentWire {
             @Nullable String health,
             @Nullable String startedAt,
             @Nullable Reading sample,
-            @Nullable List<String> digests) {
+            @Nullable List<String> digests,
+            @Nullable String finishedAt,
+            @Nullable Integer exitCode) {
 
         public boolean isRunning() {
             return "running".equalsIgnoreCase(state);

@@ -88,8 +88,8 @@ class ServiceRowOnlineFieldsTest {
     /** The row as the browser receives it, of a stopped container nothing else is known about. */
     static JsonObject wireRow(
             final String service, final ServicesApi.Online online, final AgentWire.Topology topology) {
-        final AgentWire.Container container =
-                new AgentWire.Container(service, "id-" + service, null, null, "exited", null, null, null, null, null);
+        final AgentWire.Container container = new AgentWire.Container(
+                service, "id-" + service, null, null, "exited", null, null, null, null, null, null, null);
         return WireJson.gson()
                 .toJsonTree(ServiceRows.describe(
                         container, new ImageResult(true, Map.of(), Set.of(), null), online, Map.of(), topology))

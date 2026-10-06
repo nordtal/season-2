@@ -126,6 +126,7 @@ public final class Docker {
                 state == null ? null : string(state, "Status"),
                 health,
                 state == null ? null : string(state, "StartedAt"),
+                state == null ? null : ended(string(state, "FinishedAt")),
                 config != null && config.has("Tty") && config.get("Tty").getAsBoolean(),
                 config != null
                                 && config.has("StopTimeout")
@@ -460,6 +461,7 @@ public final class Docker {
     /**
      * One container in full; {@code repoDigests} is what the drift check compares.
      *
+     * @param finishedAt when its process last ended, or {@code null} when it never did
      * @param stopTimeout the seconds Docker waits before a kill, which compose sets from {@code stop_grace_period}
      * @param exitCode what the process exited with, or {@code -1}; {@code 137} is SIGKILL after a stop timed out
      */
@@ -471,6 +473,7 @@ public final class Docker {
             @Nullable String state,
             @Nullable String health,
             @Nullable String startedAt,
+            @Nullable String finishedAt,
             boolean tty,
             int stopTimeout,
             int exitCode,
@@ -501,6 +504,11 @@ public final class Docker {
     public record Stats(long memoryBytes, long memoryLimitBytes, OptionalDouble cpuPercent) {}
 
     public record DiskUsage(long imagesBytes, long volumesBytes, long containersBytes) {}
+
+    /** Docker's {@code FinishedAt}, which reads as the year 1 for a process that never ended. */
+    private static @Nullable String ended(final @Nullable String finishedAt) {
+        return finishedAt == null || finishedAt.startsWith("0001-") ? null : finishedAt;
+    }
 
     private static @Nullable String firstName(final JsonObject json) {
         final JsonArray names = json.getAsJsonArray("Names");

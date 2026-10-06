@@ -107,6 +107,21 @@ class ComposeTopologyTest {
     }
 
     @Test
+    void aServiceComposeNeverRestartsRunsOnceAndOneWithoutAPolicyDoesNot() {
+        final AgentWire.Topology read = parse("""
+                {"migrate": {"restart": "no"}, "steward": {"restart": "unless-stopped"}, "pack-host": {}}
+                """);
+
+        assertEquals(List.of("migrate"), read.oneShots());
+    }
+
+    /** The repository's own file: migrate exits by design, and a standby restarts like the service it stands in for. */
+    @Test
+    void theRepositorysOnlyOneShotIsMigrate() {
+        assertEquals(List.of("migrate"), DeclaredTopology.topology().oneShots());
+    }
+
+    @Test
     void theFourPictureLabelsBecomeAWiringAndAServiceWithoutASectionIsNotDrawn() {
         final AgentWire.Topology read = parse("""
                 {"caddy": {"labels": {"eu.nordtal.section": "Entry", "eu.nordtal.entry": "true",

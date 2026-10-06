@@ -105,6 +105,38 @@ class ContainersStopTest {
                         + " has to say what was not read: " + result.message());
     }
 
+    /** A one-shot is judged by how its last run ended, so the table carries when that was and the code. */
+    @Test
+    void aStoppedContainerSaysWhenItEndedAndWithWhatCodeAndOneThatNeverRanSaysNeither() throws IOException {
+        final String finished = "{\"Status\":\"exited\",\"ExitCode\":3,\"StartedAt\":\"2026-10-06T01:00:00Z\","
+                + "\"FinishedAt\":\"2026-10-06T01:00:09Z\"}";
+        final String never = "{\"Status\":\"created\",\"ExitCode\":0,\"FinishedAt\":\"0001-01-01T00:00:00Z\"}";
+        final var listed = new Containers(
+                        new Docker(new DockerSocket(
+                                listening(request -> {
+                                    if (request.startsWith("GET /containers/json")) {
+                                        return "[" + listed("migrate") + "," + listed("standby") + "]";
+                                    }
+                                    return inspection(request.contains("/migrate/") ? finished : never, 10);
+                                }),
+                                Duration.ofSeconds(5),
+                                TestScheduler.SHARED)),
+                        "nordtal-s2")
+                .list(java.util.Map.of())
+                .containers();
+
+        assertEquals("2026-10-06T01:00:09Z", listed.get(0).finishedAt());
+        assertEquals(3, listed.get(0).exitCode());
+        assertEquals(null, listed.get(1).finishedAt());
+        assertEquals(null, listed.get(1).exitCode(), "a container that never ran has no exit code, not a zero");
+    }
+
+    private static String listed(final String service) {
+        return "{\"Id\":\"" + service + "\",\"Names\":[\"/nordtal-s2-" + service + "-1\"],\"Image\":\"i\","
+                + "\"ImageID\":\"sha256:1\",\"State\":\"exited\",\"Status\":\"Exited\",\"Labels\":"
+                + "{\"com.docker.compose.project\":\"nordtal-s2\",\"com.docker.compose.service\":\"" + service + "\"}}";
+    }
+
     @Test
     void theStopWaitsTheGraceComposeGaveTheContainer() throws IOException {
         // compose writes stop_grace_period into the container's StopTimeout; a server saving its world needs all of it.

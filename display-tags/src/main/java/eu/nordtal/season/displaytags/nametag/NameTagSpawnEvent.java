@@ -1,6 +1,5 @@
-package eu.nordtal.season.displaytags.api.events;
+package eu.nordtal.season.displaytags.nametag;
 
-import eu.nordtal.season.displaytags.api.nametag.PlayerNameTag;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;

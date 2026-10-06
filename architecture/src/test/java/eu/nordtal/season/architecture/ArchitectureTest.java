@@ -92,6 +92,11 @@ class ArchitectureTest {
     }
 
     @Test
+    void noPackageIsNamedByALayer() {
+        LayerPackages.rule().check(classes);
+    }
+
+    @Test
     void noPackageIsAGrabBag() {
         noClasses()
                 .should()

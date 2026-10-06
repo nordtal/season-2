@@ -1,4 +1,4 @@
-package eu.nordtal.season.displaytags.api.nametag;
+package eu.nordtal.season.displaytags;
 
 import org.jspecify.annotations.Nullable;
 

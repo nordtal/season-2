@@ -2,7 +2,6 @@ package eu.nordtal.season.displaytags.nametag;
 
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.displaytags.DisplayTags;
-import eu.nordtal.season.displaytags.api.nametag.PlayerNameTag;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import java.time.Duration;
 import org.jspecify.annotations.Nullable;

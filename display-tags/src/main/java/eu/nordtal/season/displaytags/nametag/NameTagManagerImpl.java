@@ -1,9 +1,5 @@
 package eu.nordtal.season.displaytags.nametag;
 
-import eu.nordtal.season.displaytags.api.events.NameTagCreateEvent;
-import eu.nordtal.season.displaytags.api.events.NameTagRemoveEvent;
-import eu.nordtal.season.displaytags.api.nametag.NameTagManager;
-import eu.nordtal.season.displaytags.api.nametag.PlayerNameTag;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;

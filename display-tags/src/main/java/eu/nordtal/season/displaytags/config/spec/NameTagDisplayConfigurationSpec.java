@@ -1,6 +1,6 @@
 package eu.nordtal.season.displaytags.config.spec;
 
-import eu.nordtal.season.displaytags.api.nametag.SeeThroughMode;
+import eu.nordtal.season.displaytags.SeeThroughMode;
 import eu.nordtal.season.displaytags.wrapper.display.TextAlignment;
 import eu.nordtal.season.spec.Specs;
 import eu.nordtal.season.spec.annotation.AllowedValues;

@@ -1,4 +1,4 @@
-package eu.nordtal.season.displaytags.api.nametag;
+package eu.nordtal.season.displaytags.nametag;
 
 import java.util.List;
 import java.util.Set;

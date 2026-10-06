@@ -1,12 +1,12 @@
 package eu.nordtal.season.displaytags;
 
-import eu.nordtal.season.displaytags.api.nametag.NameTagManager;
-import eu.nordtal.season.displaytags.api.nametag.PlayerNameTag;
 import eu.nordtal.season.displaytags.config.NameTagConfiguration;
 import eu.nordtal.season.displaytags.config.spec.NameTagConfigurationSpec;
-import eu.nordtal.season.displaytags.listener.PlayerListener;
+import eu.nordtal.season.displaytags.nametag.NameTagManager;
 import eu.nordtal.season.displaytags.nametag.NameTagManagerImpl;
 import eu.nordtal.season.displaytags.nametag.NameTagScheduler;
+import eu.nordtal.season.displaytags.nametag.PlayerListener;
+import eu.nordtal.season.displaytags.nametag.PlayerNameTag;
 import eu.nordtal.season.displaytags.nametag.TabUtil;
 import java.util.List;
 import java.util.Objects;

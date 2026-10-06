@@ -58,7 +58,9 @@ constrains. The present-tense rule also holds for every tracked Markdown file: a
 
 ## Structure
 
-- **Package by feature**: `eu.nordtal.<repo>.<module>.<feature>`, never by layer. _(partly checked)_
+- **Package by feature**: `eu.nordtal.<repo>.<module>.<feature>`, never by layer. A package whose last segment is
+  `db`, `dao`, `listener`, `service`, `model`, `impl`, `api` or `web` fails `check`; `config` is allowed.
+  _(partly checked)_
 - **No `util`, `helper` or `misc` packages** inside a module. Code shared by several
   features lives at the module root. _(checked)_
 - **No cycles between feature packages**, each counted with its subpackages. The module root,

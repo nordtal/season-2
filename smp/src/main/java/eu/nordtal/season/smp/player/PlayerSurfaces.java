@@ -3,8 +3,8 @@ package eu.nordtal.season.smp.player;
 import static eu.nordtal.season.smp.SmpMessages.MESSAGES;
 
 import eu.nordtal.season.database.access.PlayerIdentity;
-import eu.nordtal.season.displaytags.api.nametag.NameTagManager;
-import eu.nordtal.season.displaytags.api.nametag.PlayerNameTag;
+import eu.nordtal.season.displaytags.nametag.NameTagManager;
+import eu.nordtal.season.displaytags.nametag.PlayerNameTag;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.papercommon.PaperCommonMessages;
 import eu.nordtal.season.papercommon.player.Identities;

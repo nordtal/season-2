@@ -1,4 +1,4 @@
-package eu.nordtal.season.displaytags.api;
+package eu.nordtal.season.displaytags;
 
 import org.bukkit.Color;
 import org.jspecify.annotations.Nullable;

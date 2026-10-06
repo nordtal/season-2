@@ -1,7 +1,6 @@
-package eu.nordtal.season.displaytags.listener;
+package eu.nordtal.season.displaytags.nametag;
 
 import eu.nordtal.season.displaytags.DisplayTags;
-import eu.nordtal.season.displaytags.api.nametag.PlayerNameTag;
 import eu.nordtal.season.displaytags.config.NameTagConfiguration;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import io.papermc.paper.event.player.PlayerClientLoadedWorldEvent;

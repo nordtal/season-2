@@ -1,7 +1,7 @@
 package eu.nordtal.season.displaytags.config;
 
-import eu.nordtal.season.displaytags.api.Util;
-import eu.nordtal.season.displaytags.api.nametag.SeeThroughMode;
+import eu.nordtal.season.displaytags.SeeThroughMode;
+import eu.nordtal.season.displaytags.Util;
 import eu.nordtal.season.displaytags.config.spec.NameTagConfigurationSpec;
 import eu.nordtal.season.displaytags.config.spec.VectorSpec;
 import eu.nordtal.season.displaytags.wrapper.display.DisplayBillboard;

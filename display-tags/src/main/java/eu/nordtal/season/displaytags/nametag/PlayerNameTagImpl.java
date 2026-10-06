@@ -4,10 +4,7 @@ import eu.nordtal.season.displaytags.ComponentUtil;
 import eu.nordtal.season.displaytags.Constants;
 import eu.nordtal.season.displaytags.DependencyUtil;
 import eu.nordtal.season.displaytags.DisplayTags;
-import eu.nordtal.season.displaytags.api.events.NameTagDespawnEvent;
-import eu.nordtal.season.displaytags.api.events.NameTagSpawnEvent;
-import eu.nordtal.season.displaytags.api.nametag.PlayerNameTag;
-import eu.nordtal.season.displaytags.api.nametag.SeeThroughMode;
+import eu.nordtal.season.displaytags.SeeThroughMode;
 import eu.nordtal.season.displaytags.config.NameTagConfiguration;
 import eu.nordtal.season.displaytags.wrapper.EntityWrapper;
 import eu.nordtal.season.displaytags.wrapper.display.DisplayBillboard;
@@ -321,7 +318,7 @@ public class PlayerNameTagImpl extends PlayerNameTag {
     /**
      * The configured lines with {@code {player}} substituted once, since a player's name does not change.
      *
-     * The raw lines stay in {@link eu.nordtal.season.displaytags.api.nametag.NameTagData}; replacing them redoes this.
+     * The raw lines stay in {@link eu.nordtal.season.displaytags.nametag.NameTagData}; replacing them redoes this.
      */
     private List<String> getResolvedLines() {
         final List<String> lines = this.data.getLines();

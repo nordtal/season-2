@@ -1,6 +1,6 @@
 package eu.nordtal.season.smp.player;
 
-import eu.nordtal.season.displaytags.api.events.NameTagCreateEvent;
+import eu.nordtal.season.displaytags.nametag.NameTagCreateEvent;
 import eu.nordtal.season.papercommon.chat.SystemLines;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import java.util.function.Consumer;

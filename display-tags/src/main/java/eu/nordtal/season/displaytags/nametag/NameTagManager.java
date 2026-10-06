@@ -1,4 +1,4 @@
-package eu.nordtal.season.displaytags.api.nametag;
+package eu.nordtal.season.displaytags.nametag;
 
 import java.util.Collection;
 import org.bukkit.entity.Player;

@@ -1,6 +1,7 @@
-package eu.nordtal.season.displaytags.api.nametag;
+package eu.nordtal.season.displaytags.nametag;
 
-import eu.nordtal.season.displaytags.api.Util;
+import eu.nordtal.season.displaytags.SeeThroughMode;
+import eu.nordtal.season.displaytags.Util;
 import java.util.List;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.TextDisplay;

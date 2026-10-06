@@ -79,6 +79,14 @@ final class Kinds {
                 .filter(service -> !holds.contains(service))
                 .toList();
 
+        // Before anything is handed over or stopped: a build made here goes only when whoever asked said so.
+        final Release.Standing standing = Release.of(plan.seasonTag(), Release.ownVersion());
+        final List<String> replacedLocal =
+                LocalBuilds.replaced(images, plan, planned, foreign, standing == Release.Standing.NEWER, scope, holds);
+        if (standing != Release.Standing.OLDER && !replacedLocal.isEmpty() && !replacesLocal(runner, request)) {
+            return refused(planned, TEXTS.report().localBuildsKept(replacedLocal, replacedLocal.size()));
+        }
+
         // First: an agent carries out runs of its own release only, and never recreates itself.
         final Planned elsewhere = elsewhere(runner, request, plan, planned, images, scope, progress);
         if (elsewhere != null) {
@@ -102,6 +110,14 @@ final class Kinds {
                         true,
                         Runner.Doubt.FAILS_THE_RUN)
                 .renewing(images, foreign, plan.hasFailures()));
+    }
+
+    /** Whether the request confirmed that builds made on this host are replaced. */
+    private static boolean replacesLocal(final Runner runner, final UpdateRequest request) {
+        return runner.directory
+                .requestOf(request.id())
+                .map(asked -> asked instanceof StewardRequest.Update update && update.replacesLocal())
+                .orElse(false);
     }
 
     /** The payload, and once everything is back, the images nothing uses any more removed as a note. */

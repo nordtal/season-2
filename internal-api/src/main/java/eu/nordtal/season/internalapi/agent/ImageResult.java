@@ -12,16 +12,33 @@ import org.jspecify.annotations.Nullable;
  * @param services one entry per running compose service, service name to what was found
  * @param unverifiable the {@link State#UNKNOWN} services whose image could not be identified, so the report can say why
  * @param message why not, or {@code null} when they could be read
+ * @param localBuilds what each service runs that was built on this host and no release has, absent when nothing
  */
 public record ImageResult(
         boolean reached,
         Map<String, State> services,
         Set<String> unverifiable,
-        @Nullable String message) {
+        @Nullable String message,
+        Map<String, LocalBuild> localBuilds) {
 
     public ImageResult {
         services = Map.copyOf(services);
         unverifiable = Set.copyOf(unverifiable);
+        // An older agent's answer has no such field.
+        localBuilds = localBuilds == null ? Map.of() : Map.copyOf(localBuilds);
+    }
+
+    /**
+     * What one service runs that was built on this host, which the next run that replaces it overwrites.
+     *
+     * @param image the image reference when the image itself was built here, whatever its {@link State}
+     * @param jars the plugin and server jars in its volume whose descriptor says they were built outside a release
+     */
+    public record LocalBuild(@Nullable String image, List<String> jars) {
+
+        public LocalBuild {
+            jars = List.copyOf(jars);
+        }
     }
 
     /** What is known about one service's image. */
@@ -45,11 +62,16 @@ public record ImageResult(
     }
 
     public static ImageResult of(final Map<String, State> services, final Set<String> unverifiable) {
-        return new ImageResult(true, services, unverifiable, null);
+        return new ImageResult(true, services, unverifiable, null, Map.of());
     }
 
     public static ImageResult unreachable(final String message) {
-        return new ImageResult(false, Map.of(), Set.of(), message);
+        return new ImageResult(false, Map.of(), Set.of(), message, Map.of());
+    }
+
+    /** This result with what each service runs that was built here. */
+    public ImageResult withLocalBuilds(final Map<String, LocalBuild> builds) {
+        return new ImageResult(reached, services, unverifiable, message, builds);
     }
 
     /** Returns what was found for that service, or {@link State#UNKNOWN} if it was not among them. */

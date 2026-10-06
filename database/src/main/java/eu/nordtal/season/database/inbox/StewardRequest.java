@@ -12,11 +12,20 @@ public sealed interface StewardRequest {
     /** Returns the compose services the run is for; empty is the whole network. */
     List<String> services();
 
-    /** Installs what is new and restarts what needs it. */
-    record Update(List<String> services) implements StewardRequest {
+    /**
+     * Installs what is new and restarts what needs it.
+     *
+     * @param replacesLocal whether whoever asked confirmed that builds made on the host and in no release are replaced
+     */
+    record Update(List<String> services, boolean replacesLocal) implements StewardRequest {
 
         public Update {
             services = List.copyOf(services);
+        }
+
+        /** An update that stops before it replaces a local build. */
+        public Update(final List<String> services) {
+            this(services, false);
         }
     }
 

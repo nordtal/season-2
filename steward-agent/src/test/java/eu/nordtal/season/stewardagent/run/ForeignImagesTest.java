@@ -45,7 +45,7 @@ class ForeignImagesTest {
     }
 
     @Test
-    void aLocalBuildIsANoteNamingWhatTheNextRunReplaces() {
+    void aLocalBuildIsANoteSayingThatARunReplacingItAsksFirst() {
         final UpdateReport report = with(ImageResult.of(Map.of(
                 Topology.SMP,
                 ImageResult.State.UP_TO_DATE,
@@ -56,8 +56,8 @@ class ForeignImagesTest {
 
         assertEquals(List.of("report.images-local"), keys(report));
         assertEquals(
-                List.of("Built on this host and never published: steward and steward-agent. The next real update run"
-                        + " replaces them with whatever the last release actually contains, without asking."),
+                List.of("Built on this host and never published: steward and steward-agent. An update run that"
+                        + " would replace them with what the release contains asks first."),
                 Told.notes(report));
     }
 

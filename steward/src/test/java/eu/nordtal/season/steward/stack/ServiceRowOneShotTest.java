@@ -93,7 +93,7 @@ class ServiceRowOneShotTest {
         return WireJson.gson()
                 .toJsonTree(ServiceRows.describe(
                         container,
-                        new ImageResult(true, Map.of(), Set.of(), null),
+                        new ImageResult(true, Map.of(), Set.of(), null, Map.of()),
                         ServicesApi.Online.NONE,
                         Map.of(),
                         moving,

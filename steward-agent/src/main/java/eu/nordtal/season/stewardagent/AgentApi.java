@@ -5,6 +5,7 @@ import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.stewardagent.backup.BackupRoutes;
 import eu.nordtal.season.stewardagent.bundles.BundleRoutes;
 import eu.nordtal.season.stewardagent.bundles.ImageJars;
+import eu.nordtal.season.stewardagent.descriptor.LocalJars;
 import eu.nordtal.season.stewardagent.descriptor.PluginDescriptors;
 import eu.nordtal.season.stewardagent.docker.Console;
 import eu.nordtal.season.stewardagent.docker.Containers;
@@ -54,7 +55,7 @@ public final class AgentApi implements AutoCloseable {
         this.logs = new LogStreams(docker, project, paths.volumesRoot(), clock, scheduler);
         this.routes = new AgentRoutes(
                 docker,
-                new Containers(docker, project, hashes),
+                new Containers(docker, project, hashes, new LocalJars(paths.volumesRoot())::of),
                 new Console(docker, project, topology::consoles),
                 sampler,
                 topology);

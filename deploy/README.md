@@ -136,7 +136,13 @@ the host:
 ./nordtal.sh update --start        # release every hold, or one service
 ./nordtal.sh update --in 10        # count down ten minutes first
 ./nordtal.sh update --no-wait      # print the request id and return
+./nordtal.sh update --replace-local  # let the run replace builds made on this host
 ```
+
+An update that would replace an image built on this host or a plugin jar built outside a release
+stops before anything moves and names them; Steward marks such a service as a local build. From a
+terminal the command then asks whether to go on, and without one it says to ask again with
+`--replace-local`. Steward's update dialog lists them and asks the same.
 
 The command asks steward-agent through `docker exec`, so it passes the same refusals as a button.
 Each request is a row in `steward_inbox` whose `outcome` is the report; one run is open at a time.

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.common.json.Json;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -86,5 +87,25 @@ class ImageResultTest {
         assertFalse(result.nothingCompared());
         assertEquals(Set.of(), result.unverifiable(), "a local build is a known answer");
         assertEquals(List.of("steward", "steward-agent"), result.local());
+    }
+
+    @Test
+    void anOlderAgentsAnswerWithoutLocalBuildsReadsAsNoneBuiltHere() {
+        final ImageResult result = Json.decode(
+                "{\"reached\": true, \"services\": {\"smp\": \"LOCAL\"}, \"unverifiable\": []}", ImageResult.class);
+
+        assertEquals(Map.of(), result.localBuilds());
+        assertEquals(List.of("smp"), result.local());
+    }
+
+    @Test
+    void whatWasBuiltHereTravelsWithTheImagesAndSaysWhichJars() {
+        final ImageResult result = ImageResult.of(Map.of("smp", ImageResult.State.UP_TO_DATE))
+                .withLocalBuilds(Map.of("smp", new ImageResult.LocalBuild(null, List.of("smp-0.17.0.jar"))));
+
+        final ImageResult read = Json.decode(Json.encode(result), ImageResult.class);
+
+        assertEquals(List.of("smp-0.17.0.jar"), read.localBuilds().get("smp").jars());
+        assertEquals(ImageResult.State.UP_TO_DATE, read.state("smp"), "a local jar says nothing about the image");
     }
 }

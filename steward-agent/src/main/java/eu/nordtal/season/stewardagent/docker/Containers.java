@@ -32,6 +32,7 @@ public final class Containers {
     private final Docker docker;
     private final String project;
     private final Definitions definitions;
+    private final Jars jars;
 
     /** Compose's hash of every service's definition as compose.yml and the environment now make it. */
     @FunctionalInterface
@@ -48,14 +49,26 @@ public final class Containers {
         Map<String, String> hashes() throws java.io.IOException;
     }
 
-    public Containers(final Docker docker, final String project) {
-        this(docker, project, Definitions.NONE);
+    /** The jars in a service's volume that were built outside a release. */
+    @FunctionalInterface
+    public interface Jars {
+
+        /** No volume is read, so no jar counts as a local build. */
+        Jars NONE = service -> List.of();
+
+        /** Their file names, none when nothing could be read. */
+        List<String> localOf(String service);
     }
 
-    public Containers(final Docker docker, final String project, final Definitions definitions) {
+    public Containers(final Docker docker, final String project) {
+        this(docker, project, Definitions.NONE, Jars.NONE);
+    }
+
+    public Containers(final Docker docker, final String project, final Definitions definitions, final Jars jars) {
         this.docker = docker;
         this.project = project;
         this.definitions = definitions;
+        this.jars = jars;
     }
 
     /**
@@ -190,21 +203,34 @@ public final class Containers {
         try {
             final Map<String, ImageResult.State> states = new HashMap<>();
             final Set<String> unverifiable = new LinkedHashSet<>();
+            // Apart from the state, every image and jar built here is named: a run that replaces one loses it.
+            final Map<String, ImageResult.LocalBuild> builds = new HashMap<>();
             // One answer per image, not per container: several services can run the same image.
             final Map<String, ImageCheck> asked = new HashMap<>();
             for (final Docker.Container container : docker.containers(project)) {
-                if (container.service() == null || !container.isRunning()) {
+                final String service = container.service();
+                if (service == null) {
                     continue;
                 }
-                final String hash = wanted.get(container.service());
+                final List<String> localJars = jars.localOf(service);
+                if (!localJars.isEmpty()) {
+                    builds.putIfAbsent(service, new ImageResult.LocalBuild(null, localJars));
+                }
+                if (!container.isRunning()) {
+                    continue;
+                }
+                final String hash = wanted.get(service);
                 if (hash != null && !hash.equals(container.configHash())) {
-                    states.put(container.service(), ImageResult.State.OUTDATED);
+                    states.put(service, ImageResult.State.OUTDATED);
+                    if (builtHere(container.imageId())) {
+                        builds.put(service, withImage(builds.get(service), String.valueOf(container.image())));
+                    }
                     continue;
                 }
                 String reference = container.image();
                 if (reference == null || reference.isBlank()) {
-                    states.put(container.service(), ImageResult.State.UNKNOWN);
-                    unverifiable.add(container.service());
+                    states.put(service, ImageResult.State.UNKNOWN);
+                    unverifiable.add(service);
                     continue;
                 }
                 if (isOrphanedShortId(reference, container.imageId())) {
@@ -218,16 +244,32 @@ public final class Containers {
                 final ImageCheck check = asked.computeIfAbsent(
                         resolvedReference + "@" + container.imageId(),
                         ignored -> check(resolvedReference, container.imageId()));
-                states.put(container.service(), check.state());
+                states.put(service, check.state());
                 if (check.state() == ImageResult.State.UNKNOWN) {
-                    unverifiable.add(container.service());
+                    unverifiable.add(service);
+                }
+                if (check.state() == ImageResult.State.LOCAL) {
+                    builds.put(service, withImage(builds.get(service), resolvedReference));
                 }
             }
-            return ImageResult.of(states, unverifiable);
+            return ImageResult.of(states, unverifiable).withLocalBuilds(builds);
         } catch (DockerException e) {
             log.warn("could not compare images against their registries", e);
             return ImageResult.unreachable(messageOf(e));
         }
+    }
+
+    /** Whether the daemon has this image as one built here and pushed nowhere. */
+    private boolean builtHere(final @Nullable String imageId) {
+        return docker.imageIdentity(imageId)
+                .map(identity ->
+                        identity.builtLocally() || identity.repoDigests().isEmpty())
+                .orElse(false);
+    }
+
+    private static ImageResult.LocalBuild withImage(
+            final ImageResult.@Nullable LocalBuild jarsOnly, final String image) {
+        return new ImageResult.LocalBuild(image, jarsOnly == null ? List.of() : jarsOnly.jars());
     }
 
     /** The hashes compose makes now, or none when it cannot say, which is logged and leaves the registries. */

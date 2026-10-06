@@ -96,6 +96,9 @@ public interface ReportTexts {
     @Name("An older release")
     MessageRef olderRelease(@Arg("release") String release, @Arg("own") String own);
 
+    @Name("Local builds kept")
+    MessageRef localBuildsKept(@Arg("services") List<String> services, @Arg("count") int count);
+
     @Name("Handed to a one-shot")
     MessageRef handed(@Arg("release") String release);
 

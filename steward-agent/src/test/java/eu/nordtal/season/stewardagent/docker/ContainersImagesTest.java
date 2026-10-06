@@ -159,6 +159,61 @@ class ContainersImagesTest {
                 asked.toString());
     }
 
+    @Test
+    void anImageBuiltHereIsNamedEvenWhenComposeWouldMakeItsContainerAnew() throws IOException {
+        // A host compose of another version hashes binds differently, so a container made by hand reads OUTDATED.
+        final Containers ops = new Containers(
+                daemon(request -> {
+                    if (request.contains("/containers/json")) {
+                        return "[" + container("steward", "made-by-hand") + "," + container("smp", "current") + "]";
+                    }
+                    if (request.contains("/images/")) {
+                        return "{\"RepoDigests\":[],\"Identity\":{\"Build\":[{\"Ref\":\"it94gbngf02twhtf4mnkyk7ft\"}]}}";
+                    }
+                    return null;
+                }),
+                "nordtal-s2",
+                () -> java.util.Map.of("steward", "current", "smp", "current"),
+                service -> service.equals("smp") ? List.of("smp-0.17.0.jar") : List.of());
+
+        final ImageResult result = ops.images();
+
+        assertEquals(ImageResult.State.OUTDATED, result.state("steward"), result.toString());
+        assertEquals(
+                new ImageResult.LocalBuild("ghcr.io/nordtal/minecraft:0.10.4", List.of()),
+                result.localBuilds().get("steward"),
+                "a run that remakes it pulls the release's image over the one built here: " + result);
+        assertEquals(
+                new ImageResult.LocalBuild("ghcr.io/nordtal/minecraft:0.10.4", List.of("smp-0.17.0.jar")),
+                result.localBuilds().get("smp"),
+                result.toString());
+    }
+
+    @Test
+    void aPulledImageWithNoLocalJarIsNoLocalBuild() throws IOException {
+        final String digest = "c36a132e4bfe218c139d1459b70049fe3e4dabf2c28bec2b725da73ce97c2cb4";
+        final Containers ops = new Containers(
+                daemon(request -> {
+                    if (request.contains("/containers/json")) {
+                        return "[" + container("limbo", "current") + "]";
+                    }
+                    if (request.contains("/images/")) {
+                        return "{\"RepoDigests\":[\"ghcr.io/nordtal/minecraft@sha256:" + digest + "\"],"
+                                + "\"Identity\":{\"Pull\":[{\"Repository\":\"ghcr.io/nordtal/minecraft\"}]}}";
+                    }
+                    return "{\"Descriptor\":{\"digest\":\"sha256:" + digest + "\"}}";
+                }),
+                "nordtal-s2",
+                () -> java.util.Map.of("limbo", "current"),
+                Containers.Jars.NONE);
+
+        assertEquals(java.util.Map.of(), ops.images().localBuilds());
+    }
+
+    private Docker daemon(final Answer answer) throws IOException {
+        return new Docker(new DockerSocket(listening(answer), Duration.ofSeconds(5), TestScheduler.SHARED));
+    }
+
     /**
      * Checks that the one-shot a run is handed to is no service's container.
      *
@@ -208,7 +263,8 @@ class ContainersImagesTest {
                         Duration.ofSeconds(5),
                         TestScheduler.SHARED)),
                 "nordtal-s2",
-                definitions);
+                definitions,
+                Containers.Jars.NONE);
     }
 
     /** A unix socket that answers every request, one connection at a time, until the test ends. */

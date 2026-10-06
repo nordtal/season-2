@@ -33,6 +33,7 @@
 #   ./nordtal.sh update --start [svc]  release a hold: everything, or one service
 #   ./nordtal.sh update --in 10        let the countdown run for ten minutes first
 #   ./nordtal.sh update --no-wait      print the request id and return, instead of waiting
+#   ./nordtal.sh update --replace-local  let the run replace builds made on this host, unasked
 #
 # Every run first fetches the release's copy of this script and runs that, saying which version and
 # where from; without a network it runs the local copy, but it never deploys without knowing the
@@ -655,6 +656,7 @@ parse_update_args() {
     UPDATE_WAIT=true
     UPDATE_TIMEOUT="$UPDATE_TIMEOUT_DEFAULT"
     UPDATE_ENV_FILE="$DEFAULT_ENV_FILE"
+    UPDATE_REPLACE_LOCAL=false
     local kinds=0
     while (( $# > 0 )); do
         case "$1" in
@@ -675,11 +677,14 @@ parse_update_args() {
             --no-wait)  UPDATE_WAIT=false; shift ;;
             --timeout)  UPDATE_TIMEOUT="${2:-}"; shift 2 || die "update --timeout needs seconds" ;;
             --env-file) UPDATE_ENV_FILE="${2:-}"; shift 2 || die "update --env-file needs a path" ;;
+            --replace-local) UPDATE_REPLACE_LOCAL=true; shift ;;
             *)          die "unknown argument to \`update\`: $1" ;;
         esac
     done
 
     (( kinds <= 1 )) || die "update takes one of --restart, --backup, --down or --start, not several"
+    [[ "$UPDATE_REPLACE_LOCAL" == false || "$UPDATE_KIND" == UPDATE ]] \
+        || die "update --replace-local is for an update only, the one run that replaces a build"
     [[ "$UPDATE_DELAY" =~ ^[0-9]+$ ]] || die "update --in takes whole minutes, got: $UPDATE_DELAY"
     (( UPDATE_DELAY <= 1440 )) || die "update --in is capped at a day (1440 minutes)"
     [[ "$UPDATE_TIMEOUT" =~ ^[0-9]+$ ]] || die "update --timeout takes seconds, got: $UPDATE_TIMEOUT"
@@ -693,11 +698,17 @@ parse_update_args() {
 
 # The command run inside steward-agent, one word per line. The agent writes the row with the same
 # refusals as Steward's buttons, so the open run in the inbox stays the one lock and this script
-# never writes SQL of its own. An empty scope is the whole network.
+# never writes SQL of its own. An empty scope is the whole network; $4 true lets the run replace
+# builds made on this host.
 update_request_words() {
-    local kind="$1" scope="$2" minutes="$3"
+    local kind="$1" scope="$2" minutes="$3" replace_local="${4:-false}"
     printf '%s\n' steward-agent request "$kind" "$scope" "$minutes"
+    [[ "$replace_local" == true ]] && printf '%s\n' --replace-local
+    return 0
 }
+
+# What `steward-agent status` exits with for a run that stopped before it replaced a local build.
+UPDATE_KEPT_LOCAL=3
 
 # Whether a status means steward-agent is finished with this row, one way or another.
 update_is_over() {
@@ -779,12 +790,14 @@ deploy_by() {
 # Follows one request until steward-agent is finished with it, then prints the run's report.
 update_wait() {
     local id="$1" container="$2"
-    local waited=0 silent=0 answer status report said=""
+    local waited=0 silent=0 answer status report said="" code
 
     log "waiting; Ctrl-C stops WATCHING and never the run itself"
     while :; do
         # One line: the status, a tab and the report. Nothing at all means the row is gone.
-        answer="$(docker exec "$container" steward-agent status "$id" 2>/dev/null | sed -n '1p' || true)"
+        code=0
+        answer="$(docker exec "$container" steward-agent status "$id" 2>/dev/null)" || code=$?
+        answer="$(sed -n '1p' <<<"$answer")"
         status="${answer%%$'\t'*}"
         report="${answer#*$'\t'}"
         [[ "$status" == "$answer" ]] && report=""
@@ -813,6 +826,7 @@ update_wait() {
                 fi
             fi
             [[ "$status" == DONE ]] && return 0
+            (( code == UPDATE_KEPT_LOCAL )) && return "$UPDATE_KEPT_LOCAL"
             return 1
         fi
 
@@ -856,8 +870,38 @@ cmd_update() {
         || die "$container is not running, so there is nobody to ask for a run.
        \`docker compose -p $project ps\` says what is up."
 
-    local id words
-    mapfile -t words < <(update_request_words "$UPDATE_KIND" "$UPDATE_SCOPE" "$UPDATE_DELAY")
+    local id
+    # A subshell, so its die ends only it; the exit here ends the command.
+    id="$(update_submit "$container")" || exit 1
+    if [[ "$UPDATE_WAIT" != true ]]; then
+        printf '%s\n' "$id"
+        return 0
+    fi
+
+    local code=0
+    update_wait "$id" "$container" || code=$?
+    (( code == UPDATE_KEPT_LOCAL )) || return "$code"
+
+    # The run stopped before anything moved, since it would have replaced a build made on this host.
+    if [[ ! -t 0 ]]; then
+        die "request $id stopped before replacing the builds made on this host that its report names.
+       Nothing was stopped. There is no terminal here to ask, so once they may go:
+       ./nordtal.sh update --replace-local"
+    fi
+    printf '\n\033[36m[nordtal]\033[0m %s\n' "Ask again, and let the run replace the builds named above?" >&2
+    printf '        %s\n        > ' "Whatever they carry that no release has is lost. [y/N]" >&2
+    local replace_answer
+    read -r replace_answer
+    answer_is_yes "$replace_answer" || die "not asking again. Nothing was stopped and the local builds stay."
+    UPDATE_REPLACE_LOCAL=true
+    id="$(update_submit "$container")" || exit 1
+    update_wait "$id" "$container"
+}
+
+# Writes the request through the agent and prints its id, saying so on stderr; dies on a refusal.
+update_submit() {
+    local container="$1" id words
+    mapfile -t words < <(update_request_words "$UPDATE_KIND" "$UPDATE_SCOPE" "$UPDATE_DELAY" "$UPDATE_REPLACE_LOCAL")
     # The agent prints the id on stdout and a refusal, such as a run already open, on stderr.
     id="$(docker exec "$container" "${words[@]}" | sed -n '1p' | tr -d '[:space:]')" \
         || die "steward-agent refused the request; its reason is above"
@@ -865,13 +909,8 @@ cmd_update() {
 
     local when=""
     (( UPDATE_DELAY > 0 )) && when=", not before $UPDATE_DELAY minute(s) from now"
-    log "request $id: $UPDATE_KIND${UPDATE_SCOPE:+ $UPDATE_SCOPE}$when"
-    if [[ "$UPDATE_WAIT" != true ]]; then
-        printf '%s\n' "$id"
-        return 0
-    fi
-
-    update_wait "$id" "$container"
+    log "request $id: $UPDATE_KIND${UPDATE_SCOPE:+ $UPDATE_SCOPE}$when" >&2
+    printf '%s\n' "$id"
 }
 
 if [[ "${1:-}" == update ]]; then

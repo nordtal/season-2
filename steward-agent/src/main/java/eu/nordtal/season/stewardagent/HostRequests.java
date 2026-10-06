@@ -1,13 +1,17 @@
 package eu.nordtal.season.stewardagent;
 
+import static eu.nordtal.season.database.AdminTexts.TEXTS;
+
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.time.NetworkTime;
 import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.DatabaseText;
+import eu.nordtal.season.database.inbox.StewardRequest;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateRequest;
+import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.messages.Refused;
 import eu.nordtal.season.settings.Database;
 import eu.nordtal.season.settings.DatabaseSpec;
@@ -15,17 +19,25 @@ import eu.nordtal.season.settings.DatabaseWaiting;
 import eu.nordtal.season.settings.SettingsException;
 import eu.nordtal.season.stewardagent.config.AgentSettings;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * How the host asks for a run and follows it, through the inbox and the refusals everyone else meets.
  *
- * {@code request KIND [a,b] [MINUTES]} prints the row's id, {@code status ID} its status, a tab and its report.
+ * {@code request KIND [a,b] [MINUTES] [--replace-local]} prints the row's id, {@code status ID} its status and report.
  */
 final class HostRequests {
+
+    /** Confirms, for an update, that the builds made on this host which it would replace go. */
+    static final String REPLACE_LOCAL = "--replace-local";
+
+    /** What {@code status} exits with for a run that stopped before replacing a build made on this host. */
+    static final int KEPT_LOCAL = 3;
 
     private HostRequests() {}
 
@@ -53,23 +65,32 @@ final class HostRequests {
         }
     }
 
-    private static int request(final UpdateDirectory runs, final String[] args) {
-        if (args.length < 2) {
-            System.err.println(
-                    "request KIND [SERVICES] [MINUTES]: KIND is one of " + Arrays.toString(UpdateKind.values()));
+    private static int request(final UpdateDirectory runs, final String[] given) {
+        final List<String> args = new ArrayList<>(List.of(given));
+        final boolean replaceLocal = args.remove(REPLACE_LOCAL);
+        if (args.size() < 2) {
+            System.err.println("request KIND [SERVICES] [MINUTES] [" + REPLACE_LOCAL + "]: KIND is one of "
+                    + Arrays.toString(UpdateKind.values()));
             return 2;
         }
         final UpdateKind kind;
         try {
-            kind = UpdateKind.valueOf(args[1].toUpperCase(Locale.ROOT));
+            kind = UpdateKind.valueOf(args.get(1).toUpperCase(Locale.ROOT));
         } catch (final IllegalArgumentException unknown) {
-            System.err.println(args[1] + " is not a kind of run");
+            System.err.println(args.get(1) + " is not a kind of run");
             return 2;
         }
-        final List<String> services = args.length > 2 && !args[2].isBlank() ? List.of(args[2].split(",")) : List.of();
-        final Duration delay = Duration.ofMinutes(args.length > 3 ? Long.parseLong(args[3]) : 0);
+        if (replaceLocal && kind != UpdateKind.UPDATE) {
+            System.err.println(REPLACE_LOCAL + " is for an update only, the one kind that replaces a build");
+            return 2;
+        }
+        final List<String> services =
+                args.size() > 2 && !args.get(2).isBlank() ? List.of(args.get(2).split(",")) : List.of();
+        final Duration delay = Duration.ofMinutes(args.size() > 3 ? Long.parseLong(args.get(3)) : 0);
         try {
-            final UpdateRequest written = runs.submit(kind, Actor.HOST, delay, services);
+            final UpdateRequest written = replaceLocal
+                    ? runs.submit(new StewardRequest.Update(UpdateDirectory.cleaned(services), true), Actor.HOST, delay)
+                    : runs.submit(kind, Actor.HOST, delay, services);
             System.out.println(written.id());
             return 0;
         } catch (final Refused refused) {
@@ -93,6 +114,15 @@ final class HostRequests {
         final String stored = row.get().result();
         final String report = stored == null ? "" : UpdateReports.english(stored);
         System.out.println(row.get().status() + "\t" + report.replace('\n', ' '));
-        return 0;
+        return keptLocal(row.get().status(), stored) ? KEPT_LOCAL : 0;
+    }
+
+    /** Whether the run failed only because it would have replaced a build made on this host. */
+    static boolean keptLocal(final UpdateStatus status, final @Nullable String stored) {
+        final String key = TEXTS.report().localBuildsKept(List.of(), 0).key();
+        return status == UpdateStatus.FAILED
+                && UpdateReports.parse(stored)
+                        .map(report -> report.notes().stream().anyMatch(note -> key.equals(note.key())))
+                        .orElse(false);
     }
 }

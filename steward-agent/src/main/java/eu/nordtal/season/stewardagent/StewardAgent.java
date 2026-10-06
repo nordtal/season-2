@@ -25,6 +25,7 @@ import eu.nordtal.season.stewardagent.backup.LocalSnapshots;
 import eu.nordtal.season.stewardagent.backup.OffsiteCopy;
 import eu.nordtal.season.stewardagent.config.AgentSettings;
 import eu.nordtal.season.stewardagent.config.RunSpec;
+import eu.nordtal.season.stewardagent.descriptor.LocalJars;
 import eu.nordtal.season.stewardagent.docker.Containers;
 import eu.nordtal.season.stewardagent.docker.Docker;
 import eu.nordtal.season.stewardagent.docker.DockerSocket;
@@ -255,7 +256,10 @@ public final class StewardAgent {
         final ComposeTopology topology =
                 new ComposeTopology(compose::definitions, paths.backupSources().toString(), clock);
         final LocalStack stack = new LocalStack(
-                docker, new Containers(docker, compose.projectName(), compose::hashes), topology, compose);
+                docker,
+                new Containers(docker, compose.projectName(), compose::hashes, new LocalJars(paths.volumesRoot())::of),
+                topology,
+                compose);
         return new Runner(
                 runs.get(),
                 database,

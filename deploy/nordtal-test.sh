@@ -439,6 +439,7 @@ refuses "negative minutes" --in -5
 refuses "more than a day" --in 2000
 refuses "a typo" --restartt
 refuses "a bare word" smp
+refuses "replacing local builds on a restart" --restart --replace-local
 ok "two kinds, a missing service, a shape the database would reject and a typo are all refused"
 
 parse_update_args --in 10 --no-wait --timeout 60
@@ -457,6 +458,15 @@ ok "the agent writes the row, so the open run stays the one lock"
 mapfile -t words < <(update_request_words DOWN smp,limbo 15)
 [[ "${words[3]}" == smp,limbo && "${words[4]}" == 15 ]] || bad "a scoped, delayed run lost one: ${words[*]}"
 ok "a scoped, delayed run carries both"
+
+parse_update_args --replace-local
+[[ "$UPDATE_KIND" == UPDATE && "$UPDATE_REPLACE_LOCAL" == true ]] || bad "--replace-local did not land"
+mapfile -t words < <(update_request_words UPDATE "" 0 true)
+[[ "${#words[@]}" == 6 && "${words[5]}" == --replace-local ]] \
+    || bad "the confirmation is not the last word of the request: ${words[*]}"
+mapfile -t words < <(update_request_words UPDATE "" 0 false)
+[[ "${#words[@]}" == 5 ]] || bad "an update that was not confirmed carries a sixth word: ${words[*]}"
+ok "an update confirmed to replace local builds says so to the agent, and only then"
 grep -q 'INSERT INTO steward_inbox' "$SETUP" && bad "nordtal.sh still writes the inbox itself"
 ok "no statement of its own is left in the script"
 

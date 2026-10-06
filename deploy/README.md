@@ -72,8 +72,22 @@ installed is the server's again; on a volume that already is, it changes nothing
 `Permission denied` in the container log.
 
 **The environment file** is at `STEWARD_ENV_FILE`, mode 600, outside the installation directory, and
-holds every secret. steward-agent mounts its directory, so an edit by any means is read by the next
-compose command, and the next update run renews what it changed.
+holds every secret that compose hands to a service. steward-agent mounts its directory, so an edit by
+any means is read by the next compose command, and the next update run renews what it changed.
+
+**A secret only one service reads** is that service's own instead: `secrets.env` in its directory of
+`NORDTAL_SECRETS_DIR` (`/etc/nordtal-secrets/season-2/<service>/`), mode 600 and owned by the uid the
+service runs as. compose mounts that directory read only at `/app/secrets` into the service alone and
+never interpolates its values; [`jvm/secrets.sh`](jvm/secrets.sh) exports them before the JVM starts.
+steward-agent never mounts it, so the agent does not read the bank key:
+
+| service        | its own secrets                                                   |
+| -------------- | ----------------------------------------------------------------- |
+| `steward-bunq` | `NORDTAL_STEWARD_BUNQ_API_KEY`, `NORDTAL_STEWARD_BUNQ_ACCOUNT_ID` |
+
+`nordtal.sh` asks for them into that file, and every run (the menu, `--deploy`, `update`) moves such a
+line out of the environment file, where a line put back by hand counts as newer. `--check` fails while
+one is still there. An edited file is read when the service is next recreated.
 
 **A hand-typed `docker compose` needs `--env-file` and the release**; without the file Compose
 interpolates empty strings. The release is the tag of the running steward-agent:

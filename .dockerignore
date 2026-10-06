@@ -2,6 +2,7 @@
 # what it copies. A new module's jar needs a line here.
 *
 !deploy/jvm/entrypoint.sh
+!deploy/jvm/secrets.sh
 !discord-bot/build/image/app.jar
 !steward/build/image/app.jar
 !steward-agent/build/image/app.jar

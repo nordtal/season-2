@@ -63,6 +63,8 @@ final class Setup {
             createDirectories(compose.pluginsDir(service));
         }
         createDirectories(compose.packRoot());
+        // Made here, so Docker does not make it as root where a developer could not write the bank key.
+        createDirectories(compose.secretsDir("steward-bunq"));
         terminal.log("plugin directories: " + compose.pluginsDir("smp") + " and its three siblings - jars and"
                 + " configs live there");
         terminal.log("next: dev up");

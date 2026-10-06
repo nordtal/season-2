@@ -575,12 +575,14 @@ services:
       TZ: ${TZ:-Europe/Berlin}
       # Required; it refuses to serve without one.
       NORDTAL_STEWARD_BUNQ_TOKEN: ${STEWARD_BUNQ_TOKEN:?set STEWARD_BUNQ_TOKEN in .env - the secret steward and steward-bunq share, `openssl rand -hex 32`}
-      # Optional; without them payments are off, and the startup log says so.
-      NORDTAL_STEWARD_BUNQ_API_KEY: ${NORDTAL_STEWARD_BUNQ_API_KEY:-}
-      NORDTAL_STEWARD_BUNQ_ACCOUNT_ID: ${NORDTAL_STEWARD_BUNQ_ACCOUNT_ID:-}
     volumes:
       # Never copied: bunq binds the context to the registering device and IP.
       - ${BUNQ_CONTEXT:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/bunq-context}:/app/bunq
+      # Its own secrets: the bank key and account, which the entrypoint reads from secrets.env; without
+      # them payments are off, and the startup log says so. NORDTAL_SECRETS_DIR lies outside what
+      # steward-agent mounts, deploy/nordtal.sh writes the file mode 600 as this service's uid, compose never
+      # interpolates the values and no other service mounts the directory. Read only, so no hand-over touches it.
+      - ${NORDTAL_SECRETS_DIR:?set NORDTAL_SECRETS_DIR in .env - the directory of each service's own secrets, deploy/nordtal.sh writes it}/steward-bunq:/app/secrets:ro
     logging: *logging
 
   # Caddy: HTTPS for the interface and the guard in front of the game port. The Caddyfile is inline

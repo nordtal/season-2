@@ -131,7 +131,8 @@ curl -fsSL https://raw.githubusercontent.com/nordtal/season-2/main/deploy/nordta
 ```
 
 The installation is that directory: worlds, database, plugin configuration and backups are folders
-in it. Secrets go to `/etc/nordtal/season-2.env`, mode 600. The script stays behind as `./nordtal.sh`:
+in it. Secrets go to `/etc/nordtal/season-2.env`, mode 600, and one only a single service reads to
+that service's own file under `/etc/nordtal-secrets/season-2/`. The script stays behind as `./nordtal.sh`:
 
 ```bash
 ./nordtal.sh                 # the menu: what is set, change one, then deploy

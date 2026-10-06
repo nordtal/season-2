@@ -300,7 +300,8 @@ for name in NORDTAL_STEWARD_BUNQ_API_KEY NORDTAL_STEWARD_BUNQ_ACCOUNT_ID STEWARD
     fi
 done
 contains NORDTAL_DIR "${REQUIRED[@]}" || bad "NORDTAL_DIR is not required and should be"
-ok "fourteen required; bunq is not"
+contains NORDTAL_SECRETS_DIR "${REQUIRED[@]}" || bad "NORDTAL_SECRETS_DIR is not required and should be"
+ok "fifteen required; bunq is not"
 
 case_begin "a value full of shell metacharacters survives the round trip"
 # A value is written literally, never as shell.
@@ -565,6 +566,103 @@ printf 'NORDTAL_IMAGES="registry.example/quoted"\n' > "$WORK/quoted-images.env"
 [[ "$(unset NORDTAL_IMAGES; images_prefix "$WORK/no-images.env")" == ghcr.io/nordtal ]] || bad "no value anywhere is not ghcr.io"
 [[ "$(unset NORDTAL_IMAGES; images_prefix "$WORK/nope.env")" == ghcr.io/nordtal ]] || bad "a missing file is not ghcr.io"
 ok "environment, file, default, in that order"
+
+
+case_begin "each service's own secrets live beside the shared file's directory, never inside it"
+[[ "$(default_secrets_dir /etc/nordtal/season-2.env)" == /etc/nordtal-secrets/season-2 ]] \
+    || bad "the default for /etc/nordtal/season-2.env is $(default_secrets_dir /etc/nordtal/season-2.env)"
+secrets_dir_ok /etc/nordtal/season-2.env /etc/nordtal-secrets/season-2 || bad "the default was refused"
+secrets_dir_ok /etc/nordtal/season-2.env /etc/nordtal/secrets && bad "a directory the agent mounts was accepted"
+secrets_dir_ok /etc/nordtal/season-2.env /etc/nordtal && bad "the agent's own directory was accepted"
+secrets_dir_ok /etc/nordtal/season-2.env relative/secrets && bad "a relative directory was accepted"
+mkdir -p "$WORK/agent"
+printf 'NORDTAL_SECRETS_DIR=%s/inside\n' "$WORK/agent" > "$WORK/agent/season-2.env"
+said="$( (settle_service_secrets "$WORK/agent/season-2.env") 2>&1 )" && bad "a run settled secrets where the agent reads them"
+grep -q "steward-agent mounts that directory" <<<"$said" || bad "the refusal did not say why"
+ok "the default, and every place the agent would read refused"
+
+case_begin "a single-reader secret leaves the shared file for its service's own, owned by its uid"
+# chown needs root; the stand-in records what would be handed to whom.
+chown() { printf '%s %s\n' "$2" "${3#"$WORK"/}" >> "$WORK/chowned"; }
+move_case() {
+    rm -rf "$WORK/move" "$WORK/chowned"
+    mkdir -p "$WORK/move"
+    printf '%b' "$1" > "$WORK/move/season-2.env"
+    MOVED_SECRETS=()
+    move_service_secrets "$WORK/move/season-2.env" "$WORK/move/secrets"
+}
+move_case '# bunq\nPLAIN=kept\nNORDTAL_STEWARD_BUNQ_API_KEY=the-key\nexport NORDTAL_STEWARD_BUNQ_ACCOUNT_ID="42"\nLAST=kept\n'
+bunq="$WORK/move/secrets/steward-bunq/secrets.env"
+[[ "$(env_value "$bunq" NORDTAL_STEWARD_BUNQ_API_KEY)" == the-key ]] || bad "the key did not reach steward-bunq's file"
+[[ "$(env_value "$bunq" NORDTAL_STEWARD_BUNQ_ACCOUNT_ID)" == 42 ]] || bad "the account did not reach steward-bunq's file"
+[[ -z "$(stale_service_secrets "$WORK/move/season-2.env")" ]] || bad "the shared file still holds a bunq line"
+[[ "$(cat "$WORK/move/season-2.env")" == $'# bunq\nPLAIN=kept\nLAST=kept' ]] || bad "the rest of the shared file changed"
+[[ "${MOVED_SECRETS[*]}" == "NORDTAL_STEWARD_BUNQ_API_KEY NORDTAL_STEWARD_BUNQ_ACCOUNT_ID" ]] \
+    || bad "the moved names were '${MOVED_SECRETS[*]}'"
+# find's exact -perm reads the same on GNU and BSD, unlike stat.
+mode_is() { [[ -n "$(find "$1" -maxdepth 0 -perm "$2")" ]]; }
+mode_is "$bunq" 600 || bad "steward-bunq's file is not mode 600"
+mode_is "$WORK/move/secrets/steward-bunq" 700 || bad "steward-bunq's directory is not mode 700"
+mode_is "$WORK/move/secrets" 700 || bad "the secrets directory is not mode 700"
+grep -qx "10003:10003 move/secrets/steward-bunq" "$WORK/chowned" || bad "steward-bunq's directory was not handed to 10003"
+ok "both bunq lines moved, the rest untouched, the file 600 and its directory 10003's"
+
+move_case 'NORDTAL_STEWARD_BUNQ_API_KEY=\nPLAIN=kept\n'
+[[ -z "$(stale_service_secrets "$WORK/move/season-2.env")" ]] || bad "an empty line stayed in the shared file"
+has_assignment "$bunq" NORDTAL_STEWARD_BUNQ_API_KEY && bad "an empty value was written into the service's file"
+ok "an empty line is only dropped"
+
+move_case 'PLAIN=kept\n'
+printf 'NORDTAL_STEWARD_BUNQ_API_KEY=old\n' > "$bunq"
+MOVED_SECRETS=()
+move_service_secrets "$WORK/move/season-2.env" "$WORK/move/secrets"
+[[ "$(env_value "$bunq" NORDTAL_STEWARD_BUNQ_API_KEY)" == old ]] || bad "a second run without a line changed the service's file"
+(( ${#MOVED_SECRETS[@]} == 0 )) || bad "a second run moved '${MOVED_SECRETS[*]}'"
+printf 'NORDTAL_STEWARD_BUNQ_API_KEY=rotated\n' >> "$WORK/move/season-2.env"
+move_service_secrets "$WORK/move/season-2.env" "$WORK/move/secrets"
+[[ "$(env_value "$bunq" NORDTAL_STEWARD_BUNQ_API_KEY)" == rotated ]] || bad "a line put back into the shared file did not win"
+ok "a second run changes nothing, and a line put back is newer and wins"
+unset -f chown
+
+case_begin "a copy beside the shared file that still holds a moved secret is named"
+mkdir -p "$WORK/copies"
+printf 'PLAIN=x\n' > "$WORK/copies/season-2.env"
+printf 'NORDTAL_STEWARD_BUNQ_API_KEY=old\n' > "$WORK/copies/season-2.env.bak"
+printf 'PLAIN=x\n' > "$WORK/copies/firewall.nft"
+printf 'NORDTAL_STEWARD_BUNQ_ACCOUNT_ID=1\n' > "$WORK/copies/.hidden"
+[[ "$(stale_copies "$WORK/copies/season-2.env")" == "$WORK/copies/season-2.env.bak"$'\n'"$WORK/copies/.hidden" ]] \
+    || bad "the copies named were: $(stale_copies "$WORK/copies/season-2.env" | tr '\n' ' ')"
+ok "a backup and a hidden copy are named, the rest is not"
+
+case_begin "a name is read from and written to the file it lives in"
+printf 'NORDTAL_SECRETS_DIR=%s\nPLAIN=shared\n' "$WORK/home/secrets" > "$WORK/home.env"
+mkdir -p "$WORK/home/secrets/steward-bunq"
+printf 'NORDTAL_STEWARD_BUNQ_API_KEY=own\n' > "$WORK/home/secrets/steward-bunq/secrets.env"
+[[ "$(home_of "$WORK/home.env" PLAIN)" == "$WORK/home.env" ]] || bad "a shared name left the shared file"
+[[ "$(home_of "$WORK/home.env" NORDTAL_STEWARD_BUNQ_API_KEY)" == "$WORK/home/secrets/steward-bunq/secrets.env" ]] \
+    || bad "the bank key is not read from steward-bunq's file"
+[[ "$(value_of "$WORK/home.env" NORDTAL_STEWARD_BUNQ_API_KEY)" == own ]] || bad "value_of did not read the service's file"
+printf 'PLAIN=shared\n' > "$WORK/no-dir.env"
+[[ "$(home_of "$WORK/no-dir.env" NORDTAL_STEWARD_BUNQ_API_KEY)" == "$WORK/no-dir.env" ]] \
+    || bad "without a secrets directory a name was looked for elsewhere"
+ok "shared names in the shared file, a single reader's in its own"
+
+case_begin "the services with a file of their own are compose.yml's, under the uid it runs them as"
+compose_text="$(cat "$HERE/../compose.yml")"
+while IFS= read -r service; do
+    grep -qF "\${NORDTAL_SECRETS_DIR:?" <<<"$(grep -F "}/$service:/app/secrets:ro" <<<"$compose_text")" \
+        || bad "compose.yml does not mount $service's own secrets read only"
+    user="$(awk -v service="  $service:" '
+        $0 == service { inside = 1; next }
+        inside && /^  [a-z]/ { inside = 0 }
+        inside && /^    user:/ { gsub(/[" ]/, "", $2); print $2 }' FS='user:' "$HERE/../compose.yml")"
+    [[ "$user" == "${SERVICE_UID[$service]}:${SERVICE_UID[$service]}" ]] \
+        || bad "$service runs as '$user' in compose.yml and nordtal.sh hands its file to ${SERVICE_UID[$service]}"
+done < <(secret_services)
+mounted="$(grep -o 'NORDTAL_SECRETS_DIR:?[^}]*}/[a-z-]*' "$HERE/../compose.yml" | sed 's#.*}/##' | sort -u)"
+[[ "$mounted" == "$(secret_services | sort -u)" ]] \
+    || bad "compose.yml mounts secrets of $(tr '\n' ' ' <<<"$mounted")but nordtal.sh writes $(secret_services | tr '\n' ' ')"
+ok "every service nordtal.sh writes a file for mounts it, as the uid it is handed to"
 
 
 if (( failed > 0 )); then

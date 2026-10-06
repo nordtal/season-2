@@ -40,8 +40,10 @@
 # release. A new release reaches a running stack through Steward's update button as well.
 #
 # It asks for what only a person knows, generates the other secrets, and writes them to
-# /etc/nordtal/season-2.env with mode 600, outside the installation directory. It never prints a
-# secret or puts one on a command line.
+# /etc/nordtal/season-2.env with mode 600, outside the installation directory. A secret only one
+# service reads goes into that service's own file instead, /etc/nordtal-secrets/season-2/<service>/,
+# owned by the service's uid, which steward-agent never mounts; every run moves such a line there. It
+# never prints a secret or puts one on a command line.
 set -Eeuo pipefail
 
 # The installation is the current directory; under `curl ... | bash` there is no BASH_SOURCE[0].
@@ -100,6 +102,7 @@ REQUIRED=(
     STEWARD_ENV_FILE
     STEWARD_ENV_DIR
     STEWARD_ENV_FILE_NAME
+    NORDTAL_SECRETS_DIR
     NORDTAL_DIR
     STEWARD_DISCORD_CLIENT_ID
     STEWARD_DISCORD_CLIENT_SECRET
@@ -149,30 +152,227 @@ images_prefix() {
     printf '%s' "${value:-$DEFAULT_IMAGES}"
 }
 
-# Writes `name=value` into the file, replacing an existing assignment (also with leading whitespace
-# or `export`) or appending one. The value passes through awk's environment, never a command line,
-# into a mode 600 file renamed over the destination.
-set_assignment() {
-    local file="$1" name="$2" value="$3" tmp
+# Whether the file assigns the name at all, also with leading whitespace or `export`.
+has_assignment() {
+    local file="$1" name="$2"
+    [[ -f "$file" ]] && grep -qE "^[[:space:]]*(export[[:space:]]+)?${name}[[:space:]]*=" "$file"
+}
+
+# Rewrites the file with every assignment of the name replaced by `name=value`, or dropped when $4 is
+# `drop`. The value passes through awk's environment, never a command line, into a temporary file of
+# the same mode renamed over the destination.
+rewrite_assignment() {
+    local file="$1" name="$2" value="$3" mode="${4:-set}" tmp
     tmp="$(mktemp "$(dirname "$file")/.env.XXXXXX")"
     chmod 600 "$tmp"
-    if grep -qE "^[[:space:]]*(export[[:space:]]+)?${name}[[:space:]]*=" "$file"; then
-        SET_ASSIGNMENT_NAME="$name" SET_ASSIGNMENT_VALUE="$value" awk '
-            BEGIN { name = ENVIRON["SET_ASSIGNMENT_NAME"]; value = ENVIRON["SET_ASSIGNMENT_VALUE"] }
-            {
-                key = $0
-                sub(/=.*$/, "", key)
-                gsub(/^[[:space:]]+|[[:space:]]+$/, "", key)
-                sub(/^export[[:space:]]+/, "", key)
-                gsub(/^[[:space:]]+|[[:space:]]+$/, "", key)
-                if (key == name) { print name "=" value; next }
-                print
-            }' "$file" > "$tmp"
-    else
-        cat "$file" > "$tmp"
-        printf '%s=%s\n' "$name" "$value" >> "$tmp"
-    fi
+    SET_ASSIGNMENT_NAME="$name" SET_ASSIGNMENT_VALUE="$value" SET_ASSIGNMENT_MODE="$mode" awk '
+        BEGIN {
+            name = ENVIRON["SET_ASSIGNMENT_NAME"]; value = ENVIRON["SET_ASSIGNMENT_VALUE"]
+            mode = ENVIRON["SET_ASSIGNMENT_MODE"]
+        }
+        {
+            key = $0
+            sub(/=.*$/, "", key)
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", key)
+            sub(/^export[[:space:]]+/, "", key)
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", key)
+            if (key == name) {
+                if (mode != "drop") print name "=" value
+                next
+            }
+            print
+        }' "$file" > "$tmp"
     mv "$tmp" "$file"
+}
+
+# Writes `name=value` into the file, replacing an existing assignment (also with leading whitespace
+# or `export`) or appending one, in a mode 600 file renamed over the destination.
+set_assignment() {
+    local file="$1" name="$2" value="$3" tmp
+    if has_assignment "$file" "$name"; then
+        rewrite_assignment "$file" "$name" "$value"
+        return 0
+    fi
+    tmp="$(mktemp "$(dirname "$file")/.env.XXXXXX")"
+    chmod 600 "$tmp"
+    cat "$file" > "$tmp"
+    printf '%s=%s\n' "$name" "$value" >> "$tmp"
+    mv "$tmp" "$file"
+}
+
+# Removes every assignment of the name from the file, comments and other lines untouched.
+remove_assignment() {
+    local file="$1" name="$2"
+    has_assignment "$file" "$name" || return 0
+    rewrite_assignment "$file" "$name" "" drop
+}
+
+# Each secret only one service reads, kept in that service's own file instead of the shared one, which
+# steward-agent mounts whole and compose interpolates: `<name> <service>`, the name being the one the
+# service reads and the shared file held. nordtal-test.sh holds the services to compose.yml's mounts.
+SERVICE_SECRETS=(
+    "NORDTAL_STEWARD_BUNQ_API_KEY steward-bunq"
+    "NORDTAL_STEWARD_BUNQ_ACCOUNT_ID steward-bunq"
+)
+
+# The uid each of those services runs as, which owns its file; nordtal-test.sh holds it to compose.yml's `user:`.
+declare -A SERVICE_UID=(
+    [steward-bunq]=10003
+)
+
+# Where the services' own files live when the shared file names no place: beside the shared file's
+# directory, never inside it, since steward-agent mounts that directory whole.
+# /etc/nordtal/season-2.env gives /etc/nordtal-secrets/season-2.
+default_secrets_dir() {
+    local env_file="$1" name
+    name="$(basename "$env_file")"
+    printf '%s-secrets/%s' "$(dirname "$env_file")" "${name%.env}"
+}
+
+# Whether a secrets directory lies outside the shared file's directory, which steward-agent mounts.
+secrets_dir_ok() {
+    local env_file="$1" dir="$2" env_dir
+    env_dir="$(dirname "$env_file")"
+    is_absolute "$dir" || return 1
+    [[ "${dir%/}/" != "${env_dir%/}/"* ]]
+}
+
+# The service whose own file holds the name, nothing for a name of the shared file.
+secret_service() {
+    local wanted="$1" entry name service
+    for entry in "${SERVICE_SECRETS[@]}"; do
+        read -r name service <<<"$entry"
+        [[ "$name" == "$wanted" ]] && { printf '%s' "$service"; return 0; }
+    done
+    return 0
+}
+
+# The services that have a file of their own, once each.
+secret_services() {
+    local entry name service
+    for entry in "${SERVICE_SECRETS[@]}"; do
+        read -r name service <<<"$entry"
+        printf '%s\n' "$service"
+    done | awk '!seen[$0]++'
+}
+
+# One service's own file under the secrets directory, which compose.yml mounts at /app/secrets.
+service_secrets_file() {
+    printf '%s/%s/secrets.env' "$1" "$2"
+}
+
+# The file a name is read from and written to: its service's own when only that service reads it and
+# the shared file names a secrets directory, the shared file otherwise.
+home_of() {
+    local env_file="$1" name="$2" service dir
+    service="$(secret_service "$name")"
+    dir="$(env_value "$env_file" NORDTAL_SECRETS_DIR)"
+    if [[ -n "$service" && -n "${dir//[[:space:]]/}" ]]; then
+        service_secrets_file "$dir" "$service"
+    else
+        printf '%s' "$env_file"
+    fi
+}
+
+# Which single-reader names the shared file still assigns, one per line; never a value.
+stale_service_secrets() {
+    local env_file="$1" entry name service
+    for entry in "${SERVICE_SECRETS[@]}"; do
+        read -r name service <<<"$entry"
+        has_assignment "$env_file" "$name" && printf '%s\n' "$name"
+    done
+    return 0
+}
+
+# Moves every single-reader secret out of the shared file into its service's own file and hands each
+# directory (mode 700) and file (mode 600) to the service's uid; the secrets directory itself stays
+# root's, mode 700. A line still in the shared file is newer than the service's file, since every run
+# empties it, so its value wins; an empty one is only dropped. Written before removed, so an interrupted
+# run leaves a copy, never nothing. MOVED_SECRETS lists each moved name; never a value.
+MOVED_SECRETS=()
+move_service_secrets() {
+    local env_file="$1" dir="$2" entry name service value file
+    install -d -m 700 "$dir"
+    while IFS= read -r service; do
+        install -d -m 700 "$dir/$service"
+        file="$(service_secrets_file "$dir" "$service")"
+        [[ -f "$file" ]] || install -m 600 /dev/null "$file"
+    done < <(secret_services)
+    for entry in "${SERVICE_SECRETS[@]}"; do
+        read -r name service <<<"$entry"
+        has_assignment "$env_file" "$name" || continue
+        value="$(env_value "$env_file" "$name")"
+        file="$(service_secrets_file "$dir" "$service")"
+        [[ -z "${value//[[:space:]]/}" ]] || set_assignment "$file" "$name" "$value"
+        remove_assignment "$env_file" "$name"
+        MOVED_SECRETS+=("$name")
+    done
+    while IFS= read -r service; do
+        hand_secrets_to "$dir" "$service"
+    done < <(secret_services)
+}
+
+# Gives one service's directory and file to its uid, as compose.yml's `user:` runs it.
+hand_secrets_to() {
+    local dir="$1" service="$2" uid
+    uid="${SERVICE_UID[$service]}"
+    chown -R "$uid:$uid" "$dir/$service"
+    chmod 700 "$dir/$service"
+    chmod 600 "$(service_secrets_file "$dir" "$service")"
+}
+
+# Makes sure the shared file names a secrets directory outside the one steward-agent mounts, then moves
+# every single-reader secret into its service's own file there. Needs root, since each file belongs to
+# its service's uid, and dies rather than leave a secret where the agent reads it.
+settle_service_secrets() {
+    local env_file="$1" dir
+    dir="$(env_value "$env_file" NORDTAL_SECRETS_DIR)"
+    if [[ -z "${dir//[[:space:]]/}" ]]; then
+        dir="$(default_secrets_dir "$env_file")"
+        set_assignment "$env_file" NORDTAL_SECRETS_DIR "$dir"
+        log "NORDTAL_SECRETS_DIR = $dir (default)"
+    fi
+    secrets_dir_ok "$env_file" "$dir" || die "NORDTAL_SECRETS_DIR in $env_file is '$dir', which is not an
+       absolute path outside $(dirname "$env_file"). steward-agent mounts that directory whole, so a
+       secret kept there is a secret the agent reads."
+    [[ "${EUID:-$(id -u)}" -eq 0 ]] || die "each service's own secrets file under $dir belongs to the uid
+       that service runs as, and only root can hand it over. Run this as root. Nothing was moved."
+    MOVED_SECRETS=()
+    move_service_secrets "$env_file" "$dir"
+    if (( ${#MOVED_SECRETS[@]} > 0 )); then
+        log "moved ${MOVED_SECRETS[*]} out of $env_file into each service's own file under $dir"
+    fi
+    local copy
+    while IFS= read -r copy; do
+        warn "$copy holds $(tr '\n' ' ' <<<"$(stale_service_secrets "$copy")")as well, and steward-agent
+       reads every file in $(dirname "$env_file"). Move that copy somewhere the agent does not mount."
+    done < <(stale_copies "$env_file")
+}
+
+# Every other file beside the shared one that still assigns a single-reader secret, such as a backup.
+stale_copies() {
+    local env_file="$1" other
+    for other in "$(dirname "$env_file")"/* "$(dirname "$env_file")"/.[!.]*; do
+        [[ -f "$other" && "$other" != "$env_file" ]] || continue
+        [[ -z "$(stale_service_secrets "$other")" ]] || printf '%s\n' "$other"
+    done
+    return 0
+}
+
+# Reads a name from the file it lives in.
+value_of() {
+    local env_file="$1" name="$2"
+    env_value "$(home_of "$env_file" "$name")" "$name"
+}
+
+# Writes a name into the file it lives in, which a service's own file stays that service's.
+assign() {
+    local env_file="$1" name="$2" value="$3" service
+    set_assignment "$(home_of "$env_file" "$name")" "$name" "$value"
+    service="$(secret_service "$name")"
+    if [[ -n "$service" && "$(home_of "$env_file" "$name")" != "$env_file" ]]; then
+        hand_secrets_to "$(env_value "$env_file" NORDTAL_SECRETS_DIR)" "$service"
+    fi
 }
 
 # Which of the given names have no usable value. Prints names, one per line, and never a value.
@@ -532,7 +732,7 @@ looks_like_this_script() {
 ask_for() {
     local name="$1" kind="$2" check="$3" prompt="$4" hint="${5:-}" force="${6:-}" value existing
 
-    existing="$(env_value "$ENV_FILE" "$name")"
+    existing="$(value_of "$ENV_FILE" "$name")"
     if [[ -z "$force" && -n "${existing//[[:space:]]/}" && "$existing" != *REPLACE_ME* ]]; then
         log "$name is already set (left alone)"
         return 0
@@ -563,7 +763,7 @@ ask_for() {
 
         if [[ "$kind" == licence ]]; then
             answer_is_yes "$value" || return 1
-            set_assignment "$ENV_FILE" "$name" true
+            assign "$ENV_FILE" "$name" true
             log "$name accepted and recorded"
             return 0
         fi
@@ -587,8 +787,8 @@ ask_for() {
             warn "that does not look like it can be right. Try again."
             continue
         fi
-        set_assignment "$ENV_FILE" "$name" "$value"
-        log "$name written to $ENV_FILE"
+        assign "$ENV_FILE" "$name" "$value"
+        log "$name written to $(home_of "$ENV_FILE" "$name")"
         return 0
     done
 }
@@ -869,6 +1069,13 @@ cmd_update() {
     grep -qxF "$container" <<<"$(docker ps --format '{{.Names}}')" \
         || die "$container is not running, so there is nobody to ask for a run.
        \`docker compose -p $project ps\` says what is up."
+
+    # An update installs this copy's release, whose compose.yml mounts each service's own file; any other
+    # run moves them only once the running agent's compose.yml does, so no service starts without them.
+    if [[ "$UPDATE_KIND" == UPDATE ]] \
+        || docker exec "$container" grep -q NORDTAL_SECRETS_DIR /app/compose.yml 2>/dev/null; then
+        settle_service_secrets "$UPDATE_ENV_FILE"
+    fi
 
     local id
     # A subshell, so its die ends only it; the exit here ends the command.
@@ -1158,6 +1365,18 @@ default_for NORDTAL_DIR           "$INSTALL_DIR"
 default_for STEWARD_ENV_DIR       "$(dirname "$ENV_FILE")"
 default_for STEWARD_ENV_FILE_NAME "$(basename "$ENV_FILE")"
 
+# Each secret only one service reads goes into that service's own file, outside what steward-agent
+# mounts, before anything is asked; --check only says which are still in the shared file.
+if $CHECK_ONLY; then
+    stale="$(stale_service_secrets "$ENV_FILE")"
+    [[ -z "$stale" ]] || die "$ENV_FILE still holds $(tr '\n' ' ' <<<"$stale")which only one service
+       reads and steward-agent must not. A real run moves them into each service's own file."
+    [[ -n "$(env_value "$ENV_FILE" NORDTAL_SECRETS_DIR)" ]] \
+        || warn "NORDTAL_SECRETS_DIR is not set; a real run would write the default"
+else
+    settle_service_secrets "$ENV_FILE"
+fi
+
 # The bunq pair and the root id are asked below; COMPOSE_PROFILES has a default and is changed in the menu.
 for question in "${QUESTIONS[@]}"; do
     case "$question" in
@@ -1175,7 +1394,7 @@ done
 # The root id is optional: a tree that already has admins never reads it.
 ask_question STEWARD_ROOT_DISCORD_ID || true
 
-# bunq is optional: without it nothing polls for payments. The key lives in steward-bunq alone.
+# bunq is optional: without it nothing polls for payments. The key lives in steward-bunq's own file.
 if ask_question NORDTAL_STEWARD_BUNQ_API_KEY; then
     ask_question NORDTAL_STEWARD_BUNQ_ACCOUNT_ID
 fi
@@ -1201,14 +1420,14 @@ show_menu() {
     log "the installation in $INSTALL_DIR"
     printf '        %s\n\n' "$ENV_FILE"
     for name in "${QUESTIONS[@]}"; do
-        value="$(env_value "$ENV_FILE" "$name")"
+        value="$(value_of "$ENV_FILE" "$name")"
         printf '   %2d  %-34s %s\n' "$index" "$name" \
             "$(shown_value "${QUESTION_KIND[$name]}" "$value")"
         index=$(( index + 1 ))
     done
     printf '\n'
     for name in "${GENERATED[@]}"; do
-        value="$(env_value "$ENV_FILE" "$name")"
+        value="$(value_of "$ENV_FILE" "$name")"
         printf '       %-34s %s\n' "$name" "$(shown_value secret "$value")"
     done
     printf '\n'
@@ -1235,8 +1454,8 @@ if $MENU; then
                 ask_question "$picked" again || true
                 # steward-bunq refuses a bunq key without an account, so ask for both.
                 if [[ "$picked" == NORDTAL_STEWARD_BUNQ_API_KEY \
-                    && -n "$(env_value "$ENV_FILE" NORDTAL_STEWARD_BUNQ_API_KEY)" \
-                    && -z "$(env_value "$ENV_FILE" NORDTAL_STEWARD_BUNQ_ACCOUNT_ID)" ]]; then
+                    && -n "$(value_of "$ENV_FILE" NORDTAL_STEWARD_BUNQ_API_KEY)" \
+                    && -z "$(value_of "$ENV_FILE" NORDTAL_STEWARD_BUNQ_ACCOUNT_ID)" ]]; then
                     ask_question NORDTAL_STEWARD_BUNQ_ACCOUNT_ID || true
                 fi
                 ;;

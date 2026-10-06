@@ -12,7 +12,7 @@ FROM docker:28-cli AS docker-cli
 
 FROM eclipse-temurin:25-jre AS jvm
 WORKDIR /app
-COPY deploy/jvm/entrypoint.sh /app/entrypoint.sh
+COPY deploy/jvm/entrypoint.sh deploy/jvm/secrets.sh /app/
 ENTRYPOINT ["/app/entrypoint.sh"]
 
 # Each service but steward-agent runs as an account of its own, whose uid compose.yml's `user:` names too.

@@ -2,9 +2,10 @@
 
 The one process that holds the bank key. It creates and cancels bunq.me tabs and lists incoming
 payments, and it decides nothing: which request a payment pays, whether it is late, and what access
-it buys are `steward`'s and the bot's. Without `NORDTAL_STEWARD_BUNQ_API_KEY` and
-`NORDTAL_STEWARD_BUNQ_ACCOUNT_ID` it still starts, says `configured: false` on `/api/account` and
-`503` on every other bank route, and logs `bunq is OFF`.
+it buys are `steward`'s and the bot's. It reads `NORDTAL_STEWARD_BUNQ_API_KEY` and
+`NORDTAL_STEWARD_BUNQ_ACCOUNT_ID` from its own `secrets.env`, which steward-agent never mounts (see
+[`deploy/README.md`](../deploy/README.md#first-deployment)). Without them it still starts, says
+`configured: false` on `/api/account` and `503` on every other bank route, and logs `bunq is OFF`.
 
 | Endpoint                         | What it does                                                    |
 | -------------------------------- | --------------------------------------------------------------- |
@@ -20,7 +21,8 @@ A bank error is a `502` with bunq's own words as the body, so `steward` can show
 ## Boundaries
 
 - **One holder of the key.** `:architecture` refuses `com.bunq` outside this module, and
-  `TopologyDeploymentTest` refuses the key in any other service's environment.
+  `TopologyDeploymentTest` refuses the key in any service's environment, any interpolation of it in
+  `compose.yml` and a mount of this service's secrets anywhere else.
 - **Only `steward` reaches it**, over the internal `bank` network shared with `steward` alone; its own
   way out to bunq is `bank-egress`.
 - **No business state.** No database and no schema; the one file it writes is bunq's session context

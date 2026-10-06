@@ -88,6 +88,15 @@ final class LocalProject {
         return root.resolve(value).normalize();
     }
 
+    /** Where one service's own {@code secrets.env} is on this machine, under {@code NORDTAL_SECRETS_DIR}. */
+    Path secretsDir(final String service) {
+        final String value = env.value("NORDTAL_SECRETS_DIR")
+                .filter(found -> !found.isBlank())
+                .orElseThrow(() -> new Processes.Failure(ENV_FILE + " sets no NORDTAL_SECRETS_DIR. The local stack"
+                        + " needs a path there; see deploy/dev.env.example"));
+        return root.resolve(value).resolve(service).normalize();
+    }
+
     /** The directory pack-host serves; compose.yml defaults it to {@code deploy/pack} too. */
     Path packRoot() {
         return root.resolve(

@@ -329,18 +329,46 @@ class TopologyDeploymentTest {
     }
 
     @Test
-    void theBankKeyIsHandedToStewardBunqAndToNoOtherService() {
-        // Only steward-bunq holds the bank client, so a key handed to any other container is a key it can leak.
+    void composeNeverInterpolatesTheBankKeySoTheAgentNeverReadsIt() {
+        // steward-agent runs every compose command with the shared file, so whatever compose interpolates it reads.
+        assertFalse(
+                compose.text().contains("${NORDTAL_STEWARD_BUNQ_"),
+                "compose.yml interpolates a NORDTAL_STEWARD_BUNQ_* variable from the shared environment file,"
+                        + " which steward-agent mounts whole. The bank key is steward-bunq's own secrets.env.");
         compose.services().forEach((name, service) -> {
-            if (!name.equals(BankWire.SERVICE)) {
-                final String environment = String.valueOf(service.environment());
-                assertFalse(
-                        environment.contains("BUNQ_API_KEY") || environment.contains("BUNQ_ACCOUNT_ID"),
-                        "compose.yml hands the bunq key or account to '" + name + "', but only "
-                                + BankWire.SERVICE + " speaks to the bank. Every other process reaches"
-                                + " it through steward-bunq's API and has no use for the key.");
-            }
+            final String environment = String.valueOf(service.environment());
+            assertFalse(
+                    environment.contains("BUNQ_API_KEY") || environment.contains("BUNQ_ACCOUNT_ID"),
+                    "compose.yml hands the bunq key or account to '" + name + "' through its environment, where"
+                            + " `docker inspect` and every compose command see it.");
         });
+    }
+
+    @Test
+    void stewardBunqMountsItsOwnSecretsReadOnlyAndNoOtherServiceMountsThem() {
+        final String own = "${NORDTAL_SECRETS_DIR:?";
+        compose.services()
+                .forEach((name, service) -> service.mounts().stream()
+                        .filter(mount -> mount.contains("NORDTAL_SECRETS_DIR"))
+                        .forEach(mount -> {
+                            final List<String> fields = ComposeFile.fields(mount);
+                            assertAll(
+                                    () -> assertTrue(
+                                            fields.get(0).startsWith(own)
+                                                    && fields.get(0).endsWith("}/" + name),
+                                            "'" + name + "' mounts " + fields.get(0)
+                                                    + ", which is not its own directory"
+                                                    + " of NORDTAL_SECRETS_DIR: a service reads only its own secrets."),
+                                    () -> assertEquals(
+                                            List.of("/app/secrets", "ro"),
+                                            fields.subList(1, fields.size()),
+                                            "'" + name + "' must mount its secrets read only at /app/secrets, where"
+                                                    + " deploy/jvm/secrets.sh reads them and no hand-over writes."));
+                        }));
+        assertTrue(
+                compose.service(BankWire.SERVICE).mounts().stream()
+                        .anyMatch(mount -> mount.endsWith("}/" + BankWire.SERVICE + ":/app/secrets:ro")),
+                BankWire.SERVICE + " does not mount its own secrets, so it would start without the bank key.");
     }
 
     @Test

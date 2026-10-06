@@ -13,14 +13,23 @@ export type RowAction = {
 }
 
 /**
- * The actions of one table row: inline while there are at most two, behind a popover past that.
+ * The actions of one table row: inline while there are at most two, behind a popover past that or with `menu`.
  *
  * Three do not fit a 390px card. An action only sets page state; a dialog inside the popover would close with it.
  */
-export function RowActions({ actions, label }: { actions: RowAction[]; label: string }) {
+export function RowActions({
+  actions,
+  label,
+  menu = false,
+}: {
+  actions: RowAction[]
+  label: string
+  /** Always behind the popover, for a table whose rows carry sets of different sizes and would otherwise sit ragged. */
+  menu?: boolean
+}) {
   if (actions.length === 0) return null
 
-  if (actions.length <= 2) {
+  if (actions.length <= 2 && !menu) {
     return (
       <div className="flex flex-wrap items-center justify-end gap-1">
         {actions.map((action) => (

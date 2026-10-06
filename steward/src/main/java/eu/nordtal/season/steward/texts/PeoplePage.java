@@ -15,9 +15,6 @@ public interface PeoplePage {
     @Name("Title")
     MessageRef title();
 
-    @Name("Roster")
-    MessageRef roster();
-
     @Name("Person column")
     MessageRef person();
 
@@ -114,14 +111,14 @@ public interface PeoplePage {
     @Name("Actions for")
     MessageRef actionsFor(@Arg("name") String name);
 
-    @Name("Shown")
-    MessageRef shown(@Arg("shown") int shown, @Arg("loaded") int loaded);
+    @Name("Count")
+    MessageRef count(@Arg("count") int count);
+
+    @Name("Range")
+    MessageRef range(@Arg("from") int from, @Arg("to") int to, @Arg("total") int total);
 
     @Name("Previous")
     MessageRef previous();
-
-    @Name("Page")
-    MessageRef page(@Arg("page") int page, @Arg("pages") int pages);
 
     @Name("Next")
     MessageRef next();

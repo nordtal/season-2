@@ -76,15 +76,15 @@ export function NetworkTable({ sections }: { sections: readonly Section[] }) {
 
                 <DriftMark drift={service?.drift ?? "UNKNOWN"} />
                 {service ? (
-                  <span className="max-w-24 shrink truncate text-[0.6875rem] text-muted-foreground tnum">
+                  <span className="w-16 shrink-0 truncate text-right text-[0.6875rem] text-muted-foreground tnum">
                     {imageTag(service.image)}
                   </span>
                 ) : (
                   <SkeletonText className="w-16 shrink-0" width="short" />
                 )}
 
-                {/* Fixed width, since `RecreateButton` skips `steward-agent` and that row would sit ragged. */}
-                <div className="flex w-[3.125rem] shrink-0 justify-end">
+                {/* Two buttons wide at the pointer's target size, since `RecreateButton` skips `steward-agent`. */}
+                <div className="flex w-[3.125rem] shrink-0 justify-end pointer-coarse:w-[calc(2*var(--control-min-height)+0.125rem)]">
                   <NodeToolbar id={id} />
                 </div>
               </div>

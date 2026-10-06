@@ -174,13 +174,14 @@ describe("AccessPage - pagination filters the whole roster before it pages", () 
 
       fireEvent.change(screen.getByLabelText(/filter/i), { target: { value: "searchable" } })
 
-      // Page 1: twenty rows, and the count line names the whole filtered total.
+      // Page 1: twenty rows, and the one count names them against the whole filtered total.
       await waitFor(() => expect(screen.getAllByText(/searchable-/).length).toBe(20))
-      expect(screen.getByText(/21 of 21/)).toBeTruthy()
+      expect(screen.getByText("1-20 of 21 users")).toBeTruthy()
 
       fireEvent.click(screen.getByRole("button", { name: /next/i }))
 
       await waitFor(() => expect(screen.getAllByText(/searchable-/).length).toBe(1))
+      expect(screen.getByText("21-21 of 21 users")).toBeTruthy()
     },
   )
 })
@@ -356,16 +357,35 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     expect(await actionsOf("Ally")).toContain("Grant")
   })
 
-  it("puts a row's actions behind one popover as soon as there are more than two", async () => {
+  it("puts every row's actions behind one popover, however few there are, so the rows line up", async () => {
     vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
-    /** Ally has four; bob has one, which needs no popover. */
+    /** Ally has four; bob has one, and still gets the popover. */
     const ally = await rowFor("Ally")
     const bob = await rowFor("bob")
     expect(within(ally).getByRole("button", { name: /^Actions for/ })).toBeTruthy()
-    expect(within(bob).queryByRole("button", { name: /^Actions for/ })).toBeNull()
-    expect(within(bob).getByRole("button", { name: "Grant" })).toBeTruthy()
+    expect(within(bob).getByRole("button", { name: /^Actions for/ })).toBeTruthy()
+    expect(within(bob).queryByRole("button", { name: "Grant" })).toBeNull()
+  })
+
+  it("leaves a person's absent values out of the phone card and keeps a paying person's missing link", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        people: () => [
+          person({ discordUsername: "quiet" }),
+          person({ discordId: "2", discordUsername: "payer", accessActive: true, accessUntil: "2027-01-01T00:00:00Z" }),
+        ],
+      }),
+    )
+    draw(<AccessPage />)
+
+    const quiet = await rowFor("quiet")
+    const absent = (row: HTMLElement) =>
+      [...row.querySelectorAll('[data-phone="off"]')].map((cell) => cell.getAttribute("data-label"))
+    expect(absent(quiet)).toEqual(["Minecraft", "Roles", "Playtime"])
+    expect(absent(await rowFor("payer"))).toEqual(["Roles", "Playtime"])
   })
 })
 

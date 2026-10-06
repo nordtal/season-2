@@ -1520,6 +1520,9 @@ export type TextArgs = {
     count: Arg["number"]
   }
   "steward.people.chain": Record<string, never>
+  "steward.people.count": {
+    count: Arg["number"]
+  }
   "steward.people.counted": {
     counted: Arg["duration"]
     becoming: Arg["duration"]
@@ -1620,10 +1623,6 @@ export type TextArgs = {
     exempted: Arg["choice"]
     name: Arg["text"]
   }
-  "steward.people.page": {
-    page: Arg["number"]
-    pages: Arg["number"]
-  }
   "steward.people.periods": Record<string, never>
   "steward.people.person": Record<string, never>
   "steward.people.playtime": Record<string, never>
@@ -1639,6 +1638,11 @@ export type TextArgs = {
   }
   "steward.people.playtime-title": Record<string, never>
   "steward.people.previous": Record<string, never>
+  "steward.people.range": {
+    from: Arg["number"]
+    to: Arg["number"]
+    total: Arg["number"]
+  }
   "steward.people.request": Record<string, never>
   "steward.people.request-gone": {
     source: Arg["choice"]
@@ -1662,13 +1666,8 @@ export type TextArgs = {
   "steward.people.revoked-tip": Record<string, never>
   "steward.people.roles": Record<string, never>
   "steward.people.root-admin": Record<string, never>
-  "steward.people.roster": Record<string, never>
   "steward.people.running": Record<string, never>
   "steward.people.running-tip": Record<string, never>
-  "steward.people.shown": {
-    shown: Arg["number"]
-    loaded: Arg["number"]
-  }
   "steward.people.some-admin": Record<string, never>
   "steward.people.source": {
     source: Arg["choice"]

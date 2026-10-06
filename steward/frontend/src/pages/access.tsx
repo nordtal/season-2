@@ -19,7 +19,6 @@ import { useNow } from "@/lib/use-now"
 import { useMe, usePeople } from "@/lib/queries"
 import { Entity } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
-import { Panel } from "@/components/steward/panel"
 import { RowActions, type RowAction } from "@/components/steward/row-actions"
 import { StatusBadge } from "@/components/steward/status"
 import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
@@ -130,7 +129,7 @@ function WaitingPersonRow() {
   return (
     <TableRow>
       {/* Drawn at the declared widths, so the headings do not slide when the roster lands. */}
-      <TableCell data-label={t("steward.people.person")} className="font-medium">
+      <TableCell className="font-medium">
         <div className="flex items-center gap-2">
           <Skeleton className="size-6 shrink-0 rounded-full" />
           <SkeletonText width="full" className="max-w-[13rem]" />
@@ -197,7 +196,7 @@ export function AccessPage() {
     <div className="flex flex-col gap-6">
       <PageHeader title={t("steward.people.title")} actions={<GrantDialog />} />
 
-      <Panel title={t("steward.people.roster")}>
+      <div className="flex flex-col gap-3">
         {/* Stacked below `sm`, one row above, with `min-w-0` on the input so it can shrink. */}
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
           <div className="flex w-full min-w-0 items-center gap-2 sm:min-w-64 sm:flex-1">
@@ -273,7 +272,8 @@ export function AccessPage() {
                 <PeopleTable>
                   {paged.map((person) => (
                     <TableRow key={person.discordId}>
-                      <TableCell data-label={t("steward.people.person")} className="font-medium">
+                      {/* No `data-label`, so on a phone the name heads the card on a line of its own. */}
+                      <TableCell className="font-medium">
                         <div className="flex flex-wrap items-center gap-2">
                           <Entity id={person.discordId} kind="discord" />
                           {/* "Member" is left unsaid; LEFT and BANNED get a badge beside the name. */}
@@ -283,14 +283,21 @@ export function AccessPage() {
                       <TableCell data-label={t("steward.people.access")}>
                         <AccessBadge person={person} now={now} />
                       </TableCell>
-                      <TableCell data-label={t("steward.people.minecraft")}>
+                      {/* "Not linked" is only worth a line on a phone while it keeps a paying person out. */}
+                      <TableCell
+                        data-label={t("steward.people.minecraft")}
+                        data-phone={person.minecraftUuid || person.accessActive ? undefined : "off"}
+                      >
                         {person.minecraftUuid ? (
                           <Entity id={person.minecraftUuid} kind="minecraft" />
                         ) : (
                           <LinkBadge person={person} />
                         )}
                       </TableCell>
-                      <TableCell data-label={t("steward.people.roles")}>
+                      <TableCell
+                        data-label={t("steward.people.roles")}
+                        data-phone={person.donor || person.admin || person.packExemptAt ? undefined : "off"}
+                      >
                         <div className="flex items-center gap-1">
                           {person.donor ? (
                             <StatusBadge tone="idle" tipContent={t("steward.people.supporter-tip")}>
@@ -312,12 +319,16 @@ export function AccessPage() {
                           ) : null}
                         </div>
                       </TableCell>
-                      <TableCell data-label={t("steward.people.playtime")}>
+                      <TableCell
+                        data-label={t("steward.people.playtime")}
+                        data-phone={person.playtimeSeconds ? undefined : "off"}
+                      >
                         {/* `playtime` draws the dash for somebody who has never been online. */}
                         <span className="text-sm tabular-nums">{span(person.playtimeSeconds, "minutes")}</span>
                       </TableCell>
                       <TableCell>
                         <RowActions
+                          menu
                           label={t("steward.people.actions-for", { name: personName(person) })}
                           actions={rowActions(person, {
                             onPeriods: () => setSelected(person),
@@ -335,8 +346,15 @@ export function AccessPage() {
                   ))}
                 </PeopleTable>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs text-muted-foreground">
-                    {t("steward.people.shown", { shown: rows.length, loaded: list.length })}
+                  {/* The one count of the list: how many match, and which of them this page shows. */}
+                  <p className="text-xs text-muted-foreground tnum">
+                    {pageCount > 1
+                      ? t("steward.people.range", {
+                          from: clampedPage * PEOPLE_PAGE_SIZE + 1,
+                          to: clampedPage * PEOPLE_PAGE_SIZE + paged.length,
+                          total: rows.length,
+                        })
+                      : t("steward.people.count", { count: rows.length })}
                   </p>
                   {pageCount > 1 ? (
                     <div className="flex items-center gap-2">
@@ -349,9 +367,6 @@ export function AccessPage() {
                       >
                         {t("steward.people.previous")}
                       </Button>
-                      <span className="text-xs text-muted-foreground tnum">
-                        {t("steward.people.page", { page: clampedPage + 1, pages: pageCount })}
-                      </span>
                       <Button
                         type="button"
                         variant="outline"
@@ -368,7 +383,7 @@ export function AccessPage() {
             )
           }}
         </QueryState>
-      </Panel>
+      </div>
 
       <ResponsiveDialog open={selected !== null} onOpenChange={(open) => (open ? null : setSelected(null))}>
         <ResponsiveDialogContent className="sm:max-w-2xl">

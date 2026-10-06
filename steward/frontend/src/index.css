@@ -265,7 +265,7 @@
   /*
    * Below `md` a table row becomes a card of "name: value" lines, the name from `data-label`.
    *
-   * A cell without `data-label` spans the full width, as an action cell wants.
+   * A cell without `data-label` spans the full width, as an action cell wants; one with `data-phone="off"` is left out.
    */
 }
 
@@ -317,6 +317,11 @@
 
   .steward-table td[data-label] {
     grid-template-columns: minmax(5rem, 7rem) minmax(0, 1fr);
+  }
+
+  /* A cell left out of the card: its value is absent, or another cell carries it there. */
+  .steward-table td[data-phone="off"] {
+    display: none;
   }
 
   .steward-table td[data-label]::before {

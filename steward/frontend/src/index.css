@@ -161,6 +161,9 @@
  * Nothing is staggered, so everything mounted together travels in phase.
  */
 @theme {
+  /* The width of a table's own box from which its rows fit; narrower, every row is a card. */
+  --container-rows: 60rem;
+
   --animate-shimmer: shimmer 1.8s ease-in-out infinite;
 
   @keyframes shimmer {
@@ -265,14 +268,14 @@
   }
 
   /*
-   * Below `md` a table row becomes a card of "name: value" lines, the name from `data-label`.
+   * While its box is narrower than `--container-rows` a table row becomes a card of "name: value" lines, the name from `data-label`.
    *
    * A cell without `data-label` spans the full width, as an action cell wants; one with `data-phone="off"` is left out.
    */
 }
 
 /* Unlayered, so it beats shadcn's utility classes on the cells it overrides. */
-@media (width < 48rem) {
+@container (width < --theme(--container-rows)) {
   .steward-table,
   .steward-table :where(thead, tbody, tr, th, td) {
     display: block;

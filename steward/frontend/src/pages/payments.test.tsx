@@ -68,8 +68,7 @@ describe("PaymentsPage - settle as a row action", () => {
   })
 })
 
-/** Beside the sidebar at 1024px the table has about 46rem; jsdom has no layout, so these check the classes that fold it. */
-describe("PaymentsPage - the table fits between md and xl", () => {
+describe("PaymentsPage - one column for each field", () => {
   const PAID_PAYMENT = {
     id: "p2",
     reference: "QX7Z2M",
@@ -84,19 +83,17 @@ describe("PaymentsPage - the table fits between md and xl", () => {
     settled: "2026-09-21T09:03:00Z",
   }
 
-  it("moves Paid under the status there, and keeps it as its own line everywhere else", async () => {
+  it("keeps Paid as a column of its own, with no copy under the status", async () => {
     vi.stubGlobal("fetch", backend({ payments: () => [PAID_PAYMENT] }))
     draw(<PaymentsPage />)
 
     const row = await rowFor("QX7Z2M")
-    const paidHeader = screen.getAllByRole("columnheader").find((header) => header.textContent === "Paid")
-    expect(assertElement(paidHeader ?? null, "the Paid header").className).toMatch(/md:max-xl:hidden/)
     const paidCell = assertElement(row.querySelector('td[data-label="Paid"]'), "the Paid cell")
-    expect(paidCell.className).toMatch(/md:max-xl:hidden/)
+    expect(assertElement(paidCell.querySelector("time"), "the paid time").getAttribute("datetime")).toBe(
+      "2026-09-21T09:03:00Z",
+    )
     const statusCell = assertElement(row.querySelector('td[data-label="Status"]'), "the Status cell")
-    const folded = assertElement(statusCell.querySelector("time"), "the paid time under the status")
-    expect(folded.getAttribute("datetime")).toBe("2026-09-21T09:03:00Z")
-    expect(assertElement(folded.parentElement, "its wrapper").className).toMatch(/^hidden .*md:max-xl:block/)
+    expect(statusCell.querySelector("time")).toBeNull()
   })
 
   it("shows the date over the clock, so Deadline stays narrow", async () => {
@@ -106,14 +103,6 @@ describe("PaymentsPage - the table fits between md and xl", () => {
     const row = await rowFor("QX7Z2M")
     const deadline = assertElement(row.querySelector('td[data-label="Deadline"] time'), "the deadline")
     expect(deadline.children).toHaveLength(2)
-  })
-
-  it("keeps the tab link on screen as its icon there, still named Tab", async () => {
-    vi.stubGlobal("fetch", backend({ payments: () => [PAID_PAYMENT] }))
-    draw(<PaymentsPage />)
-
-    const tab = await screen.findByRole("link", { name: "Tab" })
-    expect(assertElement(tab.querySelector("span"), "the label").className).toMatch(/md:max-xl:sr-only/)
   })
 })
 

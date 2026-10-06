@@ -5,6 +5,9 @@ import { fileURLToPath } from "node:url"
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
+/** The query that turns a table row into a card, as `index.css` spells it. */
+const STACKED_RULE = "@container (width < --theme(--container-rows))"
+
 /**
  * Source rules that keep the interface fitting a 390px screen, since jsdom has no layout to measure.
  *
@@ -149,9 +152,17 @@ describe("the rules that make it fit on a phone", () => {
     assert.match(classes, /truncate/, "…and `truncate`, so what does not fit ends in an ellipsis.")
   })
 
+  it("stacks a table by the width of its own box, never by the window's", () => {
+    const css = fs.readFileSync(path.join(source, "index.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "")
+    assert.include(css, STACKED_RULE, "The card layout is a container query on the table's box.")
+    assert.notInclude(css, "@media (width < 48rem)", "A window width says nothing about the room beside the sidebar.")
+    const table = fs.readFileSync(path.join(source, "components/ui/table.tsx"), "utf8")
+    assert.match(table, /data-slot="table-container"\s+className="@container /, "The table's box is the container.")
+  })
+
   it("lets an image reference break inside a table card", () => {
     const css = fs.readFileSync(path.join(source, "index.css"), "utf8")
-    const mobile = css.slice(css.indexOf("@media (width < 48rem)")).replace(/\/\*[\s\S]*?\*\//g, "")
+    const mobile = css.slice(css.indexOf(STACKED_RULE)).replace(/\/\*[\s\S]*?\*\//g, "")
     assert.include(
       mobile,
       "overflow-wrap: anywhere",
@@ -163,7 +174,7 @@ describe("the rules that make it fit on a phone", () => {
   it("lets a stacked cell actually wrap, not just break inside an unbreakable word", () => {
     /** `whitespace-nowrap` on the cells outranks the stacked rule, so `overflow-wrap` alone never wraps prose. */
     const css = fs.readFileSync(path.join(source, "index.css"), "utf8")
-    const mobile = css.slice(css.indexOf("@media (width < 48rem)")).replace(/\/\*[\s\S]*?\*\//g, "")
+    const mobile = css.slice(css.indexOf(STACKED_RULE)).replace(/\/\*[\s\S]*?\*\//g, "")
     assert.match(
       mobile,
       /white-space:\s*normal/,
@@ -176,7 +187,7 @@ describe("the rules that make it fit on a phone", () => {
   it("puts a cell's second child beside its label instead of underneath it", () => {
     /** A labelled cell's second child would auto-place into the label column and collide with the next label. */
     const css = fs.readFileSync(path.join(source, "index.css"), "utf8")
-    const mobile = css.slice(css.indexOf("@media (width < 48rem)")).replace(/\/\*[\s\S]*?\*\//g, "")
+    const mobile = css.slice(css.indexOf(STACKED_RULE)).replace(/\/\*[\s\S]*?\*\//g, "")
     assert.match(
       mobile,
       /td\[data-label\]\s*>\s*\*\s*\{[^}]*grid-column:\s*2/,

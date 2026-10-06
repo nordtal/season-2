@@ -107,7 +107,7 @@ export function JournalTable({
                 <TableCell title={entry.occurred}>
                   <span className="flex flex-wrap items-baseline gap-x-3">
                     <span className="text-muted-foreground tnum">{dateTime(entry.occurred)}</span>
-                    <span className="font-medium md:hidden">{actionLabel(entry.action)}</span>
+                    <span className="font-medium @rows:hidden">{actionLabel(entry.action)}</span>
                   </span>
                 </TableCell>
                 <TableCell data-phone="off" className="font-medium" title={entry.action}>

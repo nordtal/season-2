@@ -1,5 +1,6 @@
 package eu.nordtal.season.discordbot;
 
+import eu.nordtal.season.messages.Tone;
 import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,8 +26,8 @@ public final class Card {
     /** The name of a block's continuation field, since Discord drops a field with an empty name. */
     private static final String CONTINUED = "​";
 
-    /** The one colour of every embed; an outcome is an emoji in the content, never a colour. */
-    static final int COLOUR = 0x34_59_74;
+    /** The one colour of every embed, the brand tone; an outcome is an emoji in the content, never a colour. */
+    static final int COLOUR = Integer.parseInt(Tone.BRAND.hex().substring(1), 16);
 
     private final EmbedBuilder embed = new EmbedBuilder();
     private int used;

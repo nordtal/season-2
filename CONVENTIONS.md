@@ -152,7 +152,10 @@ run `git config core.hooksPath .githooks` once per clone.
   all of it in the bundles checked)_
 - **Bordered elements are not nested.** Cards lie flat on the background, side by side; an inner card
   becomes a heading.
-- **Every Discord embed carries the same dark blue line**, a success included. The outcome shows in the
+- **One blue, the brand's**, defined once as `Tone.BRAND` and read by the game's `<brand>` tone, the bot's
+  embed line and Steward (`brand.gen.css`, written from it). A text that cannot carry a hex colour, the
+  pack's `pack.mcmeta` and lang files, uses `§9`, Minecraft's nearest legacy blue.
+- **Every Discord embed carries the brand blue line**, a success included. The outcome shows in the
   content through one coordinated set of emojis, never mixed with text symbols.
 - **A visual change is accepted on screenshots** at phone and desktop width, compared with what was
   intended, not on green tests alone.

@@ -3,6 +3,7 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/dm-sans";
 @import "@fontsource-variable/jetbrains-mono";
+@import "./brand.gen.css";
 
 /* Monocraft (OFL-1.1) stands in for the Minecraft font, which cannot be shipped. */
 @font-face {
@@ -14,7 +15,8 @@
 /*
  * The Steward theme, dark only: `index.html` carries `class="dark"` and nothing removes it.
  *
- * Blue #4a63d8 marks action and nothing else; no surface carries it, and status has exactly three colours.
+ * The one blue is the brand's, `--brand` from `brand.gen.css`. In Steward's own chrome it marks action and nothing
+ * else, and no surface carries it; status has exactly three colours.
  */
 @custom-variant dark (&:is(.dark *));
 
@@ -30,8 +32,8 @@
   --popover: #161616;
   --popover-foreground: #fffcf6;
 
-  /* Action: the only blue in the file. */
-  --primary: #4a63d8;
+  /* Action: the brand blue, and the only blue in the file. */
+  --primary: var(--brand);
   --primary-foreground: #fffcf6;
 
   /* Quiet surfaces on top of --card, warm-neutral rather than blue-grey. */
@@ -53,7 +55,7 @@
   --border: #2a2a27;
   --input: #333330;
   /* The focus ring is blue because focus promises an action. */
-  --ring: #4a63d8;
+  --ring: var(--brand);
 
   /* Charts stay off the brand, so no unclickable series is blue. */
   --chart-1: #3fb98a;
@@ -65,12 +67,12 @@
   /* The sidebar is a surface, so it is neutral, one step darker than the page. */
   --sidebar: #0a0a0a;
   --sidebar-foreground: #fffcf6;
-  --sidebar-primary: #4a63d8;
+  --sidebar-primary: var(--brand);
   --sidebar-primary-foreground: #fffcf6;
   --sidebar-accent: #1c1c1a;
   --sidebar-accent-foreground: #fffcf6;
   --sidebar-border: #232320;
-  --sidebar-ring: #4a63d8;
+  --sidebar-ring: var(--brand);
 
   /* Radius; a nested element with padding p gets `outer - p`, which --radius-inner covers. */
   --radius: 0.375rem;

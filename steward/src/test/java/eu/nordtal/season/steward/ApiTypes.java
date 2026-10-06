@@ -69,6 +69,7 @@ public final class ApiTypes {
     /** Writes the file into the frontend, the one build step behind it. */
     public static void main(final String[] args) throws IOException {
         Files.writeString(TARGET, render(), StandardCharsets.UTF_8);
+        Files.writeString(BrandCss.TARGET, BrandCss.render(), StandardCharsets.UTF_8);
         TextTypes.main(args);
     }
 

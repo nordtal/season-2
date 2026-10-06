@@ -3,6 +3,7 @@ package eu.nordtal.season.discordbot;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.messages.Tone;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -12,6 +13,13 @@ import org.junit.jupiter.api.Test;
 
 /** Discord's limits, checked here because JDA refuses what breaks them. */
 class CardTest {
+
+    @Test
+    void everyEmbedCarriesTheBrandBlue() {
+        final MessageEmbed embed = Card.of("Update").build();
+
+        assertEquals(Tone.BRAND.hex(), String.format("#%06x", embed.getColorRaw()));
+    }
 
     @Test
     void aLongBlockContinues() {

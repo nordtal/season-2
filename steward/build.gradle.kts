@@ -225,7 +225,7 @@ sourceSets.test {
 // TextTypesTest hold them.
 tasks.register<JavaExec>("generateApiTypes") {
     group = "build"
-    description = "Writes frontend/src/lib/api.gen.ts and texts.gen.ts from steward's API records and bundles."
+    description = "Writes frontend/src/lib/api.gen.ts, texts.gen.ts and brand.gen.css from steward's records, bundles and tones."
     // Classes only, so the types can be written while the frontend does not build.
     classpath =
         files(

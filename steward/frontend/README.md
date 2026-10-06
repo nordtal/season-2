@@ -23,12 +23,14 @@ under `web/`. Nothing generated is committed.
 ## Design rules
 
 - Dark only, with no toggle.
-- Blue `#4a63d8` marks action and nothing else; no surface and no chart series carries it.
+- The one blue is the brand's, `Tone.BRAND`, which `generateApiTypes` writes into `src/brand.gen.css`. In
+  Steward's own chrome it marks action and nothing else, and no surface or chart series carries it; a
+  preview of the game or Discord paints it where they do.
 - Status has three colours: success, warning and `--destructive`.
 - Rows are 34px; a control inside one keeps its 36px target.
 - Changing numbers are tabular.
 - No `transition: all`, and no `outline: none` without a visible replacement.
-- Every token lives in `src/index.css`.
+- Every token lives in `src/index.css`, the brand blue in the generated `src/brand.gen.css`.
 
 ## Layout
 

@@ -494,7 +494,7 @@ function marksOf(style: Style, format: Format): CSSProperties {
   const marks: CSSProperties = {}
   if (style.hover) Object.assign(marks, { borderBottom: "2px dotted #c9d2ff", background: "rgba(201,210,255,0.08)" })
   if (style.click || style.action)
-    Object.assign(marks, { outline: "1px dashed #4a63d8", outlineOffset: 1, cursor: "pointer" })
+    Object.assign(marks, { outline: "1px dashed var(--primary)", outlineOffset: 1, cursor: "pointer" })
   return marks
 }
 

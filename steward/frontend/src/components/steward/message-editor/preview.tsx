@@ -383,7 +383,7 @@ export function Preview({ runs, format, shown, keyName, fill, glyphs, tones, cla
       return scene(
         <div className="flex w-full items-center justify-center p-3">
           <div className="flex w-full max-w-[610px] gap-2 p-1" style={{ boxShadow: "inset 0 0 0 2px #808080" }}>
-            <div className="size-16 shrink-0 rounded-[2px]" style={{ background: "#4a63d8" }} />
+            <div className="size-16 shrink-0 rounded-[2px]" style={{ background: "var(--brand)" }} />
             <div className="min-w-0 flex-1">{text("#AAAAAA")}</div>
           </div>
         </div>,
@@ -478,7 +478,7 @@ function DiscordRuns({ runs, fill }: { runs: Run[]; fill: Fill }) {
 function author(children: ReactNode) {
   return (
     <div className="flex gap-3">
-      <div className="size-10 shrink-0 rounded-full" style={{ background: "#4a63d8" }} />
+      <div className="size-10 shrink-0 rounded-full" style={{ background: "var(--brand)" }} />
       <div className="min-w-0 flex-1">
         <span className="font-medium text-white">Nordtal</span>
         {children}
@@ -528,7 +528,7 @@ function DiscordPreview({
         author(
           <div
             className="mt-1 max-w-[432px] rounded-[4px] border-l-4 py-2 pr-4 pl-3"
-            style={{ background: "#2b2d31", borderColor: "#4a63d8" }}
+            style={{ background: "#2b2d31", borderColor: "var(--brand)" }}
           >
             {title ? (
               <div className="font-semibold text-white">{body}</div>

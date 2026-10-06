@@ -65,7 +65,7 @@ export function ColourMenu({
   disabled?: boolean
 }) {
   const [mode, setMode] = useState<ColourMode>(style.gradient ? "gradient" : style.colour ? "colour" : "tone")
-  const stops = style.gradient ?? [style.colour ?? "#4a63d8", "#ffffff"]
+  const stops = style.gradient ?? [style.colour ?? tones.brand, "#ffffff"]
   const setStops = (next: string[]) => onChange({ gradient: next, colour: undefined, tone: undefined })
   const coloured = Boolean(style.tone || style.colour || style.gradient)
   return (
@@ -199,7 +199,7 @@ function HexField({ value, onChange }: { value: string; onChange: (hex: string) 
       <Input
         aria-label={t("steward.message-editor.hex-colour")}
         value={typed ?? value}
-        placeholder="#4a63d8"
+        placeholder="#ffffff"
         spellCheck={false}
         className="min-w-0 font-mono"
         onChange={(event) => {

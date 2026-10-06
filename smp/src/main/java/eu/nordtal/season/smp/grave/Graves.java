@@ -166,20 +166,11 @@ public final class Graves {
     private static final float HEAD_HALF_HEIGHT = 0.25f;
 
     /**
-     * How much of its own size the skull is drawn at, so that a tilted head stays on the lid instead of the rim.
-     *
-     * The hat layer's worst corner is 0.487 blocks out at any tilt; the rim is 0.4375, and 0.85 brings it to 0.414.
+     * How far the skull's centre dips below the chest's top edge; it stands upright because a tilt swings it.
+     * A rotation turns the model about the entity's origin, so an offset pivot times sin(angle) pushes it sideways.
+     * No rotation, native size (hat layer 0.5625 on a 0.875 lid): it cannot overhang, and the dip says it fell.
      */
-    private static final float HEAD_SCALE = 0.85f;
-
-    /** How far the skull's centre dips below the chest's top edge, found by eye. */
     private static final float HEAD_SINK_DEPTH = 0.15f;
-
-    /** Rotation around the X axis that tips the skull onto its side, found by eye. */
-    private static final float HEAD_TILT_DEGREES = 65f;
-
-    /** A smaller rotation around the Z axis so the skull reads as fallen rather than posed, found by eye. */
-    private static final float HEAD_ROLL_DEGREES = 12f;
 
     /** How far above {@code at} the countdown hologram floats, found by eye. */
     private static final double HOLOGRAM_HEIGHT = 1.6;
@@ -224,10 +215,10 @@ public final class Graves {
             // Explicit though it is the default: the constants above are computed for this transform.
             display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.NONE);
             display.setTransformation(new Transformation(
-                    new Vector3f(0f, CHEST_HEIGHT + HEAD_HALF_HEIGHT * HEAD_SCALE - HEAD_SINK_DEPTH, 0f),
-                    new AxisAngle4f((float) Math.toRadians(HEAD_TILT_DEGREES), 1f, 0f, 0f),
-                    new Vector3f(HEAD_SCALE, HEAD_SCALE, HEAD_SCALE),
-                    new AxisAngle4f((float) Math.toRadians(HEAD_ROLL_DEGREES), 0f, 0f, 1f)));
+                    new Vector3f(0f, CHEST_HEIGHT + HEAD_HALF_HEIGHT - HEAD_SINK_DEPTH, 0f),
+                    new AxisAngle4f(),
+                    new Vector3f(1f, 1f, 1f),
+                    new AxisAngle4f()));
         });
         entities.add(skull);
 

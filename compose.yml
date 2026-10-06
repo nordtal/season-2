@@ -429,8 +429,6 @@ services:
       NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET: ${STEWARD_DISCORD_CLIENT_SECRET:-}
       # Seeded from the same variable as the bot's access group.
       NORDTAL_STEWARD_WEB_DISCORD_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in the environment file - deploy/nordtal.sh asks for it}
-      # Only lists guild roles and channels for the editor's pickers; empty falls back to text fields.
-      NORDTAL_STEWARD_WEB_DISCORD_BOT_TOKEN: ${NORDTAL_BOT_TOKEN:-}
       # The one account that may claim an empty admin tree; empty means nobody can.
       NORDTAL_STEWARD_WEB_DISCORD_ROOT_ID: ${STEWARD_ROOT_DISCORD_ID:-}
       # Web Push keys from `steward generate-vapid-keys`; blank keeps what the web group holds.

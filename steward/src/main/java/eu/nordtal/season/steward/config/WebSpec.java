@@ -156,15 +156,6 @@ public interface WebSpec {
         }
 
         @Order(4)
-        @Name("Bot token")
-        @Key("bot-token")
-        @Explain(
-                "Used only to name roles and channels in the config editor; never to send, change a role, or show the token anywhere.")
-        default String botToken() {
-            return "";
-        }
-
-        @Order(5)
         @Name("Root's Discord ID")
         @Key("root-id")
         @Explain(

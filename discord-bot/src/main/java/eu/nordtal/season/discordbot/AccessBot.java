@@ -9,6 +9,7 @@ import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.access.AccessDirectory;
 import eu.nordtal.season.database.access.AdminTree;
 import eu.nordtal.season.database.alert.AlertBook;
+import eu.nordtal.season.database.guild.GuildChannels;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.message.MessageOverrideStore;
@@ -39,6 +40,7 @@ import eu.nordtal.season.discordbot.config.OnboardingSpec;
 import eu.nordtal.season.discordbot.discord.AdminRole;
 import eu.nordtal.season.discordbot.discord.BotAccessEffects;
 import eu.nordtal.season.discordbot.discord.BotInbox;
+import eu.nordtal.season.discordbot.discord.ChannelList;
 import eu.nordtal.season.discordbot.discord.GuildState;
 import eu.nordtal.season.discordbot.discord.UpdateFeed;
 import eu.nordtal.season.discordbot.onboarding.Onboarding;
@@ -127,7 +129,8 @@ public class AccessBot implements AutoCloseable {
             GuildState guildState,
             Onboarding onboarding,
             BotAccessEffects inboxEffects,
-            eu.nordtal.season.discordbot.announce.Announcements announcements) {}
+            eu.nordtal.season.discordbot.announce.Announcements announcements,
+            ChannelList channels) {}
 
     public AccessBot() throws InterruptedException, SettingsException {
         final DatabaseSpec databaseConfig = BotSettings.database().get();
@@ -374,7 +377,10 @@ public class AccessBot implements AutoCloseable {
             final Onboarding onboarding,
             final OnboardingFlow onboardingFlow,
             final LockedRoles lockedRoles) {
+        final ChannelList channels = new ChannelList(
+                jda, accessConfig.guildId(), GuildChannels.using(database.dataSource()), scheduler.serial());
         jda.addEventListener(
+                channels,
                 guildState,
                 onboarding,
                 onboardingFlow,
@@ -399,7 +405,16 @@ public class AccessBot implements AutoCloseable {
         jda.updateCommands().addCommands(commands).queue();
 
         return new DiscordWiring(
-                admin, roles, bookings, purchaseFlow, adminRole, guildState, onboarding, inboxEffects, announcements);
+                admin,
+                roles,
+                bookings,
+                purchaseFlow,
+                adminRole,
+                guildState,
+                onboarding,
+                inboxEffects,
+                announcements,
+                channels);
     }
 
     private void publishAndReconcile(
@@ -413,6 +428,7 @@ public class AccessBot implements AutoCloseable {
         new ManagedMessages(jda, languages, tiers, messages, database.jdbi()).publishAll();
         new RegisterMessages(jda, languages, messages, database.jdbi()).publishAll();
         wiring.guildState().reconcile();
+        wiring.channels().publish();
         wiring.roles().reconcile();
         wiring.adminRole().reconcile();
         wiring.onboarding().start();

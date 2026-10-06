@@ -133,6 +133,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V35__an_icon_sheet_records_the_painter_that_drew_it.sql",
                 "bd8aedee7289e7cc579447b1642091386bf20350fd1db14e2264a0a533362f73");
+        FROZEN.put(
+                "V36__the_bot_publishes_the_guild_s_channels.sql",
+                "a157c7b8853fc5161b70d62cd7b7b9b418fedf14b1eb141f337ba69756f7b3c9");
     }
 
     @Test

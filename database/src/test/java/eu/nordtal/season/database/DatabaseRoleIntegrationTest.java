@@ -167,6 +167,25 @@ class DatabaseRoleIntegrationTest {
                 mayNot(DatabaseRole.SMP, "SELECT count(*) FROM discord_role"));
     }
 
+    /** The bot writes the guild's channels and reads none of them back; steward only reads them. */
+    @Test
+    void theBotPublishesTheGuildsChannelsAndOnlyStewardReadsThem() {
+        assertAll(guildChannels().stream().map(DatabaseRoleIntegrationTest::check));
+    }
+
+    private static List<Case> guildChannels() {
+        return List.of(
+                may(
+                        DatabaseRole.DISCORD_BOT,
+                        "INSERT INTO guild_channels (guild_id, channels, published) SELECT '1', '[]', now() WHERE false"
+                                + " ON CONFLICT (guild_id) DO UPDATE SET channels = '[]', published = now()"),
+                mayNot(DatabaseRole.DISCORD_BOT, "SELECT channels FROM guild_channels"),
+                mayNot(DatabaseRole.DISCORD_BOT, "DELETE FROM guild_channels WHERE false"),
+                may(DatabaseRole.STEWARD, "SELECT channels FROM guild_channels"),
+                mayNot(DatabaseRole.STEWARD, "UPDATE guild_channels SET channels = '[]' WHERE false"),
+                mayNot(DatabaseRole.SMP, "SELECT channels FROM guild_channels"));
+    }
+
     /** Each server writes its command tree with the store's own upsert and reads none back; steward only reads. */
     private static List<Case> commandTrees() {
         final String upsert = "INSERT INTO command_tree (server, tree, published) SELECT 'x', '{}', now() WHERE false"

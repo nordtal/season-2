@@ -814,7 +814,6 @@ export type TextArgs = {
   "steward.answer.backup-unfinished": {
     backup: Arg["text"]
   }
-  "steward.answer.bot-token-refused": Record<string, never>
   "steward.answer.ceremony-elsewhere": {
     registration: Arg["choice"]
   }
@@ -845,7 +844,6 @@ export type TextArgs = {
   "steward.answer.grants-per-hour": {
     count: Arg["number"]
   }
-  "steward.answer.guild-unreadable": Record<string, never>
   "steward.answer.interrupted": Record<string, never>
   "steward.answer.keep-section": {
     path: Arg["text"]
@@ -931,7 +929,6 @@ export type TextArgs = {
   "steward.answer.preview-unlinked": Record<string, never>
   "steward.answer.push-not-accepted": Record<string, never>
   "steward.answer.push-unconfigured": Record<string, never>
-  "steward.answer.rate-limited": Record<string, never>
   "steward.answer.secret-setting": {
     path: Arg["text"]
   }
@@ -954,7 +951,6 @@ export type TextArgs = {
     language: Arg["text"]
     most: Arg["number"]
   }
-  "steward.answer.unknown-guild": Record<string, never>
   "steward.answer.unknown-person": Record<string, never>
   "steward.artifact.status": {
     status: Arg["choice"]
@@ -1741,9 +1737,9 @@ export type TextArgs = {
     posted: Arg["choice"]
     language: Arg["text"]
   }
+  "steward.said.channels-not-published": Record<string, never>
   "steward.said.guild-not-listed": Record<string, never>
   "steward.said.message": Record<string, never>
-  "steward.said.no-bot-token": Record<string, never>
   "steward.said.no-guild-id": Record<string, never>
   "steward.said.preview-sent": Record<string, never>
   "steward.said.setting": {

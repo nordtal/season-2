@@ -102,7 +102,9 @@ Every word the page shows is a key of the `steward` bundle, English only, declar
 - `GET /api/game-data` serves the union of the servers' catalogues for the newest version with the
   icon sheet's index; the sheet is cached per version. The settings form draws one picker per field
   a schema marks with `refers`, from the catalogue, the guild or the people Steward knows, and falls
-  back to the typed field where nothing can be listed.
+  back to the typed field where nothing can be listed. The guild's channels are the list discord-bot
+  publishes into `guild_channels`, so Steward never holds the bot's token and shows the last list
+  while the bot is down.
 - The milestone track joins the database's progress to the group's own sections by their `key`, so
   nothing in it knows what a milestone holds.
 - A plugin's descriptor may name a custom editor per group; the registry draws it only when the editor

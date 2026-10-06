@@ -480,7 +480,7 @@ export type Topic =
 export type GuildEntry = {
   id: string
   name: string
-  type?: number
+  type: number
 }
 
 export type SecurityKey = {

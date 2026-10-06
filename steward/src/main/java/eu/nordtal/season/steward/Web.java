@@ -10,6 +10,7 @@ import eu.nordtal.season.database.access.PackExemptions;
 import eu.nordtal.season.database.alert.AlertBook;
 import eu.nordtal.season.database.command.CommandTreeStore;
 import eu.nordtal.season.database.game.GameDataStore;
+import eu.nordtal.season.database.guild.GuildChannels;
 import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.metric.Metric;
 import eu.nordtal.season.database.notify.Channel;
@@ -40,7 +41,6 @@ import eu.nordtal.season.steward.config.WebSpec;
 import eu.nordtal.season.steward.data.Data;
 import eu.nordtal.season.steward.data.ExampleValues;
 import eu.nordtal.season.steward.discord.DiscordApi;
-import eu.nordtal.season.steward.discord.DiscordDirectory;
 import eu.nordtal.season.steward.game.Announcements;
 import eu.nordtal.season.steward.game.CommandApi;
 import eu.nordtal.season.steward.game.ConsoleCommands;
@@ -120,7 +120,7 @@ public final class Web {
 
     private final AlertRoutes alerts;
 
-    /** The names of the guild's roles and channels, so an id can be picked rather than typed. */
+    /** The names of the guild's channels as discord-bot published them, so an id can be picked rather than typed. */
     private final DiscordApi guild;
 
     private final CommandApi commands;
@@ -226,7 +226,7 @@ public final class Web {
                 new SecondFactor(this::requireSession, data, localCredentials, this.sessions, localWebauthn, clock);
         this.gatekeeper = new Gatekeeper(this::session, this.secondFactor);
         this.metrics = new Metrics(data, clock);
-        this.guild = new DiscordApi(new DiscordDirectory(config.discord(), DiscordAuth.DISCORD_API, clock));
+        this.guild = new DiscordApi(config.discord(), data == null ? null : GuildChannels.using(data.dataSource()));
         this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow(), database);
         this.games = new GameActions(data == null ? null : data.dataSource(), commands);
         this.announcements = new Announcements(data, ctx -> account(ctx).orElseThrow());

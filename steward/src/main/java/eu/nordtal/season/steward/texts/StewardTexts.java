@@ -243,18 +243,6 @@ public interface StewardTexts {
             @Name("Interrupted")
             MessageRef interrupted();
 
-            @Name("Bot token refused")
-            MessageRef botTokenRefused();
-
-            @Name("Guild not readable")
-            MessageRef guildUnreadable();
-
-            @Name("Unknown guild")
-            MessageRef unknownGuild();
-
-            @Name("Rate limited")
-            MessageRef rateLimited();
-
             @Name("Agent not configured")
             MessageRef agentUnconfigured();
 
@@ -367,8 +355,8 @@ public interface StewardTexts {
             @Name("No guild id")
             MessageRef noGuildId();
 
-            @Name("No bot token")
-            MessageRef noBotToken();
+            @Name("The channels not published")
+            MessageRef channelsNotPublished();
 
             @Name("The guild not listed")
             MessageRef guildNotListed();

@@ -69,7 +69,7 @@ public final class StandInDiscord implements AutoCloseable {
         return "http://127.0.0.1:" + started.port();
     }
 
-    /** The interface's Discord settings for this stand-in, read live: no bot token, so the guild is never listed. */
+    /** The interface's Discord settings for this stand-in, read live. */
     public WebSpec.DiscordSpec spec() {
         return new WebSpec.DiscordSpec() {
             @Override

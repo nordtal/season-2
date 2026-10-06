@@ -5,11 +5,12 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 
-/** A jar of ours as the build writes it: its {@code nordtal-plugin.json} first, then whatever the test puts in. */
+/** A jar of ours as the build writes it, its {@code nordtal-plugin.json} first, or one of someone else's. */
 public final class PluginJars {
 
     private PluginJars() {}
@@ -22,11 +23,16 @@ public final class PluginJars {
      */
     public static void write(final Path jar, final String descriptor, final Map<String, String> entries)
             throws IOException {
+        final Map<String, String> all = new LinkedHashMap<>();
+        all.put(PluginDescriptors.ENTRY, descriptor);
+        all.putAll(entries);
+        foreign(jar, all);
+    }
+
+    /** A jar someone else built, such as Paper's, which carries no descriptor: only {@code entries}. */
+    public static void foreign(final Path jar, final Map<String, String> entries) throws IOException {
         Files.createDirectories(jar.getParent());
         try (JarOutputStream out = new JarOutputStream(Files.newOutputStream(jar))) {
-            out.putNextEntry(new JarEntry(PluginDescriptors.ENTRY));
-            out.write(descriptor.getBytes(StandardCharsets.UTF_8));
-            out.closeEntry();
             for (final Map.Entry<String, String> entry : entries.entrySet()) {
                 out.putNextEntry(new JarEntry(entry.getKey()));
                 out.write(entry.getValue().getBytes(StandardCharsets.UTF_8));

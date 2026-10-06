@@ -16,7 +16,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
@@ -47,7 +46,7 @@ public final class PluginDescriptors {
     private final Path configs;
     private final ImageJars images;
     private final Supplier<List<Service>> services;
-    private final Map<String, Read> jars = new ConcurrentHashMap<>();
+    private final StampCache<Raw> jars = new StampCache<>(PluginDescriptors::readJar);
     private final Set<String> imagesWithout = ConcurrentHashMap.newKeySet();
 
     /**
@@ -96,7 +95,7 @@ public final class PluginDescriptors {
         if (Files.isDirectory(directory)) {
             try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory, "*.jar")) {
                 for (final Path jar : stream) {
-                    final Raw raw = cached(jar);
+                    final Raw raw = jars.of(jar);
                     if (raw != null) {
                         found.add(new Found(jar, false, raw));
                     }
@@ -116,7 +115,7 @@ public final class PluginDescriptors {
                 LOG.debug("{}'s image could not be asked for its jar: {}", service.name(), unreachable.getMessage());
                 return found;
             }
-            final Raw raw = jar == null ? null : cached(jar);
+            final Raw raw = jar == null ? null : jars.of(jar);
             if (jar == null || raw == null) {
                 imagesWithout.add(image);
             } else {
@@ -126,24 +125,8 @@ public final class PluginDescriptors {
         return found;
     }
 
-    private @Nullable Raw cached(final Path jar) {
-        final String stamp;
-        try {
-            final BasicFileAttributes attributes = Files.readAttributes(jar, BasicFileAttributes.class);
-            stamp = attributes.size() + "@" + attributes.lastModifiedTime().toMillis();
-        } catch (final IOException e) {
-            return null;
-        }
-        final Read known = jars.get(jar.toString());
-        if (known != null && known.stamp().equals(stamp)) {
-            return known.raw();
-        }
-        final Raw raw = readJar(jar);
-        jars.put(jar.toString(), new Read(stamp, raw));
-        return raw;
-    }
-
-    private static @Nullable Raw readJar(final Path jar) {
+    /** The descriptor in the jar, or {@code null} for a jar that carries none or a broken one, which is logged. */
+    static @Nullable Raw readJar(final Path jar) {
         try (ZipFile zip = new ZipFile(jar.toFile())) {
             final ZipEntry entry = zip.getEntry(ENTRY);
             if (entry == null) {
@@ -177,7 +160,9 @@ public final class PluginDescriptors {
             final boolean followsMessages = json.get("messages") instanceof JsonPrimitive messages
                     && messages.isBoolean()
                     && messages.getAsBoolean();
-            return new Raw(id, name == null ? id : name, logo, Map.copyOf(editors), followsMessages);
+            final boolean local =
+                    json.get("local") instanceof JsonPrimitive flag && flag.isBoolean() && flag.getAsBoolean();
+            return new Raw(id, name == null ? id : name, logo, Map.copyOf(editors), followsMessages, local);
         } catch (final IOException | JsonParseException | IllegalStateException e) {
             LOG.warn("{} could not be read for its descriptor: {}", jar, e.getMessage());
             return null;
@@ -196,10 +181,14 @@ public final class PluginDescriptors {
      */
     public record Service(String name, @Nullable String image) {}
 
-    private record Raw(
-            String id, String name, @Nullable String logo, Map<String, String> editors, boolean followsMessages) {}
+    /** One descriptor as the jar has it; {@code local} for a jar built outside a release. */
+    record Raw(
+            String id,
+            String name,
+            @Nullable String logo,
+            Map<String, String> editors,
+            boolean followsMessages,
+            boolean local) {}
 
     private record Found(Path jar, boolean ownImage, Raw raw) {}
-
-    private record Read(String stamp, @Nullable Raw raw) {}
 }

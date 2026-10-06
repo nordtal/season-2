@@ -64,7 +64,12 @@ tasks.named<Test>("test") {
     jvmArgumentProviders.add(
         CommandLineArgumentProvider {
             hostOf.flatMap { (name, host) ->
-                val classpath = classpathOf[host]?.get()?.files?.joinToString(File.pathSeparator) { it.absolutePath }.orEmpty()
+                val classpath =
+                    classpathOf[host]
+                        ?.get()
+                        ?.files
+                        ?.joinToString(File.pathSeparator) { it.absolutePath }
+                        .orEmpty()
                 listOf("-Dshipped.$name.jar=${jars.getValue(name).asFile.absolutePath}", "-Dshipped.$name.host=$classpath")
             }
         },

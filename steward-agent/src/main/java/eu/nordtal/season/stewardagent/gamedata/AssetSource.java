@@ -46,10 +46,19 @@ interface AssetSource {
 
     /** Where a resource id's file is: model {@code block/stone} is {@code assets/minecraft/models/block/stone.json}. */
     static String path(final String id, final String kind, final String extension) {
+        return located("assets", id, kind, extension);
+    }
+
+    /** Where a data pack entry's file is: advancement {@code story/root} is {@code data/minecraft/advancement/...}. */
+    static String dataPath(final String id, final String kind, final String extension) {
+        return located("data", id, kind, extension);
+    }
+
+    private static String located(final String root, final String id, final String kind, final String extension) {
         final int colon = id.indexOf(':');
         final String namespace = colon < 0 ? "minecraft" : id.substring(0, colon);
         final String rest = colon < 0 ? id : id.substring(colon + 1);
-        return "assets/" + namespace + "/" + kind + "/" + rest + extension;
+        return root + "/" + namespace + "/" + kind + "/" + rest + extension;
     }
 
     /** {@code block/stone} and {@code minecraft:block/stone} as one id. */

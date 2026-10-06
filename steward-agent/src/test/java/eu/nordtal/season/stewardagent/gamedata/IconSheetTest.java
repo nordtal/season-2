@@ -35,7 +35,7 @@ class IconSheetTest {
                 "{\"parent\":\"minecraft:item/generated\",\"textures\":{\"layer0\":\"minecraft:item/ruby\"}}");
         texture("item/ruby", square(16, 4, RED));
 
-        final BufferedImage icon = only(IconSheet.draw(assets, List.of("minecraft:ruby")), "minecraft:ruby");
+        final BufferedImage icon = only(IconSheet.draw(assets, List.of("minecraft:ruby"), List.of()), "minecraft:ruby");
 
         assertEquals(RED, icon.getRGB(8, 8));
         assertEquals(RED, icon.getRGB(23, 23));
@@ -55,7 +55,7 @@ class IconSheetTest {
                    "east": {"texture": "#all"}, "west": {"texture": "#all"}}}]}""");
         texture("block/ore", square(16, 0, RED));
 
-        final BufferedImage icon = only(IconSheet.draw(assets, List.of("minecraft:ore")), "minecraft:ore");
+        final BufferedImage icon = only(IconSheet.draw(assets, List.of("minecraft:ore"), List.of()), "minecraft:ore");
 
         assertEquals(0, icon.getRGB(1, 1) >>> 24, "a turned cube leaves the corners of its icon clear");
         final int top = red(icon.getRGB(16, 8));
@@ -78,7 +78,7 @@ class IconSheetTest {
         texture("entity/zombie/zombie", skin);
 
         final BufferedImage icon =
-                only(IconSheet.draw(assets, List.of("minecraft:zombie_head")), "minecraft:zombie_head");
+                only(IconSheet.draw(assets, List.of("minecraft:zombie_head"), List.of()), "minecraft:zombie_head");
 
         assertEquals(GREEN, icon.getRGB(16, 16));
     }
@@ -96,7 +96,7 @@ class IconSheetTest {
         texture("entity/banner/base", square(64, 0, 0xFFFFFFFF));
 
         final BufferedImage icon =
-                only(IconSheet.draw(assets, List.of("minecraft:red_banner")), "minecraft:red_banner");
+                only(IconSheet.draw(assets, List.of("minecraft:red_banner"), List.of()), "minecraft:red_banner");
 
         int wood = 0;
         int cloth = 0;
@@ -115,6 +115,34 @@ class IconSheetTest {
     }
 
     @Test
+    void anAdvancementWhoseBannerCarriesPatternsHasASlotOfItsOwnWithThemDrawnOverTheCloth() throws IOException {
+        bannerDefinition("white_banner", "white");
+        model("item/template_banner", """
+                {"display": {"gui": {"rotation": [30, 20, 0], "translation": [0, -3.25, 0],
+                  "scale": [0.5325, 0.5325, 0.5325]}}}""");
+        texture("entity/banner/banner_base", square(64, 0, WOOD));
+        texture("entity/banner/base", square(64, 0, 0xFFFFFFFF));
+        texture("entity/banner/rhombus", square(64, 0, 0xFFFFFFFF));
+        files.put("data/minecraft/banner_pattern/rhombus.json", """
+                {"asset_id": "minecraft:rhombus", "translation_key": "block.minecraft.banner.rhombus"}""".getBytes(StandardCharsets.UTF_8));
+        files.put("data/minecraft/advancement/adventure/hero.json", """
+                {"display": {"icon": {"id": "minecraft:white_banner", "components": {"minecraft:banner_patterns": [
+                  {"color": "cyan", "pattern": "minecraft:rhombus"}]}}}}""".getBytes(StandardCharsets.UTF_8));
+
+        final GameDataStore.Icons icons = IconSheet.draw(
+                assets,
+                List.of("minecraft:white_banner"),
+                List.of("minecraft:adventure/hero", "minecraft:adventure/none"));
+
+        assertEquals(
+                Map.of("minecraft:white_banner", 0, "minecraft:adventure/hero", 1),
+                icons.index().slots(),
+                "an advancement with no patterns, or no definition, keeps the plain item's icon");
+        assertTrue(cyan(only(icons, "minecraft:adventure/hero")) > 0, "the cloth carries the pattern's dye");
+        assertEquals(0, cyan(only(icons, "minecraft:white_banner")), "the plain banner stays undyed");
+    }
+
+    @Test
     void anItemTheJarDrawsNothingForHasNoSlot() {
         definition("ruby", "{\"model\":{\"type\":\"minecraft:model\",\"model\":\"minecraft:item/ruby\"}}");
         model(
@@ -123,7 +151,7 @@ class IconSheetTest {
         texture("item/ruby", square(16, 0, RED));
 
         final GameDataStore.Icons icons =
-                IconSheet.draw(assets, List.of("minecraft:air", "minecraft:ruby", "minecraft:unknown"));
+                IconSheet.draw(assets, List.of("minecraft:air", "minecraft:ruby", "minecraft:unknown"), List.of());
 
         assertEquals(Map.of("minecraft:ruby", 0), icons.index().slots());
         assertEquals(IconSheet.COLUMNS, icons.index().columns());
@@ -139,6 +167,27 @@ class IconSheetTest {
                 (slot / IconSheet.COLUMNS) * Raster.ICON,
                 Raster.ICON,
                 Raster.ICON);
+    }
+
+    /** How many pixels are the cyan dye, whose blue and green well exceed its red. */
+    private static int cyan(final BufferedImage icon) {
+        int cyan = 0;
+        for (int x = 0; x < icon.getWidth(); x++) {
+            for (int y = 0; y < icon.getHeight(); y++) {
+                final int pixel = icon.getRGB(x, y);
+                if (pixel >>> 24 != 0 && blue(pixel) > red(pixel) + 40 && green(pixel) > red(pixel) + 40) {
+                    cyan++;
+                }
+            }
+        }
+        return cyan;
+    }
+
+    private void bannerDefinition(final String item, final String colour) {
+        definition(item, """
+                {"model": {"type": "minecraft:special", "base": "minecraft:item/template_banner",
+                  "model": {"type": "minecraft:banner", "color": "%s"},
+                  "transformation": {"scale": [0.6666667, -0.6666667, -0.6666667], "translation": [0.5, 0.0, 0.5]}}}""".formatted(colour));
     }
 
     private static int red(final int argb) {

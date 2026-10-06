@@ -78,11 +78,11 @@ export function registryOf(reference: ConfigReference, game: GameData | undefine
   return statistic?.subject ?? null
 }
 
-/** The item standing for an entry: its own id for an item or a block, an advancement's icon, a mob's egg. */
+/** The slot standing for an entry: its own id for an item, a block or a patterned advancement, else its icon item or egg. */
 function iconOf(registry: string, entry: GameEntry, items: ReadonlySet<string>): string | undefined {
   const candidates =
     registry === "advancement"
-      ? [entry.icon]
+      ? [entry.id, entry.icon]
       : registry === "entity_type"
         ? [`${entry.id}_spawn_egg`]
         : registry === "enchantment"

@@ -109,7 +109,8 @@ public final class GameAssets implements AutoCloseable {
                 continue;
             }
             try (ClientJars.Jar jar = jars.open(version)) {
-                final GameDataStore.Icons icons = IconSheet.draw(jar, items(catalogues, version));
+                final GameDataStore.Icons icons = IconSheet.draw(
+                        jar, entries(catalogues, version, "item"), entries(catalogues, version, "advancement"));
                 store.storeIcons(version, icons);
                 failed.remove(version);
                 log.info("Drew {} icons for Minecraft {}", icons.index().slots().size(), version);
@@ -120,17 +121,18 @@ public final class GameAssets implements AutoCloseable {
         }
     }
 
-    /** Every item any server of {@code version} names, sorted, so the sheet is the same each time. */
-    private static List<String> items(final Map<String, GameCatalogue> catalogues, final String version) {
-        final TreeSet<String> items = new TreeSet<>();
+    /** Every entry of {@code registry} any server of {@code version} names, sorted so the sheet repeats. */
+    private static List<String> entries(
+            final Map<String, GameCatalogue> catalogues, final String version, final String registry) {
+        final TreeSet<String> ids = new TreeSet<>();
         for (final GameCatalogue catalogue : catalogues.values()) {
             if (catalogue.minecraftVersion().equals(version)) {
-                for (final GameCatalogue.Entry entry : catalogue.registries().getOrDefault("item", List.of())) {
-                    items.add(entry.id());
+                for (final GameCatalogue.Entry entry : catalogue.registries().getOrDefault(registry, List.of())) {
+                    ids.add(entry.id());
                 }
             }
         }
-        return List.copyOf(items);
+        return List.copyOf(ids);
     }
 
     @Override

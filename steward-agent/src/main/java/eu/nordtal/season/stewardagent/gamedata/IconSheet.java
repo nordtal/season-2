@@ -19,8 +19,13 @@ final class IconSheet {
 
     private IconSheet() {}
 
-    /** Draws {@code items} from {@code assets}; an item the jar draws nothing for has no slot. */
-    static GameDataStore.Icons draw(final AssetSource assets, final List<String> items) {
+    /**
+     * Draws {@code items} from {@code assets}, then each of {@code advancements} whose icon carries banner patterns.
+     *
+     * An item the jar draws nothing for has no slot; an advancement's slot is under its own id.
+     */
+    static GameDataStore.Icons draw(
+            final AssetSource assets, final List<String> items, final List<String> advancements) {
         final IconPainter painter = new IconPainter(assets);
         final List<BufferedImage> icons = new ArrayList<>();
         final Map<String, Integer> slots = new LinkedHashMap<>();
@@ -28,6 +33,14 @@ final class IconSheet {
             final BufferedImage icon = painter.paint(item);
             if (icon != null) {
                 slots.put(item, icons.size());
+                icons.add(icon);
+            }
+        }
+        for (final String advancement : advancements) {
+            final AdvancementIcon shown = AdvancementIcon.of(assets, advancement);
+            final BufferedImage icon = shown == null ? null : painter.paint(shown.item(), shown.patterns());
+            if (icon != null) {
+                slots.put(advancement, icons.size());
                 icons.add(icon);
             }
         }

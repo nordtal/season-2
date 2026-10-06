@@ -64,16 +64,23 @@ final class IconPainter {
     /** The icon of {@code item}, such as {@code minecraft:oak_log}, or none when the jar has no definition for it. */
     @Nullable
     BufferedImage paint(final String item) {
+        return paint(item, List.of());
+    }
+
+    /** The icon of a banner {@code item} carrying {@code patterns}; any other item ignores them. */
+    @Nullable
+    BufferedImage paint(final String item, final List<BannerLayer> patterns) {
+        final Stack stack = new Stack(item, patterns);
         final JsonObject definition = assets.json(AssetSource.path(AssetSource.id(item), "items", ".json"));
         if (definition == null || !(definition.get("model") instanceof JsonObject model)) {
             return null;
         }
         final Raster raster = new Raster();
-        return draw(raster, model, Transformation.NONE, item) ? raster.image() : null;
+        return draw(raster, model, Transformation.NONE, stack) ? raster.image() : null;
     }
 
     /** Draws the branch of a definition the inventory shows when nothing about the stack is special. */
-    private boolean draw(final Raster raster, final JsonObject node, final Transformation outer, final String item) {
+    private boolean draw(final Raster raster, final JsonObject node, final Transformation outer, final Stack stack) {
         final String type = kind(node);
         final Transformation transformation =
                 Transformation.of(node.get("transformation")).then(outer);
@@ -84,7 +91,7 @@ final class IconPainter {
                 if (node.get("models") instanceof JsonArray parts) {
                     for (final JsonElement part : parts) {
                         if (part instanceof JsonObject branch) {
-                            drawn |= draw(raster, branch, transformation, item);
+                            drawn |= draw(raster, branch, transformation, stack);
                         }
                     }
                 }
@@ -94,11 +101,11 @@ final class IconPainter {
                 final JsonObject chosen = node.get("fallback") instanceof JsonObject fallback
                         ? fallback
                         : first(node.get(type.equals("select") ? "cases" : "entries"));
-                yield chosen != null && draw(raster, chosen, transformation, item);
+                yield chosen != null && draw(raster, chosen, transformation, stack);
             }
             case "condition" ->
-                node.get("on_false") instanceof JsonObject otherwise && draw(raster, otherwise, transformation, item);
-            case "special" -> special(raster, node, item, transformation);
+                node.get("on_false") instanceof JsonObject otherwise && draw(raster, otherwise, transformation, stack);
+            case "special" -> special(raster, node, stack, transformation);
             default -> false;
         };
     }
@@ -200,6 +207,9 @@ final class IconPainter {
         return drawn;
     }
 
+    /** What is drawn: an item, and the banner patterns its stack carries. */
+    private record Stack(String item, List<BannerLayer> patterns) {}
+
     /** A rectangle of a texture measured on one {@code width} wide. */
     private record Crop(String texture, int width, int x, int y, int w, int h) {}
 
@@ -214,7 +224,8 @@ final class IconPainter {
      * The flat base model, the entity's boxes or face, a block texture named like the item, else the particle.
      */
     private boolean special(
-            final Raster raster, final JsonObject node, final String item, final Transformation transformation) {
+            final Raster raster, final JsonObject node, final Stack stack, final Transformation transformation) {
+        final String item = stack.item();
         final String base = text(node, "base");
         final Model model = base == null ? null : Model.resolve(assets, base);
         if (model != null && model.generated() && layers(raster, model, List.of())) {
@@ -231,7 +242,9 @@ final class IconPainter {
         if (FACES.containsKey(kind) && crop(raster, FACES.get(kind))) {
             return true;
         }
-        if (kind.equals("banner") && model != null && banner(raster, model, text(renderer, "color"), transformation)) {
+        if (kind.equals("banner")
+                && model != null
+                && banner(raster, model, text(renderer, "color"), stack.patterns(), transformation)) {
             return true;
         }
         final String path = AssetSource.id(item).substring("minecraft:".length());
@@ -289,19 +302,101 @@ final class IconPainter {
     }
 
     /**
-     * A banner as the game draws it, its cloth tinted with its dye.
+     * A banner as the game draws it, its cloth tinted with its dye and each pattern laid over it in its own.
      *
      * The pole, the bar and the cloth are placed by the item's transformation and posed like the base model.
      */
     private boolean banner(
-            final Raster raster, final Model base, final @Nullable String colour, final Transformation transformation) {
+            final Raster raster,
+            final Model base,
+            final @Nullable String colour,
+            final List<BannerLayer> patterns,
+            final Transformation transformation) {
         final Model banner = new Model(
                 Map.of("pole", "minecraft:entity/banner/banner_base", "flag", "minecraft:entity/banner/base"),
                 StandIns.BANNER,
                 base.gui(),
                 false);
+        final int dye = dye(colour);
+        if (patterns.isEmpty()) {
+            return boxes(raster, banner, List.of(dye), transformation);
+        }
+        final BufferedImage cloth = patterned(dye, patterns);
+        if (cloth == null) {
+            return boxes(raster, banner, List.of(dye), transformation);
+        }
+        final AssetSource withCloth = new AssetSource() {
+            @Override
+            public byte @Nullable [] bytes(final String path) {
+                return assets.bytes(path);
+            }
+
+            @Override
+            public @Nullable BufferedImage texture(final String id) {
+                return id.equals("minecraft:entity/banner/base") ? cloth : assets.texture(id);
+            }
+        };
+        return new IconPainter(withCloth).boxes(raster, banner, List.of(), transformation);
+    }
+
+    /** The banner's cloth with every pattern laid over it, each masked by its texture and tinted by its dye. */
+    private @Nullable BufferedImage patterned(final int base, final List<BannerLayer> patterns) {
+        final BufferedImage cloth = assets.texture("minecraft:entity/banner/base");
+        if (cloth == null) {
+            return null;
+        }
+        final BufferedImage result =
+                new BufferedImage(cloth.getWidth(), cloth.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        lay(result, cloth, base);
+        for (final BannerLayer layer : patterns) {
+            final BufferedImage mask = assets.texture(layer.texture());
+            if (mask != null) {
+                lay(result, mask, dye(layer.dye()));
+            }
+        }
+        return result;
+    }
+
+    /** Lays {@code mask}, multiplied by {@code tint} and scaled to {@code target}'s size, over what is there. */
+    private static void lay(final BufferedImage target, final BufferedImage mask, final int tint) {
+        for (int y = 0; y < target.getHeight(); y++) {
+            for (int x = 0; x < target.getWidth(); x++) {
+                final int texel =
+                        mask.getRGB(x * mask.getWidth() / target.getWidth(), y * mask.getHeight() / target.getHeight());
+                final int alpha = texel >>> 24;
+                if (alpha == 0) {
+                    continue;
+                }
+                final int red = ((texel >> 16) & 0xFF) * ((tint >> 16) & 0xFF) / 255;
+                final int green = ((texel >> 8) & 0xFF) * ((tint >> 8) & 0xFF) / 255;
+                final int blue = (texel & 0xFF) * (tint & 0xFF) / 255;
+                target.setRGB(x, y, over(alpha << 24 | red << 16 | green << 8 | blue, target.getRGB(x, y)));
+            }
+        }
+    }
+
+    /** {@code top} laid over {@code bottom}, both as ARGB. */
+    private static int over(final int top, final int bottom) {
+        final int alpha = top >>> 24;
+        final int below = bottom >>> 24;
+        final double outAlpha = alpha / 255.0 + below / 255.0 * (1 - alpha / 255.0);
+        if (outAlpha == 0) {
+            return 0;
+        }
+        int result = (int) Math.round(outAlpha * 255) << 24;
+        for (int shift = 16; shift >= 0; shift -= 8) {
+            final double mixed = (((top >> shift) & 0xFF) * (alpha / 255.0)
+                            + ((bottom >> shift) & 0xFF) * (below / 255.0) * (1 - alpha / 255.0))
+                    / outAlpha;
+            result |= (int) Math.round(mixed) << shift;
+        }
+        return result;
+    }
+
+    /** A dye's colour as an opaque tint; white for a name no dye has. */
+    private static int dye(final @Nullable String colour) {
         final Integer dye = colour == null ? null : DYES.get(colour.toLowerCase(Locale.ROOT));
-        return boxes(raster, banner, List.of(dye == null ? WHITE : 0xFF000000 | dye), transformation);
+        return dye == null ? WHITE : 0xFF000000 | dye;
     }
 
     /** A full block of one texture in the GUI pose of {@code block/block}. */

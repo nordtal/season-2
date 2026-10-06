@@ -56,6 +56,26 @@ describe("gameChoices", () => {
     expect(items.tags).toEqual(GAME.tags.item)
   })
 
+  it("draws an advancement with its own slot before its icon item's", () => {
+    const hero = { id: "minecraft:adventure/hero_of_the_village", frame: "challenge", icon: "minecraft:white_banner" }
+    const game: GameData = {
+      ...GAME,
+      registries: {
+        advancement: [hero, { id: "minecraft:adventure/plain", frame: "task", icon: "minecraft:white_banner" }],
+      },
+      icons: {
+        url: "/icons.png",
+        columns: 32,
+        slots: { "minecraft:white_banner": 0, "minecraft:adventure/hero_of_the_village": 1 },
+      },
+    }
+    const icons = gameChoices(game, "advancement").choices.map((choice) => [choice.id, choice.icon])
+    expect(icons).toEqual([
+      ["minecraft:adventure/hero_of_the_village", "minecraft:adventure/hero_of_the_village"],
+      ["minecraft:adventure/plain", "minecraft:white_banner"],
+    ])
+  })
+
   it("draws a mob with its spawn egg", () => {
     expect(gameChoices(GAME, "entity_type").choices[0].icon).toBe("minecraft:zombie_spawn_egg")
   })

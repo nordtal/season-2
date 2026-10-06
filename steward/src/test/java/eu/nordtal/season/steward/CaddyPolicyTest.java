@@ -10,9 +10,9 @@ import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
 /**
- * A Content-Security-Policy in the Caddyfile, if one ever appears, must allow Modrinth's image CDN.
+ * What the public Steward site sends: four security headers, and the image CDN in a policy that restricts images.
  *
- * Without that host plugin icons go blank silently, so no policy passes and a policy naming it passes.
+ * Without the CDN a restricting policy blanks the plugin icons silently; a policy with no image directive needs none.
  */
 class CaddyPolicyTest {
 
@@ -38,26 +38,46 @@ class CaddyPolicyTest {
     /** Where Modrinth serves every project icon from. */
     private static final String CDN = "cdn.modrinth.com";
 
-    @Test
-    void policyAllowsTheImageCdn() throws IOException {
-        // Comments removed first: the warning itself names the host, which would let a bare search pass wrongly.
-        final String compose = withoutComments(caddyfileIn(Files.readString(COMPOSE, StandardCharsets.UTF_8)));
+    /** The Caddyfile of {@code compose.yml} without its comments, in lower case. */
+    private static String directives() throws IOException {
+        return withoutComments(caddyfileIn(Files.readString(COMPOSE, StandardCharsets.UTF_8)))
+                .toLowerCase(Locale.ROOT);
+    }
 
-        // The header can be spelled with `header` or inside a `header {}` block; lowercased either way.
-        final String lower = compose.toLowerCase(Locale.ROOT);
-        final int directive = lower.indexOf("content-security-policy");
-        if (directive < 0) {
-            // No policy: the thumbnails load.
-            return;
-        }
+    /** The value of the Content-Security-Policy line of the site block, or none. */
+    private static String policy(final String directives) {
+        return directives
+                .lines()
+                .map(String::strip)
+                .filter(line -> line.startsWith("content-security-policy"))
+                .findFirst()
+                .orElse("");
+    }
+
+    @Test
+    void theSiteSendsHstsNosniffAReferrerPolicyAndFrameAncestors() throws IOException {
+        final String directives = directives();
+
+        assertTrue(directives.contains("strict-transport-security \"max-age="), "HSTS is sent");
+        assertTrue(directives.contains("x-content-type-options nosniff"), "a response is never sniffed");
+        assertTrue(directives.contains("referrer-policy no-referrer"), "no referrer leaves the site");
+        assertTrue(
+                policy(directives).contains("frame-ancestors 'none'"),
+                "no other site may frame the admin console: " + policy(directives));
+    }
+
+    @Test
+    void aPolicyThatRestrictsImagesNamesTheImageCdn() throws IOException {
+        final String policy = policy(directives());
+
+        final boolean restrictsImages = policy.contains("img-src") || policy.contains("default-src");
 
         assertTrue(
-                lower.contains(CDN),
-                "compose.yml sets a Content-Security-Policy and does not name " + CDN + " in it."
-                        + " The plugin thumbnails on every service page are"
-                        + " loaded from that host by the browser, and a policy without it does not"
-                        + " fail - the pictures silently stay blank and only a reader of the"
-                        + " browser console finds out. Add it to img-src.");
+                !restrictsImages || policy.contains(CDN),
+                "compose.yml sets a Content-Security-Policy that restricts images and does not name " + CDN + "."
+                        + " The plugin thumbnails on every service page are loaded from that host by the browser,"
+                        + " and a policy without it does not fail: the pictures silently stay blank and only a reader"
+                        + " of the browser console finds out. Add it to img-src.");
     }
 
     @Test
@@ -68,7 +88,7 @@ class CaddyPolicyTest {
         assertTrue(
                 compose.contains(CDN),
                 "the Caddyfile in compose.yml no longer mentions " + CDN + ". That note is what"
-                        + " tells whoever adds a Content-Security-Policy that the plugin"
+                        + " tells whoever adds an image directive to the Content-Security-Policy that the plugin"
                         + " thumbnails depend on it.");
     }
 }

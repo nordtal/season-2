@@ -675,7 +675,15 @@ configs:
       ${STEWARD_HOST} {
       	encode zstd gzip
 
-      	# No CSP: one would have to allow cdn.modrinth.com in img-src, and CaddyPolicyTest holds that.
+      	# Only a policy that restricts images has to name cdn.modrinth.com in img-src, and CaddyPolicyTest holds
+      	# that; frame-ancestors alone restricts none.
+      	header {
+      		Strict-Transport-Security "max-age=31536000"
+      		X-Content-Type-Options nosniff
+      		Referrer-Policy no-referrer
+      		Content-Security-Policy "frame-ancestors 'none'"
+      	}
+
       	# Only steward is exposed here; the internal APIs must never get a route.
       	reverse_proxy steward:8080 {
       		# Keeps quiet Server-Sent Event streams open.

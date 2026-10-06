@@ -2,6 +2,7 @@ package eu.nordtal.season.discordbot;
 
 import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.DiscordId;
@@ -9,6 +10,7 @@ import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.context.DiscordMemberContext;
 import eu.nordtal.season.messages.value.Money;
 import java.time.Instant;
+import java.util.List;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
@@ -82,9 +84,28 @@ class DiscordRendererTest {
     }
 
     @Test
-    void aPhaseReadsAsItsName() {
+    void aPhaseIsAnnouncedByItsPhraseInTheReadersLanguage() {
         assertEquals(
-                "The network is now in smp (it was in pre-event).",
+                "The network phase is now **Season running** (it was **Before the event**).",
                 DISCORD.format(Locale.ENGLISH, MESSAGES.announce().phase(SeasonPhase.SMP, SeasonPhase.PRE_EVENT)));
+        assertEquals(
+                "Die Netzwerkphase ist jetzt **Staffel läuft** (vorher **Vor dem Event**).",
+                DISCORD.format(Locale.GERMAN, MESSAGES.announce().phase(SeasonPhase.SMP, SeasonPhase.PRE_EVENT)));
+    }
+
+    @Test
+    void noPhaseIsAnnouncedByItsEnumKey() {
+        for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
+            for (final SeasonPhase phase : SeasonPhase.values()) {
+                final String sentence =
+                        DISCORD.format(locale, MESSAGES.announce().phase(phase, phase));
+                for (final SeasonPhase key : SeasonPhase.values()) {
+                    assertFalse(
+                            sentence.contains(
+                                    key.name().toLowerCase(Locale.ROOT).replace('_', '-')),
+                            locale + " announces " + phase + " as a raw key: " + sentence);
+                }
+            }
+        }
     }
 }

@@ -11,16 +11,13 @@ import eu.nordtal.season.database.RoundSeed;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.messages.Refusal;
 import eu.nordtal.season.steward.game.Announcements;
-import java.io.IOException;
+import eu.nordtal.season.stewardagent.PluginJars;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.jar.JarEntry;
-import java.util.jar.JarOutputStream;
 import org.junit.jupiter.api.Test;
 
 /** The game actions and announcements, and the requests they become. */
@@ -62,7 +59,7 @@ class RosterApiTest extends WebTestSupport {
     void aPreviewGoesToTheAdminsPlayerWhereTheRosterHasThemOrToTheirDirectMessagesAndIsJournaledNowhere()
             throws Exception {
         final Path jar = agent.configs.resolve("smp/smp-0.9.1.jar");
-        writeJar(
+        PluginJars.smp(
                 jar,
                 Map.of(
                         "messages/smp/en.properties",
@@ -123,18 +120,6 @@ class RosterApiTest extends WebTestSupport {
         try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var run = connection.createStatement()) {
             run.execute(statement);
-        }
-    }
-
-    /** Writes a jar with the given entry name to UTF-8 text content, as steward-agent finds a plugin's. */
-    private static void writeJar(final Path jar, final Map<String, String> entries) throws IOException {
-        Files.createDirectories(jar.getParent());
-        try (JarOutputStream out = new JarOutputStream(Files.newOutputStream(jar))) {
-            for (final var entry : entries.entrySet()) {
-                out.putNextEntry(new JarEntry(entry.getKey()));
-                out.write(entry.getValue().getBytes(StandardCharsets.UTF_8));
-                out.closeEntry();
-            }
         }
     }
 

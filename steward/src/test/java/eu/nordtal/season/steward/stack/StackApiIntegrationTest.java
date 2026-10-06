@@ -185,13 +185,10 @@ class StackApiIntegrationTest {
     @Test
     void theDescriptorInAPluginsJarIsPassedThroughWithItsEditors() throws Exception {
         final Path jar = agent.configs.resolve("smp/smp-0.11.0.jar");
-        java.nio.file.Files.createDirectories(jar.getParent());
-        try (var out = new java.util.jar.JarOutputStream(java.nio.file.Files.newOutputStream(jar))) {
-            out.putNextEntry(new java.util.jar.JarEntry("nordtal-plugin.json"));
-            out.write("{\"id\": \"smp\", \"name\": \"SMP\", \"editors\": {\"milestones\": \"milestones\"}}"
-                    .getBytes(UTF_8));
-            out.closeEntry();
-        }
+        eu.nordtal.season.stewardagent.PluginJars.write(
+                jar,
+                "{\"id\": \"smp\", \"name\": \"SMP\", \"editors\": {\"milestones\": \"milestones\"}}",
+                java.util.Map.of());
         try {
             final JsonArray descriptors = GSON.fromJson(get("/api/descriptors"), JsonArray.class);
 

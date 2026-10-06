@@ -23,6 +23,7 @@ import eu.nordtal.season.messages.value.Kind;
 import eu.nordtal.season.steward.ErrorHandlers;
 import eu.nordtal.season.steward.texts.WebTexts;
 import eu.nordtal.season.stewardagent.AgentStandIn;
+import eu.nordtal.season.stewardagent.PluginJars;
 import io.javalin.Javalin;
 import io.javalin.json.JavalinGson;
 import java.io.IOException;
@@ -30,14 +31,11 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Set;
-import java.util.jar.JarEntry;
-import java.util.jar.JarOutputStream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -115,7 +113,7 @@ class MessagesApiIntegrationTest {
 
     @Test
     void aRealBundleIsListedAndItsContentShowsPackagedTextAndOverrideSideBySide() throws Exception {
-        writeJar(
+        PluginJars.smp(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of(
                         "messages/smp/en.properties", "welcome=Welcome\n",
@@ -152,7 +150,7 @@ class MessagesApiIntegrationTest {
 
     @Test
     void everyLanguageAndEveryVariantIsReadAndSaved() throws Exception {
-        writeJar(
+        PluginJars.smp(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of(
                         "messages/smp/en.properties", "welcome=Welcome\nwelcome[1]=Hi\n",
@@ -171,7 +169,7 @@ class MessagesApiIntegrationTest {
 
     @Test
     void anOverrideAReleaseChangedUnderneathIsListedWithTheOldOriginalTheNewOneAndItself() throws Exception {
-        writeJar(
+        PluginJars.smp(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of(
                         "messages/smp/en.properties", "welcome=Welcome\nfarewell=Bye\n",
@@ -193,7 +191,7 @@ class MessagesApiIntegrationTest {
 
     @Test
     void savingALineCreatesTheOverrideAndWarnsButStillSavesWhenAPlaceholderIsDropped() throws Exception {
-        writeJar(
+        PluginJars.smp(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of(
                         "messages/smp/en.properties", "greeting=Hello {player}\n",
@@ -223,7 +221,7 @@ class MessagesApiIntegrationTest {
 
     @Test
     void aPlaceholderTheSchemaDoesNotDeclareIsRefusedWithTheKeyAndTheCheckSaysWhy() throws Exception {
-        writeJar(
+        PluginJars.smp(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of(
                         "messages/smp/en.properties", "greeting=Hello {player}\n",
@@ -262,7 +260,7 @@ class MessagesApiIntegrationTest {
 
     @Test
     void aPreviewIsTheTriedTextWhereItsKeyIsShownWithEveryValueTypedAndAKeyShownInStewardHasNone() throws Exception {
-        writeJar(
+        PluginJars.smp(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of(
                         "messages/smp/en.properties", "greeting=Hello {player} after {time}\npage=Page\nlink=Link\n",
@@ -313,7 +311,7 @@ class MessagesApiIntegrationTest {
     /** A language the network setting adds is offered before any bundle ships it, and tones are the service's own. */
     @Test
     void aBundleNamesTheNetworksLanguagesAndItsServicesColoursAndAPreviewCarriesThem() throws Exception {
-        writeJar(
+        PluginJars.smp(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of(
                         "messages/smp/en.properties", "greeting=Hello\n",
@@ -345,7 +343,7 @@ class MessagesApiIntegrationTest {
 
     @Test
     void resettingAKeyRemovesItFromTheOverrideRatherThanCopyingEnglishIntoIt() throws Exception {
-        writeJar(
+        PluginJars.smp(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of("messages/smp/en.properties", "welcome=Welcome\n"));
         put("/api/messages/smp/smp", "{\"changes\":{\"welcome\":{\"en\":[\"Howdy\"]}}}");
@@ -376,7 +374,7 @@ class MessagesApiIntegrationTest {
 
     @Test
     void aSaveIsARowUnderThePackagedBundleOfItsKeyAndAppliesAtOnce() throws Exception {
-        writeJar(
+        PluginJars.smp(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of(
                         "messages/smp/en.properties", "welcome=Welcome\n",
@@ -413,7 +411,7 @@ class MessagesApiIntegrationTest {
     }
 
     private void smpBundle() throws IOException {
-        writeJar(
+        PluginJars.smp(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of("messages/smp/en.properties", "welcome=Welcome\n"));
     }
@@ -458,17 +456,5 @@ class MessagesApiIntegrationTest {
         final HttpRequest.Builder request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path));
         request.GET();
         return http.send(request.build(), HttpResponse.BodyHandlers.ofString());
-    }
-
-    /** Writes a jar with the given entry name -> UTF-8 text content. */
-    private static void writeJar(final Path jar, final java.util.Map<String, String> entries) throws IOException {
-        Files.createDirectories(jar.getParent());
-        try (JarOutputStream out = new JarOutputStream(Files.newOutputStream(jar))) {
-            for (final var entry : entries.entrySet()) {
-                out.putNextEntry(new JarEntry(entry.getKey()));
-                out.write(entry.getValue().getBytes(StandardCharsets.UTF_8));
-                out.closeEntry();
-            }
-        }
     }
 }

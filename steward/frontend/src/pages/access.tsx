@@ -19,12 +19,12 @@ import { useNow } from "@/lib/use-now"
 import { useMe, usePeople } from "@/lib/queries"
 import { Entity } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
+import { Panel } from "@/components/steward/panel"
 import { RowActions, type RowAction } from "@/components/steward/row-actions"
 import { StatusBadge } from "@/components/steward/status"
 import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { ResponsiveDialog, ResponsiveDialogContent } from "@/components/ui/responsive-dialog"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
@@ -197,186 +197,178 @@ export function AccessPage() {
     <div className="flex flex-col gap-6">
       <PageHeader title={t("steward.people.title")} actions={<GrantDialog />} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">{t("steward.people.roster")}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {/* Stacked below `sm`, one row above, with `min-w-0` on the input so it can shrink. */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
-            <div className="flex w-full min-w-0 items-center gap-2 sm:min-w-64 sm:flex-1">
-              <MagnifyingGlassIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-              <Input
-                value={needle}
-                onChange={(event) => changeNeedle(event.target.value)}
-                /** Short enough for 390px; the long sentence is the accessible name. */
-                placeholder={t("steward.people.filter")}
-                aria-label={t("steward.people.filter-name")}
-                className="min-w-0"
-                autoComplete="off"
-              />
-            </div>
-            <div className="flex min-w-0 items-center gap-2">
-              <Switch id="only-with-access" checked={onlyWithAccess} onCheckedChange={changeOnlyWithAccess} />
-              <Label htmlFor="only-with-access">{t("steward.people.with-access")}</Label>
-            </div>
+      <Panel title={t("steward.people.roster")}>
+        {/* Stacked below `sm`, one row above, with `min-w-0` on the input so it can shrink. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+          <div className="flex w-full min-w-0 items-center gap-2 sm:min-w-64 sm:flex-1">
+            <MagnifyingGlassIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            <Input
+              value={needle}
+              onChange={(event) => changeNeedle(event.target.value)}
+              /** Short enough for 390px; the long sentence is the accessible name. */
+              placeholder={t("steward.people.filter")}
+              aria-label={t("steward.people.filter-name")}
+              className="min-w-0"
+              autoComplete="off"
+            />
           </div>
+          <div className="flex min-w-0 items-center gap-2">
+            <Switch id="only-with-access" checked={onlyWithAccess} onCheckedChange={changeOnlyWithAccess} />
+            <Label htmlFor="only-with-access">{t("steward.people.with-access")}</Label>
+          </div>
+        </div>
 
-          <QueryState
-            query={people}
-            empty={{
-              title: t("steward.people.nobody"),
-              note: t("steward.people.nobody-note"),
-            }}
-            isEmpty={(list: Person[]) => list.length === 0}
-          >
-            {(list) => {
-              if (list === undefined) {
-                /** Everything above the rows is already on screen, so only eight rows wait. */
-                return (
-                  <>
-                    <PeopleTable>
-                      {WAITING_PEOPLE.map((index) => (
-                        <WaitingPersonRow key={index} />
-                      ))}
-                    </PeopleTable>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <SkeletonText className="w-44 text-xs" />
-                    </div>
-                  </>
-                )
-              }
-              const trimmed = needle.trim().toLowerCase()
-              /**
-               * Matches the Discord name, the Minecraft name and both ids, so an id from a log still finds the person.
-               */
-              const rows = list.filter(
-                (person) =>
-                  (!onlyWithAccess || person.accessActive) &&
-                  (trimmed === "" ||
-                    person.discordId.toLowerCase().includes(trimmed) ||
-                    (person.discordUsername ?? "").toLowerCase().includes(trimmed) ||
-                    (person.discordDisplayName ?? "").toLowerCase().includes(trimmed) ||
-                    (person.mcName ?? "").toLowerCase().includes(trimmed) ||
-                    (person.minecraftUuid ?? "").toLowerCase().includes(trimmed)),
-              )
-              if (rows.length === 0) {
-                return (
-                  <Empty
-                    title={t("steward.people.no-match")}
-                    note={t("steward.people.no-match-note", { withAccess: onlyWithAccess })}
-                  />
-                )
-              }
-              /** Paged after filtering, so a search reaches the whole roster. */
-              const pageCount = Math.max(1, Math.ceil(rows.length / PEOPLE_PAGE_SIZE))
-              const clampedPage = Math.min(page, pageCount - 1)
-              const paged = rows.slice(
-                clampedPage * PEOPLE_PAGE_SIZE,
-                clampedPage * PEOPLE_PAGE_SIZE + PEOPLE_PAGE_SIZE,
-              )
+        <QueryState
+          query={people}
+          empty={{
+            title: t("steward.people.nobody"),
+            note: t("steward.people.nobody-note"),
+          }}
+          isEmpty={(list: Person[]) => list.length === 0}
+        >
+          {(list) => {
+            if (list === undefined) {
+              /** Everything above the rows is already on screen, so only eight rows wait. */
               return (
                 <>
                   <PeopleTable>
-                    {paged.map((person) => (
-                      <TableRow key={person.discordId}>
-                        <TableCell data-label={t("steward.people.person")} className="font-medium">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Entity id={person.discordId} kind="discord" />
-                            {/* "Member" is left unsaid; LEFT and BANNED get a badge beside the name. */}
-                            {person.memberState !== "MEMBER" ? <MemberBadge state={person.memberState} /> : null}
-                          </div>
-                        </TableCell>
-                        <TableCell data-label={t("steward.people.access")}>
-                          <AccessBadge person={person} now={now} />
-                        </TableCell>
-                        <TableCell data-label={t("steward.people.minecraft")}>
-                          {person.minecraftUuid ? (
-                            <Entity id={person.minecraftUuid} kind="minecraft" />
-                          ) : (
-                            <LinkBadge person={person} />
-                          )}
-                        </TableCell>
-                        <TableCell data-label={t("steward.people.roles")}>
-                          <div className="flex items-center gap-1">
-                            {person.donor ? (
-                              <StatusBadge tone="idle" tipContent={t("steward.people.supporter-tip")}>
-                                {t("steward.people.supporter")}
-                              </StatusBadge>
-                            ) : null}
-                            {person.admin ? (
-                              <StatusBadge tone="idle" tipContent={grantedByText(person, list)}>
-                                {t("steward.people.admin")}
-                              </StatusBadge>
-                            ) : null}
-                            {person.packExemptAt ? (
-                              <StatusBadge tone="warn" tipContent={packExemptText(person, list)}>
-                                {t("steward.people.no-pack")}
-                              </StatusBadge>
-                            ) : null}
-                            {!person.donor && !person.admin && !person.packExemptAt ? (
-                              <span className="text-xs text-muted-foreground">{"\u2013"}</span>
-                            ) : null}
-                          </div>
-                        </TableCell>
-                        <TableCell data-label={t("steward.people.playtime")}>
-                          {/* `playtime` draws the dash for somebody who has never been online. */}
-                          <span className="text-sm tabular-nums">{span(person.playtimeSeconds, "minutes")}</span>
-                        </TableCell>
-                        <TableCell>
-                          <RowActions
-                            label={t("steward.people.actions-for", { name: personName(person) })}
-                            actions={rowActions(person, {
-                              onPeriods: () => setSelected(person),
-                              onGrant: () => setGranting(person),
-                              onPlaytime: () => setPlaytimeFor(person),
-                              onRevoke: () => setRevoking(person),
-                              onUnlink: () => setUnlinking(person),
-                              onMakeAdmin: () => setMakingAdmin(person),
-                              onRevokeAdmin: below.has(person.discordId) ? () => setUnmakingAdmin(person) : undefined,
-                              onPack: () => setPackFor(person),
-                            })}
-                          />
-                        </TableCell>
-                      </TableRow>
+                    {WAITING_PEOPLE.map((index) => (
+                      <WaitingPersonRow key={index} />
                     ))}
                   </PeopleTable>
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-xs text-muted-foreground">
-                      {t("steward.people.shown", { shown: rows.length, loaded: list.length })}
-                    </p>
-                    {pageCount > 1 ? (
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={clampedPage === 0}
-                          onClick={() => setPage((current) => Math.max(0, current - 1))}
-                        >
-                          {t("steward.people.previous")}
-                        </Button>
-                        <span className="text-xs text-muted-foreground tnum">
-                          {t("steward.people.page", { page: clampedPage + 1, pages: pageCount })}
-                        </span>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={clampedPage >= pageCount - 1}
-                          onClick={() => setPage((current) => current + 1)}
-                        >
-                          {t("steward.people.next")}
-                        </Button>
-                      </div>
-                    ) : null}
+                    <SkeletonText className="w-44 text-xs" />
                   </div>
                 </>
               )
-            }}
-          </QueryState>
-        </CardContent>
-      </Card>
+            }
+            const trimmed = needle.trim().toLowerCase()
+            /**
+             * Matches the Discord name, the Minecraft name and both ids, so an id from a log still finds the person.
+             */
+            const rows = list.filter(
+              (person) =>
+                (!onlyWithAccess || person.accessActive) &&
+                (trimmed === "" ||
+                  person.discordId.toLowerCase().includes(trimmed) ||
+                  (person.discordUsername ?? "").toLowerCase().includes(trimmed) ||
+                  (person.discordDisplayName ?? "").toLowerCase().includes(trimmed) ||
+                  (person.mcName ?? "").toLowerCase().includes(trimmed) ||
+                  (person.minecraftUuid ?? "").toLowerCase().includes(trimmed)),
+            )
+            if (rows.length === 0) {
+              return (
+                <Empty
+                  title={t("steward.people.no-match")}
+                  note={t("steward.people.no-match-note", { withAccess: onlyWithAccess })}
+                />
+              )
+            }
+            /** Paged after filtering, so a search reaches the whole roster. */
+            const pageCount = Math.max(1, Math.ceil(rows.length / PEOPLE_PAGE_SIZE))
+            const clampedPage = Math.min(page, pageCount - 1)
+            const paged = rows.slice(clampedPage * PEOPLE_PAGE_SIZE, clampedPage * PEOPLE_PAGE_SIZE + PEOPLE_PAGE_SIZE)
+            return (
+              <>
+                <PeopleTable>
+                  {paged.map((person) => (
+                    <TableRow key={person.discordId}>
+                      <TableCell data-label={t("steward.people.person")} className="font-medium">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Entity id={person.discordId} kind="discord" />
+                          {/* "Member" is left unsaid; LEFT and BANNED get a badge beside the name. */}
+                          {person.memberState !== "MEMBER" ? <MemberBadge state={person.memberState} /> : null}
+                        </div>
+                      </TableCell>
+                      <TableCell data-label={t("steward.people.access")}>
+                        <AccessBadge person={person} now={now} />
+                      </TableCell>
+                      <TableCell data-label={t("steward.people.minecraft")}>
+                        {person.minecraftUuid ? (
+                          <Entity id={person.minecraftUuid} kind="minecraft" />
+                        ) : (
+                          <LinkBadge person={person} />
+                        )}
+                      </TableCell>
+                      <TableCell data-label={t("steward.people.roles")}>
+                        <div className="flex items-center gap-1">
+                          {person.donor ? (
+                            <StatusBadge tone="idle" tipContent={t("steward.people.supporter-tip")}>
+                              {t("steward.people.supporter")}
+                            </StatusBadge>
+                          ) : null}
+                          {person.admin ? (
+                            <StatusBadge tone="idle" tipContent={grantedByText(person, list)}>
+                              {t("steward.people.admin")}
+                            </StatusBadge>
+                          ) : null}
+                          {person.packExemptAt ? (
+                            <StatusBadge tone="warn" tipContent={packExemptText(person, list)}>
+                              {t("steward.people.no-pack")}
+                            </StatusBadge>
+                          ) : null}
+                          {!person.donor && !person.admin && !person.packExemptAt ? (
+                            <span className="text-xs text-muted-foreground">{"\u2013"}</span>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                      <TableCell data-label={t("steward.people.playtime")}>
+                        {/* `playtime` draws the dash for somebody who has never been online. */}
+                        <span className="text-sm tabular-nums">{span(person.playtimeSeconds, "minutes")}</span>
+                      </TableCell>
+                      <TableCell>
+                        <RowActions
+                          label={t("steward.people.actions-for", { name: personName(person) })}
+                          actions={rowActions(person, {
+                            onPeriods: () => setSelected(person),
+                            onGrant: () => setGranting(person),
+                            onPlaytime: () => setPlaytimeFor(person),
+                            onRevoke: () => setRevoking(person),
+                            onUnlink: () => setUnlinking(person),
+                            onMakeAdmin: () => setMakingAdmin(person),
+                            onRevokeAdmin: below.has(person.discordId) ? () => setUnmakingAdmin(person) : undefined,
+                            onPack: () => setPackFor(person),
+                          })}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </PeopleTable>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    {t("steward.people.shown", { shown: rows.length, loaded: list.length })}
+                  </p>
+                  {pageCount > 1 ? (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={clampedPage === 0}
+                        onClick={() => setPage((current) => Math.max(0, current - 1))}
+                      >
+                        {t("steward.people.previous")}
+                      </Button>
+                      <span className="text-xs text-muted-foreground tnum">
+                        {t("steward.people.page", { page: clampedPage + 1, pages: pageCount })}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={clampedPage >= pageCount - 1}
+                        onClick={() => setPage((current) => current + 1)}
+                      >
+                        {t("steward.people.next")}
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              </>
+            )
+          }}
+        </QueryState>
+      </Panel>
 
       <ResponsiveDialog open={selected !== null} onOpenChange={(open) => (open ? null : setSelected(null))}>
         <ResponsiveDialogContent className="sm:max-w-2xl">

@@ -24,12 +24,12 @@ import { useRunLock } from "@/lib/run-lock"
 import { choice, message, span, t } from "@/lib/texts"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { PageHeader } from "@/components/steward/page-header"
+import { Panel } from "@/components/steward/panel"
 import { Stat } from "@/components/steward/stat"
 import { Actor } from "@/components/steward/entity"
 import { RunStatus, StatusBadge, runKind, type Tone } from "@/components/steward/status"
 import { Empty, Loading, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
@@ -377,52 +377,50 @@ function RunDetail({ run }: { run?: Run }) {
 
   return (
     <>
-      <Card>
-        <CardContent className="flex flex-wrap items-start gap-6 pt-6">
-          <div className="flex flex-col gap-2">
-            <span className="text-xs font-medium text-muted-foreground">{t("steward.operations.status")}</span>
-            <div className="flex items-center gap-2">
-              {run ? <RunStatus status={run.status} /> : <Skeleton className="h-5 w-20 rounded-full" />}
-              {report ? <StageBadge stage={report.stage} /> : null}
-            </div>
-            <span className="flex flex-col text-xs text-muted-foreground">
-              {run ? (
-                <>
-                  <span>{runKind(run.kind)}</span>
-                </>
-              ) : (
-                <>
-                  <SkeletonText className="text-xs" width="medium" />
-                  <SkeletonText className="text-xs" width="short" />
-                </>
-              )}
-            </span>
+      <div className="flex flex-wrap items-start gap-6">
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-medium text-muted-foreground">{t("steward.operations.status")}</span>
+          <div className="flex items-center gap-2">
+            {run ? <RunStatus status={run.status} /> : <Skeleton className="h-5 w-20 rounded-full" />}
+            {report ? <StageBadge stage={report.stage} /> : null}
           </div>
+          <span className="flex flex-col text-xs text-muted-foreground">
+            {run ? (
+              <>
+                <span>{runKind(run.kind)}</span>
+              </>
+            ) : (
+              <>
+                <SkeletonText className="text-xs" width="medium" />
+                <SkeletonText className="text-xs" width="short" />
+              </>
+            )}
+          </span>
+        </div>
 
-          <Separator orientation="vertical" className="h-14" />
+        <Separator orientation="vertical" className="h-14" />
 
-          <Stat
-            label={t("steward.operations.requested-by")}
-            value={run ? <Actor kind={run.actorKind} id={run.actorId} /> : undefined}
-            hint={run ? dateTime(run.requested) : undefined}
-          />
-          <Stat
-            label={t("steward.operations.no-earlier-than")}
-            value={run ? dateTime(run.scheduledFor) : undefined}
-            hint={t("steward.operations.no-earlier-than-hint")}
-          />
-          <Stat
-            label={t("steward.operations.started")}
-            value={run ? dateTime(run.started) : undefined}
-            hint={run ? relative(run.started) : undefined}
-          />
-          <Stat
-            label={t("steward.operations.duration")}
-            value={run ? span(runSeconds(run)) : undefined}
-            hint={!run ? undefined : finished ? dateTime(run.finished) : t("steward.operations.still-running")}
-          />
-        </CardContent>
-      </Card>
+        <Stat
+          label={t("steward.operations.requested-by")}
+          value={run ? <Actor kind={run.actorKind} id={run.actorId} /> : undefined}
+          hint={run ? dateTime(run.requested) : undefined}
+        />
+        <Stat
+          label={t("steward.operations.no-earlier-than")}
+          value={run ? dateTime(run.scheduledFor) : undefined}
+          hint={t("steward.operations.no-earlier-than-hint")}
+        />
+        <Stat
+          label={t("steward.operations.started")}
+          value={run ? dateTime(run.started) : undefined}
+          hint={run ? relative(run.started) : undefined}
+        />
+        <Stat
+          label={t("steward.operations.duration")}
+          value={run ? span(runSeconds(run)) : undefined}
+          hint={!run ? undefined : finished ? dateTime(run.finished) : t("steward.operations.still-running")}
+        />
+      </div>
 
       {report?.stage === "NOTHING_TO_DO" ? (
         <div className="flex items-start gap-3 rounded-md border border-border bg-secondary/40 px-4 py-3" role="status">
@@ -448,50 +446,40 @@ function RunDetail({ run }: { run?: Run }) {
       ) : null}
 
       {report && run ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">{t("steward.operations.stages")}</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <StageTrail stage={report.stage} kind={run.kind} />
-            {!finished ? (
-              <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="size-2 animate-pulse rounded-full bg-warning" aria-hidden />
-                {t("steward.operations.growing")}
-              </p>
-            ) : null}
-          </CardContent>
-        </Card>
+        <Panel title={t("steward.operations.stages")}>
+          <StageTrail stage={report.stage} kind={run.kind} />
+          {!finished ? (
+            <p className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="size-2 animate-pulse rounded-full bg-warning" aria-hidden />
+              {t("steward.operations.growing")}
+            </p>
+          ) : null}
+        </Panel>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">{t("steward.operations.report")}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {!run ? (
-            /** A placeholder the size of the Report card, so the page does not jump when it loads. */
-            <Loading rows={4} />
-          ) : run.resultText ? (
-            <>
-              <p className="flex items-start gap-2 text-sm text-warning">
-                <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
-                {t("steward.operations.raw-report")}
-              </p>
-              <pre className="max-h-96 overflow-auto rounded-md border border-border bg-[#0a0a0a] p-3 font-mono text-xs leading-5 whitespace-pre-wrap">
-                {run.resultText}
-              </pre>
-            </>
-          ) : !report ? (
-            <Empty title={t("steward.operations.no-report")} note={t("steward.operations.no-report-note")} />
-          ) : (
-            <>
-              <ReportLines lines={report.services} />
-              <Notes notes={report.notes.map(message)} />
-            </>
-          )}
-        </CardContent>
-      </Card>
+      <Panel title={t("steward.operations.report")}>
+        {!run ? (
+          /** A placeholder the size of the Report card, so the page does not jump when it loads. */
+          <Loading rows={4} />
+        ) : run.resultText ? (
+          <>
+            <p className="flex items-start gap-2 text-sm text-warning">
+              <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+              {t("steward.operations.raw-report")}
+            </p>
+            <pre className="max-h-96 overflow-auto rounded-md border border-border bg-[#0a0a0a] p-3 font-mono text-xs leading-5 whitespace-pre-wrap">
+              {run.resultText}
+            </pre>
+          </>
+        ) : !report ? (
+          <Empty title={t("steward.operations.no-report")} note={t("steward.operations.no-report-note")} />
+        ) : (
+          <>
+            <ReportLines lines={report.services} />
+            <Notes notes={report.notes.map(message)} />
+          </>
+        )}
+      </Panel>
     </>
   )
 }

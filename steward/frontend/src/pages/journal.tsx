@@ -7,9 +7,9 @@ import { useJournal } from "@/lib/queries"
 import { choice, message, t } from "@/lib/texts"
 import { Actor, Entity } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
+import { Panel } from "@/components/steward/panel"
 import { QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -51,158 +51,153 @@ export function JournalPage() {
     <div className="flex flex-col gap-6">
       <PageHeader title={t("steward.journal.title")} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">{t("steward.journal.entries")}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-auto">
-              <Label htmlFor="journal-action">{t("steward.journal.action")}</Label>
-              <Select
-                value={action === "" ? "ALL" : action}
-                onValueChange={(value) => setAction(value === "ALL" ? "" : value)}
-              >
-                <SelectTrigger id="journal-action" className="w-full sm:w-64">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">{t("steward.journal.all")}</SelectItem>
-                  {actions.map((value) => (
-                    <SelectItem key={value} value={value}>
-                      {actionLabel(value)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* The field takes its own row on a phone; from `sm` it has a fixed width. */}
-            <form
-              className="flex w-full flex-wrap items-end gap-2"
-              onSubmit={(event) => {
-                event.preventDefault()
-                setSubject(typed.trim())
-              }}
+      <Panel title={t("steward.journal.entries")}>
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-auto">
+            <Label htmlFor="journal-action">{t("steward.journal.action")}</Label>
+            <Select
+              value={action === "" ? "ALL" : action}
+              onValueChange={(value) => setAction(value === "ALL" ? "" : value)}
             >
-              <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-auto">
-                <Label htmlFor="journal-subject">{t("steward.journal.subject")}</Label>
-                <Input
-                  id="journal-subject"
-                  value={typed}
-                  onChange={(event) => setTyped(event.target.value)}
-                  placeholder={t("steward.journal.exact-id")}
-                  className="w-full font-mono sm:w-64"
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-              </div>
-              <Button type="submit" variant="outline">
-                <MagnifyingGlassIcon aria-hidden />
-                {t("steward.journal.filter")}
-              </Button>
-              {subject ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => {
-                    setSubject("")
-                    setTyped("")
-                  }}
-                >
-                  {t("steward.journal.reset")}
-                </Button>
-              ) : null}
-            </form>
+              <SelectTrigger id="journal-action" className="w-full sm:w-64">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">{t("steward.journal.all")}</SelectItem>
+                {actions.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {actionLabel(value)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <QueryState
-            query={entries}
-            empty={{ title: t("steward.journal.no-entry") }}
-            isEmpty={(list: JournalEntry[]) => list.length === 0}
+          {/* The field takes its own row on a phone; from `sm` it has a fixed width. */}
+          <form
+            className="flex w-full flex-wrap items-end gap-2"
+            onSubmit={(event) => {
+              event.preventDefault()
+              setSubject(typed.trim())
+            }}
           >
-            {(list) => (
-              <>
-                <Table className="steward-table">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[13rem]">{columns.when}</TableHead>
-                      <TableHead className="w-[12rem]">{columns.action}</TableHead>
-                      <TableHead className="w-[16rem]">{columns.actor}</TableHead>
-                      <TableHead className="w-[14rem]">{columns.concerns}</TableHead>
-                      <TableHead>{columns.detail}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {list === undefined
-                      ? WAITING_ENTRIES.map((index) => (
-                          <TableRow key={index}>
-                            <TableCell data-label={columns.when}>
-                              <SkeletonText width="long" />
-                            </TableCell>
-                            <TableCell data-label={columns.action}>
-                              <SkeletonText width="medium" />
-                            </TableCell>
-                            <TableCell data-label={columns.actor}>
-                              <div className="flex items-center gap-2">
-                                <Skeleton className="size-6 shrink-0 rounded-full" />
-                                <SkeletonText width="long" className="max-w-[8rem]" />
-                              </div>
-                            </TableCell>
-                            <TableCell data-label={columns.concerns}>
-                              <div className="flex items-center gap-2">
-                                <Skeleton className="size-6 shrink-0 rounded-full" />
-                                <SkeletonText width="long" className="max-w-[7rem]" />
-                              </div>
-                            </TableCell>
-                            <TableCell data-label={columns.detail}>
-                              <SkeletonText width="full" />
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      : list.map((entry) => (
-                          <TableRow key={entry.id}>
-                            <TableCell
-                              data-label={columns.when}
-                              className="text-muted-foreground tnum"
-                              title={entry.occurred}
-                            >
-                              {dateTime(entry.occurred)}
-                            </TableCell>
-                            <TableCell data-label={columns.action} className="font-medium" title={entry.action}>
-                              {actionLabel(entry.action)}
-                            </TableCell>
-                            {/* A profile, never an id; no admin at all is Steward's own mark. */}
-                            <TableCell data-label={columns.actor} className="text-muted-foreground">
-                              <Actor kind={entry.actor.kind} id={entry.actor.person ?? ""} />
-                            </TableCell>
-                            <TableCell data-label={columns.concerns} className="text-muted-foreground">
-                              {entry.subject ? (
-                                <Entity id={entry.subject} />
-                              ) : entry.mcUuid ? (
-                                <Entity id={entry.mcUuid} kind="minecraft" />
-                              ) : null}
-                            </TableCell>
-                            {/* The line, rendered from its key and typed values, wrapping where TableCell would not. */}
-                            <TableCell data-label={columns.detail} className="text-muted-foreground whitespace-normal">
-                              {message(entry.line)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                  </TableBody>
-                </Table>
-                <p className="text-xs text-muted-foreground">
-                  {list === undefined ? (
-                    <SkeletonText className="w-64" />
-                  ) : (
-                    t("steward.journal.count", { count: list.length, limit: JOURNAL_LIMIT })
-                  )}
-                </p>
-              </>
-            )}
-          </QueryState>
-        </CardContent>
-      </Card>
+            <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-auto">
+              <Label htmlFor="journal-subject">{t("steward.journal.subject")}</Label>
+              <Input
+                id="journal-subject"
+                value={typed}
+                onChange={(event) => setTyped(event.target.value)}
+                placeholder={t("steward.journal.exact-id")}
+                className="w-full font-mono sm:w-64"
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </div>
+            <Button type="submit" variant="outline">
+              <MagnifyingGlassIcon aria-hidden />
+              {t("steward.journal.filter")}
+            </Button>
+            {subject ? (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setSubject("")
+                  setTyped("")
+                }}
+              >
+                {t("steward.journal.reset")}
+              </Button>
+            ) : null}
+          </form>
+        </div>
+
+        <QueryState
+          query={entries}
+          empty={{ title: t("steward.journal.no-entry") }}
+          isEmpty={(list: JournalEntry[]) => list.length === 0}
+        >
+          {(list) => (
+            <>
+              <Table className="steward-table">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[13rem]">{columns.when}</TableHead>
+                    <TableHead className="w-[12rem]">{columns.action}</TableHead>
+                    <TableHead className="w-[16rem]">{columns.actor}</TableHead>
+                    <TableHead className="w-[14rem]">{columns.concerns}</TableHead>
+                    <TableHead>{columns.detail}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {list === undefined
+                    ? WAITING_ENTRIES.map((index) => (
+                        <TableRow key={index}>
+                          <TableCell data-label={columns.when}>
+                            <SkeletonText width="long" />
+                          </TableCell>
+                          <TableCell data-label={columns.action}>
+                            <SkeletonText width="medium" />
+                          </TableCell>
+                          <TableCell data-label={columns.actor}>
+                            <div className="flex items-center gap-2">
+                              <Skeleton className="size-6 shrink-0 rounded-full" />
+                              <SkeletonText width="long" className="max-w-[8rem]" />
+                            </div>
+                          </TableCell>
+                          <TableCell data-label={columns.concerns}>
+                            <div className="flex items-center gap-2">
+                              <Skeleton className="size-6 shrink-0 rounded-full" />
+                              <SkeletonText width="long" className="max-w-[7rem]" />
+                            </div>
+                          </TableCell>
+                          <TableCell data-label={columns.detail}>
+                            <SkeletonText width="full" />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    : list.map((entry) => (
+                        <TableRow key={entry.id}>
+                          <TableCell
+                            data-label={columns.when}
+                            className="text-muted-foreground tnum"
+                            title={entry.occurred}
+                          >
+                            {dateTime(entry.occurred)}
+                          </TableCell>
+                          <TableCell data-label={columns.action} className="font-medium" title={entry.action}>
+                            {actionLabel(entry.action)}
+                          </TableCell>
+                          {/* A profile, never an id; no admin at all is Steward's own mark. */}
+                          <TableCell data-label={columns.actor} className="text-muted-foreground">
+                            <Actor kind={entry.actor.kind} id={entry.actor.person ?? ""} />
+                          </TableCell>
+                          <TableCell data-label={columns.concerns} className="text-muted-foreground">
+                            {entry.subject ? (
+                              <Entity id={entry.subject} />
+                            ) : entry.mcUuid ? (
+                              <Entity id={entry.mcUuid} kind="minecraft" />
+                            ) : null}
+                          </TableCell>
+                          {/* The line, rendered from its key and typed values, wrapping where TableCell would not. */}
+                          <TableCell data-label={columns.detail} className="text-muted-foreground whitespace-normal">
+                            {message(entry.line)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                </TableBody>
+              </Table>
+              <p className="text-xs text-muted-foreground">
+                {list === undefined ? (
+                  <SkeletonText className="w-64" />
+                ) : (
+                  t("steward.journal.count", { count: list.length, limit: JOURNAL_LIMIT })
+                )}
+              </p>
+            </>
+          )}
+        </QueryState>
+      </Panel>
     </div>
   )
 }

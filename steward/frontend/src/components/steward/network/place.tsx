@@ -21,7 +21,7 @@ export const MARGIN = 16
 export type Spot = { id: NodeId; lane: number; y: number }
 
 /**
- * Several cards in one bordered column that acts as a single endpoint for an edge.
+ * Several cards in one tinted column that acts as a single endpoint for an edge.
  *
  * `lane` and `y` are the centre of the group's frame, like a `Spot`; members stack `GROUP_GAP` apart.
  */
@@ -210,7 +210,7 @@ export function Field({ plan, topology, id }: { plan: Arrangement; topology: Top
           ["--node-h" as string]: `${NODE.height}px`,
         }}
       >
-        {/* One frame per group, drawn before the cards so it sits behind them. */}
+        {/* One tint per group, drawn before the cards so it sits behind them; a border would nest theirs. */}
         {placed.groups.map((group) => {
           const box = geometry.groups[group.id]
           if (!box) return null
@@ -219,7 +219,7 @@ export function Field({ plan, topology, id }: { plan: Arrangement; topology: Top
               key={group.id}
               data-group={group.id}
               aria-hidden
-              className="absolute rounded-lg border border-border"
+              className="absolute rounded-lg bg-secondary/40"
               style={{ left: box.x, top: box.y, width: box.width, height: box.height }}
             />
           )

@@ -10,11 +10,11 @@ import { usePayments, useSettle } from "@/lib/queries"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { Entity } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
+import { Panel } from "@/components/steward/panel"
 import { Stat } from "@/components/steward/stat"
 import { StatusBadge, type Tone } from "@/components/steward/status"
 import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
@@ -108,203 +108,194 @@ export function PaymentsPage() {
 
           return (
             <>
-              <Card>
-                <CardContent className="flex flex-wrap items-start gap-8 pt-6">
-                  <Stat
-                    label={t("steward.payments.open")}
-                    value={waiting ? undefined : count(open.length)}
-                    hint={waiting ? undefined : t("steward.payments.past-deadline", { count: overdue.length })}
-                    tone={overdue.length > 0 ? "warn" : undefined}
-                  />
-                  <Stat label={t("steward.payments.paid")} value={waiting ? undefined : count(paid.length)} />
-                  <Separator orientation="vertical" className="h-14" />
-                  <Stat
-                    label={t("steward.payments.requested")}
-                    value={waiting ? undefined : euros(requested)}
-                    hint={t("steward.payments.requested-hint")}
-                  />
-                  <p className="max-w-prose text-xs text-muted-foreground">{t("steward.payments.not-the-balance")}</p>
-                </CardContent>
-              </Card>
+              <div className="flex flex-wrap items-start gap-8">
+                <Stat
+                  label={t("steward.payments.open")}
+                  value={waiting ? undefined : count(open.length)}
+                  hint={waiting ? undefined : t("steward.payments.past-deadline", { count: overdue.length })}
+                  tone={overdue.length > 0 ? "warn" : undefined}
+                />
+                <Stat label={t("steward.payments.paid")} value={waiting ? undefined : count(paid.length)} />
+                <Separator orientation="vertical" className="h-14" />
+                <Stat
+                  label={t("steward.payments.requested")}
+                  value={waiting ? undefined : euros(requested)}
+                  hint={t("steward.payments.requested-hint")}
+                />
+                <p className="max-w-prose text-xs text-muted-foreground">{t("steward.payments.not-the-balance")}</p>
+              </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium">{t("steward.payments.requests")}</CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Label htmlFor="payment-status" className="text-muted-foreground">
-                      {t("steward.payments.status")}
-                    </Label>
-                    <Select
-                      value={status === "" ? "ALL" : status}
-                      onValueChange={(value) => setStatus(value === "ALL" ? "" : value)}
-                    >
-                      <SelectTrigger id="payment-status" className="w-full sm:w-56">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ALL">{t("steward.payments.all")}</SelectItem>
-                        {present.map((value) => (
-                          <SelectItem key={value} value={value}>
-                            {t("steward.payments.state", { status: choice(value) })}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {overdue.length > 0 ? (
-                      <span className="flex items-center gap-2 text-xs text-warning">
-                        <WarningCircleIcon className="size-4 shrink-0" aria-hidden />
-                        {t("steward.payments.overdue-note", { count: overdue.length })}
-                      </span>
-                    ) : null}
-                  </div>
+              <Panel title={t("steward.payments.requests")}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Label htmlFor="payment-status" className="text-muted-foreground">
+                    {t("steward.payments.status")}
+                  </Label>
+                  <Select
+                    value={status === "" ? "ALL" : status}
+                    onValueChange={(value) => setStatus(value === "ALL" ? "" : value)}
+                  >
+                    <SelectTrigger id="payment-status" className="w-full sm:w-56">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">{t("steward.payments.all")}</SelectItem>
+                      {present.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {t("steward.payments.state", { status: choice(value) })}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {overdue.length > 0 ? (
+                    <span className="flex items-center gap-2 text-xs text-warning">
+                      <WarningCircleIcon className="size-4 shrink-0" aria-hidden />
+                      {t("steward.payments.overdue-note", { count: overdue.length })}
+                    </span>
+                  ) : null}
+                </div>
 
-                  {!waiting && shown.length === 0 ? (
-                    <Empty
-                      title={t("steward.payments.none-with-status")}
-                      note={t("steward.payments.none-with-status-note")}
-                    />
-                  ) : (
-                    <Table className="steward-table">
-                      <TableHeader>
-                        <TableRow>
-                          {/* `Created` sits in the `Reference` title and `Donation` under `Amount`. */}
-                          <TableHead className="w-[7rem]">{t("steward.payments.reference")}</TableHead>
-                          <TableHead className="w-[11rem]">{t("steward.payments.person")}</TableHead>
-                          <TableHead className="w-[4rem] text-right">{t("steward.payments.days")}</TableHead>
-                          <TableHead className="w-[7rem] text-right">{t("steward.payments.amount")}</TableHead>
-                          <TableHead className="w-[9rem]">{t("steward.payments.status")}</TableHead>
-                          <TableHead className="w-[11rem]">{t("steward.payments.deadline")}</TableHead>
-                          <TableHead className="w-[11rem]">{t("steward.payments.paid")}</TableHead>
-                          {/* `Tab` and `Settle`, which may stack. */}
-                          <TableHead className="w-[11rem]" />
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {waiting
-                          ? WAITING_PAYMENTS.map((index) => (
-                              <TableRow key={index}>
-                                <TableCell data-label={t("steward.payments.reference")}>
-                                  <SkeletonText width="medium" />
+                {!waiting && shown.length === 0 ? (
+                  <Empty
+                    title={t("steward.payments.none-with-status")}
+                    note={t("steward.payments.none-with-status-note")}
+                  />
+                ) : (
+                  <Table className="steward-table">
+                    <TableHeader>
+                      <TableRow>
+                        {/* `Created` sits in the `Reference` title and `Donation` under `Amount`. */}
+                        <TableHead className="w-[7rem]">{t("steward.payments.reference")}</TableHead>
+                        <TableHead className="w-[11rem]">{t("steward.payments.person")}</TableHead>
+                        <TableHead className="w-[4rem] text-right">{t("steward.payments.days")}</TableHead>
+                        <TableHead className="w-[7rem] text-right">{t("steward.payments.amount")}</TableHead>
+                        <TableHead className="w-[9rem]">{t("steward.payments.status")}</TableHead>
+                        <TableHead className="w-[11rem]">{t("steward.payments.deadline")}</TableHead>
+                        <TableHead className="w-[11rem]">{t("steward.payments.paid")}</TableHead>
+                        {/* `Tab` and `Settle`, which may stack. */}
+                        <TableHead className="w-[11rem]" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {waiting
+                        ? WAITING_PAYMENTS.map((index) => (
+                            <TableRow key={index}>
+                              <TableCell data-label={t("steward.payments.reference")}>
+                                <SkeletonText width="medium" />
+                              </TableCell>
+                              <TableCell data-label={t("steward.payments.person")}>
+                                <div className="flex items-center gap-2">
+                                  <Skeleton className="size-6 shrink-0 rounded-full" />
+                                  <SkeletonText width="long" className="max-w-[6rem]" />
+                                </div>
+                              </TableCell>
+                              <TableCell data-label={t("steward.payments.days")} className="text-right">
+                                <SkeletonText width="short" className="ml-auto" />
+                              </TableCell>
+                              <TableCell data-label={t("steward.payments.amount")} className="text-right">
+                                <SkeletonText width="medium" className="ml-auto" />
+                              </TableCell>
+                              <TableCell data-label={t("steward.payments.status")}>
+                                <Skeleton className="h-5 w-20 rounded-full" />
+                              </TableCell>
+                              <TableCell data-label={t("steward.payments.deadline")}>
+                                <SkeletonText width="long" />
+                              </TableCell>
+                              <TableCell data-label={t("steward.payments.paid")}>
+                                <SkeletonText width="long" />
+                              </TableCell>
+                              <TableCell />
+                            </TableRow>
+                          ))
+                        : shown.map((payment) => {
+                            const late = isOverdue(payment, now)
+                            return (
+                              <TableRow key={payment.id}>
+                                <TableCell
+                                  data-label={t("steward.payments.reference")}
+                                  className="font-mono font-medium"
+                                  title={t("steward.payments.created", { at: payment.created })}
+                                >
+                                  {payment.reference}
                                 </TableCell>
                                 <TableCell data-label={t("steward.payments.person")}>
-                                  <div className="flex items-center gap-2">
-                                    <Skeleton className="size-6 shrink-0 rounded-full" />
-                                    <SkeletonText width="long" className="max-w-[6rem]" />
+                                  <Entity id={payment.discordId} kind="discord" />
+                                </TableCell>
+                                <TableCell data-label={t("steward.payments.days")} className="text-right tnum">
+                                  {payment.days}
+                                </TableCell>
+                                <TableCell data-label={t("steward.payments.amount")} className="text-right tnum">
+                                  <div className="flex flex-col items-end">
+                                    <span>{euros(payment.amountCents)}</span>
+                                    {payment.donationCents > 0 ? (
+                                      <span
+                                        className="text-xs text-muted-foreground"
+                                        title={t("steward.payments.donation")}
+                                      >
+                                        +{euros(payment.donationCents)}
+                                      </span>
+                                    ) : null}
                                   </div>
                                 </TableCell>
-                                <TableCell data-label={t("steward.payments.days")} className="text-right">
-                                  <SkeletonText width="short" className="ml-auto" />
-                                </TableCell>
-                                <TableCell data-label={t("steward.payments.amount")} className="text-right">
-                                  <SkeletonText width="medium" className="ml-auto" />
-                                </TableCell>
                                 <TableCell data-label={t("steward.payments.status")}>
-                                  <Skeleton className="h-5 w-20 rounded-full" />
-                                </TableCell>
-                                <TableCell data-label={t("steward.payments.deadline")}>
-                                  <SkeletonText width="long" />
-                                </TableCell>
-                                <TableCell data-label={t("steward.payments.paid")}>
-                                  <SkeletonText width="long" />
-                                </TableCell>
-                                <TableCell />
-                              </TableRow>
-                            ))
-                          : shown.map((payment) => {
-                              const late = isOverdue(payment, now)
-                              return (
-                                <TableRow key={payment.id}>
-                                  <TableCell
-                                    data-label={t("steward.payments.reference")}
-                                    className="font-mono font-medium"
-                                    title={t("steward.payments.created", { at: payment.created })}
-                                  >
-                                    {payment.reference}
-                                  </TableCell>
-                                  <TableCell data-label={t("steward.payments.person")}>
-                                    <Entity id={payment.discordId} kind="discord" />
-                                  </TableCell>
-                                  <TableCell data-label={t("steward.payments.days")} className="text-right tnum">
-                                    {payment.days}
-                                  </TableCell>
-                                  <TableCell data-label={t("steward.payments.amount")} className="text-right tnum">
-                                    <div className="flex flex-col items-end">
-                                      <span>{euros(payment.amountCents)}</span>
-                                      {payment.donationCents > 0 ? (
-                                        <span
-                                          className="text-xs text-muted-foreground"
-                                          title={t("steward.payments.donation")}
-                                        >
-                                          +{euros(payment.donationCents)}
-                                        </span>
-                                      ) : null}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell data-label={t("steward.payments.status")}>
-                                    <div className="flex items-center gap-1">
-                                      <StatusBadge
-                                        tone={late ? "warn" : (PAYMENT_TONES[payment.status] ?? "idle")}
-                                        tipContent={t("steward.payments.state-tip", { status: choice(payment.status) })}
-                                      >
-                                        {t("steward.payments.state", { status: choice(payment.status) })}
+                                  <div className="flex items-center gap-1">
+                                    <StatusBadge
+                                      tone={late ? "warn" : (PAYMENT_TONES[payment.status] ?? "idle")}
+                                      tipContent={t("steward.payments.state-tip", { status: choice(payment.status) })}
+                                    >
+                                      {t("steward.payments.state", { status: choice(payment.status) })}
+                                    </StatusBadge>
+                                    {late ? (
+                                      <StatusBadge tone="warn" tipContent={t("steward.payments.overdue-tip")}>
+                                        {t("steward.payments.overdue")}
                                       </StatusBadge>
-                                      {late ? (
-                                        <StatusBadge tone="warn" tipContent={t("steward.payments.overdue-tip")}>
-                                          {t("steward.payments.overdue")}
-                                        </StatusBadge>
-                                      ) : null}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell
-                                    data-label={t("steward.payments.deadline")}
-                                    className="text-muted-foreground tnum"
-                                  >
-                                    {dateTime(payment.expires)}
-                                  </TableCell>
-                                  <TableCell
-                                    data-label={t("steward.payments.paid")}
-                                    className="text-muted-foreground tnum"
-                                  >
-                                    {dateTime(payment.settled)}
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex items-center justify-end gap-1">
-                                      {payment.shareUrl ? (
-                                        <Button asChild variant="ghost" size="sm">
-                                          <a
-                                            href={payment.shareUrl}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            title={payment.shareUrl}
-                                          >
-                                            <ArrowSquareOutIcon aria-hidden />
-                                            {t("steward.payments.tab")}
-                                          </a>
-                                        </Button>
-                                      ) : (
-                                        <span
-                                          className="text-xs text-muted-foreground"
-                                          title={t("steward.payments.no-tab")}
+                                    ) : null}
+                                  </div>
+                                </TableCell>
+                                <TableCell
+                                  data-label={t("steward.payments.deadline")}
+                                  className="text-muted-foreground tnum"
+                                >
+                                  {dateTime(payment.expires)}
+                                </TableCell>
+                                <TableCell
+                                  data-label={t("steward.payments.paid")}
+                                  className="text-muted-foreground tnum"
+                                >
+                                  {dateTime(payment.settled)}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center justify-end gap-1">
+                                    {payment.shareUrl ? (
+                                      <Button asChild variant="ghost" size="sm">
+                                        <a
+                                          href={payment.shareUrl}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          title={payment.shareUrl}
                                         >
-                                          {"\u2013"}
-                                        </span>
-                                      )}
-                                      {/* Only an OPEN request can be settled. */}
-                                      {payment.status === "OPEN" ? (
-                                        <SettleAction reference={payment.reference} />
-                                      ) : null}
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              )
-                            })}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
+                                          <ArrowSquareOutIcon aria-hidden />
+                                          {t("steward.payments.tab")}
+                                        </a>
+                                      </Button>
+                                    ) : (
+                                      <span
+                                        className="text-xs text-muted-foreground"
+                                        title={t("steward.payments.no-tab")}
+                                      >
+                                        {"\u2013"}
+                                      </span>
+                                    )}
+                                    {/* Only an OPEN request can be settled. */}
+                                    {payment.status === "OPEN" ? <SettleAction reference={payment.reference} /> : null}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })}
+                    </TableBody>
+                  </Table>
+                )}
+              </Panel>
             </>
           )
         }}

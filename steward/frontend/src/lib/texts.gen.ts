@@ -1141,6 +1141,7 @@ export type TextArgs = {
   "steward.identity.no-minecraft": Record<string, never>
   "steward.identity.no-minecraft-name": Record<string, never>
   "steward.identity.no-name": Record<string, never>
+  "steward.identity.open-person": Record<string, never>
   "steward.image.drift": {
     drift: Arg["choice"]
   }

@@ -876,6 +876,7 @@
     "steward.identity.no-minecraft": [["No Minecraft account linked."]],
     "steward.identity.no-minecraft-name": [["no Minecraft name on record"]],
     "steward.identity.no-name": [["no name yet"]],
+    "steward.identity.open-person": [["Open their page"]],
     "steward.image.drift": [[{"c":"drift","plural":false,"cases":{"up-to-date":["up to date"],"outdated":["outdated"],"local":["local build"],"other":["unchecked"]}}]],
     "steward.image.drift-tip": [[{"c":"drift","plural":false,"cases":{"up-to-date":["The running image carries the digest the registry names."],"outdated":["Out of date: the next update makes it again."],"other":["Not compared: either the registry did not answer, or this container's exact image is no longer on file locally (its tag was rebuilt without recreating it). That is not \"up to date\"."]}}]],
     "steward.image.label": [["Image"]],

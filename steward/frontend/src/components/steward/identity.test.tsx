@@ -1,4 +1,6 @@
+import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import type { ReactNode } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { IDENTIFIER_PATTERN, PersonIdentity, minecraftHeadUrl } from "@/components/steward/identity"
@@ -133,6 +135,49 @@ describe("PersonIdentity - opened, the popover is the one place to copy from", (
     expect(field.value).toBe(DISCORD_ID)
     // Still clickable, and it must not throw without a clipboard.
     expect(() => fireEvent.click(screen.getByRole("button", { name: "Copy Discord-ID" }))).not.toThrow()
+  })
+})
+
+/** A card inside the app's router, with the person page's route registered. */
+function inRouter(card: ReactNode) {
+  const root = createRootRoute({ component: () => <>{card}</> })
+  const person = createRoute({ getParentRoute: () => root, path: "/access/$id" })
+  const router = createRouter({
+    routeTree: root.addChildren([person]),
+    history: createMemoryHistory({ initialEntries: ["/"] }),
+  })
+  return render(<RouterProvider router={router} />)
+}
+
+describe("PersonIdentity - the way to the person's page", () => {
+  it("links the opened card to the person's page under Users", async () => {
+    inRouter(<PersonIdentity discordId={DISCORD_ID} discordUsername="alice" />)
+
+    fireEvent.click(await screen.findByRole("button"))
+
+    const link = await screen.findByRole("link", { name: "Open their page" })
+    expect(link.getAttribute("href")).toBe(`/access/${DISCORD_ID}`)
+  })
+
+  it("offers no link without a Discord id, since the page is keyed by it", async () => {
+    inRouter(<PersonIdentity mcUuid={MC_UUID} mcName="AliceMC" face="minecraft" />)
+
+    fireEvent.click(await screen.findByRole("button"))
+
+    await screen.findByText(/no discord account on record/i)
+    expect(screen.queryByRole("link")).toBeNull()
+  })
+
+  it("stays a plain card, with no link and no warning, where no router is mounted", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+    render(<PersonIdentity discordId={DISCORD_ID} discordUsername="alice" />)
+
+    fireEvent.click(screen.getByRole("button"))
+
+    await screen.findByLabelText("Discord-ID")
+    expect(screen.queryByRole("link")).toBeNull()
+    expect(warn).not.toHaveBeenCalled()
+    warn.mockRestore()
   })
 })
 

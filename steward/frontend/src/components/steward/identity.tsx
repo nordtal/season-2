@@ -1,4 +1,5 @@
 import { CheckIcon, CopyIcon, QuestionIcon, UserIcon } from "@phosphor-icons/react"
+import { Link, useRouter } from "@tanstack/react-router"
 import { useState } from "react"
 
 import { StewardMark } from "@/app/steward-mark"
@@ -143,7 +144,10 @@ export function PersonIdentity(props: PersonIdentityProps) {
         </div>
 
         {props.discordId ? (
-          <CopyableId label={t("steward.identity.discord-id")} value={props.discordId} />
+          <>
+            <CopyableId label={t("steward.identity.discord-id")} value={props.discordId} />
+            <PersonPageLink discordId={props.discordId} />
+          </>
         ) : (
           <p className="text-xs text-muted-foreground">{t("steward.identity.no-discord")}</p>
         )}
@@ -170,6 +174,23 @@ export function PersonIdentity(props: PersonIdentityProps) {
         )}
       </PopoverContent>
     </Popover>
+  )
+}
+
+/** A link to the person's page under Users, drawn only inside a router, so a card rendered on its own stays a card. */
+function PersonPageLink({ discordId }: { discordId: string }) {
+  const router = useRouter({ warn: false })
+  if (!router) return null
+
+  return (
+    <Link
+      to="/access/$id"
+      params={{ id: discordId }}
+      className="inline-flex items-center gap-1.5 self-start text-sm underline-offset-4 outline-none hover:text-primary hover:underline focus-visible:underline"
+    >
+      <UserIcon aria-hidden className="size-4" />
+      {t("steward.identity.open-person")}
+    </Link>
   )
 }
 

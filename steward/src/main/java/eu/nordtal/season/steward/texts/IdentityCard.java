@@ -38,6 +38,9 @@ public interface IdentityCard {
     @Name("Copy")
     MessageRef copy(@Arg("what") String what);
 
+    @Name("Open person")
+    MessageRef openPerson();
+
     @Name("No avatar")
     MessageRef noAvatar();
 

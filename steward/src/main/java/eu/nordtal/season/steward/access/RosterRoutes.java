@@ -28,6 +28,11 @@ public final class RosterRoutes {
         ctx.json(data().access().grantsOf(DiscordId.of(ctx.pathParam("id"))));
     }
 
+    /** One person's payment requests, newest first, for their page; the list of all is a page with a limit. */
+    public void paymentsOf(final Context ctx) {
+        ctx.json(data().payments().recentOf(DiscordId.of(ctx.pathParam("id")), QueryLimit.of(ctx, 200, 1000)));
+    }
+
     public void payments(final Context ctx) {
         ctx.json(data().payments().recent(QueryLimit.of(ctx, 200, 1000)));
     }

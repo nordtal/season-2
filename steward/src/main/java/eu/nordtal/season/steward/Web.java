@@ -619,6 +619,7 @@ public final class Web {
     private void registerRosterRoutes(final JavalinConfig cfg) {
         cfg.routes.get("/api/people", roster::people, Gate.KEY_HELD);
         cfg.routes.get("/api/people/{id}/grants", roster::grants, Gate.KEY_HELD);
+        cfg.routes.get("/api/people/{id}/payments", roster::paymentsOf, Gate.KEY_HELD);
         cfg.routes.get("/api/payments", roster::payments, Gate.KEY_HELD);
         cfg.routes.get("/api/payments/open", roster::openPayments, Gate.KEY_HELD);
         cfg.routes.get("/api/journal", roster::journal, Gate.KEY_HELD);

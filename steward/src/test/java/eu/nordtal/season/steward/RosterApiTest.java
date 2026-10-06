@@ -6,9 +6,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import eu.nordtal.season.common.id.Actor;
+import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.DatabaseText;
 import eu.nordtal.season.database.RoundSeed;
 import eu.nordtal.season.database.inbox.ServerRefusal;
+import eu.nordtal.season.database.payment.PaymentRequest;
+import eu.nordtal.season.database.payment.PaymentRequestStatus;
+import eu.nordtal.season.database.payment.PaymentRequests;
 import eu.nordtal.season.messages.Refusal;
 import eu.nordtal.season.steward.game.Announcements;
 import eu.nordtal.season.stewardagent.PluginJars;
@@ -22,6 +27,27 @@ import org.junit.jupiter.api.Test;
 
 /** The game actions and announcements, and the requests they become. */
 class RosterApiTest extends WebTestSupport {
+
+    @Test
+    void aPersonsPaymentsAreTheirsAloneNewestFirst() throws Exception {
+        final PaymentRequests payments = new PaymentRequests(WebFixture.postgres.dataSource());
+        final String ally = "700000000000000001";
+        final PaymentRequest older = payments.open(DiscordId.of(ally), 30, 500, 0, 24);
+        payments.closeAndRequestCancel(older.id(), PaymentRequestStatus.SUPERSEDED, Actor.STEWARD);
+        final PaymentRequest newer = payments.open(DiscordId.of(ally), 90, 1300, 200, 24);
+        final PaymentRequest bobs = payments.open(DiscordId.of("700000000000000002"), 30, 500, 0, 24);
+        try {
+            final HttpResponse<String> answer = get("/api/people/" + ally + "/payments");
+
+            assertEquals(200, answer.statusCode(), answer.body());
+            final List<String> references = GSON.fromJson(answer.body(), JsonArray.class).asList().stream()
+                    .map(payment -> payment.getAsJsonObject().get("reference").getAsString())
+                    .toList();
+            assertEquals(List.of(newer.reference(), older.reference()), references, "not " + bobs.reference());
+        } finally {
+            sql("DELETE FROM payment_request WHERE discord_id IN ('700000000000000001', '700000000000000002')");
+        }
+    }
 
     @Test
     void aGameActionIsARowWithTheAskerOnIt() throws Exception {

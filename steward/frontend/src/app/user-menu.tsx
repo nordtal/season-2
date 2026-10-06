@@ -1,12 +1,14 @@
-import { GearIcon, SignOutIcon } from "@phosphor-icons/react"
-import { useState } from "react"
+import { GearIcon, RulerIcon, SignOutIcon } from "@phosphor-icons/react"
+import { useId, useState } from "react"
 
 import { api } from "@/lib/api"
 import type { Me } from "@/lib/api"
 import { NotificationsDialog, useNotificationActions } from "@/app/notifications"
 import { SecurityKeyDialogs, SecurityKeyList, useSecurityKeyActions } from "@/app/security-keys"
+import { useViewportDiagnostics } from "@/app/viewport-diagnostics"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Switch } from "@/components/ui/switch"
 import { t } from "@/lib/texts"
 
 /** The signed-in person's picture, falling back to initials, since `discordAvatarUrl` is often not on record. */
@@ -95,6 +97,8 @@ export function UserMenu({
             {t("steward.notifications.title")}
           </Button>
 
+          <DiagnosticsSwitch />
+
           <Button
             type="button"
             variant="ghost"
@@ -114,5 +118,20 @@ export function UserMenu({
       <SecurityKeyDialogs state={keys} />
       <NotificationsDialog state={notifications} />
     </>
+  )
+}
+
+/** Turns on the readout of `app/viewport-diagnostics.tsx`, which stays on across restarts until turned off here. */
+function DiagnosticsSwitch() {
+  const [on, setOn] = useViewportDiagnostics()
+  const id = useId()
+  return (
+    <div className="flex h-7 items-center gap-1 px-2.5 text-[0.8rem] font-medium pointer-coarse:min-h-control">
+      <RulerIcon aria-hidden className="size-3.5 shrink-0" />
+      <label htmlFor={id} className="min-w-0 flex-1 truncate">
+        {t("steward.shell.viewport-diagnostics")}
+      </label>
+      <Switch id={id} checked={on} onCheckedChange={setOn} />
+    </div>
   )
 }

@@ -2046,6 +2046,7 @@ export type TextArgs = {
   "steward.shell.still-reading": Record<string, never>
   "steward.shell.stuck": Record<string, never>
   "steward.shell.unknown": Record<string, never>
+  "steward.shell.viewport-diagnostics": Record<string, never>
   "steward.updates.available": Record<string, never>
   "steward.updates.change": Record<string, never>
   "steward.updates.check-again": Record<string, never>

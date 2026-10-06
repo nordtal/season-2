@@ -3,6 +3,9 @@
  *
  * Viewport units are too tall on an iOS home screen. A keyboard or pinch is ignored only when it shrinks,
  * and the document is put back at the top once no field has focus.
+ *
+ * An iOS home screen app takes the screen's height instead: WebKit can leave its layout viewport short after the
+ * keyboard or a long pause, and then every viewport number, `position: fixed` included, agrees on the short height.
  */
 
 /** What this needs off `window`. A type, so a test can hand it a plain object. */
@@ -33,6 +36,31 @@ export function measuredHeight(view: ViewLike, focused: Element | null, last: nu
   if (visual.scale !== 1) return null
   if (isEditable(focused)) return null
   return visual.height
+}
+
+/** What {@link screenHeight} needs off `window`. */
+export type ScreenLike = {
+  innerWidth: number
+  screen: { width: number; height: number }
+  /** `object`, since `Navigator` declares no `standalone` and a type of optional keys alone would refuse it. */
+  navigator: object
+}
+
+/**
+ * The screen's height in the window's orientation for an iOS home screen app that fills the screen, else `null`.
+ *
+ * Only iOS answers `navigator.standalone`, and only there does the app cover the whole screen, status bar and home
+ * indicator included. The orientation is read off the width, since iOS never swaps `screen.width` and `screen.height`;
+ * a width that is neither side is a window beside another app, whose height is not the screen's.
+ */
+export function screenHeight(view: ScreenLike): number | null {
+  if ((view.navigator as { standalone?: boolean }).standalone !== true) return null
+  const short = Math.min(view.screen.width, view.screen.height)
+  const long = Math.max(view.screen.width, view.screen.height)
+  if (short <= 0) return null
+  if (Math.abs(view.innerWidth - short) <= 1) return long
+  if (Math.abs(view.innerWidth - long) <= 1) return short
+  return null
 }
 
 /** Whether this is the app on a home screen; `navigator.standalone` is iOS's older answer. */
@@ -70,7 +98,7 @@ export function trackAppFrame(view: Window = window): () => void {
 
   const apply = () => {
     settle()
-    const height = measuredHeight(view, view.document.activeElement, measured)
+    const height = screenHeight(view) ?? measuredHeight(view, view.document.activeElement, measured)
     if (height === null) return
     measured = height
     const next = `${Math.round(height)}px`

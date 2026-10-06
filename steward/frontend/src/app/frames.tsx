@@ -6,6 +6,7 @@ import { useCrumbs } from "@/app/breadcrumbs"
 import { Brand, MOTION, NavToggle, SearchButton, Trail } from "@/app/island"
 import { useNavigation } from "@/app/navigation"
 import { UserMenu } from "@/app/user-menu"
+import { ViewportDiagnostics } from "@/app/viewport-diagnostics"
 import type { Me } from "@/lib/api"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useSidebar } from "@/components/ui/sidebar"
@@ -13,13 +14,15 @@ import { useSidebar } from "@/components/ui/sidebar"
 /**
  * The signed in frame: {@link DesktopFrame} from 640px up, {@link PhoneFrame} below.
  *
- * Everything aligns on `--gutter`, and only {@link Content} scrolls, never the document.
+ * Everything aligns on `--gutter`, and only {@link Content} scrolls, never the document. What sits on the bottom edge
+ * is placed against this frame rather than fixed, since iOS can leave a home screen app's fixed bottom too high.
  */
 export function AppFrame({ me }: { me: Me }) {
   const nav = useNav()
   return (
-    <div className="flex h-(--app-height) w-full bg-background [--col:15rem] [--gutter:1rem] md:[--gutter:1.5rem]">
+    <div className="relative flex h-(--app-height) w-full bg-background [--col:15rem] [--gutter:1rem] md:[--gutter:1.5rem]">
       {nav.isMobile ? <PhoneFrame me={me} nav={nav} /> : <DesktopFrame me={me} nav={nav} />}
+      <ViewportDiagnostics />
     </div>
   )
 }
@@ -69,7 +72,7 @@ function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
       <aside
         aria-hidden={!shown}
         inert={!shown}
-        className={`fixed inset-y-0 left-0 z-40 flex w-(--col) flex-col border-r border-sidebar-border bg-sidebar transition-transform ${MOTION} ${shown ? "translate-x-0" : "-translate-x-full"}`}
+        className={`absolute inset-y-0 left-0 z-40 flex w-(--col) flex-col border-r border-sidebar-border bg-sidebar transition-transform ${MOTION} ${shown ? "translate-x-0" : "-translate-x-full"}`}
       >
         {/* The island's border and padding are 5px; the list's boxes start on the toggle's box. */}
         <ScrollArea className="min-h-0 flex-1">
@@ -125,10 +128,10 @@ function PhoneFrame({ me, nav }: { me: Me; nav: Nav }) {
       <div
         aria-hidden
         onClick={close}
-        className={`fixed inset-0 z-30 bg-black/50 transition-opacity ${MOTION} ${shown ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        className={`absolute inset-0 z-30 bg-black/50 transition-opacity ${MOTION} ${shown ? "opacity-100" : "pointer-events-none opacity-0"}`}
       />
 
-      <div className="fixed inset-x-(--gutter) bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex flex-col overflow-hidden rounded-2xl border border-border bg-card/95 shadow-lg backdrop-blur">
+      <div className="absolute inset-x-(--gutter) bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex flex-col overflow-hidden rounded-2xl border border-border bg-card/95 shadow-lg backdrop-blur">
         <div
           className={`grid transition-[grid-template-rows] ${MOTION} ${shown ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
           aria-hidden={!shown}

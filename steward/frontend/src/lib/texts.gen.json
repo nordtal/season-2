@@ -1459,6 +1459,7 @@
     "steward.shell.still-reading": [["Still reading the settings…"]],
     "steward.shell.stuck": [["This is not an expired session. You stay signed in. The interface only knows who you are again once this request gets through."]],
     "steward.shell.unknown": [["unknown"]],
+    "steward.shell.viewport-diagnostics": [["Viewport diagnostics"]],
     "steward.updates.available": [["Available"]],
     "steward.updates.change": [["Change"]],
     "steward.updates.check-again": [["Check again"]],

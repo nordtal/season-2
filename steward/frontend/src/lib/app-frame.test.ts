@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { isStandalone, measuredHeight, trackAppFrame } from "@/lib/app-frame"
+import { isStandalone, measuredHeight, screenHeight, trackAppFrame } from "@/lib/app-frame"
 
 /** The two moments reading the visual viewport is wrong: a keyboard and a pinch, both answered with `null`. */
 
@@ -60,6 +60,34 @@ describe("measuredHeight - the window, and the moments that are not the window",
   it("treats a zero height as no measurement rather than as a window of no height", () => {
     expect(measuredHeight(view({ visual: { height: 0, scale: 1 } }), null)).toBeNull()
     expect(measuredHeight(view({ innerHeight: 0, visual: null }), null)).toBeNull()
+  })
+})
+
+/** An iPhone 16 Pro's screen in points, on a home screen unless a test says otherwise. */
+function phone(over: Partial<{ innerWidth: number; standalone: boolean | undefined }> = {}) {
+  return {
+    innerWidth: over.innerWidth ?? 402,
+    screen: { width: 402, height: 874 },
+    navigator: { standalone: "standalone" in over ? over.standalone : true },
+  }
+}
+
+describe("screenHeight - the height iOS cannot shrink", () => {
+  it("is the screen's long side for an iOS home screen app held upright", () => {
+    expect(screenHeight(phone())).toBe(874)
+  })
+
+  it("is the short side once the window is as wide as the long side, since iOS never swaps screen.width", () => {
+    expect(screenHeight(phone({ innerWidth: 874 }))).toBe(402)
+  })
+
+  it("is nothing in Safari or on another platform's home screen, where the screen includes bars the page lacks", () => {
+    expect(screenHeight(phone({ standalone: false }))).toBeNull()
+    expect(screenHeight(phone({ standalone: undefined }))).toBeNull()
+  })
+
+  it("is nothing for a window narrower than the screen, an iPad's split view, whose height is not the screen's", () => {
+    expect(screenHeight(phone({ innerWidth: 320 }))).toBeNull()
   })
 })
 
@@ -253,6 +281,31 @@ describe("trackAppFrame - what lands on the document", () => {
     expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("550px")
 
     stop()
+  })
+
+  it("keeps a home screen app at the screen's height when iOS leaves every viewport number short", () => {
+    /** WebKit's layout viewport stays short after the keyboard or a long pause, and the visual viewport agrees. */
+    const visual = { height: 874, scale: 1, addEventListener() {}, removeEventListener() {} }
+    Object.defineProperty(window, "visualViewport", { value: visual, configurable: true })
+    Object.defineProperty(window, "innerWidth", { value: 402, configurable: true })
+    Object.defineProperty(window, "screen", { value: { width: 402, height: 874 }, configurable: true })
+    Object.defineProperty(window.navigator, "standalone", { value: true, configurable: true })
+
+    const stop = trackAppFrame(window)
+    expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("874px")
+
+    visual.height = 800
+    window.dispatchEvent(new Event("resize"))
+    expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("874px")
+
+    // Turned on its side, the window is as wide as the long side and the short side is the height.
+    Object.defineProperty(window, "innerWidth", { value: 874, configurable: true })
+    window.dispatchEvent(new Event("orientationchange"))
+    expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("402px")
+
+    stop()
+    Object.defineProperty(window.navigator, "standalone", { value: undefined, configurable: true })
+    Object.defineProperty(window, "innerWidth", { value: 1024, configurable: true })
   })
 
   it("gives the blurred band no clearance in a browser, which is where there is no band", () => {

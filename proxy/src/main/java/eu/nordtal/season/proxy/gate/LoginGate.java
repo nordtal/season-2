@@ -84,11 +84,16 @@ public final class LoginGate {
             mirrorMinecraftName(uuid, player.getUsername());
         }
 
+        final int online = proxy.getPlayerCount();
+        final int maximum = players.maxPlayers();
         final Instant countdownFrom = state.phase() == SeasonPhase.PRE_LAUNCH ? clock.instant() : null;
 
-        switch (GateOutcome.of(state)) {
-            // Refused only when full; where they land is PlayerRouter's question.
-            case ALLOW -> refuseIfFull(event, state);
+        switch (GateOutcome.of(state, online, maximum)) {
+            case ALLOW -> {}
+            case FULL -> {
+                logger.info("Refused {} - the network is full ({} of {})", state.minecraftAccount(), online, maximum);
+                event.setResult(ComponentResult.denied(messages.full(state.locale(), online, maximum)));
+            }
             case NOT_LINKED -> issueCodeAndDeny(event, player, uuid, state.launch(), countdownFrom);
             case NOT_MEMBER -> event.setResult(ComponentResult.denied(messages.notMember(state.locale())));
             case NO_ACCESS -> event.setResult(ComponentResult.denied(messages.noAccess(state.locale())));
@@ -98,6 +103,7 @@ public final class LoginGate {
             case PRE_LAUNCH_READY ->
                 event.setResult(
                         ComponentResult.denied(messages.preLaunchReady(state.locale(), state.launch(), countdownFrom)));
+            case TROUBLE -> event.setResult(ComponentResult.denied(messages.trouble(state.locale())));
         }
     }
 
@@ -108,21 +114,6 @@ public final class LoginGate {
         } catch (final RuntimeException exception) {
             logger.warn("Could not cache the Minecraft name for {} ({})", uuid, username, exception);
         }
-    }
-
-    /**
-     * The network-wide player limit, and the only place it is enforced.
-     *
-     * Checked after the access decision, so an admin can still enter a full network to fix it.
-     */
-    private void refuseIfFull(final LoginEvent event, final AccessState state) {
-        final int maximum = players.maxPlayers();
-        final int online = proxy.getPlayerCount();
-        if (online < maximum || state.admin()) {
-            return;
-        }
-        logger.info("Refused {} - the network is full ({} of {})", state.minecraftAccount(), online, maximum);
-        event.setResult(ComponentResult.denied(messages.full(state.locale(), online, maximum)));
     }
 
     /** Issues a link code and refuses; a failure to issue one is treated as an unreachable database. */
@@ -142,17 +133,16 @@ public final class LoginGate {
         }
     }
 
-    /** Lets in only a player the cache remembers as allowed, under the last known phase. */
+    /** Applies {@link GateOutcome#withoutDatabase}: only a player the cache remembers as allowed gets in. */
     private void fallBackToCache(final LoginEvent event, final UUID uuid) {
-        if (fallback.mayJoin(uuid)) {
-            // The limit still applies to everyone, since the admin flag is what could not be read.
-            final int maximum = players.maxPlayers();
-            final int online = proxy.getPlayerCount();
-            if (online >= maximum) {
-                event.setResult(ComponentResult.denied(messages.full(fallback.localeOf(uuid), online, maximum)));
-            }
-            return; // default result stands: allowed
+        final int online = proxy.getPlayerCount();
+        final int maximum = players.maxPlayers();
+        final Locale locale = fallback.localeOf(uuid);
+        final GateOutcome outcome = GateOutcome.withoutDatabase(fallback.mayJoin(uuid), online, maximum);
+        if (outcome == GateOutcome.FULL) {
+            event.setResult(ComponentResult.denied(messages.full(locale, online, maximum)));
+        } else if (outcome == GateOutcome.TROUBLE) {
+            event.setResult(ComponentResult.denied(messages.trouble(locale)));
         }
-        event.setResult(ComponentResult.denied(messages.trouble(fallback.localeOf(uuid))));
     }
 }

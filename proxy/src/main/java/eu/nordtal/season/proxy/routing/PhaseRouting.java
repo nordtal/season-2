@@ -48,6 +48,8 @@ public final class PhaseRouting {
             case PRE_LAUNCH_BUY -> RouteDecision.of(RouteDecision.Action.REFUSE_PRE_LAUNCH_BUY);
             case PRE_LAUNCH_READY -> RouteDecision.of(RouteDecision.Action.REFUSE_PRE_LAUNCH_READY);
             case ALLOW -> decideAdmitted(state.phase(), state.admin(), available);
+            // Only the login gate, which knows the player count, answers these.
+            case FULL, TROUBLE -> throw new IllegalStateException("not an access table outcome: " + outcome);
         };
     }
 

@@ -185,8 +185,8 @@ public final class ExpiryWatch {
             // A network switched back to PRE_LAUNCH gets the screens the gate would show.
             case PRE_LAUNCH_BUY -> messages.preLaunchBuy(state.locale(), state.launch(), clock.instant());
             case PRE_LAUNCH_READY -> messages.preLaunchReady(state.locale(), state.launch(), clock.instant());
-            // Unreachable: only called when mayJoin() is false, and GateOutcome agrees for every case.
-            case ALLOW -> messages.trouble(state.locale());
+            // Unreachable: only called when mayJoin() is false, and the table never answers FULL or TROUBLE.
+            case ALLOW, FULL, TROUBLE -> messages.trouble(state.locale());
         };
     }
 }

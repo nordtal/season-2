@@ -17,8 +17,8 @@ import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
  */
 public final class Teams {
 
-    private static final int NAME_MIN_LENGTH = 3;
-    private static final int NAME_MAX_LENGTH = 15;
+    static final int NAME_MIN_LENGTH = 3;
+    static final int NAME_MAX_LENGTH = 15;
 
     private final Jdbi jdbi;
     private final Game game;

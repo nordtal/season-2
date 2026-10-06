@@ -70,6 +70,10 @@ constrains. The present-tense rule also holds for every tracked Markdown file: a
 
 - JUnit Jupiter. A test method's name is the sentence it proves, in camelCase:
   `aRefusalIsNotAnError`. No `@DisplayName`.
+- **A decision about who gets in, who pays or what is said is a function of plain values with its own
+  test**, as `GateOutcome`, `PaymentWait` and `RegisterReplies` are. A framework callback (a login event, a
+  Discord interaction, a Paper listener) only reads its event, calls the function and applies the result, so
+  a test never needs the framework. No build check sees this; review applies it.
 - **A test finds the repository root through `RepositoryRoot` and reads `compose.yml` through
   `ComposeFile`**, both in `:common`'s test fixtures, which any module's tests may use. A test helper
   that two modules need lives there too, never as a copy beside each test. A test source that names

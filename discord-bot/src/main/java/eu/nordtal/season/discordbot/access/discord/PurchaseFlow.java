@@ -7,7 +7,6 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.payment.PaymentRequest;
-import eu.nordtal.season.database.payment.PaymentRequestStatus;
 import eu.nordtal.season.database.payment.PaymentRequests;
 import eu.nordtal.season.database.payment.Tier;
 import eu.nordtal.season.database.payment.Tiers;
@@ -24,6 +23,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -61,9 +61,6 @@ public final class PurchaseFlow extends ListenerAdapter {
 
     /** Held across reading the row and editing the message, so a stale "being created" never overwrites the link. */
     private final Object drawing = new Object();
-
-    /** How long a message says the link is coming, under the fifteen minutes an interaction hook lives. */
-    private static final Duration GIVE_UP = Duration.ofMinutes(10);
 
     /** One ephemeral message, and when it started waiting. */
     private record Waiting(InteractionHook hook, Locale locale, Instant since) {}
@@ -209,7 +206,7 @@ public final class PurchaseFlow extends ListenerAdapter {
 
                 synchronized (drawing) {
                     final PaymentRequest fresh = requests.byId(request.id()).orElse(request);
-                    if (settled(event.getHook(), locale, fresh)) {
+                    if (settled(event.getHook(), locale, fresh, Duration.ZERO)) {
                         // A second confirm on a row with a tab, or the request is gone: nothing to wait for.
                         return;
                     }
@@ -249,19 +246,8 @@ public final class PurchaseFlow extends ListenerAdapter {
                     continue;
                 }
                 final Waiting waiter = entry.getValue();
-                if (settled(waiter.hook(), waiter.locale(), row.get())) {
-                    entries.remove();
-                } else if (Duration.between(waiter.since(), clock.instant()).compareTo(GIVE_UP) > 0) {
-                    // The last thing this message says; it names the reference, which is what an admin needs.
-                    waiter.hook()
-                            .editOriginal(messages.format(
-                                    waiter.locale(),
-                                    MESSAGES.purchase()
-                                            .linkSection()
-                                            .slow(row.get().reference())))
-                            .setComponents(List.of())
-                            .queue();
-                    log.warn("Request {} had no tab after {}", row.get().reference(), GIVE_UP);
+                final Duration waited = Duration.between(waiter.since(), clock.instant());
+                if (settled(waiter.hook(), waiter.locale(), row.get(), waited)) {
                     entries.remove();
                 }
             }
@@ -273,39 +259,54 @@ public final class PurchaseFlow extends ListenerAdapter {
      *
      * @return {@code true} when the message is final; {@code false} while the row is still waiting for an answer
      */
-    private boolean settled(final InteractionHook hook, final Locale locale, final PaymentRequest request) {
-        if (request.status() != PaymentRequestStatus.OPEN) {
-            edit(hook, messages.format(locale, MESSAGES.purchase().gone()));
-            return true;
+    private boolean settled(
+            final InteractionHook hook, final Locale locale, final PaymentRequest request, final Duration waited) {
+        final PaymentWait wait = PaymentWait.of(request, waited);
+        switch (wait) {
+            case GONE -> edit(hook, messages.format(locale, MESSAGES.purchase().gone()));
+            case LINK ->
+                edit(
+                        hook,
+                        messages.format(
+                                        locale,
+                                        MESSAGES.purchase()
+                                                .link(
+                                                        Money.euroCents(request.amountCents()),
+                                                        Objects.requireNonNull(request.shareUrl())))
+                                + "\n"
+                                + messages.format(
+                                        locale,
+                                        MESSAGES.purchase().linkSection().reference(request.reference()))
+                                + "\n"
+                                + messages.format(
+                                        locale,
+                                        MESSAGES.purchase().linkSection().ttl(request.expires())));
+            case REFUSED -> {
+                // bunq's error text goes to the admins as an alert, not to the buyer.
+                admin.alert(new Alert(
+                        AlertType.PAYMENT,
+                        Alert.Level.DOWN,
+                        "purchase",
+                        TEXTS.alert().linkRefused(),
+                        List.of(TEXTS.alert()
+                                .refused(request.reference(), Objects.requireNonNull(request.tabFailed()))),
+                        "/payments"));
+                edit(
+                        hook,
+                        messages.format(
+                                locale, MESSAGES.purchase().linkSection().refused()));
+            }
+            case GIVE_UP -> {
+                // The last thing this message says; it names the reference, which is what an admin needs.
+                edit(
+                        hook,
+                        messages.format(
+                                locale, MESSAGES.purchase().linkSection().slow(request.reference())));
+                log.warn("Request {} had no tab after {}", request.reference(), PaymentWait.LIMIT);
+            }
+            case WAITING -> {}
         }
-        if (request.shareUrl() != null) {
-            edit(
-                    hook,
-                    messages.format(
-                                    locale,
-                                    MESSAGES.purchase()
-                                            .link(Money.euroCents(request.amountCents()), request.shareUrl()))
-                            + "\n"
-                            + messages.format(
-                                    locale, MESSAGES.purchase().linkSection().reference(request.reference()))
-                            + "\n"
-                            + messages.format(
-                                    locale, MESSAGES.purchase().linkSection().ttl(request.expires())));
-            return true;
-        }
-        if (request.tabFailed() != null) {
-            // bunq's error text goes to the admins as an alert, not to the buyer.
-            admin.alert(new Alert(
-                    AlertType.PAYMENT,
-                    Alert.Level.DOWN,
-                    "purchase",
-                    TEXTS.alert().linkRefused(),
-                    List.of(TEXTS.alert().refused(request.reference(), request.tabFailed())),
-                    "/payments"));
-            edit(hook, messages.format(locale, MESSAGES.purchase().linkSection().refused()));
-            return true;
-        }
-        return false;
+        return wait.ends();
     }
 
     private void edit(final InteractionHook hook, final String text) {

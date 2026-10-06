@@ -27,9 +27,19 @@ public enum GateOutcome {
     PRE_LAUNCH_BUY,
 
     /** {@link SeasonPhase#PRE_LAUNCH}, linked member, and a period already bought. */
-    PRE_LAUNCH_READY;
+    PRE_LAUNCH_READY,
 
-    /** Walks the phase table once. */
+    /** Let in by the access table but for the network's player limit; an admin is never refused for it. */
+    FULL,
+
+    /** The access state is unreachable and the cache does not vouch for the player. */
+    TROUBLE;
+
+    /**
+     * Walks the phase table once.
+     *
+     * Never {@link #FULL} or {@link #TROUBLE}: those need the player count or a database that does not answer.
+     */
     public static GateOutcome of(final AccessState state) {
         if (!state.linked()) {
             return NOT_LINKED;
@@ -50,6 +60,30 @@ public enum GateOutcome {
                 yield state.accessBought() ? PRE_LAUNCH_READY : PRE_LAUNCH_BUY;
             }
         };
+    }
+
+    /**
+     * The access table with the player limit applied, so an admin can still enter a full network to fix it.
+     *
+     * @param online the players on the network now
+     * @param maximum the network's player limit
+     */
+    public static GateOutcome of(final AccessState state, final int online, final int maximum) {
+        final GateOutcome outcome = of(state);
+        return outcome == ALLOW && !state.admin() && online >= maximum ? FULL : outcome;
+    }
+
+    /**
+     * The decision while the access database does not answer: the cache's word, under the limit for everyone.
+     * The admin flag is what could not be read, so it exempts nobody.
+     *
+     * @param remembered whether the cache holds the player as allowed in
+     */
+    public static GateOutcome withoutDatabase(final boolean remembered, final int online, final int maximum) {
+        if (!remembered) {
+            return TROUBLE;
+        }
+        return online >= maximum ? FULL : ALLOW;
     }
 
     /** @return whether this outcome lets the player through */

@@ -233,10 +233,10 @@ class GateOutcomeTest {
     void thereIsNoOutcomeLeftThatOnlyMaintenanceCouldProduce() {
         // No maintenance refusal exists, so nothing can start returning one.
         assertEquals(
-                6,
+                8,
                 GateOutcome.values().length,
-                "ALLOW, NOT_LINKED, NOT_MEMBER, NO_ACCESS, PRE_LAUNCH_BUY, PRE_LAUNCH_READY"
-                        + " - and nothing about maintenance");
+                "ALLOW, NOT_LINKED, NOT_MEMBER, NO_ACCESS, PRE_LAUNCH_BUY, PRE_LAUNCH_READY, FULL and TROUBLE,"
+                        + " and nothing about maintenance");
     }
 
     // PRE_LAUNCH
@@ -286,6 +286,61 @@ class GateOutcomeTest {
                 GateOutcome.NOT_MEMBER,
                 GateOutcome.of(state(SeasonPhase.PRE_LAUNCH, MemberState.BANNED, true, true)),
                 "a banned admin is still banned, before the opening as after it");
+    }
+
+    // the player limit
+
+    @Test
+    void aFullNetworkRefusesAMemberTheTableWouldAdmit() {
+        assertEquals(GateOutcome.FULL, GateOutcome.of(member(SeasonPhase.PRE_EVENT, false), 20, 20));
+        assertEquals(GateOutcome.FULL, GateOutcome.of(member(SeasonPhase.SMP, true), 21, 20));
+    }
+
+    @Test
+    void theLastFreePlaceStillAdmits() {
+        assertEquals(GateOutcome.ALLOW, GateOutcome.of(member(SeasonPhase.SMP, true), 19, 20));
+    }
+
+    @Test
+    void anAdminEntersAFullNetworkToFixIt() {
+        assertEquals(
+                GateOutcome.ALLOW, GateOutcome.of(state(SeasonPhase.SMP, MemberState.MEMBER, false, true), 20, 20));
+    }
+
+    @Test
+    void aFullNetworkNeverHidesTheRefusalThatComesFirst() {
+        assertEquals(GateOutcome.NOT_LINKED, GateOutcome.of(AccessState.unlinked(PLAYER, SeasonPhase.SMP), 20, 20));
+        assertEquals(GateOutcome.NO_ACCESS, GateOutcome.of(member(SeasonPhase.SMP, false), 20, 20));
+        assertEquals(
+                GateOutcome.NOT_MEMBER, GateOutcome.of(state(SeasonPhase.SMP, MemberState.BANNED, true, true), 20, 20));
+    }
+
+    @Test
+    void withoutAFullNetworkTheLimitChangesNothing() {
+        for (final SeasonPhase phase : SeasonPhase.values()) {
+            for (final boolean accessActive : new boolean[] {false, true}) {
+                final AccessState state = member(phase, accessActive);
+                assertEquals(GateOutcome.of(state), GateOutcome.of(state, 0, 20), phase + "/" + accessActive);
+            }
+        }
+    }
+
+    // the database does not answer
+
+    @Test
+    void aPlayerTheCacheDoesNotKnowGetsTheTroubleScreen() {
+        assertEquals(GateOutcome.TROUBLE, GateOutcome.withoutDatabase(false, 0, 20));
+        assertEquals(GateOutcome.TROUBLE, GateOutcome.withoutDatabase(false, 20, 20));
+    }
+
+    @Test
+    void aPlayerTheCacheRemembersIsLetInWhileThereIsRoom() {
+        assertEquals(GateOutcome.ALLOW, GateOutcome.withoutDatabase(true, 19, 20));
+    }
+
+    @Test
+    void aRememberedPlayerIsRefusedOnAFullNetworkSinceTheAdminFlagCannotBeRead() {
+        assertEquals(GateOutcome.FULL, GateOutcome.withoutDatabase(true, 20, 20));
     }
 
     // helpers

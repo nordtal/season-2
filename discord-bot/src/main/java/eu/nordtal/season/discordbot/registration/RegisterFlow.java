@@ -4,7 +4,6 @@ import static eu.nordtal.season.discordbot.AccessMessages.MESSAGES;
 
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.access.AccessReader;
-import eu.nordtal.season.discordbot.AccessMessages;
 import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.context.DiscordMemberContext;
@@ -36,9 +35,6 @@ import net.dv8tion.jda.api.modals.Modal;
  */
 @Slf4j
 public final class RegisterFlow extends ListenerAdapter {
-
-    private static final int NAME_MIN_LENGTH = 3;
-    private static final int NAME_MAX_LENGTH = 15;
 
     private final JDA jda;
     private final Teams teams;
@@ -81,7 +77,7 @@ public final class RegisterFlow extends ListenerAdapter {
         final TextInput nameInput = TextInput.create(ids.registerNameInput(), TextInputStyle.SHORT)
                 .setPlaceholder(
                         messages.format(locale, MESSAGES.register().modal().namePlaceholder()))
-                .setRequiredRange(NAME_MIN_LENGTH, NAME_MAX_LENGTH)
+                .setRequiredRange(Teams.NAME_MIN_LENGTH, Teams.NAME_MAX_LENGTH)
                 .build();
         final Modal modal = Modal.create(
                         ids.registerModal(),
@@ -121,35 +117,17 @@ public final class RegisterFlow extends ListenerAdapter {
         final RegistrationResult result =
                 teams.register(DiscordId.of(event.getUser().getId()), name);
 
-        switch (result.status()) {
-            case REGISTERED ->
-                event.getHook()
-                        .editOriginalComponents(List.of())
-                        .setContent(messages.format(locale, MESSAGES.register().success(name)))
-                        .setComponents(ActionRow.of(Button.secondary(
-                                ids.invite(),
-                                messages.format(locale, MESSAGES.register().inviteButton()))))
-                        .queue();
-            case INVALID_NAME ->
-                event.getHook()
-                        .editOriginal(
-                                messages.format(locale, MESSAGES.register().invalidName()))
-                        .queue();
-            case NAME_TAKEN ->
-                event.getHook()
-                        .editOriginal(
-                                messages.format(locale, MESSAGES.register().nameTaken()))
-                        .queue();
-            case ALREADY_REGISTERED ->
-                event.getHook()
-                        .editOriginal(
-                                messages.format(locale, MESSAGES.register().alreadyRegistered()))
-                        .queue();
-            case CLOSED ->
-                event.getHook()
-                        .editOriginal(
-                                messages.format(locale, MESSAGES.register().closed()))
-                        .queue();
+        final MessageRef reply = RegisterReplies.registration(result, name);
+        if (result.status() == RegistrationResult.Status.REGISTERED) {
+            event.getHook()
+                    .editOriginalComponents(List.of())
+                    .setContent(messages.format(locale, reply))
+                    .setComponents(ActionRow.of(Button.secondary(
+                            ids.invite(),
+                            messages.format(locale, MESSAGES.register().inviteButton()))))
+                    .queue();
+        } else {
+            event.getHook().editOriginal(messages.format(locale, reply)).queue();
         }
     }
 
@@ -201,49 +179,14 @@ public final class RegisterFlow extends ListenerAdapter {
         }
 
         final InviteResult result = teams.invite(event.getUser().getId(), partner.getId());
-        switch (result.status()) {
-            case INVITED -> {
-                event.getHook()
-                        .editOriginal(messages.format(
-                                locale,
-                                MESSAGES.register()
-                                        .invite()
-                                        .sent(new DiscordMemberContext(
-                                                DiscordId.of(partner.getId()), partner.getEffectiveName()))))
-                        .queue();
-                // INVITED guarantees these two.
-                dmInvite(partner, Objects.requireNonNull(result.memberId()), Objects.requireNonNull(result.teamName()));
-            }
-            case NOT_REGISTERED, NOT_OWNER ->
-                event.getHook()
-                        .editOriginal(messages.format(
-                                locale, MESSAGES.register().invite().notOwner()))
-                        .queue();
-            case TEAM_FULL ->
-                event.getHook()
-                        .editOriginal(messages.format(
-                                locale, MESSAGES.register().invite().teamFull()))
-                        .queue();
-            case INVITE_PENDING ->
-                event.getHook()
-                        .editOriginal(messages.format(
-                                locale, MESSAGES.register().invite().pending()))
-                        .queue();
-            case CANNOT_INVITE_SELF ->
-                event.getHook()
-                        .editOriginal(messages.format(
-                                locale, MESSAGES.register().invite().cannotInviteSelf()))
-                        .queue();
-            case TARGET_UNAVAILABLE ->
-                event.getHook()
-                        .editOriginal(messages.format(
-                                locale, MESSAGES.register().invite().targetUnavailable()))
-                        .queue();
-            case CLOSED ->
-                event.getHook()
-                        .editOriginal(
-                                messages.format(locale, MESSAGES.register().closed()))
-                        .queue();
+        final DiscordMemberContext invited =
+                new DiscordMemberContext(DiscordId.of(partner.getId()), partner.getEffectiveName());
+        event.getHook()
+                .editOriginal(messages.format(locale, RegisterReplies.invitation(result, invited)))
+                .queue();
+        if (result.status() == InviteResult.Status.INVITED) {
+            // INVITED guarantees these two.
+            dmInvite(partner, Objects.requireNonNull(result.memberId()), Objects.requireNonNull(result.teamName()));
         }
     }
 
@@ -297,42 +240,26 @@ public final class RegisterFlow extends ListenerAdapter {
 
     private void report(
             final ButtonInteractionEvent event, final Locale locale, final boolean accept, final AnswerResult result) {
+        final String reply = messages.format(locale, RegisterReplies.answer(result, accept));
         if (result.status() == AnswerResult.Status.CLOSED) {
             // The buttons stay: the invite can still be answered once the round opens again.
-            event.getHook()
-                    .sendMessage(messages.format(locale, MESSAGES.register().closed()))
-                    .setEphemeral(true)
-                    .queue();
+            event.getHook().sendMessage(reply).setEphemeral(true).queue();
             return;
         }
-        if (result.status() == AnswerResult.Status.NOT_PENDING) {
-            event.getHook()
-                    .editOriginalComponents(List.of())
-                    .setContent(
-                            messages.format(locale, MESSAGES.register().invite().noLongerPending()))
-                    .queue();
+        event.getHook().editOriginalComponents(List.of()).setContent(reply).queue();
+        if (result.status() != AnswerResult.Status.ANSWERED) {
             return;
         }
 
         // ANSWERED guarantees both.
         final String teamName = Objects.requireNonNull(result.teamName());
         final UUID teamId = Objects.requireNonNull(result.teamId());
-        final AccessMessages.Register.Invite invite = MESSAGES.register().invite();
-        final MessageRef answer =
-                accept ? invite.accepted(new TeamContext(teamName)) : invite.declined(new TeamContext(teamName));
-        event.getHook()
-                .editOriginalComponents(List.of())
-                .setContent(messages.format(locale, answer))
-                .queue();
-
         teams.ownerOf(teamId).ifPresent(ownerId -> {
             final Locale ownerLocale = access.language(DiscordId.of(ownerId));
             final DiscordMemberContext player = new DiscordMemberContext(
                     DiscordId.of(event.getUser().getId()), event.getUser().getEffectiveName());
-            final TeamContext team = new TeamContext(teamName);
-            final String text = messages.format(
-                    ownerLocale,
-                    accept ? invite.ownerNotifiedAccepted(player, team) : invite.ownerNotifiedDeclined(player, team));
+            final String text =
+                    messages.format(ownerLocale, RegisterReplies.ownerNote(accept, player, new TeamContext(teamName)));
             jda.openPrivateChannelById(ownerId)
                     .queue(
                             channel -> channel.sendMessage(text)

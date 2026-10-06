@@ -1,4 +1,4 @@
-import { createRootRoute, createRoute, createRouter, lazyRouteComponent, redirect } from "@tanstack/react-router"
+import { createRootRoute, createRoute, createRouter, redirect } from "@tanstack/react-router"
 
 import { NotFoundPage } from "@/app/not-found"
 import { Shell } from "@/app/shell"
@@ -73,12 +73,6 @@ const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/payments", component: PaymentsPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/journal", component: JournalPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/alerts", component: AlertsPage }),
-  // The milestones editor's layouts on the real track, loaded apart; goes once one is picked.
-  createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/designs/milestones-config",
-    component: lazyRouteComponent(() => import("@/app/designs/milestones-config"), "MilestonesConfigPage"),
-  }),
 ]
 
 const routeTree = rootRoute.addChildren(routes)

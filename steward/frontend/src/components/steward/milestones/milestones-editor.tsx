@@ -5,16 +5,13 @@ import { Failure } from "@/components/steward/query-state"
 import { noticeOf, SaveDraft, useGroupDraft } from "@/components/steward/group-draft"
 import { type SectionValues, sectionsFromEntry } from "@/components/steward/repeatable-cards"
 import type { CustomEditorProps } from "@/components/steward/config-editors"
-import { LAYOUTS, type LayoutName } from "@/components/steward/milestones/layouts"
+import { TrackRows } from "@/components/steward/milestones/rows"
 import { type TrackSchema, trackEdits, trackSchema } from "@/components/steward/milestones/model"
 
 /** A draft value that is a list of sections, which is what the track's key holds. */
 function sectionsIn(value: string | string[] | SectionValues[] | undefined): SectionValues[] | undefined {
   return Array.isArray(value) && value.every((item) => typeof item === "object") ? value : undefined
 }
-
-/** The layout the editor draws until the owner picks one of the proposals. */
-export const CHOSEN_LAYOUT: LayoutName = "rows"
 
 /** Whether this editor can draw `document`: a track whose milestones and objectives the schema describes. */
 export function readsTrack(document: ConfigDocument): boolean {
@@ -38,7 +35,6 @@ export function MilestonesEditor({ file, document }: CustomEditorProps) {
         stored={schema.entry}
         drafted={sectionsIn(drafted)}
         disabled={!document.writable}
-        layout={CHOSEN_LAYOUT}
         onChange={(track) => set(schema.entry.path, track)}
       />
       <div className="pointer-events-none sticky bottom-4 mt-2 flex justify-end">
@@ -48,14 +44,13 @@ export function MilestonesEditor({ file, document }: CustomEditorProps) {
   )
 }
 
-/** The track in one layout, from the draft where there is one and from the stored group where not. */
-export function Track({
+/** The track, from the draft where there is one and from the stored group where not. */
+function Track({
   id,
   schema,
   stored,
   drafted,
   disabled,
-  layout,
   onChange,
 }: {
   id: string
@@ -63,13 +58,11 @@ export function Track({
   stored: TrackSchema["entry"]
   drafted: SectionValues[] | undefined
   disabled: boolean
-  layout: LayoutName
   onChange: (track: SectionValues[]) => void
 }) {
   const fromStore = useMemo(() => sectionsFromEntry(stored), [stored])
   const track = drafted ?? fromStore
-  const Layout = LAYOUTS[layout]
   return (
-    <Layout id={id} schema={schema} track={track} edits={trackEdits(track, schema, onChange)} disabled={disabled} />
+    <TrackRows id={id} schema={schema} track={track} edits={trackEdits(track, schema, onChange)} disabled={disabled} />
   )
 }

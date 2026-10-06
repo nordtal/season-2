@@ -1,8 +1,13 @@
 package eu.nordtal.season.proxy.ping;
 
+import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.network.NetworkSnapshot;
 import eu.nordtal.season.database.network.SnapshotDirectory;
+import eu.nordtal.season.database.notify.Channel;
+import eu.nordtal.season.database.notify.SignalHub;
+import java.time.Duration;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.sql.DataSource;
 import org.slf4j.Logger;
@@ -14,11 +19,15 @@ import org.slf4j.Logger;
  */
 public final class SnapshotStore {
 
+    /** How long a signal waits for the ones behind it, so a burst of writes is one read. */
+    static final Duration SETTLE = Duration.ofSeconds(1);
+
     private final SnapshotDirectory snapshots;
     private final Logger logger;
     private final AtomicReference<NetworkSnapshot> current = new AtomicReference<>(NetworkSnapshot.EMPTY);
+    private final AtomicBoolean waiting = new AtomicBoolean();
 
-    private SnapshotStore(final SnapshotDirectory snapshots, final Logger logger) {
+    SnapshotStore(final SnapshotDirectory snapshots, final Logger logger) {
         this.snapshots = snapshots;
         this.logger = logger;
     }
@@ -34,6 +43,29 @@ public final class SnapshotStore {
     public NetworkSnapshot current() {
         return Objects.requireNonNull(
                 current.get(), "current is seeded with NetworkSnapshot.EMPTY and never set to null");
+    }
+
+    /**
+     * Refreshes whenever the hub wakes on a channel that moves a number, with signals close together as one read.
+     *
+     * Before {@link SignalHub#start}. The SMP channel is busy, so the hub of these numbers carries no other refresh.
+     */
+    public void follow(final SignalHub hub, final Scheduler scheduler) {
+        Objects.requireNonNull(hub, "hub");
+        Objects.requireNonNull(scheduler, "scheduler");
+        for (final Channel channel : new Channel[] {Channel.PHASE, Channel.HUNGER_GAMES, Channel.SMP}) {
+            hub.on(channel, "the server list numbers", () -> refreshSoon(scheduler));
+        }
+    }
+
+    /** Refreshes after {@link #SETTLE}; a call while one waits joins it, and one after it started asks for another. */
+    void refreshSoon(final Scheduler scheduler) {
+        if (waiting.compareAndSet(false, true)) {
+            final var _ = scheduler.after(SETTLE, () -> {
+                waiting.set(false);
+                refresh();
+            });
+        }
     }
 
     /** Runs the query and replaces the snapshot; called off the hub's thread, never from a ping. */

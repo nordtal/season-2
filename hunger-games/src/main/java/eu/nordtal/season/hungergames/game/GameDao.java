@@ -1,5 +1,7 @@
 package eu.nordtal.season.hungergames.game;
 
+import eu.nordtal.season.database.notify.Channel;
+import eu.nordtal.season.database.notify.Notifies;
 import eu.nordtal.season.database.registration.Game;
 import eu.nordtal.season.database.registration.RegistrationState;
 import java.util.Map;
@@ -11,15 +13,15 @@ import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.config.ValueColumn;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
-import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jdbi.v3.sqlobject.transaction.Transaction;
 import org.jspecify.annotations.Nullable;
 
 /**
  * The SQL of this plugin's games and events, and of the round of registration it starts them from.
  *
- * The round is discord-bot's. This plugin reads it and moves its state alone.
+ * The round is discord-bot's: this plugin moves its state alone. Every write signals {@link Channel#HUNGER_GAMES}.
  */
+@Notifies(Channel.HUNGER_GAMES)
 public interface GameDao {
 
     /** A round of registration that has not ended. */
@@ -62,15 +64,26 @@ public interface GameDao {
         return Optional.of(insertGame(registrationId));
     }
 
-    @SqlUpdate("UPDATE registration SET state = 'CLOSED' WHERE id = :id AND state = 'OPEN'")
+    @SqlQuery("""
+            WITH closed AS (UPDATE registration SET state = 'CLOSED' WHERE id = :id AND state = 'OPEN' RETURNING id)
+            SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM closed) AS notified
+            """)
     int closeRound(@Bind("id") UUID registrationId);
 
-    @SqlQuery("INSERT INTO hg_game (registration_id, started) VALUES (:registrationId, now()) RETURNING id")
+    @SqlQuery("""
+            WITH inserted AS (
+                INSERT INTO hg_game (registration_id, started) VALUES (:registrationId, now()) RETURNING id
+            )
+            SELECT id FROM (SELECT inserted.id, pg_notify(:channel, '') FROM inserted) AS notified
+            """)
     UUID insertGame(@Bind("registrationId") UUID registrationId);
 
     /** Marks the end of the countdown. */
-    @SqlUpdate("UPDATE hg_game SET state = 'RUNNING' WHERE id = :id AND state = 'COUNTDOWN'")
-    void release(@Bind("id") UUID id);
+    @SqlQuery("""
+            WITH released AS (UPDATE hg_game SET state = 'RUNNING' WHERE id = :id AND state = 'COUNTDOWN' RETURNING id)
+            SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM released) AS notified
+            """)
+    int release(@Bind("id") UUID id);
 
     /** Decides a game and ends its round, so that the next registration opens a new one. */
     @Transaction
@@ -79,17 +92,26 @@ public interface GameDao {
         endRoundOf(id);
     }
 
-    @SqlUpdate("""
-            UPDATE hg_game
-            SET state = 'DECIDED', ended = now(), winner_member_id = :winnerMemberId
-            WHERE id = :id
+    @SqlQuery("""
+            WITH decided AS (
+                UPDATE hg_game
+                SET state = 'DECIDED', ended = now(), winner_member_id = :winnerMemberId
+                WHERE id = :id
+                RETURNING id
+            )
+            SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM decided) AS notified
             """)
-    void markDecided(@Bind("id") UUID id, @Bind("winnerMemberId") @Nullable UUID winnerMemberId);
+    int markDecided(@Bind("id") UUID id, @Bind("winnerMemberId") @Nullable UUID winnerMemberId);
 
-    @SqlUpdate("""
-            UPDATE registration SET state = 'ENDED' WHERE id = (SELECT registration_id FROM hg_game WHERE id = :id)
+    @SqlQuery("""
+            WITH ended AS (
+                UPDATE registration SET state = 'ENDED'
+                WHERE id = (SELECT registration_id FROM hg_game WHERE id = :id)
+                RETURNING id
+            )
+            SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM ended) AS notified
             """)
-    void endRoundOf(@Bind("id") UUID gameId);
+    int endRoundOf(@Bind("id") UUID gameId);
 
     /**
      * Aborts the game a restart interrupted and opens its round again, with its teams, for an admin to start anew.
@@ -106,17 +128,27 @@ public interface GameDao {
         return interrupted;
     }
 
-    @SqlUpdate("UPDATE hg_game SET state = 'ABORTED', ended = now() WHERE id = :id")
-    void markAborted(@Bind("id") UUID id);
-
-    @SqlUpdate("UPDATE registration SET state = 'OPEN' WHERE id = :id AND state = 'CLOSED'")
-    void reopenRound(@Bind("id") UUID registrationId);
-
-    @SqlUpdate("""
-            INSERT INTO hg_event (game_id, type, actor_id, victim_id, detail)
-            VALUES (:gameId, :type, :actorId, :victimId, :detail)
+    @SqlQuery("""
+            WITH aborted AS (UPDATE hg_game SET state = 'ABORTED', ended = now() WHERE id = :id RETURNING id)
+            SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM aborted) AS notified
             """)
-    void recordEvent(
+    int markAborted(@Bind("id") UUID id);
+
+    @SqlQuery("""
+            WITH reopened AS (UPDATE registration SET state = 'OPEN' WHERE id = :id AND state = 'CLOSED' RETURNING id)
+            SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM reopened) AS notified
+            """)
+    int reopenRound(@Bind("id") UUID registrationId);
+
+    @SqlQuery("""
+            WITH recorded AS (
+                INSERT INTO hg_event (game_id, type, actor_id, victim_id, detail)
+                VALUES (:gameId, :type, :actorId, :victimId, :detail)
+                RETURNING id
+            )
+            SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM recorded) AS notified
+            """)
+    int recordEvent(
             @Bind("gameId") UUID gameId,
             @Bind("type") String type,
             @Bind("actorId") @Nullable UUID actorId,

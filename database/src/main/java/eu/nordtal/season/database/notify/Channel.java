@@ -26,6 +26,12 @@ public enum Channel {
     /** A request in the bot's inbox was written or moved on. discord-bot listens. */
     BOT("nordtal_bot"),
 
+    /**
+     * A Hunger Games round, team, member, game or event row was written. discord-bot and hunger-games emit.
+     * The proxy listens, for the numbers of its server list.
+     */
+    HUNGER_GAMES("nordtal_hunger_games"),
+
     /** The SMP track, its progress or the aura board moved. smp emits and its surfaces listen. */
     SMP("nordtal_smp"),
 

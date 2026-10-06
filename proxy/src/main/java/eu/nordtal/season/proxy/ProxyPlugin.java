@@ -133,6 +133,7 @@ public final class ProxyPlugin {
 
     private @Nullable HikariDataSource pool;
     private @Nullable SignalHub signals;
+    private @Nullable SignalHub numberSignals;
     private @Nullable PlaytimeWriter playtime;
     private Scheduler.@Nullable Task heartbeat;
 
@@ -173,7 +174,7 @@ public final class ProxyPlugin {
     private record Updates(RestartWatch restartWatch, Evacuation evacuation) {}
 
     /** The other reads of database state, which the signal hub wakes too and no timer repeats. */
-    private record Reads(ProxySwap swap, ExpiryWatch expiry, SnapshotStore snapshots) {}
+    private record Reads(ProxySwap swap, ExpiryWatch expiry) {}
 
     @Inject
     public ProxyPlugin(final ProxyServer proxy, final Logger logger, @DataDirectory final Path dataDirectory) {
@@ -244,9 +245,11 @@ public final class ProxyPlugin {
         final Updates updates = wireUpdates(shared, packs, onlineWriter);
         final ProxySwap swap = wireProxySwap(shared, updates);
         wireCommands(shared);
-        final SignalHub hub = wireSignals(shared, router, updates, new Reads(swap, expiry, snapshots));
+        final SignalHub hub = wireSignals(shared, router, updates, new Reads(swap, expiry));
+        final SignalHub numbers = wireNumbers(shared, snapshots);
         logStartup(shared);
         hub.start();
+        numbers.start();
         startHeartbeat();
     }
 
@@ -605,14 +608,7 @@ public final class ProxyPlugin {
     private SignalHub wireSignals(
             final Shared shared, final PlayerRouter router, final Updates updates, final Reads reads) {
         final Loaded loaded = shared.loaded();
-        final DatabaseSpec database = loaded.database();
-        final SignalHub hub = SignalHub.open(
-                database.jdbcUrl(),
-                database.username(),
-                database.password(),
-                database.queryTimeoutSeconds(),
-                "proxy-signals",
-                logger);
+        final SignalHub hub = openHub(loaded, "proxy-signals");
         this.signals = hub;
         hub.on(Channel.PHASE, "the season phase", shared.phaseWatch()::refresh);
         // The network's limit and allowlist, changed in Steward, arrive here without a restart.
@@ -623,10 +619,32 @@ public final class ProxyPlugin {
         hub.on(Channel.UPDATE, "the restart countdown", updates.restartWatch()::check);
         hub.on(Channel.UPDATE, "the update evacuation", updates.evacuation()::check);
         hub.on(Channel.UPDATE, "the proxy swap", reads.swap()::check);
-        // Every wake-up also runs these, so a change no signal announced waits one quiet minute at most.
+        // Every wake-up also runs this, so a change no signal announced waits one quiet minute at most.
         hub.on(Channel.PHASE, "the players' access", () -> scheduler.execute(reads.expiry()::check));
-        hub.on(Channel.PHASE, "the server list numbers", () -> scheduler.execute(reads.snapshots()::refresh));
         return hub;
+    }
+
+    /**
+     * Opens the server list numbers' own LISTEN connection, without starting it.
+     *
+     * Apart because the SMP channel signals on every flush, and a wake-up runs every refresh of its hub.
+     */
+    private SignalHub wireNumbers(final Shared shared, final SnapshotStore snapshots) {
+        final SignalHub hub = openHub(shared.loaded(), "proxy-numbers");
+        this.numberSignals = hub;
+        snapshots.follow(hub, scheduler);
+        return hub;
+    }
+
+    private SignalHub openHub(final Loaded loaded, final String name) {
+        final DatabaseSpec database = loaded.database();
+        return SignalHub.open(
+                database.jdbcUrl(),
+                database.username(),
+                database.password(),
+                database.queryTimeoutSeconds(),
+                name,
+                logger);
     }
 
     /** Re-reads the admin roster, which rides the phase's signals; re-routes only when somebody's flag changed. */
@@ -744,6 +762,10 @@ public final class ProxyPlugin {
         if (signals != null) {
             signals.close();
             signals = null;
+        }
+        if (numberSignals != null) {
+            numberSignals.close();
+            numberSignals = null;
         }
         if (pool != null) {
             pool.close();

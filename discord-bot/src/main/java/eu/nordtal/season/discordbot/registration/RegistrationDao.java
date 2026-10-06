@@ -1,6 +1,8 @@
 package eu.nordtal.season.discordbot.registration;
 
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.notify.Channel;
+import eu.nordtal.season.database.notify.Notifies;
 import eu.nordtal.season.database.registration.Membership;
 import eu.nordtal.season.database.registration.RegistrationState;
 import java.util.Optional;
@@ -8,13 +10,13 @@ import java.util.UUID;
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
-import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 /**
  * The SQL over {@code registration}, {@code team} and {@code team_member}, every query named by its game's key.
  *
- * The schema's unique indexes enforce the invariants; {@link Teams} only pre-checks for a friendly message.
+ * Unique indexes hold the invariants, {@link Teams} only pre-checks; every write signals {@link Channel#HUNGER_GAMES}.
  */
+@Notifies(Channel.HUNGER_GAMES)
 interface RegistrationDao {
 
     /** A round of registration that has not ended. */
@@ -25,7 +27,10 @@ interface RegistrationDao {
     @RegisterConstructorMapper(Current.class)
     Optional<Current> current(@Bind("game") String game);
 
-    @SqlQuery("INSERT INTO registration (game) VALUES (:game) RETURNING id, state")
+    @SqlQuery("""
+            WITH opened AS (INSERT INTO registration (game) VALUES (:game) RETURNING id, state)
+            SELECT opened.*, pg_notify(:channel, '') AS notified FROM opened
+            """)
     @RegisterConstructorMapper(Current.class)
     Current open(@Bind("game") String game);
 
@@ -51,14 +56,21 @@ interface RegistrationDao {
     Optional<UUID> activeMembershipId(
             @Bind("registrationId") UUID registrationId, @Bind("discordId") DiscordId discordId);
 
-    @SqlQuery("INSERT INTO team (registration_id, name) VALUES (:registrationId, :name) RETURNING id")
+    @SqlQuery("""
+            WITH inserted AS (INSERT INTO team (registration_id, name) VALUES (:registrationId, :name) RETURNING id)
+            SELECT id FROM (SELECT inserted.id, pg_notify(:channel, '') FROM inserted) AS notified
+            """)
     UUID insertTeam(@Bind("registrationId") UUID registrationId, @Bind("name") String name);
 
-    @SqlUpdate("""
-            INSERT INTO team_member (team_id, registration_id, discord_id, state)
-            VALUES (:teamId, :registrationId, :discordId, 'OWNER')
+    @SqlQuery("""
+            WITH inserted AS (
+                INSERT INTO team_member (team_id, registration_id, discord_id, state)
+                VALUES (:teamId, :registrationId, :discordId, 'OWNER')
+                RETURNING id
+            )
+            SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM inserted) AS notified
             """)
-    void insertOwner(
+    int insertOwner(
             @Bind("teamId") UUID teamId,
             @Bind("registrationId") UUID registrationId,
             @Bind("discordId") DiscordId discordId);
@@ -83,9 +95,12 @@ interface RegistrationDao {
     boolean hasPendingInvite(@Bind("teamId") UUID teamId);
 
     @SqlQuery("""
-            INSERT INTO team_member (team_id, registration_id, discord_id, state)
-            VALUES (:teamId, :registrationId, :discordId, 'INVITED')
-            RETURNING id
+            WITH inserted AS (
+                INSERT INTO team_member (team_id, registration_id, discord_id, state)
+                VALUES (:teamId, :registrationId, :discordId, 'INVITED')
+                RETURNING id
+            )
+            SELECT id FROM (SELECT inserted.id, pg_notify(:channel, '') FROM inserted) AS notified
             """)
     UUID insertInvite(
             @Bind("teamId") UUID teamId,
@@ -101,16 +116,24 @@ interface RegistrationDao {
     Optional<RegistrationState> registrationStateOf(@Bind("memberId") UUID memberId);
 
     // Only the invited account answers its own invite, and only while the round is open, held so as holdOpen holds it.
-    @SqlUpdate("""
-            UPDATE team_member member SET state = 'ACCEPTED'
-            WHERE id = :memberId AND discord_id = :discordId AND state = 'INVITED'
-              AND member.registration_id IN (SELECT id FROM registration WHERE state = 'OPEN' FOR SHARE)
+    @SqlQuery("""
+            WITH accepted AS (
+                UPDATE team_member member SET state = 'ACCEPTED'
+                WHERE id = :memberId AND discord_id = :discordId AND state = 'INVITED'
+                  AND member.registration_id IN (SELECT id FROM registration WHERE state = 'OPEN' FOR SHARE)
+                RETURNING id
+            )
+            SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM accepted) AS notified
             """)
     int accept(@Bind("memberId") UUID memberId, @Bind("discordId") DiscordId discordId);
 
-    @SqlUpdate("""
-            UPDATE team_member SET state = 'DECLINED'
-            WHERE id = :memberId AND discord_id = :discordId AND state = 'INVITED'
+    @SqlQuery("""
+            WITH declined AS (
+                UPDATE team_member SET state = 'DECLINED'
+                WHERE id = :memberId AND discord_id = :discordId AND state = 'INVITED'
+                RETURNING id
+            )
+            SELECT count(*) FROM (SELECT pg_notify(:channel, '') FROM declined) AS notified
             """)
     int decline(@Bind("memberId") UUID memberId, @Bind("discordId") DiscordId discordId);
 }

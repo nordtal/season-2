@@ -95,11 +95,31 @@ final class Kinds {
         final UpdateReport stopped = planned;
         return Planned.plan(Run.Plan.of(
                         stopped,
-                        stopped.isWork() ? install(runner, plan, progress) : Run.Payload.NONE,
+                        pruningImages(
+                                runner.containers,
+                                stopped.isWork() ? install(runner, plan, progress) : Run.Payload.NONE),
                         UpdateReport.Undertaking.INSTALL,
                         true,
                         Runner.Doubt.FAILS_THE_RUN)
                 .renewing(images, foreign, plan.hasFailures()));
+    }
+
+    /** The payload, and once everything is back, the images nothing uses any more removed as a note. */
+    static Run.Payload pruningImages(final ContainerOps containers, final Run.Payload payload) {
+        return (steps, stopped) -> {
+            final Run.Done done = payload.carryOut(steps, stopped);
+            return new Run.Done(done.report(), done.failed(), back -> {
+                final UpdateReport after = done.afterwards().apply(back);
+                final ContainerOps.Pruned pruned = containers.pruneImages();
+                return after.withNote(
+                        pruned.failure() == null
+                                ? TEXTS.report()
+                                        .imagesPruned(
+                                                pruned.images(),
+                                                ByteSize.of(pruned.freedBytes()).message())
+                                : TEXTS.report().imagesNotPruned(pruned.failure()));
+            });
+        };
     }
 
     /**
@@ -289,14 +309,21 @@ final class Kinds {
                     .withNote(TEXTS.report().noBackupVolumes()))));
         }
 
+        final List<String> volumes = topology.backupVolumes();
+        // Swept first, so a disk the budget can clear does not refuse the backup.
+        final UpdateReport swept = prune(runner, UpdateReport.at(UpdateReport.Stage.STOPPING), volumes);
+        final Planned noRoom = refusedWithoutRoom(runner, swept, volumes);
+        if (noRoom != null) {
+            return noRoom;
+        }
+
         // The database first, with everything running: pg_dump's MVCC snapshot needs nothing stopped.
         final SnapshotResult dumped = runner.backups.saveDatabase();
-        UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING)
-                .with(new UpdateReport.ServiceLine(
-                        Snapshots.DATABASE,
-                        dumped.ok() ? UpdateReport.State.SAVED : UpdateReport.State.FAILED,
-                        List.of(UpdateRun.backedUp(dumped)),
-                        dumped.ok() ? null : TEXTS.report().words(String.valueOf(dumped.message()))));
+        UpdateReport planned = swept.with(new UpdateReport.ServiceLine(
+                Snapshots.DATABASE,
+                dumped.ok() ? UpdateReport.State.SAVED : UpdateReport.State.FAILED,
+                List.of(UpdateRun.backedUp(dumped)),
+                dumped.ok() ? null : TEXTS.report().words(String.valueOf(dumped.message()))));
         progress.accept(planned);
         // A server that is down already holds a whole world, and one held down stays down.
         for (final String service : running(runner, topology.stoppedForBackup())) {
@@ -307,7 +334,6 @@ final class Kinds {
                     null));
         }
 
-        final List<String> volumes = topology.backupVolumes();
         final Run.Payload save = (steps, stopped) -> {
             final UpdateReport saved = steps.save(stopped.report(), volumes);
             // While the servers are still down: quick, and it frees disk before the next run.
@@ -339,14 +365,44 @@ final class Kinds {
         return new Retention(keep.daily(), keep.weekly(), keep.monthly(), keep.collapseAfterDays());
     }
 
-    /** What was kept and what was removed, put into the report so a wrong retention shows. */
+    /** What was kept and what was removed, put into the report so a wrong retention or budget shows. */
     private static UpdateReport prune(final Runner runner, final UpdateReport saved, final List<String> inBackup) {
         final Retention policy = policyOf(runner);
-        final List<String> pruned = runner.backups.prune(policy, inBackup);
-        return pruned.isEmpty()
-                ? saved
-                : saved.withNote(TEXTS.report()
-                        .pruned(policy.daily(), policy.weekly(), policy.monthly(), pruned.size(), pruned));
+        final Snapshots.Pruned pruned = runner.backups.prune(policy, inBackup);
+        UpdateReport report = saved;
+        if (!pruned.expired().isEmpty()) {
+            report = report.withNote(TEXTS.report()
+                    .pruned(
+                            policy.daily(),
+                            policy.weekly(),
+                            policy.monthly(),
+                            pruned.expired().size(),
+                            pruned.expired()));
+        }
+        if (!pruned.overBudget().isEmpty()) {
+            report = report.withNote(TEXTS.report()
+                    .prunedOverBudget(
+                            runner.config.backup().budgetPercent(),
+                            pruned.overBudget().size(),
+                            pruned.overBudget()));
+        }
+        return report;
+    }
+
+    /** A failed run that stopped nothing when the backup would not leave the disk its free share; else null. */
+    private static @Nullable Planned refusedWithoutRoom(
+            final Runner runner, final UpdateReport report, final List<String> volumes) {
+        final Snapshots.Room room = runner.backups.room(volumes);
+        if (room.fits()) {
+            return null;
+        }
+        return Planned.outcome(Outcome.failed(UpdateReports.toJson(report.withStage(UpdateReport.Stage.FAILED)
+                .withNote(TEXTS.report()
+                        .backupWontFit(
+                                ByteSize.of(room.expectedBytes()).message(),
+                                ByteSize.of(Math.max(0, room.usableBytes())).message(),
+                                runner.config.backup().keepFreePercent(),
+                                ByteSize.of(room.reserveBytes()).message())))));
     }
 
     /**
@@ -555,6 +611,11 @@ final class Kinds {
         final AgentWire.Topology topology = runner.containers.topology();
         if (!topology.backupVolumes().contains(volume)) {
             return failed(TEXTS.report().restoreNotAVolume(volume, archive));
+        }
+        final Planned noRoom =
+                refusedWithoutRoom(runner, UpdateReport.at(UpdateReport.Stage.STOPPING), List.of(volume));
+        if (noRoom != null) {
+            return noRoom;
         }
         final List<String> users = running(runner, topology.usersOf(volume));
         final Run.Payload put = (steps, stopped) -> {

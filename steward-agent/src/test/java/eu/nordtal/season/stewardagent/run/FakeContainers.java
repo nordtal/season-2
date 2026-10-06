@@ -156,6 +156,12 @@ final class FakeContainers implements ContainerOps {
         return made("renew:steward-agent", "steward-agent");
     }
 
+    @Override
+    public Pruned pruneImages() {
+        calls.add("prune-images");
+        return new Pruned(3, 2_000_000_000L, null);
+    }
+
     private RedeployResult made(final String call, final String service) {
         calls.add(call);
         if (!reachable) {

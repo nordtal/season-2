@@ -36,6 +36,17 @@ class AgentSettingsTest {
     }
 
     @Test
+    void aDiskBudgetOfNothingIsRefusedRatherThanDeletingEveryArchive() throws Exception {
+        final Setting<RunSpec> runs = runs();
+        store.set(AgentSettings.SERVICE, "runs", "backup.budget-percent", 0);
+
+        assertThrows(SettingsException.class, runs::reload);
+
+        assertEquals(30, runs.get().backup().budgetPercent());
+        assertEquals(10, runs.get().backup().keepFreePercent());
+    }
+
+    @Test
     void aSlugWhereAModrinthIdBelongsIsRefused() throws Exception {
         final Setting<RunSpec> runs = runs();
         store.set(AgentSettings.SERVICE, "runs", "packetevents-project", "packetevents");

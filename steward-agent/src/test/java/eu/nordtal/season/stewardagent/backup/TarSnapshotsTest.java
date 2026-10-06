@@ -245,7 +245,8 @@ class TarSnapshotsTest {
         // Not ours: an operator's own file in the same directory, which must survive untouched.
         Files.writeString(outputRoot().resolve("README.txt"), "restore instructions");
 
-        final List<String> removed = snapshots(NIGHT).prune(days(2), IN_BACKUP);
+        final List<String> removed =
+                snapshots(NIGHT).prune(days(2), IN_BACKUP, 100).expired();
 
         assertEquals(
                 List.of(
@@ -275,7 +276,8 @@ class TarSnapshotsTest {
         archive("nordtal-s2_mc-proxy", "20260901T044500Z", "20260902T044500Z");
         dump("20260901T044500Z");
 
-        final List<String> removed = snapshots(NIGHT).prune(days(7), IN_BACKUP);
+        final List<String> removed =
+                snapshots(NIGHT).prune(days(7), IN_BACKUP, 100).expired();
 
         assertEquals(
                 List.of("nordtal-20260901T044500Z.dump"),
@@ -299,7 +301,9 @@ class TarSnapshotsTest {
                 "20260912T044500Z",
                 "20260912T190000Z");
 
-        final List<String> removed = snapshots(NIGHT).prune(new Retention(30, 0, 0, 2), IN_BACKUP);
+        final List<String> removed = snapshots(NIGHT)
+                .prune(new Retention(30, 0, 0, 2), IN_BACKUP, 100)
+                .expired();
 
         assertEquals(
                 List.of("nordtal-s2_mc-smp-20260910T044500Z.tar.zst", "nordtal-s2_mc-smp-20260910T113000Z.tar.zst"),
@@ -358,7 +362,8 @@ class TarSnapshotsTest {
         mark("nordtal-s2_mc-smp-20260910T044500Z.tar.zst");
         mark("nordtal-s2_mc-smp-20260912T044500Z.tar.zst");
 
-        final List<String> removed = snapshots(NIGHT).prune(days(2), IN_BACKUP);
+        final List<String> removed =
+                snapshots(NIGHT).prune(days(2), IN_BACKUP, 100).expired();
 
         assertEquals(
                 List.of("nordtal-s2_mc-smp-20260910T044500Z.tar.zst"),
@@ -379,12 +384,62 @@ class TarSnapshotsTest {
     }
 
     @Test
+    void pastTheDiskBudgetTheOldestArchivesOfTheLargestSeriesGoAndTheirMarksWithThem() throws IOException {
+        sized("nordtal-s2_mc-smp-20260911T044500Z.tar.zst", 400);
+        sized("nordtal-s2_mc-smp-20260912T044500Z.tar.zst", 400);
+        sized("nordtal-s2_mc-smp-20260913T044500Z.tar.zst", 400);
+        mark("nordtal-s2_mc-smp-20260913T044500Z.tar.zst");
+        sized("nordtal-s2_mc-limbo-20260913T044500Z.tar.zst", 100);
+        dump("20260913T044500Z");
+
+        // A disk of 1000 bytes and a budget of 50 percent: 1300 bytes have to come down to 500.
+        final Snapshots.Pruned pruned = new TarSnapshots(
+                        sourcesRoot(), outputRoot(), Clock.fixed(NIGHT, ZoneOffset.UTC), disk(1000, 0))
+                .prune(days(30), IN_BACKUP, 50);
+
+        assertEquals(List.of(), pruned.expired(), "the policy keeps all of them");
+        assertEquals(
+                List.of("nordtal-s2_mc-smp-20260911T044500Z.tar.zst", "nordtal-s2_mc-smp-20260913T044500Z.tar.zst"),
+                pruned.overBudget(),
+                "the unverified newest goes before the verified one behind it");
+        assertEquals(
+                List.of("nordtal-s2_mc-limbo-20260913T044500Z.tar.zst", "nordtal-s2_mc-smp-20260912T044500Z.tar.zst"),
+                archivesIn(outputRoot()));
+        assertFalse(Files.exists(outputRoot().resolve("nordtal-s2_mc-smp-20260913T044500Z.tar.zst.unverified")));
+    }
+
+    @Test
+    void aBackupIsSizedByEachSeriesNewestArchiveAndRefusedWhenItWouldEatTheFreeShare() throws IOException {
+        sized("nordtal-s2_mc-smp-20260912T044500Z.tar.zst", 900);
+        sized("nordtal-s2_mc-smp-20260913T044500Z.tar.zst", 400);
+        Files.writeString(outputRoot().resolve("nordtal-20260913T044500Z.dump"), "x".repeat(50));
+        Files.createDirectories(sourcesRoot().resolve("nordtal-s2_mc-limbo"));
+        Files.writeString(sourcesRoot().resolve("nordtal-s2_mc-limbo").resolve("level.dat"), "a new volume");
+
+        final Snapshots.Room tight = new TarSnapshots(
+                        sourcesRoot(), outputRoot(), Clock.fixed(NIGHT, ZoneOffset.UTC), disk(10_000, 1_400))
+                .room(List.of(VOLUME, "nordtal-s2_mc-limbo"), 10);
+
+        // smp's newest, the dump's newest, and limbo, which has no archive yet, by what du says it takes.
+        assertTrue(tight.expectedBytes() >= 450, String.valueOf(tight));
+        assertEquals(1_000, tight.reserveBytes());
+        assertFalse(tight.fits(), "1400 free, about 450 written, 1000 kept free: refused");
+
+        final Snapshots.Room roomy = new TarSnapshots(
+                        sourcesRoot(), outputRoot(), Clock.fixed(NIGHT, ZoneOffset.UTC), disk(10_000, 5_000))
+                .room(List.of(VOLUME), 10);
+        assertEquals(450, roomy.expectedBytes());
+        assertTrue(roomy.fits());
+    }
+
+    @Test
     void pruneKeepsTheNewestDatabaseDumpsTooAndCountsThemApartFromTheVolumes() throws IOException {
         // Neither ARCHIVE nor PARTIAL_ARCHIVE matches .dump, so the sweep must walk past every database dump.
         archive("nordtal-s2_mc-smp", "20260910T044500Z", "20260911T044500Z", "20260912T044500Z");
         dump("20260910T044500Z", "20260911T044500Z", "20260912T044500Z", "20260913T044500Z");
 
-        final List<String> removed = snapshots(NIGHT).prune(days(2), IN_BACKUP);
+        final List<String> removed =
+                snapshots(NIGHT).prune(days(2), IN_BACKUP, 100).expired();
 
         assertEquals(
                 List.of(
@@ -406,7 +461,8 @@ class TarSnapshotsTest {
         Files.writeString(outputRoot().resolve("nordtal-20260912T044500Z.dump.partial"), "old");
         Files.writeString(outputRoot().resolve("nordtal-20260913T044500Z.dump.partial"), "running");
 
-        final List<String> removed = snapshots(NIGHT).prune(days(7), IN_BACKUP);
+        final List<String> removed =
+                snapshots(NIGHT).prune(days(7), IN_BACKUP, 100).expired();
 
         assertEquals(
                 List.of("nordtal-20260912T044500Z.dump.partial"),
@@ -422,7 +478,8 @@ class TarSnapshotsTest {
         Files.writeString(stale, "debris from a killed run");
         Files.writeString(fresh, "a save that may be running right now");
 
-        final List<String> removed = snapshots(NIGHT).prune(days(7), IN_BACKUP);
+        final List<String> removed =
+                snapshots(NIGHT).prune(days(7), IN_BACKUP, 100).expired();
 
         assertEquals(List.of(stale.getFileName().toString()), removed);
         assertFalse(Files.exists(stale));
@@ -436,7 +493,8 @@ class TarSnapshotsTest {
         final Path impossible = outputRoot().resolve(VOLUME + "-99999999T999999Z.tar.zst.partial");
         Files.writeString(impossible, "whatever this is");
 
-        final List<String> removed = snapshots(NIGHT).prune(days(1), IN_BACKUP);
+        final List<String> removed =
+                snapshots(NIGHT).prune(days(1), IN_BACKUP, 100).expired();
 
         assertEquals(
                 List.of("nordtal-s2_mc-smp-20260910T044500Z.tar.zst", "nordtal-s2_mc-smp-20260911T044500Z.tar.zst"),
@@ -503,6 +561,27 @@ class TarSnapshotsTest {
 
     private Path sourceDir(final String volume) throws IOException {
         return Files.createDirectories(sourcesRoot().resolve(volume));
+    }
+
+    /** An archive of exactly {@code bytes}, for the budget, which weighs files and never reads them. */
+    private void sized(final String name, final int bytes) throws IOException {
+        Files.createDirectories(outputRoot());
+        Files.write(outputRoot().resolve(name), new byte[bytes]);
+    }
+
+    /** A filesystem of {@code total} bytes with {@code usable} of them still writable. */
+    private static TarSnapshots.Space disk(final long total, final long usable) {
+        return new TarSnapshots.Space() {
+            @Override
+            public long totalBytes() {
+                return total;
+            }
+
+            @Override
+            public long usableBytes() {
+                return usable;
+            }
+        };
     }
 
     /** Writes archives that are real enough for prune, which reads names and never content. */

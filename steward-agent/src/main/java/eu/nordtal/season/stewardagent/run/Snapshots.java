@@ -44,14 +44,45 @@ public interface Snapshots {
     String markUnverified(String archive, String why);
 
     /**
-     * Deletes whatever the policy no longer keeps, one series at a time.
+     * What a sweep removed.
+     *
+     * @param expired what the policy no longer keeps
+     * @param overBudget what went afterwards because the archives took more of the disk than the budget allows
+     */
+    record Pruned(List<String> expired, List<String> overBudget) {
+
+        public Pruned {
+            expired = List.copyOf(expired);
+            overBudget = List.copyOf(overBudget);
+        }
+    }
+
+    /**
+     * Whether a backup fits on the disk, asked before anything stops for it.
+     *
+     * @param expectedBytes what it is expected to write: each series' newest archive, or a new volume's size
+     * @param usableBytes what the filesystem lets this process write now
+     * @param reserveBytes what has to stay free for postgres and the servers
+     */
+    record Room(long expectedBytes, long usableBytes, long reserveBytes) {
+
+        public boolean fits() {
+            return usableBytes - expectedBytes >= reserveBytes;
+        }
+    }
+
+    /**
+     * Deletes whatever the policy no longer keeps, one series at a time, then whatever the disk budget cannot hold.
      * A volume outside {@code inBackup} is counted by the calendar, so its archives age out.
      *
      * @param policy the staggered schedule and the one-per-day collapse; see {@link Retention}
      * @param inBackup the volumes a backup saves now
      * @return what was removed, for the report
      */
-    List<String> prune(Retention policy, Collection<String> inBackup);
+    Pruned prune(Retention policy, Collection<String> inBackup);
+
+    /** What a backup of these volumes and the database would write, against the room the disk has for it. */
+    Room room(Collection<String> volumes);
 
     /**
      * The series a finished archive in the backups belongs to: its volume, or {@link #DATABASE} for a dump.

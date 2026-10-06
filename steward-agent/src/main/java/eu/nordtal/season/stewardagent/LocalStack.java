@@ -6,6 +6,7 @@ import eu.nordtal.season.internalapi.agent.RedeployResult;
 import eu.nordtal.season.internalapi.agent.RuntimeResult;
 import eu.nordtal.season.stewardagent.docker.Containers;
 import eu.nordtal.season.stewardagent.docker.Docker;
+import eu.nordtal.season.stewardagent.docker.DockerException;
 import eu.nordtal.season.stewardagent.run.ContainerOps;
 import eu.nordtal.season.stewardagent.topology.ComposeTopology;
 import java.nio.file.Files;
@@ -118,6 +119,21 @@ final class LocalStack implements ContainerOps {
     @Override
     public RedeployResult renewAgent() {
         return ran("renewal", Compose.SELF, output -> compose.bootstrap(List.of(Compose.SELF), output));
+    }
+
+    @Override
+    public Pruned pruneImages() {
+        try {
+            final Docker.Pruned pruned = docker.prune();
+            log.info(
+                    "pruned {} unused images and the build cache, freeing {} bytes",
+                    pruned.images(),
+                    pruned.freedBytes());
+            return new Pruned(pruned.images(), pruned.freedBytes(), null);
+        } catch (final DockerException refused) {
+            log.warn("pruning the unused images failed: {}", refused.getMessage());
+            return new Pruned(0, 0, String.valueOf(refused.getMessage()));
+        }
     }
 
     /** One compose command for one service, its output logged and its last line the answer when it fails. */

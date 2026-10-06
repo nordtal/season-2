@@ -125,6 +125,24 @@ public interface RunSpec {
             return "postgres";
         }
 
+        @Order(7)
+        @Name("Disk budget (percent)")
+        @Key("budget-percent")
+        @Explain(
+                "The share of the disk the archives may take. Past it the oldest archive of the largest series goes, never a series' newest verified one.")
+        default int budgetPercent() {
+            return 30;
+        }
+
+        @Order(8)
+        @Name("Free space kept (percent)")
+        @Key("keep-free-percent")
+        @Explain(
+                "A backup that would leave less of the disk free than this is refused before anything stops, and the failed run alerts.")
+        default int keepFreePercent() {
+            return 10;
+        }
+
         @Order(9)
         @Name("Patience (minutes)")
         @Key("patience-minutes")
@@ -168,7 +186,7 @@ public interface RunSpec {
             @Name("Collapse after (days)")
             @Key("collapse-after-days")
             @Explain(
-                    "A backup taken by hand survives the nightly one for this many days. Nothing inside the window is ever deleted.")
+                    "A backup taken by hand survives the nightly one for this many days. Inside the window only the disk budget deletes.")
             default int collapseAfterDays() {
                 return 3;
             }

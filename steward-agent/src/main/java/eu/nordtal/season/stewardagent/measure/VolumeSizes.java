@@ -41,7 +41,7 @@ public final class VolumeSizes {
     }
 
     /** {@code du -sk}, in bytes; empty when it fails or takes longer than half a minute. */
-    static OptionalLong du(final Path path) {
+    public static OptionalLong du(final Path path) {
         try {
             final Process process = new ProcessBuilder("du", "-sk", path.toString())
                     .redirectError(ProcessBuilder.Redirect.DISCARD)

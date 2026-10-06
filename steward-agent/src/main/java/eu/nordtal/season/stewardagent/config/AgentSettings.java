@@ -67,6 +67,14 @@ public final class AgentSettings {
         Checks.requirePositive("http-timeout-seconds", config.httpTimeoutSeconds());
         Checks.requirePositive("download-timeout-seconds", config.downloadTimeoutSeconds());
         Checks.requirePositive("backup.patience-minutes", config.backup().patienceMinutes());
+        requirePercent("backup.budget-percent", config.backup().budgetPercent(), 1);
+        requirePercent("backup.keep-free-percent", config.backup().keepFreePercent(), 0);
+    }
+
+    private static void requirePercent(final String key, final int value, final int least) {
+        if (value < least || value > 100) {
+            throw new IllegalArgumentException(key + " must be between " + least + " and 100, was " + value);
+        }
     }
 
     private static void checkDatabase(final DatabaseSpec config) {

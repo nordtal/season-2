@@ -134,6 +134,23 @@ public interface ReportTexts {
             @Arg("count") int count,
             @Arg("archives") List<String> archives);
 
+    @Name("Archives removed for the disk budget")
+    MessageRef prunedOverBudget(
+            @Arg("percent") int percent, @Arg("count") int count, @Arg("archives") List<String> archives);
+
+    @Name("A backup that would not fit")
+    MessageRef backupWontFit(
+            @Arg("expected") MessageRef expected,
+            @Arg("free") MessageRef free,
+            @Arg("percent") int percent,
+            @Arg("reserve") MessageRef reserve);
+
+    @Name("Unused images removed")
+    MessageRef imagesPruned(@Arg("images") int images, @Arg("freed") MessageRef freed);
+
+    @Name("Unused images not removed")
+    MessageRef imagesNotPruned(@Arg("error") String error);
+
     @Name("A take-down naming nothing")
     MessageRef downUnnamed();
 

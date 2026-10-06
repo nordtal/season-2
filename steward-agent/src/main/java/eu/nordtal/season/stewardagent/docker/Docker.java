@@ -46,6 +46,12 @@ public final class Docker {
     /** How long an exec may take before the connection is closed, so a hang becomes a {@link DockerException}. */
     private static final java.time.Duration EXEC_DEADLINE = java.time.Duration.ofSeconds(15);
 
+    /** Deleting gigabytes of layers takes the daemon a while, and it answers only when done. */
+    private static final java.time.Duration PRUNE_DEADLINE = java.time.Duration.ofMinutes(10);
+
+    /** {@code {"dangling":["false"]}}, URL-encoded: unused tagged images too, as {@code docker image prune -a}. */
+    private static final String PRUNE_ALL_UNUSED = "%7B%22dangling%22%3A%5B%22false%22%5D%7D";
+
     private final DockerSocket socket;
 
     public Docker(final DockerSocket socket) {
@@ -389,6 +395,37 @@ public final class Docker {
         public boolean ok() {
             return exitCode == 0;
         }
+    }
+
+    /**
+     * Removes every image no container uses, then the build cache nothing references.
+     *
+     * @return how many images went and how many bytes both freed
+     */
+    public Pruned prune() {
+        final JsonObject images = Json.decode(
+                socket.send("POST", "/images/prune?filters=" + PRUNE_ALL_UNUSED, null, PRUNE_DEADLINE),
+                JsonObject.class);
+        final JsonObject cache =
+                Json.decode(socket.send("POST", "/build/prune", null, PRUNE_DEADLINE), JsonObject.class);
+        int deleted = 0;
+        final JsonArray gone = images.getAsJsonArray("ImagesDeleted");
+        if (gone != null) {
+            for (final JsonElement entry : gone) {
+                if (entry.isJsonObject() && entry.getAsJsonObject().has("Deleted")) {
+                    deleted++;
+                }
+            }
+        }
+        return new Pruned(deleted, reclaimed(images) + reclaimed(cache));
+    }
+
+    /** What {@link #prune} removed. */
+    public record Pruned(int images, long freedBytes) {}
+
+    private static long reclaimed(final JsonObject answer) {
+        final JsonElement bytes = answer.get("SpaceReclaimed");
+        return bytes == null || bytes.isJsonNull() ? 0 : bytes.getAsLong();
     }
 
     /** What images and volumes take up on the disk. */

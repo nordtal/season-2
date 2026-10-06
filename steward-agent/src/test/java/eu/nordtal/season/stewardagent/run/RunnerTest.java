@@ -135,6 +135,8 @@ class RunnerTest {
         assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
         assertEquals(
                 List.of(
+                        "prune:" + defaults().backup().retention().daily(),
+                        "room:4",
                         "dump",
                         "stop:smp-container",
                         "backup:nordtal-s2_mc-smp",
@@ -160,6 +162,19 @@ class RunnerTest {
         assertTrue(english.contains("saved 7.3 MiB in 3s"), english);
         assertTrue(english.contains("saved 1.2 MiB in 12s"), english);
         assertTrue(english.contains("No offsite repository is configured"), english);
+    }
+
+    @Test
+    void aBackupThatWouldNotLeaveTheDiskItsFreeShareFailsBeforeAnythingStops() {
+        snapshots.full();
+
+        final Outcome outcome = runner.run(claimed(UpdateKind.BACKUP, null), progress::add);
+
+        assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
+        assertEquals(List.of("prune:" + defaults().backup().retention().daily(), "room:4"), containers.calls);
+        final String english = Told.report(outcome.report());
+        assertTrue(english.contains("would write about 3.7 GiB with 4.7 GiB free"), english);
+        assertTrue(english.contains("Nothing was stopped and nothing was saved"), english);
     }
 
     @Test
@@ -336,6 +351,7 @@ class RunnerTest {
         assertEquals(UpdateStatus.DONE, outcome.status(), outcome.report());
         assertEquals(
                 List.of(
+                        "room:1",
                         "stop:smp-container",
                         "backup:nordtal-s2_mc-smp",
                         "restore:nordtal-s2_mc-smp-20260913T000000Z.tar.zst",
@@ -362,7 +378,8 @@ class RunnerTest {
 
         assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
         assertEquals(
-                List.of("stop:smp-container", "backup:nordtal-s2_mc-smp", "start:smp-container"), containers.calls);
+                List.of("room:1", "stop:smp-container", "backup:nordtal-s2_mc-smp", "start:smp-container"),
+                containers.calls);
         allTold(outcome);
     }
 

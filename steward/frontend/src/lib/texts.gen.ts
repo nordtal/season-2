@@ -410,6 +410,12 @@ export type TextArgs = {
   "report.backup-unread": {
     reason: Arg["text"]
   }
+  "report.backup-wont-fit": {
+    expected: Arg["message"]
+    free: Arg["message"]
+    percent: Arg["number"]
+    reserve: Arg["message"]
+  }
   "report.cancelled": Record<string, never>
   "report.down-refused": {
     services: Arg["list"]
@@ -469,6 +475,13 @@ export type TextArgs = {
   "report.images-local": {
     services: Arg["list"]
     count: Arg["number"]
+  }
+  "report.images-not-pruned": {
+    error: Arg["text"]
+  }
+  "report.images-pruned": {
+    images: Arg["number"]
+    freed: Arg["message"]
   }
   "report.images-uncompared": Record<string, never>
   "report.images-unread": {
@@ -563,6 +576,11 @@ export type TextArgs = {
     daily: Arg["number"]
     weekly: Arg["number"]
     monthly: Arg["number"]
+    count: Arg["number"]
+    archives: Arg["list"]
+  }
+  "report.pruned-over-budget": {
+    percent: Arg["number"]
     count: Arg["number"]
     archives: Arg["list"]
   }

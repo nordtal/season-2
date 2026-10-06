@@ -3,6 +3,7 @@ package eu.nordtal.season.stewardagent.backup;
 import eu.nordtal.season.database.update.ByteSize;
 import eu.nordtal.season.internalapi.agent.Retention;
 import eu.nordtal.season.internalapi.agent.SnapshotResult;
+import eu.nordtal.season.stewardagent.measure.VolumeSizes;
 import eu.nordtal.season.stewardagent.run.Snapshots;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -109,9 +110,33 @@ public final class TarSnapshots {
     /** Level 1, since region files are already compressed and downtime, not disk, is what is minimised. */
     private static final String LEVEL = "-1";
 
+    /** The filesystem the archives are written to, as the budget and the room check read it. */
+    interface Space {
+
+        long totalBytes() throws IOException;
+
+        /** What this process may still write, which leaves out the root reserve. */
+        long usableBytes() throws IOException;
+
+        static Space of(final Path directory) {
+            return new Space() {
+                @Override
+                public long totalBytes() throws IOException {
+                    return Files.getFileStore(directory).getTotalSpace();
+                }
+
+                @Override
+                public long usableBytes() throws IOException {
+                    return Files.getFileStore(directory).getUsableSpace();
+                }
+            };
+        }
+    }
+
     private final Path sourcesRoot;
     private final Path outputRoot;
     private final Clock clock;
+    private final Space space;
 
     /**
      * Creates the snapshots.
@@ -121,9 +146,14 @@ public final class TarSnapshots {
      * @param clock the clock that stamps a file name
      */
     public TarSnapshots(final Path sourcesRoot, final Path outputRoot, final Clock clock) {
+        this(sourcesRoot, outputRoot, clock, Space.of(outputRoot));
+    }
+
+    TarSnapshots(final Path sourcesRoot, final Path outputRoot, final Clock clock, final Space space) {
         this.sourcesRoot = sourcesRoot;
         this.outputRoot = outputRoot;
         this.clock = clock;
+        this.space = space;
     }
 
     /**
@@ -364,43 +394,127 @@ public final class TarSnapshots {
     }
 
     /**
-     * Applies the retention policy to each volume and to the database dump as separate series.
+     * Applies the retention policy to each volume and to the database dump as separate series, then the disk budget.
      * A volume outside {@code inBackup} is counted by the calendar; a day-old {@code .partial} is swept too.
      *
      * @param inBackup the volumes a backup saves now, by the name an archive carries
+     * @param budgetPercent the share of the filesystem the finished archives may take together
      */
-    public List<String> prune(final Retention policy, final Collection<String> inBackup) {
+    public Snapshots.Pruned prune(final Retention policy, final Collection<String> inBackup, final int budgetPercent) {
         final List<Path> files;
         try (Stream<Path> listing = Files.list(outputRoot)) {
             files = listing.filter(Files::isRegularFile).toList();
         } catch (final IOException unreadable) {
             log.warn("cannot read {} to prune it: {}", outputRoot, unreadable.toString());
-            return List.of();
+            return new Snapshots.Pruned(List.of(), List.of());
         }
 
         final Instant now = clock.instant();
         final List<String> removed = new ArrayList<>();
         final Map<String, List<Retention.Dated>> byVolume = classify(files, now, removed);
+        final List<DiskBudget.Held> left = new ArrayList<>();
 
         for (final Map.Entry<String, List<Retention.Dated>> series : byVolume.entrySet()) {
             final boolean taken = DUMP_SERIES.equals(series.getKey()) || inBackup.contains(series.getKey());
             final List<Retention.Dated> expired =
                     taken ? policy.expired(series.getValue(), now) : policy.expiredByCalendar(series.getValue(), now);
             for (final Retention.Dated old : expired) {
-                final Path file = outputRoot.resolve(old.name());
-                if (delete(file)) {
+                if (deleteArchive(old.name())) {
                     log.info(
                             "pruning {} ({} of {} remain)",
                             old.name(),
                             series.getValue().size() - 1,
                             series.getKey());
                     removed.add(old.name());
-                    // The mark goes with its archive.
-                    delete(file.resolveSibling(old.name() + MARK));
                 }
+            }
+            series.getValue().stream()
+                    .filter(one -> !removed.contains(one.name()))
+                    .forEach(one -> held(series.getKey(), one).ifPresent(left::add));
+        }
+        return new Snapshots.Pruned(removed, overBudget(left, budgetPercent));
+    }
+
+    /**
+     * What a backup of {@code volumes} and the database would write against the room on the disk.
+     *
+     * A filesystem that cannot be read counts as room, since the save itself still fails on a full disk.
+     */
+    public Snapshots.Room room(final Collection<String> volumes, final int keepFreePercent) {
+        final Map<String, Long> newest = new LinkedHashMap<>();
+        try (Stream<Path> listing = Files.list(outputRoot)) {
+            for (final Path file : listing.filter(Files::isRegularFile).sorted().toList()) {
+                final String name = file.getFileName().toString();
+                final Matcher archive = ARCHIVE.matcher(name);
+                final String series = archive.matches()
+                        ? archive.group("volume")
+                        : DUMP.matcher(name).matches() ? DUMP_SERIES : null;
+                if (series != null) {
+                    // Sorted by name, so the stamp puts the newest last.
+                    newest.put(series, Files.size(file));
+                }
+            }
+        } catch (final IOException unreadable) {
+            log.warn("cannot read {} to size the backup: {}", outputRoot, unreadable.toString());
+        }
+        long expected = newest.getOrDefault(DUMP_SERIES, 0L);
+        for (final String volume : volumes) {
+            final Long last = newest.get(volume);
+            expected += last != null
+                    ? last
+                    : VolumeSizes.du(sourcesRoot.resolve(volume)).orElse(0L);
+        }
+        try {
+            final long total = space.totalBytes();
+            return new Snapshots.Room(expected, space.usableBytes(), total / 100 * keepFreePercent);
+        } catch (final IOException unreadable) {
+            log.warn("cannot read the free space under {}: {}", outputRoot, unreadable.toString());
+            return new Snapshots.Room(expected, Long.MAX_VALUE, 0);
+        }
+    }
+
+    /** Deletes what the budget cannot hold; nothing when the filesystem cannot be read. */
+    private List<String> overBudget(final List<DiskBudget.Held> left, final int budgetPercent) {
+        final long total;
+        try {
+            total = space.totalBytes();
+        } catch (final IOException unreadable) {
+            log.warn("cannot read the size of {} for the disk budget: {}", outputRoot, unreadable.toString());
+            return List.of();
+        }
+        final List<String> removed = new ArrayList<>();
+        for (final String name : DiskBudget.of(total, budgetPercent).over(left)) {
+            if (deleteArchive(name)) {
+                log.info("pruning {} - the archives take more than {} percent of the disk", name, budgetPercent);
+                removed.add(name);
             }
         }
         return List.copyOf(removed);
+    }
+
+    /** One archive as the budget weighs it; empty when it vanished meanwhile. */
+    private Optional<DiskBudget.Held> held(final String series, final Retention.Dated archive) {
+        final Path file = outputRoot.resolve(archive.name());
+        try {
+            return Optional.of(new DiskBudget.Held(
+                    archive.name(),
+                    series,
+                    archive.taken(),
+                    Files.size(file),
+                    !Files.exists(file.resolveSibling(archive.name() + MARK))));
+        } catch (final IOException gone) {
+            return Optional.empty();
+        }
+    }
+
+    /** Deletes an archive and, with it, its mark. */
+    private boolean deleteArchive(final String name) {
+        final Path file = outputRoot.resolve(name);
+        if (!delete(file)) {
+            return false;
+        }
+        delete(file.resolveSibling(name + MARK));
+        return true;
     }
 
     // Groups by the volume in the name and sweeps day-old partials into `removed`.

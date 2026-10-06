@@ -19,6 +19,7 @@ final class FakeSnapshots implements Snapshots {
     private final Set<String> empty = new HashSet<>();
     private final Map<String, String> marks = new LinkedHashMap<>();
     private @Nullable SnapshotResult offsite;
+    private boolean full;
 
     FakeSnapshots(final List<String> calls) {
         this.calls = calls;
@@ -116,10 +117,22 @@ final class FakeSnapshots implements Snapshots {
         return java.util.Optional.of(offsite);
     }
 
+    /** A disk with no room for the next backup. */
+    FakeSnapshots full() {
+        full = true;
+        return this;
+    }
+
     @Override
-    public List<String> prune(
+    public Pruned prune(
             final eu.nordtal.season.internalapi.agent.Retention policy, final java.util.Collection<String> inBackup) {
         calls.add("prune:" + policy.daily());
-        return List.of();
+        return new Pruned(List.of(), List.of());
+    }
+
+    @Override
+    public Room room(final java.util.Collection<String> volumes) {
+        calls.add("room:" + volumes.size());
+        return full ? new Room(4_000_000_000L, 5_000_000_000L, 20_000_000_000L) : new Room(1, Long.MAX_VALUE, 0);
     }
 }

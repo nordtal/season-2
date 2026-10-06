@@ -42,9 +42,9 @@ nothing counts nobody down. The payload is the request's, typed in `StewardReque
 
 | kind            | payload                                                                                                                |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `UPDATE`        | resolve what is newer, stage it, migrate, move the jars, recreate moved images                                         |
+| `UPDATE`        | resolve what is newer, stage it, migrate, move the jars, recreate moved images, prune unused ones                      |
 | `RESTART`       | restart the named services, install nothing                                                                            |
-| `BACKUP`        | dump and tar the backup set, then copy the newest archives offsite                                                     |
+| `BACKUP`        | refused when the disk lacks room, else dump and tar the backup set, then copy the newest archives offsite              |
 | `DOWN`, `START` | stop a service and hold it down, release a hold                                                                        |
 | `RECREATE`      | make the named containers again from the images on this host; `DEPLOY` pulls first                                     |
 | `RESTORE`       | put one archive back; a dump is preceded by a fresh dump and replaces `public` in one transaction, then `migrate` runs |

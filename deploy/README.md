@@ -219,7 +219,11 @@ applies retention and starts everything again. Each archive is read back before 
 `compose.yml` is the backup set: every volume mounted under steward-agent's `/backup-sources` is saved
 and every service labelled `eu.nordtal.backup: stop` is stopped meanwhile. It includes `mc-smp` and
 `mc-hunger-games` and never `postgres-data`; `TopologyDeploymentTest` holds both. Retention is 14
-days, 8 weeks, 6 months.
+days, 8 weeks, 6 months, within a disk budget of 30 percent of the filesystem: past it the oldest
+archive of the largest series goes, never a series' newest verified one. A backup that would leave
+less than 10 percent of the disk free is refused before anything stops, and the failed run alerts.
+Both shares are `runs` settings (`backup.budget-percent`, `backup.keep-free-percent`). An update run
+that changed something removes the images no container uses and the unused build cache last.
 
 **Offsite.** Once everything runs again, the newest archive of every series is copied with restic into
 `STEWARD_OFFSITE_REPOSITORY` (a Storage Box over SFTP, encrypted with `STEWARD_OFFSITE_PASSWORD`),

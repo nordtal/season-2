@@ -63,4 +63,21 @@ public interface ContainerOps {
 
     /** Makes the long-running steward-agent again from this compose file, as a one-shot does last. */
     RedeployResult renewAgent();
+
+    /**
+     * Removes the images no container uses and the unused build cache, once an update has made its containers.
+     *
+     * @return what went, or why nothing did
+     */
+    Pruned pruneImages();
+
+    /**
+     * What a prune of the images removed.
+     *
+     * @param failure what Docker answered when it refused, {@code null} when it pruned
+     */
+    record Pruned(
+            int images,
+            long freedBytes,
+            @org.jspecify.annotations.Nullable String failure) {}
 }

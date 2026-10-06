@@ -1785,6 +1785,9 @@ export type TextArgs = {
   "steward.service-page.installed-by": {
     release: Arg["text"]
   }
+  "steward.service-page.jar-version": {
+    version: Arg["text"]
+  }
   "steward.service-page.line-count": {
     lines: Arg["number"]
   }
@@ -1830,6 +1833,9 @@ export type TextArgs = {
   }
   "steward.service-page.recreate-title": {
     service: Arg["text"]
+  }
+  "steward.service-page.release-version": {
+    release: Arg["text"]
   }
   "steward.service-page.remove-jar": {
     jar: Arg["text"]

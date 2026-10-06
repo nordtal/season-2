@@ -145,6 +145,12 @@ public interface ServicePage {
     @Name("Installed by")
     MessageRef installedBy(@Arg("release") String release);
 
+    @Name("Jar version")
+    MessageRef jarVersion(@Arg("version") String version);
+
+    @Name("Release version")
+    MessageRef releaseVersion(@Arg("release") String release);
+
     @Name("Remove a plugin")
     MessageRef removePlugin(@Arg("name") String name);
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { groupPlugins, pluginStatus, removalSentence, versionOf } from "@/components/steward/plugins"
+import { groupPlugins, pluginStatus, removalSentence, versionLine, versionOf } from "@/components/steward/plugins"
 import type { AvailableChange, ServicePlugin } from "@/lib/api"
 
 /**
@@ -50,6 +50,32 @@ describe("reading the version out of a jar's name", () => {
     expect(versionOf("Chunky-Bukkit-1.5.3.jar")).toBe("1.5.3")
     expect(versionOf("nodash.jar")).toBeUndefined()
     expect(versionOf(undefined)).toBeUndefined()
+  })
+
+  it("is no version when that part is a word", () => {
+    expect(versionOf("WorldEditDisplay-2.6.0-paper.jar")).toBeUndefined()
+    expect(versionOf("voxy-server-side-paper.jar")).toBeUndefined()
+  })
+})
+
+describe("the version a row shows", () => {
+  const texts = (over: Partial<ServicePlugin>) => versionLine(plugin(over)).map((piece) => piece.text)
+
+  it("is the release's alone when the jar is the one it ships", () => {
+    expect(texts({ fileName: "smp-0.16.1.jar", release: "0.16.1" })).toEqual(["0.16.1"])
+  })
+
+  it("labels both when the jar and the release differ", () => {
+    expect(texts({ fileName: "packetevents-spigot-2.14.0.jar", release: "0.16.1" })).toEqual([
+      "jar 2.14.0",
+      "release v0.16.1",
+    ])
+  })
+
+  it("shows the whole file name when its name carries no version", () => {
+    expect(texts({ fileName: "voxy-server-side-paper.jar", release: undefined })).toEqual([
+      "voxy-server-side-paper.jar",
+    ])
   })
 })
 

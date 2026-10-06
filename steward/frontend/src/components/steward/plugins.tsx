@@ -161,12 +161,31 @@ export function absence(
   return noBuild(gameVersion)
 }
 
-/** The version in a jar's name: what follows the last `-` of the stem, as `JarName` reads it. */
+/** The version in a jar's name: what follows the last `-` of the stem, and only when it reads as digits and dots. */
 export function versionOf(fileName?: string): string | undefined {
   if (!fileName) return undefined
   const stem = fileName.replace(/\.jar$/i, "")
-  const dash = stem.lastIndexOf("-")
-  return dash > 0 && dash < stem.length - 1 ? stem.slice(dash + 1) : undefined
+  const tail = stem.slice(stem.lastIndexOf("-") + 1)
+  return stem.includes("-") && /^\d+(\.\d+)*$/.test(tail) ? tail : undefined
+}
+
+/** One piece of a row's version line, with what it means on hover. */
+export type VersionPiece = { text: string; title?: string }
+
+/**
+ * A row's version: the release's alone when the jar is the one it ships, the jar's and the release's labelled when
+ * they differ, and the whole file name when its name carries no version.
+ */
+export function versionLine(plugin: ServicePlugin): VersionPiece[] {
+  const version = plugin.version ?? versionOf(plugin.fileName)
+  const installedBy = plugin.release ? t("steward.service-page.installed-by", { release: plugin.release }) : undefined
+  if (plugin.release && version === plugin.release) return [{ text: plugin.release, title: installedBy }]
+  const file = version ?? plugin.fileName
+  if (!plugin.release) return file ? [{ text: file }] : []
+  return [
+    ...(file ? [{ text: t("steward.service-page.jar-version", { version: file }) }] : []),
+    { text: t("steward.service-page.release-version", { release: plugin.release }), title: installedBy },
+  ]
 }
 
 export type PluginStatus = { tone: "idle" | "warn"; text: string }
@@ -215,7 +234,7 @@ function PluginRow({
   status?: PluginStatus
   absence?: string
 }) {
-  const version = plugin ? (plugin.version ?? versionOf(plugin.fileName)) : undefined
+  const versions = plugin ? versionLine(plugin) : []
   return (
     <li className="flex min-h-14 items-center gap-3">
       <Tile plugin={plugin} />
@@ -223,17 +242,13 @@ function PluginRow({
         {plugin ? (
           <>
             <span className="truncate text-sm font-medium">{plugin.name}</span>
-            {version || plugin.release || plugin.addedBy ? (
+            {versions.length > 0 || plugin.addedBy ? (
               <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground tnum">
-                {version ? <span className="truncate">{version}</span> : null}
-                {plugin.release ? (
-                  <span
-                    className="shrink-0"
-                    title={t("steward.service-page.installed-by", { release: plugin.release })}
-                  >
-                    v{plugin.release}
+                {versions.map((piece) => (
+                  <span key={piece.text} className="truncate" title={piece.title}>
+                    {piece.text}
                   </span>
-                ) : null}
+                ))}
                 {plugin.addedBy ? (
                   <Actor kind={plugin.addedBy.kind} id={plugin.addedBy.person ?? ""} className="min-w-0" />
                 ) : null}

@@ -115,6 +115,28 @@ describe("trackAppFrame - what lands on the document", () => {
     field.remove()
   })
 
+  it("puts the document back at the top once the field is left, since iOS leaves it pushed up by the keyboard", () => {
+    const visual = { height: 800, scale: 1, addEventListener() {}, removeEventListener() {} }
+    Object.defineProperty(window, "visualViewport", { value: visual, configurable: true })
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {})
+    const field = document.createElement("input")
+    document.body.append(field)
+
+    const stop = trackAppFrame(window)
+    field.focus()
+    Object.defineProperty(window, "scrollY", { value: 48, configurable: true })
+    window.dispatchEvent(new Event("resize"))
+    expect(scrollTo).not.toHaveBeenCalled()
+
+    field.blur()
+    expect(scrollTo).toHaveBeenCalledWith(0, 0)
+
+    stop()
+    field.remove()
+    scrollTo.mockRestore()
+    Object.defineProperty(window, "scrollY", { value: 0, configurable: true })
+  })
+
   it("follows a window that GROWS while a field has focus, instead of staying short below it", () => {
     /** A window grown with the cursor in a field must grow the shell at once, not when the field is left. */
     const visual = { height: 700, scale: 1, addEventListener() {}, removeEventListener() {} }

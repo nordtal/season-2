@@ -1,7 +1,8 @@
 /**
  * Measures the window height and the home screen's blur band as `--app-height` and `--blur-clearance`.
  *
- * Viewport units are too tall on an iOS home screen. A keyboard or pinch is ignored only when it shrinks.
+ * Viewport units are too tall on an iOS home screen. A keyboard or pinch is ignored only when it shrinks,
+ * and the document is put back at the top once no field has focus.
  */
 
 /** What this needs off `window`. A type, so a test can hand it a plain object. */
@@ -61,7 +62,14 @@ export function trackAppFrame(view: Window = window): () => void {
   /** The unrounded height behind `published`, which tells a growing window from a keyboard. */
   let measured: number | null = null
 
+  /** iOS scrolls the document to show a focused field and may leave it there; nothing else scrolls it. */
+  const settle = () => {
+    if (isEditable(view.document.activeElement)) return
+    if (view.scrollY !== 0 || view.scrollX !== 0) view.scrollTo(0, 0)
+  }
+
   const apply = () => {
+    settle()
     const height = measuredHeight(view, view.document.activeElement, measured)
     if (height === null) return
     measured = height

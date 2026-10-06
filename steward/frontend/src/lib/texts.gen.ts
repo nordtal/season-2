@@ -495,6 +495,10 @@ export type TextArgs = {
     services: Arg["list"]
     count: Arg["number"]
   }
+  "report.local-builds-kept": {
+    services: Arg["list"]
+    count: Arg["number"]
+  }
   "report.made-again": {
     pull: Arg["choice"]
   }
@@ -1144,6 +1148,8 @@ export type TextArgs = {
     drift: Arg["choice"]
   }
   "steward.image.label": Record<string, never>
+  "steward.image.local-jars": Record<string, never>
+  "steward.image.local-tip": Record<string, never>
   "steward.journal.action": Record<string, never>
   "steward.journal.actor": Record<string, never>
   "steward.journal.all": Record<string, never>
@@ -1396,6 +1402,9 @@ export type TextArgs = {
     count: Arg["number"]
   }
   "steward.operations.growing": Record<string, never>
+  "steward.operations.local-builds": {
+    builds: Arg["list"]
+  }
   "steward.operations.moved": {
     services: Arg["number"]
     artefacts: Arg["number"]

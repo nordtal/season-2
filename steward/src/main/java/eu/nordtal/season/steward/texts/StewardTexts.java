@@ -132,6 +132,12 @@ public interface StewardTexts {
 
             @Name("Image")
             MessageRef label();
+
+            @Name("Jars built here")
+            MessageRef localJars();
+
+            @Name("A local build explained")
+            MessageRef localTip();
         }
 
         /** Why Steward refuses a request a person sent; the error it answers carries the text rendered. */

@@ -2,7 +2,7 @@ import { ArrowSquareOutIcon, ArrowUpIcon, QuestionIcon, UsersIcon, WrenchIcon } 
 import { Link } from "@tanstack/react-router"
 import { cn } from "cn"
 
-import type { Service } from "@/lib/api"
+import type { LocalBuild, Service } from "@/lib/api"
 import { bytes, percent } from "@/lib/format"
 import { HealthDot } from "@/components/steward/status"
 import { RecreateButton } from "@/components/steward/recreate"
@@ -24,8 +24,8 @@ import { choice, since, t } from "@/lib/texts"
  *
  * Exported for `table.tsx`, so the phone's rows draw the same mark.
  */
-export function DriftMark({ drift }: { drift: string }) {
-  switch (drift) {
+export function DriftMark({ drift, localBuild }: { drift: string; localBuild?: LocalBuild }) {
+  switch (localBuild ? "LOCAL" : drift) {
     case "OUTDATED":
       return (
         <ArrowUpIcon
@@ -39,8 +39,13 @@ export function DriftMark({ drift }: { drift: string }) {
         <WrenchIcon
           className="size-3 shrink-0 text-muted-foreground"
           role="img"
-          aria-label={t("steward.image.drift", { drift: "local" })}
-        />
+          aria-label={
+            t("steward.image.drift", { drift: "local" }) +
+            (localBuild?.jars.length ? `: ${localBuild.jars.join(", ")}` : "")
+          }
+        >
+          {localBuild?.jars.length ? <title>{localBuild.jars.join(", ")}</title> : null}
+        </WrenchIcon>
       )
     case "UP_TO_DATE":
       return null
@@ -189,7 +194,7 @@ export function ServiceNode({
               tabIndex={0}
               className="flex min-w-0 items-center gap-1 rounded-sm text-[0.6875rem] text-muted-foreground"
             >
-              <DriftMark drift={service?.drift ?? "UNKNOWN"} />
+              <DriftMark drift={service?.drift ?? "UNKNOWN"} localBuild={service?.localBuild} />
               {/* Only the tag has to be fetched, so only it waits. */}
               {service ? (
                 <span className="min-w-0 flex-1 truncate tnum">{imageTag(service.image)}</span>

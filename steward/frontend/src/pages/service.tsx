@@ -324,7 +324,7 @@ export function ServiceHead({
         <div className="flex flex-wrap items-center gap-2">
           {/* The hold is part of the state badge, the same reading the sidebar and network view draw. */}
           {service ? <ServiceState service={service} /> : <Skeleton className="h-5 w-20 rounded-full" />}
-          {service ? <DriftBadge drift={service.drift} image={service.image} /> : null}
+          {service ? <DriftBadge drift={service.drift} image={service.image} localBuild={service.localBuild} /> : null}
         </div>
         <span className="text-2xl font-semibold tabular-nums max-sm:text-sm">
           {service ? (
@@ -385,7 +385,7 @@ function RestingHead({ service }: { service: NonNullable<ReturnType<typeof useSe
         </span>
         <div className="flex flex-wrap items-center gap-2">
           <ServiceState service={service} />
-          <DriftBadge drift={service.drift} image={service.image} />
+          <DriftBadge drift={service.drift} image={service.image} localBuild={service.localBuild} />
         </div>
       </div>
       {lastRun ? (

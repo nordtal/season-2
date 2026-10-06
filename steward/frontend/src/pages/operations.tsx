@@ -11,6 +11,7 @@ import {
   ShieldWarningIcon,
   PowerIcon,
   WarningIcon,
+  WrenchIcon,
   XCircleIcon,
 } from "@phosphor-icons/react"
 import { useState } from "react"
@@ -19,7 +20,7 @@ import { toast } from "sonner"
 
 import type { ReportChange, ReportLine, Run } from "@/lib/api"
 import { dateTime, parseInstant, relative } from "@/lib/format"
-import { useAskForRun, useCancelRun, useRun } from "@/lib/queries"
+import { useAskForRun, useCancelRun, useRun, useServices } from "@/lib/queries"
 import { useRunLock } from "@/lib/run-lock"
 import { choice, message, span, t } from "@/lib/texts"
 import { AskThenAct } from "@/components/steward/ask-then-act"
@@ -258,10 +259,19 @@ export function AskButton({
   const title = t("steward.operations.ask", { kind: choice(kind) })
   const warning = t("steward.operations.ask-warning", { kind: choice(kind) })
   const scoped = services !== undefined && services.length > 0
+  const table = useServices(kind === "UPDATE")
+  const localBuilds =
+    kind === "UPDATE"
+      ? (table.data?.services ?? [])
+          .filter((row) => row.localBuild && (!scoped || services.includes(row.service)))
+          .map((row) =>
+            row.localBuild?.jars.length ? `${row.service} (${row.localBuild.jars.join(", ")})` : row.service,
+          )
+      : []
 
   const submit = () =>
     ask
-      .mutateAsync({ kind, services })
+      .mutateAsync({ kind, services, ...(localBuilds.length > 0 ? { replaceLocal: true } : {}) })
       .then((run) => toast.success(t("steward.operations.entered", { kind: runKind(kind), run: run.id })))
 
   return (
@@ -294,6 +304,12 @@ export function AskButton({
         <p className="flex items-start gap-2 text-sm text-warning">
           <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
           {warning}
+        </p>
+      ) : null}
+      {localBuilds.length > 0 ? (
+        <p className="flex items-start gap-2 text-sm text-warning">
+          <WrenchIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+          {t("steward.operations.local-builds", { builds: localBuilds })}
         </p>
       ) : null}
     </AskThenAct>

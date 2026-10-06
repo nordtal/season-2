@@ -40,3 +40,49 @@ describe("the run dialog", () => {
     })
   }
 })
+
+function askUpdate(services: string[]) {
+  const posted: unknown[] = []
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith("/api/services")) {
+        return Response.json({
+          services: [
+            { service: "smp", drift: "UP_TO_DATE", localBuild: { jars: ["smp-0.17.0.jar"] } },
+            { service: "limbo", drift: "UP_TO_DATE" },
+          ],
+          moving: [],
+        })
+      }
+      if (typeof init?.body === "string") posted.push(JSON.parse(init.body))
+      return Response.json({ id: 7 })
+    }),
+  )
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(
+    <QueryClientProvider client={client}>
+      <TooltipProvider>
+        <AskButton kind="UPDATE" services={services} label="Go" />
+      </TooltipProvider>
+    </QueryClientProvider>,
+  )
+  fireEvent.click(screen.getByRole("button", { name: "Go" }))
+  return posted
+}
+
+describe("an update over a build made on the host", () => {
+  it("names the jar in the confirmation and says the build may go", async () => {
+    const posted = askUpdate(["smp"])
+    expect(await screen.findByText(/smp \(smp-0\.17\.0\.jar\)/)).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Now" }))
+    await vi.waitFor(() => expect(posted).toEqual([{ kind: "UPDATE", services: ["smp"], replaceLocal: true }]))
+  })
+
+  it("says nothing of a build outside the run's scope, and asks the agent to keep any it would replace", async () => {
+    const posted = askUpdate(["limbo"])
+    fireEvent.click(screen.getByRole("button", { name: "Now" }))
+    await vi.waitFor(() => expect(posted).toEqual([{ kind: "UPDATE", services: ["limbo"] }]))
+    expect(screen.queryByText(/smp-0\.17\.0\.jar/)).toBeNull()
+  })
+})

@@ -5,6 +5,8 @@ import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
+import eu.nordtal.season.database.inbox.StewardRequest;
+import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.database.update.UpdateReports;
@@ -88,9 +90,19 @@ public final class Updates {
         final Duration delay = ask.delaySeconds == null || ask.delaySeconds <= 0
                 ? Duration.ZERO
                 : Duration.ofSeconds(ask.delaySeconds);
+        final boolean replaceLocal = Boolean.TRUE.equals(ask.replaceLocal);
+        if (replaceLocal && kind != UpdateKind.UPDATE) {
+            throw new BadRequestResponse("replaceLocal is for an UPDATE only, the one run that replaces a build");
+        }
         final UpdateRequest written;
         try {
-            written = data().updates().submit(kind, who.actor(), delay, ask.services);
+            written = replaceLocal
+                    ? data().updates()
+                            .submit(
+                                    new StewardRequest.Update(UpdateDirectory.cleaned(ask.services), true),
+                                    who.actor(),
+                                    delay)
+                    : data().updates().submit(kind, who.actor(), delay, ask.services);
         } catch (final IllegalArgumentException named) {
             // A restore and a plugin removal carry more than services and have routes of their own.
             throw new BadRequestResponse(named.getMessage());
@@ -188,5 +200,8 @@ public final class Updates {
         Long delaySeconds;
         /** The compose services this run is for; absent or empty is the whole network. */
         java.util.@Nullable List<String> services;
+        /** For an update: whoever asked confirmed that the builds made on the host it would replace go. */
+        @Nullable
+        Boolean replaceLocal;
     }
 }

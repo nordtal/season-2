@@ -79,6 +79,7 @@ public final class StewardPreview {
                 StandInDiscord discord = new StandInDiscord()) {
             agent.daemon.stopped.add(new FakeDaemon.Stopped("migrate", 0, "2026-10-06T01:00:09Z"));
             agent.daemon.stopped.add(new FakeDaemon.Stopped("proxy-standby", 143, "2026-10-06T01:20:00Z"));
+            localJar(agent.volumes.resolve("smp/plugins/smp-0.17.0.jar"));
             final Steward.Configs configs = java.util.Objects.requireNonNull(
                     Steward.configsOf(asSteward(postgres), database), "the stored settings were refused");
             final Data data = new Data(database, Clock.systemUTC());
@@ -122,6 +123,17 @@ public final class StewardPreview {
             Files.deleteIfExists(state);
         } catch (final IOException ignored) {
             // A cookie of a database that no longer exists opens nothing.
+        }
+    }
+
+    /** A plugin jar built outside a release, so the stack shows a local build. */
+    private static void localJar(final Path jar) throws IOException {
+        Files.createDirectories(jar.getParent());
+        try (java.util.jar.JarOutputStream out = new java.util.jar.JarOutputStream(Files.newOutputStream(jar))) {
+            out.putNextEntry(new java.util.jar.JarEntry("nordtal-plugin.json"));
+            out.write("{\"id\": \"smp\", \"name\": \"SMP\", \"local\": true}"
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            out.closeEntry();
         }
     }
 

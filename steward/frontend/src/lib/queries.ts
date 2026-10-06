@@ -391,6 +391,8 @@ export function useAskForRun() {
       delaySeconds?: number
       /** Which compose services the run is for; left off for the whole network. */
       services?: string[]
+      /** For an update: the builds made on the host that it renews may go, as the dialog listed them. */
+      replaceLocal?: boolean
     }) => api<Run>("/api/updates", { method: "POST", body: ask }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ["runs"] })

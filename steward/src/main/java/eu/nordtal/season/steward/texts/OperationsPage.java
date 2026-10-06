@@ -47,6 +47,9 @@ public interface OperationsPage {
     @Name("What a run costs")
     MessageRef askWarning(@Arg("kind") UpdateKind kind);
 
+    @Name("Local builds an update replaces")
+    MessageRef localBuilds(@Arg("builds") List<String> builds);
+
     @Name("For some services")
     MessageRef scoped(@Arg("ask") String ask, @Arg("services") List<String> services);
 

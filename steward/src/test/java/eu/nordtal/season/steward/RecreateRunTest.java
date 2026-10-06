@@ -8,7 +8,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
 import org.junit.jupiter.api.Test;
 
-/** Recreating a service is a run like any other, and the truncated actor edge case around asking for one. */
+/** Recreating a service is a run like any other, an update can confirm local builds, and a truncated actor. */
 class RecreateRunTest extends WebTestSupport {
 
     @Test
@@ -32,6 +32,28 @@ class RecreateRunTest extends WebTestSupport {
 
         assertEquals(400, refused.statusCode(), refused.body());
         assertEquals(0, count("select count(*) from steward_inbox where kind = 'RECREATE'"));
+    }
+
+    @Test
+    void anUpdateConfirmedToReplaceLocalBuildsCarriesItToTheAgent() throws Exception {
+        final HttpResponse<String> accepted = post("/api/updates", "{\"kind\":\"UPDATE\",\"replaceLocal\":true}");
+        try {
+            assertEquals(202, accepted.statusCode(), accepted.body());
+            assertEquals(
+                    1,
+                    count("select count(*) from steward_inbox where kind = 'UPDATE'"
+                            + " and (payload ->> 'replacesLocal')::boolean"));
+        } finally {
+            forgetRuns();
+        }
+    }
+
+    @Test
+    void onlyAnUpdateReplacesABuild() throws Exception {
+        final HttpResponse<String> refused = post("/api/updates", "{\"kind\":\"RESTART\",\"replaceLocal\":true}");
+
+        assertEquals(400, refused.statusCode(), refused.body());
+        assertEquals(0, count("select count(*) from steward_inbox where kind = 'RESTART'"));
     }
 
     /**
@@ -169,7 +191,7 @@ class RecreateRunTest extends WebTestSupport {
     private static void forgetRuns() throws Exception {
         try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var statement = connection.createStatement()) {
-            statement.execute("delete from steward_inbox where kind = 'RECREATE'");
+            statement.execute("delete from steward_inbox where kind in ('RECREATE', 'UPDATE')");
         }
     }
 }

@@ -1,6 +1,6 @@
 import { cn } from "cn"
 
-import type { ImageState, Service } from "@/lib/api"
+import type { ImageState, LocalBuild, Service } from "@/lib/api"
 import { choice, t } from "@/lib/texts"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -229,22 +229,56 @@ export function AvailableBadge({ status }: { status: string }) {
 const DRIFT_TONE: Record<string, Tone> = { UP_TO_DATE: "ok", OUTDATED: "warn" }
 
 /** Image drift: UNKNOWN is never silent or green, and LOCAL, being ahead of the registry, is neutral. */
-export function DriftBadge({ drift, image }: { drift: ImageState; image?: string; digests?: string[] }) {
+/** The drift a service is drawn with: anything built on the host reads as a local build, whatever its image says. */
+export function shownDrift(drift: ImageState, localBuild?: LocalBuild): ImageState {
+  return localBuild ? "LOCAL" : drift
+}
+
+export function DriftBadge({
+  drift,
+  image,
+  localBuild,
+}: {
+  drift: ImageState
+  image?: string
+  localBuild?: LocalBuild
+}) {
+  const shown = shownDrift(drift, localBuild)
+  const jars = localBuild?.jars ?? []
   return (
     <StatusBadge
-      tone={DRIFT_TONE[drift] ?? "idle"}
+      tone={DRIFT_TONE[shown] ?? "idle"}
       tipContent={
-        drift === "LOCAL" ? (
-          <div className="flex w-full min-w-0 flex-col sm:w-auto sm:min-w-64">
-            <span className="text-xs font-medium font-heading text-muted-foreground">{t("steward.image.label")}</span>
-            <span className="truncate text-sm">{image}</span>
+        shown === "LOCAL" ? (
+          <div className="flex w-full min-w-0 flex-col gap-1 sm:w-auto sm:min-w-64">
+            {drift === "LOCAL" || localBuild?.image ? (
+              <>
+                <span className="text-xs font-medium font-heading text-muted-foreground">
+                  {t("steward.image.label")}
+                </span>
+                <span className="truncate text-sm">{localBuild?.image ?? image}</span>
+              </>
+            ) : null}
+            {jars.length > 0 ? (
+              <>
+                <span className="text-xs font-medium font-heading text-muted-foreground">
+                  {t("steward.image.local-jars")}
+                </span>
+                {jars.map((jar) => (
+                  <span key={jar} className="truncate text-sm">
+                    {jar}
+                  </span>
+                ))}
+              </>
+            ) : null}
+            <span className="text-xs text-muted-foreground">{t("steward.image.local-tip")}</span>
           </div>
         ) : (
           t("steward.image.drift-tip", { drift: choice(drift) })
         )
       }
     >
-      {t("steward.image.drift", { drift: choice(drift) })}
+      {t("steward.image.drift", { drift: choice(shown) })}
     </StatusBadge>
   )
 }

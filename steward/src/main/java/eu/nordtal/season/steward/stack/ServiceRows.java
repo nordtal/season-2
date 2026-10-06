@@ -46,6 +46,7 @@ public final class ServiceRows {
      * One row of {@code /api/services}; the last five fields only on {@code /api/services/{name}}.
      *
      * Absent is never zero, empty or false: nobody reported the players, or the service is no standby and not held.
+     * @param localBuild the image or jars it runs that were built on the host, which an update asks before replacing
      * @param oneShot true for a service that runs once and exits, absent for every other
      * @param lastRun how a one-shot's last run went, absent while it runs, before it ran and for every other service
      * @param alert {@code DOWN} where {@link StackAlerts#down} finds the row red, else absent
@@ -58,6 +59,7 @@ public final class ServiceRows {
             @Nullable String status,
             boolean hasConsole,
             ImageResult.State drift,
+            ImageResult.@Nullable LocalBuild localBuild,
             @Nullable Integer players,
             @Nullable List<Connected> roster,
             @Nullable Boolean standby,
@@ -102,6 +104,7 @@ public final class ServiceRows {
                     status,
                     hasConsole,
                     drift,
+                    localBuild,
                     players,
                     roster,
                     standby,
@@ -266,6 +269,7 @@ public final class ServiceRows {
                 container.status(),
                 consoles(topology).contains(service),
                 drift.state(service),
+                drift.localBuilds().get(service),
                 counts.counts().get(service),
                 roster(service, counts),
                 standby,

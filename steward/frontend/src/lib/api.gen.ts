@@ -611,6 +611,7 @@ export type Service = {
   status?: string
   hasConsole: boolean
   drift: ImageState
+  localBuild?: LocalBuild
   players?: number
   roster?: Connected[]
   standby?: boolean
@@ -777,6 +778,11 @@ export type SmpObjective = {
 }
 
 export type ImageState = "OUTDATED" | "UP_TO_DATE" | "LOCAL" | "UNKNOWN"
+
+export type LocalBuild = {
+  image?: string
+  jars: string[]
+}
 
 export type Connected = {
   uuid: string

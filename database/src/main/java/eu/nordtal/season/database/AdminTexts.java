@@ -286,6 +286,9 @@ public interface AdminTexts {
         @Name("Docker's word")
         MessageRef dockerState(@Arg("state") String state);
 
+        @Name("A one-shot service failed")
+        MessageRef failedOnce(@Arg("service") String service, @Arg("code") int code);
+
         @Name("Older images")
         MessageRef olderImage(@Arg("services") List<String> services, @Arg("count") int count);
 

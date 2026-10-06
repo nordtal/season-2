@@ -57,18 +57,25 @@ export function StatusBadge({
 }
 
 /** The fields {@link serviceTone} and {@link ServiceState} need; `alert` is the alert rule's verdict on the row. */
-export type ServiceHealth = Pick<Service, "state" | "health" | "hold" | "alert">
+export type ServiceHealth = Pick<Service, "state" | "health" | "hold" | "alert"> &
+  Partial<Pick<Service, "oneShot" | "lastRun">>
 
 /**
  * One service reduced to a tone, shared by {@link ServiceState} and {@link HealthDot} so they cannot drift apart.
  *
  * Red is the alert rule's word alone; a stop it raises nothing about is meant, a standby or a hold, so `idle`.
+ * A one-shot that exited cleanly did its job, so `ok`.
  */
 export function serviceTone(service: ServiceHealth): Tone {
   if (service.alert === "down") return "down"
-  if (service.state !== "running") return "idle"
+  if (service.state !== "running") return completed(service) ? "ok" : "idle"
   if (service.health === "starting") return "warn"
   return "ok"
+}
+
+/** Whether this is a one-shot whose last run exited with code 0. */
+export function completed(service: ServiceHealth): boolean {
+  return service.oneShot === true && service.state !== "running" && service.lastRun?.exitCode === 0
 }
 
 /** Whether this service is stopped and meant to be; a hold on a running container says nothing. */
@@ -78,8 +85,18 @@ export function held(service: ServiceHealth): boolean {
 
 /** Docker's container state, with health folded in where there is one. */
 export function ServiceState({ service }: { service: ServiceHealth }) {
-  const { state, health, hold } = service
+  const { state, health, hold, lastRun } = service
   const tone = serviceTone(service)
+  if (state !== "running" && service.oneShot && lastRun) {
+    return (
+      <StatusBadge
+        tone={tone}
+        tipContent={t("steward.service.exited", { code: lastRun.exitCode, at: lastRun.finishedAt })}
+      >
+        {t("steward.service.state", { state: tone === "ok" ? "completed" : "failed" })}
+      </StatusBadge>
+    )
+  }
   if (state !== "running") {
     if (tone === "down") {
       return (
@@ -171,7 +188,9 @@ export function HealthDot({
 
   const tone = serviceTone(service)
   if (tone === "ok" && quiet) return null
-  const word = t("steward.service.state", { state: tone === "idle" && !held(service) ? "standby" : DOT_STATE[tone] })
+  const word = t("steward.service.state", {
+    state: completed(service) ? "completed" : tone === "idle" && !held(service) ? "standby" : DOT_STATE[tone],
+  })
 
   return (
     <span

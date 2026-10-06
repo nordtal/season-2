@@ -34,6 +34,12 @@ public interface ServicePage {
     @Name("Disk")
     MessageRef disk();
 
+    @Name("A one-shot's last run")
+    MessageRef lastRun();
+
+    @Name("A one-shot's exit code")
+    MessageRef exitCode();
+
     @Name("How far back the curves reach")
     MessageRef range();
 

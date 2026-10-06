@@ -176,6 +176,27 @@ describe("ServicePage - the head and the tabs", () => {
     expect(new Set(icons).size).toBe(3)
     expect(screen.queryByText("Put down")).toBeNull()
   })
+
+  it("draws no action for a one-shot or a resting standby, which runs start by themselves", async () => {
+    vi.stubGlobal("EventSource", SilentEventSource)
+    vi.stubGlobal(
+      "fetch",
+      backend(
+        row("migrate", {
+          state: "exited",
+          health: undefined,
+          oneShot: true,
+          lastRun: { finishedAt: "2026-10-06T01:00:09Z", exitCode: 0 },
+        }),
+      ),
+    )
+    draw("/services/migrate")
+
+    await screen.findByText("completed")
+    for (const name of ["Update", "Take down", "Recreate", "More actions"]) {
+      expect(screen.queryByRole("button", { name })).toBeNull()
+    }
+  })
 })
 
 const openRun = (over: Partial<Run> = {}): Run => ({

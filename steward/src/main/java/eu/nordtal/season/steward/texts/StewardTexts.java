@@ -92,6 +92,9 @@ public interface StewardTexts {
             @Name("Held down")
             MessageRef heldSince(@Arg("since") Instant since, @Arg("state") String state);
 
+            @Name("How a one-shot ended")
+            MessageRef exited(@Arg("code") int code, @Arg("at") Instant at);
+
             @Name("Failing healthcheck")
             MessageRef unhealthy();
 
@@ -393,6 +396,8 @@ public interface StewardTexts {
         UNHEALTHY,
         HELD,
         STANDBY,
+        COMPLETED,
+        FAILED,
         CREATED,
         RESTARTING,
         REMOVING,

@@ -18,6 +18,7 @@ import eu.nordtal.season.steward.config.WebSpec;
 import eu.nordtal.season.steward.data.Data;
 import eu.nordtal.season.steward.stack.StackApi;
 import eu.nordtal.season.stewardagent.AgentStandIn;
+import eu.nordtal.season.stewardagent.docker.FakeDaemon;
 import java.io.IOException;
 import java.net.CookieManager;
 import java.net.HttpCookie;
@@ -49,6 +50,14 @@ public final class StewardPreview {
     /** Who owns the objects of a dump taken on a deployment, as compose.yml names the database user. */
     private static final String DUMP_OWNER = "nordtal";
 
+    /** A one-shot that ran and a standby at rest, beside the stand-in's smp, so their pages can be looked at. */
+    private static final com.google.gson.JsonObject RESTING =
+            com.google.gson.JsonParser.parseString("""
+                    {"migrate": {"image": "ghcr.io/nordtal/steward-agent:latest", "restart": "no"},
+                     "proxy-standby": {"image": "ghcr.io/nordtal/minecraft:latest", "restart": "unless-stopped",
+                       "labels": {"eu.nordtal.standby-of": "proxy"}}}
+                    """).getAsJsonObject();
+
     private StewardPreview() {}
 
     /**
@@ -66,8 +75,10 @@ public final class StewardPreview {
         try (Database database = Database.open(asSteward(postgres), "steward-preview");
                 ProcessScheduler scheduler = new ProcessScheduler(
                         "steward-preview", failure -> System.err.println("A task failed: " + failure));
-                AgentStandIn agent = new AgentStandIn(scratch, 0, cfg -> {});
+                AgentStandIn agent = new AgentStandIn(scratch, 0, cfg -> {}, RESTING);
                 StandInDiscord discord = new StandInDiscord()) {
+            agent.daemon.stopped.add(new FakeDaemon.Stopped("migrate", 0, "2026-10-06T01:00:09Z"));
+            agent.daemon.stopped.add(new FakeDaemon.Stopped("proxy-standby", 143, "2026-10-06T01:20:00Z"));
             final Steward.Configs configs = java.util.Objects.requireNonNull(
                     Steward.configsOf(asSteward(postgres), database), "the stored settings were refused");
             final Data data = new Data(database, Clock.systemUTC());

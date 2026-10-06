@@ -132,3 +132,52 @@ describe("ServiceHead - a service somebody is holding down", () => {
     expect(screen.queryByText("exited")).not.toBeNull()
   })
 })
+
+/** A one-shot and a resting standby have nothing to chart; the head says how they stand instead. */
+const migrate = (exitCode: number) =>
+  service({
+    service: "migrate",
+    state: "exited",
+    status: `Exited (${exitCode}) 2 hours ago`,
+    health: undefined,
+    oneShot: true,
+    lastRun: { startedAt: "2026-10-06T01:00:00Z", finishedAt: "2026-10-06T01:00:09Z", exitCode },
+    alert: exitCode === 0 ? undefined : "down",
+  })
+
+describe("ServiceHead - a service a run starts on its own", () => {
+  it("shows a clean one-shot as completed with its last run and exit code, and no curves", () => {
+    draw(<ServiceHead name="migrate" service={migrate(0)} />)
+
+    expect(screen.queryByText("completed")).not.toBeNull()
+    expect(screen.queryByText("Last run")).not.toBeNull()
+    expect(screen.queryByText("Exit code")).not.toBeNull()
+    expect(screen.queryByText("0")).not.toBeNull()
+    for (const gone of ["CPU", "RAM", "exited", "standby"]) expect(screen.queryByText(gone)).toBeNull()
+  })
+
+  it("shows a one-shot that failed as failed, with its code", () => {
+    draw(<ServiceHead name="migrate" service={migrate(1)} />)
+
+    expect(screen.queryByText("failed")).not.toBeNull()
+    expect(screen.queryByText("1")).not.toBeNull()
+  })
+
+  it("shows a stopped standby as standby without curves", () => {
+    draw(
+      <ServiceHead
+        name="proxy-standby"
+        service={service({ service: "proxy-standby", state: "exited", health: undefined, standby: true })}
+      />,
+    )
+
+    expect(screen.queryByText("standby")).not.toBeNull()
+    for (const gone of ["CPU", "RAM", "Last run"]) expect(screen.queryByText(gone)).toBeNull()
+  })
+
+  it("charts a standby while it stands in", () => {
+    draw(<ServiceHead name="proxy-standby" service={service({ service: "proxy-standby", standby: true })} />)
+
+    expect(screen.queryByText("CPU")).not.toBeNull()
+  })
+})

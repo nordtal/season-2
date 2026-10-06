@@ -26,6 +26,10 @@ export type TextArgs = {
     channel: Arg["text"]
     error: Arg["text"]
   }
+  "alert.failed-once": {
+    service: Arg["text"]
+    code: Arg["number"]
+  }
   "alert.health-fails": Record<string, never>
   "alert.level": {
     level: Arg["choice"]
@@ -1795,6 +1799,7 @@ export type TextArgs = {
   "steward.service-page.cpu": Record<string, never>
   "steward.service-page.disk": Record<string, never>
   "steward.service-page.download": Record<string, never>
+  "steward.service-page.exit-code": Record<string, never>
   "steward.service-page.find": Record<string, never>
   "steward.service-page.find-in": Record<string, never>
   "steward.service-page.given": Record<string, never>
@@ -1813,6 +1818,7 @@ export type TextArgs = {
   "steward.service-page.jar-version": {
     version: Arg["text"]
   }
+  "steward.service-page.last-run": Record<string, never>
   "steward.service-page.line-count": {
     lines: Arg["number"]
   }
@@ -1888,6 +1894,10 @@ export type TextArgs = {
   "steward.service-page.waiting-for-log": Record<string, never>
   "steward.service.docker-state": {
     state: Arg["text"]
+  }
+  "steward.service.exited": {
+    code: Arg["number"]
+    at: Arg["instant"]
   }
   "steward.service.health": {
     health: Arg["text"]

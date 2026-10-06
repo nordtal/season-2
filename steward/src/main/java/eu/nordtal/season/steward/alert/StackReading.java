@@ -32,11 +32,39 @@ public record StackReading(
      * One compose service.
      *
      * @param health Docker's health word, or null for a container without a check
-     * @param quiet whether a stop is meant: a standby, or a service an admin holds down
+     * @param exitCode what its last run exited with, or null while it runs or when that is not known
      * @param outdated whether it runs an older image than the registry has
      */
     public record Service(
-            String name, String state, @Nullable String health, boolean quiet, boolean outdated) {}
+            String name,
+            String state,
+            @Nullable String health,
+            Purpose purpose,
+            @Nullable Integer exitCode,
+            boolean outdated) {
+
+        /** A long-running service with no last exit, which is how most of the stack reads. */
+        public Service(
+                final String name,
+                final String state,
+                final @Nullable String health,
+                final Purpose purpose,
+                final boolean outdated) {
+            this(name, state, health, purpose, null, outdated);
+        }
+    }
+
+    /** What a service is for right now, which decides what its state means. */
+    public enum Purpose {
+        /** It should run, so a stop is an outage. */
+        SERVES,
+        /** Its stop is meant: a standby, or a service an admin holds down. */
+        RESTS,
+        /** It runs once and exits, so only a failed exit is wrong. */
+        ONCE,
+        /** A run stops and starts it right now, or did a moment ago. */
+        MOVING
+    }
 
     /**
      * One file in the backup folder; a partial one is still being written.

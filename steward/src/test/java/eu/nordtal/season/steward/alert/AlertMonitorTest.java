@@ -66,7 +66,7 @@ class AlertMonitorTest {
     private static StackReading stack(final long diskGib, final String state) {
         final Instant fresh = Instant.now().minusSeconds(60);
         return new StackReading(
-                List.of(new StackReading.Service("smp", state, null, false, false)),
+                List.of(new StackReading.Service("smp", state, null, StackReading.Purpose.SERVES, false)),
                 null,
                 List.of(
                         new StackReading.Archive("db-20261002T110000Z.dump", fresh, false, true),
@@ -124,8 +124,8 @@ class AlertMonitorTest {
         monitor.poll();
         reading = () -> new StackReading(
                 List.of(
-                        new StackReading.Service("smp", "exited", null, false, false),
-                        new StackReading.Service("proxy", "exited", null, false, false)),
+                        new StackReading.Service("smp", "exited", null, StackReading.Purpose.SERVES, false),
+                        new StackReading.Service("proxy", "exited", null, StackReading.Purpose.SERVES, false)),
                 null,
                 stack(10, "running").archives(),
                 null,

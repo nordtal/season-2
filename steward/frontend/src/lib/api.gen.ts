@@ -615,6 +615,8 @@ export type Service = {
   roster?: Connected[]
   standby?: boolean
   hold?: Hold
+  oneShot?: boolean
+  lastRun?: LastRun
   health?: string
   alert?: AlertLevel
   startedAt?: string
@@ -783,6 +785,12 @@ export type Connected = {
 
 export type Hold = {
   since: string
+}
+
+export type LastRun = {
+  startedAt?: string
+  finishedAt: string
+  exitCode: number
 }
 
 export type PluginGroup = "nordtal" | "preinstalled" | "added"

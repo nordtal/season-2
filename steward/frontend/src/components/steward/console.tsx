@@ -157,6 +157,15 @@ export function ServiceConsole({
           <p className="text-sm text-white/85">{t("steward.service-page.log-unreachable")}</p>
           <p className="text-xs text-white/40">{stream.failure}</p>
         </div>
+      ) : offline === "gone" && !stream.entries.some((entry) => entry.kind === "line") ? (
+        /** A stopped container that never wrote a line has no log to wait for. */
+        <div
+          role="status"
+          className="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center font-sans"
+        >
+          <PowerIcon className="mb-1 size-5 text-white/60" aria-hidden />
+          <p className="text-sm text-white/85">{t("steward.service-page.offline")}</p>
+        </div>
       ) : (
         <LogLines entries={shown} />
       )}

@@ -24,7 +24,7 @@ class StackAlertsTest {
             Map.of("nordtal-s2_mc-limbo", List.of("limbo"), "limbo-world", List.of("limbo"));
 
     private static StackReading.Service service(final String name, final String state) {
-        return new StackReading.Service(name, state, null, false, false);
+        return new StackReading.Service(name, state, null, StackReading.Purpose.SERVES, false);
     }
 
     private static List<StackReading.Archive> freshBackups() {
@@ -85,7 +85,7 @@ class StackAlertsTest {
                 List.of("smp is not running"),
                 titles(withServices(
                         service("smp", "exited"),
-                        new StackReading.Service("hunger-games", "exited", null, true, false))));
+                        new StackReading.Service("hunger-games", "exited", null, StackReading.Purpose.RESTS, false))));
         final Alert down = withServices(service("smp", "exited")).getFirst();
         assertEquals(AlertType.SERVICE, down.type());
         assertEquals(Alert.Level.DOWN, down.level());
@@ -93,10 +93,41 @@ class StackAlertsTest {
     }
 
     @Test
+    void aOneShotThatExitedCleanlyIsFineAndOneThatFailedIsRedWithItsCode() {
+        final StackReading.Service clean =
+                new StackReading.Service("migrate", "exited", null, StackReading.Purpose.ONCE, 0, false);
+        final StackReading.Service failed =
+                new StackReading.Service("migrate", "exited", null, StackReading.Purpose.ONCE, 1, false);
+
+        assertEquals(List.of(), withServices(clean));
+        final Alert down = withServices(failed).getFirst();
+        assertEquals(Alert.Level.DOWN, down.level());
+        assertEquals("migrate exited with code 1", AdminPlain.of(down.title()));
+    }
+
+    @Test
+    void aOneShotWhoseExitNobodyReadIsNotCalledFailed() {
+        assertEquals(
+                List.of(),
+                withServices(new StackReading.Service("migrate", "created", null, StackReading.Purpose.ONCE, false)));
+    }
+
+    /** An update stops what it replaces; the run waits for those itself, so nothing is raised while it moves them. */
+    @Test
+    void aServiceARunIsMovingIsNeverRedStoppedOrUnhealthy() {
+        assertEquals(
+                List.of(),
+                withServices(
+                        new StackReading.Service("proxy", "exited", null, StackReading.Purpose.MOVING, false),
+                        new StackReading.Service("limbo", "running", "unhealthy", StackReading.Purpose.MOVING, false)));
+    }
+
+    @Test
     void anUnhealthyServiceIsRedEvenWhenItsStopWouldBeMeant() {
         assertEquals(
                 List.of("smp is unhealthy"),
-                titles(withServices(new StackReading.Service("smp", "running", "unhealthy", true, false))));
+                titles(withServices(
+                        new StackReading.Service("smp", "running", "unhealthy", StackReading.Purpose.RESTS, false))));
     }
 
     @Test
@@ -110,8 +141,8 @@ class StackAlertsTest {
     void anOlderImageAndAnUnansweredRegistryAreYellow() {
         final List<Alert> alerts = of(
                 List.of(
-                        new StackReading.Service("smp", "running", null, false, true),
-                        new StackReading.Service("proxy", "running", null, false, true)),
+                        new StackReading.Service("smp", "running", null, StackReading.Purpose.SERVES, true),
+                        new StackReading.Service("proxy", "running", null, StackReading.Purpose.SERVES, true)),
                 "timed out",
                 freshBackups(),
                 null);
@@ -192,8 +223,11 @@ class StackAlertsTest {
                 List.of(Alert.Level.DOWN, Alert.Level.DOWN),
                 down.stream().map(Alert::level).toList());
         assertEquals("mc-limbo", down.get(1).subject());
-        final List<Alert> held =
-                of(List.of(new StackReading.Service("limbo", "exited", null, true, false)), null, archives, null);
+        final List<Alert> held = of(
+                List.of(new StackReading.Service("limbo", "exited", null, StackReading.Purpose.RESTS, false)),
+                null,
+                archives,
+                null);
         assertEquals(List.of(Alert.Level.WARN), held.stream().map(Alert::level).toList());
     }
 
@@ -252,7 +286,9 @@ class StackAlertsTest {
     @Test
     void redComesBeforeYellow() {
         final List<Alert> alerts = of(
-                List.of(new StackReading.Service("smp", "running", null, false, true), service("proxy", "exited")),
+                List.of(
+                        new StackReading.Service("smp", "running", null, StackReading.Purpose.SERVES, true),
+                        service("proxy", "exited")),
                 null,
                 freshBackups(),
                 host(95, 50));

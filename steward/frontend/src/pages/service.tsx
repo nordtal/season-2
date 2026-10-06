@@ -10,7 +10,7 @@ import {
 import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 
-import { bytes, percent, relative } from "@/lib/format"
+import { bytes, dateTime, percent, relative } from "@/lib/format"
 import { useConfigs, useMessageBundles, useMetrics, useService } from "@/lib/queries"
 import { ServiceConsole } from "@/components/steward/console"
 import { ServiceSettings } from "@/components/steward/settings"
@@ -193,6 +193,9 @@ function ServiceActions({
   const HoldIcon = hold === "START" ? PlayIcon : PowerIcon
   const holdLabel = hold ? t("steward.operations.ask", { kind: choice(hold) }) : ""
 
+  /** A one-shot and a standby are started by runs alone, so neither has a button of its own. */
+  if (service && resting(service)) return null
+
   /** Until the row arrives each button is a shape, hidden below `sm` like the button it stands for. */
   if (service === undefined) {
     return (
@@ -293,6 +296,11 @@ export function offline(run: Run | null, name: string, state: string | undefined
   return state !== undefined && state !== "running" ? "gone" : undefined
 }
 
+/** Whether this service is one a run starts on its own, a one-shot or a standby, and is not running now. */
+export function resting(service: NonNullable<ReturnType<typeof useService>["data"]>): boolean {
+  return (service.oneShot === true || service.standby === true) && service.state !== "running"
+}
+
 /** The head of a service page, exported for its test, since some fields must be absent rather than zero. */
 export function ServiceHead({
   service,
@@ -305,6 +313,7 @@ export function ServiceHead({
   const [minutes, setMinutes] = useState<Range>(360)
   const cpu = useMetrics(name, "cpu_percent", minutes)
   const memory = useMetrics(name, "memory_bytes", minutes)
+  if (service && resting(service)) return <RestingHead service={service} />
   return (
     /* On a phone the state is one compact row, the curves side by side under it; from `lg` one flat row. */
     <section className="grid grid-cols-2 gap-x-4 gap-y-3 sm:gap-y-5 lg:flex lg:items-start lg:gap-x-10">
@@ -361,6 +370,35 @@ export function ServiceHead({
           {...PHONE_INLINE}
         />
       )}
+    </section>
+  )
+}
+
+/** A one-shot's or a standby's head: its state and, for a one-shot, how its last run ended, without curves. */
+function RestingHead({ service }: { service: NonNullable<ReturnType<typeof useService>["data"]> }) {
+  const { lastRun } = service
+  return (
+    <section className="flex flex-wrap items-start gap-x-10 gap-y-3">
+      <div className="flex flex-col gap-2 max-sm:w-full max-sm:flex-row max-sm:items-center">
+        <span className="text-xs font-medium font-heading text-muted-foreground max-sm:sr-only">
+          {t("steward.operations.state")}
+        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <ServiceState service={service} />
+          <DriftBadge drift={service.drift} image={service.image} />
+        </div>
+      </div>
+      {lastRun ? (
+        <>
+          <Stat
+            label={t("steward.service-page.last-run")}
+            value={relative(lastRun.finishedAt)}
+            hint={dateTime(lastRun.finishedAt)}
+            {...PHONE_INLINE}
+          />
+          <Stat label={t("steward.service-page.exit-code")} value={String(lastRun.exitCode)} {...PHONE_INLINE} />
+        </>
+      ) : null}
     </section>
   )
 }

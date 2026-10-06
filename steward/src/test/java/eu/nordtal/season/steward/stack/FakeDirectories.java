@@ -23,7 +23,7 @@ public final class FakeDirectories {
 
     private FakeDirectories() {}
 
-    /** Every method throws except {@link UpdateDirectory#recent(int)}, which answers {@code rows}. */
+    /** Every method throws except {@code recent}, {@code open} and {@code finishedWithin}, which read {@code rows}. */
     public static UpdateDirectory updates(final UpdateRequest... rows) {
         final List<UpdateRequest> sorted = List.of(rows).stream()
                 .sorted(Comparator.comparing(
@@ -72,8 +72,16 @@ public final class FakeDirectories {
         }
 
         @Override
+        public Optional<UpdateRequest> open() {
+            return sorted.stream()
+                    .filter(run -> run.status() == UpdateStatus.PENDING || run.status() == UpdateStatus.RUNNING)
+                    .findFirst();
+        }
+
+        /** Every finished row, whatever the window, since this fake keeps no clock. */
+        @Override
         public List<UpdateRequest> finishedWithin(final Duration window) {
-            throw new UnsupportedOperationException("not exercised by this fake");
+            return sorted.stream().filter(run -> run.finished() != null).toList();
         }
 
         @Override

@@ -305,7 +305,8 @@ public final class StackApi implements AutoCloseable {
             final AgentWire.Topology topology = serviceRows.topology();
             final boolean hasPlugins = topology.hasPlugins(name);
             final Optional<DiskUsage.Measured> measured = hasPlugins ? disk.of(name) : Optional.empty();
-            return ServiceRows.describe(container, drift, serviceRows.online(), serviceRows.holds(), topology)
+            return ServiceRows.describe(
+                            container, drift, serviceRows.online(), serviceRows.holds(), serviceRows.moving(), topology)
                     .detailed(
                             container.digests() == null ? List.of() : container.digests(),
                             hasPlugins,
@@ -472,11 +473,7 @@ public final class StackApi implements AutoCloseable {
     /** What every measured alert is judged on: the service table, the archives on disk and the host's numbers. */
     public StackReading stackReading() {
         final ImageResult images = drift().result();
-        final List<StackReading.Service> services = new ArrayList<>();
-        for (final ServiceRows.Service row : serviceRows.rows(images)) {
-            services.add(new StackReading.Service(
-                    row.service(), row.state(), row.health(), row.quiet(), row.drift() == ImageResult.State.OUTDATED));
-        }
+        final List<StackReading.Service> services = serviceRows.readings(images);
         final String registryProblem = images.reached()
                 ? null
                 : java.util.Objects.requireNonNullElse(images.message(), "the registry did not answer");

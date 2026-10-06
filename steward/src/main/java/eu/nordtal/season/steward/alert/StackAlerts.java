@@ -64,25 +64,46 @@ public final class StackAlerts {
                 continue;
             }
             final boolean running = "running".equals(service.state());
-            alerts.add(new Alert(
-                    AlertType.SERVICE,
-                    Alert.Level.DOWN,
-                    service.name(),
-                    running
-                            ? TEXTS.alert().unhealthy(service.name())
-                            : TEXTS.alert().notRunning(service.name()),
-                    List.of(
-                            running
-                                    ? TEXTS.alert().healthFails()
-                                    : TEXTS.alert().dockerState(String.valueOf(service.state()))),
-                    "/services/" + service.name()));
+            final Integer exitCode = service.exitCode();
+            final MessageRef title;
+            final MessageRef detail;
+            if (running) {
+                title = TEXTS.alert().unhealthy(service.name());
+                detail = TEXTS.alert().healthFails();
+            } else if (service.purpose() == StackReading.Purpose.ONCE && exitCode != null) {
+                title = TEXTS.alert().failedOnce(service.name(), exitCode);
+                detail = TEXTS.alert().dockerState(String.valueOf(service.state()));
+            } else {
+                title = TEXTS.alert().notRunning(service.name());
+                detail = TEXTS.alert().dockerState(String.valueOf(service.state()));
+            }
+            alerts.add(alert(
+                    AlertType.SERVICE, Alert.Level.DOWN, service.name(), title, detail, "/services/" + service.name()));
         }
     }
 
-    /** Whether a service is red: stopped without meaning to be, or running with a failing healthcheck. */
+    /**
+     * Whether a service is red: stopped without meaning to be, failing its healthcheck, or failed in its one run.
+     *
+     * A service a run is moving is never red, since the run waits for it and reports what it found.
+     */
     public static boolean down(final StackReading.Service service) {
-        final boolean running = "running".equals(service.state());
-        return running ? "unhealthy".equals(service.health()) : !service.quiet();
+        if (service.purpose() == StackReading.Purpose.MOVING) {
+            return false;
+        }
+        if ("running".equals(service.state())) {
+            return "unhealthy".equals(service.health());
+        }
+        return switch (service.purpose()) {
+            case SERVES -> true;
+            case ONCE -> failed(service.exitCode());
+            case RESTS, MOVING -> false;
+        };
+    }
+
+    /** An exit nobody read is not a failure; only a code other than zero is. */
+    private static boolean failed(final @Nullable Integer exitCode) {
+        return exitCode != null && exitCode != 0;
     }
 
     /** An older image, or a registry that did not answer, is yellow: nothing is broken yet. */

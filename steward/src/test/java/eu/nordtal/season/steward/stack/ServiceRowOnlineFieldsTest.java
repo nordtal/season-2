@@ -92,7 +92,12 @@ class ServiceRowOnlineFieldsTest {
                 service, "id-" + service, null, null, "exited", null, null, null, null, null, null, null);
         return WireJson.gson()
                 .toJsonTree(ServiceRows.describe(
-                        container, new ImageResult(true, Map.of(), Set.of(), null), online, Map.of(), topology))
+                        container,
+                        new ImageResult(true, Map.of(), Set.of(), null),
+                        online,
+                        Map.of(),
+                        Set.of(),
+                        topology))
                 .getAsJsonObject();
     }
 }

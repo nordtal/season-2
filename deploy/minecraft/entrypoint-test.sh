@@ -530,6 +530,23 @@ expect_status 0
 expect_gone "$dir/velocity.toml"
 ok "nothing to enforce"
 
+case_begin "a jar's identity is read as JarName reads it, a trailing word included in the version"
+# The same names, with the same answers, as JarNameTest.
+for pair in \
+    "smp-0.2.0.jar:smp" \
+    "hunger-games-0.2.0.jar:hunger-games" \
+    "packetevents-spigot-2.13.0.jar:packetevents-spigot" \
+    "paper-26.2-121.jar:paper-26.2" \
+    "velocity-4.1.1-24.jar:velocity-4.1.1" \
+    "WorldEditDisplay-2.6.0-paper.jar:WorldEditDisplay" \
+    "packetevents-spigot-2.14.0-SNAPSHOT.jar:packetevents-spigot" \
+    "voxy-server-side-paper.jar:voxy-server-side"; do
+    name="${pair%%:*}"
+    expected="${pair#*:}"
+    got=$(bash -c 'source "$1"; jar_identity "$2"' seeding-test "$ENTRYPOINT" "$name")
+    [[ "$got" == "$expected" ]] || bad "${name} read as '${got}', JarName reads '${expected}'"
+done
+ok "the shell and JarName agree"
 
 if (( failed > 0 )); then
     printf '\n%d case(s) failed\n' "$failed" >&2

@@ -356,6 +356,19 @@ class ResolverTest {
     }
 
     @Test
+    void aJarNamedWithATrailingWordIsStillTheOneThatTheNewerBuildReplaces() throws IOException {
+        installCurrentEverything();
+        replace("smp", "plugins/packetevents-spigot-2.13.0.jar", "plugins/packetevents-spigot-2.12.0-paper.jar");
+
+        final UpdatePlan plan = resolve();
+
+        final Change change = changeFor(plan, "smp", "packetevents");
+        assertEquals(Change.Status.OUTDATED, change.status(), Report.render(plan));
+        assertEquals("packetevents-spigot-2.12.0-paper.jar", change.installed());
+        assertEquals(List.of(), plan.unclaimed(), "the old copy is the jar the row replaces, not a stranger");
+    }
+
+    @Test
     void thePackIsComparedOnItsHashNotOnItsUrl() throws IOException {
         installCurrentEverything();
         storePack("0000000000000000000000000000000000000000");

@@ -126,6 +126,18 @@ newer_server_jar() {
     (( 10#$2 > 10#$4 ))
 }
 
+# Prints the identity of the jar named $1, as JarName reads it: the name before the last `-` that a digit
+# follows, so `Plugin-2.6.0-paper.jar` is `Plugin`; with no such dash, the name before its last `-`.
+jar_identity() {
+    local stem="${1##*/}"
+    stem="${stem%.jar}"
+    if [[ "$stem" =~ ^(.+)-[0-9].*$ ]]; then
+        printf '%s\n' "${BASH_REMATCH[1]}"
+    else
+        printf '%s\n' "${stem%-*}"
+    fi
+}
+
 # Deletes every `<kind>-*.jar` in $1 except $3, the jar this start chose.
 remove_superseded_jars() {
     local cache="$1" kind="$2" keep="$3"
@@ -424,7 +436,7 @@ SERVER_VERSION_RUNNING="${SERVER_VERSION_RUNNING%-*}"
 #
 # SERVER_PLUGINS is the service's eu.nordtal.plugins label: artifact[=jar prefix][?], one per plugin.
 # Every entry without a `?` must be installed, matched by its jar prefix (the artefact id where none is
-# given) as JarName splits a filename (${file%-*.jar}). It is a minimum: extra jars are fine, a missing
+# given) as JarName splits a filename (jar_identity). It is a minimum: extra jars are fine, a missing
 # one refuses the start. A renamed third-party jar would refuse too, loudly and with the prefix named.
 if [[ "${ALLOW_NO_PLUGINS:-false}" != "true" ]]; then
     shopt -s nullglob
@@ -444,7 +456,7 @@ Refusing to start: a Minecraft server with no plugins is a server with no season
         present=()
         for jar in "${installed[@]}"; do
             jar="${jar##*/}"
-            present+=("${jar%-*.jar}")
+            present+=("$(jar_identity "$jar")")
         done
 
         missing=()

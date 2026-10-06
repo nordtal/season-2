@@ -57,6 +57,24 @@ class ApplierTest {
     }
 
     @Test
+    void aNewerJarNamedWithATrailingWordDeletesTheOlderOne() throws IOException {
+        install("smp", "plugins/WorldEditDisplay-2.6.0-paper.jar");
+
+        apply(
+                new Fake(),
+                plan(outdated(
+                        "smp",
+                        "worldeditdisplay",
+                        "WorldEditDisplay-2.6.0-paper.jar",
+                        "WorldEditDisplay-2.7.0-paper.jar")));
+
+        assertTrue(Files.exists(volumes.resolve("smp/plugins/WorldEditDisplay-2.7.0-paper.jar")));
+        assertFalse(
+                Files.exists(volumes.resolve("smp/plugins/WorldEditDisplay-2.6.0-paper.jar")),
+                "two copies of one plugin on disk");
+    }
+
+    @Test
     void aSeasonJarTheReleaseDoesNotCarryStaysAndThePluginsBesideItStillMove() throws IOException {
         install("smp", "plugins/smp-0.9.5.jar");
         install("smp", "plugins/packetevents-spigot-2.13.0.jar");

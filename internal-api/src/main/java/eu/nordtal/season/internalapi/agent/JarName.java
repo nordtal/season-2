@@ -1,15 +1,19 @@
 package eu.nordtal.season.internalapi.agent;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The one rule for reading a jar's filename: before the last {@code -} is the identity, after it the version.
- *
- * It must match {@code entrypoint.sh}'s {@code ${file%-*.jar}}, and it breaks on a qualifier such as {@code -SNAPSHOT}.
+ * The one rule for reading a jar's filename: the version starts at the last {@code -} that a digit follows.
+ * A name with no such dash splits at its last {@code -}. It must match {@code entrypoint.sh}'s {@code jar_identity}.
  */
 public final class JarName {
 
     private static final String SUFFIX = ".jar";
+
+    /** Greedy, so the identity ends at the last dash a digit follows and a trailing word is version. */
+    private static final Pattern VERSIONED = Pattern.compile("^(?<identity>.+)-(?<version>[0-9].*)$");
 
     private JarName() {}
 
@@ -42,6 +46,10 @@ public final class JarName {
             return null;
         }
         final String stem = fileName.substring(0, fileName.length() - SUFFIX.length());
+        final Matcher versioned = VERSIONED.matcher(stem);
+        if (versioned.matches()) {
+            return versioned.group(wantPrefix ? "identity" : "version");
+        }
         final int dash = stem.lastIndexOf('-');
         if (dash <= 0 || dash == stem.length() - 1) {
             return null;

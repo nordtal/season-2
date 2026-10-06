@@ -33,6 +33,8 @@ class JarNameTest {
             "voicechat-bukkit-2.6.24.jar,    voicechat-bukkit,     2.6.24",
             "paper-26.2-121.jar,             paper-26.2,           121",
             "velocity-4.1.1-24.jar,          velocity-4.1.1,       24",
+            "WorldEditDisplay-2.6.0-paper.jar, WorldEditDisplay,   2.6.0-paper",
+            "voxy-server-side-paper.jar,     voxy-server-side,     paper",
         })
         void splitIntoPrefixAndVersion(final String fileName, final String prefix, final String version) {
             assertEquals(prefix, JarName.prefixOf(fileName));
@@ -58,11 +60,13 @@ class JarNameTest {
     class TheShapesTheRuleCannotRead {
 
         @Test
-        void aVersionQualifierMovesTheSplitWhichIsTheDocumentedGap() {
-            // Nothing publishes such a name today; if it ever does, the new jar installs next to the one it replaces.
-            assertEquals("packetevents-spigot-2.14.0", JarName.prefixOf("packetevents-spigot-2.14.0-SNAPSHOT.jar"));
-            assertFalse(JarName.looksSuperseded(
+        void aTrailingWordIsPartOfTheVersionSoTheNewJarSupersedesTheOldOne() {
+            assertEquals("packetevents-spigot", JarName.prefixOf("packetevents-spigot-2.14.0-SNAPSHOT.jar"));
+            assertTrue(JarName.looksSuperseded(
                     "packetevents-spigot-2.13.0.jar", "packetevents-spigot-2.14.0-SNAPSHOT.jar"));
+            assertTrue(JarName.looksSuperseded("WorldEditDisplay-2.6.0-paper.jar", "WorldEditDisplay-2.7.0-paper.jar"));
+            assertFalse(
+                    JarName.looksSuperseded("WorldEditDisplay-2.7.0-paper.jar", "WorldEditDisplay-2.7.0-paper.jar"));
         }
 
         @ParameterizedTest

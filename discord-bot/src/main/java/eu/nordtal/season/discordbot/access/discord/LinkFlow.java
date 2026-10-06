@@ -14,6 +14,7 @@ import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.discordbot.AdminLog;
 import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.Ids;
+import eu.nordtal.season.discordbot.Mark;
 import eu.nordtal.season.messages.value.Mention;
 import java.util.List;
 import java.util.Locale;
@@ -220,6 +221,6 @@ public final class LinkFlow extends ListenerAdapter {
     /** Tells the admins a member used up the hour's link codes; one person mistyping looks like this too. */
     private void lockedOut(final User user) {
         log.warn("{} has used up its link-code attempts for this hour", user.getId());
-        admin.note("🔒", TEXTS.note().tooManyCodes(), TEXTS.note().refusedForTheHour(member(user)));
+        admin.note(Mark.LOCKED, TEXTS.note().tooManyCodes(), TEXTS.note().refusedForTheHour(member(user)));
     }
 }

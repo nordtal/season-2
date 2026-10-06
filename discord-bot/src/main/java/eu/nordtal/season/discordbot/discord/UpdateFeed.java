@@ -10,6 +10,7 @@ import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.discordbot.AdminLog;
 import eu.nordtal.season.discordbot.Card;
 import eu.nordtal.season.discordbot.DiscordRenderer;
+import eu.nordtal.season.discordbot.Mark;
 import eu.nordtal.season.messages.MessageRef;
 import java.time.Clock;
 import java.time.Duration;
@@ -237,7 +238,7 @@ public final class UpdateFeed {
             final Instant now) {
         final Function<MessageRef, String> text = message -> messages.format(Locales.DEFAULT, message);
         final Card card = Card.of(
-                        glance(report.stage()) + " " + text.apply(TEXTS.run().stage(report.stage())))
+                        glance(report.stage()).before(text.apply(TEXTS.run().stage(report.stage()))))
                 .timestamp(request.finished() == null ? now : request.finished());
         final IntFunction<String> more =
                 count -> Card.italic(text.apply(TEXTS.run().more(count)));
@@ -274,9 +275,9 @@ public final class UpdateFeed {
         return card.build();
     }
 
-    /** Renders a service line such as {@code ✅ smp running  smp 0.9.3 → 0.9.4}. */
+    /** Renders a service line: its mark, the service, its state, then each change as a version or a pair of them. */
     private static String line(final UpdateReport.ServiceLine line, final Function<MessageRef, String> text) {
-        final StringBuilder shown = new StringBuilder(marker(line.state()))
+        final StringBuilder shown = new StringBuilder(marker(line.state()).symbol())
                 .append(' ')
                 .append(Card.bold(line.service()))
                 .append(' ')
@@ -305,28 +306,28 @@ public final class UpdateFeed {
         return change.from() == null ? Card.bold(change.to()) : Card.arrow(change.from(), change.to());
     }
 
-    /** Returns the emoji of one service's state, from the same set as {@link #glance}. */
-    private static String marker(final UpdateReport.State state) {
+    /** Returns the mark of one service's state, from the same set as {@link #glance}. */
+    private static Mark marker(final UpdateReport.State state) {
         return switch (state) {
-            case UNCHANGED -> "➖";
-            case PLANNED -> "⏳";
-            case STOPPED, INSTALLED, STARTING -> "🔄";
+            case UNCHANGED -> Mark.UNCHANGED;
+            case PLANNED -> Mark.WAITING;
+            case STOPPED, INSTALLED, STARTING -> Mark.WORKING;
             // A finished snapshot and a service that came back are the same news.
-            case HEALTHY, SAVED -> "✅";
-            case FAILED -> "🛑";
+            case HEALTHY, SAVED -> Mark.DONE;
+            case FAILED -> Mark.FAILED;
         };
     }
 
-    /** Returns the emoji in front of a stage: the only place an outcome shows, since every card has one colour. */
-    private static String glance(final UpdateReport.Stage stage) {
+    /** Returns the mark in front of a stage: the only place an outcome shows, since every card has one colour. */
+    private static Mark glance(final UpdateReport.Stage stage) {
         return switch (stage) {
-            case RESOLVING -> "🔍";
-            case PLANNED -> "📋";
-            case COUNTDOWN -> "⏳";
-            case STOPPING, BACKING_UP, INSTALLING, STARTING, VERIFYING -> "🔄";
-            case DONE, NOTHING_TO_DO -> "✅";
-            case FAILED -> "🛑";
-            case CANCELLED -> "⏹️";
+            case RESOLVING -> Mark.LOOKING;
+            case PLANNED -> Mark.PLANNED;
+            case COUNTDOWN -> Mark.WAITING;
+            case STOPPING, BACKING_UP, INSTALLING, STARTING, VERIFYING -> Mark.WORKING;
+            case DONE, NOTHING_TO_DO -> Mark.DONE;
+            case FAILED -> Mark.FAILED;
+            case CANCELLED -> Mark.STOPPED;
         };
     }
 

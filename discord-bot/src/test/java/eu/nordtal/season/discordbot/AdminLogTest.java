@@ -109,9 +109,9 @@ class AdminLogTest {
 
     @Test
     void theLevelIsTheEmojiTheRestOfTheChannelUses() {
-        assertEquals("🛑", AdminLog.emoji(Alert.Level.DOWN));
-        assertEquals("⚠️", AdminLog.emoji(Alert.Level.WARN));
-        assertEquals("✅", AdminLog.emoji(Alert.Level.OK));
+        assertEquals(Mark.FAILED, AdminLog.mark(Alert.Level.DOWN));
+        assertEquals(Mark.WARNING, AdminLog.mark(Alert.Level.WARN));
+        assertEquals(Mark.DONE, AdminLog.mark(Alert.Level.OK));
     }
 
     @Test
@@ -174,7 +174,7 @@ class AdminLogTest {
     void aBookedPaymentIsNotedWithItsReferenceEscapedAndItsEndAsADiscordTimestamp() {
         final MessageEmbed card = AdminLog.card(
                 ADMIN,
-                "💶",
+                Mark.PAID,
                 TEXTS.note().paymentBooked(),
                 TEXTS.note()
                         .booked(

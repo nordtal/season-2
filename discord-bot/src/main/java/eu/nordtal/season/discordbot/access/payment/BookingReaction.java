@@ -7,6 +7,7 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.discordbot.AdminLog;
 import eu.nordtal.season.discordbot.DiscordRenderer;
+import eu.nordtal.season.discordbot.Mark;
 import eu.nordtal.season.discordbot.access.SeasonStart;
 import eu.nordtal.season.discordbot.access.discord.AccessRoles;
 import eu.nordtal.season.discordbot.config.Configured;
@@ -79,7 +80,7 @@ public final class BookingReaction {
         }
 
         admin.note(
-                "💶",
+                Mark.PAID,
                 TEXTS.note().paymentBooked(),
                 TEXTS.note().booked(booked.reference(), Mention.of(payer), booked.days(), booked.until()));
         log.info("Told {} of {}: {} days", payer, booked.reference(), booked.days());

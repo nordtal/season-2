@@ -47,6 +47,7 @@ The container runs the jar baked into its image; the whole deployment is in [../
 - `roles/`: every role the bot uses (`GuildRoles`), found by name and then followed by its stored id.
 - `status/`: the status channel names.
 - `announce/`, `discord/`: announcements, admin commands and the update feed.
+- `Mark`: the one set of emojis every embed and the admin log take their status and action marks from.
 - `config/`: the config specs (`bot`, `access`, `onboarding`) and their defaults.
 - `src/main/resources/messages/`: the translations.
 

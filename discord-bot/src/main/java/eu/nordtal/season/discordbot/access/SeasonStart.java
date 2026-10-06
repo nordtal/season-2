@@ -6,6 +6,7 @@ import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.phase.PhaseDirectory;
 import eu.nordtal.season.discordbot.AdminLog;
+import eu.nordtal.season.discordbot.Mark;
 import eu.nordtal.season.messages.value.Mention;
 import java.time.Instant;
 import lombok.extern.slf4j.Slf4j;
@@ -49,6 +50,9 @@ public final class SeasonStart {
                 discordId,
                 validFrom);
         // Expected while testing; before the season opens, somebody sets the date in Steward.
-        admin.note("⚠️", TEXTS.note().noSeasonStart(), TEXTS.note().runsFromTheGrant(Mention.of(discordId), validFrom));
+        admin.note(
+                Mark.WARNING,
+                TEXTS.note().noSeasonStart(),
+                TEXTS.note().runsFromTheGrant(Mention.of(discordId), validFrom));
     }
 }

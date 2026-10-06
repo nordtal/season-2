@@ -162,7 +162,13 @@ run `git config core.hooksPath .githooks` once per clone.
   embed line and Steward (`brand.gen.css`, written from it). A text that cannot carry a hex colour, the
   pack's `pack.mcmeta` and lang files, uses `§9`, Minecraft's nearest legacy blue.
 - **Every Discord embed carries the brand blue line**, a success included. The outcome shows in the
-  content through one coordinated set of emojis, never mixed with text symbols.
+  content through one coordinated set of emojis, `Mark` in discord-bot, and no class but `Mark` types an
+  emoji. An arrow may show a transition (`from → to`); no text symbol stands for an outcome or separates
+  values. _(emojis outside `Mark` checked)_ The set:
+  - Status: ✅ done, 🛑 failed or down, ⚠️ needs a look but has not failed, 🔄 under way, ⏳ waiting, ➖ nothing
+    to do, 🔍 not read yet, 📋 planned, ⏹️ cancelled.
+  - Action: 💶 paid, 🎟️ granted, 🚫 revoked, 🔗 linked, ✂️ unlinked, ⏱️ play time set, 🔒 refused and kept shut,
+    📝 any other action.
 - **A design proposal is a Steward page under `/designs/`**, so every admin can try it live. Each one is
   removed with its route once the design is built, and no page is served from that path after the
   development phase.

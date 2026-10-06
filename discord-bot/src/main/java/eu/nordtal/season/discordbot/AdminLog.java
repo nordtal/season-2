@@ -38,12 +38,12 @@ public final class AdminLog {
     static final String RAISED_BY = "discord-bot";
 
     /** The mark of a journal line in the admin channel; an action not listed here is posted with a pencil. */
-    private static final Map<JournalAction, String> MARKS = Map.of(
-            JournalAction.GRANT_ACCESS, "🎟️",
-            JournalAction.REVOKE_ACCESS, "🚫",
-            JournalAction.LINK, "🔗",
-            JournalAction.UNLINK, "✂️",
-            JournalAction.SET_PLAYTIME, "⏱️");
+    private static final Map<JournalAction, Mark> MARKS = Map.of(
+            JournalAction.GRANT_ACCESS, Mark.GRANTED,
+            JournalAction.REVOKE_ACCESS, Mark.REVOKED,
+            JournalAction.LINK, Mark.LINKED,
+            JournalAction.UNLINK, Mark.UNLINKED,
+            JournalAction.SET_PLAYTIME, Mark.TIMED);
 
     private final JDA jda;
     private final AccessSpec config;
@@ -90,8 +90,7 @@ public final class AdminLog {
         if (alert.link() != null) {
             lines.add(alert.link());
         }
-        return card(
-                emoji(alert.level()) + " " + texts.format(Locales.DEFAULT, alert.title()), String.join("\n", lines));
+        return card(mark(alert.level()).before(texts.format(Locales.DEFAULT, alert.title())), String.join("\n", lines));
     }
 
     /** The mentions of the admins who want an alert in Discord, or {@code null} when nobody is to be pinged. */
@@ -101,22 +100,23 @@ public final class AdminLog {
                 : admins.stream().map(admin -> "<@" + admin + ">").collect(Collectors.joining(" "));
     }
 
-    static String emoji(final Alert.Level level) {
+    /** Returns the mark of an alert's level. */
+    static Mark mark(final Alert.Level level) {
         return switch (level) {
-            case DOWN -> "🛑";
-            case WARN -> "⚠️";
-            case OK -> "✅";
+            case DOWN -> Mark.FAILED;
+            case WARN -> Mark.WARNING;
+            case OK -> Mark.DONE;
         };
     }
 
     /** Posts a card to be read later, without a mention: the mark, the title, and one line below it. */
-    public void note(final String mark, final MessageRef title, final MessageRef line) {
+    public void note(final Mark mark, final MessageRef title, final MessageRef line) {
         send(null, card(texts, mark, title, line));
     }
 
     static MessageEmbed card(
-            final DiscordRenderer texts, final String mark, final MessageRef title, final MessageRef line) {
-        return card(mark + " " + texts.format(Locales.DEFAULT, title), texts.format(Locales.DEFAULT, line));
+            final DiscordRenderer texts, final Mark mark, final MessageRef title, final MessageRef line) {
+        return card(mark.before(texts.format(Locales.DEFAULT, title)), texts.format(Locales.DEFAULT, line));
     }
 
     /** Draws one admin-log line; a mention stays outside, since a mention inside an embed pings nobody. */
@@ -169,8 +169,8 @@ public final class AdminLog {
 
     /** Draws a journal line: its action as the title, the line, who did it and whom it concerns. */
     static MessageEmbed card(final DiscordRenderer texts, final AuditLine line) {
-        final Card card = Card.of(MARKS.getOrDefault(line.action(), "📝") + " "
-                        + texts.format(Locales.DEFAULT, TEXTS.journal().action(line.action())))
+        final Card card = Card.of(MARKS.getOrDefault(line.action(), Mark.NOTED)
+                        .before(texts.format(Locales.DEFAULT, TEXTS.journal().action(line.action()))))
                 .lead(texts.format(Locales.DEFAULT, line.line()))
                 .field(
                         texts.format(Locales.DEFAULT, TEXTS.journal().by()),

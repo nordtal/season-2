@@ -14,6 +14,7 @@ application.mainClass.set("eu.nordtal.season.discordbot.AccessBot")
 // ConfigsTest reads the access blocks of the real .env.example, so the file is a declared input.
 repositoryRootTestInputs {
     reads(".env.example")
+    readsTree("discord-bot/src/main")
 }
 
 dependencies {
@@ -44,6 +45,7 @@ dependencies {
     testAnnotationProcessor(libs.lombok)
 
     // A real PostgreSQL, for gen_random_uuid(), the partial unique index and numeric rounding.
+    testImplementation(testFixtures(project(":common")))
     testImplementation(testFixtures(project(":database")))
     testImplementation(testFixtures(project(":settings")))
     testRuntimeOnly(libs.postgresql.driver)

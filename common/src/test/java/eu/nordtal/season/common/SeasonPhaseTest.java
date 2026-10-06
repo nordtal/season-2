@@ -37,7 +37,7 @@ class SeasonPhaseTest {
         assertEquals(
                 SeasonPhase.MAINTENANCE,
                 SeasonPhase.fromDatabase("RESOURCE_PACK_INSTALL"),
-                "the retired season-1 value must not resolve to anything permissive");
+                "the retired value of the first season must not resolve to anything permissive");
         assertEquals(SeasonPhase.MAINTENANCE, SeasonPhase.fromDatabase("smp "));
     }
 }

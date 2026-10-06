@@ -307,6 +307,21 @@ Each server's plugins are its `eu.nordtal.plugins` label in `compose.yml`, `arti
 per plugin. steward-agent installs them; the entrypoint reads the same string as `SERVER_PLUGINS` and
 refuses to start while a plugin without `?` is missing.
 
+## The season number
+
+`season=` in `gradle.properties` is the one number. The compose project `nordtal-s<n>`, the repository
+`nordtal/season-<n>` and the env file `/etc/nordtal/season-<n>.env` spell it, and so do the files that
+cannot read it at run time (`compose.yml`, `nordtal.sh`, `restore.sh`, `.env.example`, the READMEs). The
+image names `ghcr.io/nordtal/<service>` carry no season, so release tags stay unique across seasons.
+
+```bash
+sh gradlew forkSeason --to=3   # sets season= and rewrites every other spelling in tracked files
+sh gradlew checkSeasonNames    # part of check: fails on a spelling of another season
+```
+
+A running installation keeps its project name, so its volumes keep theirs; `forkSeason` is for the
+repository forked into a new season, which starts from an empty host.
+
 ## Troubleshooting
 
 | symptom                                                         | cause                                                                        |

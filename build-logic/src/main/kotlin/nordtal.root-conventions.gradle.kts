@@ -3,6 +3,8 @@
 import eu.nordtal.season.build.CheckMarkdownHistory
 import eu.nordtal.season.build.CheckNoDashPunctuation
 import eu.nordtal.season.build.CheckNoTrackerIds
+import eu.nordtal.season.build.CheckSeasonNames
+import eu.nordtal.season.build.ForkSeason
 import org.gradle.accessors.dm.LibrariesForLibs
 
 plugins {
@@ -47,6 +49,19 @@ val checkMarkdownHistory =
         pathspecs.set(listOf(".") + subprojects.map { ":(exclude)" + projectDir.toPath().relativize(it.projectDir.toPath()) })
     }
 
+val seasonNumber = providers.gradleProperty("season")
+
+val checkSeasonNames =
+    tasks.register<CheckSeasonNames>("checkSeasonNames") {
+        repositoryRoot.set(layout.projectDirectory)
+        season.set(seasonNumber)
+    }
+
+tasks.register<ForkSeason>("forkSeason") {
+    repositoryRoot.set(layout.projectDirectory)
+    season.set(seasonNumber)
+}
+
 tasks.named("check") {
-    dependsOn(checkNoTrackerIds, noDashPunctuation, checkMarkdownHistory)
+    dependsOn(checkNoTrackerIds, noDashPunctuation, checkMarkdownHistory, checkSeasonNames)
 }

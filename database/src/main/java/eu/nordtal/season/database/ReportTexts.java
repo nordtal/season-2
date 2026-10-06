@@ -208,6 +208,10 @@ public interface ReportTexts {
     @Name("A restore failed")
     MessageRef restoreFailed();
 
+    @Name("A failed restore that leaves its servers down")
+    MessageRef restoreLeftDown(
+            @Arg("volume") String volume, @Arg("services") List<String> services, @Arg("backup") String backup);
+
     @Name("No container to stop")
     MessageRef noContainerToStop();
 

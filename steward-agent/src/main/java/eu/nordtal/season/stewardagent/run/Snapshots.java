@@ -100,8 +100,15 @@ public interface Snapshots {
         return java.util.Optional.empty();
     }
 
+    /**
+     * What putting a volume archive back came to.
+     *
+     * @param touched whether the volume was changed, so that a failure may have left it incomplete
+     */
+    record Restored(SnapshotResult result, boolean touched) {}
+
     /** Puts a volume archive back into its volume, which every server on it has stopped for. */
-    SnapshotResult restore(String archive);
+    Restored restore(String archive);
 
     /** Replaces the database with a dump in one transaction, then brings its schema up to this release's. */
     SnapshotResult restoreDatabase(String dump);

@@ -644,6 +644,11 @@ export type TextArgs = {
     reason: Arg["text"]
   }
   "report.restore-failed": Record<string, never>
+  "report.restore-left-down": {
+    volume: Arg["text"]
+    services: Arg["list"]
+    backup: Arg["text"]
+  }
   "report.restore-not-a-volume": {
     volume: Arg["text"]
     archive: Arg["text"]

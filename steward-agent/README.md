@@ -40,15 +40,15 @@ flowchart LR
 Every kind is this one sequence, `Run`; `Kinds` holds one planner per kind, and a plan that stops
 nothing counts nobody down. The payload is the request's, typed in `StewardRequest`.
 
-| kind            | payload                                                                                                                |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `UPDATE`        | resolve what is newer, stage it, migrate, move the jars, recreate moved images, prune unused ones                      |
-| `RESTART`       | restart the named services, install nothing                                                                            |
-| `BACKUP`        | refused when the disk lacks room, else dump and tar the backup set, then copy the newest archives offsite              |
-| `DOWN`, `START` | stop a service and hold it down, release a hold                                                                        |
-| `RECREATE`      | make the named containers again from the images on this host; `DEPLOY` pulls first                                     |
-| `RESTORE`       | put one archive back; a dump is preceded by a fresh dump and replaces `public` in one transaction, then `migrate` runs |
-| `REMOVE_PLUGIN` | stop one server, delete the plugin's jar and data folder, start it                                                     |
+| kind            | payload                                                                                                                                                                       |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `UPDATE`        | resolve what is newer, stage it, migrate, move the jars, recreate moved images, prune unused ones                                                                             |
+| `RESTART`       | restart the named services, install nothing                                                                                                                                   |
+| `BACKUP`        | refused when the disk lacks room, else dump and tar the backup set, then copy the newest archives offsite                                                                     |
+| `DOWN`, `START` | stop a service and hold it down, release a hold                                                                                                                               |
+| `RECREATE`      | make the named containers again from the images on this host; `DEPLOY` pulls first                                                                                            |
+| `RESTORE`       | put one archive back after a fresh backup; a dump replaces `public` in one transaction, then `migrate` runs; a volume that fails once emptied keeps its servers down and held |
+| `REMOVE_PLUGIN` | stop one server, delete the plugin's jar and data folder, start it                                                                                                            |
 
 Caddy, pack-host and postgres are made again only once the rest is back, in a run that counts down.
 A run's report is messages of the admin bundle (`report.*` in `:database`'s `AdminTexts`): every note,

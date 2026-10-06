@@ -96,7 +96,7 @@ public final class LocalSnapshots implements Snapshots {
     }
 
     @Override
-    public SnapshotResult restore(final String archive) {
+    public Restored restore(final String archive) {
         return tars.restore(archive, patience());
     }
 

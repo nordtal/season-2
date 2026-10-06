@@ -49,6 +49,9 @@ final class UpdateRun {
      */
     private final Map<String, FellBack> fellBack = new LinkedHashMap<>();
 
+    /** The archive each volume was saved into by this run, by its file name. */
+    private final Map<String, String> archives = new LinkedHashMap<>();
+
     UpdateRun(final ContainerOps containers, final Snapshots snapshots, final Consumer<UpdateReport> progress) {
         this.containers = containers;
         this.snapshots = snapshots;
@@ -123,6 +126,11 @@ final class UpdateRun {
             progress.accept(report);
 
             final SnapshotResult result = snapshots.save(volume);
+            if (result.ok() && result.file() != null) {
+                archives.put(
+                        volume,
+                        java.nio.file.Path.of(result.file()).getFileName().toString());
+            }
             MessageRef detail = result.ok() ? null : TEXTS.report().words(String.valueOf(result.message()));
             if (result.ok() && result.file() != null && !unverifiedStops.isEmpty()) {
                 // The archive is kept: it is probably fine, and somebody must be told before restoring it.
@@ -144,6 +152,11 @@ final class UpdateRun {
             progress.accept(report);
         }
         return report;
+    }
+
+    /** The file name of the archive this run saved {@code volume} into, or empty when it saved none. */
+    java.util.Optional<String> archiveOf(final String volume) {
+        return java.util.Optional.ofNullable(archives.get(volume));
     }
 
     /**

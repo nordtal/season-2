@@ -604,10 +604,11 @@ final class Kinds {
         }
         return Snapshots.DATABASE.equals(series)
                 ? restoreDatabase(runner, request, archive)
-                : restoreVolume(runner, archive, series);
+                : restoreVolume(runner, request, archive, series);
     }
 
-    private static Planned restoreVolume(final Runner runner, final String archive, final String volume) {
+    private static Planned restoreVolume(
+            final Runner runner, final UpdateRequest request, final String archive, final String volume) {
         final AgentWire.Topology topology = runner.containers.topology();
         if (!topology.backupVolumes().contains(volume)) {
             return failed(TEXTS.report().restoreNotAVolume(volume, archive));
@@ -624,7 +625,19 @@ final class Kinds {
             if (saved.line(volume).state() != UpdateReport.State.SAVED) {
                 throw new Run.Abort(saved.withNote(TEXTS.report().restoreUnsaved(volume)));
             }
-            return putBack(saved, runner.backups.restore(archive), archive);
+            final Snapshots.Restored restored = runner.backups.restore(archive);
+            if (restored.result().ok() || !restored.touched()) {
+                return putBack(saved, restored.result(), archive);
+            }
+            // Started on a half-emptied volume, a server writes defaults over the gaps or makes a new world.
+            final List<String> mounting = topology.usersOf(volume);
+            for (final String service : mounting) {
+                runner.directory.hold(service, request.actor(), request.id());
+            }
+            final String backup = steps.archiveOf(volume).orElse(volume);
+            final Run.Done failed = putBack(
+                    saved, restored.result(), archive, TEXTS.report().restoreLeftDown(volume, mounting, backup));
+            return new Run.Done(failed.report(), true, java.util.function.UnaryOperator.identity(), mounting);
         };
         return Planned.plan(Run.Plan.of(
                         stopping(users, archive),
@@ -660,6 +673,12 @@ final class Kinds {
 
     /** The archive's own line on the report, and a failed run when it did not go back. */
     private static Run.Done putBack(final UpdateReport report, final SnapshotResult result, final String archive) {
+        return putBack(report, result, archive, TEXTS.report().restoreFailed());
+    }
+
+    /** The same, with the note a failure carries. */
+    private static Run.Done putBack(
+            final UpdateReport report, final SnapshotResult result, final String archive, final MessageRef failure) {
         final UpdateReport.ServiceLine line = new UpdateReport.ServiceLine(
                 archive,
                 result.ok() ? UpdateReport.State.INSTALLED : UpdateReport.State.FAILED,
@@ -670,11 +689,7 @@ final class Kinds {
                                         .restored(ByteSize.of(result.bytes()).message())
                                 : TEXTS.report().notRestored())),
                 result.ok() ? null : TEXTS.report().words(String.valueOf(result.message())));
-        return new Run.Done(
-                result.ok()
-                        ? report.with(line)
-                        : report.with(line).withNote(TEXTS.report().restoreFailed()),
-                !result.ok());
+        return new Run.Done(result.ok() ? report.with(line) : report.with(line).withNote(failure), !result.ok());
     }
 
     /** Of these services, the ones that run now and are not held, which a restore stops and starts again. */

@@ -89,10 +89,12 @@ class TarSnapshotsTest {
         Files.writeString(source.resolve("region/r.0.0.mca"), "after");
         Files.writeString(source.resolve("griefed.txt"), "came later");
 
-        final SnapshotResult restored = snapshots(NIGHT.plusSeconds(60))
+        final Snapshots.Restored back = snapshots(NIGHT.plusSeconds(60))
                 .restore(Path.of(saved.file()).getFileName().toString(), WALL);
 
+        final SnapshotResult restored = back.result();
         assertTrue(restored.ok(), restored.message());
+        assertTrue(back.touched());
         assertEquals("before", Files.readString(source.resolve("region/r.0.0.mca")));
         assertFalse(Files.exists(source.resolve("griefed.txt")), "a restore is the archive, not the archive added");
     }
@@ -104,9 +106,10 @@ class TarSnapshotsTest {
         Files.createDirectories(outputRoot());
         Files.writeString(outputRoot().resolve(broken), "not zstd");
 
-        final SnapshotResult restored = snapshots(NIGHT).restore(broken, WALL);
+        final Snapshots.Restored back = snapshots(NIGHT).restore(broken, WALL);
 
-        assertFalse(restored.ok(), restored.message());
+        assertFalse(back.result().ok(), back.result().message());
+        assertFalse(back.touched(), "so its servers may start again on it");
         assertEquals("live", Files.readString(sourceDir(VOLUME).resolve("level.dat")));
     }
 
@@ -121,7 +124,11 @@ class TarSnapshotsTest {
         assertEquals(Optional.empty(), snapshots(NIGHT).seriesOf(VOLUME + "-20260913T000000Z.tar.zst"));
         assertEquals(Optional.of(Snapshots.DATABASE), snapshots(NIGHT).seriesOf("nordtal-20260912T000000Z.dump"));
         assertFalse(
-                snapshots(NIGHT).restore("nordtal-20260912T000000Z.dump", WALL).ok(), "a dump is no volume");
+                snapshots(NIGHT)
+                        .restore("nordtal-20260912T000000Z.dump", WALL)
+                        .result()
+                        .ok(),
+                "a dump is no volume");
     }
 
     @Test

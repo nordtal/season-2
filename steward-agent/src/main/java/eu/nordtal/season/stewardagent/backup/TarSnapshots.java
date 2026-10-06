@@ -224,29 +224,31 @@ public final class TarSnapshots {
      *
      * Every server on the volume has to be stopped; a failure after the emptying leaves the volume incomplete.
      */
-    public SnapshotResult restore(final String archive, final Duration wall) {
+    public Snapshots.Restored restore(final String archive, final Duration wall) {
         final long startedAt = System.nanoTime();
         final String volume = seriesOf(archive).orElse(null);
         if (volume == null
                 || Snapshots.DATABASE.equals(volume)
                 || !VOLUME_NAME.matcher(volume).matches()) {
-            return SnapshotResult.failed(
-                    archive, since(startedAt), archive + " is not a volume archive in the backups");
+            return untouched(SnapshotResult.failed(
+                    archive, since(startedAt), archive + " is not a volume archive in the backups"));
         }
         final Path file = outputRoot.resolve(archive);
         final Path target = sourcesRoot.resolve(volume);
         if (!Files.isDirectory(target)) {
-            return SnapshotResult.failed(
-                    volume, since(startedAt), "no such directory to restore into: " + target + " - is it mounted?");
+            return untouched(SnapshotResult.failed(
+                    volume, since(startedAt), "no such directory to restore into: " + target + " - is it mounted?"));
         }
+        boolean touched = false;
         try {
             final String problem = unreadable(file, wall);
             if (problem != null) {
-                return SnapshotResult.failed(
+                return untouched(SnapshotResult.failed(
                         volume,
                         since(startedAt),
-                        archive + " could not be read through, so nothing was touched: " + problem);
+                        archive + " could not be read through, so nothing was touched: " + problem));
             }
+            touched = true;
             empty(target, Files::delete);
             log.info("unpacking {} into {}", archive, target);
             final Pipeline.Result unpacked = Pipeline.run(
@@ -256,18 +258,30 @@ public final class TarSnapshots {
                             List.of("zstd", "-dc", "-q", file.toString()),
                             List.of("tar", "-xpf", "-", "--numeric-owner", "-C", target.toString())));
             if (unpacked.failed()) {
-                return SnapshotResult.failed(
-                        volume,
-                        since(startedAt),
-                        "unpacking " + archive + " failed and left " + volume + " incomplete: " + unpacked.describe());
+                return new Snapshots.Restored(
+                        SnapshotResult.failed(
+                                volume,
+                                since(startedAt),
+                                "unpacking " + archive + " failed and left " + volume + " incomplete: "
+                                        + unpacked.describe()),
+                        true);
             }
-            return SnapshotResult.saved(volume, Files.size(file), since(startedAt), file.toString());
+            return new Snapshots.Restored(
+                    SnapshotResult.saved(volume, Files.size(file), since(startedAt), file.toString()), true);
         } catch (final IOException failure) {
-            return SnapshotResult.failed(volume, since(startedAt), "restoring " + archive + " failed: " + failure);
+            return new Snapshots.Restored(
+                    SnapshotResult.failed(volume, since(startedAt), "restoring " + archive + " failed: " + failure),
+                    touched);
         } catch (final InterruptedException interrupted) {
             Thread.currentThread().interrupt();
-            return SnapshotResult.failed(volume, since(startedAt), "restoring " + archive + " was interrupted");
+            return new Snapshots.Restored(
+                    SnapshotResult.failed(volume, since(startedAt), "restoring " + archive + " was interrupted"),
+                    touched);
         }
+    }
+
+    private static Snapshots.Restored untouched(final SnapshotResult failed) {
+        return new Snapshots.Restored(failed, false);
     }
 
     /**

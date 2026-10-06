@@ -383,6 +383,52 @@ class RunnerTest {
         allTold(outcome);
     }
 
+    /** Started on a half-emptied volume, Paper writes defaults over the gaps and may generate a fresh world. */
+    @Test
+    void aVolumeRestoreThatFailsAfterEmptyingTheVolumeLeavesItsServerDownAndHeld() {
+        snapshots.fails("restore");
+        final UpdateRequest request =
+                claimed(new StewardRequest.Restore(List.of(), "nordtal-s2_mc-smp-20260901T000000Z.tar.zst"));
+
+        final Outcome outcome = runner.run(request, progress::add);
+
+        assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
+        assertEquals(
+                List.of(
+                        "room:1",
+                        "stop:smp-container",
+                        "backup:nordtal-s2_mc-smp",
+                        "restore:nordtal-s2_mc-smp-20260901T000000Z.tar.zst"),
+                containers.calls,
+                "nothing starts on what the failed restore left");
+        assertTrue(directory.isHeld("smp"), "so no later run starts it either");
+        final String told = Told.report(outcome.report());
+        assertTrue(told.contains("Held down so nothing starts on it: smp."), told);
+        assertTrue(told.contains("nordtal-s2_mc-smp-20260913T000000Z.tar.zst"), "it names the way back: " + told);
+        allTold(outcome);
+    }
+
+    @Test
+    void aVolumeRestoreThatFailsBeforeTouchingTheVolumeStartsItsServerAgain() {
+        snapshots.fails("unreadable");
+
+        final Outcome outcome = runner.run(
+                claimed(new StewardRequest.Restore(List.of(), "nordtal-s2_mc-smp-20260901T000000Z.tar.zst")),
+                progress::add);
+
+        assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
+        assertEquals(
+                List.of(
+                        "room:1",
+                        "stop:smp-container",
+                        "backup:nordtal-s2_mc-smp",
+                        "restore:nordtal-s2_mc-smp-20260901T000000Z.tar.zst",
+                        "start:smp-container"),
+                containers.calls);
+        assertFalse(directory.isHeld("smp"));
+        allTold(outcome);
+    }
+
     @Test
     void aDatabaseRestoreDumpsFirstThenStopsWhatRunsOnTheDatabaseAndCarriesItsOwnRowAcross() {
         final UpdateRequest request = claimed(new StewardRequest.Restore(List.of(), "nordtal-20260913T000000Z.dump"));

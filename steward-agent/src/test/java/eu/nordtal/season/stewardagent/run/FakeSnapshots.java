@@ -93,11 +93,15 @@ final class FakeSnapshots implements Snapshots {
     }
 
     @Override
-    public SnapshotResult restore(final String archive) {
+    public Restored restore(final String archive) {
         calls.add("restore:" + archive);
+        if (failing.contains("unreadable")) {
+            return new Restored(SnapshotResult.failed(archive, Duration.ofSeconds(1), "zstd exited 1"), false);
+        }
         return failing.contains("restore")
-                ? SnapshotResult.failed(archive, Duration.ofSeconds(1), "tar exited 2")
-                : SnapshotResult.saved(archive, 1_234_567, Duration.ofSeconds(9), "/backups/" + archive);
+                ? new Restored(SnapshotResult.failed(archive, Duration.ofSeconds(1), "tar exited 2"), true)
+                : new Restored(
+                        SnapshotResult.saved(archive, 1_234_567, Duration.ofSeconds(9), "/backups/" + archive), true);
     }
 
     @Override

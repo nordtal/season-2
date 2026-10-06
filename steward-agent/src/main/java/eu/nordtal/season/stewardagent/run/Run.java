@@ -63,11 +63,27 @@ final class Run {
      *
      * @param failed whether something in it failed that the report's lines do not show
      * @param afterwards what the run does once everything it stopped is back, before it settles
+     * @param leftDown services the run stopped and does not start again, since what they run on is not whole
      */
-    record Done(UpdateReport report, boolean failed, java.util.function.UnaryOperator<UpdateReport> afterwards) {
+    record Done(
+            UpdateReport report,
+            boolean failed,
+            java.util.function.UnaryOperator<UpdateReport> afterwards,
+            List<String> leftDown) {
+
+        Done {
+            leftDown = List.copyOf(leftDown);
+        }
 
         Done(final UpdateReport report, final boolean failed) {
             this(report, failed, java.util.function.UnaryOperator.identity());
+        }
+
+        Done(
+                final UpdateReport report,
+                final boolean failed,
+                final java.util.function.UnaryOperator<UpdateReport> afterwards) {
+            this(report, failed, afterwards, List.of());
         }
     }
 
@@ -328,6 +344,7 @@ final class Run {
             plan.alsoStarts().stream()
                     .filter(service -> !starting.contains(service))
                     .forEach(starting::add);
+            starting.removeAll(done.leftDown());
             final UpdateReport started = steps.start(
                     new UpdateRun.Stopped(report, List.copyOf(starting), runtime),
                     plan.images(),

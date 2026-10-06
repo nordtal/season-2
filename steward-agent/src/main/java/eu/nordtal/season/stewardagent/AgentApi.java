@@ -61,13 +61,13 @@ public final class AgentApi implements AutoCloseable {
         this.backups = new BackupRoutes(paths.backups(), () -> topology.read().backupVolumes());
         final ImageJars images = ImageJars.fromContainers(
                 docker, project, java.nio.file.Path.of(System.getProperty("java.io.tmpdir"), "image-jars"));
-        this.bundles = new BundleRoutes(paths.configs(), images);
         this.descriptors = new PluginDescriptors(
                 paths.configs(),
                 images,
                 () -> topology.read().services().stream()
                         .map(service -> new PluginDescriptors.Service(service.name(), service.image()))
                         .toList());
+        this.bundles = new BundleRoutes(descriptors::jars);
         this.sizes = new VolumeSizes(paths.volumesRoot());
     }
 
@@ -75,7 +75,7 @@ public final class AgentApi implements AutoCloseable {
      * Where the volumes this process reads are mounted.
      *
      * @param volumesRoot the services' volumes, one directory per service, or {@code null} for none
-     * @param configs one directory per service whose jars carry message bundles, the bot's empty
+     * @param configs each server's plugins folder, one directory per service, whose jars carry descriptors and bundles
      * @param backupSources every volume a backup saves, one directory per Docker volume name, writable for a restore
      * @param backups where archives are written, mounted at the same path in the database's container
      */

@@ -16,7 +16,7 @@ import org.gradle.api.tasks.TaskAction
  * Writes `nordtal-plugin.json` and `nordtal/logo.png` into [target], the descriptor steward-agent reads out of a jar.
  *
  * The id is the service the module publishes its settings under; [editors] names, per group, the custom editor
- * Steward draws it with instead of the form built from its schema.
+ * Steward draws it with instead of the form built from its schema. [followsMessages] offers its bundles for editing.
  */
 abstract class WritePluginDescriptor : DefaultTask() {
     @get:Input
@@ -27,6 +27,9 @@ abstract class WritePluginDescriptor : DefaultTask() {
 
     @get:Input
     abstract val editors: MapProperty<String, String>
+
+    @get:Input
+    abstract val followsMessages: Property<Boolean>
 
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
@@ -51,7 +54,8 @@ abstract class WritePluginDescriptor : DefaultTask() {
             .resolve("nordtal-plugin.json")
             .writeText(
                 "{\"id\": ${quoted(id.get())}, \"name\": ${quoted(displayName.get())}, " +
-                    "\"logo\": ${quoted(LOGO)}, \"editors\": {$editorJson}}\n",
+                    "\"logo\": ${quoted(LOGO)}, \"editors\": {$editorJson}, " +
+                    "\"messages\": ${followsMessages.get()}}\n",
             )
     }
 

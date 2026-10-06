@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.stewardagent.bundles.ImageJars;
+import eu.nordtal.season.stewardagent.bundles.MessageBundleLocation;
+import eu.nordtal.season.stewardagent.bundles.MessageBundles;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -71,6 +73,30 @@ class PluginDescriptorsTest {
                 found.stream().map(AgentWire.Descriptor::id).toList());
     }
 
+    /** The bot has no folder beside its data, so its bundles are found in its image as its descriptor is. */
+    @Test
+    void theBundlesAreReadFromTheJarsTheDescriptorsAreFoundIn() throws IOException {
+        final Map<String, byte[]> bot = new java.util.HashMap<>(descriptor("discord-bot", "Discord bot", "{}", true));
+        bot.put("messages/access/en.properties", "contribution.title=Access\n".getBytes(StandardCharsets.UTF_8));
+        writeJar(images.resolve("discord-bot.jar"), bot);
+        final Map<String, byte[]> smp = new java.util.HashMap<>(descriptor("smp", "SMP", "{}", true));
+        smp.put("messages/smp/en.properties", "welcome=Welcome\n".getBytes(StandardCharsets.UTF_8));
+        writeJar(configs.resolve("smp/smp-0.11.0.jar"), smp);
+        final Map<String, byte[]> steward = new java.util.HashMap<>(descriptor("steward", "Steward", "{}"));
+        steward.put("messages/steward/en.properties", "title=Steward\n".getBytes(StandardCharsets.UTF_8));
+        writeJar(images.resolve("steward.jar"), steward);
+
+        final List<MessageBundleLocation> found = MessageBundles.discover(
+                new PluginDescriptors(configs, imageJars(), () -> services("discord-bot", "smp", "steward", "postgres"))
+                        .jars());
+
+        assertEquals(
+                List.of(
+                        new MessageBundleLocation("discord-bot", "", images.resolve("discord-bot.jar")),
+                        new MessageBundleLocation("smp", "smp", configs.resolve("smp/smp-0.11.0.jar"))),
+                found);
+    }
+
     @Test
     void anImageThatCarriesNoDescriptorIsAskedOnce() throws IOException {
         final PluginDescriptors descriptors = new PluginDescriptors(configs, imageJars(), () -> services("postgres"));
@@ -133,10 +159,15 @@ class PluginDescriptorsTest {
     }
 
     private static Map<String, byte[]> descriptor(final String id, final String name, final String editors) {
+        return descriptor(id, name, editors, false);
+    }
+
+    private static Map<String, byte[]> descriptor(
+            final String id, final String name, final String editors, final boolean followsMessages) {
         return Map.of(
                 PluginDescriptors.ENTRY,
                 ("{\"id\": \"" + id + "\", \"name\": \"" + name + "\", \"logo\": \"nordtal/logo.png\", \"editors\": "
-                                + editors + "}")
+                                + editors + ", \"messages\": " + followsMessages + "}")
                         .getBytes(StandardCharsets.UTF_8),
                 "nordtal/logo.png",
                 LOGO);

@@ -9,6 +9,7 @@ plugins {
 // How Steward shows this module's settings; steward-agent reads it out of the jar.
 pluginDescriptor {
     displayName.set("Hunger Games")
+    followsMessages.set(true)
 }
 
 // The base runs prepare() and enable() before anything reads HungerGamesPlugin's fields.

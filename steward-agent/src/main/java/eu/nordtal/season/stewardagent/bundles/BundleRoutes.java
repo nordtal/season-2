@@ -7,28 +7,24 @@ import io.javalin.http.Context;
 import io.javalin.http.InternalServerErrorResponse;
 import io.javalin.http.NotFoundResponse;
 import java.io.IOException;
-import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /** The message bundles the services' jars carry, read for the editor; steward keeps the overrides in the database. */
 public final class BundleRoutes {
 
-    private final Path configs;
-    private final ImageJars images;
+    private final Supplier<List<ServiceJar>> jars;
 
-    /**
-     * @param configs one directory per service, holding its plugins' jars
-     * @param images where the bot's jar is found, which is in its image and not beside its data
-     */
-    public BundleRoutes(final Path configs, final ImageJars images) {
-        this.configs = configs;
-        this.images = images;
+    /** @param jars every jar of ours on every service, found the way the descriptors are */
+    public BundleRoutes(final Supplier<List<ServiceJar>> jars) {
+        this.jars = jars;
     }
 
     public void register(final JavalinConfig config) {
         config.routes.get(
                 AgentWire.BUNDLES,
-                ctx -> ctx.json(MessageBundles.discover(configs, images).stream()
+                ctx -> ctx.json(MessageBundles.discover(jars.get()).stream()
                         .map(location -> new AgentWire.BundleRef(location.service(), location.module()))
                         .toList()));
         config.routes.get(AgentWire.BUNDLE, ctx -> ctx.json(read(locate(ctx))));
@@ -37,7 +33,7 @@ public final class BundleRoutes {
     private MessageBundleLocation locate(final Context ctx) {
         final String service = ctx.pathParam("service");
         final String module = Objects.requireNonNullElse(ctx.queryParam("module"), "");
-        return MessageBundles.discover(configs, images).stream()
+        return MessageBundles.discover(jars.get()).stream()
                 .filter(location ->
                         location.service().equals(service) && location.module().equals(module))
                 .findFirst()

@@ -7,6 +7,7 @@ plugins {
 // How Steward shows this module's settings; steward-agent reads it out of the jar.
 pluginDescriptor {
     displayName.set("Discord bot")
+    followsMessages.set(true)
 }
 
 application.mainClass.set("eu.nordtal.season.discordbot.AccessBot")

@@ -378,7 +378,7 @@ class TopologyTest {
 
     @Test
     void theBundlesTheInterfaceShowsAreTheBundlesTheServicesActuallyRead() {
-        // Saving a bundle IS the reload, so a volume spelt differently shows a form and quietly changes nothing.
+        // A folder spelt differently shows the packaged texts of jars the server does not run.
         final List<String> stewardMounts = compose.service(AgentWire.SERVICE).mounts();
 
         // The interface shows a bundle under the compose service name, the same name the server owns it under.
@@ -386,10 +386,16 @@ class TopologyTest {
             assertServerConfigMatchesInterface(service, stewardMounts);
         }
 
-        // The bot has no plugins folder: its directory stays empty, and its name finds its jar in its image.
-        assertTrue(
-                stewardMounts.stream().anyMatch(mount -> mount.endsWith(":/configs/discord-bot")),
-                AgentWire.SERVICE + " mounts nothing at /configs/discord-bot, so the bot's messages are in no form");
+        // Only the servers have a folder there; every other service's jar is found in its image.
+        final List<String> folders = stewardMounts.stream()
+                .filter(mount -> mount.contains(":/configs/"))
+                .map(mount -> mount.substring(mount.indexOf(":/configs/") + ":/configs/".length()))
+                .sorted()
+                .toList();
+        assertEquals(
+                SERVERS.stream().map(Topology.Service::name).sorted().toList(),
+                folders,
+                AgentWire.SERVICE + " mounts a /configs folder for a service that has no plugins folder");
     }
 
     private void assertServerConfigMatchesInterface(final Topology.Service service, final List<String> stewardMounts) {

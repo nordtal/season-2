@@ -3,9 +3,11 @@ package eu.nordtal.season.stewardagent.descriptor;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
+import com.google.gson.JsonPrimitive;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.stewardagent.bundles.ImageJars;
+import eu.nordtal.season.stewardagent.bundles.ServiceJar;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -63,7 +65,8 @@ public final class PluginDescriptors {
     public List<AgentWire.Descriptor> read() {
         final Map<String, AgentWire.Descriptor> byId = new TreeMap<>();
         for (final Service service : services.get()) {
-            for (final Raw raw : of(service)) {
+            for (final Found found : of(service)) {
+                final Raw raw = found.raw();
                 final AgentWire.Descriptor descriptor =
                         new AgentWire.Descriptor(service.name(), raw.id(), raw.name(), raw.logo(), raw.editors());
                 byId.merge(raw.id(), descriptor, (kept, next) -> next.id().equals(next.service()) ? next : kept);
@@ -72,15 +75,30 @@ public final class PluginDescriptors {
         return List.copyOf(byId.values());
     }
 
-    private List<Raw> of(final Service service) {
-        final List<Raw> found = new ArrayList<>();
+    /** Every jar that carries a descriptor, on every service, which is where the message bundles are read too. */
+    public List<ServiceJar> jars() {
+        final List<ServiceJar> jars = new ArrayList<>();
+        for (final Service service : services.get()) {
+            for (final Found found : of(service)) {
+                jars.add(new ServiceJar(
+                        service.name(),
+                        found.jar(),
+                        found.ownImage(),
+                        found.raw().followsMessages()));
+            }
+        }
+        return List.copyOf(jars);
+    }
+
+    private List<Found> of(final Service service) {
+        final List<Found> found = new ArrayList<>();
         final Path directory = configs.resolve(service.name());
         if (Files.isDirectory(directory)) {
             try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory, "*.jar")) {
                 for (final Path jar : stream) {
                     final Raw raw = cached(jar);
                     if (raw != null) {
-                        found.add(raw);
+                        found.add(new Found(jar, false, raw));
                     }
                 }
             } catch (final IOException e) {
@@ -99,10 +117,10 @@ public final class PluginDescriptors {
                 return found;
             }
             final Raw raw = jar == null ? null : cached(jar);
-            if (raw == null) {
+            if (jar == null || raw == null) {
                 imagesWithout.add(image);
             } else {
-                found.add(raw);
+                found.add(new Found(jar, true, raw));
             }
         }
         return found;
@@ -156,7 +174,10 @@ public final class PluginDescriptors {
                     }
                 }
             }
-            return new Raw(id, name == null ? id : name, logo, Map.copyOf(editors));
+            final boolean followsMessages = json.get("messages") instanceof JsonPrimitive messages
+                    && messages.isBoolean()
+                    && messages.getAsBoolean();
+            return new Raw(id, name == null ? id : name, logo, Map.copyOf(editors), followsMessages);
         } catch (final IOException | JsonParseException | IllegalStateException e) {
             LOG.warn("{} could not be read for its descriptor: {}", jar, e.getMessage());
             return null;
@@ -175,7 +196,10 @@ public final class PluginDescriptors {
      */
     public record Service(String name, @Nullable String image) {}
 
-    private record Raw(String id, String name, @Nullable String logo, Map<String, String> editors) {}
+    private record Raw(
+            String id, String name, @Nullable String logo, Map<String, String> editors, boolean followsMessages) {}
+
+    private record Found(Path jar, boolean ownImage, Raw raw) {}
 
     private record Read(String stamp, @Nullable Raw raw) {}
 }

@@ -12,10 +12,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.DirectoryStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -54,49 +51,22 @@ public final class MessageBundles {
     private MessageBundles() {}
 
     /**
-     * Every jar that packages message bundles: a plugin's in a service's plugins folder, or the service's own.
+     * The bundles of every jar whose process follows the message overrides, for which an edit changes what it shows.
      *
-     * @param configsRoot the configs mount, one directory per service
-     * @param images where the jar of a service with no plugins folder is found: the bot's, in its image
-     * @return every bundle found, by service then module; empty if {@code configsRoot} does not exist
+     * @param jars every jar of ours on every service, as the descriptors find them
+     * @return every bundle found, by service then module; a plugin's module is its jar's name, a service's own is empty
      */
-    public static List<MessageBundleLocation> discover(final Path configsRoot, final ImageJars images) {
-        if (!Files.isDirectory(configsRoot)) {
-            return List.of();
-        }
+    public static List<MessageBundleLocation> discover(final List<ServiceJar> jars) {
         final List<MessageBundleLocation> found = new ArrayList<>();
-        try (DirectoryStream<Path> services = Files.newDirectoryStream(configsRoot, Files::isDirectory)) {
-            for (final Path directory : services) {
-                found.addAll(locationsIn(directory, images));
+        for (final ServiceJar jar : jars) {
+            final String module = jar.ownImage()
+                    ? ""
+                    : JarName.prefixOf(jar.path().getFileName().toString());
+            if (jar.followsMessages() && module != null && packagesBundles(jar.path())) {
+                found.add(new MessageBundleLocation(jar.service(), module, jar.path()));
             }
-        } catch (final IOException e) {
-            throw new UncheckedIOException("Cannot list the message bundles under " + configsRoot, e);
         }
         found.sort(Comparator.comparing(MessageBundleLocation::service).thenComparing(MessageBundleLocation::module));
-        return found;
-    }
-
-    /** The jars directly in one service's directory that package bundles, else the service's own from its image. */
-    private static List<MessageBundleLocation> locationsIn(final Path directory, final ImageJars images)
-            throws IOException {
-        final String service = directory.getFileName().toString();
-        final List<MessageBundleLocation> found = new ArrayList<>();
-        boolean anyJar = false;
-        try (DirectoryStream<Path> jars = Files.newDirectoryStream(directory, "*.jar")) {
-            for (final Path jar : jars) {
-                anyJar = true;
-                final String prefix = JarName.prefixOf(jar.getFileName().toString());
-                if (prefix != null && Files.isRegularFile(jar) && packagesBundles(jar)) {
-                    found.add(new MessageBundleLocation(service, prefix, jar));
-                }
-            }
-        }
-        if (!anyJar) {
-            final Path own = images.jarOf(service);
-            if (own != null && packagesBundles(own)) {
-                found.add(new MessageBundleLocation(service, "", own));
-            }
-        }
         return found;
     }
 

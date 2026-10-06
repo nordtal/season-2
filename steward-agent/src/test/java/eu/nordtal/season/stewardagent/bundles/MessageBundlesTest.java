@@ -34,56 +34,45 @@ class MessageBundlesTest {
     @TempDir
     Path images;
 
-    /** The bot's jar as the agent copies it out of the running container, keyed by service. */
-    private ImageJars imageJars() {
-        return service -> {
-            final Path jar = images.resolve(service + ".jar");
-            return Files.isRegularFile(jar) ? jar : null;
-        };
-    }
-
     // Discovery
 
     @Test
-    void aPaperPluginsBundleIsFoundNextToItsOwnJarInTheConfigsMount() throws IOException {
-        writeJar(configs.resolve("smp/smp-0.9.1.jar"), Map.of("messages/smp/en.properties", "welcome=Welcome\n"));
-        writeJar(configs.resolve("smp/chunky-1.4.jar"), Map.of("plugin.yml", "name: Chunky\n"));
+    void aPaperPluginsBundleIsNamedByItsJarBesideTheServersData() throws IOException {
+        final Path jar = configs.resolve("smp/smp-0.9.1.jar");
+        writeJar(jar, Map.of("messages/smp/en.properties", "welcome=Welcome\n"));
 
-        final List<MessageBundleLocation> found = MessageBundles.discover(configs, imageJars());
+        final List<MessageBundleLocation> found =
+                MessageBundles.discover(List.of(new ServiceJar("smp", jar, false, true)));
 
-        assertEquals(1, found.size(), found.toString());
-        assertEquals("smp", found.getFirst().service());
-        assertEquals("smp", found.getFirst().module());
-        assertEquals(configs.resolve("smp/smp-0.9.1.jar"), found.getFirst().jar());
+        assertEquals(List.of(new MessageBundleLocation("smp", "smp", jar)), found);
     }
 
     @Test
     void aWholeServicesBundleHasNoModuleAndItsJarComesFromItsImage() throws IOException {
-        // discord-bot's own jar is in its image, not on any volume; its directory under the configs mount is empty.
-        Files.createDirectories(configs.resolve("discord-bot"));
-        writeJar(
-                images.resolve("discord-bot.jar"),
-                Map.of("messages/access/en.properties", "contribution.title=Access\n"));
+        final Path jar = images.resolve("discord-bot.jar");
+        writeJar(jar, Map.of("messages/access/en.properties", "contribution.title=Access\n"));
 
-        final List<MessageBundleLocation> found = MessageBundles.discover(configs, imageJars());
+        final List<MessageBundleLocation> found =
+                MessageBundles.discover(List.of(new ServiceJar("discord-bot", jar, true, true)));
 
-        assertEquals(1, found.size(), found.toString());
-        assertEquals("discord-bot", found.getFirst().service());
-        assertEquals("", found.getFirst().module());
-        assertEquals(images.resolve("discord-bot.jar"), found.getFirst().jar());
+        assertEquals(List.of(new MessageBundleLocation("discord-bot", "", jar)), found);
+    }
+
+    /** Steward packages bundles it never re-reads, so a form for them would save and change nothing. */
+    @Test
+    void aJarWhoseProcessDoesNotFollowTheOverridesOffersNoBundle() throws IOException {
+        final Path jar = images.resolve("steward.jar");
+        writeJar(jar, Map.of("messages/steward/en.properties", "title=Steward\n"));
+
+        assertEquals(List.of(), MessageBundles.discover(List.of(new ServiceJar("steward", jar, true, false))));
     }
 
     @Test
-    void aServiceWithNoJarAnywhereIsSkippedNotReportedBroken() throws IOException {
-        Files.createDirectories(configs.resolve("limbo"));
-        // No jar anywhere: a deployment installing this module for the first time.
+    void aJarThatPackagesNoBundleOffersNone() throws IOException {
+        final Path jar = configs.resolve("limbo/limbo-0.9.1.jar");
+        writeJar(jar, Map.of("plugin.yml", "name: Limbo\n"));
 
-        assertEquals(List.of(), MessageBundles.discover(configs, imageJars()));
-    }
-
-    @Test
-    void aRootThatIsNotMountedIsAnEmptyListNotAFailure() {
-        assertEquals(List.of(), MessageBundles.discover(configs.resolve("never-mounted"), imageJars()));
+        assertEquals(List.of(), MessageBundles.discover(List.of(new ServiceJar("limbo", jar, false, true))));
     }
 
     // Reading and merging

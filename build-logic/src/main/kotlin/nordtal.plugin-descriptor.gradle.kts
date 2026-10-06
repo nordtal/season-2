@@ -11,10 +11,14 @@ interface PluginDescriptorExtension {
 
     /** The custom editor that draws a group instead of the form built from its schema, by group name. */
     val editors: MapProperty<String, String>
+
+    /** Whether the process follows the message overrides, which is what makes its bundles worth editing. */
+    val followsMessages: Property<Boolean>
 }
 
 val descriptor = extensions.create<PluginDescriptorExtension>("pluginDescriptor")
 descriptor.editors.convention(emptyMap())
+descriptor.followsMessages.convention(false)
 
 val pluginDescriptor =
     tasks.register<eu.nordtal.season.build.WritePluginDescriptor>("pluginDescriptor") {
@@ -23,6 +27,7 @@ val pluginDescriptor =
         id.set(project.name)
         displayName.set(descriptor.displayName)
         editors.set(descriptor.editors)
+        followsMessages.set(descriptor.followsMessages)
         logo.set(rootProject.layout.projectDirectory.file("resource-pack/src/pack.png"))
         target.set(layout.buildDirectory.dir("generated/plugin-descriptor"))
     }

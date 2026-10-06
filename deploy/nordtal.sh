@@ -107,7 +107,6 @@ REQUIRED=(
 DATA_DIRS=(
     "postgres-data"
     "steward-backups"
-    "bot-config"
     "caddy-data"
     "caddy-config"
     "bunq-context"

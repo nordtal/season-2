@@ -120,7 +120,7 @@ files directly in the backups.
 | `POST /api/containers/{service}/console`          | `ConsoleLine` (`command`, `actor`); `202`, the answer lands in the log                 |
 | `GET /api/host`                                   | `Host`: `/proc`, the root filesystem and Docker's disk use                             |
 | `GET /api/volumes/{service}/disk`                 | `Disk`: `du` of that service's volume; `404` for one not mounted here                  |
-| `GET /api/bundles`                                | `BundleRef`s: every message bundle a jar carries, before it is opened                  |
+| `GET /api/bundles`                                | `BundleRef`s: every editable message bundle a jar carries, before it is opened         |
 | `GET /api/bundles/{service}?module=`              | one `MessageBundle`, the packaged texts                                                |
 | `GET /api/descriptors`                            | `Descriptor`s: what each jar of ours says of itself, one per id                        |
 | `GET /api/samples?after=`                         | the sampler's `Round`s after an ISO instant, oldest first                              |
@@ -138,7 +138,9 @@ failed, `400` with `steward-agent` for a request it will not run. `steward` pass
 
 A descriptor is the `nordtal-plugin.json` the `nordtal.plugin-descriptor` convention writes into every
 jar of ours: the id its settings are published under, the name and logo for Steward's sidebar and
-the custom editor per group. A plugin's jar is found beside its data under `/configs/<service>`.
+the custom editor per group, and whether the process follows the message overrides (`followsMessages`).
+A plugin's jar is found beside its data under `/configs/<service>`, any other service's in its image.
+The message bundles are read from the same jars, from those whose process follows the overrides.
 
 **Networks.** `steward` reaches the agent on the internal `agent` network. The agent reaches postgres
 on `agent-database` and GitHub, Modrinth and PaperMC through `agent-egress`, which nobody else is on.
@@ -176,15 +178,15 @@ The connection comes from the environment (`NORDTAL_STEWARD_AGENT_DATABASE_*`, w
 `runs` group in the database, edited in Steward: release sources, volumes root, timeouts, backup
 retention and how long a backup waits for a server to stop.
 
-| Setting (`NORDTAL_STEWARD_AGENT_*`) | Default                | What                                                                |
-| ----------------------------------- | ---------------------- | ------------------------------------------------------------------- |
-| `TOKEN`                             | none, required         | the secret steward sends                                            |
-| `PORT`                              | `8081`                 |                                                                     |
-| `DOCKER_SOCKET`                     | `/var/run/docker.sock` |                                                                     |
-| `CONFIGS`                           | `/configs`             | each service's plugins folder, whose jars carry the message bundles |
-| `VOLUMES_ROOT`                      | `/volumes`             | the `runs` group's `volumes-root`: what a run installs into         |
-| `BACKUP_SOURCES`                    | `/backup-sources`      | one mount per volume a backup saves and a restore writes back       |
-| `BACKUPS`                           | `/backups`             | the archives, the same volume postgres dumps into                   |
+| Setting (`NORDTAL_STEWARD_AGENT_*`) | Default                | What                                                                           |
+| ----------------------------------- | ---------------------- | ------------------------------------------------------------------------------ |
+| `TOKEN`                             | none, required         | the secret steward sends                                                       |
+| `PORT`                              | `8081`                 |                                                                                |
+| `DOCKER_SOCKET`                     | `/var/run/docker.sock` |                                                                                |
+| `CONFIGS`                           | `/configs`             | each server's plugins folder, whose jars carry descriptors and message bundles |
+| `VOLUMES_ROOT`                      | `/volumes`             | the `runs` group's `volumes-root`: what a run installs into                    |
+| `BACKUP_SOURCES`                    | `/backup-sources`      | one mount per volume a backup saves and a restore writes back                  |
+| `BACKUPS`                           | `/backups`             | the archives, the same volume postgres dumps into                              |
 
 ## Building and testing
 

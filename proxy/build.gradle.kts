@@ -7,6 +7,7 @@ plugins {
 // How Steward shows this module's settings; steward-agent reads it out of the jar.
 pluginDescriptor {
     displayName.set("Proxy")
+    followsMessages.set(true)
 }
 
 // ComposeTellsTheStandbyApartTest reads the deployment file itself, so Gradle has to see it as a test input.

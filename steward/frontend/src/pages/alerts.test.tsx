@@ -94,4 +94,43 @@ describe("AlertsPage", () => {
     expect(await screen.findByText("the agent did not answer")).toBeTruthy()
     expect(screen.queryByText("All clear.")).toBeNull()
   })
+
+  it("words an all-clear by what cleared, and an older one without its list of subjects", async () => {
+    const clear = (id: number, args: Alerts["recent"][number]["title"]["args"]) => ({
+      ...READING.recent[0],
+      id,
+      type: "service" as const,
+      level: "ok" as const,
+      subject: "hunger-games, limbo, proxy",
+      title: { key: "alert.clear", args },
+      path: "/services/smp",
+    })
+    draw({
+      ...READING,
+      recent: [
+        clear(8, { type: { kind: "text", value: "service" } }),
+        clear(9, { subject: { kind: "text", value: "hunger-games, limbo, proxy" } }),
+      ],
+    })
+    expect(await screen.findByRole("link", { name: "Every service runs again" })).toBeTruthy()
+    expect(screen.getByRole("link", { name: "All clear" })).toBeTruthy()
+    expect(screen.queryByText(/hunger-games/)).toBeNull()
+  })
+
+  it("keeps each line of an older grouped detail on a line of its own", async () => {
+    draw({
+      ...READING,
+      recent: [
+        {
+          ...READING.recent[0],
+          detail: [
+            { key: "alert.words", args: { text: { kind: "text", value: "smp is not running\nlimbo is not running" } } },
+          ],
+        },
+      ],
+    })
+    const detail = await screen.findByText(/smp is not running/, { selector: "p" })
+    expect(detail.textContent).toBe("smp is not running\nlimbo is not running")
+    expect(detail.className).toContain("whitespace-pre-line")
+  })
 })

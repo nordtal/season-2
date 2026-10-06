@@ -263,7 +263,7 @@ public interface AdminTexts {
         MessageRef words(@Arg("text") String text);
 
         @Name("All clear")
-        MessageRef clear(@Arg("subject") String subject);
+        MessageRef clear(@Arg("type") AlertType type);
 
         @Name("Several of one type at once")
         MessageRef several(@Arg("subjects") List<String> subjects, @Arg("count") int count);

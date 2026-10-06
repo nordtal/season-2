@@ -484,7 +484,12 @@ public final class StackApi implements AutoCloseable {
                 .map(archive -> new StackReading.Archive(
                         archive.name(), archive.modified(), archive.partial(), archive.offsite()))
                 .toList();
-        return new StackReading(services, registryProblem, archives, host());
+        return new StackReading(
+                services,
+                registryProblem,
+                archives,
+                host(),
+                serviceRows.topology().mountedBy());
     }
 
     /** The disk and memory numbers, or null when the agent could not read them. */

@@ -18,6 +18,7 @@ import eu.nordtal.season.steward.AdminPlain;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeAll;
@@ -70,7 +71,8 @@ class AlertMonitorTest {
                 List.of(
                         new StackReading.Archive("db-20261002T110000Z.dump", fresh, false, true),
                         new StackReading.Archive("smp-world-20261002T110000Z.tar.zst", fresh, false, true)),
-                new StackReading.Host(diskGib * GIB, 100 * GIB, 50 * GIB, 100 * GIB));
+                new StackReading.Host(diskGib * GIB, 100 * GIB, 50 * GIB, 100 * GIB),
+                Map.of());
     }
 
     private List<String> raised() {
@@ -112,7 +114,7 @@ class AlertMonitorTest {
 
         reading = () -> stack(10, "running");
         monitor.poll();
-        assertEquals(List.of("disk ok All clear: disk"), raised());
+        assertEquals(List.of("disk ok The disk is below its threshold again"), raised());
         assertEquals(Alert.Level.OK, monitor.snapshot().level());
     }
 
@@ -125,7 +127,8 @@ class AlertMonitorTest {
                         new StackReading.Service("proxy", "exited", null, false, false)),
                 null,
                 stack(10, "running").archives(),
-                null);
+                null,
+                Map.of());
         monitor.poll();
         final List<RaisedAlert> alerts = book.claimUnrouted();
         assertEquals(1, alerts.size());

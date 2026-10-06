@@ -42,7 +42,7 @@ public final class StackAlerts {
         final List<Alert> alerts = new ArrayList<>();
         services(reading.services(), alerts);
         drift(reading, alerts);
-        backups(reading.archives(), thresholds, now, alerts);
+        backups(reading, thresholds, now, alerts);
         host(reading.host(), thresholds, alerts);
         alerts.sort(Comparator.comparing(alert -> alert.level() != Alert.Level.DOWN));
         return List.copyOf(alerts);
@@ -113,10 +113,8 @@ public final class StackAlerts {
 
     /** Both kinds of backup must exist, and the newest file of every series must be young enough. */
     private static void backups(
-            final List<StackReading.Archive> archives,
-            final Thresholds thresholds,
-            final Instant now,
-            final List<Alert> alerts) {
+            final StackReading reading, final Thresholds thresholds, final Instant now, final List<Alert> alerts) {
+        final List<StackReading.Archive> archives = reading.archives();
         final List<StackReading.Archive> finished =
                 archives.stream().filter(archive -> !archive.partial()).toList();
         if (finished.isEmpty()) {
@@ -150,20 +148,44 @@ public final class StackAlerts {
                     AlertType.BACKUP, Alert.Level.DOWN, "backups", TEXTS.alert().noArchive(), BACKUPS_PAGE));
         }
         offsite(finished, thresholds, now, alerts);
-        newest.forEach((series, at) -> {
-            final double hours = Duration.between(at, now).toMillis() / MILLIS_PER_HOUR;
-            if (hours > thresholds.backupAgeHours()) {
-                alerts.add(alert(
-                        AlertType.BACKUP,
-                        Alert.Level.DOWN,
-                        series,
-                        DUMP.equals(series)
-                                ? TEXTS.alert().oldDump((long) hours)
-                                : TEXTS.alert().oldArchive(series, (long) hours),
-                        TEXTS.alert().permittedAge(thresholds.backupAgeHours()),
-                        BACKUPS_PAGE));
-            }
-        });
+        newest.forEach((series, at) -> stale(reading, series, at, thresholds, now, alerts));
+    }
+
+    /**
+     * A series whose newest file is older than permitted.
+     *
+     * The dump is red; a volume is yellow while every service on it runs, and red once one does not.
+     */
+    private static void stale(
+            final StackReading reading,
+            final String series,
+            final Instant at,
+            final Thresholds thresholds,
+            final Instant now,
+            final List<Alert> alerts) {
+        final double hours = Duration.between(at, now).toMillis() / MILLIS_PER_HOUR;
+        if (hours <= thresholds.backupAgeHours()) {
+            return;
+        }
+        final MessageRef permitted = TEXTS.alert().permittedAge(thresholds.backupAgeHours());
+        if (DUMP.equals(series)) {
+            alerts.add(alert(
+                    AlertType.BACKUP,
+                    Alert.Level.DOWN,
+                    DUMP,
+                    TEXTS.alert().oldDump((long) hours),
+                    permitted,
+                    BACKUPS_PAGE));
+            return;
+        }
+        final String volume = volumeName(series);
+        alerts.add(alert(
+                AlertType.BACKUP,
+                serviceDown(reading, series) ? Alert.Level.DOWN : Alert.Level.WARN,
+                volume,
+                TEXTS.alert().oldArchive(volume, (long) hours),
+                permitted,
+                BACKUPS_PAGE));
     }
 
     /** The newest archive copied off this host must be young enough; none is yellow, since the disk still has them. */
@@ -222,6 +244,17 @@ public final class StackAlerts {
                             TEXTS.alert().noLimit()),
                     "/"));
         }
+    }
+
+    /** Whether a service that runs on the saved volume {@code series} is red. */
+    private static boolean serviceDown(final StackReading reading, final String series) {
+        final List<String> users = reading.mountedBy().getOrDefault(series, List.of());
+        return reading.services().stream().anyMatch(service -> users.contains(service.name()) && down(service));
+    }
+
+    /** A volume as compose.yml names it: Docker's name without the {@code <project>_} prefix compose gives it. */
+    static String volumeName(final String series) {
+        return series.substring(series.indexOf('_') + 1);
     }
 
     /** One volume by its name, or the one database dump series, or null for a file that is neither. */

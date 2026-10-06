@@ -79,7 +79,11 @@ export function AlertsPage() {
   )
 }
 
-/** One alert: its level in words, its title rendered from the admin bundle, and the lines below it. */
+/**
+ * One alert: its level in words, its title rendered from the admin bundle, and the lines below it.
+ *
+ * The title wraps rather than cut, since its subject is what tells two alerts apart; an older line keeps its breaks.
+ */
 function AlertLine({
   level,
   title,
@@ -95,20 +99,20 @@ function AlertLine({
 }) {
   return (
     <li className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0" data-alert={level}>
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 items-start gap-2">
         <StatusBadge tone={level} className="shrink-0">
           {t("alert.level", { level })}
         </StatusBadge>
         {path ? (
-          <Link to={path} className="min-w-0 truncate text-sm font-medium underline-offset-4 hover:underline">
+          <Link to={path} className="min-w-0 text-sm font-medium break-words underline-offset-4 hover:underline">
             {title}
           </Link>
         ) : (
-          <span className="min-w-0 truncate text-sm font-medium">{title}</span>
+          <span className="min-w-0 text-sm font-medium break-words">{title}</span>
         )}
       </div>
       {lines.map((line, index) => (
-        <p key={index} className="text-sm break-words text-muted-foreground">
+        <p key={index} className="text-sm break-words whitespace-pre-line text-muted-foreground">
           {line}
         </p>
       ))}

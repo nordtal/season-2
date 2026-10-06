@@ -1,7 +1,7 @@
 {
   "kinds": {
     "alert.claimed": {"payment":"text","amount":"money","reference":"text"},
-    "alert.clear": {"subject":"text"},
+    "alert.clear": {"type":"choice"},
     "alert.disk": {"percent":"number"},
     "alert.docker-state": {"state":"text"},
     "alert.failed-for": {"person":"mention","error":"text"},
@@ -398,7 +398,7 @@
   },
   "texts": {
     "alert.claimed": [["Payment ",{"v":"payment"}," (",{"v":"amount"},") was matched to ",{"v":"reference"}," but is already claimed by another request. Nothing was granted for it; grant the access by hand if it is genuine."]],
-    "alert.clear": [["All clear: ",{"v":"subject"}]],
+    "alert.clear": [[{"c":"type","plural":false,"cases":{"service":["Every service runs again"],"drift":["The images match the registry again"],"backup":["The backups are current again"],"disk":["The disk is below its threshold again"],"memory":["Memory use is below its threshold again"],"other":["All clear"]}}]],
     "alert.disk": [["The disk is ",{"v":"percent","k":"number","s":"plain"}," % full"]],
     "alert.dm": [["A direct message was not delivered"]],
     "alert.docker-state": [["Docker reports the state ",{"v":"state"},"."]],
@@ -424,7 +424,7 @@
     "alert.not-compared": [["The images were not compared"]],
     "alert.not-open": [["Payment ",{"v":"payment"}," (",{"v":"amount"},") arrived on ",{"v":"reference"},", which is ",{"v":"status"},". Nothing was booked; grant the access by hand if it is genuine."]],
     "alert.not-running": [[{"v":"service"}," is not running"]],
-    "alert.old-archive": [["The newest archive of ",{"v":"volume"}," is ",{"c":"hours","plural":true,"cases":{"one":[{"pound":"hours"}," hour"],"other":[{"pound":"hours"}," hours"]}}," old"]],
+    "alert.old-archive": [[{"v":"volume"},": the newest archive is ",{"c":"hours","plural":true,"cases":{"one":[{"pound":"hours"}," hour"],"other":[{"pound":"hours"}," hours"]}}," old"]],
     "alert.old-dump": [["The newest database dump is ",{"c":"hours","plural":true,"cases":{"one":[{"pound":"hours"}," hour"],"other":[{"pound":"hours"}," hours"]}}," old"]],
     "alert.old-offsite": [["The newest backup copied off this host is ",{"c":"hours","plural":true,"cases":{"one":[{"pound":"hours"}," hour"],"other":[{"pound":"hours"}," hours"]}}," old"]],
     "alert.older-image": [[{"v":"services"}," ",{"c":"count","plural":true,"cases":{"one":["runs"],"other":["run"]}}," an older image than the registry has"]],

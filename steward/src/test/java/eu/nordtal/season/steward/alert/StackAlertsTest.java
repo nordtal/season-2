@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -19,6 +20,8 @@ class StackAlertsTest {
     private static final Instant NOW = Instant.parse("2026-10-02T12:00:00Z");
     private static final Thresholds THRESHOLDS = new Thresholds(85, 90, 36);
     private static final long GIB = 1L << 30;
+    private static final Map<String, List<String>> MOUNTS =
+            Map.of("nordtal-s2_mc-limbo", List.of("limbo"), "limbo-world", List.of("limbo"));
 
     private static StackReading.Service service(final String name, final String state) {
         return new StackReading.Service(name, state, null, false, false);
@@ -47,7 +50,7 @@ class StackAlertsTest {
             final @Nullable String registryProblem,
             final List<StackReading.Archive> archives,
             final StackReading.@Nullable Host host) {
-        return StackAlerts.of(new StackReading(services, registryProblem, archives, host), THRESHOLDS, NOW);
+        return StackAlerts.of(new StackReading(services, registryProblem, archives, host, MOUNTS), THRESHOLDS, NOW);
     }
 
     private static List<Alert> withServices(final StackReading.Service... services) {
@@ -131,8 +134,43 @@ class StackAlertsTest {
         archives.add(archive("limbo-world-20260930T110000Z.tar.zst", 37));
         archives.add(archive("limbo-world-20260929T110000Z.tar.zst", 61));
         final List<Alert> alerts = of(List.of(service("smp", "running")), null, archives, null);
-        assertEquals(List.of("The newest archive of limbo-world is 37 hours old"), titles(alerts));
+        assertEquals(List.of("limbo-world: the newest archive is 37 hours old"), titles(alerts));
         assertEquals("limbo-world", alerts.getFirst().subject());
+    }
+
+    @Test
+    void aStaleArchiveIsYellowWhileItsServiceRunsAndNamedWithoutTheProjectPrefix() {
+        final List<StackReading.Archive> archives = new ArrayList<>(freshBackups());
+        archives.add(archive("nordtal-s2_mc-limbo-20260930T110000Z.tar.zst", 37));
+        final List<Alert> alerts = of(List.of(service("limbo", "running")), null, archives, null);
+        assertEquals(List.of("mc-limbo: the newest archive is 37 hours old"), titles(alerts));
+        assertEquals("mc-limbo", alerts.getFirst().subject());
+        assertEquals(Alert.Level.WARN, alerts.getFirst().level());
+    }
+
+    @Test
+    void aStaleArchiveIsRedOnceAServiceOnItsVolumeIsDownButNotForAMeantStop() {
+        final List<StackReading.Archive> archives = new ArrayList<>(freshBackups());
+        archives.add(archive("nordtal-s2_mc-limbo-20260930T110000Z.tar.zst", 37));
+        final List<Alert> down = of(List.of(service("limbo", "exited")), null, archives, null);
+        assertEquals(
+                List.of(Alert.Level.DOWN, Alert.Level.DOWN),
+                down.stream().map(Alert::level).toList());
+        assertEquals("mc-limbo", down.get(1).subject());
+        final List<Alert> held =
+                of(List.of(new StackReading.Service("limbo", "exited", null, true, false)), null, archives, null);
+        assertEquals(List.of(Alert.Level.WARN), held.stream().map(Alert::level).toList());
+    }
+
+    @Test
+    void aStaleDatabaseDumpStaysRed() {
+        final List<Alert> alerts = of(
+                List.of(service("smp", "running")),
+                null,
+                List.of(archive("db-20260930T110000Z.dump", 37), archive("smp-world-20261002T110000Z.tar.zst", 1)),
+                null);
+        assertEquals(List.of("The newest database dump is 37 hours old"), titles(alerts));
+        assertEquals(Alert.Level.DOWN, alerts.getFirst().level());
     }
 
     @Test

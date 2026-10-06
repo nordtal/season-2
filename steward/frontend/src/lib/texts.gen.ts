@@ -8,7 +8,7 @@ export type TextArgs = {
     reference: Arg["text"]
   }
   "alert.clear": {
-    subject: Arg["text"]
+    type: Arg["choice"]
   }
   "alert.disk": {
     percent: Arg["number"]

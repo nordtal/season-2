@@ -2,6 +2,7 @@ package eu.nordtal.season.steward.alert;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -9,16 +10,19 @@ import org.jspecify.annotations.Nullable;
  *
  * @param registryProblem why the images were not compared, or null when the registry answered
  * @param host the machine's numbers, or null when they could not be read
+ * @param mountedBy for each saved volume, by the name its archives carry, the services that run on it
  */
 public record StackReading(
         List<Service> services,
         @Nullable String registryProblem,
         List<Archive> archives,
-        @Nullable Host host) {
+        @Nullable Host host,
+        Map<String, List<String>> mountedBy) {
 
     public StackReading {
         services = List.copyOf(services);
         archives = List.copyOf(archives);
+        mountedBy = Map.copyOf(mountedBy);
     }
 
     /**

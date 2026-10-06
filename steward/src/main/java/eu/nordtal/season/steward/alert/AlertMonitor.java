@@ -193,6 +193,6 @@ public final class AlertMonitor {
 
     private static Alert cleared(final Alert was) {
         return new Alert(
-                was.type(), Alert.Level.OK, was.subject(), TEXTS.alert().clear(was.subject()), was.path());
+                was.type(), Alert.Level.OK, was.subject(), TEXTS.alert().clear(was.type()), was.path());
     }
 }

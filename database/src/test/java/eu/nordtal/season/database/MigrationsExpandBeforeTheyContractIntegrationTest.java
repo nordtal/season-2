@@ -36,9 +36,18 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
      *
      * The release package adds its own line when it bumps {@code version}.
      */
-    private static final Map<String, String> NEWEST_MIGRATION = Map.of(
-            "0.12.1", "26", "0.13.0", "28", "0.13.1", "28", "0.13.2", "28", "0.14.0", "30", "0.15.0", "33", "0.16.0",
-            "33", "0.16.1", "33", "0.17.0", "34", "0.18.0", "36");
+    private static final Map<String, String> NEWEST_MIGRATION = Map.ofEntries(
+            Map.entry("0.12.1", "26"),
+            Map.entry("0.13.0", "28"),
+            Map.entry("0.13.1", "28"),
+            Map.entry("0.13.2", "28"),
+            Map.entry("0.14.0", "30"),
+            Map.entry("0.15.0", "33"),
+            Map.entry("0.16.0", "33"),
+            Map.entry("0.16.1", "33"),
+            Map.entry("0.17.0", "34"),
+            Map.entry("0.18.0", "36"),
+            Map.entry("0.18.1", "36"));
 
     /**
      * What a release's own code no longer uses, keyed as a privilege is listed, with that release.

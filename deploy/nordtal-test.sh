@@ -544,6 +544,18 @@ ok "a gap past the limit ends the watch"
 ok "an answer resets the gap, and a failed run still fails"
 unset -f docker sleep
 
+case_begin "the registry prefix is the environment's, else the file's, else ghcr.io"
+printf 'NORDTAL_IMAGES=registry.example/fork\n' > "$WORK/images.env"
+printf 'PLAIN=value\n' > "$WORK/no-images.env"
+printf 'NORDTAL_IMAGES="registry.example/quoted"\n' > "$WORK/quoted-images.env"
+[[ "$(unset NORDTAL_IMAGES; images_prefix "$WORK/images.env")" == registry.example/fork ]] || bad "the file's prefix was ignored"
+[[ "$(unset NORDTAL_IMAGES; images_prefix "$WORK/quoted-images.env")" == registry.example/quoted ]] || bad "the file's quoted prefix"
+[[ "$(NORDTAL_IMAGES=one.off/prefix images_prefix "$WORK/images.env")" == one.off/prefix ]] || bad "a one-off in the environment did not win"
+[[ "$(NORDTAL_IMAGES= images_prefix "$WORK/images.env")" == registry.example/fork ]] || bad "an empty environment value hid the file's"
+[[ "$(unset NORDTAL_IMAGES; images_prefix "$WORK/no-images.env")" == ghcr.io/nordtal ]] || bad "no value anywhere is not ghcr.io"
+[[ "$(unset NORDTAL_IMAGES; images_prefix "$WORK/nope.env")" == ghcr.io/nordtal ]] || bad "a missing file is not ghcr.io"
+ok "environment, file, default, in that order"
+
 
 if (( failed > 0 )); then
     printf '\n%d case(s) failed\n' "$failed" >&2

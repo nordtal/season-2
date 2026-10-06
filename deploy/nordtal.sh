@@ -52,7 +52,9 @@ RELEASES_API="${NORDTAL_RELEASES_API:-https://api.github.com/repos/nordtal/seaso
 # Set once the release is known: this file at that tag, and steward-agent at that version.
 SELF_URL=""
 AGENT_IMAGE=""
-IMAGES="${NORDTAL_IMAGES:-ghcr.io/nordtal}"
+# The registry prefix of our images, known once the environment file is.
+IMAGES=""
+DEFAULT_IMAGES="ghcr.io/nordtal"
 
 DEFAULT_ENV_FILE="/etc/nordtal/season-2.env"
 DEFAULT_PROJECT="nordtal-s2"
@@ -135,6 +137,15 @@ env_value() {
         line="${line:1:${#line}-2}"
     fi
     printf '%s' "$line"
+}
+
+# The registry prefix of our images: NORDTAL_IMAGES in the environment wins for a one-off, then the
+# environment file the deployment is configured from, then ghcr.io.
+images_prefix() {
+    local file="$1" value="${NORDTAL_IMAGES:-}"
+    [[ -n "${value//[[:space:]]/}" ]] || value="$(env_value "$file" NORDTAL_IMAGES)"
+    value="${value//[[:space:]]/}"
+    printf '%s' "${value:-$DEFAULT_IMAGES}"
 }
 
 # Writes `name=value` into the file, replacing an existing assignment (also with leading whitespace
@@ -935,7 +946,6 @@ resolve_release
 # For the renewed copy, which must neither ask again nor take GitHub's answer for a person's.
 export NORDTAL_RELEASE="$RELEASE" NORDTAL_RELEASE_NAMED="$RELEASE_NAMED"
 SELF_URL="$(self_url_for "$RELEASE")"
-AGENT_IMAGE="$IMAGES/steward-agent:$RELEASE"
 log "release $RELEASE"
 
 ORIGIN="${NORDTAL_SH_ORIGIN:-}"
@@ -1090,6 +1100,8 @@ else
 fi
 [[ -f "$ENV_FILE" ]] || die "no environment file at $ENV_FILE - and --check changes nothing, so it
        was not going to appear. Run without --check, or put it there yourself."
+IMAGES="$(images_prefix "$ENV_FILE")"
+AGENT_IMAGE="$IMAGES/steward-agent:$RELEASE"
 
 # 2a · the questions
 # Asks once for each missing value. Secrets are read with echo off and never shown; a malformed
@@ -1625,12 +1637,16 @@ fi
 # Otherwise a throwaway agent runs `up`, which pulls every image before stopping anything; on a
 # stack whose agent is down this is the repair. The env directory is mounted, and
 # NORDTAL_STEWARD_AGENT_ENV_FILE names the file inside it.
+# An explicit NORDTAL_IMAGES is a one-off and is handed on; otherwise the agent reads the file itself, since
+# a value in its environment would outrank the file.
+images_env=()
+[[ -z "${NORDTAL_IMAGES:-}" ]] || images_env=(-e "NORDTAL_IMAGES=$IMAGES")
 log "deploying release $RELEASE - this pulls every image before it stops anything"
 docker run --rm \
     --name "${PROJECT}-setup" \
     -e "COMPOSE_PROJECT_NAME=$PROJECT" \
     -e "NORDTAL_RELEASE=$RELEASE" \
-    -e "NORDTAL_IMAGES=$IMAGES" \
+    ${images_env[@]+"${images_env[@]}"} \
     -e "NORDTAL_STEWARD_AGENT_ENV_FILE=/app/env/$(basename "$ENV_FILE")" \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$(dirname "$ENV_FILE"):/app/env:ro" \

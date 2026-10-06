@@ -54,11 +54,11 @@ class ExampleValuesTest {
     void theSeasonIsTheOneTheNetworksSettingsName() {
         final Map<String, @Nullable String> changes = new HashMap<>();
         changes.put("number", "3");
-        changes.put("name", "\"Staffel Drei\"");
+        changes.put("name", "\"Season Three\"");
         SettingStore.using(dataSource).change(SettingStore.NETWORK, "season", changes, Actor.STEWARD, stored -> true);
 
         assertEquals(
-                Map.of("number", "3", "name", "Staffel Drei"),
+                Map.of("number", "3", "name", "Season Three"),
                 new ExampleValues(dataSource).of(DiscordId.of("1"), "Ada").get("season"));
     }
 

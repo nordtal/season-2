@@ -59,6 +59,9 @@ public interface HungerGamesMessages {
         @Name("Lobby")
         interface Lobby {
 
+            @Name("Rules")
+            MessageRef rules();
+
             @Name("Broadcast")
             MessageRef broadcast(@Arg("ready") long ready, @Arg("total") long total, @Arg("confirm") Action confirm);
 

@@ -87,6 +87,7 @@ public final class Lobby {
             final Locale locale = identities.languageOf(player.getUniqueId());
             final Component message =
                     renderer.format(locale, MESSAGES.hg().lobby().broadcast(readyTeams, totalTeams, READY));
+            player.sendMessage(renderer.format(locale, MESSAGES.hg().lobby().rules()));
             player.sendMessage(message);
         }
     }

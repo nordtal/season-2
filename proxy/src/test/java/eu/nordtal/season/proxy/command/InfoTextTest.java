@@ -1,5 +1,6 @@
 package eu.nordtal.season.proxy.command;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.messages.Messages;
@@ -44,16 +45,14 @@ class InfoTextTest {
     }
 
     @Test
-    void theRulesAreNotInServiceYet() {
-        // A wrong value ships quietly, as a plausible answer nobody checks again.
-        assertTrue(
-                MESSAGES.get(Locale.ENGLISH, InfoTexts.RULES_TEXT.apply("").key())
-                        .contains("PLACEHOLDER"),
-                "the English rules text no longer says it is a placeholder");
-        assertTrue(
-                MESSAGES.get(Locale.GERMAN, InfoTexts.RULES_TEXT.apply("").key())
-                        .contains("PLATZHALTER"),
-                "the German rules text no longer says it is a placeholder - if the real rules have"
-                        + " been written, delete this test with the same commit");
+    void theRulesAreWrittenNotAPlaceholder() {
+        for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
+            final String rules =
+                    MESSAGES.get(locale, InfoTexts.RULES_TEXT.apply("").key());
+            assertFalse(
+                    rules.toUpperCase(Locale.ROOT).contains("PLACEHOLDER")
+                            || rules.toUpperCase(Locale.ROOT).contains("PLATZHALTER"),
+                    "the " + locale.getLanguage() + " rules are a placeholder again");
+        }
     }
 }

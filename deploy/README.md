@@ -81,12 +81,12 @@ service runs as. compose mounts that directory read only at `/app/secrets` into 
 never interpolates its values; [`jvm/secrets.sh`](jvm/secrets.sh) exports them before the JVM starts.
 steward-agent mounts only its own, so the agent does not read the bank key or the bot's token:
 
-| service         | its own secrets (the environment file's name, where it differs)                                                                     |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `steward-bunq`  | `NORDTAL_STEWARD_BUNQ_API_KEY`, `NORDTAL_STEWARD_BUNQ_ACCOUNT_ID`                                                                   |
-| `discord-bot`   | `NORDTAL_BOT_TOKEN`                                                                                                                 |
+| service         | its own secrets (the environment file's name, where it differs)                                                                                            |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `steward-bunq`  | `NORDTAL_STEWARD_BUNQ_API_KEY`, `NORDTAL_STEWARD_BUNQ_ACCOUNT_ID`                                                                                          |
+| `discord-bot`   | `NORDTAL_BOT_TOKEN`                                                                                                                                        |
 | `steward`       | `NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET` (`STEWARD_DISCORD_CLIENT_SECRET`), `NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY` (`STEWARD_WEB_PUSH_PRIVATE_KEY`) |
-| `steward-agent` | `NORDTAL_STEWARD_AGENT_OFFSITE_PASSWORD` (`STEWARD_OFFSITE_PASSWORD`)                                                               |
+| `steward-agent` | `NORDTAL_STEWARD_AGENT_OFFSITE_PASSWORD` (`STEWARD_OFFSITE_PASSWORD`)                                                                                      |
 
 `nordtal.sh` asks for them into that file, and every run (the menu, `--deploy`, `update`) moves such a
 line out of the environment file, where a line put back by hand counts as newer. While the running

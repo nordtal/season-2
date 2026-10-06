@@ -17,7 +17,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 
-/** Icons are drawn once per version, only with consent, and a version that failed rests before the next try. */
+/** Icons are drawn once per version and painter, only with consent, and a failed version rests before a retry. */
 class GameAssetsTest {
 
     private final Store store = new Store();
@@ -87,6 +87,28 @@ class GameAssetsTest {
     }
 
     @Test
+    void aSheetThePresentPainterDrewIsLeftAlone() {
+        final GameAssets assets = assets();
+        assets.drawMissing();
+        opened.clear();
+
+        assets.drawMissing();
+
+        assertEquals(List.of(), opened);
+        assertEquals(Painter.id(), store.icons.get("26.2").index().painter());
+    }
+
+    @Test
+    void aSheetAnotherPainterDrewIsDrawnAgainByThisOne() {
+        store.icons.put("26.2", new GameDataStore.Icons(new byte[] {1}, 32, Map.of(), "an older painter"));
+
+        assets().drawMissing();
+
+        assertEquals(List.of("26.2"), opened);
+        assertEquals(Painter.id(), store.icons.get("26.2").index().painter());
+    }
+
+    @Test
     void aVersionThatFailedRestsAnHourBeforeMojangIsAskedAgain() {
         mojangAnswers = false;
         final GameAssets assets = assets();
@@ -128,8 +150,14 @@ class GameAssetsTest {
         }
 
         @Override
-        public List<String> versionsWithoutIcons() {
-            return icons.containsKey("26.2") ? List.of() : List.of("26.2");
+        public List<String> versionsToDraw(final String painter) {
+            final Icons drawn = icons.get("26.2");
+            return drawn != null && drawn.index().painter().equals(painter) ? List.of() : List.of("26.2");
+        }
+
+        @Override
+        public Map<String, String> iconPainters() {
+            return Map.of();
         }
 
         @Override

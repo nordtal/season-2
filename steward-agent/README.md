@@ -92,7 +92,8 @@ files directly in the backups.
   `mojang-assets` on and a server exporting a Minecraft version without icons, it fetches that
   client jar, checks its sha1, draws every item at 32 pixels into one sheet in `game_assets` and
   deletes the jar. An advancement whose icon carries banner patterns gets a slot under its own id.
-  Nothing of Mojang's is kept.
+  A sheet records the painter that drew it, a hash of the drawing classes, and is drawn again when
+  the running painter differs. Nothing of Mojang's is kept.
 - An update stops the services whose jars or containers change, runs `migrate`, installs, starts
   them and waits for healthy. `bootstrap` fills empty slots and restarts nothing. A report writes nothing.
 - Two steward processes cannot serve or move jars at once (advisory locks).

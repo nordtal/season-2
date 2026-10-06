@@ -2,6 +2,7 @@ package eu.nordtal.season.steward;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonObject;
@@ -57,10 +58,10 @@ class GameDataApiTest extends WebTestSupport {
                         .size());
         assertTrue(before.get("icons") == null || before.get("icons").isJsonNull(), "no icons before they are drawn");
 
-        store.storeIcons("26.2", new GameDataStore.Icons(SHEET, 32, Map.of("minecraft:stone", 0)));
+        store.storeIcons("26.2", new GameDataStore.Icons(SHEET, 32, Map.of("minecraft:stone", 0), "first"));
         final JsonObject after = GSON.fromJson(get("/api/game-data").body(), JsonObject.class);
         final String url = after.getAsJsonObject("icons").get("url").getAsString();
-        assertEquals("/api/game-data/26.2/icons.png", url);
+        assertEquals("/api/game-data/26.2/icons.png?painter=first", url);
 
         final HttpResponse<byte[]> sheet = http.send(
                 HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + url))
@@ -76,9 +77,25 @@ class GameDataApiTest extends WebTestSupport {
     }
 
     @Test
+    void aSheetDrawnAgainIsUnderAnotherUrlAndTheLiveTopicSeesIt() throws Exception {
+        final GameDataStore store = GameDataStore.using(WebFixture.postgres.dataSource());
+        store.publish("smp", catalogue("minecraft:story/root"));
+        store.storeIcons("26.2", new GameDataStore.Icons(SHEET, 32, Map.of("minecraft:stone", 0), "first"));
+        final GameDataRoutes routes = new GameDataRoutes(store);
+        final Object drawnFirst = routes.changes();
+
+        store.storeIcons("26.2", new GameDataStore.Icons(SHEET, 32, Map.of("minecraft:stone", 0), "second"));
+
+        assertEquals(
+                "/api/game-data/26.2/icons.png?painter=second",
+                routes.read().icons().url());
+        assertNotEquals(drawnFirst, routes.changes(), "a redrawn sheet is a change the open pages hear of");
+    }
+
+    @Test
     void nobodySignedOutSeesTheIcons() throws Exception {
         GameDataStore.using(WebFixture.postgres.dataSource())
-                .storeIcons("26.2", new GameDataStore.Icons(SHEET, 32, Map.of()));
+                .storeIcons("26.2", new GameDataStore.Icons(SHEET, 32, Map.of(), "first"));
 
         final int status = get(browser(), "/api/game-data/26.2/icons.png").statusCode();
 

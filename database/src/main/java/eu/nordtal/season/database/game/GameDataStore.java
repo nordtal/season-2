@@ -27,10 +27,13 @@ public interface GameDataStore {
     /** Every server's catalogue, by server. */
     Map<String, GameCatalogue> catalogues();
 
-    /** The versions some server runs whose icons are not drawn yet. */
-    List<String> versionsWithoutIcons();
+    /** The versions some server runs whose icons are not drawn yet or were drawn by a painter other than this. */
+    List<String> versionsToDraw(String painter);
 
-    /** Stores the icons of a version; a version that has them keeps the first. */
+    /** The painter that drew each version's icons, by version, so a reader can tell whether a sheet was drawn again. */
+    Map<String, String> iconPainters();
+
+    /** Stores the icons of a version, replacing the ones a painter drew before. */
     void storeIcons(String minecraftVersion, Icons icons);
 
     /** The icons of a version, if they were drawn. */
@@ -48,10 +51,11 @@ public interface GameDataStore {
         /**
          * @param png the sheet as a PNG, {@code columns} icons to a row
          * @param slots the slot of each item's icon, by namespaced id
+         * @param painter the identity of the drawing code that painted the sheet
          */
-        public Icons(final byte[] png, final int columns, final Map<String, Integer> slots) {
+        public Icons(final byte[] png, final int columns, final Map<String, Integer> slots, final String painter) {
             this.png = png.clone();
-            this.index = new IconIndex(columns, Map.copyOf(slots));
+            this.index = new IconIndex(columns, Map.copyOf(slots), painter);
         }
 
         /** The sheet as a PNG, a copy. */
@@ -64,6 +68,10 @@ public interface GameDataStore {
         }
     }
 
-    /** Where a version's icons are, for a reader that does not need the pixels. */
-    record IconIndex(int columns, Map<String, Integer> slots) {}
+    /**
+     * Where a version's icons are, for a reader that does not need the pixels.
+     *
+     * @param painter the identity of the drawing code that painted the sheet, empty if none was recorded
+     */
+    record IconIndex(int columns, Map<String, Integer> slots, String painter) {}
 }

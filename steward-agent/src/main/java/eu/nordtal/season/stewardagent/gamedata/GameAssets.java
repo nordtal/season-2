@@ -21,7 +21,7 @@ import java.util.function.BooleanSupplier;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Draws the icons of every Minecraft version a server runs and none are drawn for, from Mojang's client jar.
+ * Draws a version's icons from Mojang's client jar when none, or another painter's, are drawn.
  *
  * Only with the installer's consent: without it, pickers show the servers' English names and no icons.
  */
@@ -93,12 +93,12 @@ public final class GameAssets implements AutoCloseable {
         }
     }
 
-    /** Draws each version still without icons, once consent is given; a failed one rests for {@link #RETRY}. */
+    /** Draws each version whose icons are missing or another painter's, once consent is given; a failed one rests. */
     void drawMissing() {
         if (!consented.getAsBoolean()) {
             return;
         }
-        final List<String> missing = store.versionsWithoutIcons();
+        final List<String> missing = store.versionsToDraw(Painter.id());
         if (missing.isEmpty()) {
             return;
         }

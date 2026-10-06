@@ -15,11 +15,11 @@ import org.jspecify.annotations.Nullable;
 /**
  * What the servers know of the game, for the pickers: one catalogue for the version the network runs, and its icons.
  *
- * The catalogue is merged again only when a server exported since; the icons are immutable per version.
+ * The catalogue is merged again only when a server exported since; a sheet's URL names the painter that drew it.
  */
 public final class GameDataRoutes {
 
-    /** A year, and never revalidated: a version's icons are drawn once. */
+    /** A year, and never revalidated: a sheet drawn again by another painter is under another URL. */
     public static final String ICONS_CACHE = "private, max-age=31536000, immutable";
 
     private final @Nullable GameDataStore store;
@@ -56,7 +56,7 @@ public final class GameDataRoutes {
 
     /** What changes when a server exports or icons are drawn, which the live topic compares instead of all of it. */
     public Object changes() {
-        return store == null ? List.of() : List.of(store.exports(), store.versionsWithoutIcons());
+        return store == null ? List.of() : List.of(store.exports(), store.iconPainters());
     }
 
     public GameData read() {
@@ -69,12 +69,12 @@ public final class GameDataRoutes {
         }
         final String version = catalogue.minecraftVersion();
         final Icons icons = store.iconIndex(version)
-                .map(index -> new Icons(iconsUrl(version), index.columns(), index.slots()))
+                .map(index -> new Icons(iconsUrl(version, index.painter()), index.columns(), index.slots()))
                 .orElse(null);
         return new GameData(version, catalogue.datapacks(), catalogue.registries(), catalogue.tags(), icons);
     }
 
-    /** The sheet of one version, which a signed-in admin's browser keeps for a year. */
+    /** The sheet of one version, which a signed-in admin's browser keeps for a year under its painter's URL. */
     public void icons(final Context ctx) {
         final GameDataStore.Icons icons =
                 store == null ? null : store.icons(ctx.pathParam("version")).orElse(null);
@@ -86,8 +86,9 @@ public final class GameDataRoutes {
         ctx.result(icons.png());
     }
 
-    static String iconsUrl(final String version) {
-        return "/api/game-data/" + URLEncoder.encode(version, StandardCharsets.UTF_8) + "/icons.png";
+    static String iconsUrl(final String version, final String painter) {
+        return "/api/game-data/" + URLEncoder.encode(version, StandardCharsets.UTF_8) + "/icons.png?painter="
+                + URLEncoder.encode(painter, StandardCharsets.UTF_8);
     }
 
     /** The union of the newest export's version, merged again only when some server exported since. */

@@ -74,26 +74,44 @@ final class JdbiGameDataStore implements GameDataStore {
     }
 
     @Override
-    public List<String> versionsWithoutIcons() {
-        return jdbi.withHandle(
-                handle -> handle.createQuery("""
+    public List<String> versionsToDraw(final String painter) {
+        return jdbi.withHandle(handle -> handle.createQuery("""
                         SELECT DISTINCT catalogue.minecraft_version FROM game_catalogue catalogue
                         WHERE NOT EXISTS (SELECT 1 FROM game_assets assets
-                                          WHERE assets.minecraft_version = catalogue.minecraft_version)
-                        ORDER BY 1""").mapTo(String.class).list());
+                                          WHERE assets.minecraft_version = catalogue.minecraft_version
+                                            AND assets.painter = :painter)
+                        ORDER BY 1""")
+                .bind("painter", painter)
+                .mapTo(String.class)
+                .list());
+    }
+
+    @Override
+    public Map<String, String> iconPainters() {
+        return jdbi.withHandle(handle -> {
+            final Map<String, String> painters = new LinkedHashMap<>();
+            handle.createQuery("SELECT minecraft_version, painter FROM game_assets ORDER BY minecraft_version")
+                    .map((rows, context) -> Map.entry(rows.getString("minecraft_version"), rows.getString("painter")))
+                    .forEach(entry -> painters.put(entry.getKey(), entry.getValue()));
+            return painters;
+        });
     }
 
     @Override
     public void storeIcons(final String minecraftVersion, final Icons icons) {
         jdbi.useTransaction(handle -> {
             handle.createUpdate("""
-                            INSERT INTO game_assets (minecraft_version, icons, columns, icon_index, fetched)
-                            VALUES (:version, :icons, :columns, CAST(:slots AS jsonb), now())
-                            ON CONFLICT (minecraft_version) DO NOTHING""")
+                            INSERT INTO game_assets (minecraft_version, icons, columns, icon_index, painter, fetched)
+                            VALUES (:version, :icons, :columns, CAST(:slots AS jsonb), :painter, now())
+                            ON CONFLICT (minecraft_version) DO UPDATE
+                                SET icons = excluded.icons, columns = excluded.columns,
+                                    icon_index = excluded.icon_index, painter = excluded.painter,
+                                    fetched = excluded.fetched""")
                     .bind("version", minecraftVersion)
                     .bind("icons", icons.png())
                     .bind("columns", icons.index().columns())
                     .bind("slots", Json.encode(icons.index().slots()))
+                    .bind("painter", icons.index().painter())
                     .execute();
             signal(handle);
         });
@@ -102,22 +120,25 @@ final class JdbiGameDataStore implements GameDataStore {
     @Override
     public Optional<Icons> icons(final String minecraftVersion) {
         return jdbi.withHandle(handle -> handle.createQuery("""
-                        SELECT icons, columns, icon_index::text AS slots FROM game_assets
+                        SELECT icons, columns, icon_index::text AS slots, painter FROM game_assets
                         WHERE minecraft_version = :version""")
                 .bind("version", minecraftVersion)
                 .map((rows, context) -> new Icons(
-                        rows.getBytes("icons"), rows.getInt("columns"), Json.decode(rows.getString("slots"), SLOTS)))
+                        rows.getBytes("icons"),
+                        rows.getInt("columns"),
+                        Json.decode(rows.getString("slots"), SLOTS),
+                        rows.getString("painter")))
                 .findOne());
     }
 
     @Override
     public Optional<IconIndex> iconIndex(final String minecraftVersion) {
         return jdbi.withHandle(handle -> handle.createQuery("""
-                        SELECT columns, icon_index::text AS slots FROM game_assets
+                        SELECT columns, icon_index::text AS slots, painter FROM game_assets
                         WHERE minecraft_version = :version""")
                 .bind("version", minecraftVersion)
-                .map((rows, context) ->
-                        new IconIndex(rows.getInt("columns"), Json.decode(rows.getString("slots"), SLOTS)))
+                .map((rows, context) -> new IconIndex(
+                        rows.getInt("columns"), Json.decode(rows.getString("slots"), SLOTS), rows.getString("painter")))
                 .findOne());
     }
 

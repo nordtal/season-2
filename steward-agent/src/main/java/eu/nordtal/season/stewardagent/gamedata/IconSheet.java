@@ -57,6 +57,6 @@ final class IconSheet {
         } catch (final IOException impossible) {
             throw new UncheckedIOException(impossible);
         }
-        return new GameDataStore.Icons(png.toByteArray(), COLUMNS, slots);
+        return new GameDataStore.Icons(png.toByteArray(), COLUMNS, slots, Painter.id());
     }
 }

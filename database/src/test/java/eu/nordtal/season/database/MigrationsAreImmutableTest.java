@@ -130,6 +130,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V34__a_session_row_keeps_the_hash_of_its_cookie.sql",
                 "f6908deaacb44e5a7055da3f123955cd0ad1872e4421259d4d70184a6613816e");
+        FROZEN.put(
+                "V35__an_icon_sheet_records_the_painter_that_drew_it.sql",
+                "bd8aedee7289e7cc579447b1642091386bf20350fd1db14e2264a0a533362f73");
     }
 
     @Test

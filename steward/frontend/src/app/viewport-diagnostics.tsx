@@ -135,9 +135,9 @@ function readings(frameEdge: HTMLElement | null, probe: HTMLElement | null, hidd
 
   return [
     `${new Date().toLocaleTimeString("en-GB")}  up ${Math.round(performance.now() / 1000)} s  last hidden ${
-      hiddenFor === null ? "–" : `${Math.round(hiddenFor / 1000)} s`
+      hiddenFor === null ? "none" : `${Math.round(hiddenFor / 1000)} s`
     }`,
-    `screen ${screen.width}×${screen.height}  screenHeight ${screenHeight(window) ?? "–"}`,
+    `screen ${screen.width}×${screen.height}  screenHeight ${screenHeight(window) ?? "none"}`,
     `inner ${window.innerWidth}×${window.innerHeight}`,
     visual
       ? `visualViewport ${Math.round(visual.width)}×${Math.round(visual.height)}  offsetTop ${Math.round(visual.offsetTop)}  scale ${visual.scale}`
@@ -145,10 +145,10 @@ function readings(frameEdge: HTMLElement | null, probe: HTMLElement | null, hidd
     `clientHeight ${root.clientHeight}  scroll ${Math.round(window.scrollX)},${Math.round(window.scrollY)}`,
     `safe area t ${px(inset?.paddingTop)} r ${px(inset?.paddingRight)} b ${px(inset?.paddingBottom)} l ${px(inset?.paddingLeft)}`,
     `--app-height ${getComputedStyle(root).getPropertyValue("--app-height").trim()}  frame bottom ${
-      frameEdge ? Math.round(frameEdge.getBoundingClientRect().bottom) : "–"
+      frameEdge ? Math.round(frameEdge.getBoundingClientRect().bottom) : "none"
     }`,
-    `standalone ${legacy ?? "–"}  display-mode ${window.matchMedia?.("(display-mode: standalone)").matches ? "standalone" : "browser"}`,
-    `bundle ${script?.src.split("/").pop() ?? "–"}`,
+    `standalone ${legacy ?? "none"}  display-mode ${window.matchMedia?.("(display-mode: standalone)").matches ? "standalone" : "browser"}`,
+    `bundle ${script?.src.split("/").pop() ?? "none"}`,
     navigator.userAgent,
   ]
 }

@@ -4,6 +4,7 @@ import { useState } from "react"
 import type { JournalEntry } from "@/lib/api"
 import { dateTime } from "@/lib/format"
 import { useJournal } from "@/lib/queries"
+import { humanise } from "@/lib/settings-tree"
 import { choice, message, t } from "@/lib/texts"
 import { Actor, Entity } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
@@ -26,9 +27,22 @@ const WAITING_ENTRIES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
  *
  * Both filters are exact matches, so actions are picked from the rows present and the subject is submitted.
  */
-/** An action as the admin bundle names it; one no longer listed reads as its own name. */
+/** An action as the admin bundle names it; one it does not list, from an older row, reads as its words. */
 function actionLabel(action: string): string {
-  return t("journal.action", { action: choice(action) })
+  const key = choice(action)
+  const named = t("journal.action", { action: key })
+  return named === key ? humanise(key) : named
+}
+
+/** A line with no values says nothing its action does not, so the phone card leaves it out. */
+function restatesAction(entry: JournalEntry): boolean {
+  return Object.keys(entry.line.args ?? {}).length === 0
+}
+
+/** Whether the entry concerns someone other than the one who acted, which alone earns a line on a phone. */
+function concernsAnother(entry: JournalEntry): boolean {
+  if (entry.subject) return entry.subject !== entry.actor.person
+  return entry.mcUuid !== undefined
 }
 
 export function JournalPage() {
@@ -133,10 +147,10 @@ export function JournalPage() {
                   {list === undefined
                     ? WAITING_ENTRIES.map((index) => (
                         <TableRow key={index}>
-                          <TableCell data-label={columns.when}>
+                          <TableCell>
                             <SkeletonText width="long" />
                           </TableCell>
-                          <TableCell data-label={columns.action}>
+                          <TableCell data-phone="off">
                             <SkeletonText width="medium" />
                           </TableCell>
                           <TableCell data-label={columns.actor}>
@@ -158,21 +172,25 @@ export function JournalPage() {
                       ))
                     : list.map((entry) => (
                         <TableRow key={entry.id}>
-                          <TableCell
-                            data-label={columns.when}
-                            className="text-muted-foreground tnum"
-                            title={entry.occurred}
-                          >
-                            {dateTime(entry.occurred)}
+                          {/* No `data-label`: on a phone the time and the action head the card as one line. */}
+                          <TableCell title={entry.occurred}>
+                            <span className="flex flex-wrap items-baseline gap-x-3">
+                              <span className="text-muted-foreground tnum">{dateTime(entry.occurred)}</span>
+                              <span className="font-medium md:hidden">{actionLabel(entry.action)}</span>
+                            </span>
                           </TableCell>
-                          <TableCell data-label={columns.action} className="font-medium" title={entry.action}>
+                          <TableCell data-phone="off" className="font-medium" title={entry.action}>
                             {actionLabel(entry.action)}
                           </TableCell>
                           {/* A profile, never an id; no admin at all is Steward's own mark. */}
                           <TableCell data-label={columns.actor} className="text-muted-foreground">
                             <Actor kind={entry.actor.kind} id={entry.actor.person ?? ""} />
                           </TableCell>
-                          <TableCell data-label={columns.concerns} className="text-muted-foreground">
+                          <TableCell
+                            data-label={columns.concerns}
+                            data-phone={concernsAnother(entry) ? undefined : "off"}
+                            className="text-muted-foreground"
+                          >
                             {entry.subject ? (
                               <Entity id={entry.subject} />
                             ) : entry.mcUuid ? (
@@ -180,7 +198,11 @@ export function JournalPage() {
                             ) : null}
                           </TableCell>
                           {/* The line, rendered from its key and typed values, wrapping where TableCell would not. */}
-                          <TableCell data-label={columns.detail} className="text-muted-foreground whitespace-normal">
+                          <TableCell
+                            data-label={columns.detail}
+                            data-phone={restatesAction(entry) ? "off" : undefined}
+                            className="text-muted-foreground whitespace-normal"
+                          >
                             {message(entry.line)}
                           </TableCell>
                         </TableRow>

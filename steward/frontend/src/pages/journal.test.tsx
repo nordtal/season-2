@@ -56,7 +56,7 @@ describe("JournalPage - profiles, never user ids", () => {
     vi.stubGlobal("fetch", backend({ journal: JOURNAL_ENTRIES }))
     draw(<JournalPage />)
 
-    await screen.findByText("Access granted")
+    await screen.findAllByText("Access granted")
     expect(await screen.findByText("Ally")).toBeTruthy()
     expect(screen.getByText("bob")).toBeTruthy()
     // The admin bundle's line, its values typed: a number counted, a moment in the browser's own zone.
@@ -87,7 +87,7 @@ describe("JournalPage - profiles, never user ids", () => {
     expect(IDENTIFIER_PATTERN.test(document.body.textContent ?? "")).toBe(false)
   })
 
-  it("names an action no longer listed by its own name, and the host as the host", async () => {
+  it("names an action no longer listed in words, never as its key, and the host as the host", async () => {
     vi.stubGlobal(
       "fetch",
       backend({
@@ -99,14 +99,23 @@ describe("JournalPage - profiles, never user ids", () => {
             actor: { kind: "HOST" },
             line: { key: "journal.written", args: { detail: { kind: "text", value: "smp: recreated" } } },
           },
+          {
+            id: "j4",
+            occurred: "2026-09-18T09:01:00Z",
+            action: "RENAME_SERVER",
+            actor: { kind: "HOST" },
+            line: { key: "journal.written", args: { detail: { kind: "text", value: "motd" } } },
+          },
         ],
       }),
     )
     draw(<JournalPage />)
 
     await screen.findByText("smp: recreated")
-    expect(screen.getAllByText("recreate").length).toBeGreaterThan(0)
-    expect((await screen.findByText("host")).closest("[data-entity='unknown']")).toBeTruthy()
+    expect(screen.getAllByText("Recreate").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Rename server").length).toBeGreaterThan(0)
+    expect(screen.queryByText("recreate")).toBeNull()
+    expect((await screen.findAllByText("host"))[0].closest("[data-entity='unknown']")).toBeTruthy()
   })
 
   it("draws Steward itself when no admin was behind the line", async () => {
@@ -126,7 +135,45 @@ describe("JournalPage - profiles, never user ids", () => {
     )
     draw(<JournalPage />)
 
-    await screen.findByText("Payment settled")
+    await screen.findAllByText("Payment settled")
     expect(screen.getByText("Steward")).toBeTruthy()
+  })
+})
+
+/** On a phone an entry is its time and action, and only what they do not already say. */
+describe("JournalPage - the phone card says each thing once", () => {
+  it("leaves out a detail without values and a concerned person who is the actor", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        journal: () => [
+          {
+            id: "j5",
+            occurred: "2026-09-18T09:00:00Z",
+            action: "START_GAME",
+            actor: { kind: "PERSON", person: "214906139328839681" },
+            line: { key: "journal.start-game" },
+          },
+          {
+            id: "j6",
+            occurred: "2026-09-18T09:01:00Z",
+            action: "WEB_PUSH_UNSUBSCRIBE",
+            actor: { kind: "PERSON", person: "214906139328839681" },
+            subject: "214906139328839681",
+            line: { key: "journal.web-push-unsubscribe" },
+          },
+          ...JOURNAL_ENTRIES(),
+        ],
+      }),
+    )
+    draw(<JournalPage />)
+
+    const off = async (detail: string | RegExp) =>
+      [...assertElement((await screen.findByText(detail)).closest("tr"), "a row").querySelectorAll("td")]
+        .filter((cell) => cell.getAttribute("data-phone") === "off")
+        .map((cell) => cell.getAttribute("data-label") ?? "action")
+    expect(await off("Started the Hunger Games.")).toEqual(["action", "Concerns", "Detail"])
+    expect(await off("This browser gets no push alerts.")).toEqual(["action", "Concerns", "Detail"])
+    expect(await off(/^30 days of access, until /)).toEqual(["action"])
   })
 })

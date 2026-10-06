@@ -152,6 +152,8 @@ run `git config core.hooksPath .githooks` once per clone.
   all of it in the bundles checked)_
 - **Bordered elements are not nested.** Cards lie flat on the background, side by side; an inner card
   becomes a heading.
+- **The name is Nordtal** in prose, in every language, and `nordtal.eu` where it is the address; never a
+  lower-case nordtal in a text. _(checked in the bundles)_
 - **One blue, the brand's**, defined once as `Tone.BRAND` and read by the game's `<brand>` tone, the bot's
   embed line and Steward (`brand.gen.css`, written from it). A text that cannot carry a hex colour, the
   pack's `pack.mcmeta` and lang files, uses `§9`, Minecraft's nearest legacy blue.

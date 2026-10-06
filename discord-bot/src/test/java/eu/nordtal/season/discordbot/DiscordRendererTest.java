@@ -38,7 +38,7 @@ class DiscordRendererTest {
     @Test
     void aMomentIsDiscordsTimestampInEveryReadersZone() {
         assertEquals(
-                "Your access is active until **<t:1791052800:f>**. Have fun on nordtal.",
+                "Your access is active until **<t:1791052800:f>**. Have fun on Nordtal.",
                 DISCORD.format(Locale.ENGLISH, MESSAGES.dm().granted(AT)));
         assertEquals(
                 "The link expires <t:1791052800:R>.",

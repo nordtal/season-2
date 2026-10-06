@@ -146,8 +146,10 @@ run `git config core.hooksPath .githooks` once per clone.
 - **Steward shows data, not explanatory text.** A sentence stays when it says what the value beside it
   does not and an admin would not know anyway, or when it keeps a state honest ("Some of the readings
   could not be fetched"). Everything else goes into the doc comment.
-- **No text symbol as a separator**, such as the middle dot: one value, two values set apart, or the
-  second as an icon. _(middle dot checked)_
+- **No text symbol as a separator**, such as the middle dot, a pipe or a spaced hyphen: one value, two
+  values set apart as two lines or two pills, or the second as an icon. A message bundle holds no pipe,
+  spaced hyphen, dash (escaped or not), double space or banner comment. _(the middle dot in Steward and
+  all of it in the bundles checked)_
 - **Bordered elements are not nested.** Cards lie flat on the background, side by side; an inner card
   becomes a heading.
 - **Every Discord embed carries the same dark blue line**, a success included. The outcome shows in the

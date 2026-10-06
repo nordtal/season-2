@@ -3,16 +3,8 @@ package eu.nordtal.season.messages;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.common.RepositoryRoot;
 import eu.nordtal.season.messages.text.MessageText;
 import eu.nordtal.season.messages.text.Node;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -20,7 +12,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -59,15 +50,16 @@ class EveryBundleIsCompleteTest {
     @Test
     void theWalkFindsEveryKnownBundle() {
         assertTrue(
-                bundles().keySet().containsAll(KNOWN) && bundles().keySet().containsAll(ENGLISH_ONLY),
+                BundleFiles.bundles().keySet().containsAll(KNOWN)
+                        && BundleFiles.bundles().keySet().containsAll(ENGLISH_ONLY),
                 "the walk does not find every known bundle. Missing: "
-                        + missingFrom(bundles().keySet()) + " or one of " + ENGLISH_ONLY);
+                        + missingFrom(BundleFiles.bundles().keySet()) + " or one of " + ENGLISH_ONLY);
     }
 
     @Test
     void aBundleShipsBothLanguagesBecauseGermanIsNotAFallback() {
         final Map<String, Set<String>> incomplete = new TreeMap<>();
-        bundles().forEach((name, languages) -> {
+        BundleFiles.bundles().forEach((name, languages) -> {
             if (!languages.equals(ENGLISH_ONLY.contains(name) ? Set.of("en") : Set.of("en", "de"))) {
                 incomplete.put(name, languages);
             }
@@ -106,8 +98,8 @@ class EveryBundleIsCompleteTest {
     void aTranslationUsesTheSamePlaceholdersAsItsOriginal() {
         final Map<String, String> wrong = new TreeMap<>();
         for (final String name : translated()) {
-            final Properties english = load(name, "en");
-            final Properties german = load(name, "de");
+            final Properties english = BundleFiles.load(name, "en");
+            final Properties german = BundleFiles.load(name, "de");
 
             for (final String key : english.stringPropertyNames()) {
                 final String translation = german.getProperty(key);
@@ -126,9 +118,9 @@ class EveryBundleIsCompleteTest {
     @Test
     void aNounAfterANumberAgreesWithIt() {
         final Set<String> wrong = new TreeSet<>();
-        bundles().forEach((name, languages) -> {
+        BundleFiles.bundles().forEach((name, languages) -> {
             for (final String language : languages) {
-                final Properties texts = load(name, language);
+                final Properties texts = BundleFiles.load(name, language);
                 for (final String key : texts.stringPropertyNames()) {
                     if (nounAfterUnchosenNumber(
                             MessageText.parse(texts.getProperty(key), false).nodes(), Set.of())) {
@@ -178,44 +170,9 @@ class EveryBundleIsCompleteTest {
         return false;
     }
 
-    /** Returns every message bundle directory in the repository, with the language codes in it. */
-    private static Map<String, Set<String>> bundles() {
-        final Map<String, Set<String>> found = new TreeMap<>();
-        for (final Path module : childDirectories(RepositoryRoot.path())) {
-            final Path messages = module.resolve("src/main/resources/messages");
-            if (!Files.isDirectory(messages)) {
-                continue;
-            }
-            for (final Path bundle : childDirectories(messages)) {
-                found.put(RepositoryRoot.relative(bundle), languagesIn(bundle));
-            }
-        }
-        return found;
-    }
-
-    private static Set<String> languagesIn(final Path bundle) {
-        try (Stream<Path> files = Files.list(bundle)) {
-            final Set<String> languages = new TreeSet<>();
-            files.map(path -> path.getFileName().toString())
-                    .filter(name -> name.endsWith(".properties"))
-                    .forEach(name -> languages.add(name.substring(0, name.length() - ".properties".length())));
-            return languages;
-        } catch (final IOException e) {
-            throw new UncheckedIOException("cannot list " + bundle, e);
-        }
-    }
-
-    private static List<Path> childDirectories(final Path directory) {
-        try (Stream<Path> children = Files.list(directory)) {
-            return children.filter(Files::isDirectory).sorted().toList();
-        } catch (final IOException e) {
-            throw new UncheckedIOException("cannot list " + directory, e);
-        }
-    }
-
     /** Every bundle that ships German, which is every one but the English-only ones. */
     private static Set<String> translated() {
-        final Set<String> translated = new TreeSet<>(bundles().keySet());
+        final Set<String> translated = new TreeSet<>(BundleFiles.bundles().keySet());
         translated.removeAll(ENGLISH_ONLY);
         return translated;
     }
@@ -227,19 +184,7 @@ class EveryBundleIsCompleteTest {
     }
 
     private static Set<String> keysOf(final String bundle, final String language) {
-        return new TreeSet<>(load(bundle, language).stringPropertyNames());
-    }
-
-    /** Reads a bundle as UTF-8 through a {@link Reader}, since the {@code InputStream} overload reads Latin-1. */
-    private static Properties load(final String bundle, final String language) {
-        final Properties properties = new Properties();
-        final Path file = RepositoryRoot.resolve(bundle + "/" + language + ".properties");
-        try (Reader reader = new InputStreamReader(Files.newInputStream(file), StandardCharsets.UTF_8)) {
-            properties.load(reader);
-        } catch (final IOException e) {
-            throw new UncheckedIOException("cannot read " + file, e);
-        }
-        return properties;
+        return new TreeSet<>(BundleFiles.load(bundle, language).stringPropertyNames());
     }
 
     /** Returns every name a text shows or chooses on, as the parser reads it; tags are left as characters. */

@@ -194,7 +194,10 @@ public interface SmpMessages {
         interface Hud {
 
             @Name("Milestone")
-            MessageRef milestone(@Arg("milestone") MilestoneContext milestone, @Arg("percent") double percent);
+            MessageRef milestone(@Arg("milestone") MilestoneContext milestone);
+
+            @Name("Progress")
+            MessageRef progress(@Arg("percent") double percent);
 
             @Name("Distance")
             MessageRef distance(@Arg("blocks") long blocks);

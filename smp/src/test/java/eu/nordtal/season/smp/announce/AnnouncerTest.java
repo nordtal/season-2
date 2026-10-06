@@ -44,8 +44,8 @@ class AnnouncerTest {
                 .forEach((tag, message) -> rendered.put(tag, BUNDLE.format(Locale.forLanguageTag(tag), message)));
         assertEquals(
                 Map.of(
-                        "en", "Departure is complete - the border grows.",
-                        "de", "Aufbruch ist geschafft - die Grenze wächst."),
+                        "en", "Departure is complete. The border grows.",
+                        "de", "Aufbruch ist geschafft. Die Grenze wächst."),
                 rendered,
                 "each language's message, its values in that language, as the bot renders it");
         assertTrue(sent.getFirst().expires() != null, "a request nobody claims within the hour is dropped");

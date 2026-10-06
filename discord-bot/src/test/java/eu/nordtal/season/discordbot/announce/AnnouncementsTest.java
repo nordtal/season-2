@@ -77,8 +77,8 @@ class AnnouncementsTest {
 
         assertEquals(
                 List.of(
-                        "111: Frontier is complete - the border grows.",
-                        "222: Grenzland ist geschafft - die Grenze wächst."),
+                        "111: Frontier is complete. The border grows.",
+                        "222: Grenzland ist geschafft. Die Grenze wächst."),
                 sent);
         final List<String> info = logged.stream()
                 .filter(line -> line.level().equals("info"))

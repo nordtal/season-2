@@ -33,8 +33,8 @@ class CeremonyTest {
                 render(new Ceremony.Decision(WinTracker.Outcome.win(IDA), null, Map.of(IDA, 3, OLE, 1), NAMES));
 
         assertTrue(text.contains("IdaMines has won"), text);
-        assertTrue(text.contains("IdaMines - 3 kills"), text);
-        assertTrue(text.contains("OleBuilds - 1 kill\n"), text);
+        assertTrue(text.contains("IdaMines: 3 kills"), text);
+        assertTrue(text.contains("OleBuilds: 1 kill\n"), text);
         assertNoIdentifier(text);
     }
 

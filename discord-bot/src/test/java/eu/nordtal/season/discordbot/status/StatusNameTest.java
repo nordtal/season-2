@@ -79,7 +79,7 @@ class StatusNameTest {
 
     @Test
     void theEventShowsWhoIsLeft() {
-        assertEquals("3 teams left | 7 alive", render(SeasonPhase.START_EVENT));
+        assertEquals("3 teams left, 7 alive", render(SeasonPhase.START_EVENT));
     }
 
     @Test

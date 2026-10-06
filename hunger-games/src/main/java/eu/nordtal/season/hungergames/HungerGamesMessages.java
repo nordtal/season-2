@@ -150,8 +150,11 @@ public interface HungerGamesMessages {
         @Shown(Display.BOSS_BAR)
         interface Hud {
 
-            @Name("Players")
-            MessageRef players(@Arg("alive") int alive, @Arg("dead") int dead);
+            @Name("Alive")
+            MessageRef alive(@Arg("alive") int alive);
+
+            @Name("Dead")
+            MessageRef dead(@Arg("dead") int dead);
 
             @Name("Loot")
             MessageRef loot(@Arg("time") Duration time);

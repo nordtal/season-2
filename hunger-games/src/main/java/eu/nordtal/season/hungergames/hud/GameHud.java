@@ -91,14 +91,13 @@ public final class GameHud {
         if (!showsTo(player)) {
             return List.of();
         }
-        return List.of(Pill.of(
-                Glyphs.BOSSBAR_ICON_ALIVE,
-                withArrow(
+        return List.of(
+                Pill.of(
+                        Glyphs.BOSSBAR_ICON_ALIVE,
+                        messages.format(locale, MESSAGES.hg().hud().alive(wins.aliveCount()))),
+                Pill.of(withArrow(
                         messages.format(
-                                locale,
-                                MESSAGES.hg()
-                                        .hud()
-                                        .players(wins.aliveCount(), wins.deadCount(state.effectiveParticipants()))),
+                                locale, MESSAGES.hg().hud().dead(wins.deadCount(state.effectiveParticipants()))),
                         nearestPlayerArrow(player))));
     }
 

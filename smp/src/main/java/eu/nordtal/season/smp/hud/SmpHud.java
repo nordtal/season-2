@@ -62,9 +62,8 @@ public final class SmpHud {
                 Pill.of(dimension, worldName(player, locale)),
                 Pill.of(messages.format(
                         locale,
-                        MESSAGES.smp()
-                                .hud()
-                                .milestone(new MilestoneContext(milestoneName(active.key(), locale)), percent))));
+                        MESSAGES.smp().hud().milestone(new MilestoneContext(milestoneName(active.key(), locale))))),
+                Pill.of(messages.format(locale, MESSAGES.smp().hud().progress(percent))));
     }
 
     /** The target's pill, led by the arrow to it, then the distance's; nothing while no target is set. */

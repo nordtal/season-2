@@ -2,9 +2,9 @@ import { ArrowSquareOutIcon, ArrowUpIcon, QuestionIcon, UsersIcon, WrenchIcon } 
 import { Link } from "@tanstack/react-router"
 import { cn } from "cn"
 
-import type { LocalBuild, Service } from "@/lib/api"
+import type { ImageState, LocalBuild, Service } from "@/lib/api"
 import { bytes, percent } from "@/lib/format"
-import { HealthDot } from "@/components/steward/status"
+import { DriftTip, HealthDot, Tip, shownDrift } from "@/components/steward/status"
 import { RecreateButton } from "@/components/steward/recreate"
 import { buttonVariants } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -24,40 +24,33 @@ import { choice, since, t } from "@/lib/texts"
  *
  * Exported for `table.tsx`, so the phone's rows draw the same mark.
  */
-export function DriftMark({ drift, localBuild }: { drift: string; localBuild?: LocalBuild }) {
-  switch (localBuild ? "LOCAL" : drift) {
-    case "OUTDATED":
-      return (
-        <ArrowUpIcon
-          className="size-3 shrink-0 text-warning"
-          role="img"
-          aria-label={t("steward.image.drift", { drift: "outdated" })}
-        />
-      )
-    case "LOCAL":
-      return (
-        <WrenchIcon
-          className="size-3 shrink-0 text-muted-foreground"
-          role="img"
-          aria-label={
-            t("steward.image.drift", { drift: "local" }) +
-            (localBuild?.jars.length ? `: ${localBuild.jars.join(", ")}` : "")
-          }
-        >
-          {localBuild?.jars.length ? <title>{localBuild.jars.join(", ")}</title> : null}
-        </WrenchIcon>
-      )
-    case "UP_TO_DATE":
-      return null
-    default:
-      return (
-        <QuestionIcon
-          className="size-3 shrink-0 text-muted-foreground"
-          role="img"
-          aria-label={t("steward.image.drift", { drift: "unknown" })}
-        />
-      )
-  }
+export function DriftMark({
+  drift,
+  image,
+  localBuild,
+}: {
+  drift: ImageState
+  image?: string
+  localBuild?: LocalBuild
+}) {
+  const shown = shownDrift(drift, localBuild)
+  if (shown === "UP_TO_DATE") return null
+
+  const jars = localBuild?.jars ?? []
+  const word = t("steward.image.drift", {
+    drift: shown === "OUTDATED" ? "outdated" : shown === "LOCAL" ? "local" : "unknown",
+  })
+  const Icon = shown === "OUTDATED" ? ArrowUpIcon : shown === "LOCAL" ? WrenchIcon : QuestionIcon
+  return (
+    /** Padded out to a finger's size, and pulled back so the line does not move. */
+    <Tip content={<DriftTip drift={drift} image={image} localBuild={localBuild} />} className="-m-2 p-2">
+      <Icon
+        className={cn("size-3 shrink-0", shown === "OUTDATED" ? "text-warning" : "text-muted-foreground")}
+        role="img"
+        aria-label={shown === "LOCAL" && jars.length > 0 ? `${word}: ${jars.join(", ")}` : word}
+      />
+    </Tip>
+  )
 }
 
 /** Resources and runtime, on the dot; exported for `network.test.tsx`, which cannot hover. */
@@ -194,7 +187,7 @@ export function ServiceNode({
               tabIndex={0}
               className="flex min-w-0 items-center gap-1 rounded-sm text-[0.6875rem] text-muted-foreground"
             >
-              <DriftMark drift={service?.drift ?? "UNKNOWN"} localBuild={service?.localBuild} />
+              <DriftMark drift={service?.drift ?? "UNKNOWN"} image={service?.image} localBuild={service?.localBuild} />
               {/* Only the tag has to be fetched, so only it waits. */}
               {service ? (
                 <span className="min-w-0 flex-1 truncate tnum">{imageTag(service.image)}</span>

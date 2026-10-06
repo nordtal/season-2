@@ -44,14 +44,25 @@ export function StatusBadge({
   )
   if (!tipContent) return badge
   return (
+    /** `max-w-full` here too, since this span is the grid item in a table card. */
+    <Tip content={tipContent}>{badge}</Tip>
+  )
+}
+
+/**
+ * Wraps a small mark or badge in the one tip of this interface, which opens on hover, focus and a tap.
+ *
+ * The trigger is a focusable span, so a mark that is not a control still answers the keyboard.
+ */
+export function Tip({ content, children, className }: { content: ReactNode; children: ReactNode; className?: string }) {
+  return (
     <Tooltip>
       <TooltipTrigger asChild>
-        {/* `max-w-full` here too, since this span is the grid item in a table card. */}
-        <span tabIndex={0} className="inline-flex max-w-full rounded-full focus-visible:outline-none">
-          {badge}
+        <span tabIndex={0} className={cn("inline-flex max-w-full rounded-full focus-visible:outline-none", className)}>
+          {children}
         </span>
       </TooltipTrigger>
-      <TooltipContent className="max-w-xs p-2">{tipContent}</TooltipContent>
+      <TooltipContent className="max-w-xs p-2">{content}</TooltipContent>
     </Tooltip>
   )
 }
@@ -244,42 +255,42 @@ export function DriftBadge({
   localBuild?: LocalBuild
 }) {
   const shown = shownDrift(drift, localBuild)
-  const jars = localBuild?.jars ?? []
   return (
     <StatusBadge
       tone={DRIFT_TONE[shown] ?? "idle"}
-      tipContent={
-        shown === "LOCAL" ? (
-          <div className="flex w-full min-w-0 flex-col gap-1 sm:w-auto sm:min-w-64">
-            {drift === "LOCAL" || localBuild?.image ? (
-              <>
-                <span className="text-xs font-medium font-heading text-muted-foreground">
-                  {t("steward.image.label")}
-                </span>
-                <span className="truncate text-sm">{localBuild?.image ?? image}</span>
-              </>
-            ) : null}
-            {jars.length > 0 ? (
-              <>
-                <span className="text-xs font-medium font-heading text-muted-foreground">
-                  {t("steward.image.local-jars")}
-                </span>
-                {jars.map((jar) => (
-                  <span key={jar} className="truncate text-sm">
-                    {jar}
-                  </span>
-                ))}
-              </>
-            ) : null}
-            <span className="text-xs text-muted-foreground">{t("steward.image.local-tip")}</span>
-          </div>
-        ) : (
-          t("steward.image.drift-tip", { drift: choice(drift) })
-        )
-      }
+      tipContent={<DriftTip drift={drift} image={image} localBuild={localBuild} />}
     >
       {t("steward.image.drift", { drift: choice(shown) })}
     </StatusBadge>
+  )
+}
+
+/** What a drift badge or mark explains: the image and jars of a local build, or what the drift word means. */
+export function DriftTip({ drift, image, localBuild }: { drift: ImageState; image?: string; localBuild?: LocalBuild }) {
+  if (shownDrift(drift, localBuild) !== "LOCAL") return <>{t("steward.image.drift-tip", { drift: choice(drift) })}</>
+  const jars = localBuild?.jars ?? []
+  return (
+    <div className="flex w-full min-w-0 flex-col gap-1 sm:w-auto sm:min-w-64">
+      {drift === "LOCAL" || localBuild?.image ? (
+        <>
+          <span className="text-xs font-medium font-heading text-muted-foreground">{t("steward.image.label")}</span>
+          <span className="truncate text-sm">{localBuild?.image ?? image}</span>
+        </>
+      ) : null}
+      {jars.length > 0 ? (
+        <>
+          <span className="text-xs font-medium font-heading text-muted-foreground">
+            {t("steward.image.local-jars")}
+          </span>
+          {jars.map((jar) => (
+            <span key={jar} className="truncate text-sm">
+              {jar}
+            </span>
+          ))}
+        </>
+      ) : null}
+      <span className="text-xs text-muted-foreground">{t("steward.image.local-tip")}</span>
+    </div>
   )
 }
 

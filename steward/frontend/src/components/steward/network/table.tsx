@@ -74,7 +74,11 @@ export function NetworkTable({ sections }: { sections: readonly Section[] }) {
                   </span>
                 )}
 
-                <DriftMark drift={service?.drift ?? "UNKNOWN"} localBuild={service?.localBuild} />
+                <DriftMark
+                  drift={service?.drift ?? "UNKNOWN"}
+                  image={service?.image}
+                  localBuild={service?.localBuild}
+                />
                 {service ? (
                   <span className="w-16 shrink-0 truncate text-right text-[0.6875rem] text-muted-foreground tnum">
                     {imageTag(service.image)}

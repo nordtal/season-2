@@ -68,6 +68,55 @@ describe("PaymentsPage - settle as a row action", () => {
   })
 })
 
+/** Beside the sidebar at 1024px the table has about 46rem; jsdom has no layout, so these check the classes that fold it. */
+describe("PaymentsPage - the table fits between md and xl", () => {
+  const PAID_PAYMENT = {
+    id: "p2",
+    reference: "QX7Z2M",
+    discordId: "214906139328839681",
+    days: 90,
+    amountCents: 1300,
+    donationCents: 200,
+    status: "PAID",
+    shareUrl: "https://bunq.me/abc",
+    created: "2026-09-20T17:45:00Z",
+    expires: "2026-10-04T17:45:00Z",
+    settled: "2026-09-21T09:03:00Z",
+  }
+
+  it("moves Paid under the status there, and keeps it as its own line everywhere else", async () => {
+    vi.stubGlobal("fetch", backend({ payments: () => [PAID_PAYMENT] }))
+    draw(<PaymentsPage />)
+
+    const row = await rowFor("QX7Z2M")
+    const paidHeader = screen.getAllByRole("columnheader").find((header) => header.textContent === "Paid")
+    expect(assertElement(paidHeader ?? null, "the Paid header").className).toMatch(/md:max-xl:hidden/)
+    const paidCell = assertElement(row.querySelector('td[data-label="Paid"]'), "the Paid cell")
+    expect(paidCell.className).toMatch(/md:max-xl:hidden/)
+    const statusCell = assertElement(row.querySelector('td[data-label="Status"]'), "the Status cell")
+    const folded = assertElement(statusCell.querySelector("time"), "the paid time under the status")
+    expect(folded.getAttribute("datetime")).toBe("2026-09-21T09:03:00Z")
+    expect(assertElement(folded.parentElement, "its wrapper").className).toMatch(/^hidden .*md:max-xl:block/)
+  })
+
+  it("shows the date over the clock, so Deadline stays narrow", async () => {
+    vi.stubGlobal("fetch", backend({ payments: () => [PAID_PAYMENT] }))
+    draw(<PaymentsPage />)
+
+    const row = await rowFor("QX7Z2M")
+    const deadline = assertElement(row.querySelector('td[data-label="Deadline"] time'), "the deadline")
+    expect(deadline.children).toHaveLength(2)
+  })
+
+  it("keeps the tab link on screen as its icon there, still named Tab", async () => {
+    vi.stubGlobal("fetch", backend({ payments: () => [PAID_PAYMENT] }))
+    draw(<PaymentsPage />)
+
+    const tab = await screen.findByRole("link", { name: "Tab" })
+    expect(assertElement(tab.querySelector("span"), "the label").className).toMatch(/md:max-xl:sr-only/)
+  })
+})
+
 /** Every Payments column is a field, so the width at 1440px is kept by folding `Created` and `Donation`. */
 describe("PaymentsPage - the column budget fits the card at 1440px", () => {
   it("keeps the declared header widths under 1152px (72rem), the measured card width", async () => {

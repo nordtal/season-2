@@ -3,7 +3,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 
 import type { Payment } from "@/lib/api"
-import { count, dateTime, euros } from "@/lib/format"
+import { count, date, euros, time } from "@/lib/format"
 import { choice, t } from "@/lib/texts"
 import { useNow } from "@/lib/use-now"
 import { usePayments, useSettle } from "@/lib/queries"
@@ -20,15 +20,32 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
+/**
+ * From `md` to `xl` the table shares the width with the sidebar, 46rem of it at 1024px: the row's buttons show
+ * their icon only, and `Paid` moves under the status it belongs to.
+ *
+ * The labels stay for a screen reader, and a phone's card keeps every line, since it is below `md`.
+ */
+const ICON_ONLY_BETWEEN = "md:max-xl:px-2"
+const LABEL_HIDDEN_BETWEEN = "md:max-xl:sr-only"
+const FOLDED_BETWEEN = "md:max-xl:hidden"
+
 /** Settles the one OPEN request of this row by hand; the bot books it as if bunq had reported it. */
 function SettleAction({ reference }: { reference: string }) {
   const settle = useSettle()
   return (
     <AskThenAct
       trigger={
-        <Button type="button" variant="outline" size="sm" disabled={settle.isPending}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={settle.isPending}
+          title={t("steward.payments.settle")}
+          className={ICON_ONLY_BETWEEN}
+        >
           <HandCoinsIcon aria-hidden />
-          {t("steward.payments.settle")}
+          <span className={LABEL_HIDDEN_BETWEEN}>{t("steward.payments.settle")}</span>
         </Button>
       }
       title={t("steward.payments.settle-ask")}
@@ -61,6 +78,17 @@ function SettleAction({ reference }: { reference: string }) {
         })
       }}
     />
+  )
+}
+
+/** A deadline or a payment's time: the day, and the clock under it, so the column stays narrow. */
+function Moment({ at }: { at?: string }) {
+  if (!at) return <>{"\u2013"}</>
+  return (
+    <time dateTime={at} className="flex flex-col">
+      <span>{date(at)}</span>
+      <span className="text-xs">{time(at)}</span>
+    </time>
   )
 }
 
@@ -169,8 +197,8 @@ export function PaymentsPage() {
                         <TableHead className="w-[4rem] text-right">{t("steward.payments.days")}</TableHead>
                         <TableHead className="w-[7rem] text-right">{t("steward.payments.amount")}</TableHead>
                         <TableHead className="w-[9rem]">{t("steward.payments.status")}</TableHead>
-                        <TableHead className="w-[11rem]">{t("steward.payments.deadline")}</TableHead>
-                        <TableHead className="w-[11rem]">{t("steward.payments.paid")}</TableHead>
+                        <TableHead className="w-[7rem]">{t("steward.payments.deadline")}</TableHead>
+                        <TableHead className={"w-[7rem] " + FOLDED_BETWEEN}>{t("steward.payments.paid")}</TableHead>
                         {/* `Tab` and `Settle`, which may stack. */}
                         <TableHead className="w-[11rem]" />
                       </TableRow>
@@ -200,7 +228,7 @@ export function PaymentsPage() {
                               <TableCell data-label={t("steward.payments.deadline")}>
                                 <SkeletonText width="long" />
                               </TableCell>
-                              <TableCell data-label={t("steward.payments.paid")}>
+                              <TableCell data-label={t("steward.payments.paid")} className={FOLDED_BETWEEN}>
                                 <SkeletonText width="long" />
                               </TableCell>
                               <TableCell />
@@ -218,7 +246,7 @@ export function PaymentsPage() {
                                   {payment.reference}
                                 </TableCell>
                                 <TableCell data-label={t("steward.payments.person")}>
-                                  <Entity id={payment.discordId} kind="discord" />
+                                  <Entity id={payment.discordId} kind="discord" className="md:max-xl:max-w-[8rem]" />
                                 </TableCell>
                                 <TableCell data-label={t("steward.payments.days")} className="text-right tnum">
                                   {payment.days}
@@ -237,7 +265,8 @@ export function PaymentsPage() {
                                   </div>
                                 </TableCell>
                                 <TableCell data-label={t("steward.payments.status")}>
-                                  <div className="flex items-center gap-1">
+                                  {/* `overdue` goes under the status where the column is narrow. */}
+                                  <div className="flex flex-wrap items-center gap-1">
                                     <StatusBadge
                                       tone={late ? "warn" : (PAYMENT_TONES[payment.status] ?? "idle")}
                                       tipContent={t("steward.payments.state-tip", { status: choice(payment.status) })}
@@ -250,23 +279,31 @@ export function PaymentsPage() {
                                       </StatusBadge>
                                     ) : null}
                                   </div>
+                                  {payment.settled ? (
+                                    <div
+                                      className="hidden pt-1 text-muted-foreground tnum md:max-xl:block"
+                                      title={t("steward.payments.paid")}
+                                    >
+                                      <Moment at={payment.settled} />
+                                    </div>
+                                  ) : null}
                                 </TableCell>
                                 <TableCell
                                   data-label={t("steward.payments.deadline")}
                                   className="text-muted-foreground tnum"
                                 >
-                                  {dateTime(payment.expires)}
+                                  <Moment at={payment.expires} />
                                 </TableCell>
                                 <TableCell
                                   data-label={t("steward.payments.paid")}
-                                  className="text-muted-foreground tnum"
+                                  className={"text-muted-foreground tnum " + FOLDED_BETWEEN}
                                 >
-                                  {dateTime(payment.settled)}
+                                  <Moment at={payment.settled} />
                                 </TableCell>
                                 <TableCell>
                                   <div className="flex items-center justify-end gap-1">
                                     {payment.shareUrl ? (
-                                      <Button asChild variant="ghost" size="sm">
+                                      <Button asChild variant="ghost" size="sm" className={ICON_ONLY_BETWEEN}>
                                         <a
                                           href={payment.shareUrl}
                                           target="_blank"
@@ -274,7 +311,7 @@ export function PaymentsPage() {
                                           title={payment.shareUrl}
                                         >
                                           <ArrowSquareOutIcon aria-hidden />
-                                          {t("steward.payments.tab")}
+                                          <span className={LABEL_HIDDEN_BETWEEN}>{t("steward.payments.tab")}</span>
                                         </a>
                                       </Button>
                                     ) : (

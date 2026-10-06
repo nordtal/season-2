@@ -1,4 +1,4 @@
-package eu.nordtal.season.hungergames.listener;
+package eu.nordtal.season.hungergames.combat;
 
 import static eu.nordtal.season.hungergames.HungerGamesMessages.MESSAGES;
 
@@ -6,12 +6,13 @@ import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.hungergames.GameState;
 import eu.nordtal.season.hungergames.body.PlayerBodies;
 import eu.nordtal.season.hungergames.border.BorderController;
-import eu.nordtal.season.hungergames.db.HungerGamesDao;
-import eu.nordtal.season.hungergames.db.RosterEntry;
 import eu.nordtal.season.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.season.hungergames.game.Ceremony;
+import eu.nordtal.season.hungergames.game.GameDao;
 import eu.nordtal.season.hungergames.game.Names;
 import eu.nordtal.season.hungergames.game.WinTracker;
+import eu.nordtal.season.hungergames.roster.RosterDao;
+import eu.nordtal.season.hungergames.roster.RosterEntry;
 import eu.nordtal.season.messages.context.PlayerContext;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.chat.SystemLines;
@@ -46,7 +47,8 @@ import org.jspecify.annotations.Nullable;
 public final class CombatListener implements Listener {
 
     private final Plugin plugin;
-    private final HungerGamesDao dao;
+    private final GameDao dao;
+    private final RosterDao rosters;
     private final GameState state;
     private final PlayerBodies bodies;
     private final BorderController border;
@@ -64,7 +66,8 @@ public final class CombatListener implements Listener {
 
     public CombatListener(
             final Plugin plugin,
-            final HungerGamesDao dao,
+            final GameDao dao,
+            final RosterDao rosters,
             final GameState state,
             final PlayerBodies bodies,
             final BorderController border,
@@ -77,6 +80,7 @@ public final class CombatListener implements Listener {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.plugin = plugin;
         this.dao = dao;
+        this.rosters = rosters;
         this.state = state;
         this.bodies = bodies;
         this.border = border;
@@ -159,13 +163,13 @@ public final class CombatListener implements Listener {
 
     /** The database and outcome work for one death, off the main thread. */
     private void resolveDeathAsync(final UUID gameId, final UUID victimMcUuid, final @Nullable UUID killerMcUuid) {
-        final Optional<RosterEntry> victimEntry = dao.rosterEntryByMcUuid(gameId, victimMcUuid);
+        final Optional<RosterEntry> victimEntry = rosters.rosterEntryByMcUuid(gameId, victimMcUuid);
         if (victimEntry.isEmpty()) {
             return;
         }
         final UUID killerMemberId = killerMcUuid == null
                 ? null
-                : dao.rosterEntryByMcUuid(gameId, killerMcUuid)
+                : rosters.rosterEntryByMcUuid(gameId, killerMcUuid)
                         .map(entry -> entry.memberId())
                         .orElse(null);
 
@@ -192,7 +196,7 @@ public final class CombatListener implements Listener {
     }
 
     private Ceremony.Decision decisionFor(final UUID gameId, final WinTracker.Outcome decided) {
-        final List<RosterEntry> roster = dao.gameRoster(gameId);
+        final List<RosterEntry> roster = rosters.gameRoster(gameId);
         final UUID winnerMcUuid = decided.winnerMemberId() == null
                 ? null
                 : roster.stream()

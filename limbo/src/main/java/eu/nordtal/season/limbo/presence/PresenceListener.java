@@ -1,4 +1,4 @@
-package eu.nordtal.season.limbo.listener;
+package eu.nordtal.season.limbo.presence;
 
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.limbo.LimboMessages;

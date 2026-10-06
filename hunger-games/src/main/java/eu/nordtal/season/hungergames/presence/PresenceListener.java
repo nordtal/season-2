@@ -1,4 +1,4 @@
-package eu.nordtal.season.hungergames.listener;
+package eu.nordtal.season.hungergames.presence;
 
 import static eu.nordtal.season.hungergames.HungerGamesMessages.MESSAGES;
 

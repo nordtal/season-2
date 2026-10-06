@@ -1,6 +1,6 @@
 package eu.nordtal.season.hungergames.game;
 
-import eu.nordtal.season.hungergames.db.RosterEntry;
+import eu.nordtal.season.hungergames.roster.RosterEntry;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;

@@ -9,8 +9,8 @@ import eu.nordtal.season.hungergames.border.BorderController;
 import eu.nordtal.season.hungergames.border.BorderMath;
 import eu.nordtal.season.hungergames.color.TeamColours;
 import eu.nordtal.season.hungergames.config.HungerGamesSpec;
-import eu.nordtal.season.hungergames.db.HungerGamesDao;
 import eu.nordtal.season.hungergames.feedback.HungerGamesSounds;
+import eu.nordtal.season.hungergames.roster.RosterDao;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.context.PlayerContext;
@@ -46,7 +46,8 @@ public final class HungerGamesManager {
             CountdownPlan.at(60, 30, 20, 10, 5, 4, 3, 2, 1).fromTheStart();
 
     private final Plugin plugin;
-    private final HungerGamesDao dao;
+    private final GameDao dao;
+    private final RosterDao rosters;
     private final HungerGamesSpec config;
     private final MessageRenderer renderer;
     private final Identities identities;
@@ -62,7 +63,8 @@ public final class HungerGamesManager {
 
     public HungerGamesManager(
             final Plugin plugin,
-            final HungerGamesDao dao,
+            final GameDao dao,
+            final RosterDao rosters,
             final HungerGamesSpec config,
             final MessageRenderer renderer,
             final Identities identities,
@@ -74,6 +76,7 @@ public final class HungerGamesManager {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.plugin = plugin;
         this.dao = dao;
+        this.rosters = rosters;
         this.config = config;
         this.renderer = renderer;
         this.identities = identities;
@@ -192,7 +195,7 @@ public final class HungerGamesManager {
         for (final Map.Entry<UUID, Integer> entry : assigned.entrySet()) {
             final int rgb = entry.getValue();
             final String named = TeamColours.nearestNamedColour(rgb);
-            dao.setTeamColour(entry.getKey(), rgb, named);
+            rosters.setTeamColour(entry.getKey(), rgb, named);
         }
     }
 

@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.hungergames.db.RosterEntry;
+import eu.nordtal.season.hungergames.roster.RosterEntry;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;

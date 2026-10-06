@@ -1,4 +1,4 @@
-package eu.nordtal.season.hungergames.listener;
+package eu.nordtal.season.hungergames.freeze;
 
 import eu.nordtal.season.hungergames.game.HungerGamesManager;
 import org.bukkit.event.EventHandler;

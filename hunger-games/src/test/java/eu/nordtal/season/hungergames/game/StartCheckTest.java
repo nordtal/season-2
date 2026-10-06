@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.database.inbox.ServerRefusal;
-import eu.nordtal.season.hungergames.db.GameState;
 import eu.nordtal.season.messages.Refusal;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -43,7 +42,7 @@ class StartCheckTest {
     @Test
     void aGameUnderWayNamesTheStateItIsIn() {
         final Optional<Refusal> refusal =
-                StartCheck.refusal(GameState.RUNNING, false, SeasonPhase.START_EVENT, 20, RECOMMENDED, true);
+                StartCheck.refusal(HgGameState.RUNNING, false, SeasonPhase.START_EVENT, 20, RECOMMENDED, true);
 
         assertEquals(
                 ServerRefusal.WRONG_STATE.name(), refusal.orElseThrow().reason().name());

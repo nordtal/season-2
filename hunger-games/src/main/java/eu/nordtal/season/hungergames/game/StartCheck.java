@@ -3,7 +3,6 @@ package eu.nordtal.season.hungergames.game;
 import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.hungergames.config.HungerGamesSpec;
-import eu.nordtal.season.hungergames.db.GameState;
 import eu.nordtal.season.messages.Refusal;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -23,7 +22,7 @@ public final class StartCheck {
      * @param confirmed    whether the asker has seen the numbers
      */
     public static Optional<Refusal> refusal(
-            final @Nullable GameState underWay,
+            final @Nullable HgGameState underWay,
             final boolean open,
             final SeasonPhase phase,
             final int participants,

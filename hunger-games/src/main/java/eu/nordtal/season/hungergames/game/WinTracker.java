@@ -2,7 +2,6 @@ package eu.nordtal.season.hungergames.game;
 
 import static eu.nordtal.season.hungergames.HungerGamesMessages.MESSAGES;
 
-import eu.nordtal.season.hungergames.db.HungerGamesDao;
 import eu.nordtal.season.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.feedback.Feedback;
@@ -35,7 +34,7 @@ public final class WinTracker {
      */
     private static final Duration SIMULTANEOUS_WINDOW = Duration.ofMillis(500);
 
-    private final HungerGamesDao dao;
+    private final GameDao dao;
     private final MessageRenderer renderer;
     private final Identities identities;
     private final HungerGamesSounds sounds;
@@ -52,7 +51,7 @@ public final class WinTracker {
     private final Clock clock;
 
     public WinTracker(
-            final HungerGamesDao dao,
+            final GameDao dao,
             final MessageRenderer renderer,
             final Identities identities,
             final HungerGamesSounds sounds,

@@ -1,4 +1,4 @@
-package eu.nordtal.season.hungergames.db;
+package eu.nordtal.season.hungergames.game;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 /**
- * Runs {@link HungerGamesDao#killCounts} against a real PostgreSQL with the real migrations.
+ * Runs {@link GameDao#killCounts} against a real PostgreSQL with the real migrations.
  *
  * It checks the {@code bigint} mapping and the column names, and skips itself without Docker.
  */
@@ -24,7 +24,7 @@ class KillCountsIntegrationTest {
     private static DataSource dataSource;
 
     private RoundSeed seed;
-    private HungerGamesDao dao;
+    private GameDao dao;
     private UUID gameId;
     private UUID alice;
     private UUID bob;
@@ -40,7 +40,7 @@ class KillCountsIntegrationTest {
         seed = new RoundSeed(dataSource);
         seed.execute("TRUNCATE TABLE hg_event, hg_game, registration, discord_user CASCADE");
 
-        dao = Jdbis.over(dataSource).onDemand(HungerGamesDao.class);
+        dao = Jdbis.over(dataSource).onDemand(GameDao.class);
 
         final UUID round = seed.round("CLOSED");
         gameId = seed.game(round, "RUNNING");

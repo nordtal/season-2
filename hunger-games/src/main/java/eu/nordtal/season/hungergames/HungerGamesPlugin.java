@@ -12,27 +12,28 @@ import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.phase.PhaseDirectory;
 import eu.nordtal.season.hungergames.body.PlayerBodies;
 import eu.nordtal.season.hungergames.border.BorderController;
+import eu.nordtal.season.hungergames.combat.CombatListener;
 import eu.nordtal.season.hungergames.config.HungerGamesCheck;
 import eu.nordtal.season.hungergames.config.HungerGamesSpec;
-import eu.nordtal.season.hungergames.db.HgGame;
-import eu.nordtal.season.hungergames.db.HungerGamesDao;
-import eu.nordtal.season.hungergames.db.RosterEntry;
 import eu.nordtal.season.hungergames.feedback.HungerGamesSounds;
+import eu.nordtal.season.hungergames.freeze.FreezeListener;
 import eu.nordtal.season.hungergames.game.Ceremony;
 import eu.nordtal.season.hungergames.game.Demotion;
+import eu.nordtal.season.hungergames.game.GameDao;
+import eu.nordtal.season.hungergames.game.HgGame;
 import eu.nordtal.season.hungergames.game.HungerGamesManager;
 import eu.nordtal.season.hungergames.game.Names;
 import eu.nordtal.season.hungergames.game.Participant;
 import eu.nordtal.season.hungergames.game.StartCheck;
 import eu.nordtal.season.hungergames.game.WinTracker;
 import eu.nordtal.season.hungergames.hud.GameHud;
-import eu.nordtal.season.hungergames.listener.CombatListener;
-import eu.nordtal.season.hungergames.listener.FreezeListener;
-import eu.nordtal.season.hungergames.listener.PresenceListener;
 import eu.nordtal.season.hungergames.lobby.Lobby;
 import eu.nordtal.season.hungergames.lobby.LobbyMaps;
 import eu.nordtal.season.hungergames.loot.LootRefill;
 import eu.nordtal.season.hungergames.player.ArenaComposition;
+import eu.nordtal.season.hungergames.presence.PresenceListener;
+import eu.nordtal.season.hungergames.roster.RosterDao;
+import eu.nordtal.season.hungergames.roster.RosterEntry;
 import eu.nordtal.season.messages.Refusal;
 import eu.nordtal.season.messages.Tone;
 import eu.nordtal.season.messages.context.PlayerContext;
@@ -78,7 +79,8 @@ public final class HungerGamesPlugin extends NordtalPlugin {
     /** The season phase as the signal hub last read it; a game only starts during the start event. */
     private volatile SeasonPhase phase = SeasonPhase.PRE_LAUNCH;
 
-    private HungerGamesDao dao;
+    private GameDao dao;
+    private RosterDao rosters;
 
     private final GameState state = new GameState();
     private final PlayerBodies bodies = new PlayerBodies();
@@ -148,7 +150,8 @@ public final class HungerGamesPlugin extends NordtalPlugin {
     protected void enable() {
         // Every name in the arena is drawn alike: the flag and a grey name, so no colour reads as a team.
         composeNames(new ArenaComposition(identities()));
-        dao = jdbi().onDemand(HungerGamesDao.class);
+        dao = jdbi().onDemand(GameDao.class);
+        rosters = jdbi().onDemand(RosterDao.class);
         wireGameSystems(config.get());
         wireListeners();
         answer(HungerGamesRequest.TABLE, request -> switch (request) {
@@ -196,11 +199,11 @@ public final class HungerGamesPlugin extends NordtalPlugin {
                 new GameHud(world, spec, renderer().raw(), borderController, state, winTracker, refill, clock());
         lines.declareOn(hud());
         gameHud = lines;
-        final Lobby waiting = new Lobby(this, dao, spec, renderer(), identities());
+        final Lobby waiting = new Lobby(this, dao, rosters, spec, renderer(), identities());
         lobby = waiting;
         ceremony = new Ceremony(renderer(), identities(), sounds);
         manager = new HungerGamesManager(
-                this, dao, spec, renderer(), identities(), bodies, state, borderController, sounds, clock());
+                this, dao, rosters, spec, renderer(), identities(), bodies, state, borderController, sounds, clock());
 
         abortInterrupted();
 
@@ -220,6 +223,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         listen(new CombatListener(
                 this,
                 dao,
+                rosters,
                 state,
                 bodies,
                 Objects.requireNonNull(border),
@@ -240,7 +244,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         final Optional<HgGame> underWay = dao.gameUnderWay();
         final Optional<UUID> round = dao.openRound();
         final int participants =
-                round.map(open -> Demotion.resolve(dao.roster(open)).size()).orElse(0);
+                round.map(open -> Demotion.resolve(rosters.roster(open)).size()).orElse(0);
         final int recommended = config.get().softMinimumParticipants();
         final Optional<Refusal> refused = StartCheck.refusal(
                 underWay.map(HgGame::state).orElse(null),
@@ -256,10 +260,10 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         if (started.isEmpty()) {
             // Another start closed the round between the check and here.
             return Answer.refused(
-                    ServerRefusal.WRONG_STATE.with(eu.nordtal.season.hungergames.db.GameState.COUNTDOWN.name()));
+                    ServerRefusal.WRONG_STATE.with(eu.nordtal.season.hungergames.game.HgGameState.COUNTDOWN.name()));
         }
         // The round is closed now, so this roster is the one the game is played with.
-        final List<Participant> playing = Demotion.resolve(dao.roster(round.get()));
+        final List<Participant> playing = Demotion.resolve(rosters.roster(round.get()));
         getLogger()
                 .info("game " + started.get() + " started with " + playing.size() + " resolvable participants"
                         + (playing.size() < recommended ? " (confirmed below the recommended minimum)" : ""));

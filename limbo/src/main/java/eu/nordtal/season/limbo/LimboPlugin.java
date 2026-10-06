@@ -2,8 +2,8 @@ package eu.nordtal.season.limbo;
 
 import eu.nordtal.season.limbo.config.LimboCheck;
 import eu.nordtal.season.limbo.config.LimboSpec;
-import eu.nordtal.season.limbo.listener.PresenceListener;
 import eu.nordtal.season.limbo.net.LimboChannel;
+import eu.nordtal.season.limbo.presence.PresenceListener;
 import eu.nordtal.season.limbo.waiting.WaitingRoom;
 import eu.nordtal.season.limbo.world.WaitingWorld;
 import eu.nordtal.season.limboprotocol.LimboProtocol;

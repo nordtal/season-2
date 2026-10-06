@@ -3,7 +3,7 @@ package eu.nordtal.season.limbo;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.limbo.listener.PresenceListener;
+import eu.nordtal.season.limbo.presence.PresenceListener;
 import org.junit.jupiter.api.Test;
 
 /**

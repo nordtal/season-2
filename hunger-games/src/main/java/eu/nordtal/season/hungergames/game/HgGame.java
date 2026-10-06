@@ -1,4 +1,4 @@
-package eu.nordtal.season.hungergames.db;
+package eu.nordtal.season.hungergames.game;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -8,7 +8,7 @@ import org.jspecify.annotations.Nullable;
 public record HgGame(
         UUID id,
         UUID registrationId,
-        GameState state,
+        HgGameState state,
         @Nullable Instant started,
         @Nullable Instant ended,
         @Nullable UUID winnerMemberId) {}

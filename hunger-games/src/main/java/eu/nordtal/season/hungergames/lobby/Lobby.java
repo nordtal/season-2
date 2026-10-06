@@ -5,8 +5,9 @@ import static eu.nordtal.season.hungergames.HungerGamesMessages.MESSAGES;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.hungergames.config.HungerGamesSpec;
-import eu.nordtal.season.hungergames.db.HungerGamesDao;
-import eu.nordtal.season.hungergames.db.RosterEntry;
+import eu.nordtal.season.hungergames.game.GameDao;
+import eu.nordtal.season.hungergames.roster.RosterDao;
+import eu.nordtal.season.hungergames.roster.RosterEntry;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.value.Action;
 import eu.nordtal.season.papercommon.player.Identities;
@@ -33,7 +34,8 @@ public final class Lobby {
     private static final Action READY = new Action("/hg ready");
 
     private final Plugin plugin;
-    private final HungerGamesDao dao;
+    private final GameDao dao;
+    private final RosterDao rosters;
     private final HungerGamesSpec config;
     private final MessageRenderer renderer;
     private final Identities identities;
@@ -42,12 +44,14 @@ public final class Lobby {
 
     public Lobby(
             final Plugin plugin,
-            final HungerGamesDao dao,
+            final GameDao dao,
+            final RosterDao rosters,
             final HungerGamesSpec config,
             final MessageRenderer renderer,
             final Identities identities) {
         this.plugin = plugin;
         this.dao = dao;
+        this.rosters = rosters;
         this.config = config;
         this.renderer = renderer;
         this.identities = identities;
@@ -93,11 +97,11 @@ public final class Lobby {
      * @return whether the player is on a team of the open round
      */
     public boolean markReady(final DiscordId discordId) {
-        return dao.openRound().map(round -> dao.markReady(round, discordId)).orElse(false);
+        return dao.openRound().map(round -> rosters.markReady(round, discordId)).orElse(false);
     }
 
     /** Returns every member of the open round and whether they are ready, or empty while no round is open; blocking. */
     public Optional<List<RosterEntry>> readyStatus() {
-        return dao.openRound().map(dao::roster);
+        return dao.openRound().map(rosters::roster);
     }
 }

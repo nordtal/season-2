@@ -1,4 +1,4 @@
-package eu.nordtal.season.hungergames.listener;
+package eu.nordtal.season.hungergames.combat;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 

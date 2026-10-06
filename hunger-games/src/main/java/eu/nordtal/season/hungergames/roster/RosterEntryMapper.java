@@ -1,4 +1,4 @@
-package eu.nordtal.season.hungergames.db;
+package eu.nordtal.season.hungergames.roster;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -6,7 +6,7 @@ import java.util.UUID;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 
-/** Maps one row of {@link HungerGamesDao#ROSTER}. */
+/** Maps one row of {@link RosterDao#ROSTER}. */
 public final class RosterEntryMapper implements RowMapper<RosterEntry> {
 
     @Override

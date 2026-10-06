@@ -1,4 +1,4 @@
-package eu.nordtal.season.hungergames.db;
+package eu.nordtal.season.hungergames.game;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -17,7 +17,7 @@ public final class HgGameMapper implements RowMapper<HgGame> {
         return new HgGame(
                 rs.getObject("id", UUID.class),
                 rs.getObject("registration_id", UUID.class),
-                GameState.valueOf(rs.getString("state")),
+                HgGameState.valueOf(rs.getString("state")),
                 instant(rs, "started"),
                 instant(rs, "ended"),
                 rs.getObject("winner_member_id", UUID.class));

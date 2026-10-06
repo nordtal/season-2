@@ -1,4 +1,4 @@
-package eu.nordtal.season.hungergames.db;
+package eu.nordtal.season.hungergames.roster;
 
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;

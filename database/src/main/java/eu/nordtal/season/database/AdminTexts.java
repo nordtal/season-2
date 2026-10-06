@@ -753,6 +753,9 @@ public interface AdminTexts {
         @Name("A release without a jar")
         MessageRef releaseWithoutJar(@Arg("release") String release, @Arg("artefact") String artefact);
 
+        @Name("A release's jar without its digest")
+        MessageRef releaseJarWithoutDigest(@Arg("release") String release, @Arg("jar") String jar);
+
         @Name("A release without a pack")
         MessageRef releaseWithoutPack(@Arg("release") String release);
 

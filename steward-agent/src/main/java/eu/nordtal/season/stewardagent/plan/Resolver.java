@@ -220,16 +220,26 @@ public final class Resolver {
         for (final GitHubReleases.Asset asset : release.assets()) {
             final String prefix = JarName.prefixOf(asset.name());
             // The asset's prefix is the artifact id ('smp-0.2.0.jar' is 'smp'); an extra asset is ignored.
-            if (prefix != null && Topology.SEASON_JARS.contains(prefix)) {
-                newest.put(
-                        prefix,
-                        new RemoteFile(
-                                prefix, versionOrTag(asset.name(), release.tag()), asset.name(), asset.url(), null));
+            if (prefix == null || !Topology.SEASON_JARS.contains(prefix)) {
+                continue;
             }
+            if (asset.digest() == null) {
+                // Refused, not fetched unverified: the jar goes straight into a plugins directory.
+                failures.put(prefix, TEXTS.report().releaseJarWithoutDigest(release.tag(), asset.name()));
+                continue;
+            }
+            newest.put(
+                    prefix,
+                    new RemoteFile(
+                            prefix,
+                            versionOrTag(asset.name(), release.tag()),
+                            asset.name(),
+                            asset.url(),
+                            asset.digest()));
         }
 
         for (final String artifact : Topology.SEASON_JARS) {
-            if (!newest.containsKey(artifact)) {
+            if (!newest.containsKey(artifact) && !failures.containsKey(artifact)) {
                 failures.put(artifact, TEXTS.report().releaseWithoutJar(release.tag(), artifact));
                 unreleased.add(artifact);
             }

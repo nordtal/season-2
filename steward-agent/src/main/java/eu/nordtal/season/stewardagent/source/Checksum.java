@@ -2,11 +2,7 @@ package eu.nordtal.season.stewardagent.source;
 
 import java.util.Locale;
 
-/**
- * A digest as the API that published it writes it: sha256 from Fill, sha512 from Modrinth, sha1 for the pack.
- *
- * GitHub assets carry no digest, so our own jars are fetched over TLS unverified.
- */
+/** A digest as its source writes it: sha256 from Fill and GitHub, sha512 from Modrinth, sha1 for the pack. */
 public record Checksum(String algorithm, String hex) {
 
     public Checksum {

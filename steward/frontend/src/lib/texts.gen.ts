@@ -569,6 +569,10 @@ export type TextArgs = {
   "report.recreating": {
     pull: Arg["choice"]
   }
+  "report.release-jar-without-digest": {
+    release: Arg["text"]
+    jar: Arg["text"]
+  }
   "report.release-unread": {
     repo: Arg["text"]
     error: Arg["text"]

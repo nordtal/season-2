@@ -11,7 +11,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * The GitHub releases API, for the season repository.
  *
- * An asset carries no digest; the pack's SHA-1 is its own 41-byte asset, read rather than computed.
+ * Every asset carries GitHub's sha256 digest; the pack's SHA-1 is its own 41-byte asset, read rather than computed.
  */
 public final class GitHubReleases {
 
@@ -43,7 +43,13 @@ public final class GitHubReleases {
         }
     }
 
-    public record Asset(String name, URI url, long size) {}
+    /**
+     * One file of a release.
+     *
+     * @param digest what GitHub computed on upload, {@code null} only where the payload names none
+     */
+    public record Asset(
+            String name, URI url, long size, @Nullable Checksum digest) {}
 
     /**
      * The newest published release of a repository; there is no fetch by tag, since nothing pins a release.
@@ -64,7 +70,8 @@ public final class GitHubReleases {
                 assets.add(new Asset(
                         ApiFields.string(asset, "name", what),
                         URI.create(ApiFields.string(asset, "browser_download_url", what)),
-                        ApiFields.number(asset, "size", -1)));
+                        ApiFields.number(asset, "size", -1),
+                        digest(ApiFields.optionalString(asset, "digest"))));
             }
         }
 
@@ -72,6 +79,15 @@ public final class GitHubReleases {
                 ApiFields.string(payload, "tag_name", what),
                 ApiFields.bool(payload, "prerelease", false),
                 List.copyOf(assets));
+    }
+
+    /** GitHub writes a digest as {@code sha256:<hex>}. */
+    private static @Nullable Checksum digest(final @Nullable String written) {
+        if (written == null) {
+            return null;
+        }
+        final int colon = written.indexOf(':');
+        return colon <= 0 ? null : new Checksum(written.substring(0, colon), written.substring(colon + 1));
     }
 
     /**

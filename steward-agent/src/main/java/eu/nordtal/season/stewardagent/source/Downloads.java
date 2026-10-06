@@ -12,7 +12,7 @@ import java.util.HexFormat;
 /**
  * Fetches a jar straight to disk and verifies it.
  *
- * Modrinth and Fill checksums are checked; GitHub release assets carry none and arrive unverified.
+ * The source's checksum is checked: sha512 from Modrinth, sha256 from Fill and from GitHub's asset digest.
  */
 public final class Downloads implements Fetcher {
 

@@ -8,7 +8,7 @@ import org.jspecify.annotations.Nullable;
  *
  * @param artifact the stable id the topology and the report join on, such as {@code smp} or {@code paper}
  * @param version the version as the source states it, for humans and never compared
- * @param checksum {@code null} where the source publishes none, which is every GitHub asset
+ * @param checksum {@code null} where Modrinth or Fill publish none; a season jar without one is never resolved
  */
 public record RemoteFile(
         String artifact,

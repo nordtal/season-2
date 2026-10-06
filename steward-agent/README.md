@@ -78,13 +78,13 @@ files directly in the backups.
 
 ## Where a version comes from
 
-| what                                                 | source                                                          |
-| ---------------------------------------------------- | --------------------------------------------------------------- |
-| the season-2 jars, the resource pack and its `.sha1` | GitHub releases, `nordtal/season-2`, through `/releases/latest` |
-| PacketEvents                                         | Modrinth v2, filtered to the Minecraft version and `paper`      |
-| Paper, Velocity                                      | PaperMC Fill v3, newest `STABLE` build                          |
-| what is installed                                    | the volumes under `volumes-root`                                |
-| what pack the proxy offers                           | the proxy's `pack` settings, `url` and `sha1`                   |
+| what                                                 | source                                                                                                                |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| the season-2 jars, the resource pack and its `.sha1` | GitHub releases, `nordtal/season-2`, through `/releases/latest`; a jar is checked against its asset's sha256 `digest` |
+| PacketEvents                                         | Modrinth v2, filtered to the Minecraft version and `paper`                                                            |
+| Paper, Velocity                                      | PaperMC Fill v3, newest `STABLE` build                                                                                |
+| what is installed                                    | the volumes under `volumes-root`                                                                                      |
+| what pack the proxy offers                           | the proxy's `pack` settings, `url` and `sha1`                                                                         |
 
 ## Rules
 

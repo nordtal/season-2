@@ -14,6 +14,7 @@ import eu.nordtal.season.stewardagent.Told;
 import eu.nordtal.season.stewardagent.config.RunSpec;
 import eu.nordtal.season.stewardagent.config.RunSpec.BackupSpec;
 import eu.nordtal.season.stewardagent.run.Report;
+import eu.nordtal.season.stewardagent.source.Checksum;
 import eu.nordtal.season.stewardagent.source.FakeHttp;
 import eu.nordtal.season.stewardagent.source.GitHubReleases;
 import eu.nordtal.season.stewardagent.source.Modrinth;
@@ -263,6 +264,43 @@ class ResolverTest {
         assertNotNull(change.wanted());
         assertEquals("smp-0.1.0.jar", change.wanted().fileName());
         assertTrue(Report.render(plan).contains("smp-0.0.9.jar  ->  smp-0.1.0.jar"), Report.render(plan));
+    }
+
+    @Test
+    void aSeasonJarCarriesTheSha256DigestGitHubPublishedForIt() throws IOException {
+        installCurrentEverything();
+        replace("smp", "plugins/smp-0.1.0.jar", "plugins/smp-0.0.9.jar");
+
+        final Change change = changeFor(resolve(), "smp", "smp");
+
+        assertNotNull(change.wanted());
+        assertEquals(
+                Checksum.sha256("0f1ab0e5be10515e0e25a97f9818bba46b3e8a5f269e1534129c20b698ab1937"),
+                change.wanted().checksum());
+    }
+
+    @Test
+    void aSeasonJarWithoutADigestIsRefusedAndTheInstalledOneStays() throws IOException {
+        installCurrentEverything();
+        replace("smp", "plugins/smp-0.1.0.jar", "plugins/smp-0.0.9.jar");
+        http.answering(
+                "/repos/nordtal/season-2/releases",
+                FakeHttp.read("github-season-v0.1.0.json")
+                        .replace(
+                                "\"digest\": \"sha256:0f1ab0e5be10515e0e25a97f9818bba46b3e8a5f269e1534129c20b698ab1937\",",
+                                ""));
+
+        final UpdatePlan plan = resolve();
+        final Change smp = changeFor(plan, "smp", "smp");
+
+        assertEquals(Change.Status.UNRESOLVED, smp.status(), Report.render(plan));
+        assertTrue(smp.status().isFailure(), Report.render(plan));
+        assertNull(smp.wanted());
+        assertNotNull(smp.reason());
+        assertTrue(
+                Told.english(smp.reason()).contains("smp-0.1.0.jar without a sha256 digest"),
+                Told.english(smp.reason()));
+        assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "limbo", "limbo"), Report.render(plan));
     }
 
     @Test

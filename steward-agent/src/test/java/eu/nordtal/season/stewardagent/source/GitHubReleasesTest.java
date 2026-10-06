@@ -26,6 +26,7 @@ class GitHubReleasesTest {
         assertNotNull(smp);
         // A tiny jar is the scaffold's two log lines, not a real build; only the size says so.
         assertEquals(51_273, smp.size());
+        assertEquals(Checksum.sha256("0f1ab0e5be10515e0e25a97f9818bba46b3e8a5f269e1534129c20b698ab1937"), smp.digest());
         assertTrue(
                 smp.url().toString().startsWith("https://github.com/nordtal/season-2/releases/download/"),
                 smp.url().toString());

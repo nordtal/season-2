@@ -7,42 +7,49 @@
     {
       "name": "discord-bot-0.1.0.jar",
       "size": 30952094,
+      "digest": "sha256:e14e029d2c657ce82d0db35474e01043532027ad90f9d2b61fc4d8a9068c3ea8",
       "browser_download_url": "https://github.com/nordtal/season-2/releases/download/v0.1.0/discord-bot-0.1.0.jar",
       "content_type": "application/java-archive"
     },
     {
       "name": "hunger-games-0.1.0.jar",
       "size": 4640946,
+      "digest": "sha256:00dd495a5a342dab96628c2535bbf8bbf6ae2c86547ac7ee863e65295742f4c3",
       "browser_download_url": "https://github.com/nordtal/season-2/releases/download/v0.1.0/hunger-games-0.1.0.jar",
       "content_type": "application/java-archive"
     },
     {
       "name": "limbo-0.1.0.jar",
       "size": 51279,
+      "digest": "sha256:b0aff2c1a9d5840de03540908e239ef357402a8f68f36246252b1631853c447c",
       "browser_download_url": "https://github.com/nordtal/season-2/releases/download/v0.1.0/limbo-0.1.0.jar",
       "content_type": "application/java-archive"
     },
     {
       "name": "proxy-0.1.0.jar",
       "size": 5259904,
+      "digest": "sha256:cdd96fc221fc9a7a3284fe80aedf01f0d16e0dd1fa04726d73bc83a674c6ffae",
       "browser_download_url": "https://github.com/nordtal/season-2/releases/download/v0.1.0/proxy-0.1.0.jar",
       "content_type": "application/java-archive"
     },
     {
       "name": "nordtal-resource-pack-0.1.0.zip",
       "size": 38609,
+      "digest": "sha256:b85db90c0a17729ecfd460ade06bf2591da8bb8ca0d2b0ed9614726a558976f6",
       "browser_download_url": "https://github.com/nordtal/season-2/releases/download/v0.1.0/nordtal-resource-pack-0.1.0.zip",
       "content_type": "application/zip"
     },
     {
       "name": "nordtal-resource-pack-0.1.0.zip.sha1",
       "size": 41,
+      "digest": "sha256:0cdce4c56b93c770ff4e84fa3b988e66593552380c0bdb501839eeb7d856233a",
       "browser_download_url": "https://github.com/nordtal/season-2/releases/download/v0.1.0/nordtal-resource-pack-0.1.0.zip.sha1",
       "content_type": "application/octet-stream"
     },
     {
       "name": "smp-0.1.0.jar",
       "size": 51273,
+      "digest": "sha256:0f1ab0e5be10515e0e25a97f9818bba46b3e8a5f269e1534129c20b698ab1937",
       "browser_download_url": "https://github.com/nordtal/season-2/releases/download/v0.1.0/smp-0.1.0.jar",
       "content_type": "application/java-archive"
     }

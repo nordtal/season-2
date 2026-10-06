@@ -17,6 +17,7 @@ import org.gradle.api.tasks.TaskAction
  *
  * The id is the service the module publishes its settings under; [editors] names, per group, the custom editor
  * Steward draws it with instead of the form built from its schema. [followsMessages] offers its bundles for editing.
+ * A jar built outside a release says [local], which Steward shows and an update run asks about before replacing it.
  */
 abstract class WritePluginDescriptor : DefaultTask() {
     @get:Input
@@ -30,6 +31,9 @@ abstract class WritePluginDescriptor : DefaultTask() {
 
     @get:Input
     abstract val followsMessages: Property<Boolean>
+
+    @get:Input
+    abstract val local: Property<Boolean>
 
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
@@ -55,7 +59,9 @@ abstract class WritePluginDescriptor : DefaultTask() {
             .writeText(
                 "{\"id\": ${quoted(id.get())}, \"name\": ${quoted(displayName.get())}, " +
                     "\"logo\": ${quoted(LOGO)}, \"editors\": {$editorJson}, " +
-                    "\"messages\": ${followsMessages.get()}}\n",
+                    "\"messages\": ${followsMessages.get()}" +
+                    (if (local.get()) ", \"local\": true" else "") +
+                    "}\n",
             )
     }
 

@@ -28,6 +28,8 @@ val pluginDescriptor =
         displayName.set(descriptor.displayName)
         editors.set(descriptor.editors)
         followsMessages.set(descriptor.followsMessages)
+        // Every release is built by GitHub Actions, which sets this; any other build is a local one.
+        local.set(providers.environmentVariable("GITHUB_ACTIONS").map { it != "true" }.orElse(true))
         logo.set(rootProject.layout.projectDirectory.file("resource-pack/src/pack.png"))
         target.set(layout.buildDirectory.dir("generated/plugin-descriptor"))
     }

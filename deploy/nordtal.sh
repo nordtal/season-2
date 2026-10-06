@@ -624,6 +624,13 @@ UPDATE_KINDS=(UPDATE RESTART BACKUP DOWN START)
 # How long the command waits; the run itself carries on after it gives up.
 UPDATE_TIMEOUT_DEFAULT=1800
 
+# Seconds between two looks at a request, since every look starts a JVM inside the agent.
+UPDATE_POLL=10
+
+# How long steward-agent may stay silent before the watch gives up: the agent's health-check start period,
+# which covers a run that recreates the agent itself.
+UPDATE_GAP=300
+
 # The service names `steward_inbox_services_check` accepts, joined by commas, so a bad scope is refused here.
 update_scope_ok() {
     [[ "$1" =~ ^[a-z0-9-]+(,[a-z0-9-]+)*$ ]]
@@ -758,6 +765,58 @@ deploy_by() {
     fi
 }
 
+# Follows one request until steward-agent is finished with it, then prints the run's report.
+update_wait() {
+    local id="$1" container="$2"
+    local waited=0 silent=0 answer status report said=""
+
+    log "waiting; Ctrl-C stops WATCHING and never the run itself"
+    while :; do
+        # One line: the status, a tab and the report. Nothing at all means the row is gone.
+        answer="$(docker exec "$container" steward-agent status "$id" 2>/dev/null | sed -n '1p' || true)"
+        status="${answer%%$'\t'*}"
+        report="${answer#*$'\t'}"
+        [[ "$status" == "$answer" ]] && report=""
+
+        if [[ -z "$status" ]]; then
+            (( silent > 0 )) || warn "steward-agent does not answer, which a run that recreates it also causes; asking
+       again for up to ${UPDATE_GAP}s"
+            (( silent += UPDATE_POLL ))
+            (( silent <= UPDATE_GAP )) \
+                || die "request $id is no longer in steward_inbox, or steward-agent has not answered for ${UPDATE_GAP}s."
+        else
+            (( silent == 0 )) || log "steward-agent answers again"
+            silent=0
+        fi
+        if [[ -n "$status" && "$status" != "$said" ]]; then
+            log "request $id is $status"
+            said="$status"
+        fi
+        if update_is_over "$status"; then
+            # jq if it is there, the raw JSON line if not.
+            if [[ -n "$report" ]]; then
+                if command -v jq >/dev/null 2>&1; then
+                    printf '%s\n' "$report" | jq . || printf '%s\n' "$report"
+                else
+                    printf '%s\n' "$report"
+                fi
+            fi
+            [[ "$status" == DONE ]] && return 0
+            return 1
+        fi
+
+        (( waited += UPDATE_POLL ))
+        if (( waited > UPDATE_TIMEOUT )); then
+            # Only the waiting stops; the run carries on.
+            warn "request $id is still $status after ${UPDATE_TIMEOUT}s. The run continues without
+       this command watching it; ./nordtal.sh update --no-wait prints ids, and the interface shows
+       the run under /operations."
+            return 2
+        fi
+        sleep "$UPDATE_POLL"
+    done
+}
+
 # Definitions end here; only a genuine `source` returns. Under `curl ... | bash` there is no BASH_SOURCE.
 if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "$0" ]]; then
     return 0
@@ -802,52 +861,6 @@ cmd_update() {
     fi
 
     update_wait "$id" "$container"
-}
-
-# Follows one request until steward-agent is finished with it, then prints the run's report.
-update_wait() {
-    local id="$1" container="$2"
-    local waited=0 answer status report said=""
-
-    log "waiting; Ctrl-C stops WATCHING and never the run itself"
-    while :; do
-        # One line: the status, a tab and the report. Nothing at all means the row is gone.
-        answer="$(docker exec "$container" steward-agent status "$id" 2>/dev/null | sed -n '1p' || true)"
-        status="${answer%%$'\t'*}"
-        report="${answer#*$'\t'}"
-        [[ "$status" == "$answer" ]] && report=""
-
-        if [[ -n "$status" && "$status" != "$said" ]]; then
-            log "request $id is $status"
-            said="$status"
-        fi
-        if [[ -z "$status" ]]; then
-            die "request $id is no longer in steward_inbox, or steward-agent stopped answering."
-        fi
-        if update_is_over "$status"; then
-            # jq if it is there, the raw JSON line if not.
-            if [[ -n "$report" ]]; then
-                if command -v jq >/dev/null 2>&1; then
-                    printf '%s\n' "$report" | jq . || printf '%s\n' "$report"
-                else
-                    printf '%s\n' "$report"
-                fi
-            fi
-            [[ "$status" == DONE ]] && return 0
-            return 1
-        fi
-
-        (( waited += 10 ))
-        if (( waited > UPDATE_TIMEOUT )); then
-            # Only the waiting stops; the run carries on.
-            warn "request $id is still $status after ${UPDATE_TIMEOUT}s. The run continues without
-       this command watching it; ./nordtal.sh update --no-wait prints ids, and the interface shows
-       the run under /operations."
-            return 2
-        fi
-        # Ten seconds, since every look starts a JVM inside the agent.
-        sleep 10
-    done
 }
 
 if [[ "${1:-}" == update ]]; then

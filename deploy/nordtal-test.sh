@@ -514,6 +514,36 @@ renewed "file://$WORK/latest.json" "file://$WORK/page.html" && bad "an error pag
 cmp -s "$WORK/installed.sh" "$SETUP" || bad "a failed renewal changed the file"
 ok "without GitHub or with a broken download, the copy that is here runs"
 
+case_begin "update: the watch rides out steward-agent being recreated and gives up when it stays gone"
+# The stand-in docker answers the nth look with the nth line of answers; a dash is an exec that fails.
+looks_at() { cat "$WORK/looks"; }
+docker() {
+    local looked
+    looked=$(( $(cat "$WORK/looks") + 1 ))
+    printf '%s\n' "$looked" > "$WORK/looks"
+    local line
+    line="$(sed -n "${looked}p" "$WORK/answers")"
+    [[ "$line" == - ]] && return 1
+    printf '%s\n' "$line"
+}
+sleep() { :; }
+watched() { printf '0\n' > "$WORK/looks"; printf '%b' "$1" > "$WORK/answers"; update_wait 62 steward-agent >/dev/null 2>&1; }
+UPDATE_TIMEOUT=1800 UPDATE_POLL=10 UPDATE_GAP=30
+
+( watched 'RUNNING\t\n-\n-\n-\nDONE\t\n' ) || bad "a gap of three looks ended the watch"
+[[ "$(looks_at)" == 5 ]] || bad "the watch stopped at look $(looks_at), not after DONE at look 5"
+ok "three silent looks in the middle of a run do not end the watch"
+
+( watched 'RUNNING\t\n-\n-\n-\n-\nDONE\t\n' ) && bad "a gap longer than the limit was ridden out"
+[[ "$(looks_at)" == 5 ]] || bad "the watch gave up at look $(looks_at), not at the fifth"
+ok "a gap past the limit ends the watch"
+
+( watched '-\n' ) && bad "a request that is not there was waited for"
+( watched 'RUNNING\t\n-\n-\n-\nRUNNING\t\n-\n-\n-\nFAILED\t\n' ) && bad "a failed run ended in success"
+[[ "$(looks_at)" == 9 ]] || bad "silent looks were counted across answers, look $(looks_at)"
+ok "an answer resets the gap, and a failed run still fails"
+unset -f docker sleep
+
 
 if (( failed > 0 )); then
     printf '\n%d case(s) failed\n' "$failed" >&2

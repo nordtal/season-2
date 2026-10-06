@@ -149,7 +149,9 @@ are renewed like any service, named in the countdown.
 
 steward-agent never recreates itself: an update to a newer release is carried out by a one-shot
 steward-agent at that release, which renews the agent last; its log is
-`steward-backups/runs/<id>.log`. A bad release is fixed by a better one.
+`steward-backups/runs/<id>.log`. The command keeps asking for 300 seconds while the agent is gone, the
+agent's health-check start period, and gives up when it stays silent longer. A bad release is fixed by
+a better one.
 
 Replacing one service from a checkout is a local build that stands until the next `pull`:
 

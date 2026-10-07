@@ -5,7 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.database.DatabaseRole;
+import eu.nordtal.season.database.SignalProbe;
 import eu.nordtal.season.database.TestDatabase;
+import eu.nordtal.season.database.notify.Channel;
 import java.util.List;
 import java.util.Map;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
@@ -37,6 +39,20 @@ class CommandTreeStoreIntegrationTest {
         assertEquals(TREE, steward.tree("hunger-games").orElseThrow());
         assertEquals(TREE, steward.tree("proxy").orElseThrow());
         assertTrue(steward.tree("discord-bot").isEmpty());
+    }
+
+    @Test
+    void aPublishedTreeRingsItsChannelAndMovesWhenItsServerPublishedLast() {
+        final TestDatabase database = TestDatabase.fresh();
+        final CommandTreeStore proxy = CommandTreeStore.using(database.dataSourceAs(DatabaseRole.PROXY));
+        final CommandTreeStore steward = CommandTreeStore.using(database.dataSourceAs(DatabaseRole.STEWARD));
+
+        try (SignalProbe probe = SignalProbe.on(database.dataSourceAs(DatabaseRole.STEWARD), Channel.COMMAND_TREE)) {
+            proxy.publish("proxy", TREE);
+
+            assertTrue(probe.signalled(), "a published tree reaches no listener");
+        }
+        assertEquals(List.of("proxy"), List.copyOf(steward.published().keySet()));
     }
 
     @Test

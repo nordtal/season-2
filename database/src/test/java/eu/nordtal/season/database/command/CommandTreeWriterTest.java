@@ -5,8 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -37,6 +39,11 @@ class CommandTreeWriterTest {
         @Override
         public Optional<CommandTree> tree(final String server) {
             return Optional.empty();
+        }
+
+        @Override
+        public Map<String, Instant> published() {
+            return Map.of();
         }
     }
 

@@ -45,7 +45,10 @@ public enum Channel {
     ALERT("nordtal_alert"),
 
     /** A server exported its game data or the agent drew a version's icons. Both emit; steward and the agent listen. */
-    GAME_DATA("nordtal_game_data");
+    GAME_DATA("nordtal_game_data"),
+
+    /** A server or the proxy published a changed command tree; payload its service. steward listens. */
+    COMMAND_TREE("nordtal_command_tree");
 
     private final String sqlName;
 

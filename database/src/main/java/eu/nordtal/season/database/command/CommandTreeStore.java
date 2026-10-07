@@ -1,12 +1,14 @@
 package eu.nordtal.season.database.command;
 
+import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 import javax.sql.DataSource;
 
 /**
  * Each server's command tree: the server writes its own, steward reads it for the console's suggestions.
  *
- * Nothing listens for a change, so a write signals nothing; the console reads the tree when it opens.
+ * A write rings {@link eu.nordtal.season.database.notify.Channel#COMMAND_TREE}, so an open console reads it again.
  */
 public interface CommandTreeStore {
 
@@ -20,4 +22,7 @@ public interface CommandTreeStore {
 
     /** The tree {@code server} published last, or nothing when it never has. */
     Optional<CommandTree> tree(String server);
+
+    /** When each server that ever published published last, by its service. */
+    Map<String, Instant> published();
 }

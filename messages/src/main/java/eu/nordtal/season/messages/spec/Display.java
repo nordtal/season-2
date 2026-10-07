@@ -7,46 +7,61 @@ import java.util.Collection;
  * A key names every place it really appears, and the strictest of their limits is its own.
  */
 public enum Display {
-    CHAT,
-    ACTION_BAR,
-    TITLE,
-    SUBTITLE,
-    BOSS_BAR,
-    TAB_LIST,
+    CHAT(Surface.GAME),
+    ACTION_BAR(Surface.GAME),
+    TITLE(Surface.GAME),
+    SUBTITLE(Surface.GAME),
+    BOSS_BAR(Surface.GAME),
+    TAB_LIST(Surface.GAME),
     /** An inventory menu: its title, an item's name or a line of its tooltip. */
-    GUI,
+    GUI(Surface.GAME),
     /** Floating text in the world. */
-    HOLOGRAM,
+    HOLOGRAM(Surface.GAME),
     /** A screen the client shows in place of the game: a refusal, a kick, or the resource pack prompt. */
-    KICK_SCREEN,
+    KICK_SCREEN(Surface.GAME),
     /** The multiplayer server list. */
-    SERVER_LIST,
-    DISCORD_MESSAGE(2000),
+    SERVER_LIST(Surface.GAME),
+    DISCORD_MESSAGE(Surface.DISCORD, 2000),
     /** An embed's description or a field's value, which the bot cuts to a field's shorter limit. */
-    DISCORD_EMBED(4096),
+    DISCORD_EMBED(Surface.DISCORD, 4096),
     /** An embed's title or a field's name. */
-    DISCORD_EMBED_HEADING(256),
-    DISCORD_BUTTON(80),
-    DISCORD_MODAL(45),
+    DISCORD_EMBED_HEADING(Surface.DISCORD, 256),
+    DISCORD_BUTTON(Surface.DISCORD, 80),
+    DISCORD_MODAL(Surface.DISCORD, 45),
     /** A select menu: its placeholder or one of its options. */
-    DISCORD_SELECT(100),
+    DISCORD_SELECT(Surface.DISCORD, 100),
     /** A channel's name, which Discord keeps to 100 characters and no formatting. */
-    DISCORD_CHANNEL(100),
+    DISCORD_CHANNEL(Surface.DISCORD, 100),
     /** A slash command's name, description or option. */
-    DISCORD_COMMAND(100),
+    DISCORD_COMMAND(Surface.DISCORD, 100),
     /** Steward's own page, which the browser renders in its own zone. */
-    STEWARD,
+    STEWARD(Surface.STEWARD),
     /** A web push notification, rendered on the server as plain text. */
-    PUSH;
+    PUSH(Surface.STEWARD);
 
-    private final int limit;
-
-    Display() {
-        this(0);
+    /** Where a place is, which decides how a preview draws it and whether one reaches an admin there. */
+    public enum Surface {
+        GAME,
+        DISCORD,
+        /** Steward's page and its notifications. */
+        STEWARD
     }
 
-    Display(final int limit) {
+    private final Surface surface;
+    private final int limit;
+
+    Display(final Surface surface) {
+        this(surface, 0);
+    }
+
+    Display(final Surface surface, final int limit) {
+        this.surface = surface;
         this.limit = limit;
+    }
+
+    /** Returns where this place is. */
+    public Surface surface() {
+        return surface;
     }
 
     /** Returns how many characters the platform shows here, {@code 0} where it sets no limit. */

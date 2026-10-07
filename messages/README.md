@@ -83,9 +83,10 @@ plain text it shows; `WebTargetVectorsTest` holds this side to them, the fronten
 
 A key names every place it really appears (`Display`) with `@Shown`, on the spec, a section or the
 key, the nearest winning: a run's state is shown in Steward and in the admin channel's embed, a
-milestone's name on the board, the boss bar, a menu, chat, a title and an announcement. The first
-place is the one Steward's editor previews first. The key's length limit is the strictest of its
-places (`Display.strictest`), and `schema.json` lists the places in order.
+milestone's name on the board, the boss bar, a menu, chat, a title and an announcement. Each place
+says where it is (`Display.Surface`: the game, Discord or Steward), which groups the key on Steward's
+Texts page and decides how each place is previewed there. The key's length limit is the strictest of
+its places (`Display.strictest`), and `schema.json` lists the places in order.
 
 ## The check
 

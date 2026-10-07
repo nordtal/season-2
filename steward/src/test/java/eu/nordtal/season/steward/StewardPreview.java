@@ -84,6 +84,11 @@ public final class StewardPreview {
                     agent.volumes.resolve("smp/plugins/smp-0.17.0.jar"),
                     "{\"id\": \"smp\", \"name\": \"SMP\", \"local\": true}",
                     java.util.Map.of());
+            // smp's descriptor where the agent reads it, so the track is drawn by the editor smp's jar names.
+            eu.nordtal.season.stewardagent.PluginJars.write(
+                    agent.configs.resolve("smp/smp.jar"),
+                    "{\"id\": \"smp\", \"name\": \"SMP\", \"editors\": {\"milestones\": \"milestones\"}}",
+                    java.util.Map.of());
             final Steward.Configs configs = java.util.Objects.requireNonNull(
                     Steward.configsOf(asSteward(postgres), database), "the stored settings were refused");
             final Data data = new Data(database, Clock.systemUTC());

@@ -48,7 +48,6 @@ import eu.nordtal.season.smp.navigate.Navigation;
 import eu.nordtal.season.smp.navigate.PlaceDao;
 import eu.nordtal.season.smp.npc.SpawnNpc;
 import eu.nordtal.season.smp.player.PlayerSurfacesListener;
-import eu.nordtal.season.smp.port.PrizeSource;
 import eu.nordtal.season.smp.prestige.PrestigeColours;
 import eu.nordtal.season.smp.progress.GateHolders;
 import eu.nordtal.season.smp.progress.ObjectiveEngine;
@@ -102,8 +101,6 @@ public final class SmpPlugin extends NordtalPlugin {
     TrackDao trackRows;
     /** The aura book, one for every feature that pays or takes aura. */
     AuraDao aura;
-    /** The wheel's extra spins, which progress pays and the NPC menu forecasts. */
-    PrizeSource prizes;
 
     Announcer announcer;
     private SmpAdmin admin;
@@ -257,8 +254,7 @@ public final class SmpPlugin extends NordtalPlugin {
         cinematics = inputs.cinematics();
         presence = SmpStart.registerSurfaceListener(this, spec, wired, inputs);
 
-        final SmpStart.Progress progress = SmpStart.wireProgressEngine(this, spec, wired.effects());
-        prizes = progress.prizes();
+        final SmpStart.Progress progress = SmpStart.wireProgressEngine(this, wired.effects());
         engine = progress.engine();
         poller = progress.poller();
         gates = progress.gates();

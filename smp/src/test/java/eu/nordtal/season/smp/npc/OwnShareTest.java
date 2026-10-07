@@ -11,23 +11,14 @@ import org.junit.jupiter.api.Test;
 /** The share line's arithmetic, which is the whole of what the spawn NPC's bottom row says. */
 class OwnShareTest {
 
-    /** The shipped thresholds as the wheel applies them: one spin at the qualifying 2 %, two at 10 %, three at 25 %. */
-    private static int thresholds(final double percent) {
-        return (int) List.of(2, 10, 25).stream()
-                .filter(threshold -> percent >= threshold)
-                .count();
-    }
-
     @Test
     void spinsAreCountedPerObjective() {
-        // 30% of one objective and nothing of three others; the aggregate would understate what one completion grants.
-        final OwnShare.Summary summary = OwnShare.of(
-                List.of(
-                        new OwnContributionRow("a", 30, 100),
-                        new OwnContributionRow("b", 0, 100),
-                        new OwnContributionRow("c", 0, 100),
-                        new OwnContributionRow("d", 0, 100)),
-                OwnShareTest::thresholds);
+        // 30% of one objective and nothing of three others; the aggregate would understate what one completion pays.
+        final OwnShare.Summary summary = OwnShare.of(List.of(
+                new OwnContributionRow("a", 30, 100, 3),
+                new OwnContributionRow("b", 0, 100, 0),
+                new OwnContributionRow("c", 0, 100, 0),
+                new OwnContributionRow("d", 0, 100, 0)));
 
         assertEquals(3, summary.spins());
         assertEquals(7.5, summary.percent(), 1e-9);
@@ -39,46 +30,37 @@ class OwnShareTest {
     @Test
     void thePercentageIsPerMilestone() {
         final OwnShare.Summary summary = OwnShare.of(
-                List.of(new OwnContributionRow("a", 500, 2000), new OwnContributionRow("b", 100, 500)),
-                OwnShareTest::thresholds);
+                List.of(new OwnContributionRow("a", 500, 2000, 4), new OwnContributionRow("b", 100, 500, 2)));
 
         assertEquals(24.0, summary.percent(), 1e-9, "600 of 2500");
         assertEquals(25.0, summary.lines().get(0).percent(), 1e-9);
         assertEquals(20.0, summary.lines().get(1).percent(), 1e-9);
-        assertEquals(5, summary.spins(), "three at 25 % and two at 20 %");
+        assertEquals(6, summary.spins(), "each objective's own forecast, added up");
     }
 
     @Test
     void emptyIsEmptyAndTwoPercentIsNot() {
-        assertTrue(OwnShare.of(List.of(new OwnContributionRow("a", 0, 100)), OwnShareTest::thresholds)
-                .empty());
-        assertTrue(OwnShare.of(List.of(), OwnShareTest::thresholds).empty());
+        assertTrue(OwnShare.of(List.of(new OwnContributionRow("a", 0, 100, 0))).empty());
+        assertTrue(OwnShare.of(List.of()).empty());
 
-        // The qualifying threshold is 2%, so this player IS paid; the menu must not say they contributed nothing.
-        final OwnShare.Summary just =
-                OwnShare.of(List.of(new OwnContributionRow("a", 2, 100)), OwnShareTest::thresholds);
+        // A spin forecast of one at 2 %; the menu must not say this player contributed nothing.
+        final OwnShare.Summary just = OwnShare.of(List.of(new OwnContributionRow("a", 2, 100, 1)));
         assertFalse(just.empty());
         assertEquals(1, just.spins());
     }
 
     @Test
     void belowTheThresholdIsStillAShare() {
-        final OwnShare.Summary summary =
-                OwnShare.of(List.of(new OwnContributionRow("a", 1, 100)), OwnShareTest::thresholds);
+        final OwnShare.Summary summary = OwnShare.of(List.of(new OwnContributionRow("a", 1, 100, 0)));
         assertFalse(summary.empty());
         assertEquals(1.0, summary.percent(), 1e-9);
-        assertEquals(
-                0,
-                summary.spins(),
-                "1 % is under the 2 % qualifying threshold, so it earns nothing - and the line has"
-                        + " to say a share of 1 % rather than round it into a spin");
+        assertEquals(0, summary.spins(), "a share no spin is forecast for still shows as a share of 1 %");
     }
 
     @Test
     void aDoubleDeliveryIsNotClamped() {
         // A reload-lowered target is one of the escape hatches; a player who delivered twice what was asked sees it.
-        final OwnShare.Summary summary =
-                OwnShare.of(List.of(new OwnContributionRow("a", 200, 100)), OwnShareTest::thresholds);
+        final OwnShare.Summary summary = OwnShare.of(List.of(new OwnContributionRow("a", 200, 100, 20)));
         assertEquals(200.0, summary.percent(), 1e-9);
     }
 
@@ -87,7 +69,6 @@ class OwnShareTest {
         // The schema's CHECK makes a positive target the only legal one, ruling out a division by zero on this screen.
         assertEquals(0.0, OwnShare.percentOf(5, 0), 1e-9);
         assertEquals(0.0, OwnShare.percentOf(0, 0), 1e-9);
-        assertTrue(OwnShare.of(List.of(new OwnContributionRow("a", 5, 0)), OwnShareTest::thresholds)
-                .empty());
+        assertTrue(OwnShare.of(List.of(new OwnContributionRow("a", 5, 0, 0))).empty());
     }
 }

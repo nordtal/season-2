@@ -41,23 +41,4 @@ public final class PrizeDraw {
         }
         throw new IllegalStateException("unreachable: a positive total with no positive weight");
     }
-
-    /**
-     * The extra spins a contribution share earns: one per threshold in {@code percents} it reaches.
-     *
-     * @param percents the configured thresholds, in any order
-     * @param share this contributor's share of the objective, 0 to 100
-     */
-    static int extraSpinsFor(final List<Integer> percents, final double share) {
-        if (percents == null || percents.isEmpty()) {
-            return 0;
-        }
-        int spins = 0;
-        for (final Integer percent : percents) {
-            if (percent != null && share >= percent) {
-                spins++;
-            }
-        }
-        return spins;
-    }
 }

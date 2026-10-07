@@ -3,7 +3,6 @@ package eu.nordtal.season.smp.progress;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.Notifies;
-import eu.nordtal.season.smp.port.OwnContributionRow;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -88,9 +87,19 @@ public interface ProgressDao {
                    ON con.objective_id = obj.id AND con.discord_id = :discordId
             WHERE obj.milestone_key = :milestoneKey
             """)
-    @RegisterConstructorMapper(OwnContributionRow.class)
-    List<OwnContributionRow> ownContributions(
+    @RegisterConstructorMapper(OwnAmountRow.class)
+    List<OwnAmountRow> ownContributions(
             @Bind("milestoneKey") String milestoneKey, @Bind("discordId") DiscordId discordId);
+
+    /** Everybody's positive contribution to every objective of one milestone, for forecasting a share. */
+    @SqlQuery("""
+            SELECT obj.key AS key, con.discord_id AS discordId, con.amount AS amount
+            FROM smp_objective obj
+            JOIN smp_contribution con ON con.objective_id = obj.id
+            WHERE obj.milestone_key = :milestoneKey AND con.amount > 0
+            """)
+    @RegisterConstructorMapper(KeyedContributionRow.class)
+    List<KeyedContributionRow> contributionsUnder(@Bind("milestoneKey") String milestoneKey);
 
     /**
      * Marks an objective finished, once.

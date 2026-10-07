@@ -23,7 +23,6 @@ import eu.nordtal.season.smp.npc.SpawnNpc;
 import eu.nordtal.season.smp.player.PlayerComposition;
 import eu.nordtal.season.smp.player.PlayerSurfaces;
 import eu.nordtal.season.smp.player.PlayerSurfacesListener;
-import eu.nordtal.season.smp.port.PrizeSource;
 import eu.nordtal.season.smp.progress.AdvancementListener;
 import eu.nordtal.season.smp.progress.GateHolders;
 import eu.nordtal.season.smp.progress.ObjectiveEngine;
@@ -123,12 +122,9 @@ final class SmpStart {
         return listener;
     }
 
-    record Progress(PrizeSource prizes, ObjectiveEngine engine, StatisticPoller poller, GateHolders gates) {}
+    record Progress(ObjectiveEngine engine, StatisticPoller poller, GateHolders gates) {}
 
-    static Progress wireProgressEngine(final SmpPlugin plugin, final SmpSpec config, final WorldEffects effects) {
-        // The wheel pays the extra spins a contribution earns, and the NPC menu forecasts them with the same source.
-        final PrizeSource prizes =
-                new ExtraSpins(plugin.jdbi().onDemand(SpinDao.class), config::wheelExtraSpinPercents);
+    static Progress wireProgressEngine(final SmpPlugin plugin, final WorldEffects effects) {
         final ObjectiveEngine engine = new ObjectiveEngine(
                 plugin,
                 plugin.jdbi(),
@@ -137,7 +133,8 @@ final class SmpStart {
                 plugin.worlds,
                 plugin.identities(),
                 plugin.renderer(),
-                prizes,
+                // The wheel holds the extra spins an objective's spin budget pays.
+                new ExtraSpins(plugin.jdbi().onDemand(SpinDao.class)),
                 plugin.sounds,
                 effects,
                 plugin.announcer);
@@ -151,7 +148,7 @@ final class SmpStart {
                 PaperScheduler.of(plugin),
                 engine);
         plugin.getServer().getPluginManager().registerEvents(gates, plugin);
-        return new Progress(prizes, engine, poller, gates);
+        return new Progress(engine, poller, gates);
     }
 
     record Activities(DeathPenalty penalty, Wheel wheel, Graves graves, Duels duels) {}
@@ -242,7 +239,6 @@ final class SmpStart {
                                 plugin.season,
                                 () -> plugin.track,
                                 plugin.engine,
-                                plugin.prizes,
                                 plugin.identities(),
                                 plugin.renderer(),
                                 plugin.sounds),

@@ -218,14 +218,6 @@ public interface SmpSpec {
     }
 
     @Order(37)
-    @Name("Wheel extra spin chances (percent)")
-    @Key("wheel-extra-spin-percents")
-    @Explain("The contribution shares that earn 1, 2 or 3 extra wheel spins when an objective completes.")
-    default List<Integer> wheelExtraSpinPercents() {
-        return List.of(2, 10, 25);
-    }
-
-    @Order(38)
     @Name("Wheel prizes")
     @Key("wheel-prizes")
     @Explain("The wheel's pool and relative weights; the rare band is about one spin in twenty-five.")
@@ -233,7 +225,7 @@ public interface SmpSpec {
         return DefaultSmp.WHEEL_PRIZES;
     }
 
-    @Order(39)
+    @Order(38)
     @Name("Duel loadout: sword")
     @Key("duel-loadout-sword")
     @Explain("What both duelists are given, identical for both. No enchantments and no healing on purpose.")
@@ -241,7 +233,7 @@ public interface SmpSpec {
         return DefaultSmp.DUEL_LOADOUT_SWORD;
     }
 
-    @Order(40)
+    @Order(39)
     @Name("Duel loadout: bow")
     @Key("duel-loadout-bow")
     @Explain("The bow duel's loadout. No crossbow on purpose: its reload time turns the fight into cover.")
@@ -251,7 +243,7 @@ public interface SmpSpec {
 
     // Feedback sounds live in the reloadable the sounds group; see SoundsSpec.
 
-    @Order(43)
+    @Order(42)
     @Name("Balloon spawn points")
     @Key("balloon-spawn-points")
     @Explain("Where the balloon sets a player down, one point per destination world. Not the boxes above.")
@@ -259,7 +251,7 @@ public interface SmpSpec {
         return DefaultSmp.BALLOON_SPAWN_POINTS;
     }
 
-    @Order(44)
+    @Order(43)
     @Name("First join spawn")
     @Key("first-join-spawn")
     @Explain("Where a player lands on their very first join only, claimed once against smp_player.welcome_shown.")
@@ -267,7 +259,7 @@ public interface SmpSpec {
         return DefaultSmp.FIRST_JOIN_SPAWN;
     }
 
-    @Order(45)
+    @Order(44)
     @Name("Grave max age (hours)")
     @Key("grave-max-age-hours")
     @Explain("How long a grave stands before it and everything in it decays, in hours. 0 never decays.")

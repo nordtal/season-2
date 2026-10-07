@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Random;
 import org.junit.jupiter.api.Test;
 
-/** The wheel's weighted draw, and the thresholds that earn extra spins, asserted with a seeded {@link Random}. */
+/** The wheel's weighted draw, asserted with a seeded {@link Random}. */
 class PrizeDrawTest {
 
     @Test
@@ -46,24 +46,5 @@ class PrizeDrawTest {
         assertThrows(IllegalArgumentException.class, () -> PrizeDraw.draw(List.of(), new Random()));
         assertThrows(IllegalArgumentException.class, () -> PrizeDraw.draw(null, new Random()));
         assertThrows(IllegalArgumentException.class, () -> PrizeDraw.draw(List.of(0, 0), new Random()));
-    }
-
-    /** One rule for the aura share and the extra spins, so there is one place to change it. */
-    @Test
-    void extraSpinsAreStaggeredByContributionShare() {
-        final List<Integer> thresholds = List.of(2, 10, 25);
-
-        assertEquals(0, PrizeDraw.extraSpinsFor(thresholds, 1.9));
-        assertEquals(1, PrizeDraw.extraSpinsFor(thresholds, 2.0), "exactly at the threshold counts");
-        assertEquals(1, PrizeDraw.extraSpinsFor(thresholds, 9.9));
-        assertEquals(2, PrizeDraw.extraSpinsFor(thresholds, 10.0));
-        assertEquals(3, PrizeDraw.extraSpinsFor(thresholds, 25.0));
-        assertEquals(3, PrizeDraw.extraSpinsFor(thresholds, 100.0), "there is no fourth spin");
-    }
-
-    @Test
-    void noThresholdsMeansNoExtraSpins() {
-        assertEquals(0, PrizeDraw.extraSpinsFor(List.of(), 50.0));
-        assertEquals(0, PrizeDraw.extraSpinsFor(null, 50.0));
     }
 }

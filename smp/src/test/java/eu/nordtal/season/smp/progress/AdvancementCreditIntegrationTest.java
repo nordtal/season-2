@@ -223,7 +223,6 @@ class AdvancementCreditIntegrationTest {
                         "foothold",
                         Unlock.BORDER,
                         99,
-                        30,
                         false,
                         List.of(
                                 new Objective(
@@ -234,20 +233,21 @@ class AdvancementCreditIntegrationTest {
                                         List.of("OAK_LOG"),
                                         "",
                                         List.of(),
-                                        ""),
+                                        "",
+                                        0,
+                                        0),
                                 gate("iron-tools", footholdGate))),
                 new Milestone(
                         "settlement",
                         Unlock.BORDER,
                         400,
-                        60,
                         false,
                         List.of(gate("mine-diamond", "minecraft:story/mine_diamond")))));
     }
 
     private static Objective gate(final String key, final String advancement) {
         return new Objective(
-                key, ObjectiveType.ADVANCEMENT, "participation", 10, List.of(), "", List.of(), advancement);
+                key, ObjectiveType.ADVANCEMENT, "participation", 10, List.of(), "", List.of(), advancement, 0, 0);
     }
 
     private long amountOf(final String milestone, final String objective) {

@@ -16,6 +16,8 @@ import org.bukkit.NamespacedKey;
  * @param statistic for {@code STATISTIC}: the Bukkit statistic name, e.g. {@code MINE_BLOCK}
  * @param subjects for {@code STATISTIC}: the materials or entity types the statistic is summed over
  * @param advancement for {@code ADVANCEMENT}: the advancement key, e.g. {@code minecraft:story/mine_diamond}
+ * @param auraBudget the aura paid out exactly among its contributors when it completes
+ * @param spinBudget the extra wheel spins paid out the same way
  */
 public record Objective(
         String key,
@@ -25,7 +27,9 @@ public record Objective(
         List<String> items,
         String statistic,
         List<String> subjects,
-        String advancement) {
+        String advancement,
+        int auraBudget,
+        int spinBudget) {
 
     public Objective {
         Objects.requireNonNull(key, "key");

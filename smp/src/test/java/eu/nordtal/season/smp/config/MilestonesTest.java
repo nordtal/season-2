@@ -54,7 +54,6 @@ class MilestonesTest {
 
         final var foothold = track.milestone("foothold").orElseThrow();
         assertEquals(4, foothold.objectives().size());
-        assertEquals(30, foothold.objectivePot());
         assertEquals(Unlock.BORDER, foothold.unlock());
         assertEquals(99, foothold.borderDiameter());
 
@@ -62,6 +61,8 @@ class MilestonesTest {
         final var logs = foothold.objective("logs").orElseThrow();
         assertEquals(ObjectiveType.HAND_IN, logs.type());
         assertEquals(2048L, logs.target());
+        assertEquals(30, logs.auraBudget());
+        assertEquals(20, logs.spinBudget());
         assertTrue(logs.items().contains("minecraft:oak_log"), "the item list came back as " + logs.items());
         assertEquals(9, logs.items().size());
 
@@ -90,12 +91,23 @@ class MilestonesTest {
                 track.milestone("nether").orElseThrow().borderDiameter(),
                 "the Nether and the End carry no border step - the dimension is the reward");
 
-        assertEquals(30, track.milestone("foothold").orElseThrow().objectivePot());
-        assertEquals(60, track.milestone("settlement").orElseThrow().objectivePot());
-        assertEquals(80, track.milestone("nether").orElseThrow().objectivePot());
-        assertEquals(80, track.milestone("end").orElseThrow().objectivePot());
-        assertEquals(110, track.milestone("expanse").orElseThrow().objectivePot());
-        assertEquals(170, track.milestone("frontier").orElseThrow().objectivePot());
+        // Each objective's aura and spin budget, the same for every objective of one milestone.
+        assertEquals(
+                List.of(
+                        List.of(),
+                        List.of(),
+                        List.of(List.of(30, 20)),
+                        List.of(List.of(60, 20)),
+                        List.of(List.of(80, 16)),
+                        List.of(List.of(80, 16)),
+                        List.of(List.of(110, 12)),
+                        List.of(List.of(170, 10))),
+                track.milestones().stream()
+                        .map(milestone -> milestone.objectives().stream()
+                                .map(objective -> List.of(objective.auraBudget(), objective.spinBudget()))
+                                .distinct()
+                                .toList())
+                        .toList());
     }
 
     @Test
@@ -134,7 +146,6 @@ class MilestonesTest {
                   - key: foothold
                     unlocks: BORDER
                     border-diameter: 99
-                    objective-pot: 30
                     admin-unlocked: false
                     objectives:
                       - key: logs
@@ -159,7 +170,6 @@ class MilestonesTest {
                   - key: foothold
                     unlocks: BORDER
                     border-diameter: 99
-                    objective-pot: 30
                     admin-unlocked: false
                     objectives:
                       - key: logs
@@ -184,7 +194,6 @@ class MilestonesTest {
                   - key: foothold
                     unlocks: BORDER
                     border-diameter: 99
-                    objective-pot: 30
                     admin-unlocked: false
                     objectives:
                       - key: logs
@@ -210,6 +219,32 @@ class MilestonesTest {
     }
 
     @Test
+    void aNegativeSpinBudgetStopsTheLoad() throws Exception {
+        // A negative budget would take spins away from everybody who worked on the objective.
+        writeTrack("""
+                milestones:
+                  - key: foothold
+                    unlocks: BORDER
+                    border-diameter: 99
+                    admin-unlocked: false
+                    objectives:
+                      - key: gate
+                        type: ADVANCEMENT
+                        role: participation
+                        target: 10
+                        aura-budget: 30
+                        spin-budget: -1
+                        items: []
+                        statistic: ''
+                        subjects: []
+                        advancement: 'minecraft:story/iron_tools'
+                """);
+
+        final SettingsException error = assertThrows(SettingsException.class, () -> load());
+        assertTrue(error.getMessage().contains("negative aura or spin budget"), error.getMessage());
+    }
+
+    @Test
     void aLeftoverFieldFromAnotherTypeStopsTheLoad() throws Exception {
         // A half-finished type change: HAND_IN became STATISTIC and the item list stayed, silently counting nothing.
         writeTrack("""
@@ -217,7 +252,6 @@ class MilestonesTest {
                   - key: foothold
                     unlocks: BORDER
                     border-diameter: 99
-                    objective-pot: 30
                     admin-unlocked: false
                     objectives:
                       - key: coal

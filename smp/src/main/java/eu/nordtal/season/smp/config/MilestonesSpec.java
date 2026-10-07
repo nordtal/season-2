@@ -12,7 +12,7 @@ import java.util.List;
 /**
  * The {@code milestones} group: the track, reloadable, while the progress lives in the database.
  *
- * One record shape serves all three objective types, and the pot is per milestone so its derivation cannot drift.
+ * One record shape serves all three objective types, and each objective carries the aura and spins it pays out.
  */
 @ConfigSpec
 public interface MilestonesSpec {
@@ -55,14 +55,6 @@ public interface MilestonesSpec {
         }
 
         @Order(4)
-        @Name("Objective pot")
-        @Key("objective-pot")
-        @Explain("The aura pot of EACH objective below, derived from community play hours.")
-        default int objectivePot() {
-            return 0;
-        }
-
-        @Order(5)
         @Name("Unlocked by admin")
         @Key("admin-unlocked")
         @Explain("Opened by an admin rather than by objectives; true only for the opening milestone.")
@@ -70,7 +62,7 @@ public interface MilestonesSpec {
             return false;
         }
 
-        @Order(6)
+        @Order(5)
         @Name("Objectives")
         @Key("objectives")
         @Explain("All must finish before this milestone unlocks; exactly one is an ADVANCEMENT, the gate.")
@@ -118,6 +110,23 @@ public interface MilestonesSpec {
         }
 
         @Order(5)
+        @Name("Aura budget")
+        @Key("aura-budget")
+        @Explain("The aura it pays out on completion, exactly, among its contributors; times reached over target when"
+                + " an admin closes it.")
+        default int auraBudget() {
+            return 0;
+        }
+
+        @Order(6)
+        @Name("Spin budget")
+        @Key("spin-budget")
+        @Explain("The extra wheel spins it pays out the same way as its aura.")
+        default int spinBudget() {
+            return 0;
+        }
+
+        @Order(7)
         @Name("Items")
         @Key("items")
         @Explain("HAND_IN only: items, any of which counts. An unknown one stops the plugin.")
@@ -126,7 +135,7 @@ public interface MilestonesSpec {
             return List.of();
         }
 
-        @Order(6)
+        @Order(8)
         @Name("Statistic")
         @Key("statistic")
         @Explain("STATISTIC only: the statistic summed across players.")
@@ -135,7 +144,7 @@ public interface MilestonesSpec {
             return "";
         }
 
-        @Order(7)
+        @Order(9)
         @Name("Subjects")
         @Key("subjects")
         @Explain("STATISTIC only: the materials or entity types the statistic is summed over; may be empty.")
@@ -144,7 +153,7 @@ public interface MilestonesSpec {
             return List.of();
         }
 
-        @Order(8)
+        @Order(10)
         @Name("Advancement")
         @Key("advancement")
         @Explain("ADVANCEMENT only: the advancement key, e.g. minecraft:story/mine_diamond.")

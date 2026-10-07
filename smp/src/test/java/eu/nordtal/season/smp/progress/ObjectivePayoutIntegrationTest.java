@@ -12,12 +12,12 @@ import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.smp.announce.Announcer;
-import eu.nordtal.season.smp.config.SmpSpec;
 import eu.nordtal.season.smp.milestone.Milestone;
 import eu.nordtal.season.smp.milestone.MilestoneTrack;
 import eu.nordtal.season.smp.milestone.Objective;
 import eu.nordtal.season.smp.milestone.ObjectiveType;
 import eu.nordtal.season.smp.milestone.Unlock;
+import eu.nordtal.season.smp.port.OwnContributionRow;
 import eu.nordtal.season.smp.port.PrizeSource;
 import eu.nordtal.season.smp.wheel.ExtraSpins;
 import eu.nordtal.season.smp.wheel.SpinDao;
@@ -47,7 +47,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 /**
- * An objective finished by play pays its whole pot, however many credits it took to finish, or nothing at all.
+ * An objective finished by play pays its whole budgets, however many credits it took to finish, or nothing at all.
  *
  * Finishing one hands its announcement to the main thread, so the plugin and the server are fakes that drop it.
  */
@@ -55,9 +55,11 @@ import org.junit.jupiter.api.TestInstance;
 class ObjectivePayoutIntegrationTest {
 
     private static final DiscordId PLAYER = DiscordId.of("100000000000000001");
+    private static final DiscordId OTHER = DiscordId.of("100000000000000002");
     private static final UUID MINECRAFT_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final NamespacedKey IRON_TOOLS = NamespacedKey.minecraft("story/iron_tools");
     private static final int POT = 30;
+    private static final int SPINS = 20;
     private static final Logger LOGGER = Logger.getLogger(ObjectivePayoutIntegrationTest.class.getName());
 
     private DataSource dataSource;
@@ -90,7 +92,7 @@ class ObjectivePayoutIntegrationTest {
     void activeFoothold() {
         grantsFail = false;
         execute("TRUNCATE TABLE smp_milestone, discord_user CASCADE");
-        execute("INSERT INTO discord_user (discord_id) VALUES ('" + PLAYER.value() + "')");
+        execute("INSERT INTO discord_user (discord_id) VALUES ('" + PLAYER.value() + "'), ('" + OTHER.value() + "')");
         execute("INSERT INTO smp_milestone (key, state) VALUES ('foothold', 'ACTIVE')");
         // Two objectives, so finishing one leaves the milestone and its unlock ceremony alone.
         execute("INSERT INTO smp_objective (milestone_key, key, type, target) VALUES"
@@ -101,11 +103,19 @@ class ObjectivePayoutIntegrationTest {
                 "foothold",
                 Unlock.BORDER,
                 99,
-                POT,
                 false,
                 List.of(
                         new Objective(
-                                "logs", ObjectiveType.HAND_IN, "gathering", 64, List.of("OAK_LOG"), "", List.of(), ""),
+                                "logs",
+                                ObjectiveType.HAND_IN,
+                                "gathering",
+                                64,
+                                List.of("OAK_LOG"),
+                                "",
+                                List.of(),
+                                "",
+                                POT,
+                                SPINS),
                         new Objective(
                                 "iron-tools",
                                 ObjectiveType.ADVANCEMENT,
@@ -114,7 +124,9 @@ class ObjectivePayoutIntegrationTest {
                                 List.of(),
                                 "",
                                 List.of(),
-                                "minecraft:story/iron_tools")))));
+                                "minecraft:story/iron_tools",
+                                POT,
+                                SPINS)))));
 
         final Messages messages =
                 Messages.load(ObjectivePayoutIntegrationTest.class.getClassLoader(), "messages/smp", Locale.ENGLISH);
@@ -138,7 +150,30 @@ class ObjectivePayoutIntegrationTest {
     void oneDeliveryThatFinishesAnObjectivePaysItsWholePot() {
         engine.credit(PLAYER, "logs", 64L, MINECRAFT_ID);
 
-        assertEquals(POT, auraPaidFor("logs"), "the only contributor takes the whole pot");
+        assertEquals(POT, auraPaidFor("logs"), "the only contributor takes the whole aura budget");
+        assertEquals(SPINS, spinsOf(PLAYER), "and the whole spin budget");
+    }
+
+    @Test
+    void twoContributorsShareBothBudgetsExactlyAsTheMenuForecastIt() {
+        engine.credit(PLAYER, "logs", 48L, MINECRAFT_ID);
+        engine.credit(OTHER, "logs", 15L, MINECRAFT_ID);
+        assertEquals(
+                List.of(new OwnContributionRow("logs", 15L, 64L, 6), new OwnContributionRow("iron-tools", 0L, 1L, 0)),
+                engine.ownContributions("foothold", OTHER).stream()
+                        .sorted(java.util.Comparator.comparing(OwnContributionRow::key)
+                                .reversed())
+                        .toList());
+
+        engine.credit(OTHER, "logs", 1L, MINECRAFT_ID);
+
+        // 30 aura: 4 each equally, then 22 by 48 to 16, whose one left over goes to the larger share.
+        assertEquals(21, auraOf(PLAYER, "logs"));
+        assertEquals(9, auraOf(OTHER, "logs"));
+        assertEquals(POT, auraPaidFor("logs"), "the whole aura budget and never more");
+        // 20 spins: 3 each equally, then 14 by 48 to 16, the one left over to the larger share again.
+        assertEquals(14, spinsOf(PLAYER));
+        assertEquals(6, spinsOf(OTHER), "what the menu forecast a delivery earlier");
     }
 
     @Test
@@ -173,13 +208,8 @@ class ObjectivePayoutIntegrationTest {
 
     /** The real wheel, which the payout's spins land in, unless a test makes it fail. */
     private PrizeSource wheel() {
-        final PrizeSource real = new ExtraSpins(jdbi.onDemand(SpinDao.class), new SmpSpec() {}::wheelExtraSpinPercents);
+        final PrizeSource real = new ExtraSpins(jdbi.onDemand(SpinDao.class));
         return new PrizeSource() {
-            @Override
-            public int extraSpinsFor(final double sharePercent) {
-                return real.extraSpinsFor(sharePercent);
-            }
-
             @Override
             public void grant(final DiscordId discordId, final int spins) {
                 if (grantsFail) {
@@ -188,6 +218,16 @@ class ObjectivePayoutIntegrationTest {
                 real.grant(discordId, spins);
             }
         };
+    }
+
+    private int spinsOf(final DiscordId player) {
+        return (int)
+                number("SELECT coalesce(sum(granted), 0) FROM smp_spin WHERE discord_id = '" + player.value() + "'");
+    }
+
+    private int auraOf(final DiscordId player, final String objective) {
+        return (int) number("SELECT coalesce(sum(delta), 0) FROM smp_aura_event WHERE ref = 'foothold/" + objective
+                + "' AND discord_id = '" + player.value() + "'");
     }
 
     private long number(final String sql) {

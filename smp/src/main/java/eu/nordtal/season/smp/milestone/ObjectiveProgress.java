@@ -37,7 +37,7 @@ public final class ObjectiveProgress {
     }
 
     /**
-     * Whether lowering a target has just finished an objective, which then pays the full pot.
+     * Whether lowering a target has just finished an objective, which then pays its full budgets.
      *
      * @param amount the progress already collected
      * @param newTarget the target the reloaded file now asks for

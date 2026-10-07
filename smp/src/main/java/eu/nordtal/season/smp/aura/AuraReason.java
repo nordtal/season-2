@@ -19,7 +19,7 @@ public enum AuraReason {
     /** A death by one of the configured "embarrassing" causes, which costs more. */
     DEATH_LISTED,
 
-    /** A share of an objective's pot, paid when the objective completes. */
+    /** A share of an objective's aura budget, paid when the objective completes. */
     CONTRIBUTION,
 
     /** One of the curated advancements, once per player. */

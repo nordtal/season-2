@@ -9,7 +9,7 @@ import java.util.Set;
 /**
  * Whether a milestone file is internally coherent, before it is compared to the database.
  *
- * Names of items, statistics and advancements are {@link TrackNames}' to check, and pot arithmetic is not checked.
+ * Names of items, statistics and advancements are {@link TrackNames}' to check, and budget arithmetic is not checked.
  */
 public final class TrackShape {
 
@@ -51,9 +51,6 @@ public final class TrackShape {
                                 + ". Border sizes are DIAMETERS, because that is what Minecraft's "
                                 + "world border takes."));
             }
-            if (milestone.objectivePot() < 0) {
-                problems.add(new TrackValidation.Problem(milestone.key(), null, "has a negative objective-pot."));
-            }
 
             problems.addAll(objectiveProblems(milestone));
         }
@@ -82,6 +79,9 @@ public final class TrackShape {
                         key,
                         "has a target of " + objective.target()
                                 + "; smp_objective's own CHECK requires it to be positive."));
+            }
+            if (objective.auraBudget() < 0 || objective.spinBudget() < 0) {
+                problems.add(new TrackValidation.Problem(milestone.key(), key, "has a negative aura or spin budget."));
             }
             if (objective.role().isBlank()) {
                 // Never read by the engine, and required anyway.

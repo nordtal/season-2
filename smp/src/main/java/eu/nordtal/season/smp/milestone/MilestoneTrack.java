@@ -84,9 +84,4 @@ public final class MilestoneTrack {
     public List<String> keys() {
         return milestones.stream().map(Milestone::key).toList();
     }
-
-    /** Returns the sum of every objective pot on the track, the season's whole aura budget. */
-    public int totalPot() {
-        return milestones.stream().mapToInt(Milestone::totalPot).sum();
-    }
 }

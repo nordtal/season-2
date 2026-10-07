@@ -47,7 +47,7 @@ public final class WheelGui extends Menu {
      * Builds the window for one spin.
      *
      * @param spinsLeft how many spins the player has after this one, which is what the hub shows
-     * @param earnAt the lowest contribution share that earns an extra spin, in percent
+     * @param earnAt the contribution share that qualifies for an objective's equal part of its spins, in percent
      * @param again runs another spin, or null when this player has none left
      */
     public WheelGui(

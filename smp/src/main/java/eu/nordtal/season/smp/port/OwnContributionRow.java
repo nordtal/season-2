@@ -5,6 +5,7 @@ package eu.nordtal.season.smp.port;
  *
  * @param key the objective's key inside its milestone
  * @param mine this player's {@code smp_contribution.amount}, or zero
- * @param target what the aura and spin thresholds are measured against
+ * @param target what the share is measured against
+ * @param spins the extra spins this player gets of the objective's spin budget if it completed now
  */
-public record OwnContributionRow(String key, long mine, long target) {}
+public record OwnContributionRow(String key, long mine, long target, int spins) {}

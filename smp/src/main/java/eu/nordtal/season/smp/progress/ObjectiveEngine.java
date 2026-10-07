@@ -11,7 +11,6 @@ import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.announce.Announcer;
 import eu.nordtal.season.smp.aura.AuraDao;
-import eu.nordtal.season.smp.aura.AuraPayout;
 import eu.nordtal.season.smp.aura.AuraReason;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import eu.nordtal.season.smp.feedback.WorldEffects;
@@ -21,6 +20,7 @@ import eu.nordtal.season.smp.milestone.MilestoneTrack;
 import eu.nordtal.season.smp.milestone.Objective;
 import eu.nordtal.season.smp.milestone.ObjectiveProgress;
 import eu.nordtal.season.smp.milestone.ObjectiveRow;
+import eu.nordtal.season.smp.milestone.Payout;
 import eu.nordtal.season.smp.milestone.TrackDao;
 import eu.nordtal.season.smp.milestone.Unlock;
 import eu.nordtal.season.smp.port.Contributions;
@@ -124,9 +124,30 @@ public final class ObjectiveEngine implements Contributions {
         return settled.credited();
     }
 
+    /** Forecasts each spin share by {@link Payout}'s split over everybody's contributions so far. */
     @Override
     public List<OwnContributionRow> ownContributions(final String milestoneKey, final DiscordId discordId) {
-        return progress.ownContributions(milestoneKey, discordId);
+        final Optional<Milestone> milestone = track.get().milestone(milestoneKey);
+        final Map<String, Map<String, Long>> everybody = new LinkedHashMap<>();
+        for (final KeyedContributionRow row : progress.contributionsUnder(milestoneKey)) {
+            everybody
+                    .computeIfAbsent(row.key(), key -> new LinkedHashMap<>())
+                    .put(row.discordId().value(), row.amount());
+        }
+        return progress.ownContributions(milestoneKey, discordId).stream()
+                .map(row -> {
+                    final int budget = milestone
+                            .flatMap(found -> found.objective(row.key()))
+                            .map(Objective::spinBudget)
+                            .orElse(0);
+                    final Map<String, Long> contributions = everybody.getOrDefault(row.key(), Map.of());
+                    return new OwnContributionRow(
+                            row.key(),
+                            row.mine(),
+                            row.target(),
+                            Payout.shareOf(budget, row.target(), contributions, discordId.value()));
+                })
+                .toList();
     }
 
     /**
@@ -191,7 +212,7 @@ public final class ObjectiveEngine implements Contributions {
     }
 
     /**
-     * Finishes one objective and pays its pot out, in one transaction, off the main thread.
+     * Finishes one objective and pays its budgets out, in one transaction, off the main thread.
      *
      * The admin escape hatch calls it too, which is why the completion guard is in SQL.
      */
@@ -216,9 +237,9 @@ public final class ObjectiveEngine implements Contributions {
             return null;
         }
         final Objective definition = milestone.objective(objective.key()).orElse(null);
-        final int pot = definition == null ? 0 : milestone.objectivePot();
-
-        payOut(objective, pot, milestoneKey);
+        if (definition != null) {
+            payOut(objective, definition, milestoneKey);
+        }
         return new Finished(milestoneKey, objective.key());
     }
 
@@ -247,14 +268,11 @@ public final class ObjectiveEngine implements Contributions {
     }
 
     /**
-     * Splits an objective's pot among everyone who qualified, by {@link AuraPayout}'s arithmetic.
+     * Splits an objective's aura and spin budgets among everyone who worked on it, by {@link Payout}'s arithmetic.
      *
-     * The pot is scaled down when the target was not reached, so the escape hatch never beats doing the work.
+     * Both are scaled down when the target was not reached, so the escape hatch never beats doing the work.
      */
-    private void payOut(final ObjectiveRow objective, final int pot, final String milestoneKey) {
-        if (pot <= 0) {
-            return;
-        }
+    private void payOut(final ObjectiveRow objective, final Objective definition, final String milestoneKey) {
         final List<ContributionRow> contributors = progress.contributionsOf(objective.id());
         if (contributors.isEmpty()) {
             return;
@@ -264,29 +282,28 @@ public final class ObjectiveEngine implements Contributions {
             contributions.put(row.discordId().value(), row.amount());
         }
 
-        final int scaled = AuraPayout.scaledPot(pot, objective.amount(), objective.target());
-        final List<AuraPayout.Share> shares = AuraPayout.split(scaled, objective.target(), contributions);
+        final int auraBudget = Payout.scaled(definition.auraBudget(), objective.amount(), objective.target());
+        final int spinBudget = Payout.scaled(definition.spinBudget(), objective.amount(), objective.target());
         final String ref = milestoneKey + "/" + objective.key();
 
         // In one order by player, so two payouts in flight lock the same rows in the same order and never deadlock.
-        for (final AuraPayout.Share share : shares.stream()
-                .sorted(Comparator.comparing(AuraPayout.Share::contributorId))
-                .toList()) {
-            if (share.total() <= 0) {
-                continue;
-            }
+        for (final Payout.Share share : byPlayer(Payout.split(auraBudget, objective.target(), contributions))) {
             aura.addAura(DiscordId.of(share.contributorId()), share.total(), AuraReason.CONTRIBUTION.stored(), ref);
-
-            // The wheel's extra spins hang off the SAME share as the aura: one rule, one place to change it.
-            final long contributed = contributions.getOrDefault(share.contributorId(), 0L);
-            final double percent = objective.target() <= 0 ? 0.0 : (contributed * 100.0) / objective.target();
-            final int spins = prizes.extraSpinsFor(percent);
-            if (spins > 0) {
-                prizes.grant(DiscordId.of(share.contributorId()), spins);
-            }
+        }
+        for (final Payout.Share share : byPlayer(Payout.split(spinBudget, objective.target(), contributions))) {
+            prizes.grant(DiscordId.of(share.contributorId()), share.total());
         }
         plugin.getLogger()
-                .info("objective " + ref + " paid " + shares.size() + " contributor(s) out of " + scaled + " aura");
+                .info("objective " + ref + " paid " + contributions.size() + " contributor(s) out of " + auraBudget
+                        + " aura and " + spinBudget + " spins");
+    }
+
+    /** Returns the shares worth paying, by player id. */
+    private static List<Payout.Share> byPlayer(final List<Payout.Share> shares) {
+        return shares.stream()
+                .filter(share -> share.total() > 0)
+                .sorted(Comparator.comparing(Payout.Share::contributorId))
+                .toList();
     }
 
     /** Unlocks the milestone if every one of its objectives is now finished, off the main thread. */

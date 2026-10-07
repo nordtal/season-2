@@ -2,14 +2,12 @@ package eu.nordtal.season.smp.npc;
 
 import eu.nordtal.season.smp.port.Contributions;
 import eu.nordtal.season.smp.port.OwnContributionRow;
-import eu.nordtal.season.smp.port.PrizeSource;
 import java.util.List;
-import java.util.function.DoubleToIntFunction;
 
 /**
  * What a player has put into the active milestone, as the one line the NPC menu shows them.
  *
- * The percentage is per milestone, the spin count per objective, as {@link PrizeSource#extraSpinsFor} grants it.
+ * The percentage is per milestone, the spin count per objective, as the objective's spin budget would pay it now.
  */
 public final class OwnShare {
 
@@ -35,17 +33,16 @@ public final class OwnShare {
     /**
      * Summarises a player's contributions.
      *
-     * @param rows     one per objective of the active milestone, from {@link Contributions#ownContributions}
-     * @param spinsFor the spins a share earns, {@link PrizeSource#extraSpinsFor}, which the payout also asks
+     * @param rows one per objective of the active milestone, from {@link Contributions#ownContributions}
      */
-    public static Summary of(final List<OwnContributionRow> rows, final DoubleToIntFunction spinsFor) {
+    public static Summary of(final List<OwnContributionRow> rows) {
         final List<Line> lines = new java.util.ArrayList<>(rows.size());
         long mine = 0L;
         long target = 0L;
         int spins = 0;
         for (final OwnContributionRow row : rows) {
             final double percent = percentOf(row.mine(), row.target());
-            final int earned = spinsFor.applyAsInt(percent);
+            final int earned = Math.max(0, row.spins());
             lines.add(new Line(row.key(), percent, earned));
             mine += Math.max(0L, row.mine());
             target += Math.max(0L, row.target());

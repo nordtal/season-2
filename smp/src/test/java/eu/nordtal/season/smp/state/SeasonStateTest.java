@@ -22,7 +22,7 @@ class SeasonStateTest {
             milestone("the-last-one", Unlock.NOTHING, 0)));
 
     private static Milestone milestone(final String key, final Unlock unlock, final int border) {
-        return new Milestone(key, unlock, border, 100, false, List.of());
+        return new Milestone(key, unlock, border, false, List.of());
     }
 
     @Test

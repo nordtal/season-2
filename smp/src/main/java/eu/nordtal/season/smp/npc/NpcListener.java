@@ -12,7 +12,6 @@ import eu.nordtal.season.smp.milestone.Milestone;
 import eu.nordtal.season.smp.milestone.MilestoneTrack;
 import eu.nordtal.season.smp.milestone.ObjectiveRow;
 import eu.nordtal.season.smp.port.Contributions;
-import eu.nordtal.season.smp.port.PrizeSource;
 import eu.nordtal.season.smp.state.SeasonState;
 import java.util.List;
 import java.util.Locale;
@@ -37,7 +36,6 @@ public final class NpcListener implements Listener {
     private final java.util.function.Supplier<MilestoneTrack> track;
 
     private final Contributions contributions;
-    private final PrizeSource prizes;
     private final Identities identities;
 
     private final MessageRenderer renderer;
@@ -49,7 +47,6 @@ public final class NpcListener implements Listener {
             final SeasonState season,
             final java.util.function.Supplier<MilestoneTrack> track,
             final Contributions contributions,
-            final PrizeSource prizes,
             final Identities identities,
             final MessageRenderer renderer,
             final SmpSounds sounds) {
@@ -58,7 +55,6 @@ public final class NpcListener implements Listener {
         this.season = season;
         this.track = track;
         this.contributions = contributions;
-        this.prizes = prizes;
         this.identities = identities;
         this.renderer = renderer;
         this.sounds = sounds;
@@ -93,11 +89,9 @@ public final class NpcListener implements Listener {
             final Player player, final Locale locale, final Milestone milestone, final List<ObjectiveRow> rows) {
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
         PaperScheduler.of(plugin).execute(() -> {
-            final OwnShare.Summary share = OwnShare.of(
-                    discordId
-                            .map(id -> contributions.ownContributions(milestone.key(), id))
-                            .orElse(List.of()),
-                    prizes::extraSpinsFor);
+            final OwnShare.Summary share = OwnShare.of(discordId
+                    .map(id -> contributions.ownContributions(milestone.key(), id))
+                    .orElse(List.of()));
 
             PaperScheduler.of(plugin).onMain(() -> {
                 if (player.isOnline()) {

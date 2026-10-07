@@ -11,17 +11,11 @@ import org.bukkit.NamespacedKey;
  * @param key the YAML key and {@code smp_milestone.key}; renaming one is refused by {@link TrackValidation}
  * @param unlock what finishing it hands the community
  * @param borderDiameter the Nordtal border as a diameter, used only with {@link Unlock#BORDER}
- * @param objectivePot the aura pot of each objective: {@code round((budget ÷ objectives) × 5, to 10)}
  * @param adminUnlocked whether an admin opens it rather than its objectives
  * @param objectives every objective, in file order; empty for the two opening milestones
  */
 public record Milestone(
-        String key,
-        Unlock unlock,
-        int borderDiameter,
-        int objectivePot,
-        boolean adminUnlocked,
-        List<Objective> objectives) {
+        String key, Unlock unlock, int borderDiameter, boolean adminUnlocked, List<Objective> objectives) {
 
     public Milestone {
         Objects.requireNonNull(key, "key");
@@ -50,10 +44,5 @@ public record Milestone(
      */
     public boolean hasNoObjectives() {
         return objectives.isEmpty();
-    }
-
-    /** Returns the milestone's whole aura budget: the pot times the number of objectives. */
-    public int totalPot() {
-        return objectivePot * objectives.size();
     }
 }

@@ -108,20 +108,39 @@ class TrackNamesTest {
     }
 
     private static MilestoneTrack track(final Objective objective) {
-        return new MilestoneTrack(List.of(new Milestone("foothold", Unlock.BORDER, 99, 30, false, List.of(objective))));
+        return new MilestoneTrack(List.of(new Milestone("foothold", Unlock.BORDER, 99, false, List.of(objective))));
     }
 
     private static Objective handIn(final String item) {
         return new Objective(
-                "under-test", ObjectiveType.HAND_IN, "gathering", 64, List.of("OAK_LOG", item), "", List.of(), "");
+                "under-test",
+                ObjectiveType.HAND_IN,
+                "gathering",
+                64,
+                List.of("OAK_LOG", item),
+                "",
+                List.of(),
+                "",
+                0,
+                0);
     }
 
     private static Objective statistic(final String statistic, final List<String> subjects) {
-        return new Objective("under-test", ObjectiveType.STATISTIC, "mining", 64, List.of(), statistic, subjects, "");
+        return new Objective(
+                "under-test", ObjectiveType.STATISTIC, "mining", 64, List.of(), statistic, subjects, "", 0, 0);
     }
 
     private static Objective advancement(final String advancement) {
         return new Objective(
-                "under-test", ObjectiveType.ADVANCEMENT, "participation", 10, List.of(), "", List.of(), advancement);
+                "under-test",
+                ObjectiveType.ADVANCEMENT,
+                "participation",
+                10,
+                List.of(),
+                "",
+                List.of(),
+                advancement,
+                0,
+                0);
     }
 }

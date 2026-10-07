@@ -48,7 +48,7 @@ public final class SeasonState {
         /**
          * How far this milestone is, as the mean of its objectives.
          *
-         * The mean, not the total: targets differ wildly, and each objective weighs the same, as in the pot split.
+         * The mean, not the total: targets differ wildly, and each objective weighs the same.
          */
         public double progress() {
             return objectives.isEmpty()

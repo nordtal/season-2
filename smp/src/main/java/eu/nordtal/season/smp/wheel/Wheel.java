@@ -13,6 +13,7 @@ import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.config.SmpSpec;
 import eu.nordtal.season.smp.config.WheelPrizeSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
+import eu.nordtal.season.smp.milestone.Payout;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -159,21 +160,12 @@ public final class Wheel {
                             icons,
                             sounds,
                             spinsLeft,
-                            earnAt(),
+                            Payout.QUALIFYING_PERCENT,
                             // Another spin runs spin() again. Null when nothing is left to spend.
                             spinsLeft > 0 ? () -> spin(player) : null,
                             winner -> give(winner, material, prize.amount(), locale, refund))
                     .start(plugin, player);
         });
-    }
-
-    /** The lowest contribution share that earns an extra spin, or zero when the list is empty. */
-    private int earnAt() {
-        return config.wheelExtraSpinPercents().stream()
-                .filter(java.util.Objects::nonNull)
-                .mapToInt(Integer::intValue)
-                .min()
-                .orElse(0);
     }
 
     /**

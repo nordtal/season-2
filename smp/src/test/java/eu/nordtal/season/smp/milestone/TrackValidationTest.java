@@ -22,13 +22,15 @@ class TrackValidationTest {
             List.of(),
             "",
             List.of(),
-            "minecraft:story/iron_tools");
-    private static final Objective LOGS =
-            new Objective("logs", ObjectiveType.HAND_IN, "gathering", 2048, List.of("OAK_LOG"), "", List.of(), "");
+            "minecraft:story/iron_tools",
+            0,
+            0);
+    private static final Objective LOGS = new Objective(
+            "logs", ObjectiveType.HAND_IN, "gathering", 2048, List.of("OAK_LOG"), "", List.of(), "", 0, 0);
 
     private final MilestoneTrack track = new MilestoneTrack(List.of(
-            new Milestone("waiting", Unlock.BORDER, 20, 0, false, List.of()),
-            new Milestone("foothold", Unlock.BORDER, 99, 30, false, List.of(LOGS, GATE))));
+            new Milestone("waiting", Unlock.BORDER, 20, false, List.of()),
+            new Milestone("foothold", Unlock.BORDER, 99, false, List.of(LOGS, GATE))));
 
     @Test
     void loweringTheTargetOfALiveObjectiveIsAllowed() {
@@ -63,8 +65,8 @@ class TrackValidationTest {
         final StoredProgress stored =
                 progress(MilestoneState.ACTIVE, objective("logs", ObjectiveType.HAND_IN, 100, 2048, false));
         final MilestoneTrack renamed = new MilestoneTrack(List.of(
-                new Milestone("waiting", Unlock.BORDER, 20, 0, false, List.of()),
-                new Milestone("first-steps", Unlock.BORDER, 99, 30, false, List.of(LOGS, GATE))));
+                new Milestone("waiting", Unlock.BORDER, 20, false, List.of()),
+                new Milestone("first-steps", Unlock.BORDER, 99, false, List.of(LOGS, GATE))));
 
         final List<TrackValidation.Problem> problems = TrackValidation.validate(renamed, stored);
 
@@ -77,8 +79,8 @@ class TrackValidationTest {
         final StoredProgress stored =
                 progress(MilestoneState.ACTIVE, objective("logs", ObjectiveType.HAND_IN, 100, 2048, false));
         final MilestoneTrack without = new MilestoneTrack(List.of(
-                new Milestone("waiting", Unlock.BORDER, 20, 0, false, List.of()),
-                new Milestone("foothold", Unlock.BORDER, 99, 30, false, List.of(GATE))));
+                new Milestone("waiting", Unlock.BORDER, 20, false, List.of()),
+                new Milestone("foothold", Unlock.BORDER, 99, false, List.of(GATE))));
 
         final List<TrackValidation.Problem> problems = TrackValidation.validate(without, stored);
 
@@ -100,7 +102,7 @@ class TrackValidationTest {
 
     @Test
     void changingTheTargetOfACompletedObjectiveIsRefused() {
-        // It already paid out, and pot x (reached / target) refers to what was asked at the time it was completed.
+        // It already paid out, and budget x (reached / target) refers to what was asked at the time it was completed.
         final StoredProgress stored =
                 progress(MilestoneState.UNLOCKED, objective("logs", ObjectiveType.HAND_IN, 2048, 2048, true));
 
@@ -124,9 +126,9 @@ class TrackValidationTest {
         final StoredProgress stored =
                 progress(MilestoneState.UNLOCKED, objective("logs", ObjectiveType.HAND_IN, 2048, 2048, true));
         final MilestoneTrack longer = new MilestoneTrack(List.of(
-                new Milestone("waiting", Unlock.BORDER, 20, 0, false, List.of()),
-                new Milestone("foothold", Unlock.BORDER, 99, 30, false, List.of(LOGS, GATE)),
-                new Milestone("beyond", Unlock.BORDER, 8000, 200, false, List.of(LOGS, GATE))));
+                new Milestone("waiting", Unlock.BORDER, 20, false, List.of()),
+                new Milestone("foothold", Unlock.BORDER, 99, false, List.of(LOGS, GATE)),
+                new Milestone("beyond", Unlock.BORDER, 8000, false, List.of(LOGS, GATE))));
 
         assertTrue(TrackValidation.validate(longer, stored).isEmpty());
     }
@@ -174,12 +176,14 @@ class TrackValidationTest {
                                 objective.items(),
                                 objective.statistic(),
                                 objective.subjects(),
-                                objective.advancement())
+                                objective.advancement(),
+                                0,
+                                0)
                         : objective)
                 .toList();
         return new MilestoneTrack(List.of(
-                new Milestone("waiting", Unlock.BORDER, 20, 0, false, List.of()),
-                new Milestone("foothold", Unlock.BORDER, 99, 30, false, objectives)));
+                new Milestone("waiting", Unlock.BORDER, 20, false, List.of()),
+                new Milestone("foothold", Unlock.BORDER, 99, false, objectives)));
     }
 
     private static StoredProgress progress(final MilestoneState state, final StoredProgress.StoredObjective objective) {

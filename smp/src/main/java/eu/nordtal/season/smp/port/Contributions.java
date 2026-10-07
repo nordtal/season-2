@@ -20,6 +20,6 @@ public interface Contributions {
      */
     long credit(DiscordId discordId, String objectiveKey, long delta, @Nullable UUID completedBy);
 
-    /** One line per objective of {@code milestoneKey}, with what this player put in; blocking. */
+    /** One line per objective of {@code milestoneKey}, with what this player put in and its spins so far; blocking. */
     List<OwnContributionRow> ownContributions(String milestoneKey, DiscordId discordId);
 }

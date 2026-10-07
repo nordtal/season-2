@@ -82,8 +82,7 @@ public final class Milestones {
             readObjective(key, objectiveEntry, problems, objectives);
         }
 
-        milestones.add(new Milestone(
-                key, unlock, entry.borderDiameter(), entry.objectivePot(), entry.adminUnlocked(), objectives));
+        milestones.add(new Milestone(key, unlock, entry.borderDiameter(), entry.adminUnlocked(), objectives));
     }
 
     private static void readObjective(
@@ -110,7 +109,9 @@ public final class Milestones {
                 trimmedList(objectiveEntry.items()),
                 trimmed(objectiveEntry.statistic()),
                 trimmedList(objectiveEntry.subjects()),
-                trimmed(objectiveEntry.advancement())));
+                trimmed(objectiveEntry.advancement()),
+                objectiveEntry.auraBudget(),
+                objectiveEntry.spinBudget()));
     }
 
     private static @Nullable MilestoneTrack buildTrack(

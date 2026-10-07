@@ -1047,6 +1047,7 @@ export type TextArgs = {
   "steward.form.changed-meanwhile": Record<string, never>
   "steward.form.close": Record<string, never>
   "steward.form.days": Record<string, never>
+  "steward.form.discard": Record<string, never>
   "steward.form.done": Record<string, never>
   "steward.form.remove": Record<string, never>
   "steward.form.removing": Record<string, never>

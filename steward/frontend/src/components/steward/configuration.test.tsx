@@ -526,3 +526,37 @@ describe("the arrow back to the top", () => {
     expect(screen.getByRole("button", { name: "Back to the top" })).toBeTruthy()
   })
 })
+
+describe("discarding a group's draft", () => {
+  it("drops every unsaved change at once beside Save, and the stored values show again", async () => {
+    const file = "smp/config"
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        [file]: {
+          ...location({ path: file, name: "config", service: "smp" }),
+          revision: "r1",
+          restartRequired: false,
+          entries: [
+            entry({ path: "view-distance", key: "view-distance", label: "View distance", value: "8" }),
+            entry({ path: "motd", key: "motd", label: "Message of the day", value: "Hello" }),
+          ],
+        },
+      }),
+    )
+    draw(<Settings service="smp" />)
+    await open("Config")
+
+    expect(screen.queryByRole("button", { name: "Discard" })).toBeNull()
+    fireEvent.change(asInput(await screen.findByLabelText("View distance")), { target: { value: "12" } })
+    fireEvent.change(asInput(screen.getByLabelText("Message of the day")), { target: { value: "Hi" } })
+    screen.getByRole("button", { name: "Save 2" })
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }))
+
+    expect(asInput(screen.getByLabelText("View distance")).value).toBe("8")
+    expect(asInput(screen.getByLabelText("Message of the day")).value).toBe("Hello")
+    expect(screen.queryByRole("button", { name: /Save/ })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Discard" })).toBeNull()
+  })
+})

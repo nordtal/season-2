@@ -433,6 +433,24 @@ describe("one key open at a time", () => {
     expect(screen.queryByRole("textbox", { name: "First" })).toBeNull()
     screen.getByRole("button", { name: "Save 1" })
   })
+
+  it("drops the drafts of every key with Discard, and the open one shows its stored text again", async () => {
+    twoKeys()
+    draw(<Settings service="smp" />)
+    await open("SMP Translations")
+
+    await openKey("First")
+    fireEvent.change(await source("First"), { target: { value: "Hi {player}" } })
+    await openKey("Second")
+    fireEvent.change(await source("Second"), { target: { value: "zwei" } })
+    screen.getByRole("button", { name: "Save 2" })
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }))
+
+    expect(asTextArea(screen.getByRole("textbox", { name: "Second" })).value).toBe("two")
+    expect(screen.getByRole("button", { name: "First" }).textContent).toContain("Hello")
+    expect(screen.queryByRole("button", { name: /Save/ })).toBeNull()
+  })
 })
 
 describe("both languages in one save", () => {

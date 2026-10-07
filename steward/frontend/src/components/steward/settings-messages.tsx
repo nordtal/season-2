@@ -9,8 +9,8 @@ import { ENGLISH, isLanguage, languagesOf, overrideOf, packagedOf, shownOf, type
 import { useMessageBundle, useMessageFallbacks, useSaveMessageBundle } from "@/lib/queries"
 import { messageLeafMatches, messageName, messageTree } from "@/lib/settings-tree"
 import { Failure, QueryState } from "@/components/steward/query-state"
+import { SaveDraft } from "@/components/steward/group-draft"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { MessagePreview } from "@/components/steward/message-preview"
 import {
   MessageEditor,
@@ -113,13 +113,6 @@ function BundleForm({ file, bundle, target }: { file: string; bundle: MessageBun
       )
   }
 
-  const saveButton = (className?: string) =>
-    count > 0 && bundle.writable ? (
-      <Button type="button" className={className} disabled={save.isPending} onClick={submit}>
-        {save.isPending ? t("steward.form.saving") : t("steward.form.save-count", { count })}
-      </Button>
-    ) : null
-
   const failure = save.error ?? takeOver.error
   return (
     <TreeView<MessageEntry>
@@ -163,7 +156,15 @@ function BundleForm({ file, bundle, target }: { file: string; bundle: MessageBun
           preview={bundle.previews[leaf.value.key]}
         />
       )}
-      save={saveButton("pointer-events-auto")}
+      save={
+        <SaveDraft
+          count={count}
+          writable={bundle.writable}
+          pending={save.isPending}
+          onSave={submit}
+          onDiscard={() => clearDraft(file)}
+        />
+      }
     />
   )
 }

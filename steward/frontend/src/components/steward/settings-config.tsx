@@ -49,7 +49,7 @@ export function ConfigFile({ item, target }: { item: Extract<FileItem, { kind: "
 }
 
 function ConfigForm({ file, document, target }: { file: string; document: ConfigDocument; target: Target | null }) {
-  const { draft, changes, count, set, submit, save } = useGroupDraft(file, document)
+  const { draft, changes, count, set, submit, discard, save } = useGroupDraft(file, document)
   const nodes = useMemo(() => configTree(document.entries), [document.entries])
   const draftIds = useMemo(() => new Set(Object.keys(changes)), [changes])
   const writable = document.writable
@@ -95,7 +95,9 @@ function ConfigForm({ file, document, target }: { file: string; document: Config
           />
         )
       }
-      save={<SaveDraft count={count} writable={writable} pending={save.isPending} onSave={submit} />}
+      save={
+        <SaveDraft count={count} writable={writable} pending={save.isPending} onSave={submit} onDiscard={discard} />
+      }
     />
   )
 }

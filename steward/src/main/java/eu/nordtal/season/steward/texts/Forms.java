@@ -47,6 +47,9 @@ public interface Forms {
     @Name("Save count")
     MessageRef saveCount(@Arg("count") int count);
 
+    @Name("Discard")
+    MessageRef discard();
+
     @Name("Done")
     MessageRef done();
 

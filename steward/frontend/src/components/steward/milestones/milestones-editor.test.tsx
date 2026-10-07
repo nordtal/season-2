@@ -189,6 +189,24 @@ describe("MilestonesEditor", () => {
     await waitFor(() => expect(saved).toHaveLength(1))
     expect(saved[0]).toMatchObject({ changes: { milestones: [{ key: "foothold" }, { key: "waiting" }] } })
   })
+
+  it("drops the unsaved track with Discard and shows the stored order again", async () => {
+    const saved = backend()
+    draw(<MilestonesEditor file={FILE} document={DOCUMENT} target={null} />)
+
+    fireEvent.click(screen.getByRole("button", { name: /foothold/ }))
+    fireEvent.click(await screen.findByRole("button", { name: "Move foothold up" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Discard" }))
+
+    const list = screen.getByRole("list", { name: "Milestones" })
+    expect(
+      within(list)
+        .getAllByRole("listitem")
+        .map((item) => item.getAttribute("aria-label")),
+    ).toEqual(["waiting", "foothold"])
+    expect(screen.queryByRole("button", { name: "Save 1" })).toBeNull()
+    expect(saved).toHaveLength(0)
+  })
 })
 
 describe("moved", () => {

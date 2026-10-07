@@ -21,7 +21,7 @@ export function readsTrack(document: ConfigDocument): boolean {
 /** The milestones group drawn compactly, saved like every other group. */
 export function MilestonesEditor({ file, document }: CustomEditorProps) {
   const schema = trackSchema(document.entries)
-  const { draft, count, set, submit, save } = useGroupDraft(file, document)
+  const { draft, count, set, submit, discard, save } = useGroupDraft(file, document)
   if (schema === null) return null
   const drafted = draft[schema.entry.path]
   const notice = noticeOf(document)
@@ -37,8 +37,14 @@ export function MilestonesEditor({ file, document }: CustomEditorProps) {
         disabled={!document.writable}
         onChange={(track) => set(schema.entry.path, track)}
       />
-      <div className="pointer-events-none sticky bottom-4 mt-2 flex justify-end">
-        <SaveDraft count={count} writable={document.writable} pending={save.isPending} onSave={submit} />
+      <div className="pointer-events-none sticky bottom-4 mt-2 flex justify-end gap-2">
+        <SaveDraft
+          count={count}
+          writable={document.writable}
+          pending={save.isPending}
+          onSave={submit}
+          onDiscard={discard}
+        />
       </div>
     </div>
   )

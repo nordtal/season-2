@@ -69,7 +69,7 @@ export function useGroupDraft(file: string, document: ConfigDocument) {
     )
   }
 
-  return { draft, changes, count, set, submit, save }
+  return { draft, changes, count, set, submit, discard: () => clearDraft(file), save }
 }
 
 /** What stands above a group's fields: why a save is refused, cannot happen, or waits for a restart. */
@@ -79,22 +79,32 @@ export function noticeOf(document: ConfigDocument): string | null {
   return document.restartRequired ? t("steward.settings.restart-needed") : null
 }
 
-/** The save button of a group's draft, shown only while there is something to save. */
+/**
+ * The save of a draft and, beside it, the discard that drops all of it at once, shown only while there is something
+ * to save.
+ */
 export function SaveDraft({
   count,
   writable,
   pending,
   onSave,
+  onDiscard,
 }: {
   count: number
   writable: boolean
   pending: boolean
   onSave: () => void
+  onDiscard: () => void
 }) {
   if (count === 0 || !writable) return null
   return (
-    <Button type="button" className="pointer-events-auto" disabled={pending} onClick={onSave}>
-      {pending ? t("steward.form.saving") : t("steward.form.save-count", { count })}
-    </Button>
+    <>
+      <Button type="button" variant="secondary" className="pointer-events-auto" disabled={pending} onClick={onDiscard}>
+        {t("steward.form.discard")}
+      </Button>
+      <Button type="button" className="pointer-events-auto" disabled={pending} onClick={onSave}>
+        {pending ? t("steward.form.saving") : t("steward.form.save-count", { count })}
+      </Button>
+    </>
   )
 }

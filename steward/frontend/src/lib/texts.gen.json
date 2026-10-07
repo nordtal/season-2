@@ -816,6 +816,7 @@
     "steward.form.changed-meanwhile": [["The file changed while this was open. It has been read again."]],
     "steward.form.close": [["Close"]],
     "steward.form.days": [["Days"]],
+    "steward.form.discard": [["Discard"]],
     "steward.form.done": [["Done"]],
     "steward.form.remove": [["Remove"]],
     "steward.form.removing": [["Removing…"]],

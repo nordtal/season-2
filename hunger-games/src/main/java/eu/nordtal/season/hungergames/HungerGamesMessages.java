@@ -72,9 +72,6 @@ public interface HungerGamesMessages {
 
             @Name("Not registered")
             MessageRef notRegistered();
-
-            @Name("Map missing")
-            MessageRef mapMissing();
         }
 
         Team team();
@@ -93,9 +90,6 @@ public interface HungerGamesMessages {
 
             @Name("Refill")
             MessageRef refill();
-
-            @Name("Point lost")
-            MessageRef pointLost(@Arg("label") String label);
         }
 
         Border border();

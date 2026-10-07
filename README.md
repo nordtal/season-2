@@ -151,15 +151,16 @@ Requires JDK 25. Build only the modules you touched.
 run from IntelliJ's _dev: stack_ folder or as `./gradlew -q :dev:run --args="<command>"`; it needs Java
 and Docker on any operating system. [`deploy/README.md`](deploy/README.md#locally) lists the commands.
 
-A release is a published GitHub release, not a pushed tag:
+A release is a pushed tag on a commit of `main` whose `build` run is green:
 
 ```bash
-gh release create v0.1.0 --target main --title v0.1.0 --generate-notes
+git tag v0.1.0 && git push origin v0.1.0
 ```
 
-The `release` workflow checks the tag against `gradle.properties`, pushes every image tagged with the
-version alone, then attaches the four plugin jars and the pack. Rerun a failed one with
-`gh workflow run release.yml -f tag=v0.1.0`.
+The `release` workflow refuses a tag whose commit has no successful build on `main` or that is already
+a release, and checks it against `gradle.properties`. It pushes every image tagged with the version
+alone and publishes the GitHub release last, with the four plugin jars and the pack, so a failed run
+publishes nothing. Run it again with `gh workflow run release.yml -f tag=v0.1.0`.
 
 Every config file is commented YAML described by a `@ConfigSpec` interface, and credentials arrive as
 environment variables; this public repository holds none. The one outbound call to a third party is

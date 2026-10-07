@@ -1,10 +1,11 @@
 name: release
 
-# Runs on a published release, never on a tag push; the tag must match gradle.properties.
+# Runs on a pushed release tag; the tag must match gradle.properties, and its commit must have a green
+# build on main. The GitHub release is created last, with every asset, so a failed run publishes nothing.
 on:
-  release:
-    types: [published]
-  # Re-runs a failed release build without unpublishing it.
+  push:
+    tags: ["v*"]
+  # Runs a release again after a failed run, or once a tag pushed before its build turned green.
   workflow_dispatch:
     inputs:
       tag:
@@ -17,7 +18,7 @@ permissions:
 
 # One build per tag, so a hand-started re-run cannot upload the same assets twice.
 concurrency:
-  group: release-${{ github.event.release.tag_name || inputs.tag }}
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -25,11 +26,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
+      actions: read
       contents: write
       packages: write
     # The tag is a dispatch input or a tag name, so it reaches scripts as a variable, never as text in one.
     env:
-      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -52,6 +54,28 @@ jobs:
             exit 1
           fi
           echo "VERSION=$declared" >> "$GITHUB_ENV"
+
+      # A release ships only a commit whose build on main went green, and only once.
+      - name: Check the tag's commit has a green build on main and no release yet
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          commit="$(git rev-parse "$RELEASE_TAG^{commit}")"
+          green="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build.yml/runs?head_sha=$commit&branch=main&event=push&status=success" --jq .total_count)"
+          if [ "$green" = 0 ]; then
+            echo "$RELEASE_TAG is $commit, which has no successful build on main; once it has one:" >&2
+            echo "  gh workflow run release.yml -f tag=$RELEASE_TAG" >&2
+            exit 1
+          fi
+          # A draft is what a run that failed while uploading leaves behind; it was never published.
+          draft="$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null || echo none)"
+          if [ "$draft" = false ]; then
+            echo "$RELEASE_TAG is already a release" >&2
+            exit 1
+          fi
+          if [ "$draft" = true ]; then
+            gh release delete "$RELEASE_TAG" --yes
+          fi
 
       # `check` runs before `releaseArtifacts` so a release never ships jars whose tests nobody ran.
       - name: Build and test every release artifact
@@ -92,11 +116,6 @@ jobs:
           args: --latest --strip header
         env:
           OUTPUT: ${{ runner.temp }}/notes.md
-
-      - name: Put the release notes on the release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release edit "$RELEASE_TAG" --notes-file "$RUNNER_TEMP/notes.md"
 
       - name: Log in to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
@@ -168,10 +187,10 @@ jobs:
           tags: |
             ghcr.io/nordtal/steward-bunq:${{ env.VERSION }}
 
-      # Last: a running agent hands an update to a newer release over once the plugin jars are on it,
-      # so every image that release names has to be in the registry first.
-      - name: Attach the artifacts to the release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
-        with:
-          tag_name: ${{ env.RELEASE_TAG }}
-          files: dist/*
+      # Last: steward-agent and nordtal.sh take the newest published release for the one to install, so
+      # every image it names has to be in the registry first. With assets, gh uploads them to a draft and
+      # publishes it once they are all there.
+      - name: Publish the release with its artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$RELEASE_TAG" --verify-tag --title "$RELEASE_TAG" --notes-file "$RUNNER_TEMP/notes.md" dist/*

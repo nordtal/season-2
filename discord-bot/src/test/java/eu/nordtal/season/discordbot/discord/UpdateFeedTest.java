@@ -241,7 +241,8 @@ class UpdateFeedTest {
 
     private static UpdateRequest row(
             final long id, final UpdateStatus status, final String result, final Instant finished) {
-        return new UpdateRequest(id, UpdateKind.UPDATE, status, OWNER, NOW, NOW, null, List.of(), NOW, finished, result);
+        return new UpdateRequest(
+                id, UpdateKind.UPDATE, status, OWNER, NOW, NOW, null, List.of(), NOW, finished, result);
     }
 
     private static String reportAt(final UpdateReport.Stage stage) {

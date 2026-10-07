@@ -5,26 +5,25 @@ import com.mojang.brigadier.tree.CommandNode;
 import com.mojang.brigadier.tree.RootCommandNode;
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.command.CommandSource;
-import com.velocitypowered.api.event.Subscribe;
-import com.velocitypowered.api.event.proxy.ProxyReloadEvent;
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.command.CommandTree;
 import eu.nordtal.season.database.command.CommandTreeWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
  * Publishes the proxy's whole command tree for Steward's console: Velocity's own, every plugin's and ours.
  *
- * The tree is read as the console may use it, a while after start and after every reload, and written when it changed.
+ * Velocity announces no registration, so the tree is read every {@link #EVERY} and written when it changed.
  */
 public final class CommandTrees {
 
-    /** How long after the initialize event every other plugin has registered its commands. */
-    static final Duration SETTLE = Duration.ofSeconds(10);
+    /** How often the tree is read, the first time once every other plugin has had that long to register. */
+    static final Duration EVERY = Duration.ofSeconds(10);
 
     /** Brigadier's nodes as the walk reads them. */
     static final CommandTree.Shape<CommandNode<?>> BRIGADIER = new CommandTree.Shape<>() {
@@ -54,34 +53,44 @@ public final class CommandTrees {
         }
     };
 
-    private final CommandManager commands;
-    private final CommandSource console;
+    private final Supplier<CommandTree> reader;
     private final CommandTreeWriter writer;
     private final Scheduler scheduler;
     private final Logger logger;
+    private @Nullable String problem;
 
-    public CommandTrees(
-            final CommandManager commands,
-            final CommandSource console,
+    CommandTrees(
+            final Supplier<CommandTree> reader,
             final CommandTreeWriter writer,
             final Scheduler scheduler,
             final Logger logger) {
-        this.commands = commands;
-        this.console = console;
+        this.reader = reader;
         this.writer = writer;
         this.scheduler = scheduler;
         this.logger = logger;
     }
 
-    /** Reads the tree once the other plugins have had their time to register, and writes it when it changed. */
-    public void readSoon() {
-        final var _ = scheduler.after(SETTLE, this::read);
+    /** Publishes the tree {@code console} may use, as Velocity's command manager holds it. */
+    public static CommandTrees of(
+            final CommandManager commands,
+            final CommandSource console,
+            final CommandTreeWriter writer,
+            final Scheduler scheduler,
+            final Logger logger) {
+        return new CommandTrees(
+                () -> {
+                    final RootCommandNode<CommandSource> root = new RootCommandNode<>();
+                    copy(commands, root, console);
+                    return CommandTree.of(root, BRIGADIER);
+                },
+                writer,
+                scheduler,
+                logger);
     }
 
-    /** A reload may have changed what a plugin registers. */
-    @Subscribe
-    public void reloaded(final ProxyReloadEvent event) {
-        readSoon();
+    /** Reads the tree every {@link #EVERY} from now on, and writes it whenever it changed. */
+    public void start() {
+        final var _ = scheduler.every(EVERY, EVERY, this::read);
     }
 
     /**
@@ -105,21 +114,19 @@ public final class CommandTrees {
     }
 
     private void read() {
-        final CommandTree tree;
         try {
-            final RootCommandNode<CommandSource> root = new RootCommandNode<>();
-            copy(commands, root, console);
-            tree = CommandTree.of(root, BRIGADIER);
-        } catch (final IllegalStateException unreadable) {
-            logger.warn("The command tree cannot be read: {}", unreadable.getMessage());
-            return;
-        }
-        try {
+            final CommandTree tree = reader.get();
             if (writer.write(tree)) {
                 logger.info("Published the command tree, {} nodes", tree.nodes().size());
             }
+            problem = null;
         } catch (final RuntimeException failed) {
-            logger.warn("The command tree could not be published: {}", failed.getMessage());
+            // Read again every few seconds, so a lasting failure is said once rather than on every read.
+            final String said = "The command tree could not be published: " + failed.getMessage();
+            if (!said.equals(problem)) {
+                logger.warn(said);
+            }
+            problem = said;
         }
     }
 }

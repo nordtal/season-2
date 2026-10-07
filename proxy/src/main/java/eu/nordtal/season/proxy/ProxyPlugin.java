@@ -593,14 +593,13 @@ public final class ProxyPlugin {
                 commands.register(commands.metaBuilder(command).plugin(this).build(), command));
         // The standby runs the same commands, so the console's suggestions come from the proxy players type in.
         if (!shared.role().isStandby()) {
-            final CommandTrees trees = new CommandTrees(
+            final CommandTrees trees = CommandTrees.of(
                     commands,
                     proxy.getConsoleCommandSource(),
                     new CommandTreeWriter(CommandTreeStore.using(shared.loaded().pool()), "proxy"),
                     scheduler,
                     logger);
-            proxy.getEventManager().register(this, trees);
-            trees.readSoon();
+            trees.start();
         }
     }
 

@@ -15,63 +15,75 @@ Steward is the admins' web interface and carries out every update, restart and b
 ## How it is built
 
 ```mermaid
-%%{init: {'themeVariables': {'fontSize': '16px'}}}%%
+%%{init: {'themeVariables': {'fontSize': '16px'}, 'flowchart': {'wrappingWidth': 240, 'diagramPadding': 8}}}%%
 flowchart TB
-    players(["Players"]):::ext --> NC
+    LEG["<b>bold</b>: service in compose.yml<br/><i>italic</i>: Gradle module<br/>dashed: update or dev only<br/>rounded: outside the stack"]:::key
+    players(["Players"]):::ext
+    admins(["Admins"]):::ext
+    CADDY["<b>caddy</b><br/>HTTPS, game port"]:::entry
+    PACK["<b>pack-host</b><br/>dev only: a local pack"]:::side
 
-    subgraph stack["docker compose stack"]
-        direction TB
-        subgraph steward["Steward · its own network"]
-            direction TB
-            CADDY["<b>caddy</b><br/>HTTPS"]:::side
-            UPD["<b>steward</b><br/><i>:steward</i><br/>the interface · payments · alerts"]:::app
-            DEP["<b>steward-agent</b><br/><i>:steward-agent</i><br/>schema · every run · backups"]:::app
-            MIG["<b>migrate</b><br/><i>:steward-agent</i><br/>roles and schema, then exits"]:::app
-            BANK["<b>steward-bunq</b><br/><i>:steward-bunq</i><br/>the only one that holds the bank key"]:::app
-        end
-        subgraph servers["Minecraft servers · one image"]
-            direction TB
-            NC["<b>proxy</b><br/><i>:proxy</i><br/>Velocity proxy"]:::proxy
-            LIMBO["<b>limbo</b><br/><i>:limbo</i><br/>resource pack"]:::paper
-            HG["<b>hunger-games</b><br/><i>:hunger-games</i><br/>start event"]:::paper
-            SMP["<b>smp</b><br/><i>:smp</i><br/>the season"]:::paper
-        end
-        BOT["<b>discord-bot</b><br/><i>:discord-bot</i><br/>access · payments"]:::app
-        PG[("<b>postgres</b><br/>source of truth")]:::db
-        PACKHOST["pack-host<br/>dev only"]:::side
+    subgraph mc["Minecraft servers, one image"]
+        NC["<b>proxy</b><br/><i>:proxy</i>"]:::proxy
+        NCS["<b>proxy-standby</b><br/>during an update"]:::standby
+        LIMBO["<b>limbo</b><br/><i>:limbo</i><br/>resource pack"]:::paper
+        LIMBOS["<b>limbo-standby</b><br/>during an update"]:::standby
+        HG["<b>hunger-games</b><br/><i>:hunger-games</i><br/>start event"]:::paper
+        SMP["<b>smp</b><br/><i>:smp</i><br/>the season"]:::paper
     end
 
-    admins(["Admins"]):::ext --> CADDY
-    BANK --> bunq(["bunq"]):::ext
-    players ~~~ UPD
+    subgraph st["Steward"]
+        UPD["<b>steward</b><br/><i>:steward</i><br/>interface, alerts"]:::app
+        DEP["<b>steward-agent</b><br/><i>:steward-agent</i><br/>containers, runs, backups"]:::app
+        BANK["<b>steward-bunq</b><br/><i>:steward-bunq</i><br/>the bank key"]:::app
+        MIG["<b>migrate</b><br/><i>:steward-agent</i><br/>schema, then exits"]:::app
+    end
+
+    BOT["<b>discord-bot</b><br/><i>:discord-bot</i><br/>access, payments"]:::app
+    PG[("<b>postgres</b><br/>source of truth")]:::db
+
+    bunq(["bunq"]):::ext
+    discord(["Discord"]):::ext
+    gh(["GitHub releases"]):::ext
+    offsite(["offsite backup"]):::ext
+
+    players --> CADDY
+    players -.-> PACK
+    admins --> CADDY
+    CADDY --> NC
+    CADDY -.-> NCS
     CADDY --> UPD
-    UPD -->|"containers, plan, archives"| DEP
-    UPD -->|"tabs, payments"| BANK
-    DEP ==>|"jars, runs"| servers
-    DEP ==> BOT
-    DEP --> PG
-    MIG --> PG
-    DEP -.->|"runs first"| MIG
     NC -->|"pack"| LIMBO
     NC -->|"phase"| HG
     NC -->|"phase"| SMP
-    servers --> PG
+    NC -.-> LIMBOS
+    UPD --> DEP
+    UPD -->|"payments"| BANK
+    BANK --> bunq
+    DEP -.-> MIG
+    DEP --> gh
+    DEP --> offsite
+    LEG ~~~ BOT
+    BOT --> discord
+    mc --> PG
     BOT --> PG
-    UPD --> PG
+    st --> PG
 
+    classDef key fill:#8b949e0d,stroke:#8b949e,stroke-width:1px,stroke-dasharray:2 2
     classDef ext fill:#8b949e26,stroke:#8b949e,stroke-width:2px
+    classDef entry fill:#8b949e33,stroke:#8b949e,stroke-width:2px
     classDef proxy fill:#4a90e233,stroke:#4a90e2,stroke-width:3px
     classDef paper fill:#46a75833,stroke:#46a758,stroke-width:2px
+    classDef standby fill:#8b949e0d,stroke:#8b949e,stroke-width:2px,stroke-dasharray:6 4
     classDef app fill:#e08c3433,stroke:#e08c34,stroke-width:2px
     classDef db fill:#d2565b33,stroke:#d2565b,stroke-width:3px
-    classDef side fill:#8b949e1a,stroke:#8b949e,stroke-width:1px
-    style stack fill:#8b949e14,stroke:#8b949e,stroke-width:1px
-    style servers fill:#4a90e21a,stroke:#4a90e2,stroke-width:1px
-    style steward fill:#e08c341a,stroke:#e08c34,stroke-width:1px
+    classDef side fill:#8b949e1a,stroke:#8b949e,stroke-width:1px,stroke-dasharray:3 3
+    style mc fill:#4a90e21a,stroke:#4a90e2,stroke-width:1px
+    style st fill:#e08c341a,stroke:#e08c34,stroke-width:1px
 ```
 
-Italic names are Gradle modules; every other box is a container in `compose.yml`, which ships inside
-the `steward-agent` image. The libraries below are compiled into the jars above.
+`compose.yml` ships inside the `steward-agent` image. The libraries below are compiled into the jars
+above.
 
 - **Networks.** The Minecraft servers share none with Steward, so no plugin reaches the agent.
   `steward-agent` and `steward-bunq` each share an internal network with `steward` and nobody else.

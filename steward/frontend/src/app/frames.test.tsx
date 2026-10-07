@@ -153,6 +153,16 @@ describe("the frame on a desktop", () => {
       expect(screen.getByRole("button", { name: "Navigation" }).getAttribute("aria-expanded")).toBe("false"),
     )
   })
+
+  it("leaves the navigation open on Escape, which belongs to the layer above the page", async () => {
+    drawAt("/services/smp", { open: true })
+    await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
+
+    fireEvent.keyDown(window, { key: "Escape" })
+    fireEvent.keyDown(document.body, { key: "Escape" })
+
+    expect(screen.getByRole("button", { name: "Navigation" }).getAttribute("aria-expanded")).toBe("true")
+  })
 })
 
 describe("where the desktop's frame begins", () => {
@@ -198,6 +208,18 @@ describe("the frame on a phone", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Navigation" }).getAttribute("aria-expanded")).toBe("false"),
     )
+  })
+
+  it("keeps the list open on Escape", async () => {
+    asPhone()
+    drawAt("/services/smp")
+    await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
+
+    fireEvent.click(screen.getByRole("button", { name: "Navigation" }))
+    await screen.findByRole("navigation", { name: "Pages" })
+    fireEvent.keyDown(document.body, { key: "Escape" })
+
+    expect(screen.getByRole("button", { name: "Navigation" }).getAttribute("aria-expanded")).toBe("true")
   })
 
   it("names the Updates page, not a second Overview", async () => {

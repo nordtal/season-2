@@ -1,5 +1,4 @@
 import { Outlet, useRouterState } from "@tanstack/react-router"
-import { useEffect } from "react"
 
 import { NavList, activeEntryId } from "@/app/app-sidebar"
 import { useCrumbs } from "@/app/breadcrumbs"
@@ -31,20 +30,8 @@ type Nav = ReturnType<typeof useNav>
 
 /** Whether the navigation is showing on this device, and the ways to change it. */
 function useNav() {
-  const { open, openMobile, isMobile, setOpenMobile, setOpen, toggleSidebar } = useSidebar()
+  const { open, openMobile, isMobile, setOpenMobile, toggleSidebar } = useSidebar()
   const shown = isMobile ? openMobile : open
-
-  // Escape closes whatever is open, on both devices.
-  useEffect(() => {
-    if (!shown) return undefined
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return
-      if (isMobile) setOpenMobile(false)
-      else setOpen(false)
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [shown, isMobile, setOpenMobile, setOpen])
 
   return {
     shown,

@@ -1,4 +1,12 @@
-import { ArrowDownIcon, ArrowUpIcon, CircleDashedIcon, CoinsIcon, TrashIcon, UserGearIcon } from "@phosphor-icons/react"
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  CircleDashedIcon,
+  CoinsIcon,
+  PinwheelIcon,
+  TrashIcon,
+  UserGearIcon,
+} from "@phosphor-icons/react"
 import type { Icon } from "@phosphor-icons/react"
 import { useState } from "react"
 
@@ -8,7 +16,16 @@ import { AskThenAct } from "@/components/steward/ask-then-act"
 import { ListControl, ScalarControl } from "@/components/steward/config-controls"
 import { ReferenceMarks } from "@/components/steward/reference-picker"
 import type { SectionValues } from "@/components/steward/repeatable-cards"
-import { KEY, MARKED, type TrackSchema, strings, text } from "@/components/steward/milestones/model"
+import {
+  BUDGETS,
+  type Budget,
+  KEY,
+  MARKED,
+  type TrackSchema,
+  budgetSums,
+  strings,
+  text,
+} from "@/components/steward/milestones/model"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import {
@@ -24,8 +41,26 @@ import { t } from "@/lib/texts"
 /** The milestone marks drawn as an icon before their number; the rest show their value. */
 const MARK_ICON: Partial<Record<(typeof MARKED)[number], Icon>> = {
   "border-diameter": CircleDashedIcon,
-  "objective-pot": CoinsIcon,
   "admin-unlocked": UserGearIcon,
+}
+
+const BUDGET_ICON: Record<Budget, Icon> = {
+  "aura-budget": CoinsIcon,
+  "spin-budget": PinwheelIcon,
+}
+
+/** Budget sums, each by its icon and titled by the objective field's schema label; a zero sum is left out. */
+export function BudgetMarks({ sums, schema }: { sums: Record<Budget, number>; schema: TrackSchema }) {
+  return BUDGETS.filter((key) => sums[key] > 0).map((key) => {
+    const label = schema.objective.find((field) => field.key === key)?.label ?? key
+    const MarkIcon = BUDGET_ICON[key]
+    return (
+      <span key={key} title={label} className="inline-flex items-center gap-1 tabular-nums">
+        <MarkIcon aria-label={label} className="size-3.5" />
+        {sums[key].toLocaleString("en")}
+      </span>
+    )
+  })
 }
 
 /** A field's sibling value where its reference depends on one, such as the statistic a subject is counted by. */
@@ -124,7 +159,10 @@ export function milestoneFields(schema: TrackSchema): ConfigEntry[] {
   return schema.milestone.filter((field) => field.key !== KEY.objectives)
 }
 
-/** A collapsed milestone's settings as small marks: a choice as its value, a number by its icon, a flag when on. */
+/**
+ * A collapsed milestone's settings as small marks: a choice as its value, a number by its icon, a flag when on,
+ * and the sums of its objectives' budgets.
+ */
 export function MilestoneMarks({ milestone, schema }: { milestone: SectionValues; schema: TrackSchema }) {
   const marks = MARKED.flatMap((key) => {
     const field = schema.milestone.find((candidate) => candidate.key === key)
@@ -153,6 +191,7 @@ export function MilestoneMarks({ milestone, schema }: { milestone: SectionValues
           </span>
         )
       })}
+      <BudgetMarks sums={budgetSums([milestone])} schema={schema} />
     </span>
   )
 }

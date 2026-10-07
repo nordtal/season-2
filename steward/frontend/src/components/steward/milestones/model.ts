@@ -13,10 +13,29 @@ export const KEY = {
   id: "key",
   objectives: "objectives",
   target: "target",
+  auraBudget: "aura-budget",
+  spinBudget: "spin-budget",
 } as const
 
 /** The milestone fields drawn as small marks in a collapsed row, each by its schema label. */
-export const MARKED = ["unlocks", "border-diameter", "objective-pot", "admin-unlocked"] as const
+export const MARKED = ["unlocks", "border-diameter", "admin-unlocked"] as const
+
+/** An objective's budgets, which a milestone and the whole track show as sums. */
+export const BUDGETS = [KEY.auraBudget, KEY.spinBudget] as const
+
+export type Budget = (typeof BUDGETS)[number]
+
+/** Every budget summed over the objectives of `milestones`. */
+export function budgetSums(milestones: SectionValues[]): Record<Budget, number> {
+  const sums: Record<Budget, number> = { [KEY.auraBudget]: 0, [KEY.spinBudget]: 0 }
+  for (const objective of milestones.flatMap(objectivesOf)) {
+    for (const key of BUDGETS) {
+      const value = Number(text(objective, key))
+      if (Number.isFinite(value)) sums[key] += value
+    }
+  }
+  return sums
+}
 
 /** The schema of the track: the milestone's fields and an objective's, with the track's own entry. */
 export type TrackSchema = {

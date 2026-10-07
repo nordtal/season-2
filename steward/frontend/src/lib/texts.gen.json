@@ -832,7 +832,7 @@
     "steward.game.all-milestones": [["All milestones"]],
     "steward.game.complete": [["Complete"]],
     "steward.game.complete-ask": [["Complete ",{"v":"name"},"?"]],
-    "steward.game.complete-note": [["It closes at ",{"v":"amount","k":"number"}," of ",{"v":"target","k":"number"}," and pays out that share of its aura. There is no way back."]],
+    "steward.game.complete-note": [["It closes at ",{"v":"amount","k":"number"}," of ",{"v":"target","k":"number"}," and pays out that share of its aura and spins. There is no way back."]],
     "steward.game.counting-down": [["Counting down"]],
     "steward.game.done-at": [["Done ",{"v":"at"}]],
     "steward.game.keep": [["Keep it"]],

@@ -35,6 +35,8 @@ const OBJECTIVE: ConfigEntry[] = [
   entry("key", { label: "ID", value: "" }),
   entry("type", { label: "Type", value: "HAND_IN", choices: { values: ["HAND_IN", "STATISTIC"], strict: true } }),
   entry("target", { label: "Target", type: "INTEGER", value: "1" }),
+  entry("aura-budget", { label: "Aura budget", type: "INTEGER", value: "0" }),
+  entry("spin-budget", { label: "Spin budget", type: "INTEGER", value: "0" }),
   entry("items", { label: "Items", kind: "LIST", items: [], refers: { to: "ITEM", optional: false } }),
 ]
 
@@ -80,7 +82,11 @@ const DOCUMENT: ConfigDocument = {
           sections: {
             objectives: [
               section(OBJECTIVE, {
-                scalars: { key: "logs", target: "2048" },
+                scalars: { key: "logs", target: "2048", "aura-budget": "30", "spin-budget": "20" },
+                lists: { items: ["minecraft:oak_log"] },
+              }),
+              section(OBJECTIVE, {
+                scalars: { key: "planks", target: "512", "aura-budget": "30", "spin-budget": "16" },
                 lists: { items: ["minecraft:oak_log"] },
               }),
             ],
@@ -172,10 +178,35 @@ describe("MilestonesEditor", () => {
       changes: {
         milestones: [
           { key: "waiting" },
-          { key: "foothold", objectives: [{ key: "logs", target: "4096", items: ["minecraft:oak_log"] }] },
+          {
+            key: "foothold",
+            objectives: [{ key: "logs", target: "4096", items: ["minecraft:oak_log"] }, { key: "planks" }],
+          },
         ],
       },
     })
+  })
+
+  it("sums its objectives' budgets per milestone and for the season, and follows an edit", async () => {
+    backend()
+    draw(<MilestonesEditor file={FILE} document={DOCUMENT} target={null} />)
+
+    const list = screen.getByRole("list", { name: "Milestones" })
+    const season = screen.getByText("Season").parentElement
+    if (!season) throw new Error("the season's sums are drawn without their line")
+    expect(within(list).getByTitle("Aura budget").textContent).toBe("60")
+    expect(within(list).getByTitle("Spin budget").textContent).toBe("36")
+    expect(within(season).getByTitle("Aura budget").textContent).toBe("60")
+    expect(within(season).getByTitle("Spin budget").textContent).toBe("36")
+
+    fireEvent.click(screen.getByRole("button", { name: /foothold/ }))
+    fireEvent.click(await screen.findByRole("button", { name: /logs/ }))
+    const sheet = await screen.findByRole("dialog")
+    fireEvent.change(within(sheet).getByLabelText("Spin budget"), { target: { value: "25" } })
+    fireEvent.click(within(sheet).getByRole("button", { name: "Done" }))
+
+    await waitFor(() => expect(within(season).getByTitle("Spin budget").textContent).toBe("41"))
+    expect(within(list).getByTitle("Spin budget").textContent).toBe("41")
   })
 
   it("moves a milestone, since the order is the season's", async () => {

@@ -2,8 +2,17 @@ import { CaretRightIcon, PlusIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 
 import type { SectionValues } from "@/components/steward/repeatable-cards"
-import { KEY, type TrackEdits, type TrackSchema, objectivesOf, text } from "@/components/steward/milestones/model"
 import {
+  BUDGETS,
+  KEY,
+  type TrackEdits,
+  type TrackSchema,
+  budgetSums,
+  objectivesOf,
+  text,
+} from "@/components/steward/milestones/model"
+import {
+  BudgetMarks,
   Fields,
   MilestoneActions,
   MilestoneMarks,
@@ -117,6 +126,18 @@ function MilestoneBody({
   )
 }
 
+/** The season's budgets: every objective's, summed over the whole track. */
+function SeasonSums({ track, schema }: { track: SectionValues[]; schema: TrackSchema }) {
+  const sums = budgetSums(track)
+  if (BUDGETS.every((key) => sums[key] <= 0)) return null
+  return (
+    <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-3 text-xs text-muted-foreground">
+      <span className="font-medium text-foreground/80">{t("steward.season.title")}</span>
+      <BudgetMarks sums={sums} schema={schema} />
+    </p>
+  )
+}
+
 function AddMilestone({ disabled, onAdd }: { disabled: boolean; onAdd: () => void }) {
   return (
     <div>
@@ -138,6 +159,7 @@ export function TrackRows(props: TrackProps) {
   const sheet = useObjectiveSheet(props)
   return (
     <div className="flex flex-col gap-3">
+      <SeasonSums track={track} schema={schema} />
       <ol aria-label={t("steward.game.milestones")} className="flex flex-col divide-y rounded-lg border bg-card">
         {track.map((milestone, index) => {
           const open = opened === index

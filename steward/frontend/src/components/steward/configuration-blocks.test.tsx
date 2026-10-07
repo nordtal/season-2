@@ -132,7 +132,6 @@ describe("repeatable cards for a SECTIONS entry", () => {
   it("removes a card from the draft only, and writes it on Save - not on the click", async () => {
     let putChanges: unknown
     const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url, init) => {
-      if (url === "/api/messages") return json([])
       if (url === "/api/setting-groups") {
         return json([
           { service: "discord-bot", name: "access", path: file, label: "", live: true, readable: true, writable: true },

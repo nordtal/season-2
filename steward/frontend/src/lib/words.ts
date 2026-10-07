@@ -91,8 +91,3 @@ export function fileTitle(path: string): string {
   const sentence = sentenceOf(withoutExtension.split(/[-_./]+/), true)
   return sentence ? capitalCase(withoutRepeats(sentence)) : path
 }
-
-/** A message bundle is named after the service or module it belongs to: "SMP Translations". */
-export function translationsTitle(bundle: { service: string; module: string }): string {
-  return `${serviceTitle(bundle.module || bundle.service)} Translations`
-}

@@ -1,31 +1,23 @@
-import {
-  ArrowLeftIcon,
-  CaretDownIcon,
-  CaretRightIcon,
-  GearSixIcon,
-  LockIcon,
-  TranslateIcon,
-} from "@phosphor-icons/react"
+import { ArrowLeftIcon, CaretDownIcon, CaretRightIcon, GearSixIcon, LockIcon } from "@phosphor-icons/react"
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { cn } from "cn"
 
-import type { ConfigLocation, MessageBundleLocation, PluginDescriptor } from "@/lib/api"
+import type { ConfigLocation, PluginDescriptor } from "@/lib/api"
 import { useDirtyFiles } from "@/lib/drafts"
-import { useConfigs, useDescriptors, useMessageBundles } from "@/lib/queries"
-import { onPendingJump, onPendingMessageJump, takePendingJump, takePendingMessageJump } from "@/lib/settings-search"
-import { fileTitle, translationsTitle } from "@/lib/words"
+import { useConfigs, useDescriptors } from "@/lib/queries"
+import { onPendingJump, takePendingJump } from "@/lib/settings-search"
+import { fileTitle } from "@/lib/words"
 import { Failure, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
 import { DraftDot, type FileItem, type Target, useWide } from "@/components/steward/settings-view"
 import { ConfigFile } from "@/components/steward/settings-config"
-import { BundleFile } from "@/components/steward/settings-messages"
 import { t } from "@/lib/texts"
 
 /** The service the network's own settings are published under, the ones every process reads. */
 export const NETWORK = "network"
 
 /**
- * The Settings & Translations tab: the service's config files and bundles in one list, the chosen one as a tree.
+ * The Settings tab: the service's groups of settings in one list, the chosen one as a tree.
  *
  * The open file is the page's `?file=`, handed in and reported back rather than kept here.
  */
@@ -40,7 +32,6 @@ export function ServiceSettings({
   onFile: (file: string | undefined, replace?: boolean) => void
 }) {
   const configs = useConfigs()
-  const bundles = useMessageBundles()
   /** Without them the groups are listed flat with the gear, which is all a failed read costs. */
   const descriptors = useDescriptors()
   const dirty = useDirtyFiles()
@@ -52,13 +43,13 @@ export function ServiceSettings({
   })
 
   const files = useMemo(
-    () => filesOf(service, configs.data ?? [], bundles.data ?? [], descriptors.data ?? []),
-    [service, configs.data, bundles.data, descriptors.data],
+    () => filesOf(service, configs.data ?? [], descriptors.data ?? []),
+    [service, configs.data, descriptors.data],
   )
   const rows = useMemo(() => rowsOf(files, descriptors.data ?? []), [files, descriptors.data])
   /** A plugin's row a click opened or closed; one never touched is open while the shown file is in it. */
   const [toggled, setToggled] = useState<Record<string, boolean>>({})
-  const loading = configs.isPending || bundles.isPending
+  const loading = configs.isPending
   /** On a wide screen the first readable file is shown when none is chosen, derived rather than written to the URL. */
   const shown = file ?? (wide ? files.find((item) => item.readable)?.id : undefined)
   const selected = files.find((item) => item.id === shown)
@@ -71,23 +62,12 @@ export function ServiceSettings({
         setTarget({ file: config.file, id: config.path, seq: ++jumps })
         report.current(config.file)
       }
-      const message = takePendingMessageJump(service)
-      if (message) {
-        const id = bundleFileId(message.path)
-        setTarget({ file: id, id: message.key, language: message.language, seq: ++jumps })
-        report.current(id)
-      }
     }
     land()
-    const stopConfig = onPendingJump(land)
-    const stopMessage = onPendingMessageJump(land)
-    return () => {
-      stopConfig()
-      stopMessage()
-    }
+    return onPendingJump(land)
   }, [service])
 
-  const failure = configs.error ?? bundles.error
+  const failure = configs.error
 
   return (
     <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start lg:gap-8">
@@ -161,11 +141,7 @@ export function ServiceSettings({
               </Button>
               <span className="min-w-0 truncate text-sm font-medium">{selected.label}</span>
             </div>
-            {selected.kind === "config" ? (
-              <ConfigFile key={selected.id} item={selected} target={target} />
-            ) : (
-              <BundleFile key={selected.id} item={selected} target={target} />
-            )}
+            <ConfigFile key={selected.id} item={selected} target={target} />
           </>
         ) : file !== undefined && !loading ? (
           <p className="text-sm text-muted-foreground">{t("steward.settings.no-such-file")}</p>
@@ -173,11 +149,6 @@ export function ServiceSettings({
       </div>
     </div>
   )
-}
-
-/** Where a bundle is in `?file=`: its path would be a config file's otherwise. */
-export function bundleFileId(path: string): string {
-  return `bundle:${path}`
 }
 
 /** A counter, not state: the number only has to differ from the last one. */
@@ -196,17 +167,11 @@ function byLabel(a: FileItem, b: FileItem): number {
   return a.label.localeCompare(b.label)
 }
 
-/** The translations first, then the groups of settings, each with the editor its plugin names for it. */
-function filesOf(
-  service: string,
-  configs: ConfigLocation[],
-  bundles: MessageBundleLocation[],
-  descriptors: PluginDescriptor[],
-): FileItem[] {
+/** The groups of settings, each with the editor its plugin names for it. */
+function filesOf(service: string, configs: ConfigLocation[], descriptors: PluginDescriptor[]): FileItem[] {
   const settings: FileItem[] = configs
     .filter((file) => file.service === service)
     .map((location) => ({
-      kind: "config",
       id: location.path,
       label: fileTitle(location.name),
       readable: location.readable,
@@ -214,17 +179,7 @@ function filesOf(
       location,
       editor: descriptorOf(descriptors, location.service)?.editors[location.name],
     }))
-  const translations: FileItem[] = bundles
-    .filter((bundle) => bundle.service === service)
-    .map((location) => ({
-      kind: "bundle",
-      id: bundleFileId(location.path),
-      label: translationsTitle(location),
-      readable: true,
-      writable: location.writable,
-      location,
-    }))
-  return [...translations.toSorted(byLabel), ...settings.toSorted(byLabel)]
+  return settings.toSorted(byLabel)
 }
 
 /** One line of the sidebar: a file on its own, or a plugin whose several groups open beneath it. */
@@ -245,12 +200,12 @@ function descriptorOf(descriptors: PluginDescriptor[], id: string): PluginDescri
 export function rowsOf(files: FileItem[], descriptors: PluginDescriptor[]): SidebarRow[] {
   const byPlugin = new Map<string, FileItem[]>()
   for (const item of files) {
-    if (item.kind !== "config" || !descriptorOf(descriptors, item.location.service)) continue
+    if (!descriptorOf(descriptors, item.location.service)) continue
     byPlugin.set(item.location.service, [...(byPlugin.get(item.location.service) ?? []), item])
   }
   const rows: SidebarRow[] = []
   for (const item of files) {
-    const plugin = item.kind === "config" ? descriptorOf(descriptors, item.location.service) : undefined
+    const plugin = descriptorOf(descriptors, item.location.service)
     const items = plugin ? (byPlugin.get(plugin.id) ?? []) : []
     if (!plugin || items.length < 2) {
       rows.push({ kind: "file", item, logo: plugin?.logo })
@@ -317,7 +272,6 @@ function FileRow({
   dirty: boolean
   onSelect: () => void
 }) {
-  const Icon = item.kind === "config" ? GearSixIcon : TranslateIcon
   return (
     <button
       type="button"
@@ -329,7 +283,11 @@ function FileRow({
         selected && "bg-accent",
       )}
     >
-      {logo ? <PluginLogo logo={logo} /> : <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
+      {logo ? (
+        <PluginLogo logo={logo} />
+      ) : (
+        <GearSixIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+      )}
       <span className="min-w-0 flex-1 truncate">{item.label}</span>
       {dirty ? <DraftDot /> : null}
       {!item.readable ? (

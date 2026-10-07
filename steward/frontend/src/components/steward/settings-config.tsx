@@ -33,7 +33,7 @@ function isReloadAware(document: ConfigDocument): document is ConfigDocument {
   return "restartRequired" in document && typeof document.restartRequired === "boolean"
 }
 
-export function ConfigFile({ item, target }: { item: Extract<FileItem, { kind: "config" }>; target: Target | null }) {
+export function ConfigFile({ item, target }: { item: FileItem; target: Target | null }) {
   const document = useConfig(item.location.path)
   return (
     <QueryState query={document} rows={8}>

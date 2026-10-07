@@ -37,3 +37,18 @@ export function languagesOf(entries: MessageEntry[], network: readonly Language[
   }
   return [...all].toSorted((a, b) => (a === ENGLISH ? -1 : b === ENGLISH ? 1 : a.localeCompare(b)))
 }
+
+/**
+ * Each bundle's languages, English first. A bundle that ships English only keeps to English and what an admin
+ * wrote; every other bundle offers each language the network speaks as well.
+ */
+export function languagesByBundle(entries: MessageEntry[], network: readonly Language[]): Map<string, Language[]> {
+  const byBundle = new Map<string, MessageEntry[]>()
+  for (const entry of entries) byBundle.set(entry.bundle, [...(byBundle.get(entry.bundle) ?? []), entry])
+  const languages = new Map<string, Language[]>()
+  for (const [bundle, own] of byBundle) {
+    const englishOnly = own.every((entry) => Object.keys(entry.texts).every((language) => language === ENGLISH))
+    languages.set(bundle, languagesOf(own, englishOnly ? [] : network))
+  }
+  return languages
+}

@@ -111,22 +111,28 @@ Every word the page shows is a key of the `steward` bundle, English only, declar
 - A plugin's descriptor may name a custom editor per group; the registry draws it only when the editor
   reads the document it got. An editor knows its structure, never a label or a reference. A design proposal is a page under `/designs/` until it is built.
 
-### Translations
+### Texts
 
-A bundle is a tree of its keys, one open at a time. The text is edited as it looks (runs of styled
-text with values as pills, `lib/rich-text.ts`) or as it is written (the source coloured from the
-marks of the one parser in `lib/message-tree.ts`). The tools above the field offer what the key's
-format allows: its values with their examples (`GET /api/message-examples`), glyphs, tones, colours,
-styles, hover, click and actions. Whether a text is right is only ever `MessageCheck`: the editor
-asks `GET /api/message-check` once typing pauses, and the save refuses what it errs on. The bundle
-names the network's `languages` and each tone's `colours`, read per request. An override no process
-shows (`GET /api/message-fallbacks`) opens with what it was written over and what the jar has now. The
-preview draws the text in one of the key's places, its first until the admin picks another: as the
-game, Discord, Steward's page or a notification shows it. The counter is the key's `limit`, the
-strictest of its places. The send button asks `POST /api/message-preview` with the place: a Discord
-place arrives as a direct message from the bot, a game place on the admin's linked player's server,
-filled with the editor's examples; the bundle's `previews` names, per key, the places a preview
-reaches and where.
+The Texts page (`/texts`) edits every text of every bundle, Steward's own among them, from
+`GET /api/messages`: each text once, as `<bundle>/<key>`, with the services whose jar ships it, the
+places a preview reaches, the network's `languages`, each service's tone `colours` and where each
+place is (`places`). The texts are grouped by where their first place is (in game, Discord, Steward
+& Admin), the `values` bundle apart as the building blocks, then by topic; a filter keeps one
+service's texts and draws them in its palette, and pills name the places a text appears in, a whole
+surface as one. A bundle that ships English only is edited in English only. One key is open at a
+time. Its text is edited as it looks (runs of styled text with values as pills, `lib/rich-text.ts`)
+or as it is written (the source coloured from the marks of the one parser in `lib/message-tree.ts`).
+The tools above the field offer what the key's format allows: its values with their examples
+(`GET /api/message-examples`), glyphs, tones, colours, styles, hover, click and actions. Whether a
+text is right is only ever `MessageCheck`: the editor asks `GET /api/message-check` once typing
+pauses, and the save refuses what it errs on. An override no process shows
+(`GET /api/message-fallbacks`) opens with what it was written over and what the jar has now. Below
+the field is one preview per place, as the game, Discord, Steward's page or a notification shows
+it; a building block gets one plain preview. The counter is the key's `limit`, the strictest of its
+places. A place a preview reaches has a send button, which asks `POST /api/message-preview`: a
+Discord place arrives as a direct message from the bot, a game place on the admin's linked player's
+server, filled with the editor's examples, in the filtered service's palette if there is one. One
+`PUT /api/messages` saves the changes of every bundle, keyed by bundle and key.
 
 ## Configuration
 

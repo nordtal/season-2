@@ -11,6 +11,7 @@ import {
 import { cn } from "cn"
 
 import type { MessageEntry, MessageFallback, MessagePreviewTarget } from "@/lib/api"
+import { previewPlacesOf, type Places } from "@/lib/text-places"
 import { ENGLISH, isLanguage, overrideOf, packagedOf, type Language } from "@/lib/message-text"
 import {
   useCommandRun,
@@ -22,15 +23,15 @@ import {
 } from "@/lib/queries"
 import { formatOf, normalize, parse, plainText, same, serialize } from "@/lib/rich-text"
 import type { Format, Run } from "@/lib/rich-text"
+import type { GlyphInfo } from "@/lib/api"
 import { choice, message, t } from "@/lib/texts"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupButton } from "@/components/ui/input-group"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RequestOutcome } from "@/components/steward/game-actions"
 import { exampleOf, type Fill } from "@/components/steward/message-editor/examples"
-import { Preview } from "@/components/steward/message-editor/preview"
+import { Preview, type Tones } from "@/components/steward/message-editor/preview"
 import { Failure } from "@/components/steward/query-state"
 import { SourceEditor } from "@/components/steward/message-editor/source-editor"
 import { VisualEditor } from "@/components/steward/message-editor/visual-editor"
@@ -44,12 +45,16 @@ const CHECK_DELAY = 300
 
 export type MessageEditorProps = {
   entry: MessageEntry
-  /** The bundle's path, as the routes name it. */
-  bundle: string
-  /** The bundle's languages, English first, every one the network speaks among them. */
+  /** The jar the text is read from, `<service>/<module>`, as the check and the preview name it. */
+  path: string
+  /** The service whose palette the previews take, or `undefined` for the network's. */
+  service?: string
+  /** The languages the key is offered in, English first. */
   languages: Language[]
-  /** Each tone's colour by tag, as the settings of the bundle's service name it. */
+  /** Each tone's colour by tag, as the settings of `service` name it; empty for the network's own. */
   colours: Record<string, string>
+  /** Every place a text can be shown, with where it is. */
+  places: Places
   writable: boolean
   draft: MessageDraft | undefined
   highlight: Highlight | null
@@ -70,9 +75,11 @@ export type MessageEditorProps = {
  */
 export function MessageEditor({
   entry,
-  bundle,
+  path,
+  service,
   languages,
   colours,
+  places,
   writable,
   draft,
   highlight,
@@ -83,10 +90,6 @@ export function MessageEditor({
   previews,
 }: MessageEditorProps) {
   const [language, setLanguage] = useState<Language>(ENGLISH)
-  // The place drawn below, the key's first until the admin picks another.
-  const [picked, setPicked] = useState<string | undefined>(undefined)
-  const place = picked !== undefined && entry.shown.includes(picked) ? picked : entry.shown[0]
-  const preview = place === undefined ? undefined : previews?.[place]
   const [variant, setVariant] = useState(0)
   const [source, setSource] = useState(false)
   const ref = useLanding(highlight)
@@ -126,11 +129,9 @@ export function MessageEditor({
   const visual = readable && !source
 
   const checked = useDebounced(typed === undefined ? null : text, CHECK_DELAY)
-  const check = useMessageCheck(bundle, entry.key, checked)
+  const check = useMessageCheck(path, entry.key, checked)
   const problems = typed === undefined ? [] : (check.data ?? [])
-  const send = usePreview(bundle, entry, place, language, text, sent)
-  const sendLabel =
-    preview === "GAME" ? t("steward.message-editor.show-in-game") : t("steward.message-editor.send-in-discord")
+  const shownAt = previewPlacesOf(entry)
 
   const overridden = (tab: Language) => {
     const own = draft?.[tab]
@@ -232,17 +233,6 @@ export function MessageEditor({
               ) : null}
             </>
           ) : null}
-          {preview ? (
-            <InputGroupButton
-              size="icon-xs"
-              aria-label={sendLabel}
-              title={sendLabel}
-              disabled={send.busy || text === "" || problems.some((problem) => problem.error)}
-              onClick={send.send}
-            >
-              <PaperPlaneTiltIcon aria-hidden />
-            </InputGroupButton>
-          ) : null}
           <span className="ml-auto flex items-center gap-1">
             {entry.limit > 0 ? (
               <span
@@ -309,27 +299,23 @@ export function MessageEditor({
           ))}
         </ul>
       ) : null}
-      {send.error ? <Failure error={send.error} /> : null}
-      {send.run ? <RequestOutcome run={send.run} /> : null}
-      {runs !== null && entry.shown.length > 1 ? (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span id={`${entry.key}-shown-as`}>{t("steward.message-editor.shown-as")}</span>
-          <Select value={place} onValueChange={setPicked}>
-            <SelectTrigger size="sm" aria-labelledby={`${entry.key}-shown-as`} className="text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {entry.shown.map((shown) => (
-                <SelectItem key={shown} value={shown} className="text-xs">
-                  {t("steward.message-editor.place", { place: choice(shown) })}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      ) : null}
       {runs !== null ? (
-        <Preview runs={runs} format={format} shown={place} fill={fill} glyphs={glyphs.data ?? []} tones={tones} />
+        <div className={cn("grid grid-cols-1 gap-3", shownAt.length > 1 && "lg:grid-cols-2")}>
+          {shownAt.map((place) => (
+            <PlacePreview
+              key={place ?? ""}
+              place={place}
+              places={places}
+              target={place === undefined ? undefined : previews?.[place]}
+              runs={runs}
+              fill={fill}
+              glyphs={glyphs.data ?? []}
+              tones={tones}
+              blocked={text === "" || problems.some((problem) => problem.error)}
+              request={{ path, service, entry, language, text, fill: sent }}
+            />
+          ))}
+        </div>
       ) : null}
       {entry.description ? <p className="text-xs text-muted-foreground">{entry.description}</p> : null}
     </div>
@@ -426,18 +412,84 @@ function useRuns(
   return [runs, update]
 }
 
+/** One place of the key: its name, the text as it looks there, and the way to see it there oneself. */
+function PlacePreview({
+  place,
+  places,
+  target,
+  runs,
+  fill,
+  glyphs,
+  tones,
+  blocked,
+  request,
+}: {
+  /** `undefined` for the one plain preview of a key that no place of its own shows. */
+  place: string | undefined
+  places: Places
+  /** Where a preview of this place reaches the admin, if one does. */
+  target: MessagePreviewTarget | undefined
+  runs: Run[]
+  fill: Fill
+  glyphs: GlyphInfo[]
+  tones: Tones
+  /** Whether the text as it stands cannot be sent: empty, or refused by the validator. */
+  blocked: boolean
+  request: PreviewRequest
+}) {
+  const send = usePreview(request, place)
+  const label = place === undefined ? undefined : t("steward.message-editor.place", { place: choice(place) })
+  const sendLabel =
+    target === "GAME" ? t("steward.message-editor.show-in-game") : t("steward.message-editor.send-in-discord")
+  return (
+    <figure aria-label={label} className="flex min-w-0 flex-col gap-1">
+      {label ? (
+        <figcaption className="flex min-h-6 items-center gap-2 text-xs text-muted-foreground">
+          <span className="min-w-0 flex-1 truncate">{label}</span>
+          {target ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label={sendLabel}
+              title={sendLabel}
+              disabled={send.busy || blocked}
+              onClick={send.send}
+            >
+              <PaperPlaneTiltIcon aria-hidden />
+            </Button>
+          ) : null}
+        </figcaption>
+      ) : null}
+      <Preview
+        runs={runs}
+        shown={place}
+        surface={place === undefined ? undefined : places[place]}
+        fill={fill}
+        glyphs={glyphs}
+        tones={tones}
+      />
+      {send.error ? <Failure error={send.error} /> : null}
+      {send.run ? <RequestOutcome run={send.run} /> : null}
+    </figure>
+  )
+}
+
+/** What a preview sends besides its place: the text as it stands, and the values `fill` gives it. */
+type PreviewRequest = {
+  path: string
+  service: string | undefined
+  entry: MessageEntry
+  language: Language
+  text: string
+  fill: Fill
+}
+
 /**
- * The text as it stands, sent to the admin alone where the key is shown, with the values `fill` gives; what became
- * of the request follows. A value every message has is the receiving process's own.
+ * The text as it stands, sent to the admin alone as `shown` shows it, in the palette of the service, if one is
+ * named; what became of the request follows. A value every message has is the receiving process's own.
  */
-function usePreview(
-  bundle: string,
-  entry: MessageEntry,
-  shown: string | undefined,
-  language: Language,
-  text: string,
-  fill: Fill,
-) {
+function usePreview({ path, service, entry, language, text, fill }: PreviewRequest, shown: string | undefined) {
   const action = useGameAction()
   const [id, setId] = useState<string | null>(null)
   const run = useCommandRun(id)
@@ -451,8 +503,9 @@ function usePreview(
     run: id === null ? undefined : run.data,
     send: () => {
       setId(null)
+      const body = { bundle: path, key: entry.key, language, text, shown, values }
       action.mutate(
-        { path: "/api/message-preview", body: { bundle, key: entry.key, language, text, shown, values } },
+        { path: "/api/message-preview", body: service === undefined ? body : { ...body, service } },
         { onSuccess: (asked) => setId(asked.id) },
       )
     },

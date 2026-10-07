@@ -8,6 +8,7 @@ import {
   HardDrivesIcon,
   PulseIcon,
   SlidersHorizontalIcon,
+  TranslateIcon,
   UsersIcon,
   WrenchIcon,
 } from "@phosphor-icons/react"
@@ -120,6 +121,14 @@ export function navigation(services: readonly string[]): NavGroup[] {
           note: t("steward.shell.note", { page: "season" }),
           icon: CalendarIcon,
           keywords: ["season", "phase", "reset", "launch"],
+        },
+        {
+          id: "texts",
+          label: t("steward.shell.page", { page: "texts" }),
+          to: "/texts",
+          note: t("steward.shell.note", { page: "texts" }),
+          icon: TranslateIcon,
+          keywords: ["texts", "translations", "messages", "language", "wording", "german"],
         },
         {
           id: "access",

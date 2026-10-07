@@ -1292,7 +1292,6 @@ export type TextArgs = {
   "steward.message-editor.run-command": Record<string, never>
   "steward.message-editor.send-in-discord": Record<string, never>
   "steward.message-editor.show-in-game": Record<string, never>
-  "steward.message-editor.shown-as": Record<string, never>
   "steward.message-editor.source": Record<string, never>
   "steward.message-editor.strikethrough": Record<string, never>
   "steward.message-editor.suggest-command": Record<string, never>
@@ -1907,7 +1906,6 @@ export type TextArgs = {
   "steward.service-page.send": Record<string, never>
   "steward.service-page.send-line": Record<string, never>
   "steward.service-page.settings": Record<string, never>
-  "steward.service-page.settings-and-texts": Record<string, never>
   "steward.service-page.the-jar": Record<string, never>
   "steward.service-page.uncheckable": Record<string, never>
   "steward.service-page.up-to-date": Record<string, never>
@@ -2052,6 +2050,14 @@ export type TextArgs = {
   "steward.shell.stuck": Record<string, never>
   "steward.shell.unknown": Record<string, never>
   "steward.shell.viewport-diagnostics": Record<string, never>
+  "steward.texts.all-services": Record<string, never>
+  "steward.texts.group": {
+    group: Arg["choice"]
+  }
+  "steward.texts.none": Record<string, never>
+  "steward.texts.search": Record<string, never>
+  "steward.texts.service": Record<string, never>
+  "steward.texts.shown-in": Record<string, never>
   "steward.updates.available": Record<string, never>
   "steward.updates.change": Record<string, never>
   "steward.updates.check-again": Record<string, never>

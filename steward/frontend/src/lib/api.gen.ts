@@ -388,39 +388,21 @@ export type PluginDescriptor = {
   editors: Record<string, string>
 }
 
-export type MessageBundleLocation = {
-  service: string
-  module: string
-  path: string
+export type MessageTexts = {
   writable: boolean
-}
-
-export type MessageBundle = {
-  service: string
-  module: string
-  path: string
-  writable: boolean
-  entries: MessageEntry[]
-  previews: Record<string, Record<string, MessagePreviewTarget>>
+  texts: MessageText[]
   languages: string[]
-  colours: Record<string, string>
+  colours: Record<string, Record<string, string>>
+  places: Record<string, MessageSurface>
 }
 
 export type MessageSaveResult = {
-  service: string
-  module: string
-  path: string
-  writable: boolean
-  entries: MessageEntry[]
-  previews: Record<string, Record<string, MessagePreviewTarget>>
-  languages: string[]
-  colours: Record<string, string>
+  texts: MessageTexts
   warnings: Warning[]
   reload: ReloadOutcome
 }
 
 export type MessageFallback = {
-  path: string
   bundle: string
   key: string
   language: string
@@ -714,24 +696,17 @@ export type ReloadOutcome = {
   message: MessageRef
 }
 
-export type MessageEntry = {
-  key: string
-  bundle: string
-  texts: Record<string, string[]>
-  overrides: Record<string, string[]>
-  inBundle: boolean
-  name?: string
-  description?: string
-  args: MessageArg[]
-  section: (string | null)[]
-  format?: string
-  shown: string[]
-  limit: number
+export type MessageText = {
+  entry: MessageEntry
+  path: string
+  services: string[]
+  previews: Record<string, MessagePreviewTarget>
 }
 
-export type MessagePreviewTarget = "GAME" | "DISCORD"
+export type MessageSurface = "GAME" | "DISCORD" | "STEWARD"
 
 export type Warning = {
+  bundle: string
   key: string
   language: string
   text: MessageRef
@@ -825,15 +800,22 @@ export type ConfigReference = {
 
 export type ReloadStatus = "APPLIED" | "RESTART_REQUIRED"
 
-export type MessageArg = {
-  name: string
-  kind?: string
-  type?: string
-  global: boolean
-  example?: string
-  action: boolean
-  exampleWords: Record<string, string>
+export type MessageEntry = {
+  key: string
+  bundle: string
+  texts: Record<string, string[]>
+  overrides: Record<string, string[]>
+  inBundle: boolean
+  name?: string
+  description?: string
+  args: MessageArg[]
+  section: (string | null)[]
+  format?: string
+  shown: string[]
+  limit: number
 }
+
+export type MessagePreviewTarget = "GAME" | "DISCORD"
 
 export type LineState = "UNCHANGED" | "PLANNED" | "STOPPED" | "INSTALLED" | "SAVED" | "STARTING" | "HEALTHY" | "FAILED"
 
@@ -860,5 +842,15 @@ export type ReferenceKind =
   | "COLOUR"
   | "DISCORD_CHANNEL"
   | "DISCORD_USER"
+
+export type MessageArg = {
+  name: string
+  kind?: string
+  type?: string
+  global: boolean
+  example?: string
+  action: boolean
+  exampleWords: Record<string, string>
+}
 
 export type ChangeState = "MOVING" | "UNSUPPORTED"

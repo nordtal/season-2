@@ -1,5 +1,7 @@
-import type { ConfigEntry, MessageEntry } from "@/lib/api"
+import type { ConfigEntry, MessageEntry, MessageText } from "@/lib/api"
 import { entryHaystack } from "@/lib/settings-search"
+import { groupOf, TEXT_GROUPS, type Places } from "@/lib/text-places"
+import { choice, t } from "@/lib/texts"
 import { sentenceOf } from "@/lib/words"
 import { colourRuns } from "@/components/steward/colour-control"
 import { pairedBlocks, pairedPaths, type PairedBlocks } from "@/components/steward/paired-blocks"
@@ -173,19 +175,34 @@ export function configLeafMatches(value: ConfigLeafValue, query: string): boolea
   return entries.some((entry) => entryHaystack(entry).includes(needle))
 }
 
-// Message bundles
+// Texts
 
-export function messageTree(entries: MessageEntry[]): TreeNode<MessageEntry>[] {
-  const builder = new Builder<MessageEntry>()
-  for (const entry of entries) {
+/** Where a text is on the Texts page, `<bundle>/<key>`: a key alone is not unique across bundles. */
+export function textId(entry: MessageEntry): string {
+  return `${entry.bundle}/${entry.key}`
+}
+
+/**
+ * The Texts page as a tree: a branch per group, then each text's topic, by its section names and its key's segments.
+ *
+ * A topic two bundles share is one branch, and each of their texts is a leaf of its own.
+ */
+export function textsTree(texts: MessageText[], places: Places): TreeNode<MessageText>[] {
+  const builder = new Builder<MessageText>()
+  const grouped = texts
+    .map((text) => ({ text, group: groupOf(text.entry, places) }))
+    .toSorted((a, b) => TEXT_GROUPS.indexOf(a.group) - TEXT_GROUPS.indexOf(b.group))
+  for (const { text, group } of grouped) {
+    const entry = text.entry
+    let parent = builder.branch(group, t("steward.texts.group", { group: choice(group) }), null).id
     const segments = entry.key.split(".")
-    let parent: string | null = null
     for (let at = 0; at < segments.length - 1; at++) {
-      const id = segments.slice(0, at + 1).join(".")
+      const id = `${group}:${segments.slice(0, at + 1).join(".")}`
       builder.branch(id, entry.section[at] ?? humanise(segments[at]), parent)
       parent = id
     }
-    builder.add(parent, { kind: "leaf", id: entry.key, ids: [entry.key], value: entry, wide: true })
+    const id = textId(entry)
+    builder.add(parent, { kind: "leaf", id, ids: [id], value: text, wide: true })
   }
   return builder.build()
 }

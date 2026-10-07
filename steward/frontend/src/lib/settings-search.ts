@@ -1,15 +1,8 @@
-import type {
-  ConfigDocument,
-  ConfigEntry,
-  ConfigLocation,
-  MessageBundle,
-  MessageBundleLocation,
-  MessageEntry,
-} from "@/lib/api"
+import type { ConfigDocument, ConfigEntry, ConfigLocation, MessageEntry, MessageText } from "@/lib/api"
 import { languagesOf, overrideOf, packagedOf, shownOf, type Language } from "@/lib/message-text"
 
 /**
- * Settings search, for one service's files and for the command palette across every file and message bundle.
+ * Settings search, for one service's files and for the command palette across every file and every text.
  *
  * Both paths go through these functions, so the rule that a secret is never searched lives in one place.
  */
@@ -50,15 +43,14 @@ export type ConfigSettingsHit = {
 }
 
 /**
- * One hit in a message bundle: the bundle, the language the match was found in, and the key.
+ * One hit among the texts: the text, and the language the match was found in.
  *
  * A match on the key or in both bodies yields one hit per language, as each language is its own place.
  */
 export type MessageSettingsHit = {
   kind: "message"
-  location: MessageBundleLocation
+  text: MessageText
   language: Language
-  entry: MessageEntry
 }
 
 /** One hit from either supplier, as `config-search.tsx` and `command-palette.tsx` read it. */
@@ -98,23 +90,15 @@ export function matchesMessageQuery(entry: MessageEntry, language: Language, que
   return messageEntryHaystack(entry, language).includes(needle)
 }
 
-/** Every hit across a set of bundles, given each bundle's fetched document, like {@link searchAcross}. */
-export function searchMessagesAcross(
-  bundles: Array<{ location: MessageBundleLocation; bundle: MessageBundle | undefined }>,
-  query: string,
-): MessageSettingsHit[] {
+/** Every hit among the texts, like {@link searchAcross}. */
+export function searchMessagesAcross(texts: MessageText[], query: string): MessageSettingsHit[] {
   if (!query.trim()) return []
   const hits: MessageSettingsHit[] = []
-  for (const { location, bundle } of bundles) {
-    if (!bundle) continue
-    for (const entry of bundle.entries) {
-      // Only a language the key has a text in, so a match on the key alone yields one row per language it has.
-      for (const language of languagesOf([entry])) {
-        if (shownOf(entry, language).length === 0) continue
-        if (matchesMessageQuery(entry, language, query)) {
-          hits.push({ kind: "message", location, language, entry })
-        }
-      }
+  for (const text of texts) {
+    // Only a language the key has a text in, so a match on the key alone yields one row per language it has.
+    for (const language of languagesOf([text.entry])) {
+      if (shownOf(text.entry, language).length === 0) continue
+      if (matchesMessageQuery(text.entry, language, query)) hits.push({ kind: "message", text, language })
     }
   }
   return hits
@@ -123,10 +107,10 @@ export function searchMessagesAcross(
 /** Config hits then message hits, as one list, for the command palette's global search. */
 export function searchSettingsAndMessages(
   configs: Array<{ location: ConfigLocation; document: ConfigDocument | undefined }>,
-  messages: Array<{ location: MessageBundleLocation; bundle: MessageBundle | undefined }>,
+  texts: MessageText[],
   query: string,
 ): SettingsHit[] {
-  return [...searchAcross(configs, query), ...searchMessagesAcross(messages, query)]
+  return [...searchAcross(configs, query), ...searchMessagesAcross(texts, query)]
 }
 
 /**
@@ -175,7 +159,7 @@ export function rankValue(value: string, query: string): number {
 
 /** The haystack a hit is ranked by, the same text each caller hands the palette. */
 export function hitValue(hit: SettingsHit): string {
-  return hit.kind === "config" ? entryHaystack(hit.entry) : messageEntryHaystack(hit.entry, hit.language)
+  return hit.kind === "config" ? entryHaystack(hit.entry) : messageEntryHaystack(hit.text.entry, hit.language)
 }
 
 /** Best first, ties in their original order, since `sort` is stable. */
@@ -214,36 +198,33 @@ export function takePendingJump(service: string): PendingJump | undefined {
   return jump
 }
 
-/**
- * Where a bundle hit hands its destination to the messages tool: bundle, language tab and key.
- *
- * Kept apart from {@link PendingJump} so a bundle hit can never be taken as a config jump.
- */
-export type PendingMessageJump = { path: string; language: Language; key: string }
+/** Where a text hit hands its destination to the Texts page: the text and the language tab. */
+export type PendingTextJump = { id: string; language: Language }
 
-const pendingMessageJumps = new Map<string, PendingMessageJump>()
+/** One slot, since there is one Texts page; kept apart from {@link PendingJump} so neither is taken as the other. */
+let pendingTextJump: PendingTextJump | undefined
 
-/** Subscribers, since the Settings tab may already be open when the palette picks a hit on the same page. */
-const messageJumpSubscribers = new Set<() => void>()
+/** Subscribers, since the Texts page may already be open when the palette picks a hit on it. */
+const textJumpSubscribers = new Set<() => void>()
 
-export function setPendingMessageJump(service: string, jump: PendingMessageJump): void {
-  pendingMessageJumps.set(service, jump)
-  messageJumpSubscribers.forEach((subscriber) => subscriber())
+export function setPendingTextJump(jump: PendingTextJump): void {
+  pendingTextJump = jump
+  textJumpSubscribers.forEach((subscriber) => subscriber())
 }
 
 /** Reads and clears in one step, consumed exactly once like {@link takePendingJump}. */
-export function takePendingMessageJump(service: string): PendingMessageJump | undefined {
-  const jump = pendingMessageJumps.get(service)
-  pendingMessageJumps.delete(service)
+export function takePendingTextJump(): PendingTextJump | undefined {
+  const jump = pendingTextJump
+  pendingTextJump = undefined
   return jump
 }
 
 /**
- * Notifies `listener` every time any service's message jump is set; the caller filters by service.
+ * Notifies `listener` every time a text jump is set.
  *
  * @returns the unsubscribe function, for a `useEffect` cleanup
  */
-export function onPendingMessageJump(listener: () => void): () => void {
-  messageJumpSubscribers.add(listener)
-  return () => messageJumpSubscribers.delete(listener)
+export function onPendingTextJump(listener: () => void): () => void {
+  textJumpSubscribers.add(listener)
+  return () => textJumpSubscribers.delete(listener)
 }

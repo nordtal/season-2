@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react"
 import { shapedAs } from "@/lib/api"
 
 /**
- * Unsaved edits in the Settings & Translations tab, one record per file, and which tree branches are open.
+ * Unsaved edits of the settings and the texts, one record per file, and which tree branches are open.
  *
  * Module level, so a draft survives a tab switch but not a reload; a non-empty record means a draft.
  */

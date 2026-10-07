@@ -16,9 +16,6 @@ public interface ServicePage {
     @Name("Settings")
     MessageRef settings();
 
-    @Name("Settings and translations")
-    MessageRef settingsAndTexts();
-
     @Name("Plugins")
     MessageRef plugins();
 

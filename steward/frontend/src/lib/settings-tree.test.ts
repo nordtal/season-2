@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import type { ConfigEntry, MessageEntry } from "@/lib/api"
+import type { ConfigEntry, MessageEntry, MessageSurface, MessageText } from "@/lib/api"
 import { humanFileName } from "@/components/steward/config-controls"
 import {
   ancestorsOf,
@@ -9,7 +9,7 @@ import {
   humanise,
   leafCount,
   messageName,
-  messageTree,
+  textsTree,
   type TreeNode,
 } from "@/lib/settings-tree"
 
@@ -43,6 +43,17 @@ function message(over: Partial<MessageEntry> & { key: string }): MessageEntry {
     limit: 0,
     ...over,
   }
+}
+
+const PLACES: Record<string, MessageSurface> = {
+  CHAT: "GAME",
+  GUI: "GAME",
+  DISCORD_MESSAGE: "DISCORD",
+  STEWARD: "STEWARD",
+}
+
+function text(over: Partial<MessageEntry> & { key: string }): MessageText {
+  return { entry: message({ shown: ["CHAT"], ...over }), path: "smp/smp", services: ["smp"], previews: {} }
 }
 
 /** The tree as text, one line per node, so a whole shape fits in one expectation. */
@@ -122,20 +133,63 @@ describe("a config file as a tree", () => {
   })
 })
 
-describe("a message bundle as a tree", () => {
-  const entries = [
-    message({ key: "smp.grave.decay", section: ["Smp", "Graves"] }),
-    message({ key: "smp.grave.limit", section: ["Smp", "Graves"] }),
-    message({ key: "smp.welcome", section: ["Smp"] }),
-  ]
+describe("the texts as a tree", () => {
+  it("lists each text under where its first place is, then under its topic, by the section names", () => {
+    const tree = textsTree(
+      [
+        text({ key: "smp.grave.decay", section: ["Smp", "Graves"] }),
+        text({ key: "dm.granted", bundle: "access", section: ["Direct message"], shown: ["DISCORD_MESSAGE", "CHAT"] }),
+        text({ key: "smp.grave.limit", section: ["Smp", "Graves"], shown: ["GUI"] }),
+        text({ key: "page.title", bundle: "steward", section: ["Page"], shown: ["STEWARD"] }),
+      ],
+      PLACES,
+    )
+    expect(shape(tree)).toEqual([
+      "[In game > Smp > Graves]",
+      "  smp/smp.grave.decay",
+      "  smp/smp.grave.limit",
+      "[Discord > Direct message]",
+      "  access/dm.granted",
+      "[Steward & Admin > Page]",
+      "  steward/page.title",
+    ])
+  })
 
-  it("takes the section names from the spec, and drops the prefix every key shares", () => {
-    expect(shape(messageTree(entries))).toEqual(["[Graves]", "  smp.grave.decay", "  smp.grave.limit", "smp.welcome"])
+  it("keeps the values apart as building blocks, wherever they are shown", () => {
+    const tree = textsTree(
+      [
+        text({ key: "values.yes", bundle: "values", section: ["Values"] }),
+        text({ key: "welcome", shown: ["DISCORD_MESSAGE"] }),
+      ],
+      PLACES,
+    )
+    expect(shape(tree)).toEqual(["[Discord]", "  smp/welcome", "[Building blocks > Values]", "  values/values.yes"])
+  })
+
+  it("lists two bundles' texts of one key apart, under the topic they share", () => {
+    const tree = textsTree(
+      [
+        text({ key: "command.unknown", bundle: "proxy", section: ["Command"] }),
+        text({ key: "command.unknown", bundle: "paper-common", section: ["Command"] }),
+        text({ key: "welcome", shown: ["DISCORD_MESSAGE"] }),
+      ],
+      PLACES,
+    )
+    expect(shape(tree)).toEqual([
+      "[In game > Command]",
+      "  proxy/command.unknown",
+      "  paper-common/command.unknown",
+      "[Discord]",
+      "  smp/welcome",
+    ])
   })
 
   it("falls back to the key segment when the spec names no section", () => {
-    const tree = messageTree([message({ key: "dm.granted", section: [null] }), message({ key: "other" })])
-    expect(shape(tree)).toEqual(["[Dm]", "  dm.granted", "other"])
+    const tree = textsTree(
+      [text({ key: "dm.granted", section: [null] }), text({ key: "other", shown: ["STEWARD"] })],
+      PLACES,
+    )
+    expect(shape(tree)).toEqual(["[In game > Dm]", "  smp/dm.granted", "[Steward & Admin]", "  smp/other"])
   })
 
   it("shows a message by its name, or by its last segment made readable", () => {
@@ -145,24 +199,22 @@ describe("a message bundle as a tree", () => {
 })
 
 describe("walking a tree", () => {
-  const tree = messageTree([
-    message({ key: "a.b.one" }),
-    message({ key: "a.b.two" }),
-    message({ key: "a.c.three" }),
-    message({ key: "d" }),
-  ])
+  const tree = textsTree(
+    [text({ key: "a.b.one" }), text({ key: "a.b.two" }), text({ key: "a.c.three" }), text({ key: "d" })],
+    PLACES,
+  )
 
   it("counts leaves", () => {
     expect(leafCount(tree)).toBe(4)
   })
 
   it("names the branches to open for a key, outermost first", () => {
-    expect(ancestorsOf(tree, "a.b.two")).toEqual(["a", "a.b"])
-    expect(ancestorsOf(tree, "d")).toEqual([])
+    expect(ancestorsOf(tree, "smp/a.b.two")).toEqual(["GAME:a", "GAME:a.b"])
+    expect(ancestorsOf(tree, "smp/d")).toEqual([])
     expect(ancestorsOf(tree, "missing")).toBeNull()
   })
 
   it("keeps only the branches that still hold a match", () => {
-    expect(shape(filterTree(tree, (leaf) => leaf.id.endsWith("three")))).toEqual(["[A]", "  [C]", "    a.c.three"])
+    expect(shape(filterTree(tree, (leaf) => leaf.id.endsWith("three")))).toEqual(["[A]", "  [C]", "    smp/a.c.three"])
   })
 })

@@ -210,8 +210,8 @@ export function isGlyphInfoList(value: unknown): value is GlyphInfo[] {
   )
 }
 
-/** What a PUT to `/api/messages/<path>` sends: both languages of a key; `null` resets one. */
+/** What a PUT to `/api/messages` sends: every language of a key of any bundle; `null` resets one. */
 export type MessageChanges = {
-  /** Per key and language, every variant in order, or `null` for the jar's texts back. */
-  changes: Record<string, Record<string, string[] | null>>
+  /** Per bundle, key and language, every variant in order, or `null` for the jar's texts back. */
+  changes: Record<string, Record<string, Record<string, string[] | null>>>
 }

@@ -138,9 +138,6 @@ public interface MessageEditorTexts {
     @Name("Send in Discord")
     MessageRef sendInDiscord();
 
-    @Name("Shown as")
-    MessageRef shownAs();
-
     @Name("Place")
     MessageRef place(@Arg("place") Display place);
 }

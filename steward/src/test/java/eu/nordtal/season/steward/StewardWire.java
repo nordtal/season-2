@@ -13,6 +13,7 @@ import eu.nordtal.season.database.phase.PhaseChange;
 import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.ImageResult;
+import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.messages.text.MessageCheck;
 import eu.nordtal.season.settings.Refers;
 import eu.nordtal.season.spec.schema.SchemaNode;
@@ -95,8 +96,7 @@ public final class StewardWire {
             SettingsDocument.Location.class,
             SettingsDocument.Document.class,
             AgentWire.Descriptor.class,
-            MessagesApi.BundleLocation.class,
-            MessagesApi.Bundle.class,
+            MessagesApi.Texts.class,
             MessagesApi.Saved.class,
             MessagesApi.Fallback.class,
             MessagesApi.Syntax.class,
@@ -145,12 +145,13 @@ public final class StewardWire {
             Map.entry(Refers.To.class, "ReferenceKind"),
             Map.entry(Reloading.class, "ReloadOutcome"),
             Map.entry(Reloading.Status.class, "ReloadStatus"),
-            Map.entry(MessagesApi.BundleLocation.class, "MessageBundleLocation"),
-            Map.entry(MessagesApi.Bundle.class, "MessageBundle"),
+            Map.entry(MessagesApi.Texts.class, "MessageTexts"),
+            Map.entry(MessagesApi.Text.class, "MessageText"),
             Map.entry(MessagesApi.Saved.class, "MessageSaveResult"),
             Map.entry(MessagesApi.Fallback.class, "MessageFallback"),
             Map.entry(MessagesApi.FallbackReason.class, "MessageFallbackReason"),
             Map.entry(MessagesApi.PreviewTarget.class, "MessagePreviewTarget"),
+            Map.entry(Display.Surface.class, "MessageSurface"),
             Map.entry(MessagesApi.Syntax.class, "MessageSyntax"),
             Map.entry(MessageCheck.Problem.class, "MessageProblem"));
 

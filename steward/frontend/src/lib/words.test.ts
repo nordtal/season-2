@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { fileTitle, serviceTitle, translationsTitle } from "@/lib/words"
+import { fileTitle, serviceTitle } from "@/lib/words"
 
 describe("file names", () => {
   it("are Capital Case and never say a segment twice", () => {
@@ -11,10 +11,10 @@ describe("file names", () => {
   })
 })
 
-describe("translations", () => {
-  it("are named after the service in the name it goes by", () => {
-    expect(translationsTitle({ service: "smp", module: "smp" })).toBe("SMP Translations")
-    expect(translationsTitle({ service: "discord-bot", module: "" })).toBe("Discord Bot Translations")
+describe("service names", () => {
+  it("are the name each service goes by", () => {
+    expect(serviceTitle("smp")).toBe("SMP")
+    expect(serviceTitle("discord-bot")).toBe("Discord Bot")
     expect(serviceTitle("hunger-games")).toBe("Hunger Games")
   })
 })

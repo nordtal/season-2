@@ -115,7 +115,6 @@ export function backend(
   }))
   return vi.fn<(url: string) => Promise<Response>>(async (url: string) => {
     if (url === "/api/setting-groups") return json(listing)
-    if (url === "/api/messages") return json([])
     if (url === "/api/descriptors") return json(descriptors)
     if (url === "/api/discord/channels") return json(GUILD_UNAVAILABLE)
     const found = Object.entries(documents).find(([path]) => url === `/api/setting-groups/${path}`)

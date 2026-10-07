@@ -90,6 +90,7 @@ public interface Shell {
         BACKUPS,
         ALERTS,
         SEASON,
+        TEXTS,
         ANNOUNCEMENTS,
         ACCESS,
         PAYMENTS,

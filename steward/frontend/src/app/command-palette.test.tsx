@@ -3,37 +3,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { CommandPalette } from "@/app/command-palette"
 import { GERMAN_BACKUP_SYNONYM } from "@/app/run-search-terms"
-import {
-  useConfigDocuments,
-  useConfigs,
-  useMessageBundles,
-  useMessageDocuments,
-  useRuns,
-  useTopology,
-} from "@/lib/queries"
+import { useConfigDocuments, useConfigs, useMessageTexts, useRuns, useTopology } from "@/lib/queries"
 import { NETWORK_MAP, queryResult } from "@/lib/query-fixtures"
-import { takePendingJump, takePendingMessageJump } from "@/lib/settings-search"
-import type {
-  ConfigEntry,
-  ConfigLocation,
-  MessageBundle,
-  MessageBundleLocation,
-  MessageEntry,
-  ConfigDocument,
-  Run,
-} from "@/lib/api"
+import { takePendingJump, takePendingTextJump } from "@/lib/settings-search"
+import type { ConfigEntry, ConfigLocation, MessageEntry, MessageTexts, ConfigDocument, Run } from "@/lib/api"
 
 // The palette navigates on select; the tests below assert on this spy.
 const navigateSpy = vi.fn<(options: Record<string, unknown>) => void>()
 vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigateSpy }))
 
-/** Runs, configs and bundles are mocked rather than fetched through a real client. */
+/** Runs, configs and texts are mocked rather than fetched through a real client. */
 vi.mock("@/lib/queries", () => ({
   useRuns: vi.fn<typeof useRuns>(),
   useConfigs: vi.fn<typeof useConfigs>(),
   useConfigDocuments: vi.fn<typeof useConfigDocuments>(),
-  useMessageBundles: vi.fn<typeof useMessageBundles>(),
-  useMessageDocuments: vi.fn<typeof useMessageDocuments>(),
+  useMessageTexts: vi.fn<typeof useMessageTexts>(),
   useTopology: vi.fn<typeof useTopology>(),
 }))
 
@@ -42,8 +26,7 @@ beforeEach(() => {
   vi.mocked(useRuns).mockReturnValue(queryResult([]))
   vi.mocked(useConfigs).mockReturnValue(queryResult([]))
   vi.mocked(useConfigDocuments).mockReturnValue([])
-  vi.mocked(useMessageBundles).mockReturnValue(queryResult([]))
-  vi.mocked(useMessageDocuments).mockReturnValue([])
+  oneBundle([])
   vi.mocked(useTopology).mockReturnValue(queryResult(NETWORK_MAP))
 })
 
@@ -54,8 +37,7 @@ afterEach(() => {
   vi.mocked(useRuns).mockReset()
   vi.mocked(useConfigs).mockReset()
   vi.mocked(useConfigDocuments).mockReset()
-  vi.mocked(useMessageBundles).mockReset()
-  vi.mocked(useMessageDocuments).mockReset()
+  vi.mocked(useMessageTexts).mockReset()
   vi.mocked(useTopology).mockReset()
 })
 
@@ -127,10 +109,6 @@ function oneFile(loc: ConfigLocation, entries: ConfigEntry[]) {
   vi.mocked(useConfigDocuments).mockReturnValue([queryResult(document)])
 }
 
-function bundleLocation(over: Partial<MessageBundleLocation> & { path: string }): MessageBundleLocation {
-  return { service: "smp", module: "smp", writable: true, ...over }
-}
-
 function messageEntry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
   return {
     bundle: "smp",
@@ -145,11 +123,16 @@ function messageEntry(over: Partial<MessageEntry> & { key: string }): MessageEnt
   }
 }
 
-/** Wires `useMessageBundles` and `useMessageDocuments` for one bundle, paired by index like `oneFile`. */
-function oneBundle(loc: MessageBundleLocation, entries: MessageEntry[]) {
-  vi.mocked(useMessageBundles).mockReturnValue(queryResult([loc]))
-  const document: MessageBundle = { ...loc, entries, previews: {}, languages: [], colours: {} }
-  vi.mocked(useMessageDocuments).mockReturnValue([queryResult(document)])
+/** Wires `useMessageTexts` for the texts of one bundle. */
+function oneBundle(entries: MessageEntry[]) {
+  const texts: MessageTexts = {
+    writable: true,
+    texts: entries.map((entry) => ({ entry, path: "smp/smp", services: ["smp"], previews: {} })),
+    languages: [],
+    colours: {},
+    places: {},
+  }
+  vi.mocked(useMessageTexts).mockReturnValue(queryResult(texts))
 }
 
 function accessFileScalar(path: string, key: string, label: string, explanation: string, value: string): ConfigEntry {
@@ -446,22 +429,20 @@ describe("CommandPalette - finding a setting", () => {
 })
 
 /** A text that lives only in a message bundle is still found. */
-describe("CommandPalette - finding a message bundle key", () => {
+describe("CommandPalette - finding a text", () => {
   it("finds a bundle key that no config file mentions", async () => {
-    const loc = bundleLocation({ path: "smp/smp" })
-    oneBundle(loc, [messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })])
+    oneBundle([messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })])
 
     await search("decayed")
 
-    /** The row is named as the Settings tab names the text, with the matched text on the right. */
+    /** The row is named as the Texts page names the text, with the matched text on the right. */
     expect(screen.queryByText("Announce")).not.toBeNull()
     expect(screen.queryByText(/Your grave has decayed\./)).not.toBeNull()
   })
 
   it("finds a key by its German translation, not only its English default", async () => {
     /** A synthetic marker rather than German prose, since `language.test.ts` scans fixtures too. */
-    const loc = bundleLocation({ path: "smp/smp" })
-    oneBundle(loc, [
+    oneBundle([
       messageEntry({
         texts: { en: ["Your grave has decayed."], de: ["packaged-de-marker"] },
         key: "grave.decay.announce",
@@ -474,8 +455,7 @@ describe("CommandPalette - finding a message bundle key", () => {
   })
 
   it("finds a key by the key itself", async () => {
-    const loc = bundleLocation({ path: "smp/smp" })
-    oneBundle(loc, [messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })])
+    oneBundle([messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })])
 
     await search("grave.decay")
 
@@ -485,8 +465,7 @@ describe("CommandPalette - finding a message bundle key", () => {
   })
 
   it("shows nothing before anything is typed, same as a config hit", async () => {
-    const loc = bundleLocation({ path: "smp/smp" })
-    oneBundle(loc, [messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })])
+    oneBundle([messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })])
 
     render(<CommandPalette />)
     ctrlK(document.body)
@@ -495,28 +474,19 @@ describe("CommandPalette - finding a message bundle key", () => {
     expect(screen.queryByText("grave.decay.announce")).toBeNull()
   })
 
-  it("selecting a bundle hit navigates to the service page and hands the messages tool a jump, not the configuration form", async () => {
-    const loc = bundleLocation({ path: "smp/smp", service: "smp" })
-    oneBundle(loc, [messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })])
+  it("selecting a text hit opens the Texts page and hands it a jump, not the configuration form", async () => {
+    oneBundle([messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })])
 
     await search("decayed")
     fireEvent.click(await screen.findByText("Announce"))
 
-    expect(navigateSpy).toHaveBeenCalledWith({
-      to: "/services/$name",
-      params: { name: "smp" },
-      search: { tab: "settings", file: "bundle:smp/smp" },
-    })
-    expect(takePendingMessageJump("smp")).toEqual({
-      path: "smp/smp",
-      language: "en",
-      key: "grave.decay.announce",
-    })
-    // And never the config map: a bundle hit must not be mistaken for a config one downstream.
+    expect(navigateSpy).toHaveBeenCalledWith({ to: "/texts", search: {} })
+    expect(takePendingTextJump()).toEqual({ id: "smp/grave.decay.announce", language: "en" })
+    // And never the config map: a text hit must not be mistaken for a config one downstream.
     expect(takePendingJump("smp")).toBeUndefined()
   })
 
-  it("finds a config hit and a bundle hit together, in one list", async () => {
+  it("finds a config hit and a text hit together, in one list", async () => {
     const configLoc: ConfigLocation = {
       service: "smp",
       name: "steward",
@@ -543,9 +513,7 @@ describe("CommandPalette - finding a message bundle key", () => {
     vi.mocked(useConfigDocuments).mockReturnValue([
       queryResult({ ...configLoc, revision: "r1", restartRequired: false, entries: [gravEntry] }),
     ])
-    oneBundle(bundleLocation({ path: "smp/smp", service: "smp" }), [
-      messageEntry({ texts: { en: ["Grave decay announcement"] }, key: "grave.decay.announce" }),
-    ])
+    oneBundle([messageEntry({ texts: { en: ["Grave decay announcement"] }, key: "grave.decay.announce" })])
 
     await search("grave decay")
 

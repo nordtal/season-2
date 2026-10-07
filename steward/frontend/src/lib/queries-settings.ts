@@ -8,10 +8,9 @@ import {
   type ConfigChanges,
   type ConfigDocument,
   type ConfigLocation,
-  type MessageBundle,
-  type MessageBundleLocation,
   type MessageChanges,
   type MessageSaveResult,
+  type MessageTexts,
   type MessageExamples,
   type MessageSyntax,
   type MessageFallback,
@@ -22,7 +21,7 @@ import {
 import { live } from "@/lib/live"
 import { SECOND, keys } from "@/lib/query-keys"
 
-/** The settings groups and message bundles: reading them, searching them and saving them. */
+/** The settings groups and the texts: reading them, searching them and saving them. */
 
 export function useConfigs(enabled = true) {
   return useQuery({
@@ -85,37 +84,26 @@ export function useDescriptors(enabled = true) {
   })
 }
 
-/** Every message bundle steward found, one per module's `messages/` directory; pages filter it by service. */
-export function useMessageBundles(enabled = true) {
+/** Every text of every bundle the network's jars ship, each once, with the services that show it. */
+export function useMessageTexts(enabled = true) {
   return useQuery({
-    queryKey: keys.messageBundles,
-    queryFn: () => api<MessageBundleLocation[]>("/api/messages"),
-    staleTime: 5 * 60 * SECOND,
+    queryKey: keys.messageTexts,
+    queryFn: () => api<MessageTexts>("/api/messages"),
     enabled,
   })
 }
 
-/** One bundle's packaged text and overrides, in both languages at once. */
-export function useMessageBundle(path: string, enabled = true) {
-  return useQuery({
-    queryKey: keys.messageBundle(path),
-    queryFn: () => api<MessageBundle>(`/api/messages/${encodePath(path)}`),
-    enabled: enabled && Boolean(path),
-  })
-}
-
 /**
- * Saves overrides for one language of one bundle; the second of two edits wins.
+ * Saves overrides of any texts of any bundles at once; the second of two edits wins.
  *
- * The answer is the bundle as it now reads, with placeholder warnings and `reload`, and replaces the cache entry.
+ * The answer is every text as it now reads, with placeholder warnings and `reload`, and replaces the cache entry.
  */
-export function useSaveMessageBundle(path: string) {
+export function useSaveMessageTexts() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (body: MessageChanges) =>
-      api<MessageSaveResult>(`/api/messages/${encodePath(path)}`, { method: "PUT", body }),
-    onSuccess: (document) => {
-      client.setQueryData(keys.messageBundle(path), document)
+    mutationFn: (body: MessageChanges) => api<MessageSaveResult>("/api/messages", { method: "PUT", body }),
+    onSuccess: (saved) => {
+      client.setQueryData(keys.messageTexts, saved.texts)
       /** A save over a fallen-back override takes it over. */
       void client.invalidateQueries({ queryKey: keys.messageFallbacks })
     },
@@ -187,20 +175,6 @@ export function useConfigDocuments(files: string[], enabled: boolean) {
     queries: files.map((file) => ({
       queryKey: keys.config(file),
       queryFn: () => api<ConfigDocument>(`/api/setting-groups/${encodePath(file)}`),
-      staleTime: 5 * 60 * SECOND,
-      enabled,
-    })),
-  })
-}
-
-/**
- * Every one of the given message bundles, fetched only while `enabled`, with keys shared with {@link useMessageBundle}.
- */
-export function useMessageDocuments(paths: string[], enabled: boolean) {
-  return useQueries({
-    queries: paths.map((path) => ({
-      queryKey: keys.messageBundle(path),
-      queryFn: () => api<MessageBundle>(`/api/messages/${encodePath(path)}`),
       staleTime: 5 * 60 * SECOND,
       enabled,
     })),

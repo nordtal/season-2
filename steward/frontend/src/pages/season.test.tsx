@@ -48,7 +48,6 @@ function backend(over: { phase?: () => { status: number; body: unknown } } = {})
     }
     if (url === "/api/season") return json(200, SEASON)
     if (url === "/api/setting-groups") return json(200, GROUPS)
-    if (url === "/api/messages") return json(200, [])
     throw new Error(`the page asked for ${url}, which this test did not expect`)
   })
 }

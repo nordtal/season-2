@@ -3,9 +3,9 @@ import type { CSSProperties, ReactNode } from "react"
 import { BellIcon, CaretDownIcon, HashIcon } from "@phosphor-icons/react"
 import { cn } from "cn"
 
-import type { GlyphInfo } from "@/lib/api"
+import type { GlyphInfo, MessageSurface } from "@/lib/api"
 import { colourOf, gradientAt, plainText, shadowOf } from "@/lib/rich-text"
-import type { Format, Run, Style } from "@/lib/rich-text"
+import type { Run, Style } from "@/lib/rich-text"
 import type { Fill } from "@/components/steward/message-editor/examples"
 
 /**
@@ -277,9 +277,10 @@ const SKY = "linear-gradient(180deg, #6b8cc4 0%, #9db8e3 55%, #5f8a3a 55.5%, #4b
 
 type PreviewProps = {
   runs: Run[]
-  format: Format
-  /** The place drawn, one of the key's; `undefined` for a key no schema describes. */
+  /** The place drawn, one of the key's; `undefined` draws it plain, as no place in particular shows it. */
   shown: string | undefined
+  /** Where that place is, as `/api/messages` names it. */
+  surface: MessageSurface | undefined
   fill: Fill
   glyphs: GlyphInfo[]
   tones: Tones
@@ -287,12 +288,12 @@ type PreviewProps = {
 }
 
 /** The text where the game, Discord, Steward or a notification shows it, with its example values filled in. */
-export function Preview({ runs, format, shown, fill, glyphs, tones, className }: PreviewProps) {
-  if (shown === "STEWARD" || shown === "PUSH") {
+export function Preview({ runs, shown, surface, fill, glyphs, tones, className }: PreviewProps) {
+  if (shown === undefined || (surface !== "GAME" && surface !== "DISCORD")) {
     return <PagePreview runs={runs} fill={fill} push={shown === "PUSH"} className={className} />
   }
-  if (shown?.startsWith("DISCORD_") || (shown === undefined && format === "DISCORD_MARKDOWN")) {
-    return <DiscordPreview runs={runs} shown={shown ?? "DISCORD_MESSAGE"} fill={fill} className={className} />
+  if (surface === "DISCORD") {
+    return <DiscordPreview runs={runs} shown={shown} fill={fill} className={className} />
   }
   const text = (base = "#FFFFFF", shadow = true, scale = SCALE) => (
     <MinecraftText runs={runs} fill={fill} glyphs={glyphs} tones={tones} base={base} shadow={shadow} scale={scale} />

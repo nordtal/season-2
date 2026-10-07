@@ -11,7 +11,6 @@ import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.MessageArg;
-import eu.nordtal.season.internalapi.agent.MessageBundle;
 import eu.nordtal.season.internalapi.agent.MessageEntry;
 import eu.nordtal.season.messages.MessageOverride;
 import eu.nordtal.season.messages.MessageRef;
@@ -31,10 +30,11 @@ import io.javalin.http.Context;
 import java.time.DateTimeException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
@@ -72,36 +72,31 @@ public final class MessagesApi {
         this.settings = settings;
     }
 
-    /** {@code GET /api/messages}: every bundle found, without opening a single jar. */
+    /** {@code GET /api/messages}: every text of every bundle once, packaged text and override side by side. */
     public void list(final Context ctx) {
-        ctx.json(agent.bundles().stream().map(this::describe).toList());
-    }
-
-    /** {@code GET /api/messages/<bundle>}: one bundle, packaged text and override side by side. */
-    public void one(final Context ctx) {
-        final AgentWire.BundleRef location = locate(ctx);
-        ctx.json(document(location, read(location)));
+        ctx.json(texts(layered(union())));
     }
 
     /**
-     * {@code PUT /api/messages/<bundle>}: writes each language's override, its variants in order, as rows at once.
-     * A {@code null} resets a key's language; what the one validator warns about is answered, what it refuses is a
-     * 400 that writes nothing.
+     * {@code PUT /api/messages}: writes each language's override, its variants in order, as rows at once.
+     * A {@code null} resets it; a warning of the validator is answered, a refusal is a 400 that writes nothing.
+     *
+     * @return the bundles a row was written for, in the order the body names them
      */
-    public void save(final Context ctx, final Actor actor) {
+    public List<String> save(final Context ctx, final Actor actor) {
         final MessageOverrideStore store = overrides;
-        final AgentWire.BundleRef location = locate(ctx);
         if (store == null) {
             throw new RequestRefused(403, ANSWER.noDatabase(StewardTexts.Kept.OVERRIDES));
         }
         final List<Change> changes = changesOf(bodyOf(ctx.body()));
-        final Map<String, MessageEntry> entries = agent.bundle(location.service(), location.module()).entries().stream()
-                .collect(Collectors.toMap(MessageEntry::key, entry -> entry, (first, second) -> first));
+        final List<Found> union = union();
+        final Map<String, MessageEntry> entries = new HashMap<>();
+        union.forEach(found -> entries.put(idOf(found.entry()), found.entry()));
         final List<Warning> warnings = new ArrayList<>();
         for (final Change change : changes) {
-            final MessageEntry entry = entries.get(change.key());
+            final MessageEntry entry = entries.get(change.bundle() + "/" + change.key());
             if (entry == null) {
-                throw new RequestRefused(400, ANSWER.noMessage(identityOf(location), change.key()));
+                throw new RequestRefused(400, ANSWER.noMessage(change.bundle(), change.key()));
             }
             for (final String text : change.texts()) {
                 for (final MessageCheck.Problem problem : OverrideCheck.problems(entry, text)) {
@@ -109,12 +104,14 @@ public final class MessagesApi {
                         // The editor shows every problem as the text is typed, so the refusal only names the text.
                         throw new RequestRefused(400, ANSWER.overrideRefused(entry.key(), change.language()));
                     }
-                    warnings.add(new Warning(entry.key(), change.language(), problem.text()));
+                    warnings.add(new Warning(entry.bundle(), entry.key(), change.language(), problem.text()));
                 }
             }
         }
+        final Set<String> written = new LinkedHashSet<>();
         for (final Change change : changes) {
-            final MessageEntry entry = java.util.Objects.requireNonNull(entries.get(change.key()), change.key());
+            final MessageEntry entry =
+                    Objects.requireNonNull(entries.get(change.bundle() + "/" + change.key()), change.key());
             store.change(
                     entry.bundle(),
                     change.key(),
@@ -122,19 +119,13 @@ public final class MessagesApi {
                     change.texts(),
                     entry.packaged(change.language()),
                     actor);
+            written.add(entry.bundle());
         }
-        final Bundle bundle = document(location, read(location));
         ctx.json(new Saved(
-                bundle.service(),
-                bundle.module(),
-                bundle.path(),
-                bundle.writable(),
-                bundle.entries(),
-                bundle.previews(),
-                bundle.languages(),
-                bundle.colours(),
+                texts(layered(union)),
                 warnings,
                 Reloading.applied(StewardTexts.TEXTS.steward().said().message())));
+        return List.copyOf(written);
     }
 
     /**
@@ -151,9 +142,9 @@ public final class MessagesApi {
     }
 
     /**
-     * {@code POST /api/message-preview}: a text an admin is trying, as the preview of the place {@code shown} names.
-     * The body is {@code {bundle, key, language, text, shown, values}}, the values the editor's examples. What the
-     * validator refuses is refused here too, and so is a place no preview reaches.
+     * {@code POST /api/message-preview}: a text an admin is trying, as the place {@code shown} shows it.
+     * It is filled with {@code values}, in the palette of {@code service} or else the network's. What the validator
+     * refuses is refused here too, and so is a place no preview reaches.
      */
     public MessagePreview preview(final Context ctx) {
         final JsonObject body = bodyOf(ctx.body());
@@ -174,12 +165,13 @@ public final class MessagesApi {
                 .findFirst()
                 .orElseThrow(() -> new RequestRefused(400, ANSWER.noPreview(key)));
         final JsonElement values = body.get("values");
+        final JsonElement service = body.get("service");
         return new MessagePreview(
                 exampleOf(entry, values != null && values.isJsonObject() ? values.getAsJsonObject() : new JsonObject()),
                 language,
                 text,
                 shown,
-                coloursOf(location.service()));
+                coloursOf(service != null && service.isJsonPrimitive() ? service.getAsString() : SettingStore.NETWORK));
     }
 
     /**
@@ -189,7 +181,7 @@ public final class MessagesApi {
     static List<Display> previewable(final MessageEntry entry) {
         return entry.shown().stream()
                 .map(Display::valueOf)
-                .filter(display -> display != Display.STEWARD && display != Display.PUSH)
+                .filter(display -> display.surface() != Display.Surface.STEWARD)
                 .toList();
     }
 
@@ -256,39 +248,31 @@ public final class MessagesApi {
             ctx.json(found);
             return;
         }
-        final Set<String> seen = new HashSet<>();
-        for (final AgentWire.BundleRef location : agent.bundles()) {
-            final Map<String, MessageEntry> entries = new HashMap<>();
-            agent.bundle(location.service(), location.module())
-                    .entries()
-                    .forEach(entry -> entries.putIfAbsent(entry.bundle() + "/" + entry.key(), entry));
-            final Set<String> bundles =
-                    entries.values().stream().map(MessageEntry::bundle).collect(Collectors.toSet());
-            final Map<String, List<MessageOverride>> sets = new LinkedHashMap<>();
-            for (final MessageOverride row : store.overrides(bundles)) {
-                sets.computeIfAbsent(
-                                row.bundle() + "/" + row.key() + "/" + row.language(), ignored -> new ArrayList<>())
-                        .add(row);
-            }
-            final Map<String, List<String>> originals = store.originals(bundles);
-            sets.forEach((name, rows) -> {
-                final MessageOverride first = rows.getFirst();
-                final MessageEntry entry = entries.get(first.bundle() + "/" + first.key());
-                if (entry == null || !seen.add(name)) {
-                    return;
-                }
-                final Fallback fallback =
-                        fallbackOf(identityOf(location), entry, first.language(), rows, originals.get(name));
-                if (fallback != null) {
-                    found.add(fallback);
-                }
-            });
+        final Map<String, MessageEntry> entries = new HashMap<>();
+        union().forEach(text -> entries.put(idOf(text.entry()), text.entry()));
+        final Set<String> bundles =
+                entries.values().stream().map(MessageEntry::bundle).collect(Collectors.toSet());
+        final Map<String, List<MessageOverride>> sets = new LinkedHashMap<>();
+        for (final MessageOverride row : store.overrides(bundles)) {
+            sets.computeIfAbsent(row.bundle() + "/" + row.key() + "/" + row.language(), ignored -> new ArrayList<>())
+                    .add(row);
         }
+        final Map<String, List<String>> originals = store.originals(bundles);
+        sets.forEach((name, rows) -> {
+            final MessageOverride first = rows.getFirst();
+            final MessageEntry entry = entries.get(first.bundle() + "/" + first.key());
+            if (entry == null) {
+                return;
+            }
+            final Fallback fallback = fallbackOf(entry, first.language(), rows, originals.get(name));
+            if (fallback != null) {
+                found.add(fallback);
+            }
+        });
         ctx.json(found);
     }
 
     private static @Nullable Fallback fallbackOf(
-            final String path,
             final MessageEntry entry,
             final String language,
             final List<MessageOverride> rows,
@@ -308,7 +292,6 @@ public final class MessagesApi {
             return null;
         }
         return new Fallback(
-                path,
                 entry.bundle(),
                 entry.key(),
                 language,
@@ -319,15 +302,33 @@ public final class MessagesApi {
                 problems);
     }
 
-    /** The jar's bundles with the stored overrides beside the packaged texts, every language and variant. */
-    private MessageBundle read(final AgentWire.BundleRef location) {
-        final MessageBundle packaged = agent.bundle(location.service(), location.module());
+    /**
+     * Every key of every jar's bundles once, by bundle and key, in the agent's order of the jars.
+     * A key is read from the first jar that carries it, and lists every service whose jar shows it.
+     */
+    private List<Found> union() {
+        final Map<String, Found> byId = new LinkedHashMap<>();
+        for (final AgentWire.BundleRef location : agent.bundles()) {
+            for (final MessageEntry entry :
+                    agent.bundle(location.service(), location.module()).entries()) {
+                final Found found =
+                        byId.computeIfAbsent(idOf(entry), id -> new Found(entry, location, new ArrayList<>()));
+                if (!found.services().contains(location.service())) {
+                    found.services().add(location.service());
+                }
+            }
+        }
+        return List.copyOf(byId.values());
+    }
+
+    /** The same keys with the stored overrides beside the packaged texts, every language and variant. */
+    private List<Found> layered(final List<Found> union) {
         final MessageOverrideStore store = overrides;
         if (store == null) {
-            return packaged;
+            return union;
         }
         final Set<String> bundles =
-                packaged.entries().stream().map(MessageEntry::bundle).collect(Collectors.toSet());
+                union.stream().map(found -> found.entry().bundle()).collect(Collectors.toSet());
         // Bundle and key to language to variant number to text.
         final Map<String, Map<String, TreeMap<Integer, String>>> stored = new HashMap<>();
         for (final MessageOverride row : store.overrides(bundles)) {
@@ -335,25 +336,30 @@ public final class MessagesApi {
                     .computeIfAbsent(row.language(), ignored -> new TreeMap<>())
                     .put(row.variant(), row.text());
         }
-        return new MessageBundle(
-                packaged.service(),
-                packaged.module(),
-                packaged.entries().stream()
-                        .map(entry -> {
-                            final Map<String, List<String>> languages = new HashMap<>();
-                            stored.getOrDefault(entry.bundle() + "/" + entry.key(), Map.of())
-                                    .forEach((language, variants) ->
-                                            languages.put(language, List.copyOf(variants.values())));
-                            return entry.withOverrides(languages);
-                        })
-                        .toList());
+        return union.stream()
+                .map(found -> {
+                    final Map<String, List<String>> languages = new HashMap<>();
+                    stored.getOrDefault(idOf(found.entry()), Map.of())
+                            .forEach((language, variants) -> languages.put(language, List.copyOf(variants.values())));
+                    return new Found(found.entry().withOverrides(languages), found.location(), found.services());
+                })
+                .toList();
     }
+
+    /** How a text is named across the network: its bundle and key, since two bundles may declare the same key. */
+    private static String idOf(final MessageEntry entry) {
+        return entry.bundle() + "/" + entry.key();
+    }
+
+    /**
+     * One key as {@link #union} finds it.
+     *
+     * @param location the first jar that carries it, which the editor names to check and preview it
+     * @param services every service whose jar shows it, in the agent's order
+     */
+    private record Found(MessageEntry entry, AgentWire.BundleRef location, List<String> services) {}
 
     // Finding the bundle
-
-    private AgentWire.BundleRef locate(final Context ctx) {
-        return locate(ctx.pathParam("bundle"));
-    }
 
     private AgentWire.BundleRef locate(final String asked) {
         return agent.bundles().stream()
@@ -378,30 +384,30 @@ public final class MessagesApi {
     // What goes over the wire
 
     /**
-     * Where one bundle lives, as the listing names it.
+     * Every text of every bundle once, packaged text and override side by side.
      *
-     * @param path {@code <service>/<module>}, or {@code <service>} with an empty module for the service's own jar
-     * @param writable whether Steward has a database to keep an override in
+     * @param writable  whether Steward has a database to keep an override in
+     * @param languages the network's languages as its settings name them now, the default first
+     * @param colours   for each service that shows a text, each tone's colour by its tag as its {@code colours}
+     *                  settings name it now
+     * @param places    every place a text can be shown, in order, with where it is
      */
-    public record BundleLocation(String service, String module, String path, boolean writable) {}
+    public record Texts(
+            boolean writable,
+            List<Text> texts,
+            List<String> languages,
+            Map<String, Map<String, String>> colours,
+            Map<String, Display.Surface> places) {}
 
     /**
-     * One bundle, packaged text and override side by side for every key.
+     * One key of one bundle, where it is read from and who shows it.
      *
-     * @param previews  for each key, every place of it a preview reaches, to where it reaches the admin who asks for
-     *                  one, in its schema's order; a key none reaches is absent
-     * @param languages the network's languages as its settings name them now, the default first
-     * @param colours   each tone's colour by its tag, as the service's {@code colours} settings name it now
+     * @param path     the jar it is read from as the editor's check and preview name it, {@code <service>/<module>}
+     * @param services every service whose jar shows it
+     * @param previews every place of it a preview reaches, to where it reaches the admin who asks for one, in its
+     *                 schema's order; empty for a key none reaches
      */
-    public record Bundle(
-            String service,
-            String module,
-            String path,
-            boolean writable,
-            List<MessageEntry> entries,
-            Map<String, Map<String, PreviewTarget>> previews,
-            List<String> languages,
-            Map<String, String> colours) {}
+    public record Text(MessageEntry entry, String path, List<String> services, Map<String, PreviewTarget> previews) {}
 
     /** Where an admin's preview of a key reaches them. */
     public enum PreviewTarget {
@@ -412,33 +418,23 @@ public final class MessagesApi {
 
         /** Returns where a preview shown as {@code shown} reaches its admin. */
         public static PreviewTarget of(final Display shown) {
-            return shown.name().startsWith("DISCORD_") ? DISCORD : GAME;
+            return shown.surface() == Display.Surface.DISCORD ? DISCORD : GAME;
         }
     }
 
     /**
-     * What a save answers: the bundle as it now reads, every dropped placeholder warning, and that it applies.
+     * What a save answers: every text as it now reads, every dropped placeholder warning, and that it applies.
      *
      * @param warnings what the validator warns about, none of it blocking the save
      */
-    public record Saved(
-            String service,
-            String module,
-            String path,
-            boolean writable,
-            List<MessageEntry> entries,
-            Map<String, Map<String, PreviewTarget>> previews,
-            List<String> languages,
-            Map<String, String> colours,
-            List<Warning> warnings,
-            Reloading reload) {}
+    public record Saved(Texts texts, List<Warning> warnings, Reloading reload) {}
 
     /**
      * What the validator warns about in one saved text, such as a value it no longer shows.
      *
      * @param text a message of the {@code check} bundle
      */
-    public record Warning(String key, String language, MessageRef text) {}
+    public record Warning(String bundle, String key, String language, MessageRef text) {}
 
     /**
      * What a message text may name besides its values.
@@ -459,14 +455,12 @@ public final class MessagesApi {
     /**
      * An override set aside, beside what it was written over and what the jar ships now.
      *
-     * @param path     the bundle as the listing names it, {@code <service>/<module>}
      * @param override the override's variants, in order
      * @param original the packaged texts it was written over, {@code null} where none were kept
      * @param packaged the packaged texts the jar ships now, which every process shows instead
      * @param problems what the validator refuses, messages of the {@code check} bundle, empty for a stale override
      */
     public record Fallback(
-            String path,
             String bundle,
             String key,
             String language,
@@ -476,28 +470,20 @@ public final class MessagesApi {
             List<String> packaged,
             List<MessageRef> problems) {}
 
-    private BundleLocation describe(final AgentWire.BundleRef location) {
-        return new BundleLocation(location.service(), location.module(), identityOf(location), overrides != null);
-    }
-
-    private Bundle document(final AgentWire.BundleRef location, final MessageBundle bundle) {
-        final Map<String, Map<String, PreviewTarget>> previews = new TreeMap<>();
-        for (final MessageEntry entry : bundle.entries()) {
+    private Texts texts(final List<Found> union) {
+        final Map<String, Map<String, String>> colours = new TreeMap<>();
+        final List<Text> texts = new ArrayList<>(union.size());
+        for (final Found found : union) {
             final Map<String, PreviewTarget> places = new LinkedHashMap<>();
-            previewable(entry).forEach(place -> places.put(place.name(), PreviewTarget.of(place)));
-            if (!places.isEmpty()) {
-                previews.putIfAbsent(entry.key(), places);
-            }
+            previewable(found.entry()).forEach(place -> places.put(place.name(), PreviewTarget.of(place)));
+            texts.add(new Text(found.entry(), identityOf(found.location()), List.copyOf(found.services()), places));
+            found.services().forEach(service -> colours.computeIfAbsent(service, this::coloursOf));
         }
-        return new Bundle(
-                location.service(),
-                location.module(),
-                identityOf(location),
-                overrides != null,
-                bundle.entries(),
-                previews,
-                languages(),
-                coloursOf(location.service()));
+        final Map<String, Display.Surface> places = new LinkedHashMap<>();
+        for (final Display place : Display.values()) {
+            places.put(place.name(), place.surface());
+        }
+        return new Texts(overrides != null, texts, languages(), colours, places);
     }
 
     /** The network's languages as its settings name them now, the default first; the defaults without a database. */
@@ -535,8 +521,8 @@ public final class MessagesApi {
 
     // What comes in
 
-    /** One language's texts for one key, its variants in order; none resets it to the packaged ones. */
-    private record Change(String key, String language, List<String> texts) {}
+    /** One language's texts for one key of one bundle, its variants in order; none resets it to the packaged ones. */
+    private record Change(String bundle, String key, String language, List<String> texts) {}
 
     private static JsonObject bodyOf(final String body) {
         try {
@@ -557,27 +543,38 @@ public final class MessagesApi {
         return value.getAsString();
     }
 
-    /** The changes in the order given. */
+    /** The changes in the order given: bundle to key to language to its variants. */
     private static List<Change> changesOf(final JsonObject body) {
         final JsonElement changes = body.get("changes");
         if (changes == null || !changes.isJsonObject()) {
-            throw new BadRequestResponse("`changes` has to be an object of key to {\"<language>\": [variants]},"
-                    + " where null resets that language.");
+            throw new BadRequestResponse(
+                    "`changes` has to be an object of bundle to key to {\"<language>\": [variants]},"
+                            + " where null resets that language.");
         }
         final List<Change> all = new ArrayList<>();
-        for (final Map.Entry<String, JsonElement> change :
+        for (final Map.Entry<String, JsonElement> bundle :
                 changes.getAsJsonObject().entrySet()) {
-            if (!change.getValue().isJsonObject()) {
-                throw new BadRequestResponse(change.getKey()
-                        + " has to be an object of language to its variants, like {\"en\": [\"...\"]}.");
+            if (!bundle.getValue().isJsonObject()) {
+                throw new BadRequestResponse(bundle.getKey() + " has to be an object of key to its languages.");
             }
-            for (final Map.Entry<String, JsonElement> text :
-                    change.getValue().getAsJsonObject().entrySet()) {
-                if (!LANGUAGE.matcher(text.getKey()).matches()) {
-                    throw new BadRequestResponse(
-                            "A language is a lowercase tag like \"en\", not " + text.getKey() + ".");
+            for (final Map.Entry<String, JsonElement> change :
+                    bundle.getValue().getAsJsonObject().entrySet()) {
+                if (!change.getValue().isJsonObject()) {
+                    throw new BadRequestResponse(change.getKey()
+                            + " has to be an object of language to its variants, like {\"en\": [\"...\"]}.");
                 }
-                all.add(new Change(change.getKey(), text.getKey(), variantsOf(change.getKey(), text.getValue())));
+                for (final Map.Entry<String, JsonElement> text :
+                        change.getValue().getAsJsonObject().entrySet()) {
+                    if (!LANGUAGE.matcher(text.getKey()).matches()) {
+                        throw new BadRequestResponse(
+                                "A language is a lowercase tag like \"en\", not " + text.getKey() + ".");
+                    }
+                    all.add(new Change(
+                            bundle.getKey(),
+                            change.getKey(),
+                            text.getKey(),
+                            variantsOf(change.getKey(), text.getValue())));
+                }
             }
         }
         if (all.isEmpty()) {

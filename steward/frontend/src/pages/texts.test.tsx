@@ -1,23 +1,13 @@
-import { useState, type ReactNode } from "react"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { toast } from "sonner"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { ServiceSettings } from "@/components/steward/settings"
 import { resetDrafts } from "@/lib/drafts"
-import { setPendingMessageJump } from "@/lib/settings-search"
-import type {
-  CommandRun,
-  MessageBundle,
-  MessageBundleLocation,
-  MessageEntry,
-  MessageFallback,
-  MessageProblem,
-  Warning,
-} from "@/lib/api"
+import { setPendingTextJump } from "@/lib/settings-search"
+import type { MessageFallback } from "@/lib/api"
 import { asButton, asTextArea } from "@/lib/test-elements"
 import { changesOf, words } from "@/lib/query-fixtures"
+import { PLACES, backend, draw, listing, open, openKey, Page, source, text } from "@/pages/texts.fixtures"
 
 vi.mock("sonner", () => ({
   toast: {
@@ -28,118 +18,6 @@ vi.mock("sonner", () => ({
   },
 }))
 
-function json(body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  })
-}
-
-/** A bundle's place, and no key a preview reaches unless a test names one. */
-function location(
-  over: Partial<MessageBundleLocation & Pick<MessageBundle, "languages" | "colours">> & { path: string },
-): MessageBundleLocation & Pick<MessageBundle, "previews" | "languages" | "colours"> {
-  return {
-    service: "smp",
-    module: "smp",
-    writable: true,
-    previews: {},
-    languages: [],
-    colours: {},
-    ...over,
-  }
-}
-
-function entry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
-  return {
-    bundle: "smp",
-    inBundle: true,
-    texts: {},
-    overrides: {},
-    args: [],
-    section: [],
-    shown: [],
-    limit: 0,
-    ...over,
-  }
-}
-
-/** One `/api/messages/<path>` answer per fixture bundle and one canned PUT answer per path. */
-type Bundle = MessageBundle & { warnings?: Warning[] }
-
-/** What the editor asks besides the bundle; a test answers any of them otherwise. */
-type Around = {
-  fallbacks?: MessageFallback[]
-  check?: (text: string) => MessageProblem[]
-  /** Answers a preview's body with the request's name. */
-  preview?: (body: unknown) => string
-  /** What became of each request, by name. */
-  commands?: Record<string, CommandRun>
-}
-
-function backend(
-  bundles: Record<string, Bundle>,
-  puts: Record<string, (body: unknown) => unknown> = {},
-  around: Around = {},
-) {
-  const listing = Object.values(bundles).map((bundle) => {
-    const { service, module, path, writable } = bundle
-    return { service, module, path, writable }
-  })
-  return vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
-    if (url === "/api/messages") return json(listing)
-    if (url === "/api/setting-groups") return json([])
-    if (url === "/api/message-syntax") return json({ tones: { good: "#8ba888" }, kinds: { duration: ["short"] } })
-    if (url === "/api/message-examples") return json({})
-    if (url === "/api/message-fallbacks") return json(around.fallbacks ?? [])
-    if (url === "/glyphs/manifest.json") return json([])
-    if (url.startsWith("/api/message-check?")) {
-      return json(around.check?.(new URL(url, "http://steward").searchParams.get("text") ?? "") ?? [])
-    }
-    if (url === "/api/message-preview" && around.preview) {
-      return json({ id: around.preview(JSON.parse(init?.body ?? "")), status: "PENDING" })
-    }
-    const command = url.startsWith("/api/commands/") ? around.commands?.[url.slice("/api/commands/".length)] : null
-    if (command) return json(command)
-    if (init?.method === "PUT") {
-      const found = Object.entries(puts).find(([path]) => url === `/api/messages/${path}`)
-      if (found) return json(found[1](JSON.parse(init.body ?? "")))
-      throw new Error(`the form PUT ${url}, which this test did not expect`)
-    }
-    const found = Object.entries(bundles).find(([path]) => url === `/api/messages/${path}`)
-    if (found) return json(found[1])
-    throw new Error(`the form asked for ${url}, which this test did not expect`)
-  })
-}
-
-function draw(node: ReactNode) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  })
-  return render(<QueryClientProvider client={queryClient}>{node}</QueryClientProvider>)
-}
-
-async function open(label: string) {
-  fireEvent.click((await screen.findAllByText(label))[0])
-}
-
-/** A key is a row until it is opened; its field only exists once it is. */
-async function openKey(name: string) {
-  fireEvent.click(await screen.findByRole("button", { name }))
-}
-
-/** Switches the open key to its source, B, and hands back the field `label` names. */
-async function source(label: string): Promise<HTMLTextAreaElement> {
-  fireEvent.click(await screen.findByRole("button", { name: "Source" }))
-  return asTextArea(await screen.findByRole("textbox", { name: label }))
-}
-
-/** The tab as the service page draws it, with `?file=` kept in state instead of the URL. */
-function Settings({ service }: { service: string }) {
-  const [file, setFile] = useState<string | undefined>()
-  return <ServiceSettings service={service} file={file} onFile={setFile} />
-}
-
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
@@ -147,50 +25,162 @@ afterEach(() => {
   resetDrafts()
 })
 
-describe("the bundle row", () => {
-  it("lists a bundle by its module name, made readable", async () => {
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        "smp/smp": {
-          ...location({ path: "smp/smp" }),
-          entries: [entry({ texts: { en: ["Welcome"], de: ["packaged-de-text"] }, key: "welcome" })],
-        },
-      }),
-    )
+describe("the groups", () => {
+  const fixture = listing([
+    text({ key: "welcome", name: "Welcome" }),
+    text({ key: "dm.granted", bundle: "access", name: "Granted", shown: ["DISCORD_MESSAGE"] }),
+    text({ key: "page.title", bundle: "steward", name: "Page title", shown: ["STEWARD"] }),
+    text({ key: "values.yes", bundle: "values", name: "Yes", shown: ["CHAT", "DISCORD_MESSAGE"] }),
+  ])
 
-    draw(<Settings service="smp" />)
+  it("lists every text under where it appears, the values apart, each group closed", async () => {
+    vi.stubGlobal("fetch", backend(fixture))
+    draw(<Page />)
 
-    expect(await screen.findByRole("button", { name: "SMP Translations" })).toBeTruthy()
+    for (const group of ["In game", "Discord", "Steward & Admin", "Building blocks"]) {
+      const branch = await screen.findByRole("button", { name: new RegExp(`^${group}`) })
+      expect(branch.getAttribute("aria-expanded")).toBe("false")
+    }
+    expect(screen.queryByRole("button", { name: "Welcome" })).toBeNull()
+
+    await open(/^Discord/)
+    screen.getByRole("button", { name: "Granted" })
+    expect(screen.queryByRole("button", { name: "Welcome" })).toBeNull()
   })
 
-  it("shows nothing for a service with no bundle here", async () => {
-    vi.stubGlobal("fetch", backend({}))
+  it("finds a text by its words in every group at once", async () => {
+    vi.stubGlobal("fetch", backend(fixture))
+    draw(<Page />)
 
-    draw(<Settings service="smp" />)
+    fireEvent.change(await screen.findByRole("searchbox", { name: "Search the texts" }), {
+      target: { value: "title" },
+    })
 
-    expect(await screen.findByText("No files.")).toBeTruthy()
+    expect(await screen.findByRole("button", { name: "Page title" })).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Granted" })).toBeNull()
+  })
+
+  it("says so when no jar ships a text", async () => {
+    vi.stubGlobal("fetch", backend(listing([])))
+    draw(<Page />)
+
+    expect(await screen.findByText("No texts.")).toBeTruthy()
+  })
+})
+
+describe("the service filter", () => {
+  const fixture = listing(
+    [
+      text({ key: "welcome", name: "Welcome", texts: { en: ["<good>Welcome</good>"] }, format: "MINIMESSAGE" }),
+      text(
+        { key: "dm.granted", bundle: "access", name: "Granted", shown: ["DISCORD_MESSAGE"] },
+        { path: "discord-bot/discord-bot", services: ["discord-bot"] },
+      ),
+    ],
+    { colours: { smp: { good: "#123456" } } },
+  )
+
+  it("lists only the texts the chosen service shows", async () => {
+    vi.stubGlobal("fetch", backend(fixture))
+    draw(<Page />)
+    await screen.findByRole("button", { name: /^In game/ })
+
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Service" }), { key: "Enter" })
+    fireEvent.click(await screen.findByRole("option", { name: "Discord Bot" }))
+
+    expect(await screen.findByRole("button", { name: "Granted" })).toBeTruthy()
+    expect(screen.queryByRole("button", { name: /^In game/ })).toBeNull()
+  })
+
+  it("draws a tone in the colour the filtered service's settings give it", async () => {
+    vi.stubGlobal("fetch", backend(fixture))
+    draw(<Page service="smp" />)
+
+    const row = await screen.findByRole("button", { name: "Welcome" })
+    await waitFor(() =>
+      expect(
+        within(row)
+          .getAllByText("Welcome")
+          .map((span) => span.style.color),
+      ).toContain("rgb(18, 52, 86)"),
+    )
+  })
+
+  it("draws it in the network's colour without a filter", async () => {
+    vi.stubGlobal("fetch", backend(fixture))
+    draw(<Page />)
+    await open(/^In game/)
+
+    const row = await screen.findByRole("button", { name: "Welcome" })
+    await waitFor(() =>
+      expect(
+        within(row)
+          .getAllByText("Welcome")
+          .map((span) => span.style.color),
+      ).toContain("rgb(139, 168, 136)"),
+    )
+  })
+})
+
+describe("the pills", () => {
+  it("name every place a text appears, and a whole surface it fills as one", async () => {
+    const everyGamePlace = Object.keys(PLACES).filter((place) => PLACES[place] === "GAME")
+    vi.stubGlobal(
+      "fetch",
+      backend(
+        listing([
+          text({ key: "a", name: "First", shown: ["GUI", "DISCORD_MESSAGE", "STEWARD"] }),
+          text({ key: "b", name: "Second", shown: [...everyGamePlace, "PUSH"] }),
+        ]),
+      ),
+    )
+    draw(<Page />)
+
+    const first = await screen.findByRole("button", { name: "First" })
+    expect(within(first).getByLabelText("Shown in").textContent).toBe("MenuDiscord messageSteward")
+    const second = screen.getByRole("button", { name: "Second" })
+    expect(within(second).getByLabelText("Shown in").textContent).toBe("In gameNotification")
+  })
+})
+
+describe("the languages", () => {
+  it("keeps a bundle that ships English only to English, and offers the network's to every other", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend(
+        listing(
+          [
+            text({ key: "title", bundle: "steward", name: "Page title", texts: { en: ["Page"] } }),
+            text({ key: "welcome", name: "Welcome", texts: { en: ["Welcome"], de: ["packaged-de-text"] } }),
+          ],
+          { languages: ["en", "de", "nl"] },
+        ),
+      ),
+    )
+    draw(<Page />)
+
+    await openKey("Page title")
+    await screen.findByRole("tab", { name: /EN/ })
+    expect(screen.queryByRole("tab", { name: /DE/ })).toBeNull()
+
+    await openKey("Welcome")
+    expect(await screen.findByRole("tab", { name: /NL/ })).toBeTruthy()
+    screen.getByRole("tab", { name: /DE/ })
   })
 })
 
 describe("the en/de toggle", () => {
-  const fixture = {
-    "smp/smp": {
-      ...location({ path: "smp/smp" }),
-      entries: [
-        entry({
-          texts: { en: ["Welcome"], de: ["packaged-de-text"] },
-          overrides: { de: ["override-de-text"] },
-          key: "welcome",
-        }),
-      ],
-    },
-  }
+  const fixture = listing([
+    text({
+      texts: { en: ["Welcome"], de: ["packaged-de-text"] },
+      overrides: { de: ["override-de-text"] },
+      key: "welcome",
+    }),
+  ])
 
   it("shows English packaged text by default", async () => {
     vi.stubGlobal("fetch", backend(fixture))
-    draw(<Settings service="smp" />)
-    await open("SMP Translations")
+    draw(<Page />)
     await openKey("Welcome")
 
     expect((await screen.findByRole("textbox", { name: "welcome" })).textContent).toBe("Welcome")
@@ -198,8 +188,7 @@ describe("the en/de toggle", () => {
 
   it("switches to the override once German is selected, rather than the packaged text", async () => {
     vi.stubGlobal("fetch", backend(fixture))
-    draw(<Settings service="smp" />)
-    await open("SMP Translations")
+    draw(<Page />)
     await openKey("Welcome")
     await source("welcome")
 
@@ -210,36 +199,25 @@ describe("the en/de toggle", () => {
   })
 })
 
-describe("saving a line", () => {
+describe("saving", () => {
   it("warns, but still saves, when the edited text drops a placeholder the packaged text had", async () => {
     vi.stubGlobal(
       "fetch",
-      backend(
-        {
-          "smp/smp": {
-            ...location({ path: "smp/smp" }),
-            entries: [entry({ texts: { en: ["Hello {sender}"] }, key: "greeting" })],
+      backend(listing([text({ texts: { en: ["Hello {sender}"] }, key: "greeting" })]), () => ({
+        texts: listing([
+          text({ texts: { en: ["Hello {sender}"] }, overrides: { en: ["Hello there"] }, key: "greeting" }),
+        ]),
+        warnings: [
+          {
+            bundle: "smp",
+            key: "greeting",
+            language: "en",
+            text: { key: "check.value.unshown", args: { role: { kind: "text", value: "sender" } } },
           },
-        },
-        {
-          "smp/smp": () => ({
-            ...location({ path: "smp/smp" }),
-            entries: [
-              entry({ texts: { en: ["Hello {sender}"] }, overrides: { en: ["Hello there"] }, key: "greeting" }),
-            ],
-            warnings: [
-              {
-                key: "greeting",
-                language: "en",
-                text: { key: "check.value.unshown", args: { role: { kind: "text", value: "sender" } } },
-              },
-            ],
-          }),
-        },
-      ),
+        ],
+      })),
     )
-    draw(<Settings service="smp" />)
-    await open("SMP Translations")
+    draw(<Page />)
     await openKey("Greeting")
     fireEvent.change(await source("greeting"), { target: { value: "Hello there" } })
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
@@ -252,29 +230,16 @@ describe("saving a line", () => {
   it.each([
     ["in force", "APPLIED", toast.success],
     ["in force after a restart", "RESTART_REQUIRED", toast.info],
-  ] as const)("says a saved line is %s", async (_what, status, shown) => {
+  ] as const)("says a saved text is %s", async (_what, status, shown) => {
     const message = `the service said ${status}`
     vi.stubGlobal(
       "fetch",
-      backend(
-        {
-          "smp/smp": {
-            ...location({ path: "smp/smp" }),
-            entries: [entry({ texts: { en: ["Welcome"] }, key: "welcome" })],
-          },
-        },
-        {
-          "smp/smp": () => ({
-            ...location({ path: "smp/smp" }),
-            entries: [entry({ texts: { en: ["Welcome"] }, overrides: { en: ["Howdy"] }, key: "welcome" })],
-            warnings: [],
-            reload: { status, message: words(message) },
-          }),
-        },
-      ),
+      backend(listing([text({ texts: { en: ["Welcome"] }, key: "welcome" })]), () => ({
+        texts: listing([text({ texts: { en: ["Welcome"] }, overrides: { en: ["Howdy"] }, key: "welcome" })]),
+        reload: { status, message: words(message) },
+      })),
     )
-    draw(<Settings service="smp" />)
-    await open("SMP Translations")
+    draw(<Page />)
     await openKey("Welcome")
     fireEvent.change(await source("welcome"), { target: { value: "Howdy" } })
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
@@ -285,28 +250,12 @@ describe("saving a line", () => {
   it("resets a key by removing the override, not by copying English into it", async () => {
     vi.stubGlobal(
       "fetch",
-      backend(
-        {
-          "smp/smp": {
-            ...location({ path: "smp/smp" }),
-            entries: [entry({ texts: { en: ["Welcome"] }, overrides: { en: ["Howdy"] }, key: "welcome" })],
-          },
-        },
-        {
-          "smp/smp": (body) => {
-            const changes = changesOf(body)
-            expect(changes).toEqual({ welcome: { en: null } })
-            return {
-              ...location({ path: "smp/smp" }),
-              entries: [entry({ texts: { en: ["Welcome"] }, key: "welcome" })],
-              warnings: [],
-            }
-          },
-        },
-      ),
+      backend(listing([text({ texts: { en: ["Welcome"] }, overrides: { en: ["Howdy"] }, key: "welcome" })]), (body) => {
+        expect(changesOf(body)).toEqual({ smp: { welcome: { en: null } } })
+        return { texts: listing([text({ texts: { en: ["Welcome"] }, key: "welcome" })]) }
+      }),
     )
-    draw(<Settings service="smp" />)
-    await open("SMP Translations")
+    draw(<Page />)
     await openKey("Welcome")
     expect((await source("welcome")).value).toBe("Howdy")
 
@@ -314,34 +263,59 @@ describe("saving a line", () => {
     await screen.findByDisplayValue("Welcome")
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
 
-    /** Both states show the packaged "Welcome", so only the Reset button vanishing proves the save round-tripped. */
-    await waitFor(() => expect(screen.queryByRole("button", { name: /Reset/ })).toBeNull())
-    expect(screen.getByDisplayValue("Welcome")).toBeTruthy()
+    /** The reset draft shows the packaged "Welcome" too, so only the saved draft's Save button going proves the round trip. */
+    await waitFor(() => expect(screen.queryByRole("button", { name: /^Save/ })).toBeNull())
+    expect(await screen.findByDisplayValue("Welcome")).toBeTruthy()
+    expect(screen.queryByRole("button", { name: /Reset/ })).toBeNull()
     expect(screen.queryByText("overridden")).toBeNull()
+  })
+
+  it("sends the changes of two bundles' texts, in both languages, in one call", async () => {
+    const bodies: unknown[] = []
+    vi.stubGlobal(
+      "fetch",
+      backend(
+        listing([
+          text({ texts: { en: ["one"], de: ["eins"] }, key: "a", name: "First" }),
+          text({ texts: { en: ["two"], de: ["zwei"] }, key: "a", bundle: "paper-common", name: "Second" }),
+        ]),
+        (body) => {
+          bodies.push(body)
+          return {}
+        },
+      ),
+    )
+    draw(<Page />)
+
+    await openKey("First")
+    fireEvent.change(await source("First"), { target: { value: "ONE" } })
+    await openKey("Second")
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: /DE/ }))
+    fireEvent.change(await source("Second"), { target: { value: "ZWEI" } })
+    fireEvent.click(screen.getByRole("button", { name: "Save 2" }))
+
+    await waitFor(() => expect(bodies).toHaveLength(1))
+    expect(bodies[0]).toEqual({ changes: { smp: { a: { en: ["ONE"] } }, "paper-common": { a: { de: ["ZWEI"] } } } })
   })
 })
 
-describe("the tree of a bundle", () => {
-  it("names its sections after the spec and shows no keys", async () => {
+describe("the tree of a group", () => {
+  it("names its topics after the spec and shows no keys", async () => {
     vi.stubGlobal(
       "fetch",
-      backend({
-        "smp/smp": {
-          ...location({ path: "smp/smp" }),
-          entries: [
-            entry({
-              texts: { en: ["Soon"] },
-              key: "grave.decay.warning",
-              name: "Decay warning",
-              section: ["Graves", "Decay"],
-            }),
-            entry({ texts: { en: ["Welcome"] }, key: "welcome", name: "Welcome" }),
-          ],
-        },
-      }),
+      backend(
+        listing([
+          text({
+            texts: { en: ["Soon"] },
+            key: "grave.decay.warning",
+            name: "Decay warning",
+            section: ["Graves", "Decay"],
+          }),
+          text({ texts: { en: ["Welcome"] }, key: "welcome", name: "Welcome" }),
+        ]),
+      ),
     )
-    draw(<Settings service="smp" />)
-    await open("SMP Translations")
+    draw(<Page />)
 
     const branch = await screen.findByRole("button", { name: /Graves.*Decay/ })
     expect(branch.getAttribute("aria-expanded")).toBe("false")
@@ -353,65 +327,28 @@ describe("the tree of a bundle", () => {
   })
 })
 
-/** A location carrying two entries, so opening one can be observed closing the other. */
+/** Two texts, so opening one can be observed closing the other. */
 function twoKeys() {
   vi.stubGlobal(
     "fetch",
-    backend({
-      "smp/smp": {
-        ...location({ path: "smp/smp" }),
-        entries: [
-          entry({
-            texts: { en: ["<gray>Hello <white>{player}</white></gray>"] },
-            key: "a",
-            name: "First",
-            args: [{ name: "player", kind: "text", global: false, action: false, exampleWords: {} }],
-          }),
-          entry({ texts: { en: ["two"] }, key: "b", name: "Second" }),
-        ],
-      },
-    }),
+    backend(
+      listing([
+        text({
+          texts: { en: ["<gray>Hello <white>{player}</white></gray>"] },
+          key: "a",
+          name: "First",
+          args: [{ name: "player", kind: "text", global: false, action: false, exampleWords: {} }],
+        }),
+        text({ texts: { en: ["two"] }, key: "b", name: "Second" }),
+      ]),
+    ),
   )
 }
-
-describe("the network's languages and the service's colours", () => {
-  const fixture = {
-    "smp/smp": {
-      ...location({ path: "smp/smp", languages: ["de", "nl"], colours: { good: "#123456" } }),
-      entries: [entry({ texts: { en: ["<good>Welcome</good>"] }, key: "welcome", format: "MINIMESSAGE" })],
-    },
-  }
-
-  it("offers a language the network speaks before any jar ships it", async () => {
-    vi.stubGlobal("fetch", backend(fixture))
-    draw(<Settings service="smp" />)
-    await open("SMP Translations")
-    await openKey("Welcome")
-
-    expect(await screen.findByRole("tab", { name: /NL/ })).toBeTruthy()
-  })
-
-  it("draws a tone in the colour the service's settings give it", async () => {
-    vi.stubGlobal("fetch", backend(fixture))
-    draw(<Settings service="smp" />)
-    await open("SMP Translations")
-
-    const row = await screen.findByRole("button", { name: "Welcome" })
-    await waitFor(() =>
-      expect(
-        within(row)
-          .getAllByText("Welcome")
-          .map((span) => span.style.color),
-      ).toContain("rgb(18, 52, 86)"),
-    )
-  })
-})
 
 describe("one key open at a time", () => {
   it("draws each key as its name and a rendered line, with no field until it is opened", async () => {
     twoKeys()
-    draw(<Settings service="smp" />)
-    await open("SMP Translations")
+    draw(<Page />)
 
     const row = await screen.findByRole("button", { name: "First" })
     expect(row.textContent).toContain("Hello")
@@ -422,8 +359,7 @@ describe("one key open at a time", () => {
 
   it("closes the open key when another is opened, and keeps its draft", async () => {
     twoKeys()
-    draw(<Settings service="smp" />)
-    await open("SMP Translations")
+    draw(<Page />)
 
     await openKey("First")
     const first = await source("First")
@@ -438,8 +374,7 @@ describe("one key open at a time", () => {
 
   it("drops the drafts of every key with Discard, and the open one shows its stored text again", async () => {
     twoKeys()
-    draw(<Settings service="smp" />)
-    await open("SMP Translations")
+    draw(<Page />)
 
     await openKey("First")
     fireEvent.change(await source("First"), { target: { value: "Hi {player}" } })
@@ -455,104 +390,38 @@ describe("one key open at a time", () => {
   })
 })
 
-describe("both languages in one save", () => {
-  it("sends the English and the German change of two texts in one call", async () => {
-    const bodies: unknown[] = []
-    vi.stubGlobal(
-      "fetch",
-      backend(
-        {
-          "smp/smp": {
-            ...location({ path: "smp/smp" }),
-            entries: [
-              entry({ texts: { en: ["one"], de: ["eins"] }, key: "a", name: "First" }),
-              entry({ texts: { en: ["two"], de: ["zwei"] }, key: "b", name: "Second" }),
-            ],
-          },
-        },
-        {
-          "smp/smp": (body) => {
-            bodies.push(body)
-            return { ...location({ path: "smp/smp" }), entries: [], warnings: [] }
-          },
-        },
-      ),
-    )
-    draw(<Settings service="smp" />)
-    await open("SMP Translations")
-
-    await openKey("First")
-    fireEvent.change(await source("First"), { target: { value: "ONE" } })
-    await openKey("Second")
-    fireEvent.mouseDown(await screen.findByRole("tab", { name: /DE/ }))
-    fireEvent.change(await source("Second"), { target: { value: "ZWEI" } })
-    fireEvent.click(screen.getByRole("button", { name: "Save 2" }))
-
-    await waitFor(() => expect(bodies).toHaveLength(1))
-    expect(bodies[0]).toEqual({ changes: { a: { en: ["ONE"] }, b: { de: ["ZWEI"] } } })
-  })
-})
-
-/** A location carrying one entry, with a single declared placeholder. */
-function withGreeting() {
-  vi.stubGlobal(
-    "fetch",
-    backend({
-      "smp/smp": {
-        ...location({ path: "smp/smp" }),
-        entries: [
-          entry({
-            texts: { en: ["Hello {player}"] },
-            key: "greeting",
-            name: "Greeting",
-            args: [{ name: "player", kind: "text", global: false, action: false, exampleWords: {} }],
-          }),
-        ],
-      },
-    }),
-  )
-}
-
 describe("placeholders", () => {
+  const greeting = listing([
+    text({
+      texts: { en: ["Hello {player}"] },
+      key: "greeting",
+      name: "Greeting",
+      args: [{ name: "player", kind: "text", global: false, action: false, exampleWords: {} }],
+    }),
+  ])
+
   it("shows what the validator says of the typed text, and leaves the refusal to the save", async () => {
     vi.stubGlobal(
       "fetch",
-      backend(
-        {
-          "smp/smp": {
-            ...location({ path: "smp/smp" }),
-            entries: [
-              entry({
-                texts: { en: ["Hello {player}"] },
-                key: "greeting",
-                name: "Greeting",
-                args: [{ name: "player", kind: "text", global: false, action: false, exampleWords: {} }],
-              }),
-            ],
-          },
-        },
-        {},
-        {
-          check: (text) =>
-            text.includes("{palyer}")
-              ? [
-                  {
-                    error: true,
-                    text: {
-                      key: "check.value.unknown",
-                      args: {
-                        name: { kind: "text", value: "palyer" },
-                        offered: { kind: "text", value: "player" },
-                      },
+      backend(greeting, undefined, {
+        check: (typed) =>
+          typed.includes("{palyer}")
+            ? [
+                {
+                  error: true,
+                  text: {
+                    key: "check.value.unknown",
+                    args: {
+                      name: { kind: "text", value: "palyer" },
+                      offered: { kind: "text", value: "player" },
                     },
                   },
-                ]
-              : [],
-        },
-      ),
+                },
+              ]
+            : [],
+      }),
     )
-    draw(<Settings service="smp" />)
-    await open("SMP Translations")
+    draw(<Page />)
     await openKey("Greeting")
 
     fireEvent.change(await source("Greeting"), { target: { value: "Hello {palyer}" } })
@@ -562,9 +431,8 @@ describe("placeholders", () => {
   })
 
   it("inserts a declared placeholder from the menu where the caret is", async () => {
-    withGreeting()
-    draw(<Settings service="smp" />)
-    await open("SMP Translations")
+    vi.stubGlobal("fetch", backend(greeting))
+    draw(<Page />)
     await openKey("Greeting")
     const field = await source("Greeting")
     field.setSelectionRange(0, 0)
@@ -578,7 +446,6 @@ describe("placeholders", () => {
 
 describe("a fallen-back override", () => {
   const fallback: MessageFallback = {
-    path: "smp/smp",
     bundle: "smp",
     key: "welcome",
     language: "en",
@@ -594,27 +461,19 @@ describe("a fallen-back override", () => {
     vi.stubGlobal(
       "fetch",
       backend(
-        {
-          "smp/smp": {
-            ...location({ path: "smp/smp" }),
-            entries: [entry({ texts: { en: ["Welcome aboard"] }, overrides: { en: ["Howdy"] }, key: "welcome" })],
-          },
-        },
-        {
-          "smp/smp": (body) => {
-            bodies.push(body)
-            return { ...location({ path: "smp/smp" }), entries: [], warnings: [] }
-          },
+        listing([text({ texts: { en: ["Welcome aboard"] }, overrides: { en: ["Howdy"] }, key: "welcome" })]),
+        (body) => {
+          bodies.push(body)
+          return {}
         },
         { fallbacks: [fallback] },
       ),
     )
-    draw(<Settings service="smp" />)
-    await open("SMP Translations")
+    draw(<Page />)
     await openKey("Welcome")
 
     await screen.findByText("Fallen back")
-    expect(screen.getAllByRole("definition").map((text) => text.textContent)).toEqual([
+    expect(screen.getAllByRole("definition").map((definition) => definition.textContent)).toEqual([
       "Welcome",
       "Welcome aboard",
       "Howdy",
@@ -622,151 +481,14 @@ describe("a fallen-back override", () => {
     fireEvent.click(screen.getByRole("button", { name: "Take over" }))
 
     await waitFor(() => expect(bodies).toHaveLength(1))
-    expect(bodies[0]).toEqual({ changes: { welcome: { en: ["Howdy"] } } })
-  })
-})
-
-describe("a preview", () => {
-  it("sends the text being typed with the values it shows to the admin as the place picked", async () => {
-    const bodies: unknown[] = []
-    vi.stubGlobal(
-      "fetch",
-      backend(
-        {
-          "smp/smp": {
-            ...location({ path: "smp/smp" }),
-            previews: { welcome: { CHAT: "GAME", DISCORD_MESSAGE: "DISCORD" } },
-            entries: [
-              entry({
-                texts: { en: ["Welcome {player}"] },
-                key: "welcome",
-                name: "Welcome",
-                shown: ["CHAT", "DISCORD_MESSAGE", "STEWARD"],
-                limit: 2000,
-                args: [
-                  { name: "player", kind: "name", global: false, example: "Alex", action: false, exampleWords: {} },
-                ],
-              }),
-              entry({ texts: { en: ["Page"] }, key: "page", name: "Page", shown: ["STEWARD"] }),
-            ],
-          },
-        },
-        {},
-        {
-          preview: (body) => {
-            bodies.push(body)
-            return "smp:7"
-          },
-          commands: {
-            "smp:7": { id: "smp:7", status: "DONE", result: words("Shown to your player in game.") },
-          },
-        },
-      ),
-    )
-    draw(<Settings service="smp" />)
-    await open("SMP Translations")
-    await openKey("Page")
-    expect(screen.queryByRole("button", { name: /in game|in Discord/ })).toBeNull()
-    expect(screen.queryByRole("combobox", { name: "Shown as" })).toBeNull()
-    await openKey("Welcome")
-    fireEvent.change(await source("Welcome"), { target: { value: "Moin {player}" } })
-    expect(screen.getByText("9/2000")).toBeTruthy()
-
-    fireEvent.click(screen.getByRole("button", { name: "Show it to my player in game" }))
-    await screen.findByText("Shown to your player in game.")
-
-    fireEvent.keyDown(screen.getByRole("combobox", { name: "Shown as" }), { key: "Enter" })
-    fireEvent.click(await screen.findByRole("option", { name: "Discord message" }))
-    fireEvent.click(screen.getByRole("button", { name: "Send it to me in Discord" }))
-
-    await waitFor(() => expect(bodies).toHaveLength(2))
-    const sent = { bundle: "smp/smp", key: "welcome", language: "en", text: "Moin {player}" }
-    expect(bodies).toEqual([
-      { ...sent, shown: "CHAT", values: { player: "Alex" } },
-      { ...sent, shown: "DISCORD_MESSAGE", values: { player: "Alex" } },
-    ])
-
-    fireEvent.keyDown(screen.getByRole("combobox", { name: "Shown as" }), { key: "Enter" })
-    fireEvent.click(await screen.findByRole("option", { name: "Steward" }))
-    expect(screen.queryByRole("button", { name: /in game|in Discord/ })).toBeNull()
-  })
-
-  it("shows a nested message as its words, and sends the server its key", async () => {
-    const bodies: unknown[] = []
-    vi.stubGlobal(
-      "fetch",
-      backend(
-        {
-          "smp/smp": {
-            ...location({ path: "smp/smp" }),
-            previews: { "restart.notice": { CHAT: "GAME" } },
-            entries: [
-              entry({
-                texts: { en: ["{what} restarts"] },
-                key: "restart.notice",
-                name: "Restart notice",
-                shown: ["CHAT"],
-                args: [
-                  {
-                    name: "what",
-                    kind: "message",
-                    global: false,
-                    example: "restart.what.network",
-                    action: false,
-                    exampleWords: { en: "The network" },
-                  },
-                ],
-              }),
-            ],
-          },
-        },
-        {},
-        {
-          preview: (body) => {
-            bodies.push(body)
-            return "smp:3"
-          },
-          commands: {
-            "smp:3": { id: "smp:3", status: "DONE", result: words("Shown to your player in game.") },
-          },
-        },
-      ),
-    )
-    draw(<Settings service="smp" />)
-    await open("SMP Translations")
-    await openKey("Restart notice")
-
-    expect(await screen.findByText("The network")).toBeTruthy()
-    expect(screen.queryByText("restart.what.network")).toBeNull()
-    fireEvent.click(screen.getByRole("button", { name: "Show it to my player in game" }))
-
-    await screen.findByText("Shown to your player in game.")
-    expect(bodies).toEqual([
-      {
-        bundle: "smp/smp",
-        key: "restart.notice",
-        language: "en",
-        text: "{what} restarts",
-        shown: "CHAT",
-        values: { what: "restart.what.network" },
-      },
-    ])
+    expect(bodies[0]).toEqual({ changes: { smp: { welcome: { en: ["Howdy"] } } } })
   })
 })
 
 describe("the two views", () => {
   it("opens a text it cannot read as it is written, and offers no view of it as it looks", async () => {
-    vi.stubGlobal(
-      "fetch",
-      backend({
-        "smp/smp": {
-          ...location({ path: "smp/smp" }),
-          entries: [entry({ texts: { en: ["Hello {name"] }, key: "broken", name: "Broken" })],
-        },
-      }),
-    )
-    draw(<Settings service="smp" />)
-    await open("SMP Translations")
+    vi.stubGlobal("fetch", backend(listing([text({ texts: { en: ["Hello {name"] }, key: "broken", name: "Broken" })])))
+    draw(<Page />)
     await openKey("Broken")
 
     expect(asTextArea(await screen.findByRole("textbox", { name: "Broken" })).value).toBe("Hello {name")
@@ -775,22 +497,20 @@ describe("the two views", () => {
 })
 
 describe("a jump from the command palette", () => {
-  it("opens the bundle and switches the text to the language of the hit", async () => {
+  it("opens the text and switches it to the language of the hit", async () => {
     vi.stubGlobal(
       "fetch",
-      backend({
-        "smp/smp": {
-          ...location({ path: "smp/smp" }),
-          entries: [
-            entry({ texts: { en: ["Welcome"], de: ["packaged-de-welcome"] }, key: "welcome", name: "Welcome" }),
-          ],
-        },
-      }),
+      backend(
+        listing([
+          text({ texts: { en: ["Welcome"], de: ["packaged-de-welcome"] }, key: "welcome", name: "Welcome" }),
+          text({ key: "dm.granted", bundle: "access", name: "Granted", shown: ["DISCORD_MESSAGE"] }),
+        ]),
+      ),
     )
-    draw(<Settings service="smp" />)
-    await screen.findByRole("button", { name: "SMP Translations" })
+    draw(<Page />)
+    await screen.findByRole("button", { name: /^In game/ })
 
-    setPendingMessageJump("smp", { path: "smp/smp", language: "de", key: "welcome" })
+    setPendingTextJump({ id: "smp/welcome", language: "de" })
 
     await waitFor(() =>
       expect(screen.getByRole("textbox", { name: "Welcome" }).textContent).toBe("packaged-de-welcome"),

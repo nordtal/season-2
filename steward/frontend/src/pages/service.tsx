@@ -11,7 +11,7 @@ import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 
 import { bytes, dateTime, percent, relative } from "@/lib/format"
-import { useConfigs, useMessageBundles, useMetrics, useService } from "@/lib/queries"
+import { useConfigs, useMetrics, useService } from "@/lib/queries"
 import { ServiceConsole } from "@/components/steward/console"
 import { ServiceSettings } from "@/components/steward/settings"
 import { ServicePlugins } from "@/components/steward/plugins"
@@ -50,13 +50,8 @@ type Tab = "console" | "settings" | "plugins"
 export function useServiceTabs(name: string): Tab[] | undefined {
   const service = useService(name)
   const configs = useConfigs()
-  const bundles = useMessageBundles()
-  if (service.isPending || configs.isPending || bundles.isPending) return undefined
-  const settings =
-    configs.isError ||
-    bundles.isError ||
-    (configs.data ?? []).some((file) => file.service === name) ||
-    (bundles.data ?? []).some((bundle) => bundle.service === name)
+  if (service.isPending || configs.isPending) return undefined
+  const settings = configs.isError || (configs.data ?? []).some((file) => file.service === name)
   return [
     "console",
     ...(settings ? (["settings"] as const) : []),
@@ -115,8 +110,7 @@ export function ServicePage() {
               {tabs.includes("settings") ? (
                 <TabsTrigger value="settings" className="sm:px-3">
                   <WrenchIcon aria-hidden />
-                  <span className="sm:hidden">{t("steward.service-page.settings")}</span>
-                  <span className="max-sm:hidden">{t("steward.service-page.settings-and-texts")}</span>
+                  {t("steward.service-page.settings")}
                 </TabsTrigger>
               ) : null}
               {tabs.includes("plugins") ? (

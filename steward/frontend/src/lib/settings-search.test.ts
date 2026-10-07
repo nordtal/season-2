@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import type {
-  ConfigEntry,
-  ConfigLocation,
-  MessageBundle,
-  MessageBundleLocation,
-  MessageEntry,
-  ConfigDocument,
-} from "@/lib/api"
+import type { ConfigEntry, ConfigLocation, MessageEntry, MessageText, ConfigDocument } from "@/lib/api"
 import {
   entryHaystack,
   rankValue,
@@ -15,14 +8,14 @@ import {
   matchesMessageQuery,
   matchesQuery,
   messageEntryHaystack,
-  onPendingMessageJump,
+  onPendingTextJump,
   searchAcross,
   searchMessagesAcross,
   searchSettingsAndMessages,
   setPendingJump,
-  setPendingMessageJump,
+  setPendingTextJump,
   takePendingJump,
-  takePendingMessageJump,
+  takePendingTextJump,
 } from "@/lib/settings-search"
 
 /** Search over the settings, per service and across all of them; a secret's value must never be findable. */
@@ -199,12 +192,8 @@ function messageEntry(over: Partial<MessageEntry> & { key: string }): MessageEnt
   }
 }
 
-function bundleLocation(over: Partial<MessageBundleLocation> & { path: string }): MessageBundleLocation {
-  return { service: "smp", module: "smp", writable: true, ...over }
-}
-
-function bundle(loc: MessageBundleLocation, entries: MessageEntry[]): MessageBundle {
-  return { ...loc, entries, previews: {}, languages: [], colours: {} }
+function text(message: MessageEntry): MessageText {
+  return { entry: message, path: "smp/smp", services: ["smp"], previews: {} }
 }
 
 describe("messageEntryHaystack / matchesMessageQuery", () => {
@@ -257,33 +246,25 @@ describe("messageEntryHaystack / matchesMessageQuery", () => {
 
 describe("searchMessagesAcross", () => {
   it("finds a key by its English default and its German translation as two separate hits", () => {
-    const loc = bundleLocation({ path: "smp/smp" })
-    const doc = bundle(loc, [
-      messageEntry({
-        texts: { en: ["Your grave has decayed."], de: ["packaged-de-marker"] },
-        key: "grave.decay.announce",
-      }),
-    ])
+    const texts = [
+      text(
+        messageEntry({
+          texts: { en: ["Your grave has decayed."], de: ["packaged-de-marker"] },
+          key: "grave.decay.announce",
+        }),
+      ),
+    ]
     /** One hit per language, since each opens a different tab. */
-    const hits = searchMessagesAcross([{ location: loc, bundle: doc }], "grave.decay")
+    const hits = searchMessagesAcross(texts, "grave.decay")
     expect(hits.map((hit) => hit.language).toSorted()).toEqual(["de", "en"])
   })
 
-  it("skips a bundle whose document has not loaded yet", () => {
-    const loc = bundleLocation({ path: "smp/smp" })
-    expect(searchMessagesAcross([{ location: loc, bundle: undefined }], "anything")).toEqual([])
-  })
-
-  it("returns nothing for an empty query without looking at any bundle", () => {
-    const loc = bundleLocation({ path: "smp/smp" })
-    const doc = bundle(loc, [messageEntry({ texts: { en: ["b"] }, key: "a" })])
-    expect(searchMessagesAcross([{ location: loc, bundle: doc }], "")).toEqual([])
+  it("returns nothing for an empty query", () => {
+    expect(searchMessagesAcross([text(messageEntry({ texts: { en: ["b"] }, key: "a" }))], "")).toEqual([])
   })
 
   it('tags every hit with kind: "message", so a caller can tell it apart from a config hit', () => {
-    const loc = bundleLocation({ path: "smp/smp" })
-    const doc = bundle(loc, [messageEntry({ texts: { en: ["wipe"] }, key: "a" })])
-    const [hit] = searchMessagesAcross([{ location: loc, bundle: doc }], "wipe")
+    const [hit] = searchMessagesAcross([text(messageEntry({ texts: { en: ["wipe"] }, key: "a" }))], "wipe")
     expect(hit.kind).toBe("message")
   })
 })
@@ -314,28 +295,21 @@ function configDocument(loc: ConfigLocation, entries: ConfigEntry[]): ConfigDocu
 }
 
 describe("searchSettingsAndMessages - one list, from two suppliers", () => {
-  /** Config search alone finds nothing for this text; with the bundles it finds it. */
+  /** Config search alone finds nothing for this text; with the texts it finds it. */
   it("finds a text that lives only in a bundle - not in any config file of the same service", () => {
     const loc = configLocation({ path: "smp/steward.yml", name: "steward" })
     const configDoc = configDocument(loc, [
       configEntry({ path: "grave.decay.enabled", key: "enabled", label: "Grave decay enabled" }),
     ])
-    const bundleLoc = bundleLocation({ path: "smp/smp" })
-    const bundleDoc = bundle(bundleLoc, [
-      messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" }),
-    ])
+    const texts = [text(messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" }))]
 
     // The "before" half: config search alone finds nothing for this text.
     expect(searchAcross([{ location: loc, document: configDoc }], "decayed")).toEqual([])
 
     // The "after" half: both suppliers together find it.
-    const hits = searchSettingsAndMessages(
-      [{ location: loc, document: configDoc }],
-      [{ location: bundleLoc, bundle: bundleDoc }],
-      "decayed",
-    )
+    const hits = searchSettingsAndMessages([{ location: loc, document: configDoc }], texts, "decayed")
     expect(hits).toHaveLength(1)
-    expect(hits[0]).toMatchObject({ kind: "message", entry: { key: "grave.decay.announce" } })
+    expect(hits[0]).toMatchObject({ kind: "message", text: { entry: { key: "grave.decay.announce" } } })
   })
 
   it("still finds a config hit when the query matches only a config file", () => {
@@ -353,58 +327,36 @@ describe("searchSettingsAndMessages - one list, from two suppliers", () => {
     const configDoc = configDocument(loc, [
       configEntry({ path: "grave.decay.enabled", key: "enabled", label: "Grave decay enabled" }),
     ])
-    const bundleLoc = bundleLocation({ path: "smp/smp" })
-    const bundleDoc = bundle(bundleLoc, [
-      messageEntry({ texts: { en: ["Grave decay announcement"] }, key: "grave.decay.announce" }),
-    ])
+    const texts = [text(messageEntry({ texts: { en: ["Grave decay announcement"] }, key: "grave.decay.announce" }))]
 
-    const hits = searchSettingsAndMessages(
-      [{ location: loc, document: configDoc }],
-      [{ location: bundleLoc, bundle: bundleDoc }],
-      "grave decay",
-    )
+    const hits = searchSettingsAndMessages([{ location: loc, document: configDoc }], texts, "grave decay")
     expect(hits.map((hit) => hit.kind).toSorted()).toEqual(["config", "message"])
   })
 })
 
-describe("pending message jump", () => {
+describe("pending text jump", () => {
   it("hands a jump to the one read that follows, then forgets it", () => {
-    setPendingMessageJump("smp", { path: "smp/smp", language: "en", key: "grave.decay.announce" })
-    expect(takePendingMessageJump("smp")).toEqual({
-      path: "smp/smp",
-      language: "en",
-      key: "grave.decay.announce",
-    })
-    expect(takePendingMessageJump("smp")).toBeUndefined()
+    setPendingTextJump({ id: "smp/grave.decay.announce", language: "en" })
+    expect(takePendingTextJump()).toEqual({ id: "smp/grave.decay.announce", language: "en" })
+    expect(takePendingTextJump()).toBeUndefined()
   })
 
-  it("keeps jumps for different services apart", () => {
-    setPendingMessageJump("smp", { path: "smp/smp", language: "en", key: "a" })
-    setPendingMessageJump("discord-bot", { path: "discord-bot", language: "de", key: "b" })
-    expect(takePendingMessageJump("discord-bot")?.key).toBe("b")
-    expect(takePendingMessageJump("smp")?.key).toBe("a")
-  })
-
-  it("is a separate map from the config jump - the same service name in both never collides", () => {
+  it("is apart from the config jump - neither is taken as the other", () => {
     setPendingJump("smp", { file: "smp/steward.yml", path: "grave.decay.enabled" })
-    setPendingMessageJump("smp", { path: "smp/smp", language: "en", key: "grave.decay.announce" })
+    setPendingTextJump({ id: "smp/grave.decay.announce", language: "en" })
     expect(takePendingJump("smp")).toEqual({ file: "smp/steward.yml", path: "grave.decay.enabled" })
-    expect(takePendingMessageJump("smp")).toEqual({
-      path: "smp/smp",
-      language: "en",
-      key: "grave.decay.announce",
-    })
+    expect(takePendingTextJump()).toEqual({ id: "smp/grave.decay.announce", language: "en" })
   })
 
   it("notifies a subscriber immediately - the same-page case, where nothing navigates", () => {
     const seen: string[] = []
-    const unsubscribe = onPendingMessageJump(() => seen.push("notified"))
-    setPendingMessageJump("smp", { path: "smp/smp", language: "en", key: "a" })
+    const unsubscribe = onPendingTextJump(() => seen.push("notified"))
+    setPendingTextJump({ id: "smp/a", language: "en" })
     expect(seen).toEqual(["notified"])
     unsubscribe()
-    setPendingMessageJump("smp", { path: "smp/smp", language: "en", key: "b" })
+    setPendingTextJump({ id: "smp/b", language: "en" })
     expect(seen).toEqual(["notified"]) // unsubscribed: no second notification
-    takePendingMessageJump("smp") // clean up, so this jump does not leak into a later test
+    takePendingTextJump() // clean up, so this jump does not leak into a later test
   })
 })
 

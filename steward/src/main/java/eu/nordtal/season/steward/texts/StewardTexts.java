@@ -72,6 +72,8 @@ public interface StewardTexts {
 
         SeasonPage season();
 
+        TextsPage texts();
+
         ServicePage servicePage();
 
         KeysPage keys();

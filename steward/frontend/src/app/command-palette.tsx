@@ -14,10 +14,10 @@ import {
 } from "@/components/ui/command"
 import { useNavigation } from "@/app/navigation"
 import { RUN_KIND_SEARCH_TERMS } from "@/app/run-search-terms"
-import type { ConfigLocation, MessageBundleLocation, Run } from "@/lib/api"
+import type { ConfigLocation, MessageText, Run } from "@/lib/api"
 import { runPath } from "@/lib/run-path"
 import { dateTime } from "@/lib/format"
-import { useConfigDocuments, useConfigs, useMessageBundles, useMessageDocuments, useRuns } from "@/lib/queries"
+import { useConfigDocuments, useConfigs, useMessageTexts, useRuns } from "@/lib/queries"
 import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import {
   entryHaystack,
@@ -27,10 +27,10 @@ import {
   searchSettingsAndMessages,
   searchValue,
   setPendingJump,
-  setPendingMessageJump,
+  setPendingTextJump,
 } from "@/lib/settings-search"
-import { bundleFileId, NETWORK } from "@/components/steward/settings"
-import { messageName } from "@/lib/settings-tree"
+import { NETWORK } from "@/components/steward/settings"
+import { messageName, textId } from "@/lib/settings-tree"
 import { shownOf } from "@/lib/message-text"
 import { runKind, runStatus } from "@/components/steward/status"
 import { t } from "@/lib/texts"
@@ -43,7 +43,7 @@ const MAX_SETTINGS_HITS = 30
 
 /** A stable identity for "nothing loaded yet", so a memo keyed on it does not recompute every render. */
 const NO_CONFIGS: ConfigLocation[] = []
-const NO_BUNDLES: MessageBundleLocation[] = []
+const NO_TEXTS: MessageText[] = []
 
 /**
  * A run's search text: number, kind, outcome, absolute time and the kind's extra search terms.
@@ -65,7 +65,7 @@ function runSearchValue(run: Run): string {
 /**
  * The search dialog on Ctrl+K and ⌘K: every route, every run, and every setting and message.
  *
- * Runs, configs and bundles are only fetched while the dialog is open.
+ * Runs, configs and texts are only fetched while the dialog is open.
  */
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false)
@@ -80,27 +80,20 @@ export function CommandPalette() {
   const paths = React.useMemo(() => locations.map((location) => location.path), [locations])
   const documents = useConfigDocuments(paths, open && search.trim().length > 0)
 
-  /** The message bundles, the second supplier of the same search, gated the same way. */
-  const bundleLocations = useMessageBundles(open).data ?? NO_BUNDLES
-  const bundlePaths = React.useMemo(() => bundleLocations.map((location) => location.path), [bundleLocations])
-  const bundleDocuments = useMessageDocuments(bundlePaths, open && search.trim().length > 0)
+  /** The texts, the second supplier of the same search, gated the same way. */
+  const textsQuery = useMessageTexts(open && search.trim().length > 0)
+  const texts = textsQuery.data?.texts ?? NO_TEXTS
 
   /** While documents are still on the wire, the settings group shows a waiting shape, not "Nothing found.". */
   const reading =
-    open &&
-    search.trim().length > 0 &&
-    (documents.some((query) => query.isPending) || bundleDocuments.some((query) => query.isPending))
+    open && search.trim().length > 0 && (documents.some((query) => query.isPending) || textsQuery.isPending)
 
   const settingsHits = React.useMemo(() => {
     if (!search.trim()) return []
     const configPairs = locations.map((location, index) => ({ location, document: documents[index]?.data }))
-    const messagePairs = bundleLocations.map((location, index) => ({
-      location,
-      bundle: bundleDocuments[index]?.data,
-    }))
     /** Ranked before `MAX_SETTINGS_HITS` cuts the list, so cmdk gets the best thirty, not the first. */
-    return rankHits(searchSettingsAndMessages(configPairs, messagePairs, search), search)
-  }, [locations, documents, bundleLocations, bundleDocuments, search])
+    return rankHits(searchSettingsAndMessages(configPairs, texts, search), search)
+  }, [locations, documents, texts, search])
 
   /** The listener is registered once, so it reads `open` through a ref. */
   const openRef = React.useRef(open)
@@ -229,11 +222,11 @@ export function CommandPalette() {
         {settingsHits.length > 0 ? (
           <>
             <CommandSeparator />
-            {/* Config and message hits together; either opens its file on the Settings & Translations tab. */}
+            {/* Setting and text hits together; a setting opens its group, a text the Texts page. */}
             <CommandGroup heading={t("steward.shell.settings")}>
               {settingsHits.slice(0, MAX_SETTINGS_HITS).map((hit) => {
-                const service = hit.location.service || "steward"
                 if (hit.kind === "config") {
+                  const service = hit.location.service || "steward"
                   return (
                     <CommandItem
                       key={`setting-${hit.location.path}-${hit.entry.path}`}
@@ -255,34 +248,27 @@ export function CommandPalette() {
                     >
                       <SlidersHorizontalIcon aria-hidden className="text-muted-foreground" />
                       <span className="min-w-0 flex-1 truncate">{hit.entry.label}</span>
-                      <HitDetail service={service} text={hit.entry.value} />
+                      <HitDetail where={service} text={hit.entry.value} />
                     </CommandItem>
                   )
                 }
-                const text = shownOf(hit.entry, hit.language)[0]
+                const entry = hit.text.entry
+                const id = textId(entry)
                 return (
                   <CommandItem
-                    key={`message-${hit.location.path}-${hit.language}-${hit.entry.key}`}
-                    value={`message-${hit.location.path}-${hit.language}-${hit.entry.key}`}
-                    keywords={[messageEntryHaystack(hit.entry, hit.language)]}
+                    key={`message-${id}-${hit.language}`}
+                    value={`message-${id}-${hit.language}`}
+                    keywords={[messageEntryHaystack(entry, hit.language)]}
                     onSelect={() => {
                       setOpen(false)
-                      setPendingMessageJump(service, {
-                        path: hit.location.path,
-                        language: hit.language,
-                        key: hit.entry.key,
-                      })
-                      void navigate({
-                        to: "/services/$name",
-                        params: { name: service },
-                        search: { tab: "settings", file: bundleFileId(hit.location.path) },
-                      })
+                      setPendingTextJump({ id, language: hit.language })
+                      void navigate({ to: "/texts", search: {} })
                     }}
                     className="min-h-control gap-2.5"
                   >
                     <TranslateIcon aria-hidden className="text-muted-foreground" />
-                    <span className="min-w-0 flex-1 truncate">{messageName(hit.entry)}</span>
-                    <HitDetail service={service} text={text} />
+                    <span className="min-w-0 flex-1 truncate">{messageName(entry)}</span>
+                    <HitDetail where={entry.bundle} text={shownOf(entry, hit.language)[0]} />
                   </CommandItem>
                 )
               })}
@@ -294,13 +280,13 @@ export function CommandPalette() {
   )
 }
 
-/** The right-hand side of a settings hit: the service, then the value or text, cut short. */
-function HitDetail({ service, text }: { service: string; text: string | null | undefined }) {
+/** The right-hand side of a hit: its service or bundle, then the value or text, cut short. */
+function HitDetail({ where, text }: { where: string; text: string | null | undefined }) {
   const flat = (text ?? "").replace(/\s+/g, " ").trim()
   const short = flat.length > 40 ? `${flat.slice(0, 39)}…` : flat
   return (
     <CommandShortcut className="max-w-[45%] truncate text-xs tracking-normal text-muted-foreground max-sm:hidden">
-      {service}
+      {where}
       {short ? ` ${short}` : null}
     </CommandShortcut>
   )

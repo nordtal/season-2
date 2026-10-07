@@ -3,7 +3,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import { cn } from "cn"
 
-import type { ConfigLocation, MessageBundleLocation } from "@/lib/api"
+import type { ConfigLocation } from "@/lib/api"
 import { setOpened, useOpened } from "@/lib/drafts"
 import { type Language } from "@/lib/message-text"
 import {
@@ -19,22 +19,20 @@ import { Button } from "@/components/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { t } from "@/lib/texts"
 
-/** What a config file and a message bundle are drawn with alike: the tree, its rows, the jump to a field. */
+/** What a group of settings and the Texts page are drawn with alike: the tree, its rows, the jump to a field. */
 
 export type Target = { file: string; id: string; language?: Language; seq: number }
 
-export type FileItem =
-  | {
-      kind: "config"
-      id: string
-      label: string
-      readable: boolean
-      writable: boolean
-      location: ConfigLocation
-      /** The custom editor its plugin's descriptor names for it, instead of the form built from its schema. */
-      editor?: string
-    }
-  | { kind: "bundle"; id: string; label: string; readable: boolean; writable: boolean; location: MessageBundleLocation }
+/** A group of settings as the Settings tab lists it. */
+export type FileItem = {
+  id: string
+  label: string
+  readable: boolean
+  writable: boolean
+  location: ConfigLocation
+  /** The custom editor its plugin's descriptor names for it, instead of the form built from its schema. */
+  editor?: string
+}
 
 /** Whether the two-column layout, Tailwind's `lg`, is showing. */
 export function useWide(): boolean {
@@ -57,7 +55,7 @@ export function DraftDot() {
 
 export type Highlight = { id: string; seq: number; language?: Language }
 
-/** The part both kinds of file share: search box, description, tree with counts, and the pinned save row. */
+/** The part both share: search box, description, tree with counts, and the pinned save row. */
 export function TreeView<L>({
   file,
   nodes,
@@ -70,6 +68,8 @@ export function TreeView<L>({
   above,
   collapsed,
   list,
+  searchLabel = t("steward.settings.search-file"),
+  empty = t("steward.settings.empty-file"),
 }: {
   file: string
   nodes: TreeNode<L>[]
@@ -85,6 +85,10 @@ export function TreeView<L>({
   collapsed?: boolean
   /** Leaves are full-width rows under each other rather than a grid of fields. */
   list?: boolean
+  /** What the search box searches, for a screen reader. */
+  searchLabel?: string
+  /** What is said when there is nothing to draw and nothing was searched. */
+  empty?: string
 }) {
   const [query, setQuery] = useState("")
   const [highlight, setHighlight] = useState<Highlight | null>(null)
@@ -92,6 +96,8 @@ export function TreeView<L>({
   const top = useRef<HTMLDivElement>(null)
   const search = useRef<HTMLDivElement>(null)
   const [appliedSeq, setAppliedSeq] = useState(-1)
+  /** The branches the last jump opens; kept as state, since the render that finds them is redone before it commits. */
+  const [jumpChain, setJumpChain] = useState<string[] | null>(null)
   /** The arrow back up appears only once the search box has left the screen. */
   const [scrolledAway, setScrolledAway] = useState(false)
   useEffect(() => {
@@ -114,15 +120,16 @@ export function TreeView<L>({
 
   if (chainForTarget && target) {
     setAppliedSeq(target.seq)
+    setJumpChain(chainForTarget)
     setQuery("")
     setHighlight({ id: target.id, seq: target.seq, language: target.language })
   }
 
   /** Opening a branch writes to the shared draft store, an external system, so this part stays an effect. */
   useEffect(() => {
-    if (!chainForTarget) return
-    for (const branch of chainForTarget) setOpened(file, branch, true)
-  }, [chainForTarget, file])
+    if (!jumpChain) return
+    for (const branch of jumpChain) setOpened(file, branch, true)
+  }, [jumpChain, file])
 
   useEffect(() => {
     if (!highlight) return undefined
@@ -141,7 +148,7 @@ export function TreeView<L>({
         <InputGroupInput
           type="search"
           placeholder={t("steward.settings.search")}
-          aria-label={t("steward.settings.search-file")}
+          aria-label={searchLabel}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -149,9 +156,7 @@ export function TreeView<L>({
       {notice ? <p className="text-sm text-muted-foreground">{notice}</p> : null}
       {above}
       {shown.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {query.trim() ? t("steward.settings.no-match") : t("steward.settings.empty-file")}
-        </p>
+        <p className="text-sm text-muted-foreground">{query.trim() ? t("steward.settings.no-match") : empty}</p>
       ) : (
         <NodeList
           nodes={shown}

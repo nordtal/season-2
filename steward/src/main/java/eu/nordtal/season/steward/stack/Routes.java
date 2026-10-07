@@ -112,15 +112,15 @@ public final class Routes {
         config.routes.get("/api/message-fallbacks", api.messages::fallbacks, Gate.KEY_HELD);
         config.routes.get("/api/message-check", api.messages::check, Gate.KEY_HELD);
         config.routes.get("/api/message-syntax", api.messages::syntax, Gate.KEY_HELD);
-        config.routes.get("/api/messages/<bundle>", api.messages::one, Gate.KEY_HELD);
         config.routes.put(
-                "/api/messages/<bundle>",
+                "/api/messages",
                 ctx -> {
-                    api.messages.save(ctx, caller.actor(ctx));
-                    api.journal(AuditLine.of(
-                            JournalAction.SAVE_MESSAGES,
-                            caller.actor(ctx),
-                            TEXTS.journal().saveMessages(ctx.pathParam("bundle"))));
+                    for (final String bundle : api.messages.save(ctx, caller.actor(ctx))) {
+                        api.journal(AuditLine.of(
+                                JournalAction.SAVE_MESSAGES,
+                                caller.actor(ctx),
+                                TEXTS.journal().saveMessages(bundle)));
+                    }
                 },
                 Gate.KEY_FRESH);
     }

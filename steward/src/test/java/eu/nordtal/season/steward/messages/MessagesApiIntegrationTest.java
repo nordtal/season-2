@@ -34,6 +34,7 @@ import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
@@ -60,11 +61,18 @@ class MessagesApiIntegrationTest {
     /** What the last {@code POST /api/message-preview} read, which the web would ask for. */
     private MessagePreview previewed;
 
+    /** The bundles the last {@code PUT /api/messages} wrote, which the route journals. */
+    private List<String> journalled;
+
     @BeforeEach
     void start() throws IOException {
         // Short, since a Unix socket path has a length limit the default temp directory can exceed.
         scratch = Files.createTempDirectory(Path.of("/tmp"), "messages");
-        agent = new AgentStandIn(scratch, 0, config -> {});
+        // Two more servers, so a bundle several jars carry is found on each.
+        agent = new AgentStandIn(scratch, 0, config -> {}, GSON.fromJson("""
+                {"limbo": {"image": "ghcr.io/nordtal/minecraft:latest"},
+                 "proxy": {"image": "ghcr.io/nordtal/minecraft:latest"}}
+                """, JsonObject.class));
         configs = agent.configs;
         final javax.sql.DataSource database = TestDatabase.fresh().dataSource();
         store = MessageOverrideStore.using(database);
@@ -77,8 +85,7 @@ class MessagesApiIntegrationTest {
                     config.routes.get("/api/message-fallbacks", messages::fallbacks);
                     config.routes.get("/api/message-check", messages::check);
                     config.routes.get("/api/message-syntax", messages::syntax);
-                    config.routes.get("/api/messages/<bundle>", messages::one);
-                    config.routes.put("/api/messages/<bundle>", ctx -> messages.save(ctx, Actor.STEWARD));
+                    config.routes.put("/api/messages", ctx -> journalled = messages.save(ctx, Actor.STEWARD));
                     config.routes.post("/api/message-preview", ctx -> {
                         previewed = messages.preview(ctx);
                         ctx.status(204);
@@ -106,13 +113,14 @@ class MessagesApiIntegrationTest {
     }
 
     @Test
-    void anEmptyMountListsNoBundleAtAllTheStateBeforeThisRouteExisted() throws Exception {
-        final JsonArray list = GSON.fromJson(get("/api/messages"), JsonArray.class);
-        assertEquals(0, list.size(), list.toString());
+    void anEmptyMountListsNoTextAtAll() throws Exception {
+        final JsonArray texts =
+                GSON.fromJson(get("/api/messages"), JsonObject.class).getAsJsonArray("texts");
+        assertEquals(0, texts.size(), texts.toString());
     }
 
     @Test
-    void aRealBundleIsListedAndItsContentShowsPackagedTextAndOverrideSideBySide() throws Exception {
+    void aRealBundlesTextsAreListedWithPackagedTextAndOverrideSideBySide() throws Exception {
         PluginJars.smp(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of(
@@ -120,13 +128,11 @@ class MessagesApiIntegrationTest {
                         "messages/smp/de.properties", "welcome=Willkommen\n"));
         store.change("smp", "welcome", "de", List.of("Servus"), List.of("Willkommen"), Actor.STEWARD);
 
-        final JsonArray list = GSON.fromJson(get("/api/messages"), JsonArray.class);
-        assertEquals(1, list.size(), list.toString());
-        final String path = list.get(0).getAsJsonObject().get("path").getAsString();
-        assertEquals("smp/smp", path);
+        final JsonObject texts = GSON.fromJson(get("/api/messages"), JsonObject.class);
+        assertEquals(1, texts.getAsJsonArray("texts").size(), texts.toString());
+        assertEquals("smp/smp", text(texts, "smp", "welcome").get("path").getAsString());
 
-        final JsonObject bundle = GSON.fromJson(get("/api/messages/" + path), JsonObject.class);
-        final JsonObject welcome = entry(bundle, "welcome");
+        final JsonObject welcome = entry(texts, "smp", "welcome");
         assertEquals(List.of("Welcome"), texts(welcome, "texts", "en"));
         assertEquals(List.of("Willkommen"), texts(welcome, "texts", "de"));
         assertEquals(List.of("Servus"), texts(welcome, "overrides", "de"));
@@ -157,10 +163,10 @@ class MessagesApiIntegrationTest {
                         "messages/smp/fr.properties", "welcome=Bienvenue\n"));
 
         final JsonObject saved = GSON.fromJson(
-                put("/api/messages/smp/smp", "{\"changes\":{\"welcome\":{\"fr\":[\"Salut\",\"Coucou\"]}}}"),
+                put("/api/messages", "{\"changes\":{\"smp\":{\"welcome\":{\"fr\":[\"Salut\",\"Coucou\"]}}}}"),
                 JsonObject.class);
 
-        final JsonObject welcome = entry(saved, "welcome");
+        final JsonObject welcome = entry(saved.getAsJsonObject("texts"), "smp", "welcome");
         assertEquals(List.of("Welcome", "Hi"), texts(welcome, "texts", "en"), saved.toString());
         assertEquals(List.of("Bienvenue"), texts(welcome, "texts", "fr"), saved.toString());
         assertEquals(List.of("Salut", "Coucou"), texts(welcome, "overrides", "fr"), saved.toString());
@@ -203,7 +209,7 @@ class MessagesApiIntegrationTest {
                         """));
 
         final JsonObject saved = GSON.fromJson(
-                put("/api/messages/smp/smp", "{\"changes\":{\"greeting\":{\"en\":[\"Hello there\"]}}}"),
+                put("/api/messages", "{\"changes\":{\"smp\":{\"greeting\":{\"en\":[\"Hello there\"]}}}}"),
                 JsonObject.class);
 
         final JsonObject warning = saved.getAsJsonArray("warnings").get(0).getAsJsonObject();
@@ -215,7 +221,8 @@ class MessagesApiIntegrationTest {
                 saved.toString());
         assertEquals(
                 "Hello there",
-                texts(entry(saved, "greeting"), "overrides", "en").getFirst(),
+                texts(entry(saved.getAsJsonObject("texts"), "smp", "greeting"), "overrides", "en")
+                        .getFirst(),
                 "a warning must not stop the save");
     }
 
@@ -233,7 +240,7 @@ class MessagesApiIntegrationTest {
                         """));
 
         final HttpResponse<String> refused =
-                send("PUT", "/api/messages/smp/smp", "{\"changes\":{\"greeting\":{\"en\":[\"Hello {name}\"]}}}");
+                send("PUT", "/api/messages", "{\"changes\":{\"smp\":{\"greeting\":{\"en\":[\"Hello {name}\"]}}}}");
 
         assertEquals(400, refused.statusCode(), refused.body());
         assertTrue(refused.body().contains("greeting"), refused.body());
@@ -246,7 +253,7 @@ class MessagesApiIntegrationTest {
         assertEquals(
                 "check.value.unknown",
                 problem.getAsJsonObject("text").get("key").getAsString());
-        final JsonObject greeting = entry(GSON.fromJson(get("/api/messages/smp/smp"), JsonObject.class), "greeting");
+        final JsonObject greeting = entry(GSON.fromJson(get("/api/messages"), JsonObject.class), "smp", "greeting");
         assertEquals("Greeting", greeting.get("name").getAsString());
         assertEquals(
                 "player",
@@ -262,12 +269,14 @@ class MessagesApiIntegrationTest {
     void aPreviewIsTheTriedTextAsThePlaceAskedForWithEveryValueTyped() throws Exception {
         greetingShownInThreePlaces();
 
+        final JsonObject texts = GSON.fromJson(get("/api/messages"), JsonObject.class);
         assertEquals(
-                GSON.fromJson(
-                        "{\"greeting\": {\"TITLE\": \"GAME\", \"DISCORD_EMBED\": \"DISCORD\"},"
-                                + " \"link\": {\"DISCORD_EMBED\": \"DISCORD\"}}",
-                        JsonObject.class),
-                GSON.fromJson(get("/api/messages/smp/smp"), JsonObject.class).getAsJsonObject("previews"));
+                GSON.fromJson("{\"TITLE\": \"GAME\", \"DISCORD_EMBED\": \"DISCORD\"}", JsonObject.class),
+                text(texts, "smp", "greeting").getAsJsonObject("previews"));
+        assertEquals(
+                GSON.fromJson("{\"DISCORD_EMBED\": \"DISCORD\"}", JsonObject.class),
+                text(texts, "smp", "link").getAsJsonObject("previews"));
+        assertEquals(new JsonObject(), text(texts, "smp", "page").getAsJsonObject("previews"));
 
         final HttpResponse<String> asked = send("POST", "/api/message-preview", """
                 {"bundle": "smp/smp", "key": "greeting", "language": "de", "text": "Moin {player} nach {time}",
@@ -317,9 +326,9 @@ class MessagesApiIntegrationTest {
         assertTrue(refused.body().contains("greeting"), refused.body());
     }
 
-    /** A language the network setting adds is offered before any bundle ships it, and tones are the service's own. */
+    /** A language the network setting adds is offered before any bundle ships it, and tones are each service's own. */
     @Test
-    void aBundleNamesTheNetworksLanguagesAndItsServicesColoursAndAPreviewCarriesThem() throws Exception {
+    void theTextsNameTheNetworksLanguagesAndEachServicesColoursAndAPreviewCarriesTheOneAskedFor() throws Exception {
         PluginJars.smp(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of(
@@ -338,16 +347,21 @@ class MessagesApiIntegrationTest {
                 current -> true);
         settings.change("smp", "colours", java.util.Map.of("bad", "\"#123456\""), Actor.STEWARD, current -> true);
 
-        final JsonObject bundle = GSON.fromJson(get("/api/messages/smp/smp"), JsonObject.class);
-        assertEquals(GSON.fromJson("[\"en\", \"de\", \"nl\"]", JsonArray.class), bundle.getAsJsonArray("languages"));
-        assertEquals("#123456", bundle.getAsJsonObject("colours").get("bad").getAsString());
-        assertEquals(
-                Tone.GOOD.hex(), bundle.getAsJsonObject("colours").get("good").getAsString());
+        final JsonObject texts = GSON.fromJson(get("/api/messages"), JsonObject.class);
+        assertEquals(GSON.fromJson("[\"en\", \"de\", \"nl\"]", JsonArray.class), texts.getAsJsonArray("languages"));
+        final JsonObject smp = texts.getAsJsonObject("colours").getAsJsonObject("smp");
+        assertEquals("#123456", smp.get("bad").getAsString());
+        assertEquals(Tone.GOOD.hex(), smp.get("good").getAsString());
 
+        send("POST", "/api/message-preview", """
+                {"bundle": "smp/smp", "key": "greeting", "language": "nl", "text": "<bad>Hallo</bad>", "shown": "CHAT",
+                 "service": "smp"}
+                """);
+        assertEquals("#123456", previewed.colours().get("bad"), "the palette of the service the page is filtered to");
         send("POST", "/api/message-preview", """
                 {"bundle": "smp/smp", "key": "greeting", "language": "nl", "text": "<bad>Hallo</bad>", "shown": "CHAT"}
                 """);
-        assertEquals("#123456", previewed.colours().get("bad"));
+        assertEquals(Tone.BAD.hex(), previewed.colours().get("bad"), "else the network's");
     }
 
     @Test
@@ -355,18 +369,90 @@ class MessagesApiIntegrationTest {
         PluginJars.smp(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of("messages/smp/en.properties", "welcome=Welcome\n"));
-        put("/api/messages/smp/smp", "{\"changes\":{\"welcome\":{\"en\":[\"Howdy\"]}}}");
+        put("/api/messages", "{\"changes\":{\"smp\":{\"welcome\":{\"en\":[\"Howdy\"]}}}}");
 
         final JsonObject afterReset = GSON.fromJson(
-                put("/api/messages/smp/smp", "{\"changes\":{\"welcome\":{\"en\":null}}}"), JsonObject.class);
+                put("/api/messages", "{\"changes\":{\"smp\":{\"welcome\":{\"en\":null}}}}"), JsonObject.class);
 
-        assertFalse(entry(afterReset, "welcome").getAsJsonObject("overrides").has("en"), afterReset.toString());
+        assertFalse(
+                entry(afterReset.getAsJsonObject("texts"), "smp", "welcome")
+                        .getAsJsonObject("overrides")
+                        .has("en"),
+                afterReset.toString());
         assertTrue(afterReset.getAsJsonArray("warnings").isEmpty());
     }
 
     @Test
-    void aBundleThatDoesNotExistIsA404() throws Exception {
-        assertEquals(404, raw("/api/messages/no-such-thing").statusCode());
+    void aKeyEveryJarShipsIsOneTextWithEveryServiceThatShowsIt() throws Exception {
+        PluginJars.smp(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                java.util.Map.of(
+                        "messages/smp/en.properties", "welcome=Welcome\n",
+                        "messages/paper-common/en.properties", "reload.done=Reloaded\n"));
+        PluginJars.write(
+                configs.resolve("limbo/limbo-0.9.1.jar"),
+                "{\"id\": \"limbo\", \"name\": \"Limbo\", \"messages\": true}",
+                java.util.Map.of(
+                        "messages/limbo/en.properties", "waiting=Waiting\n",
+                        "messages/paper-common/en.properties", "reload.done=Reloaded\n"));
+
+        final JsonObject texts = GSON.fromJson(get("/api/messages"), JsonObject.class);
+
+        assertEquals(3, texts.getAsJsonArray("texts").size(), texts.toString());
+        assertEquals(
+                GSON.fromJson("[\"limbo\", \"smp\"]", JsonArray.class),
+                text(texts, "paper-common", "reload.done").getAsJsonArray("services"));
+        assertEquals(
+                "limbo/limbo",
+                text(texts, "paper-common", "reload.done").get("path").getAsString());
+        assertEquals(
+                GSON.fromJson("[\"smp\"]", JsonArray.class),
+                text(texts, "smp", "welcome").getAsJsonArray("services"));
+    }
+
+    @Test
+    void theTextsNameEveryPlaceInOrderWithWhereItIs() throws Exception {
+        final JsonObject places =
+                GSON.fromJson(get("/api/messages"), JsonObject.class).getAsJsonObject("places");
+
+        assertEquals(Arrays.stream(Display.values()).map(Display::name).toList(), List.copyOf(places.keySet()));
+        assertEquals("GAME", places.get("CHAT").getAsString());
+        assertEquals("DISCORD", places.get("DISCORD_BUTTON").getAsString());
+        assertEquals("STEWARD", places.get("PUSH").getAsString());
+    }
+
+    @Test
+    void twoBundlesThatDeclareTheSameKeyAreTwoTexts() throws Exception {
+        PluginJars.smp(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                java.util.Map.of("messages/paper-common/en.properties", "command.unknown=Unknown here\n"));
+        PluginJars.write(
+                configs.resolve("proxy/proxy-0.9.1.jar"),
+                "{\"id\": \"proxy\", \"name\": \"Proxy\", \"messages\": true}",
+                java.util.Map.of("messages/proxy/en.properties", "command.unknown=Unknown everywhere\n"));
+
+        final JsonObject texts = GSON.fromJson(get("/api/messages"), JsonObject.class);
+
+        assertEquals(List.of("Unknown here"), texts(entry(texts, "paper-common", "command.unknown"), "texts", "en"));
+        assertEquals(List.of("Unknown everywhere"), texts(entry(texts, "proxy", "command.unknown"), "texts", "en"));
+    }
+
+    @Test
+    void oneSaveWritesTheTextsOfSeveralBundlesAndNamesEachForTheJournal() throws Exception {
+        PluginJars.smp(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                java.util.Map.of(
+                        "messages/smp/en.properties", "welcome=Welcome\n",
+                        "messages/paper-common/en.properties", "reload.done=Reloaded\n"));
+
+        put(
+                "/api/messages",
+                "{\"changes\":{\"smp\":{\"welcome\":{\"en\":[\"Howdy\"]}},"
+                        + "\"paper-common\":{\"reload.done\":{\"en\":[\"Done\"]}}}}");
+
+        assertEquals(List.of("smp", "paper-common"), journalled);
+        assertEquals(1, store.overrides(Set.of("smp")).size());
+        assertEquals(1, store.overrides(Set.of("paper-common")).size());
     }
 
     @Test
@@ -374,11 +460,17 @@ class MessagesApiIntegrationTest {
         smpBundle();
 
         final JsonObject saved = GSON.fromJson(
-                put("/api/messages/smp/smp", "{\"changes\":{\"welcome\":{\"en\":[\"Howdy\"],\"de\":[\"Servus\"]}}}"),
+                put("/api/messages", "{\"changes\":{\"smp\":{\"welcome\":{\"en\":[\"Howdy\"],\"de\":[\"Servus\"]}}}}"),
                 JsonObject.class);
 
-        assertEquals(List.of("Howdy"), texts(entry(saved, "welcome"), "overrides", "en"), saved.toString());
-        assertEquals(List.of("Servus"), texts(entry(saved, "welcome"), "overrides", "de"), saved.toString());
+        assertEquals(
+                List.of("Howdy"),
+                texts(entry(saved.getAsJsonObject("texts"), "smp", "welcome"), "overrides", "en"),
+                saved.toString());
+        assertEquals(
+                List.of("Servus"),
+                texts(entry(saved.getAsJsonObject("texts"), "smp", "welcome"), "overrides", "de"),
+                saved.toString());
     }
 
     @Test
@@ -390,7 +482,8 @@ class MessagesApiIntegrationTest {
                         "messages/paper-common/en.properties", "reload.done=Reloaded\n"));
 
         final JsonObject saved = GSON.fromJson(
-                put("/api/messages/smp/smp", "{\"changes\":{\"reload.done\":{\"en\":[\"Done\"]}}}"), JsonObject.class);
+                put("/api/messages", "{\"changes\":{\"paper-common\":{\"reload.done\":{\"en\":[\"Done\"]}}}}"),
+                JsonObject.class);
 
         assertEquals("APPLIED", saved.getAsJsonObject("reload").get("status").getAsString(), saved.toString());
         assertEquals(
@@ -404,7 +497,7 @@ class MessagesApiIntegrationTest {
         smpBundle();
 
         final HttpResponse<String> refused =
-                send("PUT", "/api/messages/smp/smp", "{\"changes\":{\"welcom\":{\"en\":[\"Hi\"]}}}");
+                send("PUT", "/api/messages", "{\"changes\":{\"smp\":{\"welcom\":{\"en\":[\"Hi\"]}}}}");
 
         assertEquals(400, refused.statusCode(), refused.body());
         assertTrue(refused.body().contains("welcom"), refused.body());
@@ -445,14 +538,21 @@ class MessagesApiIntegrationTest {
                 java.util.Map.of("messages/smp/en.properties", "welcome=Welcome\n"));
     }
 
-    private static JsonObject entry(final JsonObject bundle, final String key) {
-        for (final var element : bundle.getAsJsonArray("entries")) {
+    /** One text of {@code GET /api/messages}: its entry, where it is read from, who shows it, its previews. */
+    private static JsonObject text(final JsonObject texts, final String bundle, final String key) {
+        for (final var element : texts.getAsJsonArray("texts")) {
             final JsonObject row = element.getAsJsonObject();
-            if (key.equals(row.get("key").getAsString())) {
+            final JsonObject entry = row.getAsJsonObject("entry");
+            if (bundle.equals(entry.get("bundle").getAsString())
+                    && key.equals(entry.get("key").getAsString())) {
                 return row;
             }
         }
-        throw new AssertionError("no key " + key + " in " + bundle);
+        throw new AssertionError("no key " + bundle + "/" + key + " in " + texts);
+    }
+
+    private static JsonObject entry(final JsonObject texts, final String bundle, final String key) {
+        return text(texts, bundle, key).getAsJsonObject("entry");
     }
 
     private String get(final String path) throws Exception {

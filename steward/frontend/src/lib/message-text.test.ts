@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import type { MessageEntry } from "@/lib/api"
-import { languagesOf } from "@/lib/message-text"
+import { languagesByBundle, languagesOf } from "@/lib/message-text"
 
 const won: MessageEntry = {
   bundle: "smp",
@@ -30,5 +30,16 @@ describe("languagesOf", () => {
   it("offers a language the network speaks before any jar ships it or an admin wrote it", () => {
     const shipped = { ...won, texts: { fr: ["Salut"], en: ["Hi"] } }
     expect(languagesOf([shipped], ["de", "nl", "en"])).toEqual(["en", "de", "fr", "nl"])
+  })
+})
+
+describe("languagesByBundle", () => {
+  it("keeps a bundle that ships English only to English and what an admin wrote", () => {
+    const steward = { ...won, bundle: "steward", texts: { en: ["Page"] } }
+    const written = { ...won, bundle: "steward", key: "other", texts: { en: ["Other"] }, overrides: { fr: ["Autre"] } }
+    const smp = { ...won, texts: { en: ["Hi"], de: ["Hallo"] } }
+    const languages = languagesByBundle([steward, written, smp], ["en", "de", "nl"])
+    expect(languages.get("steward")).toEqual(["en", "fr"])
+    expect(languages.get("smp")).toEqual(["en", "de", "nl"])
   })
 })

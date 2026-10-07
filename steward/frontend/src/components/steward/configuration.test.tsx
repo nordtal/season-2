@@ -48,7 +48,7 @@ describe("the file row", () => {
     expect(screen.queryByText("steward.yml")).toBeNull()
   })
 
-  it("lists the translations, then the groups of settings by name", async () => {
+  it("lists the groups of settings by name, and no translations", async () => {
     const files = ["sounds", "config", "milestones"].map((name) => ({
       service: "smp",
       name,
@@ -62,18 +62,16 @@ describe("the file row", () => {
       "fetch",
       vi.fn(async (url: string) => {
         if (url === "/api/setting-groups") return json(files)
-        if (url === "/api/messages")
-          return json([{ service: "smp", module: "smp", path: "smp/smp/messages", writable: true }])
         throw new Error(`the list asked for ${url}, which this test did not expect`)
       }),
     )
 
     draw(<Settings service="smp" />)
 
-    await screen.findByText("SMP Translations")
+    await screen.findByText("Milestones")
     const nav = screen.getByRole("navigation", { name: "Files" })
     const lines = Array.from(nav.querySelectorAll("h3, button")).map((node) => node.textContent?.trim())
-    expect(lines).toEqual(["SMP Translations", "Config", "Milestones", "Sounds"])
+    expect(lines).toEqual(["Config", "Milestones", "Sounds"])
   })
 
   it("draws no group headings", async () => {

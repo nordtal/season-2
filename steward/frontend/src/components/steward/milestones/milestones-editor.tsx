@@ -5,6 +5,7 @@ import { Failure } from "@/components/steward/query-state"
 import { noticeOf, SaveDraft, useGroupDraft } from "@/components/steward/group-draft"
 import { type SectionValues, sectionsFromEntry } from "@/components/steward/repeatable-cards"
 import type { CustomEditorProps } from "@/components/steward/config-editors"
+import { PinnedRow } from "@/components/steward/settings-view"
 import { TrackRows } from "@/components/steward/milestones/rows"
 import { type TrackSchema, trackEdits, trackSchema } from "@/components/steward/milestones/model"
 
@@ -37,7 +38,7 @@ export function MilestonesEditor({ file, document }: CustomEditorProps) {
         disabled={!document.writable}
         onChange={(track) => set(schema.entry.path, track)}
       />
-      <div className="pointer-events-none sticky bottom-4 mt-2 flex justify-end gap-2">
+      <PinnedRow>
         <SaveDraft
           count={count}
           writable={document.writable}
@@ -45,7 +46,7 @@ export function MilestonesEditor({ file, document }: CustomEditorProps) {
           onSave={submit}
           onDiscard={discard}
         />
-      </div>
+      </PinnedRow>
     </div>
   )
 }

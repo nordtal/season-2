@@ -163,7 +163,7 @@ export function TreeView<L>({
           list={list}
         />
       )}
-      <div className="pointer-events-none sticky bottom-4 mt-2 flex items-center justify-end gap-2">
+      <PinnedRow>
         {scrolledAway ? (
           <Button
             type="button"
@@ -177,7 +177,16 @@ export function TreeView<L>({
           </Button>
         ) : null}
         {save}
-      </div>
+      </PinnedRow>
+    </div>
+  )
+}
+
+/** A group's save and its other controls, pinned to the bottom of the content above whatever chrome sits there. */
+export function PinnedRow({ children }: { children: ReactNode }) {
+  return (
+    <div className="pointer-events-none sticky bottom-(--content-bottom) mt-2 flex items-center justify-end gap-2">
+      {children}
     </div>
   )
 }

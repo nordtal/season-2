@@ -99,7 +99,7 @@ function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
         className={`flex min-w-0 flex-1 flex-col transition-[margin] ${MOTION}`}
         style={{ marginLeft: shown ? "var(--col)" : 0 }}
       >
-        <Content className="pt-[calc(var(--island-top)+var(--control-min-height)+2.125rem)] pb-[max(1.5rem,env(safe-area-inset-bottom))]" />
+        <Content className="pt-[calc(var(--island-top)+var(--control-min-height)+2.125rem)] [--content-bottom:max(1.5rem,env(safe-area-inset-bottom))]" />
       </div>
     </>
   )
@@ -148,7 +148,7 @@ function PhoneFrame({ me, nav }: { me: Me; nav: Nav }) {
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Content className="pt-[calc(env(safe-area-inset-top)+var(--blur-clearance)+1.5rem)] pb-[calc(max(0.75rem,env(safe-area-inset-bottom))+var(--control-min-height)+2.25rem)]" />
+        <Content className="pt-[calc(env(safe-area-inset-top)+var(--blur-clearance)+1.5rem)] [--content-bottom:calc(max(0.75rem,env(safe-area-inset-bottom))+var(--control-min-height)+2.25rem)]" />
       </div>
     </>
   )
@@ -167,11 +167,14 @@ function usePageLabel() {
   return null
 }
 
-/** The one scrolling column. Each shape says how much room its chrome needs at the edges. */
+/**
+ * The one scrolling column. Each shape says how much room its chrome needs at the edges, the bottom as
+ * `--content-bottom`, which a row pinned to the bottom also keeps clear.
+ */
 function Content({ className }: { className: string }) {
   return (
     <ScrollArea className="min-h-0 flex-1">
-      <main className={`mx-auto w-full max-w-[110rem] px-(--gutter) ${className}`}>
+      <main className={`mx-auto w-full max-w-[110rem] px-(--gutter) pb-(--content-bottom) ${className}`}>
         <Outlet />
       </main>
     </ScrollArea>

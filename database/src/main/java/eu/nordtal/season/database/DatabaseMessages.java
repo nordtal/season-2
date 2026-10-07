@@ -87,6 +87,7 @@ public interface DatabaseMessages {
     }
 
     @Name("Update runs")
+    @Shown(Display.STEWARD)
     interface UpdateRefusals {
 
         @Name("A run is still open")
@@ -100,6 +101,7 @@ public interface DatabaseMessages {
     }
 
     @Name("Season dates")
+    @Shown(Display.STEWARD)
     interface SeasonRefusals {
 
         @Name("Opening in the past")
@@ -119,6 +121,7 @@ public interface DatabaseMessages {
     }
 
     @Name("Server actions")
+    @Shown({Display.STEWARD, Display.CHAT})
     interface ServerRefusals {
 
         @Name("No active milestone")
@@ -146,9 +149,11 @@ public interface DatabaseMessages {
         MessageRef belowSoftMinimum(@Arg("count") long count, @Arg("minimum") long minimum);
 
         @Name("Player not here")
+        @Shown(Display.STEWARD)
         MessageRef notHere();
 
         @Name("Direct message not delivered")
+        @Shown(Display.STEWARD)
         MessageRef notDelivered();
     }
 }

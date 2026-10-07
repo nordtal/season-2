@@ -17,6 +17,7 @@ import java.time.Duration;
  * Every message of the hunger-games bundle, one method per key.
  */
 @MessageSpec("hunger-games")
+@Shown(Display.CHAT)
 public interface HungerGamesMessages {
 
     /** The one shared instance; it is stateless. */
@@ -35,6 +36,7 @@ public interface HungerGamesMessages {
         interface Admin {
 
             @Name("Started")
+            @Shown({Display.CHAT, Display.STEWARD})
             MessageRef started(@Arg("count") int count);
 
             @Name("Ready status header")

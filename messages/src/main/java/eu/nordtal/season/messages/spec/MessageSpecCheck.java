@@ -43,6 +43,11 @@ public final class MessageSpecCheck {
             if (entry.name() == null || entry.name().isBlank()) {
                 problems.add(key + ": no @Name");
             }
+            if (entry.shown().isEmpty()) {
+                problems.add(key + ": no @Shown names a place it appears");
+            } else if (new HashSet<>(entry.shown()).size() != entry.shown().size()) {
+                problems.add(key + ": its @Shown names a place twice");
+            }
             if (entry.section().stream().anyMatch(name -> name == null || name.isBlank())) {
                 problems.add(key + ": a section around it has no @Name");
             }

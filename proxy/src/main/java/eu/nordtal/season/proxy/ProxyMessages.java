@@ -14,6 +14,7 @@ import eu.nordtal.season.proxy.ping.ServerListContext;
 
 /** Every message of the proxy bundle, one method per key. */
 @MessageSpec("proxy")
+@Shown(Display.CHAT)
 public interface ProxyMessages {
 
     ProxyMessages MESSAGES = MessageSpecs.create(ProxyMessages.class);
@@ -46,6 +47,7 @@ public interface ProxyMessages {
         MessageRef trouble();
 
         @Name("Connection lost")
+        @Shown(Display.CHAT)
         MessageRef connectionLost();
 
         @Name("Misconfigured")
@@ -96,6 +98,7 @@ public interface ProxyMessages {
         interface Expiry {
 
             @Name("Warning")
+            @Shown(Display.CHAT)
             MessageRef warning(@Arg("minutes") long minutes);
 
             @Name("Expired")
@@ -153,6 +156,7 @@ public interface ProxyMessages {
     interface Restart {
 
         @Name("Tick")
+        @Shown(Display.SUBTITLE)
         MessageRef tick(@Arg("seconds") long seconds);
 
         @Name("Cancelled")
@@ -207,6 +211,7 @@ public interface ProxyMessages {
         What what();
 
         @Name("What")
+        @Shown({Display.CHAT, Display.SUBTITLE})
         interface What {
 
             @Name("Network")
@@ -252,6 +257,7 @@ public interface ProxyMessages {
         Now now();
 
         @Name("Now")
+        @Shown({Display.CHAT, Display.SUBTITLE})
         interface Now {
 
             @Name("Update")
@@ -284,12 +290,14 @@ public interface ProxyMessages {
         MessageRef countdown(@Arg("seconds") long seconds);
 
         @Name("Now")
+        @Shown({Display.CHAT, Display.SUBTITLE})
         MessageRef now();
     }
 
     NetworkCountdown countdown();
 
     @Name("Countdown")
+    @Shown({Display.KICK_SCREEN, Display.SERVER_LIST})
     interface NetworkCountdown {
 
         @Name("Days")

@@ -1,6 +1,8 @@
 package eu.nordtal.season.steward.texts;
 
 import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.messages.spec.Arg;
+import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.messages.spec.Name;
 
 /** The message editor: its two views, the tools above the field, and a fallen-back override. */
@@ -135,4 +137,10 @@ public interface MessageEditorTexts {
 
     @Name("Send in Discord")
     MessageRef sendInDiscord();
+
+    @Name("Shown as")
+    MessageRef shownAs();
+
+    @Name("Place")
+    MessageRef place(@Arg("place") Display place);
 }

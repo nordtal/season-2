@@ -35,7 +35,6 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
@@ -152,9 +151,9 @@ public final class MessagesApi {
     }
 
     /**
-     * {@code POST /api/message-preview}: a text an admin is trying, as the preview that shows it to them.
-     * The body is {@code {bundle, key, language, text, values}}, {@code values} the editor's examples by placeholder.
-     * What the one validator refuses is refused here too, and so is a key no preview reaches.
+     * {@code POST /api/message-preview}: a text an admin is trying, as the preview of the place {@code shown} names.
+     * The body is {@code {bundle, key, language, text, shown, values}}, the values the editor's examples. What the
+     * validator refuses is refused here too, and so is a place no preview reaches.
      */
     public MessagePreview preview(final Context ctx) {
         final JsonObject body = bodyOf(ctx.body());
@@ -169,7 +168,11 @@ public final class MessagesApi {
         if (OverrideCheck.problems(entry, text).stream().anyMatch(MessageCheck.Problem::error)) {
             throw new RequestRefused(400, ANSWER.previewRefused(key, language));
         }
-        final Display shown = shownFor(entry).orElseThrow(() -> new RequestRefused(400, ANSWER.noPreview(key)));
+        final String place = textOf(body, "shown");
+        final Display shown = previewable(entry).stream()
+                .filter(display -> display.name().equals(place))
+                .findFirst()
+                .orElseThrow(() -> new RequestRefused(400, ANSWER.noPreview(key)));
         final JsonElement values = body.get("values");
         return new MessagePreview(
                 exampleOf(entry, values != null && values.isJsonObject() ? values.getAsJsonObject() : new JsonObject()),
@@ -180,16 +183,14 @@ public final class MessagesApi {
     }
 
     /**
-     * Where a preview of a key is shown, which is where its schema says.
-     * Nowhere for a key Steward shows itself or pushes, and for one no schema describes.
+     * Every place of a key a preview reaches, in its schema's order.
+     * None that Steward shows itself or pushes, and none of a key no schema describes.
      */
-    static Optional<Display> shownFor(final MessageEntry entry) {
-        final String shown = entry.shown();
-        if (shown == null) {
-            return Optional.empty();
-        }
-        final Display display = Display.valueOf(shown);
-        return display == Display.STEWARD || display == Display.PUSH ? Optional.empty() : Optional.of(display);
+    static List<Display> previewable(final MessageEntry entry) {
+        return entry.shown().stream()
+                .map(Display::valueOf)
+                .filter(display -> display != Display.STEWARD && display != Display.PUSH)
+                .toList();
     }
 
     /**
@@ -387,7 +388,8 @@ public final class MessagesApi {
     /**
      * One bundle, packaged text and override side by side for every key.
      *
-     * @param previews  where a preview of each key reaches the admin who asks for one; a key none reaches is absent
+     * @param previews  for each key, every place of it a preview reaches, to where it reaches the admin who asks for
+     *                  one, in its schema's order; a key none reaches is absent
      * @param languages the network's languages as its settings name them now, the default first
      * @param colours   each tone's colour by its tag, as the service's {@code colours} settings name it now
      */
@@ -397,7 +399,7 @@ public final class MessagesApi {
             String path,
             boolean writable,
             List<MessageEntry> entries,
-            Map<String, PreviewTarget> previews,
+            Map<String, Map<String, PreviewTarget>> previews,
             List<String> languages,
             Map<String, String> colours) {}
 
@@ -425,7 +427,7 @@ public final class MessagesApi {
             String path,
             boolean writable,
             List<MessageEntry> entries,
-            Map<String, PreviewTarget> previews,
+            Map<String, Map<String, PreviewTarget>> previews,
             List<String> languages,
             Map<String, String> colours,
             List<Warning> warnings,
@@ -479,9 +481,13 @@ public final class MessagesApi {
     }
 
     private Bundle document(final AgentWire.BundleRef location, final MessageBundle bundle) {
-        final Map<String, PreviewTarget> previews = new TreeMap<>();
+        final Map<String, Map<String, PreviewTarget>> previews = new TreeMap<>();
         for (final MessageEntry entry : bundle.entries()) {
-            shownFor(entry).ifPresent(shown -> previews.putIfAbsent(entry.key(), PreviewTarget.of(shown)));
+            final Map<String, PreviewTarget> places = new LinkedHashMap<>();
+            previewable(entry).forEach(place -> places.put(place.name(), PreviewTarget.of(place)));
+            if (!places.isEmpty()) {
+                previews.putIfAbsent(entry.key(), places);
+            }
         }
         return new Bundle(
                 location.service(),

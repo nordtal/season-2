@@ -198,7 +198,7 @@ class MessagesApiIntegrationTest {
                         "messages/smp/schema.json", """
                         {"bundle": "smp", "messages": [{"key": "greeting", "name": "Greeting",
                           "args": [{"name": "player", "kind": "text", "example": "Alex", "action": false}],
-                          "section": [], "format": "MINIMESSAGE", "shown": "CHAT"}],
+                          "section": [], "format": "MINIMESSAGE", "shown": ["CHAT"]}],
                          "contexts": {}, "globals": []}
                         """));
 
@@ -228,7 +228,7 @@ class MessagesApiIntegrationTest {
                         "messages/smp/schema.json", """
                         {"bundle": "smp", "messages": [{"key": "greeting", "name": "Greeting",
                           "args": [{"name": "player", "kind": "text", "example": "Alex", "action": false}],
-                          "section": ["Join"], "format": "MINIMESSAGE", "shown": "CHAT"}],
+                          "section": ["Join"], "format": "MINIMESSAGE", "shown": ["CHAT"]}],
                          "contexts": {}, "globals": []}
                         """));
 
@@ -259,31 +259,19 @@ class MessagesApiIntegrationTest {
     }
 
     @Test
-    void aPreviewIsTheTriedTextWhereItsKeyIsShownWithEveryValueTypedAndAKeyShownInStewardHasNone() throws Exception {
-        PluginJars.smp(
-                configs.resolve("smp/smp-0.9.1.jar"),
-                java.util.Map.of(
-                        "messages/smp/en.properties", "greeting=Hello {player} after {time}\npage=Page\nlink=Link\n",
-                        "messages/smp/schema.json", """
-                        {"bundle": "smp", "messages": [
-                          {"key": "greeting", "name": "Greeting", "section": ["Join"], "format": "MINIMESSAGE",
-                           "shown": "TITLE", "args": [
-                             {"name": "player", "kind": "name", "example": "Alex", "action": false},
-                             {"name": "time", "kind": "duration", "example": "PT5M", "action": false}]},
-                          {"key": "page", "name": "Page", "section": [], "format": "PLAIN", "shown": "STEWARD",
-                           "args": []},
-                          {"key": "link", "name": "Link", "section": [], "format": "DISCORD_MARKDOWN",
-                           "shown": "DISCORD_EMBED", "args": []}],
-                         "contexts": {}, "globals": []}
-                        """));
+    void aPreviewIsTheTriedTextAsThePlaceAskedForWithEveryValueTyped() throws Exception {
+        greetingShownInThreePlaces();
 
         assertEquals(
-                GSON.fromJson("{\"greeting\": \"GAME\", \"link\": \"DISCORD\"}", JsonObject.class),
+                GSON.fromJson(
+                        "{\"greeting\": {\"TITLE\": \"GAME\", \"DISCORD_EMBED\": \"DISCORD\"},"
+                                + " \"link\": {\"DISCORD_EMBED\": \"DISCORD\"}}",
+                        JsonObject.class),
                 GSON.fromJson(get("/api/messages/smp/smp"), JsonObject.class).getAsJsonObject("previews"));
 
         final HttpResponse<String> asked = send("POST", "/api/message-preview", """
                 {"bundle": "smp/smp", "key": "greeting", "language": "de", "text": "Moin {player} nach {time}",
-                 "values": {"player": "Alex", "time": "eine Weile"}}
+                 "shown": "TITLE", "values": {"player": "Alex", "time": "eine Weile"}}
                 """);
         assertEquals(204, asked.statusCode(), asked.body());
         assertEquals(Display.TITLE, previewed.shown());
@@ -294,16 +282,37 @@ class MessagesApiIntegrationTest {
                 Duration.ofMinutes(5),
                 previewed.message().args().get("time"),
                 "a value that does not read as its kind is the schema's example");
+    }
+
+    @Test
+    void aPreviewGoesOnlyToAPlaceOfTheKeyThatAPreviewReaches() throws Exception {
+        greetingShownInThreePlaces();
 
         final HttpResponse<String> nowhere = send(
                 "POST",
                 "/api/message-preview",
-                "{\"bundle\": \"smp/smp\", \"key\": \"page\", \"language\": \"en\", \"text\": \"Page\"}");
+                "{\"bundle\": \"smp/smp\", \"key\": \"page\", \"language\": \"en\", \"text\": \"Page\","
+                        + " \"shown\": \"STEWARD\"}");
         assertEquals(400, nowhere.statusCode(), nowhere.body());
+        final HttpResponse<String> inDiscord = send("POST", "/api/message-preview", """
+                {"bundle": "smp/smp", "key": "greeting", "language": "en", "text": "Hi {player}",
+                 "shown": "DISCORD_EMBED"}
+                """);
+        assertEquals(204, inDiscord.statusCode(), inDiscord.body());
+        assertEquals(Display.DISCORD_EMBED, previewed.shown(), "the same key previews as each of its places");
+        final HttpResponse<String> notThere = send("POST", "/api/message-preview", """
+                {"bundle": "smp/smp", "key": "greeting", "language": "en", "text": "Hi {player}", "shown": "STEWARD"}
+                """);
+        assertEquals(400, notThere.statusCode(), notThere.body());
+        final HttpResponse<String> notItsPlace = send("POST", "/api/message-preview", """
+                {"bundle": "smp/smp", "key": "greeting", "language": "en", "text": "Hi {player}", "shown": "GUI"}
+                """);
+        assertEquals(400, notItsPlace.statusCode(), notItsPlace.body());
         final HttpResponse<String> refused = send(
                 "POST",
                 "/api/message-preview",
-                "{\"bundle\": \"smp/smp\", \"key\": \"greeting\", \"language\": \"en\", \"text\": \"Hi {name}\"}");
+                "{\"bundle\": \"smp/smp\", \"key\": \"greeting\", \"language\": \"en\", \"text\": \"Hi {name}\","
+                        + " \"shown\": \"TITLE\"}");
         assertEquals(400, refused.statusCode(), refused.body());
         assertTrue(refused.body().contains("greeting"), refused.body());
     }
@@ -318,7 +327,7 @@ class MessagesApiIntegrationTest {
                         "messages/smp/schema.json", """
                         {"bundle": "smp", "messages": [
                           {"key": "greeting", "name": "Greeting", "section": [], "format": "MINIMESSAGE",
-                           "shown": "CHAT", "args": []}],
+                           "shown": ["CHAT"], "args": []}],
                          "contexts": {}, "globals": []}
                         """));
         settings.change(
@@ -336,7 +345,7 @@ class MessagesApiIntegrationTest {
                 Tone.GOOD.hex(), bundle.getAsJsonObject("colours").get("good").getAsString());
 
         send("POST", "/api/message-preview", """
-                {"bundle": "smp/smp", "key": "greeting", "language": "nl", "text": "<bad>Hallo</bad>"}
+                {"bundle": "smp/smp", "key": "greeting", "language": "nl", "text": "<bad>Hallo</bad>", "shown": "CHAT"}
                 """);
         assertEquals("#123456", previewed.colours().get("bad"));
     }
@@ -408,6 +417,26 @@ class MessagesApiIntegrationTest {
         final List<String> texts = new java.util.ArrayList<>();
         variants.forEach(variant -> texts.add(variant.getAsString()));
         return texts;
+    }
+
+    /** {@code greeting} is shown in a title, a Discord embed and Steward; {@code page} only in Steward. */
+    private void greetingShownInThreePlaces() throws IOException {
+        PluginJars.smp(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                java.util.Map.of(
+                        "messages/smp/en.properties", "greeting=Hello {player} after {time}\npage=Page\nlink=Link\n",
+                        "messages/smp/schema.json", """
+                        {"bundle": "smp", "messages": [
+                          {"key": "greeting", "name": "Greeting", "section": ["Join"], "format": "MINIMESSAGE",
+                           "shown": ["TITLE", "DISCORD_EMBED", "STEWARD"], "args": [
+                             {"name": "player", "kind": "name", "example": "Alex", "action": false},
+                             {"name": "time", "kind": "duration", "example": "PT5M", "action": false}]},
+                          {"key": "page", "name": "Page", "section": [], "format": "PLAIN", "shown": ["STEWARD"],
+                           "args": []},
+                          {"key": "link", "name": "Link", "section": [], "format": "DISCORD_MARKDOWN",
+                           "shown": ["DISCORD_EMBED"], "args": []}],
+                         "contexts": {}, "globals": []}
+                        """));
     }
 
     private void smpBundle() throws IOException {

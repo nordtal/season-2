@@ -12,7 +12,7 @@ import java.util.Set;
  * @param roles    the message's own arguments, each a placeholder or a role, which every packaged text uses
  * @param actions  the actions a text may place with {@code <action:name>}
  * @param markup   whether the texts are MiniMessage
- * @param limit    how many characters the place it is shown in takes, {@code 0} for no limit
+ * @param limit    how many characters the strictest place it is shown in takes, {@code 0} for no limit
  * @param examples placeholder to its example, as {@link Kind#example} reads it, for the length check
  */
 public record Declaration(

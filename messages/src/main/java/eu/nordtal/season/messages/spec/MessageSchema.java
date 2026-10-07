@@ -60,7 +60,8 @@ public final class MessageSchema {
      * @param args        the placeholders, in parameter order
      * @param section     the names of the sections around it, outermost first
      * @param format      how it is written
-     * @param shown       where it is shown
+     * @param shown       every place it is shown, the one an editor previews first leading; empty only in a spec
+     *                    {@link MessageSpecCheck} refuses
      * @param formerly    the names it had before, {@code key} in this bundle or {@code bundle/key}; {@code null},
      *                    and absent from the JSON, for a key never renamed
      */
@@ -71,8 +72,14 @@ public final class MessageSchema {
             List<Arg> args,
             List<String> section,
             TextFormat format,
-            Display shown,
-            @Nullable List<String> formerly) {}
+            List<Display> shown,
+            @Nullable List<String> formerly) {
+
+        /** Returns how many characters it may have: the strictest limit of its places, {@code 0} for none. */
+        public int limit() {
+            return Display.strictest(shown);
+        }
+    }
 
     /** Returns the bundle a spec describes. */
     public static String bundle(final Class<?> spec) {
@@ -94,7 +101,7 @@ public final class MessageSchema {
                 entries,
                 0,
                 nearest(null, spec.getAnnotation(Format.class), annotation.format()),
-                nearest(null, spec.getAnnotation(Shown.class), annotation.shown()));
+                nearest(null, spec.getAnnotation(Shown.class), List.of()));
         final Map<String, Integer> order = new LinkedHashMap<>();
         for (final String key : fileOrder(spec)) {
             order.putIfAbsent(key, order.size());
@@ -111,7 +118,7 @@ public final class MessageSchema {
             final List<Entry> into,
             final int depth,
             final TextFormat format,
-            final Display shown) {
+            final List<Display> shown) {
         if (depth > 16) {
             throw new IllegalStateException(type.getName() + " nests sections more than 16 deep - a cycle?");
         }
@@ -145,7 +152,7 @@ public final class MessageSchema {
                         List.copyOf(args),
                         List.copyOf(section),
                         ownFormat == null ? format : ownFormat.value(),
-                        ownShown == null ? shown : ownShown.value(),
+                        nearest(ownShown, null, shown),
                         formerly == null ? null : List.of(formerly.value())));
             }
         }
@@ -156,8 +163,9 @@ public final class MessageSchema {
         return method != null ? method.value() : type != null ? type.value() : outer;
     }
 
-    private static Display nearest(final @Nullable Shown method, final @Nullable Shown type, final Display outer) {
-        return method != null ? method.value() : type != null ? type.value() : outer;
+    private static List<Display> nearest(
+            final @Nullable Shown method, final @Nullable Shown type, final List<Display> outer) {
+        return method != null ? List.of(method.value()) : type != null ? List.of(type.value()) : outer;
     }
 
     private static Arg argOf(final Method method, final Parameter parameter) {
@@ -327,12 +335,7 @@ public final class MessageSchema {
                 }
             }
             return new Declaration(
-                    values,
-                    roles,
-                    actions,
-                    entry.format() == TextFormat.MINIMESSAGE,
-                    entry.shown().limit(),
-                    examples);
+                    values, roles, actions, entry.format() == TextFormat.MINIMESSAGE, entry.limit(), examples);
         }
 
         private void expand(

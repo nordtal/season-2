@@ -2,7 +2,6 @@ package eu.nordtal.season.steward.messages;
 
 import eu.nordtal.season.internalapi.agent.MessageArg;
 import eu.nordtal.season.internalapi.agent.MessageEntry;
-import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.messages.text.Declaration;
 import eu.nordtal.season.messages.text.MessageCheck;
 import eu.nordtal.season.messages.value.Kind;
@@ -54,13 +53,6 @@ public final class OverrideCheck {
                                 : arg.name().substring(0, arg.name().indexOf('.')));
             }
         }
-        final String shown = entry.shown();
-        return new Declaration(
-                values,
-                roles,
-                actions,
-                "MINIMESSAGE".equals(entry.format()),
-                shown == null ? 0 : Display.valueOf(shown).limit(),
-                examples);
+        return new Declaration(values, roles, actions, "MINIMESSAGE".equals(entry.format()), entry.limit(), examples);
     }
 }

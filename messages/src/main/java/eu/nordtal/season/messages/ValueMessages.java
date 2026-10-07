@@ -1,9 +1,11 @@
 package eu.nordtal.season.messages;
 
 import eu.nordtal.season.messages.spec.Arg;
+import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.messages.spec.Key;
 import eu.nordtal.season.messages.spec.MessageSpec;
 import eu.nordtal.season.messages.spec.Name;
+import eu.nordtal.season.messages.spec.Shown;
 import eu.nordtal.season.messages.spec.TextFormat;
 import eu.nordtal.season.messages.value.Example;
 
@@ -13,6 +15,28 @@ import eu.nordtal.season.messages.value.Example;
  * build checks them and an admin can change them, and read by key through {@code Words}.
  */
 @MessageSpec(value = "values", format = TextFormat.PLAIN)
+@Shown({
+    Display.CHAT,
+    Display.ACTION_BAR,
+    Display.TITLE,
+    Display.SUBTITLE,
+    Display.BOSS_BAR,
+    Display.TAB_LIST,
+    Display.GUI,
+    Display.HOLOGRAM,
+    Display.KICK_SCREEN,
+    Display.SERVER_LIST,
+    Display.DISCORD_MESSAGE,
+    Display.DISCORD_EMBED,
+    Display.DISCORD_EMBED_HEADING,
+    Display.DISCORD_BUTTON,
+    Display.DISCORD_MODAL,
+    Display.DISCORD_SELECT,
+    Display.DISCORD_CHANNEL,
+    Display.DISCORD_COMMAND,
+    Display.STEWARD,
+    Display.PUSH
+})
 public interface ValueMessages {
 
     Values values();

@@ -32,7 +32,17 @@ function config(over: Partial<ConfigEntry> & { path: string }): ConfigEntry {
 }
 
 function message(over: Partial<MessageEntry> & { key: string }): MessageEntry {
-  return { bundle: "smp", inBundle: true, texts: {}, overrides: {}, args: [], section: [], ...over }
+  return {
+    bundle: "smp",
+    inBundle: true,
+    texts: {},
+    overrides: {},
+    args: [],
+    section: [],
+    shown: [],
+    limit: 0,
+    ...over,
+  }
 }
 
 /** The tree as text, one line per node, so a whole shape fits in one expectation. */

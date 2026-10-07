@@ -16,7 +16,8 @@ class OverrideCheckTest {
     private static final MessageEntry WON = entry(
             "Duel won",
             "MINIMESSAGE",
-            "CHAT",
+            List.of("CHAT"),
+            0,
             List.of(
                     new MessageArg("winner.name", "name", "player", false, "Alex", false),
                     new MessageArg("winner.self", "choice", "player", false, "false", false),
@@ -69,7 +70,8 @@ class OverrideCheckTest {
         final MessageEntry button = entry(
                 "Button",
                 "PLAIN",
-                "DISCORD_BUTTON",
+                List.of("DISCORD_EMBED", "DISCORD_BUTTON"),
+                80,
                 List.of(new MessageArg("days", "number", null, false, "30", false)));
         assertEquals(List.of(), errors(button, "Buy {days} days"));
         assertTrue(
@@ -78,13 +80,14 @@ class OverrideCheckTest {
 
     @Test
     void aKeyWithoutASchemaIsNeverChecked() {
-        assertEquals(List.of(), OverrideCheck.problems(entry(null, null, null, List.of()), "Welcome {player}"));
+        assertEquals(List.of(), OverrideCheck.problems(entry(null, null, List.of(), 0, List.of()), "Welcome {player}"));
     }
 
     private static MessageEntry entry(
             final @Nullable String name,
             final @Nullable String format,
-            final @Nullable String shown,
+            final List<String> shown,
+            final int limit,
             final List<MessageArg> args) {
         return new MessageEntry(
                 "key",
@@ -97,6 +100,7 @@ class OverrideCheckTest {
                 args,
                 List.of(),
                 format,
-                shown);
+                shown,
+                limit);
     }
 }

@@ -120,10 +120,13 @@ format allows: its values with their examples (`GET /api/message-examples`), gly
 styles, hover, click and actions. Whether a text is right is only ever `MessageCheck`: the editor
 asks `GET /api/message-check` once typing pauses, and the save refuses what it errs on. The bundle
 names the network's `languages` and each tone's `colours`, read per request. An override no process
-shows (`GET /api/message-fallbacks`) opens with what it was written over and what the jar has now. The send button
-asks `POST /api/message-preview`: a Discord key arrives as a direct message from the bot, any other
-on the admin's linked player's server, filled with the editor's examples; the bundle's `previews`
-names which keys a preview reaches.
+shows (`GET /api/message-fallbacks`) opens with what it was written over and what the jar has now. The
+preview draws the text in one of the key's places, its first until the admin picks another: as the
+game, Discord, Steward's page or a notification shows it. The counter is the key's `limit`, the
+strictest of its places. The send button asks `POST /api/message-preview` with the place: a Discord
+place arrives as a direct message from the bot, a game place on the admin's linked player's server,
+filled with the editor's examples; the bundle's `previews` names, per key, the places a preview
+reaches and where.
 
 ## Configuration
 

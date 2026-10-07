@@ -1282,6 +1282,9 @@ export type TextArgs = {
   "steward.message-editor.override": Record<string, never>
   "steward.message-editor.packaged-now": Record<string, never>
   "steward.message-editor.packaged-then": Record<string, never>
+  "steward.message-editor.place": {
+    place: Arg["choice"]
+  }
   "steward.message-editor.placeholder": Record<string, never>
   "steward.message-editor.remove": Record<string, never>
   "steward.message-editor.remove-colour": Record<string, never>
@@ -1289,6 +1292,7 @@ export type TextArgs = {
   "steward.message-editor.run-command": Record<string, never>
   "steward.message-editor.send-in-discord": Record<string, never>
   "steward.message-editor.show-in-game": Record<string, never>
+  "steward.message-editor.shown-as": Record<string, never>
   "steward.message-editor.source": Record<string, never>
   "steward.message-editor.strikethrough": Record<string, never>
   "steward.message-editor.suggest-command": Record<string, never>

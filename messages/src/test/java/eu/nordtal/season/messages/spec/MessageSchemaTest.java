@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 class MessageSchemaTest {
 
     @MessageSpec("untyped")
+    @Shown(Display.CHAT)
     interface Untyped {
 
         MessageRef price(@Arg("price") Object price);

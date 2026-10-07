@@ -7,6 +7,7 @@ import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.messages.spec.MessageSpec;
 import eu.nordtal.season.messages.spec.MessageSpecs;
 import eu.nordtal.season.messages.spec.Name;
+import eu.nordtal.season.messages.spec.Shown;
 import eu.nordtal.season.messages.spec.TextFormat;
 import java.time.Duration;
 import java.time.Instant;
@@ -15,7 +16,8 @@ import java.time.Instant;
  * Steward's own texts, English only: the page renders them in the browser and an admin may override any of them.
  * The frontend names a key as a string, which the generated {@code texts.gen.ts} types; the README says why.
  */
-@MessageSpec(value = "steward", format = TextFormat.PLAIN, shown = Display.STEWARD)
+@MessageSpec(value = "steward", format = TextFormat.PLAIN)
+@Shown(Display.STEWARD)
 public interface StewardTexts {
 
     /** The texts; stateless, so one instance serves every caller. */

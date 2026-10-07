@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import type { CSSProperties, ReactNode } from "react"
-import { CaretDownIcon, HashIcon } from "@phosphor-icons/react"
+import { BellIcon, CaretDownIcon, HashIcon } from "@phosphor-icons/react"
 import { cn } from "cn"
 
 import type { GlyphInfo } from "@/lib/api"
@@ -8,7 +8,10 @@ import { colourOf, gradientAt, plainText, shadowOf } from "@/lib/rich-text"
 import type { Format, Run, Style } from "@/lib/rich-text"
 import type { Fill } from "@/components/steward/message-editor/examples"
 
-/** Texts drawn as they are shown: Minecraft's pixel font on its surface, Discord's layout, placeholders as examples. */
+/**
+ * Texts drawn where they are shown: Minecraft's pixel font on its surface, Discord's layout, Steward's page or a
+ * notification, placeholders as examples.
+ */
 
 /** The palette's tones by tag, each with the colour it is drawn in. */
 export type Tones = Record<string, string>
@@ -275,26 +278,21 @@ const SKY = "linear-gradient(180deg, #6b8cc4 0%, #9db8e3 55%, #5f8a3a 55.5%, #4b
 type PreviewProps = {
   runs: Run[]
   format: Format
+  /** The place drawn, one of the key's; `undefined` for a key no schema describes. */
   shown: string | undefined
-  keyName: string
   fill: Fill
   glyphs: GlyphInfo[]
   tones: Tones
   className?: string
 }
 
-/** The text where the game or Discord shows it, with its example values filled in. */
-export function Preview({ runs, format, shown, keyName, fill, glyphs, tones, className }: PreviewProps) {
-  if (format === "DISCORD_MARKDOWN" || shown?.startsWith("DISCORD_")) {
-    return (
-      <DiscordPreview
-        runs={runs}
-        shown={shown ?? "DISCORD_MESSAGE"}
-        keyName={keyName}
-        fill={fill}
-        className={className}
-      />
-    )
+/** The text where the game, Discord, Steward or a notification shows it, with its example values filled in. */
+export function Preview({ runs, format, shown, fill, glyphs, tones, className }: PreviewProps) {
+  if (shown === "STEWARD" || shown === "PUSH") {
+    return <PagePreview runs={runs} fill={fill} push={shown === "PUSH"} className={className} />
+  }
+  if (shown?.startsWith("DISCORD_") || (shown === undefined && format === "DISCORD_MARKDOWN")) {
+    return <DiscordPreview runs={runs} shown={shown ?? "DISCORD_MESSAGE"} fill={fill} className={className} />
   }
   const text = (base = "#FFFFFF", shadow = true, scale = SCALE) => (
     <MinecraftText runs={runs} fill={fill} glyphs={glyphs} tones={tones} base={base} shadow={shadow} scale={scale} />
@@ -355,14 +353,6 @@ export function Preview({ runs, format, shown, keyName, fill, glyphs, tones, cla
           </div>
         </div>,
       )
-    case "SIDEBAR":
-      return scene(
-        <div className="ml-auto flex items-center pr-2">
-          <div className="px-1.5 py-1" style={{ background: "rgba(0,0,0,0.3)" }}>
-            {text()}
-          </div>
-        </div>,
-      )
     case "GUI":
       return scene(
         <div className="flex w-full items-center justify-center p-3" style={{ background: "rgba(16,16,16,0.75)" }}>
@@ -411,27 +401,6 @@ function Hotbar() {
 }
 
 // Discord
-
-/** How long Discord lets a text be where it is shown, measured with the example values filled in. */
-export function discordLimit(shown: string | undefined, key: string): number | null {
-  switch (shown) {
-    case "DISCORD_MESSAGE":
-      return 2000
-    case "DISCORD_EMBED":
-      return /title/i.test(key) ? 256 : 4096
-    case "DISCORD_BUTTON":
-      return 80
-    case "DISCORD_MODAL":
-      return 45
-    case "DISCORD_SELECT":
-      return /placeholder|choose/i.test(key) ? 150 : 100
-    case "DISCORD_CHANNEL":
-    case "DISCORD_COMMAND":
-      return 100
-    default:
-      return null
-  }
-}
 
 function DiscordRuns({ runs, fill }: { runs: Run[]; fill: Fill }) {
   return (
@@ -490,40 +459,27 @@ function author(children: ReactNode) {
 function DiscordPreview({
   runs,
   shown,
-  keyName,
   fill,
   className,
 }: {
   runs: Run[]
   shown: string
-  keyName: string
   fill: Fill
   className?: string
 }) {
-  const limit = discordLimit(shown, keyName)
-  const length = plainText(runs, fill).length
   const body = <DiscordRuns runs={runs} fill={fill} />
   const surface = (children: ReactNode) => (
     <div
-      className={cn("relative flex w-full flex-col gap-2 rounded-md p-4 text-[15px] leading-[1.375]", className)}
+      className={cn("flex w-full flex-col gap-2 rounded-md p-4 text-[15px] leading-[1.375]", className)}
       style={{ background: "#313338", color: "#dbdee1" }}
     >
       {children}
-      {limit ? (
-        <span
-          className={cn(
-            "absolute right-2 bottom-1 text-xs tabular-nums",
-            length > limit ? "text-destructive" : "opacity-50",
-          )}
-        >
-          {length}/{limit}
-        </span>
-      ) : null}
     </div>
   )
   switch (shown) {
-    case "DISCORD_EMBED": {
-      const title = /title/i.test(keyName)
+    case "DISCORD_EMBED":
+    case "DISCORD_EMBED_HEADING": {
+      const title = shown === "DISCORD_EMBED_HEADING"
       return surface(
         author(
           <div
@@ -592,4 +548,32 @@ function DiscordPreview({
     default:
       return surface(author(<div className="whitespace-pre-wrap">{body}</div>))
   }
+}
+
+// Steward and its notifications
+
+/** The text as Steward's page or a notification shows it: plain, in the page's own type. */
+function PagePreview({ runs, fill, push, className }: { runs: Run[]; fill: Fill; push: boolean; className?: string }) {
+  const text = <span className="break-words whitespace-pre-wrap">{plainText(runs, fill)}</span>
+  if (!push) {
+    return (
+      <div className={cn("w-full rounded-md border bg-card p-3 text-sm text-card-foreground", className)}>{text}</div>
+    )
+  }
+  return (
+    <div className={cn("flex w-full justify-center rounded-md bg-muted p-3", className)}>
+      <div className="flex w-full max-w-sm gap-3 rounded-lg border bg-popover p-3 text-sm text-popover-foreground shadow-sm">
+        <span
+          className="flex size-8 shrink-0 items-center justify-center rounded-md text-white"
+          style={{ background: "var(--brand)" }}
+        >
+          <BellIcon aria-hidden className="size-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-xs text-muted-foreground">Nordtal Steward</div>
+          {text}
+        </div>
+      </div>
+    </div>
+  )
 }

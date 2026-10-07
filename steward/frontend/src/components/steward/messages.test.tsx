@@ -58,6 +58,8 @@ function entry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
     overrides: {},
     args: [],
     section: [],
+    shown: [],
+    limit: 0,
     ...over,
   }
 }
@@ -625,7 +627,7 @@ describe("a fallen-back override", () => {
 })
 
 describe("a preview", () => {
-  it("sends the text being typed with the values it shows to the admin where the key is shown", async () => {
+  it("sends the text being typed with the values it shows to the admin as the place picked", async () => {
     const bodies: unknown[] = []
     vi.stubGlobal(
       "fetch",
@@ -633,17 +635,19 @@ describe("a preview", () => {
         {
           "smp/smp": {
             ...location({ path: "smp/smp" }),
-            previews: { welcome: "GAME" },
+            previews: { welcome: { CHAT: "GAME", DISCORD_MESSAGE: "DISCORD" } },
             entries: [
               entry({
                 texts: { en: ["Welcome {player}"] },
                 key: "welcome",
                 name: "Welcome",
+                shown: ["CHAT", "DISCORD_MESSAGE", "STEWARD"],
+                limit: 2000,
                 args: [
                   { name: "player", kind: "name", global: false, example: "Alex", action: false, exampleWords: {} },
                 ],
               }),
-              entry({ texts: { en: ["Page"] }, key: "page", name: "Page" }),
+              entry({ texts: { en: ["Page"] }, key: "page", name: "Page", shown: ["STEWARD"] }),
             ],
           },
         },
@@ -663,15 +667,28 @@ describe("a preview", () => {
     await open("SMP Translations")
     await openKey("Page")
     expect(screen.queryByRole("button", { name: /in game|in Discord/ })).toBeNull()
+    expect(screen.queryByRole("combobox", { name: "Shown as" })).toBeNull()
     await openKey("Welcome")
     fireEvent.change(await source("Welcome"), { target: { value: "Moin {player}" } })
+    expect(screen.getByText("9/2000")).toBeTruthy()
 
     fireEvent.click(screen.getByRole("button", { name: "Show it to my player in game" }))
-
     await screen.findByText("Shown to your player in game.")
+
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Shown as" }), { key: "Enter" })
+    fireEvent.click(await screen.findByRole("option", { name: "Discord message" }))
+    fireEvent.click(screen.getByRole("button", { name: "Send it to me in Discord" }))
+
+    await waitFor(() => expect(bodies).toHaveLength(2))
+    const sent = { bundle: "smp/smp", key: "welcome", language: "en", text: "Moin {player}" }
     expect(bodies).toEqual([
-      { bundle: "smp/smp", key: "welcome", language: "en", text: "Moin {player}", values: { player: "Alex" } },
+      { ...sent, shown: "CHAT", values: { player: "Alex" } },
+      { ...sent, shown: "DISCORD_MESSAGE", values: { player: "Alex" } },
     ])
+
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Shown as" }), { key: "Enter" })
+    fireEvent.click(await screen.findByRole("option", { name: "Steward" }))
+    expect(screen.queryByRole("button", { name: /in game|in Discord/ })).toBeNull()
   })
 
   it("shows a nested message as its words, and sends the server its key", async () => {
@@ -682,12 +699,13 @@ describe("a preview", () => {
         {
           "smp/smp": {
             ...location({ path: "smp/smp" }),
-            previews: { "restart.notice": "GAME" },
+            previews: { "restart.notice": { CHAT: "GAME" } },
             entries: [
               entry({
                 texts: { en: ["{what} restarts"] },
                 key: "restart.notice",
                 name: "Restart notice",
+                shown: ["CHAT"],
                 args: [
                   {
                     name: "what",
@@ -729,6 +747,7 @@ describe("a preview", () => {
         key: "restart.notice",
         language: "en",
         text: "{what} restarts",
+        shown: "CHAT",
         values: { what: "restart.what.network" },
       },
     ])

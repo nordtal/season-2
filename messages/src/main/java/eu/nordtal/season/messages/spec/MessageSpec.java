@@ -9,7 +9,7 @@ import java.lang.annotation.Target;
 /**
  * Marks the interface that describes one message bundle, {@code messages/<bundle>/}.
  * A method returning {@link eu.nordtal.season.messages.MessageRef} is a key, one returning an interface a section,
- * and a context parameter a role.
+ * and a context parameter a role. Where its texts are shown is {@link Shown}'s.
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
@@ -20,7 +20,4 @@ public @interface MessageSpec {
 
     /** How the bundle's texts are written, unless {@link Format} says otherwise below. */
     TextFormat format() default TextFormat.MINIMESSAGE;
-
-    /** Where the bundle's texts are shown, unless {@link Shown} says otherwise below. */
-    Display shown() default Display.CHAT;
 }

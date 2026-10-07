@@ -13,6 +13,7 @@ import eu.nordtal.season.messages.value.GameContent;
 
 /** Every message of the paper-common bundle, one method per key. */
 @MessageSpec("paper-common")
+@Shown(Display.CHAT)
 public interface PaperCommonMessages {
 
     /** The messages; stateless, so one instance serves every caller. */
@@ -73,9 +74,11 @@ public interface PaperCommonMessages {
         MessageRef confirm(@Arg("command") String command);
 
         @Name("Failed")
+        @Shown({Display.CHAT, Display.STEWARD})
         MessageRef failed();
 
         @Name("Preview shown")
+        @Shown(Display.STEWARD)
         MessageRef previewShown();
     }
 
@@ -83,6 +86,7 @@ public interface PaperCommonMessages {
     interface Login {
 
         @Name("Database unreachable")
+        @Shown(Display.KICK_SCREEN)
         MessageRef databaseUnreachable();
     }
 

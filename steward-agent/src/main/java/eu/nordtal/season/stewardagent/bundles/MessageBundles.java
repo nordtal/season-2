@@ -146,7 +146,8 @@ public final class MessageBundles {
                                 .toList(),
                 schema == null ? List.of() : schema.section(),
                 schema == null ? null : schema.format(),
-                schema == null ? null : schema.shown());
+                schema == null ? List.of() : schema.shown(),
+                schema == null ? 0 : schema.limit());
     }
 
     /**
@@ -212,7 +213,8 @@ public final class MessageBundles {
             List<MessageArg> args,
             List<String> section,
             @Nullable String format,
-            @Nullable String shown) {}
+            List<String> shown,
+            int limit) {}
 
     /** One {@code schema.json}; one that cannot be parsed is logged and read as empty, so the texts still show. */
     private static List<SchemaEntry> readSchema(
@@ -274,7 +276,8 @@ public final class MessageBundles {
                 args,
                 entry.section(),
                 entry.format().name(),
-                entry.shown().name());
+                entry.shown().stream().map(Enum::name).toList(),
+                declaration.limit());
     }
 
     /** One placeholder per attribute of {@code role}, {@code role.attribute}, in the declaration's order. */

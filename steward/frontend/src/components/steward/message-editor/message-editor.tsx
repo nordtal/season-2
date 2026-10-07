@@ -22,14 +22,15 @@ import {
 } from "@/lib/queries"
 import { formatOf, normalize, parse, plainText, same, serialize } from "@/lib/rich-text"
 import type { Format, Run } from "@/lib/rich-text"
-import { message, t } from "@/lib/texts"
+import { choice, message, t } from "@/lib/texts"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupButton } from "@/components/ui/input-group"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RequestOutcome } from "@/components/steward/game-actions"
 import { exampleOf, type Fill } from "@/components/steward/message-editor/examples"
-import { discordLimit, Preview } from "@/components/steward/message-editor/preview"
+import { Preview } from "@/components/steward/message-editor/preview"
 import { Failure } from "@/components/steward/query-state"
 import { SourceEditor } from "@/components/steward/message-editor/source-editor"
 import { VisualEditor } from "@/components/steward/message-editor/visual-editor"
@@ -59,8 +60,8 @@ export type MessageEditorProps = {
   /** Saves a fallen-back override as it is, which takes it over. */
   onTakeOver: (language: Language, texts: string[]) => void
   takingOver: boolean
-  /** Where a preview of the key reaches the admin, absent for a key none reaches. */
-  preview?: MessagePreviewTarget
+  /** Each place of the key a preview reaches, to where it reaches the admin; absent for a key none reaches. */
+  previews?: Record<string, MessagePreviewTarget>
 }
 
 /**
@@ -79,9 +80,13 @@ export function MessageEditor({
   fallbacks,
   onTakeOver,
   takingOver,
-  preview,
+  previews,
 }: MessageEditorProps) {
   const [language, setLanguage] = useState<Language>(ENGLISH)
+  // The place drawn below, the key's first until the admin picks another.
+  const [picked, setPicked] = useState<string | undefined>(undefined)
+  const place = picked !== undefined && entry.shown.includes(picked) ? picked : entry.shown[0]
+  const preview = place === undefined ? undefined : previews?.[place]
   const [variant, setVariant] = useState(0)
   const [source, setSource] = useState(false)
   const ref = useLanding(highlight)
@@ -123,7 +128,7 @@ export function MessageEditor({
   const checked = useDebounced(typed === undefined ? null : text, CHECK_DELAY)
   const check = useMessageCheck(bundle, entry.key, checked)
   const problems = typed === undefined ? [] : (check.data ?? [])
-  const send = usePreview(bundle, entry, language, text, sent)
+  const send = usePreview(bundle, entry, place, language, text, sent)
   const sendLabel =
     preview === "GAME" ? t("steward.message-editor.show-in-game") : t("steward.message-editor.send-in-discord")
 
@@ -133,8 +138,6 @@ export function MessageEditor({
   }
   const empty = (tab: Language) => packagedOf(entry, tab).length === 0 && !overridden(tab)
   const fallback = fallbacks.find((candidate) => candidate.language === language)
-  const limit =
-    format === "DISCORD_MARKDOWN" || entry.shown?.startsWith("DISCORD_") ? discordLimit(entry.shown, entry.key) : null
   const length = runs ? plainText(runs, fill).length : text.length
   const label = entry.name ?? entry.key
 
@@ -241,11 +244,14 @@ export function MessageEditor({
             </InputGroupButton>
           ) : null}
           <span className="ml-auto flex items-center gap-1">
-            {limit !== null ? (
+            {entry.limit > 0 ? (
               <span
-                className={cn("text-xs tabular-nums", length > limit ? "text-destructive" : "text-muted-foreground")}
+                className={cn(
+                  "text-xs tabular-nums",
+                  length > entry.limit ? "text-destructive" : "text-muted-foreground",
+                )}
               >
-                {length}/{limit}
+                {length}/{entry.limit}
               </span>
             ) : null}
             {typed !== undefined ? (
@@ -305,16 +311,25 @@ export function MessageEditor({
       ) : null}
       {send.error ? <Failure error={send.error} /> : null}
       {send.run ? <RequestOutcome run={send.run} /> : null}
+      {runs !== null && entry.shown.length > 1 ? (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span id={`${entry.key}-shown-as`}>{t("steward.message-editor.shown-as")}</span>
+          <Select value={place} onValueChange={setPicked}>
+            <SelectTrigger size="sm" aria-labelledby={`${entry.key}-shown-as`} className="text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {entry.shown.map((shown) => (
+                <SelectItem key={shown} value={shown} className="text-xs">
+                  {t("steward.message-editor.place", { place: choice(shown) })}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : null}
       {runs !== null ? (
-        <Preview
-          runs={runs}
-          format={format}
-          shown={entry.shown}
-          keyName={entry.key}
-          fill={fill}
-          glyphs={glyphs.data ?? []}
-          tones={tones}
-        />
+        <Preview runs={runs} format={format} shown={place} fill={fill} glyphs={glyphs.data ?? []} tones={tones} />
       ) : null}
       {entry.description ? <p className="text-xs text-muted-foreground">{entry.description}</p> : null}
     </div>
@@ -415,7 +430,14 @@ function useRuns(
  * The text as it stands, sent to the admin alone where the key is shown, with the values `fill` gives; what became
  * of the request follows. A value every message has is the receiving process's own.
  */
-function usePreview(bundle: string, entry: MessageEntry, language: Language, text: string, fill: Fill) {
+function usePreview(
+  bundle: string,
+  entry: MessageEntry,
+  shown: string | undefined,
+  language: Language,
+  text: string,
+  fill: Fill,
+) {
   const action = useGameAction()
   const [id, setId] = useState<string | null>(null)
   const run = useCommandRun(id)
@@ -430,7 +452,7 @@ function usePreview(bundle: string, entry: MessageEntry, language: Language, tex
     send: () => {
       setId(null)
       action.mutate(
-        { path: "/api/message-preview", body: { bundle, key: entry.key, language, text, values } },
+        { path: "/api/message-preview", body: { bundle, key: entry.key, language, text, shown, values } },
         { onSuccess: (asked) => setId(asked.id) },
       )
     },

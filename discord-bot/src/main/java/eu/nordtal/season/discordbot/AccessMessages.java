@@ -31,7 +31,7 @@ public interface AccessMessages {
     interface Contribution {
 
         @Name("Title")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_EMBED_HEADING)
         MessageRef title();
 
         @Name("Prices")
@@ -43,7 +43,7 @@ public interface AccessMessages {
         MessageRef tierLine(@Arg("days") long days, @Arg("price") Money price);
 
         @Name("Donation heading")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_EMBED_HEADING)
         MessageRef donationHeading();
 
         @Name("Donation")
@@ -51,7 +51,7 @@ public interface AccessMessages {
         MessageRef donation(@Arg("amount") Money amount);
 
         @Name("Renew heading")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_EMBED_HEADING)
         MessageRef renewHeading();
 
         @Name("Renew")
@@ -70,11 +70,11 @@ public interface AccessMessages {
     interface Link {
 
         @Name("Title")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_EMBED_HEADING)
         MessageRef title();
 
         @Name("Steps heading")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_EMBED_HEADING)
         MessageRef stepsHeading();
 
         @Name("Steps")
@@ -82,7 +82,7 @@ public interface AccessMessages {
         MessageRef steps(@Arg("button") @Example("Enter my code") String button);
 
         @Name("Switch heading")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_EMBED_HEADING)
         MessageRef switchHeading();
 
         @Name("Switch")
@@ -134,11 +134,11 @@ public interface AccessMessages {
     interface Onboarding {
 
         @Name("Title")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_EMBED_HEADING)
         MessageRef title();
 
         @Name("Choose heading")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_EMBED_HEADING)
         MessageRef chooseHeading();
 
         @Name("Choose")
@@ -146,7 +146,7 @@ public interface AccessMessages {
         MessageRef choose(@Arg("button") @Example("Choose") String button);
 
         @Name("Change heading")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_EMBED_HEADING)
         MessageRef changeHeading();
 
         @Name("Change")
@@ -342,11 +342,11 @@ public interface AccessMessages {
     interface Register {
 
         @Name("Title")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_EMBED_HEADING)
         MessageRef title();
 
         @Name("Team heading")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_EMBED_HEADING)
         MessageRef teamHeading();
 
         @Name("Team")
@@ -354,7 +354,7 @@ public interface AccessMessages {
         MessageRef team();
 
         @Name("Name heading")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_EMBED_HEADING)
         MessageRef nameHeading();
 
         @Name("Name")
@@ -362,7 +362,7 @@ public interface AccessMessages {
         MessageRef name();
 
         @Name("Partner heading")
-        @Shown(Display.DISCORD_EMBED)
+        @Shown(Display.DISCORD_EMBED_HEADING)
         MessageRef partnerHeading();
 
         @Name("Partner")

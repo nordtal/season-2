@@ -93,15 +93,15 @@ class RosterApiTest extends WebTestSupport {
                         "messages/smp/schema.json",
                         """
                 {"bundle": "smp", "messages": [
-                  {"key": "welcome", "name": "Welcome", "section": [], "format": "MINIMESSAGE", "shown": "CHAT",
+                  {"key": "welcome", "name": "Welcome", "section": [], "format": "MINIMESSAGE", "shown": ["CHAT"],
                    "args": [{"name": "player", "kind": "name", "example": "Alex", "action": false}]},
                   {"key": "linked", "name": "Linked", "section": [], "format": "DISCORD_MARKDOWN",
-                   "shown": "DISCORD_EMBED", "args": []}],
+                   "shown": ["DISCORD_EMBED"], "args": []}],
                  "contexts": {}, "globals": []}
                 """));
         final String welcome = """
                 {"bundle": "smp/smp", "key": "welcome", "language": "en", "text": "Hi {player}",
-                 "values": {"player": "Ally"}}
+                 "shown": "CHAT", "values": {"player": "Ally"}}
                 """;
         final String player = "00000000-0000-0000-0000-0000000000a1";
         final long journal = count("SELECT count(*) FROM audit_log");
@@ -123,7 +123,8 @@ class RosterApiTest extends WebTestSupport {
 
             final HttpResponse<String> sent = post(
                     "/api/message-preview",
-                    "{\"bundle\": \"smp/smp\", \"key\": \"linked\", \"language\": \"en\", \"text\": \"**Linked**\"}");
+                    "{\"bundle\": \"smp/smp\", \"key\": \"linked\", \"language\": \"en\", \"text\": \"**Linked**\","
+                            + " \"shown\": \"DISCORD_EMBED\"}");
             assertEquals(202, sent.statusCode(), sent.body());
             final String dm =
                     GSON.fromJson(sent.body(), JsonObject.class).get("id").getAsString();

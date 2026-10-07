@@ -103,11 +103,11 @@ class MessageBundlesTest {
     private static final String SCHEMA = """
             {"bundle": "smp", "messages": [
               {"key": "welcome", "name": "Welcome", "args": [], "section": ["Join"],
-               "format": "MINIMESSAGE", "shown": "CHAT"},
+               "format": "MINIMESSAGE", "shown": ["CHAT"]},
               {"key": "duel.won", "name": "Duel won", "description": "Sent to the winner.",
                "args": [{"name": "opponent", "kind": "name", "example": "Alex", "action": false},
                         {"name": "rematch", "action": true}],
-               "section": ["Duels", null], "format": "MINIMESSAGE", "shown": "CHAT"}
+               "section": ["Duels", null], "format": "MINIMESSAGE", "shown": ["CHAT"]}
             ], "contexts": {}, "globals": []}
             """;
 
@@ -142,7 +142,8 @@ class MessageBundlesTest {
 
     private static final String ROLE_SCHEMA = """
             {"bundle": "smp", "messages": [
-              {"key": "duel.won", "name": "Duel won", "format": "MINIMESSAGE", "shown": "TITLE",
+              {"key": "duel.won", "name": "Duel won", "format": "MINIMESSAGE",
+               "shown": ["TITLE", "DISCORD_BUTTON"],
                "args": [{"name": "winner", "context": "player", "action": false},
                         {"name": "count", "kind": "number", "example": "3", "action": false}],
                "section": []}
@@ -179,13 +180,14 @@ class MessageBundlesTest {
                         new MessageArg("season.number", "number", "season", true, "2", false)),
                 won.args());
         assertEquals("MINIMESSAGE", won.format());
-        assertEquals("TITLE", won.shown());
+        assertEquals(List.of("TITLE", "DISCORD_BUTTON"), won.shown());
+        assertEquals(80, won.limit());
     }
 
     private static final String NESTING_SCHEMA = """
             {"bundle": "proxy", "messages": [
               {"key": "restart.countdown.update", "name": "Update countdown", "format": "MINIMESSAGE",
-               "shown": "CHAT", "section": [],
+               "shown": ["CHAT"], "section": [],
                "args": [{"name": "what", "kind": "message", "example": "restart.what.network", "action": false},
                         {"name": "count", "kind": "number", "example": "10", "action": false}]}
             ], "contexts": {}, "globals": []}

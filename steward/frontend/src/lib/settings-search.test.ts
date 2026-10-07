@@ -186,7 +186,17 @@ describe("pending jump", () => {
 // The message bundles are a second supplier, not a second search.
 
 function messageEntry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
-  return { bundle: "smp", inBundle: true, texts: {}, overrides: {}, args: [], section: [], ...over }
+  return {
+    bundle: "smp",
+    inBundle: true,
+    texts: {},
+    overrides: {},
+    args: [],
+    section: [],
+    shown: [],
+    limit: 0,
+    ...over,
+  }
 }
 
 function bundleLocation(over: Partial<MessageBundleLocation> & { path: string }): MessageBundleLocation {

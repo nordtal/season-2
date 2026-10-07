@@ -33,7 +33,8 @@ import org.junit.jupiter.api.Test;
 
 class MessageContextsTest {
 
-    @MessageSpec(value = "context-test", shown = Display.ACTION_BAR)
+    @MessageSpec("context-test")
+    @Shown(Display.ACTION_BAR)
     interface Fight {
 
         @Name("Hit")
@@ -103,15 +104,15 @@ class MessageContextsTest {
                         new MessageSchema.Arg("victim", null, "player", null, false),
                         new MessageSchema.Arg("damage", "number", null, "3", false)),
                 hit.args());
-        assertEquals(Display.TITLE, hit.shown());
+        assertEquals(List.of(Display.TITLE), hit.shown());
         assertEquals(TextFormat.MINIMESSAGE, hit.format());
-        assertEquals(Display.BOSS_BAR, entries.get(1).shown());
-        assertEquals(Display.DISCORD_BUTTON, entries.get(2).shown());
+        assertEquals(List.of(Display.BOSS_BAR), entries.get(1).shown());
+        assertEquals(List.of(Display.DISCORD_BUTTON), entries.get(2).shown());
         assertEquals(TextFormat.PLAIN, entries.get(2).format());
 
         final String json = MessageSchema.json(Fight.class);
         assertTrue(json.contains("{\"name\":\"attacker\",\"context\":\"player\",\"action\":false}"), json);
-        assertTrue(json.contains("\"format\":\"MINIMESSAGE\",\"shown\":\"TITLE\""), json);
+        assertTrue(json.contains("\"format\":\"MINIMESSAGE\",\"shown\":[\"TITLE\"]"), json);
         assertTrue(
                 json.contains("\"player\":{\"name\":\"Player\",\"attributes\":[{\"name\":\"name\",\"kind\":\"name\","
                         + "\"example\":\"Alex\"},{\"name\":\"self\",\"kind\":\"choice\",\"example\":\"false\"}]}"),
@@ -129,6 +130,7 @@ class MessageContextsTest {
     }
 
     @MessageSpec("context-test")
+    @Shown(Display.CHAT)
     interface Drifted {
 
         @Name("Hit")

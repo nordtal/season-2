@@ -21,6 +21,7 @@ import java.util.Optional;
 
 /** Every message of the smp bundle, one method per key. */
 @MessageSpec("smp")
+@Shown(Display.CHAT)
 public interface SmpMessages {
 
     /** The messages; stateless, so one instance serves every caller. */
@@ -43,6 +44,7 @@ public interface SmpMessages {
         }
 
         @Name("World")
+        @Shown({Display.GUI, Display.BOSS_BAR, Display.CHAT})
         interface World {
 
             @Name("Nordtal")
@@ -165,6 +167,7 @@ public interface SmpMessages {
             MessageRef auraUnknown(@Arg("player") PlayerContext player, @Arg("delta") long delta);
 
             @Name("Milestone unlocked")
+            @Shown({Display.CHAT, Display.STEWARD})
             MessageRef milestoneUnlocked(@Arg("key") String key);
 
             @Name("Player offline")
@@ -177,6 +180,7 @@ public interface SmpMessages {
             MessageRef targetUnlinked(@Arg("player") PlayerContext player);
 
             @Name("Objective completed")
+            @Shown({Display.CHAT, Display.STEWARD})
             MessageRef objectiveCompleted(@Arg("key") String key, @Arg("milestone") MilestoneContext milestone);
         }
 
@@ -227,9 +231,11 @@ public interface SmpMessages {
             MessageRef started(@Arg("target") String target);
 
             @Name("World spawn")
+            @Shown({Display.GUI, Display.CHAT, Display.BOSS_BAR})
             MessageRef worldSpawn();
 
             @Name("Last death")
+            @Shown({Display.GUI, Display.CHAT, Display.BOSS_BAR})
             MessageRef lastDeath();
 
             @Name("At")
@@ -290,7 +296,7 @@ public interface SmpMessages {
         Board board();
 
         @Name("Board")
-        @Shown(Display.SIDEBAR)
+        @Shown(Display.HOLOGRAM)
         interface Board {
 
             Board.Objective objective();
@@ -382,6 +388,7 @@ public interface SmpMessages {
         }
 
         @Name("Milestone")
+        @Shown({Display.BOSS_BAR, Display.HOLOGRAM, Display.GUI, Display.CHAT, Display.TITLE, Display.DISCORD_MESSAGE})
         interface Milestone {
 
             @Name("Waiting")

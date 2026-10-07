@@ -24,7 +24,9 @@ import org.jspecify.annotations.Nullable;
  * @param args the placeholders in parameter order; empty when the schema does not describe the key
  * @param section the names of the sections around the key, outermost first; {@code null} for one without a name
  * @param format {@code MINIMESSAGE}, {@code DISCORD_MARKDOWN} or {@code PLAIN}; {@code null} when the schema is silent
- * @param shown where the text is shown, for example {@code TITLE}, or {@code null} when the schema does not say
+ * @param shown every place the text is shown, for example {@code TITLE}, the one an editor previews first leading;
+ *     empty when the schema does not describe the key
+ * @param limit how many characters the text may have, the strictest of its places; {@code 0} for no limit
  */
 public record MessageEntry(
         String key,
@@ -37,7 +39,8 @@ public record MessageEntry(
         List<MessageArg> args,
         List<@Nullable String> section,
         @Nullable String format,
-        @Nullable String shown) {
+        List<String> shown,
+        int limit) {
 
     /** English first, as the fallback every process shows, then by tag. */
     private static final Comparator<String> BY_LANGUAGE = Comparator.comparing(
@@ -48,6 +51,7 @@ public record MessageEntry(
         texts = ordered(texts);
         overrides = ordered(overrides);
         args = List.copyOf(args);
+        shown = List.copyOf(shown);
         // A nameless section is null here, which List.copyOf would refuse.
         section = Collections.unmodifiableList(new ArrayList<>(section));
     }
@@ -55,7 +59,7 @@ public record MessageEntry(
     /** The same key with the admin's overrides, language tag to variants. */
     public MessageEntry withOverrides(final Map<String, List<String>> overrides) {
         return new MessageEntry(
-                key, bundle, texts, overrides, inBundle, name, description, args, section, format, shown);
+                key, bundle, texts, overrides, inBundle, name, description, args, section, format, shown, limit);
     }
 
     /** Every text the jar ships for the key in {@code language}, empty where it ships none. */

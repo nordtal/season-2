@@ -79,14 +79,22 @@ line). The vectors in `src/test/resources/web-target.json` give a text, its tree
 plain text it shows; `WebTargetVectorsTest` holds this side to them, the frontend's
 `message-tree.test.ts` and `texts.test.ts` the browser's.
 
+## Where a text is shown
+
+A key names every place it really appears (`Display`) with `@Shown`, on the spec, a section or the
+key, the nearest winning: a run's state is shown in Steward and in the admin channel's embed, a
+milestone's name on the board, the boss bar, a menu, chat, a title and an announcement. The first
+place is the one Steward's editor previews first. The key's length limit is the strictest of its
+places (`Display.strictest`), and `schema.json` lists the places in order.
+
 ## The check
 
 `MessageSpecCheck` holds every spec against its bundles on the build's `messageSchema` task, in the
 packaged mode; Steward runs the same `MessageCheck` on an admin's override, where what is an error in
 a release is a warning. It refuses an undeclared value, a kind or style a value does not have, an
 unclosed or unknown tag, a colour in a packaged text, a value in a tag argument that takes none and a
-text longer than where it is shown; a text that never shows a value it is given is an error in a
-bundle and a warning in an override.
+text longer than the strictest of its places allows; a text that never shows a value it is given is
+an error in a bundle and a warning in an override. The build also refuses a key shown nowhere.
 
 Each problem is a message of the English-only `check` bundle (`CheckMessages`), never a sentence in
 code, so an admin reads and changes it in the editor, and the build and a log say it in the packaged

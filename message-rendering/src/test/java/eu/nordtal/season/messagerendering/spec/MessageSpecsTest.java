@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 class MessageSpecsTest {
 
     @MessageSpec("spec-test")
+    @Shown(Display.CHAT)
     interface TestMessages {
 
         @Name("Greeting")
@@ -81,6 +82,7 @@ class MessageSpecsTest {
         interface Screen {
 
             @Name("Title")
+            @Shown({Display.TITLE, Display.DISCORD_EMBED_HEADING, Display.DISCORD_BUTTON})
             MessageRef title();
 
             @Name("Subtitle")
@@ -142,7 +144,7 @@ class MessageSpecsTest {
                 .contains(
                         "{\"key\":\"greeting\",\"name\":\"Greeting\",\"args\":[{\"name\":\"player\",\"kind\":\"text\","
                                 + "\"example\":\"Nordtal\",\"action\":false}],"
-                                + "\"section\":[],\"format\":\"MINIMESSAGE\",\"shown\":\"CHAT\"}"));
+                                + "\"section\":[],\"format\":\"MINIMESSAGE\",\"shown\":[\"CHAT\"]}"));
     }
 
     @Test
@@ -150,7 +152,23 @@ class MessageSpecsTest {
         assertEquals(List.of(), MessageSpecCheck.problems(TestMessages.class));
     }
 
+    @Test
+    void aKeyShownInSeveralPlacesNamesThemAllAndKeepsToTheStrictestLimit() {
+        final MessageSchema.Entry title =
+                MessageSchema.entries(TestMessages.class).get(4);
+        assertEquals("screen.pack.title", title.key());
+        assertEquals(List.of(Display.TITLE, Display.DISCORD_EMBED_HEADING, Display.DISCORD_BUTTON), title.shown());
+        assertEquals(Display.DISCORD_BUTTON.limit(), title.limit());
+        assertEquals(
+                Display.DISCORD_BUTTON.limit(),
+                MessageSchema.of(TestMessages.class).declaration(title).limit());
+        assertTrue(MessageSchema.json(TestMessages.class)
+                .contains("\"shown\":[\"TITLE\",\"DISCORD_EMBED_HEADING\",\"DISCORD_BUTTON\"]"));
+        assertEquals(0, MessageSchema.entries(TestMessages.class).getFirst().limit());
+    }
+
     @MessageSpec("spec-test")
+    @Shown(Display.CHAT)
     interface Drifted {
 
         MessageRef greeting(@Arg("name") String player);
@@ -197,7 +215,21 @@ class MessageSpecsTest {
     void formatAndPlaceOnTheSpecItselfReachTheSchema() {
         final MessageSchema.Entry lost = MessageSchema.entries(Annotated.class).getFirst();
         assertEquals(TextFormat.DISCORD_MARKDOWN, lost.format());
-        assertEquals(Display.DISCORD_MESSAGE, lost.shown());
+        assertEquals(List.of(Display.DISCORD_MESSAGE), lost.shown());
+    }
+
+    @MessageSpec("spec-test")
+    interface Nowhere {
+
+        @Name("Lost")
+        @Key("duel.lost")
+        MessageRef lost();
+    }
+
+    @Test
+    void aKeyShownNowhereIsRefused() {
+        final List<String> problems = MessageSpecCheck.problems(Nowhere.class);
+        assertTrue(problems.contains("duel.lost: no @Shown names a place it appears"), problems::toString);
     }
 
     @Test

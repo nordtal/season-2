@@ -15,6 +15,8 @@ const won: MessageEntry = {
     { name: "server.name", kind: "text", type: "service", global: true, action: false, exampleWords: {} },
   ],
   section: [],
+  shown: [],
+  limit: 0,
 }
 
 describe("languagesOf", () => {

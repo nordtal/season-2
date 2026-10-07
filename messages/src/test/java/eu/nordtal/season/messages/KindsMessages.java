@@ -2,8 +2,10 @@ package eu.nordtal.season.messages;
 
 import eu.nordtal.season.messages.context.PlayerContext;
 import eu.nordtal.season.messages.spec.Arg;
+import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.messages.spec.MessageSpec;
 import eu.nordtal.season.messages.spec.Name;
+import eu.nordtal.season.messages.spec.Shown;
 import eu.nordtal.season.messages.spec.TextFormat;
 import eu.nordtal.season.messages.value.GameContent;
 import eu.nordtal.season.messages.value.Money;
@@ -13,6 +15,7 @@ import java.util.List;
 
 /** One message per value kind, for {@link ValueKindsTest}. */
 @MessageSpec(value = "kinds", format = TextFormat.PLAIN)
+@Shown(Display.CHAT)
 public interface KindsMessages {
 
     @Name("Days")

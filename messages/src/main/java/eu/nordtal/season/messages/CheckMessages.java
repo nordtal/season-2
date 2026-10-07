@@ -1,9 +1,11 @@
 package eu.nordtal.season.messages;
 
 import eu.nordtal.season.messages.spec.Arg;
+import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.messages.spec.MessageSpec;
 import eu.nordtal.season.messages.spec.MessageSpecs;
 import eu.nordtal.season.messages.spec.Name;
+import eu.nordtal.season.messages.spec.Shown;
 import eu.nordtal.season.messages.spec.TextFormat;
 import java.util.List;
 
@@ -13,6 +15,7 @@ import java.util.List;
  * depend on no other bundle; Steward serves it with its own, so an admin can change it.
  */
 @MessageSpec(value = "check", format = TextFormat.PLAIN)
+@Shown(Display.STEWARD)
 public interface CheckMessages {
 
     /** The texts; stateless, so one instance serves every caller. */

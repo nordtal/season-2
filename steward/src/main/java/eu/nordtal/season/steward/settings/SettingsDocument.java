@@ -205,9 +205,22 @@ public final class SettingsDocument {
         return node;
     }
 
+    /** Returns a node's children in the order its schema names them, which the stored object's own keys do not keep. */
     private static JsonObject children(final JsonObject node) {
         final JsonElement children = node.get("children");
-        return children != null && children.isJsonObject() ? children.getAsJsonObject() : new JsonObject();
+        if (children == null || !children.isJsonObject()) {
+            return new JsonObject();
+        }
+        final JsonObject stored = children.getAsJsonObject();
+        final List<String> order = new ArrayList<>();
+        if (node.get("order") instanceof final JsonArray named) {
+            named.forEach(key -> order.add(key.getAsString()));
+        }
+        final JsonObject ordered = new JsonObject();
+        stored.keySet().stream()
+                .sorted(Comparator.comparingInt(key -> order.contains(key) ? order.indexOf(key) : order.size()))
+                .forEach(key -> ordered.add(key, stored.get(key)));
+        return ordered;
     }
 
     private static String kindOf(final JsonObject node) {

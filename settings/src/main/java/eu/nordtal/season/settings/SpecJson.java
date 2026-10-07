@@ -1,6 +1,7 @@
 package eu.nordtal.season.settings;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.season.spec.SpecPaths;
@@ -68,11 +69,29 @@ final class SpecJson {
         }
     }
 
-    /** Returns the spec's schema tree as JSON text, as Steward draws a group from it, with what each value names. */
+    /**
+     * Returns the spec's schema tree as JSON text, as Steward draws a group from it, with what each value names.
+     *
+     * Every node with children names their keys in {@code order}, since the database keeps no object's key order.
+     */
     static String schema(final Class<?> spec) {
         final JsonObject tree = GSON.toJsonTree(SchemaWriter.build(spec)).getAsJsonObject();
         addReferences(spec, tree);
+        addOrder(tree);
         return GSON.toJson(tree);
+    }
+
+    /** Puts the keys of each node's {@code children} on it as {@code order}, in the spec's order, at every depth. */
+    private static void addOrder(final JsonObject node) {
+        if (!(node.get("children") instanceof final JsonObject children) || children.isEmpty()) {
+            return;
+        }
+        final JsonArray order = new JsonArray();
+        for (final Map.Entry<String, JsonElement> child : children.entrySet()) {
+            order.add(child.getKey());
+            addOrder(child.getValue().getAsJsonObject());
+        }
+        node.add("order", order);
     }
 
     /** Puts each {@link Refers} of {@code spec} on its node as {@code refers}, nested specs and list entries too. */

@@ -19,6 +19,7 @@ import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.junit.jupiter.api.Test;
 
 class SettingsDocumentTest {
@@ -49,6 +50,22 @@ class SettingsDocumentTest {
         assertEquals("Welcome", entry(document, "motd").value());
         assertEquals("20", entry(document, "max-players").value());
         assertEquals(List.of("msg"), entry(document, "allowlist").items());
+    }
+
+    @Test
+    void theFieldsKeepTheOrderTheirSpecGivesThemThoughTheStoreReordersKeys() throws Exception {
+        final SettingsDocument document = document();
+
+        assertEquals(
+                List.of("max-players", "motd", "allowlist", "prizes", "stages", "token"),
+                document.document(null).entries().stream()
+                        .map(SettingsDocument.Entry::path)
+                        .toList());
+        assertEquals(
+                List.of("statistic", "subjects", "key"),
+                Objects.requireNonNull(entry(document, "stages").template()).stream()
+                        .map(SettingsDocument.Entry::key)
+                        .toList());
     }
 
     @Test

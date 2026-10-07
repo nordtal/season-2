@@ -2,11 +2,17 @@ package eu.nordtal.season.settings;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.setting.SettingStore;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -15,7 +21,11 @@ import java.util.function.Predicate;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.LoggerFactory;
 
-/** A settings store in memory, for a test that loads settings the way its process does. */
+/**
+ * A settings store in memory, for a test that loads settings the way its process does.
+ *
+ * A published schema and its defaults come back with their object keys in jsonb's order, as the database returns them.
+ */
 public final class MemorySettingStore implements SettingStore {
 
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
@@ -77,7 +87,7 @@ public final class MemorySettingStore implements SettingStore {
             final boolean live) {
         groups.put(
                 service + "/" + name,
-                new Group(service, name, schema, defaults, environment, live, null, Instant.EPOCH));
+                new Group(service, name, asJsonb(schema), asJsonb(defaults), environment, live, null, Instant.EPOCH));
     }
 
     @Override
@@ -145,9 +155,31 @@ public final class MemorySettingStore implements SettingStore {
         return service + "/" + group + "/" + path;
     }
 
+    /** Returns {@code json} with every object's keys as jsonb keeps them: shorter keys first, then by their bytes. */
+    private static String asJsonb(final String json) {
+        return GSON.toJson(jsonbOrdered(JsonParser.parseString(json)));
+    }
+
+    private static JsonElement jsonbOrdered(final JsonElement element) {
+        if (element instanceof final JsonArray array) {
+            final JsonArray ordered = new JsonArray();
+            array.forEach(item -> ordered.add(jsonbOrdered(item)));
+            return ordered;
+        }
+        if (element instanceof final JsonObject object) {
+            final JsonObject ordered = new JsonObject();
+            object.keySet().stream()
+                    .sorted(Comparator.comparingInt((String key) -> key.getBytes(StandardCharsets.UTF_8).length)
+                            .thenComparing(key -> key.getBytes(StandardCharsets.UTF_8), Arrays::compareUnsigned))
+                    .forEach(key -> ordered.add(key, jsonbOrdered(object.get(key))));
+            return ordered;
+        }
+        return element;
+    }
+
     private static boolean looksLikeJson(final String text) {
         try {
-            final com.google.gson.JsonElement parsed = JsonParser.parseString(text);
+            final JsonElement parsed = JsonParser.parseString(text);
             return parsed.isJsonArray() || parsed.isJsonObject();
         } catch (final RuntimeException notJson) {
             return false;

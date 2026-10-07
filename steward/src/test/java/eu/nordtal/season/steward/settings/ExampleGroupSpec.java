@@ -3,37 +3,74 @@ package eu.nordtal.season.steward.settings;
 import eu.nordtal.season.settings.Refers;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
+import eu.nordtal.season.spec.annotation.Order;
 import eu.nordtal.season.spec.annotation.Secret;
 import java.util.List;
 
-/** A group with a number, a text, a list of items and a secret, as the settings form tests draw it. */
+/** A group with a number, a text, lists, sections and a secret, in an order no sorting of their keys gives. */
 @ConfigSpec
 public interface ExampleGroupSpec {
 
+    @Order(1)
     @Key("max-players")
     default int maxPlayers() {
         return 20;
     }
 
+    @Order(2)
     @Key("motd")
     default String motd() {
         return "Nordtal";
     }
 
+    @Order(3)
     @Key("allowlist")
     default List<String> allowlist() {
         return List.of("msg");
     }
 
+    @Order(4)
     @Key("prizes")
     @Refers(Refers.To.ITEM)
     default List<String> prizes() {
         return List.of("minecraft:diamond");
     }
 
+    @Order(5)
+    @Key("stages")
+    default List<Stage> stages() {
+        return List.of();
+    }
+
+    @Order(6)
     @Key("token")
     @Secret
     default String token() {
         return "";
+    }
+
+    /** One stage, whose statistic comes before the subjects it counts. */
+    @ConfigSpec
+    interface Stage {
+
+        @Order(1)
+        @Key("statistic")
+        @Refers(Refers.To.STATISTIC)
+        default String statistic() {
+            return "";
+        }
+
+        @Order(2)
+        @Key("subjects")
+        @Refers(value = Refers.To.SUBJECT, dependsOn = "statistic")
+        default List<String> subjects() {
+            return List.of();
+        }
+
+        @Order(3)
+        @Key("key")
+        default String key() {
+            return "";
+        }
     }
 }

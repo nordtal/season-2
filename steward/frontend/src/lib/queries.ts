@@ -426,12 +426,12 @@ export function useConsole(service: string) {
   })
 }
 
-/** The commands one server published of itself; they change with its plugins, so a few minutes old is fresh enough. */
+/** The commands one server published of itself, read again whenever a server publishes a changed tree. */
 export function useCommandTree(service: string) {
   return useQuery({
     queryKey: keys.commandTree(service),
     queryFn: () => api<ConsoleTree>(`/api/services/${encodeURIComponent(service)}/commands`),
-    staleTime: 5 * 60 * SECOND,
+    ...live("COMMANDS"),
   })
 }
 

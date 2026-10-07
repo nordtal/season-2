@@ -38,7 +38,8 @@ never granted fails in `check`.
 - **Runs.** Every button that stops something, and the two clocks, write a row into `steward_inbox`;
   the agent writes the report back into it and the interface follows it on `nordtal_update`.
 - **Containers and images.** State, health and the last sample come from the agent, as does writing
-  into a console, naming who typed the line. The console suggests from each server's `command_tree`.
+  into a console, naming who typed the line. The console suggests from each server's `command_tree`
+  and reads it again as soon as a server publishes a changed one.
   An image the registry could not be asked about shows as unchecked, never as current.
 - **Metrics.** Every 30 seconds the agent's new sampler rounds are copied into `metric_sample` and
   folded into hourly means after 30 days.

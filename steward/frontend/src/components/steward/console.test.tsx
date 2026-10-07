@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { CommandNode } from "@/lib/api"
+import { announce } from "@/lib/live"
 import { keys } from "@/lib/query-keys"
 import { ServiceConsole, offeredSteps } from "./console"
 
@@ -180,6 +181,32 @@ describe("ServiceConsole", () => {
     fireEvent.change(line, { target: { value: "execute run st" } })
     fireEvent.keyDown(line, { key: "Tab" })
     expect(line.value).toBe("execute run stop")
+  })
+
+  it("suggests from the tree its server published since, while the words are open", async () => {
+    // The refetch settles through the real event loop, which waitFor polls.
+    vi.useRealTimers()
+    const client = new QueryClient()
+    client.setQueryData(keys.commandTree("smp"), { nodes: TREE })
+    render(
+      <QueryClientProvider client={client}>
+        <ServiceConsole name="smp" hasConsole capacity={10000} />
+      </QueryClientProvider>,
+    )
+    act(() => live().emit("open"))
+    const line = screen.getByRole<HTMLInputElement>("combobox", { name: "Send a line to the server console" })
+    fireEvent.change(line, { target: { value: "s" } })
+    expect(shown()).toEqual(["say", "stop"])
+
+    const republished: CommandNode[] = [...TREE, { name: "smp", executes: true }]
+    republished[0] = { name: "", children: [1, 2, 3, 4, 9] }
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ nodes: republished }), { status: 200 })),
+    )
+    act(() => announce(client, "COMMANDS"))
+
+    await waitFor(() => expect(shown()).toEqual(["say", "stop", "smp"]))
   })
 
   it("moves through the words with the arrows while they show, and leaves the history to them once Escape closed them", () => {

@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.database.DatabaseRole;
+import eu.nordtal.season.database.command.CommandTree;
+import eu.nordtal.season.database.command.CommandTreeStore;
 import eu.nordtal.season.database.notify.SignalHub;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -11,6 +13,7 @@ import java.net.CookieManager;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -62,6 +65,30 @@ class LiveStreamTest extends WebTestSupport {
             assertTrue(readUntil(lines, "\"topic\":\"RUNS\""), "the run never reached the stream");
         } finally {
             settleOpenRuns();
+        }
+    }
+
+    @Test
+    void aServerPublishingAChangedCommandTreeIsAnnouncedAsAChangeOfTheCommands() throws Exception {
+        try (Socket tab = openTheStream()) {
+            final BufferedReader lines =
+                    new BufferedReader(new InputStreamReader(tab.getInputStream(), StandardCharsets.UTF_8));
+            assertTrue(readUntil(lines, "text/event-stream"), "the stream did not open");
+            Thread.sleep(2_500);
+
+            CommandTreeStore.using(postgres.dataSourceAs(DatabaseRole.SMP))
+                    .publish(
+                            "smp",
+                            new CommandTree(List.of(
+                                    new CommandTree.Node("", null, null, List.of(1), null),
+                                    new CommandTree.Node("milestone", null, true, null, null))));
+
+            assertTrue(readUntil(lines, "\"topic\":\"COMMANDS\""), "the new tree never reached the stream");
+        } finally {
+            try (var connection = postgres.dataSource().getConnection();
+                    var statement = connection.createStatement()) {
+                statement.execute("DELETE FROM command_tree");
+            }
         }
     }
 

@@ -1,23 +1,11 @@
 import { useEffect } from "react"
 import { useQueryClient, type Query } from "@tanstack/react-query"
 
+import type { Topic } from "@/lib/api.gen"
 import { followStream } from "@/lib/event-stream"
 
 /** What steward's live stream announces a change of, one name per `live.Topic` on the server. */
-export type Topic =
-  | "RUNS"
-  | "REQUESTS"
-  | "JOURNAL"
-  | "PEOPLE"
-  | "SEASON"
-  | "GAMES"
-  | "SETTINGS"
-  | "SERVICES"
-  | "HOST"
-  | "METRICS"
-  | "ALERTS"
-  | "TOPOLOGY"
-  | "GAME_DATA"
+export type { Topic }
 
 /** How often a live query is read regardless, in case the stream missed something. */
 export const RECONCILE = 60_000

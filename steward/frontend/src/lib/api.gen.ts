@@ -476,6 +476,7 @@ export type Topic =
   | "ALERTS"
   | "TOPOLOGY"
   | "GAME_DATA"
+  | "COMMANDS"
 
 export type GuildEntry = {
   id: string

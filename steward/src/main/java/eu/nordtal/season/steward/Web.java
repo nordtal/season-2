@@ -180,7 +180,8 @@ public final class Web {
             Channel.PHASE,
             Channel.SETTINGS,
             Channel.ALERT,
-            Channel.GAME_DATA);
+            Channel.GAME_DATA,
+            Channel.COMMAND_TREE);
 
     /** How often {@link AlertMonitor#poll} reads the stack. */
     private static final Duration ALERT_POLL = Duration.ofSeconds(30);
@@ -328,6 +329,7 @@ public final class Web {
                                 clock.instant()));
         live.watch(Topic.ALERTS, alerts::read);
         live.watch(Topic.GAME_DATA, gameData::changes);
+        live.watch(Topic.COMMANDS, consoleCommands::published);
         return live;
     }
 

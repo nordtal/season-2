@@ -44,7 +44,10 @@ public enum Topic {
     TOPOLOGY(true),
 
     /** What the servers exported of the game, and the icons drawn for it. */
-    GAME_DATA(false);
+    GAME_DATA(false),
+
+    /** The command tree each server published last, which the console suggests from. */
+    COMMANDS(false);
 
     private final boolean timed;
 

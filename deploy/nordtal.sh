@@ -37,7 +37,8 @@
 #
 # Every run first fetches the release's copy of this script and runs that, saying which version and
 # where from; without a network it runs the local copy, but it never deploys without knowing the
-# release. A new release reaches a running stack through Steward's update button as well.
+# release. An update that ends DONE leaves the copy of the release it installed. A new release reaches
+# a running stack through Steward's update button as well.
 #
 # It asks for what only a person knows, generates the other secrets, and writes them to
 # /etc/nordtal/season-2.env with mode 600, outside the installation directory. A secret only one
@@ -754,6 +755,9 @@ fingerprint() {
 
 running_from_a_file() { [[ -n "${BASH_SOURCE[0]:-}" && -f "${BASH_SOURCE[0]}" ]]; }
 
+# The absolute path of the file this runs from.
+self_path() { printf '%s/%s' "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" "$(basename "${BASH_SOURCE[0]}")"; }
+
 # A copy in a checkout is never replaced, since whoever runs it edited it.
 from_a_checkout() {
     running_from_a_file || return 1
@@ -1011,11 +1015,12 @@ newest_release() {
     return 0
 }
 
-# Replaces the file $1 with the newest release's copy of this script. True only when it did; GitHub
-# unreachable or an incomplete download leaves the file as it is, since a run needs no network.
+# Replaces the file $1 with release $2's copy of this script, or the newest release's without $2. True
+# only when it did; GitHub unreachable or an incomplete download leaves the file as it is, since a run
+# needs no network.
 renew_file() {
-    local file="$1" release candidate
-    release="$(newest_release)"
+    local file="$1" release="${2:-}" candidate
+    [[ -n "$release" ]] || release="$(newest_release)"
     if [[ -z "$release" ]]; then
         warn "GitHub did not say which release is the newest, so $file stays as it is"
         return 1
@@ -1038,6 +1043,29 @@ renew_file() {
     fi
     rm -f "$candidate"
     log "$file is now release $release's copy ($(fingerprint "$file"))"
+}
+
+# The release steward-agent runs in the container $1, read from its image's tag; empty when that
+# container is not running or its image has no version tag.
+agent_release() {
+    local container="$1" image tag
+    image="$(awk -F '\t' -v name="$container" '$1 == name { print $2 }' <<<"$(docker ps --format '{{.Names}}\t{{.Image}}')")"
+    tag="${image##*:}"
+    [[ "$image" == *:* && "$tag" =~ ^v?[0-9][0-9A-Za-z.+-]*$ ]] && release_of_tag "$tag"
+    return 0
+}
+
+# Makes the file $1 the copy of the release that steward-agent in $2 runs, which after an update run is
+# the release that run installed. The renewal before the run asks GitHub for the newest release, which
+# can still be the previous one just after a tag, or not answer at all.
+renew_to_installed() {
+    local file="$1" container="$2" release
+    release="$(agent_release "$container")"
+    if [[ -z "$release" ]]; then
+        warn "$container does not say which release it runs, so $file stays as it is"
+        return 1
+    fi
+    renew_file "$file" "$release"
 }
 
 # How a deploy reaches the stack: `request` when a healthy steward-agent runs, which carries out
@@ -1150,7 +1178,7 @@ cmd_update() {
 
     local code=0
     update_wait "$id" "$container" || code=$?
-    (( code != 0 )) || settle_for_agent "$UPDATE_ENV_FILE" "$container"
+    (( code != 0 )) || update_done "$container"
     (( code == UPDATE_KEPT_LOCAL )) || return "$code"
 
     # The run stopped before anything moved, since it would have replaced a build made on this host.
@@ -1166,7 +1194,18 @@ cmd_update() {
     answer_is_yes "$replace_answer" || die "not asking again. Nothing was stopped and the local builds stay."
     UPDATE_REPLACE_LOCAL=true
     id="$(update_submit "$container")" || exit 1
-    update_wait "$id" "$container"
+    update_wait "$id" "$container" || return $?
+    update_done "$container"
+}
+
+# What follows a run that ended DONE: the secrets the new agent reads from each service's file, and,
+# after an update, this file as the release that run installed.
+update_done() {
+    local container="$1"
+    settle_for_agent "$UPDATE_ENV_FILE" "$container"
+    if [[ "$UPDATE_KIND" == UPDATE ]] && running_from_a_file && ! from_a_checkout; then
+        renew_to_installed "$(self_path)" "$container" || true
+    fi
 }
 
 # Writes the request through the agent and prints its id, saying so on stderr; dies on a refusal.
@@ -1187,7 +1226,7 @@ update_submit() {
 if [[ "${1:-}" == update ]]; then
     shift
     if [[ -z "${NORDTAL_SH_RENEWED:-}" ]] && running_from_a_file && ! from_a_checkout; then
-        self="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+        self="$(self_path)"
         if renew_file "$self"; then
             export NORDTAL_SH_RENEWED=true
             exec bash "$self" update "$@"
@@ -1319,7 +1358,7 @@ fi
 # Copies this file into the installation directory. Never called under --check.
 install_self() {
     running_from_a_file || return 0
-    local source; source="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+    local source; source="$(self_path)"
     if [[ "$source" != "$INSTALLED" ]]; then
         install -m 755 "$source" "$INSTALLED" \
             || die "could not write $INSTALLED. The installation directory has to be writable - it

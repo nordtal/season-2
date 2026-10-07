@@ -525,6 +525,35 @@ renewed "file://$WORK/latest.json" "file://$WORK/page.html" && bad "an error pag
 cmp -s "$WORK/installed.sh" "$SETUP" || bad "a failed renewal changed the file"
 ok "without GitHub or with a broken download, the copy that is here runs"
 
+case_begin "update: once a run is done, the copy is the release that run installed"
+# GitHub's newest release can still be the previous one just after a tag; the agent's tag is what ran.
+docker() {
+    [[ "$1" == ps ]] || return 1
+    printf 'nordtal-s2-smp-1\tghcr.io/nordtal/minecraft:9.9.8\n'
+    printf 'nordtal-s2-steward-agent-1\tghcr.io/nordtal/steward-agent:9.9.9\n'
+    printf 'other-steward-agent-1\tregistry.example:5000/steward-agent\n'
+}
+fetch_url() { printf '%s\n' "$1" >> "$WORK/fetched"; cp "$WORK/release.sh" "$2"; }
+[[ "$(agent_release nordtal-s2-steward-agent-1)" == 9.9.9 ]] || bad "the agent's release was not read from its tag"
+[[ -z "$(agent_release other-steward-agent-1)" ]] || bad "a registry port was taken for a release"
+[[ -z "$(agent_release nordtal-s2-steward)" ]] || bad "a container was matched by a prefix of its name"
+
+cp "$SETUP" "$WORK/installed.sh"
+: > "$WORK/fetched"
+renew_to_installed "$WORK/installed.sh" nordtal-s2-steward-agent-1 >/dev/null 2>&1 \
+    || bad "the copy was not replaced by the installed release's"
+cmp -s "$WORK/installed.sh" "$WORK/release.sh" || bad "the file is not the installed release's copy"
+[[ "$(cat "$WORK/fetched")" == "$(self_url_for 9.9.9)" ]] \
+    || bad "fetched $(tr '\n' ' ' < "$WORK/fetched")instead of release 9.9.9's copy alone"
+ok "the installed release's copy, asked for by its tag and not as GitHub's newest"
+
+cp "$SETUP" "$WORK/installed.sh"
+renew_to_installed "$WORK/installed.sh" other-steward-agent-1 >/dev/null 2>&1 \
+    && bad "a copy was replaced without knowing the release"
+cmp -s "$WORK/installed.sh" "$SETUP" || bad "an agent without a release changed the file"
+ok "an agent whose release is unknown leaves the copy as it is"
+unset -f docker fetch_url
+
 case_begin "update: the watch rides out steward-agent being recreated and gives up when it stays gone"
 # The stand-in docker answers the nth look with the nth line of answers; a dash is an exec that fails.
 looks_at() { cat "$WORK/looks"; }

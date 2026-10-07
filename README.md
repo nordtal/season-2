@@ -1,23 +1,16 @@
 # season-2
 
-Everything nordtal.eu season 2 deploys: four Minecraft plugins, a Discord bot, the three Steward
-services and the resource pack. One Gradle build, one version in `gradle.properties`, one
-`docker compose` stack. [`CONVENTIONS.md`](CONVENTIONS.md) holds the rules every change follows.
+The code and deployment of nordtal.eu season 2: four Minecraft plugins, a Discord bot, the three
+Steward services and the resource pack. It is built with one Gradle build, versioned in
+`gradle.properties` and run as one `docker compose` stack. [`CONVENTIONS.md`](CONVENTIONS.md) holds
+the rules every change follows.
 
 ## What it is
 
-A Velocity proxy fronts three Paper backends. Every login lands in `limbo`, gets the resource pack and
-moves on to the backend the season phase names (the rows below). Access, language, phase and event state live in one
-PostgreSQL database, and Discord roles follow it. Steward is the admins' web interface and runs every
-update, restart and backup.
-
-| phase         | who lands where                                                   |
-| ------------- | ----------------------------------------------------------------- |
-| `PRE_LAUNCH`  | only admins get in; everybody else sees a countdown               |
-| `PRE_EVENT`   | every linked, non-banned member lands in the `hunger-games` lobby |
-| `START_EVENT` | the start event, admitted as in `PRE_EVENT`, on `hunger-games`    |
-| `SMP`         | the season on `smp`, for members with an active access period     |
-| `MAINTENANCE` | members wait in `limbo` while admins reach the servers            |
+A Velocity proxy fronts three Paper backends. Every player first lands in `limbo`, receives the
+resource pack and is then sent on to the backend that the current season phase names. Access,
+language, phase and event state live in one PostgreSQL database, and Discord roles follow it.
+Steward is the admins' web interface and carries out every update, restart and backup.
 
 ## How it is built
 

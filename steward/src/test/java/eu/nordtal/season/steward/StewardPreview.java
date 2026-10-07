@@ -7,6 +7,7 @@ import eu.nordtal.season.common.time.ProcessScheduler;
 import eu.nordtal.season.database.DatabaseRole;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.access.AdminTree;
+import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.settings.Database;
 import eu.nordtal.season.settings.DatabaseSpec;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.slf4j.LoggerFactory;
 
 /**
  * The real interface on this machine, against a scratch database and stand-ins, signed in as an invented admin.
@@ -77,18 +79,7 @@ public final class StewardPreview {
                         "steward-preview", failure -> System.err.println("A task failed: " + failure));
                 AgentStandIn agent = new AgentStandIn(scratch, 0, cfg -> {}, RESTING);
                 StandInDiscord discord = new StandInDiscord()) {
-            agent.daemon.stopped.add(new FakeDaemon.Stopped("migrate", 0, "2026-10-06T01:00:09Z"));
-            agent.daemon.stopped.add(new FakeDaemon.Stopped("proxy-standby", 143, "2026-10-06T01:20:00Z"));
-            // A plugin jar built outside a release, so the stack shows a local build.
-            eu.nordtal.season.stewardagent.PluginJars.write(
-                    agent.volumes.resolve("smp/plugins/smp-0.17.0.jar"),
-                    "{\"id\": \"smp\", \"name\": \"SMP\", \"local\": true}",
-                    java.util.Map.of());
-            // smp's descriptor where the agent reads it, so the track is drawn by the editor smp's jar names.
-            eu.nordtal.season.stewardagent.PluginJars.write(
-                    agent.configs.resolve("smp/smp.jar"),
-                    "{\"id\": \"smp\", \"name\": \"SMP\", \"editors\": {\"milestones\": \"milestones\"}}",
-                    java.util.Map.of());
+            furnish(agent);
             final Steward.Configs configs = java.util.Objects.requireNonNull(
                     Steward.configsOf(asSteward(postgres), database), "the stored settings were refused");
             final Data data = new Data(database, Clock.systemUTC());
@@ -107,7 +98,9 @@ public final class StewardPreview {
                     Clock.systemUTC(),
                     scheduler);
             web.start(options.port());
-            try {
+            try (SignalHub signals = signalsOf(asSteward(postgres))) {
+                web.listen(signals);
+                signals.start();
                 admit(data, discord);
                 final String session = signIn(config.publicUrl());
                 // The key counts as just held for as long as this runs, so no change asks for it again.
@@ -124,6 +117,33 @@ public final class StewardPreview {
                 web.stop();
             }
         }
+    }
+
+    /** Gives the stand-in agent the stopped containers and the jars the preview shows. */
+    private static void furnish(final AgentStandIn agent) throws IOException {
+        agent.daemon.stopped.add(new FakeDaemon.Stopped("migrate", 0, "2026-10-06T01:00:09Z"));
+        agent.daemon.stopped.add(new FakeDaemon.Stopped("proxy-standby", 143, "2026-10-06T01:20:00Z"));
+        // A plugin jar built outside a release, so the stack shows a local build.
+        eu.nordtal.season.stewardagent.PluginJars.write(
+                agent.volumes.resolve("smp/plugins/smp-0.17.0.jar"),
+                "{\"id\": \"smp\", \"name\": \"SMP\", \"local\": true}",
+                java.util.Map.of());
+        // smp's descriptor where the agent reads it, so the track is drawn by the editor smp's jar names.
+        eu.nordtal.season.stewardagent.PluginJars.write(
+                agent.configs.resolve("smp/smp.jar"),
+                "{\"id\": \"smp\", \"name\": \"SMP\", \"editors\": {\"milestones\": \"milestones\"}}",
+                java.util.Map.of());
+    }
+
+    /** The hub steward opens on the stack, so a write somebody signals reaches an open page as it does there. */
+    private static SignalHub signalsOf(final DatabaseSpec steward) {
+        return SignalHub.open(
+                steward.jdbcUrl(),
+                steward.username(),
+                steward.password(),
+                steward.queryTimeoutSeconds(),
+                "steward-preview-signals",
+                LoggerFactory.getLogger(StewardPreview.class));
     }
 
     /** Deletes the cookie file as the process ends, since the JVM does not wait for {@code main} to unwind. */

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.packrendering.Glyphs;
+import eu.nordtal.season.papercommon.menu.MenuFont;
 import eu.nordtal.season.papercommon.menu.MenuTitle;
 import eu.nordtal.season.papercommon.menu.SlotGeometry;
 import eu.nordtal.season.smp.menu.PanelWalk;
@@ -219,6 +220,42 @@ class WheelPanelTest {
                 tagged,
                 "these four are drawn in the pack's five-pixel sheet by MenuFont, which prints them"
                         + " character for character - a tag would reach the player as literal text");
+    }
+
+    @Test
+    void theWheelPromisesNoSpinForAShare() {
+        final List<String> promising = new ArrayList<>();
+        for (final String language : new String[] {"en", "de"}) {
+            final Properties bundle = PanelWalk.bundle(language);
+            for (final String key :
+                    new String[] {"smp.wheel.hub-hint", "smp.wheel.rule-top", "smp.wheel.rule-bottom"}) {
+                final String value = bundle.getProperty(key);
+                if (value.indexOf('%') >= 0 || value.contains("{percent")) {
+                    promising.add(language + " " + key + " = " + value);
+                }
+            }
+        }
+        assertEquals(
+                List.of(),
+                promising,
+                "an objective splits its spin budget by contribution, so no share is a promise of a spin;"
+                        + " the wheel says the more you put in, the more you get");
+    }
+
+    @Test
+    void theRealRuleLinesNeverNeedTruncation() {
+        for (final String language : new String[] {"en", "de"}) {
+            final Properties bundle = PanelWalk.bundle(language);
+            final String top = bundle.getProperty("smp.wheel.rule-top");
+            final String bottom = bundle.getProperty("smp.wheel.rule-bottom");
+            final List<Run> runs = PanelWalk.runs(PanelWalk.surface(
+                    WheelPanel.title(Component.text("Wheel"), "7", "7 spins left", top, bottom, "Again")));
+            for (final String line : new String[] {top, bottom}) {
+                assertTrue(
+                        runs.stream().anyMatch(run -> run.content().equals(MenuFont.fold(line))),
+                        language + " \"" + line + "\" is shortened beside the ring");
+            }
+        }
     }
 
     // The two backing colours the generator paints a cell in, as ARGB.

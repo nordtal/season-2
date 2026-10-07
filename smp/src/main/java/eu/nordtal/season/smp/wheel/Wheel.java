@@ -13,7 +13,6 @@ import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.config.SmpSpec;
 import eu.nordtal.season.smp.config.WheelPrizeSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
-import eu.nordtal.season.smp.milestone.Payout;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -160,7 +159,6 @@ public final class Wheel {
                             icons,
                             sounds,
                             spinsLeft,
-                            Payout.QUALIFYING_PERCENT,
                             // Another spin runs spin() again. Null when nothing is left to spend.
                             spinsLeft > 0 ? () -> spin(player) : null,
                             winner -> give(winner, material, prize.amount(), locale, refund))

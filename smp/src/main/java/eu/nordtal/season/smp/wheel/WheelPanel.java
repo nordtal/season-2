@@ -70,7 +70,7 @@ public final class WheelPanel {
      * @param title the readable window title, already translated
      * @param spins the spins left after this one, as a bare number for the hub
      * @param left the line naming those spins in words
-     * @param ruleTop the first line of "one spin per n % share"
+     * @param ruleTop the first line of the rule: more contribution, more spins
      * @param ruleFoot the second line of it
      * @param again the button's label
      */

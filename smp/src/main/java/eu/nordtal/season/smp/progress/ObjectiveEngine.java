@@ -145,7 +145,8 @@ public final class ObjectiveEngine implements Contributions {
                             row.key(),
                             row.mine(),
                             row.target(),
-                            Payout.shareOf(budget, row.target(), contributions, discordId.value()));
+                            Payout.shareOf(budget, row.target(), contributions, discordId.value()),
+                            budget);
                 })
                 .toList();
     }

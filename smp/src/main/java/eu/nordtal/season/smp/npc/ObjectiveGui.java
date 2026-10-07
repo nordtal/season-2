@@ -177,7 +177,7 @@ public final class ObjectiveGui extends Menu {
         if (share.empty()) {
             return renderer.raw().format(locale, MESSAGES.smp().objectives().shareNone());
         }
-        return renderer.raw().format(locale, MESSAGES.smp().objectives().share(share.spins()));
+        return renderer.raw().format(locale, MESSAGES.smp().objectives().share(share.spins(), share.budget()));
     }
 
     private void fill() {
@@ -227,8 +227,8 @@ public final class ObjectiveGui extends Menu {
         share.lines().stream()
                 .filter(line -> line.key().equals(definition.key()))
                 .findFirst()
-                .ifPresent(line -> lore.add(
-                        renderer.format(locale, MESSAGES.smp().objectives().yourShare(line.percent(), line.spins()))));
+                .ifPresent(line -> lore.add(renderer.format(
+                        locale, MESSAGES.smp().objectives().yourShare(line.percent(), line.spins(), line.budget()))));
         if (row.completed()) {
             lore.add(renderer.format(locale, MESSAGES.smp().objectives().done()));
         } else if (definition.type() == ObjectiveType.HAND_IN) {
@@ -266,7 +266,7 @@ public final class ObjectiveGui extends Menu {
             }
             lore.add(renderer.format(locale, MESSAGES.smp().objectives().shareLine(name(definition), line.percent())));
         }
-        lore.add(renderer.format(locale, MESSAGES.smp().objectives().shareSpins(share.spins())));
+        lore.add(renderer.format(locale, MESSAGES.smp().objectives().shareSpins(share.spins(), share.budget())));
         return lore;
     }
 }

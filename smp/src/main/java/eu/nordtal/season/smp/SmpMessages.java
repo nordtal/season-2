@@ -562,7 +562,7 @@ public interface SmpMessages {
             MessageRef hub(@Arg("spins") long spins);
 
             @Name("Hub hint")
-            MessageRef hubHint(@Arg("percent") double percent);
+            MessageRef hubHint();
 
             @Name("Again")
             MessageRef again();
@@ -589,7 +589,7 @@ public interface SmpMessages {
             MessageRef ruleTop();
 
             @Name("Rule bottom")
-            MessageRef ruleBottom(@Arg("percent") double percent);
+            MessageRef ruleBottom();
 
             @Name("Again button")
             MessageRef againButton();
@@ -663,7 +663,7 @@ public interface SmpMessages {
             MessageRef headingHint(@Arg("done") long done, @Arg("total") long total);
 
             @Name("Your share")
-            MessageRef yourShare(@Arg("percent") double percent, @Arg("spins") long spins);
+            MessageRef yourShare(@Arg("percent") double percent, @Arg("spins") long spins, @Arg("budget") long budget);
 
             @Name("Share tooltip")
             MessageRef shareTooltip();
@@ -672,13 +672,13 @@ public interface SmpMessages {
             MessageRef shareLine(@Arg("objective") String objective, @Arg("percent") double percent);
 
             @Name("Share spins")
-            MessageRef shareSpins(@Arg("spins") long spins);
+            MessageRef shareSpins(@Arg("spins") long spins, @Arg("budget") long budget);
 
             @Name("Share empty hint")
             MessageRef shareEmptyHint();
 
             @Name("Share")
-            MessageRef share(@Arg("spins") long spins);
+            MessageRef share(@Arg("spins") long spins, @Arg("budget") long budget);
 
             @Name("Share none")
             MessageRef shareNone();

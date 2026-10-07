@@ -371,7 +371,7 @@ class ObjectivePanelTest {
             final Properties bundle = PanelWalk.bundle(language);
             final String withSpins = BUNDLE.format(
                     Locale.forLanguageTag(language),
-                    SmpMessages.MESSAGES.smp().objectives().share(999));
+                    SmpMessages.MESSAGES.smp().objectives().share(999, 999));
             final String none = bundle.getProperty("smp.objectives.share-none");
             for (final String share : new String[] {withSpins, none}) {
                 for (final boolean hasNext : new boolean[] {false, true}) {

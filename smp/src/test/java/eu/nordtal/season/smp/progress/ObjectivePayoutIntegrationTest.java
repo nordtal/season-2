@@ -159,7 +159,9 @@ class ObjectivePayoutIntegrationTest {
         engine.credit(PLAYER, "logs", 48L, MINECRAFT_ID);
         engine.credit(OTHER, "logs", 15L, MINECRAFT_ID);
         assertEquals(
-                List.of(new OwnContributionRow("logs", 15L, 64L, 6), new OwnContributionRow("iron-tools", 0L, 1L, 0)),
+                List.of(
+                        new OwnContributionRow("logs", 15L, 64L, 6, SPINS),
+                        new OwnContributionRow("iron-tools", 0L, 1L, 0, SPINS)),
                 engine.ownContributions("foothold", OTHER).stream()
                         .sorted(java.util.Comparator.comparing(OwnContributionRow::key)
                                 .reversed())

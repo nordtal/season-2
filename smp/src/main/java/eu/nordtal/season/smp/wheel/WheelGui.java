@@ -47,7 +47,6 @@ public final class WheelGui extends Menu {
      * Builds the window for one spin.
      *
      * @param spinsLeft how many spins the player has after this one, which is what the hub shows
-     * @param earnAt the contribution share that qualifies for an objective's equal part of its spins, in percent
      * @param again runs another spin, or null when this player has none left
      */
     public WheelGui(
@@ -57,7 +56,6 @@ public final class WheelGui extends Menu {
             final List<ItemStack> icons,
             final SmpSounds sounds,
             final int spinsLeft,
-            final int earnAt,
             final @Nullable Runnable again,
             final Consumer<Player> payout) {
         this.strip = strip;
@@ -75,12 +73,12 @@ public final class WheelGui extends Menu {
                         String.valueOf(spinsLeft),
                         renderer.raw().format(locale, MESSAGES.smp().wheel().spinsLeft(spinsLeft)),
                         renderer.raw().format(locale, MESSAGES.smp().wheel().ruleTop()),
-                        renderer.raw().format(locale, MESSAGES.smp().wheel().ruleBottom(earnAt)),
+                        renderer.raw().format(locale, MESSAGES.smp().wheel().ruleBottom()),
                         renderer.raw().format(locale, MESSAGES.smp().wheel().againButton())));
 
         final ItemStack hub = BlankItem.of(
                 renderer.format(locale, MESSAGES.smp().wheel().hub(spinsLeft)),
-                List.of(renderer.format(locale, MESSAGES.smp().wheel().hubHint(earnAt))));
+                List.of(renderer.format(locale, MESSAGES.smp().wheel().hubHint())));
         inventory.setItem(WheelPanel.HUB_SLOT, hub);
         WheelPanel.INFO_SLOTS.forEach(slot -> inventory.setItem(slot, hub));
 

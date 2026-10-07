@@ -7,7 +7,7 @@ import java.util.List;
 /**
  * What a player has put into the active milestone, as the one line the NPC menu shows them.
  *
- * The percentage is per milestone, the spin count per objective, as the objective's spin budget would pay it now.
+ * The percentage is per milestone, the spins per objective as its budget would pay them now, beside that budget.
  */
 public final class OwnShare {
 
@@ -18,12 +18,13 @@ public final class OwnShare {
      *
      * @param key     the objective's key, for looking its name up in the bundle
      * @param percent this player's share of the target, not clamped, because over-collection is real
-     * @param spins   how many extra spins that share is on track for, when it completes
+     * @param spins   how many extra spins that share would get if the objective completed now
+     * @param budget  the objective's whole spin budget, shown beside {@code spins}
      */
-    public record Line(String key, double percent, int spins) {}
+    public record Line(String key, double percent, int spins, int budget) {}
 
-    /** The whole answer: one line per objective, and the two summary numbers. */
-    public record Summary(List<Line> lines, double percent, int spins) {
+    /** The whole answer: one line per objective, and the milestone's sums of each. */
+    public record Summary(List<Line> lines, double percent, int spins, int budget) {
 
         public boolean empty() {
             return percent <= 0.0 && spins == 0;
@@ -40,15 +41,18 @@ public final class OwnShare {
         long mine = 0L;
         long target = 0L;
         int spins = 0;
+        int budget = 0;
         for (final OwnContributionRow row : rows) {
             final double percent = percentOf(row.mine(), row.target());
             final int earned = Math.max(0, row.spins());
-            lines.add(new Line(row.key(), percent, earned));
+            final int whole = Math.max(0, row.spinBudget());
+            lines.add(new Line(row.key(), percent, earned, whole));
             mine += Math.max(0L, row.mine());
             target += Math.max(0L, row.target());
             spins += earned;
+            budget += whole;
         }
-        return new Summary(List.copyOf(lines), percentOf(mine, target), spins);
+        return new Summary(List.copyOf(lines), percentOf(mine, target), spins, budget);
     }
 
     /** A share as a percentage; a target of zero answers zero. */

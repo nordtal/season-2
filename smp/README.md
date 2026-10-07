@@ -11,7 +11,7 @@ wheel, duels and graves. This file holds how its features are cut apart; what ea
   feature reaching a class of another.
 - **What one feature needs of another is a port** in `port`, implemented by the owner and handed over in
   `SmpStart`: `PrizeSource` (the grant of the extra spins an objective's spin budget pays), `Contributions`
-  (progress's credit and a player's own share with its spins so far, which the NPC's hand-in uses) and `Arenas` (whether a death is a duel's, which graves ask). Who a player is comes from
+  (progress's credit and a player's own share with the spins it would get now beside the spin budget, which the NPC's menu and hand-in use) and `Arenas` (whether a death is a duel's, which graves ask). Who a player is comes from
   paper-common's `Identities`, never from a feature.
 - **Each feature has its own DAO** (`TrackDao`, `ProgressDao`, `AuraDao`, `GraveDao`, `PlaceDao`,
   `SpinDao`, `WelcomeDao`), on-demand JDBI SqlObjects over the plugin's one `Jdbi`, called off the main

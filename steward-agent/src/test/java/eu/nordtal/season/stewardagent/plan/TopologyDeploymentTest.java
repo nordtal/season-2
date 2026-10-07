@@ -533,9 +533,9 @@ class TopologyDeploymentTest {
         final String workflow = RepositoryRoot.read(".github/workflows/release.yml");
         assertFalse(workflow.contains(":latest"), "release.yml pushes a moving tag again");
         assertTrue(
-                workflow.indexOf("Attach the artifacts") > workflow.lastIndexOf("docker/build-push-action"),
-                "release.yml attaches the jars before every image is pushed, and a running agent hands an update"
-                        + " over as soon as the jars are there");
+                workflow.indexOf("Publish the release") > workflow.lastIndexOf("docker/build-push-action"),
+                "release.yml publishes the release before every image is pushed, and a running agent hands an"
+                        + " update over as soon as the release is published with its jars");
         compose.services().forEach((name, service) -> {
             final java.util.regex.Matcher ours =
                     OURS.matcher(service.text("image").orElse(""));

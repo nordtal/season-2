@@ -126,6 +126,8 @@ run `git config core.hooksPath .githooks` once per clone.
   entrypoint resolves the same one, each filtering the build list itself, since `/builds/latest` answers
   any channel.
 - **Adventure comes from the platform** and is never pinned.
+- **Dependencies stay current.** A Dependabot alert is fixed by an update even when the vulnerable code
+  is never reached; a transitive one is first lifted in the lockfile, within its parent's range.
 - **Never shaded into a Paper plugin**: Gson, SnakeYAML and Brigadier, which the platforms ship, and
   Flyway, which reaches neither `:common` nor `:database` either.
 - **Commands use Brigadier directly**, through each platform's own API. No command framework.

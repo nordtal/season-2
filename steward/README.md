@@ -111,7 +111,7 @@ Every word the page shows is a key of the `steward` bundle, English only, declar
 - A plugin's descriptor may name a custom editor per group; the registry draws it only when the editor
   reads the document it got. An editor knows its structure, never a label or a reference. A design proposal is a page under `/designs/` until it is built.
 
-### Texts
+### The Texts page
 
 The Texts page (`/texts`) edits every text of every bundle, Steward's own among them, from
 `GET /api/messages`: each text once, as `<bundle>/<key>`, with the services whose jar ships it, the

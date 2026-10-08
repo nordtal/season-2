@@ -289,7 +289,8 @@ describe("customEditor", () => {
   })
 })
 
-describe("MilestonesEditor", () => {
+// Fifteen seconds: its sheets open selects and save, about half a second here and seven times that on a busy runner.
+describe("MilestonesEditor", { timeout: 15_000 }, () => {
   it("shows every milestone as one closed line, its settings as marks", () => {
     backend()
     draw(<MilestonesEditor file={FILE} document={DOCUMENT} target={null} />)

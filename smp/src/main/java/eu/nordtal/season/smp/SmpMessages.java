@@ -726,6 +726,47 @@ public interface SmpMessages {
             @Shown(Display.CHAT)
             MessageRef nothingCredited();
         }
+
+        Settings settings();
+
+        /** The names Steward's settings show for the values of the milestones group's choices. */
+        @Name("Settings")
+        @Shown(Display.STEWARD)
+        interface Settings {
+
+            Unlock unlock();
+
+            @Name("Unlocks")
+            interface Unlock {
+
+                @Name("Border")
+                MessageRef border();
+
+                @Name("Nether")
+                MessageRef nether();
+
+                @Name("End")
+                MessageRef end();
+
+                @Name("Nothing")
+                MessageRef nothing();
+            }
+
+            ObjectiveType objectiveType();
+
+            @Name("Objective type")
+            interface ObjectiveType {
+
+                @Name("Hand-in")
+                MessageRef handIn();
+
+                @Name("Statistic")
+                MessageRef statistic();
+
+                @Name("Advancement")
+                MessageRef advancement();
+            }
+        }
     }
 
     Command command();

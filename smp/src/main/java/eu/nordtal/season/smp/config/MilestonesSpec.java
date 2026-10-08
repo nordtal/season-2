@@ -1,5 +1,7 @@
 package eu.nordtal.season.smp.config;
 
+import eu.nordtal.season.settings.AppliesWhen;
+import eu.nordtal.season.settings.ChoiceNames;
 import eu.nordtal.season.settings.Refers;
 import eu.nordtal.season.spec.annotation.AllowedValues;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
@@ -42,6 +44,9 @@ public interface MilestonesSpec {
         @Key("unlocks")
         @Explain("BORDER, NETHER, END or NOTHING.")
         @AllowedValues({"BORDER", "NETHER", "END", "NOTHING"})
+        @ChoiceNames(
+                value = "smp.settings.unlock",
+                icons = {"minecraft:map", "minecraft:netherrack", "minecraft:ender_eye", "minecraft:barrier"})
         default String unlocks() {
             return "NOTHING";
         }
@@ -50,6 +55,7 @@ public interface MilestonesSpec {
         @Name("Border diameter")
         @Key("border-diameter")
         @Explain("The border diameter this milestone sets; read only when unlocks is BORDER.")
+        @AppliesWhen(key = "unlocks", values = "BORDER")
         default int borderDiameter() {
             return 0;
         }
@@ -88,6 +94,9 @@ public interface MilestonesSpec {
         @Key("type")
         @Explain("HAND_IN, STATISTIC or ADVANCEMENT; decides which of the fields below apply.")
         @AllowedValues({"HAND_IN", "STATISTIC", "ADVANCEMENT"})
+        @ChoiceNames(
+                value = "smp.settings.objective-type",
+                icons = {"minecraft:chest", "minecraft:writable_book", "minecraft:knowledge_book"})
         default String type() {
             return "HAND_IN";
         }
@@ -131,6 +140,7 @@ public interface MilestonesSpec {
         @Key("items")
         @Explain("HAND_IN only: items, any of which counts. An unknown one stops the plugin.")
         @Refers(Refers.To.ITEM)
+        @AppliesWhen(key = "type", values = "HAND_IN")
         default List<String> items() {
             return List.of();
         }
@@ -138,8 +148,17 @@ public interface MilestonesSpec {
         @Order(8)
         @Name("Statistic")
         @Key("statistic")
-        @Explain("STATISTIC only: the statistic summed across players.")
-        @Refers(Refers.To.STATISTIC)
+        @Explain("STATISTIC only: the statistic summed across players. One that grows by time online is not offered.")
+        // A statistic that grows while a player only stays online would pay everybody for being there.
+        @Refers(
+                value = Refers.To.STATISTIC,
+                except = {
+                    "minecraft:play_one_minute",
+                    "minecraft:total_world_time",
+                    "minecraft:time_since_death",
+                    "minecraft:time_since_rest"
+                })
+        @AppliesWhen(key = "type", values = "STATISTIC")
         default String statistic() {
             return "";
         }
@@ -149,6 +168,7 @@ public interface MilestonesSpec {
         @Key("subjects")
         @Explain("STATISTIC only: the materials or entity types the statistic is summed over; may be empty.")
         @Refers(value = Refers.To.SUBJECT, dependsOn = "statistic")
+        @AppliesWhen(key = "type", values = "STATISTIC")
         default List<String> subjects() {
             return List.of();
         }
@@ -158,6 +178,7 @@ public interface MilestonesSpec {
         @Key("advancement")
         @Explain("ADVANCEMENT only: the advancement key, e.g. minecraft:story/mine_diamond.")
         @Refers(Refers.To.ADVANCEMENT)
+        @AppliesWhen(key = "type", values = "ADVANCEMENT")
         default String advancement() {
             return "";
         }

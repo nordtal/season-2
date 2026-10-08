@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.season.messages.Messages;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /** The values behind {@code /discord} and {@code /rules}. */
@@ -53,6 +54,19 @@ class InfoTextTest {
                     rules.toUpperCase(Locale.ROOT).contains("PLACEHOLDER")
                             || rules.toUpperCase(Locale.ROOT).contains("PLATZHALTER"),
                     "the " + locale.getLanguage() + " rules are a placeholder again");
+        }
+    }
+
+    @Test
+    void theRulesAreThreeSentencesAtMost() {
+        for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
+            final String text =
+                    MESSAGES.get(locale, InfoTexts.RULES_TEXT.apply("").key()).replaceAll("<[^>]*>|\\{invite}", " ");
+            final long sentences =
+                    Pattern.compile("[.!?](\\s|$)").matcher(text).results().count();
+            assertTrue(
+                    sentences <= 3,
+                    "the " + locale.getLanguage() + " rules run to " + sentences + " sentences: " + text);
         }
     }
 }

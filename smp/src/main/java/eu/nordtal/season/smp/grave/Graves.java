@@ -45,7 +45,7 @@ import org.joml.Vector3f;
 /**
  * Graves: what a death leaves behind, everywhere except the duel arena.
  *
- * Display entities and an {@link Interaction}, solid by a {@link GraveBarrier}; anyone may open one, as /rules says.
+ * Display entities and an {@link Interaction}, solid by a {@link GraveBarrier}; anyone may open one.
  */
 public final class Graves {
 

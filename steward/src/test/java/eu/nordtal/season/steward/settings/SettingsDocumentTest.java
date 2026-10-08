@@ -31,8 +31,11 @@ class SettingsDocumentTest {
     private SettingsDocument document() throws Exception {
         store.settings("smp").load(EXAMPLE);
         final SettingStore.Group group = store.group("smp", "example").orElseThrow();
-        return SettingsDocument.of(group, store.overrides(List.of("smp")));
+        return SettingsDocument.of(group, store.overrides(List.of("smp")), NAMES::get);
     }
+
+    /** The texts the plugin's bundle names the stage kinds with: one of the two only. */
+    private static final Map<String, String> NAMES = Map.of("example.kind.counted", "Counted");
 
     private static SettingsDocument.Entry entry(final SettingsDocument document, final String path) {
         return document.document(null).entries().stream()
@@ -62,7 +65,7 @@ class SettingsDocumentTest {
                         .map(SettingsDocument.Entry::path)
                         .toList());
         assertEquals(
-                List.of("statistic", "subjects", "key"),
+                List.of("statistic", "subjects", "key", "kind"),
                 Objects.requireNonNull(entry(document, "stages").template()).stream()
                         .map(SettingsDocument.Entry::key)
                         .toList());
@@ -73,9 +76,53 @@ class SettingsDocumentTest {
         final SettingsDocument document = document();
 
         assertEquals(
-                new SettingsDocument.Reference(Refers.To.ITEM, null, false),
+                new SettingsDocument.Reference(Refers.To.ITEM, null, false, null),
                 entry(document, "prizes").refers());
         assertNull(entry(document, "motd").refers());
+    }
+
+    @Test
+    void aReferenceNamesTheEntriesItsPickerLeavesOut() throws Exception {
+        assertEquals(
+                new SettingsDocument.Reference(Refers.To.STATISTIC, null, false, List.of("minecraft:play_one_minute")),
+                templateField(document(), "statistic").refers());
+    }
+
+    @Test
+    void aFieldSaysWhichValueOfItsSiblingItAppliesTo() throws Exception {
+        final SettingsDocument document = document();
+
+        assertEquals(
+                new SettingsDocument.Condition("kind", List.of("COUNTED")),
+                templateField(document, "statistic").appliesWhen());
+        assertNull(templateField(document, "key").appliesWhen());
+    }
+
+    @Test
+    void aChoiceCarriesTheNamesItsPluginGivesItsValuesAndAnIconForEach() throws Exception {
+        final SettingsDocument.Choices kinds =
+                Objects.requireNonNull(templateField(document(), "kind").choices());
+
+        assertEquals(List.of("COUNTED", "GIVEN"), kinds.values());
+        assertTrue(kinds.strict());
+        assertEquals(Map.of("COUNTED", "Counted"), kinds.names(), "a value its bundle does not name has no name");
+        assertEquals(Map.of("COUNTED", "minecraft:clock", "GIVEN", "minecraft:chest"), kinds.icons());
+    }
+
+    @Test
+    void aNewSectionStartsFromItsSpecsDefaults() throws Exception {
+        final SettingsDocument document = document();
+
+        assertEquals("COUNTED", templateField(document, "kind").value());
+        assertEquals("", templateField(document, "key").value());
+        assertEquals(List.of(), templateField(document, "subjects").items());
+    }
+
+    private static SettingsDocument.Entry templateField(final SettingsDocument document, final String key) {
+        return Objects.requireNonNull(entry(document, "stages").template()).stream()
+                .filter(field -> key.equals(field.key()))
+                .findFirst()
+                .orElseThrow();
     }
 
     @Test

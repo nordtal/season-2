@@ -1,6 +1,9 @@
 package eu.nordtal.season.steward.settings;
 
+import eu.nordtal.season.settings.AppliesWhen;
+import eu.nordtal.season.settings.ChoiceNames;
 import eu.nordtal.season.settings.Refers;
+import eu.nordtal.season.spec.annotation.AllowedValues;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Order;
@@ -49,13 +52,14 @@ public interface ExampleGroupSpec {
         return "";
     }
 
-    /** One stage, whose statistic comes before the subjects it counts. */
+    /** One stage, whose statistic comes before the subjects it counts, and which counts only when its kind says so. */
     @ConfigSpec
     interface Stage {
 
         @Order(1)
         @Key("statistic")
-        @Refers(Refers.To.STATISTIC)
+        @Refers(value = Refers.To.STATISTIC, except = "minecraft:play_one_minute")
+        @AppliesWhen(key = "kind", values = "COUNTED")
         default String statistic() {
             return "";
         }
@@ -71,6 +75,16 @@ public interface ExampleGroupSpec {
         @Key("key")
         default String key() {
             return "";
+        }
+
+        @Order(4)
+        @Key("kind")
+        @AllowedValues({"COUNTED", "GIVEN"})
+        @ChoiceNames(
+                value = "example.kind",
+                icons = {"minecraft:clock", "minecraft:chest"})
+        default String kind() {
+            return "COUNTED";
         }
     }
 }

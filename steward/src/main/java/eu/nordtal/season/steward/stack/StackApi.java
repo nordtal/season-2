@@ -171,7 +171,7 @@ public final class StackApi implements AutoCloseable {
         this.driftRefresh = scheduler.serial();
         this.updates = updates;
         this.managedPlugins = managedPlugins;
-        this.settings = settings == null ? null : new SettingsApi(settings);
+        this.settings = settings == null ? null : new SettingsApi(settings, agent, messageOverrides);
         this.agent = agent;
         this.nightly = nightly;
         this.messages = new MessagesApi(agent, messageOverrides, settings);

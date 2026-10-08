@@ -17,6 +17,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
@@ -37,9 +38,11 @@ public final class SettingsDocument {
     private final JsonObject values;
     private final Set<String> environment;
     private final String revision;
+    private final Names names;
 
-    private SettingsDocument(final SettingStore.Group group, final List<SettingStore.Value> stored) {
+    private SettingsDocument(final SettingStore.Group group, final List<SettingStore.Value> stored, final Names names) {
         this.group = group;
+        this.names = names;
         this.schema = JsonParser.parseString(group.schema()).getAsJsonObject();
         this.defaults = JsonParser.parseString(group.defaults()).getAsJsonObject();
         this.values = defaults.deepCopy();
@@ -50,9 +53,10 @@ public final class SettingsDocument {
         this.revision = revisionOf(stored);
     }
 
-    /** Returns the document of {@code group} over its stored rows. */
-    static SettingsDocument of(final SettingStore.Group group, final List<SettingStore.Value> stored) {
-        return new SettingsDocument(group, stored);
+    /** Returns the document of {@code group} over its stored rows, its choices named by {@code names}. */
+    static SettingsDocument of(
+            final SettingStore.Group group, final List<SettingStore.Value> stored, final Names names) {
+        return new SettingsDocument(group, stored, names);
     }
 
     /** Returns what the listing says of one group. */
@@ -133,9 +137,37 @@ public final class SettingsDocument {
                 shown && kind == Shape.LIST ? itemsOf(value) : null,
                 shown && kind == Shape.SECTIONS ? templateOf(node) : null,
                 shown && kind == Shape.SECTIONS ? sectionsOf(node, path, value) : null,
-                objectAt(node, "choices", SchemaNode.Choices.class),
+                choicesOf(node),
                 objectAt(node, "protectedEntry", SchemaNode.ProtectedEntry.class),
-                objectAt(node, "refers", Reference.class));
+                objectAt(node, "refers", Reference.class),
+                objectAt(node, "appliesWhen", Condition.class));
+    }
+
+    /** The node's choices, each value named by its plugin's text and paired with its icon where the schema says. */
+    private @Nullable Choices choicesOf(final JsonObject node) {
+        final SchemaNode.@Nullable Choices choices = objectAt(node, "choices", SchemaNode.Choices.class);
+        if (choices == null) {
+            return null;
+        }
+        final JsonObject declared = node.getAsJsonObject("choices");
+        final String key = text(declared, "names");
+        final Map<String, String> named = new LinkedHashMap<>();
+        final Map<String, String> icons = new LinkedHashMap<>();
+        final JsonArray items = declared.get("icons") instanceof final JsonArray array ? array : new JsonArray();
+        for (int index = 0; index < choices.values().size(); index++) {
+            final String value = choices.values().get(index);
+            final String name = key.isEmpty()
+                    ? null
+                    : names.name(key + "." + value.toLowerCase(Locale.ROOT).replace('_', '-'));
+            if (name != null) {
+                named.put(value, name);
+            }
+            if (index < items.size()) {
+                icons.put(value, items.get(index).getAsString());
+            }
+        }
+        return new Choices(
+                choices.values(), choices.strict(), key.isEmpty() ? null : named, items.isEmpty() ? null : icons);
     }
 
     private List<List<Entry>> sectionsOf(final JsonObject node, final String path, final @Nullable JsonElement value) {
@@ -148,10 +180,14 @@ public final class SettingsDocument {
         return sections;
     }
 
+    /** One section's fields, each holding what a new section starts from where the schema says. */
     private List<Entry> templateOf(final JsonObject node) {
+        final JsonObject blank =
+                node.get("defaults") instanceof final JsonObject defaulted ? defaulted : new JsonObject();
         final List<Entry> fields = new ArrayList<>();
         for (final Map.Entry<String, JsonElement> field : children(node).entrySet()) {
-            fields.add(entry(field.getKey(), field.getKey(), field.getValue().getAsJsonObject(), null));
+            fields.add(entry(
+                    field.getKey(), field.getKey(), field.getValue().getAsJsonObject(), blank.get(field.getKey())));
         }
         return fields;
     }
@@ -361,6 +397,7 @@ public final class SettingsDocument {
      * @param sections one field list per section the list holds, in order
      * @param protectedEntry the one section a save may never remove
      * @param refers what the value names, which Steward offers a picker for
+     * @param appliesWhen the sibling value this setting applies to alone, absent for one that always applies
      */
     public record Entry(
             String path,
@@ -378,15 +415,49 @@ public final class SettingsDocument {
             @Nullable List<String> items,
             @Nullable List<Entry> template,
             @Nullable List<List<Entry>> sections,
-            SchemaNode.@Nullable Choices choices,
+            @Nullable Choices choices,
             SchemaNode.@Nullable ProtectedEntry protectedEntry,
-            @Nullable Reference refers) {}
+            @Nullable Reference refers,
+            @Nullable Condition appliesWhen) {}
+
+    /**
+     * The values a setting offers, each with the name its plugin gives it and the item drawn before that name.
+     *
+     * @param strict whether only these values are accepted, or they are suggestions beside free text
+     * @param names value to its name, absent where the schema names no texts and missing a value no text names
+     * @param icons value to the item it is drawn with, absent where the schema names none
+     */
+    public record Choices(
+            List<String> values,
+            boolean strict,
+            @Nullable Map<String, String> names,
+            @Nullable Map<String, String> icons) {}
+
+    /**
+     * That a setting applies only while a sibling holds one of {@code values}, as {@code AppliesWhen} declares it.
+     *
+     * @param key the sibling's key
+     */
+    public record Condition(String key, List<String> values) {}
+
+    /** Where the names of a choice's values come from: a text by its bundle key, or {@code null} for none. */
+    @FunctionalInterface
+    public interface Names {
+
+        @Nullable
+        String name(String key);
+    }
 
     /**
      * What a value names, as its spec declares it with {@link Refers}.
      *
      * @param dependsOn the sibling key whose value decides the registry, for {@link Refers.To#SUBJECT}
      * @param optional whether an empty value is a choice of its own
+     * @param except the registry's entries the picker leaves out
      */
-    public record Reference(Refers.To to, @Nullable String dependsOn, boolean optional) {}
+    public record Reference(
+            Refers.To to,
+            @Nullable String dependsOn,
+            boolean optional,
+            @Nullable List<String> except) {}
 }

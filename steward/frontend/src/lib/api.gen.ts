@@ -689,6 +689,7 @@ export type ConfigEntry = {
   choices?: ConfigChoices
   protectedEntry?: ConfigProtectedEntry
   refers?: ConfigReference
+  appliesWhen?: ConfigCondition
 }
 
 export type ReloadOutcome = {
@@ -785,6 +786,8 @@ export type SettingType = "STRING" | "INTEGER" | "DECIMAL" | "BOOLEAN"
 export type ConfigChoices = {
   values: string[]
   strict: boolean
+  names?: Record<string, string>
+  icons?: Record<string, string>
 }
 
 export type ConfigProtectedEntry = {
@@ -796,6 +799,12 @@ export type ConfigReference = {
   to: ReferenceKind
   dependsOn?: string
   optional: boolean
+  except?: string[]
+}
+
+export type ConfigCondition = {
+  key: string
+  values: string[]
 }
 
 export type ReloadStatus = "APPLIED" | "RESTART_REQUIRED"

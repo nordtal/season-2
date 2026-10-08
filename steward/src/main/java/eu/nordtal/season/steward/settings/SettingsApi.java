@@ -4,7 +4,9 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import eu.nordtal.season.common.id.Actor;
+import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.setting.SettingStore;
+import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
@@ -25,9 +27,18 @@ public final class SettingsApi {
             StewardTexts.TEXTS.steward().answer();
 
     private final SettingStore store;
+    private final AgentClient agent;
+    private final @Nullable MessageOverrideStore overrides;
 
-    public SettingsApi(final SettingStore store) {
+    /**
+     * @param agent where the jars are read whose texts name a group's choices
+     * @param overrides the admins' changes to those texts, or {@code null} without a database
+     */
+    public SettingsApi(
+            final SettingStore store, final AgentClient agent, final @Nullable MessageOverrideStore overrides) {
         this.store = store;
+        this.agent = agent;
+        this.overrides = overrides;
     }
 
     /** {@code GET /api/setting-groups}: every published group. */
@@ -86,7 +97,7 @@ public final class SettingsApi {
         final List<SettingStore.Value> stored = store.overrides(List.of(group.service())).stream()
                 .filter(value -> value.group().equals(group.name()))
                 .toList();
-        return SettingsDocument.of(group, stored);
+        return SettingsDocument.of(group, stored, PluginNames.of(agent, overrides, group.service()));
     }
 
     private static Reloading outcomeOf(final SettingStore.Group group) {

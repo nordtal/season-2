@@ -155,23 +155,6 @@ public final class Graves {
         });
     }
 
-    /** The vanilla chest model's height in blocks, drawn at native size. */
-    private static final float CHEST_HEIGHT = 0.875f;
-
-    /**
-     * Half the height of a skull {@link ItemDisplay} drawn with {@link ItemDisplay.ItemDisplayTransform#NONE}.
-     *
-     * That transform centres the model, and a player head is 0.5 blocks high.
-     */
-    private static final float HEAD_HALF_HEIGHT = 0.25f;
-
-    /**
-     * How far the skull's centre dips below the chest's top edge; it stands upright because a tilt swings it.
-     * A rotation turns the model about the entity's origin, so an offset pivot times sin(angle) pushes it sideways.
-     * No rotation, native size (hat layer 0.5625 on a 0.875 lid): it cannot overhang, and the dip says it fell.
-     */
-    private static final float HEAD_SINK_DEPTH = 0.15f;
-
     /** How far above {@code at} the countdown hologram floats, found by eye. */
     private static final double HOLOGRAM_HEIGHT = 1.6;
 
@@ -212,13 +195,9 @@ public final class Graves {
             display.setItemStack(head);
             display.setPersistent(false);
             display.setBillboard(Display.Billboard.FIXED);
-            // Explicit though it is the default: the constants above are computed for this transform.
+            // Explicit though it is the default: GraveHead is computed for this transform.
             display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.NONE);
-            display.setTransformation(new Transformation(
-                    new Vector3f(0f, CHEST_HEIGHT + HEAD_HALF_HEIGHT - HEAD_SINK_DEPTH, 0f),
-                    new AxisAngle4f(),
-                    new Vector3f(1f, 1f, 1f),
-                    new AxisAngle4f()));
+            display.setTransformation(GraveHead.transformation());
         });
         entities.add(skull);
 

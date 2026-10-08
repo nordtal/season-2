@@ -13,6 +13,7 @@ import java.util.Locale;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /** Checks that the two language files hold the same keys, since {@code Messages} shows a missing key verbatim. */
@@ -51,6 +52,16 @@ class MessageBundlesTest {
             for (final Locale locale : new Locale[] {Locale.ENGLISH, Locale.GERMAN}) {
                 assertTrue(messages.hasTranslation(locale, key), key + " does not resolve in " + locale);
             }
+        }
+    }
+
+    @Test
+    void theRulesAreThreeSentencesAtMost() {
+        for (final Locale locale : new Locale[] {Locale.ENGLISH, Locale.GERMAN}) {
+            final String text = messages.get(locale, "hg.lobby.rules").replaceAll("<[^>]*>", " ");
+            final long sentences =
+                    Pattern.compile("[.!?](\\s|$)").matcher(text).results().count();
+            assertTrue(sentences <= 3, "the " + locale + " rules run to " + sentences + " sentences: " + text);
         }
     }
 

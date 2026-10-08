@@ -426,6 +426,103 @@ class UpdateFeedTest {
         assertFalse(shown.contains("report."), "no key is ever shown in place of its words: " + shown);
     }
 
+    // Why a run went wrong, and nothing else
+
+    @Test
+    void aSuccessfulRunShowsNoNotesWhateverItsRecordsSay() {
+        final UpdateReport done = UpdateReport.at(UpdateReport.Stage.DONE)
+                .with(new UpdateReport.ServiceLine(
+                        "smp",
+                        UpdateReport.State.HEALTHY,
+                        List.of(),
+                        TEXTS.report().words("came back slowly")))
+                .withNotes(UpdateReport.Note.done(
+                                UpdateReport.Step.STANDBY, TEXTS.report().standbysReady())
+                        .each(List.of("limbo-standby")))
+                .withNote(UpdateReport.Note.warning(
+                                UpdateReport.Step.PLAYERS, TEXTS.report().playersUnknown(10))
+                        .on("smp"))
+                .withNote(UpdateReport.Note.skipped(
+                        UpdateReport.Step.BACKUP, TEXTS.report().noOffsite()));
+
+        final MessageEmbed card = UpdateFeed.fields(done, row(1, UpdateStatus.DONE, null, NOW), messages, NOW);
+
+        assertEquals(List.of("Duration", "Services"), names(card), "a run that went well is its lines");
+        assertFalse(lines(card).contains("came back slowly"), lines(card));
+    }
+
+    @Test
+    void aFailedRunShowsOnlyWhatFailedItEachUnderItsService() {
+        final UpdateReport failed = UpdateReport.at(UpdateReport.Stage.FAILED)
+                .with(new UpdateReport.ServiceLine(
+                        "smp",
+                        UpdateReport.State.FAILED,
+                        List.of(),
+                        TEXTS.report().stopFailed("exit *1*")))
+                .with(new UpdateReport.ServiceLine(
+                        "limbo",
+                        UpdateReport.State.HEALTHY,
+                        List.of(),
+                        TEXTS.report().words("came back slowly")))
+                .withNotes(UpdateReport.Note.done(
+                                UpdateReport.Step.STANDBY, TEXTS.report().standbysReady())
+                        .each(List.of("limbo-standby")))
+                .withNote(UpdateReport.Note.warning(
+                                UpdateReport.Step.PLAYERS, TEXTS.report().playersUnknown(10))
+                        .on("smp"))
+                .withNotes(UpdateReport.Note.failed(
+                                UpdateReport.Step.STOP, TEXTS.report().notStopped(UpdateReport.Undertaking.INSTALL))
+                        .each(List.of("hunger_games")))
+                .withNote(UpdateReport.Note.failed(
+                        UpdateReport.Step.RUN, TEXTS.report().failedUnexpectedly("boom")));
+
+        final MessageEmbed card = UpdateFeed.fields(failed, row(1, UpdateStatus.FAILED, null, NOW), messages, NOW);
+
+        assertEquals(List.of("Duration", "Services", "Why"), names(card));
+        assertEquals(
+                """
+                **smp** could not be stopped: exit \\*1\\*
+                **hunger\\_games** not stopped, so nothing was installed; the rest started again
+                failed unexpectedly: boom""",
+                field(card, "Why"),
+                "the failed lines first, then the failed records; nothing that went right and no warning");
+    }
+
+    @Test
+    void aStoppedRunIsItsTitleAndARunInFlightSaysWhyOnlyOnceItHasFailed() {
+        final UpdateReport cancelled = UpdateReport.at(UpdateReport.Stage.CANCELLED)
+                .withNote(UpdateReport.Note.skipped(
+                        UpdateReport.Step.RUN, TEXTS.report().cancelled()));
+        final UpdateReport going = UpdateReport.at(UpdateReport.Stage.VERIFYING)
+                .with(new UpdateReport.ServiceLine(
+                        "smp",
+                        UpdateReport.State.FAILED,
+                        List.of(),
+                        TEXTS.report().stopFailed("exit 1")))
+                .withNote(UpdateReport.Note.failed(
+                                UpdateReport.Step.STANDBY, TEXTS.report().standbyNoContainer())
+                        .on("limbo-standby"));
+
+        final MessageEmbed stopped =
+                UpdateFeed.fields(cancelled, row(1, UpdateStatus.CANCELLED, null, NOW), messages, NOW);
+        final MessageEmbed running = UpdateFeed.fields(going, row(2, UpdateStatus.RUNNING, null, null), messages, NOW);
+
+        assertFalse(names(stopped).contains("Why"), names(stopped).toString());
+        assertFalse(names(running).contains("Why"), "the card is edited once the run settles: " + names(running));
+    }
+
+    private static List<String> names(final MessageEmbed embed) {
+        return embed.getFields().stream().map(MessageEmbed.Field::getName).toList();
+    }
+
+    private static String field(final MessageEmbed embed, final String name) {
+        return embed.getFields().stream()
+                .filter(field -> name.equals(field.getName()))
+                .map(MessageEmbed.Field::getValue)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("no field " + name + " in " + names(embed)));
+    }
+
     private static String lines(final MessageEmbed embed) {
         return embed.getFields().stream()
                 .map(MessageEmbed.Field::getValue)

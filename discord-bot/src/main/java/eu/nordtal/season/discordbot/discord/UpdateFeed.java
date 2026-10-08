@@ -255,25 +255,48 @@ public final class UpdateFeed {
 
         // The services get the budget first: which server failed matters more than why.
         final List<String> lines = new ArrayList<>();
-        final List<String> notes = new ArrayList<>();
         for (final UpdateReport.ServiceLine line : report.services()) {
             lines.add(line(line, text));
-            final MessageRef detail = line.detail();
-            if (detail != null) {
-                notes.add(Card.bold(line.service()) + " " + text.apply(detail).strip());
-            }
         }
-        for (final MessageRef note : report.notes()) {
-            // The renderer escapes every value; a multi-line note only reads in monospace and repeats the lines.
-            final String shown = text.apply(note).strip();
+        final List<String> why = new ArrayList<>();
+        for (final Why said : why(report)) {
+            // The renderer escapes every value; a multi-line text only reads in monospace and repeats the lines.
+            final String shown = text.apply(said.what()).strip();
             if (!shown.isBlank() && shown.indexOf('\n') < 0) {
-                notes.add(shown);
+                why.add(said.service() == null ? shown : Card.bold(said.service()) + " " + shown);
             }
         }
         card.block(text.apply(TEXTS.run().services()), lines, more);
-        card.block(text.apply(TEXTS.run().notes()), notes, more);
+        card.block(text.apply(TEXTS.run().why()), why, more);
         return card.build();
     }
+
+    /**
+     * What explains a failed or stopped run: each failed line's detail, then each failed record, in the run's order.
+     *
+     * A run that went well, or is still going, explains nothing; Steward's run page shows every record.
+     */
+    static List<Why> why(final UpdateReport report) {
+        if (report.stage() != UpdateReport.Stage.FAILED && report.stage() != UpdateReport.Stage.CANCELLED) {
+            return List.of();
+        }
+        final List<Why> said = new ArrayList<>();
+        for (final UpdateReport.ServiceLine line : report.services()) {
+            final MessageRef detail = line.detail();
+            if (line.state() == UpdateReport.State.FAILED && detail != null) {
+                said.add(new Why(line.service(), detail));
+            }
+        }
+        for (final UpdateReport.Note note : report.notes()) {
+            if (note.outcome() == UpdateReport.Outcome.FAILED) {
+                said.add(new Why(note.service(), note.what()));
+            }
+        }
+        return said;
+    }
+
+    /** One reason a run failed, about one service or, without one, about the run. */
+    record Why(@Nullable String service, MessageRef what) {}
 
     /** Renders a service line: its mark, the service, its state, then each change as a version or a pair of them. */
     private static String line(final UpdateReport.ServiceLine line, final Function<MessageRef, String> text) {

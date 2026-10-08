@@ -70,8 +70,10 @@ class EmbedBudgetTest {
 
     @Test
     void aNoteIsToldInTheChannelsLanguageWithItsValuesEscaped() {
-        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.DONE)
-                .withNote(TEXTS.report().heldLeftOut(List.of("mc_smp")))
+        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.FAILED)
+                .withNote(UpdateReport.Note.failed(
+                                UpdateReport.Step.SCOPE, TEXTS.report().downRefused())
+                        .on("mc_smp"))
                 .with(new UpdateReport.ServiceLine(
                         "smp",
                         UpdateReport.State.FAILED,
@@ -80,23 +82,27 @@ class EmbedBudgetTest {
         final MessageEmbed embed = UpdateFeed.fields(report, request(), messages, Instant.now());
 
         final String notes = embed.getFields().stream()
-                .filter(field -> "Notes".equals(field.getName()))
+                .filter(field -> "Why".equals(field.getName()))
                 .map(MessageEmbed.Field::getValue)
                 .findFirst()
                 .orElseThrow();
-        assertTrue(notes.contains("mc\\_smp is being held down and was left out of this run"), notes);
+        assertTrue(notes.contains("**mc\\_smp** cannot be put down from here"), notes);
         assertTrue(notes.contains("**smp** could not be stopped: exit \\*1\\*"), notes);
     }
 
     @Test
     void aNoteThatIsAPageRenderedForATerminalIsLeftToStewardsLog() {
-        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.DONE)
-                .withNote(TEXTS.report().words("proxy: release v0.9.5 carries no proxy-<version>.jar"))
-                .withNote(TEXTS.report().words("what was done\n\nproxy\n  proxy   unchanged   proxy-0.9.5.jar\n"));
+        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.FAILED)
+                .withNote(UpdateReport.Note.failed(
+                        UpdateReport.Step.RUN,
+                        TEXTS.report().words("proxy: release v0.9.5 carries no proxy-<version>.jar")))
+                .withNote(UpdateReport.Note.failed(
+                        UpdateReport.Step.RUN,
+                        TEXTS.report().words("what was done\n\nproxy\n  proxy   unchanged   proxy-0.9.5.jar\n")));
         final MessageEmbed embed = UpdateFeed.fields(report, request(), messages, Instant.now());
 
         final String notes = embed.getFields().stream()
-                .filter(field -> "Notes".equals(field.getName()))
+                .filter(field -> "Why".equals(field.getName()))
                 .map(MessageEmbed.Field::getValue)
                 .findFirst()
                 .orElseThrow();
@@ -133,7 +139,7 @@ class EmbedBudgetTest {
     }
 
     private static UpdateReport report(final int services, final int each, final int notes, final int noteLength) {
-        UpdateReport report = UpdateReport.at(UpdateReport.Stage.VERIFYING);
+        UpdateReport report = UpdateReport.at(UpdateReport.Stage.FAILED);
         for (int i = 0; i < services; i++) {
             final List<UpdateReport.Change> changes = new ArrayList<>();
             for (int c = 0; c * 40 < each; c++) {
@@ -146,7 +152,8 @@ class EmbedBudgetTest {
                     TEXTS.report().words("x".repeat(each))));
         }
         for (int i = 0; i < notes; i++) {
-            report = report.withNote(TEXTS.report().words("n".repeat(noteLength)));
+            report = report.withNote(UpdateReport.Note.failed(
+                    UpdateReport.Step.RUN, TEXTS.report().words("n".repeat(noteLength))));
         }
         return report;
     }

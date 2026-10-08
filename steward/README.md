@@ -157,4 +157,6 @@ them before the web starts. A change to `steward` re-arms both clocks without a 
 
 `preview` signs in as an invented admin whose key counts as just held, until it is stopped, so a page
 is looked at without a security key. `--args="--dump FILE"` restores a `pg_dump` first, and the
-session cookie is written to `build/preview/state.json` as Playwright's `storageState`.
+session cookie is written to `build/preview/state.json` as Playwright's `storageState`. The stand-in
+agent carries no bundle of its own, so the Texts page lists nothing until `--jars DIR` hands it real
+jars, one directory per service (`DIR/smp/smp-<version>.jar`, `DIR/discord-bot/discord-bot-<version>.jar`).

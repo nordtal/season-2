@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -63,9 +64,10 @@ public final class StewardPreview {
     private StewardPreview() {}
 
     /**
-     * {@code [--port N] [--dump FILE] [--state FILE]}; runs until it is stopped.
+     * {@code [--port N] [--dump FILE] [--state FILE] [--jars DIR]}; runs until it is stopped.
      *
-     * @param args the port to serve on, a dump to restore instead of the empty schema, and where the cookie goes
+     * @param args the port to serve on, a dump to restore instead of the empty schema, where the cookie goes, and a
+     *     directory of {@code <service>/<jar>} whose bundles the Texts page lists
      */
     public static void main(final String[] args) throws Exception {
         final Options options = Options.of(args);
@@ -77,9 +79,13 @@ public final class StewardPreview {
         try (Database database = Database.open(asSteward(postgres), "steward-preview");
                 ProcessScheduler scheduler = new ProcessScheduler(
                         "steward-preview", failure -> System.err.println("A task failed: " + failure));
-                AgentStandIn agent = new AgentStandIn(scratch, 0, cfg -> {}, RESTING);
+                AgentStandIn agent = new AgentStandIn(scratch, 0, cfg -> {}, servicesOf(options.jars()));
                 StandInDiscord discord = new StandInDiscord()) {
             furnish(agent);
+            final Path jars = options.jars();
+            if (jars != null) {
+                copyJars(jars, agent.configs);
+            }
             final Steward.Configs configs = java.util.Objects.requireNonNull(
                     Steward.configsOf(asSteward(postgres), database), "the stored settings were refused");
             final Data data = new Data(database, Clock.systemUTC());
@@ -133,6 +139,38 @@ public final class StewardPreview {
                 agent.configs.resolve("smp/smp.jar"),
                 "{\"id\": \"smp\", \"name\": \"SMP\", \"editors\": {\"milestones\": \"milestones\"}}",
                 java.util.Map.of());
+    }
+
+    /** {@link #RESTING}, and each service of {@code jars} the stand-in's compose.yml does not name yet. */
+    private static JsonObject servicesOf(final @org.jspecify.annotations.Nullable Path jars) throws IOException {
+        final JsonObject services = RESTING.deepCopy();
+        if (jars == null) {
+            return services;
+        }
+        final JsonObject named = JsonParser.parseString(AgentStandIn.SERVICES).getAsJsonObject();
+        try (Stream<Path> listed = Files.list(jars)) {
+            for (final Path directory : listed.filter(Files::isDirectory).toList()) {
+                final String service = directory.getFileName().toString();
+                if (!named.has(service) && !services.has(service)) {
+                    final JsonObject image = new JsonObject();
+                    image.addProperty("image", "ghcr.io/nordtal/" + service + ":latest");
+                    services.add(service, image);
+                }
+            }
+        }
+        return services;
+    }
+
+    /** Copies every {@code <service>/<jar>} of {@code jars} to where the stand-in agent reads that service's jars. */
+    private static void copyJars(final Path jars, final Path configs) throws IOException {
+        try (Stream<Path> listed = Files.walk(jars, 2)) {
+            for (final Path jar :
+                    listed.filter(path -> path.toString().endsWith(".jar")).toList()) {
+                final Path into = configs.resolve(jars.relativize(jar));
+                Files.createDirectories(into.getParent());
+                Files.copy(jar, into);
+            }
+        }
     }
 
     /** The hub steward opens on the stack, so a write somebody signals reaches an open page as it does there. */
@@ -315,26 +353,33 @@ public final class StewardPreview {
         };
     }
 
+    private static final String USAGE = "usage: [--port N] [--dump FILE] [--state FILE] [--jars DIR]";
+
     /** What the command line asked for. */
     private record Options(
-            int port, @org.jspecify.annotations.Nullable Path dump, Path state) {
+            int port,
+            @org.jspecify.annotations.Nullable Path dump,
+            Path state,
+            @org.jspecify.annotations.Nullable Path jars) {
 
         static Options of(final String[] args) {
             int port = 18180;
             Path dump = null;
             Path state = Path.of("build/preview/state.json");
+            Path jars = null;
             for (int i = 0; i + 1 < args.length; i += 2) {
                 switch (args[i]) {
                     case "--port" -> port = Integer.parseInt(args[i + 1]);
                     case "--dump" -> dump = Path.of(args[i + 1]);
                     case "--state" -> state = Path.of(args[i + 1]);
-                    default -> throw new IllegalArgumentException("usage: [--port N] [--dump FILE] [--state FILE]");
+                    case "--jars" -> jars = Path.of(args[i + 1]);
+                    default -> throw new IllegalArgumentException(USAGE);
                 }
             }
             if (args.length % 2 != 0) {
-                throw new IllegalArgumentException("usage: [--port N] [--dump FILE] [--state FILE]");
+                throw new IllegalArgumentException(USAGE);
             }
-            return new Options(port, dump, state);
+            return new Options(port, dump, state, jars);
         }
     }
 }

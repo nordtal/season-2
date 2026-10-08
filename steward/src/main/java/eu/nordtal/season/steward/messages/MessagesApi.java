@@ -355,7 +355,7 @@ public final class MessagesApi {
      * One key as {@link #union} finds it.
      *
      * @param location the first jar that carries it, which the editor names to check and preview it
-     * @param services every service whose jar shows it, in the agent's order
+     * @param services every service whose jar ships it, in the agent's order
      */
     private record Found(MessageEntry entry, AgentWire.BundleRef location, List<String> services) {}
 
@@ -403,7 +403,7 @@ public final class MessagesApi {
      * One key of one bundle, where it is read from and who shows it.
      *
      * @param path     the jar it is read from as the editor's check and preview name it, {@code <service>/<module>}
-     * @param services every service whose jar shows it
+     * @param services every service whose jar ships it and that draws one of its places, as {@link TextServices} says
      * @param previews every place of it a preview reaches, to where it reaches the admin who asks for one, in its
      *                 schema's order; empty for a key none reaches
      */
@@ -476,8 +476,10 @@ public final class MessagesApi {
         for (final Found found : union) {
             final Map<String, PreviewTarget> places = new LinkedHashMap<>();
             previewable(found.entry()).forEach(place -> places.put(place.name(), PreviewTarget.of(place)));
-            texts.add(new Text(found.entry(), identityOf(found.location()), List.copyOf(found.services()), places));
-            found.services().forEach(service -> colours.computeIfAbsent(service, this::coloursOf));
+            final List<String> services = TextServices.showing(
+                    found.services(), found.entry().bundle(), found.entry().shown());
+            texts.add(new Text(found.entry(), identityOf(found.location()), services, places));
+            services.forEach(service -> colours.computeIfAbsent(service, this::coloursOf));
         }
         final Map<String, Display.Surface> places = new LinkedHashMap<>();
         for (final Display place : Display.values()) {

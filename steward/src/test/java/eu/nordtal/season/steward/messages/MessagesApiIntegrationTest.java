@@ -411,6 +411,38 @@ class MessagesApiIntegrationTest {
     }
 
     @Test
+    void aTextIsKeptOnlyForTheServicesThatDrawOneOfItsPlaces() throws Exception {
+        final String admin = """
+                {"bundle": "admin", "messages": [{"key": "alert.disk", "name": "A full disk", "args": [],
+                  "section": [], "format": "PLAIN", "shown": ["STEWARD", "PUSH"]}],
+                 "contexts": {}, "globals": []}
+                """;
+        PluginJars.smp(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                java.util.Map.of(
+                        "messages/admin/en.properties", "alert.disk=The disk is full\n",
+                        "messages/admin/schema.json", admin,
+                        "messages/values/en.properties", "missing.name=someone\n"));
+        PluginJars.write(
+                configs.resolve("limbo/limbo-0.9.1.jar"),
+                "{\"id\": \"limbo\", \"name\": \"Limbo\", \"messages\": true}",
+                java.util.Map.of(
+                        "messages/admin/en.properties", "alert.disk=The disk is full\n",
+                        "messages/admin/schema.json", admin,
+                        "messages/values/en.properties", "missing.name=someone\n"));
+
+        final JsonObject texts = GSON.fromJson(get("/api/messages"), JsonObject.class);
+
+        assertEquals(
+                new JsonArray(),
+                text(texts, "admin", "alert.disk").getAsJsonArray("services"),
+                "no game server draws Steward's page or its notifications");
+        assertEquals(
+                GSON.fromJson("[\"limbo\", \"smp\"]", JsonArray.class),
+                text(texts, "values", "missing.name").getAsJsonArray("services"));
+    }
+
+    @Test
     void theTextsNameEveryPlaceInOrderWithWhereItIs() throws Exception {
         final JsonObject places =
                 GSON.fromJson(get("/api/messages"), JsonObject.class).getAsJsonObject("places");

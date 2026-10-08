@@ -114,12 +114,14 @@ Every word the page shows is a key of the `steward` bundle, English only, declar
 ### The Texts page
 
 The Texts page (`/texts`) edits every text of every bundle, Steward's own among them, from
-`GET /api/messages`: each text once, as `<bundle>/<key>`, with the services whose jar ships it, the
+`GET /api/messages`: each text once, as `<bundle>/<key>`, with the services that show it, the
 places a preview reaches, the network's `languages`, each service's tone `colours` and where each
 place is (`places`). The texts are grouped by where their first place is (in game, Discord, Steward
 & Admin), the `values` bundle apart as the building blocks, then by topic; a filter keeps one
 service's texts and draws them in its palette, and pills name the places a text appears in, a whole
-surface as one. A bundle that ships English only is edited in English only. One key is open at a
+surface as one. A service shows a text its jar ships where it draws one of the text's places
+(`TextServices`): the bot in Discord, Steward on its page, every other service in the game; a building
+block stays with every service that ships it. A bundle that ships English only is edited in English only. One key is open at a
 time. Its text is edited as it looks (runs of styled text with values as pills, `lib/rich-text.ts`)
 or as it is written (the source coloured from the marks of the one parser in `lib/message-tree.ts`).
 The tools above the field offer what the key's format allows: its values with their examples

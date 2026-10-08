@@ -140,9 +140,14 @@ public final class BotSettings {
         }
     }
 
-    /** Validates the onboarding: an optional channel, a lock role, and between one and 25 regions of unique zones. */
+    /** Validates the onboarding: two optional channels apart, a lock role, and one to 25 regions of unique zones. */
     private static void validateOnboarding(final OnboardingSpec config) {
         requireSnowflakeIfSet("channel", config.channel());
+        requireSnowflakeIfSet("change-channel", config.changeChannel());
+        if (Configured.isSet(config.changeChannel()) && config.changeChannel().equals(config.channel())) {
+            throw new IllegalArgumentException("change-channel is the onboarding channel, which a member no longer"
+                    + " sees once released. Choose a channel every member sees.");
+        }
         final Set<String> names = new HashSet<>();
         requireRoleName("lock-role", config.lockRole(), names);
 

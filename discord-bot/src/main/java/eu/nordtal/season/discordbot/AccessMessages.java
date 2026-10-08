@@ -129,34 +129,81 @@ public interface AccessMessages {
 
     AccessMessages.Onboarding onboarding();
 
-    /** The message where a member chooses a language and a region, one embed and button per language. */
+    /** What a member reads to choose a language and a region: the welcome, the region asked next, the change. */
     @Name("Onboarding")
     interface Onboarding {
 
-        @Name("Title")
-        @Shown(Display.DISCORD_EMBED_HEADING)
-        MessageRef title();
+        Onboarding.Welcome welcome();
 
-        @Name("Choose heading")
-        @Shown(Display.DISCORD_EMBED_HEADING)
-        MessageRef chooseHeading();
+        /** The one message in the onboarding channel, in the default language, with the language select. */
+        @Name("Welcome")
+        interface Welcome {
 
-        @Name("Choose")
-        @Shown(Display.DISCORD_EMBED)
-        MessageRef choose(@Arg("button") @Example("Choose") String button);
+            @Name("Title")
+            @Shown(Display.DISCORD_EMBED_HEADING)
+            MessageRef title();
 
-        @Name("Change heading")
-        @Shown(Display.DISCORD_EMBED_HEADING)
-        MessageRef changeHeading();
+            @Name("Lead")
+            @Shown(Display.DISCORD_EMBED)
+            MessageRef lead();
 
+            @Name("Steps heading")
+            @Shown(Display.DISCORD_EMBED_HEADING)
+            MessageRef stepsHeading();
+
+            @Name("Steps")
+            @Shown(Display.DISCORD_EMBED)
+            MessageRef steps();
+
+            @Name("Choose")
+            @Shown(Display.DISCORD_SELECT)
+            @Format(TextFormat.PLAIN)
+            MessageRef choose();
+        }
+
+        Onboarding.Region region();
+
+        /** The answer to a language, in it and to the member alone, with the region select. */
+        @Name("Region")
+        interface Region {
+
+            @Name("Title")
+            @Shown(Display.DISCORD_EMBED_HEADING)
+            MessageRef title();
+
+            @Name("Lead")
+            @Shown(Display.DISCORD_EMBED)
+            MessageRef lead();
+
+            @Name("Choose")
+            @Shown(Display.DISCORD_SELECT)
+            @Format(TextFormat.PLAIN)
+            MessageRef choose();
+        }
+
+        Onboarding.Change change();
+
+        /** The message in the change channel: an embed and a button per language, each opening the dialog in it. */
         @Name("Change")
-        @Shown(Display.DISCORD_EMBED)
-        MessageRef change();
+        interface Change {
 
-        @Name("Button")
-        @Shown(Display.DISCORD_BUTTON)
-        @Format(TextFormat.PLAIN)
-        MessageRef button();
+            @Name("Title")
+            @Shown(Display.DISCORD_EMBED_HEADING)
+            MessageRef title();
+
+            @Name("Heading")
+            @Shown(Display.DISCORD_EMBED_HEADING)
+            MessageRef heading();
+
+            @Name("How")
+            @Shown(Display.DISCORD_EMBED)
+            MessageRef how(@Arg("button") @Example("Change") String button);
+
+            @Name("Button")
+            @Shown(Display.DISCORD_BUTTON)
+            @Format(TextFormat.PLAIN)
+            MessageRef button();
+        }
 
         @Name("Saved")
         MessageRef saved(

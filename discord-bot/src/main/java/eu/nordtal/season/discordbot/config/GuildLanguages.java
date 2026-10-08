@@ -140,9 +140,13 @@ public final class GuildLanguages {
         if (!configured.isEmpty()) {
             return configured;
         }
-        final Locale locale = Locales.parse(language.tag() == null ? "" : language.tag());
+        return ownName(Locales.parse(language.tag() == null ? "" : language.tag()));
+    }
+
+    /** Returns a language's own name in itself, capitalised, such as Deutsch, or its tag when the JDK has none. */
+    private static String ownName(final Locale locale) {
         final String own = locale.getDisplayLanguage(locale);
-        return own.isEmpty() ? language.tag() : own.substring(0, 1).toUpperCase(locale) + own.substring(1);
+        return own.isEmpty() ? Locales.tag(locale) : own.substring(0, 1).toUpperCase(locale) + own.substring(1);
     }
 
     /**
@@ -184,6 +188,11 @@ public final class GuildLanguages {
         /** Returns whether announcements for this language have a channel. */
         public boolean hasAnnouncementChannel() {
             return announcementChannelId != null && !announcementChannelId.isBlank();
+        }
+
+        /** Returns the language's own name in itself, such as Deutsch, whatever its role is called. */
+        public String ownName() {
+            return GuildLanguages.ownName(locale());
         }
 
         /** Returns the tag as a {@link Locale}. */

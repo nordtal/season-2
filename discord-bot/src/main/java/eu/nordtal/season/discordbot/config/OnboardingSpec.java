@@ -20,13 +20,23 @@ public interface OnboardingSpec {
     @Order(1)
     @Name("Onboarding channel")
     @Key("channel")
-    @Explain("Holds the message to choose a language and a region, and is all the lock role sees.")
+    @Explain(
+            "Where a locked member chooses a language and a region; only the lock role sees it, and it is all the lock role sees.")
     @Refers(value = Refers.To.DISCORD_CHANNEL, optional = true)
     default String channel() {
         return "";
     }
 
     @Order(2)
+    @Name("Change channel")
+    @Key("change-channel")
+    @Explain("Holds the message to change a language or a region later; another channel than the onboarding channel.")
+    @Refers(value = Refers.To.DISCORD_CHANNEL, optional = true)
+    default String changeChannel() {
+        return "";
+    }
+
+    @Order(3)
     @Name("Lock")
     @Key("lock")
     @Explain("While on, a member who has not chosen a language and a region sees only the onboarding channel.")
@@ -34,7 +44,7 @@ public interface OnboardingSpec {
         return false;
     }
 
-    @Order(3)
+    @Order(4)
     @Name("Lock role")
     @Key("lock-role")
     @Explain("The bot takes the role of exactly this name, or creates it, and then follows it even when it is renamed.")
@@ -42,7 +52,7 @@ public interface OnboardingSpec {
         return "Onboarding";
     }
 
-    @Order(4)
+    @Order(5)
     @Name("Regions")
     @Key("regions")
     @Explain("Each region is a role of its name; a member who holds it reads times in its zone.")

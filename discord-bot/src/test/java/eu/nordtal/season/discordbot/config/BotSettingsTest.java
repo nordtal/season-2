@@ -457,6 +457,7 @@ class BotSettingsTest {
         assertAll(
                 () -> assertFalse(config.lock()),
                 () -> assertEquals("", config.channel()),
+                () -> assertEquals("", config.changeChannel()),
                 () -> assertEquals("Onboarding", config.lockRole()),
                 () -> assertEquals(12, config.regions().size()),
                 () -> assertTrue(config.regions().stream()
@@ -506,5 +507,24 @@ class BotSettingsTest {
 
         final String message = refusedOnboarding(values);
         assertTrue(message.contains("channel"), message);
+    }
+
+    @Test
+    void aChangeChannelThatIsSetHasToBeASnowflake() {
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("change-channel", "<#5>");
+
+        final String message = refusedOnboarding(values);
+        assertTrue(message.contains("change-channel"), message);
+    }
+
+    @Test
+    void theChangeChannelIsRefusedAsTheOnboardingChannelWhichAReleasedMemberNoLongerSees() {
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("channel", "1404596278050033786");
+        values.put("change-channel", "1404596278050033786");
+
+        final String message = refusedOnboarding(values);
+        assertTrue(message.contains("change-channel"), message);
     }
 }

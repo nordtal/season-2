@@ -46,7 +46,7 @@ The container runs the jar baked into its image; the whole deployment is in [../
 
 - `access/`: purchases, grants, linking, the reaction to a booked payment and the managed messages.
 - `registration/`: team registration for a game, named by its key; the Hunger Games is the one game so far.
-- `onboarding/`: the language and region roles, the lock and the onboarding message.
+- `onboarding/`: the language and region roles, the lock and the onboarding messages.
 - `roles/`: every role the bot uses (`GuildRoles`), found by name and then followed by its stored id.
 - `status/`: the status channel names.
 - `announce/`, `discord/`: announcements, admin commands and the update feed.
@@ -65,7 +65,22 @@ bot look by name again. Two roles of the name are taken by neither, and the admi
 
 A member's language and region are Discord roles, and the roles are the source: every change is
 carried into `discord_user.locale` and `time_zone`, where no role means the network's. Holding two of
-a kind keeps the one just added. The onboarding channel holds one message with a button per language.
+a kind keeps the one just added. Both channels are ids in Steward's `onboarding` group.
+
+```mermaid
+flowchart LR
+    welcome["welcome, default language"] -->|"language select"| answer["answer in that language, to the member alone"]
+    answer -->|"region select"| released(["both held: lock role taken"])
+    change["change message, a button per language"] -->|"dialog with both selects"| released
+```
+
+- The onboarding channel holds the welcome: one embed in the network's default language and a select of the
+  languages, each under its own name and its country's flag. Choosing one gives its role and answers with a
+  select of the regions, unless a region is held already.
+- The change channel holds an embed and a button per language, each opening a dialog in it with both selects;
+  it is how a member changes either later.
+- The onboarding channel is the lock role's alone: the bot keeps it shut to everyone and open to the lock role
+  and to itself, the lock on or off, so a released member no longer sees it.
 
 - With the lock on in Steward, a member missing either role holds the lock role, which sees only the
   onboarding channel; the bot keeps that on every channel and takes the role the moment both are held.

@@ -175,6 +175,7 @@ run `git config core.hooksPath .githooks` once per clone.
     to do, 🔍 not read yet, 📋 planned, ⏹️ cancelled.
   - Action: 💶 paid, 🎟️ granted, 🚫 revoked, 🔗 linked, ✂️ unlinked, ⏱️ play time set, 🔒 refused and kept shut,
     📝 any other action.
+  - A language's flag, the country `Locales.flagCountry` names for it, drawn by `Mark.flag`.
 - **A design proposal is a Steward page under `/designs/`**, so every admin can try it live. Each one is
   removed with its route once the design is built, and no page is served from that path after the
   development phase.

@@ -69,6 +69,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
     private final AlertOnce alerts;
     private final LockedChannels channels;
     private final OnboardingMessage message;
+    private final ManagedMessage managed;
     private final Executor lane;
     private volatile Choices choices;
 
@@ -103,7 +104,8 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         this.records = new Records(jdbi);
         this.alerts = new AlertOnce(alerts);
         this.channels = new LockedChannels(this.alerts);
-        this.message = new OnboardingMessage(languages, messages, new ManagedMessage(jda, jdbi));
+        this.message = new OnboardingMessage(languages, messages);
+        this.managed = new ManagedMessage(jda, jdbi);
         this.lane = lane;
         this.choices = Choices.of(languages, setting.get());
     }
@@ -121,10 +123,10 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         }
     }
 
-    /** Publishes the message where members choose, then catches up on every member and channel. */
+    /** Publishes the messages where members choose and change, then catches up on every member and channel. */
     public void start() {
         lane.execute(() -> {
-            message.publish(setting.get().channel());
+            publish();
             sweep();
         });
     }
@@ -146,9 +148,14 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
                 return;
             }
             choices = Choices.of(languages, setting.get());
-            message.publish(setting.get().channel());
+            publish();
             sweep();
         });
+    }
+
+    private void publish() {
+        final OnboardingSpec spec = setting.get();
+        message.publish(managed, spec.channel(), spec.changeChannel());
     }
 
     @Override
@@ -207,8 +214,9 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         }
         roles.resolve(guild, wanted());
         final Lock lock = lock(guild);
-        if (lock.locking() && lock.role() != null) {
-            channels.keep(guild, lock.role(), setting.get().channel());
+        final String onboardingChannel = setting.get().channel();
+        if (Configured.isSet(onboardingChannel) && guild.getGuildChannelById(onboardingChannel) != null) {
+            channels.keep(guild, lock.role(), onboardingChannel, lock.locking() && lock.role() != null);
         }
         final Map<String, Records.Recorded> recorded = records.all();
         int settled = 0;

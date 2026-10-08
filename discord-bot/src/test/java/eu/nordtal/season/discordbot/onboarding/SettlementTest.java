@@ -115,6 +115,16 @@ class SettlementTest {
     }
 
     @Test
+    void choosingTheLanguageFirstKeepsTheLockUntilTheRegionFollows() {
+        final Settlement settlement = settle(Set.of(LOCK, EN), Set.of(EN), Records.Recorded.NONE, true);
+
+        assertAll(
+                () -> assertTrue(settlement.add().isEmpty()),
+                () -> assertTrue(settlement.remove().isEmpty()),
+                () -> assertEquals(List.of(new Settlement.Change(Choices.Kind.LANGUAGE, "en")), settlement.record()));
+    }
+
+    @Test
     void withTheLockOffNobodyKeepsTheLockRoleChosenOrNot() {
         assertEquals(
                 Set.of(LOCK),

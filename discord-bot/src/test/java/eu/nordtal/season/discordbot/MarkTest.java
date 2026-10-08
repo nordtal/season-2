@@ -1,6 +1,7 @@
 package eu.nordtal.season.discordbot;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.RepositoryRoot;
@@ -36,6 +37,18 @@ class MarkTest {
     @Test
     void aMarkStandsBeforeItsTextAndSeparatesNothing() {
         assertEquals("✅ Done", Mark.DONE.before("Done"));
+    }
+
+    @Test
+    void aFlagIsTheTwoRegionalIndicatorsOfItsCountry() {
+        assertEquals("\uD83C\uDDEC\uD83C\uDDE7", Mark.flag("GB"));
+        assertEquals("\uD83C\uDDE9\uD83C\uDDEA", Mark.flag("DE"));
+    }
+
+    @Test
+    void aCountryThatIsNotTwoLettersIsRefused() {
+        assertThrows(IllegalArgumentException.class, () -> Mark.flag("GBR"));
+        assertThrows(IllegalArgumentException.class, () -> Mark.flag("g1"));
     }
 
     @Test

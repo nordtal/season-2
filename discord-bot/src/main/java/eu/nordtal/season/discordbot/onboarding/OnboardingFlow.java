@@ -6,6 +6,7 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.DiscordRole;
+import eu.nordtal.season.discordbot.Card;
 import eu.nordtal.season.discordbot.DiscordRenderer;
 import eu.nordtal.season.discordbot.Ids;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
@@ -18,6 +19,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.label.Label;
 import net.dv8tion.jda.api.components.selections.SelectOption;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
@@ -26,15 +28,18 @@ import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.modals.ModalMapping;
 import net.dv8tion.jda.api.modals.Modal;
+import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The onboarding message's buttons: each opens a modal in its language to choose a language and a region.
+ * The onboarding's choices: the welcome's language, then the region asked in it, and the change message's dialog.
  *
- * Choosing gives the two roles and nothing else; {@link Onboarding} takes the rest of their kind and writes the record.
+ * Choosing gives the roles and nothing else; {@link Onboarding} takes the rest of their kind, the lock and the record.
  */
 @Slf4j
 public final class OnboardingFlow extends ListenerAdapter {
@@ -71,6 +76,93 @@ public final class OnboardingFlow extends ListenerAdapter {
     }
 
     @Override
+    public void onStringSelectInteraction(final StringSelectInteractionEvent event) {
+        final String id = event.getComponentId();
+        final boolean language = id.equals(Ids.ONBOARD_PICK_LANGUAGE);
+        final Member member = event.getMember();
+        if (!(language || id.startsWith(Ids.ONBOARD_PICK_REGION))
+                || member == null
+                || event.getValues().isEmpty()) {
+            return;
+        }
+        final String value = event.getValues().getFirst();
+        if (language) {
+            event.deferReply(true).queue();
+            lane.execute(() -> answerLanguage(event.getHook(), member, value));
+        } else {
+            final GuildLanguages.Language asked = spoken(id, Ids.ONBOARD_PICK_REGION);
+            event.deferEdit().queue();
+            lane.execute(() -> answerRegion(event.getHook(), member, asked, value));
+        }
+    }
+
+    /** Gives the language chosen on the welcome and answers in it, asking for the region unless one is held. */
+    private void answerLanguage(final InteractionHook hook, final Member member, final String tag) {
+        final Guild guild = member.getGuild();
+        final Choices choices = onboarding.choices();
+        final Optional<Role> language = role(guild, choices.byValue(Choices.Kind.LANGUAGE, tag));
+        final Locale reads =
+                language.isPresent() ? Locales.parse(tag) : languages.fallback().locale();
+        final boolean given = language.isPresent() && give(member, language.get(), DiscordRole.LANGUAGE);
+        final Optional<Role> region = held(guild, choices, Choices.Kind.REGION, ids(member))
+                .flatMap(zone -> role(guild, choices.byValue(Choices.Kind.REGION, zone)));
+        final List<SelectOption> regions = options(guild, choices, Choices.Kind.REGION);
+        switch (Answer.after(given, region.isPresent(), !regions.isEmpty())) {
+            case ASK_REGION ->
+                hook.editOriginalEmbeds(Card.of(messages.format(
+                                        reads, MESSAGES.onboarding().region().title()))
+                                .lead(messages.format(
+                                        reads, MESSAGES.onboarding().region().lead()))
+                                .build())
+                        .setComponents(ActionRow.of(StringSelectMenu.create(Ids.ONBOARD_PICK_REGION + tag)
+                                .setPlaceholder(messages.format(
+                                        reads, MESSAGES.onboarding().region().choose()))
+                                .addOptions(regions)
+                                .build()))
+                        .queue();
+            case SAVED ->
+                hook.editOriginal(saved(reads, language.orElseThrow(), region.orElseThrow()))
+                        .queue();
+            case FAILED -> {
+                log.warn(
+                        "{} chose the language {}, which was not given or leaves no region to offer",
+                        member.getId(),
+                        tag);
+                hook.editOriginal(messages.format(reads, MESSAGES.onboarding().failed()))
+                        .queue();
+            }
+        }
+    }
+
+    /** Gives the region chosen in the answer to a language and turns that answer into the outcome, in that language. */
+    private void answerRegion(
+            final InteractionHook hook, final Member member, final GuildLanguages.Language asked, final String zone) {
+        final Guild guild = member.getGuild();
+        final Choices choices = onboarding.choices();
+        final Optional<Role> region = role(guild, choices.byValue(Choices.Kind.REGION, zone));
+        final boolean given = region.isPresent() && give(member, region.get(), DiscordRole.REGION);
+        final Locale reads = asked.locale();
+        final Optional<Role> language = role(guild, choices.byValue(Choices.Kind.LANGUAGE, asked.tag()));
+        final String text = Answer.after(given, given, false) == Answer.SAVED && language.isPresent()
+                ? saved(reads, language.get(), region.orElseThrow())
+                : messages.format(reads, MESSAGES.onboarding().failed());
+        hook.editOriginal(new MessageEditBuilder()
+                        .setContent(text)
+                        .setEmbeds(List.of())
+                        .setComponents(List.of())
+                        .build())
+                .queue();
+    }
+
+    private String saved(final Locale reads, final Role language, final Role region) {
+        return messages.format(reads, MESSAGES.onboarding().saved(language.getName(), region.getName()));
+    }
+
+    private static Set<String> ids(final Member member) {
+        return member.getRoles().stream().map(Role::getId).collect(Collectors.toUnmodifiableSet());
+    }
+
+    @Override
     public void onButtonInteraction(final ButtonInteractionEvent event) {
         final Member member = event.getMember();
         if (!event.getComponentId().startsWith(Ids.ONBOARD) || member == null) {
@@ -80,7 +172,7 @@ public final class OnboardingFlow extends ListenerAdapter {
         final Locale locale = language.locale();
         final Guild guild = member.getGuild();
         final Choices choices = onboarding.choices();
-        final Set<String> held = member.getRoles().stream().map(Role::getId).collect(Collectors.toUnmodifiableSet());
+        final Set<String> held = ids(member);
         final List<SelectOption> spoken = options(guild, choices, Choices.Kind.LANGUAGE);
         final List<SelectOption> regions = options(guild, choices, Choices.Kind.REGION);
         if (spoken.isEmpty() || regions.isEmpty()) {
@@ -145,12 +237,7 @@ public final class OnboardingFlow extends ListenerAdapter {
             event.getHook()
                     .editOriginal(
                             given
-                                    ? messages.format(
-                                            reads,
-                                            MESSAGES.onboarding()
-                                                    .saved(
-                                                            language.get().getName(),
-                                                            region.get().getName()))
+                                    ? saved(reads, language.get(), region.get())
                                     : messages.format(
                                             reads, MESSAGES.onboarding().failed()))
                     .queue();

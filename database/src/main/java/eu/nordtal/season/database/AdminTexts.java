@@ -16,6 +16,7 @@ import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Display;
+import eu.nordtal.season.messages.spec.Formerly;
 import eu.nordtal.season.messages.spec.MessageSpec;
 import eu.nordtal.season.messages.spec.MessageSpecs;
 import eu.nordtal.season.messages.spec.Name;
@@ -254,9 +255,18 @@ public interface AdminTexts {
         @Shown(Display.DISCORD_EMBED_HEADING)
         MessageRef services();
 
-        @Name("Notes, as a heading")
+        @Name("What explains a failed run, as a heading")
         @Shown(Display.DISCORD_EMBED_HEADING)
-        MessageRef notes();
+        @Formerly("run.notes")
+        MessageRef why();
+
+        @Name("The part of a run a note is about")
+        @Shown(Display.STEWARD)
+        MessageRef step(@Arg("step") UpdateReport.Step step);
+
+        @Name("How a note went")
+        @Shown(Display.STEWARD)
+        MessageRef outcome(@Arg("outcome") UpdateReport.Outcome outcome);
 
         @Name("Duration, as a heading")
         @Shown(Display.DISCORD_EMBED_HEADING)

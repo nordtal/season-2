@@ -36,8 +36,12 @@ class UpdateReportsTest {
                                 List.of(new UpdateReport.Change("limbo", null, "0.7.0")),
                                 TEXTS.report().words("did not report healthy within 5 minutes"))),
                 List.of(
-                        TEXTS.report().words("the schema is current"),
-                        TEXTS.report().words("the pack was written")));
+                        UpdateReport.Note.done(
+                                UpdateReport.Step.MIGRATE, TEXTS.report().words("the schema is current")),
+                        UpdateReport.Note.warning(
+                                        UpdateReport.Step.STANDBY,
+                                        TEXTS.report().standbyStopped())
+                                .on("limbo-standby")));
 
         final Optional<UpdateReport> back = UpdateReports.parse(UpdateReports.toJson(report));
 
@@ -73,10 +77,13 @@ class UpdateReportsTest {
         final String nasty = "the daemon answered 404 for \"/containers/abc123/stop\".\nIts id\tis"
                 + " twelve hex characters, not a service name.";
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.FAILED)
-                .withNote(TEXTS.report().words(nasty));
+                .withNote(UpdateReport.Note.failed(
+                                UpdateReport.Step.STOP, TEXTS.report().words(nasty))
+                        .on("smp"));
 
         assertEquals(
-                TEXTS.report().words(nasty),
+                UpdateReport.Note.failed(UpdateReport.Step.STOP, TEXTS.report().words(nasty))
+                        .on("smp"),
                 UpdateReports.parse(UpdateReports.toJson(report))
                         .orElseThrow()
                         .notes()

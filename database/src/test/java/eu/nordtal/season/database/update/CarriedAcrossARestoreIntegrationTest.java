@@ -51,7 +51,8 @@ class CarriedAcrossARestoreIntegrationTest {
         final UpdateRequest settled = updates.find(backup.id()).orElseThrow();
         assertEquals(UpdateStatus.FAILED, settled.status(), "an open row from the dump would be claimed again");
         assertEquals(
-                List.of(TEXTS.report().words("restored from a dump taken while this ran")),
+                List.of(UpdateReport.Note.failed(
+                        UpdateReport.Step.RUN, TEXTS.report().words("restored from a dump taken while this ran"))),
                 UpdateReports.parse(settled.result()).orElseThrow().notes());
 
         assertTrue(updates.finish(restore.id(), UpdateStatus.DONE, "{}").isPresent());

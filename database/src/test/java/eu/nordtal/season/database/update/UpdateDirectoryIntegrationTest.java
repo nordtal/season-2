@@ -409,7 +409,8 @@ class UpdateDirectoryIntegrationTest {
         assertTrue(updates.progress(
                 submitted.id(),
                 UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.COUNTDOWN)
-                        .withNote(TEXTS.report().words("planned")))));
+                        .withNote(UpdateReport.Note.done(
+                                UpdateReport.Step.SCOPE, TEXTS.report().words("planned"))))));
 
         assertEquals(submitted.id(), updates.cancelCountdown().orElseThrow().id());
         assertFalse(updates.commitCountdown(submitted.id()), "and the run must then stop nothing at all");
@@ -420,7 +421,11 @@ class UpdateDirectoryIntegrationTest {
                         updates.find(submitted.id()).orElseThrow().result())
                 .orElseThrow();
         assertEquals(UpdateReport.Stage.CANCELLED, left.stage(), "the countdown's report moves to CANCELLED");
-        assertEquals(List.of(TEXTS.report().words("planned")), left.notes(), "and keeps what it held");
+        assertEquals(
+                List.of(UpdateReport.Note.done(
+                        UpdateReport.Step.SCOPE, TEXTS.report().words("planned"))),
+                left.notes(),
+                "and keeps what it held");
     }
 
     @Test
@@ -635,7 +640,8 @@ class UpdateDirectoryIntegrationTest {
         final UpdateRequest read = updates.find(restart.id()).orElseThrow();
         assertEquals(UpdateStatus.FAILED, read.status());
         assertEquals(
-                List.of(TEXTS.report().words("Killed mid-run")),
+                List.of(UpdateReport.Note.failed(
+                        UpdateReport.Step.RUN, TEXTS.report().words("Killed mid-run"))),
                 UpdateReports.parse(read.result()).orElseThrow().notes());
         assertNotNull(read.finished());
 
@@ -655,7 +661,8 @@ class UpdateDirectoryIntegrationTest {
         final UpdateRequest read = updates.find(apply.id()).orElseThrow();
         assertEquals(UpdateStatus.FAILED, read.status());
         assertEquals(
-                List.of(TEXTS.report().words("Killed mid-run")),
+                List.of(UpdateReport.Note.failed(
+                        UpdateReport.Step.RUN, TEXTS.report().words("Killed mid-run"))),
                 UpdateReports.parse(read.result()).orElseThrow().notes());
     }
 

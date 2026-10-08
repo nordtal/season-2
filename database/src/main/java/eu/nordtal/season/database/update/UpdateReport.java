@@ -11,9 +11,9 @@ import org.jspecify.annotations.Nullable;
  *
  * @param stage    where the run has got to
  * @param services one line per service the run touches, in reading order
- * @param notes    anything not attached to a service, each a message of the admin bundle's report section
+ * @param notes    what the run did or found beside its lines, one record each, in the order they happened
  */
-public record UpdateReport(Stage stage, List<ServiceLine> services, List<MessageRef> notes) {
+public record UpdateReport(Stage stage, List<ServiceLine> services, List<Note> notes) {
 
     public UpdateReport {
         Objects.requireNonNull(stage, "stage");
@@ -30,9 +30,13 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<Message
         return new UpdateReport(next, services, notes);
     }
 
-    public UpdateReport withNote(final MessageRef note) {
-        final List<MessageRef> combined = new ArrayList<>(notes);
-        combined.add(note);
+    public UpdateReport withNote(final Note note) {
+        return withNotes(List.of(note));
+    }
+
+    public UpdateReport withNotes(final List<Note> more) {
+        final List<Note> combined = new ArrayList<>(notes);
+        combined.addAll(more);
         return new UpdateReport(stage, services, combined);
     }
 
@@ -180,6 +184,85 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<Message
             /** The source has no build for the network's Minecraft version; never work to stop for. */
             UNSUPPORTED
         }
+    }
+
+    /**
+     * One thing a run did or found, as a record each surface filters and draws for itself.
+     *
+     * @param service the service, volume or archive it concerns, as a line names it, or none for the run as a whole
+     * @param what    a message of the report section, whose typed values are the record's values
+     */
+    public record Note(Step step, Outcome outcome, @Nullable String service, MessageRef what) {
+
+        public Note {
+            Objects.requireNonNull(step, "step");
+            Objects.requireNonNull(outcome, "outcome");
+            Objects.requireNonNull(what, "what");
+        }
+
+        public static Note done(final Step step, final MessageRef what) {
+            return new Note(step, Outcome.DONE, null, what);
+        }
+
+        public static Note skipped(final Step step, final MessageRef what) {
+            return new Note(step, Outcome.SKIPPED, null, what);
+        }
+
+        public static Note warning(final Step step, final MessageRef what) {
+            return new Note(step, Outcome.WARNING, null, what);
+        }
+
+        public static Note failed(final Step step, final MessageRef what) {
+            return new Note(step, Outcome.FAILED, null, what);
+        }
+
+        /** Returns the same record about one service. */
+        public Note on(final String subject) {
+            return new Note(step, outcome, Objects.requireNonNull(subject, "subject"), what);
+        }
+
+        /** Returns one record per service, in their order, each saying the same about its own. */
+        public List<Note> each(final List<String> subjects) {
+            return subjects.stream().map(this::on).toList();
+        }
+    }
+
+    /** The part of a run a {@link Note} is about, in the order a run reaches them. */
+    public enum Step {
+        /** The run as a whole: who or what ended it. */
+        RUN,
+        /** What the request covers, and what it leaves out. */
+        SCOPE,
+        /** What the sources, the registries and the plugin directories answered. */
+        SOURCES,
+        /** Which release carries the run out, and whether a one-shot does. */
+        RELEASE,
+        /** The standbys the players are moved to. */
+        STANDBY,
+        /** The players on a server that is about to stop. */
+        PLAYERS,
+        /** Stopping the servers, and holding them down. */
+        STOP,
+        /** The archives a run writes, keeps, removes and copies off the host. */
+        BACKUP,
+        /** The database schema brought to the release. */
+        MIGRATE,
+        /** Files put into place, removed or restored. */
+        INSTALL,
+        /** What a run removes once everything is back. */
+        CLEANUP
+    }
+
+    /** How a {@link Note} went. */
+    public enum Outcome {
+        /** It happened as asked. */
+        DONE,
+        /** Left out on purpose, or nothing to do. */
+        SKIPPED,
+        /** Needs a look, but failed nothing. */
+        WARNING,
+        /** Part of why the run did not do what was asked. */
+        FAILED
     }
 
     /** Where a run has got to, in the order a person watching sees them. */

@@ -136,6 +136,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V36__the_bot_publishes_the_guild_s_channels.sql",
                 "a157c7b8853fc5161b70d62cd7b7b9b418fedf14b1eb141f337ba69756f7b3c9");
+        FROZEN.put(
+                "V37__a_run_s_notes_are_records.sql",
+                "c900e8717a707b5f654cce80af1f53fbe2da6119991fd0dd1c8bb83b46748935");
     }
 
     @Test

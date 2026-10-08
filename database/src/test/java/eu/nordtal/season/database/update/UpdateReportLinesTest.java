@@ -15,6 +15,10 @@ import org.junit.jupiter.api.Test;
  */
 class UpdateReportLinesTest {
 
+    private static final UpdateReport.Note HELD = UpdateReport.Note.skipped(
+                    UpdateReport.Step.SCOPE, TEXTS.report().heldLeftOut())
+            .on("limbo");
+
     private static UpdateReport of(final String... services) {
         UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED);
         for (final String service : services) {
@@ -35,12 +39,10 @@ class UpdateReportLinesTest {
 
     @Test
     void theNotesAreNotACasualtyOfDroppingALine() {
-        final UpdateReport left = of("smp", "limbo")
-                .withNote(TEXTS.report().words("limbo is being held down"))
-                .withoutLines(List.of("limbo"));
+        final UpdateReport left = of("smp", "limbo").withNote(HELD).withoutLines(List.of("limbo"));
 
         assertTrue(
-                left.notes().contains(TEXTS.report().words("limbo is being held down")),
+                left.notes().contains(HELD),
                 "the sentence explaining why the line is missing was dropped with the line, so the"
                         + " report now silently does less than it says");
         assertEquals(UpdateReport.Stage.PLANNED, left.stage());

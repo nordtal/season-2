@@ -30,8 +30,9 @@ class UpdateOutcomeIntegrationTest {
         final UpdateRequest submitted = updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
         assertTrue(updates.claimNext().isPresent());
 
-        final UpdateReport report =
-                UpdateReport.at(UpdateReport.Stage.DONE).withNote(TEXTS.report().words("smp  0.1.0 -> 0.2.0"));
+        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.DONE)
+                .withNote(UpdateReport.Note.done(
+                        UpdateReport.Step.INSTALL, TEXTS.report().words("smp  0.1.0 -> 0.2.0")));
         final UpdateRequest finished = updates.finish(submitted.id(), UpdateStatus.DONE, UpdateReports.toJson(report))
                 .orElseThrow();
 

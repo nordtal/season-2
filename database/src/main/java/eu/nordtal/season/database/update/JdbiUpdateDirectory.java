@@ -253,6 +253,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
 
     /** A failed report whose one note says why, which every reader of a run draws like any other. */
     private static UpdateReport failedFor(final MessageRef why) {
-        return UpdateReport.at(UpdateReport.Stage.FAILED).withNote(Objects.requireNonNull(why, "why"));
+        return UpdateReport.at(UpdateReport.Stage.FAILED)
+                .withNote(UpdateReport.Note.failed(UpdateReport.Step.RUN, Objects.requireNonNull(why, "why")));
     }
 }

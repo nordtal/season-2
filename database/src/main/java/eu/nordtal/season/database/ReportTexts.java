@@ -1,7 +1,6 @@
 package eu.nordtal.season.database;
 
 import eu.nordtal.season.database.update.ByteSize;
-import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
@@ -12,9 +11,9 @@ import java.time.Duration;
 import java.util.List;
 
 /**
- * What a run's report says beside its lines: its notes and a line's detail, each value typed.
+ * What a run's report says: the message of each note and a line's detail, short, each value typed.
  *
- * A subsystem's own answer, such as Docker's or a backup's, stays its words, as a text value.
+ * A note's service, step and outcome are its record's, never words here; a subsystem's answer stays a text value.
  */
 @Name("Run reports")
 public interface ReportTexts {
@@ -34,61 +33,54 @@ public interface ReportTexts {
     @Name("Stopped during the countdown")
     MessageRef cancelled();
 
-    @Name("Standbys ready")
-    MessageRef standbysReady(@Arg("standbys") List<String> standbys, @Arg("run") UpdateReport.Undertaking run);
+    @Name("A standby ready")
+    MessageRef standbysReady();
 
     @Name("No standby, so nothing was done")
-    MessageRef noStandby(@Arg("run") UpdateReport.Undertaking run);
+    MessageRef noStandby();
 
     @Name("A service did not stop, so nothing was done")
-    MessageRef notStopped(@Arg("run") UpdateReport.Undertaking run, @Arg("services") List<String> services);
+    MessageRef notStopped(@Arg("run") UpdateReport.Undertaking run);
 
     @Name("An unverified stop")
-    MessageRef unverifiedStop(
-            @Arg("services") List<String> services,
-            @Arg("run") UpdateReport.Undertaking run,
-            @Arg("failsTheRun") boolean failsTheRun);
+    MessageRef unverifiedStop();
 
     @Name("A standby did not start")
-    MessageRef standbyNotStarted(@Arg("standby") String standby, @Arg("reason") String reason);
+    MessageRef standbyNotStarted(@Arg("reason") String reason);
 
-    @Name("Standbys not healthy in time")
-    MessageRef standbysUnhealthy(@Arg("standbys") List<MessageRef> standbys, @Arg("minutes") long minutes);
+    @Name("A standby not healthy in time")
+    MessageRef standbysUnhealthy(
+            @Arg("minutes") long minutes, @Arg("seen") @Example("report.no-container") MessageRef seen);
 
-    @Name("A standby and what was seen of it")
-    MessageRef standbySeen(@Arg("standby") String standby, @Arg("seen") MessageRef seen);
-
-    @Name("Stopped while waiting for the standbys")
-    MessageRef standbysInterrupted(@Arg("standbys") List<String> standbys);
+    @Name("Stopped while waiting for a standby")
+    MessageRef standbysInterrupted();
 
     @Name("Stopped while the players were moved")
-    MessageRef evacuationInterrupted(@Arg("services") List<String> services);
+    MessageRef evacuationInterrupted();
 
     @Name("Stopped with players still on")
-    MessageRef stoppedWithPlayers(
-            @Arg("players") long players, @Arg("servers") List<String> servers, @Arg("seconds") long seconds);
+    MessageRef stoppedWithPlayers(@Arg("players") long players, @Arg("seconds") long seconds);
 
     @Name("No player count")
-    MessageRef playersUnknown(@Arg("services") List<String> services, @Arg("seconds") long seconds);
+    MessageRef playersUnknown(@Arg("seconds") long seconds);
 
     @Name("A standby stopped again")
-    MessageRef standbyStopped(@Arg("standby") String standby);
+    MessageRef standbyStopped();
 
     @Name("A standby stopped with players on it")
-    MessageRef standbyStoppedWithPlayers(
-            @Arg("standby") String standby, @Arg("players") long players, @Arg("seconds") long seconds);
+    MessageRef standbyStoppedWithPlayers(@Arg("players") long players, @Arg("seconds") long seconds);
 
     @Name("A standby stopped while players were on it")
-    MessageRef standbyStoppedInterrupted(@Arg("standby") String standby, @Arg("players") long players);
+    MessageRef standbyStoppedInterrupted(@Arg("players") long players);
 
     @Name("A standby left running without a container")
-    MessageRef standbyNoContainer(@Arg("standby") String standby);
+    MessageRef standbyNoContainer();
 
     @Name("A standby left running")
-    MessageRef standbyNotStopped(@Arg("standby") String standby, @Arg("reason") String reason);
+    MessageRef standbyNotStopped(@Arg("reason") String reason);
 
     @Name("Held services left out of an update")
-    MessageRef heldLeftOut(@Arg("services") List<String> services);
+    MessageRef heldLeftOut();
 
     @Name("A release published during the hand-over")
     MessageRef releasedMeanwhile(@Arg("release") String release, @Arg("own") String own);
@@ -97,7 +89,7 @@ public interface ReportTexts {
     MessageRef olderRelease(@Arg("release") String release, @Arg("own") String own);
 
     @Name("Local builds kept")
-    MessageRef localBuildsKept(@Arg("services") List<String> services, @Arg("count") int count);
+    MessageRef localBuildsKept();
 
     @Name("Handed to a one-shot")
     MessageRef handed(@Arg("release") String release);
@@ -115,10 +107,10 @@ public interface ReportTexts {
     MessageRef restartAllHeld();
 
     @Name("Nothing to restart in the scope")
-    MessageRef restartNoneInScope(@Arg("scope") List<String> scope);
+    MessageRef restartNoneInScope();
 
     @Name("Held services not restarted")
-    MessageRef heldNotRestarted(@Arg("services") List<String> services);
+    MessageRef heldNotRestarted();
 
     @Name("What a backup saves is unknown")
     MessageRef backupUnread(@Arg("reason") String reason);
@@ -158,31 +150,31 @@ public interface ReportTexts {
     MessageRef downUnnamed();
 
     @Name("A take-down of what cannot go down")
-    MessageRef downRefused(@Arg("services") List<String> services);
+    MessageRef downRefused();
 
     @Name("Held down")
-    MessageRef heldDown(@Arg("services") List<String> services);
+    MessageRef heldDown();
 
     @Name("Nothing held to start")
     MessageRef nothingHeld();
 
     @Name("A remake naming nothing")
-    MessageRef remakeUnnamed(@Arg("kind") UpdateKind kind);
+    MessageRef remakeUnnamed();
 
     @Name("A remake of the agent")
     MessageRef remakeAgent();
 
     @Name("A remake of an unknown service")
-    MessageRef remakeUnknown(@Arg("services") List<String> services);
+    MessageRef remakeUnknown();
 
     @Name("Held services left out of a remake")
-    MessageRef heldNotRemade(@Arg("services") List<String> services);
+    MessageRef heldNotRemade();
 
     @Name("A removal naming no plugin")
     MessageRef removalUnnamed();
 
     @Name("A removal of an unknown plugin")
-    MessageRef removalUnknown(@Arg("service") String service, @Arg("artifact") String artifact);
+    MessageRef removalUnknown(@Arg("artifact") String artifact);
 
     @Name("A plugin with nothing installed")
     MessageRef removalEmpty(@Arg("artifact") String artifact);
@@ -200,10 +192,10 @@ public interface ReportTexts {
     MessageRef restoreUnknown(@Arg("archive") String archive);
 
     @Name("A restore into a volume not backed up")
-    MessageRef restoreNotAVolume(@Arg("volume") String volume, @Arg("archive") String archive);
+    MessageRef restoreNotAVolume(@Arg("archive") String archive);
 
     @Name("A volume not saved before its restore")
-    MessageRef restoreUnsaved(@Arg("volume") String volume);
+    MessageRef restoreUnsaved();
 
     @Name("A database not saved before its restore")
     MessageRef restoreDatabaseUnsaved(@Arg("reason") String reason);
@@ -212,8 +204,7 @@ public interface ReportTexts {
     MessageRef restoreFailed();
 
     @Name("A failed restore that leaves its servers down")
-    MessageRef restoreLeftDown(
-            @Arg("volume") String volume, @Arg("services") List<String> services, @Arg("backup") String backup);
+    MessageRef restoreLeftDown(@Arg("services") List<String> services, @Arg("backup") String backup);
 
     @Name("No container to stop")
     MessageRef noContainerToStop();
@@ -279,10 +270,10 @@ public interface ReportTexts {
     MessageRef imagesUncompared();
 
     @Name("Images a registry could not be asked about")
-    MessageRef imagesUnverifiable(@Arg("services") List<String> services, @Arg("count") int count);
+    MessageRef imagesUnverifiable();
 
     @Name("Images built on this host")
-    MessageRef imagesLocal(@Arg("services") List<String> services, @Arg("count") int count);
+    MessageRef imagesLocal();
 
     @Name("Not recreated, and nothing to go back to")
     MessageRef notRecreated(@Arg("outdated") boolean outdated, @Arg("reason") String reason);
@@ -329,7 +320,7 @@ public interface ReportTexts {
     MessageRef foreignNotRecreated(@Arg("reason") String reason);
 
     @Name("Newer foreign images")
-    MessageRef foreignNewer(@Arg("services") List<String> services, @Arg("count") int count);
+    MessageRef foreignNewer();
 
     @Name("The resource pack moves")
     MessageRef packMoves(@Arg("version") String version);
@@ -339,12 +330,11 @@ public interface ReportTexts {
 
     @Name("Not in the release")
     MessageRef notInRelease(
-            @Arg("service") String service,
             @Arg("reason") @Example("report.release-without-pack") MessageRef reason,
             @Arg("installed") String installed);
 
     @Name("A jar nothing claims")
-    MessageRef unclaimed(@Arg("service") String service, @Arg("file") String file);
+    MessageRef unclaimed(@Arg("file") String file);
 
     @Name("Held back")
     MessageRef heldBack(

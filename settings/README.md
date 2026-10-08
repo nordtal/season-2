@@ -18,7 +18,10 @@ whether it is the network's, and any default of this process that differs from t
   user says so, and `SpecJson.schema` puts it on the field as `refers`. Steward draws its picker from
   that alone. A subject depends on its sibling `statistic`, whose registry it reads. Game values are
   namespaced keys (`minecraft:oak_log`); the plugin refuses one it does not know when it loads, while
-  Steward stores whatever is picked or typed.
+  Steward stores whatever is picked or typed. `except` names the entries a picker leaves out.
+- **Forms by value**: `@AppliesWhen` shows a field only where a sibling holds one of the values it names,
+  `@ChoiceNames` names a closed choice's values by bundle keys of the plugin and pairs each with an item
+  to draw, and a list of specs carries the `defaults` a new entry starts from.
 - **Shared groups**: `DatabaseSpec`, `ColoursSpec` (mapped onto the message tones by `Colours`) and
   `DistancesSpec`, whose defaults each Paper server sets for itself. `DatabasePool` opens the pool.
 - **The network's groups** (`network/`), stored once under the service `network` and read by every

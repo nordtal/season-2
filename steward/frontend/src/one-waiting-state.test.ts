@@ -52,6 +52,15 @@ const NO_WAITING_SHAPE = new Map<string, string>([
     "useSaveConfig is a mutation. The group it drafts was read by the editor that calls it, which draws the wait.",
   ],
   [
+    "components/steward/config-controls.tsx",
+    "The catalogue only adds a choice's icon beside its name, which is drawn from the start.",
+  ],
+  [
+    "components/steward/milestones/parts.tsx",
+    "The catalogue only adds the objective type's icon, drawn by its name until then, and hides a subject field" +
+      " for a statistic that counts none; the editor that draws them waited for the group.",
+  ],
+  [
     "app/step-up.tsx",
     "useMe is read for one number in a sentence, behind a default of five minutes. There is no" +
       " surface to reserve.",

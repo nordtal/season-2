@@ -4,18 +4,20 @@ import {
   CircleDashedIcon,
   CoinsIcon,
   PinwheelIcon,
+  TargetIcon,
   TrashIcon,
   UserGearIcon,
 } from "@phosphor-icons/react"
 import type { Icon } from "@phosphor-icons/react"
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
 
 import type { ConfigEntry } from "@/lib/api"
-import { isColour } from "@/lib/references"
+import { useGameData } from "@/lib/queries"
+import { isColour, namesNothing } from "@/lib/references"
 import { AskThenAct } from "@/components/steward/ask-then-act"
-import { ListControl, ScalarControl } from "@/components/steward/config-controls"
+import { ChoiceIcon, ListControl, ScalarControl, choiceName } from "@/components/steward/config-controls"
 import { ReferenceMarks } from "@/components/steward/reference-picker"
-import type { SectionValues } from "@/components/steward/repeatable-cards"
+import { type SectionValues, appliesTo, withValue } from "@/components/steward/repeatable-cards"
 import {
   BUDGETS,
   type Budget,
@@ -38,7 +40,7 @@ import {
 import { cn } from "@/lib/utils"
 import { t } from "@/lib/texts"
 
-/** The milestone marks drawn as an icon before their number; the rest show their value. */
+/** The milestone fields drawn as an icon before their value; a choice shows its own icon and name. */
 const MARK_ICON: Partial<Record<(typeof MARKED)[number], Icon>> = {
   "border-diameter": CircleDashedIcon,
   "admin-unlocked": UserGearIcon,
@@ -49,16 +51,51 @@ const BUDGET_ICON: Record<Budget, Icon> = {
   "spin-budget": PinwheelIcon,
 }
 
-/** Budget sums, each by its icon and titled by the objective field's schema label; a zero sum is left out. */
-export function BudgetMarks({ sums, schema }: { sums: Record<Budget, number>; schema: TrackSchema }) {
+/** A small rounded mark holding one value, the way a closed row shows its settings. */
+function Pill({ title, className, children }: { title?: string; className?: string; children: ReactNode }) {
+  return (
+    <span
+      title={title}
+      className={cn(
+        "inline-flex h-6 max-w-full min-w-0 shrink-0 items-center gap-1 rounded-full bg-muted px-2 text-xs text-foreground/80 tabular-nums",
+        className,
+      )}
+    >
+      {children}
+    </span>
+  )
+}
+
+/** A label from the schema, for the key the layout places. */
+function labelOf(fields: ConfigEntry[], key: string): string {
+  return fields.find((field) => field.key === key)?.label ?? key
+}
+
+/**
+ * Budget sums as pills, each by its icon and named by the objective field's schema label; a zero sum is left out.
+ *
+ * A pill is titled by its label only where it stands for a milestone or the season, so a card's own sums are not
+ * mistaken for them.
+ */
+export function BudgetMarks({
+  sums,
+  schema,
+  titled = true,
+  className,
+}: {
+  sums: Record<Budget, number>
+  schema: TrackSchema
+  titled?: boolean
+  className?: string
+}) {
   return BUDGETS.filter((key) => sums[key] > 0).map((key) => {
-    const label = schema.objective.find((field) => field.key === key)?.label ?? key
+    const label = labelOf(schema.objective, key)
     const MarkIcon = BUDGET_ICON[key]
     return (
-      <span key={key} title={label} className="inline-flex items-center gap-1 tabular-nums">
-        <MarkIcon aria-label={label} className="size-3.5" />
+      <Pill key={key} title={titled ? label : undefined} className={className}>
+        <MarkIcon aria-label={label} className="size-3.5 shrink-0" />
         {sums[key].toLocaleString("en")}
-      </span>
+      </Pill>
     )
   })
 }
@@ -108,7 +145,19 @@ function isWide(field: ConfigEntry): boolean {
   return field.kind === "LIST" || (field.refers !== undefined && !isColour(field.refers))
 }
 
-/** A section's fields under their schema labels, two to a row where they are small. */
+/**
+ * The fields a section asks for: those that apply to it, without a reference that has nothing to name, such as the
+ * subjects of a statistic kept per nothing.
+ */
+function useShownFields(fields: ConfigEntry[], section: SectionValues): ConfigEntry[] {
+  const game = useGameData(fields.some((field) => field.refers?.to === "SUBJECT"))
+  return fields.filter(
+    (field) =>
+      appliesTo(field, section) && !(field.refers && namesNothing(field.refers, game.data, siblingOf(field, section))),
+  )
+}
+
+/** A section's fields under their schema labels, two to a row where they are small; only those that apply. */
 export function Fields({
   id,
   fields,
@@ -125,6 +174,7 @@ export function Fields({
   /** The grid's columns, two by default. */
   className?: string
 }) {
+  const shown = useShownFields(fields, section)
   return (
     <div
       className={cn(
@@ -133,7 +183,7 @@ export function Fields({
         className,
       )}
     >
-      {fields.map((field) => {
+      {shown.map((field) => {
         const fieldId = `${id}.${field.key}`
         return (
           <div key={field.key} className={cn("flex min-w-0 flex-col gap-1", isWide(field) && "col-span-2")}>
@@ -160,35 +210,41 @@ export function milestoneFields(schema: TrackSchema): ConfigEntry[] {
 }
 
 /**
- * A collapsed milestone's settings as small marks: a choice as its value, a number by its icon, a flag when on,
- * and the sums of its objectives' budgets.
+ * A collapsed milestone's settings as pills: a choice by its icon and name, a number by its icon, a flag when on,
+ * and the sums of its objectives' budgets. A field that does not apply, such as a diameter without a border, is
+ * left out.
  */
 export function MilestoneMarks({ milestone, schema }: { milestone: SectionValues; schema: TrackSchema }) {
   const marks = MARKED.flatMap((key) => {
     const field = schema.milestone.find((candidate) => candidate.key === key)
     const value = text(milestone, key).trim()
-    if (!field || value === "" || value === "0" || value === "false") return []
+    if (!field || !appliesTo(field, milestone) || value === "" || value === "0" || value === "false") return []
     return [{ key, field, value }]
   })
   return (
-    <span className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground">
+    <span className="flex min-w-0 flex-wrap items-center gap-1">
       {marks.map(({ key, field, value }) => {
-        const MarkIcon = MARK_ICON[key]
-        if (field.type === "BOOLEAN") {
-          return MarkIcon ? <MarkIcon key={key} aria-label={field.label} className="size-3.5" /> : null
-        }
-        if (MarkIcon) {
+        if (field.choices) {
           return (
-            <span key={key} title={field.label} className="inline-flex items-center gap-1 tabular-nums">
+            <Pill key={key} className="pl-1">
+              <ChoiceIcon choices={field.choices} value={value} size={18} />
+              <span className="truncate">{choiceName(field.choices, value)}</span>
+            </Pill>
+          )
+        }
+        const MarkIcon = MARK_ICON[key] ?? CircleDashedIcon
+        if (field.type === "BOOLEAN") {
+          return (
+            <Pill key={key} title={field.label}>
               <MarkIcon aria-label={field.label} className="size-3.5" />
-              {Number(value).toLocaleString("en")}
-            </span>
+            </Pill>
           )
         }
         return (
-          <span key={key} title={field.label} className="font-mono text-[11px] tracking-tight text-foreground/80">
-            {value}
-          </span>
+          <Pill key={key} title={field.label}>
+            <MarkIcon aria-label={field.label} className="size-3.5 shrink-0" />
+            {Number(value).toLocaleString("en")}
+          </Pill>
         )
       })}
       <BudgetMarks sums={budgetSums([milestone])} schema={schema} />
@@ -196,42 +252,70 @@ export function MilestoneMarks({ milestone, schema }: { milestone: SectionValues
   )
 }
 
-/** What an objective names, as icons: the first reference it holds a value in. */
+/** The objective's type by its icon, or by its name where the icon cannot be drawn. */
+function TypeMark({ objective, schema, size }: { objective: SectionValues; schema: TrackSchema; size: number }) {
+  const choices = schema.objective.find((field) => field.key === KEY.type)?.choices
+  const type = text(objective, KEY.type)
+  const game = useGameData(choices?.icons !== undefined)
+  if (!choices || type === "") return null
+  const name = choiceName(choices, type)
+  if (choices.icons?.[type] === undefined || game.data?.icons === undefined) {
+    return <span className="shrink-0 text-xs text-muted-foreground">{name}</span>
+  }
+  return (
+    <span title={name} className="shrink-0">
+      <ChoiceIcon choices={choices} value={type} size={size} />
+    </span>
+  )
+}
+
+/**
+ * What an objective names, field by field among those that apply: an item or a subject by its icon, a statistic by
+ * its name, since none of its icons would say which.
+ */
 export function ObjectiveMarks({
   objective,
   schema,
   max = 3,
-  counted = true,
 }: {
   objective: SectionValues
   schema: TrackSchema
   max?: number
-  counted?: boolean
 }) {
-  const references = schema.objective.filter((field) => field.refers && !isColour(field.refers))
-  const filled = references
+  const named = schema.objective
+    .filter((field) => field.refers && !isColour(field.refers) && appliesTo(field, objective))
     .map((field) => ({
       field,
-      values: field.kind === "LIST" ? strings(objective, field.key) : [text(objective, field.key)],
+      values: (field.kind === "LIST" ? strings(objective, field.key) : [text(objective, field.key)]).filter(
+        (value) => value.trim() !== "",
+      ),
     }))
-    .map(({ field, values }) => ({ field, values: values.filter((value) => value.trim() !== "") }))
     .filter(({ values }) => values.length > 0)
-  /** A subject says more than the statistic it is counted by, so the last filled reference stands for it. */
-  const shown = filled.at(-1)
-  if (!shown?.field.refers) return <span className="size-5 shrink-0 rounded-sm bg-muted" aria-hidden />
-  return (
-    <ReferenceMarks
-      reference={shown.field.refers}
-      values={shown.values}
-      sibling={siblingOf(shown.field, objective)}
-      max={max}
-      counted={counted}
-    />
+  return named.map(({ field, values }) =>
+    field.refers ? (
+      <ReferenceMarks
+        key={field.key}
+        reference={field.refers}
+        values={values}
+        sibling={siblingOf(field, objective)}
+        max={max}
+      />
+    ) : null,
   )
 }
 
-/** An objective as one line: what it names, its ID and its target; the whole line opens it. */
-export function ObjectiveRow({
+/** An objective as one pill, titled by its ID: its type, then what it names. */
+export function ObjectivePill({ objective, schema }: { objective: SectionValues; schema: TrackSchema }) {
+  return (
+    <Pill title={text(objective, KEY.id) || undefined} className="gap-1.5 pl-1">
+      <TypeMark objective={objective} schema={schema} size={18} />
+      <ObjectiveMarks objective={objective} schema={schema} max={2} />
+    </Pill>
+  )
+}
+
+/** An objective as a card of its own: type, ID and target, then what it names and its budgets; it opens the sheet. */
+export function ObjectiveCard({
   objective,
   schema,
   onOpen,
@@ -244,21 +328,38 @@ export function ObjectiveRow({
 }) {
   const id = text(objective, KEY.id)
   const target = Number(text(objective, KEY.target))
+  const targetLabel = labelOf(schema.objective, KEY.target)
   return (
     <button
       type="button"
       onClick={onOpen}
       className={cn(
-        "flex min-h-10 w-full min-w-0 items-center gap-3 rounded-md px-2 py-1.5 text-left text-sm outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50",
+        "flex w-full min-w-0 flex-col gap-2 rounded-lg bg-muted/60 p-2.5 text-left text-sm outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50",
         className,
       )}
     >
-      <span className="flex w-20 shrink-0 items-center overflow-hidden">
-        <ObjectiveMarks objective={objective} schema={schema} max={2} />
+      <span className="flex min-w-0 items-center gap-2">
+        <TypeMark objective={objective} schema={schema} size={20} />
+        <span className={cn("min-w-0 flex-1 truncate font-medium", id === "" && "text-muted-foreground")}>
+          {id || "unnamed"}
+        </span>
+        {Number.isFinite(target) && target > 0 ? (
+          <span className="inline-flex shrink-0 items-center gap-1 text-xs tabular-nums text-muted-foreground">
+            <TargetIcon aria-label={targetLabel} className="size-3.5" />
+            {target.toLocaleString("en")}
+          </span>
+        ) : null}
       </span>
-      <span className={cn("min-w-0 flex-1 truncate", id === "" && "text-muted-foreground")}>{id || "unnamed"}</span>
-      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-        {Number.isFinite(target) ? target.toLocaleString("en") : ""}
+      <span className="flex min-h-6 min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+        <ObjectiveMarks objective={objective} schema={schema} max={6} />
+        <span className="ml-auto flex shrink-0 items-center gap-1">
+          <BudgetMarks
+            sums={budgetSums([{ [KEY.objectives]: [objective] }])}
+            schema={schema}
+            titled={false}
+            className="bg-background/70"
+          />
+        </span>
       </span>
     </button>
   )
@@ -298,7 +399,7 @@ export function ObjectiveSheet({
                 fields={schema.objective}
                 section={objective}
                 disabled={disabled}
-                onChange={(key, value) => onChange({ ...objective, [key]: value })}
+                onChange={(key, value) => onChange(withValue(schema.objective, objective, key, value))}
               />
             </div>
           ) : null}

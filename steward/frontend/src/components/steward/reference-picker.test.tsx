@@ -17,12 +17,22 @@ const GAME: GameData = {
       { id: "minecraft:stone", text: "Stone" },
     ],
   },
-  tags: { item: [{ id: "minecraft:logs", values: ["minecraft:oak_log", "minecraft:spruce_log"] }] },
+  tags: {
+    item: [
+      {
+        id: "minecraft:logs",
+        values: ["minecraft:oak_log", "minecraft:spruce_log"],
+      },
+    ],
+  },
 }
 
 let game: GameData | undefined = GAME
 
-const CHANNELS: GuildList = { available: true, entries: [{ id: "11", name: "admin-log", type: 0 }] }
+const CHANNELS: GuildList = {
+  available: true,
+  entries: [{ id: "11", name: "admin-log", type: 0 }],
+}
 
 let channels: GuildList = CHANNELS
 
@@ -70,7 +80,9 @@ describe("ReferencePicker", () => {
     const onChange = draw(ITEM, ["minecraft:oak_log"], true)
 
     fireEvent.click(screen.getByRole("button", { name: "Add to Items" }))
-    const search = await screen.findByRole("searchbox", { name: "Search Items" })
+    const search = await screen.findByRole("searchbox", {
+      name: "Search Items",
+    })
     fireEvent.change(search, { target: { value: "minecraft:sto" } })
     const list = screen.getByRole("listbox", { name: "Items" })
     expect(
@@ -108,8 +120,38 @@ describe("ReferencePicker", () => {
     expect(cleared).toHaveBeenLastCalledWith([])
   })
 
+  it("offers none of the entries its schema leaves out", async () => {
+    draw({ ...ITEM, except: ["minecraft:stone"] }, [], true)
+
+    fireEvent.click(screen.getByRole("button", { name: "Add to Items" }))
+    const list = await screen.findByRole("listbox", { name: "Items" })
+    expect(within(list).queryByText("Stone")).toBeNull()
+    expect(within(list).getByText("Oak Log")).toBeTruthy()
+  })
+
+  it("draws an entry the game gives no item by a generic icon, not an empty square", async () => {
+    game = {
+      ...GAME,
+      registries: { statistic: [{ id: "minecraft:jump", text: "Jump" }] },
+      icons: {
+        url: "/icons.png",
+        columns: 4,
+        slots: { "minecraft:oak_log": 0 },
+      },
+    }
+    draw({ to: "STATISTIC", optional: false }, [], false)
+
+    fireEvent.click(screen.getByRole("button", { name: "none" }))
+    const option = within(await screen.findByRole("listbox", { name: "Items" })).getByRole("option", { name: /Jump/ })
+    expect(option.querySelector("svg")).toBeTruthy()
+  })
+
   it("falls back to typing, with the reason, where nothing can be listed", () => {
-    channels = { available: false, reason: words("no bot token in this test"), entries: [] }
+    channels = {
+      available: false,
+      reason: words("no bot token in this test"),
+      entries: [],
+    }
     draw({ to: "DISCORD_CHANNEL", optional: false }, ["42"], false)
     expect(screen.getByText("typed")).toBeTruthy()
     expect(screen.getByText("no bot token in this test")).toBeTruthy()

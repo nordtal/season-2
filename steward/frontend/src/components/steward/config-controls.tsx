@@ -2,7 +2,9 @@ import { PlusIcon, TrashIcon } from "@phosphor-icons/react"
 
 import type { ConfigChoices, ConfigEntry } from "@/lib/api"
 import { isColour } from "@/lib/references"
+import { useGameData } from "@/lib/queries"
 import { ColourControl } from "@/components/steward/colour-control"
+import { GameIcon } from "@/components/steward/game-icon"
 import { ReferencePicker } from "@/components/steward/reference-picker"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -39,7 +41,20 @@ export function isRequiredChannel(entry: ConfigEntry): boolean {
   return entry.refers?.to === "DISCORD_CHANNEL" && !entry.refers.optional
 }
 
-/** A schema's choices: a strict list is a select only, a suggestion is a select beside free text. */
+/** A choice's name as its plugin's text gives it, else the value itself. */
+export function choiceName(choices: ConfigChoices, value: string): string {
+  return choices.names?.[value] ?? value
+}
+
+/** The item a choice is drawn with where its schema gives one, or nothing. */
+export function ChoiceIcon({ choices, value, size = 20 }: { choices: ConfigChoices; value: string; size?: number }) {
+  const item = choices.icons?.[value]
+  const game = useGameData(choices.icons !== undefined)
+  if (item === undefined || game.data?.icons === undefined) return null
+  return <GameIcon icons={game.data.icons} item={item} size={size} />
+}
+
+/** A schema's choices, each by its name and icon: a strict list is a select only, a suggestion is one beside free text. */
 function ChoicesControl({
   id,
   value,
@@ -66,7 +81,8 @@ function ChoicesControl({
         <SelectContent>
           {choices.values.map((option) => (
             <SelectItem key={option} value={option}>
-              {option}
+              <ChoiceIcon choices={choices} value={option} />
+              {choiceName(choices, option)}
             </SelectItem>
           ))}
         </SelectContent>
@@ -271,7 +287,9 @@ function ListRows({
               variant="ghost"
               size="icon"
               disabled={disabled}
-              aria-label={t("steward.settings.remove-entry", { index: index + 1 })}
+              aria-label={t("steward.settings.remove-entry", {
+                index: index + 1,
+              })}
               onClick={() => onChange(items.filter((_, at) => at !== index))}
             >
               <TrashIcon aria-hidden />

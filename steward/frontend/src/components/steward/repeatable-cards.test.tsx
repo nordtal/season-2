@@ -10,7 +10,12 @@ import { queryResult, words } from "@/lib/query-fixtures"
 /** No guild can be listed here, so a Discord reference falls back to its typed field. */
 vi.mock("@/lib/queries", () => ({
   useGameData: () => queryResult(undefined),
-  useGuildChannels: () => queryResult({ available: false, reason: words("no bot token in this test"), entries: [] }),
+  useGuildChannels: () =>
+    queryResult({
+      available: false,
+      reason: words("no bot token in this test"),
+      entries: [],
+    }),
   usePeople: () => queryResult(undefined),
 }))
 
@@ -63,6 +68,54 @@ describe("sectionsFromEntry", () => {
 describe("blankSection", () => {
   it("has every template key, all empty", () => {
     expect(blankSection(TEMPLATE)).toEqual({ tag: "", role: "" })
+  })
+
+  it("starts each key from what the template holds, a list from its items", () => {
+    const template = [
+      field({ key: "type", value: "HAND_IN" }),
+      field({ key: "items", kind: "LIST", items: ["minecraft:oak_log"] }),
+    ]
+    expect(blankSection(template)).toEqual({
+      type: "HAND_IN",
+      items: ["minecraft:oak_log"],
+    })
+  })
+})
+
+describe("RepeatableCards - a field for some values of its sibling", () => {
+  const KINDED: ConfigEntry[] = [
+    field({ key: "kind", label: "Kind" }),
+    field({
+      key: "count",
+      label: "Count",
+      value: "1",
+      appliesWhen: { key: "kind", values: ["COUNTED"] },
+    }),
+  ]
+
+  it("shows the field only where the sibling holds a value it applies to", () => {
+    const value = [
+      { kind: "COUNTED", count: "5" },
+      { kind: "GIVEN", count: "1" },
+    ]
+    render(<RepeatableCards entry={sectionsEntry([], KINDED)} value={value} disabled={false} onChange={() => {}} />)
+    expect(screen.getAllByText("Count")).toHaveLength(1)
+  })
+
+  it("puts the field back to its default once the sibling moves away from it", () => {
+    const onChange = vi.fn<(value: SectionValues[]) => void>()
+    render(
+      <RepeatableCards
+        entry={sectionsEntry([], KINDED)}
+        value={[{ kind: "COUNTED", count: "5" }]}
+        disabled={false}
+        onChange={onChange}
+      />,
+    )
+    fireEvent.change(screen.getByDisplayValue("COUNTED"), {
+      target: { value: "GIVEN" },
+    })
+    expect(onChange).toHaveBeenCalledWith([{ kind: "GIVEN", count: "1" }])
   })
 })
 
@@ -312,7 +365,12 @@ describe("RepeatableCards - sections inside sections", () => {
   ]
   const MILESTONE: ConfigEntry[] = [
     field({ key: "key", label: "ID" }),
-    field({ key: "objectives", label: "Objectives", kind: "SECTIONS", template: OBJECTIVE }),
+    field({
+      key: "objectives",
+      label: "Objectives",
+      kind: "SECTIONS",
+      template: OBJECTIVE,
+    }),
   ]
 
   function track(): ConfigEntry {
@@ -328,14 +386,23 @@ describe("RepeatableCards - sections inside sections", () => {
               [
                 field({ key: "key", value: "logs" }),
                 field({ key: "target", value: "64" }),
-                field({ key: "items", kind: "LIST", items: ["OAK_LOG", "SPRUCE_LOG"] }),
+                field({
+                  key: "items",
+                  kind: "LIST",
+                  items: ["OAK_LOG", "SPRUCE_LOG"],
+                }),
               ],
             ],
           }),
         ],
         [
           field({ key: "key", value: "waiting" }),
-          field({ key: "objectives", kind: "SECTIONS", template: OBJECTIVE, sections: [] }),
+          field({
+            key: "objectives",
+            kind: "SECTIONS",
+            template: OBJECTIVE,
+            sections: [],
+          }),
         ],
       ],
       MILESTONE,
@@ -344,7 +411,10 @@ describe("RepeatableCards - sections inside sections", () => {
 
   it("reads lists and nested sections as lists, not as text", () => {
     expect(sectionsFromEntry(track())).toEqual([
-      { key: "foothold", objectives: [{ key: "logs", target: "64", items: ["OAK_LOG", "SPRUCE_LOG"] }] },
+      {
+        key: "foothold",
+        objectives: [{ key: "logs", target: "64", items: ["OAK_LOG", "SPRUCE_LOG"] }],
+      },
       { key: "waiting", objectives: [] },
     ])
   })
@@ -367,9 +437,14 @@ describe("RepeatableCards - sections inside sections", () => {
     const entry = track()
     const onChange = vi.fn<(value: SectionValues[]) => void>()
     render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={onChange} />)
-    fireEvent.change(screen.getByDisplayValue("SPRUCE_LOG"), { target: { value: "BIRCH_LOG" } })
+    fireEvent.change(screen.getByDisplayValue("SPRUCE_LOG"), {
+      target: { value: "BIRCH_LOG" },
+    })
     expect(onChange).toHaveBeenCalledWith([
-      { key: "foothold", objectives: [{ key: "logs", target: "64", items: ["OAK_LOG", "BIRCH_LOG"] }] },
+      {
+        key: "foothold",
+        objectives: [{ key: "logs", target: "64", items: ["OAK_LOG", "BIRCH_LOG"] }],
+      },
       { key: "waiting", objectives: [] },
     ])
   })
@@ -380,7 +455,10 @@ describe("RepeatableCards - sections inside sections", () => {
     render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={onChange} />)
     fireEvent.click(screen.getByRole("button", { name: "Add to waiting" }))
     expect(onChange).toHaveBeenCalledWith([
-      { key: "foothold", objectives: [{ key: "logs", target: "64", items: ["OAK_LOG", "SPRUCE_LOG"] }] },
+      {
+        key: "foothold",
+        objectives: [{ key: "logs", target: "64", items: ["OAK_LOG", "SPRUCE_LOG"] }],
+      },
       { key: "waiting", objectives: [{ key: "", target: "", items: [] }] },
     ])
   })

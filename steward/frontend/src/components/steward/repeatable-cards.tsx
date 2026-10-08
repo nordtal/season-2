@@ -11,7 +11,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { t } from "@/lib/texts"
 
 /** One section's fields as a card edits them, a list of sections holding the same record one level down. */
-export type SectionValues = { [key: string]: string | string[] | SectionValues[] }
+export type SectionValues = {
+  [key: string]: string | string[] | SectionValues[]
+}
 
 /** A stable identity for "no template", so a memo keyed on it does not recompute every render. */
 const NO_TEMPLATE: ConfigEntry[] = []
@@ -31,13 +33,42 @@ export function sectionsFromEntry(entry: ConfigEntry): SectionValues[] {
   return (entry.sections ?? []).map(fieldsToValues)
 }
 
-/** A brand new section with every key `template` names, empty. */
+/** One field's value in a brand new section: what its template holds, which is the schema's default. */
+function blankValue(field: ConfigEntry): string | string[] | SectionValues[] {
+  if (field.kind === "SECTIONS") return []
+  if (field.kind === "LIST") return field.items ?? []
+  return field.value ?? ""
+}
+
+/** A brand new section with every key `template` names, each at its default. */
 export function blankSection(template: ConfigEntry[]): SectionValues {
   const values: SectionValues = {}
-  for (const field of template) {
-    values[field.key] = field.kind === "LIST" || field.kind === "SECTIONS" ? [] : (field.value ?? "")
-  }
+  for (const field of template) values[field.key] = blankValue(field)
   return values
+}
+
+/** Whether a field applies to `section`: always, unless its schema names the sibling values it is for. */
+export function appliesTo(field: ConfigEntry, section: SectionValues): boolean {
+  return !field.appliesWhen || field.appliesWhen.values.includes(textOf(section, field.appliesWhen.key))
+}
+
+/**
+ * `section` with `key` set to `value`, and every field that hangs on that key back at its default where it changed:
+ * one that no longer applies, and one whose reference depends on it, such as the subjects of a statistic.
+ */
+export function withValue(
+  template: ConfigEntry[],
+  section: SectionValues,
+  key: string,
+  value: string | string[] | SectionValues[],
+): SectionValues {
+  const next: SectionValues = { ...section, [key]: value }
+  for (const field of template) {
+    const leftBehind = field.appliesWhen?.key === key && appliesTo(field, section) && !appliesTo(field, next)
+    const repointed = field.refers?.dependsOn === key && textOf(section, key) !== textOf(next, key)
+    if (leftBehind || repointed) next[field.key] = blankValue(field)
+  }
+  return next
 }
 
 /** A field's text, or "" for a field that holds a list. */
@@ -52,7 +83,7 @@ function stringsOf(value: string | string[] | SectionValues[] | undefined): stri
 }
 
 /** A SECTIONS field's own value: nested records, never the strings a LIST field would hold. */
-function sectionsOf(value: string | string[] | SectionValues[] | undefined): SectionValues[] {
+export function sectionsOf(value: string | string[] | SectionValues[] | undefined): SectionValues[] {
   return Array.isArray(value) && value.every((item) => typeof item === "object" && item !== null) ? value : []
 }
 
@@ -121,7 +152,7 @@ export function RepeatableCards({
         const isProtected = index === protectedIndex
         const title = titleOf(section, index)
         const replace = (key: string, next: string | string[] | SectionValues[]) =>
-          onChange(value.map((s, at) => (at === index ? { ...s, [key]: next } : s)))
+          onChange(value.map((s, at) => (at === index ? withValue(template, s, key, next) : s)))
         const body = (
           <>
             <div className="flex items-center justify-between gap-2">
@@ -134,7 +165,9 @@ export function RepeatableCards({
                 title={isProtected ? (listExplanation ?? t("steward.settings.cannot-remove")) : undefined}
                 aria-label={
                   isProtected
-                    ? t("steward.settings.entry-cannot-remove", { index: index + 1 })
+                    ? t("steward.settings.entry-cannot-remove", {
+                        index: index + 1,
+                      })
                     : within
                       ? t("steward.settings.remove", { what: title })
                       : t("steward.settings.remove-entry", { index: index + 1 })
@@ -148,61 +181,70 @@ export function RepeatableCards({
               <p className="flex items-start gap-1.5 text-sm text-amber-600 dark:text-amber-500">
                 <WarningCircleIcon aria-hidden className="mt-0.5 size-4 shrink-0" />
                 <span>
-                  {t("steward.settings.incomplete", { missing: missing.map((field) => field.label).join(", ") })}
+                  {t("steward.settings.incomplete", {
+                    missing: missing.map((field) => field.label).join(", "),
+                  })}
                 </span>
               </p>
             ) : null}
-            {template.map((field) => {
-              const id = `${entry.path}.${index}.${field.key}`
-              const explanation = explanationOf(field)
-              const fieldValue = section[field.key]
-              let control
-              if (field.kind === "LIST") {
-                control = (
-                  <ListControl
-                    id={id}
-                    entry={field}
-                    items={stringsOf(fieldValue)}
-                    sibling={field.refers?.dependsOn ? textOf(section, field.refers.dependsOn) : undefined}
-                    disabled={disabled}
-                    onChange={(next) => replace(field.key, next)}
-                  />
+            {template
+              .filter((field) => appliesTo(field, section))
+              .map((field) => {
+                const id = `${entry.path}.${index}.${field.key}`
+                const explanation = explanationOf(field)
+                const fieldValue = section[field.key]
+                let control
+                if (field.kind === "LIST") {
+                  control = (
+                    <ListControl
+                      id={id}
+                      entry={field}
+                      items={stringsOf(fieldValue)}
+                      sibling={field.refers?.dependsOn ? textOf(section, field.refers.dependsOn) : undefined}
+                      disabled={disabled}
+                      onChange={(next) => replace(field.key, next)}
+                    />
+                  )
+                } else if (field.kind === "SECTIONS") {
+                  /** The file's copy of this nested list; a card added in this draft has none yet. */
+                  const own = entry.sections?.[index]?.find((f) => f.key === field.key)
+                  control = (
+                    <RepeatableCards
+                      entry={{
+                        ...field,
+                        ...own,
+                        path: id,
+                        template: field.template,
+                      }}
+                      value={sectionsOf(fieldValue)}
+                      disabled={disabled}
+                      onChange={(next) => replace(field.key, next)}
+                      within={title}
+                    />
+                  )
+                } else {
+                  const text = textOf(section, field.key)
+                  control = (
+                    <ScalarControl
+                      id={id}
+                      entry={field}
+                      value={text}
+                      sibling={field.refers?.dependsOn ? textOf(section, field.refers.dependsOn) : undefined}
+                      disabled={disabled}
+                      onChange={(next) => replace(field.key, next)}
+                    />
+                  )
+                }
+                return (
+                  <div key={field.key} className="flex flex-col gap-1.5">
+                    <Label htmlFor={id} className="text-sm font-medium">
+                      {field.label}
+                    </Label>
+                    {explanation ? <p className="text-sm text-muted-foreground">{explanation}</p> : null}
+                    {control}
+                  </div>
                 )
-              } else if (field.kind === "SECTIONS") {
-                /** The file's copy of this nested list; a card added in this draft has none yet. */
-                const own = entry.sections?.[index]?.find((f) => f.key === field.key)
-                control = (
-                  <RepeatableCards
-                    entry={{ ...field, ...own, path: id, template: field.template }}
-                    value={sectionsOf(fieldValue)}
-                    disabled={disabled}
-                    onChange={(next) => replace(field.key, next)}
-                    within={title}
-                  />
-                )
-              } else {
-                const text = textOf(section, field.key)
-                control = (
-                  <ScalarControl
-                    id={id}
-                    entry={field}
-                    value={text}
-                    sibling={field.refers?.dependsOn ? textOf(section, field.refers.dependsOn) : undefined}
-                    disabled={disabled}
-                    onChange={(next) => replace(field.key, next)}
-                  />
-                )
-              }
-              return (
-                <div key={field.key} className="flex flex-col gap-1.5">
-                  <Label htmlFor={id} className="text-sm font-medium">
-                    {field.label}
-                  </Label>
-                  {explanation ? <p className="text-sm text-muted-foreground">{explanation}</p> : null}
-                  {control}
-                </div>
-              )
-            })}
+              })}
           </>
         )
         return within ? (
@@ -234,7 +276,9 @@ export function RepeatableCards({
         onOpenChange={(open) => open || setPendingRemoval(null)}
         title={
           pendingRemoval !== null
-            ? t("steward.settings.remove-ask", { title: titleOf(value[pendingRemoval], pendingRemoval) })
+            ? t("steward.settings.remove-ask", {
+                title: titleOf(value[pendingRemoval], pendingRemoval),
+              })
             : t("steward.settings.remove-entry-ask")
         }
         description={<span className="whitespace-pre-wrap">{listExplanation ?? t("steward.settings.draft-only")}</span>}

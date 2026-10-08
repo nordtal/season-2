@@ -27,6 +27,8 @@ export type Choice = {
 export type Choices = {
   choices: Choice[]
   tags: GameTag[]
+  /** The game registry they come from, which draws a choice without an item by its generic icon. */
+  registry?: string
   /** Advancements are offered as their tree. */
   tree: boolean
   /** Set when nothing can be listed, and the value is typed instead. */
@@ -47,6 +49,14 @@ const REGISTRY: Partial<Record<ReferenceKind, string>> = {
   MOB_EFFECT: "mob_effect",
   SOUND_EVENT: "sound_event",
   DAMAGE_TYPE: "damage_type",
+}
+
+/** The kinds that name no game registry, so the catalogue is neither fetched nor written to for them. */
+const NOT_GAME = new Set<ReferenceKind>(["COLOUR", "DISCORD_CHANNEL", "DISCORD_USER"])
+
+/** Whether a reference names something in the game, whose value is then a game key. */
+export function isGameReference(reference: ConfigReference): boolean {
+  return !NOT_GAME.has(reference.to)
 }
 
 /** Whether `kind` is drawn by the colour control rather than a list. */
@@ -76,6 +86,15 @@ export function registryOf(reference: ConfigReference, game: GameData | undefine
   if (!game || !sibling) return null
   const statistic = (game.registries.statistic ?? []).find((entry) => entry.id === gameKey(sibling))
   return statistic?.subject ?? null
+}
+
+/**
+ * Whether a reference has nothing to name for the value its sibling holds: a subject of a statistic kept per nothing.
+ *
+ * Before the catalogue has arrived it is not known, so the field stays.
+ */
+export function namesNothing(reference: ConfigReference, game: GameData | undefined, sibling?: string): boolean {
+  return reference.to === "SUBJECT" && game?.version !== undefined && registryOf(reference, game, sibling) === null
 }
 
 /** The slot standing for an entry: its own id for an item, a block or a patterned advancement, else its icon item or egg. */
@@ -130,24 +149,46 @@ function nameOf(entry: GameEntry): string {
   return entry.text?.trim() || nameOfId(entry.id)
 }
 
-/** What a game registry offers, by name. */
-export function gameChoices(game: GameData | undefined, registry: string | null): Choices {
+/** What a game registry offers, by name, without the entries `except` leaves out. */
+export function gameChoices(game: GameData | undefined, registry: string | null, except: string[] = []): Choices {
   if (!game?.version)
-    return { choices: [], tags: [], tree: false, unavailable: "No server has published its game data yet." }
+    return {
+      choices: [],
+      tags: [],
+      tree: false,
+      unavailable: "No server has published its game data yet.",
+    }
   if (registry === null) return { choices: [], tags: [], tree: false }
-  const entries = game.registries[registry] ?? []
+  const left = new Set(except.map(gameKey))
+  const entries = (game.registries[registry] ?? []).filter((entry) => !left.has(entry.id))
   const items = new Set(Object.keys(game.icons?.slots ?? {}))
   const tags = game.tags[registry] ?? []
-  if (registry === "advancement") return { choices: advancementTree(entries, items), tags, tree: true }
+  if (registry === "advancement")
+    return {
+      choices: advancementTree(entries, items),
+      tags,
+      tree: true,
+      registry,
+    }
   const choices = entries
-    .map((entry) => ({ id: entry.id, name: nameOf(entry), icon: iconOf(registry, entry, items) }))
+    .map((entry) => ({
+      id: entry.id,
+      name: nameOf(entry),
+      icon: iconOf(registry, entry, items),
+    }))
     .toSorted((a, b) => a.name.localeCompare(b.name))
-  return { choices, tags, tree: false }
+  return { choices, tags, tree: false, registry }
 }
 
 /** What a guild's channel list offers, channels under their category. */
 export function guildChoices(list: GuildList | undefined): Choices {
-  if (!list) return { choices: [], tags: [], tree: false, unavailable: "Loading the guild." }
+  if (!list)
+    return {
+      choices: [],
+      tags: [],
+      tree: false,
+      unavailable: "Loading the guild.",
+    }
   if (!list.available)
     return {
       choices: [],
@@ -160,19 +201,33 @@ export function guildChoices(list: GuildList | undefined): Choices {
     .filter((entry) => entry.type !== 4)
     .map((entry): Choice => {
       const voice = entry.type === 2 || entry.type === 13
-      return { id: entry.id, name: entry.name, channel: voice ? "voice" : "text" }
+      return {
+        id: entry.id,
+        name: entry.name,
+        channel: voice ? "voice" : "text",
+      }
     })
   return { choices, tags: [], tree: false }
 }
 
 /** The people Steward knows, by their Discord name. */
 export function peopleChoices(people: Person[] | undefined): Choices {
-  if (!people) return { choices: [], tags: [], tree: false, unavailable: "Loading the people." }
+  if (!people)
+    return {
+      choices: [],
+      tags: [],
+      tree: false,
+      unavailable: "Loading the people.",
+    }
   const choices = people.map((person) => ({
     id: person.discordId,
     name: person.discordDisplayName ?? person.discordUsername ?? person.mcName ?? person.discordId,
   }))
-  return { choices: choices.toSorted((a, b) => a.name.localeCompare(b.name)), tags: [], tree: false }
+  return {
+    choices: choices.toSorted((a, b) => a.name.localeCompare(b.name)),
+    tags: [],
+    tree: false,
+  }
 }
 
 /** The choice a stored value names, matched as a game key where the choices are keys. */

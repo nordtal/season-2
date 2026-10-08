@@ -1,4 +1,15 @@
-import { CheckIcon, HashIcon, PlusIcon, SpeakerHighIcon, WarningIcon, XIcon } from "@phosphor-icons/react"
+import {
+  ChartBarIcon,
+  CheckIcon,
+  CubeIcon,
+  HashIcon,
+  PlusIcon,
+  SpeakerHighIcon,
+  TrophyIcon,
+  WarningIcon,
+  XIcon,
+} from "@phosphor-icons/react"
+import type { Icon } from "@phosphor-icons/react"
 import { type ReactNode, useMemo, useState } from "react"
 
 import type { ConfigReference, GameIcons } from "@/lib/api"
@@ -8,6 +19,7 @@ import {
   choiceFor,
   gameChoices,
   guildChoices,
+  isGameReference,
   matching,
   namespacesOf,
   peopleChoices,
@@ -34,8 +46,11 @@ const SHOWN = 200
 /** Radix refuses "" as an item value. */
 const ALL = "*"
 
-/** The kinds that name no game registry, so the catalogue is not fetched for them. */
-const NOT_GAME = new Set(["COLOUR", "DISCORD_CHANNEL", "DISCORD_USER"])
+/** What stands for an entry the game draws no item for, by its registry. */
+const GENERIC: Record<string, Icon> = {
+  statistic: ChartBarIcon,
+  advancement: TrophyIcon,
+}
 
 /** The choices for one reference, fetched from whichever directory it names, and only that one. */
 function useChoices(
@@ -43,24 +58,42 @@ function useChoices(
   sibling: string | undefined,
 ): { choices: Choices; icons?: GameIcons; pending: boolean } {
   const kind = reference.to
-  const game = useGameData(!NOT_GAME.has(kind))
+  const game = useGameData(isGameReference(reference))
   const channels = useGuildChannels(kind === "DISCORD_CHANNEL")
   const people = usePeople(kind === "DISCORD_USER")
   const choices = useMemo(() => {
     if (kind === "DISCORD_CHANNEL") return guildChoices(channels.data)
     if (kind === "DISCORD_USER") return peopleChoices(people.data)
-    return gameChoices(game.data, registryOf(reference, game.data, sibling))
+    return gameChoices(game.data, registryOf(reference, game.data, sibling), reference.except)
   }, [kind, reference, sibling, game.data, channels.data, people.data])
   const asked = kind === "DISCORD_CHANNEL" ? channels : kind === "DISCORD_USER" ? people : game
   return { choices, icons: game.data?.icons, pending: asked.isPending }
 }
 
-/** What a choice is drawn with in front of its name: its item, or a channel's kind. */
-function Mark({ choice, icons, size = 24 }: { choice: Choice; icons: GameIcons | undefined; size?: number }) {
+/** What a choice is drawn with in front of its name: its item, its registry's generic icon, or a channel's kind. */
+function Mark({
+  choice,
+  icons,
+  registry,
+  size = 24,
+}: {
+  choice: Choice
+  icons: GameIcons | undefined
+  registry: string | undefined
+  size?: number
+}) {
   if (choice.channel === "voice")
     return <SpeakerHighIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
   if (choice.channel === "text") return <HashIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
   if (icons === undefined) return null
+  if (choice.icon === undefined && registry !== undefined) {
+    const Generic = GENERIC[registry] ?? CubeIcon
+    return (
+      <span aria-hidden className="flex shrink-0 items-center justify-center" style={{ width: size, height: size }}>
+        <Generic className="size-[70%] text-muted-foreground" />
+      </span>
+    )
+  }
   return <GameIcon icons={icons} item={choice.icon} size={size} />
 }
 
@@ -69,12 +102,14 @@ function Chip({
   value,
   choice,
   icons,
+  registry,
   onRemove,
   disabled,
 }: {
   value: string
   choice: Choice | undefined
   icons: GameIcons | undefined
+  registry: string | undefined
   onRemove?: () => void
   disabled: boolean
 }) {
@@ -87,7 +122,7 @@ function Chip({
       title={value}
     >
       {choice ? (
-        <Mark choice={choice} icons={icons} size={20} />
+        <Mark choice={choice} icons={icons} registry={registry} size={20} />
       ) : (
         <WarningIcon aria-hidden className="size-4 shrink-0" />
       )}
@@ -126,7 +161,14 @@ export function ReferenceValues({
       {values.map((value, index) => {
         const choice = choiceFor(choices.choices, value)
         return listed ? (
-          <Chip key={`${value}-${index}`} value={value} choice={choice} icons={icons} disabled />
+          <Chip
+            key={`${value}-${index}`}
+            value={value}
+            choice={choice}
+            icons={icons}
+            registry={choices.registry}
+            disabled
+          />
         ) : (
           <span key={`${value}-${index}`} className="font-mono text-xs">
             {value}
@@ -143,14 +185,11 @@ export function ReferenceMarks({
   values,
   sibling,
   max = 3,
-  counted = true,
 }: {
   reference: ConfigReference
   values: string[]
   sibling?: string
   max?: number
-  /** Whether the values past `max` are counted after the icons. */
-  counted?: boolean
 }) {
   const { choices, icons, pending } = useChoices(reference, sibling)
   if (pending) return <Skeleton className="size-5" />
@@ -173,7 +212,7 @@ export function ReferenceMarks({
           </span>
         )
       })}
-      {counted && values.length > max ? (
+      {values.length > max ? (
         <span className="shrink-0 text-xs tabular-nums text-muted-foreground">+{values.length - max}</span>
       ) : null}
     </span>
@@ -266,6 +305,7 @@ export function ReferencePicker({
             value={value}
             choice={known(value)}
             icons={icons}
+            registry={choices.registry}
             disabled={disabled}
             onRemove={() => onChange(values.filter((_, at) => at !== index))}
           />
@@ -303,7 +343,7 @@ export function ReferencePicker({
           <span className="text-muted-foreground">{t("steward.settings.none")}</span>
         ) : choice ? (
           <>
-            <Mark choice={choice} icons={icons} />
+            <Mark choice={choice} icons={icons} registry={choices.registry} />
             <span className="truncate">{choice.name}</span>
             <span className="ml-auto truncate font-mono text-xs text-muted-foreground max-sm:hidden">{choice.id}</span>
           </>
@@ -447,7 +487,7 @@ function Options({
               style={asTree && choice.depth ? { paddingLeft: `${0.5 + choice.depth * 1.25}rem` } : undefined}
               onClick={() => onPick(choice)}
             >
-              <Mark choice={choice} icons={icons} />
+              <Mark choice={choice} icons={icons} registry={choices.registry} />
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate">{choice.name}</span>
                 {choice.description ? (

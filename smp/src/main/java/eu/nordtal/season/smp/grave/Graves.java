@@ -27,6 +27,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.entity.BlockDisplay;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Interaction;
@@ -44,7 +45,7 @@ import org.joml.Vector3f;
 /**
  * Graves: what a death leaves behind, everywhere except the duel arena.
  *
- * Display entities and an {@link Interaction}, never real blocks; anyone may open one, and {@code /rules} says so.
+ * Display entities and an {@link Interaction}, solid by a {@link GraveBarrier}; anyone may open one, as /rules says.
  */
 public final class Graves {
 
@@ -202,7 +203,8 @@ public final class Graves {
         entities.add(skull);
 
         final Interaction click = world.spawn(at, Interaction.class, interaction -> {
-            interaction.setInteractionWidth(1.0f);
+            // Wider than the barrier's block, so a click on the grave's side hits the grave and not the barrier.
+            interaction.setInteractionWidth(1.1f);
             interaction.setInteractionHeight(1.2f);
             interaction.setResponsive(true);
             interaction.setPersistent(false);
@@ -210,6 +212,9 @@ public final class Graves {
         entities.add(click);
 
         spawnHologramIfDecaying(row, at, world, entities);
+        blockOf(world, row.x(), row.y(), row.z())
+                .filter(block -> GraveBarrier.placesInto(there(block)))
+                .ifPresent(block -> block.setType(Material.BARRIER));
 
         parts.put(row.id(), entities);
         byInteraction.put(click.getUniqueId(), row.id());
@@ -287,6 +292,31 @@ public final class Graves {
         }
     }
 
+    /** The block at a grave's position, absent when that lies outside the world's height, as after a void death. */
+    private static Optional<Block> blockOf(final World world, final int x, final int y, final int z) {
+        if (y < world.getMinHeight() || y >= world.getMaxHeight()) {
+            return Optional.empty();
+        }
+        return Optional.of(world.getBlockAt(x, y, z));
+    }
+
+    private static GraveBarrier.There there(final Block block) {
+        if (block.getType() == Material.BARRIER) {
+            return GraveBarrier.There.BARRIER;
+        }
+        return block.isEmpty() ? GraveBarrier.There.EMPTY : GraveBarrier.There.OTHER;
+    }
+
+    /** Takes the barrier out of a grave's block once the grave is erased, unless another open grave stands there. */
+    private void clearBarrier(final World world, final int x, final int y, final int z) {
+        final boolean anotherGraveThere = open.values().stream()
+                .anyMatch(other ->
+                        other.world().equals(world.getName()) && other.x() == x && other.y() == y && other.z() == z);
+        blockOf(world, x, y, z)
+                .filter(block -> GraveBarrier.clears(there(block), anotherGraveThere))
+                .ifPresent(block -> block.setType(Material.AIR));
+    }
+
     private void erase(final UUID graveId) {
         final List<org.bukkit.entity.Entity> entities = parts.remove(graveId);
         if (entities != null) {
@@ -319,6 +349,7 @@ public final class Graves {
                 erase(grave.id());
                 final World world = Bukkit.getWorld(grave.world());
                 if (world != null) {
+                    clearBarrier(world, grave.x(), grave.y(), grave.z());
                     // The same sound as a grave being emptied, deliberately.
                     sounds.playAt(
                             new Location(world, grave.x() + 0.5, grave.y() + 0.5, grave.z() + 0.5), Feedback.RECLAIMED);
@@ -329,7 +360,7 @@ public final class Graves {
         });
     }
 
-    /** Removes every display this plugin drew, at disable; the rows stay in the database. */
+    /** Removes every display this plugin drew, at disable; the rows and the barriers stay for the restart to redraw. */
     public void clearDisplays() {
         List.copyOf(parts.keySet()).forEach(this::erase);
         shown.clear();
@@ -533,6 +564,7 @@ public final class Graves {
                 // A world sound so anybody at the grave hears it settle.
                 final World graveWorld = Bukkit.getWorld(row.world());
                 if (graveWorld != null) {
+                    clearBarrier(graveWorld, row.x(), row.y(), row.z());
                     sounds.playAt(
                             new Location(graveWorld, row.x() + 0.5, row.y() + 0.5, row.z() + 0.5), Feedback.RECLAIMED);
                 }

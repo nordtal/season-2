@@ -123,8 +123,10 @@ describe("a run's report reads as versions, not as bookkeeping", () => {
         ],
         notes: [
           {
-            key: "report.held-left-out",
-            args: { services: { kind: "list", value: [{ kind: "text", value: "limbo" }] } },
+            step: "SCOPE",
+            outcome: "SKIPPED",
+            service: "limbo",
+            what: { key: "report.held-left-out", args: {} },
           },
         ],
       }),
@@ -132,11 +134,8 @@ describe("a run's report reads as versions, not as bookkeeping", () => {
     draw()
 
     expect(await screen.findByText("could not be stopped: exit 1")).toBeTruthy()
-    expect(
-      screen.getByText(
-        "limbo is being held down and was left out of this run. Start it again and ask for the update once more.",
-      ),
-    ).toBeTruthy()
+    expect(screen.getByText("held down, left out")).toBeTruthy()
+    expect(screen.getByText("limbo")).toBeTruthy()
   })
 
   it("leaves a filename alone when that is honestly all there is", async () => {

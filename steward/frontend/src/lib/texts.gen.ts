@@ -421,13 +421,9 @@ export type TextArgs = {
     reserve: Arg["message"]
   }
   "report.cancelled": Record<string, never>
-  "report.down-refused": {
-    services: Arg["list"]
-  }
+  "report.down-refused": Record<string, never>
   "report.down-unnamed": Record<string, never>
-  "report.evacuation-interrupted": {
-    services: Arg["list"]
-  }
+  "report.evacuation-interrupted": Record<string, never>
   "report.failed-unexpectedly": {
     error: Arg["text"]
   }
@@ -449,10 +445,7 @@ export type TextArgs = {
     outdated: Arg["choice"]
     reason: Arg["text"]
   }
-  "report.foreign-newer": {
-    services: Arg["list"]
-    count: Arg["number"]
-  }
+  "report.foreign-newer": Record<string, never>
   "report.foreign-not-recreated": {
     reason: Arg["text"]
   }
@@ -463,23 +456,12 @@ export type TextArgs = {
     reason: Arg["message"]
     held: Arg["list"]
   }
-  "report.held-down": {
-    services: Arg["list"]
-  }
-  "report.held-left-out": {
-    services: Arg["list"]
-  }
-  "report.held-not-remade": {
-    services: Arg["list"]
-  }
-  "report.held-not-restarted": {
-    services: Arg["list"]
-  }
+  "report.held-down": Record<string, never>
+  "report.held-left-out": Record<string, never>
+  "report.held-not-remade": Record<string, never>
+  "report.held-not-restarted": Record<string, never>
   "report.image-outdated": Record<string, never>
-  "report.images-local": {
-    services: Arg["list"]
-    count: Arg["number"]
-  }
+  "report.images-local": Record<string, never>
   "report.images-not-pruned": {
     error: Arg["text"]
   }
@@ -491,14 +473,8 @@ export type TextArgs = {
   "report.images-unread": {
     answer: Arg["text"]
   }
-  "report.images-unverifiable": {
-    services: Arg["list"]
-    count: Arg["number"]
-  }
-  "report.local-builds-kept": {
-    services: Arg["list"]
-    count: Arg["number"]
-  }
+  "report.images-unverifiable": Record<string, never>
+  "report.local-builds-kept": Record<string, never>
   "report.made-again": {
     pull: Arg["choice"]
   }
@@ -516,9 +492,7 @@ export type TextArgs = {
   "report.no-source": {
     artefact: Arg["text"]
   }
-  "report.no-standby": {
-    run: Arg["choice"]
-  }
+  "report.no-standby": Record<string, never>
   "report.not-fell-back": {
     outdated: Arg["choice"]
     reason: Arg["text"]
@@ -529,7 +503,6 @@ export type TextArgs = {
     seen: Arg["message"]
   }
   "report.not-in-release": {
-    service: Arg["text"]
     reason: Arg["message"]
     installed: Arg["text"]
   }
@@ -551,7 +524,6 @@ export type TextArgs = {
   "report.not-saved": Record<string, never>
   "report.not-stopped": {
     run: Arg["choice"]
-    services: Arg["list"]
   }
   "report.nothing-changes": Record<string, never>
   "report.nothing-held": Record<string, never>
@@ -571,7 +543,6 @@ export type TextArgs = {
     reason: Arg["message"]
   }
   "report.players-unknown": {
-    services: Arg["list"]
     seconds: Arg["number"]
   }
   "report.plugin-removed": Record<string, never>
@@ -619,12 +590,8 @@ export type TextArgs = {
     own: Arg["text"]
   }
   "report.remake-agent": Record<string, never>
-  "report.remake-unknown": {
-    services: Arg["list"]
-  }
-  "report.remake-unnamed": {
-    kind: Arg["choice"]
-  }
+  "report.remake-unknown": Record<string, never>
+  "report.remake-unnamed": Record<string, never>
   "report.removal-empty": {
     artifact: Arg["text"]
   }
@@ -632,7 +599,6 @@ export type TextArgs = {
     reason: Arg["text"]
   }
   "report.removal-unknown": {
-    service: Arg["text"]
     artifact: Arg["text"]
   }
   "report.removal-unnamed": Record<string, never>
@@ -641,29 +607,23 @@ export type TextArgs = {
   }
   "report.renewing-agent": Record<string, never>
   "report.restart-all-held": Record<string, never>
-  "report.restart-none-in-scope": {
-    scope: Arg["list"]
-  }
+  "report.restart-none-in-scope": Record<string, never>
   "report.restore-database-unsaved": {
     reason: Arg["text"]
   }
   "report.restore-failed": Record<string, never>
   "report.restore-left-down": {
-    volume: Arg["text"]
     services: Arg["list"]
     backup: Arg["text"]
   }
   "report.restore-not-a-volume": {
-    volume: Arg["text"]
     archive: Arg["text"]
   }
   "report.restore-unknown": {
     archive: Arg["text"]
   }
   "report.restore-unnamed": Record<string, never>
-  "report.restore-unsaved": {
-    volume: Arg["text"]
-  }
+  "report.restore-unsaved": Record<string, never>
   "report.restored": {
     size: Arg["message"]
   }
@@ -686,43 +646,26 @@ export type TextArgs = {
     amount: Arg["number"]
     unit: Arg["choice"]
   }
-  "report.standby-no-container": {
-    standby: Arg["text"]
-  }
+  "report.standby-no-container": Record<string, never>
   "report.standby-not-started": {
-    standby: Arg["text"]
     reason: Arg["text"]
   }
   "report.standby-not-stopped": {
-    standby: Arg["text"]
     reason: Arg["text"]
   }
-  "report.standby-seen": {
-    standby: Arg["text"]
-    seen: Arg["message"]
-  }
-  "report.standby-stopped": {
-    standby: Arg["text"]
-  }
+  "report.standby-stopped": Record<string, never>
   "report.standby-stopped-interrupted": {
-    standby: Arg["text"]
     players: Arg["number"]
   }
   "report.standby-stopped-with-players": {
-    standby: Arg["text"]
     players: Arg["number"]
     seconds: Arg["number"]
   }
-  "report.standbys-interrupted": {
-    standbys: Arg["list"]
-  }
-  "report.standbys-ready": {
-    standbys: Arg["list"]
-    run: Arg["choice"]
-  }
+  "report.standbys-interrupted": Record<string, never>
+  "report.standbys-ready": Record<string, never>
   "report.standbys-unhealthy": {
-    standbys: Arg["list"]
     minutes: Arg["number"]
+    seen: Arg["message"]
   }
   "report.start-failed": {
     reason: Arg["text"]
@@ -738,11 +681,9 @@ export type TextArgs = {
   "report.stopped-while-saving": Record<string, never>
   "report.stopped-with-players": {
     players: Arg["number"]
-    servers: Arg["list"]
     seconds: Arg["number"]
   }
   "report.unclaimed": {
-    service: Arg["text"]
     file: Arg["text"]
   }
   "report.unmarked-archive": {
@@ -751,11 +692,7 @@ export type TextArgs = {
   "report.unverified-archive": {
     mark: Arg["text"]
   }
-  "report.unverified-stop": {
-    services: Arg["list"]
-    run: Arg["choice"]
-    failsTheRun: Arg["choice"]
-  }
+  "report.unverified-stop": Record<string, never>
   "report.velocity-ahead": {
     version: Arg["text"]
     api: Arg["text"]
@@ -773,7 +710,9 @@ export type TextArgs = {
     count: Arg["number"]
   }
   "run.no-build": Record<string, never>
-  "run.notes": Record<string, never>
+  "run.outcome": {
+    outcome: Arg["choice"]
+  }
   "run.services": Record<string, never>
   "run.stage": {
     stage: Arg["choice"]
@@ -784,6 +723,9 @@ export type TextArgs = {
   "run.status": {
     status: Arg["choice"]
   }
+  "run.step": {
+    step: Arg["choice"]
+  }
   "run.successful": {
     successful: Arg["number"]
     total: Arg["number"]
@@ -791,6 +733,7 @@ export type TextArgs = {
   "run.took": {
     took: Arg["duration"]
   }
+  "run.why": Record<string, never>
   "steward.alerts.all-clear": Record<string, never>
   "steward.alerts.none-raised": Record<string, never>
   "steward.alerts.now": Record<string, never>
@@ -1373,6 +1316,7 @@ export type TextArgs = {
   "steward.notifications.unnamed": Record<string, never>
   "steward.operations.a-run": Record<string, never>
   "steward.operations.added": Record<string, never>
+  "steward.operations.all-notes": Record<string, never>
   "steward.operations.all-updates": Record<string, never>
   "steward.operations.ask": {
     kind: Arg["choice"]
@@ -1432,6 +1376,7 @@ export type TextArgs = {
   "steward.operations.nothing-to-do-title": Record<string, never>
   "steward.operations.nothing-written": Record<string, never>
   "steward.operations.now": Record<string, never>
+  "steward.operations.outcome": Record<string, never>
   "steward.operations.raw-report": Record<string, never>
   "steward.operations.report": Record<string, never>
   "steward.operations.report-unreadable": Record<string, never>

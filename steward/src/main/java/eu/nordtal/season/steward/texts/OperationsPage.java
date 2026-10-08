@@ -161,6 +161,12 @@ public interface OperationsPage {
     @Name("Notes")
     MessageRef notes();
 
+    @Name("Outcome filter")
+    MessageRef outcome();
+
+    @Name("Every note")
+    MessageRef allNotes();
+
     @Name("Copied")
     MessageRef copied();
 

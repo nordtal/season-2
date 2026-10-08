@@ -28,6 +28,7 @@ import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { Stat } from "@/components/steward/stat"
 import { Actor } from "@/components/steward/entity"
+import { RunNotes } from "@/components/steward/run-notes"
 import { RunStatus, StatusBadge, runKind, type Tone } from "@/components/steward/status"
 import { Empty, Loading, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
@@ -490,12 +491,11 @@ function RunDetail({ run }: { run?: Run }) {
         ) : !report ? (
           <Empty title={t("steward.operations.no-report")} note={t("steward.operations.no-report-note")} />
         ) : (
-          <>
-            <ReportLines lines={report.services} />
-            <Notes notes={report.notes.map(message)} />
-          </>
+          <ReportLines lines={report.services} />
         )}
       </Panel>
+
+      {report ? <RunNotes notes={report.notes} /> : null}
     </>
   )
 }

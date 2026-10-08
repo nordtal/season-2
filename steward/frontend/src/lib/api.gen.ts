@@ -522,7 +522,7 @@ export type ActorKind = "PERSON" | "STEWARD" | "HOST"
 export type Report = {
   stage: ReportStage
   services: ReportLine[]
-  notes: MessageRef[]
+  notes: RunNote[]
 }
 
 export type SeasonPhase = "PRE_LAUNCH" | "PRE_EVENT" | "START_EVENT" | "SMP" | "MAINTENANCE"
@@ -746,6 +746,13 @@ export type ReportLine = {
   detail?: MessageRef
 }
 
+export type RunNote = {
+  step: RunStep
+  outcome: RunOutcome
+  service?: string
+  what: MessageRef
+}
+
 export type SmpObjective = {
   key: string
   type: string
@@ -835,6 +842,21 @@ export type ReportChange = {
   state: ChangeState
   told?: MessageRef
 }
+
+export type RunStep =
+  | "RUN"
+  | "SCOPE"
+  | "SOURCES"
+  | "RELEASE"
+  | "STANDBY"
+  | "PLAYERS"
+  | "STOP"
+  | "BACKUP"
+  | "MIGRATE"
+  | "INSTALL"
+  | "CLEANUP"
+
+export type RunOutcome = "DONE" | "SKIPPED" | "WARNING" | "FAILED"
 
 export type ReferenceKind =
   | "ITEM"

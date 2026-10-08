@@ -4,6 +4,8 @@ import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
 import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.update.UpdateReport;
+import eu.nordtal.season.database.update.UpdateReport.Note;
+import eu.nordtal.season.database.update.UpdateReport.Step;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.ImageResult;
 import eu.nordtal.season.internalapi.agent.RedeployResult;
@@ -38,20 +40,23 @@ final class ForeignImages {
         if (!images.unverifiable().isEmpty()) {
             final List<String> unverifiable =
                     images.unverifiable().stream().sorted().toList();
-            report = report.withNote(TEXTS.report().imagesUnverifiable(unverifiable, unverifiable.size()));
+            report = report.withNotes(Note.warning(Step.SOURCES, TEXTS.report().imagesUnverifiable())
+                    .each(unverifiable));
         }
 
         // LOCAL is not work, but worth a note: unpublished code is overwritten by the next run.
         final List<String> local = images.local();
         if (!local.isEmpty()) {
-            report = report.withNote(TEXTS.report().imagesLocal(local, local.size()));
+            report = report.withNotes(
+                    Note.warning(Step.SOURCES, TEXTS.report().imagesLocal()).each(local));
         }
 
         if (!images.reached()) {
-            return report.withNote(TEXTS.report().imagesUnread(String.valueOf(images.message())));
+            return report.withNote(
+                    Note.warning(Step.SOURCES, TEXTS.report().imagesUnread(String.valueOf(images.message()))));
         }
         if (images.nothingCompared()) {
-            return report.withNote(TEXTS.report().imagesUncompared());
+            return report.withNote(Note.warning(Step.SOURCES, TEXTS.report().imagesUncompared()));
         }
 
         final List<String> foreign = new ArrayList<>();
@@ -81,7 +86,8 @@ final class ForeignImages {
         }
 
         if (!foreign.isEmpty()) {
-            report = report.withNote(TEXTS.report().foreignNewer(foreign, foreign.size()));
+            report = report.withNotes(
+                    Note.warning(Step.SOURCES, TEXTS.report().foreignNewer()).each(foreign));
         }
         return report;
     }

@@ -161,7 +161,7 @@ class RunnerTest {
         final String english = Told.report(outcome.report());
         assertTrue(english.contains("saved 7.3 MiB in 3s"), english);
         assertTrue(english.contains("saved 1.2 MiB in 12s"), english);
-        assertTrue(english.contains("No offsite repository is configured"), english);
+        assertTrue(english.contains("no offsite repository, so the archives stay on this disk"), english);
     }
 
     @Test
@@ -173,8 +173,8 @@ class RunnerTest {
         assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
         assertEquals(List.of("prune:" + defaults().backup().retention().daily(), "room:4"), containers.calls);
         final String english = Told.report(outcome.report());
-        assertTrue(english.contains("would write about 3.7 GiB with 4.7 GiB free"), english);
-        assertTrue(english.contains("Nothing was stopped and nothing was saved"), english);
+        assertTrue(english.contains("needs about 3.7 GiB with 4.7 GiB free"), english);
+        assertTrue(english.contains("\"step\":\"BACKUP\",\"outcome\":\"FAILED\""), english);
     }
 
     @Test
@@ -315,7 +315,9 @@ class RunnerTest {
         final Outcome outcome = runner.run(claimed(UpdateKind.RECREATE, List.of("steward-agent")), progress::add);
 
         assertEquals(UpdateStatus.FAILED, outcome.status(), outcome.report());
-        assertTrue(Told.report(outcome.report()).contains("one-shot"), outcome.report());
+        assertTrue(
+                Told.report(outcome.report()).contains("\"service\":\"steward-agent\",\"what\":\"carries the run out"),
+                outcome.report());
         assertEquals(List.of(), containers.calls);
     }
 
@@ -403,7 +405,7 @@ class RunnerTest {
                 "nothing starts on what the failed restore left");
         assertTrue(directory.isHeld("smp"), "so no later run starts it either");
         final String told = Told.report(outcome.report());
-        assertTrue(told.contains("Held down so nothing starts on it: smp."), told);
+        assertTrue(told.contains("incomplete, so these stay held down: smp;"), told);
         assertTrue(told.contains("nordtal-s2_mc-smp-20260913T000000Z.tar.zst"), "it names the way back: " + told);
         allTold(outcome);
     }

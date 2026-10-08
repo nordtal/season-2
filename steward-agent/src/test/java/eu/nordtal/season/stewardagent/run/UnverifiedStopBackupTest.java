@@ -50,7 +50,7 @@ class UnverifiedStopBackupTest {
                         + " fine. What is unverified is the moment it was taken");
         assertEquals(UpdateReport.State.SAVED, saved.line("bot-config").state());
         assertTrue(
-                Told.detail(saved.line("mc-smp")).contains("UNVERIFIED STOP"),
+                Told.detail(saved.line("mc-smp")).startsWith("stop not verified"),
                 "the report line is where somebody reads this at 04:45: " + Told.detail(saved.line("mc-smp")));
         assertTrue(
                 Told.detail(saved.line("mc-smp")).contains("mc-smp-20260913T000000Z.tar.zst.unverified"),

@@ -3,12 +3,13 @@ package eu.nordtal.season.stewardagent.run;
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
 import eu.nordtal.season.common.time.Waiting;
+import eu.nordtal.season.database.update.UpdateReport.Note;
+import eu.nordtal.season.database.update.UpdateReport.Step;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.RedeployResult;
 import eu.nordtal.season.internalapi.agent.RuntimeResult;
 import eu.nordtal.season.internalapi.agent.ServiceRuntime;
 import eu.nordtal.season.internalapi.agent.Topology;
-import eu.nordtal.season.messages.MessageRef;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -80,23 +81,24 @@ final class Choreography {
     Window open(final Collection<String> moving) {
         final List<String> wanted = standbysFor(containers.topology(), moving);
         if (wanted.isEmpty()) {
-            return new Window(List.of(), null);
+            return new Window(List.of(), List.of());
         }
 
         for (final String standby : wanted) {
             // Never a pull over an image that is here: the standby must run its live service's, often one built here.
             final RedeployResult made = containers.standby(standby);
             if (!made.triggered()) {
-                return refuse(TEXTS.report().standbyNotStarted(standby, made.message()));
+                return refuse(List.of(Note.failed(Step.STANDBY, TEXTS.report().standbyNotStarted(made.message()))
+                        .on(standby)));
             }
             standing.add(standby);
         }
 
-        final MessageRef late = waitHealthy(wanted);
-        return late == null ? new Window(List.copyOf(standing), null) : refuse(late);
+        final List<Note> late = waitHealthy(wanted);
+        return late.isEmpty() ? new Window(List.copyOf(standing), List.of()) : refuse(late);
     }
 
-    private Window refuse(final MessageRef why) {
+    private Window refuse(final List<Note> why) {
         close();
         return new Window(List.of(), why);
     }
@@ -104,9 +106,9 @@ final class Choreography {
     /**
      * Waits until these standbys are healthy or the patience runs out.
      *
-     * @return {@code null} when every one of them came up, or the note naming those that did not
+     * @return nothing when every one of them came up, or one note per standby that did not
      */
-    private @Nullable MessageRef waitHealthy(final List<String> standbys) {
+    private List<Note> waitHealthy(final List<String> standbys) {
         final List<String> pending = new ArrayList<>(standbys);
         final Instant deadline = clock.now().plus(STANDBY_HEALTHY_WITHIN);
         while (true) {
@@ -117,17 +119,22 @@ final class Choreography {
                         seen.service(standby).map(ServiceRuntime::isBack).orElse(false));
             }
             if (pending.isEmpty()) {
-                return null;
+                return List.of();
             }
             if (!clock.now().isBefore(deadline)) {
-                final List<MessageRef> named = new ArrayList<>();
-                for (final String standby : pending) {
-                    named.add(TEXTS.report().standbySeen(standby, UpdateRun.seen(seen, standby)));
-                }
-                return TEXTS.report().standbysUnhealthy(named, STANDBY_HEALTHY_WITHIN.toMinutes());
+                return pending.stream()
+                        .map(standby -> Note.failed(
+                                        Step.STANDBY,
+                                        TEXTS.report()
+                                                .standbysUnhealthy(
+                                                        STANDBY_HEALTHY_WITHIN.toMinutes(),
+                                                        UpdateRun.seen(seen, standby)))
+                                .on(standby))
+                        .toList();
             }
             if (!clock.sleep(STANDBY_HEALTH_POLL)) {
-                return TEXTS.report().standbysInterrupted(List.copyOf(pending));
+                return Note.failed(Step.STANDBY, TEXTS.report().standbysInterrupted())
+                        .each(List.copyOf(pending));
             }
         }
     }
@@ -138,7 +145,7 @@ final class Choreography {
      * @param moving the services this run is going to stop
      * @return nothing when the run may stop them silently, or the notes for the report
      */
-    List<MessageRef> waitUntilEmpty(final Collection<String> moving) {
+    List<Note> waitUntilEmpty(final Collection<String> moving) {
         final List<String> watched =
                 moving.stream().filter(this::canCarryPlayers).toList();
         if (watched.isEmpty()) {
@@ -165,28 +172,21 @@ final class Choreography {
                 return stoppedAnyway(occupied, unknown);
             }
             if (!clock.sleep(EMPTY_POLL)) {
-                return List.of(TEXTS.report().evacuationInterrupted(watched));
+                return Note.warning(Step.PLAYERS, TEXTS.report().evacuationInterrupted())
+                        .each(watched);
             }
         }
     }
 
     /** The notes a run leaves when the cap ran out, telling players still on apart from no answer at all. */
-    static List<MessageRef> stoppedAnyway(final Map<String, Integer> occupied, final List<String> unknown) {
-        final List<MessageRef> said = new ArrayList<>();
-        if (!occupied.isEmpty()) {
-            final int total =
-                    occupied.values().stream().mapToInt(Integer::intValue).sum();
-            said.add(TEXTS.report()
-                    .stoppedWithPlayers(
-                            total,
-                            occupied.entrySet().stream()
-                                    .map(entry -> entry.getKey() + ": " + entry.getValue())
-                                    .toList(),
-                            EMPTY_CAP.toSeconds()));
+    static List<Note> stoppedAnyway(final Map<String, Integer> occupied, final List<String> unknown) {
+        final List<Note> said = new ArrayList<>();
+        for (final Map.Entry<String, Integer> on : occupied.entrySet()) {
+            said.add(Note.warning(Step.PLAYERS, TEXTS.report().stoppedWithPlayers(on.getValue(), EMPTY_CAP.toSeconds()))
+                    .on(on.getKey()));
         }
-        if (!unknown.isEmpty()) {
-            said.add(TEXTS.report().playersUnknown(unknown, EMPTY_CAP.toSeconds()));
-        }
+        said.addAll(Note.warning(Step.PLAYERS, TEXTS.report().playersUnknown(EMPTY_CAP.toSeconds()))
+                .each(unknown));
         return List.copyOf(said);
     }
 
@@ -200,11 +200,11 @@ final class Choreography {
      *
      * @return one note per standby, for the report; empty when this run opened no window
      */
-    List<MessageRef> close() {
+    List<Note> close() {
         if (standing.isEmpty()) {
             return List.of();
         }
-        final List<MessageRef> said = new ArrayList<>();
+        final List<Note> said = new ArrayList<>();
         for (final String standby : List.copyOf(standing)) {
             final Drained waited = waitDrained(standby);
             final RuntimeResult runtime = containers.runtime();
@@ -212,7 +212,8 @@ final class Choreography {
                     ? runtime.service(standby).map(ServiceRuntime::containerId).orElse(null)
                     : null;
             if (id == null) {
-                said.add(TEXTS.report().standbyNoContainer(standby));
+                said.add(Note.failed(Step.STANDBY, TEXTS.report().standbyNoContainer())
+                        .on(standby));
                 standing.remove(standby);
                 continue;
             }
@@ -220,16 +221,19 @@ final class Choreography {
             standing.remove(standby);
             // The install mirrored its service's plugins into it as root while it ran.
             containers.handOverMounts(standby);
+            final Note note;
             if (!stopped.triggered()) {
-                said.add(TEXTS.report().standbyNotStopped(standby, stopped.message()));
+                note = Note.failed(Step.STANDBY, TEXTS.report().standbyNotStopped(stopped.message()));
             } else if (waited == null) {
-                said.add(TEXTS.report().standbyStopped(standby));
+                note = Note.done(Step.STANDBY, TEXTS.report().standbyStopped());
             } else if (waited.interrupted()) {
-                said.add(TEXTS.report().standbyStoppedInterrupted(standby, waited.players()));
+                note = Note.warning(Step.STANDBY, TEXTS.report().standbyStoppedInterrupted(waited.players()));
             } else {
-                said.add(TEXTS.report()
-                        .standbyStoppedWithPlayers(standby, waited.players(), STANDBY_DRAINS_WITHIN.toSeconds()));
+                note = Note.warning(
+                        Step.STANDBY,
+                        TEXTS.report().standbyStoppedWithPlayers(waited.players(), STANDBY_DRAINS_WITHIN.toSeconds()));
             }
+            said.add(note.on(standby));
         }
         return said;
     }
@@ -267,12 +271,12 @@ final class Choreography {
      * What {@link #open} decided.
      *
      * @param standbys the services started for this run, empty when it needed none
-     * @param refusal why the run must not go on, or {@code null} when it may
+     * @param refusal why the run must not go on, empty when it may
      */
-    record Window(List<String> standbys, @Nullable MessageRef refusal) {
+    record Window(List<String> standbys, List<Note> refusal) {
 
         boolean opened() {
-            return refusal == null;
+            return refusal.isEmpty();
         }
 
         boolean isEmpty() {

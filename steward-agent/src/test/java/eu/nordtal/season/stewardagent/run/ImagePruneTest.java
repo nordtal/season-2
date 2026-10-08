@@ -1,7 +1,6 @@
 package eu.nordtal.season.stewardagent.run;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.stewardagent.Told;
@@ -28,8 +27,6 @@ class ImagePruneTest {
         final UpdateReport back = done.afterwards().apply(done.report());
 
         assertEquals(List.of("prune-images"), containers.calls);
-        final String english = Told.notes(back).toString();
-        assertTrue(
-                english.contains("removed 3 unused images and the unused build cache, which freed 1.9 GiB"), english);
+        assertEquals(List.of("CLEANUP DONE -: removed 3 unused images, freed 1.9 GiB"), Told.notes(back));
     }
 }

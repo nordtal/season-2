@@ -54,11 +54,12 @@ class ForeignImagesTest {
                 "steward-agent",
                 ImageResult.State.LOCAL)));
 
-        assertEquals(List.of("report.images-local"), keys(report));
         assertEquals(
-                List.of("Built on this host and never published: steward and steward-agent. An update run that"
-                        + " would replace them with what the release contains asks first."),
-                Told.notes(report));
+                List.of(
+                        "SOURCES WARNING steward: its image was built on this host",
+                        "SOURCES WARNING steward-agent: its image was built on this host"),
+                Told.notes(report),
+                "one record per service, so each can be found by its name");
     }
 
     @Test
@@ -92,6 +93,6 @@ class ForeignImagesTest {
     }
 
     private static List<String> keys(final UpdateReport report) {
-        return report.notes().stream().map(note -> note.key()).toList();
+        return report.notes().stream().map(note -> note.what().key()).toList();
     }
 }

@@ -147,7 +147,7 @@ class UpdateRunTest {
         assertEquals(
                 UpdateReport.State.FAILED, stopped.report().line(Topology.SMP).state());
         assertTrue(
-                Told.detail(stopped.report().line(Topology.SMP)).contains("no container for this"),
+                Told.detail(stopped.report().line(Topology.SMP)).contains("no container, so it was not stopped"),
                 Told.detail(stopped.report().line(Topology.SMP)));
     }
 
@@ -182,7 +182,7 @@ class UpdateRunTest {
                         + " season on it - which is what the first deployment actually did, and is"
                         + " why every process writes a readiness marker");
         assertTrue(
-                Told.detail(verified.line(Topology.SMP)).contains("did not come back"),
+                Told.detail(verified.line(Topology.SMP)).contains("not back within"),
                 Told.detail(verified.line(Topology.SMP)));
     }
 
@@ -457,10 +457,10 @@ class UpdateRunTest {
                 report.line(Topology.SMP).state(),
                 "the update did not happen, and a run is settled FAILED the moment a line is");
         assertTrue(
-                Told.detail(report.line(Topology.SMP)).contains("image is out of date"),
+                Told.detail(report.line(Topology.SMP)).contains("image out of date"),
                 "the reason has to say which half of the run stopped: " + Told.detail(report.line(Topology.SMP)));
         assertTrue(
-                Told.detail(report.line(Topology.SMP)).contains("started again on the image it already had"),
+                Told.detail(report.line(Topology.SMP)).contains("started on the old image"),
                 "and it has to say the old container was put back, or an operator starts by hand"
                         + " one that is already running: "
                         + Told.detail(report.line(Topology.SMP)));
@@ -493,11 +493,11 @@ class UpdateRunTest {
                 "the update genuinely did not happen - the jars moved and the image did not - so"
                         + " the line stays FAILED however well the old version is running");
         assertTrue(
-                detail.contains("it is back on that old version"),
+                detail.contains("back on the old image"),
                 "which version is running is the question an admin has next, and a bare FAILED"
                         + " sends somebody to look at a server that is fine: " + detail);
         assertFalse(
-                detail.contains("did NOT come back"),
+                detail.contains("not back within"),
                 "a service that came back must not also be reported as down: " + detail);
     }
 
@@ -517,17 +517,14 @@ class UpdateRunTest {
         final String detail = Told.detail(verified.line(Topology.SMP));
         assertEquals(UpdateReport.State.FAILED, verified.line(Topology.SMP).state());
         assertTrue(
-                detail.contains("did NOT come back within " + UpdateRun.HEALTH_PATIENCE.toMinutes() + " minutes"),
+                detail.contains("not back within " + UpdateRun.HEALTH_PATIENCE.toMinutes() + " minutes"),
                 "how long was waited is half of what makes this actionable: " + detail);
-        assertTrue(
-                detail.contains("The service is down."),
-                "and somebody has to be told to go and look, in those words: " + detail);
         assertTrue(
                 detail.contains("running, starting"),
                 "the runtime was actually re-read - this used to be a line verify() never looked"
                         + " at, because only STARTING lines were waited on: " + detail);
         assertFalse(
-                detail.contains("is back on that old version"),
+                detail.contains("back on the old image"),
                 "a service that is down must not also be reported as back: " + detail);
     }
 

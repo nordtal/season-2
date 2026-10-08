@@ -4,8 +4,9 @@ import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
 import eu.nordtal.season.database.inbox.StewardRequest;
 import eu.nordtal.season.database.update.ByteSize;
-import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateReport;
+import eu.nordtal.season.database.update.UpdateReport.Note;
+import eu.nordtal.season.database.update.UpdateReport.Step;
 import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.internalapi.agent.AgentWire;
@@ -69,9 +70,8 @@ final class Kinds {
         final List<String> skipped = holds.stream()
                 .filter(service -> scope.isEmpty() || scope.contains(service))
                 .toList();
-        if (!skipped.isEmpty()) {
-            planned = planned.withNote(TEXTS.report().heldLeftOut(skipped));
-        }
+        planned = planned.withNotes(
+                Note.skipped(Step.SCOPE, TEXTS.report().heldLeftOut()).each(skipped));
         final List<String> foreign = ForeignImages.staleForeign(topology, images).stream()
                 // A scoped run renews a foreign image only when the scope names it.
                 .filter(service -> scope.isEmpty() || scope.contains(service))
@@ -84,7 +84,9 @@ final class Kinds {
         final List<String> replacedLocal =
                 LocalBuilds.replaced(images, plan, planned, foreign, standing == Release.Standing.NEWER, scope, holds);
         if (standing != Release.Standing.OLDER && !replacedLocal.isEmpty() && !replacesLocal(runner, request)) {
-            return refused(planned, TEXTS.report().localBuildsKept(replacedLocal, replacedLocal.size()));
+            return refused(
+                    planned,
+                    Note.failed(Step.RELEASE, TEXTS.report().localBuildsKept()).each(replacedLocal));
         }
 
         // First: an agent carries out runs of its own release only, and never recreates itself.
@@ -129,11 +131,14 @@ final class Kinds {
                 final ContainerOps.Pruned pruned = containers.pruneImages();
                 return after.withNote(
                         pruned.failure() == null
-                                ? TEXTS.report()
-                                        .imagesPruned(
-                                                pruned.images(),
-                                                ByteSize.of(pruned.freedBytes()).message())
-                                : TEXTS.report().imagesNotPruned(pruned.failure()));
+                                ? Note.done(
+                                        Step.CLEANUP,
+                                        TEXTS.report()
+                                                .imagesPruned(
+                                                        pruned.images(),
+                                                        ByteSize.of(pruned.freedBytes())
+                                                                .message()))
+                                : Note.warning(Step.CLEANUP, TEXTS.report().imagesNotPruned(pruned.failure())));
             });
         };
     }
@@ -157,11 +162,18 @@ final class Kinds {
             case OWN -> {}
             case NEWER -> {
                 return runner.oneShot
-                        ? refused(planned, TEXTS.report().releasedMeanwhile(String.valueOf(tag), String.valueOf(own)))
+                        ? refused(
+                                planned,
+                                List.of(Note.failed(
+                                        Step.RELEASE,
+                                        TEXTS.report().releasedMeanwhile(String.valueOf(tag), String.valueOf(own)))))
                         : handOver(runner, request, planned, Release.version(Objects.requireNonNull(tag)), progress);
             }
             case OLDER -> {
-                return refused(planned, TEXTS.report().olderRelease(String.valueOf(tag), String.valueOf(own)));
+                return refused(
+                        planned,
+                        List.of(Note.failed(
+                                Step.RELEASE, TEXTS.report().olderRelease(String.valueOf(tag), String.valueOf(own)))));
             }
         }
         if (!runner.oneShot
@@ -184,10 +196,10 @@ final class Kinds {
                 .stoppingNothing();
     }
 
-    /** A run that ends before anything moved, with the reason as the report's note. */
-    private static Planned refused(final UpdateReport planned, final MessageRef why) {
+    /** A run that ends before anything moved, with the reason as the report's notes. */
+    private static Planned refused(final UpdateReport planned, final List<Note> why) {
         return Planned.outcome(Outcome.failed(UpdateReports.toJson(
-                planned.withStage(UpdateReport.Stage.FAILED).withNote(why))));
+                planned.withStage(UpdateReport.Stage.FAILED).withNotes(why))));
     }
 
     /**
@@ -205,12 +217,14 @@ final class Kinds {
             // No longer RUNNING since the claim, which in practice means cancelled.
             return Planned.outcome(Runner.cancelled());
         }
-        final UpdateReport handed = planned.withNote(TEXTS.report().handed(release));
+        final UpdateReport handed =
+                planned.withNote(Note.done(Step.RELEASE, TEXTS.report().handed(release)));
         progress.accept(handed);
         final RedeployResult started = runner.containers.handOver(request.id(), release);
         if (!started.triggered()) {
             return Planned.outcome(Outcome.failed(UpdateReports.toJson(handed.withStage(UpdateReport.Stage.FAILED)
-                    .withNote(TEXTS.report().oneShotNotStarted(release, started.message())))));
+                    .withNote(
+                            Note.failed(Step.RELEASE, TEXTS.report().oneShotNotStarted(release, started.message()))))));
         }
         log.info("Request {} is handed to {} at release {}", request.id(), runner.containers.oneShot(), release);
         return Planned.outcome(Outcome.handedOver(UpdateReports.toJson(handed)));
@@ -228,14 +242,15 @@ final class Kinds {
             progress.accept(report);
             final RedeployResult migrated = runner.containers.migrate();
             if (!migrated.triggered()) {
-                throw new Run.Abort(report.withNote(TEXTS.report().notMigrated(migrated.message())));
+                throw new Run.Abort(
+                        report.withNote(Note.failed(Step.MIGRATE, TEXTS.report().notMigrated(migrated.message()))));
             }
             final ApplyResult result =
                     Runs.apply(runner.config, runner.topology(), plan, runner.settings(), runner.plugins);
             for (final ApplyResult.Outcome outcome : result.outcomes()) {
                 // A file of no service, the resource pack, has no line to fail on.
                 if (outcome.service() == null && didNotGoIn(outcome)) {
-                    report = report.withNote(notInstalled(outcome));
+                    report = report.withNote(Note.failed(Step.INSTALL, notInstalled(outcome)));
                 }
             }
             for (final String service : state.services()) {
@@ -290,17 +305,20 @@ final class Kinds {
         }
         if (planned.services().isEmpty()) {
             return Planned.outcome(Outcome.done(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.NOTHING_TO_DO)
-                    .withNote(
+                    .withNotes(
                             scope.isEmpty()
-                                    ? TEXTS.report().restartAllHeld()
-                                    : TEXTS.report().restartNoneInScope(scope)))));
+                                    ? List.of(Note.skipped(
+                                            Step.SCOPE, TEXTS.report().restartAllHeld()))
+                                    : Note.skipped(Step.SCOPE, TEXTS.report().restartNoneInScope())
+                                            .each(scope)))));
         }
         final List<String> untouched = servers.stream()
                 .filter(holds::contains)
                 .filter(service -> scope.isEmpty() || scope.contains(service))
                 .toList();
         if (!untouched.isEmpty()) {
-            planned = planned.withNote(TEXTS.report().heldNotRestarted(untouched));
+            planned = planned.withNotes(
+                    Note.skipped(Step.SCOPE, TEXTS.report().heldNotRestarted()).each(untouched));
         }
         return Planned.plan(Run.Plan.of(
                 planned, Run.Payload.NONE, UpdateReport.Undertaking.RESTART, false, Runner.Doubt.IS_ONLY_SAID));
@@ -317,12 +335,13 @@ final class Kinds {
             topology = runner.containers.topology();
         } catch (final RuntimeException unread) {
             return Planned.outcome(Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote(TEXTS.report().backupUnread(String.valueOf(unread.getMessage()))))));
+                    .withNote(Note.failed(
+                            Step.SCOPE, TEXTS.report().backupUnread(String.valueOf(unread.getMessage())))))));
         }
         if (topology.backupVolumes().isEmpty()) {
             // Not a quiet success: a compose.yml with no backup mounts must not take the network down for nothing.
             return Planned.outcome(Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote(TEXTS.report().noBackupVolumes()))));
+                    .withNote(Note.failed(Step.SCOPE, TEXTS.report().noBackupVolumes())))));
         }
 
         final List<String> volumes = topology.backupVolumes();
@@ -364,7 +383,7 @@ final class Kinds {
             final Runner runner, final UpdateReport back, final Consumer<UpdateReport> progress) {
         final Optional<SnapshotResult> copied = runner.backups.copyOffsite(policyOf(runner));
         if (copied.isEmpty()) {
-            return back.withNote(TEXTS.report().noOffsite());
+            return back.withNote(Note.skipped(Step.BACKUP, TEXTS.report().noOffsite()));
         }
         final SnapshotResult result = copied.get();
         final UpdateReport reported = back.with(new UpdateReport.ServiceLine(
@@ -387,20 +406,24 @@ final class Kinds {
         final Snapshots.Pruned pruned = runner.backups.prune(policy, inBackup);
         UpdateReport report = saved;
         if (!pruned.expired().isEmpty()) {
-            report = report.withNote(TEXTS.report()
-                    .pruned(
-                            policy.daily(),
-                            policy.weekly(),
-                            policy.monthly(),
-                            pruned.expired().size(),
-                            pruned.expired()));
+            report = report.withNote(Note.done(
+                    Step.BACKUP,
+                    TEXTS.report()
+                            .pruned(
+                                    policy.daily(),
+                                    policy.weekly(),
+                                    policy.monthly(),
+                                    pruned.expired().size(),
+                                    pruned.expired())));
         }
         if (!pruned.overBudget().isEmpty()) {
-            report = report.withNote(TEXTS.report()
-                    .prunedOverBudget(
-                            runner.config.backup().budgetPercent(),
-                            pruned.overBudget().size(),
-                            pruned.overBudget()));
+            report = report.withNote(Note.done(
+                    Step.BACKUP,
+                    TEXTS.report()
+                            .prunedOverBudget(
+                                    runner.config.backup().budgetPercent(),
+                                    pruned.overBudget().size(),
+                                    pruned.overBudget())));
         }
         return report;
     }
@@ -413,12 +436,15 @@ final class Kinds {
             return null;
         }
         return Planned.outcome(Outcome.failed(UpdateReports.toJson(report.withStage(UpdateReport.Stage.FAILED)
-                .withNote(TEXTS.report()
-                        .backupWontFit(
-                                ByteSize.of(room.expectedBytes()).message(),
-                                ByteSize.of(Math.max(0, room.usableBytes())).message(),
-                                runner.config.backup().keepFreePercent(),
-                                ByteSize.of(room.reserveBytes()).message())))));
+                .withNote(Note.failed(
+                        Step.BACKUP,
+                        TEXTS.report()
+                                .backupWontFit(
+                                        ByteSize.of(room.expectedBytes()).message(),
+                                        ByteSize.of(Math.max(0, room.usableBytes()))
+                                                .message(),
+                                        runner.config.backup().keepFreePercent(),
+                                        ByteSize.of(room.reserveBytes()).message()))))));
     }
 
     /**
@@ -430,12 +456,13 @@ final class Kinds {
         final List<String> scope = runner.directory.scopeOf(request.id());
         if (scope.isEmpty()) {
             return Planned.outcome(Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote(TEXTS.report().downUnnamed()))));
+                    .withNote(Note.failed(Step.SCOPE, TEXTS.report().downUnnamed())))));
         }
         final List<String> refused = scope.stream().filter(NEVER_DOWN::contains).toList();
         if (!refused.isEmpty()) {
             return Planned.outcome(Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote(TEXTS.report().downRefused(refused)))));
+                    .withNotes(Note.failed(Step.SCOPE, TEXTS.report().downRefused())
+                            .each(refused)))));
         }
         UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING);
         for (final String service : scope) {
@@ -449,11 +476,10 @@ final class Kinds {
             for (final String service : stopped.services()) {
                 runner.directory.hold(service, request.actor(), request.id());
             }
-            // Worded so that one service and four read the same.
             return new Run.Done(
-                    stopped.services().isEmpty()
-                            ? stopped.report()
-                            : stopped.report().withNote(TEXTS.report().heldDown(stopped.services())),
+                    stopped.report()
+                            .withNotes(Note.done(Step.STOP, TEXTS.report().heldDown())
+                                    .each(stopped.services())),
                     false);
         };
         return Planned.plan(
@@ -473,7 +499,7 @@ final class Kinds {
         final List<String> services = asked.isEmpty() ? runner.held() : asked;
         if (services.isEmpty()) {
             return Planned.outcome(Outcome.done(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.NOTHING_TO_DO)
-                    .withNote(TEXTS.report().nothingHeld()))));
+                    .withNote(Note.skipped(Step.SCOPE, TEXTS.report().nothingHeld())))));
         }
         UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STARTING);
         for (final String service : services) {
@@ -504,10 +530,11 @@ final class Kinds {
     static Planned remake(final Runner runner, final UpdateRequest request, final boolean pull) {
         final List<String> scope = runner.directory.scopeOf(request.id());
         if (scope.isEmpty()) {
-            return failed(TEXTS.report().remakeUnnamed(pull ? UpdateKind.DEPLOY : UpdateKind.RECREATE));
+            return failed(List.of(Note.failed(Step.SCOPE, TEXTS.report().remakeUnnamed())));
         }
         if (scope.contains(AgentWire.SERVICE)) {
-            return failed(TEXTS.report().remakeAgent());
+            return failed(List.of(
+                    Note.failed(Step.SCOPE, TEXTS.report().remakeAgent()).on(AgentWire.SERVICE)));
         }
         final AgentWire.Topology topology = runner.topology();
         final List<String> recreatable = topology.renewed(AgentWire.Renewal.RUN);
@@ -517,7 +544,8 @@ final class Kinds {
                 .filter(service -> !foreign.contains(service))
                 .toList();
         if (!unknown.isEmpty()) {
-            return failed(TEXTS.report().remakeUnknown(unknown));
+            return failed(
+                    Note.failed(Step.SCOPE, TEXTS.report().remakeUnknown()).each(unknown));
         }
         final List<String> holds = runner.held();
         final List<String> ours = scope.stream()
@@ -532,7 +560,8 @@ final class Kinds {
         UpdateReport planned = remadeLines(ours, pull);
         final List<String> skipped = scope.stream().filter(holds::contains).toList();
         if (!skipped.isEmpty()) {
-            planned = planned.withNote(TEXTS.report().heldNotRemade(skipped));
+            planned = planned.withNotes(
+                    Note.skipped(Step.SCOPE, TEXTS.report().heldNotRemade()).each(skipped));
         }
         if (ours.isEmpty() && theirs.isEmpty()) {
             return Planned.outcome(
@@ -566,12 +595,13 @@ final class Kinds {
     static Planned removePlugin(final Runner runner, final UpdateRequest request) {
         final StewardRequest asked = runner.directory.requestOf(request.id()).orElse(null);
         if (!(asked instanceof StewardRequest.RemovePlugin removal)) {
-            return failed(TEXTS.report().removalUnnamed());
+            return failed(List.of(Note.failed(Step.SCOPE, TEXTS.report().removalUnnamed())));
         }
         final String service = removal.services().getFirst();
         final String artifact = removal.artifact();
         if (!runner.removal.has(service, artifact)) {
-            return failed(TEXTS.report().removalUnknown(service, artifact));
+            return failed(List.of(Note.failed(Step.SCOPE, TEXTS.report().removalUnknown(artifact))
+                    .on(service)));
         }
         final boolean held = runner.held().contains(service);
         final UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING)
@@ -587,14 +617,22 @@ final class Kinds {
                 final List<String> deleted = runner.removal.remove(service, artifact);
                 return new Run.Done(
                         stopped.report()
-                                .withNote(
-                                        deleted.isEmpty()
-                                                ? TEXTS.report().removalEmpty(artifact)
-                                                : TEXTS.report().removed(deleted)),
+                                .withNote((deleted.isEmpty()
+                                                ? Note.skipped(
+                                                        Step.INSTALL,
+                                                        TEXTS.report().removalEmpty(artifact))
+                                                : Note.done(
+                                                        Step.INSTALL,
+                                                        TEXTS.report().removed(deleted)))
+                                        .on(service)),
                         false);
             } catch (final RuntimeException refused) {
                 return new Run.Done(
-                        stopped.report().withNote(TEXTS.report().removalFailed(String.valueOf(refused.getMessage()))),
+                        stopped.report()
+                                .withNote(Note.failed(
+                                                Step.INSTALL,
+                                                TEXTS.report().removalFailed(String.valueOf(refused.getMessage())))
+                                        .on(service)),
                         true);
             }
         };
@@ -611,12 +649,12 @@ final class Kinds {
     static Planned restore(final Runner runner, final UpdateRequest request) {
         final StewardRequest asked = runner.directory.requestOf(request.id()).orElse(null);
         if (!(asked instanceof StewardRequest.Restore restore)) {
-            return failed(TEXTS.report().restoreUnnamed());
+            return failed(List.of(Note.failed(Step.SCOPE, TEXTS.report().restoreUnnamed())));
         }
         final String archive = restore.archive();
         final String series = runner.backups.seriesOf(archive).orElse(null);
         if (series == null) {
-            return failed(TEXTS.report().restoreUnknown(archive));
+            return failed(List.of(Note.failed(Step.SCOPE, TEXTS.report().restoreUnknown(archive))));
         }
         return Snapshots.DATABASE.equals(series)
                 ? restoreDatabase(runner, request, archive)
@@ -627,7 +665,8 @@ final class Kinds {
             final Runner runner, final UpdateRequest request, final String archive, final String volume) {
         final AgentWire.Topology topology = runner.containers.topology();
         if (!topology.backupVolumes().contains(volume)) {
-            return failed(TEXTS.report().restoreNotAVolume(volume, archive));
+            return failed(List.of(Note.failed(Step.SCOPE, TEXTS.report().restoreNotAVolume(archive))
+                    .on(volume)));
         }
         final Planned noRoom =
                 refusedWithoutRoom(runner, UpdateReport.at(UpdateReport.Stage.STOPPING), List.of(volume));
@@ -639,7 +678,9 @@ final class Kinds {
             // The volume as it is now, so a restore of the wrong archive is itself undone by a restore.
             final UpdateReport saved = steps.save(stopped.report(), List.of(volume));
             if (saved.line(volume).state() != UpdateReport.State.SAVED) {
-                throw new Run.Abort(saved.withNote(TEXTS.report().restoreUnsaved(volume)));
+                throw new Run.Abort(
+                        saved.withNote(Note.failed(Step.BACKUP, TEXTS.report().restoreUnsaved())
+                                .on(volume)));
             }
             final Snapshots.Restored restored = runner.backups.restore(archive);
             if (restored.result().ok() || !restored.touched()) {
@@ -652,7 +693,11 @@ final class Kinds {
             }
             final String backup = steps.archiveOf(volume).orElse(volume);
             final Run.Done failed = putBack(
-                    saved, restored.result(), archive, TEXTS.report().restoreLeftDown(volume, mounting, backup));
+                    saved,
+                    restored.result(),
+                    archive,
+                    Note.failed(Step.INSTALL, TEXTS.report().restoreLeftDown(mounting, backup))
+                            .on(volume));
             return new Run.Done(failed.report(), true, java.util.function.UnaryOperator.identity(), mounting);
         };
         return Planned.plan(Run.Plan.of(
@@ -668,7 +713,9 @@ final class Kinds {
         // With everything running, as every backup takes it, and before anything is stopped.
         final SnapshotResult dumped = runner.backups.saveDatabase();
         if (!dumped.ok()) {
-            return failed(TEXTS.report().restoreDatabaseUnsaved(String.valueOf(dumped.message())));
+            return failed(List.of(
+                    Note.failed(Step.BACKUP, TEXTS.report().restoreDatabaseUnsaved(String.valueOf(dumped.message())))
+                            .on(Snapshots.DATABASE)));
         }
         final List<String> users = running(runner, runner.topology().renewed(AgentWire.Renewal.RUN));
         final UpdateReport planned = stopping(users, dump)
@@ -689,12 +736,16 @@ final class Kinds {
 
     /** The archive's own line on the report, and a failed run when it did not go back. */
     private static Run.Done putBack(final UpdateReport report, final SnapshotResult result, final String archive) {
-        return putBack(report, result, archive, TEXTS.report().restoreFailed());
+        return putBack(
+                report,
+                result,
+                archive,
+                Note.failed(Step.INSTALL, TEXTS.report().restoreFailed()).on(archive));
     }
 
     /** The same, with the note a failure carries. */
     private static Run.Done putBack(
-            final UpdateReport report, final SnapshotResult result, final String archive, final MessageRef failure) {
+            final UpdateReport report, final SnapshotResult result, final String archive, final Note failure) {
         final UpdateReport.ServiceLine line = new UpdateReport.ServiceLine(
                 archive,
                 result.ok() ? UpdateReport.State.INSTALLED : UpdateReport.State.FAILED,
@@ -735,8 +786,8 @@ final class Kinds {
         return planned;
     }
 
-    private static Planned failed(final MessageRef note) {
+    private static Planned failed(final List<Note> why) {
         return Planned.outcome(Outcome.failed(
-                UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED).withNote(note))));
+                UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED).withNotes(why))));
     }
 }

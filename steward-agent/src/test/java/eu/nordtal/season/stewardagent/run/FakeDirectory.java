@@ -233,8 +233,8 @@ final class FakeDirectory implements UpdateDirectory {
 
     @Override
     public int settleOrphans(final MessageRef why, final java.util.function.Predicate<String> stillRunning) {
-        final String failed =
-                UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED).withNote(why));
+        final String failed = UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                .withNote(UpdateReport.Note.failed(UpdateReport.Step.RUN, why)));
         int settled = 0;
         for (final UpdateRequest row : List.copyOf(rows.values())) {
             if (row.status() != UpdateStatus.RUNNING) {

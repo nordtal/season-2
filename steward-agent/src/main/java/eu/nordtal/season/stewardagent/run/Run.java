@@ -3,17 +3,17 @@ package eu.nordtal.season.stewardagent.run;
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
 import eu.nordtal.season.database.update.UpdateReport;
+import eu.nordtal.season.database.update.UpdateReport.Note;
+import eu.nordtal.season.database.update.UpdateReport.Step;
 import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.ImageResult;
 import eu.nordtal.season.internalapi.agent.RedeployResult;
 import eu.nordtal.season.internalapi.agent.RuntimeResult;
-import eu.nordtal.season.messages.MessageRef;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
@@ -290,11 +290,12 @@ final class Run {
         final Choreography.Window window = choreography.open(moving);
         if (!window.opened()) {
             return Outcome.failed(UpdateReports.toJson(planned.withStage(UpdateReport.Stage.FAILED)
-                    .withNote(TEXTS.report().noStandby(plan.undertaking()))
-                    .withNote(Objects.requireNonNull(window.refusal()))));
+                    .withNote(Note.failed(Step.STANDBY, TEXTS.report().noStandby()))
+                    .withNotes(window.refusal())));
         }
         if (!window.isEmpty()) {
-            planned = planned.withNote(TEXTS.report().standbysReady(window.standbys(), plan.undertaking()));
+            planned = planned.withNotes(
+                    Note.done(Step.STANDBY, TEXTS.report().standbysReady()).each(window.standbys()));
             progress.accept(planned);
         }
         try {
@@ -303,11 +304,9 @@ final class Run {
             }
 
             // After the countdown the run waits for the players to move, then stops regardless after ten seconds.
-            final List<MessageRef> stillOn = choreography.waitUntilEmpty(moving);
+            final List<Note> stillOn = choreography.waitUntilEmpty(moving);
             if (!stillOn.isEmpty()) {
-                for (final MessageRef said : stillOn) {
-                    planned = planned.withNote(said);
-                }
+                planned = planned.withNotes(stillOn);
                 progress.accept(planned);
             }
 
@@ -361,9 +360,8 @@ final class Run {
         final UpdateReport renewed = runner.oneShot ? renewAgent(foreign) : foreign;
 
         final UpdateReport finished = Runner.settle(
-                Runner.noteStandbys(renewed, choreography.close()),
+                renewed.withNotes(choreography.close()),
                 steps.unverifiedStops(),
-                plan.undertaking(),
                 plan.alreadyFailed() || done.failed(),
                 plan.doubt());
         return finished.stage() == UpdateReport.Stage.FAILED
@@ -400,7 +398,9 @@ final class Run {
             return null;
         }
         final UpdateReport back = steps.start(new UpdateRun.Stopped(
-                stopped.report().withNote(TEXTS.report().notStopped(plan.undertaking(), notStopped)),
+                stopped.report()
+                        .withNotes(Note.failed(Step.STOP, TEXTS.report().notStopped(plan.undertaking()))
+                                .each(notStopped)),
                 stopped.services(),
                 runtime));
         return Outcome.failed(UpdateReports.toJson(

@@ -110,7 +110,7 @@ class ResolverTest {
         final String note = Told.english(plan.notes().getFirst());
         assertTrue(note.contains("4.3.0") && note.contains(Platform.VELOCITY_API), note);
         assertTrue(
-                Told.notes(PlanReport.of(plan)).contains(note),
+                Told.notes(PlanReport.of(plan)).contains("SOURCES WARNING -: " + note),
                 "the note is decided by the resolver and drawn by PlanReport - a report that drops"
                         + " it is a version skew nobody is told about");
     }

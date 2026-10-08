@@ -119,10 +119,11 @@ final class HostRequests {
 
     /** Whether the run failed only because it would have replaced a build made on this host. */
     static boolean keptLocal(final UpdateStatus status, final @Nullable String stored) {
-        final String key = TEXTS.report().localBuildsKept(List.of(), 0).key();
+        final String key = TEXTS.report().localBuildsKept().key();
         return status == UpdateStatus.FAILED
                 && UpdateReports.parse(stored)
-                        .map(report -> report.notes().stream().anyMatch(note -> key.equals(note.key())))
+                        .map(report -> report.notes().stream()
+                                .anyMatch(note -> key.equals(note.what().key())))
                         .orElse(false);
     }
 }

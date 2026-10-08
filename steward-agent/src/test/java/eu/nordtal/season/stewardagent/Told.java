@@ -20,9 +20,19 @@ public final class Told {
         return messages.stream().map(DatabaseText::english).toList();
     }
 
+    /** One note as its step, outcome, service ({@code -} for the run's own) and English text. */
+    public static String record(final UpdateReport.Note note) {
+        return note.step() + " " + note.outcome() + " " + (note.service() == null ? "-" : note.service()) + ": "
+                + DatabaseText.english(note.what());
+    }
+
+    public static List<String> records(final List<UpdateReport.Note> notes) {
+        return notes.stream().map(Told::record).toList();
+    }
+
     /** Several notes as one text, the way a person reads them one after the other. */
-    public static String joined(final List<MessageRef> messages) {
-        return String.join(". ", english(messages));
+    public static String joined(final List<UpdateReport.Note> notes) {
+        return String.join(". ", records(notes));
     }
 
     /** A stored report with its messages in English, as the host's terminal prints it. */
@@ -31,7 +41,7 @@ public final class Told {
     }
 
     public static List<String> notes(final UpdateReport report) {
-        return english(report.notes());
+        return records(report.notes());
     }
 
     /** Every change of a stored report that is not a message, which only an installed version may be. */

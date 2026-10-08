@@ -7,13 +7,14 @@ import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.database.update.ServiceHold;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateReport;
+import eu.nordtal.season.database.update.UpdateReport.Note;
+import eu.nordtal.season.database.update.UpdateReport.Step;
 import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.RuntimeResult;
 import eu.nordtal.season.internalapi.agent.Topology;
-import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.settings.Database;
 import eu.nordtal.season.stewardagent.config.RunSpec;
 import java.time.Duration;
@@ -163,7 +164,7 @@ public final class Runner implements RequestRunner {
             final RuntimeResult runtime = steps.check();
             if (!runtime.reached()) {
                 return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                        .withNote(TEXTS.report().words(unreachableMessage(runtime)))));
+                        .withNote(Note.failed(Step.RUN, TEXTS.report().words(unreachableMessage(runtime))))));
             }
             // The row is the lock: the inbox holds one open run at a time, whoever wrote it.
             final Kinds.Planned planned = plan(request, progress);
@@ -173,7 +174,7 @@ public final class Runner implements RequestRunner {
         } catch (final RuntimeException failure) {
             log.error("Request {} ({}) failed", request.id(), request.kind(), failure);
             return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote(TEXTS.report().failedUnexpectedly(failure.toString()))));
+                    .withNote(Note.failed(Step.RUN, TEXTS.report().failedUnexpectedly(failure.toString())))));
         }
     }
 
@@ -250,7 +251,6 @@ public final class Runner implements RequestRunner {
      *
      * @param verified the report after {@code verify}, with its stage not yet settled
      * @param unverified {@link UpdateRun#unverifiedStops()}
-     * @param undertaking what the run did meanwhile, which the note names
      * @param alreadyFailed whether something else has already failed this run
      * @param doubt what an unverified stop costs here
      * @return the report with its stage set, and the note on it when there was one to make
@@ -258,13 +258,18 @@ public final class Runner implements RequestRunner {
     static UpdateReport settle(
             final UpdateReport verified,
             final List<String> unverified,
-            final UpdateReport.Undertaking undertaking,
             final boolean alreadyFailed,
             final Doubt doubt) {
         final UpdateReport told = unverified.isEmpty()
                 ? verified
-                : verified.withNote(
-                        TEXTS.report().unverifiedStop(unverified, undertaking, doubt == Doubt.FAILS_THE_RUN));
+                : verified.withNotes(new Note(
+                                Step.STOP,
+                                doubt == Doubt.FAILS_THE_RUN
+                                        ? UpdateReport.Outcome.FAILED
+                                        : UpdateReport.Outcome.WARNING,
+                                null,
+                                TEXTS.report().unverifiedStop())
+                        .each(unverified));
         final boolean failed = (doubt == Doubt.FAILS_THE_RUN && !unverified.isEmpty())
                 || alreadyFailed
                 || told.services().stream().anyMatch(line -> line.state() == UpdateReport.State.FAILED);
@@ -287,7 +292,7 @@ public final class Runner implements RequestRunner {
     /** The answer to a run somebody stopped, usually discarded since the row is already {@code CANCELLED}. */
     static Outcome cancelled() {
         return Outcome.done(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.CANCELLED)
-                .withNote(TEXTS.report().cancelled())));
+                .withNote(Note.skipped(Step.RUN, TEXTS.report().cancelled()))));
     }
 
     /**
@@ -332,16 +337,5 @@ public final class Runner implements RequestRunner {
                 .map(UpdateReport.ServiceLine::service)
                 .filter(service -> !Snapshots.DATABASE.equals(service))
                 .toList();
-    }
-
-    /**
-     * Puts what {@link Choreography#close()} said into the report as notes, since a service line would be evacuated.
-     */
-    static UpdateReport noteStandbys(final UpdateReport report, final List<MessageRef> said) {
-        UpdateReport told = report;
-        for (final MessageRef note : said) {
-            told = told.withNote(note);
-        }
-        return told;
     }
 }

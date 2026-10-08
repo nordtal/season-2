@@ -3,6 +3,8 @@ package eu.nordtal.season.stewardagent.plan;
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
 import eu.nordtal.season.database.update.UpdateReport;
+import eu.nordtal.season.database.update.UpdateReport.Note;
+import eu.nordtal.season.database.update.UpdateReport.Step;
 import eu.nordtal.season.internalapi.agent.Topology;
 import eu.nordtal.season.messages.MessageRef;
 import java.util.ArrayList;
@@ -29,7 +31,7 @@ public final class PlanReport {
     public static UpdateReport of(final UpdatePlan plan) {
         final Map<String, List<UpdateReport.Change>> work = new LinkedHashMap<>();
         final Map<String, MessageRef> trouble = new LinkedHashMap<>();
-        final List<MessageRef> notes = classify(plan, work, trouble);
+        final List<Note> notes = classify(plan, work, trouble);
 
         UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED);
         for (final Map.Entry<String, List<UpdateReport.Change>> entry : work.entrySet()) {
@@ -39,28 +41,28 @@ public final class PlanReport {
 
         for (final UpdatePlan.Unclaimed left : plan.unclaimed()) {
             // Loud rather than tidy: a claimless jar is usually a renamed plugin, loaded twice.
-            notes.add(TEXTS.report().unclaimed(left.service(), left.fileName()));
+            notes.add(Note.warning(Step.SOURCES, TEXTS.report().unclaimed(left.fileName()))
+                    .on(left.service()));
         }
-        for (final MessageRef note : notes) {
-            report = report.withNote(note);
-        }
-        return report;
+        return report.withNotes(notes);
     }
 
     /** Sorts the changes into per-service work, per-service trouble, and notes that belong to no service. */
-    private static List<MessageRef> classify(
+    private static List<Note> classify(
             final UpdatePlan plan,
             final Map<String, List<UpdateReport.Change>> work,
             final Map<String, MessageRef> trouble) {
         // The resolver's own notes first, as it worded them: this class draws, it does not decide.
-        final List<MessageRef> notes = new ArrayList<>(plan.notes());
+        final List<Note> notes = new ArrayList<>(plan.notes().stream()
+                .map(note -> Note.warning(Step.SOURCES, note))
+                .toList());
 
         for (final Change change : plan.changes()) {
             if (change.service() == null) {
                 if (change.status().isWork()) {
-                    notes.add(TEXTS.report().packMoves(version(change)));
+                    notes.add(Note.done(Step.SOURCES, TEXTS.report().packMoves(version(change))));
                 } else if (change.status().isFailure()) {
-                    notes.add(TEXTS.report().packUnchecked(reason(change)));
+                    notes.add(Note.failed(Step.SOURCES, TEXTS.report().packUnchecked(reason(change))));
                 }
                 continue;
             }
@@ -72,8 +74,10 @@ public final class PlanReport {
                 work.get(change.service()).add(UpdateReport.Change.unsupported(change.artifact()));
             } else if (change.status() == Change.Status.NOT_IN_RELEASE) {
                 // Not work, not a failure: our release carries nothing for this jar, and the installed one stays.
-                notes.add(TEXTS.report()
-                        .notInRelease(change.service(), reason(change), String.valueOf(change.installed())));
+                notes.add(Note.warning(
+                                Step.SOURCES,
+                                TEXTS.report().notInRelease(reason(change), String.valueOf(change.installed())))
+                        .on(change.service()));
             } else if (change.status().isFailure()) {
                 // One unreadable row makes the whole service untrustworthy.
                 trouble.putIfAbsent(change.service(), reason(change));

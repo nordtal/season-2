@@ -59,7 +59,7 @@ class ChoreographyTest {
 
         final Choreography.Window window = choreography.open(List.of("proxy", "limbo", "smp"));
 
-        assertTrue(window.opened(), Told.english(window.refusal()));
+        assertTrue(window.opened(), Told.joined(window.refusal()));
         assertEquals(List.of("proxy-standby", "limbo-standby"), window.standbys());
         // recreate-local, not recreate: the standby must run the image its live service runs, often built here.
         assertEquals(
@@ -77,7 +77,7 @@ class ChoreographyTest {
 
         final Choreography.Window window = choreography.open(List.of("limbo"));
 
-        assertTrue(window.opened(), Told.english(window.refusal()));
+        assertTrue(window.opened(), Told.joined(window.refusal()));
         assertEquals(
                 List.of("fetch:limbo-standby", "recreate-local:limbo-standby"),
                 containers.calls,
@@ -93,7 +93,7 @@ class ChoreographyTest {
         final Choreography.Window window = choreography.open(List.of("limbo"));
 
         assertFalse(window.opened(), "a run with nowhere to put the players must not go ahead");
-        final String refusal = Told.english(window.refusal());
+        final String refusal = Told.joined(window.refusal());
         assertNotNull(refusal);
         assertTrue(refusal.contains("limbo-standby"), refusal);
         assertTrue(refusal.contains("unhealthy"), refusal);
@@ -151,7 +151,7 @@ class ChoreographyTest {
         final String said = Told.joined(choreography.waitUntilEmpty(List.of("smp")));
 
         assertFalse(said.isEmpty(), "a stop with somebody still on it is a line in the report, not silence");
-        assertEquals("stopped with 1 player still connected (smp: 1) after waiting 10s", said);
+        assertEquals("PLAYERS WARNING smp: stopped with 1 player still on after 10s", said);
         assertTrue(clock.slept().compareTo(Choreography.EMPTY_CAP) >= 0, "it waited the whole cap before giving up");
     }
 
@@ -163,17 +163,23 @@ class ChoreographyTest {
         final String said = Told.joined(choreography.waitUntilEmpty(List.of("smp")));
 
         assertFalse(said.isEmpty());
-        assertTrue(said.contains("Nothing recent said how many players were on smp"), said);
+        assertEquals("PLAYERS WARNING smp: no recent player count, stopped after 10s", said);
     }
 
     @Test
     void theTwoHalvesOfTheSentenceAreToldApart() {
         final Map<String, Integer> occupied = new LinkedHashMap<>();
         occupied.put("smp", 2);
-        final String said = Told.joined(Choreography.stoppedAnyway(occupied, List.of("limbo")));
+        occupied.put("hunger-games", 1);
+        final List<String> said = Told.records(Choreography.stoppedAnyway(occupied, List.of("limbo")));
 
-        assertTrue(said.startsWith("stopped with 2 players still connected (smp: 2)"), said);
-        assertTrue(said.contains("Nothing recent said how many players were on limbo"), said);
+        assertEquals(
+                List.of(
+                        "PLAYERS WARNING smp: stopped with 2 players still on after 10s",
+                        "PLAYERS WARNING hunger-games: stopped with 1 player still on after 10s",
+                        "PLAYERS WARNING limbo: no recent player count, stopped after 10s"),
+                said,
+                "each server keeps its own count, and no answer is told apart from players still on");
     }
 
     // Closing the window
@@ -186,7 +192,7 @@ class ChoreographyTest {
         choreography.open(List.of("limbo"));
         containers.calls.clear();
 
-        final List<String> said = Told.english(choreography.close());
+        final List<String> said = Told.records(choreography.close());
 
         assertEquals(1, said.size(), said.toString());
         assertTrue(said.get(0).contains("limbo-standby"), said.toString());
@@ -227,10 +233,10 @@ class ChoreographyTest {
         choreography.open(List.of("proxy"));
         containers.calls.clear();
 
-        final List<String> said = Told.english(choreography.close());
+        final List<String> said = Told.records(choreography.close());
 
         assertEquals(List.of("stop:proxy-standby-container-2", "hand-over-mounts:proxy-standby"), containers.calls);
-        assertTrue(said.get(0).endsWith("has been stopped again"), said.toString());
+        assertEquals(List.of("STANDBY DONE proxy-standby: stopped again"), said);
         assertEquals(
                 Duration.ofSeconds(1),
                 clock.slept(),

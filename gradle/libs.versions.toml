@@ -10,7 +10,7 @@ placeholderapi = "2.12.3"
 tab-api = "6.1.2"
 jda = "6.7.0"
 bunq = "1.28.0.6"
-# steward-bunq compiles a patched bunq SDK class against OkHttp; must equal what the SDK resolves.
+# steward-bunq compiles a patched bunq SDK class against OkHttp; the SDK, built on OkHttp 3, runs on this through it.
 okhttp = "5.5.0"
 guava = "33.7.2-jre"
 logback = "1.6.5"

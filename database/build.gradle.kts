@@ -24,7 +24,7 @@ dependencies {
     compileOnly(libs.gson)
     testImplementation(libs.gson)
 
-    // NullAway's annotations reference checker-qual at class-file level; this is the version NullAway pulls in.
+    // NullAway's annotations reference checker-qual at class-file level, so javac needs it to read them.
     compileOnly("org.checkerframework:checker-qual:4.3.0")
     testCompileOnly("org.checkerframework:checker-qual:4.3.0")
 

@@ -94,7 +94,10 @@ final class SpecJson {
         node.add("order", order);
     }
 
-    /** Puts each {@link Refers} of {@code spec} on its node as {@code refers}, nested specs and list entries too. */
+    /**
+     * Puts each {@link Refers}, {@link AppliesWhen} and {@link ChoiceNames} on its node, at every depth.
+     * A list of specs also carries the {@code defaults} a new entry starts from.
+     */
     private static void addReferences(final Class<?> spec, final JsonObject node) {
         if (!(node.get("children") instanceof final JsonObject children)) {
             return;
@@ -106,19 +109,64 @@ final class SpecJson {
             final Method getter = property.getter();
             final Refers refers = getter.getAnnotation(Refers.class);
             if (refers != null) {
-                final JsonObject declared = new JsonObject();
-                declared.addProperty("to", refers.value().name());
-                if (!refers.dependsOn().isEmpty()) {
-                    declared.addProperty("dependsOn", refers.dependsOn());
-                }
-                declared.addProperty("optional", refers.optional());
-                child.add("refers", declared);
+                child.add("refers", referenceOf(refers));
+            }
+            final AppliesWhen applies = getter.getAnnotation(AppliesWhen.class);
+            if (applies != null) {
+                final JsonObject condition = new JsonObject();
+                condition.addProperty("key", applies.key());
+                condition.add("values", array(applies.values()));
+                child.add("appliesWhen", condition);
+            }
+            final ChoiceNames names = getter.getAnnotation(ChoiceNames.class);
+            if (names != null) {
+                addNames(property.key(), names, child);
             }
             final Class<?> nested = nestedSpec(getter);
             if (nested != null) {
+                if (!Specs.isConfigSpec(getter.getReturnType())) {
+                    child.add("defaults", defaults(nested));
+                }
                 addReferences(nested, child);
             }
         }
+    }
+
+    private static JsonObject referenceOf(final Refers refers) {
+        final JsonObject declared = new JsonObject();
+        declared.addProperty("to", refers.value().name());
+        if (!refers.dependsOn().isEmpty()) {
+            declared.addProperty("dependsOn", refers.dependsOn());
+        }
+        declared.addProperty("optional", refers.optional());
+        if (refers.except().length > 0) {
+            declared.add("except", array(refers.except()));
+        }
+        return declared;
+    }
+
+    /** Puts the names' key and the icons on the node's choices, refusing a count of icons that matches no value. */
+    private static void addNames(final String key, final ChoiceNames names, final JsonObject node) {
+        if (!(node.get("choices") instanceof final JsonObject choices)
+                || !(choices.get("values") instanceof final JsonArray values)) {
+            throw new IllegalStateException(key + " names its choices but offers none");
+        }
+        if (names.icons().length > 0 && names.icons().length != values.size()) {
+            throw new IllegalStateException(key + " has " + values.size() + " choices but " + names.icons().length
+                    + " icons; it needs one for each or none");
+        }
+        choices.addProperty("names", names.value());
+        if (names.icons().length > 0) {
+            choices.add("icons", array(names.icons()));
+        }
+    }
+
+    private static JsonArray array(final String[] values) {
+        final JsonArray array = new JsonArray();
+        for (final String value : values) {
+            array.add(value);
+        }
+        return array;
     }
 
     /** Returns the spec a getter holds, alone or as the entries of a list, or {@code null} for a plain value. */

@@ -23,6 +23,9 @@ public @interface Refers {
     /** Whether an empty value is a choice of its own, such as no channel at all. */
     boolean optional() default false;
 
+    /** The entries of the registry a picker leaves out, by their namespaced key. */
+    String[] except() default {};
+
     /** What a value names; a registry's constant is that registry's name in the game catalogue, lower case. */
     enum To {
         ITEM,

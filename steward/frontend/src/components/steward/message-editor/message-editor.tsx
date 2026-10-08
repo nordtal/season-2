@@ -21,7 +21,7 @@ import {
   useMessageExamples,
   useMessageSyntax,
 } from "@/lib/queries"
-import { formatOf, normalize, parse, plainText, same, serialize } from "@/lib/rich-text"
+import { branchesOf, formatOf, normalize, parse, plainText, same, serialize } from "@/lib/rich-text"
 import type { Format, Run } from "@/lib/rich-text"
 import type { GlyphInfo } from "@/lib/api"
 import { choice, message, t } from "@/lib/texts"
@@ -126,6 +126,7 @@ export function MessageEditor({
 
   const [runs, setRuns] = useRuns(text, format, toneTags, stored[at] ?? "", writeText)
   const readable = runs !== null
+  const drawn = runs === null ? null : branchesOf(runs, format, toneTags, fill)
   const visual = readable && !source
 
   const checked = useDebounced(typed === undefined ? null : text, CHECK_DELAY)
@@ -299,7 +300,7 @@ export function MessageEditor({
           ))}
         </ul>
       ) : null}
-      {runs !== null ? (
+      {drawn !== null ? (
         <div className={cn("grid grid-cols-1 gap-3", shownAt.length > 1 && "lg:grid-cols-2")}>
           {shownAt.map((place) => (
             <PlacePreview
@@ -307,7 +308,7 @@ export function MessageEditor({
               place={place}
               places={places}
               target={place === undefined ? undefined : previews?.[place]}
-              runs={runs}
+              runs={drawn}
               fill={fill}
               glyphs={glyphs.data ?? []}
               tones={tones}

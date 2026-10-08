@@ -100,6 +100,37 @@ describe("the previews", () => {
     expect(bodies[0]).toMatchObject({ shown: "CHAT", service: "smp" })
   })
 
+  it("draws the case of a plural or a choice that the example picks", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend(
+        listing([
+          text({
+            texts: { en: ["{state, select, RUNNING {Running} other {Stopped}}"] },
+            key: "state",
+            name: "Service state",
+            shown: ["STEWARD"],
+            args: [{ name: "state", kind: "choice", global: false, example: "true", action: false, exampleWords: {} }],
+          }),
+          text({
+            texts: { en: ["{count, plural, one {# player} other {# players}} online"] },
+            key: "online",
+            name: "Online",
+            shown: ["STEWARD"],
+            args: [{ name: "count", kind: "number", global: false, example: "1", action: false, exampleWords: {} }],
+          }),
+        ]),
+      ),
+    )
+    draw(<Page />)
+    await openKey("Service state")
+    expect(within(await screen.findByRole("figure", { name: "Steward" })).getByText("Stopped")).toBeTruthy()
+
+    await openKey("Online")
+    // The figure's text begins with its caption, the place's name.
+    expect(screen.getByRole("figure", { name: "Steward" }).textContent).toBe("Steward1 player online")
+  })
+
   it("draws a building block once, plain, though every place shows it", async () => {
     vi.stubGlobal(
       "fetch",

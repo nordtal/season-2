@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   applyStyle,
+  branchesOf,
   commonStyle,
   gradientAt,
   insert,
@@ -76,6 +77,64 @@ describe("a Minecraft text", () => {
   it("keeps a hover's own text a message of its own", () => {
     const [run] = read("<hover:show_text:'<gold>more'>word</hover>")
     expect(run.style.hover).toEqual([{ kind: "text", text: "more", style: { colour: "gold" } }])
+  })
+})
+
+/** The runs of `text` as a preview draws them, each value's example taken from `examples`. */
+function drawn(text: string, examples: Record<string, string>, format: Format = "MINIMESSAGE"): Run[] {
+  return branchesOf(read(text, format), format, TONES, (name) => examples[name] ?? name)
+}
+
+describe("a plural or a choice as a preview draws it", () => {
+  it("draws the plural's case its example's number picks, an exact one before its category", () => {
+    const text = "{n, plural, =0 {none} one {# file} other {# files}} left"
+    expect(drawn(text, { n: "0" })).toEqual([{ kind: "text", text: "none left", style: {} }])
+    expect(drawn(text, { n: "1" })).toEqual([
+      { kind: "placeholder", name: "n", k: "number", style: {} },
+      { kind: "text", text: " file left", style: {} },
+    ])
+    expect(drawn(text, { n: "3" })).toEqual([
+      { kind: "placeholder", name: "n", k: "number", style: {} },
+      { kind: "text", text: " files left", style: {} },
+    ])
+  })
+
+  it("draws a plural's other case where its example is no number", () => {
+    expect(drawn("{n, plural, one {one} other {many}}", { n: "a few" })).toEqual([
+      { kind: "text", text: "many", style: {} },
+    ])
+  })
+
+  it("draws the choice's case its example names, and its other case where the example names none", () => {
+    const text = "{state, select, RUNNING {up} other {down}}"
+    expect(drawn(text, { state: "RUNNING" })).toEqual([{ kind: "text", text: "up", style: {} }])
+    expect(drawn(text, { state: "true" })).toEqual([{ kind: "text", text: "down", style: {} }])
+  })
+
+  it("keeps the style around the case and the tags inside it", () => {
+    expect(drawn("<gray>{n, plural, one {<bold>#</bold> file} other {# files}}</gray>", { n: "1" })).toEqual([
+      { kind: "placeholder", name: "n", k: "number", style: { colour: "gray", bold: true } },
+      { kind: "text", text: " file", style: { colour: "gray" } },
+    ])
+  })
+
+  it("draws a choice inside a case, where a # still stands for the plural's number", () => {
+    const text = "{n, plural, one {one} other {{kind, select, log {# logs} other {# items}}}}"
+    expect(drawn(text, { n: "4", kind: "log" })).toEqual([
+      { kind: "placeholder", name: "n", k: "number", style: {} },
+      { kind: "text", text: " logs", style: {} },
+    ])
+  })
+
+  it("draws a Discord text's case with its markdown", () => {
+    expect(drawn("{n, plural, one {**#** file} other {# files}}", { n: "1" }, "DISCORD_MARKDOWN")).toEqual([
+      { kind: "placeholder", name: "n", k: "number", style: { bold: true } },
+      { kind: "text", text: " file", style: {} },
+    ])
+  })
+
+  it("keeps a tag no editor offers as its source", () => {
+    expect(drawn("<lang:x>", {})).toEqual([{ kind: "raw", source: "<lang:x>", style: {} }])
   })
 })
 

@@ -135,7 +135,8 @@ text is right is only ever `MessageCheck`: the editor asks `GET /api/message-che
 pauses, and the save refuses what it errs on. An override no process shows
 (`GET /api/message-fallbacks`) opens with what it was written over and what the jar has now. Below
 the field is one preview per place, as the game, Discord, Steward's page or a notification shows
-it; a building block gets one plain preview. The counter is the key's `limit`, the strictest of its
+it; a building block gets one plain preview. A plural or a choice is drawn as the case its value's
+example picks, as the web target picks it, its `other` case where the example names none. The counter is the key's `limit`, the strictest of its
 places. A place a preview reaches has a send button, which asks `POST /api/message-preview`: a
 Discord place arrives as a direct message from the bot, a game place on the admin's linked player's
 server, filled with the editor's examples, in the filtered service's palette if there is one. One

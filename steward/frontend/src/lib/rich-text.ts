@@ -1,5 +1,5 @@
 import { argumentText, readText, writeText } from "@/lib/message-tree"
-import type { TextNode } from "@/lib/texts"
+import { chosen, type TextNode } from "@/lib/texts"
 
 /**
  * A message as the translation editor edits it: runs, each carrying its whole style, read from the one parser's tree.
@@ -589,6 +589,62 @@ const STYLE_KEYS: (keyof Style)[] = [
 function setShared(result: Style, key: keyof Style, first: Style, rest: Style[]): void {
   const value = first[key]
   if (rest.every((style) => same(style[key], value))) Object.assign(result, { [key]: value })
+}
+
+/**
+ * The runs as a preview draws them: each plural and select as the case its value's `example` picks, the way the web
+ * target and the game pick it, with `#` drawn as the plural's number.
+ */
+export function branchesOf(
+  runs: Run[],
+  format: Format,
+  tones: readonly string[],
+  example: (name: string) => string,
+): Run[] {
+  const markup = format === "MINIMESSAGE"
+  return normalize(
+    runs.flatMap((run) => {
+      const nodes = run.kind === "raw" ? readText(run.source, markup) : null
+      const node = nodes?.length === 1 ? nodes[0] : undefined
+      if (node === undefined || typeof node === "string" || !("c" in node)) return [run]
+      const picked = chosen(node, exampleValue(example(node.c)))
+      const inner = parse(writeText(node.plural ? numbered(picked, node.c) : picked, markup), format, tones)
+      if (inner === null) return [run]
+      return branchesOf(inner, format, tones, example).map((part) => ({
+        ...part,
+        style: within(run.style, part.style),
+      }))
+    }),
+  )
+}
+
+/** An example as the value it stands for: a number where it reads as one, else its words. */
+function exampleValue(example: string): number | string {
+  const number = Number(example)
+  return example.trim() !== "" && Number.isFinite(number) ? number : example
+}
+
+/** A plural's case with each `#` that stands for its number `name` written as that number's value. */
+function numbered(nodes: TextNode[], name: string): TextNode[] {
+  return nodes.map((node) => {
+    if (typeof node === "string" || "v" in node) return node
+    if ("pound" in node) return { v: name, k: "number" }
+    if ("c" in node) {
+      if (node.plural) return node
+      return {
+        ...node,
+        cases: Object.fromEntries(Object.entries(node.cases).map(([key, value]) => [key, numbered(value, name)])),
+      }
+    }
+    return { ...node, args: node.args.map((arg) => numbered(arg, name)) }
+  })
+}
+
+/** A case's style inside the style around it: its own colour replaces the one around, as a nested tag's does. */
+function within(around: Style, own: Style): Style {
+  const coloured = own.tone !== undefined || own.colour !== undefined || own.gradient !== undefined
+  const kept = coloured ? { ...around, tone: undefined, colour: undefined, gradient: undefined } : around
+  return cleanStyle({ ...kept, ...own })
 }
 
 /** The plain characters of the runs, with placeholders filled, for counting and search. */

@@ -201,7 +201,8 @@ function filled(
   return { text: shown(value, style), kind: value.kind, name }
 }
 
-function chosen(node: { plural: boolean; cases: Record<string, TextNode[]> }, raw: unknown): TextNode[] {
+/** The case of a plural or a select that the value `raw` picks, its `other` case where it picks none. */
+export function chosen(node: { plural: boolean; cases: Record<string, TextNode[]> }, raw: unknown): TextNode[] {
   const other = node.cases.other
   const value = typedOf(raw, node.plural ? "number" : "choice")
   if (value === undefined) return other

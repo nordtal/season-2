@@ -1,5 +1,6 @@
 package eu.nordtal.season.packrendering;
 
+import eu.nordtal.season.common.language.Locales;
 import java.util.Locale;
 import org.jspecify.annotations.Nullable;
 
@@ -8,19 +9,13 @@ public final class LanguageFlags {
 
     private LanguageFlags() {}
 
-    /**
-     * Returns the flag for a language, and the neutral flag for anything unmapped, null included.
-     *
-     * {@code en} is British unless its country is the United States.
-     */
+    /** Returns the glyph of the flag {@link Locales#flagCountry} names, and the neutral flag for anything else. */
     public static String of(final @Nullable Locale locale) {
-        if (locale == null) {
-            return Glyphs.FLAG_OTHER;
-        }
-        return switch (locale.getLanguage()) {
-            case "de" -> Glyphs.FLAG_GERMANY;
-            case "nl" -> Glyphs.FLAG_NETHERLANDS;
-            case "en" -> "US".equals(locale.getCountry()) ? Glyphs.FLAG_UNITED_STATES : Glyphs.FLAG_UNITED_KINGDOM;
+        return switch (Locales.flagCountry(locale).orElse("")) {
+            case "DE" -> Glyphs.FLAG_GERMANY;
+            case "NL" -> Glyphs.FLAG_NETHERLANDS;
+            case "GB" -> Glyphs.FLAG_UNITED_KINGDOM;
+            case "US" -> Glyphs.FLAG_UNITED_STATES;
             default -> Glyphs.FLAG_OTHER;
         };
     }

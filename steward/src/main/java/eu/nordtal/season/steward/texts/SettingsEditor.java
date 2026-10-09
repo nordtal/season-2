@@ -137,6 +137,12 @@ public interface SettingsEditor {
     @Name("Remove entry question")
     MessageRef removeEntryAsk();
 
+    @Name("Keep the entry")
+    MessageRef keepIt();
+
+    @Name("Remove the entry")
+    MessageRef removeIt();
+
     @Name("None")
     MessageRef none();
 

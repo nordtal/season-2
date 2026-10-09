@@ -6,6 +6,7 @@ import type { SectionValues } from "@/components/steward/repeatable-cards"
 import type { ConfigEntry } from "@/lib/api"
 import { asButton, asInput } from "@/lib/test-elements"
 import { queryResult, words } from "@/lib/query-fixtures"
+import { packagedTexts, replaceTexts } from "@/lib/texts"
 
 /** No guild can be listed here, so a Discord reference falls back to its typed field. */
 vi.mock("@/lib/queries", () => ({
@@ -234,6 +235,26 @@ describe("RepeatableCards - confirming a removal", () => {
 
     expect(onChange).not.toHaveBeenCalled()
     expect(screen.queryByRole("alertdialog")).toBeNull()
+  })
+})
+
+/** Every word Steward shows is a key of its bundle, so an admin can override the confirmation's buttons too. */
+describe("RepeatableCards - the removal's buttons are texts of the bundle", () => {
+  afterEach(() => replaceTexts(packagedTexts()))
+
+  it("names its buttons from the settings section, so an override shows", () => {
+    replaceTexts({
+      ...packagedTexts(),
+      "steward.settings.keep-it": [["Leave it be"]],
+      "steward.settings.remove-it": [["Drop it"]],
+    })
+    const entry = sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role" })]])
+    render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove entry 1" }))
+
+    expect(screen.getByRole("button", { name: "Leave it be" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Drop it" })).toBeTruthy()
   })
 })
 

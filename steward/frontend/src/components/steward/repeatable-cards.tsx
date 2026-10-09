@@ -283,8 +283,8 @@ export function RepeatableCards({
             : t("steward.settings.remove-entry-ask")
         }
         description={listExplanation ? <span className="whitespace-pre-wrap">{listExplanation}</span> : undefined}
-        cancel="Keep it"
-        action="Remove it"
+        cancel={t("steward.settings.keep-it")}
+        action={t("steward.settings.remove-it")}
         act={() => {
           if (pendingRemoval !== null) onChange(value.filter((_, at) => at !== pendingRemoval))
         }}

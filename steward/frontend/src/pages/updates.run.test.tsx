@@ -34,7 +34,7 @@ const REPORT = {
   notes: [],
 }
 
-function backend(report: unknown = REPORT): typeof fetch {
+function backend(report: unknown = REPORT, extra: Record<string, unknown> = {}): typeof fetch {
   const impl: typeof fetch = async (input) => {
     const url = urlOf(input)
     if (url.startsWith("/api/updates/79")) {
@@ -51,6 +51,7 @@ function backend(report: unknown = REPORT): typeof fetch {
         started: "2026-09-20T18:01:00Z",
         finished: "2026-09-20T18:04:00Z",
         report,
+        ...extra,
       })
     }
     throw new Error(`the page asked for ${url}, which this test did not expect`)
@@ -168,5 +169,17 @@ describe("a run's figures wrap on a phone", () => {
     const figures = (await screen.findByText("Requested by")).closest("div")?.parentElement
     expect(figures?.textContent).toContain("Status")
     expect(figures?.querySelector("[data-slot='separator']")).toBeNull()
+  })
+})
+
+describe("a run's raw report follows the theme", () => {
+  it("draws the raw report in the console's theme colours, with no fixed colour of its own", async () => {
+    vi.stubGlobal("fetch", backend(undefined, { resultText: "steward-agent: not a report" }))
+    draw()
+
+    const raw = (await screen.findByText("steward-agent: not a report")).closest("pre")
+    expect(raw?.className).toMatch(/\bbg-card\b/)
+    expect(raw?.className).toMatch(/\btext-card-foreground\b/)
+    expect(raw?.className).not.toMatch(/\[#|-(white|black)\b/)
   })
 })

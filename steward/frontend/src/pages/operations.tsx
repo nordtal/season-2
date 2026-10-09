@@ -471,7 +471,7 @@ function RunDetail({ run }: { run?: Run }) {
               <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
               {t("steward.operations.raw-report")}
             </p>
-            <pre className="max-h-96 overflow-auto rounded-md border border-border bg-[#0a0a0a] p-3 font-mono text-xs leading-5 whitespace-pre-wrap">
+            <pre className="max-h-96 overflow-auto rounded-md border border-border bg-card p-3 text-card-foreground font-mono text-xs leading-5 whitespace-pre-wrap">
               {run.resultText}
             </pre>
           </>

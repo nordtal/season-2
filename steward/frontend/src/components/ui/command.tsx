@@ -25,6 +25,9 @@ function Command({ className, ...props }: React.ComponentProps<typeof CommandPri
   )
 }
 
+/** In a sheet, the field and the rows start on `--sheet-gutter`, less the command's own two 4px insets. */
+const SHEET_INSET = "data-[slot=drawer-content]:px-[calc(var(--sheet-gutter)-0.5rem)]"
+
 /**
  * `label` names the input through cmdk's hidden label, and defaults to `title`.
  *
@@ -56,7 +59,7 @@ function CommandDialog({
       </ResponsiveDialogHeader>
       <ResponsiveDialogContent
         /** `top-1/3` only as a dialog, since as a sheet vaul already places the shell above the keyboard. */
-        className={cn("overflow-hidden rounded-xl! p-0 sm:top-1/3 sm:translate-y-0", className)}
+        className={cn("overflow-hidden rounded-xl! p-0 sm:top-1/3 sm:translate-y-0", SHEET_INSET, className)}
         showCloseButton={showCloseButton}
       >
         {/* `min-h-0 flex-1` so the list, not the input, gives way when vaul shrinks the sheet above the keyboard. */}

@@ -113,7 +113,7 @@ export function ServicePlugins({ service }: { service: string }) {
       <ResponsiveDialog open={adding} onOpenChange={setAdding}>
         {/* The search stays put and only the results scroll, flush to the dialog's edge. */}
         <ResponsiveDialogContent className="gap-0 overflow-hidden p-0 sm:max-w-lg" data-testid="add-plugin">
-          <ResponsiveDialogHeader className="px-4 pt-4 pb-3">
+          <ResponsiveDialogHeader className="px-(--sheet-gutter,1rem) pt-4 pb-3">
             <ResponsiveDialogTitle>{t("steward.service-page.add-plugin")}</ResponsiveDialogTitle>
             <ResponsiveDialogDescription className="sr-only">
               {t("steward.service-page.search-modrinth")}
@@ -360,7 +360,7 @@ function Search({ service, loader, version }: { service: string; loader?: string
 
   return (
     <>
-      <div className="flex items-center gap-2 px-4 pb-3">
+      <div className="flex items-center gap-2 px-(--sheet-gutter,1rem) pb-3">
         <MagnifyingGlassIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
         <Input
           value={typed}
@@ -375,7 +375,10 @@ function Search({ service, loader, version }: { service: string; loader?: string
         ) : null}
       </div>
 
-      <div className="max-h-[60vh] overflow-y-auto border-t border-border px-4 py-3" data-testid="add-plugin-results">
+      <div
+        className="max-h-[60vh] overflow-y-auto border-t border-border px-(--sheet-gutter,1rem) py-3"
+        data-testid="add-plugin-results"
+      >
         <QueryState
           query={results}
           isEmpty={(answer) => answer.hits.length === 0}

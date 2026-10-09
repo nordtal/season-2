@@ -41,8 +41,12 @@ function DrawerContent({ className, children, ...props }: React.ComponentProps<t
       <DrawerPrimitive.Content
         data-slot="drawer-content"
         className={cn(
-          /** `svh`, not `vh`, since on iOS a sheet sized in `vh` puts its footer under the browser chrome. */
-          "fixed inset-x-0 bottom-0 z-50 flex max-h-[90svh] flex-col gap-4 rounded-t-xl bg-popover p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none",
+          /**
+           * `svh`, not `vh`, since on iOS a sheet sized in `vh` puts its footer under the browser chrome.
+           *
+           * `--sheet-gutter` is the sheet's side padding, which a sheet that pads its own rows reads instead of adding to.
+           */
+          "fixed inset-x-0 bottom-0 z-50 flex max-h-[90svh] flex-col gap-4 rounded-t-xl bg-popover px-(--sheet-gutter) pt-4 [--sheet-gutter:1.5rem] pb-[max(1rem,env(safe-area-inset-bottom))] text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none",
           className,
         )}
         {...props}
@@ -65,7 +69,7 @@ function DrawerFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="drawer-footer"
       className={cn(
-        "-mx-4 -mb-4 mt-auto flex flex-col-reverse gap-2 border-t bg-muted/50 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
+        "-mx-(--sheet-gutter) -mb-4 mt-auto flex flex-col-reverse gap-2 border-t bg-muted/50 px-(--sheet-gutter) pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
         className,
       )}
       {...props}

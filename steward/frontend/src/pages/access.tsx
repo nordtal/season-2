@@ -1,4 +1,4 @@
-import { MagnifyingGlassIcon } from "@phosphor-icons/react"
+import { HourglassIcon, MagnifyingGlassIcon } from "@phosphor-icons/react"
 import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 import { useState } from "react"
@@ -71,19 +71,19 @@ function WaitingPersonRow() {
           <SkeletonText width="full" className="max-w-[13rem]" />
         </div>
       </TableCell>
-      <TableCell data-label={t("steward.people.access")}>
+      <TableCell data-label={t("steward.people.access")} data-phone="inline">
         <Skeleton className="h-5 w-[15rem] max-w-full rounded-full" />
       </TableCell>
-      <TableCell data-label={t("steward.people.minecraft")}>
+      <TableCell data-label={t("steward.people.minecraft")} data-phone="inline">
         <div className="flex items-center gap-2">
           <Skeleton className="size-5 shrink-0 rounded-sm" />
           <SkeletonText width="full" className="max-w-[6.5rem]" />
         </div>
       </TableCell>
-      <TableCell data-label={t("steward.people.roles")}>
+      <TableCell data-label={t("steward.people.roles")} data-phone="inline">
         <Skeleton className="h-5 w-[7rem] max-w-full rounded-full" />
       </TableCell>
-      <TableCell data-label={t("steward.people.playtime")}>
+      <TableCell data-label={t("steward.people.playtime")} data-phone="inline">
         <SkeletonText width="medium" className="min-w-[3rem]" />
       </TableCell>
       <TableCell />
@@ -209,13 +209,14 @@ export function AccessPage() {
                           {person.memberState !== "MEMBER" ? <MemberBadge state={person.memberState} /> : null}
                         </div>
                       </TableCell>
-                      <TableCell data-label={t("steward.people.access")}>
+                      {/* On a phone the badges and the face read on their own, so they share lines without labels. */}
+                      <TableCell data-label={t("steward.people.access")} data-phone="inline">
                         <AccessBadge person={person} now={now} />
                       </TableCell>
-                      {/* "Not linked" is only worth a line on a phone while it keeps a paying person out. */}
+                      {/* "Not linked" is only worth a place on a phone while it keeps a paying person out. */}
                       <TableCell
                         data-label={t("steward.people.minecraft")}
-                        data-phone={person.minecraftUuid || person.accessActive ? undefined : "off"}
+                        data-phone={person.minecraftUuid || person.accessActive ? "inline" : "off"}
                       >
                         {person.minecraftUuid ? (
                           <Entity id={person.minecraftUuid} kind="minecraft" />
@@ -223,18 +224,23 @@ export function AccessPage() {
                           <LinkBadge person={person} />
                         )}
                       </TableCell>
-                      <TableCell
-                        data-label={t("steward.people.roles")}
-                        data-phone={hasRole(person) ? undefined : "off"}
-                      >
+                      <TableCell data-label={t("steward.people.roles")} data-phone={hasRole(person) ? "inline" : "off"}>
                         <RoleBadges person={person} people={list} />
                       </TableCell>
                       <TableCell
                         data-label={t("steward.people.playtime")}
-                        data-phone={person.playtimeSeconds ? undefined : "off"}
+                        data-phone={person.playtimeSeconds ? "inline" : "off"}
                       >
                         {/* `playtime` draws the dash for somebody who has never been online. */}
-                        <span className="text-sm tabular-nums">{span(person.playtimeSeconds, "minutes")}</span>
+                        <span className="flex items-center gap-1 text-sm tabular-nums">
+                          {/* The card's stand-in for the column's heading, which a phone does not draw. */}
+                          <HourglassIcon
+                            className="size-3.5 shrink-0 text-muted-foreground @rows:hidden"
+                            role="img"
+                            aria-label={t("steward.people.playtime")}
+                          />
+                          {span(person.playtimeSeconds, "minutes")}
+                        </span>
                       </TableCell>
                       {/* Off on a phone, where the card is a link's worth and the page has the actions as buttons. */}
                       <TableCell data-phone="off">

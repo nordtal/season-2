@@ -387,6 +387,31 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     expect(absent(await rowFor("payer"))).toEqual(["Roles", "Playtime"])
   })
 
+  it("draws a phone's card as a few lines: the name, then access, the Minecraft face, roles and play time side by side", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        people: () => [
+          person({
+            discordUsername: "player",
+            accessActive: true,
+            accessUntil: "2027-01-01T00:00:00Z",
+            admin: true,
+            minecraftUuid: "11111111-2222-3333-4444-555555555555",
+            mcName: "PlayerMC",
+            playtimeSeconds: 3_600,
+          }),
+        ],
+      }),
+    )
+    draw(<AccessPage />)
+
+    const row = await rowFor("player")
+    /** Each value reads on its own, so an inline cell draws no label before it. */
+    const inline = [...row.querySelectorAll('td[data-phone="inline"]')].map((cell) => cell.getAttribute("data-label"))
+    expect(inline).toEqual(["Access", "Minecraft", "Roles", "Playtime"])
+  })
+
   it("leaves the actions off a phone's card, whose name leads to the page that has them", async () => {
     vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)

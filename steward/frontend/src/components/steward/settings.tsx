@@ -176,7 +176,7 @@ function FileRow({
       disabled={!item.readable}
       aria-current={selected ? "page" : undefined}
       className={cn(
-        "flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-sm hover:bg-accent disabled:cursor-not-allowed disabled:text-destructive disabled:hover:bg-transparent",
+        "flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-sm pointer-coarse:min-h-control hover:bg-accent disabled:cursor-not-allowed disabled:text-destructive disabled:hover:bg-transparent",
         selected && "bg-accent",
       )}
     >

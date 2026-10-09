@@ -109,7 +109,7 @@ export function Entity({ id, kind, system, interactive, className }: EntityProps
       <Link
         to="/services/$name"
         params={{ name: value }}
-        className={box + " underline-offset-4 hover:text-primary hover:underline"}
+        className={box + " underline-offset-4 tap-target hover:text-primary hover:underline"}
       >
         {face}
       </Link>

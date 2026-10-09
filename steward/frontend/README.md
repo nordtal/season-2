@@ -27,7 +27,8 @@ under `web/`. Nothing generated is committed.
   Steward's own chrome it marks action and nothing else, and no surface or chart series carries it; a
   preview of the game or Discord paints it where they do.
 - Status has three colours: success, warning and `--destructive`.
-- Rows are 34px; a control inside one keeps its 36px target.
+- Rows are 34px; a control inside one keeps its 36px target. On a touch screen both are 40px, and a control
+  drawn smaller, such as a link in a line of text, carries `tap-target`, which grows its hit area alone.
 - Changing numbers are tabular.
 - No `transition: all`, and no `outline: none` without a visible replacement.
 - Every token lives in `src/index.css`, the brand blue in the generated `src/brand.gen.css`.

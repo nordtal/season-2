@@ -273,7 +273,7 @@ function PluginRow({
           {status.text}
         </span>
       ) : null}
-      {plugin?.projectId ? <Link url={plugin.pageUrl} title={plugin.name} /> : null}
+      {plugin?.projectId ? <ModrinthLink url={plugin.pageUrl} title={plugin.name} /> : null}
       {plugin?.group === "added" && plugin.removable && plugin.artifact ? (
         <RemoveButton service={service} plugin={plugin} artifact={plugin.artifact} />
       ) : null}
@@ -409,7 +409,7 @@ function Search({ service, loader, version }: { service: string; loader?: string
                   </div>
                   {hit ? (
                     <>
-                      <Link url={hit.pageUrl} title={hit.title} />
+                      <ModrinthLink url={hit.pageUrl} title={hit.title} />
                       <InstallButton hit={hit} install={install} />
                     </>
                   ) : null}
@@ -498,18 +498,19 @@ function Thumbnail({
   )
 }
 
-function Link({ url, title }: { url?: string; title: string }) {
+function ModrinthLink({ url, title }: { url?: string; title: string }) {
   if (!url) return null
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noreferrer noopener"
-      aria-label={t("steward.service-page.on-modrinth", { title })}
-      title={t("steward.service-page.on-modrinth", { title })}
-      className="shrink-0 text-muted-foreground hover:text-foreground"
-    >
-      <ArrowSquareOutIcon aria-hidden />
-    </a>
+    <Button asChild variant="ghost" size="icon" className="text-muted-foreground">
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer noopener"
+        aria-label={t("steward.service-page.on-modrinth", { title })}
+        title={t("steward.service-page.on-modrinth", { title })}
+      >
+        <ArrowSquareOutIcon aria-hidden />
+      </a>
+    </Button>
   )
 }

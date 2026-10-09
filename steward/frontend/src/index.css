@@ -93,12 +93,12 @@
   --shimmer: color-mix(in oklab, var(--foreground) 7%, transparent);
 }
 
-/* Larger targets for touch, chosen by input device rather than by width. */
+/* Larger targets for touch, chosen by input device rather than by width: 40px, and a row fits one control. */
 @media (pointer: coarse) {
   :root,
   .dark {
-    --row-height: 44px;
-    --control-min-height: 44px;
+    --row-height: 40px;
+    --control-min-height: 40px;
   }
 }
 
@@ -189,6 +189,27 @@
     transform: translateX(-100%);
     background-image: linear-gradient(90deg, transparent 0%, var(--shimmer) 50%, transparent 100%);
     animation: var(--animate-shimmer);
+  }
+}
+
+/*
+ * On a touch screen, a hit area of at least `--control-min-height` each way around a box drawn smaller.
+ *
+ * For a control that must keep its drawn size, such as a link in a line of text; it moves nothing around it.
+ */
+@utility tap-target {
+  @media (pointer: coarse) {
+    position: relative;
+
+    &::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: max(100%, var(--control-min-height));
+      height: max(100%, var(--control-min-height));
+      translate: -50% -50%;
+    }
   }
 }
 

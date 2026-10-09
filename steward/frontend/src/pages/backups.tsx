@@ -154,7 +154,7 @@ function Runs() {
                         <Link
                           to="/operations/backups/$id"
                           params={{ id: String(run.id) }}
-                          className="underline-offset-4 hover:text-primary hover:underline"
+                          className="underline-offset-4 tap-target hover:text-primary hover:underline"
                           onClick={(event) => event.stopPropagation()}
                         >
                           #{run.id}
@@ -404,7 +404,7 @@ export function BackupRunDetailPage() {
                               href={`/api/backups/${encodeURIComponent(backup.name)}/download`}
                               download={backup.name}
                               aria-label={t("steward.backups.download-file", { file: backup.name })}
-                              className="inline-flex text-muted-foreground hover:text-foreground"
+                              className="inline-flex text-muted-foreground tap-target hover:text-foreground"
                             >
                               <DownloadIcon className="size-4" />
                             </a>

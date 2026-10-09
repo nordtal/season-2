@@ -272,7 +272,7 @@ export function ActiveRunLine({ run, name }: { run: Run | null; name: string }) 
   const elsewhere = run.scope.length > 0 && !(run.scope.length === 1 && run.scope[0] === name)
   return (
     <div role="status" className="flex flex-wrap items-center gap-2 text-sm">
-      <Link {...runPath(run)} className="font-medium underline-offset-4 hover:text-primary hover:underline">
+      <Link {...runPath(run)} className="font-medium underline-offset-4 tap-target hover:text-primary hover:underline">
         {runKind(run.kind)} #{run.id}
       </Link>
       {elsewhere ? <span className="text-muted-foreground">{run.scope.join(", ")}</span> : null}

@@ -594,7 +594,8 @@ export function PersonActions({ person, menu = false }: { person: Person; menu?:
       {menu ? (
         <RowActions menu label={t("steward.people.actions-for", { name: personName(person) })} actions={actions} />
       ) : (
-        <div className="flex flex-wrap items-center gap-1">
+        // The ghost buttons' own padding, taken back, so the first label starts where the name above it does.
+        <div className="-mx-2.5 flex flex-wrap items-center gap-1">
           {actions.map((action) => (
             <span key={action.key} className="contents">
               {action.node}

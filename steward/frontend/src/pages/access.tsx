@@ -201,7 +201,7 @@ export function AccessPage() {
                           <Link
                             to="/access/$id"
                             params={{ id: person.discordId }}
-                            className="min-w-0 underline-offset-4 hover:text-primary hover:underline"
+                            className="min-w-0 underline-offset-4 tap-target hover:text-primary hover:underline"
                           >
                             <Entity id={person.discordId} kind="discord" interactive={false} />
                           </Link>

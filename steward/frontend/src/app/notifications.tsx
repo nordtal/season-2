@@ -360,7 +360,7 @@ function ReadOnlyThresholds({
               to="/services/$name"
               params={{ name: ALERTS_SERVICE }}
               onClick={onLeave}
-              className="underline underline-offset-2"
+              className="underline underline-offset-2 tap-target"
             >
               {run.text}
             </Link>

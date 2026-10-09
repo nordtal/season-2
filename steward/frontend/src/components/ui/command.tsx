@@ -75,7 +75,7 @@ function CommandInput({ className, ...props }: React.ComponentProps<typeof Comma
         <CommandPrimitive.Input
           data-slot="command-input"
           className={cn(
-            "w-full text-sm outline-hidden max-md:text-base disabled:cursor-not-allowed disabled:opacity-50",
+            "w-full self-stretch text-sm outline-hidden max-md:text-base disabled:cursor-not-allowed disabled:opacity-50",
             className,
           )}
           {...props}

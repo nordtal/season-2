@@ -104,7 +104,10 @@ function AlertLine({
           {t("alert.level", { level })}
         </StatusBadge>
         {path ? (
-          <Link to={path} className="min-w-0 text-sm font-medium break-words underline-offset-4 hover:underline">
+          <Link
+            to={path}
+            className="min-w-0 text-sm font-medium break-words underline-offset-4 tap-target hover:underline"
+          >
             {title}
           </Link>
         ) : (

@@ -208,7 +208,7 @@ function StepPopover({ step, name, onUnlock }: { step: TrackStep; name: string; 
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="flex min-w-0 flex-col items-start rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          className="flex min-w-0 flex-col items-start justify-center rounded-sm text-left outline-none pointer-coarse:min-h-control pointer-coarse:min-w-control focus-visible:ring-2 focus-visible:ring-ring/50"
         >
           <span
             className={cn(
@@ -266,7 +266,7 @@ function TaskPopover({ task, active, onAsk }: { task: TrackTask; active: boolean
           type="button"
           aria-label={name}
           className={cn(
-            "flex w-full min-w-0 flex-col gap-1 rounded-md bg-muted/50 px-2 py-1.5 text-left text-xs outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50",
+            "flex w-full min-w-0 flex-col justify-center gap-1 rounded-md bg-muted/50 px-2 py-1.5 text-left text-xs outline-none pointer-coarse:min-h-control hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50",
             !active && !task.completed && "text-muted-foreground",
           )}
         >

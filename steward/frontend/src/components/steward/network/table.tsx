@@ -58,9 +58,9 @@ export function NetworkTable({ sections }: { sections: readonly Section[] }) {
                 <Link
                   to="/services/$name"
                   params={{ name: id }}
-                  className="min-w-0 flex-1 truncate text-sm font-medium underline-offset-4 hover:text-primary hover:underline"
+                  className="flex min-w-0 flex-1 items-center self-stretch text-sm font-medium underline-offset-4 pointer-coarse:min-h-control hover:text-primary hover:underline"
                 >
-                  {id}
+                  <span className="truncate">{id}</span>
                 </Link>
 
                 {players === undefined ? null : (

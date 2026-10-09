@@ -124,7 +124,7 @@ export function PersonIdentity(props: PersonIdentityProps) {
           type="button"
           className={
             /** `max-w-full` caps the box so `truncate` can act; `min-w-0` only lets it shrink. */
-            "inline-flex min-w-0 max-w-full items-center gap-2 rounded-full text-left outline-none " +
+            "inline-flex min-w-0 max-w-full items-center gap-2 rounded-full text-left outline-none tap-target " +
             "hover:opacity-80 focus-visible:ring-[3px] focus-visible:ring-ring/50 " +
             (props.className ?? "")
           }
@@ -186,7 +186,7 @@ function PersonPageLink({ discordId }: { discordId: string }) {
     <Link
       to="/access/$id"
       params={{ id: discordId }}
-      className="inline-flex items-center gap-1.5 self-start text-sm underline-offset-4 outline-none hover:text-primary hover:underline focus-visible:underline"
+      className="inline-flex items-center gap-1.5 self-start text-sm underline-offset-4 outline-none tap-target hover:text-primary hover:underline focus-visible:underline"
     >
       <UserIcon aria-hidden className="size-4" />
       {t("steward.identity.open-person")}

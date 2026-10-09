@@ -63,6 +63,37 @@ function everyTextField(directory: string): Array<{ file: string; tag: string; c
   return found
 }
 
+/**
+ * Every `<a>` and router `<Link>` whose only child is an icon, with its class list and whether a `Button asChild` wraps it.
+ *
+ * An icon is a self-closing element named `…Icon` or `…Mark`.
+ */
+function everyIconLink(directory: string): Array<{ file: string; tag: string; classes: string; wrapped: boolean }> {
+  const found: Array<{ file: string; tag: string; classes: string; wrapped: boolean }> = []
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const full = path.join(directory, entry.name)
+    if (entry.isDirectory()) {
+      found.push(...everyIconLink(full))
+      continue
+    }
+    if (!entry.name.endsWith(".tsx") || entry.name.includes(".test.")) continue
+    const text = fs.readFileSync(full, "utf8")
+    const links =
+      /<(a|Link)\b((?:[^>"{]|"[^"]*"|\{(?:[^{}]|\{[^{}]*\})*\})*)>\s*<[A-Z]\w*(?:Icon|Mark)\b[^>]*\/>\s*<\/\1>/g
+    for (const match of text.matchAll(links)) {
+      const [, tag, attributes] = match
+      const before = text.slice(0, match.index).trimEnd()
+      found.push({
+        file: path.relative(source, full),
+        tag,
+        classes: attributes,
+        wrapped: /<Button\b[^>]*\basChild\b[^>]*>$/.test(before),
+      })
+    }
+  }
+  return found
+}
+
 describe("the rules that make it fit on a phone", () => {
   it("keeps every text field at 16px below md, since iOS zooms into anything smaller", () => {
     /** The palette on an iPhone zoomed in on focus and stayed zoomed, its list cut off at the right edge. */
@@ -80,15 +111,29 @@ describe("the rules that make it fit on a phone", () => {
     )
   })
 
-  it("gives a button, a tab, a select and a menu item 44px on a touch screen", () => {
-    const controls = ["button", "tabs", "select", "dropdown-menu", "command"]
+  it("gives a button, a tab, a select, a menu item and a text field 40px on a touch screen", () => {
+    const controls = ["button", "tabs", "select", "dropdown-menu", "command", "input", "input-group"]
     for (const file of controls.map((name) => `components/ui/${name}.tsx`)) {
       assert.match(
         fs.readFileSync(path.join(source, file), "utf8"),
         /pointer-coarse:min-h-control/,
-        `${file} must carry \`pointer-coarse:min-h-control\`, the 44px a finger needs.`,
+        `${file} must carry \`pointer-coarse:min-h-control\`, the 40px a finger needs.`,
       )
     }
+  })
+
+  it("gives a link drawn as an icon alone a touch target", () => {
+    const links = everyIconLink(source)
+    assert.isNotEmpty(links, "The pattern finds no icon link at all, so it no longer reads the sources.")
+    const offending = links
+      .filter(({ wrapped, classes }) => !wrapped && !/tap-target|min-h-control|buttonVariants/.test(classes))
+      .map(({ file, tag }) => `${file}: <${tag}>`)
+    assert.deepEqual(
+      offending,
+      [],
+      "A link whose only content is an icon is 16px wide. Make it a `Button asChild`, or give it" +
+        " `tap-target`, which grows its hit area to 40px on a touch screen without moving it.",
+    )
   })
 
   it("gives every grid an explicit column count, so one long word cannot widen the page", () => {

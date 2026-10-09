@@ -215,7 +215,7 @@ function Available() {
                           <Link
                             to="/services/$name"
                             params={{ name: change.service }}
-                            className="underline-offset-4 hover:text-primary hover:underline"
+                            className="underline-offset-4 tap-target hover:text-primary hover:underline"
                           >
                             {change.service}
                           </Link>
@@ -301,7 +301,7 @@ function Runs() {
                       <Link
                         to="/operations/updates/$id"
                         params={{ id: String(run.id) }}
-                        className="underline-offset-4 hover:text-primary hover:underline"
+                        className="underline-offset-4 tap-target hover:text-primary hover:underline"
                         onClick={(event) => event.stopPropagation()}
                       >
                         #{run.id}

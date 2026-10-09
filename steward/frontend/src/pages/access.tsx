@@ -1,4 +1,4 @@
-import { HourglassIcon, MagnifyingGlassIcon } from "@phosphor-icons/react"
+import { HourglassIcon } from "@phosphor-icons/react"
 import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 import { useState } from "react"
@@ -8,12 +8,10 @@ import { span, t } from "@/lib/texts"
 import { useNow } from "@/lib/use-now"
 import { usePeople } from "@/lib/queries"
 import { Entity } from "@/components/steward/entity"
+import { FilterBar, FilterToggle, SearchField } from "@/components/steward/filter-bar"
 import { PageHeader } from "@/components/steward/page-header"
 import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
@@ -119,25 +117,18 @@ export function AccessPage() {
       <PageHeader title={t("steward.people.title")} actions={<GrantDialog />} />
 
       <div className="flex flex-col gap-3">
-        {/* Stacked below `sm`, one row above, with `min-w-0` on the input so it can shrink. */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
-          <div className="flex w-full min-w-0 items-center gap-2 sm:min-w-64 sm:flex-1">
-            <MagnifyingGlassIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-            <Input
-              value={needle}
-              onChange={(event) => changeNeedle(event.target.value)}
-              /** Short enough for 390px; the long sentence is the accessible name. */
-              placeholder={t("steward.people.filter")}
-              aria-label={t("steward.people.filter-name")}
-              className="min-w-0"
-              autoComplete="off"
-            />
-          </div>
-          <div className="flex min-w-0 items-center gap-2">
-            <Switch id="only-with-access" checked={onlyWithAccess} onCheckedChange={changeOnlyWithAccess} />
-            <Label htmlFor="only-with-access">{t("steward.people.with-access")}</Label>
-          </div>
-        </div>
+        <FilterBar>
+          {/* The placeholder is short enough for 360px; the long sentence is the accessible name. */}
+          <SearchField
+            value={needle}
+            onValueChange={changeNeedle}
+            placeholder={t("steward.people.filter")}
+            label={t("steward.people.filter-name")}
+          />
+          <FilterToggle pressed={onlyWithAccess} onPressedChange={changeOnlyWithAccess}>
+            {t("steward.people.with-access")}
+          </FilterToggle>
+        </FilterBar>
 
         <QueryState
           query={people}

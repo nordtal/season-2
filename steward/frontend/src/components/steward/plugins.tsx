@@ -1,11 +1,4 @@
-import {
-  ArrowSquareOutIcon,
-  ArrowsCounterClockwiseIcon,
-  MagnifyingGlassIcon,
-  PlusIcon,
-  SpinnerIcon,
-  TrashIcon,
-} from "@phosphor-icons/react"
+import { ArrowSquareOutIcon, ArrowsCounterClockwiseIcon, PlusIcon, SpinnerIcon, TrashIcon } from "@phosphor-icons/react"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
@@ -23,6 +16,7 @@ import {
 import { StewardMark } from "@/app/steward-mark"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { Actor } from "@/components/steward/entity"
+import { FilterBar, FilterContext, SearchField } from "@/components/steward/filter-bar"
 import { Button } from "@/components/ui/button"
 import {
   ResponsiveDialog,
@@ -31,7 +25,6 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog"
-import { Input } from "@/components/ui/input"
 import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { StatusBadge, runKind } from "@/components/steward/status"
 import { choice, t } from "@/lib/texts"
@@ -360,20 +353,19 @@ function Search({ service, loader, version }: { service: string; loader?: string
 
   return (
     <>
-      <div className="flex items-center gap-2 px-(--sheet-gutter,1rem) pb-3">
-        <MagnifyingGlassIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-        <Input
+      <FilterBar className="px-(--sheet-gutter,1rem) pb-3">
+        <SearchField
           value={typed}
-          onChange={(event) => setTyped(event.target.value)}
+          onValueChange={setTyped}
           placeholder={t("steward.service-page.search-placeholder")}
-          aria-label={t("steward.service-page.search-modrinth")}
+          label={t("steward.service-page.search-modrinth")}
         />
         {loader && version ? (
-          <span className="shrink-0 text-xs text-muted-foreground">
+          <FilterContext>
             {loader} {version}
-          </span>
+          </FilterContext>
         ) : null}
-      </div>
+      </FilterBar>
 
       <div
         className="max-h-[60vh] overflow-y-auto border-t border-border px-(--sheet-gutter,1rem) py-3"

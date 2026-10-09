@@ -1,4 +1,3 @@
-import { MagnifyingGlassIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 
 import type { JournalEntry } from "@/lib/api"
@@ -7,13 +6,10 @@ import { useJournal } from "@/lib/queries"
 import { humanise } from "@/lib/settings-tree"
 import { choice, message, t } from "@/lib/texts"
 import { Actor, Entity } from "@/components/steward/entity"
+import { FilterBar, FilterSelect, SearchField } from "@/components/steward/filter-bar"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 /** How many entries the journal route hands out unless asked for more. */
@@ -159,65 +155,24 @@ export function JournalPage() {
       <PageHeader title={t("steward.journal.title")} />
 
       <Panel title={t("steward.journal.entries")}>
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-auto">
-            <Label htmlFor="journal-action">{t("steward.journal.action")}</Label>
-            <Select
-              value={action === "" ? "ALL" : action}
-              onValueChange={(value) => setAction(value === "ALL" ? "" : value)}
-            >
-              <SelectTrigger id="journal-action" className="w-full sm:w-64">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">{t("steward.journal.all")}</SelectItem>
-                {actions.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {actionLabel(value)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* The field takes its own row on a phone; from `sm` it has a fixed width. */}
-          <form
-            className="flex w-full flex-wrap items-end gap-2"
-            onSubmit={(event) => {
-              event.preventDefault()
-              setSubject(typed.trim())
-            }}
-          >
-            <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-auto">
-              <Label htmlFor="journal-subject">{t("steward.journal.subject")}</Label>
-              <Input
-                id="journal-subject"
-                value={typed}
-                onChange={(event) => setTyped(event.target.value)}
-                placeholder={t("steward.journal.exact-id")}
-                className="w-full font-mono sm:w-64"
-                autoComplete="off"
-                spellCheck={false}
-              />
-            </div>
-            <Button type="submit" variant="outline">
-              <MagnifyingGlassIcon aria-hidden />
-              {t("steward.journal.filter")}
-            </Button>
-            {subject ? (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => {
-                  setSubject("")
-                  setTyped("")
-                }}
-              >
-                {t("steward.journal.reset")}
-              </Button>
-            ) : null}
-          </form>
-        </div>
+        <FilterBar>
+          {/* An exact id, so it filters on Enter rather than on every keystroke. */}
+          <SearchField
+            value={typed}
+            onValueChange={setTyped}
+            onSubmit={setSubject}
+            label={t("steward.journal.subject")}
+            placeholder={t("steward.journal.exact-id")}
+            inputClassName="font-mono"
+          />
+          <FilterSelect
+            value={action}
+            onValueChange={setAction}
+            label={t("steward.journal.action")}
+            every={t("steward.journal.all")}
+            options={actions.map((value) => ({ value, label: actionLabel(value) }))}
+          />
+        </FilterBar>
 
         <QueryState
           query={entries}

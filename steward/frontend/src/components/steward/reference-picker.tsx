@@ -29,7 +29,7 @@ import { useGameData, useGuildChannels, usePeople } from "@/lib/queries"
 import { GameIcon } from "@/components/steward/game-icon"
 import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { FilterBar, SearchField } from "@/components/steward/filter-bar"
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -398,15 +398,9 @@ function Options({
 
   return (
     <div className="flex min-h-0 flex-col gap-2">
-      <Input
-        role="searchbox"
-        aria-label={t("steward.settings.search-in", { what: label })}
-        placeholder={t("steward.settings.search")}
-        value={query}
-        spellCheck={false}
-        className="text-sm max-md:text-base"
-        onChange={(event) => setQuery(event.target.value)}
-      />
+      <FilterBar>
+        <SearchField value={query} onValueChange={setQuery} label={t("steward.settings.search-in", { what: label })} />
+      </FilterBar>
       {namespaces.length > 1 || choices.tags.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1.5">
           {namespaces.length > 1

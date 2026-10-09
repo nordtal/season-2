@@ -1,4 +1,4 @@
-import { cleanup, screen } from "@testing-library/react"
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { JournalPage } from "@/pages/journal"
@@ -178,5 +178,26 @@ describe("JournalPage - the phone card says each thing once", () => {
     expect(await off("Started the Hunger Games.")).toEqual(["action", "Concerns", "Detail"])
     expect(await off("This browser gets no push alerts.")).toEqual(["action", "Concerns", "Detail"])
     expect(await off(/^30 days of access, until /)).toEqual(["action"])
+  })
+})
+
+describe("JournalPage - the subject is an exact id, asked for on Enter", () => {
+  it("asks for the typed id only once Enter is pressed, and for every entry again once it is cleared", async () => {
+    const fetched = backend({ journal: JOURNAL_ENTRIES })
+    vi.stubGlobal("fetch", fetched)
+    draw(<JournalPage />)
+    const asked = () => fetched.mock.calls.map(([url]) => url).filter((url) => url.startsWith("/api/journal"))
+
+    const field = await screen.findByRole<HTMLInputElement>("searchbox", { name: "Discord id concerned" })
+    fireEvent.change(field, { target: { value: "300000000000000002" } })
+    await screen.findAllByText("Access granted")
+    expect(asked().some((url) => url.includes("subject="))).toBe(false)
+
+    fireEvent.submit(field)
+    await waitFor(() => expect(asked()).toContain("/api/journal?limit=200&subject=300000000000000002"))
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear the search" }))
+    expect(field.value).toBe("")
+    expect(screen.queryByRole("button", { name: "Clear the search" })).toBeNull()
   })
 })

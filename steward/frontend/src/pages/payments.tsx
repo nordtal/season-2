@@ -9,14 +9,13 @@ import { useNow } from "@/lib/use-now"
 import { usePayments, useSettle } from "@/lib/queries"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { Entity } from "@/components/steward/entity"
+import { FilterBar, FilterSelect } from "@/components/steward/filter-bar"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { Stat } from "@/components/steward/stat"
 import { StatusBadge, type Tone } from "@/components/steward/status"
 import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 /** Settles the one OPEN request of this row by hand; the bot books it as if bunq had reported it. */
@@ -276,27 +275,18 @@ export function PaymentsPage() {
               </div>
 
               <Panel title={t("steward.payments.requests")}>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Label htmlFor="payment-status" className="text-muted-foreground">
-                    {t("steward.payments.status")}
-                  </Label>
-                  <Select
-                    value={status === "" ? "ALL" : status}
-                    onValueChange={(value) => setStatus(value === "ALL" ? "" : value)}
-                  >
-                    <SelectTrigger id="payment-status" className="w-full sm:w-56">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL">{t("steward.payments.all")}</SelectItem>
-                      {present.map((value) => (
-                        <SelectItem key={value} value={value}>
-                          {t("steward.payments.state", { status: choice(value) })}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <FilterBar>
+                  <FilterSelect
+                    value={status}
+                    onValueChange={setStatus}
+                    label={t("steward.payments.status")}
+                    every={t("steward.payments.all")}
+                    options={present.map((value) => ({
+                      value,
+                      label: t("steward.payments.state", { status: choice(value) }),
+                    }))}
+                  />
+                </FilterBar>
 
                 {!waiting && shown.length === 0 ? (
                   <Empty title={t("steward.payments.none-with-status")} />

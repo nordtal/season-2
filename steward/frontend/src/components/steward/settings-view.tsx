@@ -1,4 +1,4 @@
-import { ArrowUpIcon, CaretRightIcon, MagnifyingGlassIcon } from "@phosphor-icons/react"
+import { ArrowUpIcon, CaretRightIcon } from "@phosphor-icons/react"
 import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import { cn } from "cn"
@@ -16,7 +16,7 @@ import {
   type TreeNode,
 } from "@/lib/settings-tree"
 import { Button } from "@/components/ui/button"
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
+import { FilterBar, SearchField } from "@/components/steward/filter-bar"
 import { t } from "@/lib/texts"
 
 /** What a group of settings and the Texts page are drawn with alike: the tree, its rows, the jump to a field. */
@@ -141,18 +141,9 @@ export function TreeView<L>({
 
   return (
     <div ref={top} className="flex scroll-mt-4 flex-col gap-3">
-      <InputGroup ref={search}>
-        <InputGroupAddon>
-          <MagnifyingGlassIcon aria-hidden />
-        </InputGroupAddon>
-        <InputGroupInput
-          type="search"
-          placeholder={t("steward.settings.search")}
-          aria-label={searchLabel}
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-      </InputGroup>
+      <FilterBar ref={search}>
+        <SearchField value={query} onValueChange={setQuery} label={searchLabel} />
+      </FilterBar>
       {notice ? <p className="text-sm text-muted-foreground">{notice}</p> : null}
       {above}
       {shown.length === 0 ? (

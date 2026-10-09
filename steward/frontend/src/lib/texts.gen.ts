@@ -1081,9 +1081,7 @@ export type TextArgs = {
   "steward.journal.detail": Record<string, never>
   "steward.journal.entries": Record<string, never>
   "steward.journal.exact-id": Record<string, never>
-  "steward.journal.filter": Record<string, never>
   "steward.journal.no-entry": Record<string, never>
-  "steward.journal.reset": Record<string, never>
   "steward.journal.subject": Record<string, never>
   "steward.journal.title": Record<string, never>
   "steward.journal.when": Record<string, never>
@@ -1799,6 +1797,7 @@ export type TextArgs = {
   "steward.settings.changed": Record<string, never>
   "steward.settings.choose-one": Record<string, never>
   "steward.settings.choose-suggestion": Record<string, never>
+  "steward.settings.clear-search": Record<string, never>
   "steward.settings.empty-file": Record<string, never>
   "steward.settings.empty-list": Record<string, never>
   "steward.settings.entry": {

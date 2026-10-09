@@ -23,12 +23,6 @@ public interface JournalPage {
     @Name("Subject placeholder")
     MessageRef exactId();
 
-    @Name("Filter")
-    MessageRef filter();
-
-    @Name("Reset")
-    MessageRef reset();
-
     @Name("Nothing matches")
     MessageRef noEntry();
 

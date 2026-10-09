@@ -146,6 +146,9 @@ public interface SettingsEditor {
     @Name("Search")
     MessageRef search();
 
+    @Name("Clear the search")
+    MessageRef clearSearch();
+
     @Name("All")
     MessageRef all();
 

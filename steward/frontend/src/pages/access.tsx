@@ -141,10 +141,7 @@ export function AccessPage() {
 
         <QueryState
           query={people}
-          empty={{
-            title: t("steward.people.nobody"),
-            note: t("steward.people.nobody-note"),
-          }}
+          empty={{ title: t("steward.people.nobody") }}
           isEmpty={(list: Person[]) => list.length === 0}
         >
           {(list) => {
@@ -178,12 +175,7 @@ export function AccessPage() {
                   (person.minecraftUuid ?? "").toLowerCase().includes(trimmed)),
             )
             if (rows.length === 0) {
-              return (
-                <Empty
-                  title={t("steward.people.no-match")}
-                  note={t("steward.people.no-match-note", { withAccess: onlyWithAccess })}
-                />
-              )
+              return <Empty title={t("steward.people.no-match")} />
             }
             /** Paged after filtering, so a search reaches the whole roster. */
             const pageCount = Math.max(1, Math.ceil(rows.length / PEOPLE_PAGE_SIZE))

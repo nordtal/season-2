@@ -14,9 +14,6 @@ public interface NetworkPanel {
     @Name("No service")
     MessageRef noService();
 
-    @Name("No service note")
-    MessageRef noServiceNote();
-
     @Name("Players")
     MessageRef players();
 

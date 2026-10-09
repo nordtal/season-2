@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button"
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
-  ResponsiveDialogDescription,
   ResponsiveDialogFooter,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
@@ -18,7 +17,7 @@ import {
 import { t } from "@/lib/texts"
 
 /**
- * The key question in front of any write, so a stale session costs one tap and the same request goes again.
+ * The key question in front of any write, after which the same request goes again; one touch lasts `stepUpMinutes`.
  *
  * Safari opens the key dialog only on a fresh tap; a failed ceremony fails the original request with it.
  */
@@ -69,8 +68,6 @@ export function StepUp() {
     }
   }
 
-  const minutes = me.data?.stepUpMinutes ?? 5
-
   return (
     <ResponsiveDialog
       open={asking}
@@ -79,10 +76,9 @@ export function StepUp() {
         settle(new Error(t("steward.keys.closed")))
       }}
     >
-      <ResponsiveDialogContent className="sm:max-w-md">
+      <ResponsiveDialogContent className="sm:max-w-md" aria-describedby={undefined}>
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>{t("steward.keys.step-up-title")}</ResponsiveDialogTitle>
-          <ResponsiveDialogDescription>{t("steward.keys.step-up-note", { minutes })}</ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
         {browserHasSecurityKeys() ? null : (

@@ -13,7 +13,6 @@ import { Label } from "@/components/ui/label"
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
-  ResponsiveDialogDescription,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
   ResponsiveDialogTrigger,
@@ -21,7 +20,6 @@ import {
 import {
   DayPicker,
   chosenDays,
-  draftValue,
   entryAt,
   useConfigDraft,
   useGroupConfig,
@@ -41,29 +39,6 @@ const RETENTION_KEYS = [
 
 const DAYS_KEY = "backup.days"
 
-/** A whole number out of a draft, or `otherwise` when it does not parse. */
-function intOr(value: string, otherwise: number): number {
-  const parsed = Number.parseInt(value, 10)
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : otherwise
-}
-
-/**
- * What the retention numbers mean in one sentence, matched to `Retention.expired`.
- *
- * At most daily + weekly + monthly are kept; same-day runs collapse after the grace period.
- */
-function retentionSentence(daily: number, weekly: number, monthly: number, collapseAfterDays: number): string {
-  const steps = [t("steward.backup-settings.daily", { days: daily })]
-  if (weekly > 0) steps.push(t("steward.backup-settings.weekly", { weeks: weekly }))
-  if (monthly > 0) steps.push(t("steward.backup-settings.monthly", { months: monthly }))
-  return t("steward.backup-settings.retention", {
-    steps,
-    total: daily + weekly + monthly,
-    sweep: collapseAfterDays === 0,
-    days: collapseAfterDays,
-  })
-}
-
 /** A refused save, named as the stale revision it usually is. */
 function failed(failure: unknown) {
   toast.error(
@@ -72,10 +47,9 @@ function failed(failure: unknown) {
 }
 
 /**
- * The nightly clock and its retention, in a dialog.
+ * The nightly clock and its retention (at most daily + weekly + monthly archives a volume), in a dialog.
  *
- * The clock is steward's group and the retention steward-agent's `runs` group, so Save writes each one that changed.
- * The weekday badges write the `backup.days` list, kept beside the scalar draft.
+ * Clock in steward's group, retention in steward-agent's `runs` group: Save writes each that changed.
  */
 export function ScheduleDialog() {
   const { file, document, pending } = useStewardConfig()
@@ -100,12 +74,6 @@ export function ScheduleDialog() {
   const allChanges: ConfigChanges = daysChanged ? { ...changes, [DAYS_KEY]: days } : changes
   const allChanged = changed + (daysChanged ? 1 : 0)
 
-  const kept = (path: string, otherwise: number) =>
-    intOr(draftValue(retention.entries, retention.draft, path), otherwise)
-  const daily = kept("backup.retention.daily", 14)
-  const weekly = kept("backup.retention.weekly", 0)
-  const monthly = kept("backup.retention.monthly", 0)
-  const collapseAfterDays = kept("backup.retention.collapse-after-days", 3)
   const saving = save.isPending || saveRuns.isPending
 
   return (
@@ -116,10 +84,9 @@ export function ScheduleDialog() {
           {t("steward.form.schedule")}
         </Button>
       </ResponsiveDialogTrigger>
-      <ResponsiveDialogContent>
+      <ResponsiveDialogContent aria-describedby={undefined}>
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>{t("steward.form.schedule")}</ResponsiveDialogTitle>
-          <ResponsiveDialogDescription>{t("steward.backup-settings.schedule-note")}</ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
         {pending || runs.pending ? (
@@ -167,12 +134,6 @@ export function ScheduleDialog() {
                 />
               </div>
             ))}
-
-            {retention.entries.length > 0 ? (
-              <p className="text-sm text-muted-foreground">
-                {retentionSentence(daily, weekly, monthly, collapseAfterDays)}
-              </p>
-            ) : null}
 
             <div className="flex items-center gap-3">
               <Button

@@ -27,11 +27,7 @@ export function PersonPage() {
   const person = people.data?.find((candidate) => candidate.discordId === id)
 
   return (
-    <QueryState
-      query={people}
-      isEmpty={() => !person}
-      empty={{ title: t("steward.people.unknown-person"), note: t("steward.people.unknown-person-note", { id }) }}
-    >
+    <QueryState query={people} isEmpty={() => !person} empty={{ title: t("steward.people.unknown-person") }}>
       {(list) =>
         list && person ? (
           <PersonView person={person} people={list} />
@@ -171,10 +167,7 @@ function PersonPeriods({ person, now }: { person: Person; now: number }) {
     <>
       <QueryState
         query={grants}
-        empty={{
-          title: t("steward.people.no-period"),
-          note: t("steward.people.no-period-note"),
-        }}
+        empty={{ title: t("steward.people.no-period") }}
         isEmpty={(list: Grant[]) => list.length === 0}
       >
         {(list) => (

@@ -137,9 +137,6 @@ public interface SettingsEditor {
     @Name("Remove entry question")
     MessageRef removeEntryAsk();
 
-    @Name("Draft only")
-    MessageRef draftOnly();
-
     @Name("None")
     MessageRef none();
 

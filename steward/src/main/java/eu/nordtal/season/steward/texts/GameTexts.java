@@ -30,8 +30,8 @@ public interface GameTexts {
     @Name("Start question")
     MessageRef startAsk(@Arg("anyway") boolean anyway);
 
-    @Name("Start note")
-    MessageRef startNote();
+    @Name("No way back")
+    MessageRef noWayBack();
 
     @Name("Start")
     MessageRef start(@Arg("anyway") boolean anyway);
@@ -53,9 +53,6 @@ public interface GameTexts {
 
     @Name("Unlock question")
     MessageRef unlockAsk(@Arg("name") String name);
-
-    @Name("Unlock note")
-    MessageRef unlockNote();
 
     @Name("Unlock")
     MessageRef unlock();

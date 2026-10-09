@@ -41,9 +41,6 @@ public interface OperationsPage {
     @Name("Ask for a run")
     MessageRef ask(@Arg("kind") UpdateKind kind);
 
-    @Name("What a run does")
-    MessageRef askWhat(@Arg("kind") UpdateKind kind);
-
     @Name("What a run costs")
     MessageRef askWarning(@Arg("kind") UpdateKind kind);
 
@@ -83,9 +80,6 @@ public interface OperationsPage {
     @Name("Not a run number")
     MessageRef notANumber();
 
-    @Name("Not a run number, said")
-    MessageRef notANumberNote(@Arg("id") String id);
-
     @Name("Status")
     MessageRef status();
 
@@ -94,9 +88,6 @@ public interface OperationsPage {
 
     @Name("No earlier than")
     MessageRef noEarlierThan();
-
-    @Name("No earlier than, said")
-    MessageRef noEarlierThanHint();
 
     @Name("Started")
     MessageRef started();
@@ -110,20 +101,11 @@ public interface OperationsPage {
     @Name("Nothing to do, as a title")
     MessageRef nothingToDoTitle();
 
-    @Name("Nothing to do, said")
-    MessageRef nothingToDoNote();
-
     @Name("Saved nothing")
     MessageRef savedNothing();
 
-    @Name("Saved nothing, said")
-    MessageRef savedNothingNote();
-
     @Name("Stages")
     MessageRef stages();
-
-    @Name("Growing")
-    MessageRef growing();
 
     @Name("Report")
     MessageRef report();
@@ -134,14 +116,8 @@ public interface OperationsPage {
     @Name("No report")
     MessageRef noReport();
 
-    @Name("No report, said")
-    MessageRef noReportNote();
-
     @Name("No line, as a title")
     MessageRef noLineTitle();
-
-    @Name("No line, said")
-    MessageRef noLineNote();
 
     @Name("Service")
     MessageRef service();
@@ -178,9 +154,6 @@ public interface OperationsPage {
 
     @Name("Cannot copy")
     MessageRef cannotCopy();
-
-    @Name("Cannot copy, said")
-    MessageRef cannotCopyNote();
 
     @Name("Under way")
     MessageRef underWay(@Arg("kind") String kind, @Arg("run") int run);

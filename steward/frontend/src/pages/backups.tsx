@@ -73,12 +73,8 @@ function Summary() {
         tone={backups.data && !newest ? "down" : undefined}
         hint={newest ? newest.human : backups.data ? t("steward.backups.none-finished") : "\u2013"}
       />
-      {/* Neutral rather than warn, since "not tracked" is a fact about the feature, not an alarm. */}
-      <Stat
-        label={t("steward.backups.storage")}
-        value={t("steward.backups.not-tracked")}
-        hint={t("steward.backups.not-tracked-note")}
-      />
+      {/* Neutral rather than warn, since "not tracked" is a fact about the feature: steward does not ask the Storage Box. */}
+      <Stat label={t("steward.backups.storage")} value={t("steward.backups.not-tracked")} />
       <Stat
         label={t("steward.backups.next")}
         value={schedule.data?.nextBackupAt ? relative(schedule.data.nextBackupAt) : "\u2013"}
@@ -123,11 +119,7 @@ function Runs() {
 
   return (
     <Panel title={t("steward.backups.runs")}>
-      <QueryState
-        query={runs}
-        isEmpty={() => rows.length === 0}
-        empty={{ title: t("steward.backups.no-run"), note: t("steward.backups.no-run-note") }}
-      >
+      <QueryState query={runs} isEmpty={() => rows.length === 0} empty={{ title: t("steward.backups.no-run") }}>
         {(answer) => (
           <Table className="steward-table">
             <TableHeader>
@@ -229,7 +221,6 @@ function RestoreDialog() {
         </Button>
       }
       title={t("steward.backups.restore")}
-      description={t("steward.backups.restore-note")}
       action={t("steward.backups.restore")}
       destructive
       disabled={!replaces || typed !== replaces}
@@ -344,10 +335,8 @@ export function BackupRunDetailPage() {
       <QueryState
         query={runs}
         isEmpty={() => !run}
-        empty={{
-          title: t("steward.backups.no-such-run"),
-          note: t("steward.backups.no-such-run-note"),
-        }}
+        /** A run older than the page's own window of rows is not found either. */
+        empty={{ title: t("steward.backups.no-such-run") }}
       >
         {(answer) => (
           <>

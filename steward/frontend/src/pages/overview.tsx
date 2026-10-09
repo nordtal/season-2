@@ -132,13 +132,7 @@ function MetricRow() {
         label={t("steward.overview.behind")}
         value={services.data ? count(outdated.length) : undefined}
         tone={outdated.length > 0 ? "warn" : undefined}
-        hint={
-          !services.data
-            ? WAITING_HINT
-            : outdated.length === 0
-              ? t("steward.service-page.up-to-date")
-              : outdated.map((service) => service.service).join(", ")
-        }
+        hint={!services.data ? WAITING_HINT : outdated.map((service) => service.service).join(", ")}
       />
 
       <Link to="/alerts" className="flex min-w-0 flex-col gap-1.5">
@@ -172,7 +166,7 @@ function IssuesTile({ alerts, waiting, failed }: { alerts: Alert[]; waiting: boo
         />
       )
     }
-    return <MetricTile label={t("steward.overview.issues")} value={count(0)} hint={t("steward.overview.all-clear")} />
+    return <MetricTile label={t("steward.overview.issues")} value={count(0)} />
   }
 
   const worst = alerts[0]
@@ -251,10 +245,7 @@ function ActionsPanel() {
       <QueryState
         query={actions}
         isEmpty={(list) => list.length === 0}
-        empty={{
-          title: t("steward.overview.nothing-recorded"),
-          note: t("steward.overview.nothing-recorded-note"),
-        }}
+        empty={{ title: t("steward.overview.nothing-recorded") }}
       >
         {(list) => (
           <ul className="flex flex-col">

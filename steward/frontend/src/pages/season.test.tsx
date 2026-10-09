@@ -166,15 +166,13 @@ describe("SeasonPage - the reason that was typed and abandoned", () => {
     expect(reasonField().value).toBe("")
   })
 
-  it("asks before it switches at all, and the question names the admission rule", async () => {
-    /** The dialog is the last place to say whether players can still log in before the door changes. */
+  it("asks before it switches at all, and the question names the phase", async () => {
     vi.stubGlobal("fetch", backend())
     draw(<SeasonPage />)
 
     const dialog = await ask("PRE_LAUNCH")
 
-    expect(dialog.textContent).toContain("Admins only")
-    expect(dialog.textContent).toContain("from the next")
+    expect(dialog.textContent).toContain("Before launch")
   })
 })
 
@@ -261,12 +259,12 @@ describe("SeasonPage - a date can be removed again", () => {
     await waitFor(() => expect(sent).toEqual([{ which: "smpStart", at: null }]))
   })
 
-  it("says the launch is harmless, and cancelling sends nothing", async () => {
+  it("asks before the launch goes too, and cancelling sends nothing", async () => {
     const sent = dates()
     draw(<SeasonPage />)
 
     const dialog = await remove("Network launch")
-    expect(dialog.textContent).toContain("Nothing else moves")
+    expect(dialog.textContent).not.toContain("not an undo")
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
 
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())

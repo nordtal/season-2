@@ -1,4 +1,4 @@
-import { CalendarDotIcon, FlagIcon, ShieldWarningIcon } from "@phosphor-icons/react"
+import { CalendarDotIcon, FlagIcon } from "@phosphor-icons/react"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -10,7 +10,6 @@ import { AskThenAct } from "@/components/steward/ask-then-act"
 import { PageHeader } from "@/components/steward/page-header"
 import { NETWORK, ServiceSettings } from "@/components/steward/settings"
 import { Failure, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -43,12 +42,8 @@ export function SeasonPage() {
         {(current) => (
           <>
             <PhaseCard season={current} />
+            {/* No button ends a season: each one is a full rebuild, with nothing carried over. */}
             <DatesCard season={current} />
-            <Alert>
-              <ShieldWarningIcon aria-hidden />
-              <AlertTitle>{t("steward.season.nothing-carried")}</AlertTitle>
-              <AlertDescription>{t("steward.season.rebuild")}</AlertDescription>
-            </Alert>
           </>
         )}
       </QueryState>
@@ -109,9 +104,6 @@ function PhaseCard({ season }: { season?: Season }) {
                   {season ? null : <Skeleton className="h-5 w-10 rounded-full" />}
                   <span className="font-mono text-xs text-muted-foreground">{phase.name}</span>
                 </div>
-                <p className="max-w-prose text-sm text-muted-foreground">
-                  {t("steward.season.who", { phase: choice(phase.name) })}
-                </p>
                 <p className="text-sm text-muted-foreground">{t("steward.season.lands-on", { where: phase.where })}</p>
               </div>
               <Button
@@ -137,11 +129,6 @@ function PhaseCard({ season }: { season?: Season }) {
           setReason("")
         }}
         title={asked ? t("steward.season.switch-title", { phase: phaseName(asked) }) : ""}
-        description={
-          asked
-            ? t("steward.season.switch-note", { who: t("steward.season.who", { phase: choice(asked) }) })
-            : undefined
-        }
         action={t("steward.season.switch-phase")}
         acting={t("steward.season.switching")}
         act={() => {
@@ -160,7 +147,6 @@ function PhaseCard({ season }: { season?: Season }) {
             placeholder={t("steward.season.reason-placeholder")}
             onChange={(event) => setReason(event.target.value)}
           />
-          <p className="text-sm text-muted-foreground">{t("steward.season.reason-note")}</p>
         </div>
       </AskThenAct>
     </Card>
@@ -177,18 +163,10 @@ function DatesCard({ season }: { season?: Season }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
-        <DateField
-          which="launch"
-          label={t("steward.season.launch")}
-          note={t("steward.season.launch-note")}
-          removal={t("steward.season.launch-removal")}
-          at={season?.launch}
-          waiting={!season}
-        />
+        <DateField which="launch" label={t("steward.season.launch")} at={season?.launch} waiting={!season} />
         <DateField
           which="smpStart"
           label={t("steward.season.smp-start")}
-          note={t("steward.season.smp-start-note")}
           removal={t("steward.season.smp-start-removal")}
           at={season?.smpStart}
           waiting={!season}
@@ -201,16 +179,14 @@ function DatesCard({ season }: { season?: Season }) {
 function DateField({
   which,
   label,
-  note,
   removal,
   at,
   waiting,
 }: {
   which: "launch" | "smpStart"
   label: string
-  note: string
-  /** What removing this date does, in one sentence. The two dates differ exactly here. */
-  removal: string
+  /** What removing this date leaves behind, where that is not obvious. */
+  removal?: string
   at?: string
   /** `at` is absent for two different reasons: no date is set, or none has arrived yet. */
   waiting?: boolean
@@ -227,7 +203,6 @@ function DateField({
   return (
     <div className="flex flex-col gap-2">
       <Label htmlFor={which}>{label}</Label>
-      <p className="max-w-prose text-sm text-muted-foreground">{note}</p>
       <div className="flex flex-wrap items-center gap-2">
         {waiting ? (
           <Skeleton className="h-control w-56" />

@@ -213,7 +213,7 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
       </ResponsiveDialog>
 
       <ResponsiveDialog open={state.renaming !== null} onOpenChange={(open) => open || state.closeRenaming()}>
-        <ResponsiveDialogContent className="sm:max-w-md">
+        <ResponsiveDialogContent className="sm:max-w-md" aria-describedby={undefined}>
           <form
             className="flex flex-col gap-4"
             onSubmit={(event) => {
@@ -225,7 +225,6 @@ export function SecurityKeyDialogs({ state }: { state: SecurityKeyActions }) {
           >
             <ResponsiveDialogHeader>
               <ResponsiveDialogTitle>{t("steward.keys.rename-title")}</ResponsiveDialogTitle>
-              <ResponsiveDialogDescription>{t("steward.keys.rename-note")}</ResponsiveDialogDescription>
             </ResponsiveDialogHeader>
 
             <Input

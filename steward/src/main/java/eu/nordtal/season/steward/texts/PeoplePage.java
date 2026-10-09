@@ -75,14 +75,8 @@ public interface PeoplePage {
     @Name("Nobody")
     MessageRef nobody();
 
-    @Name("Nobody note")
-    MessageRef nobodyNote();
-
     @Name("No match")
     MessageRef noMatch();
-
-    @Name("No match note")
-    MessageRef noMatchNote(@Arg("withAccess") boolean withAccess);
 
     @Name("Supporter")
     MessageRef supporter();
@@ -183,9 +177,6 @@ public interface PeoplePage {
     @Name("Grant title")
     MessageRef grantTitle();
 
-    @Name("Grant note")
-    MessageRef grantNote();
-
     @Name("Granted")
     MessageRef granted();
 
@@ -204,23 +195,8 @@ public interface PeoplePage {
     @Name("Most days")
     MessageRef mostDays(@Arg("most") int most);
 
-    @Name("A day")
-    MessageRef dayIsDay();
-
-    @Name("Appended")
-    MessageRef appended();
-
-    @Name("From launch")
-    MessageRef fromLaunch();
-
-    @Name("Unknown id")
-    MessageRef unknownId();
-
     @Name("Play time title")
     MessageRef playtimeTitle();
-
-    @Name("Play time note")
-    MessageRef playtimeNote(@Arg("name") String name);
 
     @Name("Play time set")
     MessageRef playtimeSet(@Arg("name") String name);
@@ -244,9 +220,6 @@ public interface PeoplePage {
     @Name("Unlink title")
     MessageRef unlinkTitle();
 
-    @Name("Unlink note")
-    MessageRef unlinkNote();
-
     @Name("Nothing to unlink")
     MessageRef nothingToUnlink();
 
@@ -256,17 +229,11 @@ public interface PeoplePage {
     @Name("Unlinked")
     MessageRef unlinked();
 
-    @Name("Journal names you")
-    MessageRef journalNamesYou();
-
     @Name("Not unlinked")
     MessageRef notUnlinked();
 
     @Name("Pack title")
     MessageRef packTitle(@Arg("exempted") boolean exempted, @Arg("name") String name);
-
-    @Name("Pack note")
-    MessageRef packNote(@Arg("exempted") boolean exempted);
 
     @Name("Pack changed")
     MessageRef packChanged(@Arg("exempted") boolean exempted);
@@ -276,9 +243,6 @@ public interface PeoplePage {
 
     @Name("Make admin title")
     MessageRef makeAdminTitle(@Arg("name") String name);
-
-    @Name("Make admin note")
-    MessageRef makeAdminNote();
 
     @Name("Not made admin")
     MessageRef notMadeAdmin();
@@ -316,20 +280,11 @@ public interface PeoplePage {
     @Name("Thrown out")
     MessageRef thrownOut();
 
-    @Name("No refund")
-    MessageRef noRefund();
-
-    @Name("Entry stays")
-    MessageRef entryStays();
-
     @Name("Guild")
     MessageRef guild();
 
     @Name("Unknown person")
     MessageRef unknownPerson();
-
-    @Name("Unknown person note")
-    MessageRef unknownPersonNote(@Arg("id") String id);
 
     @Name("No payment request")
     MessageRef noPayment();
@@ -348,9 +303,6 @@ public interface PeoplePage {
 
     @Name("No period")
     MessageRef noPeriod();
-
-    @Name("No period note")
-    MessageRef noPeriodNote();
 
     @Name("Source column")
     MessageRef sourceColumn();

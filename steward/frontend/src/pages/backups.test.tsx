@@ -297,17 +297,6 @@ describe("BackupsPage - the schedule dialog carries the retention numbers now (i
     expect(toSteward).toBeUndefined()
   })
 
-  it("computes what the numbers mean, rather than only listing them", async () => {
-    vi.stubGlobal("fetch", backend({}))
-    draw()
-
-    fireEvent.click(await screen.findByRole("button", { name: "Schedule" }))
-    await screen.findByLabelText("Daily")
-
-    // Matches Retention's own algorithm: at most daily + weekly + monthly, not stacked.
-    expect(await screen.findByText(/at most 28 archives per volume/i)).toBeTruthy()
-  })
-
   it("draws the weekdays the file actually chose, not seven decorative ones", async () => {
     vi.stubGlobal("fetch", backend({}))
     draw()

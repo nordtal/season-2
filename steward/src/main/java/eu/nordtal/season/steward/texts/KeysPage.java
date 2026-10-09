@@ -33,9 +33,6 @@ public interface KeysPage {
     @Name("Hold title")
     MessageRef holdTitle();
 
-    @Name("Hold note")
-    MessageRef holdNote();
-
     @Name("No keys here")
     MessageRef noKeysHere();
 
@@ -83,9 +80,6 @@ public interface KeysPage {
 
     @Name("Step-up title")
     MessageRef stepUpTitle();
-
-    @Name("Step-up note")
-    MessageRef stepUpNote(@Arg("minutes") int minutes);
 
     @Name("Open directly")
     MessageRef openDirectly();
@@ -153,9 +147,6 @@ public interface KeysPage {
     @Name("Rename title")
     MessageRef renameTitle();
 
-    @Name("Rename note")
-    MessageRef renameNote();
-
     @Name("New name")
     MessageRef newName(@Arg("key") String key);
 
@@ -203,9 +194,6 @@ public interface KeysPage {
 
     @Name("Not found")
     MessageRef notFound();
-
-    @Name("Finds every page")
-    MessageRef findsEvery();
 
     @Name("Back to status")
     MessageRef backToStatus();

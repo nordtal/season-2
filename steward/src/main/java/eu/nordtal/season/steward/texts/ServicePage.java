@@ -94,12 +94,6 @@ public interface ServicePage {
     @Name("Recreate title")
     MessageRef recreateTitle(@Arg("service") String service);
 
-    @Name("Recreate note")
-    MessageRef recreateNote();
-
-    @Name("Recreate tip")
-    MessageRef recreateTip(@Arg("service") String service);
-
     @Name("Agent silent")
     MessageRef agentSilent();
 

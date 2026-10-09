@@ -271,6 +271,7 @@ export function RepeatableCards({
         </Button>
       </div>
 
+      {/* Removing only changes the draft; nothing is written to the file until Save. */}
       <AskThenAct
         open={pendingRemoval !== null}
         onOpenChange={(open) => open || setPendingRemoval(null)}
@@ -281,7 +282,7 @@ export function RepeatableCards({
               })
             : t("steward.settings.remove-entry-ask")
         }
-        description={<span className="whitespace-pre-wrap">{listExplanation ?? t("steward.settings.draft-only")}</span>}
+        description={listExplanation ? <span className="whitespace-pre-wrap">{listExplanation}</span> : undefined}
         cancel="Keep it"
         action="Remove it"
         act={() => {

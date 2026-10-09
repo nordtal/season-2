@@ -153,9 +153,9 @@ run `git config core.hooksPath .githooks` once per clone.
 
 - **Steward is designed for the phone first.** The desktop layout follows from the narrow one, and
   where the two disagree the phone wins.
-- **Steward shows data, not explanatory text.** A sentence stays when it says what the value beside it
-  does not and an admin would not know anyway, or when it keeps a state honest ("Some of the readings
-  could not be fetched"). Everything else goes into the doc comment.
+- **Steward shows data, not explanatory text.** A sentence stays only when it keeps a state honest
+  ("Some of the readings could not be fetched") or reports an error; a confirmation keeps the one
+  sentence that names what is lost. Everything else goes, into the doc comment where its meaning matters.
 - **No text symbol as a separator**, such as the middle dot, a pipe or a spaced hyphen: one value, two
   values set apart as two lines or two pills, or the second as an icon. A message bundle holds no pipe,
   spaced hyphen, dash (escaped or not), double space or banner comment. _(the middle dot in Steward and

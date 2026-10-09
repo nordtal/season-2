@@ -55,13 +55,6 @@ export function useConfigDraft(document: ConfigDocument | undefined, keys: reado
   return { entries, draft, setDraft, changes, changed }
 }
 
-/** One entry's value as it would be saved now: typed, or the stored one. */
-export function draftValue(entries: ConfigEntry[], draft: Record<string, string>, path: string): string {
-  const typed = draft[path]
-  if (typed !== undefined) return typed
-  return entries.find((entry) => entry.path === path)?.value ?? ""
-}
-
 /** The seven days in week order, with their `java.time.DayOfWeek` names. */
 const WEEKDAYS = [
   { label: "Mon", value: "MONDAY" },

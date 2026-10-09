@@ -127,6 +127,7 @@ export function SmpActions() {
   )
 }
 
+/** One milestone; unlocking it moves the track on and pays aura to everybody who qualified. */
 function Step({ step, last, onAsk }: { step: TrackStep; last: boolean; onAsk: (ask: Ask) => void }) {
   const name = keyName(step.key)
   const active = step.state === "ACTIVE"
@@ -135,7 +136,7 @@ function Step({ step, last, onAsk }: { step: TrackStep; last: boolean; onAsk: (a
       path: "/api/smp/milestone",
       body: { key: step.key },
       title: t("steward.game.unlock-ask", { name }),
-      description: t("steward.game.unlock-note"),
+      description: t("steward.game.no-way-back"),
       confirm: t("steward.game.unlock"),
     })
 
@@ -303,6 +304,7 @@ function TaskPopover({ task, active, onAsk }: { task: TrackTask; active: boolean
             size="sm"
             onClick={() => {
               setOpen(false)
+              /** Completing closes the task at its amount and pays out that share of its aura and spins. */
               onAsk({
                 path: "/api/smp/objective",
                 body: { key: task.key },

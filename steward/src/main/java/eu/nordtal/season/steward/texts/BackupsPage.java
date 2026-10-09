@@ -29,9 +29,6 @@ public interface BackupsPage {
     @Name("Not tracked")
     MessageRef notTracked();
 
-    @Name("Not tracked, said")
-    MessageRef notTrackedNote();
-
     @Name("Next")
     MessageRef next();
 
@@ -43,9 +40,6 @@ public interface BackupsPage {
 
     @Name("No run yet")
     MessageRef noRun();
-
-    @Name("No run yet, said")
-    MessageRef noRunNote();
 
     @Name("Run")
     MessageRef run();
@@ -67,9 +61,6 @@ public interface BackupsPage {
 
     @Name("Restore")
     MessageRef restore();
-
-    @Name("Restore, said")
-    MessageRef restoreNote();
 
     @Name("Nothing to restore")
     MessageRef nothingToRestore();
@@ -112,9 +103,6 @@ public interface BackupsPage {
 
     @Name("No such run")
     MessageRef noSuchRun();
-
-    @Name("No such run, said")
-    MessageRef noSuchRunNote();
 
     @Name("No archive")
     MessageRef noArchive();

@@ -35,9 +35,6 @@ public interface OverviewPage {
     @Name("Unreadable")
     MessageRef unreadable();
 
-    @Name("All clear")
-    MessageRef allClear();
-
     @Name("Partly unreadable")
     MessageRef partlyUnreadable();
 
@@ -46,9 +43,6 @@ public interface OverviewPage {
 
     @Name("Nothing recorded")
     MessageRef nothingRecorded();
-
-    @Name("Nothing recorded note")
-    MessageRef nothingRecordedNote();
 
     @Name("Whole journal")
     MessageRef wholeJournal();

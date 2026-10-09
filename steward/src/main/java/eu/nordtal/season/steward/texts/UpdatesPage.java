@@ -12,9 +12,6 @@ public interface UpdatesPage {
     @Name("Title")
     MessageRef title();
 
-    @Name("Check again, said")
-    MessageRef checkAgainTip();
-
     @Name("Could not check again")
     MessageRef checkAgainFailed();
 
@@ -48,9 +45,6 @@ public interface UpdatesPage {
     @Name("Nothing to install")
     MessageRef nothingToInstall();
 
-    @Name("Nothing to install, said")
-    MessageRef nothingToInstallNote();
-
     @Name("Incomplete")
     MessageRef incomplete();
 
@@ -78,9 +72,6 @@ public interface UpdatesPage {
     @Name("No run yet")
     MessageRef noRun();
 
-    @Name("No run yet, said")
-    MessageRef noRunNote();
-
     @Name("Run")
     MessageRef run();
 
@@ -99,14 +90,8 @@ public interface UpdatesPage {
     @Name("Initiated by")
     MessageRef initiatedBy();
 
-    @Name("Schedule, said")
-    MessageRef scheduleNote();
-
     @Name("No update section")
     MessageRef noSection();
-
-    @Name("No update section, said")
-    MessageRef noSectionNote();
 
     @Name("No day")
     MessageRef noDay();

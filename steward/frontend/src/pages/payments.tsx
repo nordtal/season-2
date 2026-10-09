@@ -1,4 +1,4 @@
-import { ArrowSquareOutIcon, HandCoinsIcon, WarningCircleIcon } from "@phosphor-icons/react"
+import { ArrowSquareOutIcon, HandCoinsIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 import { toast } from "sonner"
 
@@ -246,7 +246,7 @@ export function PaymentsPage() {
 
       <QueryState
         query={payments}
-        empty={{ title: t("steward.payments.no-request"), note: t("steward.payments.no-request-note") }}
+        empty={{ title: t("steward.payments.no-request") }}
         isEmpty={(list: Payment[]) => list.length === 0}
       >
         {(list) => {
@@ -271,11 +271,8 @@ export function PaymentsPage() {
                   tone={overdue.length > 0 ? "warn" : undefined}
                 />
                 <Stat label={t("steward.payments.paid")} value={waiting ? undefined : count(paid.length)} />
-                <Stat
-                  label={t("steward.payments.requested")}
-                  value={waiting ? undefined : euros(requested)}
-                  hint={t("steward.payments.requested-hint")}
-                />
+                {/* Amount plus donation of every paid request, as its tab asked for it. */}
+                <Stat label={t("steward.payments.requested")} value={waiting ? undefined : euros(requested)} />
               </div>
 
               <Panel title={t("steward.payments.requests")}>
@@ -299,19 +296,10 @@ export function PaymentsPage() {
                       ))}
                     </SelectContent>
                   </Select>
-                  {overdue.length > 0 ? (
-                    <span className="flex items-center gap-2 text-xs text-warning">
-                      <WarningCircleIcon className="size-4 shrink-0" aria-hidden />
-                      {t("steward.payments.overdue-note", { count: overdue.length })}
-                    </span>
-                  ) : null}
                 </div>
 
                 {!waiting && shown.length === 0 ? (
-                  <Empty
-                    title={t("steward.payments.none-with-status")}
-                    note={t("steward.payments.none-with-status-note")}
-                  />
+                  <Empty title={t("steward.payments.none-with-status")} />
                 ) : (
                   <PaymentsTable payments={waiting ? undefined : shown} now={now} />
                 )}

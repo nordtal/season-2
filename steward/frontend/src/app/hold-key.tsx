@@ -44,8 +44,6 @@ export function HoldKeyPage({ me }: { me: Me }) {
               </Alert>
             )}
 
-            <p className="text-sm text-muted-foreground">{t("steward.keys.hold-note")}</p>
-
             <Button type="button" size="lg" disabled={!supported || hold.isPending} onClick={() => hold.mutate()}>
               <FingerprintIcon aria-hidden />
               {hold.isPending ? t("steward.keys.waiting") : t("steward.keys.use-key")}

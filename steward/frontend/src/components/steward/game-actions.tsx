@@ -24,7 +24,7 @@ export function keyName(key: string): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1)
 }
 
-/** The hunger games' round, started with one button. */
+/** The hunger games' round, started with one button: everybody registered goes into the arena, the countdown begins. */
 export function HungerGamesActions() {
   const round = useHungerGamesRound()
   const [ask, setAsk] = useState<Ask | null>(null)
@@ -35,7 +35,7 @@ export function HungerGamesActions() {
       path: "/api/hunger-games/start",
       body: anyway ? { confirm: true } : {},
       title: t("steward.game.start-ask", { anyway }),
-      description: t("steward.game.start-note"),
+      description: t("steward.game.no-way-back"),
       confirm: t("steward.game.start", { anyway }),
     })
 

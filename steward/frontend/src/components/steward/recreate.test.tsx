@@ -113,12 +113,12 @@ describe("RecreateButton - before anything is pressed", () => {
     expect(button.title).not.toContain("already on this host")
   })
 
-  it("says that it is a run with a warning, and opening it asks for nothing", async () => {
+  it("asks first, names the service, and opening it asks for nothing", async () => {
     draw(<RecreateButton service="smp" />)
     fireEvent.click(screen.getByRole("button", { name: /Recreate/ }))
 
     const dialog = await screen.findByRole("alertdialog")
-    expect(dialog.textContent).toContain("warned")
+    expect(dialog.textContent).toContain("smp")
     expect(fetched.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false)
   })
 })
@@ -137,13 +137,13 @@ describe("RecreateButton - when /api/agent itself cannot be asked", () => {
 
     const button = asButton(screen.getByRole("button", { name: /Recreate/ }))
     await waitFor(() => expect(button.disabled).toBe(true))
-    expect(button.title).not.toContain("from the image already on this host")
+    expect(button.title).not.toBe("")
   })
 })
 
 describe("RecreateButton - before /api/agent has answered at all", () => {
-  it("keeps the button active but does not claim a state nobody has checked yet", async () => {
-    /** The first load leaves the button open but must not claim the confident title. */
+  it("keeps the button active but says nobody has checked yet, until the agent answers", async () => {
+    /** The first load leaves the button open; once the agent is there, the button needs no title. */
     let settle!: (response: Response) => void
     vi.stubGlobal(
       "fetch",
@@ -156,11 +156,11 @@ describe("RecreateButton - before /api/agent has answered at all", () => {
 
     const button = asButton(screen.getByRole("button", { name: /Recreate/ }))
     expect(button.disabled).toBe(false)
-    expect(button.title).not.toContain("from the image already on this host")
+    expect(button.title).not.toBe("")
 
     // Resolves the pending fetch so no timer leaks into the next test.
     settle(json({ body: { available: true, reachable: true } }))
-    await waitFor(() => expect(button.title).toContain("from the image already on this host"))
+    await waitFor(() => expect(button.title).toBe(""))
   })
 })
 

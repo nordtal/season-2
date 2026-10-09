@@ -22,7 +22,6 @@ import { Label } from "@/components/ui/label"
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
-  ResponsiveDialogDescription,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
   ResponsiveDialogTrigger,
@@ -50,8 +49,7 @@ export function UpdatesPage() {
               type="button"
               variant="outline"
               size="sm"
-              /** Steward holds a reading for six hours; disabled rather than hidden while it asks. */
-              title={t("steward.updates.check-again-tip")}
+              /** Steward holds a reading for six hours and asks every source again here; disabled while it asks. */
               disabled={refresh.isPending}
               onClick={() =>
                 refresh.mutate(undefined, {
@@ -182,7 +180,7 @@ function Available() {
       {refresh.error ? <Failure error={refresh.error} /> : null}
       <QueryState
         query={available}
-        empty={{ title: t("steward.updates.nothing-to-install"), note: t("steward.updates.nothing-to-install-note") }}
+        empty={{ title: t("steward.updates.nothing-to-install") }}
         isEmpty={(plan) => worthShowing(plan.changes).length === 0}
       >
         {(plan) => {
@@ -272,11 +270,7 @@ function Runs() {
 
   return (
     <Panel title={t("steward.updates.runs")}>
-      <QueryState
-        query={runs}
-        isEmpty={() => rows.length === 0}
-        empty={{ title: t("steward.updates.no-run"), note: t("steward.updates.no-run-note") }}
-      >
+      <QueryState query={runs} isEmpty={() => rows.length === 0} empty={{ title: t("steward.updates.no-run") }}>
         {(answer) => (
           <Table className="steward-table">
             <TableHeader>
@@ -397,16 +391,15 @@ function ScheduleDialog() {
           {t("steward.form.schedule")}
         </Button>
       </ResponsiveDialogTrigger>
-      <ResponsiveDialogContent>
+      <ResponsiveDialogContent aria-describedby={undefined}>
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>{t("steward.form.schedule")}</ResponsiveDialogTitle>
-          <ResponsiveDialogDescription>{t("steward.updates.schedule-note")}</ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
         {pending ? (
           <Loading rows={3} />
         ) : !document || entries.length === 0 ? (
-          <Empty title={t("steward.updates.no-section")} note={t("steward.updates.no-section-note")} />
+          <Empty title={t("steward.updates.no-section")} />
         ) : (
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">

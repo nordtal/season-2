@@ -29,10 +29,8 @@ export function NetworkPanel() {
         query={query}
         rows={10}
         isEmpty={(answer) => answer.services.length === 0}
-        empty={{
-          title: t("steward.network.no-service"),
-          note: t("steward.network.no-service-note"),
-        }}
+        /** No container carries a section label. */
+        empty={{ title: t("steward.network.no-service") }}
       >
         {(map) => {
           const topology = topologyOf(map)

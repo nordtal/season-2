@@ -70,9 +70,9 @@ function personToast(label: string, discordId: string): ReactNode {
 const MOST_DAYS = 365
 
 /**
- * Granting, with the arithmetic named out loud.
+ * Granting: the bot writes a period with the source ADMIN (no payment, no tab), gives the role and tells the person.
  *
- * A new period is appended behind a running one; one bought before the SMP opens starts then.
+ * A day is 24 hours; a period is appended behind a running one and starts no earlier than the SMP launch. An unknown id makes an account.
  */
 export function GrantDialog({
   person,
@@ -104,7 +104,6 @@ export function GrantDialog({
         ) : null
       }
       title={t("steward.people.grant-title")}
-      description={t("steward.people.grant-note")}
       action={t("steward.people.grant")}
       disabled={!usable || grant.isPending}
       act={() => {
@@ -152,13 +151,9 @@ export function GrantDialog({
             aria-invalid={Number.isFinite(parsedDays) && parsedDays > MOST_DAYS}
           />
         </div>
-        <ul className="flex list-disc flex-col gap-1 pl-4 text-sm text-muted-foreground">
-          <li>{t("steward.people.most-days", { most: MOST_DAYS })}</li>
-          <li>{t("steward.people.day-is-day")}</li>
-          <li>{t("steward.people.appended")}</li>
-          <li>{t("steward.people.from-launch")}</li>
-          <li>{t("steward.people.unknown-id")}</li>
-        </ul>
+        {Number.isFinite(parsedDays) && parsedDays > MOST_DAYS ? (
+          <p className="text-sm text-destructive">{t("steward.people.most-days", { most: MOST_DAYS })}</p>
+        ) : null}
       </div>
     </AskThenAct>
   )
@@ -199,7 +194,6 @@ export function PlaytimeDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={t("steward.people.playtime-title")}
-      description={t("steward.people.playtime-note", { name: personName(person) })}
       action={t("steward.form.save")}
       disabled={!usable || write.isPending}
       act={() => {
@@ -267,7 +261,7 @@ export function PlaytimeDialog({
   )
 }
 
-/** Unlinks the Minecraft account; the Discord account keeps its access, and the bot tells the person. */
+/** Unlinks the Minecraft account; the paid period stays, the person may link again, and the bot tells them. */
 export function UnlinkDialog({
   person,
   open,
@@ -283,7 +277,6 @@ export function UnlinkDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={t("steward.people.unlink-title")}
-      description={t("steward.people.unlink-note")}
       action={t("steward.people.unlink")}
       destructive
       disabled={unlink.isPending}
@@ -296,9 +289,7 @@ export function UnlinkDialog({
               })
               return
             }
-            toast.success(personToast(t("steward.people.unlinked"), person.discordId), {
-              description: t("steward.people.journal-names-you"),
-            })
+            toast.success(personToast(t("steward.people.unlinked"), person.discordId))
           },
           onError: (error) => {
             toast.error(t("steward.people.not-unlinked"), { description: String(error) })
@@ -309,7 +300,7 @@ export function UnlinkDialog({
   )
 }
 
-/** Lets one player through without the resource pack, or takes that back. */
+/** Lets one player through without the resource pack from their next login on, or takes that back. */
 export function PackExemptionDialog({
   person,
   open,
@@ -328,7 +319,6 @@ export function PackExemptionDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={t("steward.people.pack-title", { exempted, name: personName(person) })}
-      description={t("steward.people.pack-note", { exempted })}
       action={t("steward.people.pack", { exempted })}
       disabled={change.isPending}
       act={() => {
@@ -345,7 +335,7 @@ export function PackExemptionDialog({
   )
 }
 
-/** Makes a member an admin below the signed-in one. The Discord admin role follows. */
+/** Makes a member an admin below the signed-in one, whom only they and the admins above can revoke; the Discord role follows. */
 export function MakeAdminDialog({
   person,
   open,
@@ -361,7 +351,6 @@ export function MakeAdminDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={t("steward.people.make-admin-title", { name: personName(person) })}
-      description={t("steward.people.make-admin-note")}
       action={t("steward.people.make-admin")}
       disabled={grant.isPending}
       act={() => {
@@ -423,6 +412,7 @@ export function RevokeAdminDialog({
 /**
  * Revokes every running period; the person dialog closes first, so there are never two focus traps.
  *
+ * The proxy re-checks connected players, so revoking throws them out. A revoked period stays on record, marked.
  * @param open when given, the dialog is controlled from outside and draws no trigger of its own
  */
 export function RevokeDialog({
@@ -463,9 +453,7 @@ export function RevokeDialog({
               })
               return
             }
-            toast.success(personToast(t("steward.people.revoked-for", { count: result.revoked }), person.discordId), {
-              description: t("steward.people.journal-names-you"),
-            })
+            toast.success(personToast(t("steward.people.revoked-for", { count: result.revoked }), person.discordId))
           },
           onError: (error) => {
             toast.error(t("steward.people.not-revoked"), { description: String(error) })
@@ -473,14 +461,10 @@ export function RevokeDialog({
         })
       }}
     >
-      <div className="flex flex-col gap-3 text-sm">
-        <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-3 py-2 text-warning">
-          <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
-          {t("steward.people.thrown-out")}
-        </p>
-        <p className="text-muted-foreground">{t("steward.people.no-refund")}</p>
-        <p className="text-muted-foreground">{t("steward.people.entry-stays")}</p>
-      </div>
+      <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-3 py-2 text-sm text-warning">
+        <WarningIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+        {t("steward.people.thrown-out")}
+      </p>
     </AskThenAct>
   )
 }

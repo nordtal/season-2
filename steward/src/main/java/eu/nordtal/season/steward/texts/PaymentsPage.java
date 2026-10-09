@@ -52,9 +52,6 @@ public interface PaymentsPage {
     @Name("No request")
     MessageRef noRequest();
 
-    @Name("No request, said")
-    MessageRef noRequestNote();
-
     @Name("Open")
     MessageRef open();
 
@@ -67,9 +64,6 @@ public interface PaymentsPage {
     @Name("Requested")
     MessageRef requested();
 
-    @Name("Requested, said")
-    MessageRef requestedHint();
-
     @Name("Requests")
     MessageRef requests();
 
@@ -79,14 +73,8 @@ public interface PaymentsPage {
     @Name("Every status")
     MessageRef all();
 
-    @Name("Overdue, said")
-    MessageRef overdueNote(@Arg("count") int count);
-
     @Name("None with this status")
     MessageRef noneWithStatus();
-
-    @Name("None with this status, said")
-    MessageRef noneWithStatusNote();
 
     @Name("Reference")
     MessageRef reference();

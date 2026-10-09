@@ -89,7 +89,6 @@ export function RecreateButton({
         open={open}
         onOpenChange={setOpen}
         title={t("steward.service-page.recreate-title", { service })}
-        description={t("steward.service-page.recreate-note")}
         action={runKind("RECREATE")}
         act={() =>
           ask
@@ -124,7 +123,7 @@ export function useRecreateGate(service: string): { unavailable: boolean; title:
         : agent.isError
           ? t("steward.service-page.agent-unknown")
           : agent.data?.available === true
-            ? t("steward.service-page.recreate-tip", { service })
+            ? undefined
             : t("steward.service-page.agent-not-yet"))
   return { unavailable, title }
 }

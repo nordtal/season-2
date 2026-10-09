@@ -13,12 +13,6 @@ public interface SeasonPage {
     @Name("Title")
     MessageRef title();
 
-    @Name("Nothing carried")
-    MessageRef nothingCarried();
-
-    @Name("Rebuild")
-    MessageRef rebuild();
-
     @Name("Network")
     MessageRef network();
 
@@ -27,9 +21,6 @@ public interface SeasonPage {
 
     @Name("Phase")
     MessageRef phase(@Arg("phase") SeasonPhase phase);
-
-    @Name("Who joins")
-    MessageRef who(@Arg("phase") SeasonPhase phase);
 
     @Name("Now")
     MessageRef now();
@@ -49,9 +40,6 @@ public interface SeasonPage {
     @Name("Switch title")
     MessageRef switchTitle(@Arg("phase") String phase);
 
-    @Name("Switch note")
-    MessageRef switchNote(@Arg("who") String who);
-
     @Name("Phase is now")
     MessageRef phaseIsNow(@Arg("phase") String phase);
 
@@ -61,26 +49,14 @@ public interface SeasonPage {
     @Name("Reason placeholder")
     MessageRef reasonPlaceholder();
 
-    @Name("Reason note")
-    MessageRef reasonNote();
-
     @Name("Dates")
     MessageRef dates();
 
     @Name("Launch")
     MessageRef launch();
 
-    @Name("Launch note")
-    MessageRef launchNote();
-
-    @Name("Launch removal")
-    MessageRef launchRemoval();
-
     @Name("SMP start")
     MessageRef smpStart();
-
-    @Name("SMP start note")
-    MessageRef smpStartNote();
 
     @Name("SMP start removal")
     MessageRef smpStartRemoval();

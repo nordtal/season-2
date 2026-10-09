@@ -71,7 +71,7 @@ describe("the account popover is the settings page's account half", () => {
 
     const question = await screen.findByRole("alertdialog")
     expect(question.textContent).toContain("Phone")
-    expect(question.textContent).toContain("The other keys on this account keep working")
+    expect(question.textContent).toContain("This key stops working")
   })
 
   it("stays tappable for an account with no picture on record", () => {

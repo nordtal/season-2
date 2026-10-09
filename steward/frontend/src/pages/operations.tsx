@@ -296,7 +296,6 @@ export function AskButton({
         ) : null
       }
       title={scoped ? t("steward.operations.scoped", { ask: title, services }) : title}
-      description={t("steward.operations.ask-what", { kind: choice(kind) })}
       action={t("steward.operations.now")}
       destructive={kind === "RESTART" || kind === "DOWN"}
       act={submit}
@@ -375,7 +374,7 @@ export function UpdateRunPage() {
       />
 
       {!numeric ? (
-        <Empty title={t("steward.operations.not-a-number")} note={t("steward.operations.not-a-number-note", { id })} />
+        <Empty title={t("steward.operations.not-a-number")} />
       ) : (
         /** A missing row arrives as a 404 failure, and an answered query always has a body. */
         <QueryState query={run}>{(data) => <RunDetail run={data} />}</QueryState>
@@ -422,11 +421,8 @@ function RunDetail({ run }: { run?: Run }) {
           value={run ? <Actor kind={run.actorKind} id={run.actorId} /> : undefined}
           hint={run ? dateTime(run.requested) : undefined}
         />
-        <Stat
-          label={t("steward.operations.no-earlier-than")}
-          value={run ? dateTime(run.scheduledFor) : undefined}
-          hint={t("steward.operations.no-earlier-than-hint")}
-        />
+        {/* steward does not pick the row up before this. */}
+        <Stat label={t("steward.operations.no-earlier-than")} value={run ? dateTime(run.scheduledFor) : undefined} />
         <Stat
           label={t("steward.operations.started")}
           value={run ? dateTime(run.started) : undefined}
@@ -444,7 +440,6 @@ function RunDetail({ run }: { run?: Run }) {
           <ProhibitInsetIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
           <div className="flex flex-col gap-1">
             <p className="text-sm font-medium">{t("steward.operations.nothing-to-do-title")}</p>
-            <p className="max-w-prose text-sm text-muted-foreground">{t("steward.operations.nothing-to-do-note")}</p>
           </div>
         </div>
       ) : null}
@@ -457,7 +452,6 @@ function RunDetail({ run }: { run?: Run }) {
           <ShieldWarningIcon className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden />
           <div className="flex flex-col gap-1">
             <p className="text-sm font-medium">{t("steward.operations.saved-nothing")}</p>
-            <p className="max-w-prose text-sm text-muted-foreground">{t("steward.operations.saved-nothing-note")}</p>
           </div>
         </div>
       ) : null}
@@ -465,12 +459,6 @@ function RunDetail({ run }: { run?: Run }) {
       {report && run ? (
         <Panel title={t("steward.operations.stages")}>
           <StageTrail stage={report.stage} kind={run.kind} />
-          {!finished ? (
-            <p className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="size-2 animate-pulse rounded-full bg-warning" aria-hidden />
-              {t("steward.operations.growing")}
-            </p>
-          ) : null}
         </Panel>
       ) : null}
 
@@ -489,7 +477,7 @@ function RunDetail({ run }: { run?: Run }) {
             </pre>
           </>
         ) : !report ? (
-          <Empty title={t("steward.operations.no-report")} note={t("steward.operations.no-report-note")} />
+          <Empty title={t("steward.operations.no-report")} />
         ) : (
           <ReportLines lines={report.services} />
         )}
@@ -558,7 +546,7 @@ function StageTrail({ stage, kind }: { stage: string; kind: string }) {
 
 function ReportLines({ lines }: { lines: ReportLine[] }) {
   if (lines.length === 0) {
-    return <Empty title={t("steward.operations.no-line-title")} note={t("steward.operations.no-line-note")} />
+    return <Empty title={t("steward.operations.no-line-title")} />
   }
   return (
     <Table className="steward-table">
@@ -637,7 +625,7 @@ export function CopyButton({ text, disabled }: { text: string; disabled?: boolea
           window.setTimeout(() => setCopied(false), 2000)
           toast.success(t("steward.operations.command-copied"))
         } catch {
-          toast.error(t("steward.operations.cannot-copy"), { description: t("steward.operations.cannot-copy-note") })
+          toast.error(t("steward.operations.cannot-copy"))
         }
       }}
     >

@@ -236,21 +236,30 @@ describe("OverviewPage - the tile that replaced the old banner", () => {
 })
 
 /**
- * CPU is the tallest tile, so below `lg` it spans its row rather than stretching a neighbour.
+ * The tiles pair up two by two below `26rem` and run over three columns up to `lg`, so no tile spans a row.
  *
- * At `lg` it returns to one column, keeping all six tiles in one row.
+ * CPU and Memory are the service page's `MetricChart`, each with its own curve of the host.
  */
-describe("OverviewPage - the CPU tile never shares a row with a shorter one", () => {
-  it("spans the whole row below `lg`, where it would otherwise stretch a shorter neighbour", async () => {
+describe("OverviewPage - the number row pairs up its tiles", () => {
+  it("lets CPU take one column like every other tile", async () => {
     vi.stubGlobal("fetch", backend({}))
     draw()
 
     await waitFor(() => expect(screen.getByText("CPU")).toBeTruthy())
-    /** The grid item carrying the span is the parent of `Stat`'s div. */
-    const tile = screen.getByText("CPU").closest("div")?.parentElement
-    expect(tile?.className).toContain("col-span-2")
-    expect(tile?.className).toContain("min-[26rem]:col-span-3")
-    expect(tile?.className).toContain("lg:col-span-1")
+    const grid = screen.getByText("CPU").closest("div")?.parentElement?.parentElement
+    for (const tile of Array.from(grid?.children ?? [])) expect(tile.className).not.toMatch(/col-span/)
+  })
+
+  it("draws the host's memory curve from its used bytes", async () => {
+    const fetch = backend({})
+    vi.stubGlobal("fetch", fetch)
+    draw()
+
+    await waitFor(() =>
+      expect(fetch.mock.calls.map(([url]) => url)).toContain(
+        "/api/metrics?subject=host&metric=memory_used_bytes&minutes=360",
+      ),
+    )
   })
 })
 

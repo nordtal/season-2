@@ -49,6 +49,7 @@ const WAITING_HINT = <SkeletonText className="w-20 text-xs" />
 function MetricRow() {
   const host = useHost()
   const cpu = useMetrics("host", "cpu_percent", 360)
+  const memory = useMetrics("host", "memory_used_bytes", 360)
   const services = useServices()
   const backups = useBackups()
   const alerts = useAlerts()
@@ -64,18 +65,16 @@ function MetricRow() {
 
   return (
     <div className="grid grid-cols-2 gap-x-4 gap-y-5 min-[26rem]:grid-cols-3 lg:grid-cols-6">
-      {/* CPU spans the row below `lg`, since its curve makes it taller than any row-mate. */}
-      <MetricTile
+      <MetricChart
         label={t("steward.service-page.cpu")}
         value={host.data ? percent(host.data.cpuPercent) : undefined}
         hint={host.data ? (unreadable ?? cores(host.data.cpus)) : WAITING_HINT}
-        className="col-span-2 min-[26rem]:col-span-3 lg:col-span-1"
-      >
-        <UsageBar used={host.data?.cpuPercent ?? (host.data ? 0 : undefined)} total={host.data ? 100 : undefined} />
-        <MetricChart points={cpu.data?.points} format={percent} colour="var(--chart-4)" height={28} />
-      </MetricTile>
+        points={cpu.data?.points}
+        format={percent}
+        colour="var(--chart-1)"
+      />
 
-      <MetricTile
+      <MetricChart
         label={t("steward.overview.memory")}
         value={host.data ? memoryShare(host.data) : undefined}
         hint={
@@ -86,13 +85,10 @@ function MetricRow() {
                 : "\u2013"))
             : WAITING_HINT
         }
-      >
-        {!host.data ? (
-          <UsageBar />
-        ) : host.data.memoryTotalBytes ? (
-          <UsageBar used={usedMemory ?? 0} total={host.data.memoryTotalBytes} />
-        ) : null}
-      </MetricTile>
+        points={memory.data?.points}
+        format={(used) => share(used, host.data?.memoryTotalBytes)}
+        colour="var(--chart-2)"
+      />
 
       <MetricTile
         label={t("steward.service-page.disk")}
@@ -230,10 +226,15 @@ function cores(cpus: number | undefined): string {
   return cpus === undefined ? "\u2013" : t("steward.overview.cores", { count: cpus })
 }
 
-function memoryShare(host: { memoryTotalBytes?: number; memoryAvailableBytes?: number } | undefined) {
-  if (!host?.memoryTotalBytes) return "\u2013"
-  const used = host.memoryTotalBytes - (host.memoryAvailableBytes ?? 0)
-  return percent((used / host.memoryTotalBytes) * 100, 0)
+/** The share of the host's memory in use now, or the dash while the host has not said its total. */
+function memoryShare(host: { memoryTotalBytes?: number; memoryAvailableBytes?: number }) {
+  if (!host.memoryTotalBytes) return "\u2013"
+  return share(host.memoryTotalBytes - (host.memoryAvailableBytes ?? 0), host.memoryTotalBytes)
+}
+
+/** A reading of the memory curve as the tile's number: a share of `total`, or bytes where no total is known. */
+function share(used: number, total: number | undefined): string {
+  return total ? percent((used / total) * 100, 0) : bytes(used)
 }
 
 /** Four absent rows, the length `useActions(5)` settles at once the season is running. */

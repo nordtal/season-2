@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { type ReactNode, useMemo, useState } from "react"
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 
 import type { MetricPoint } from "@/lib/api"
@@ -49,6 +49,7 @@ export function RangeSelect({ minutes, onChange }: { minutes: Range; onChange: (
 export function MetricChart({
   label,
   value,
+  hint,
   points,
   format,
   colour,
@@ -60,6 +61,8 @@ export function MetricChart({
   label?: string
   /** The number now, absent while it is on its way. */
   value?: string
+  /** The caveat under the number, as `Stat` draws it. */
+  hint?: ReactNode
   /** Absent while the series is read, drawn as a strip of the same height. */
   points?: MetricPoint[]
   format: (value: number) => string
@@ -77,6 +80,7 @@ export function MetricChart({
         <Stat
           label={reading ? t("steward.service-page.reading", { metric: label, at: new Date(reading.at) }) : label}
           value={reading ? format(reading.value) : value}
+          hint={hint}
           className={statClassName}
           valueClassName={valueClassName}
         />

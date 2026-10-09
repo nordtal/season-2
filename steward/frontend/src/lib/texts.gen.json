@@ -1445,7 +1445,6 @@
     "steward.shell.still-reading": [["Still reading the settings…"]],
     "steward.shell.stuck": [["This is not an expired session. You stay signed in. The interface only knows who you are again once this request gets through."]],
     "steward.shell.unknown": [["unknown"]],
-    "steward.shell.viewport-diagnostics": [["Viewport diagnostics"]],
     "steward.texts.all-services": [["All services"]],
     "steward.texts.group": [[{"c":"group","plural":false,"cases":{"game":["In game"],"discord":["Discord"],"steward":["Steward & Admin"],"values":["Building blocks"],"other":[{"v":"group"}]}}]],
     "steward.texts.none": [["No texts."]],

@@ -75,9 +75,6 @@ public interface Shell {
     @Name("Sign out")
     MessageRef signOut();
 
-    @Name("Viewport diagnostics")
-    MessageRef viewportDiagnostics();
-
     @Name("Pages")
     MessageRef pages();
 

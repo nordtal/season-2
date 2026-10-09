@@ -1993,7 +1993,6 @@ export type TextArgs = {
   "steward.shell.still-reading": Record<string, never>
   "steward.shell.stuck": Record<string, never>
   "steward.shell.unknown": Record<string, never>
-  "steward.shell.viewport-diagnostics": Record<string, never>
   "steward.texts.all-services": Record<string, never>
   "steward.texts.group": {
     group: Arg["choice"]

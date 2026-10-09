@@ -5,7 +5,6 @@ import { useCrumbs } from "@/app/breadcrumbs"
 import { Brand, MOTION, NavToggle, SearchButton, Trail } from "@/app/island"
 import { useNavigation } from "@/app/navigation"
 import { UserMenu } from "@/app/user-menu"
-import { ViewportDiagnostics } from "@/app/viewport-diagnostics"
 import type { Me } from "@/lib/api"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useSidebar } from "@/components/ui/sidebar"
@@ -21,7 +20,6 @@ export function AppFrame({ me }: { me: Me }) {
   return (
     <div className="relative flex h-(--app-height) w-full bg-background [--col:15rem] [--gutter:1rem] md:[--gutter:1.5rem]">
       {nav.isMobile ? <PhoneFrame me={me} nav={nav} /> : <DesktopFrame me={me} nav={nav} />}
-      <ViewportDiagnostics />
     </div>
   )
 }

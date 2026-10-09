@@ -159,3 +159,14 @@ describe("a run's report reads as versions, not as bookkeeping", () => {
     expect(await screen.findByText("CoreProtect.jar")).toBeTruthy()
   })
 })
+
+describe("a run's figures wrap on a phone", () => {
+  it("draws the status and the other figures with no separator to hang at a line's end", async () => {
+    vi.stubGlobal("fetch", backend())
+    draw()
+
+    const figures = (await screen.findByText("Requested by")).closest("div")?.parentElement
+    expect(figures?.textContent).toContain("Status")
+    expect(figures?.querySelector("[data-slot='separator']")).toBeNull()
+  })
+})

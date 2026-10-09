@@ -32,7 +32,6 @@ import { RunNotes } from "@/components/steward/run-notes"
 import { RunStatus, StatusBadge, runKind, type Tone } from "@/components/steward/status"
 import { Empty, Loading, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 /**
@@ -393,9 +392,11 @@ function RunDetail({ run }: { run?: Run }) {
 
   return (
     <>
-      <div className="flex flex-wrap items-start gap-6">
+      <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
         <div className="flex flex-col gap-2">
-          <span className="text-xs font-medium text-muted-foreground">{t("steward.operations.status")}</span>
+          <span className="font-heading text-xs font-medium text-muted-foreground">
+            {t("steward.operations.status")}
+          </span>
           <div className="flex items-center gap-2">
             {run ? <RunStatus status={run.status} /> : <Skeleton className="h-5 w-20 rounded-full" />}
             {report ? <StageBadge stage={report.stage} /> : null}
@@ -413,8 +414,6 @@ function RunDetail({ run }: { run?: Run }) {
             )}
           </span>
         </div>
-
-        <Separator orientation="vertical" className="h-14" />
 
         <Stat
           label={t("steward.operations.requested-by")}

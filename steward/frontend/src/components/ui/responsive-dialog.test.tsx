@@ -53,3 +53,15 @@ describe("one dialog, two shapes", () => {
     expect(draw().getAttribute("data-slot")).toBe("dialog-title")
   })
 })
+
+/** vaul's own lift ignores the pan iOS adds, so the sheet stands on what `lib/app-frame.ts` measures instead. */
+describe("a sheet and the keyboard", () => {
+  it("stands on the keyboard inset and fits the height the keyboard leaves visible", () => {
+    window.innerWidth = 390
+    const sheet = draw().closest("[data-slot='drawer-content']")
+    const classes = sheet?.getAttribute("class") ?? ""
+    expect(classes).toContain("bottom-(--keyboard-inset,0px)")
+    expect(classes).toContain("var(--visible-height,100svh)")
+    expect(classes).not.toMatch(/(^|\s)bottom-0(\s|$)/)
+  })
+})

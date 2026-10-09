@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { isStandalone, measuredHeight, screenHeight, trackAppFrame } from "@/lib/app-frame"
+import { isStandalone, measuredHeight, screenHeight, trackAppFrame, visibleBand } from "@/lib/app-frame"
 
 /** The two moments reading the visual viewport is wrong: a keyboard and a pinch, both answered with `null`. */
 
@@ -323,5 +323,70 @@ describe("trackAppFrame - what lands on the document", () => {
     stop()
 
     Object.defineProperty(window.navigator, "standalone", { value: undefined, configurable: true })
+  })
+})
+
+/** iPhone figures: an 844px window, a 336px keyboard, and iOS panning 120px further to show a field. */
+describe("visibleBand - where a bottom sheet stands while the keyboard is open", () => {
+  it("is the whole window, nothing under it, without a keyboard", () => {
+    expect(visibleBand({ innerHeight: 844, visualViewport: { height: 844, scale: 1, offsetTop: 0 } })).toEqual({
+      height: 844,
+      below: 0,
+    })
+  })
+
+  it("puts the keyboard under it", () => {
+    expect(visibleBand({ innerHeight: 844, visualViewport: { height: 508, scale: 1, offsetTop: 0 } })).toEqual({
+      height: 508,
+      below: 336,
+    })
+  })
+
+  it("takes a pan off what lies under it, so a sheet meets the keyboard rather than floating a band above it", () => {
+    expect(visibleBand({ innerHeight: 844, visualViewport: { height: 508, scale: 1, offsetTop: 120 } })).toEqual({
+      height: 508,
+      below: 216,
+    })
+  })
+
+  it("is nothing while pinched, and the window where there is no visual viewport", () => {
+    expect(visibleBand({ innerHeight: 844, visualViewport: { height: 300, scale: 2, offsetTop: 40 } })).toBeNull()
+    expect(visibleBand({ innerHeight: 844, visualViewport: null })).toEqual({ height: 844, below: 0 })
+  })
+})
+
+describe("trackAppFrame - the band a sheet stands on", () => {
+  it("publishes the visible height and the keyboard inset, and follows a pan, which fires no resize", () => {
+    const listeners = new Map<string, () => void>()
+    const visual = {
+      height: 844,
+      scale: 1,
+      offsetTop: 0,
+      addEventListener(type: string, listener: () => void) {
+        listeners.set(type, listener)
+      },
+      removeEventListener() {},
+    }
+    Object.defineProperty(window, "visualViewport", { value: visual, configurable: true })
+    Object.defineProperty(window, "innerHeight", { value: 844, configurable: true })
+    const style = document.documentElement.style
+
+    const stop = trackAppFrame(window)
+    expect([style.getPropertyValue("--visible-height"), style.getPropertyValue("--keyboard-inset")]).toEqual([
+      "844px",
+      "0px",
+    ])
+
+    visual.height = 508
+    listeners.get("resize")?.()
+    expect([style.getPropertyValue("--visible-height"), style.getPropertyValue("--keyboard-inset")]).toEqual([
+      "508px",
+      "336px",
+    ])
+
+    visual.offsetTop = 120
+    listeners.get("scroll")?.()
+    expect(style.getPropertyValue("--keyboard-inset")).toBe("216px")
+    stop()
   })
 })

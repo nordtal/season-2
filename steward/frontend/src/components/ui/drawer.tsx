@@ -5,10 +5,11 @@ import { Drawer as DrawerPrimitive } from "vaul"
 /**
  * A bottom sheet, every dialog's shape on a narrow screen, used only through {@link ResponsiveDialog}.
  *
- * Bottom only, since `sheet.tsx` already covers the sides; `vaul` does the drag.
+ * Bottom only, since `sheet.tsx` already covers the sides; `vaul` does the drag. Not the lift above the keyboard:
+ * vaul's ignores the pan iOS adds, so the sheet stands on `--keyboard-inset` instead.
  */
 function Drawer({ ...props }: React.ComponentProps<typeof DrawerPrimitive.Root>) {
-  return <DrawerPrimitive.Root data-slot="drawer" {...props} />
+  return <DrawerPrimitive.Root data-slot="drawer" repositionInputs={false} {...props} />
 }
 
 function DrawerTrigger({ ...props }: React.ComponentProps<typeof DrawerPrimitive.Trigger>) {
@@ -63,11 +64,12 @@ function DrawerContent({
         }}
         className={cn(
           /**
-           * `svh`, not `vh`, since on iOS a sheet sized in `vh` puts its footer under the browser chrome.
+           * `svh`, not `vh`, since on iOS a sheet sized in `vh` puts its footer under the browser chrome. With the
+           * keyboard open it stands on the keyboard and fits what is left visible, both measured by `lib/app-frame.ts`.
            *
            * `--sheet-gutter` is the sheet's side padding, which a sheet that pads its own rows reads instead of adding to.
            */
-          "fixed inset-x-0 bottom-0 z-50 flex max-h-[90svh] flex-col gap-4 rounded-t-xl bg-popover px-(--sheet-gutter) pt-4 [--sheet-gutter:1.5rem] pb-[max(1rem,env(safe-area-inset-bottom))] text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none",
+          "fixed inset-x-0 bottom-(--keyboard-inset,0px) z-50 flex max-h-[min(90svh,calc(var(--visible-height,100svh)-env(safe-area-inset-top)-0.5rem))] flex-col gap-4 rounded-t-xl bg-popover px-(--sheet-gutter) pt-4 [--sheet-gutter:1.5rem] pb-[max(1rem,env(safe-area-inset-bottom))] text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none",
           className,
         )}
         {...props}

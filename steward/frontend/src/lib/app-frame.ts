@@ -6,6 +6,8 @@
  *
  * An iOS home screen app takes the screen's height instead: WebKit can leave its layout viewport short after the
  * keyboard or a long pause, and then every viewport number, `position: fixed` included, agrees on the short height.
+ *
+ * `--visible-height` and `--keyboard-inset` follow the keyboard instead: what it leaves visible and what it covers.
  */
 
 /** What this needs off `window`. A type, so a test can hand it a plain object. */
@@ -36,6 +38,24 @@ export function measuredHeight(view: ViewLike, focused: Element | null, last: nu
   if (visual.scale !== 1) return null
   if (isEditable(focused)) return null
   return visual.height
+}
+
+/** What {@link visibleBand} needs off `window`; `offsetTop` is how far iOS has panned to show a focused field. */
+export type BandView = {
+  innerHeight: number
+  visualViewport?: { height: number; scale: number; offsetTop?: number } | null
+}
+
+/**
+ * What the keyboard leaves visible, in the pixels `position: fixed` uses, or `null` while pinched.
+ *
+ * `below` is the keyboard plus any pan iOS made to show a field, so a sheet standing on it meets the keyboard's edge.
+ */
+export function visibleBand(view: BandView): { height: number; below: number } | null {
+  const visual = view.visualViewport
+  if (!visual) return view.innerHeight > 0 ? { height: view.innerHeight, below: 0 } : null
+  if (visual.height <= 0 || visual.scale !== 1) return null
+  return { height: visual.height, below: Math.max(0, view.innerHeight - (visual.offsetTop ?? 0) - visual.height) }
 }
 
 /** What {@link screenHeight} needs off `window`. */
@@ -90,6 +110,19 @@ export function trackAppFrame(view: Window = window): () => void {
   /** The unrounded height behind `published`, which tells a growing window from a keyboard. */
   let measured: number | null = null
 
+  /** The band last written, so a pan writes only when it moves the band. */
+  let band: string | null = null
+
+  const publishBand = () => {
+    const visible = visibleBand(view)
+    if (!visible) return
+    const next = `${Math.round(visible.height)}px ${Math.round(visible.below)}px`
+    if (next === band) return
+    band = next
+    root.style.setProperty("--visible-height", `${Math.round(visible.height)}px`)
+    root.style.setProperty("--keyboard-inset", `${Math.round(visible.below)}px`)
+  }
+
   /** iOS scrolls the document to show a focused field and may leave it there; nothing else scrolls it. */
   const settle = () => {
     if (isEditable(view.document.activeElement)) return
@@ -98,6 +131,7 @@ export function trackAppFrame(view: Window = window): () => void {
 
   const apply = () => {
     settle()
+    publishBand()
     const height = screenHeight(view) ?? measuredHeight(view, view.document.activeElement, measured)
     if (height === null) return
     measured = height
@@ -132,6 +166,7 @@ export function trackAppFrame(view: Window = window): () => void {
   view.addEventListener("resize", apply)
   view.addEventListener("orientationchange", apply)
   visual?.addEventListener("resize", apply)
+  visual?.addEventListener("scroll", publishBand)
   /** Re-measures on `focusout`, since a field's focus blocked the last measurement. */
   view.addEventListener("focusout", apply)
   /** The events that fire on a resume; which one iOS sends depends on how the app was left. */
@@ -149,6 +184,7 @@ export function trackAppFrame(view: Window = window): () => void {
     view.removeEventListener("resize", apply)
     view.removeEventListener("orientationchange", apply)
     visual?.removeEventListener("resize", apply)
+    visual?.removeEventListener("scroll", publishBand)
     view.removeEventListener("focusout", apply)
     view.removeEventListener("pageshow", apply)
     view.removeEventListener("focus", apply)

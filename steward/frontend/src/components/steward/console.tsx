@@ -61,12 +61,12 @@ export function ServiceConsole({
   return (
     <section
       aria-label={t("steward.service-page.console")}
-      className="relative flex h-[65svh] flex-col overflow-hidden rounded-xl bg-[#0a0a0a] font-mono text-[0.6875rem] leading-5 text-white/85 sm:text-xs lg:h-[36rem]"
+      className="relative flex h-[65svh] flex-col overflow-hidden rounded-xl border border-border bg-card font-mono text-[0.6875rem] leading-5 text-card-foreground sm:text-xs lg:h-[36rem]"
     >
-      <div className="flex h-8 shrink-0 items-center gap-1 border-b border-white/5 px-1.5">
+      <div className="flex shrink-0 items-center gap-1 border-b border-border p-1">
         {finding ? (
           <div className="flex min-w-0 flex-1 items-center gap-1.5">
-            <ListMagnifyingGlassIcon className="size-3.5 shrink-0 text-white/45" aria-hidden />
+            <ListMagnifyingGlassIcon className="ml-2 size-4 shrink-0 text-muted-foreground" aria-hidden />
             <input
               autoFocus
               value={query}
@@ -76,19 +76,19 @@ export function ServiceConsole({
               }}
               placeholder={t("steward.service-page.find")}
               aria-label={t("steward.service-page.find-in")}
-              className="min-w-0 flex-1 bg-transparent font-sans text-xs text-white outline-none placeholder:text-white/35 max-md:text-base"
+              className="min-w-0 flex-1 self-stretch bg-transparent font-sans text-sm text-foreground outline-none placeholder:text-muted-foreground max-md:text-base"
               spellCheck={false}
             />
             {query.trim() ? (
-              <span className="shrink-0 font-sans text-xs text-white/45 tabular-nums">{shown.length}</span>
+              <span className="shrink-0 font-sans text-sm text-muted-foreground tabular-nums">{shown.length}</span>
             ) : null}
             <Button
               type="button"
               variant="ghost"
-              size="icon-xs"
+              size="icon"
               onClick={closeFind}
               aria-label={t("steward.service-page.close-find")}
-              className="text-white/60 hover:bg-white/10 hover:text-white"
+              className="text-muted-foreground"
             >
               <XIcon aria-hidden />
             </Button>
@@ -98,11 +98,11 @@ export function ServiceConsole({
             <Button
               type="button"
               variant="ghost"
-              size="icon-xs"
+              size="icon"
               onClick={() => setFinding(true)}
               aria-label={t("steward.service-page.find")}
               title={t("steward.service-page.find")}
-              className="text-white/60 hover:bg-white/10 hover:text-white"
+              className="text-muted-foreground"
             >
               <ListMagnifyingGlassIcon aria-hidden />
             </Button>
@@ -111,9 +111,8 @@ export function ServiceConsole({
         )}
         <Select value={String(limit)} onValueChange={(value) => setLimit(Number(value))}>
           <SelectTrigger
-            size="sm"
             aria-label={t("steward.service-page.lines")}
-            className="h-6 gap-1 border-0 bg-transparent px-1.5 font-sans text-xs text-white/60 shadow-none hover:bg-white/10 hover:text-white dark:bg-transparent dark:hover:bg-white/10"
+            className="border-0 bg-transparent font-sans text-muted-foreground shadow-none hover:bg-muted hover:text-foreground dark:bg-transparent dark:hover:bg-muted/50"
           >
             <SelectValue />
           </SelectTrigger>
@@ -128,12 +127,12 @@ export function ServiceConsole({
         <Button
           type="button"
           variant="ghost"
-          size="icon-xs"
+          size="icon"
           onClick={() => download(name, shown)}
           disabled={!shown.some((entry) => entry.kind === "line")}
           aria-label={t("steward.service-page.download")}
           title={t("steward.service-page.download")}
-          className="text-white/60 hover:bg-white/10 hover:text-white"
+          className="text-muted-foreground"
         >
           <DownloadSimpleIcon aria-hidden />
         </Button>
@@ -146,16 +145,16 @@ export function ServiceConsole({
           role="status"
           className="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center font-sans"
         >
-          <PowerIcon className="mb-1 size-5 text-white/60" aria-hidden />
-          <p className="text-sm text-white/85">
+          <PowerIcon className="mb-1 size-5 text-muted-foreground" aria-hidden />
+          <p className="text-sm text-foreground">
             {offline === "going" ? t("steward.service-page.going-offline") : t("steward.service-page.offline")}
           </p>
         </div>
       ) : stream.failure ? (
         <div role="alert" className="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center font-sans">
-          <WarningCircleIcon className="mb-1 size-5 text-white/60" aria-hidden />
-          <p className="text-sm text-white/85">{t("steward.service-page.log-unreachable")}</p>
-          <p className="text-xs text-white/40">{stream.failure}</p>
+          <WarningCircleIcon className="mb-1 size-5 text-muted-foreground" aria-hidden />
+          <p className="text-sm text-foreground">{t("steward.service-page.log-unreachable")}</p>
+          <p className="text-xs text-muted-foreground">{stream.failure}</p>
         </div>
       ) : offline === "gone" && !stream.entries.some((entry) => entry.kind === "line") ? (
         /** A stopped container that never wrote a line has no log to wait for. */
@@ -163,8 +162,8 @@ export function ServiceConsole({
           role="status"
           className="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center font-sans"
         >
-          <PowerIcon className="mb-1 size-5 text-white/60" aria-hidden />
-          <p className="text-sm text-white/85">{t("steward.service-page.offline")}</p>
+          <PowerIcon className="mb-1 size-5 text-muted-foreground" aria-hidden />
+          <p className="text-sm text-foreground">{t("steward.service-page.offline")}</p>
         </div>
       ) : (
         <LogLines entries={shown} />
@@ -199,11 +198,11 @@ function download(name: string, entries: LogEntry[]) {
 }
 
 const LEVEL_TEXT: Record<Level, string> = {
-  TRACE: "text-white/40",
-  DEBUG: "text-white/40",
-  INFO: "text-white/85",
-  WARN: "text-amber-300",
-  ERROR: "text-red-400",
+  TRACE: "text-muted-foreground",
+  DEBUG: "text-muted-foreground",
+  INFO: "text-foreground",
+  WARN: "text-warning",
+  ERROR: "text-destructive",
 }
 
 /** Parsed once per entry, not once per render: entries keep their identity while they stay. */
@@ -281,7 +280,7 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
 
   if (rows.length === 0) {
     return (
-      <div className="flex flex-1 items-center justify-center font-sans text-xs text-white/35">
+      <div className="flex flex-1 items-center justify-center font-sans text-xs text-muted-foreground">
         {t("steward.service-page.waiting-for-log")}
       </div>
     )
@@ -298,7 +297,7 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
         <div ref={grid} className="grid grid-cols-1 gap-x-3 sm:grid-cols-[auto_auto_1fr]">
           {rows.map(({ entry, line, level }) =>
             line === null ? (
-              <div key={entry.seq} className="col-span-full py-1 font-sans text-white/35">
+              <div key={entry.seq} className="col-span-full py-1 font-sans text-muted-foreground">
                 {entry.text}
               </div>
             ) : line.kind === "parsed" ? (
@@ -306,8 +305,8 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
                 key={entry.seq}
                 className="col-span-full flex flex-wrap gap-x-3 pt-1 sm:grid sm:grid-cols-subgrid sm:pt-0"
               >
-                <span className="text-white/35 tabular-nums select-none">{line.time}</span>
-                <span className="max-w-[14ch] truncate text-white/45" title={line.source || undefined}>
+                <span className="text-muted-foreground tabular-nums select-none">{line.time}</span>
+                <span className="max-w-[14ch] truncate text-muted-foreground" title={line.source || undefined}>
                   {line.source}
                 </span>
                 <span
@@ -326,7 +325,7 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
                   "break-words whitespace-pre-wrap",
                   /** A continuation line sits under the message; anything else has the whole width. */
                   continuesPrevious(line.text) ? "max-sm:pl-3 sm:col-start-3" : "col-span-full",
-                  level ? LEVEL_TEXT[level] : "text-white/85",
+                  level ? LEVEL_TEXT[level] : LEVEL_TEXT.INFO,
                 )}
               >
                 {line.text}
@@ -335,17 +334,19 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
           )}
         </div>
       </div>
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-[#0a0a0a]" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-card" />
       {away ? (
-        <button
+        <Button
           type="button"
+          variant="secondary"
+          size="icon"
           onClick={() => box.current?.scrollTo({ top: 0, behavior: "smooth" })}
           aria-label={t("steward.service-page.newest")}
           title={t("steward.service-page.newest")}
-          className="absolute top-2 right-3 flex size-8 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20"
+          className="absolute top-2 right-3 rounded-full shadow-sm"
         >
-          <ArrowUpIcon className="size-4" aria-hidden />
-        </button>
+          <ArrowUpIcon aria-hidden />
+        </Button>
       ) : null}
     </div>
   )
@@ -384,7 +385,7 @@ function ConsoleLine({ name }: { name: string }) {
   return (
     <form
       id="console"
-      className="relative flex h-9 shrink-0 items-center gap-2 bg-white/[0.03] pr-1.5 pl-3"
+      className="relative flex shrink-0 items-center gap-2 border-b border-border bg-muted/50 py-1 pr-1 pl-3"
       onSubmit={(event) => {
         event.preventDefault()
         const line = command.trim()
@@ -402,7 +403,7 @@ function ConsoleLine({ name }: { name: string }) {
         })
       }}
     >
-      <span className="text-white/35 select-none" aria-hidden>
+      <span className="text-muted-foreground select-none" aria-hidden>
         ›
       </span>
       <input
@@ -447,7 +448,7 @@ function ConsoleLine({ name }: { name: string }) {
         }}
         placeholder="list"
         aria-label={t("steward.service-page.send-line")}
-        className="min-w-0 flex-1 bg-transparent text-white outline-none placeholder:text-white/25 max-md:text-base"
+        className="min-w-0 flex-1 self-stretch bg-transparent text-foreground outline-none placeholder:text-muted-foreground/60 max-md:text-base"
         autoComplete="off"
         autoCapitalize="off"
         autoCorrect="off"
@@ -456,11 +457,11 @@ function ConsoleLine({ name }: { name: string }) {
       <Button
         type="submit"
         variant="ghost"
-        size="icon-xs"
+        size="icon"
         disabled={!command.trim() || send.isPending}
         aria-label={t("steward.service-page.send")}
         title={t("steward.service-page.send")}
-        className="text-white hover:bg-white/10 hover:text-white"
+        className="text-foreground"
       >
         <KeyReturnIcon aria-hidden />
       </Button>
@@ -492,7 +493,7 @@ function ConsoleSuggestions({
       id="console-suggestions"
       role="listbox"
       aria-label={t("steward.service-page.commands")}
-      className="absolute inset-x-0 top-full z-20 max-h-60 overflow-y-auto border-y border-white/10 bg-[#141414] py-1 shadow-lg sm:right-auto sm:left-4 sm:w-72 sm:rounded-b-md sm:border-x"
+      className="absolute inset-x-0 top-full z-20 max-h-60 overflow-y-auto border-y border-border bg-popover py-1 text-popover-foreground shadow-lg sm:right-auto sm:left-4 sm:w-72 sm:rounded-b-md sm:border-x"
     >
       {words.map((word, index) => (
         <li
@@ -504,8 +505,8 @@ function ConsoleSuggestions({
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => onTake(word)}
           className={cn(
-            "flex h-9 cursor-pointer items-center truncate px-3 text-white/85 sm:h-7",
-            index === chosen ? "bg-white/10 text-white" : "hover:bg-white/5",
+            "flex h-9 cursor-pointer items-center truncate px-3 sm:h-7 pointer-coarse:min-h-control",
+            index === chosen ? "bg-accent text-accent-foreground" : "hover:bg-muted",
           )}
         >
           {word.name}
@@ -517,7 +518,7 @@ function ConsoleSuggestions({
           role="option"
           aria-selected={false}
           aria-disabled
-          className="flex h-9 items-center truncate px-3 text-white/35 sm:h-7"
+          className="flex h-9 items-center truncate px-3 text-muted-foreground sm:h-7 pointer-coarse:min-h-control"
         >
           {`<${argument}>`}
         </li>

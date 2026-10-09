@@ -112,12 +112,25 @@ describe("ServiceConsole", () => {
       ["line", "[10:00:01] [Server thread/WARN]: Can't keep up!"],
       ["line", "There are 0 of a max of 40 players online:"],
     )
-    expect(screen.getByText("it broke").className).toContain("text-red-400")
-    expect(screen.getByText(/Smp\.onEnable/).className).toContain("text-red-400")
-    expect(screen.getByText("Can't keep up!").className).toContain("text-amber-300")
-    expect(screen.getByText(/players online/).className).toContain("text-white/85")
+    expect(screen.getByText("it broke").className).toContain("text-destructive")
+    expect(screen.getByText(/Smp\.onEnable/).className).toContain("text-destructive")
+    expect(screen.getByText("Can't keep up!").className).toContain("text-warning")
+    expect(screen.getByText(/players online/).className).toContain("text-foreground")
     // The thread falls away; the time loses nothing but stays apart from the text.
     expect(screen.queryByText(/Server thread/)).toBeNull()
+  })
+
+  it("takes every colour from the theme and draws its controls at the interface's icon size", () => {
+    const input = mountLine(TREE)
+    feed(["run", "Earlier run, 22 Sep 19:44"], ["line", "[10:00:00] [Server thread/INFO]: [smp] up"])
+    fireEvent.change(input, { target: { value: "s" } })
+    fireEvent.click(screen.getByRole("button", { name: "Find" }))
+    const panel = screen.getByRole("region", { name: "Console" })
+    const classes = [panel, ...panel.querySelectorAll("*")].map((element) => element.getAttribute("class") ?? "")
+    expect(classes.filter((value) => /\[#|-(white|black)\b/.test(value))).toEqual([])
+    const buttons = [...panel.querySelectorAll("[data-slot=button]")]
+    expect(buttons.map((button) => button.getAttribute("data-size"))).toEqual(buttons.map(() => "icon"))
+    expect(buttons.length).toBeGreaterThanOrEqual(3)
   })
 
   it("puts a continuation line under the message column, also when its head fell out of the window", () => {

@@ -181,7 +181,7 @@ describe("where the desktop's frame begins", () => {
 })
 
 describe("the frame on a phone", () => {
-  it("draws a dock with the page's name, search and account, and the list folded", async () => {
+  it("draws a dock with the Steward mark and name, search and account, and the list folded", async () => {
     asPhone()
     drawAt("/services/smp")
 
@@ -190,7 +190,9 @@ describe("the frame on a phone", () => {
     // The cookie says open; the phone's navigation has its own state and starts closed.
     expect(toggle.getAttribute("aria-expanded")).toBe("false")
     const dock = toggle.parentElement!
-    await waitFor(() => expect(dock.textContent).toContain("smp"))
+    await waitFor(() => expect(dock.textContent).toContain("Steward"))
+    expect(dock.textContent).not.toContain("smp")
+    expect(dock.querySelector('img[src="/icon.png"]')).toBeTruthy()
     expect(within(dock).getByRole("button", { name: "Search pages" })).toBeTruthy()
     expect(within(dock).getByRole("button", { name: /Account/ })).toBeTruthy()
     expect(screen.queryByRole("navigation", { name: "Pages" })).toBeNull()
@@ -220,13 +222,5 @@ describe("the frame on a phone", () => {
     fireEvent.keyDown(document.body, { key: "Escape" })
 
     expect(screen.getByRole("button", { name: "Navigation" }).getAttribute("aria-expanded")).toBe("true")
-  })
-
-  it("names the Updates page, not a second Overview", async () => {
-    asPhone()
-    drawAt("/operations/updates")
-
-    await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
-    expect(screen.getByRole("button", { name: "Navigation" }).parentElement!.textContent).toContain("Updates")
   })
 })

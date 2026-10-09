@@ -1,9 +1,8 @@
-import { Outlet, useRouterState } from "@tanstack/react-router"
+import { Outlet } from "@tanstack/react-router"
 
-import { NavList, activeEntryId } from "@/app/app-sidebar"
+import { NavList } from "@/app/app-sidebar"
 import { useCrumbs } from "@/app/breadcrumbs"
-import { Brand, MOTION, NavToggle, SearchButton, Trail } from "@/app/island"
-import { useNavigation } from "@/app/navigation"
+import { Brand, BrandFace, MOTION, NavToggle, SearchButton, Trail } from "@/app/island"
 import { UserMenu } from "@/app/user-menu"
 import type { Me } from "@/lib/api"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -12,13 +11,13 @@ import { useSidebar } from "@/components/ui/sidebar"
 /**
  * The signed in frame: {@link DesktopFrame} from 640px up, {@link PhoneFrame} below.
  *
- * Everything aligns on `--gutter`, and only {@link Content} scrolls, never the document. What sits on the bottom edge
- * is placed against this frame rather than fixed, since iOS can leave a home screen app's fixed bottom too high.
+ * The chrome aligns on `--gutter`, the page on `--page-gutter`, a step further in on a phone. Only {@link Content}
+ * scrolls; the bottom edge's chrome is placed against this frame, since iOS can leave a fixed bottom too high.
  */
 export function AppFrame({ me }: { me: Me }) {
   const nav = useNav()
   return (
-    <div className="relative flex h-(--app-height) w-full bg-background [--col:15rem] [--gutter:1rem] md:[--gutter:1.5rem]">
+    <div className="relative flex h-(--app-height) w-full bg-background [--col:15rem] [--gutter:1rem] [--page-gutter:var(--gutter)] md:[--gutter:1.5rem]">
       {nav.isMobile ? <PhoneFrame me={me} nav={nav} /> : <DesktopFrame me={me} nav={nav} />}
     </div>
   )
@@ -106,7 +105,6 @@ function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
 /** The phone frame: one dock above the home indicator that grows upward into the navigation. */
 function PhoneFrame({ me, nav }: { me: Me; nav: Nav }) {
   const { shown, toggle, follow, close } = nav
-  const page = usePageLabel()
 
   return (
     <>
@@ -136,9 +134,9 @@ function PhoneFrame({ me, nav }: { me: Me; nav: Nav }) {
             onClick={toggle}
             tabIndex={-1}
             aria-hidden
-            className="h-control min-w-0 flex-1 truncate px-1 text-left text-sm text-foreground"
+            className="flex h-control min-w-0 flex-1 items-center gap-2 px-1 text-left text-sm font-semibold tracking-tight text-foreground"
           >
-            {page ?? "Steward"}
+            <BrandFace />
           </button>
           <SearchButton />
           <UserMenu me={me} plain />
@@ -146,23 +144,10 @@ function PhoneFrame({ me, nav }: { me: Me; nav: Nav }) {
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Content className="pt-[calc(env(safe-area-inset-top)+var(--blur-clearance)+1.5rem)] [--content-bottom:calc(max(0.75rem,env(safe-area-inset-bottom))+var(--control-min-height)+2.25rem)]" />
+        <Content className="pt-[calc(env(safe-area-inset-top)+var(--blur-clearance)+1.5rem)] [--page-gutter:1.5rem] [--content-bottom:calc(max(0.75rem,env(safe-area-inset-bottom))+var(--control-min-height)+2.25rem)]" />
       </div>
     </>
   )
-}
-
-/** The label of the page being shown: its row in the navigation, which is what the dock says. */
-function usePageLabel() {
-  const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const groups = useNavigation()
-  const active = activeEntryId(pathname, groups)
-  for (const group of groups) {
-    // "Overview" is two rows; the second is Operations' own, and the dock says which one it is.
-    for (const entry of group.entries)
-      if (entry.id === active) return group.label && entry.label === "Overview" ? group.label : entry.label
-  }
-  return null
 }
 
 /**
@@ -172,7 +157,7 @@ function usePageLabel() {
 function Content({ className }: { className: string }) {
   return (
     <ScrollArea className="min-h-0 flex-1">
-      <main className={`mx-auto w-full max-w-[110rem] px-(--gutter) pb-(--content-bottom) ${className}`}>
+      <main className={`mx-auto w-full max-w-[110rem] px-(--page-gutter) pb-(--content-bottom) ${className}`}>
         <Outlet />
       </main>
     </ScrollArea>

@@ -61,9 +61,18 @@ export function Brand({ onFollow }: { onFollow?: () => void }) {
       onClick={onFollow}
       className="flex h-control min-w-0 shrink-0 items-center gap-2 rounded-md pr-2 text-sm font-semibold tracking-tight transition-colors duration-150 ease-out hover:text-primary focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
     >
+      <BrandFace />
+    </Link>
+  )
+}
+
+/** The mark and the word "Steward", as the column's head and the phone's dock both draw them. */
+export function BrandFace() {
+  return (
+    <>
       <StewardMark className="size-5 shrink-0" />
       <span className="truncate">{t("steward.shell.steward")}</span>
-    </Link>
+    </>
   )
 }
 

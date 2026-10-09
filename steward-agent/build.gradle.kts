@@ -5,11 +5,6 @@ plugins {
     id("nordtal.plugin-descriptor")
 }
 
-// How Steward shows this module's settings; steward-agent reads it out of the jar.
-pluginDescriptor {
-    displayName.set("Steward agent")
-}
-
 application.mainClass.set("eu.nordtal.season.stewardagent.StewardAgent")
 
 // ComposeRefusesItselfTest reads the real compose file, so it has to be a declared input.

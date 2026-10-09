@@ -43,7 +43,7 @@ class LocalJarsTest {
         final LocalJars jars = new LocalJars(volumes);
         assertEquals(List.of("smp-0.17.0.jar"), jars.of("smp"));
 
-        PluginJars.write(jar, "{\"id\": \"smp\", \"name\": \"SMP, as released\"}", Map.of());
+        PluginJars.write(jar, "{\"id\": \"smp\"}", Map.of());
         Files.setLastModifiedTime(
                 jar, FileTime.fromMillis(Files.getLastModifiedTime(jar).toMillis() + 2000));
 

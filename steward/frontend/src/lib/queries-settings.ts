@@ -74,7 +74,7 @@ export function useSaveConfig(file: string) {
   })
 }
 
-/** What each jar of ours says of itself: its name, its logo and the custom editor of a group, if any. */
+/** What each jar of ours says of itself: whose settings it holds and the custom editor of a group, if any. */
 export function useDescriptors(enabled = true) {
   return useQuery({
     queryKey: keys.descriptors,

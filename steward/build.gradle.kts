@@ -18,7 +18,6 @@ messageSpec {
 
 // How Steward shows this module's settings; steward-agent reads it out of the jar.
 pluginDescriptor {
-    displayName.set("Steward")
     followsMessages.set(true)
 }
 

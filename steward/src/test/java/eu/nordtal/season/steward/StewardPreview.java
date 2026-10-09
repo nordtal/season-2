@@ -132,12 +132,12 @@ public final class StewardPreview {
         // A plugin jar built outside a release, so the stack shows a local build.
         eu.nordtal.season.stewardagent.PluginJars.write(
                 agent.volumes.resolve("smp/plugins/smp-0.17.0.jar"),
-                "{\"id\": \"smp\", \"name\": \"SMP\", \"local\": true}",
+                "{\"id\": \"smp\", \"local\": true}",
                 java.util.Map.of());
         // smp's descriptor where the agent reads it, so the track is drawn by the editor smp's jar names.
         eu.nordtal.season.stewardagent.PluginJars.write(
                 agent.configs.resolve("smp/smp.jar"),
-                "{\"id\": \"smp\", \"name\": \"SMP\", \"editors\": {\"milestones\": \"milestones\"}}",
+                "{\"id\": \"smp\", \"editors\": {\"milestones\": \"milestones\"}}",
                 java.util.Map.of());
     }
 

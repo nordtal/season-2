@@ -17,6 +17,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Set;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -186,15 +187,13 @@ class StackApiIntegrationTest {
     void theDescriptorInAPluginsJarIsPassedThroughWithItsEditors() throws Exception {
         final Path jar = agent.configs.resolve("smp/smp-0.11.0.jar");
         eu.nordtal.season.stewardagent.PluginJars.write(
-                jar,
-                "{\"id\": \"smp\", \"name\": \"SMP\", \"editors\": {\"milestones\": \"milestones\"}}",
-                java.util.Map.of());
+                jar, "{\"id\": \"smp\", \"editors\": {\"milestones\": \"milestones\"}}", java.util.Map.of());
         try {
             final JsonArray descriptors = GSON.fromJson(get("/api/descriptors"), JsonArray.class);
 
             assertEquals(1, descriptors.size(), descriptors.toString());
             final JsonObject smp = descriptors.get(0).getAsJsonObject();
-            assertEquals("SMP", smp.get("name").getAsString());
+            assertEquals(Set.of("service", "id", "editors"), smp.keySet());
             assertEquals(
                     "milestones",
                     smp.getAsJsonObject("editors").get("milestones").getAsString());

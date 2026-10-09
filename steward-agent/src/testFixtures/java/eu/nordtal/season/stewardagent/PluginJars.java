@@ -43,6 +43,6 @@ public final class PluginJars {
 
     /** The SMP plugin's jar, whose server follows the message overrides, carrying {@code entries}. */
     public static void smp(final Path jar, final Map<String, String> entries) throws IOException {
-        write(jar, "{\"id\": \"smp\", \"name\": \"SMP\", \"editors\": {}, \"messages\": true}", entries);
+        write(jar, "{\"id\": \"smp\", \"editors\": {}, \"messages\": true}", entries);
     }
 }

@@ -383,8 +383,6 @@ export type ConfigDocument = {
 export type PluginDescriptor = {
   service: string
   id: string
-  name: string
-  logo?: string
   editors: Record<string, string>
 }
 

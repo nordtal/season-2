@@ -9,7 +9,6 @@ import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.stewardagent.bundles.ImageJars;
 import eu.nordtal.season.stewardagent.bundles.ServiceJar;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
@@ -17,7 +16,6 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The {@code nordtal-plugin.json} of every jar of ours: whose settings a group is, and how Steward shows it.
+ * The {@code nordtal-plugin.json} of every jar of ours: whose settings a group is, and which editor draws it.
  *
  * Jars beside a service's data first, else its image, asked once per image reference without a descriptor.
  */
@@ -67,7 +65,7 @@ public final class PluginDescriptors {
             for (final Found found : of(service)) {
                 final Raw raw = found.raw();
                 final AgentWire.Descriptor descriptor =
-                        new AgentWire.Descriptor(service.name(), raw.id(), raw.name(), raw.logo(), raw.editors());
+                        new AgentWire.Descriptor(service.name(), raw.id(), raw.editors());
                 byId.merge(raw.id(), descriptor, (kept, next) -> next.id().equals(next.service()) ? next : kept);
             }
         }
@@ -141,14 +139,6 @@ public final class PluginDescriptors {
                 LOG.warn("{}: {} names no id and is left out", jar, ENTRY);
                 return null;
             }
-            final String name = text(json, "name");
-            final String logoPath = text(json, "logo");
-            String logo = null;
-            if (logoPath != null && zip.getEntry(logoPath) != null) {
-                try (InputStream in = zip.getInputStream(zip.getEntry(logoPath))) {
-                    logo = "data:image/png;base64," + Base64.getEncoder().encodeToString(in.readAllBytes());
-                }
-            }
             final Map<String, String> editors = new LinkedHashMap<>();
             if (json.get("editors") instanceof JsonObject declared) {
                 for (final Map.Entry<String, JsonElement> editor : declared.entrySet()) {
@@ -162,7 +152,7 @@ public final class PluginDescriptors {
                     && messages.getAsBoolean();
             final boolean local =
                     json.get("local") instanceof JsonPrimitive flag && flag.isBoolean() && flag.getAsBoolean();
-            return new Raw(id, name == null ? id : name, logo, Map.copyOf(editors), followsMessages, local);
+            return new Raw(id, Map.copyOf(editors), followsMessages, local);
         } catch (final IOException | JsonParseException | IllegalStateException e) {
             LOG.warn("{} could not be read for its descriptor: {}", jar, e.getMessage());
             return null;
@@ -182,13 +172,7 @@ public final class PluginDescriptors {
     public record Service(String name, @Nullable String image) {}
 
     /** One descriptor as the jar has it; {@code local} for a jar built outside a release. */
-    record Raw(
-            String id,
-            String name,
-            @Nullable String logo,
-            Map<String, String> editors,
-            boolean followsMessages,
-            boolean local) {}
+    record Raw(String id, Map<String, String> editors, boolean followsMessages, boolean local) {}
 
     private record Found(Path jar, boolean ownImage, Raw raw) {}
 }

@@ -146,8 +146,8 @@ sentence to show, `where`): `502` with `docker` or `compose` when the daemon or 
 failed, `400` with `steward-agent` for a request it will not run. `steward` passes `where` through.
 
 A descriptor is the `nordtal-plugin.json` the `nordtal.plugin-descriptor` convention writes into every
-jar of ours: the id its settings are published under, the name and logo for Steward's sidebar and
-the custom editor per group, and whether the process follows the message overrides (`followsMessages`).
+jar of ours: the id its settings are published under, the custom editor per group, and whether the
+process follows the message overrides (`followsMessages`).
 A plugin's jar is found beside its data under `/configs/<service>`, any other service's in its image.
 The message bundles are read from the same jars, from those whose process follows the overrides.
 

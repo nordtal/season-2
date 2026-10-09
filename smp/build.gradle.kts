@@ -8,7 +8,6 @@ plugins {
 
 // How Steward shows this module's settings; steward-agent reads it out of the jar.
 pluginDescriptor {
-    displayName.set("SMP")
     followsMessages.set(true)
     // The track is drawn compactly by Steward's own milestones editor rather than as cards from its schema.
     editors.put("milestones", "milestones")

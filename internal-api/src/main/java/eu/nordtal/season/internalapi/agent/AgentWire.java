@@ -325,18 +325,12 @@ public final class AgentWire {
     public record BundleRef(String service, String module) {}
 
     /**
-     * The {@code nordtal-plugin.json} of one jar on one service: whose settings these are and how Steward shows them.
+     * The {@code nordtal-plugin.json} of one jar on one service: whose settings these are and which editor draws them.
      *
      * @param id the service its groups of settings are published under, such as {@code smp}
-     * @param logo the logo as a {@code data:} URL, absent when the jar names none it carries
      * @param editors the custom editor that draws a group instead of the form built from its schema, by group name
      */
-    public record Descriptor(
-            String service,
-            String id,
-            String name,
-            @Nullable String logo,
-            Map<String, String> editors) {}
+    public record Descriptor(String service, String id, Map<String, String> editors) {}
 
     /**
      * One file in the backup directory; a {@code partial} one is being written or died halfway.

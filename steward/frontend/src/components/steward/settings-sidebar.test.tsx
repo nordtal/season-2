@@ -12,8 +12,6 @@ afterEach(() => {
   resetDrafts()
 })
 
-const LOGO = "data:image/png;base64,iVBORw=="
-
 /** Nordtal's mark, the one `StewardMark` draws. */
 const MARK = "/icon.png"
 
@@ -27,7 +25,7 @@ function group(name: string, service = "smp") {
 }
 
 function smp(editors: Record<string, string> = {}): PluginDescriptor {
-  return { service: "smp", id: "smp", name: "SMP", logo: LOGO, editors }
+  return { service: "smp", id: "smp", editors }
 }
 
 function navLines(): string[] {

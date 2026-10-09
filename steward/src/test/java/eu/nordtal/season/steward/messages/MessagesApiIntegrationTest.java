@@ -391,7 +391,7 @@ class MessagesApiIntegrationTest {
                         "messages/paper-common/en.properties", "reload.done=Reloaded\n"));
         PluginJars.write(
                 configs.resolve("limbo/limbo-0.9.1.jar"),
-                "{\"id\": \"limbo\", \"name\": \"Limbo\", \"messages\": true}",
+                "{\"id\": \"limbo\", \"messages\": true}",
                 java.util.Map.of(
                         "messages/limbo/en.properties", "waiting=Waiting\n",
                         "messages/paper-common/en.properties", "reload.done=Reloaded\n"));
@@ -425,7 +425,7 @@ class MessagesApiIntegrationTest {
                         "messages/values/en.properties", "missing.name=someone\n"));
         PluginJars.write(
                 configs.resolve("limbo/limbo-0.9.1.jar"),
-                "{\"id\": \"limbo\", \"name\": \"Limbo\", \"messages\": true}",
+                "{\"id\": \"limbo\", \"messages\": true}",
                 java.util.Map.of(
                         "messages/admin/en.properties", "alert.disk=The disk is full\n",
                         "messages/admin/schema.json", admin,
@@ -460,7 +460,7 @@ class MessagesApiIntegrationTest {
                 java.util.Map.of("messages/paper-common/en.properties", "command.unknown=Unknown here\n"));
         PluginJars.write(
                 configs.resolve("proxy/proxy-0.9.1.jar"),
-                "{\"id\": \"proxy\", \"name\": \"Proxy\", \"messages\": true}",
+                "{\"id\": \"proxy\", \"messages\": true}",
                 java.util.Map.of("messages/proxy/en.properties", "command.unknown=Unknown everywhere\n"));
 
         final JsonObject texts = GSON.fromJson(get("/api/messages"), JsonObject.class);

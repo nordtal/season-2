@@ -140,3 +140,17 @@ describe("PaymentsPage - the column budget fits the card at 1440px", () => {
     expect(total).toBeLessThan(72)
   })
 })
+
+describe("PaymentsPage - the figures wrap cleanly", () => {
+  it("draws Open, Paid and Requested with no separator to hang at a line's end and no sentence under them", async () => {
+    vi.stubGlobal("fetch", backend({ payments: () => [] }))
+    draw(<PaymentsPage />)
+
+    const figures = assertElement(
+      (await screen.findByText("Requested (paid requests)")).closest("div")?.parentElement ?? null,
+      "the figures row",
+    )
+    expect(figures.querySelector("[data-slot='separator']")).toBeNull()
+    expect(figures.querySelector("p")).toBeNull()
+  })
+})

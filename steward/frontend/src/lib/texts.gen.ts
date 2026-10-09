@@ -1449,7 +1449,6 @@ export type TextArgs = {
   "steward.payments.not-open-note": {
     was: Arg["text"]
   }
-  "steward.payments.not-the-balance": Record<string, never>
   "steward.payments.nothing-booked": Record<string, never>
   "steward.payments.nothing-settled": Record<string, never>
   "steward.payments.open": Record<string, never>

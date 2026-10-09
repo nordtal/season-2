@@ -1116,7 +1116,6 @@
     "steward.payments.none-with-status-note": [["None of the loaded requests carries this status."]],
     "steward.payments.not-open": [[{"v":"reference"}," was not open any more"]],
     "steward.payments.not-open-note": [["It is ",{"v":"was"}," now. Nothing was booked."]],
-    "steward.payments.not-the-balance": [["This is not the balance: on the bunq.me page the paying person can change the amount, and what actually arrived is in none of these columns. This interface does not ask bunq; the bot does."]],
     "steward.payments.nothing-booked": [["Nothing was booked."]],
     "steward.payments.nothing-settled": [["Nothing was settled"]],
     "steward.payments.open": [["Open"]],

@@ -17,7 +17,6 @@ import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 /** Settles the one OPEN request of this row by hand; the bot books it as if bunq had reported it. */
@@ -264,7 +263,7 @@ export function PaymentsPage() {
 
           return (
             <>
-              <div className="flex flex-wrap items-start gap-8">
+              <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
                 <Stat
                   label={t("steward.payments.open")}
                   value={waiting ? undefined : count(open.length)}
@@ -272,13 +271,11 @@ export function PaymentsPage() {
                   tone={overdue.length > 0 ? "warn" : undefined}
                 />
                 <Stat label={t("steward.payments.paid")} value={waiting ? undefined : count(paid.length)} />
-                <Separator orientation="vertical" className="h-14" />
                 <Stat
                   label={t("steward.payments.requested")}
                   value={waiting ? undefined : euros(requested)}
                   hint={t("steward.payments.requested-hint")}
                 />
-                <p className="max-w-prose text-xs text-muted-foreground">{t("steward.payments.not-the-balance")}</p>
               </div>
 
               <Panel title={t("steward.payments.requests")}>

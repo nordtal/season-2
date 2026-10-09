@@ -70,9 +70,6 @@ public interface PaymentsPage {
     @Name("Requested, said")
     MessageRef requestedHint();
 
-    @Name("Not the balance")
-    MessageRef notTheBalance();
-
     @Name("Requests")
     MessageRef requests();
 

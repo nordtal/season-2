@@ -1,5 +1,5 @@
-import { ArrowLeftIcon, CaretDownIcon, CaretRightIcon, GearSixIcon, LockIcon } from "@phosphor-icons/react"
-import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { ArrowLeftIcon, CaretRightIcon, LockIcon } from "@phosphor-icons/react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { cn } from "cn"
 
 import type { ConfigLocation, PluginDescriptor } from "@/lib/api"
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { DraftDot, type FileItem, type Target, useWide } from "@/components/steward/settings-view"
 import { ConfigFile } from "@/components/steward/settings-config"
 import { t } from "@/lib/texts"
+import { StewardMark } from "@/app/steward-mark"
 
 /** The service the network's own settings are published under, the ones every process reads. */
 export const NETWORK = "network"
@@ -32,7 +33,7 @@ export function ServiceSettings({
   onFile: (file: string | undefined, replace?: boolean) => void
 }) {
   const configs = useConfigs()
-  /** Without them the groups are listed flat with the gear, which is all a failed read costs. */
+  /** Without them a group falls back to the form its schema draws, which is all a failed read costs. */
   const descriptors = useDescriptors()
   const dirty = useDirtyFiles()
   const wide = useWide()
@@ -46,9 +47,6 @@ export function ServiceSettings({
     () => filesOf(service, configs.data ?? [], descriptors.data ?? []),
     [service, configs.data, descriptors.data],
   )
-  const rows = useMemo(() => rowsOf(files, descriptors.data ?? []), [files, descriptors.data])
-  /** A plugin's row a click opened or closed; one never touched is open while the shown file is in it. */
-  const [toggled, setToggled] = useState<Record<string, boolean>>({})
   const loading = configs.isPending
   /** On a wide screen the first readable file is shown when none is chosen, derived rather than written to the URL. */
   const shown = file ?? (wide ? files.find((item) => item.readable)?.id : undefined)
@@ -85,41 +83,15 @@ export function ServiceSettings({
         ) : files.length === 0 && !failure ? (
           <p className="px-2 text-sm text-muted-foreground">{t("steward.settings.no-files")}</p>
         ) : (
-          rows.map((row) => {
-            if (row.kind === "file") {
-              return (
-                <FileRow
-                  key={row.item.id}
-                  item={row.item}
-                  logo={row.logo}
-                  selected={row.item.id === shown}
-                  dirty={dirty.includes(row.item.id)}
-                  onSelect={() => onFile(row.item.id)}
-                />
-              )
-            }
-            const open = toggled[row.id] ?? row.items.some((item) => item.id === shown)
-            return (
-              <PluginRow
-                key={`plugin:${row.id}`}
-                name={row.name}
-                logo={row.logo}
-                open={open}
-                dirty={row.items.some((item) => dirty.includes(item.id))}
-                onToggle={() => setToggled((before) => ({ ...before, [row.id]: !open }))}
-              >
-                {row.items.map((item) => (
-                  <FileRow
-                    key={item.id}
-                    item={item}
-                    selected={item.id === shown}
-                    dirty={dirty.includes(item.id)}
-                    onSelect={() => onFile(item.id)}
-                  />
-                ))}
-              </PluginRow>
-            )
-          })
+          files.map((item) => (
+            <FileRow
+              key={item.id}
+              item={item}
+              selected={item.id === shown}
+              dirty={dirty.includes(item.id)}
+              onSelect={() => onFile(item.id)}
+            />
+          ))
         )}
       </nav>
 
@@ -182,92 +154,17 @@ function filesOf(service: string, configs: ConfigLocation[], descriptors: Plugin
   return settings.toSorted(byLabel)
 }
 
-/** One line of the sidebar: a file on its own, or a plugin whose several groups open beneath it. */
-type SidebarRow =
-  | { kind: "file"; item: FileItem; logo?: string }
-  | { kind: "plugin"; id: string; name: string; logo?: string; items: FileItem[] }
-
 function descriptorOf(descriptors: PluginDescriptor[], id: string): PluginDescriptor | undefined {
   return descriptors.find((descriptor) => descriptor.id === id)
 }
 
-/**
- * The files as the sidebar lists them, in their order.
- *
- * A plugin that describes itself and has several groups is one row with its logo; one with a single group keeps
- * that group as its row, with the logo for the gear. A group no descriptor claims is listed as before.
- */
-export function rowsOf(files: FileItem[], descriptors: PluginDescriptor[]): SidebarRow[] {
-  const byPlugin = new Map<string, FileItem[]>()
-  for (const item of files) {
-    if (!descriptorOf(descriptors, item.location.service)) continue
-    byPlugin.set(item.location.service, [...(byPlugin.get(item.location.service) ?? []), item])
-  }
-  const rows: SidebarRow[] = []
-  for (const item of files) {
-    const plugin = descriptorOf(descriptors, item.location.service)
-    const items = plugin ? (byPlugin.get(plugin.id) ?? []) : []
-    if (!plugin || items.length < 2) {
-      rows.push({ kind: "file", item, logo: plugin?.logo })
-    } else if (items[0] === item) {
-      rows.push({ kind: "plugin", id: plugin.id, name: plugin.name, logo: plugin.logo, items })
-    }
-  }
-  return rows
-}
-
-/** A plugin's logo at the size of the icons beside it, or the gear for one that has none. */
-function PluginLogo({ logo }: { logo: string | undefined }) {
-  if (!logo) return <GearSixIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-  return <img src={logo} alt="" className="size-4 shrink-0 rounded-[3px]" />
-}
-
-function PluginRow({
-  name,
-  logo,
-  open,
-  dirty,
-  onToggle,
-  children,
-}: {
-  name: string
-  logo: string | undefined
-  open: boolean
-  dirty: boolean
-  onToggle: () => void
-  children: ReactNode
-}) {
-  return (
-    <>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        className="flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-sm hover:bg-accent"
-      >
-        <PluginLogo logo={logo} />
-        <span className="min-w-0 flex-1 truncate">{name}</span>
-        {dirty && !open ? <DraftDot /> : null}
-        <CaretDownIcon
-          className={cn("size-4 shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")}
-          aria-hidden
-        />
-      </button>
-      {open ? <div className="flex flex-col gap-0.5 pl-4">{children}</div> : null}
-    </>
-  )
-}
-
 function FileRow({
   item,
-  logo,
   selected,
   dirty,
   onSelect,
 }: {
   item: FileItem
-  /** Its plugin's logo, drawn for the gear when the plugin has this one group. */
-  logo?: string
   selected: boolean
   dirty: boolean
   onSelect: () => void
@@ -283,11 +180,7 @@ function FileRow({
         selected && "bg-accent",
       )}
     >
-      {logo ? (
-        <PluginLogo logo={logo} />
-      ) : (
-        <GearSixIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-      )}
+      <StewardMark className="size-4 shrink-0" />
       <span className="min-w-0 flex-1 truncate">{item.label}</span>
       {dirty ? <DraftDot /> : null}
       {!item.readable ? (

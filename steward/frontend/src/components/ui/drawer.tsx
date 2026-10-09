@@ -34,12 +34,33 @@ function DrawerOverlay({ className, ...props }: React.ComponentProps<typeof Draw
   )
 }
 
-function DrawerContent({ className, children, ...props }: React.ComponentProps<typeof DrawerPrimitive.Content>) {
+/**
+ * Moves the focus into a sheet that opens, which vaul leaves where it was unless the sheet's own field took it.
+ *
+ * A field outside that kept it would keep the keyboard open over the sheet, so it is blurred first.
+ */
+function takeTheFocus(event: Event) {
+  const sheet = event.target
+  if (!(sheet instanceof HTMLElement) || sheet.contains(document.activeElement)) return
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+  sheet.focus({ preventScroll: true })
+}
+
+function DrawerContent({
+  className,
+  children,
+  onOpenAutoFocus,
+  ...props
+}: React.ComponentProps<typeof DrawerPrimitive.Content>) {
   return (
     <DrawerPortal data-slot="drawer-portal">
       <DrawerOverlay />
       <DrawerPrimitive.Content
         data-slot="drawer-content"
+        onOpenAutoFocus={(event) => {
+          onOpenAutoFocus?.(event)
+          takeTheFocus(event)
+        }}
         className={cn(
           /**
            * `svh`, not `vh`, since on iOS a sheet sized in `vh` puts its footer under the browser chrome.

@@ -134,7 +134,7 @@ export function CommandPalette() {
       className="sm:top-[20%] sm:w-[calc(100%-2rem)] sm:max-w-2xl sm:translate-y-0"
     >
       <CommandInput
-        /** A sheet does not move focus into itself as the dialog does, so the field takes it. */
+        /** A sheet focuses itself rather than its first field, so the field takes it. */
         autoFocus
         value={search}
         onValueChange={setSearch}

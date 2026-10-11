@@ -41,8 +41,10 @@ writes `build/distributions/nordtal-resource-pack-<version>.zip` and its `.sha1`
 are attached to each GitHub release, and the proxy offers the pack while the player waits in `limbo`.
 `dev pack` points a local stack at a fresh build.
 
-URL and hash are the proxy's `pack` settings, which an update run sets; both are empty by default and
-the proxy fails closed until they are set.
+URL and hash are the proxy's `pack` settings, which an update run sets to the installed release's
+own assets: the pack is up to date only when both match, so the proxy never depends on an older
+release, which may be deleted. Both are empty by default and the proxy fails closed until they are
+set. Steward raises the pack alert when the URL stops answering.
 
 - Use the `github.com/<owner>/<repo>/releases/download/<tag>/<file>` URL, not the signed
   `release-assets.githubusercontent.com` address it redirects to, which expires within the hour.

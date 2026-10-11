@@ -51,6 +51,7 @@ const TYPES: ReadonlyArray<{ key: AlertType; tone: "warn" | "down" }> = [
   { key: "disk", tone: "warn" },
   { key: "memory", tone: "warn" },
   { key: "drift", tone: "warn" },
+  { key: "pack", tone: "down" },
   { key: "run", tone: "down" },
   { key: "payment", tone: "down" },
   { key: "bot", tone: "warn" },

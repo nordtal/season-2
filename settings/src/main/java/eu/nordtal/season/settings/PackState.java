@@ -1,4 +1,4 @@
-package eu.nordtal.season.stewardagent.plan;
+package eu.nordtal.season.settings;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;

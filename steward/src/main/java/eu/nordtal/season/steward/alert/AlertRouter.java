@@ -195,6 +195,9 @@ public final class AlertRouter {
                 new Alert(type, Alert.Level.WARN, "memory", TEXTS.alert().memory(93), "/");
             case DRIFT ->
                 new Alert(type, Alert.Level.WARN, "registry", TEXTS.alert().notCompared(), "/operations/updates");
+            case PACK ->
+                new Alert(
+                        type, Alert.Level.DOWN, StackAlerts.PACK, TEXTS.alert().deadPack(), StackAlerts.PROXY_PAGE);
             case RUN ->
                 new Alert(
                         type,

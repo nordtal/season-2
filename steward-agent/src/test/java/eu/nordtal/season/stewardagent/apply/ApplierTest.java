@@ -8,10 +8,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.internalapi.agent.Topology;
 import eu.nordtal.season.settings.MemorySettingStore;
+import eu.nordtal.season.settings.PackState;
 import eu.nordtal.season.stewardagent.config.RunSpec;
 import eu.nordtal.season.stewardagent.config.RunSpec.BackupSpec;
 import eu.nordtal.season.stewardagent.plan.Change;
-import eu.nordtal.season.stewardagent.plan.PackState;
 import eu.nordtal.season.stewardagent.plan.UpdatePlan;
 import eu.nordtal.season.stewardagent.source.Checksum;
 import eu.nordtal.season.stewardagent.source.Fetcher;

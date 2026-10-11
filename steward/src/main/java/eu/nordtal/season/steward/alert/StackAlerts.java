@@ -29,6 +29,12 @@ public final class StackAlerts {
     /** {@code DatabaseDump}'s names, as {@code backup-name.ts} reads them. */
     private static final Pattern DATABASE_DUMP = Pattern.compile("^(.+)-(\\d{8}T\\d{6}Z)\\.dump(\\.partial)?$");
 
+    /** The subject of the alert about the resource pack. */
+    static final String PACK = "resource pack";
+
+    /** Where the proxy's pack settings are shown. */
+    static final String PROXY_PAGE = "/services/proxy";
+
     private static final String DUMP = "database dump";
     private static final String OFFSITE = "offsite copy";
     private static final String BACKUPS_PAGE = "/operations/backups";
@@ -42,6 +48,7 @@ public final class StackAlerts {
         final List<Alert> alerts = new ArrayList<>();
         services(reading.services(), alerts);
         drift(reading, alerts);
+        pack(reading.deadPack(), alerts);
         backups(reading, thresholds, now, alerts);
         host(reading.host(), thresholds, alerts);
         alerts.sort(Comparator.comparing(alert -> alert.level() != Alert.Level.DOWN));
@@ -129,6 +136,19 @@ public final class StackAlerts {
                     TEXTS.alert().notCompared(),
                     TEXTS.alert().words(problem),
                     UPDATES_PAGE));
+        }
+    }
+
+    /** A pack that does not answer is red: every player who joins fails to download it. */
+    private static void pack(final @Nullable String deadPack, final List<Alert> alerts) {
+        if (deadPack != null) {
+            alerts.add(alert(
+                    AlertType.PACK,
+                    Alert.Level.DOWN,
+                    PACK,
+                    TEXTS.alert().deadPack(),
+                    TEXTS.alert().offeredPack(deadPack),
+                    PROXY_PAGE));
         }
     }
 

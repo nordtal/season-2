@@ -73,7 +73,8 @@ class AlertMonitorTest {
                         new StackReading.Archive("smp-world-20261002T110000Z.tar.zst", fresh, false, true)),
                 new StackReading.Host(diskGib * GIB, 100 * GIB, 50 * GIB, 100 * GIB),
                 List.of("smp-world"),
-                Map.of());
+                Map.of(),
+                null);
     }
 
     private List<String> raised() {
@@ -130,7 +131,8 @@ class AlertMonitorTest {
                 stack(10, "running").archives(),
                 null,
                 List.of("smp-world"),
-                Map.of());
+                Map.of(),
+                null);
         monitor.poll();
         final List<RaisedAlert> alerts = book.claimUnrouted();
         assertEquals(1, alerts.size());

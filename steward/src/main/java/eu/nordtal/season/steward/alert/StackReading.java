@@ -12,6 +12,7 @@ import org.jspecify.annotations.Nullable;
  * @param host the machine's numbers, or null when they could not be read
  * @param backupVolumes the volumes a backup saves now, by the name their archives carry
  * @param mountedBy for each saved volume, by the name its archives carry, the services that run on it
+ * @param deadPack the resource pack URL the proxy offers when it does not answer, or null when it does or none is set
  */
 public record StackReading(
         List<Service> services,
@@ -19,7 +20,8 @@ public record StackReading(
         List<Archive> archives,
         @Nullable Host host,
         List<String> backupVolumes,
-        Map<String, List<String>> mountedBy) {
+        Map<String, List<String>> mountedBy,
+        @Nullable String deadPack) {
 
     public StackReading {
         services = List.copyOf(services);

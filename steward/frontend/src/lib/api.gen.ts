@@ -438,7 +438,7 @@ export type NetworkMap = {
   services: NetworkBox[]
 }
 
-export type AlertType = "service" | "backup" | "disk" | "memory" | "drift" | "run" | "payment" | "bot"
+export type AlertType = "service" | "backup" | "disk" | "memory" | "drift" | "pack" | "run" | "payment" | "bot"
 
 export type AlertChannel = "push" | "discord"
 

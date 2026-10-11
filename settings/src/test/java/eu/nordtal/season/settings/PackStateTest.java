@@ -1,11 +1,10 @@
-package eu.nordtal.season.stewardagent.plan;
+package eu.nordtal.season.settings;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.settings.MemorySettingStore;
 import org.junit.jupiter.api.Test;
 
 /** Reading the proxy's pack out of its stored settings. */

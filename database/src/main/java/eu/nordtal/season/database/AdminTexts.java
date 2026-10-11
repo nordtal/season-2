@@ -337,6 +337,13 @@ public interface AdminTexts {
         @Name("Images not compared")
         MessageRef notCompared();
 
+        @Name("The resource pack does not answer")
+        MessageRef deadPack();
+
+        @Name("Which pack")
+        @Shown({Display.STEWARD, Display.DISCORD_EMBED})
+        MessageRef offeredPack(@Arg("url") String url);
+
         @Name("No finished backup")
         MessageRef noBackup();
 

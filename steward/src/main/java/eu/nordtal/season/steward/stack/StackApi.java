@@ -1,5 +1,6 @@
 package eu.nordtal.season.steward.stack;
 
+import eu.nordtal.season.common.http.WebClient;
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.audit.AuditDirectory;
 import eu.nordtal.season.database.audit.AuditLine;
@@ -11,6 +12,7 @@ import eu.nordtal.season.internalapi.InternalClient;
 import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.ImageResult;
+import eu.nordtal.season.settings.PackState;
 import eu.nordtal.season.steward.alert.StackReading;
 import eu.nordtal.season.steward.backup.NightlyClock;
 import eu.nordtal.season.steward.live.LiveFeed;
@@ -22,6 +24,7 @@ import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.config.JavalinConfig;
 import io.javalin.http.Context;
 import java.io.InputStream;
+import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -89,6 +92,12 @@ public final class StackApi implements AutoCloseable {
      * The response carries {@code driftCheckedAt}, so the page says how old the comparison is.
      */
     private static final Duration DRIFT_TTL = Duration.ofMinutes(1);
+    /** How long the answer of the proxy's pack URL is good for; each look downloads the zip. */
+    private static final Duration PACK_TTL = Duration.ofMinutes(10);
+
+    private static final WebClient PACK_PROBE =
+            WebClient.create(Duration.ofSeconds(10)).followingRedirects();
+
     /** The console's steps are 1000, 5000 and 10000 lines; counting past the top one buys nothing. */
     static final int LOG_CAPACITY_MAX = 10_000;
 
@@ -101,6 +110,9 @@ public final class StackApi implements AutoCloseable {
     private final Executor driftRefresh;
 
     private final Refreshed<Drift> drift;
+
+    /** The pack URL the proxy offers when it does not answer, or {@code null} without a database. */
+    private final @Nullable Refreshed<Optional<String>> deadPack;
 
     /**
      * How long a resolve is good for.
@@ -186,6 +198,9 @@ public final class StackApi implements AutoCloseable {
                 () -> new Drift(agent.images(), clock.instant()), DRIFT_TTL, driftRefresh, clock::instant);
         // The drift lane: both are slow calls nobody asked for.
         this.available = resolve == null ? null : new Refreshed<>(resolve, AVAILABLE_TTL, driftRefresh, clock::instant);
+        this.deadPack = settings == null
+                ? null
+                : new Refreshed<>(() -> deadPack(settings), PACK_TTL, driftRefresh, clock::instant);
     }
 
     /** Puts every route of this API onto {@code config}, behind the gate {@code caller} answers for. */
@@ -483,7 +498,26 @@ public final class StackApi implements AutoCloseable {
                         archive.name(), archive.modified(), archive.partial(), archive.offsite()))
                 .toList();
         return new StackReading(
-                services, registryProblem, archives, host(), topology.backupVolumes(), topology.mountedBy());
+                services,
+                registryProblem,
+                archives,
+                host(),
+                topology.backupVolumes(),
+                topology.mountedBy(),
+                deadPack == null ? null : deadPack.get().orElse(null));
+    }
+
+    /** The pack URL the proxy offers when a GET of it does not answer 200; empty when it does or none is set. */
+    private static Optional<String> deadPack(final SettingStore settings) {
+        final String url = PackState.read(settings).url();
+        if (url == null) {
+            return Optional.empty();
+        }
+        try {
+            return PACK_PROBE.answers(URI.create(url)) ? Optional.empty() : Optional.of(url);
+        } catch (final IllegalArgumentException notAUrl) {
+            return Optional.of(url);
+        }
     }
 
     /** The disk and memory numbers, or null when the agent could not read them. */

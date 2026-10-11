@@ -139,6 +139,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V37__a_run_s_notes_are_records.sql",
                 "c900e8717a707b5f654cce80af1f53fbe2da6119991fd0dd1c8bb83b46748935");
+        FROZEN.put(
+                "V38__a_dead_resource_pack_is_an_alert.sql",
+                "0401ccd70fbc8f3aedf111ebf417c11dcaf5caf6a93e3289f23e4e4f38255568");
     }
 
     @Test

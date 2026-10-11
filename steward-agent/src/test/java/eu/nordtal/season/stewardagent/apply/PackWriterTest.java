@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.settings.MemorySettingStore;
-import eu.nordtal.season.stewardagent.plan.PackState;
+import eu.nordtal.season.settings.PackState;
 import org.junit.jupiter.api.Test;
 
 /** The two values of the proxy's pack group Steward owns, and the ones it must not disturb. */

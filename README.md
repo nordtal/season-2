@@ -175,6 +175,6 @@ alone and publishes the GitHub release last, with the four plugin jars and the p
 publishes nothing. Run it again with `gh workflow run release.yml -f tag=v0.1.0`.
 
 Every config file is commented YAML described by a `@ConfigSpec` interface, and credentials arrive as
-environment variables; this public repository holds none. The one outbound call to a third party is
+environment variables; this public repository holds none. The one outbound call that sends player data to a third party is
 Steward drawing player heads from [mineatar](https://mineatar.io), sending it the `mc_uuid` (the `web`
 group, `avatars.minecraft-head-base-url`; empty disables it).

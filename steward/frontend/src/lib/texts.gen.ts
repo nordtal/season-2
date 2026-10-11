@@ -10,6 +10,7 @@ export type TextArgs = {
   "alert.clear": {
     type: Arg["choice"]
   }
+  "alert.dead-pack": Record<string, never>
   "alert.disk": {
     percent: Arg["number"]
   }
@@ -67,6 +68,9 @@ export type TextArgs = {
   }
   "alert.not-running": {
     service: Arg["text"]
+  }
+  "alert.offered-pack": {
+    url: Arg["text"]
   }
   "alert.old-archive": {
     volume: Arg["text"]

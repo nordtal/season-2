@@ -6,7 +6,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * What an alert is about, the unit an admin switches on and off per {@link AlertChannel}.
  *
- * The first five are measured by steward and cleared again; the last three are single events.
+ * The first six are measured by steward and cleared again; the last three are single events.
  */
 public enum AlertType {
 
@@ -24,6 +24,9 @@ public enum AlertType {
 
     /** A container runs an older image than the registry has, or the registry did not answer. */
     DRIFT(false, false, true),
+
+    /** The resource pack the proxy offers does not answer, so every player who joins fails to download it. */
+    PACK(true, true, true),
 
     /** A run failed. */
     RUN(true, true, false),

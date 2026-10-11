@@ -48,7 +48,8 @@ never granted fails in `check`.
   the signed-in admin as a structured actor and the line as a message of the admin bundle; the
   Journal page renders it through the web target.
 - **Alerts.** A row in `admin_alert`, raised by whoever saw it: steward measures the stack every 30
-  seconds against the `web` group's thresholds and raises failed runs and unbookable payments; the bot
+  seconds against the `web` group's thresholds, downloads the proxy's pack URL every ten minutes, and
+  raises failed runs and unbookable payments; the bot
   raises what it could not do in Discord. Steward routes each row once, per alert type and admin, to
   Web Push (title and level rendered in plain text) and to the admin channel through the bot's inbox.
 - **Payments.** Steward books them and holds no bank credential. A booking is one transaction in

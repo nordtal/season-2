@@ -3,7 +3,7 @@ package eu.nordtal.season.stewardagent.apply;
 import com.google.gson.JsonPrimitive;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.setting.SettingStore;
-import eu.nordtal.season.stewardagent.plan.PackState;
+import eu.nordtal.season.settings.PackState;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 

@@ -51,7 +51,7 @@ class StackAlertsTest {
             final List<StackReading.Archive> archives,
             final StackReading.@Nullable Host host) {
         return StackAlerts.of(
-                new StackReading(services, registryProblem, archives, host, volumesOf(archives), MOUNTS),
+                new StackReading(services, registryProblem, archives, host, volumesOf(archives), MOUNTS, null),
                 THRESHOLDS,
                 NOW);
     }
@@ -154,6 +154,26 @@ class StackAlertsTest {
     }
 
     @Test
+    void aPackThatDoesNotAnswerIsRedAndNamesItsUrl() {
+        final String url = "https://github.com/nordtal/season-2/releases/download/v0.17.0/pack.zip";
+        final List<Alert> alerts = StackAlerts.of(
+                new StackReading(
+                        List.of(service("proxy", "running")),
+                        null,
+                        freshBackups(),
+                        null,
+                        volumesOf(freshBackups()),
+                        MOUNTS,
+                        url),
+                THRESHOLDS,
+                NOW);
+        assertEquals(List.of("The resource pack does not answer"), titles(alerts));
+        assertEquals(AlertType.PACK, alerts.getFirst().type());
+        assertEquals(Alert.Level.DOWN, alerts.getFirst().level());
+        assertTrue(AdminPlain.of(alerts.getFirst().detail()).getFirst().contains(url));
+    }
+
+    @Test
     void bothKindsOfBackupMustExist() {
         final StackReading.Service smp = service("smp", "running");
         assertEquals(List.of("There is no finished backup"), titles(of(List.of(smp), null, List.of(), null)));
@@ -174,7 +194,8 @@ class StackAlertsTest {
                         List.of(archive("db-20261002T110000Z.dump", 1)),
                         null,
                         List.of("nordtal-s2_mc-smp", "nordtal-s2_mc-limbo"),
-                        MOUNTS),
+                        MOUNTS,
+                        null),
                 THRESHOLDS,
                 NOW);
         assertEquals(
@@ -188,7 +209,7 @@ class StackAlertsTest {
         archives.add(archive("nordtal-s2_mc-proxy-20260915T110000Z.tar.zst", 400));
         final List<Alert> alerts = StackAlerts.of(
                 new StackReading(
-                        List.of(service("smp", "running")), null, archives, null, List.of("smp-world"), MOUNTS),
+                        List.of(service("smp", "running")), null, archives, null, List.of("smp-world"), MOUNTS, null),
                 THRESHOLDS,
                 NOW);
         assertEquals(List.of(), alerts);

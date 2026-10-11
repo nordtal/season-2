@@ -7,6 +7,7 @@ import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.internalapi.agent.JarName;
 import eu.nordtal.season.internalapi.agent.Topology;
 import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.settings.PackState;
 import eu.nordtal.season.stewardagent.config.RunSpec;
 import eu.nordtal.season.stewardagent.source.Checksum;
 import eu.nordtal.season.stewardagent.source.GitHubReleases;
